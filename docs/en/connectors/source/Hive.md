@@ -8,7 +8,7 @@ import ChangeLog from '../changelog/connector-hive.md';
 
 Read data from Hive.
 
-When using markdown format, SeaTunnel can parse markdown files stored in Hive tables and extract structured data with elements like headings, paragraphs, lists, code blocks, and tables. Each element is converted to a row with the following schema:
+When using markdown format, SeaTunnel can parse markdown files stored in Hive tables and extract structured data with elements like headings, paragraphs, lists, code blocks, and tables. Each extracted element is converted to a document-element row with the following schema:
 - `element_id`: Unique identifier for the element
 - `element_type`: Type of the element (Heading, Paragraph, ListItem, etc.)
 - `heading_level`: Level of heading (1-6, null for non-heading elements)
@@ -50,9 +50,11 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
 
 |         name          |  type  | required | default value  |
 |-----------------------|--------|----------|----------------|
-| table_name            | string | yes      | -              |
+| table_name            | string | no       | Required for single-table mode |
+| table_list            | array  | no       | -              |
+| tables_configs        | array  | no       | Deprecated, use `table_list` instead |
 | use_regex             | boolean| no       | false          |
-| metastore_uri         | string | yes      | -              |
+| metastore_uri         | string | no       | Required for single-table mode |
 | krb5_path             | string | no       | /etc/krb5.conf |
 | kerberos_principal    | string | no       | -              |
 | kerberos_keytab_path  | string | no       | -              |
@@ -60,6 +62,7 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
 | hive_site_path        | string | no       | -              |
 | hive.hadoop.conf      | Map    | no       | -              |
 | hive.hadoop.conf-path | string | no       | -              |
+| remote_user           | string | no       | -              |
 | read_partitions       | list   | no       | -              |
 | read_columns          | list   | no       | -              |
 | compress_codec        | string | no       | none           |
@@ -68,6 +71,16 @@ Read all the data in a split in a pollNext call. What splits are read will be sa
 ### table_name [string]
 
 Target Hive table name eg: `db1.table1`. When `use_regex = true`, this field uses `databasePattern.tablePattern` (Hive has no schema) to match multiple tables from Hive metastore.
+
+For a single-table source, configure `table_name` and `metastore_uri` at the root level. For multi-table reading, configure `table_list`. `tables_configs` is still accepted for compatibility, but `table_list` is preferred.
+
+### table_list [array]
+
+List of Hive table configurations for multi-table reading. Each item can contain `table_name`, `metastore_uri`, `use_regex`, `read_partitions`, `read_columns`, and the same authentication/Hadoop options as the root connector block.
+
+### tables_configs [array]
+
+Deprecated multi-table configuration list. New jobs should use `table_list`.
 
 ### use_regex [boolean]
 
@@ -84,6 +97,10 @@ Regex syntax notes:
 ### metastore_uri [string]
 
 Hive metastore uri. Supports comma-separated multiple URIs for HA/failover (whitespace is ignored). SeaTunnel passes this value to Hive `hive.metastore.uris` and uses Hive `RetryingMetaStoreClient` (if available) to retry/failover between URIs. This is client-side endpoint failover; make sure your metastores share/replicate the same backend to keep metadata consistent.
+
+### remote_user [string]
+
+Hadoop remote user name used when connecting to HDFS/Hive storage without Kerberos credentials.
 
 ### hdfs_site_path [string]
 
@@ -194,7 +211,7 @@ Source plugin common parameters, please refer to [Source Common Options](../comm
 
 ```
 
-### Example 3: Regex matching (whole database / subset)
+### Example 4: Regex matching (whole database / subset)
 
 ```bash
   Hive {
@@ -227,7 +244,7 @@ Source plugin common parameters, please refer to [Source Common Options](../comm
   }
 ```
 
-### Example 4 : Kerberos
+### Example 5: Kerberos
 
 ```bash
 source {

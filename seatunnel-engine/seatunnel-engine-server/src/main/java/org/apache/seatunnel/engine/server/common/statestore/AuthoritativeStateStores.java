@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.engine.server.common.statestore;
 
+import org.apache.seatunnel.engine.server.common.statestore.counter.CounterStateStore;
+
 /**
  * Bundle of authoritative control state that a new leader must trust during leader handoff.
  *
@@ -25,6 +27,15 @@ package org.apache.seatunnel.engine.server.common.statestore;
  * authoritative belongs more strongly to this group.
  */
 public interface AuthoritativeStateStores extends AutoCloseable {
+
+    /**
+     * Returns the checkpoint ID counter store.
+     *
+     * <p>The current key format is a string composed from {@code jobId + pipelineId}.
+     *
+     * @return checkpoint counter store
+     */
+    CounterStateStore<String> checkpointCounterStore();
 
     /**
      * Releases resources owned by authoritative stores.

@@ -22,7 +22,7 @@ import ChangeLog from '../changelog/connector-file-local.md';
 
   在 pollNext 调用中读取分片中的所有数据。读取的分片将保存在快照中。
 
-- [ ] [列投影](../../introduction/concepts/connector-v2-features.md)
+- [x] [列投影](../../introduction/concepts/connector-v2-features.md)
 - [x] [并行度](../../introduction/concepts/connector-v2-features.md)
 - [ ] [支持用户定义分片](../../introduction/concepts/connector-v2-features.md)
 - [x] 文件格式类型
@@ -35,6 +35,7 @@ import ChangeLog from '../changelog/connector-file-local.md';
   - [x] xml
   - [x] binary
   - [x] markdown
+  - [x] pdf
 
 ## 描述
 
@@ -84,13 +85,15 @@ import ChangeLog from '../changelog/connector-file-local.md';
 | target_hadoop_conf         | map     | 否    | -                   |
 | update_strategy            | string  | 否    | distcp              |
 | compare_mode               | string  | 否    | len_mtime           |
+| update_compare_parallelism | int     | 否    | 8                   |
+| update_compare_bulk_threshold | int  | 否    | 0                   |
 | common-options             |         | 否    | -                   |
 | tables_configs             | list    | 否    | 用于定义多表任务            |
 | file_filter_modified_start | string  | 否    | -                   | 
 | file_filter_modified_end   | string  | 否    | -                   |
 | enable_file_split          | boolean | 否    | false               | 
 | file_split_size            | long    | 否    | 134217728           | 
-| quote_char                 | string  | 否    | -                   | 
+| quote_char                 | string  | 否    | "                   |
 | escape_char                | string  | 否    | -                   |
 | metalake_type              | string  | 否    | gravitino          | Metalake 服务类型，目前支持 `gravitino`。             |
 | recursive_file_scan        | boolean | 否    | true                |
@@ -104,7 +107,7 @@ import ChangeLog from '../changelog/connector-file-local.md';
 
 文件类型，支持以下文件类型：
 
-`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown`
+`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf`
 
 如果您将文件类型指定为 `json`，您还应该指定 schema 选项来告诉连接器如何将数据解析为您想要的行。
 
@@ -195,7 +198,7 @@ schema {
 
 如果您将文件类型指定为 `markdown`，SeaTunnel 可以解析 markdown 文件并提取结构化数据。
 markdown 解析器提取各种元素，包括标题、段落、列表、代码块、表格等。
-每个元素都转换为具有以下架构的行：
+每个提取出的元素都会转换为一条文档元素结构化记录，schema 如下：
 - `element_id`：元素的唯一标识符
 - `element_type`：元素类型（Heading、Paragraph、ListItem 等）
 - `heading_level`：标题级别（1-6，非标题元素为 null）
@@ -215,6 +218,17 @@ markdown 解析器提取各种元素，包括标题、段落、列表、代码�
 该选项默认值为 `false`，因此只有显式启用后才会改变原始 Markdown schema。
 
 注意：Markdown 格式仅支持读取，不支持写入。
+
+如果您将文件类型指定为 `pdf`，SeaTunnel 可以解析 PDF 文件并提取结构化的文档元素。
+PDF 使用与上文相同的文档元素 schema。
+
+PDF 特有的解析行为如下：
+
+- **有大纲**：提取 `heading`（标题）、`paragraph`（段落）、`image`（图片）和 `link`（链接）元素。标题从大纲结构中派生，元素按照文档的逻辑结构组织为父子层级关系。
+- **无大纲**：仅提取 `paragraph`（段落）和 `image`（图片）元素，以扁平结构呈现，不包含层级关系。
+- `element_type` 在 PDF 场景下可能为 `heading`、`paragraph`、`image` 或 `link`。
+
+注意：仅支持单栏（从上到下）PDF 布局。不支持多栏布局（例如并排的双栏文档），可能会产生不正确的文本顺序。
 
 ### read_columns [list]
 
@@ -501,6 +515,14 @@ compare_mode = "len_mtime"
 
 仅在 `sync_mode=update` 时使用。支持：`len_mtime`（默认）、`checksum`（仅在 `update_strategy=strict` 时可用）。
 
+### update_compare_parallelism [int]
+
+`sync_mode=update` 对稀疏目标文件执行元数据点查时的最大并发数。默认值为 `8`，有效范围为 `1` 到 `64`；范围外的值会在配置校验阶段被拒绝；已提交但未完成的任务上限为该值的 8 倍。
+
+### update_compare_bulk_threshold [int]
+
+设置正数后，同一目标父目录的候选文件达到该阈值时，SeaTunnel 改为只枚举一次目标目录。默认值 `0` 表示关闭自动批量枚举，使用有界并发点查，避免意外扫描庞大的目标目录。该行为适用于所有目标文件系统。源端会边枚举边过滤，以降低元数据峰值内存。
+
 ### file_filter_modified_start
 
 按照最后修改时间过滤文件。 要过滤的开始时间(包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`。
@@ -650,6 +672,31 @@ LocalFile {
 }
 
 ```
+
+### 读取 PDF 文件
+
+```hocon
+
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  LocalFile {
+    path = "/data/documents/"
+    file_format_type = "pdf"
+  }
+}
+
+sink {
+  Console {
+  }
+}
+
+```
+
+为获得最佳效果，请使用包含大纲（书签/目录）的 PDF 文件。这使解析器能够提取具有层级信息的标题。
 
 ### 传输二进制文件
 

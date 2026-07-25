@@ -36,6 +36,7 @@ import ChangeLog from '../changelog/connector-file-hadoop.md';
   - [x] xml
   - [x] binary
   - [x] markdown
+  - [x] pdf
 
 ## Description
 
@@ -52,7 +53,8 @@ Read data from hdfs file system.
 | Name                       | Type    | Required | Default                     | Description                                                                                                                                                                                                                                                                                                                                   |
 |----------------------------|---------|----------|-----------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | path                       | string  | yes      | -                           | The source file path.                                                                                                                                                                                                                                                                                                                         |
-| file_format_type           | string  | yes      | -                           | We supported as the following file types:`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown`.Please note that, The final file name will end with the file_format's suffix, the suffix of the text file is `txt`.                                                                                                            |
+| tables_configs             | list    | no       | -                           | Configure multiple HDFS source tables in one source block. Each item has the same options as a single-table `HdfsFile` source, and can set its downstream table name through `schema.table`.                                                                                                                                                 |
+| file_format_type           | string  | yes      | -                           | We supported as the following file types:`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf`.Please note that, The final file name will end with the file_format's suffix, the suffix of the text file is `txt`.                                                                                                            |
 | fs.defaultFS               | string  | yes      | -                           | The hadoop cluster address that start with `hdfs://`, for example: `hdfs://hadoopcluster`                                                                                                                                                                                                                                                     |
 | read_columns               | list    | no       | -                           | The read column list of the data source, user can use it to implement field projection.The file type supported column projection as the following shown:[text,json,csv,orc,parquet,excel,xml].Tips: If the user wants to use this feature when reading `text` `json` `csv` files, the schema option must be configured.                       |
 | hdfs_site_path             | string  | no       | -                           | The path of `hdfs-site.xml`, used to load ha configuration of namenodes                                                                                                                                                                                                                                                                       |
@@ -88,6 +90,8 @@ Read data from hdfs file system.
 | target_hadoop_conf         | map     | no       | -                           | Only used when `sync_mode=update`. Extra Hadoop configuration for target filesystem. You can set `fs.defaultFS` in this map to override target defaultFS.                                                                                                                                                                                   |
 | update_strategy            | string  | no       | distcp                      | Only used when `sync_mode=update`. Supported values: `distcp` (default), `strict`.                                                                                                                                                                                                                                                           |
 | compare_mode               | string  | no       | len_mtime                   | Only used when `sync_mode=update`. Supported values: `len_mtime` (default), `checksum` (only valid when `update_strategy=strict`).                                                                                                                                                                                                          |
+| update_compare_parallelism | int     | no       | 8                           | Maximum parallelism for sparse target metadata lookups. Valid range: `1-64`.                                                                                                                                                                                                                                                              |
+| update_compare_bulk_threshold | int  | no       | 0                           | A positive value switches comparison to one directory listing when the candidate count under one target parent reaches the threshold. `0` disables automatic bulk listing.                                                                                                                                                                |
 | common-options             |         | no       | -                           | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details.                                                                                                                                                                                                                            |
 | file_filter_modified_start | string  | no       | -                           | File modification time filter. The connector will filter some files base on the last modification start time (include start time). The default data format is `yyyy-MM-dd HH:mm:ss`.                                                                                                                                                          |
 | file_filter_modified_end   | string  | no       | -                           | File modification time filter. The connector will filter some files base on the last modification end time (not include end time). The default data format is `yyyy-MM-dd HH:mm:ss`.                                                                                                                                                          |
@@ -103,11 +107,11 @@ Read data from hdfs file system.
 
 File type, supported as the following file types:
 
-`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown`
+`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf`
 
 If you assign file type to `markdown`, SeaTunnel can parse markdown files and extract structured data.
 The markdown parser extracts various elements including headings, paragraphs, lists, code blocks, tables, and more.
-Each element is converted to a row with the following schema:
+Each extracted element is converted to a document-element row with the following schema:
 - `element_id`: Unique identifier for the element
 - `element_type`: Type of the element (Heading, Paragraph, ListItem, etc.)
 - `heading_level`: Level of heading (1-6, null for non-heading elements)
@@ -127,6 +131,23 @@ When `markdown_rag_metadata_enabled` is set to `true`, SeaTunnel appends the fol
 The option defaults to `false`, so the original Markdown schema is unchanged unless you enable it.
 
 Note: Markdown format only supports reading, not writing.
+
+If you assign file type to `pdf`, SeaTunnel can parse PDF files and extract structured document elements.
+PDF uses the same document-element row schema described above.
+
+The main PDF-specific behaviors are:
+
+- **With outline**: Extracts `heading`, `paragraph`, `image`, and `link` elements. Headings are derived from the outline structure, and elements are organized into a parent-child hierarchy reflecting the document's logical structure.
+- **Without outline**: Extracts only `paragraph` and `image` elements in a flat structure without hierarchy.
+- `element_type` values for PDF are `heading`, `paragraph`, `image`, and `link`.
+
+Note: Only single-column (top-to-bottom) PDF layouts are supported. Multi-column layouts (e.g., side-by-side two-column documents) are not supported and may produce incorrect text ordering.
+
+### tables_configs [list]
+
+Use `tables_configs` when one HDFS source needs to read multiple tables or directories. Each item can define its own
+`path`, `file_format_type`, `schema`, and HDFS options. Set `schema.table` when the downstream sink needs table-aware
+routing.
 
 ### delimiter/field_delimiter [string]
 
@@ -291,6 +312,14 @@ Only used when `sync_mode=update`. Supported values: `len_mtime` (default), `che
 
 - `len_mtime`: SKIP only when both `len` and `mtime` are equal, otherwise COPY.
 - `checksum`: SKIP only when `len` is equal and Hadoop `getFileChecksum` is equal, otherwise COPY (only valid when `update_strategy=strict`).
+
+### update_compare_parallelism [int]
+
+Maximum parallelism for sparse target metadata lookups in `sync_mode=update`. The default is `8`; valid values are `1` through `64`; values outside this range are rejected during configuration validation. The maximum number of submitted-but-incomplete lookups is eight times this value.
+
+### update_compare_bulk_threshold [int]
+
+A positive value switches comparison to one directory listing when the candidate count under a target parent reaches the threshold. The default `0` disables automatic bulk listing and uses bounded point lookups, avoiding an unexpectedly expensive target directory scan. This behavior applies to all target filesystems. Source filters are applied while entries are listed to reduce peak metadata memory.
 
 ### enable_file_split [boolean]
 
@@ -483,6 +512,10 @@ sink {
 ```
 
 ### Multiple Table
+
+Each item in `tables_configs` is read as a separate table. This is useful when different HDFS directories should keep
+their own table name downstream.
+
 ```hocon
 env {
   parallelism = 1

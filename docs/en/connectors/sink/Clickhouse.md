@@ -15,10 +15,10 @@ import ChangeLog from '../changelog/connector-clickhouse.md';
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
 
-> The Clickhouse sink plug-in can achieve accuracy once by implementing idempotent writing, and needs to cooperate with aggregatingmergetree and other engines that support deduplication.
+> The Clickhouse sink can reduce duplicate effects through idempotent writing when the target table engine supports deduplication, such as `AggregatingMergeTree` or `ReplacingMergeTree`. It is not marked as exactly-once because the guarantee depends on the target table design.
 
 - [x] [support multiple table sink](../../introduction/concepts/connector-v2-features.md)
-- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
+- [x] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Description
 
@@ -58,16 +58,16 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | username                              | String  | Yes      | -       | `ClickHouse` user username.                                                                                                                                                                                                                                                                                 |
 | password                              | String  | Yes      | -       | `ClickHouse` user password.                                                                                                                                                                                                                                                                                 |
 | clickhouse.config                     | Map     | No       |         | In addition to the above mandatory parameters that must be specified by `clickhouse-jdbc` , users can also specify multiple optional parameters, which cover all the [parameters](https://github.com/ClickHouse/clickhouse-jdbc/tree/master/clickhouse-client#configuration) provided by `clickhouse-jdbc`. |
-| bulk_size                             | String  | No       | 20000   | The number of rows written through [Clickhouse-jdbc](https://github.com/ClickHouse/clickhouse-jdbc) each time, the `default is 20000`.                                                                                                                                                                      |
-| split_mode                            | String  | No       | false   | This mode only support clickhouse table which engine is 'Distributed'.And `internal_replication` option-should be `true`.They will split distributed table data in seatunnel and perform write directly on each shard. The shard weight define is clickhouse will counted.                                  |
-| sharding_key                          | String  | No       | -       | When use split_mode, which node to send data to is a problem, the default is random selection, but the 'sharding_key' parameter can be used to specify the field for the sharding algorithm. This option only worked when 'split_mode' is true.                                                             |
-| primary_key                           | String  | No       | -       | Mark the primary key column from clickhouse table, and based on primary key execute INSERT/UPDATE/DELETE to clickhouse table.                                                                                                                                                                               |
-| support_upsert                        | Boolean | No       | false   | Support upsert row by query primary key.                                                                                                                                                                                                                                                                    |
-| allow_experimental_lightweight_delete | Boolean | No       | false   | Allow experimental lightweight delete based on `*MergeTree` table engine.                                                                                                                                                                                                                                   |
-| schema_save_mode               | Enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST | Schema save mode. Please refer to the `schema_save_mode` section below.                                                                                       |
-| data_save_mode                 | Enum    | no       | APPEND_DATA                  | Data save mode. Please refer to the `data_save_mode` section below.                                                                                         |
-| custom_sql                  | String  | no       | -                            | When data_save_mode selects CUSTOM_PROCESSING, you should fill in the CUSTOM_SQL parameter. This parameter usually fills in a SQL that can be executed. SQL will be executed before synchronization tasks.        |
-| save_mode_create_template      | string  | no       | see below                    | See below.                                                                                                                                                  |
+| bulk_size                             | int     | No       | 20000   | The number of rows written through [Clickhouse-jdbc](https://github.com/ClickHouse/clickhouse-jdbc) each time, the `default is 20000`.                                                                                                                                                                      |
+| split_mode                            | Boolean | No       | false   | Only applies when the target ClickHouse table uses the `Distributed` engine and `internal_replication` is `true`. SeaTunnel splits distributed-table writes and writes directly to each shard.                                                                                                               |
+| sharding_key                          | String  | No       | -       | Field used by the sharding algorithm when `split_mode=true`. If it is not configured, the target shard is selected randomly.                                                                                                                                                                                |
+| primary_key                           | String  | No       | -       | Primary key column list used to handle INSERT/UPDATE/DELETE changelog rows. Use commas for multiple columns, for example `id,name`.                                                                                                                                                                         |
+| support_upsert                        | Boolean | No       | false   | Whether to query by `primary_key` before writing and perform upsert-style writes.                                                                                                                                                                                                                           |
+| allow_experimental_lightweight_delete | Boolean | No       | false   | Allows DELETE changelog rows to use ClickHouse lightweight delete on `*MergeTree` table engines.                                                                                                                                                                                                            |
+| schema_save_mode                     | Enum    | No       | CREATE_SCHEMA_WHEN_NOT_EXIST | Schema save mode. Please refer to the `schema_save_mode` section below.                                                                                                                                                                                                                  |
+| data_save_mode                       | Enum    | No       | APPEND_DATA                  | Data save mode. Please refer to the `data_save_mode` section below.                                                                                                                                                                                                                      |
+| custom_sql                           | String  | No       | -                            | Required when `data_save_mode = CUSTOM_PROCESSING`. The SQL is executed before the synchronization task starts.                                                                                                                                                                           |
+| save_mode_create_template            | String  | No       | see below                    | Template used to create the ClickHouse table when schema save mode creates a table.                                                                                                                                                                                                      |
 | common-options                        |         | No       | -       | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details.                                                                                                                                                                                                |
 
 ### schema_save_mode [Enum]
@@ -130,6 +130,35 @@ The following placeholders can be used:
 - `rowtype_primary_key`: Retrieves the primary key from the upstream schema (this may be a list).
 - `rowtype_unique_key`: Retrieves the unique key from the upstream schema (this may be a list).
 - `comment`: Retrieves the table comment from the upstream schema.
+
+### Zeta Timer Flush
+
+This engine-level capability is available only in Zeta. Configure `sink.flush.interval` in `env` to periodically write buffered rows through ClickHouse JDBC even when `bulk_size` has not been reached. Spark and Flink do not trigger this scheduled flush.
+
+:::tip
+
+ClickHouse timer flush does not provide 2PC exactly-once semantics. The ClickHouse Sink remains at-least-once, and retries or task restarts may insert rows again. When duplicate handling is required, design the target table with a suitable deduplication engine and deterministic keys.
+
+:::
+
+```hocon
+env {
+  job.mode = "STREAMING"
+  checkpoint.interval = 300000
+  sink.flush.interval = 5000
+}
+
+sink {
+  Clickhouse {
+    host = "localhost:8123"
+    database = "default"
+    table = "seatunnel_table"
+    username = "default"
+    password = ""
+    bulk_size = 10000
+  }
+}
+```
 
 ## Example Configurations and Cases
 
@@ -215,6 +244,9 @@ sink {
 
 ### CDC(Change data capture) Sink
 
+For changelog rows, configure `primary_key` so the connector can map `UPDATE` and `DELETE` rows to target rows.
+Configure `support_upsert=true` when the sink should query by primary key before writing.
+
 ```hocon
 sink {
   Clickhouse {
@@ -232,6 +264,8 @@ sink {
 ```
 
 ### CDC(Change data capture) for *MergeTree engine
+
+For CDC-style update/delete rows, configure `primary_key`. Set `allow_experimental_lightweight_delete=true` only when the target `*MergeTree` table can use ClickHouse lightweight delete.
 
 ```hocon
 sink {
