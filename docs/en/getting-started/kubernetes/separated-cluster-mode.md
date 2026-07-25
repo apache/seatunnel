@@ -298,6 +298,8 @@ spec:
 
 ## Create Master StatefulSet
 
+The StatefulSet examples below use a 16 GB JVM heap. Their 20 GiB memory request and 24 GiB memory limit leave additional container memory for metaspace, direct memory, thread stacks, and other native memory. For large-scale data processing, a 32 GB JVM heap is recommended; increase the memory request and limit accordingly, for example to 36 GiB and 40 GiB.
+
 ```yaml
 apiVersion: apps/v1
 kind: StatefulSet
@@ -328,6 +330,7 @@ spec:
             - /opt/seatunnel/bin/seatunnel-cluster.sh
             - -r
             - master
+            - '-DJvmOption=-Xms16g -Xmx16g'
           env:
             - name: SEATUNNEL_HOME
               value: /opt/seatunnel
@@ -341,10 +344,10 @@ spec:
           resources:
             requests:
               cpu: 500m
-              memory: 3Gi
+              memory: 20Gi
             limits:
               cpu: "1"
-              memory: 4Gi
+              memory: 24Gi
           volumeMounts:
             - name: hazelcast-master-config
               mountPath: /opt/seatunnel/config/hazelcast-master.yaml
@@ -400,6 +403,7 @@ spec:
             - /opt/seatunnel/bin/seatunnel-cluster.sh
             - -r
             - worker
+            - '-DJvmOption=-Xms16g -Xmx16g'
           env:
             - name: SEATUNNEL_HOME
               value: /opt/seatunnel
@@ -413,10 +417,10 @@ spec:
           resources:
             requests:
               cpu: "1"
-              memory: 2Gi
+              memory: 20Gi
             limits:
               cpu: "2"
-              memory: 5Gi
+              memory: 24Gi
           volumeMounts:
             - name: hazelcast-worker-config
               mountPath: /opt/seatunnel/config/hazelcast-worker.yaml

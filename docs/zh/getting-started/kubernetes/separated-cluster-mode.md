@@ -298,6 +298,8 @@ spec:
 
 ## 创建 Master StatefulSet
 
+以下 StatefulSet 示例使用 16 GB JVM 堆内存。容器内存 request 设置为 20 GiB、limit 设置为 24 GiB，为 Metaspace、直接内存、线程栈和其他本地内存预留额外空间。对于大规模数据处理场景，建议使用 32 GB JVM 堆内存，并相应提高内存 request 和 limit，例如分别设置为 36 GiB 和 40 GiB。
+
 ```yaml
 apiVersion: apps/v1
 kind: StatefulSet
@@ -328,6 +330,7 @@ spec:
             - /opt/seatunnel/bin/seatunnel-cluster.sh
             - -r
             - master
+            - '-DJvmOption=-Xms16g -Xmx16g'
           env:
             - name: SEATUNNEL_HOME
               value: /opt/seatunnel
@@ -341,10 +344,10 @@ spec:
           resources:
             requests:
               cpu: 500m
-              memory: 3Gi
+              memory: 20Gi
             limits:
               cpu: "1"
-              memory: 4Gi
+              memory: 24Gi
           volumeMounts:
             - name: hazelcast-master-config
               mountPath: /opt/seatunnel/config/hazelcast-master.yaml
@@ -400,6 +403,7 @@ spec:
             - /opt/seatunnel/bin/seatunnel-cluster.sh
             - -r
             - worker
+            - '-DJvmOption=-Xms16g -Xmx16g'
           env:
             - name: SEATUNNEL_HOME
               value: /opt/seatunnel
@@ -413,10 +417,10 @@ spec:
           resources:
             requests:
               cpu: "1"
-              memory: 2Gi
+              memory: 20Gi
             limits:
               cpu: "2"
-              memory: 5Gi
+              memory: 24Gi
           volumeMounts:
             - name: hazelcast-worker-config
               mountPath: /opt/seatunnel/config/hazelcast-worker.yaml
