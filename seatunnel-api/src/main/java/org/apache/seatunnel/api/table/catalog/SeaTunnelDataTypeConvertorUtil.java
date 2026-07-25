@@ -230,14 +230,6 @@ public class SeaTunnelDataTypeConvertorUtil {
                 return ArrayType.FLOAT_ARRAY_TYPE;
             case DOUBLE:
                 return ArrayType.DOUBLE_ARRAY_TYPE;
-            case DATE:
-            case TIME:
-            case TIMESTAMP:
-            case TIMESTAMP_TZ:
-                // Temporal element types (e.g. array<timestamp>) — previously unsupported, so a
-                // LIST<DATE>/LIST<TIME> column could not be declared in schema.fields even though
-                // scalar timestamp and auto-discovered temporal arrays already work.
-                return ArrayType.of(dataType);
             case MAP:
                 MapType<?, ?> mapType = (MapType<?, ?>) dataType;
                 return new ArrayType<>(MapType.class, mapType);
