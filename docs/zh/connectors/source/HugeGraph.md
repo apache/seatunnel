@@ -1,5 +1,3 @@
-import ChangeLog from '../changelog/connector-hugegraph.md';
-
 # HugeGraph Source Connector
 
 `Source: HugeGraph`
