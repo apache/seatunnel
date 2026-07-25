@@ -399,6 +399,64 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    public void testSourceKafkaWithHeaders(TestContainer container)
+            throws IOException, InterruptedException {
+        String topicName = "test_topic_source_headers";
+
+        // Produce 10 records with JSON value and Kafka headers
+        try {
+            for (int i = 0; i < 10; i++) {
+                byte[] value =
+                        ("{\"user_id\":" + i + ",\"name\":\"user_" + i + "\"}")
+                                .getBytes(StandardCharsets.UTF_8);
+                Header corrHeader =
+                        new RecordHeader(
+                                "correlation_id", ("corr-" + i).getBytes(StandardCharsets.UTF_8));
+                Header traceHeader =
+                        new RecordHeader(
+                                "trace_id", ("trace-" + i).getBytes(StandardCharsets.UTF_8));
+                ProducerRecord<byte[], byte[]> record =
+                        new ProducerRecord<>(
+                                topicName,
+                                null,
+                                null,
+                                null,
+                                value,
+                                Arrays.asList(corrHeader, traceHeader));
+                producer.send(record).get();
+            }
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+        producer.flush();
+
+        Container.ExecResult execResult =
+                container.executeJob("/kafka/kafka_source_with_headers.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+
+        // Additional verification: read records back and check header fields are accessible
+        List<ConsumerRecord<String, String>> records = getKafkaRecordData(topicName);
+        Assertions.assertEquals(10, records.size());
+
+        for (int i = 0; i < records.size(); i++) {
+            ConsumerRecord<String, String> record = records.get(i);
+            Map<String, String> headers = convertHeadersToMap(record.headers());
+
+            Assertions.assertTrue(
+                    headers.containsKey("correlation_id"),
+                    "Record should contain 'correlation_id' header");
+            Assertions.assertTrue(
+                    headers.containsKey("trace_id"), "Record should contain 'trace_id' header");
+            Assertions.assertTrue(
+                    headers.get("correlation_id").startsWith("corr-"),
+                    "correlation_id header value should start with 'corr-'");
+            Assertions.assertTrue(
+                    headers.get("trace_id").startsWith("trace-"),
+                    "trace_id header value should start with 'trace-'");
+        }
+    }
+
+    @TestTemplate
     public void testDefaultRandomSinkKafka(TestContainer container)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =

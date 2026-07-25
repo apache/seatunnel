@@ -70,7 +70,7 @@ import static org.awaitility.Awaitility.await;
 public class ElasticsearchTimerFlushIT extends TestSuiteBase implements TestResource {
 
     private static final MySqlContainer MYSQL_CONTAINER = createMySqlContainer(MySqlVersion.V8_0);
-    private static final String MYSQL_HOST = "mysql_cdc_e2e";
+    private static final String MYSQL_HOST = "mysql_cdc_timer_flush_e2e";
     private static final String MYSQL_USER_NAME = "mysqluser";
     private static final String MYSQL_USER_PASSWORD = "mysqlpw";
     private static final String DATABASE = "shop";

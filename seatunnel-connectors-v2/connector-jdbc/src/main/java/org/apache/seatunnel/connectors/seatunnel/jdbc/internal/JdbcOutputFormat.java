@@ -30,6 +30,9 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.io.Serializable;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
 import java.util.function.Supplier;
 
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
@@ -137,7 +140,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
                             CommonErrorCodeDeprecated.FLUSH_DATA_FAILED, e);
                 }
                 try {
-                    if (!connectionProvider.isConnectionValid()) {
+                    if (shouldRefreshExecutor(findSqlExceptions(e))) {
                         updateExecutor(true);
                     }
                 } catch (Exception exception) {
@@ -226,6 +229,72 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
                 reconnect
                         ? connectionProvider.reestablishConnection()
                         : connectionProvider.getConnection());
+    }
+
+    private boolean shouldRefreshExecutor(List<SQLException> sqlExceptions) throws SQLException {
+        // BatchUpdateException often stores the vendor SQLException in nextException.
+        return hasConnectionErrorSqlState(sqlExceptions)
+                || isStatementClosed(sqlExceptions)
+                || !connectionProvider.isConnectionValid();
+    }
+
+    private boolean hasConnectionErrorSqlState(List<SQLException> sqlExceptions) {
+        for (SQLException sqlException : sqlExceptions) {
+            String sqlState = sqlException.getSQLState();
+            if (sqlState != null && sqlState.startsWith("08")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private List<SQLException> findSqlExceptions(Throwable throwable) {
+        List<SQLException> sqlExceptions = new ArrayList<>();
+        while (throwable != null) {
+            if (throwable instanceof SQLException) {
+                collectSqlExceptionChain((SQLException) throwable, sqlExceptions);
+            }
+            throwable = throwable.getCause();
+        }
+        return sqlExceptions;
+    }
+
+    private void collectSqlExceptionChain(
+            SQLException sqlException, List<SQLException> sqlExceptions) {
+        SQLException current = sqlException;
+        while (current != null) {
+            sqlExceptions.add(current);
+            current = current.getNextException();
+        }
+    }
+
+    private boolean isStatementClosed(List<SQLException> sqlExceptions) {
+        for (SQLException sqlException : sqlExceptions) {
+            if (isStatementClosed(sqlException)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private boolean isStatementClosed(SQLException sqlException) {
+        String exceptionClassName =
+                sqlException.getClass().getSimpleName().toLowerCase(Locale.ROOT);
+        if (exceptionClassName.contains("statementisclosedexception")) {
+            return true;
+        }
+
+        String message = sqlException.getMessage();
+        if (message == null) {
+            return false;
+        }
+
+        String normalizedMessage = message.toLowerCase(Locale.ROOT);
+        // SQL Server may report a closed statement handle without using "closed".
+        return normalizedMessage.contains("statement closed")
+                || normalizedMessage.contains("statement is closed")
+                || normalizedMessage.contains("statement handle is not executing")
+                || normalizedMessage.contains("statement handle is closed");
     }
 
     /**

@@ -13,6 +13,7 @@ import ChangeLog from '../changelog/connector-mongodb.md';
 ## Key features
 
 - [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [x] [timer flush](../../introduction/concepts/connector-v2-features.md) (Zeta engine only)
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
 
@@ -81,9 +82,33 @@ The following table lists the field data type mapping from MongoDB BSON type to 
 
 ### Tips
 
-> 1.The data flushing logic of the MongoDB Sink Connector is jointly controlled by three parameters: `buffer-flush.max-rows`, `buffer-flush.interval`, and `checkpoint.interval`.<br/>
+> 1.The connector-level data flushing logic of MongoDB Sink is jointly controlled by three parameters: `buffer-flush.max-rows`, `buffer-flush.interval`, and `checkpoint.interval`.<br/>
 > Data flushing will be triggered if any of these conditions are met.<br/>
 > 2.Compatible with the historical parameter `upsert-key`. If `upsert-key` is set, please do not set `primary-key`.<br/>
+
+### Zeta Timer Flush
+
+This engine-level feature is supported only by Zeta. Spark and Flink do not inject `FlushSignal` records. On Zeta, configure `sink.flush.interval` in the `env` block to flush pending bulk requests even when `buffer-flush.max-rows` has not been reached. Unlike `buffer-flush.interval`, the engine timer does not require a new input record to trigger the check.
+
+Timer flush is enabled only when `transaction = false`. MongoDB transaction mode is committed through checkpoints, so timer flush is disabled to preserve the transaction boundary. The initial timer-flush implementation provides at-least-once delivery rather than 2PC exactly-once. Enabling upsert with deterministic primary keys can make retries idempotent.
+
+```hocon
+env {
+  job.mode = "STREAMING"
+  checkpoint.interval = 300000
+  sink.flush.interval = 5000
+}
+
+sink {
+  MongoDB {
+    uri = "mongodb://127.0.0.1:27017"
+    database = "test_db"
+    collection = "users"
+    buffer-flush.max-rows = 10000
+    transaction = false
+  }
+}
+```
 
 ## How to Create a MongoDB Data Synchronization Jobs
 
