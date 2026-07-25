@@ -29,7 +29,6 @@ import org.apache.seatunnel.core.starter.exception.ConfigCheckException;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.junitpioneer.jupiter.SetEnvironmentVariable;
 
 import com.beust.jcommander.internal.Lists;
 import lombok.extern.slf4j.Slf4j;
@@ -215,52 +214,65 @@ public class ConfigShadeTest {
         }
     }
 
-    // Set the system environment variables through SetEnvironmentVariable to verify whether the
-    // parameters set by the system environment variables are effective
-    @SetEnvironmentVariable(key = "jobName", value = "seatunnel variable test job")
     @Test
     public void testVariableReplacementWithDefaultValue() throws URISyntaxException {
         String jobName = "seatunnel variable test job";
-        Assertions.assertEquals(System.getenv("jobName"), jobName);
         String pluginInputIdentifier = "sql";
         String containSpaceString = "f h";
         List<String> variables = new ArrayList<>();
         variables.add("strTemplate=[abc,de~," + containSpaceString + "]");
-        // Set the environment variable value nameVal to `f h` to verify whether setting the space
-        // through the environment variable is effective
-        System.setProperty("nameValForEnv", containSpaceString);
         variables.add("pluginInputIdentifier=" + pluginInputIdentifier);
-        URL resource =
-                ConfigShadeTest.class.getResource("/config_variables_with_default_value.conf");
-        Assertions.assertNotNull(resource);
-        Config config = ConfigBuilder.of(Paths.get(resource.toURI()), variables);
-        Config envConfig = config.getConfig("env");
-        Assertions.assertEquals(envConfig.getString("job.name"), jobName);
-        List<? extends ConfigObject> sourceConfigs = config.getObjectList("source");
-        for (ConfigObject configObject : sourceConfigs) {
-            Config sourceConfig = configObject.toConfig();
-            List<String> list1 = sourceConfig.getStringList("string.template");
-            Assertions.assertEquals(list1.get(0), "abc");
-            Assertions.assertEquals(list1.get(1), "de~");
-            Assertions.assertEquals(list1.get(2), containSpaceString);
-            Assertions.assertEquals(sourceConfig.getInt("row.num"), 50);
-            // Verify when verifying without setting variables, ${xxx} should be retained
-            Assertions.assertEquals(
-                    sourceConfig.getConfig("schema").getConfig("fields").getString("age"),
-                    "${ageType}");
-            Assertions.assertEquals(sourceConfig.getString("plugin_output"), "fake_test_table");
-        }
-        List<? extends ConfigObject> transformConfigs = config.getObjectList("transform");
-        for (ConfigObject configObject : transformConfigs) {
-            Config transformConfig = configObject.toConfig();
-            Assertions.assertEquals(
-                    transformConfig.getString("query"),
-                    "select * from fake_test_table where name = 'f h' ");
-        }
-        List<? extends ConfigObject> sinkConfigs = config.getObjectList("sink");
-        for (ConfigObject sinkObject : sinkConfigs) {
-            Config sinkConfig = sinkObject.toConfig();
-            Assertions.assertEquals(sinkConfig.getString("plugin_input"), pluginInputIdentifier);
+        String originalJobName = System.getProperty("jobName");
+        String originalNameValForEnv = System.getProperty("nameValForEnv");
+        try {
+            // ConfigBuilder resolves default placeholders from system properties. Using
+            // properties here avoids reflective environment mutation that JDK 17 blocks.
+            System.setProperty("jobName", jobName);
+            System.setProperty("nameValForEnv", containSpaceString);
+            URL resource =
+                    ConfigShadeTest.class.getResource("/config_variables_with_default_value.conf");
+            Assertions.assertNotNull(resource);
+            Config config = ConfigBuilder.of(Paths.get(resource.toURI()), variables);
+            Config envConfig = config.getConfig("env");
+            Assertions.assertEquals(envConfig.getString("job.name"), jobName);
+            List<? extends ConfigObject> sourceConfigs = config.getObjectList("source");
+            for (ConfigObject configObject : sourceConfigs) {
+                Config sourceConfig = configObject.toConfig();
+                List<String> list1 = sourceConfig.getStringList("string.template");
+                Assertions.assertEquals(list1.get(0), "abc");
+                Assertions.assertEquals(list1.get(1), "de~");
+                Assertions.assertEquals(list1.get(2), containSpaceString);
+                Assertions.assertEquals(sourceConfig.getInt("row.num"), 50);
+                // Verify when verifying without setting variables, ${xxx} should be retained
+                Assertions.assertEquals(
+                        sourceConfig.getConfig("schema").getConfig("fields").getString("age"),
+                        "${ageType}");
+                Assertions.assertEquals(sourceConfig.getString("plugin_output"), "fake_test_table");
+            }
+            List<? extends ConfigObject> transformConfigs = config.getObjectList("transform");
+            for (ConfigObject configObject : transformConfigs) {
+                Config transformConfig = configObject.toConfig();
+                Assertions.assertEquals(
+                        transformConfig.getString("query"),
+                        "select * from fake_test_table where name = 'f h' ");
+            }
+            List<? extends ConfigObject> sinkConfigs = config.getObjectList("sink");
+            for (ConfigObject sinkObject : sinkConfigs) {
+                Config sinkConfig = sinkObject.toConfig();
+                Assertions.assertEquals(
+                        sinkConfig.getString("plugin_input"), pluginInputIdentifier);
+            }
+        } finally {
+            if (originalJobName == null) {
+                System.clearProperty("jobName");
+            } else {
+                System.setProperty("jobName", originalJobName);
+            }
+            if (originalNameValForEnv == null) {
+                System.clearProperty("nameValForEnv");
+            } else {
+                System.setProperty("nameValForEnv", originalNameValForEnv);
+            }
         }
     }
 
