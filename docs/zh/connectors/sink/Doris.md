@@ -6,9 +6,9 @@ import ChangeLog from '../changelog/connector-doris.md';
 
 ## 支持的doris版本
 
-- exactly-once & cdc 支持  `Doris version is >= 1.1.x`
-- 支持数组数据类型 `Doris version is >= 1.2.x`
-- 将支持Map数据类型 `Doris version is 2.x`
+- 精确一次与变更数据捕获支持：`Doris version is >= 1.1.x`
+- 数组类型支持：`Doris version is >= 1.2.x`
+- Map 类型支持：`Doris version is 2.x`
 
 ## 引擎支持
 
@@ -19,8 +19,9 @@ import ChangeLog from '../changelog/connector-doris.md';
 ## 主要特性
 
 - [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
-- [x] [cdc](../../introduction/concepts/connector-v2-features.md)
-- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
+- [x] [变更数据捕获](../../introduction/concepts/connector-v2-features.md)
+- [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
+- [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 ## 描述
 
@@ -49,7 +50,7 @@ Doris Sink连接器的内部实现是通过stream load批量缓存和导入的�
 | password                       | String  | Yes      | -                            | `Doris` 密码                                                                                                                                             |
 | database                       | String  | Yes      | -                            | `Doris`数据库名称 , 使用 `${database_name}` 表示上游数据库名称。                                                                                                        |
 | table                          | String  | Yes      | -                            | `Doris` 表名,  使用 `${table_name}`  表示上游表名。                                                                                                               |
-| table.identifier               | String  | Yes      | -                            | `Doris` 表的名称，2.3.5 版本后将弃用，请使用 `database` 和 `table` 代替。                                                                                                 |
+| table.identifier               | String  | No       | -                            | 已弃用的表标识，建议改用 `database` 和 `table`。                                                                                                                        |
 | sink.label-prefix              | String  | Yes      | -                            | stream load导入使用的标签前缀。 在2pc场景下，需要全局唯一性来保证SeaTunnel的EOS语义。                                                                                               |
 | sink.enable-2pc                | bool    | No       | false                        | 是否启用两阶段提交（2pc），默认为 false。 对于两阶段提交，请参考[此处](https://doris.apache.org/docs/data-operate/transaction?_highlight=two&_highlight=phase#stream-load-2pc)。 |
 | sink.enable-delete             | bool    | No       | -                            | 是否启用删除。 该选项需要Doris表开启批量删除功能（0.15+版本默认开启），且仅支持Unique模型。 您可以在此[link](https://doris.apache.org/docs/dev/data-operate/delete/batch-delete-manual/)获得更多详细信息 |
@@ -170,6 +171,7 @@ CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}`
 | ARRAY          | ARRAY                                   |
 | MAP            | MAP                                     |
 | JSON           | STRING                                  |
+| VARIANT        | STRING                                  |
 | HLL            | 尚不支持                                    |
 | BITMAP         | 尚不支持                                    |
 | QUANTILE_STATE | 尚不支持                                    |
@@ -178,6 +180,8 @@ CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}`
 #### 支持的导入数据格式
 
 支持的格式包括 CSV 和 JSON。
+
+当从 SeaTunnel `STRING` 字段写入 Doris `VARIANT` 列时，字段值需要是合法的 JSON 文档。
 
 ## 调优指南
 适当增加`sink.buffer-size`和`doris.batch.size`的值可以提高写性能。

@@ -32,6 +32,8 @@ import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.ch
 
 public class PostgresSourceConfigFactory extends JdbcSourceConfigFactory {
 
+    private static final long serialVersionUID = 1L;
+
     private static final String DATABASE_SERVER_NAME = "postgres_cdc_source";
 
     private static final String DRIVER_CLASS_NAME = "org.postgresql.Driver";
@@ -109,30 +111,34 @@ public class PostgresSourceConfigFactory extends JdbcSourceConfigFactory {
             props.putAll(dbzProperties);
         }
 
-        return new PostgresSourceConfig(
-                startupConfig,
-                stopConfig,
-                databaseList,
-                tableList,
-                splitSize,
-                splitColumn,
-                distributionFactorUpper,
-                distributionFactorLower,
-                sampleShardingThreshold,
-                inverseSamplingRate,
-                sampleShardingAllow,
-                props,
-                DRIVER_CLASS_NAME,
-                hostname,
-                port,
-                username,
-                password,
-                originUrl,
-                fetchSize,
-                serverTimeZone,
-                connectTimeoutMillis,
-                connectMaxRetries,
-                connectionPoolSize,
-                exactlyOnce);
+        PostgresSourceConfig config =
+                new PostgresSourceConfig(
+                        startupConfig,
+                        stopConfig,
+                        databaseList,
+                        tableList,
+                        splitSize,
+                        splitColumn,
+                        distributionFactorUpper,
+                        distributionFactorLower,
+                        sampleShardingThreshold,
+                        inverseSamplingRate,
+                        sampleShardingAllow,
+                        props,
+                        DRIVER_CLASS_NAME,
+                        hostname,
+                        port,
+                        username,
+                        password,
+                        originUrl,
+                        fetchSize,
+                        serverTimeZone,
+                        connectTimeoutMillis,
+                        connectMaxRetries,
+                        connectionPoolSize,
+                        exactlyOnce);
+        // Propagate the enableConcurrentRead flag so the chunk splitter can skip split analysis.
+        config.setEnableConcurrentRead(this.enableConcurrentRead);
+        return config;
     }
 }

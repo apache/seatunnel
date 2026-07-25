@@ -6,12 +6,12 @@ import ChangeLog from '../changelog/connector-http-github.md';
 
 ## 描述
 
-用于从 Github 读取数据。
+Github 源连接器用于读取 GitHub REST API 数据。它基于 HTTP 源连接器实现，并会自动把 `access_token` 组装成 `Authorization: Bearer <access_token>` 请求头。
 
-## 关键特性
+## 主要特性
 
 - [x] [批处理](../../introduction/concepts/connector-v2-features.md)
-- [ ] [流处理](../../introduction/concepts/connector-v2-features.md)
+- [x] [流处理](../../introduction/concepts/connector-v2-features.md)
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [ ] [列投影](../../introduction/concepts/connector-v2-features.md)
 - [ ] [并行度](../../introduction/concepts/connector-v2-features.md)
@@ -19,276 +19,145 @@ import ChangeLog from '../changelog/connector-http-github.md';
 
 ## 选项
 
-| 名称                      | 类型     | 必填 | 默认值  |
-|---------------------------|----------|------|--------|
-| url                       | String   | 是   | -      |
-| access_token              | String   | 否   | -      |
-| method                    | String   | 否   | get    |
-| schema.fields             | Config   | 否   | -      |
-| format                    | String   | 否   | json   |
-| params                    | Map      | 否   | -      |
-| body                      | String   | 否   | -      |
-| json_field                | Config   | 否   | -      |
-| content_json              | String   | 否   | -      |
-| poll_interval_millis      | int      | 否   | -      |
-| retry                     | int      | 否   | -      |
-| retry_backoff_multiplier_ms | int    | 否   | 100    |
-| retry_backoff_max_ms      | int      | 否   | 10000  |
-| enable_multi_lines        | boolean  | 否   | false  |
-| common-options            | config   | 否   | -      |
+| 参数名                      | 类型    | 必填 | 默认值 |
+|-----------------------------|---------|------|--------|
+| url                         | String  | 是   | -      |
+| access_token                | String  | 是   | -      |
+| method                      | String  | 否   | GET    |
+| headers                     | Map     | 否   | -      |
+| params                      | Map     | 否   | -      |
+| body                        | String  | 否   | -      |
+| format                      | String  | 否   | text   |
+| schema                      | Config  | 否   | -      |
+| schema.fields               | Config  | 否   | -      |
+| json_field                  | Config  | 否   | -      |
+| content_field               | String  | 否   | -      |
+| pageing                     | Config  | 否   | -      |
+| poll_interval_millis        | int     | 否   | -      |
+| retry                       | int     | 否   | -      |
+| retry_backoff_multiplier_ms | int     | 否   | 100    |
+| retry_backoff_max_ms        | int     | 否   | 10000  |
+| json_filed_missed_return_null | boolean | 否 | false  |
+| common-options              | config  | 否   | -      |
 
 ### url [String]
 
-HTTP 请求 URL。
+GitHub REST API 地址，例如 `https://api.github.com/orgs/apache/repos`。
 
 ### access_token [String]
 
-GitHub个人访问令牌，请参阅：[创建个人访问令牌 - Github文档](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/creating-a-personal-access-token)
+GitHub 个人访问令牌。连接器会把它作为 Bearer token 写入 HTTP `Authorization` 请求头。
 
 ### method [String]
 
-HTTP 请求方法。目前支持 `GET` 和 `POST`。
+HTTP 请求方法。常见的 GitHub 读取场景使用 `GET`。
+
+### headers [Map]
+
+额外的 HTTP 请求头。除非你确实想覆盖由 `access_token` 生成的认证头，否则不要在这里配置 `Authorization`。
 
 ### params [Map]
 
-http 参数
+HTTP 查询参数，例如 `per_page`、`page`、`since` 或其他 GitHub API 参数。
 
 ### body [String]
 
-HTTP 请求体
-
-### poll_interval_millis [int]
-
-流模式下请求 API 的间隔时间（毫秒）。
-
-### retry [int]
-
-请求失败（`IOException`）时最大重试次数。
-
-### retry_backoff_multiplier_ms [int]
-
-请求失败时的退避时间（毫秒）乘数。
-
-### retry_backoff_max_ms [int]
-
-请求失败时的最大退避时间（毫秒）。
+HTTP 请求体。只有目标 API 接口支持请求体时才需要配置。
 
 ### format [String]
 
-上游数据的格式，现在仅支持`json` `text`，默认是`json`。
-
-若你的数据格式为 `json`，需同时配置 schema 选项，例如：
-
-上游数据如下：
-
-```json
-{
-  "code": 200,
-  "data": "get success",
-  "success": true
-}
-```
-
-您应该配置 schema 为以下内容：
-
-```hocon
-
-schema {
-    fields {
-        code = int
-        data = string
-        success = boolean
-    }
-}
-
-```
-
-连接器将生成如下数据：
-
-| code |    data     | success |
-|------|-------------|---------|
-| 200  | get success | true    |
-
-若你设置格式为 `text`，连接器不会对上游数据做出任何改变，示例：
-
-上游数据如下：
-
-```json
-{
-  "code": 200,
-  "data": "get success",
-  "success": true
-}
-```
-
-连接器将生成如下数据：
-
-|                         content                          |
-|----------------------------------------------------------|
-| {"code":  200, "data":  "get success", "success":  true} |
+响应数据格式，支持 `json` 和 `text`。如果希望输出带字段名的数据行，请使用 `json` 并配置 `schema`。
 
 ### schema [Config]
 
-#### fields [Config]
-
-上游数据的字段定义。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。
-
-### content_json [String]
-
-该参数可用于提取一些 json 数据。如果你只需要 “book” 部分的数据，可以配置 `content_field = "$.store.book.*"`.
-
-如果你的返回数据如下所示：
-
-```json
-{
-  "store": {
-    "book": [
-      {
-        "category": "reference",
-        "author": "Nigel Rees",
-        "title": "Sayings of the Century",
-        "price": 8.95
-      },
-      {
-        "category": "fiction",
-        "author": "Evelyn Waugh",
-        "title": "Sword of Honour",
-        "price": 12.99
-      }
-    ],
-    "bicycle": {
-      "color": "red",
-      "price": 19.95
-    }
-  },
-  "expensive": 10
-}
-```
-
-你可以配置 `content_field = "$.store.book.*"` 并且结果返回如下：
-
-```json
-[
-  {
-    "category": "reference",
-    "author": "Nigel Rees",
-    "title": "Sayings of the Century",
-    "price": 8.95
-  },
-  {
-    "category": "fiction",
-    "author": "Evelyn Waugh",
-    "title": "Sword of Honour",
-    "price": 12.99
-  }
-]
-```
-
-然后你可以通过更简单的 schema 配置获取所需的结果，例如：
-
-```hocon
-Http {
-  url = "http://mockserver:1080/contentjson/mock"
-  method = "GET"
-  format = "json"
-  content_field = "$.store.book.*"
-  schema = {
-    fields {
-      category = string
-      author = string
-      title = string
-      price = string
-    }
-  }
-}
-```
-
-这是一个例子:
-
-- 测试数据可参考此链接：[mockserver-config.json](../../../../seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/mockserver-config.json)
-- 任务配置示例可参考此链接：[http_contentjson_to_assert.conf](../../../../seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/http_contentjson_to_assert.conf).
+当 `format = "json"` 时，用于定义输出行结构。更多信息请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。
 
 ### json_field [Config]
 
-该参数用于帮助你配置 schema，因此必须与 schema 一起使用。
+把输出字段映射到 JSONPath 表达式。需要从嵌套 JSON 中取值时，可与 `schema` 一起使用。
 
-如果你的数据如下所示：
+### content_field [String]
 
-```json
-{
-  "store": {
-    "book": [
-      {
-        "category": "reference",
-        "author": "Nigel Rees",
-        "title": "Sayings of the Century",
-        "price": 8.95
-      },
-      {
-        "category": "fiction",
-        "author": "Evelyn Waugh",
-        "title": "Sword of Honour",
-        "price": 12.99
-      }
-    ],
-    "bicycle": {
-      "color": "red",
-      "price": 19.95
-    }
-  },
-  "expensive": 10
-}
-```
+用于先截取 JSON 片段的 JSONPath 表达式，例如 `$.items[*]`。
 
-你可以通过如下任务配置获取 “book” 部分的内容：
+### pageing [Config]
+
+继承自 HTTP 连接器的分页配置。任务配置中请保持 `pageing` 这个拼写。
+
+### poll_interval_millis [int]
+
+流处理任务中的请求间隔，单位毫秒。批处理任务只读取一次后结束。
+
+### retry [int]
+
+HTTP 请求因 `IOException` 失败时的最大重试次数。
+
+### retry_backoff_multiplier_ms [int]
+
+重试退避时间乘数，单位毫秒。
+
+### retry_backoff_max_ms [int]
+
+最大重试退避时间，单位毫秒。
+
+### json_filed_missed_return_null [boolean]
+
+设置为 `true` 时，JSON 字段缺失会返回 `null`；否则字段缺失会报错。
+
+### common options
+
+源插件通用参数，请参考 [源通用选项](../common-options/source-common-options.md)。
+
+## 示例
+
+读取 GitHub 组织下的仓库：
 
 ```hocon
 source {
-  Http {
-    url = "http://mockserver:1080/jsonpath/mock"
+  Github {
+    url = "https://api.github.com/orgs/apache/repos"
+    access_token = "ghp_xxxxxxxxxxxx"
     method = "GET"
     format = "json"
-    json_field = {
-      category = "$.store.book[*].category"
-      author = "$.store.book[*].author"
-      title = "$.store.book[*].title"
-      price = "$.store.book[*].price"
-    }
     schema = {
       fields {
-        category = string
-        author = string
-        title = string
-        price = string
+        id = int
+        name = string
+        description = string
+        html_url = string
+        stargazers_count = int
+        forks = int
       }
     }
   }
 }
 ```
 
-- 测试数据可参考此链接：[mockserver-config.json](../../../../seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/mockserver-config.json)
-- 任务配置示例可参考此链接：[http_jsonpath_to_assert.conf](../../../../seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/http_jsonpath_to_assert.conf).
-
-### common options
-
-源插件通用参数，请参考 [常用选项](../common-options/source-common-options.md)获取详细说明。
-
-## 示例
+读取分页的 GitHub API 结果：
 
 ```hocon
-Github {
-  url = "https://api.github.com/orgs/apache/repos"
-  access_token = "xxxx"
-  method = "GET"
-  format = "json"
-  schema = {
-    fields {
-      id = int
-      name = string
-      description = string
-      html_url = string
-      stargazers_count = int
-      forks = int
+source {
+  Github {
+    url = "https://api.github.com/orgs/apache/repos"
+    access_token = "ghp_xxxxxxxxxxxx"
+    method = "GET"
+    params = {
+      per_page = "100"
+      page = "${page}"
+    }
+    pageing = {
+      page_field = "page"
+      total_page_size = 5
+      start_page_number = 1
+      use_placeholder_replacement = true
+    }
+    format = "json"
+    schema = {
+      fields {
+        id = int
+        name = string
+        html_url = string
+      }
     }
   }
 }
