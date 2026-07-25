@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-hugegraph.md';
+
 # HugeGraph Sink Connector
 
 `Sink: HugeGraph`
