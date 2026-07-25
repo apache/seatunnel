@@ -169,7 +169,7 @@ public class EngineConfig {
     public void setJobMetricsPartitionCount(int jobMetricsPartitionCount) {
         checkPositive(
                 jobMetricsPartitionCount,
-                ServerConfigOptions.MasterServerConfigOptions.JOB_METRICS_PARTITION_COUNT
+                ServerConfigOptions.MasterServerConfigOptions.JOB_METRICS_PARTITION_COUNT.key()
                         + " must be > 0");
         this.jobMetricsPartitionCount = jobMetricsPartitionCount;
     }
