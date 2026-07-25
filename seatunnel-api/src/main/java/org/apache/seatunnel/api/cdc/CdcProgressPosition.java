@@ -19,7 +19,6 @@ package org.apache.seatunnel.api.cdc;
 
 import org.apache.seatunnel.api.annotation.Experimental;
 
-import java.io.Serializable;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -33,9 +32,7 @@ import java.util.Objects;
  * time and exposed as an unmodifiable map.
  */
 @Experimental
-public final class CdcProgressPosition implements Serializable {
-
-    private static final long serialVersionUID = 1L;
+public final class CdcProgressPosition {
 
     /** Position family, for example {@code MYSQL_BINLOG}. */
     private final String type;

@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.engine.server.observability.cdc;
 
+import org.apache.seatunnel.api.cdc.CdcEnumeratorProgressReport;
+import org.apache.seatunnel.api.cdc.CdcReaderProgressReport;
 import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 
 import java.util.ArrayList;
@@ -30,61 +32,53 @@ import java.util.concurrent.ConcurrentMap;
 /** Coordinator-side latest-only store for experimental CDC progress reports. */
 public class CdcProgressService {
 
-    private final ConcurrentMap<ReaderKey, CdcReaderProgressEnvelope> readerReports =
-            new ConcurrentHashMap<>();
-    private final ConcurrentMap<SourceKey, CdcEnumeratorProgressEnvelope> enumeratorReports =
+    private final ConcurrentMap<ReportKey, CdcProgressEnvelope<?>> reports =
             new ConcurrentHashMap<>();
 
-    public void updateReaderReports(Collection<CdcReaderProgressEnvelope> reports) {
-        reports.forEach(
+    public void updateReports(Collection<? extends CdcProgressEnvelope<?>> candidates) {
+        candidates.forEach(
                 report ->
-                        readerReports.compute(
-                                ReaderKey.from(report),
-                                (key, current) -> newerReaderReport(current, report)));
+                        reports.compute(
+                                ReportKey.from(report),
+                                (key, current) -> newerReport(current, report)));
     }
 
-    public void updateEnumeratorReports(Collection<CdcEnumeratorProgressEnvelope> reports) {
-        reports.forEach(
-                report ->
-                        enumeratorReports.compute(
-                                SourceKey.from(report),
-                                (key, current) -> newerEnumeratorReport(current, report)));
-    }
-
-    public List<CdcReaderProgressEnvelope> getReaderReports(
+    public List<CdcProgressEnvelope<CdcReaderProgressReport>> getReaderReports(
             long jobId, int pipelineId, long sourceVertexId) {
-        List<CdcReaderProgressEnvelope> result = new ArrayList<>();
-        readerReports.forEach(
+        List<CdcProgressEnvelope<CdcReaderProgressReport>> result = new ArrayList<>();
+        reports.forEach(
                 (key, value) -> {
-                    if (key.matches(jobId, pipelineId, sourceVertexId)) {
-                        result.add(value);
+                    if (key.owner == CdcProgressOwner.READER
+                            && key.matches(jobId, pipelineId, sourceVertexId)) {
+                        result.add(readerEnvelope(value));
                     }
                 });
         return Collections.unmodifiableList(result);
     }
 
-    public CdcEnumeratorProgressEnvelope getEnumeratorReport(
+    public CdcProgressEnvelope<CdcEnumeratorProgressReport> getEnumeratorReport(
             long jobId, int pipelineId, long sourceVertexId) {
-        return enumeratorReports.get(new SourceKey(jobId, pipelineId, sourceVertexId));
+        CdcProgressEnvelope<?> report =
+                reports.get(
+                        new ReportKey(
+                                CdcProgressOwner.ENUMERATOR,
+                                jobId,
+                                pipelineId,
+                                sourceVertexId,
+                                -1));
+        return report == null ? null : enumeratorEnvelope(report);
     }
 
     public void removePipeline(PipelineLocation pipelineLocation) {
-        readerReports
-                .keySet()
-                .removeIf(
-                        key ->
-                                key.jobId == pipelineLocation.getJobId()
-                                        && key.pipelineId == pipelineLocation.getPipelineId());
-        enumeratorReports
-                .keySet()
+        reports.keySet()
                 .removeIf(
                         key ->
                                 key.jobId == pipelineLocation.getJobId()
                                         && key.pipelineId == pipelineLocation.getPipelineId());
     }
 
-    private CdcReaderProgressEnvelope newerReaderReport(
-            CdcReaderProgressEnvelope current, CdcReaderProgressEnvelope candidate) {
+    private CdcProgressEnvelope<?> newerReport(
+            CdcProgressEnvelope<?> current, CdcProgressEnvelope<?> candidate) {
         if (current == null
                 || candidate.getExecutionAttemptId() > current.getExecutionAttemptId()
                 || (candidate.getExecutionAttemptId() == current.getExecutionAttemptId()
@@ -94,33 +88,53 @@ public class CdcProgressService {
         return current;
     }
 
-    private CdcEnumeratorProgressEnvelope newerEnumeratorReport(
-            CdcEnumeratorProgressEnvelope current, CdcEnumeratorProgressEnvelope candidate) {
-        if (current == null
-                || candidate.getExecutionAttemptId() > current.getExecutionAttemptId()
-                || (candidate.getExecutionAttemptId() == current.getExecutionAttemptId()
-                        && candidate.getReportSequence() > current.getReportSequence())) {
-            return candidate;
+    @SuppressWarnings("unchecked")
+    private CdcProgressEnvelope<CdcReaderProgressReport> readerEnvelope(
+            CdcProgressEnvelope<?> envelope) {
+        if (envelope.getOwner() != CdcProgressOwner.READER) {
+            throw new IllegalArgumentException("Expected a reader CDC progress report");
         }
-        return current;
+        return (CdcProgressEnvelope<CdcReaderProgressReport>) envelope;
     }
 
-    private static class SourceKey {
+    @SuppressWarnings("unchecked")
+    private CdcProgressEnvelope<CdcEnumeratorProgressReport> enumeratorEnvelope(
+            CdcProgressEnvelope<?> envelope) {
+        if (envelope.getOwner() != CdcProgressOwner.ENUMERATOR) {
+            throw new IllegalArgumentException("Expected an enumerator CDC progress report");
+        }
+        return (CdcProgressEnvelope<CdcEnumeratorProgressReport>) envelope;
+    }
+
+    private static final class ReportKey {
+        final CdcProgressOwner owner;
         final long jobId;
         final int pipelineId;
         final long sourceVertexId;
+        final int taskIndex;
 
-        private SourceKey(long jobId, int pipelineId, long sourceVertexId) {
+        private ReportKey(
+                CdcProgressOwner owner,
+                long jobId,
+                int pipelineId,
+                long sourceVertexId,
+                int taskIndex) {
+            this.owner = owner;
             this.jobId = jobId;
             this.pipelineId = pipelineId;
             this.sourceVertexId = sourceVertexId;
+            this.taskIndex = taskIndex;
         }
 
-        private static SourceKey from(CdcEnumeratorProgressEnvelope envelope) {
-            return new SourceKey(
+        private static ReportKey from(CdcProgressEnvelope<?> envelope) {
+            return new ReportKey(
+                    envelope.getOwner(),
                     envelope.getTaskLocation().getJobId(),
                     envelope.getTaskLocation().getPipelineId(),
-                    envelope.getSourceVertexId());
+                    envelope.getSourceVertexId(),
+                    envelope.getOwner() == CdcProgressOwner.READER
+                            ? envelope.getTaskLocation().getTaskIndex()
+                            : -1);
         }
 
         final boolean matches(long jobId, int pipelineId, long sourceVertexId) {
@@ -134,52 +148,20 @@ public class CdcProgressService {
             if (this == object) {
                 return true;
             }
-            if (!(object instanceof SourceKey)) {
+            if (!(object instanceof ReportKey)) {
                 return false;
             }
-            SourceKey sourceKey = (SourceKey) object;
-            return jobId == sourceKey.jobId
-                    && pipelineId == sourceKey.pipelineId
-                    && sourceVertexId == sourceKey.sourceVertexId;
+            ReportKey reportKey = (ReportKey) object;
+            return jobId == reportKey.jobId
+                    && pipelineId == reportKey.pipelineId
+                    && sourceVertexId == reportKey.sourceVertexId
+                    && taskIndex == reportKey.taskIndex
+                    && owner == reportKey.owner;
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(jobId, pipelineId, sourceVertexId);
-        }
-    }
-
-    private static final class ReaderKey extends SourceKey {
-        private final int taskIndex;
-
-        private ReaderKey(long jobId, int pipelineId, long sourceVertexId, int taskIndex) {
-            super(jobId, pipelineId, sourceVertexId);
-            this.taskIndex = taskIndex;
-        }
-
-        private static ReaderKey from(CdcReaderProgressEnvelope envelope) {
-            return new ReaderKey(
-                    envelope.getTaskLocation().getJobId(),
-                    envelope.getTaskLocation().getPipelineId(),
-                    envelope.getSourceVertexId(),
-                    envelope.getTaskLocation().getTaskIndex());
-        }
-
-        @Override
-        public boolean equals(Object object) {
-            if (this == object) {
-                return true;
-            }
-            if (!(object instanceof ReaderKey)) {
-                return false;
-            }
-            ReaderKey readerKey = (ReaderKey) object;
-            return taskIndex == readerKey.taskIndex && super.equals(object);
-        }
-
-        @Override
-        public int hashCode() {
-            return Objects.hash(super.hashCode(), taskIndex);
+            return Objects.hash(owner, jobId, pipelineId, sourceVertexId, taskIndex);
         }
     }
 }

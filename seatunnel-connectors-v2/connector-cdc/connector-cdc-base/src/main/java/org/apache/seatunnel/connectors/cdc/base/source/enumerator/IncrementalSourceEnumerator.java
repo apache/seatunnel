@@ -17,8 +17,8 @@
 
 package org.apache.seatunnel.connectors.cdc.base.source.enumerator;
 
-import org.apache.seatunnel.api.cdc.CdcEnumeratorProgressProvider;
 import org.apache.seatunnel.api.cdc.CdcEnumeratorProgressReport;
+import org.apache.seatunnel.api.cdc.CdcProgressProvider;
 import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.state.PendingSplitsState;
@@ -44,7 +44,7 @@ import java.util.stream.Collectors;
  */
 public class IncrementalSourceEnumerator
         implements SourceSplitEnumerator<SourceSplitBase, PendingSplitsState>,
-                CdcEnumeratorProgressProvider {
+                CdcProgressProvider<CdcEnumeratorProgressReport> {
     private static final Logger LOG = LoggerFactory.getLogger(IncrementalSourceEnumerator.class);
 
     private final SourceSplitEnumerator.Context<SourceSplitBase> context;
@@ -76,7 +76,7 @@ public class IncrementalSourceEnumerator
     }
 
     @Override
-    public CdcEnumeratorProgressReport getCdcEnumeratorProgress() {
+    public CdcEnumeratorProgressReport getCdcProgress() {
         if (!(splitAssigner instanceof CdcEnumeratorProgressSource)) {
             return null;
         }

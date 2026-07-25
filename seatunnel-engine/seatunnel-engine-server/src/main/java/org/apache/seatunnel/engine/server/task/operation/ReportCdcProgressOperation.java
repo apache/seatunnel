@@ -18,8 +18,7 @@
 package org.apache.seatunnel.engine.server.task.operation;
 
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
-import org.apache.seatunnel.engine.server.observability.cdc.CdcEnumeratorProgressEnvelope;
-import org.apache.seatunnel.engine.server.observability.cdc.CdcReaderProgressEnvelope;
+import org.apache.seatunnel.engine.server.observability.cdc.CdcProgressEnvelope;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
 
 import com.hazelcast.nio.ObjectDataInput;
@@ -34,50 +33,36 @@ import java.util.List;
 public class ReportCdcProgressOperation extends TracingOperation
         implements IdentifiedDataSerializable {
 
-    private List<CdcReaderProgressEnvelope> readerReports;
-    private List<CdcEnumeratorProgressEnvelope> enumeratorReports;
+    private List<CdcProgressEnvelope<?>> reports;
 
     public ReportCdcProgressOperation() {}
 
-    public ReportCdcProgressOperation(
-            List<CdcReaderProgressEnvelope> readerReports,
-            List<CdcEnumeratorProgressEnvelope> enumeratorReports) {
-        this.readerReports = readerReports;
-        this.enumeratorReports = enumeratorReports;
+    public ReportCdcProgressOperation(List<? extends CdcProgressEnvelope<?>> reports) {
+        this.reports = new ArrayList<>(reports);
     }
 
     @Override
     public void runInternal() throws Exception {
         SeaTunnelServer seaTunnelServer = getService();
-        seaTunnelServer.getCdcProgressService().updateReaderReports(readerReports);
-        seaTunnelServer.getCdcProgressService().updateEnumeratorReports(enumeratorReports);
+        seaTunnelServer.getCdcProgressService().updateReports(reports);
     }
 
     @Override
     protected void writeInternal(ObjectDataOutput out) throws IOException {
         super.writeInternal(out);
-        out.writeInt(readerReports.size());
-        for (CdcReaderProgressEnvelope report : readerReports) {
-            CdcProgressReportSerializer.writeReaderEnvelope(out, report);
-        }
-        out.writeInt(enumeratorReports.size());
-        for (CdcEnumeratorProgressEnvelope report : enumeratorReports) {
-            CdcProgressReportSerializer.writeEnumeratorEnvelope(out, report);
+        out.writeInt(reports.size());
+        for (CdcProgressEnvelope<?> report : reports) {
+            CdcProgressReportSerializer.writeEnvelope(out, report);
         }
     }
 
     @Override
     protected void readInternal(ObjectDataInput in) throws IOException {
         super.readInternal(in);
-        int readerReportCount = CdcProgressReportSerializer.readSize(in, "reader report");
-        readerReports = new ArrayList<>(readerReportCount);
-        for (int i = 0; i < readerReportCount; i++) {
-            readerReports.add(CdcProgressReportSerializer.readReaderEnvelope(in));
-        }
-        int enumeratorReportCount = CdcProgressReportSerializer.readSize(in, "enumerator report");
-        enumeratorReports = new ArrayList<>(enumeratorReportCount);
-        for (int i = 0; i < enumeratorReportCount; i++) {
-            enumeratorReports.add(CdcProgressReportSerializer.readEnumeratorEnvelope(in));
+        int reportCount = CdcProgressReportSerializer.readSize(in, "report");
+        reports = new ArrayList<>(reportCount);
+        for (int i = 0; i < reportCount; i++) {
+            reports.add(CdcProgressReportSerializer.readEnvelope(in));
         }
     }
 

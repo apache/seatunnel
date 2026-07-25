@@ -21,12 +21,14 @@ import org.apache.seatunnel.api.cdc.CdcEnumeratorProgressReport;
 import org.apache.seatunnel.api.cdc.CdcProgressAccuracy;
 import org.apache.seatunnel.api.cdc.CdcProgressLifecycle;
 import org.apache.seatunnel.api.cdc.CdcProgressPosition;
+import org.apache.seatunnel.api.cdc.CdcProgressReport;
 import org.apache.seatunnel.api.cdc.CdcProgressValue;
 import org.apache.seatunnel.api.cdc.CdcReaderProgressReport;
+import org.apache.seatunnel.api.cdc.CdcSnapshotAssignmentStatus;
 import org.apache.seatunnel.api.cdc.CdcSnapshotSplitProgress;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
-import org.apache.seatunnel.engine.server.observability.cdc.CdcEnumeratorProgressEnvelope;
-import org.apache.seatunnel.engine.server.observability.cdc.CdcReaderProgressEnvelope;
+import org.apache.seatunnel.engine.server.observability.cdc.CdcProgressEnvelope;
+import org.apache.seatunnel.engine.server.observability.cdc.CdcProgressOwner;
 
 import com.hazelcast.nio.ObjectDataInput;
 import com.hazelcast.nio.ObjectDataOutput;
@@ -42,55 +44,39 @@ final class CdcProgressReportSerializer {
 
     private CdcProgressReportSerializer() {}
 
-    static void writeReaderEnvelope(ObjectDataOutput out, CdcReaderProgressEnvelope envelope)
+    static void writeEnvelope(ObjectDataOutput out, CdcProgressEnvelope<?> envelope)
             throws IOException {
+        out.writeString(envelope.getOwner().name());
         out.writeObject(envelope.getTaskLocation());
         out.writeLong(envelope.getSourceVertexId());
         out.writeLong(envelope.getExecutionAttemptId());
         out.writeLong(envelope.getReportSequence());
         out.writeLong(envelope.getObservedAt());
-        writeReaderReport(out, envelope.getReport());
+        if (envelope.getOwner() == CdcProgressOwner.READER) {
+            writeReaderReport(out, (CdcReaderProgressReport) envelope.getReport());
+        } else {
+            writeEnumeratorReport(out, (CdcEnumeratorProgressReport) envelope.getReport());
+        }
     }
 
-    static CdcReaderProgressEnvelope readReaderEnvelope(ObjectDataInput in) throws IOException {
-        TaskLocation taskLocation = in.readObject(TaskLocation.class);
-        long sourceVertexId = in.readLong();
-        long executionAttemptId = in.readLong();
-        long reportSequence = in.readLong();
-        long observedAt = in.readLong();
-        return new CdcReaderProgressEnvelope(
-                taskLocation,
-                sourceVertexId,
-                executionAttemptId,
-                reportSequence,
-                observedAt,
-                readReaderReport(in));
-    }
-
-    static void writeEnumeratorEnvelope(
-            ObjectDataOutput out, CdcEnumeratorProgressEnvelope envelope) throws IOException {
-        out.writeObject(envelope.getTaskLocation());
-        out.writeLong(envelope.getSourceVertexId());
-        out.writeLong(envelope.getExecutionAttemptId());
-        out.writeLong(envelope.getReportSequence());
-        out.writeLong(envelope.getObservedAt());
-        writeEnumeratorReport(out, envelope.getReport());
-    }
-
-    static CdcEnumeratorProgressEnvelope readEnumeratorEnvelope(ObjectDataInput in)
+    static CdcProgressEnvelope<? extends CdcProgressReport> readEnvelope(ObjectDataInput in)
             throws IOException {
+        CdcProgressOwner owner = readOwner(in);
         TaskLocation taskLocation = in.readObject(TaskLocation.class);
         long sourceVertexId = in.readLong();
         long executionAttemptId = in.readLong();
         long reportSequence = in.readLong();
         long observedAt = in.readLong();
-        return new CdcEnumeratorProgressEnvelope(
+        CdcProgressReport report =
+                owner == CdcProgressOwner.READER ? readReaderReport(in) : readEnumeratorReport(in);
+        return new CdcProgressEnvelope<>(
+                owner,
                 taskLocation,
                 sourceVertexId,
                 executionAttemptId,
                 reportSequence,
                 observedAt,
-                readEnumeratorReport(in));
+                report);
     }
 
     private static void writeReaderReport(ObjectDataOutput out, CdcReaderProgressReport report)
@@ -120,7 +106,7 @@ final class CdcProgressReportSerializer {
     private static void writeEnumeratorReport(
             ObjectDataOutput out, CdcEnumeratorProgressReport report) throws IOException {
         out.writeString(report.getConnectorType());
-        writeLifecycle(out, report.getLifecycle());
+        out.writeString(report.getSnapshotAssignmentStatus().name());
         writeIntegerValue(out, report.getAssignedSplitCount());
         writeIntegerValue(out, report.getCompletedSplitCount());
         writeIntegerValue(out, report.getRunningSplitCount());
@@ -138,7 +124,8 @@ final class CdcProgressReportSerializer {
     private static CdcEnumeratorProgressReport readEnumeratorReport(ObjectDataInput in)
             throws IOException {
         String connectorType = in.readString();
-        CdcProgressLifecycle lifecycle = readLifecycle(in);
+        CdcSnapshotAssignmentStatus assignmentStatus =
+                CdcSnapshotAssignmentStatus.valueOf(in.readString());
         CdcProgressValue<Integer> assignedSplitCount = readIntegerValue(in);
         CdcProgressValue<Integer> completedSplitCount = readIntegerValue(in);
         CdcProgressValue<Integer> runningSplitCount = readIntegerValue(in);
@@ -156,7 +143,7 @@ final class CdcProgressReportSerializer {
         }
         return new CdcEnumeratorProgressReport(
                 connectorType,
-                lifecycle,
+                assignmentStatus,
                 assignedSplitCount,
                 completedSplitCount,
                 runningSplitCount,
@@ -236,16 +223,14 @@ final class CdcProgressReportSerializer {
         return accuracy == CdcProgressAccuracy.EXACT || accuracy == CdcProgressAccuracy.BEST_EFFORT;
     }
 
-    private static <T extends java.io.Serializable> CdcProgressValue<T> supportedValue(
-            CdcProgressAccuracy accuracy, T value) {
+    private static <T> CdcProgressValue<T> supportedValue(CdcProgressAccuracy accuracy, T value) {
         if (accuracy == CdcProgressAccuracy.EXACT) {
             return CdcProgressValue.exact(value);
         }
         return CdcProgressValue.bestEffort(value);
     }
 
-    private static <T extends java.io.Serializable> CdcProgressValue<T> emptyValue(
-            CdcProgressAccuracy accuracy) {
+    private static <T> CdcProgressValue<T> emptyValue(CdcProgressAccuracy accuracy) {
         if (accuracy == CdcProgressAccuracy.UNSUPPORTED) {
             return CdcProgressValue.unsupported();
         }
@@ -261,6 +246,15 @@ final class CdcProgressReportSerializer {
 
     private static Long readNullableLong(ObjectDataInput in) throws IOException {
         return in.readBoolean() ? in.readLong() : null;
+    }
+
+    private static CdcProgressOwner readOwner(ObjectDataInput in) throws IOException {
+        String owner = in.readString();
+        try {
+            return CdcProgressOwner.valueOf(owner);
+        } catch (IllegalArgumentException e) {
+            throw new IOException("Unknown CDC progress owner: " + owner, e);
+        }
     }
 
     static int readSize(ObjectDataInput in, String valueName) throws IOException {

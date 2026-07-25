@@ -23,12 +23,13 @@ import org.apache.seatunnel.api.cdc.CdcProgressLifecycle;
 import org.apache.seatunnel.api.cdc.CdcProgressPosition;
 import org.apache.seatunnel.api.cdc.CdcProgressValue;
 import org.apache.seatunnel.api.cdc.CdcReaderProgressReport;
+import org.apache.seatunnel.api.cdc.CdcSnapshotAssignmentStatus;
 import org.apache.seatunnel.api.cdc.CdcSnapshotSplitProgress;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
-import org.apache.seatunnel.engine.server.observability.cdc.CdcEnumeratorProgressEnvelope;
-import org.apache.seatunnel.engine.server.observability.cdc.CdcReaderProgressEnvelope;
+import org.apache.seatunnel.engine.server.observability.cdc.CdcProgressEnvelope;
+import org.apache.seatunnel.engine.server.observability.cdc.CdcProgressOwner;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -60,8 +61,9 @@ class ReportCdcProgressOperationSerializationTest {
         CdcProgressPosition position =
                 new CdcProgressPosition(
                         "MYSQL_BINLOG", 1, Collections.singletonMap("file", "mysql-bin.000001"));
-        CdcReaderProgressEnvelope reader =
-                new CdcReaderProgressEnvelope(
+        CdcProgressEnvelope<CdcReaderProgressReport> reader =
+                new CdcProgressEnvelope<>(
+                        CdcProgressOwner.READER,
                         location,
                         5L,
                         6L,
@@ -76,8 +78,9 @@ class ReportCdcProgressOperationSerializationTest {
                                 CdcProgressValue.unsupported(),
                                 9L,
                                 10L));
-        CdcEnumeratorProgressEnvelope enumerator =
-                new CdcEnumeratorProgressEnvelope(
+        CdcProgressEnvelope<CdcEnumeratorProgressReport> enumerator =
+                new CdcProgressEnvelope<>(
+                        CdcProgressOwner.ENUMERATOR,
                         location,
                         5L,
                         6L,
@@ -85,7 +88,7 @@ class ReportCdcProgressOperationSerializationTest {
                         8L,
                         new CdcEnumeratorProgressReport(
                                 "MySQL-CDC",
-                                CdcProgressLifecycle.SNAPSHOT,
+                                CdcSnapshotAssignmentStatus.ASSIGNING,
                                 CdcProgressValue.exact(1),
                                 CdcProgressValue.exact(0),
                                 CdcProgressValue.exact(1),
@@ -98,41 +101,42 @@ class ReportCdcProgressOperationSerializationTest {
                                                 CdcProgressValue.exact(position),
                                                 CdcProgressValue.unavailable()))));
         ReportCdcProgressOperation original =
-                new ReportCdcProgressOperation(
-                        Collections.singletonList(reader), Collections.singletonList(enumerator));
+                new ReportCdcProgressOperation(java.util.Arrays.asList(reader, enumerator));
 
         Data data = serializationService.toData(original);
         ReportCdcProgressOperation restored = serializationService.toObject(data);
 
-        List<?> readerReports = reports(restored, "readerReports");
-        List<?> enumeratorReports = reports(restored, "enumeratorReports");
-        Assertions.assertEquals(1, readerReports.size());
-        CdcReaderProgressEnvelope restoredReader = (CdcReaderProgressEnvelope) readerReports.get(0);
+        List<?> reports = reports(restored);
+        Assertions.assertEquals(2, reports.size());
+        CdcProgressEnvelope<?> restoredReader = (CdcProgressEnvelope<?>) reports.get(0);
+        Assertions.assertEquals(CdcProgressOwner.READER, restoredReader.getOwner());
         Assertions.assertEquals(7L, restoredReader.getReportSequence());
+        CdcReaderProgressReport restoredReaderReport =
+                (CdcReaderProgressReport) restoredReader.getReport();
         Assertions.assertEquals(
                 "mysql-bin.000001",
-                restoredReader
-                        .getReport()
+                restoredReaderReport
                         .getCurrentConsumedPosition()
                         .getValue()
                         .getValues()
                         .get("file"));
         Assertions.assertEquals(
                 CdcProgressAccuracy.BEST_EFFORT,
-                restoredReader.getReport().getLastCompletedCheckpointPosition().getAccuracy());
-        Assertions.assertEquals(10L, restoredReader.getReport().getLastSourceEventAt());
-        Assertions.assertEquals(1, enumeratorReports.size());
-        CdcEnumeratorProgressEnvelope restoredEnumerator =
-                (CdcEnumeratorProgressEnvelope) enumeratorReports.get(0);
+                restoredReaderReport.getLastCompletedCheckpointPosition().getAccuracy());
+        Assertions.assertEquals(10L, restoredReaderReport.getLastSourceEventAt());
+        CdcProgressEnvelope<?> restoredEnumerator = (CdcProgressEnvelope<?>) reports.get(1);
+        Assertions.assertEquals(CdcProgressOwner.ENUMERATOR, restoredEnumerator.getOwner());
         Assertions.assertEquals(5L, restoredEnumerator.getSourceVertexId());
         Assertions.assertEquals(7L, restoredEnumerator.getReportSequence());
         Assertions.assertEquals(
                 "snapshot-split-1",
-                restoredEnumerator.getReport().getActiveSplits().get(0).getSplitId());
+                ((CdcEnumeratorProgressReport) restoredEnumerator.getReport())
+                        .getActiveSplits()
+                        .get(0)
+                        .getSplitId());
         Assertions.assertEquals(
                 "MYSQL_BINLOG",
-                restoredEnumerator
-                        .getReport()
+                ((CdcEnumeratorProgressReport) restoredEnumerator.getReport())
                         .getActiveSplits()
                         .get(0)
                         .getLowWatermark()
@@ -143,13 +147,12 @@ class ReportCdcProgressOperationSerializationTest {
     @Test
     void testEmptyReportListsArePreservedAfterSerialization() {
         ReportCdcProgressOperation original =
-                new ReportCdcProgressOperation(Collections.emptyList(), Collections.emptyList());
+                new ReportCdcProgressOperation(Collections.emptyList());
 
         Data data = serializationService.toData(original);
         ReportCdcProgressOperation restored = serializationService.toObject(data);
 
-        Assertions.assertTrue(reports(restored, "readerReports").isEmpty());
-        Assertions.assertTrue(reports(restored, "enumeratorReports").isEmpty());
+        Assertions.assertTrue(reports(restored).isEmpty());
     }
 
     @Test
@@ -162,16 +165,29 @@ class ReportCdcProgressOperationSerializationTest {
         IOException exception =
                 Assertions.assertThrows(
                         IOException.class,
-                        () -> CdcProgressReportSerializer.readSize(input, "reader report"));
+                        () -> CdcProgressReportSerializer.readSize(input, "report"));
 
-        Assertions.assertEquals(
-                "Invalid CDC progress reader report count: -1", exception.getMessage());
+        Assertions.assertEquals("Invalid CDC progress report count: -1", exception.getMessage());
+    }
+
+    @Test
+    void testRejectsUnknownReportOwner() throws IOException {
+        BufferObjectDataOutput output = serializationService.createObjectDataOutput();
+        output.writeString("UNKNOWN");
+        BufferObjectDataInput input =
+                serializationService.createObjectDataInput(output.toByteArray());
+
+        IOException exception =
+                Assertions.assertThrows(
+                        IOException.class, () -> CdcProgressReportSerializer.readEnvelope(input));
+
+        Assertions.assertEquals("Unknown CDC progress owner: UNKNOWN", exception.getMessage());
     }
 
     @SuppressWarnings("unchecked")
-    private List<?> reports(ReportCdcProgressOperation operation, String fieldName) {
-        return ReflectionUtils.getField(operation, fieldName)
+    private List<?> reports(ReportCdcProgressOperation operation) {
+        return ReflectionUtils.getField(operation, "reports")
                 .map(field -> (List<Object>) field)
-                .orElseThrow(() -> new AssertionError("Missing field " + fieldName));
+                .orElseThrow(() -> new AssertionError("Missing reports field"));
     }
 }

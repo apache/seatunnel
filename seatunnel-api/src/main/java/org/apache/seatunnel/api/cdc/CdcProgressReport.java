@@ -2,7 +2,7 @@
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
+ * The ASF licenses this file to you under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
@@ -19,10 +19,6 @@ package org.apache.seatunnel.api.cdc;
 
 import org.apache.seatunnel.api.annotation.Experimental;
 
-/** Non-blocking capability for reading the latest immutable CDC reader report. */
+/** Marker for immutable connector-owned CDC progress facts. */
 @Experimental
-public interface CdcReaderProgressProvider {
-
-    /** Returns the latest local reader report without performing source or network I/O. */
-    CdcReaderProgressReport getCdcReaderProgress();
-}
+public interface CdcProgressReport {}

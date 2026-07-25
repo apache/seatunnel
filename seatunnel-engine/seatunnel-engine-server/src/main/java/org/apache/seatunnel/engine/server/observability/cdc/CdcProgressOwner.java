@@ -2,7 +2,7 @@
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
+ * The ASF licenses this file to you under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
@@ -15,14 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.cdc;
+package org.apache.seatunnel.engine.server.observability.cdc;
 
-import org.apache.seatunnel.api.annotation.Experimental;
-
-/** Non-blocking capability for reading the latest immutable CDC enumerator report. */
-@Experimental
-public interface CdcEnumeratorProgressProvider {
-
-    /** Returns the latest local enumerator report without performing source or network I/O. */
-    CdcEnumeratorProgressReport getCdcEnumeratorProgress();
+/** Runtime component that owns the facts in a CDC progress report. */
+public enum CdcProgressOwner {
+    READER,
+    ENUMERATOR
 }

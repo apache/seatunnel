@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.connectors.cdc.base.source.reader;
 
-import org.apache.seatunnel.api.cdc.CdcReaderProgressProvider;
+import org.apache.seatunnel.api.cdc.CdcProgressProvider;
 import org.apache.seatunnel.api.cdc.CdcReaderProgressReport;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
@@ -65,7 +65,7 @@ import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.ch
 public class IncrementalSourceReader<T, C extends SourceConfig>
         extends SingleThreadMultiplexSourceReaderBase<
                 SourceRecords, T, SourceSplitBase, SourceSplitStateBase>
-        implements CdcReaderProgressProvider {
+        implements CdcProgressProvider<CdcReaderProgressReport> {
 
     private final Map<String, SnapshotSplit> finishedUnackedSplits;
 
@@ -245,7 +245,7 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
     }
 
     @Override
-    public CdcReaderProgressReport getCdcReaderProgress() {
+    public CdcReaderProgressReport getCdcProgress() {
         return cdcProgressTracker.current();
     }
 

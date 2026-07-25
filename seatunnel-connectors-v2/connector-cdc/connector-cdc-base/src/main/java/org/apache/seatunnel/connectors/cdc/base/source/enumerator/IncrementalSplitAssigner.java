@@ -20,8 +20,8 @@ package org.apache.seatunnel.connectors.cdc.base.source.enumerator;
 import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 
 import org.apache.seatunnel.api.cdc.CdcEnumeratorProgressReport;
-import org.apache.seatunnel.api.cdc.CdcProgressLifecycle;
 import org.apache.seatunnel.api.cdc.CdcProgressValue;
+import org.apache.seatunnel.api.cdc.CdcSnapshotAssignmentStatus;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.StartupConfig;
@@ -219,7 +219,7 @@ public class IncrementalSplitAssigner<C extends SourceConfig>
             String connectorType, String positionType) {
         return new CdcEnumeratorProgressReport(
                 connectorType,
-                CdcProgressLifecycle.INCREMENTAL,
+                CdcSnapshotAssignmentStatus.NOT_APPLICABLE,
                 CdcProgressValue.unsupported(),
                 CdcProgressValue.unsupported(),
                 CdcProgressValue.unsupported(),

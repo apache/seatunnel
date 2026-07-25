@@ -2,7 +2,7 @@
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
- * The ASF licenses this file to You under the Apache License, Version 2.0
+ * The ASF licenses this file to you under the Apache License, Version 2.0
  * (the "License"); you may not use this file except in compliance with
  * the License.  You may obtain a copy of the License at
  *
@@ -18,36 +18,57 @@
 package org.apache.seatunnel.engine.server.observability.cdc;
 
 import org.apache.seatunnel.api.cdc.CdcEnumeratorProgressReport;
+import org.apache.seatunnel.api.cdc.CdcProgressReport;
+import org.apache.seatunnel.api.cdc.CdcReaderProgressReport;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 
-import java.io.Serializable;
 import java.util.Objects;
 
-/** Engine identity metadata for one coordinator-owned CDC enumerator report. */
-public final class CdcEnumeratorProgressEnvelope implements Serializable {
+/** Engine identity and ordering metadata for one connector-owned CDC progress report. */
+public final class CdcProgressEnvelope<R extends CdcProgressReport> {
 
-    private static final long serialVersionUID = 1L;
-
+    private final CdcProgressOwner owner;
     private final TaskLocation taskLocation;
     private final long sourceVertexId;
     private final long executionAttemptId;
     private final long reportSequence;
     private final long observedAt;
-    private final CdcEnumeratorProgressReport report;
+    private final R report;
 
-    public CdcEnumeratorProgressEnvelope(
+    public CdcProgressEnvelope(
+            CdcProgressOwner owner,
             TaskLocation taskLocation,
             long sourceVertexId,
             long executionAttemptId,
             long reportSequence,
             long observedAt,
-            CdcEnumeratorProgressReport report) {
+            R report) {
+        this.owner = Objects.requireNonNull(owner, "owner must not be null");
         this.taskLocation = Objects.requireNonNull(taskLocation, "taskLocation must not be null");
         this.sourceVertexId = sourceVertexId;
         this.executionAttemptId = executionAttemptId;
         this.reportSequence = reportSequence;
         this.observedAt = observedAt;
         this.report = Objects.requireNonNull(report, "report must not be null");
+        validateOwner(owner, report);
+    }
+
+    private static void validateOwner(CdcProgressOwner owner, CdcProgressReport report) {
+        boolean valid =
+                owner == CdcProgressOwner.READER
+                        ? report instanceof CdcReaderProgressReport
+                        : report instanceof CdcEnumeratorProgressReport;
+        if (!valid) {
+            throw new IllegalArgumentException(
+                    "CDC progress owner "
+                            + owner
+                            + " does not match report type "
+                            + report.getClass().getSimpleName());
+        }
+    }
+
+    public CdcProgressOwner getOwner() {
+        return owner;
     }
 
     public TaskLocation getTaskLocation() {
@@ -70,7 +91,7 @@ public final class CdcEnumeratorProgressEnvelope implements Serializable {
         return observedAt;
     }
 
-    public CdcEnumeratorProgressReport getReport() {
+    public R getReport() {
         return report;
     }
 }

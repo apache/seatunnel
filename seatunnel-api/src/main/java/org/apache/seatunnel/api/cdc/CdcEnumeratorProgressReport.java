@@ -19,7 +19,6 @@ package org.apache.seatunnel.api.cdc;
 
 import org.apache.seatunnel.api.annotation.Experimental;
 
-import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -34,15 +33,13 @@ import java.util.Objects;
  * separate so lazy chunk creation is not hidden behind one ambiguous remaining count.
  */
 @Experimental
-public final class CdcEnumeratorProgressReport implements Serializable {
-
-    private static final long serialVersionUID = 1L;
+public final class CdcEnumeratorProgressReport implements CdcProgressReport {
 
     /** Connector identifier returned by the source plugin. */
     private final String connectorType;
 
-    /** Enumerator-local lifecycle at observation time. */
-    private final CdcProgressLifecycle lifecycle;
+    /** Snapshot assignment state owned by the enumerator. */
+    private final CdcSnapshotAssignmentStatus snapshotAssignmentStatus;
 
     /** Total number of splits assigned during the current snapshot lifecycle. */
     private final CdcProgressValue<Integer> assignedSplitCount;
@@ -64,7 +61,7 @@ public final class CdcEnumeratorProgressReport implements Serializable {
 
     public CdcEnumeratorProgressReport(
             String connectorType,
-            CdcProgressLifecycle lifecycle,
+            CdcSnapshotAssignmentStatus snapshotAssignmentStatus,
             CdcProgressValue<Integer> assignedSplitCount,
             CdcProgressValue<Integer> completedSplitCount,
             CdcProgressValue<Integer> runningSplitCount,
@@ -73,7 +70,9 @@ public final class CdcEnumeratorProgressReport implements Serializable {
             List<CdcSnapshotSplitProgress> activeSplits) {
         this.connectorType =
                 Objects.requireNonNull(connectorType, "connectorType must not be null");
-        this.lifecycle = Objects.requireNonNull(lifecycle, "lifecycle must not be null");
+        this.snapshotAssignmentStatus =
+                Objects.requireNonNull(
+                        snapshotAssignmentStatus, "snapshotAssignmentStatus must not be null");
         this.assignedSplitCount =
                 Objects.requireNonNull(assignedSplitCount, "assignedSplitCount must not be null");
         this.completedSplitCount =
@@ -99,8 +98,8 @@ public final class CdcEnumeratorProgressReport implements Serializable {
         return connectorType;
     }
 
-    public CdcProgressLifecycle getLifecycle() {
-        return lifecycle;
+    public CdcSnapshotAssignmentStatus getSnapshotAssignmentStatus() {
+        return snapshotAssignmentStatus;
     }
 
     public CdcProgressValue<Integer> getAssignedSplitCount() {

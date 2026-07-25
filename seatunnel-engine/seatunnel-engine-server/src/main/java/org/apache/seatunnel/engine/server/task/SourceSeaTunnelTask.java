@@ -35,6 +35,8 @@ import org.apache.seatunnel.engine.server.dag.physical.config.SourceConfig;
 import org.apache.seatunnel.engine.server.dag.physical.flow.PhysicalExecutionFlow;
 import org.apache.seatunnel.engine.server.execution.ProgressState;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.engine.server.observability.cdc.CdcProgressOwner;
+import org.apache.seatunnel.engine.server.observability.cdc.CdcProgressReportSource;
 import org.apache.seatunnel.engine.server.task.flow.SourceFlowLifeCycle;
 import org.apache.seatunnel.engine.server.task.record.Barrier;
 
@@ -51,7 +53,8 @@ import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.api.options.EnvCommonOptions.SINK_FLUSH_INTERVAL;
 
-public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunnelTask {
+public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunnelTask
+        implements CdcProgressReportSource<CdcReaderProgressReport> {
 
     private static final ILogger LOGGER = Logger.getLogger(SourceSeaTunnelTask.class);
 
@@ -170,14 +173,22 @@ public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunne
         sourceFlow.triggerBarrier(barrier);
     }
 
-    public CdcReaderProgressReport getCdcReaderProgress() {
+    @Override
+    public CdcReaderProgressReport getCdcProgressReport() {
         return ((SourceFlowLifeCycle<T, SplitT>) startFlowLifeCycle).getCdcReaderProgress();
     }
 
+    @Override
+    public CdcProgressOwner getCdcProgressOwner() {
+        return CdcProgressOwner.READER;
+    }
+
+    @Override
     public long getCdcProgressSourceVertexId() {
         return ((SourceFlowLifeCycle<T, SplitT>) startFlowLifeCycle).getSourceVertexId();
     }
 
+    @Override
     public long nextCdcProgressSequence() {
         return cdcProgressSequence.incrementAndGet();
     }

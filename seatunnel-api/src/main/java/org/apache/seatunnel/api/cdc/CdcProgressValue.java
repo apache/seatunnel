@@ -19,7 +19,6 @@ package org.apache.seatunnel.api.cdc;
 
 import org.apache.seatunnel.api.annotation.Experimental;
 
-import java.io.Serializable;
 import java.util.Objects;
 
 /**
@@ -30,9 +29,7 @@ import java.util.Objects;
  * CdcProgressAccuracy#UNAVAILABLE} never carry one.
  */
 @Experimental
-public final class CdcProgressValue<T extends Serializable> implements Serializable {
-
-    private static final long serialVersionUID = 1L;
+public final class CdcProgressValue<T> {
 
     private final T value;
     private final CdcProgressAccuracy accuracy;
@@ -50,19 +47,19 @@ public final class CdcProgressValue<T extends Serializable> implements Serializa
         }
     }
 
-    public static <T extends Serializable> CdcProgressValue<T> exact(T value) {
+    public static <T> CdcProgressValue<T> exact(T value) {
         return new CdcProgressValue<>(value, CdcProgressAccuracy.EXACT);
     }
 
-    public static <T extends Serializable> CdcProgressValue<T> bestEffort(T value) {
+    public static <T> CdcProgressValue<T> bestEffort(T value) {
         return new CdcProgressValue<>(value, CdcProgressAccuracy.BEST_EFFORT);
     }
 
-    public static <T extends Serializable> CdcProgressValue<T> unsupported() {
+    public static <T> CdcProgressValue<T> unsupported() {
         return new CdcProgressValue<>(null, CdcProgressAccuracy.UNSUPPORTED);
     }
 
-    public static <T extends Serializable> CdcProgressValue<T> unavailable() {
+    public static <T> CdcProgressValue<T> unavailable() {
         return new CdcProgressValue<>(null, CdcProgressAccuracy.UNAVAILABLE);
     }
 

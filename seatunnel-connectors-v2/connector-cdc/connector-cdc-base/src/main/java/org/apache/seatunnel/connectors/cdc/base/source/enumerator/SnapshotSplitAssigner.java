@@ -20,9 +20,9 @@ package org.apache.seatunnel.connectors.cdc.base.source.enumerator;
 import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 
 import org.apache.seatunnel.api.cdc.CdcEnumeratorProgressReport;
-import org.apache.seatunnel.api.cdc.CdcProgressLifecycle;
 import org.apache.seatunnel.api.cdc.CdcProgressPosition;
 import org.apache.seatunnel.api.cdc.CdcProgressValue;
+import org.apache.seatunnel.api.cdc.CdcSnapshotAssignmentStatus;
 import org.apache.seatunnel.api.cdc.CdcSnapshotSplitProgress;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
@@ -299,13 +299,23 @@ public class SnapshotSplitAssigner<C extends SourceConfig>
                         .collect(Collectors.toList());
         return new CdcEnumeratorProgressReport(
                 connectorType,
-                assignerCompleted ? CdcProgressLifecycle.CATCH_UP : CdcProgressLifecycle.SNAPSHOT,
+                snapshotAssignmentStatus(),
                 CdcProgressValue.exact(assignedSplits.size()),
                 CdcProgressValue.exact(splitCompletedOffsets.size()),
                 CdcProgressValue.exact(activeSplits.size()),
                 CdcProgressValue.exact(remainingSplits.size()),
                 CdcProgressValue.exact(remainingTables.size()),
                 activeSplits);
+    }
+
+    private CdcSnapshotAssignmentStatus snapshotAssignmentStatus() {
+        if (!remainingTables.isEmpty()) {
+            return CdcSnapshotAssignmentStatus.DISCOVERING;
+        }
+        if (!remainingSplits.isEmpty()) {
+            return CdcSnapshotAssignmentStatus.ASSIGNING;
+        }
+        return CdcSnapshotAssignmentStatus.COMPLETED;
     }
 
     private CdcSnapshotSplitProgress activeSplitProgress(SnapshotSplit split, String positionType) {

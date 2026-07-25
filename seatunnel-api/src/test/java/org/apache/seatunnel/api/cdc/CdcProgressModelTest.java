@@ -55,7 +55,7 @@ class CdcProgressModelTest {
         CdcEnumeratorProgressReport report =
                 new CdcEnumeratorProgressReport(
                         "MySQL-CDC",
-                        CdcProgressLifecycle.SNAPSHOT,
+                        CdcSnapshotAssignmentStatus.ASSIGNING,
                         CdcProgressValue.exact(1),
                         CdcProgressValue.exact(0),
                         CdcProgressValue.exact(1),
@@ -78,5 +78,12 @@ class CdcProgressModelTest {
         Assertions.assertEquals(CdcProgressAccuracy.UNSUPPORTED, unsupported.getAccuracy());
         Assertions.assertNull(unavailable.getValue());
         Assertions.assertEquals(CdcProgressAccuracy.UNAVAILABLE, unavailable.getAccuracy());
+    }
+
+    @Test
+    void testProgressValueDoesNotRequireJavaSerialization() {
+        Object value = new Object();
+
+        Assertions.assertSame(value, CdcProgressValue.exact(value).getValue());
     }
 }

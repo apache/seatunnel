@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.cdc.base.source.enumerator;
 
+import org.apache.seatunnel.api.cdc.CdcSnapshotAssignmentStatus;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.StartupConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.StopConfig;
@@ -33,6 +34,7 @@ import io.debezium.relational.TableId;
 import java.util.Collections;
 import java.util.HashMap;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -58,6 +60,10 @@ class IncrementalSplitAssignerTest {
                 new IncrementalSplitAssigner<>(context, 1, offsetFactory);
         assertSame(
                 committedOffset, assigner.getNext().get().asIncrementalSplit().getStartupOffset());
+        assertEquals(
+                CdcSnapshotAssignmentStatus.NOT_APPLICABLE,
+                assigner.getCdcEnumeratorProgress("MySQL-CDC", "MYSQL_BINLOG")
+                        .getSnapshotAssignmentStatus());
 
         IncrementalPhaseState checkpoint = assigner.snapshotState(1L);
         IncrementalSplitAssigner<SourceConfig> restoredAssigner =

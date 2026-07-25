@@ -17,8 +17,9 @@
 
 package org.apache.seatunnel.engine.server.task;
 
-import org.apache.seatunnel.api.cdc.CdcEnumeratorProgressProvider;
 import org.apache.seatunnel.api.cdc.CdcEnumeratorProgressReport;
+import org.apache.seatunnel.api.cdc.CdcProgressProvider;
+import org.apache.seatunnel.api.cdc.CdcProgressReport;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.SourceEvent;
@@ -35,6 +36,8 @@ import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOp
 import org.apache.seatunnel.engine.server.event.JobEventListener;
 import org.apache.seatunnel.engine.server.execution.ProgressState;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.engine.server.observability.cdc.CdcProgressOwner;
+import org.apache.seatunnel.engine.server.observability.cdc.CdcProgressReportSource;
 import org.apache.seatunnel.engine.server.task.context.SeaTunnelSplitEnumeratorContext;
 import org.apache.seatunnel.engine.server.task.operation.checkpoint.BarrierFlowOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.CloseIdleReaderOperation;
@@ -75,7 +78,8 @@ import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTask
 import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.WAITING_RESTORE;
 
 @Slf4j
-public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends CoordinatorTask {
+public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends CoordinatorTask
+        implements CdcProgressReportSource<CdcEnumeratorProgressReport> {
 
     private static final long serialVersionUID = -3713701594297977775L;
 
@@ -219,19 +223,30 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         return splitSerializer;
     }
 
-    public CdcEnumeratorProgressReport getCdcEnumeratorProgress() {
+    @Override
+    public CdcEnumeratorProgressReport getCdcProgressReport() {
         synchronized (enumeratorContext) {
-            if (enumerator instanceof CdcEnumeratorProgressProvider) {
-                return ((CdcEnumeratorProgressProvider) enumerator).getCdcEnumeratorProgress();
+            if (enumerator instanceof CdcProgressProvider) {
+                CdcProgressReport report = ((CdcProgressProvider<?>) enumerator).getCdcProgress();
+                return report instanceof CdcEnumeratorProgressReport
+                        ? (CdcEnumeratorProgressReport) report
+                        : null;
             }
             return null;
         }
     }
 
+    @Override
+    public CdcProgressOwner getCdcProgressOwner() {
+        return CdcProgressOwner.ENUMERATOR;
+    }
+
+    @Override
     public long nextCdcProgressSequence() {
         return cdcProgressSequence.incrementAndGet();
     }
 
+    @Override
     public long getCdcProgressSourceVertexId() {
         return source.getId();
     }

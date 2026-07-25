@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.cdc.base.source.enumerator;
 
 import org.apache.seatunnel.api.cdc.CdcEnumeratorProgressReport;
+import org.apache.seatunnel.api.cdc.CdcSnapshotAssignmentStatus;
 import org.apache.seatunnel.api.cdc.CdcSnapshotSplitProgress;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.state.SnapshotPhaseState;
 import org.apache.seatunnel.connectors.cdc.base.source.event.SnapshotSplitWatermark;
@@ -62,6 +63,11 @@ public class SnapshotSplitAssignerTest {
                 Collections.singleton(finishedSplit.splitId()),
                 state.getSplitCompletedOffsets().keySet());
         Assertions.assertFalse(splitAssigner.waitingForCompletedSplits());
+        Assertions.assertEquals(
+                CdcSnapshotAssignmentStatus.COMPLETED,
+                splitAssigner
+                        .getCdcEnumeratorProgress("MySQL-CDC", "MYSQL_BINLOG")
+                        .getSnapshotAssignmentStatus());
 
         splitAssigner.notifyCheckpointComplete(11L);
         Assertions.assertTrue(splitAssigner.isCompleted());
@@ -85,6 +91,11 @@ public class SnapshotSplitAssignerTest {
         Assertions.assertTrue(state.getAssignedSplits().isEmpty());
         Assertions.assertTrue(state.getSplitCompletedOffsets().isEmpty());
         Assertions.assertTrue(splitAssigner.waitingForCompletedSplits());
+        Assertions.assertEquals(
+                CdcSnapshotAssignmentStatus.ASSIGNING,
+                splitAssigner
+                        .getCdcEnumeratorProgress("MySQL-CDC", "MYSQL_BINLOG")
+                        .getSnapshotAssignmentStatus());
     }
 
     @Test
@@ -154,6 +165,8 @@ public class SnapshotSplitAssignerTest {
         Assertions.assertEquals(1, report.getRunningSplitCount().getValue());
         Assertions.assertEquals(1, report.getPreparedRemainingSplitCount().getValue());
         Assertions.assertEquals(2, report.getRemainingUnchunkedTableCount().getValue());
+        Assertions.assertEquals(
+                CdcSnapshotAssignmentStatus.DISCOVERING, report.getSnapshotAssignmentStatus());
         Assertions.assertEquals(1, report.getActiveSplits().size());
         CdcSnapshotSplitProgress activeProgress = report.getActiveSplits().get(0);
         Assertions.assertEquals(activeSplit.splitId(), activeProgress.getSplitId());

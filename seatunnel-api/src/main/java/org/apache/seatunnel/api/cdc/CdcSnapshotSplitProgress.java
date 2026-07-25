@@ -19,7 +19,6 @@ package org.apache.seatunnel.api.cdc;
 
 import org.apache.seatunnel.api.annotation.Experimental;
 
-import java.io.Serializable;
 import java.util.Objects;
 
 /**
@@ -29,9 +28,7 @@ import java.util.Objects;
  * unavailable when that split has not established it yet.
  */
 @Experimental
-public final class CdcSnapshotSplitProgress implements Serializable {
-
-    private static final long serialVersionUID = 1L;
+public final class CdcSnapshotSplitProgress {
 
     /** Stable source split identifier. */
     private final String splitId;

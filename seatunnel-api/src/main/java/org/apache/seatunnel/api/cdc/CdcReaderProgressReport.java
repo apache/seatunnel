@@ -19,7 +19,6 @@ package org.apache.seatunnel.api.cdc;
 
 import org.apache.seatunnel.api.annotation.Experimental;
 
-import java.io.Serializable;
 import java.util.Objects;
 
 /**
@@ -31,9 +30,7 @@ import java.util.Objects;
  * until it is wired to the corresponding checkpoint lifecycle callbacks.
  */
 @Experimental
-public final class CdcReaderProgressReport implements Serializable {
-
-    private static final long serialVersionUID = 1L;
+public final class CdcReaderProgressReport implements CdcProgressReport {
 
     /** Connector identifier returned by the source plugin. */
     private final String connectorType;

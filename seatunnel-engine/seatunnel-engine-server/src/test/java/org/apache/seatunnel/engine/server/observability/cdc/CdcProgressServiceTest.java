@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.cdc.CdcEnumeratorProgressReport;
 import org.apache.seatunnel.api.cdc.CdcProgressLifecycle;
 import org.apache.seatunnel.api.cdc.CdcProgressValue;
 import org.apache.seatunnel.api.cdc.CdcReaderProgressReport;
+import org.apache.seatunnel.api.cdc.CdcSnapshotAssignmentStatus;
 import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
@@ -34,22 +35,38 @@ import java.util.Collections;
 class CdcProgressServiceTest {
 
     @Test
+    void testEnvelopeRejectsMismatchedOwnerAndPayload() {
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        new CdcProgressEnvelope<>(
+                                CdcProgressOwner.ENUMERATOR,
+                                taskLocation(1L, 2, 0),
+                                10L,
+                                100L,
+                                1L,
+                                1_000L,
+                                readerReport("split")));
+    }
+
+    @Test
     void testRejectsStaleSequenceAndPreviousExecutionAttempt() {
         CdcProgressService service = new CdcProgressService();
         TaskLocation taskLocation = taskLocation(1L, 2, 0);
 
-        service.updateReaderReports(
+        service.updateReports(
                 Arrays.asList(
                         readerEnvelope(taskLocation, 10L, 100L, 2L, "newer-sequence"),
                         readerEnvelope(taskLocation, 10L, 100L, 1L, "stale-sequence")));
-        service.updateReaderReports(
+        service.updateReports(
                 Collections.singletonList(
                         readerEnvelope(taskLocation, 10L, 101L, 1L, "new-attempt")));
-        service.updateReaderReports(
+        service.updateReports(
                 Collections.singletonList(
                         readerEnvelope(taskLocation, 10L, 100L, 3L, "old-attempt")));
 
-        CdcReaderProgressEnvelope stored = service.getReaderReports(1L, 2, 10L).get(0);
+        CdcProgressEnvelope<CdcReaderProgressReport> stored =
+                service.getReaderReports(1L, 2, 10L).get(0);
         Assertions.assertEquals(101L, stored.getExecutionAttemptId());
         Assertions.assertEquals("new-attempt", stored.getReport().getActiveSplitId());
     }
@@ -58,7 +75,7 @@ class CdcProgressServiceTest {
     void testKeepsSourceVerticesAndReaderIndexesSeparate() {
         CdcProgressService service = new CdcProgressService();
 
-        service.updateReaderReports(
+        service.updateReports(
                 Arrays.asList(
                         readerEnvelope(taskLocation(1L, 2, 0), 10L, 100L, 1L, "source-10-0"),
                         readerEnvelope(taskLocation(1L, 2, 1), 10L, 100L, 1L, "source-10-1"),
@@ -73,16 +90,17 @@ class CdcProgressServiceTest {
         CdcProgressService service = new CdcProgressService();
         TaskLocation taskLocation = taskLocation(1L, 2, 0);
 
-        service.updateEnumeratorReports(
+        service.updateReports(
                 Arrays.asList(
                         enumeratorEnvelope(taskLocation, 10L, 100L, 2L, 1_000L),
                         enumeratorEnvelope(taskLocation, 10L, 100L, 1L, 2_000L)));
-        service.updateEnumeratorReports(
+        service.updateReports(
                 Collections.singletonList(enumeratorEnvelope(taskLocation, 10L, 101L, 1L, 1_000L)));
-        service.updateEnumeratorReports(
+        service.updateReports(
                 Collections.singletonList(enumeratorEnvelope(taskLocation, 10L, 100L, 3L, 3_000L)));
 
-        CdcEnumeratorProgressEnvelope stored = service.getEnumeratorReport(1L, 2, 10L);
+        CdcProgressEnvelope<CdcEnumeratorProgressReport> stored =
+                service.getEnumeratorReport(1L, 2, 10L);
         Assertions.assertEquals(101L, stored.getExecutionAttemptId());
         Assertions.assertEquals(1L, stored.getReportSequence());
         Assertions.assertEquals(1_000L, stored.getObservedAt());
@@ -91,11 +109,11 @@ class CdcProgressServiceTest {
     @Test
     void testPipelineCleanupRemovesOnlyMatchingReports() {
         CdcProgressService service = new CdcProgressService();
-        service.updateReaderReports(
+        service.updateReports(
                 Arrays.asList(
                         readerEnvelope(taskLocation(1L, 2, 0), 10L, 100L, 1L, "removed"),
                         readerEnvelope(taskLocation(1L, 3, 0), 10L, 100L, 1L, "retained")));
-        service.updateEnumeratorReports(
+        service.updateReports(
                 Arrays.asList(
                         enumeratorEnvelope(taskLocation(1L, 2, 0), 10L, 100L, 1L, 1_000L),
                         enumeratorEnvelope(taskLocation(1L, 3, 0), 10L, 100L, 1L, 1_000L)));
@@ -108,27 +126,36 @@ class CdcProgressServiceTest {
         Assertions.assertNotNull(service.getEnumeratorReport(1L, 3, 10L));
     }
 
-    private CdcReaderProgressEnvelope readerEnvelope(
+    private CdcProgressEnvelope<CdcReaderProgressReport> readerEnvelope(
             TaskLocation taskLocation,
             long sourceVertexId,
             long executionAttemptId,
             long sequence,
             String splitId) {
-        CdcReaderProgressReport report =
-                new CdcReaderProgressReport(
-                        "MySQL-CDC",
-                        CdcProgressLifecycle.INCREMENTAL,
-                        splitId,
-                        CdcProgressValue.unavailable(),
-                        CdcProgressValue.unsupported(),
-                        CdcProgressValue.unsupported(),
-                        0L,
-                        null);
-        return new CdcReaderProgressEnvelope(
-                taskLocation, sourceVertexId, executionAttemptId, sequence, 1000L, report);
+        CdcReaderProgressReport report = readerReport(splitId);
+        return new CdcProgressEnvelope<>(
+                CdcProgressOwner.READER,
+                taskLocation,
+                sourceVertexId,
+                executionAttemptId,
+                sequence,
+                1000L,
+                report);
     }
 
-    private CdcEnumeratorProgressEnvelope enumeratorEnvelope(
+    private CdcReaderProgressReport readerReport(String splitId) {
+        return new CdcReaderProgressReport(
+                "MySQL-CDC",
+                CdcProgressLifecycle.INCREMENTAL,
+                splitId,
+                CdcProgressValue.unavailable(),
+                CdcProgressValue.unsupported(),
+                CdcProgressValue.unsupported(),
+                0L,
+                null);
+    }
+
+    private CdcProgressEnvelope<CdcEnumeratorProgressReport> enumeratorEnvelope(
             TaskLocation taskLocation,
             long sourceVertexId,
             long executionAttemptId,
@@ -137,15 +164,21 @@ class CdcProgressServiceTest {
         CdcEnumeratorProgressReport report =
                 new CdcEnumeratorProgressReport(
                         "MySQL-CDC",
-                        CdcProgressLifecycle.SNAPSHOT,
+                        CdcSnapshotAssignmentStatus.ASSIGNING,
                         CdcProgressValue.exact(0),
                         CdcProgressValue.exact(0),
                         CdcProgressValue.exact(0),
                         CdcProgressValue.exact(0),
                         CdcProgressValue.exact(0),
                         Collections.emptyList());
-        return new CdcEnumeratorProgressEnvelope(
-                taskLocation, sourceVertexId, executionAttemptId, sequence, observedAt, report);
+        return new CdcProgressEnvelope<>(
+                CdcProgressOwner.ENUMERATOR,
+                taskLocation,
+                sourceVertexId,
+                executionAttemptId,
+                sequence,
+                observedAt,
+                report);
     }
 
     private TaskLocation taskLocation(long jobId, int pipelineId, int taskIndex) {
