@@ -117,7 +117,9 @@ public class FtpFileSourceFactory implements TableSourceFactory {
                         FileBaseSourceOptions.SYNC_MODE,
                         FileBaseSourceOptions.TARGET_HADOOP_CONF,
                         FileBaseSourceOptions.UPDATE_STRATEGY,
-                        FileBaseSourceOptions.COMPARE_MODE)
+                        FileBaseSourceOptions.COMPARE_MODE,
+                        FileBaseSourceOptions.UPDATE_COMPARE_PARALLELISM,
+                        FileBaseSourceOptions.UPDATE_COMPARE_BULK_THRESHOLD)
                 .conditional(
                         FileBaseSourceOptions.SYNC_MODE,
                         FileSyncMode.UPDATE,

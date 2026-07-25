@@ -173,6 +173,7 @@ You can use the following placeholders
 | ARRAY           | ARRAY                                   |
 | MAP             | MAP                                     |
 | JSON<br/>JSONB  | JSON                                    |
+| VARIANT         | STRING                                  |
 | HLL             | Not supported yet                       |
 | BITMAP          | Not supported yet                       |
 | QUANTILE_STATE  | Not supported yet                       |
@@ -181,6 +182,9 @@ You can use the following placeholders
 #### Supported import data formats
 
 The supported formats include CSV and JSON
+
+When writing to Doris `VARIANT` columns from SeaTunnel `STRING` fields, the field value should be a
+valid JSON document.
 
 ## Tuning Guide
 Appropriately increasing the value of `sink.buffer-size` and `doris.batch.size` can increase the write performance.

@@ -85,6 +85,8 @@ import ChangeLog from '../changelog/connector-file-local.md';
 | target_hadoop_conf         | map     | 否    | -                   |
 | update_strategy            | string  | 否    | distcp              |
 | compare_mode               | string  | 否    | len_mtime           |
+| update_compare_parallelism | int     | 否    | 8                   |
+| update_compare_bulk_threshold | int  | 否    | 0                   |
 | common-options             |         | 否    | -                   |
 | tables_configs             | list    | 否    | 用于定义多表任务            |
 | file_filter_modified_start | string  | 否    | -                   | 
@@ -512,6 +514,14 @@ compare_mode = "len_mtime"
 ### compare_mode [string]
 
 仅在 `sync_mode=update` 时使用。支持：`len_mtime`（默认）、`checksum`（仅在 `update_strategy=strict` 时可用）。
+
+### update_compare_parallelism [int]
+
+`sync_mode=update` 对稀疏目标文件执行元数据点查时的最大并发数。默认值为 `8`，有效范围为 `1` 到 `64`；范围外的值会在配置校验阶段被拒绝；已提交但未完成的任务上限为该值的 8 倍。
+
+### update_compare_bulk_threshold [int]
+
+设置正数后，同一目标父目录的候选文件达到该阈值时，SeaTunnel 改为只枚举一次目标目录。默认值 `0` 表示关闭自动批量枚举，使用有界并发点查，避免意外扫描庞大的目标目录。该行为适用于所有目标文件系统。源端会边枚举边过滤，以降低元数据峰值内存。
 
 ### file_filter_modified_start
 

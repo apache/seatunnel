@@ -325,6 +325,21 @@ public class DorisTypeConvertorV2Test {
     }
 
     @Test
+    public void testConvertVariant() {
+        BasicTypeDefine<Object> typeDefine =
+                BasicTypeDefine.builder()
+                        .name("test")
+                        .columnType("variant")
+                        .dataType("variant")
+                        .build();
+        Column column = DorisTypeConverterV2.INSTANCE.convert(typeDefine);
+        Assertions.assertEquals(typeDefine.getName(), column.getName());
+        Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
+        Assertions.assertEquals(DorisTypeConverterV2.MAX_STRING_LENGTH, column.getColumnLength());
+        Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
+    }
+
+    @Test
     public void testConvertDate() {
         BasicTypeDefine<Object> typeDefine =
                 BasicTypeDefine.builder().name("test").columnType("date").dataType("date").build();
@@ -869,6 +884,19 @@ public class DorisTypeConvertorV2Test {
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(DorisTypeConverterV2.DORIS_JSON, typeDefine.getColumnType());
         Assertions.assertEquals(DorisTypeConverterV2.DORIS_JSON, typeDefine.getDataType());
+
+        column =
+                PhysicalColumn.builder()
+                        .name("test")
+                        .dataType(BasicType.STRING_TYPE)
+                        .columnLength(null)
+                        .sourceType(DorisTypeConverterV2.DORIS_VARIANT)
+                        .build();
+
+        typeDefine = DorisTypeConverterV2.INSTANCE.reconvert(column);
+        Assertions.assertEquals(column.getName(), typeDefine.getName());
+        Assertions.assertEquals(DorisTypeConverterV2.DORIS_VARIANT, typeDefine.getColumnType());
+        Assertions.assertEquals(DorisTypeConverterV2.DORIS_VARIANT, typeDefine.getDataType());
 
         column =
                 PhysicalColumn.builder()

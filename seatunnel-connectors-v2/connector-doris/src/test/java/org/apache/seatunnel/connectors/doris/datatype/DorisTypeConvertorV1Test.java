@@ -335,6 +335,21 @@ public class DorisTypeConvertorV1Test {
     }
 
     @Test
+    public void testConvertVariant() {
+        BasicTypeDefine<Object> typeDefine =
+                BasicTypeDefine.builder()
+                        .name("test")
+                        .columnType("variant")
+                        .dataType("variant")
+                        .build();
+        Column column = DorisTypeConverterV1.INSTANCE.convert(typeDefine);
+        Assertions.assertEquals(typeDefine.getName(), column.getName());
+        Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
+        Assertions.assertEquals(DorisTypeConverterV1.MAX_STRING_LENGTH, column.getColumnLength());
+        Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
+    }
+
+    @Test
     public void testConvertDate() {
         BasicTypeDefine<Object> typeDefine =
                 BasicTypeDefine.builder().name("test").columnType("date").dataType("date").build();

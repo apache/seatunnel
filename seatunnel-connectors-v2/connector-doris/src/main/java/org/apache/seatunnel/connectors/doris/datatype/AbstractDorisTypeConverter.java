@@ -75,6 +75,7 @@ public abstract class AbstractDorisTypeConverter implements TypeConverter<BasicT
 
     public static final String DORIS_JSON = "JSON";
     public static final String DORIS_JSONB = "JSONB";
+    public static final String DORIS_VARIANT = "VARIANT";
 
     public static final Long DEFAULT_PRECISION = 9L;
     public static final Long MAX_PRECISION = 38L;
@@ -183,6 +184,7 @@ public abstract class AbstractDorisTypeConverter implements TypeConverter<BasicT
                 builder.scale(0);
                 break;
             case DORIS_STRING:
+            case DORIS_VARIANT:
                 builder.dataType(BasicType.STRING_TYPE);
                 builder.columnLength(MAX_STRING_LENGTH);
                 break;
