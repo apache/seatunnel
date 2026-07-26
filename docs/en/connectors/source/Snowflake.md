@@ -10,7 +10,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 > Flink<br/>
 > SeaTunnel Zeta<br/>
 >
-  ## Key features
+## Key features
 
 - [x] [batch](../../introduction/concepts/connector-v2-features.md)
 - [ ] [stream](../../introduction/concepts/connector-v2-features.md)
@@ -21,7 +21,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 > supports query SQL and can achieve projection effect.
 >
-  ## Description
+## Description
 
 Read external data source data through JDBC.
 
@@ -36,7 +36,7 @@ Read external data source data through JDBC.
 > Please download the support list corresponding to 'Maven' and copy it to the '$SEATUNNEL_HOME/plugins/jdbc/lib/' working directory<br/>
 > For example Snowflake datasource: cp snowflake-connector-java-xxx.jar $SEATUNNEL_HOME/plugins/jdbc/lib/
 >
-  ## Data Type Mapping
+## Data Type Mapping
 
 |                             Snowflake Data type                             | SeaTunnel Data type |
 |-----------------------------------------------------------------------------|---------------------|
@@ -79,6 +79,13 @@ Read external data source data through JDBC.
 > If partition_column is not set, it will run in single concurrency, and if partition_column is set, it will be executed  in parallel according to the concurrency of tasks.
 >
 > JDBC Driver Connection Parameters are supported in JDBC connection string. E.g, you can add `?GEOGRAPHY_OUTPUT_FORMAT='EWKT'` to specify the Geospatial Data Types. For more information about configurable parameters, and geospatial data types please visit Snowflake official [document](https://docs.snowflake.com/en/sql-reference/data-types-geospatial)
+
+## Notes
+
+- Use the `Jdbc` plugin name for Snowflake jobs, and set `driver = "net.snowflake.client.jdbc.SnowflakeDriver"`.
+- Put the Snowflake JDBC driver jar in `$SEATUNNEL_HOME/plugins/jdbc/lib/` before running the job.
+- When reading in parallel, `partition_column`, `partition_lower_bound`, `partition_upper_bound`, and `partition_num` should describe the same numeric column range.
+- Snowflake geospatial columns can be returned as bytes or string depending on Snowflake JDBC output parameters such as `GEOGRAPHY_OUTPUT_FORMAT`.
 
 ## Task Example
 

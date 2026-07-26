@@ -29,47 +29,25 @@ SeaTunnel 的 DAG 执行模型旨在:
 
 ### 1.3 执行模型概览
 
-```
-用户配置 (HOCON)
-    │
-    ▼
-┌─────────────────────┐
-│    LogicalDag       │  逻辑计划 (做什么)
-│  • LogicalVertex    │  - 数据 Source/tranform 转换器/Sink 目标端动作
-│  • LogicalEdge      │  - 数据依赖关系
-│  • Parallelism      │  - 逻辑并行度
-└─────────────────────┘
-    │ (计划生成)
-    ▼
-┌─────────────────────┐
-│   PhysicalPlan      │  物理计划 (如何执行)
-│  • SubPlan[]        │  - 多个流水线
-│  • Resources        │  - 资源需求
-│  • Scheduling       │  - 部署策略
-└─────────────────────┘
-    │ (流水线分割)
-    ▼
-┌─────────────────────┐
-│  SubPlan (Pipeline) │  独立执行单元
-│  • PhysicalVertex[] │  - 并行任务实例
-│  • CheckpointCoord  │  - 独立检查点
-│  • PipelineLocation │  - 唯一标识符
-└─────────────────────┘
-    │ (任务部署)
-    ▼
-┌─────────────────────┐
-│  PhysicalVertex     │  已部署任务组
-│  • TaskGroup        │  - 共址任务(融合)
-│  • SlotProfile      │  - 分配的资源槽位
-│  • ExecutionState   │  - 运行状态
-└─────────────────────┘
-    │ (执行)
-    ▼
-┌─────────────────────┐
-│   SeaTunnelTask     │  实际执行
-│  • Source/Transform │  - 数据处理
-│  • /Sink Logic     │  - 状态管理
-└─────────────────────┘
+```mermaid
+flowchart TD
+    config["用户配置<br/>HOCON"]
+    logical["LogicalDag<br/>LogicalVertex / LogicalEdge<br/>逻辑并行度"]
+    physical["PhysicalPlan<br/>SubPlan 列表<br/>资源需求<br/>调度策略"]
+    pipeline["SubPlan（Pipeline）<br/>独立执行单元<br/>PhysicalVertex 列表<br/>CheckpointCoordinator"]
+    vertex["PhysicalVertex<br/>TaskGroup<br/>SlotProfile<br/>ExecutionState"]
+    task["SeaTunnelTask<br/>实际执行 Source / Transform / Sink"]
+
+    config --> logical --> physical --> pipeline --> vertex --> task
+
+    classDef layerBlue fill:#0f1d33,stroke:#5db8e2,stroke-width:2px,color:#f8fbff;
+    classDef layerCyan fill:#0c2530,stroke:#2dd4bf,stroke-width:2px,color:#f8fbff;
+    classDef layerPurple fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff;
+
+    class config,logical layerBlue;
+    class physical,pipeline layerCyan;
+    class vertex,task layerPurple;
+    linkStyle default stroke:#5db8e2,stroke-width:2px;
 ```
 
 ## 2. LogicalDag: 用户意图
@@ -159,14 +137,19 @@ sink {
 ```
 
 生成的 LogicalDag:
-```
-Vertex 1 (JDBC 数据源, parallelism=4)
-    │
-    ▼
-Vertex 2 (SQL 转换器, parallelism=4)
-    │
-    ▼
-Vertex 3 (Elasticsearch 目标端, parallelism=4)
+```mermaid
+flowchart TD
+    v1["Vertex 1<br/>JDBC 数据源<br/>parallelism = 4"]
+    v2["Vertex 2<br/>SQL 转换器<br/>parallelism = 4"]
+    v3["Vertex 3<br/>Elasticsearch 目标端<br/>parallelism = 4"]
+    v1 --> v2 --> v3
+
+    classDef layerBlue fill:#0f1d33,stroke:#5db8e2,stroke-width:2px,color:#f8fbff;
+    classDef layerPurple fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff;
+
+    class v1,v3 layerBlue;
+    class v2 layerPurple;
+    linkStyle default stroke:#5db8e2,stroke-width:2px;
 ```
 
 ## 3. PhysicalPlan: 执行策略
@@ -200,9 +183,9 @@ sink { Elasticsearch { } }
 ```
 
 生成: **1 个流水线**
-```
-流水线 1: [JDBC 数据源] → [SQL 转换器] → [Elasticsearch 目标端]
-```
+生成结果:
+
+- `流水线 1`: `JDBC 数据源 → SQL 转换器 → Elasticsearch 目标端`
 
 **示例 2: 多个数据源**:
 ```hocon
@@ -221,10 +204,10 @@ sink {
 ```
 
 生成: **2 个流水线**
-```
-流水线 1: [JDBC 数据源] → [SQL 转换器] → [Elasticsearch 目标端]
-流水线 2: [Kafka 数据源] → [SQL 转换器] → [Elasticsearch 目标端]
-```
+生成结果:
+
+- `流水线 1`: `JDBC 数据源 → SQL 转换器 → Elasticsearch 目标端`
+- `流水线 2`: `Kafka 数据源 → SQL 转换器 → Elasticsearch 目标端`
 
 **示例 3: 多个目标端**:
 ```hocon
@@ -239,9 +222,19 @@ sink {
 ```
 
 生成: **通常为 1 个流水线（包含分支）**
-```
-流水线 1: [MySQL-CDC 数据源] → [Elasticsearch 目标端]
-                      └──────→ [JDBC 目标端]
+生成结果:
+
+```mermaid
+flowchart LR
+    source["MySQL-CDC 数据源"] --> elastic["<div style='width:12em;text-align:center'>Elasticsearch</div>"]
+    source --> jdbc["<div style='width:12em;text-align:center'>JDBC</div>"]
+
+    classDef layerCyan fill:#0c2530,stroke:#2dd4bf,stroke-width:2px,color:#f8fbff;
+    classDef layerPurple fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff;
+
+    class source layerCyan;
+    class elastic,jdbc layerPurple;
+    linkStyle default stroke:#5db8e2,stroke-width:2px;
 ```
 
 ### 3.3 PhysicalPlan 生成
@@ -274,15 +267,9 @@ SubPlan(流水线)通常包含:
 每个并行度为 N 的 LogicalVertex 生成 N 个 PhysicalVertices。
 
 **示例**:
-```
-LogicalVertex: JDBC 数据源 (parallelism = 4)
-    ↓
-PhysicalVertices:
-    - PhysicalVertex (子任务 0, 槽位 1)
-    - PhysicalVertex (子任务 1, 槽位 2)
-    - PhysicalVertex (子任务 2, 槽位 3)
-    - PhysicalVertex (子任务 3, 槽位 4)
-```
+| 逻辑顶点 | 生成的物理顶点 |
+|----------|----------------|
+| `JDBC 数据源 (parallelism = 4)` | `PhysicalVertex` 子任务 `0` 落在槽位 `1`，子任务 `1` 落在槽位 `2`，子任务 `2` 落在槽位 `3`，子任务 `3` 落在槽位 `4` |
 
 ### 4.3 协调器顶点
 
@@ -294,17 +281,10 @@ PhysicalVertices:
 说明：`SinkCommitter` 的触发方式取决于引擎实现，并不一定体现为独立的协调器顶点；例如在 SeaTunnel Engine 中，committer 可能在 Sink 任务的 checkpoint 回调中被触发。
 
 **示例**:
-```
-JDBC → Transform → Elasticsearch 的 SubPlan:
-    physicalVertexList:
-        - JdbcSourceTask (4 个实例)
-        - TransformTask (4 个实例)
-        - ElasticsearchSinkTask (4 个实例)
-
-    coordinatorVertexList:
-      - JdbcSourceSplitEnumerator (1 个实例)
-      - ElasticsearchSinkAggregatedCommitter (1 个实例，可选)
-```
+| 运行时范围 | 实例 |
+|------------|------|
+| `physicalVertexList` | `JdbcSourceTask × 4`、`TransformTask × 4`、`ElasticsearchSinkTask × 4` |
+| `coordinatorVertexList` | `JdbcSourceSplitEnumerator × 1`，以及 `ElasticsearchSinkAggregatedCommitter × 1`（可选） |
 
 ### 4.4 独立检查点
 
@@ -317,15 +297,10 @@ JDBC → Transform → Elasticsearch 的 SubPlan:
 - 简化屏障对齐
 
 **示例**:
-```
-流水线 1 (JDBC → ES):
-  CheckpointCoordinator 按作业配置的间隔触发
-    仅管理 JDBC 和 ES 任务的检查点
-
-流水线 2 (Kafka → JDBC):
-  CheckpointCoordinator 按作业配置的间隔触发
-    仅管理 Kafka 和 JDBC 任务的检查点
-```
+| 流水线 | 检查点行为 |
+|--------|------------|
+| `流水线 1 (JDBC → ES)` | 一个 `CheckpointCoordinator` 按作业配置的间隔触发，仅管理 JDBC 和 Elasticsearch 任务 |
+| `流水线 2 (Kafka → JDBC)` | 另一个协调器同样按作业配置触发，但只管理 Kafka 和 JDBC 任务 |
 
 ## 5. PhysicalVertex: 已部署任务
 
@@ -355,18 +330,11 @@ TaskGroup 的关键点:
 3. 不需要数据混洗
 
 **示例(带融合)**:
-```
-LogicalDag:
-    Source (parallelism=4) → Transform (parallelism=4) → Sink (parallelism=4)
-
-不融合:
-    12 个独立任务(4 + 4 + 4)
-    Source → Transform 和 Transform → Sink 有网络开销
-
-融合后:
-    4 个 TaskGroups,每个包含:
-        [SourceTask → TransformTask → SinkTask] (单线程,共享内存)
-```
+| 模式 | 执行形态 | 影响 |
+|------|----------|------|
+| 逻辑 DAG | `Source (4) → Transform (4) → Sink (4)` | 两种模式都保留相同的业务拓扑 |
+| 不融合 | `12` 个独立任务，阶段之间走网络传输 | 序列化和网络开销更高 |
+| 融合后 | `4` 个 `TaskGroup`，每组执行 `SourceTask → TransformTask → SinkTask` | 本地性更好，网络成本更低 |
 
 **优势**:
 - 减少网络序列化/反序列化
@@ -481,17 +449,11 @@ sink {
 ### 7.3 资源分配
 
 **槽位计算**:
-```
-所需槽位 = 所有任务并行度之和
+槽位估算经验:
 
-示例:
-  Source (parallelism=4) + Transform (parallelism=4) + Sink (parallelism=2)
-  = 需要 10 个槽位
-
-融合后:
-  TaskGroup (parallelism=4, fusion[Source+Transform]) + Sink (parallelism=2)
-  = 需要 6 个槽位
-```
+- `所需槽位 = 所有任务并行度之和`
+- 不融合示例: `Source (4) + Transform (4) + Sink (2) = 10 个槽位`
+- 融合示例: `TaskGroup (4, Source+Transform 融合) + Sink (2) = 6 个槽位`
 
 说明：资源画像/槽位资源的具体字段、单位与配置路径以引擎侧配置与实现为准；文档不在此给出不存在或不稳定的配置项示例。
 
@@ -515,15 +477,10 @@ sink {
 **关键见解**: 流水线故障是隔离的。
 
 **示例**:
-```
-有 2 个流水线的作业:
-    流水线 1: JDBC → ES (RUNNING)
-    流水线 2: Kafka → JDBC (FAILED)
-
-结果:
-    流水线 2 从检查点重启
-    流水线 1 继续不受影响
-```
+| 流水线 | 状态 | 恢复结果 |
+|--------|------|----------|
+| `流水线 1` | `RUNNING` | 持续运行，不受其他流水线影响 |
+| `流水线 2` | `FAILED` | 从最近一次检查点重启 |
 
 **优势**:
 - 减少爆炸半径
@@ -550,32 +507,21 @@ sink {
 
 ### 9.2 可视化
 
-```
-作业: mysql-to-es
-│
-├── 流水线 1 (mysql-cdc → elasticsearch)
-│   ├── PhysicalVertex 0 [RUNNING] @ worker-1:slot-1
-│   ├── PhysicalVertex 1 [RUNNING] @ worker-2:slot-1
-│   ├── PhysicalVertex 2 [RUNNING] @ worker-3:slot-1
-│   └── PhysicalVertex 3 [RUNNING] @ worker-4:slot-1
-│
-└── 流水线 2 (mysql-cdc → jdbc)
-    ├── PhysicalVertex 0 [RUNNING] @ worker-1:slot-2
-    └── PhysicalVertex 1 [RUNNING] @ worker-2:slot-2
-```
+| 流水线 | 顶点部署 |
+|--------|----------|
+| `流水线 1 (mysql-cdc → elasticsearch)` | `PhysicalVertex 0 @ worker-1:slot-1`，`1 @ worker-2:slot-1`，`2 @ worker-3:slot-1`，`3 @ worker-4:slot-1` |
+| `流水线 2 (mysql-cdc → jdbc)` | `PhysicalVertex 0 @ worker-1:slot-2`，`1 @ worker-2:slot-2` |
 
 ## 10. 最佳实践
 
 ### 10.1 并行度配置
 
 **经验法则**:
-```
-并行度 = min(
-    数据分区数,
-    可用槽位数,
-    目标吞吐量 / 单任务吞吐量
-)
-```
+并行度优先取以下几个约束中的较小值:
+
+- 数据分区数
+- 可用槽位数
+- `目标吞吐量 / 单任务吞吐量`
 
 **示例**:
 - **JDBC 数据源**: 设置为数据库分区数(例如 8 个分区 → parallelism=8)

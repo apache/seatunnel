@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.cassandra.client.CassandraClient;
 import org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraParameters;
+import org.apache.seatunnel.connectors.seatunnel.cassandra.config.CassandraTableConfig;
 import org.apache.seatunnel.connectors.seatunnel.cassandra.util.TypeConvertUtil;
 import org.apache.seatunnel.connectors.seatunnel.common.source.AbstractSingleSplitReader;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
@@ -30,16 +31,21 @@ import com.datastax.oss.driver.api.core.cql.ResultSet;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.util.List;
 
 @Slf4j
 public class CassandraSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     private final CassandraParameters cassandraParameters;
+    private final List<CassandraTableConfig> tableConfigs;
     private final SingleSplitReaderContext readerContext;
     private CqlSession session;
 
     CassandraSourceReader(
-            CassandraParameters cassandraParameters, SingleSplitReaderContext readerContext) {
+            CassandraParameters cassandraParameters,
+            List<CassandraTableConfig> tableConfigs,
+            SingleSplitReaderContext readerContext) {
         this.cassandraParameters = cassandraParameters;
+        this.tableConfigs = tableConfigs;
         this.readerContext = readerContext;
     }
 
@@ -65,12 +71,20 @@ public class CassandraSourceReader extends AbstractSingleSplitReader<SeaTunnelRo
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
         try {
-            ResultSet resultSet =
-                    session.execute(
-                            CassandraClient.createSimpleStatement(
-                                    cassandraParameters.getCql(),
-                                    cassandraParameters.getConsistencyLevel()));
-            resultSet.forEach(row -> output.collect(TypeConvertUtil.buildSeaTunnelRow(row)));
+            for (CassandraTableConfig tableConfig : tableConfigs) {
+                ResultSet resultSet =
+                        session.execute(
+                                CassandraClient.createSimpleStatement(
+                                        tableConfig.getCql(),
+                                        cassandraParameters.getConsistencyLevel()));
+                String tableId = tableConfig.getTableId();
+                resultSet.forEach(
+                        row -> {
+                            SeaTunnelRow seaTunnelRow = TypeConvertUtil.buildSeaTunnelRow(row);
+                            seaTunnelRow.setTableId(tableId);
+                            output.collect(seaTunnelRow);
+                        });
+            }
         } finally {
             this.readerContext.signalNoMoreElement();
         }

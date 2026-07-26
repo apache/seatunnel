@@ -21,11 +21,9 @@ seatunnel:
 
 ## Metrics
 
-The metric text of prometheus, which get
-from `http://{instanceHost}:5801/hazelcast/rest/instance/metrics`.
+The metric text of prometheus can be obtained from `http://{instanceHost}:5801/hazelcast/rest/instance/metrics`.
 
-The metric text of openMetrics, which get
-from `http://{instanceHost}:5801/hazelcast/rest/instance/openmetrics`.
+The metric text of openMetrics can be obtained from `http://{instanceHost}:5801/hazelcast/rest/instance/openmetrics`.
 
 Available metrics include the following categories.
 
@@ -51,6 +49,90 @@ Note: All metrics both have the same labelName `cluster`, that's value is the co
 | hazelcast_partition_isClusterSafe         | Gauge | -                                                                                                                                  | Whether is cluster safe of partition                                    |
 | hazelcast_partition_isLocalMemberSafe     | Gauge | -                                                                                                                                  | Whether is local member safe of partition                               |
 
+### Engine State Store Metrics
+
+These metrics expose the basic size and local resource usage of Zeta engine state stores. The current backend is
+Hazelcast IMap, so the `backend` label value is `hazelcast`. Local metrics are emitted by each node with the
+`address` label. To monitor the total entry count of an engine state store, aggregate
+`engine_state_store_local_owned_entries` in Prometheus.
+
+| MetricName                                      | Type  | Labels                                                                      | DESCRIPTION                                                                 |
+|-------------------------------------------------|-------|-----------------------------------------------------------------------------|-----------------------------------------------------------------------------|
+| engine_state_store_local_owned_entries          | Gauge | **address**, server instance address. **store**, state store name. **backend**, state store backend. | Local owned entries of an engine state store on this node.                  |
+| engine_state_store_local_backup_entries         | Gauge | **address**, server instance address. **store**, state store name. **backend**, state store backend. | Local backup entries of an engine state store on this node.                 |
+| engine_state_store_local_heap_cost_bytes        | Gauge | **address**, server instance address. **store**, state store name. **backend**, state store backend. | Local heap cost in bytes when the backend exposes it.                       |
+
+Example PromQL:
+
+```promql
+sum by (cluster, store, backend) (engine_state_store_local_owned_entries)
+```
+
+### Engine State Store Logical Metrics
+
+These metrics expose business-aware logical counts for special engine state stores. They are exported by the active
+master only. The metric names remain backend-neutral, while the current implementation still labels them with
+`backend="hazelcast"`.
+
+| MetricName                                               | Type    | Labels                                      | DESCRIPTION                                                           |
+|----------------------------------------------------------|---------|---------------------------------------------|-----------------------------------------------------------------------|
+| engine_state_store_running_job_metrics_task_contexts     | Gauge   | **backend**, state store backend.           | Total task metric contexts currently stored in `engine_runningJobMetrics`. |
+| engine_state_store_running_job_metrics_active_partition_keys | Gauge | **backend**, state store backend.           | Active top-level partition buckets currently stored in `engine_runningJobMetrics`. |
+| engine_state_store_checkpoint_monitor_jobs               | Gauge   | **backend**, state store backend.           | Job count currently tracked in `engine_checkpoint_monitor`.          |
+| engine_state_store_checkpoint_monitor_in_progress_checkpoints | Gauge | **backend**, state store backend.       | In-progress checkpoint count currently tracked in `engine_checkpoint_monitor`. |
+| engine_state_store_checkpoint_monitor_retained_history_entries | Gauge | **backend**, state store backend.     | Retained checkpoint history entries currently tracked in `engine_checkpoint_monitor`. |
+| engine_state_store_finished_job_records                  | Gauge   | **store**, finished job store name. **backend**, state store backend. | Current record count in finished job stores. |
+| engine_state_store_finished_job_cleanup_total            | Counter | **store**, finished job store name. **backend**, state store backend. | Total cleanup events observed from finished job store expiration. |
+| engine_state_store_connector_jar_tracked_jars            | Gauge   | **backend**, state store backend.           | Current tracked connector jar count in `engine_connectorJarRefCounters`. |
+| engine_state_store_connector_jar_total_references        | Gauge   | **backend**, state store backend.           | Sum of connector jar reference counts in `engine_connectorJarRefCounters`. |
+
+Logical metrics complement the local Hazelcast store metrics above:
+
+- Use `engine_state_store_local_*` metrics when you want to understand data distribution and memory usage on each node.
+- Use `engine_state_store_*` logical metrics when you want to understand engine semantics such as checkpoint backlog, finished-job retention, or connector jar reuse.
+
+Example PromQL:
+
+```promql
+# Total state store entries by store
+sum by (cluster, store, backend) (engine_state_store_local_owned_entries)
+
+# Current checkpoint backlog
+engine_state_store_checkpoint_monitor_in_progress_checkpoints{backend="hazelcast"}
+
+# Finished-job cleanup growth over the last 15 minutes
+increase(engine_state_store_finished_job_cleanup_total{backend="hazelcast"}[15m])
+
+# Connector jar reference pressure
+engine_state_store_connector_jar_total_references{backend="hazelcast"}
+```
+
+Example Grafana panels:
+
+- `State Store Total Entries`
+
+```promql
+sum by (store) (engine_state_store_local_owned_entries{backend="hazelcast"})
+```
+
+- `Checkpoint In-Progress Count`
+
+```promql
+engine_state_store_checkpoint_monitor_in_progress_checkpoints{backend="hazelcast"}
+```
+
+- `Finished Job Cleanup Rate`
+
+```promql
+sum by (store) (rate(engine_state_store_finished_job_cleanup_total{backend="hazelcast"}[5m]))
+```
+
+- `Connector Jar Reference Count`
+
+```promql
+engine_state_store_connector_jar_total_references{backend="hazelcast"}
+```
+
 ### Thread Pool Status
 
 | MetricName                          | Type    | Labels                                                             | DESCRIPTION                                                                    |
@@ -63,6 +145,40 @@ Note: All metrics both have the same labelName `cluster`, that's value is the co
 | job_thread_pool_completedTask_total | Counter | **address**, server instance address,for example: "127.0.0.1:5801" | The completedTask of seatunnel coordinator job's executor cached thread pool   |
 | job_thread_pool_task_total          | Counter | **address**, server instance address,for example: "127.0.0.1:5801" | The taskCount of seatunnel coordinator job's executor cached thread pool       |
 | job_thread_pool_rejection_total     | Counter | **address**, server instance address,for example: "127.0.0.1:5801" | The rejectionCount of seatunnel coordinator job's executor cached thread pool  |                                                                        |
+
+### Report Metrics Operation
+
+| MetricName                                        | Type    | Labels                                                                                              | DESCRIPTION                                                                                                      |
+|---------------------------------------------------|---------|-----------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------|
+| report_metrics_operation_total                    | Counter | **address**, worker instance address,for example: "127.0.0.1:5801". **result**, one of "success" "failure" "interrupted" | The total number of `ReportMetricsOperation` invocations sent by a worker                                       |
+| report_metrics_operation_last_payload_task_count  | Gauge   | **address**, worker instance address,for example: "127.0.0.1:5801"                                 | The number of task metrics included in the most recent `ReportMetricsOperation` payload sent by a worker        |
+| report_metrics_operation_last_invocation_latency_ms | Gauge | **address**, worker instance address,for example: "127.0.0.1:5801"                                 | The most recent worker-side `ReportMetricsOperation` reporting latency in milliseconds, including local metrics collection and worker-to-master invocation |
+| report_metrics_operation_max_invocation_latency_ms  | Gauge | **address**, worker instance address,for example: "127.0.0.1:5801"                                 | The maximum observed worker-side `ReportMetricsOperation` reporting latency in milliseconds since the worker started, including local metrics collection and worker-to-master invocation |
+
+### Request Slot Operation
+
+These metrics expose the master-side slot allocation RPC path. When a job needs execution
+resources, the active master selects candidate workers and sends `RequestSlotOperation` requests to
+reserve slots on those workers. They are intended to help operators distinguish slow or failed slot
+allocation RPCs from general resource shortage.
+
+These metrics are exported by the active master only. They are aggregate signals and do not include
+job, worker, slot, or resource-profile labels.
+
+| MetricName                                           | Type    | Labels                                                                                                          | DESCRIPTION                                                                                                      |
+|------------------------------------------------------|---------|-----------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------|
+| request_slot_operation_total                         | Counter | **address**, master instance address,for example: "127.0.0.1:5801". **result**, one of "success" "no_slot" "failure" | The total number of `RequestSlotOperation` invocations sent by the master to workers                            |
+| request_slot_operation_last_invocation_latency_ms    | Gauge   | **address**, master instance address,for example: "127.0.0.1:5801"                                              | The most recent master-side `RequestSlotOperation` invocation latency in milliseconds, including master-to-worker invocation |
+| request_slot_operation_max_invocation_latency_ms     | Gauge   | **address**, master instance address,for example: "127.0.0.1:5801"                                              | The maximum observed master-side `RequestSlotOperation` invocation latency in milliseconds since the master started, including master-to-worker invocation |
+
+The `result` label has the following meanings:
+
+- `success`: the worker returned an assigned slot.
+- `no_slot`: the request reached a worker and completed, but the worker did not return a suitable
+  slot. A sustained increase may indicate that the master's worker-resource view and the worker's
+  current slot state are diverging, or that concurrent allocation is consuming slots between
+  pre-check and request execution.
+- `failure`: the master-to-worker invocation failed or the operation completed exceptionally.
 
 ### Job info detail
 

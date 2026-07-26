@@ -30,6 +30,8 @@ import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.ch
 
 /** A factory to initialize {@link MySqlSourceConfig}. */
 public class MySqlSourceConfigFactory extends JdbcSourceConfigFactory {
+    private static final long serialVersionUID = -6578851046816898665L;
+
     public static final String SCHEMA_CHANGE_KEY = "include.schema.changes";
 
     private ServerIdRange serverIdRange;
@@ -87,6 +89,12 @@ public class MySqlSourceConfigFactory extends JdbcSourceConfigFactory {
         // but it'll cause lose of precise when the value is larger than 2^63,
         // so use "precise" mode to avoid it.
         props.put("bigint.unsigned.handling.mode", "precise");
+        // default int_type_narrowing (tinyint(1) -> boolean); the Source / user debezium block
+        // overrides this via the dbzProperties merge below so MySqlTypeUtils can honor a false.
+        // Carried as a property, NOT a field, on purpose: adding a field/method to this
+        // Serializable factory drifts its serialVersionUID and breaks rolling upgrades (jobs
+        // submitted on the prior version fail to deserialize on the new one).
+        props.setProperty("int_type_narrowing", String.valueOf(true));
 
         if (serverIdRange != null) {
             props.setProperty("database.server.id.range", String.valueOf(serverIdRange));
@@ -114,29 +122,34 @@ public class MySqlSourceConfigFactory extends JdbcSourceConfigFactory {
 
         Configuration dbzConfiguration = Configuration.from(props);
         String driverClassName = dbzConfiguration.getString(MySqlConnectorConfig.JDBC_DRIVER);
-        return new MySqlSourceConfig(
-                startupConfig,
-                stopConfig,
-                databaseList,
-                tableList,
-                splitSize,
-                splitColumn,
-                distributionFactorUpper,
-                distributionFactorLower,
-                sampleShardingThreshold,
-                inverseSamplingRate,
-                props,
-                driverClassName,
-                hostname,
-                port,
-                username,
-                password,
-                originUrl,
-                fetchSize,
-                serverTimeZone,
-                connectTimeoutMillis,
-                connectMaxRetries,
-                connectionPoolSize,
-                exactlyOnce);
+        MySqlSourceConfig config =
+                new MySqlSourceConfig(
+                        startupConfig,
+                        stopConfig,
+                        databaseList,
+                        tableList,
+                        splitSize,
+                        splitColumn,
+                        distributionFactorUpper,
+                        distributionFactorLower,
+                        sampleShardingThreshold,
+                        inverseSamplingRate,
+                        sampleShardingAllow,
+                        props,
+                        driverClassName,
+                        hostname,
+                        port,
+                        username,
+                        password,
+                        originUrl,
+                        fetchSize,
+                        serverTimeZone,
+                        connectTimeoutMillis,
+                        connectMaxRetries,
+                        connectionPoolSize,
+                        exactlyOnce);
+        // Propagate the enableConcurrentRead flag so the chunk splitter can skip split analysis.
+        config.setEnableConcurrentRead(this.enableConcurrentRead);
+        return config;
     }
 }

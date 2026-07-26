@@ -108,6 +108,14 @@ public class FileBaseSourceOptions extends FileBaseOptions {
                     .noDefaultValue()
                     .withDescription("The columns list that the user want to read");
 
+    public static final Option<Boolean> MARKDOWN_RAG_METADATA_ENABLED =
+            Options.key("markdown_rag_metadata_enabled")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Whether to append RAG-oriented metadata columns when reading markdown files. "
+                                    + "Only valid when file_format_type is markdown.");
+
     public static final Option<ExcelEngine> EXCEL_ENGINE =
             Options.key("excel_engine")
                     .enumType(ExcelEngine.class)
@@ -203,6 +211,24 @@ public class FileBaseSourceOptions extends FileBaseOptions {
                     .withDescription(
                             "Compare mode when sync_mode=update. Supported values: len_mtime, checksum. "
                                     + "checksum uses Hadoop FileSystem#getFileChecksum, only valid when update_strategy=strict.");
+
+    public static final Option<Integer> UPDATE_COMPARE_PARALLELISM =
+            Options.key("update_compare_parallelism")
+                    .intType()
+                    .defaultValue(8)
+                    .withDescription(
+                            "Maximum parallelism for sparse target metadata lookups in sync_mode=update. "
+                                    + "The valid range is 1 to 64.");
+
+    public static final Option<Integer> UPDATE_COMPARE_BULK_THRESHOLD =
+            Options.key("update_compare_bulk_threshold")
+                    .intType()
+                    .defaultValue(0)
+                    .withDescription(
+                            "Number of candidates under one target parent directory that switches "
+                                    + "sync_mode=update comparison from point lookups to one directory listing. "
+                                    + "The default 0 disables automatic bulk listing for non-FTP/SFTP targets; "
+                                    + "positive values enable it.");
     public static final Option<String> QUOTE_CHAR =
             Options.key("quote_char")
                     .stringType()
@@ -216,4 +242,21 @@ public class FileBaseSourceOptions extends FileBaseOptions {
                     .noDefaultValue()
                     .withDescription(
                             "A single character that allows the quote or other special characters to appear inside a CSV field without ending the field.");
+
+    public static final Option<Boolean> RECURSIVE_FILE_SCAN =
+            Options.key("recursive_file_scan")
+                    .booleanType()
+                    .defaultValue(true)
+                    .withDescription(
+                            "Whether to recursively scan subdirectories. "
+                                    + "If false, subdirectories will be ignored.");
+
+    public static final Option<Boolean> SORT_FILES_BY_MOD_TIME =
+            Options.key("sort_files_by_modification_time")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Sort files by modification time in descending order. "
+                                    + "Enable this when reading evolving schemas to ensure schema inference uses the latest file. "
+                                    + "Disabled by default to avoid performance overhead for large file directories.");
 }

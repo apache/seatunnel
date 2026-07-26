@@ -1,6 +1,6 @@
 # 表重命名
 
-> TableRename 转换插件
+> TableRename：按规则重命名输出表名
 
 ## 描述
 
@@ -20,6 +20,7 @@ TableRename 转换插件用于重命名表名。
 ### 将表名转为大写
 
 ```
+
 env {
     parallelism = 1
     job.mode = "STREAMING"
@@ -130,5 +131,3 @@ sink {
   }
 }
 ```
-
-

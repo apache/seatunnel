@@ -42,14 +42,14 @@ By default, we use 2PC commit to ensure `exactly-once`
 | hive_site_path                        | string  | no       | -              |
 | hive.hadoop.conf                      | Map     | no       | -              |
 | hive.hadoop.conf-path                 | string  | no       | -              |
+| remote_user                           | string  | no       | -              |
 | krb5_path                             | string  | no       | /etc/krb5.conf |
 | kerberos_principal                    | string  | no       | -              |
 | kerberos_keytab_path                  | string  | no       | -              |
-| abort_drop_partition_metadata         | boolean | no       | true           |
+| abort_drop_partition_metadata         | boolean | no       | false          |
 | parquet_avro_write_timestamp_as_int96 | boolean | no       | false          |
 | overwrite                             | boolean | no       | false          |
 | data_save_mode                        | enum    | no       | APPEND_DATA    |
-
 | schema_save_mode                      | enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST |
 | save_mode_create_template             | string  | no       | -              |
 | common-options                        |         | no       | -              |
@@ -78,6 +78,10 @@ Properties in hadoop conf('core-site.xml', 'hdfs-site.xml', 'hive-site.xml')
 
 The specified loading path for the 'core-site.xml', 'hdfs-site.xml', 'hive-site.xml' files
 
+### remote_user [string]
+
+Hadoop remote user name used when connecting to HDFS/Hive storage without Kerberos credentials.
+
 ### krb5_path [string]
 
 The path of `krb5.conf`, used to authentication kerberos
@@ -95,6 +99,8 @@ The keytab path of kerberos
 ### abort_drop_partition_metadata [boolean]
 
 Flag to decide whether to drop partition metadata from Hive Metastore during an abort operation. Note: this only affects the metadata in the metastore, the data in the partition will always be deleted(data generated during the synchronization process).
+
+The default value is `false`.
 
 ### parquet_avro_write_timestamp_as_int96 [boolean]
 
@@ -116,6 +122,8 @@ Select how to handle existing data on the target before writing new data.
 - CUSTOM_PROCESSING / ERROR_WHEN_DATA_EXISTS: Currently not recommended for Hive sink unless you have specific requirements.
 
 Note: overwrite=true and data_save_mode=DROP_DATA are equivalent. Use either one; do not set both.
+
+For batch jobs, use either `overwrite = true` or `data_save_mode = "DROP_DATA"` when the target Hive table should be replaced by the current run. For normal append jobs, keep the default `data_save_mode = "APPEND_DATA"`.
 
 ### schema_save_mode [enum]
 
@@ -584,6 +592,54 @@ sink {
   }
 }
 ```
+## FAQ
+
+### What file formats does Hive Sink support?
+
+Hive Sink supports `ORC`, `PARQUET`, `TEXT`, `JSON`, and `SEQUENCE` file formats. Specify the format with the `file_format_type` parameter. Ensure the Hive table's `STORED AS` clause matches the configured format.
+
+### Does Hive Sink support partitioned tables?
+
+Yes. For partitioned tables, specify the partition fields using `partition_by`. SeaTunnel writes data into the correct partition directories automatically:
+
+```hocon
+sink {
+  Hive {
+    table_name = "mydb.sales"
+    metastore_uri = "thrift://hive-metastore:9083"
+    partition_by = ["dt", "region"]
+  }
+}
+```
+
+### How do I connect to a Kerberized Hadoop cluster?
+
+Provide the Kerberos keytab and principal in the connector configuration:
+
+```hocon
+sink {
+  Hive {
+    table_name = "mydb.events"
+    metastore_uri = "thrift://hive-metastore:9083"
+    kerberos_principal = "hive/host@REALM.COM"
+    kerberos_keytab_path = "/etc/security/keytabs/hive.keytab"
+    krb5_path = "/etc/krb5.conf"
+  }
+}
+```
+
+### Why do I see many small files in my Hive table?
+
+Small files are created when job parallelism is high or batches are small. To reduce small file counts:
+
+- Lower the job `parallelism` setting in the `env` block.
+- Increase `batch_size` so each task writes larger files.
+- Run a periodic compaction using Hive's `ALTER TABLE ... CONCATENATE` or a Spark merge job.
+
+### Does Hive Sink support schema evolution?
+
+Hive Sink reads the current table schema from the Hive Metastore. If columns are added to the upstream, they will only appear in Hive after the table DDL is updated. SeaTunnel does not automatically `ALTER TABLE` Hive schemas.
+
 ## Changelog
 
 <ChangeLog />

@@ -17,8 +17,11 @@
 
 package org.apache.seatunnel.engine.server.task.flow;
 
+import org.apache.seatunnel.api.common.metrics.Counter;
+import org.apache.seatunnel.api.signal.Signal;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.Record;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.transform.Collector;
 import org.apache.seatunnel.api.transform.SeaTunnelFlatMapTransform;
 import org.apache.seatunnel.api.transform.SeaTunnelMapTransform;
@@ -30,6 +33,9 @@ import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointBarrier;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.record.Barrier;
+import org.apache.seatunnel.engine.server.trace.StainTraceConstants;
+import org.apache.seatunnel.engine.server.trace.StainTraceStage;
+import org.apache.seatunnel.engine.server.trace.StainTraceUtils;
 
 import org.apache.commons.collections4.CollectionUtils;
 
@@ -40,6 +46,11 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+import static org.apache.seatunnel.api.common.metrics.MetricNames.TRANSFORM_PROCESS_NANOS;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.TRANSFORM_RECORDS_IN;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.TRANSFORM_RECORDS_OUT;
+
+/** Executes transform operators and extends stain trace payloads across transform boundaries. */
 @Slf4j
 public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
         implements OneInputFlowLifeCycle<Record<?>> {
@@ -49,6 +60,13 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
     private final List<SeaTunnelTransform<T>> transform;
 
     private final Collector<Record<?>> collector;
+
+    private transient Counter processNs;
+    private transient Counter recordsIn;
+    private transient Counter recordsOut;
+    private volatile Counter stainTraceEntriesTruncatedTotal;
+    private volatile Boolean stainTracePropagateToAllSplits;
+    private volatile int stainTraceMaxEntriesPerTrace = -1;
 
     public TransformFlowLifeCycle(
             TransformChainAction<T> action,
@@ -64,6 +82,14 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
     @Override
     public void open() throws Exception {
         super.open();
+        // Use the task's metrics context so metrics can be reported by TaskExecutionService.
+        // (TaskExecutionContext#getOrCreateMetricsContext reads from the master IMAP and may return
+        // a fresh context which is not tracked/reported on the worker.)
+        final org.apache.seatunnel.api.common.metrics.MetricsContext metricsContext =
+                runningTask.getMetricsContext();
+        this.processNs = metricsContext.counter(TRANSFORM_PROCESS_NANOS + "#" + action.getId());
+        this.recordsIn = metricsContext.counter(TRANSFORM_RECORDS_IN + "#" + action.getId());
+        this.recordsOut = metricsContext.counter(TRANSFORM_RECORDS_OUT + "#" + action.getId());
         for (SeaTunnelTransform<T> t : transform) {
             try {
                 t.open();
@@ -95,7 +121,16 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
                 return;
             }
             SchemaChangeEvent event = (SchemaChangeEvent) record.getData();
-            for (SeaTunnelTransform<T> t : transform) {
+            for (int i = 0; i < transform.size(); i++) {
+                SeaTunnelTransform<T> t = transform.get(i);
+                // Refresh this transform's input from upstream's post-event produced schema so
+                // its catalog matches the actual row layout it will receive. Without this, each
+                // transform applies ALTER to its own stale local catalog, diverging from the
+                // upstream's actual output positions and breaking name-based field access (SQL
+                // projections, FilterField excludes) after live ALTER ADD COLUMN.
+                if (i > 0) {
+                    t.setInputCatalogTables(transform.get(i - 1).getProducedCatalogTables());
+                }
                 SchemaChangeEvent eventBefore = event;
                 event = t.mapSchemaChangeEvent(eventBefore);
                 if (event == null) {
@@ -114,15 +149,81 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
             if (event != null) {
                 collector.collect(new Record<>(event));
             }
+        } else if (record.getData() instanceof Signal) {
+            if (prepareClose) {
+                return;
+            }
+            collector.collect(record);
         } else {
             if (prepareClose) {
                 return;
             }
             T inputData = (T) record.getData();
-            List<T> outputDataList = transform(inputData);
+            boolean metricsEnabled = runningTask != null && runningTask.isObservabilityEnabled();
+            boolean hasTracePayload =
+                    inputData instanceof SeaTunnelRow
+                            && StainTraceUtils.hasPayload((SeaTunnelRow) inputData);
+            if (hasTracePayload) {
+                SeaTunnelRow inputRow = (SeaTunnelRow) inputData;
+                StainTraceUtils.appendIfPresent(
+                        inputRow,
+                        StainTraceStage.TRANSFORM_IN,
+                        runningTask.getTaskID(),
+                        System.currentTimeMillis(),
+                        getStainTraceMaxEntriesPerTrace(),
+                        getStainTraceEntriesTruncatedTotal());
+            }
+            List<T> outputDataList;
+            if (metricsEnabled) {
+                recordsIn.inc();
+                long startNs = System.nanoTime();
+                outputDataList = transform(inputData);
+                processNs.inc(System.nanoTime() - startNs);
+            } else {
+                outputDataList = transform(inputData);
+            }
             if (!outputDataList.isEmpty()) {
-                // todo log metrics
+                if (metricsEnabled) {
+                    recordsOut.inc(outputDataList.size());
+                }
+                byte[] inheritedPayload = null;
+                if (hasTracePayload) {
+                    inheritedPayload = StainTraceUtils.getPayloadOrNull((SeaTunnelRow) inputData);
+                }
+                boolean propagateToAllSplits =
+                        hasTracePayload
+                                && inheritedPayload != null
+                                && outputDataList.size() > 1
+                                && isStainTracePropagateToAllSplits();
+                boolean payloadInherited = false;
                 for (T outputData : outputDataList) {
+                    if (hasTracePayload && outputData instanceof SeaTunnelRow) {
+                        SeaTunnelRow outputRow = (SeaTunnelRow) outputData;
+                        if (inheritedPayload == null) {
+                            StainTraceUtils.removePayload(outputRow);
+                        } else if (propagateToAllSplits) {
+                            StainTraceUtils.setPayload(outputRow, inheritedPayload);
+                            StainTraceUtils.appendIfPresent(
+                                    outputRow,
+                                    StainTraceStage.TRANSFORM_OUT,
+                                    runningTask.getTaskID(),
+                                    System.currentTimeMillis(),
+                                    getStainTraceMaxEntriesPerTrace(),
+                                    getStainTraceEntriesTruncatedTotal());
+                        } else if (!payloadInherited) {
+                            StainTraceUtils.setPayload(outputRow, inheritedPayload);
+                            StainTraceUtils.appendIfPresent(
+                                    outputRow,
+                                    StainTraceStage.TRANSFORM_OUT,
+                                    runningTask.getTaskID(),
+                                    System.currentTimeMillis(),
+                                    getStainTraceMaxEntriesPerTrace(),
+                                    getStainTraceEntriesTruncatedTotal());
+                            payloadInherited = true;
+                        } else {
+                            StainTraceUtils.removePayload(outputRow);
+                        }
+                    }
                     collector.collect(new Record<>(outputData));
                 }
             }
@@ -196,5 +297,53 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
             }
         }
         super.close();
+    }
+
+    private Counter getStainTraceEntriesTruncatedTotal() {
+        if (stainTraceEntriesTruncatedTotal == null) {
+            synchronized (this) {
+                if (stainTraceEntriesTruncatedTotal == null) {
+                    stainTraceEntriesTruncatedTotal =
+                            runningTask
+                                    .getMetricsContext()
+                                    .counter(StainTraceConstants.METRIC_ENTRIES_TRUNCATED_TOTAL);
+                }
+            }
+        }
+        return stainTraceEntriesTruncatedTotal;
+    }
+
+    private int getStainTraceMaxEntriesPerTrace() {
+        if (stainTraceMaxEntriesPerTrace < 0) {
+            synchronized (this) {
+                if (stainTraceMaxEntriesPerTrace < 0) {
+                    stainTraceMaxEntriesPerTrace =
+                            runningTask
+                                    .getExecutionContext()
+                                    .getTaskExecutionService()
+                                    .getSeaTunnelConfig()
+                                    .getEngineConfig()
+                                    .getStainTraceMaxEntriesPerTrace();
+                }
+            }
+        }
+        return stainTraceMaxEntriesPerTrace;
+    }
+
+    private boolean isStainTracePropagateToAllSplits() {
+        if (stainTracePropagateToAllSplits == null) {
+            synchronized (this) {
+                if (stainTracePropagateToAllSplits == null) {
+                    stainTracePropagateToAllSplits =
+                            runningTask
+                                    .getExecutionContext()
+                                    .getTaskExecutionService()
+                                    .getSeaTunnelConfig()
+                                    .getEngineConfig()
+                                    .isStainTracePropagateToAllSplits();
+                }
+            }
+        }
+        return stainTracePropagateToAllSplits;
     }
 }

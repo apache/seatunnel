@@ -10,6 +10,25 @@ SeaTunnel Engine 的Master服务和Worker服务分离，每个服务单独一个
 
 这是最推荐的一种使用方式，在该模式下Master的负载会很小，Master有更多的资源用来进行作业的调度，任务的容错指标监控以及提供rest api服务等，会有更高的稳定性。同时Worker节点不存储Imap的数据，所有的Imap数据都存储在Master节点中，即使Worker节点负载高或者挂掉，也不会导致Imap数据重新分布。
 
+
+## 最小化部署配置
+
+以下列出分离集群各角色节点的最少数量与 HA 推荐数量，供初次部署规划参考。详细配置参数说明见后续各节。
+
+**节点要求**
+
+| 角色 | 最少数量 | 推荐（HA） | 说明 |
+|------|----------|------------|------|
+| Master | 1 | 2 | 负责调度与 IMap 数据存储 |
+| Worker | 1 | 2+ | 负责任务执行 |
+
+:::tip
+
+单个 Master 节点可以正常启动和运行，但不具备高可用能力。若需 HA，Master 至少部署 2 个：默认 `backup-count: 1` 要求至少 2 个 Master 节点才能存放 IMap 备份副本，否则单个 Master 宕机后集群将无法自愈。
+
+:::
+
+
 ## 1. 下载
 
 [下载和制作SeaTunnel安装包](download-seatunnel.md)
@@ -29,8 +48,8 @@ Master节点的JVM参数在`$SEATUNNEL_HOME/config/jvm_master_options`文件中�
 
 ```shell
 # JVM Heap
--Xms2g
--Xmx2g
+-Xms16g
+-Xmx16g
 
 # JVM Dump
 -XX:+HeapDumpOnOutOfMemoryError
@@ -48,8 +67,8 @@ Worker节点的JVM参数在`$SEATUNNEL_HOME/config/jvm_worker_options`文件中�
 
 ```shell
 # JVM Heap
--Xms2g
--Xmx2g
+-Xms16g
+-Xmx16g
 
 # JVM Dump
 -XX:+HeapDumpOnOutOfMemoryError
@@ -63,6 +82,8 @@ Worker节点的JVM参数在`$SEATUNNEL_HOME/config/jvm_worker_options`文件中�
 
 ```
 
+以上示例使用 16 GB JVM 堆内存。对于大规模数据处理场景，建议使用 32 GB JVM 堆内存。
+
 ## 4. 配置 SeaTunnel Engine
 
 SeaTunnel Engine 提供许多功能，需要在 `seatunnel.yaml` 中进行配置。.
@@ -75,7 +96,7 @@ SeaTunnel Engine 基于 [Hazelcast IMDG](https://docs.hazelcast.com/imdg/4.1/) �
 
 `backup count` 是定义同步备份数量的参数。例如，如果设置为 1，则分区的备份将放置在一个其他成员上。如果设置为 2，则将放置在两个其他成员上。
 
-我们建议 `backup-count` 的值为 `max(1, min(5, N/2))`。 `N` 是集群节点的数量。
+我们建议 `backup-count` 的值为 `max(1, min(5, N/2))`。`N` 是 Master 节点的数量。
 
 ```yaml
 seatunnel:
@@ -178,6 +199,14 @@ seatunnel:
     history-job-expire-minutes: 1440
 ```
 
+SeaTunnel 还会在分布式 Map 中短暂保留终态作业状态，然后再统一删除。这个保留窗口由 `state-cleanup-delay-ms` 控制，默认值是 `60000` 毫秒。短暂保留终态 tombstone 可以让晚到的异步回调读到终态，而不是直接遇到缺失的状态项。将它设置为 `0` 会恢复更激进的清理策略，但也会缩小终态竞态的保护窗口。
+
+```yaml
+seatunnel:
+  engine:
+    state-cleanup-delay-ms: 60000
+```
+
 ### 4.5 类加载器缓存模式
 
 此配置主要解决不断创建和尝试销毁类加载器所导致的资源泄漏问题。
@@ -257,6 +286,11 @@ map:
         storage.type: hdfs
         fs.defaultFS: file:///
 ```
+
+说明：`engine_runningJobMetrics` 保存的是高频运行时指标快照。即使通过 `map.engine*`
+配置了 `map-store`，它也会被有意排除在持久化 IMAP 存储之外，以避免仅用于可观测性的状态导致
+WAL 持续膨胀。Engine 重启后，running-job metrics 不会延续重启前的 snapshot，而是由后续
+report 重新构建。
 
 如果您使用 OSS，可以像这样配置：
 
@@ -473,9 +507,9 @@ export SEATUNNEL_HOME=${seatunnel install path}
 export PATH=$PATH:$SEATUNNEL_HOME/bin
 ```
 
-## 8. 提交作业和管理作业
+## 9. 提交作业和管理作业
 
-### 8.1 使用 SeaTunnel Engine 客户端提交作业
+### 9.1 使用 SeaTunnel Engine 客户端提交作业
 
 #### 安装 SeaTunnel Engine 客户端
 
@@ -515,6 +549,6 @@ hazelcast-client:
 
 现在集群部署完成了，您可以通过以下教程完成作业的提交和管理：[提交和管理作业](user-command.md)
 
-### 8.2 使用 REST API 提交作业
+### 9.2 使用 REST API 提交作业
 
 SeaTunnel Engine 提供了 REST API 用于提交作业。有关详细信息，请参阅 [REST API V2](rest-api-v2.md)

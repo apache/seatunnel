@@ -19,22 +19,22 @@ import ChangeLog from '../changelog/connector-openmldb.md';
 
 ## 选项
 
-|      名称           |  类型  | 必需 | 默认值 |
-|-----------------|---------|----------|---------------|
-| cluster_mode    | boolean | 是      | -             |
-| sql             | string  | 是      | -             |
-| database        | string  | 是      | -             |
-| host            | string  | 否       | -             |
-| port            | int     | 否       | -             |
-| zk_path         | string  | 否       | -             |
-| zk_host         | string  | 否       | -             |
-| session_timeout | int     | 否       | 10000         |
-| request_timeout | int     | 否       | 60000         |
-| common-options  |         | 否       | -             |
+|      名称       | 类型    | 必需 | 默认值 | 描述 |
+|-----------------|---------|------|--------|------|
+| cluster_mode    | boolean | 是   | -      | 是否以 OpenMLDB 集群模式连接。 |
+| sql             | string  | 是   | -      | 用于读取数据的 SQL 语句。 |
+| database        | string  | 是   | -      | 数据库名称。 |
+| host            | string  | 否   | -      | 当 `cluster_mode` 为 `false` 时必填。 |
+| port            | int     | 否   | -      | 当 `cluster_mode` 为 `false` 时必填。 |
+| zk_host         | string  | 否   | -      | 当 `cluster_mode` 为 `true` 时必填。 |
+| zk_path         | string  | 否   | -      | 当 `cluster_mode` 为 `true` 时必填。 |
+| session_timeout | int     | 否   | 10000  | OpenMLDB 会话超时时间，单位毫秒。 |
+| request_timeout | int     | 否   | 60000  | OpenMLDB 请求超时时间，单位毫秒。 |
+| common-options  |         | 否   | -      | 源插件通用参数。 |
 
-### cluster_mode [string]
+### cluster_mode [boolean]
 
-OpenMldb 是否处于群集模式
+是否以 OpenMLDB 集群模式连接。为 `false` 时配置 `host` 和 `port`；为 `true` 时配置 `zk_host` 和 `zk_path`。
 
 ### sql [string]
 
@@ -62,11 +62,11 @@ Zookeeper路径，仅在OpenMldb集群模式下受支持
 
 ### session_timeout [int]
 
-OpenMldb会话超时（ms），默认值60000
+OpenMLDB 会话超时时间，单位毫秒。
 
 ### request_timeout [int]
 
-OpenMldb请求超时（ms），默认值为10000
+OpenMLDB 请求超时时间，单位毫秒。
 
 ### common options
 
@@ -75,7 +75,7 @@ OpenMldb请求超时（ms），默认值为10000
 ## 示例
 
 ```hocon
-
+source {
   OpenMldb {
     host = "172.17.0.2"
     port = 6527
@@ -83,7 +83,21 @@ OpenMldb请求超时（ms），默认值为10000
     database = "demo_db"
     cluster_mode = false
   }
+}
+```
 
+集群模式示例：
+
+```hocon
+source {
+  OpenMldb {
+    zk_host = "zk-1:2181,zk-2:2181,zk-3:2181"
+    zk_path = "/openmldb"
+    sql = "select * from demo_table1"
+    database = "demo_db"
+    cluster_mode = true
+  }
+}
 ```
 
 ## 变更日志

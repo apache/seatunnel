@@ -33,9 +33,11 @@ semantics (using XA transaction guarantee).
 
 - [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
+- [x] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 > Use `Xa transactions` to ensure `exactly-once`. So only support `exactly-once` for the database which is
-> support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
+> support `Xa transactions`. You can set `is_exactly_once=true` and `max_retries=0` to enable it.
 
 ## Supported DataSource Info
 
@@ -79,15 +81,21 @@ semantics (using XA transaction guarantee).
 | primary_keys                              | Array   | No       | -       | This option is used to support operations such as `insert`, `delete`, and `update` when automatically generate sql.                                                                                                                          |
 | connection_check_timeout_sec              | Int     | No       | 30      | The time in seconds to wait for the database operation used to validate the connection to complete.                                                                                                                                          |
 | max_retries                               | Int     | No       | 0       | The number of retries to submit failed (executeBatch)                                                                                                                                                                                        |
-| batch_size                                | Int     | No       | 1000    | For batch writing, when the number of buffered records reaches the number of `batch_size` or the time reaches `checkpoint.interval`<br/>, the data will be flushed into the database                                                         |
+| batch_size                                | Int     | No       | 1000    | For batch writing, when the number of buffered records reaches `batch_size`, the data will be flushed into the database. If `batch_interval_ms` is greater than 0, elapsed time can also trigger a flush.                                    |
+| batch_interval_ms                         | Long    | No       | 0       | Write-triggered flush interval in milliseconds. `0` disables time-based flushing. When greater than 0, the writer checks elapsed time on each record and flushes synchronously when the interval is reached.                                  |
 | is_exactly_once                           | Boolean | No       | false   | Whether to enable exactly-once semantics, which will use Xa transactions. If on, you need to<br/>set `xa_data_source_class_name`.                                                                                                            |
 | generate_sink_sql                         | Boolean | No       | false   | Generate sql statements based on the database table you want to write to                                                                                                                                                                     |
 | xa_data_source_class_name                 | String  | No       | -       | The xa data source class name of the database Driver, for example, SqlServer is `com.microsoft.sqlserver.jdbc.SQLServerXADataSource`, and<br/>please refer to appendix for other data sources                                                |
 | max_commit_attempts                       | Int     | No       | 3       | The number of retries for transaction commit failures                                                                                                                                                                                        |
 | transaction_timeout_sec                   | Int     | No       | -1      | The timeout after the transaction is opened, the default is -1 (never timeout). Note that setting the timeout may affect<br/>exactly-once semantics                                                                                          |
 | auto_commit                               | Boolean | No       | true    | Automatic transaction commit is enabled by default                                                                                                                                                                                           |
+| properties                                | Map     | No       | -       | Additional JDBC connection parameters. When the same parameter exists in both `properties` and the URL, priority depends on the SQL Server JDBC driver.                                                                                        |
 | common-options                            |         | no       | -       | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details                                                                                                                                  |
+| schema_save_mode                          | Enum    | No       | CREATE_SCHEMA_WHEN_NOT_EXIST | Before the synchronization task starts, controls how the target table schema is handled.                                                                                                                                                       |
+| data_save_mode                            | Enum    | No       | APPEND_DATA | Before the synchronization task starts, controls how existing target table data is handled.                                                                                                                                                    |
+| custom_sql                                | String  | No       | -       | When `data_save_mode` is `CUSTOM_PROCESSING`, fill this option with SQL that can be executed before synchronization starts.                                                                                                                   |
 | enable_upsert                             | Boolean | No       | true    | Enable upsert by primary_keys exist, If the task has no key duplicate data, setting this parameter to `false` can speed up data import                                                                                                       |
+| multi_table_sink_replica                  | Int     | No       | 1       | The number of sink writer replicas used when writing multiple tables.                                                                                                                           |
 
 ## tips
 
@@ -120,13 +128,13 @@ source {
 
   }
   # If you would like to get more information about how to configure seatunnel and see full list of source plugins,
-  # please go to https://seatunnel.apache.org/docs/connector-v2/source/Jdbc
+  # please go to https://seatunnel.apache.org/docs/connectors/source/Jdbc
 }
 
 transform {
 
   # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
-  # please go to https://seatunnel.apache.org/docs/transform-v2/sql
+  # please go to https://seatunnel.apache.org/docs/transforms/sql
 }
 
 sink {
@@ -138,7 +146,7 @@ sink {
     query = "insert into full_types_jdbc_sink( id, val_char, val_varchar, val_text, val_nchar, val_nvarchar, val_ntext, val_decimal, val_numeric, val_float, val_real, val_smallmoney, val_money, val_bit, val_tinyint, val_smallint, val_int, val_bigint, val_date, val_time, val_datetime2, val_datetime, val_smalldatetime ) values( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )"
 
   }  # If you would like to get more information about how to configure seatunnel and see full list of sink plugins,
-  # please go to https://seatunnel.apache.org/docs/connector-v2/sink/Jdbc
+  # please go to https://seatunnel.apache.org/docs/connectors/sink/Jdbc
 }
 ```
 
@@ -171,13 +179,14 @@ Jdbc {
     url = "jdbc:sqlserver://localhost:1433;databaseName=column_type_test"
     username = SA
     password = "Y.sa123456"
+    max_retries = 0
     query = "insert into full_types_jdbc_sink( id, val_char, val_varchar, val_text, val_nchar, val_nvarchar, val_ntext, val_decimal, val_numeric, val_float, val_real, val_smallmoney, val_money, val_bit, val_tinyint, val_smallint, val_int, val_bigint, val_date, val_time, val_datetime2, val_datetime, val_smalldatetime ) values( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )"
     is_exactly_once = "true"
 
     xa_data_source_class_name = "com.microsoft.sqlserver.jdbc.SQLServerXADataSource"
 
   }  # If you would like to get more information about how to configure seatunnel and see full list of sink plugins,
-  # please go to https://seatunnel.apache.org/docs/connector-v2/sink/Jdbc
+  # please go to https://seatunnel.apache.org/docs/connectors/sink/Jdbc
 
 ```
 

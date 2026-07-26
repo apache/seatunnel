@@ -75,9 +75,17 @@ public class MySqlIncrementalSourceFactory extends BaseChangeStreamTableSourceFa
                                 .CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_UPPER_BOUND,
                         MySqlIncrementalSourceOptions.SAMPLE_SHARDING_THRESHOLD,
                         MySqlIncrementalSourceOptions.INVERSE_SAMPLING_RATE,
+                        MySqlIncrementalSourceOptions.SPLIT_ALLOW_SAMPLING,
                         MySqlIncrementalSourceOptions.TABLE_NAMES_CONFIG,
                         MySqlIncrementalSourceOptions.SCHEMA_CHANGES_ENABLED,
-                        MySqlIncrementalSourceOptions.INT_TYPE_NARROWING)
+                        MySqlIncrementalSourceOptions.SCHEMA_CHANGES_INCLUDE,
+                        MySqlIncrementalSourceOptions.SCHEMA_CHANGES_EXCLUDE,
+                        MySqlIncrementalSourceOptions.INT_TYPE_NARROWING,
+                        SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE,
+                        SourceOptions.STARTUP_SPECIFIC_OFFSET_POS,
+                        MySqlIncrementalSourceOptions.STARTUP_SPECIFIC_OFFSET_GTID_SET,
+                        MySqlIncrementalSourceOptions.STARTUP_SPECIFIC_OFFSET_SKIP_EVENTS,
+                        MySqlIncrementalSourceOptions.STARTUP_SPECIFIC_OFFSET_SKIP_ROWS)
                 .optional(
                         MySqlIncrementalSourceOptions.STARTUP_MODE,
                         MySqlIncrementalSourceOptions.STOP_MODE)
@@ -85,11 +93,6 @@ public class MySqlIncrementalSourceFactory extends BaseChangeStreamTableSourceFa
                         MySqlIncrementalSourceOptions.STARTUP_MODE,
                         StartupMode.INITIAL,
                         SourceOptions.EXACTLY_ONCE)
-                .conditional(
-                        MySqlIncrementalSourceOptions.STARTUP_MODE,
-                        StartupMode.SPECIFIC,
-                        SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE,
-                        SourceOptions.STARTUP_SPECIFIC_OFFSET_POS)
                 .conditional(
                         MySqlIncrementalSourceOptions.STOP_MODE,
                         StopMode.SPECIFIC,

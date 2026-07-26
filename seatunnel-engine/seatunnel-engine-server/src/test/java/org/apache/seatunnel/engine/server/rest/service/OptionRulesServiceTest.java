@@ -20,7 +20,10 @@ package org.apache.seatunnel.engine.server.rest.service;
 import org.apache.seatunnel.api.common.PluginIdentifier;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.SingleChoiceOption;
+import org.apache.seatunnel.api.configuration.util.ConditionExtension;
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.engine.server.rest.response.OptionRuleResponse;
 
@@ -272,15 +275,6 @@ class OptionRulesServiceTest {
     }
 
     @Test
-    void shouldRejectInvalidType() {
-        IllegalArgumentException error =
-                assertThrows(
-                        IllegalArgumentException.class,
-                        () -> service.getOptionRules("transform", "Replace"));
-        assertTrue(error.getMessage().contains("Unsupported plugin type"));
-    }
-
-    @Test
     void shouldRejectBlankPluginName() {
         IllegalArgumentException error =
                 assertThrows(
@@ -294,6 +288,119 @@ class OptionRulesServiceTest {
         assertThrows(
                 NoSuchElementException.class,
                 () -> service.getOptionRules("source", "MissingPlugin"));
+    }
+
+    @Test
+    void shouldPreserveValueConstraintMetadata() {
+        Option<Integer> port =
+                Options.key("port").intType().noDefaultValue().withDescription("Port number");
+        Option<String> host =
+                Options.key("host").stringType().noDefaultValue().withDescription("Hostname");
+
+        OptionRule optionRule =
+                OptionRule.builder()
+                        .required(
+                                port,
+                                Conditions.greaterOrEqual(port, 1)
+                                        .and(Conditions.lessOrEqual(port, 65535)))
+                        .required(host, Conditions.notBlank(host))
+                        .build();
+
+        OptionRuleResponse response =
+                service.buildResponse(
+                        PluginIdentifier.of("seatunnel", "source", "ConstraintSource"), optionRule);
+
+        List<OptionRuleResponse.ValueConstraintMetadata> constraints =
+                response.getOptionRule().getValueConstraints();
+        assertNotNull(constraints);
+        assertFalse(constraints.isEmpty());
+
+        OptionRuleResponse.ValueConstraintMetadata portConstraint = constraints.get(0);
+        assertNotNull(portConstraint.getExpression());
+        assertTrue(portConstraint.getExpression().contains("port"));
+        assertNotNull(portConstraint.getConditionTree());
+        assertEquals(">=", portConstraint.getConditionTree().getCompareOperator());
+        assertEquals(
+                OptionRuleResponse.LogicalOperator.AND,
+                portConstraint.getConditionTree().getOperator());
+        assertNotNull(portConstraint.getConditionTree().getNext());
+        assertEquals("<=", portConstraint.getConditionTree().getNext().getCompareOperator());
+
+        OptionRuleResponse.ValueConstraintMetadata hostConstraint = constraints.get(1);
+        assertTrue(hostConstraint.getExpression().contains("is not blank"));
+        assertNotNull(hostConstraint.getConditionTree());
+    }
+
+    @Test
+    void shouldPreserveCrossFieldConstraintMetadata() {
+        Option<Long> startTs =
+                Options.key("start_ts").longType().noDefaultValue().withDescription("Start");
+        Option<Long> endTs =
+                Options.key("end_ts").longType().noDefaultValue().withDescription("End");
+
+        OptionRule optionRule =
+                OptionRule.builder()
+                        .required(startTs, endTs, Conditions.lessThanField(startTs, endTs))
+                        .build();
+
+        OptionRuleResponse response =
+                service.buildResponse(
+                        PluginIdentifier.of("seatunnel", "source", "CrossFieldSource"), optionRule);
+
+        List<OptionRuleResponse.ValueConstraintMetadata> constraints =
+                response.getOptionRule().getValueConstraints();
+        assertEquals(1, constraints.size());
+
+        OptionRuleResponse.ValueConstraintMetadata constraint = constraints.get(0);
+        assertTrue(constraint.getExpression().contains("start_ts"));
+        assertTrue(constraint.getExpression().contains("end_ts"));
+
+        OptionRuleResponse.ConditionNode tree = constraint.getConditionTree();
+        assertNotNull(tree);
+        assertEquals("<", tree.getCompareOperator());
+        assertNotNull(tree.getCompareOption());
+        assertEquals("end_ts", tree.getCompareOption().getKey());
+    }
+
+    @Test
+    void shouldPreserveExtensionConstraintMetadata() {
+        Option<Integer> port =
+                Options.key("port").intType().noDefaultValue().withDescription("Port number");
+        ConditionExtension<Integer> portRangeExtension =
+                new ConditionExtension<Integer>() {
+                    @Override
+                    public String description() {
+                        return "must be between 1 and 65535";
+                    }
+
+                    @Override
+                    public boolean evaluate(ReadonlyConfig config, Integer value) {
+                        return value != null && value >= 1 && value <= 65535;
+                    }
+                };
+
+        OptionRule optionRule =
+                OptionRule.builder()
+                        .required(port, Conditions.extension(port, portRangeExtension))
+                        .build();
+
+        OptionRuleResponse response =
+                service.buildResponse(
+                        PluginIdentifier.of("seatunnel", "source", "ExtensionSource"), optionRule);
+
+        List<OptionRuleResponse.ValueConstraintMetadata> constraints =
+                response.getOptionRule().getValueConstraints();
+        assertEquals(1, constraints.size());
+
+        OptionRuleResponse.ValueConstraintMetadata constraint = constraints.get(0);
+        assertTrue(constraint.getExpression().contains("must be between 1 and 65535"));
+
+        OptionRuleResponse.ConditionNode tree = constraint.getConditionTree();
+        assertNotNull(tree);
+        assertEquals("must be between 1 and 65535", tree.getExpectValue());
+        assertEquals("extension", tree.getCompareOperator());
+        assertEquals("EXTENSION", tree.getConditionOperator());
+        assertEquals("EXTENSION", tree.getConditionOperatorCategory());
     }
 
     private enum AuthMode {

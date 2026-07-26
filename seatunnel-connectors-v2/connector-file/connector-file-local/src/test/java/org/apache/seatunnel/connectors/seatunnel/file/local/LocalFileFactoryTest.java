@@ -44,11 +44,29 @@ class LocalFileFactoryTest {
         Assertions.assertTrue(
                 optionRule.getOptionalOptions().contains(FileBaseSourceOptions.COMPARE_MODE));
         Assertions.assertTrue(
+                optionRule
+                        .getOptionalOptions()
+                        .contains(FileBaseSourceOptions.UPDATE_COMPARE_PARALLELISM));
+        Assertions.assertTrue(
+                optionRule
+                        .getOptionalOptions()
+                        .contains(FileBaseSourceOptions.UPDATE_COMPARE_BULK_THRESHOLD));
+        Assertions.assertTrue(
                 optionRule.getOptionalOptions().contains(FileBaseSourceOptions.DISCOVERY_MODE));
         Assertions.assertTrue(
                 optionRule.getOptionalOptions().contains(FileBaseSourceOptions.SCAN_INTERVAL));
         Assertions.assertTrue(
                 optionRule.getOptionalOptions().contains(FileBaseSourceOptions.START_MODE));
+        Assertions.assertTrue(
+                optionRule.getRequiredOptions().stream()
+                        .filter(RequiredOption.ConditionalRequiredOptions.class::isInstance)
+                        .map(RequiredOption.ConditionalRequiredOptions.class::cast)
+                        .anyMatch(
+                                required ->
+                                        required.getOptions()
+                                                .contains(
+                                                        FileBaseSourceOptions
+                                                                .MARKDOWN_RAG_METADATA_ENABLED)));
 
         Expression expectExpression =
                 Expression.of(FileBaseSourceOptions.SYNC_MODE, FileSyncMode.UPDATE);

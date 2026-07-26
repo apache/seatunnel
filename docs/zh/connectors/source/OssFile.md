@@ -46,6 +46,7 @@ import ChangeLog from '../changelog/connector-file-oss.md';
   - [x] xml
   - [x] binary
   - [x] markdown
+  - [x] pdf
 
 ## 数据类型映射
 
@@ -186,7 +187,7 @@ schema {
 | 名称                         | 类型      | 是否必需 | 默认值                | 描述                                                                                                                                                   |
 |----------------------------|---------|------|--------------------|------------------------------------------------------------------------------------------------------------------------------------------------------|
 | path                       | string  | 是    | -                  | 需要读取的Oss路径，可以有子路径，但子路径需要满足一定的格式要求。具体要求可以参考"parse_partition_from_path"选项                                                                              |
-| file_format_type           | string  | 是    | -                  | 文件类型，支持以下文件类型：`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown`                                                                  |
+| file_format_type           | string  | 是    | -                  | 文件类型，支持以下文件类型：`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf`                                                                  |
 | bucket                     | string  | 是    | -                  | oss文件系统的bucket地址，例如：`oss://seatunnel-test`。                                                                                                          |
 | endpoint                   | string  | 是    | -                  | fs oss端点                                                                                                                                             |
 | read_columns               | list    | 否    | -                  | 数据源的读取列列表，用户可以使用它来实现字段投影。支持列投影的文件类型如下所示：`text` `csv` `parquet` `orc` `json` `excel` `xml`。如果用户想在读取`text` `json` `csv`文件时使用此功能，必须配置"schema"选项。        |
@@ -217,6 +218,8 @@ schema {
 | quote_char                 | string  | 否    | "                   | 用于包裹 CSV 字段的单字符，可保证包含逗号、换行符或引号的字段被正确解析。                                                                                                              |
 | escape_char                | string  | 否    | -                  | 用于在 CSV 字段内转义引号或其他特殊字符，使其不会结束字段。                                                                                                                     |
 | metalake_type              | string  | 否    | gravitino         | Metalake 服务类型，目前支持 `gravitino`。                                                                                                                                            |
+| recursive_file_scan        | boolean | 否    | true                | 是否递归扫描子目录。 如果设置为 `false`，将忽略子目录，仅扫描指定路径下的文件。                                                                                                         |
+| sort_files_by_modification_time | boolean | 否 | false               | 是否按修改时间降序排序文件。启用此选项后，在读取不断演化的 schema 时可确保 schema 推断使用最新的文件。                                                                                                                      |
 
 ### compress_codec [string]
 
@@ -249,11 +252,11 @@ schema {
 
 文件类型，支持以下文件类型：
 
-`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown`
+`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf`
 
 如果您将文件类型指定为 `markdown`，SeaTunnel 可以解析 markdown 文件并提取结构化数据。
 markdown 解析器提取各种元素，包括标题、段落、列表、代码块、表格等。
-每个元素都转换为具有以下架构的行：
+每个提取出的元素都会转换为一条文档元素结构化记录，schema 如下：
 - `element_id`：元素的唯一标识符
 - `element_type`：元素类型（Heading、Paragraph、ListItem 等）
 - `heading_level`：标题级别（1-6，非标题元素为 null）
@@ -263,7 +266,27 @@ markdown 解析器提取各种元素，包括标题、段落、列表、代码�
 - `parent_id`：父元素的 ID
 - `child_ids`：子元素 ID 的逗号分隔列表
 
+当 `markdown_rag_metadata_enabled` 设置为 `true` 时，SeaTunnel 会在 `child_ids` 之后追加以下 RAG 元数据字段：
+- `source_uri`：源文件路径或 URI
+- `document_id`：由 `source_uri` 派生的稳定文档标识符
+- `chunk_id`：由文档标识、chunk 顺序和内容哈希派生的稳定 chunk 标识符
+- `chunk_index`：解析后文档中的一基 chunk 顺序
+- `content_hash`：已输出 `text` 值的 SHA-256 哈希
+
+该选项默认值为 `false`，因此只有显式启用后才会改变原始 Markdown schema。
+
 注意：Markdown 格式仅支持读取，不支持写入。
+
+如果您将文件类型指定为 `pdf`，SeaTunnel 可以解析 PDF 文件并提取结构化的文档元素。
+PDF 使用与上文相同的文档元素 schema。
+
+PDF 特有的解析行为如下：
+
+- **有大纲**：提取 `heading`（标题）、`paragraph`（段落）、`image`（图片）和 `link`（链接）元素。标题从大纲结构中派生，元素按照文档的逻辑结构组织为父子层级关系。
+- **无大纲**：仅提取 `paragraph`（段落）和 `image`（图片）元素，以扁平结构呈现，不包含层级关系。
+- `element_type` 在 PDF 场景下可能为 `heading`、`paragraph`、`image` 或 `link`。
+
+注意：仅支持单栏（从上到下）PDF 布局。不支持多栏布局（例如并排的双栏文档），可能会产生不正确的文本顺序。
 
 ### quote_char [string]
 
@@ -273,11 +296,23 @@ markdown 解析器提取各种元素，包括标题、段落、列表、代码�
 
 用于在 CSV 字段内转义引号或其他特殊字符，使其不会结束字段。
 
+### recursive_file_scan [boolean]
+
+是否递归扫描子目录。
+如果设置为 `false`，将忽略子目录，仅扫描指定路径下的文件。
+
+### sort_files_by_modification_time [boolean]
+
+是否按修改时间降序排序文件。默认值为 `false`。
+启用后，文件将按修改时间排序（最新的在前）。适用于以下场景：
+- 读取具有不断演化的 schema 的文件，且希望 schema 推断使用最新的文件
+- 需要按时间顺序处理文件
+
 ### file_filter_pattern [string]
 
 文件过滤模式，用于过滤文件。若只想根据文件名称筛选，则直接写文件名称的正则；若同时想根据文件目录进行过滤，则表达式以`path`起始。
 
-该模式遵循标准正则表达式。详情请参考 https://en.wikipedia.org/wiki/Regular_expression。
+该模式遵循标准正则表达式。详情请参考 [正则表达式](https://en.wikipedia.org/wiki/Regular_expression)。
 以下是一些示例。
 
 若`path`为`/data/seatunnel`,且文件结构示例：
@@ -334,17 +369,15 @@ abc.*
 
 上游数据的schema。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。
 
-#### schema_url [string]
+#### metadata_table_id [string]
 
-通过 restApi 获取元数据信息的 http url，例如：`http://localhost:8090/api/metalakes/laowang_test/catalogs/221-pgsql/schemas/ykw/tables/all_type`
+元数据服务中的表标识符，用于获取表结构。对于 Gravitino，格式应为 `{catalog}.{database}.{table}`，例如 `mysql-catalog.test_db.users`。
+
+当指定此参数时，连接器将从外部元数据服务获取表结构，而不是使用手动定义的 `columns`。
 
 > 当使用 Gravitino 作为元数据源时，Gravitino 的列类型会自动转换为 SeaTunnel 数据类型。详细的类型映射信息请参考 [Gravitino 类型映射](../../introduction/concepts/gravitino-type-mapping.md)。
 
-### metalake_type [string]
-
-Metalake 服务类型，目前仅支持 `gravitino`。当使用 `schema_url` 从 Gravitino 获取元数据时，可以指定此参数（默认为 `gravitino`）。
-
-有关 Metalake 的更多信息，请参考 [Metalake](../../introduction/configuration/metalake.md)。
+更多信息请参考 [元数据 SPI](../../introduction/concepts/metadata-spi.md)。
 
 ## 如何创建Oss数据同步作业
 
