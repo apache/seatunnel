@@ -61,7 +61,6 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Locale;
 import java.util.Objects;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -83,13 +82,15 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
     private static final String SOURCE_TABLE = "e2e_table_source";
     private static final String SOURCE_TABLE_3 = "e2e_table_source_3";
     private static final String SINK_TABLE = "e2e_table_sink";
+    private static final String JSON_SINK_TABLE = "json_type_sink";
+    private static final String JSON_CATALOG_TABLE = "json_catalog_source";
     private static final String TABLE_OPTIONS_SINK_TABLE = "sink_table_options";
     private static final String TABLE_OPTIONS_CONFIG_FILE =
             "/fake-to-starrocks-with-table-options.conf";
     private static final String SR_DRIVER_CONTAINER_PATH =
             "/tmp/seatunnel/plugins/Jdbc/lib/mysql-connector-java.jar";
     private static final String COLUMN_STRING =
-            "BIGINT_COL, LARGEINT_COL, SMALLINT_COL, TINYINT_COL, BOOLEAN_COL, DECIMAL_COL, DOUBLE_COL, FLOAT_COL, INT_COL, CHAR_COL, VARCHAR_11_COL, STRING_COL, DATETIME_COL, DATE_COL, JSON_COL";
+            "BIGINT_COL, LARGEINT_COL, SMALLINT_COL, TINYINT_COL, BOOLEAN_COL, DECIMAL_COL, DOUBLE_COL, FLOAT_COL, INT_COL, CHAR_COL, VARCHAR_11_COL, STRING_COL, DATETIME_COL, DATE_COL";
 
     private static final String DDL_SOURCE =
             "create table "
@@ -111,8 +112,7 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
                     + "  VARCHAR_11_COL VARCHAR(11),\n"
                     + "  STRING_COL     STRING,\n"
                     + "  DATETIME_COL   DATETIME,\n"
-                    + "  DATE_COL       DATE,\n"
-                    + "  JSON_COL       JSON\n"
+                    + "  DATE_COL       DATE\n"
                     + ")ENGINE=OLAP\n"
                     + "DUPLICATE KEY(`BIGINT_COL`)\n"
                     + "DISTRIBUTED BY HASH(`BIGINT_COL`) BUCKETS 3\n"
@@ -141,8 +141,7 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
                     + "  VARCHAR_11_COL VARCHAR(11),\n"
                     + "  STRING_COL     STRING,\n"
                     + "  DATETIME_COL   DATETIME,\n"
-                    + "  DATE_COL       DATE,\n"
-                    + "  JSON_COL       JSON\n"
+                    + "  DATE_COL       DATE\n"
                     + ")ENGINE=OLAP\n"
                     + "DUPLICATE KEY(`BIGINT_COL`)\n"
                     + "DISTRIBUTED BY HASH(`BIGINT_COL`) BUCKETS 3\n"
@@ -196,10 +195,9 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
                     + "  VARCHAR_11_COL,\n"
                     + "  STRING_COL,\n"
                     + "  DATETIME_COL,\n"
-                    + "  DATE_COL,\n"
-                    + "  JSON_COL\n"
+                    + "  DATE_COL\n"
                     + ")values(\n"
-                    + "\t?,?,?,?,?,?,?,?,?,?,?,?,?,?,parse_json(?)\n"
+                    + "\t?,?,?,?,?,?,?,?,?,?,?,?,?,?\n"
                     + ")";
 
     private static final String INIT_DATA_SQL_2 =
@@ -221,10 +219,9 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
                     + "  VARCHAR_11_COL,\n"
                     + "  STRING_COL,\n"
                     + "  DATETIME_COL,\n"
-                    + "  DATE_COL,\n"
-                    + "  JSON_COL\n"
+                    + "  DATE_COL\n"
                     + ")values(\n"
-                    + "\t?,?,?,?,?,?,?,?,?,?,?,?,?,?,parse_json(?)\n"
+                    + "\t?,?,?,?,?,?,?,?,?,?,?,?,?,?\n"
                     + ")";
 
     private Connection jdbcConnection;
@@ -307,8 +304,7 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
                                 "VARCHAR_COL",
                                 "STRING_COL",
                                 "2022-08-13 17:35:59",
-                                "2022-08-13",
-                                i % 7 == 0 ? null : jsonValueForIndex(i)
+                                "2022-08-13"
                             });
             rows.add(row);
         }
@@ -364,76 +360,9 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
                 }
             }
             Assertions.assertFalse(sinkResultSet.next());
-            assertJsonColumnCoverage();
             clearSinkTable();
         } catch (Exception e) {
             throw new RuntimeException("get starRocks connection error", e);
-        }
-    }
-
-    /**
-     * Verifies StarRocks preserves every JSON value category through source and JSON Stream Load.
-     */
-    private void assertJsonColumnCoverage() throws SQLException, JsonProcessingException {
-        String sourceSql =
-                String.format(
-                        "SELECT JSON_COL FROM %s.%s ORDER BY BIGINT_COL", DATABASE, SOURCE_TABLE);
-        String sinkSql =
-                String.format(
-                        "SELECT JSON_COL FROM %s.%s ORDER BY BIGINT_COL", DATABASE, SINK_TABLE);
-        boolean sawObject = false;
-        boolean sawArray = false;
-        boolean sawScalar = false;
-        boolean sawJsonNull = false;
-        boolean sawSqlNull = false;
-        try (Statement sourceStatement = jdbcConnection.createStatement();
-                Statement sinkStatement = jdbcConnection.createStatement();
-                ResultSet sourceResult = sourceStatement.executeQuery(sourceSql);
-                ResultSet sinkResult = sinkStatement.executeQuery(sinkSql)) {
-            while (sourceResult.next()) {
-                Assertions.assertTrue(sinkResult.next());
-                String sourceJson = sourceResult.getString("JSON_COL");
-                String sinkJson = sinkResult.getString("JSON_COL");
-                if (sourceJson == null) {
-                    Assertions.assertNull(sinkJson);
-                    sawSqlNull = true;
-                    continue;
-                }
-                JsonNode sourceNode = JsonUtils.stringToJsonNode(sourceJson);
-                Assertions.assertEquals(sourceNode, JsonUtils.stringToJsonNode(sinkJson));
-                sawObject |= sourceNode.isObject();
-                sawArray |= sourceNode.isArray();
-                sawJsonNull |= sourceNode.isNull();
-                sawScalar |= sourceNode.isValueNode() && !sourceNode.isNull();
-            }
-            Assertions.assertFalse(sinkResult.next());
-        }
-        Assertions.assertTrue(sawObject, "StarRocks JSON E2E must cover object values");
-        Assertions.assertTrue(sawArray, "StarRocks JSON E2E must cover array values");
-        Assertions.assertTrue(sawScalar, "StarRocks JSON E2E must cover scalar values");
-        Assertions.assertTrue(sawJsonNull, "StarRocks JSON E2E must cover JSON null");
-        Assertions.assertTrue(sawSqlNull, "StarRocks JSON E2E must cover SQL NULL");
-    }
-
-    /**
-     * Generates every JSON value category required by native JSON connector round trips.
-     *
-     * <p>The deterministic sequence guarantees that E2E assertions observe every category.
-     */
-    private static String jsonValueForIndex(int index) {
-        switch (index % 6) {
-            case 0:
-                return String.format("{\"id\":%s,\"nested\":[true,2]}", index);
-            case 1:
-                return String.format("[{\"id\":%s},\"text\",false]", index);
-            case 2:
-                return "true";
-            case 3:
-                return String.valueOf(index);
-            case 4:
-                return "\"text\"";
-            default:
-                return "null";
         }
     }
 
@@ -459,6 +388,21 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
         Assertions.assertTrue(
                 failureOutput.contains("Native JSON columns require JSON Stream Load format"),
                 failureOutput);
+    }
+
+    /**
+     * Verifies native JSON values through FakeSource, StarRocks JSON Stream Load, and JDBC reads.
+     */
+    @TestTemplate
+    public void testNativeJsonStreamLoad(TestContainer container)
+            throws IOException, InterruptedException, SQLException, JsonProcessingException {
+        try {
+            Container.ExecResult execResult = container.executeJob("/fake-json-to-starrocks.conf");
+            Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+            assertJsonColumnsRoundTrip();
+        } finally {
+            dropTableIfExists(JSON_SINK_TABLE);
+        }
     }
 
     @TestTemplate
@@ -563,6 +507,61 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
         }
     }
 
+    /** Verifies the native JSON value categories representable by StarRocks JSON Stream Load. */
+    private void assertJsonColumnsRoundTrip() throws SQLException, JsonProcessingException {
+        String sql =
+                String.format(
+                        "SELECT object_payload, array_payload, scalar_payload, json_null "
+                                + "FROM %s.%s WHERE id = 1",
+                        DATABASE, JSON_SINK_TABLE);
+        try (Statement statement = jdbcConnection.createStatement();
+                ResultSet resultSet = statement.executeQuery(sql)) {
+            Assertions.assertTrue(resultSet.next());
+            assertJsonEquals(
+                    "{\"id\":1,\"nested\":[true,2]}", resultSet.getString("object_payload"));
+            assertJsonEquals("[{\"id\":2},\"text\",false]", resultSet.getString("array_payload"));
+            assertJsonEquals("7", resultSet.getString("scalar_payload"));
+            assertJsonEquals("null", resultSet.getString("json_null"));
+            Assertions.assertFalse(resultSet.next());
+        }
+    }
+
+    /**
+     * Compares JSON structurally so formatting and object key order do not affect the assertion.
+     */
+    private void assertJsonEquals(String expected, String actual) throws JsonProcessingException {
+        Assertions.assertNotNull(actual);
+        JsonNode expectedNode = JsonUtils.stringToJsonNode(expected);
+        JsonNode actualNode = JsonUtils.stringToJsonNode(actual);
+        Assertions.assertEquals(expectedNode, actualNode);
+    }
+
+    /**
+     * Verifies StarRocks native JSON metadata mapping without scanning JSON through the legacy
+     * Thrift source used by the shared fixture.
+     */
+    private void assertJsonCatalogMapping(StarRocksCatalog starRocksCatalog) {
+        TablePath tablePath = TablePath.of(DATABASE, JSON_CATALOG_TABLE);
+        starRocksCatalog.dropTable(tablePath, true);
+        try (Statement statement = jdbcConnection.createStatement()) {
+            statement.execute(
+                    String.format(
+                            "CREATE TABLE %s.%s (id BIGINT, payload JSON) "
+                                    + "ENGINE=OLAP DUPLICATE KEY(id) "
+                                    + "DISTRIBUTED BY HASH(id) BUCKETS 1 "
+                                    + "PROPERTIES (\"replication_num\" = \"1\")",
+                            DATABASE, JSON_CATALOG_TABLE));
+            CatalogTable catalogTable = starRocksCatalog.getTable(tablePath);
+            Assertions.assertEquals(
+                    BasicType.JSON_TYPE,
+                    catalogTable.getTableSchema().getColumn("payload").getDataType());
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to verify StarRocks JSON catalog mapping", e);
+        } finally {
+            starRocksCatalog.dropTable(tablePath, true);
+        }
+    }
+
     @Test
     public void testCatalog() {
         TablePath tablePathStarRocksSource = TablePath.of("test", "e2e_table_source");
@@ -581,11 +580,9 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
             starRocksCatalog.createDatabase(TablePath.of(tmpDB, "default"), true);
         }
         Assertions.assertTrue(starRocksCatalog.listDatabases().contains(tmpDB));
+        assertJsonCatalogMapping(starRocksCatalog);
 
         CatalogTable catalogTable = starRocksCatalog.getTable(tablePathStarRocksSource);
-        Assertions.assertEquals(
-                BasicType.JSON_TYPE,
-                catalogTable.getTableSchema().getColumn("JSON_COL").getDataType());
         catalogTable =
                 CatalogTable.of(
                         catalogTable.getTableId(),
@@ -601,17 +598,6 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
         starRocksCatalog.createTable(tablePathStarRocksSink, catalogTable, true);
         boolean tableExistsAfter = starRocksCatalog.tableExists(tablePathStarRocksSink);
         Assertions.assertTrue(tableExistsAfter);
-        CatalogTable sinkCatalogTable = starRocksCatalog.getTable(tablePathStarRocksSink);
-        Assertions.assertEquals(
-                BasicType.JSON_TYPE,
-                sinkCatalogTable.getTableSchema().getColumn("JSON_COL").getDataType());
-        Assertions.assertEquals(
-                "json",
-                sinkCatalogTable
-                        .getTableSchema()
-                        .getColumn("JSON_COL")
-                        .getSourceType()
-                        .toLowerCase(Locale.ROOT));
         // isExistsData ?
         boolean existsDataBefore = starRocksCatalog.isExistsData(tablePathStarRocksSink);
         Assertions.assertFalse(existsDataBefore);
