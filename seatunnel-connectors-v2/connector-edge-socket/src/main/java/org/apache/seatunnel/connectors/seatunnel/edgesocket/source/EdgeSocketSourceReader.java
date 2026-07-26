@@ -224,7 +224,6 @@ public class EdgeSocketSourceReader extends AbstractSingleSplitReader<SeaTunnelR
         EdgeSocketConnectorErrorCode errorCode =
                 (EdgeSocketConnectorErrorCode) exception.getSeaTunnelErrorCode();
         return errorCode == EdgeSocketConnectorErrorCode.PACKET_AES_KEY_MISSING
-                || (errorCode == EdgeSocketConnectorErrorCode.PACKET_DECODE_ERROR
-                        && exception.getCause() instanceof java.security.GeneralSecurityException);
+                || errorCode == EdgeSocketConnectorErrorCode.PACKET_DECRYPT_ERROR;
     }
 }
