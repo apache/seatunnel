@@ -16,13 +16,17 @@
  */
 package org.apache.seatunnel.connectors.seatunnel.http.client;
 
+import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
+
 import org.apache.http.Header;
+import org.apache.http.client.methods.HttpEntityEnclosingRequestBase;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.message.BasicHeader;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -83,5 +87,39 @@ class HttpClientProviderTest {
         }
         // ensure no manually set content type or encoding
         Assertions.assertNull(post.getEntity().getContentEncoding());
+    }
+
+    @Test
+    void testJsonMapBodyDoesNotSetContentEncodingHeader() throws Exception {
+        HttpPost post = new HttpPost("http://localhost:8080");
+        Map<String, Object> body = new HashMap<>();
+        body.put("key", "value");
+
+        HttpClientProvider.addBody(post, body);
+
+        Assertions.assertEquals("application/json", post.getFirstHeader("Content-Type").getValue());
+        Assertions.assertNull(post.getFirstHeader("Content-Encoding"));
+        Assertions.assertNull(post.getEntity().getContentEncoding());
+        Assertions.assertTrue(
+                post.getEntity().getContentType().getValue().contains("application/json"));
+    }
+
+    @Test
+    void testJsonStringBodyDoesNotSetContentEncodingHeader() throws Exception {
+        HttpPost post = new HttpPost("http://localhost:8080");
+        Method addStringBody =
+                HttpClientProvider.class.getDeclaredMethod(
+                        "addBody", HttpEntityEnclosingRequestBase.class, String.class);
+        addStringBody.setAccessible(true);
+
+        try (HttpClientProvider provider = new HttpClientProvider(new HttpParameter())) {
+            addStringBody.invoke(provider, post, "{\"key\":\"value\"}");
+        }
+
+        Assertions.assertEquals("application/json", post.getFirstHeader("Content-Type").getValue());
+        Assertions.assertNull(post.getFirstHeader("Content-Encoding"));
+        Assertions.assertNull(post.getEntity().getContentEncoding());
+        Assertions.assertTrue(
+                post.getEntity().getContentType().getValue().contains("application/json"));
     }
 }
