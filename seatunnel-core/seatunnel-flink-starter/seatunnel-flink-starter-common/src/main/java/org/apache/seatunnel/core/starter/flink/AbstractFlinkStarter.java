@@ -26,8 +26,6 @@ import org.apache.seatunnel.core.starter.enums.MasterType;
 import org.apache.seatunnel.core.starter.flink.args.FlinkCommandArgs;
 import org.apache.seatunnel.core.starter.utils.CommandLineUtils;
 
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
@@ -127,17 +125,6 @@ public abstract class AbstractFlinkStarter implements Starter {
     private void validateCheckpointPath(String checkpointPath) {
         if (StringUtils.isBlank(checkpointPath)) {
             throw new IllegalArgumentException("Checkpoint path must not be blank");
-        }
-        if (!checkpointPath.contains("://")) {
-            throw new IllegalArgumentException(
-                    "Checkpoint path must be a valid URI (e.g. hdfs://path or s3://path), but got: "
-                            + checkpointPath);
-        }
-        try {
-            new URI(checkpointPath);
-        } catch (URISyntaxException e) {
-            throw new IllegalArgumentException(
-                    "Checkpoint path must be a valid URI, but got: " + checkpointPath, e);
         }
     }
 }

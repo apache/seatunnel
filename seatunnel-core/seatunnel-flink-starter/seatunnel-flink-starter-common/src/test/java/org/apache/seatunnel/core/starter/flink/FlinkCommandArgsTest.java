@@ -28,6 +28,7 @@ import org.junit.jupiter.api.Test;
 
 import java.io.FileNotFoundException;
 import java.net.URISyntaxException;
+import java.util.Arrays;
 import java.util.List;
 
 import static org.apache.seatunnel.api.options.ConnectorCommonOptions.PLUGIN_NAME;
@@ -67,19 +68,12 @@ public class FlinkCommandArgsTest {
 
     @Test
     public void testBuildFlinkCommandArgsWithSavePoint() {
-        FlinkStarter flinkStarter =
-                new FlinkStarter(
-                        new String[] {
-                            "--target", "local",
-                            "--deploy-mode ", "run",
-                            "--config ", "/config/fake_to_inmemory1.json",
-                            "--fromCheckpoint ",
-                                    "hdfs:///flink/checkpoints/3c298a925d9a2a7837bbf5a8e4966b4f/chk-7902"
-                        });
-        List<String> commands = flinkStarter.buildCommands();
-        Assertions.assertTrue(
-                commands.contains("-s") || commands.contains("--fromSavepoint"),
-                "The flink commands should include either `-s` or `--fromSavepoint`");
+        String checkpointPath =
+                "hdfs:///flink/checkpoints/3c298a925d9a2a7837bbf5a8e4966b4f/chk-7902";
+
+        assertRestorePath("-s", checkpointPath);
+        assertRestorePath("--fromSavepoint", checkpointPath);
+        assertRestorePath("--fromCheckpoint", checkpointPath);
     }
 
     @Test
@@ -88,25 +82,50 @@ public class FlinkCommandArgsTest {
                 new FlinkStarter(
                         new String[] {
                             "--target", "local",
-                            "--deploy-mode ", "run",
-                            "--config ", "/config/fake_to_inmemory1.json",
+                            "--deploy-mode", "run",
+                            "--config", "/config/fake_to_inmemory1.json",
                         });
         List<String> commands = flinkStarter.buildCommands();
-        Assertions.assertTrue(
-                !commands.contains("-s") && !commands.contains("--fromSavepoint"),
+        Assertions.assertFalse(
+                commands.contains("-s") || commands.contains("--fromSavepoint"),
                 "The flink commands should not include either `-s` or `--fromSavepoint`");
     }
 
     @Test
-    public void testBuildFlinkCommandArgsWithInvalidCheckpointPath() {
+    public void testBuildFlinkCommandArgsWithLocalCheckpointPath() {
+        assertRestorePath("--fromCheckpoint", "/tmp/flink/chk-1");
+    }
+
+    @Test
+    public void testBuildFlinkCommandArgsWithBlankCheckpointPath() {
         FlinkStarter flinkStarter =
                 new FlinkStarter(
                         new String[] {
                             "--target", "local",
-                            "--deploy-mode ", "run",
-                            "--config ", "/config/fake_to_inmemory1.json",
-                            "--fromCheckpoint ", "invalid_path"
+                            "--deploy-mode", "run",
+                            "--config", "/config/fake_to_inmemory1.json",
+                            "--fromCheckpoint", " "
                         });
         Assertions.assertThrows(IllegalArgumentException.class, flinkStarter::buildCommands);
+    }
+
+    private static void assertRestorePath(String option, String restorePath) {
+        FlinkStarter flinkStarter =
+                new FlinkStarter(
+                        new String[] {
+                            "--target",
+                            "local",
+                            "--deploy-mode",
+                            "run",
+                            "--config",
+                            "/config/fake_to_inmemory1.json",
+                            option,
+                            restorePath
+                        });
+
+        List<String> commands = flinkStarter.buildCommands();
+
+        Assertions.assertEquals(Arrays.asList("-s", restorePath), commands.subList(2, 4));
+        Assertions.assertTrue(commands.indexOf("-s") < commands.indexOf("-c"));
     }
 }
