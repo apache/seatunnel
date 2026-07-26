@@ -145,7 +145,7 @@ When data_save_mode selects CUSTOM_PROCESSING, you should fill in the CUSTOM_SQL
 
 Sink-specific table options applied when SaveMode auto-creates the target table (DDL phase). They take effect only when `schema_save_mode` triggers table creation, such as `CREATE_SCHEMA_WHEN_NOT_EXIST` or `RECREATE_SCHEMA`. They do **not** affect Stream Load writes at runtime and do **not** run `ALTER TABLE` on existing tables.
 
-When used with the default `save_mode_create_template` (option omitted, or configured with the same content as the built-in default), `table_options` are merged into the template `PROPERTIES` clause. **Duplicate keys are overridden by `table_options`.** Use property names from the [StarRocks CREATE TABLE documentation](https://docs.starrocks.io/docs/sql-reference/sql-statements/table_bucket_part_index/CREATE_TABLE/#properties); SeaTunnel does not maintain an allowlist—invalid properties fail when StarRocks executes the CREATE TABLE statement.
+When used with the default `save_mode_create_template` (option omitted, or configured with the same content as the built-in default), `table_options` are merged into the template `PROPERTIES` clause. **Duplicate keys are overridden by `table_options`.** Use property names from the [StarRocks CREATE TABLE documentation](https://docs.starrocks.io/docs/sql-reference/sql-statements/table_bucket/partition/CREATE_TABLE/#properties); SeaTunnel does not maintain an allowlist—invalid properties fail when StarRocks executes the CREATE TABLE statement.
 
 If you configure a `save_mode_create_template` that **differs from the built-in default**, `table_options` cannot be used together (validation fails at job submission). Put properties directly in the template instead.
 
