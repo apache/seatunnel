@@ -68,7 +68,11 @@ public class ConnectorJarOperationTest {
         Mockito.verify(server, Mockito.never()).getTaskExecutionService();
     }
 
-    /** Verifies that a standby storage failure reaches the sending operation caller. */
+    /**
+     * Verifies that a standby storage failure reaches the sending operation caller.
+     *
+     * <p>The sender must not treat a missing replica as a successful acknowledgement.
+     */
     @Test
     void testStandbyStorageFailureIsPropagated() {
         byte[] jarData = new byte[] {1, 2, 3};

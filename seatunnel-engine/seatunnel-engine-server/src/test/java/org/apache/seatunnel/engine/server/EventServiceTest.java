@@ -38,7 +38,11 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 
-/** Covers event forwarding retries so each send attempt uses a fresh Hazelcast operation. */
+/**
+ * Covers event forwarding retries so each send attempt uses a fresh Hazelcast operation.
+ *
+ * <p>The regression assertions prevent retries from reusing an already executed operation.
+ */
 public class EventServiceTest {
 
     @Test

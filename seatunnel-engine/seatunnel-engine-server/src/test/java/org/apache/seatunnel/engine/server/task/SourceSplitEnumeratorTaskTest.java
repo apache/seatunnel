@@ -46,10 +46,10 @@ import java.io.Serializable;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.CopyOnWriteArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -627,12 +627,20 @@ public class SourceSplitEnumeratorTaskTest {
                 .whenComplete(Mockito.any());
     }
 
-    /** Keeps the mocked split delivery pending so tests can assert non-blocking task behavior. */
+    /**
+     * Keeps the mocked split delivery pending so tests can assert non-blocking task behavior.
+     *
+     * <p>The returned future is completed explicitly by the test after the enumerator advances.
+     */
     private static void mockPendingDelivery(InvocationFuture<?> future) {
         Mockito.doAnswer(invocation -> future).when(future).whenComplete(Mockito.any());
     }
 
-    /** Completes the mocked split delivery exceptionally to verify async failure propagation. */
+    /**
+     * Completes the mocked split delivery exceptionally to verify async failure propagation.
+     *
+     * <p>The helper exposes the exact transport error to the enumerator failure path.
+     */
     @SuppressWarnings("unchecked")
     private static void mockFailedDelivery(InvocationFuture<?> future, Throwable throwable) {
         Mockito.doAnswer(

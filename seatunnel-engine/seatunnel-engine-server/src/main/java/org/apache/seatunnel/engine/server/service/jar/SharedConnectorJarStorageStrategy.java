@@ -242,9 +242,9 @@ public class SharedConnectorJarStorageStrategy extends AbstractConnectorJarStora
     /**
      * Rolls back one reference after cluster replication fails.
      *
-     * <p>When no committed reference remains, the map entry is removed instead of exposing a
-     * zero-reference intermediate state to the cleanup timer. The local file is removed so a retry
-     * rebuilds both storage and replication state.
+     * <p>When no committed reference remains, a zero-reference tombstone keeps partially replicated
+     * remote copies visible to the cleanup timer. A retry can reserve the tombstone before cleanup
+     * claims it and idempotently repair any missing replicas.
      *
      * @param connectorJarIdentifier connector jar storage identifier
      */
@@ -252,7 +252,6 @@ public class SharedConnectorJarStorageStrategy extends AbstractConnectorJarStora
         connectorJarRefCounters.lock(connectorJarIdentifier);
         try {
             readWriteLock.writeLock().lock();
-            AtomicBoolean removeLocalFile = new AtomicBoolean();
             connectorJarRefCounters.compute(
                     connectorJarIdentifier,
                     (identifier, refCount) -> {
@@ -261,26 +260,12 @@ public class SharedConnectorJarStorageStrategy extends AbstractConnectorJarStora
                         }
                         long references = refCount.getReferences() - 1;
                         if (references <= 0) {
-                            removeLocalFile.set(true);
-                            return null;
+                            refCount.setReferences(0L);
+                            return refCount;
                         }
                         refCount.setReferences(references);
                         return refCount;
                     });
-            if (removeLocalFile.get()) {
-                try {
-                    deleteConnectorJarInternal(new File(connectorJarIdentifier.getStoragePath()));
-                } catch (RuntimeException e) {
-                    // Preserve the original replication failure for the uploader and leave a
-                    // tombstone so timer cleanup can retry this physical deletion.
-                    connectorJarRefCounters.put(connectorJarIdentifier, new RefCount());
-                    LOGGER.warning(
-                            String.format(
-                                    "Failed to roll back connector jar file %s, retry cleanup later.",
-                                    connectorJarIdentifier),
-                            e);
-                }
-            }
         } finally {
             readWriteLock.writeLock().unlock();
             connectorJarRefCounters.unlock(connectorJarIdentifier);

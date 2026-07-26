@@ -95,7 +95,11 @@ public class ServerConnectorPackageClientTest {
         Assertions.assertArrayEquals(new byte[] {4, 5, 6}, Files.readAllBytes(validPath));
     }
 
-    /** Verifies that remote cleanup cannot acknowledge a physical deletion that failed. */
+    /**
+     * Verifies that remote cleanup cannot acknowledge a physical deletion that failed.
+     *
+     * <p>The coordinator must retain lifecycle state until the standby confirms removal.
+     */
     @Test
     void testDeleteFailureIsPropagated() throws Exception {
         Path nonEmptyDirectory = tempDir.resolve("non-empty");

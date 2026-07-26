@@ -47,7 +47,11 @@ import java.util.LinkedHashSet;
  */
 public class ConnectorPackageServiceRetryTest {
 
-    /** Verifies that retry repairs every remote member and commits exactly one shared reference. */
+    /**
+     * Verifies that retry repairs every remote member and commits exactly one shared reference.
+     *
+     * <p>The assertions protect idempotent fan-out after a partially acknowledged first attempt.
+     */
     @Test
     void testRetryReplicatesAfterPartialFailureWithoutDoubleCounting() {
         long jobId = 1L;

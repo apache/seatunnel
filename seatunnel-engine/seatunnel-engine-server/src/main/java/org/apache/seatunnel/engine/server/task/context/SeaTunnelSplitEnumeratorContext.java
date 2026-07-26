@@ -55,11 +55,19 @@ public class SeaTunnelSplitEnumeratorContext<SplitT extends SourceSplit>
 
     private final Set<Integer> noMoreSplitsSignaledReaders = ConcurrentHashMap.newKeySet();
 
-    /** Preserves per-reader split-delivery ordering without blocking the enumerator loop. */
+    /**
+     * Preserves per-reader split-delivery ordering without blocking the enumerator loop.
+     *
+     * <p>Each reader chains its next send after the previous asynchronous delivery finishes.
+     */
     private final ConcurrentHashMap<Integer, CompletableFuture<Void>> splitDeliveryChains =
             new ConcurrentHashMap<>();
 
-    /** Stores the first asynchronous split-delivery failure for later propagation. */
+    /**
+     * Stores the first asynchronous split-delivery failure for later propagation.
+     *
+     * <p>The enumerator observes this failure before accepting more split assignments.
+     */
     private final AtomicReference<IllegalStateException> splitDeliveryFailure =
             new AtomicReference<>();
 
@@ -263,7 +271,11 @@ public class SeaTunnelSplitEnumeratorContext<SplitT extends SourceSplit>
         return failure;
     }
 
-    /** Unwraps nested async wrappers and exposes the original split-delivery failure cause. */
+    /**
+     * Unwraps nested async wrappers and exposes the original split-delivery failure cause.
+     *
+     * <p>This keeps callers from losing the operation failure behind completion wrappers.
+     */
     private Throwable unwrapSplitDeliveryThrowable(Throwable throwable) {
         Throwable current = throwable;
         while (current instanceof CompletionException || current instanceof ExecutionException) {
