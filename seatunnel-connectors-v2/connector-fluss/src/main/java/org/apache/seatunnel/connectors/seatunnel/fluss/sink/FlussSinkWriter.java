@@ -97,7 +97,10 @@ public class FlussSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
                 writer = table.newAppend().createWriter();
             }
         } catch (Throwable t) {
-            closeQuietly();
+            Exception closeError = closeResources();
+            if (closeError != null && closeError != t) {
+                t.addSuppressed(closeError);
+            }
             throw t;
         }
     }
@@ -159,6 +162,18 @@ public class FlussSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
 
     @Override
     public void close() {
+        Exception closeError = closeResources();
+        if (closeError != null) {
+            throw CommonError.closeFailed(FlussSinkOptions.CONNECTOR_IDENTITY, closeError);
+        }
+    }
+
+    /**
+     * Closes every initialized Fluss resource and preserves all failures in close order.
+     *
+     * @return the first close failure with later failures attached as suppressed exceptions
+     */
+    private Exception closeResources() {
         Exception firstError = null;
         log.info("Close Fluss table.");
         try {
@@ -182,24 +197,7 @@ public class FlussSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
             }
         }
 
-        if (firstError != null) {
-            throw CommonError.closeFailed(FlussSinkOptions.CONNECTOR_IDENTITY, firstError);
-        }
-    }
-
-    private void closeQuietly() {
-        try {
-            if (table != null) {
-                table.close();
-            }
-        } catch (Exception ignored) {
-        }
-        try {
-            if (connection != null) {
-                connection.close();
-            }
-        } catch (Exception ignored) {
-        }
+        return firstError;
     }
 
     protected Object convert(SeaTunnelDataType dataType, String fieldName, Object val) {
