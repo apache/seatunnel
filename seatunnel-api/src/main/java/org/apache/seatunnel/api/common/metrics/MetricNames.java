@@ -53,6 +53,57 @@ public final class MetricNames {
     /** Total nanoseconds spent idle (polling empty / sleeping / waiting) in Source. */
     public static final String SOURCE_IDLE_NANOS = "SourceIdleNs";
 
+    /** Total number of SourceReader poll invocations. */
+    public static final String SOURCE_POLL_TOTAL = "SourcePollTotal";
+
+    /** Total wall-clock nanoseconds spent in SourceReader poll invocations. */
+    public static final String SOURCE_POLL_NANOS = "SourcePollNs";
+
+    /** Maximum wall-clock nanoseconds observed for a SourceReader poll invocation. */
+    public static final String SOURCE_POLL_MAX_NANOS = "SourcePollMaxNs";
+
+    /** Total SourceReader poll invocations that exceeded the runtime soft budget. */
+    public static final String SOURCE_POLL_BUDGET_EXCEEDED_TOTAL = "SourcePollBudgetExceededTotal";
+
+    /** Total number of SourceReader control callback invocations. */
+    public static final String SOURCE_READER_CALLBACK_TOTAL = "SourceReaderCallbackTotal";
+
+    /** Total wall-clock nanoseconds spent in SourceReader control callbacks. */
+    public static final String SOURCE_READER_CALLBACK_NANOS = "SourceReaderCallbackNs";
+
+    /** Maximum wall-clock nanoseconds observed for a SourceReader control callback. */
+    public static final String SOURCE_READER_CALLBACK_MAX_NANOS = "SourceReaderCallbackMaxNs";
+
+    /** Total SourceReader control callbacks that exceeded the operation-thread soft budget. */
+    public static final String SOURCE_READER_CALLBACK_BUDGET_EXCEEDED_TOTAL =
+            "SourceReaderCallbackBudgetExceededTotal";
+
+    /** Total number of source checkpoint barriers processed by a reader task. */
+    public static final String SOURCE_CHECKPOINT_TOTAL = "SourceCheckpointTotal";
+
+    /** Total nanoseconds source checkpoints waited to acquire the checkpoint lock. */
+    public static final String SOURCE_CHECKPOINT_LOCK_WAIT_NANOS = "SourceCheckpointLockWaitNs";
+
+    /** Maximum nanoseconds a source checkpoint waited to acquire the checkpoint lock. */
+    public static final String SOURCE_CHECKPOINT_LOCK_WAIT_MAX_NANOS =
+            "SourceCheckpointLockWaitMaxNs";
+
+    /** Total number of SourceReader state snapshots executed by a reader task. */
+    public static final String SOURCE_CHECKPOINT_SNAPSHOT_TOTAL = "SourceCheckpointSnapshotTotal";
+
+    /** Total nanoseconds spent snapshotting and registering SourceReader state. */
+    public static final String SOURCE_CHECKPOINT_SNAPSHOT_NANOS = "SourceCheckpointSnapshotNs";
+
+    /** Maximum nanoseconds spent snapshotting and registering SourceReader state. */
+    public static final String SOURCE_CHECKPOINT_SNAPSHOT_MAX_NANOS =
+            "SourceCheckpointSnapshotMaxNs";
+
+    /** Total nanoseconds spent acknowledging and forwarding source checkpoint barriers. */
+    public static final String SOURCE_BARRIER_FORWARD_NANOS = "SourceBarrierForwardNs";
+
+    /** Maximum nanoseconds spent acknowledging and forwarding a source checkpoint barrier. */
+    public static final String SOURCE_BARRIER_FORWARD_MAX_NANOS = "SourceBarrierForwardMaxNs";
+
     /** Total nanoseconds spent processing records in Transform chain. */
     public static final String TRANSFORM_PROCESS_NANOS = "TransformProcessNs";
 

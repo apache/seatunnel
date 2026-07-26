@@ -119,6 +119,9 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
     private transient Counter sourceReadNs;
     private transient Counter sourceIdleNs;
 
+    /** Timing metrics shared by the legacy reader path and the future managed runtime. */
+    private transient SourceRuntimeMetrics sourceRuntimeMetrics;
+
     private final AtomicReference<SchemaChangePhase> schemaChangePhase = new AtomicReference<>();
 
     private final long flushIntervalMs;
@@ -166,6 +169,10 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
                         eventListener);
         this.sourceReadNs = metricsContext.counter(SOURCE_READ_NANOS + "#" + sourceAction.getId());
         this.sourceIdleNs = metricsContext.counter(SOURCE_IDLE_NANOS + "#" + sourceAction.getId());
+        if (runningTask.isObservabilityEnabled()) {
+            this.sourceRuntimeMetrics =
+                    new SourceRuntimeMetrics(metricsContext, sourceAction.getId());
+        }
         this.reader = sourceAction.getSource().createReader(context);
         this.enumeratorTaskAddress = getEnumeratorTaskAddress();
     }
@@ -253,7 +260,7 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
      * @throws Exception if polling or schema-change triggering fails
      */
     public void collect() throws Exception {
-        boolean metricsEnabled = runningTask != null && runningTask.isObservabilityEnabled();
+        boolean metricsEnabled = sourceRuntimeMetrics != null;
         if (!prepareClose) {
             if (schemaChanging()) {
                 log.debug("schema is changing, stop reader collect records");
@@ -266,8 +273,15 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
 
             collector.resetEmptyThisPollNext();
             long startNs = metricsEnabled ? System.nanoTime() : 0L;
-            reader.pollNext(collector);
-            long pollCostNs = metricsEnabled ? (System.nanoTime() - startNs) : 0L;
+            long pollCostNs = 0L;
+            try {
+                reader.pollNext(collector);
+            } finally {
+                if (metricsEnabled) {
+                    pollCostNs = System.nanoTime() - startNs;
+                    sourceRuntimeMetrics.recordPoll(pollCostNs);
+                }
+            }
             if (collector.isEmptyThisPollNext()) {
                 if (metricsEnabled) {
                     sourceIdleNs.inc(pollCostNs);
@@ -445,10 +459,18 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
      *     splits
      */
     public void receivedSplits(List<SplitT> splits) {
-        if (splits.isEmpty()) {
-            reader.handleNoMoreSplits();
-        } else {
-            reader.addSplits(splits);
+        boolean metricsEnabled = sourceRuntimeMetrics != null;
+        long startNanos = metricsEnabled ? System.nanoTime() : 0L;
+        try {
+            if (splits.isEmpty()) {
+                reader.handleNoMoreSplits();
+            } else {
+                reader.addSplits(splits);
+            }
+        } finally {
+            if (metricsEnabled) {
+                sourceRuntimeMetrics.recordReaderCallback(System.nanoTime() - startNanos);
+            }
         }
     }
 
@@ -476,22 +498,44 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
         log.debug("source trigger barrier [{}]", barrier);
 
         long startTime = System.currentTimeMillis();
+        boolean metricsEnabled = sourceRuntimeMetrics != null;
+        long checkpointStartNanos = metricsEnabled ? System.nanoTime() : 0L;
 
         // Block the reader from adding barrier to the collector.
         synchronized (collector.getCheckpointLock()) {
+            if (metricsEnabled) {
+                sourceRuntimeMetrics.recordCheckpointLockWait(
+                        System.nanoTime() - checkpointStartNanos);
+            }
             if (barrier.prepareClose(this.currentTaskLocation)) {
                 this.prepareClose = true;
             }
             if (barrier.snapshot()) {
-                List<byte[]> states =
-                        serializeStates(splitSerializer, reader.snapshotState(barrier.getId()));
-                runningTask.addState(barrier, ActionStateKey.of(sourceAction), states);
+                long snapshotStartNanos = metricsEnabled ? System.nanoTime() : 0L;
+                try {
+                    List<byte[]> states =
+                            serializeStates(splitSerializer, reader.snapshotState(barrier.getId()));
+                    runningTask.addState(barrier, ActionStateKey.of(sourceAction), states);
+                } finally {
+                    if (metricsEnabled) {
+                        sourceRuntimeMetrics.recordCheckpointSnapshot(
+                                System.nanoTime() - snapshotStartNanos);
+                    }
+                }
             }
-            // ack after #addState
-            runningTask.ack(barrier);
-            log.debug("source ack barrier finished, taskId: [{}]", runningTask.getTaskID());
-            collector.sendRecordToNext(new Record<>(barrier));
-            log.debug("send record to next finished, taskId: [{}]", runningTask.getTaskID());
+            long barrierForwardStartNanos = metricsEnabled ? System.nanoTime() : 0L;
+            try {
+                // ack after #addState
+                runningTask.ack(barrier);
+                log.debug("source ack barrier finished, taskId: [{}]", runningTask.getTaskID());
+                collector.sendRecordToNext(new Record<>(barrier));
+                log.debug("send record to next finished, taskId: [{}]", runningTask.getTaskID());
+            } finally {
+                if (metricsEnabled) {
+                    sourceRuntimeMetrics.recordBarrierForward(
+                            System.nanoTime() - barrierForwardStartNanos);
+                }
+            }
         }
 
         log.debug(
@@ -546,7 +590,15 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
      */
     @Override
     public void notifyCheckpointComplete(long checkpointId) throws Exception {
-        reader.notifyCheckpointComplete(checkpointId);
+        boolean metricsEnabled = sourceRuntimeMetrics != null;
+        long startNanos = metricsEnabled ? System.nanoTime() : 0L;
+        try {
+            reader.notifyCheckpointComplete(checkpointId);
+        } finally {
+            if (metricsEnabled) {
+                sourceRuntimeMetrics.recordReaderCallback(System.nanoTime() - startNanos);
+            }
+        }
     }
 
     /**
@@ -563,7 +615,15 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
      */
     @Override
     public void notifyCheckpointAborted(long checkpointId) throws Exception {
-        reader.notifyCheckpointAborted(checkpointId);
+        boolean metricsEnabled = sourceRuntimeMetrics != null;
+        long startNanos = metricsEnabled ? System.nanoTime() : 0L;
+        try {
+            reader.notifyCheckpointAborted(checkpointId);
+        } finally {
+            if (metricsEnabled) {
+                sourceRuntimeMetrics.recordReaderCallback(System.nanoTime() - startNanos);
+            }
+        }
         if (schemaChangePhase.get() != null
                 && schemaChangePhase.get().getCheckpointId() == checkpointId) {
             throw new IllegalStateException(
