@@ -23,6 +23,9 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.util.HashMap;
+import java.util.Map;
+
 class SparkStarterTest {
 
     @AfterEach
@@ -39,9 +42,46 @@ class SparkStarterTest {
     @Test
     void useConfiguredStarterJarName() {
         System.setProperty(
-                SparkStarter.STARTER_JAR_NAME_PROPERTY, "seatunnel-spark-3.5-starter.jar");
+                SparkStarter.STARTER_JAR_NAME_PROPERTY, SparkStarter.SPARK_35_STARTER_JAR_NAME);
 
         Assertions.assertEquals(
-                "seatunnel-spark-3.5-starter.jar", SparkStarter.getStarterJarName());
+                SparkStarter.SPARK_35_STARTER_JAR_NAME, SparkStarter.getStarterJarName());
+    }
+
+    @Test
+    void enableUserClassPathFirstForSpark35() {
+        System.setProperty(
+                SparkStarter.STARTER_JAR_NAME_PROPERTY, SparkStarter.SPARK_35_STARTER_JAR_NAME);
+        Map<String, String> sparkConf = new HashMap<>();
+
+        SparkStarter.applyCompatibilityDefaults(sparkConf);
+
+        Assertions.assertEquals("true", sparkConf.get(SparkStarter.DRIVER_USER_CLASS_PATH_FIRST));
+        Assertions.assertEquals("true", sparkConf.get(SparkStarter.EXECUTOR_USER_CLASS_PATH_FIRST));
+    }
+
+    @Test
+    void preserveConfiguredSpark35ClassPathPrecedence() {
+        System.setProperty(
+                SparkStarter.STARTER_JAR_NAME_PROPERTY, SparkStarter.SPARK_35_STARTER_JAR_NAME);
+        Map<String, String> sparkConf = new HashMap<>();
+        sparkConf.put(SparkStarter.DRIVER_USER_CLASS_PATH_FIRST, "false");
+        sparkConf.put(SparkStarter.EXECUTOR_USER_CLASS_PATH_FIRST, "false");
+
+        SparkStarter.applyCompatibilityDefaults(sparkConf);
+
+        Assertions.assertEquals("false", sparkConf.get(SparkStarter.DRIVER_USER_CLASS_PATH_FIRST));
+        Assertions.assertEquals(
+                "false", sparkConf.get(SparkStarter.EXECUTOR_USER_CLASS_PATH_FIRST));
+    }
+
+    @Test
+    void doNotChangeClassPathPrecedenceForSpark33() {
+        Map<String, String> sparkConf = new HashMap<>();
+
+        SparkStarter.applyCompatibilityDefaults(sparkConf);
+
+        Assertions.assertFalse(sparkConf.containsKey(SparkStarter.DRIVER_USER_CLASS_PATH_FIRST));
+        Assertions.assertFalse(sparkConf.containsKey(SparkStarter.EXECUTOR_USER_CLASS_PATH_FIRST));
     }
 }
