@@ -17,7 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.fake.source;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConditionExtension;
+import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
@@ -35,8 +39,10 @@ import com.google.auto.service.AutoService;
 
 import java.io.Serializable;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
+import static org.apache.seatunnel.api.configuration.util.Conditions.extension;
 import static org.apache.seatunnel.api.configuration.util.Conditions.greaterOrEqual;
 import static org.apache.seatunnel.api.configuration.util.Conditions.lessOrEqual;
 import static org.apache.seatunnel.connectors.seatunnel.fake.config.FakeSourceOptions.ARRAY_SIZE;
@@ -186,7 +192,48 @@ public class FakeSourceFactory implements TableSourceFactory, SupportSourceDryRu
                                 .and(
                                         lessOrEqual(
                                                 VECTOR_FLOAT_MAX, VECTOR_FLOAT_MAX.defaultValue())))
+                .valueConstraint(
+                        extension(
+                                ConnectorCommonOptions.TABLE_CONFIGS,
+                                new TableConfigsValidationExtension()))
                 .build();
+    }
+
+    private static final class TableConfigsValidationExtension
+            implements ConditionExtension<List<Map<String, Object>>> {
+
+        @Override
+        public String description() {
+            return "each tables_configs entry must satisfy the FakeSource option rules";
+        }
+
+        @Override
+        public boolean evaluate(ReadonlyConfig config, List<Map<String, Object>> tableConfigs)
+                throws OptionValidationException {
+            if (tableConfigs == null) {
+                return true;
+            }
+            OptionRule childRule = new FakeSourceFactory().optionRule();
+            for (int index = 0; index < tableConfigs.size(); index++) {
+                Map<String, Object> childConfig = tableConfigs.get(index);
+                if (childConfig == null) {
+                    throw new OptionValidationException(
+                            "Invalid tables_configs[%s]: child config must not be null", index);
+                }
+                if (childConfig.containsKey(ConnectorCommonOptions.TABLE_CONFIGS.key())) {
+                    throw new OptionValidationException(
+                            "Invalid tables_configs[%s]: nested tables_configs is not supported",
+                            index);
+                }
+                try {
+                    ConfigValidator.of(ReadonlyConfig.fromMap(childConfig)).validate(childRule);
+                } catch (OptionValidationException e) {
+                    throw new OptionValidationException(
+                            "Invalid tables_configs[%s]: %s", index, e.getRawMessage());
+                }
+            }
+            return true;
+        }
     }
 
     @Override

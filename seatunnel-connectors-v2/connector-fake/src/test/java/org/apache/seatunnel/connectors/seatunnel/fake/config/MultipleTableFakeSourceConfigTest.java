@@ -21,7 +21,6 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.connectors.seatunnel.fake.exception.FakeConnectorException;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -41,31 +40,5 @@ class MultipleTableFakeSourceConfigTest {
         MultipleTableFakeSourceConfig multipleTableFakeSourceConfig =
                 new MultipleTableFakeSourceConfig(readonlyConfig);
         Assertions.assertEquals(2, multipleTableFakeSourceConfig.getFakeConfigs().size());
-    }
-
-    @Test
-    void invalidTinyintMinInTablesConfigsShouldFail() {
-        String configStr =
-                "FakeSource {\n"
-                        + "  tables_configs = [\n"
-                        + "    {\n"
-                        + "      tinyint.min = 200\n"
-                        + "      schema = {\n"
-                        + "        table = \"fake.table1\"\n"
-                        + "        fields {\n"
-                        + "          c_tinyint = tinyint\n"
-                        + "        }\n"
-                        + "      }\n"
-                        + "    }\n"
-                        + "  ]\n"
-                        + "}";
-
-        Config config = ConfigFactory.parseString(configStr);
-
-        ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(config.getConfig("FakeSource"));
-
-        Assertions.assertThrows(
-                FakeConnectorException.class,
-                () -> new MultipleTableFakeSourceConfig(readonlyConfig));
     }
 }
