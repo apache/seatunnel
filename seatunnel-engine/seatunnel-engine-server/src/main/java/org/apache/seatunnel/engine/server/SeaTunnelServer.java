@@ -39,6 +39,7 @@ import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
 import org.apache.seatunnel.engine.server.observability.RealtimeMetricsService;
 import org.apache.seatunnel.engine.server.rest.service.BaseService;
 import org.apache.seatunnel.engine.server.service.jar.ConnectorPackageService;
+import org.apache.seatunnel.engine.server.service.jar.ServerConnectorPackageClient;
 import org.apache.seatunnel.engine.server.service.slot.DefaultSlotService;
 import org.apache.seatunnel.engine.server.service.slot.SlotService;
 import org.apache.seatunnel.engine.server.telemetry.log.TaskLogManagerService;
@@ -95,6 +96,14 @@ public class SeaTunnelServer
 
     private volatile SlotService slotService;
     private TaskExecutionService taskExecutionService;
+    /**
+     * Stores connector jars on every server member.
+     *
+     * <p>The client is initialized independently of the worker service so standby coordinator-only
+     * members can retain jars needed after failover.
+     */
+    private ServerConnectorPackageClient serverConnectorPackageClient;
+
     private ClassLoaderService classLoaderService;
     private CoordinatorService coordinatorService;
     @Getter private CheckpointService checkpointService;
@@ -157,6 +166,8 @@ public class SeaTunnelServer
         classLoaderService =
                 new DefaultClassLoaderService(
                         seaTunnelConfig.getEngineConfig().isClassloaderCacheMode(), nodeEngine);
+        serverConnectorPackageClient =
+                new ServerConnectorPackageClient(nodeEngine, seaTunnelConfig);
 
         eventService = new EventService(nodeEngine);
 
@@ -214,7 +225,11 @@ public class SeaTunnelServer
     private void startWorker() {
         taskExecutionService =
                 new TaskExecutionService(
-                        classLoaderService, nodeEngine, engineContext, eventService);
+                        classLoaderService,
+                        nodeEngine,
+                        engineContext,
+                        eventService,
+                        serverConnectorPackageClient);
         nodeEngine.getMetricsRegistry().registerDynamicMetricsProvider(taskExecutionService);
         taskExecutionService.start();
         getSlotService();
@@ -340,6 +355,15 @@ public class SeaTunnelServer
 
     public TaskExecutionService getTaskExecutionService() {
         return taskExecutionService;
+    }
+
+    /**
+     * Returns the node-local connector package client shared by all server roles.
+     *
+     * @return node-local connector package client
+     */
+    public ServerConnectorPackageClient getServerConnectorPackageClient() {
+        return serverConnectorPackageClient;
     }
 
     public ClassLoaderService getClassLoaderService() {

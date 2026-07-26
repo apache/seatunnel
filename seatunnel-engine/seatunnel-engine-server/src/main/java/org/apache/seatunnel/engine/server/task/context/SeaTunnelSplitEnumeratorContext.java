@@ -28,6 +28,7 @@ import org.apache.seatunnel.engine.server.task.operation.source.AssignSplitOpera
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
@@ -152,7 +153,11 @@ public class SeaTunnelSplitEnumeratorContext<SplitT extends SourceSplit>
      * snapshot. This keeps enumerator state snapshots consistent with acknowledged split delivery.
      */
     public void awaitPendingSplitDeliveries() throws InterruptedException, ExecutionException {
-        for (CompletableFuture<Void> splitDeliveryChain : splitDeliveryChains.values()) {
+        List<CompletableFuture<Void>> pendingDeliveries;
+        synchronized (this) {
+            pendingDeliveries = new ArrayList<>(splitDeliveryChains.values());
+        }
+        for (CompletableFuture<Void> splitDeliveryChain : pendingDeliveries) {
             splitDeliveryChain.get();
         }
         throwIfSplitDeliveryFailed();
@@ -177,17 +182,45 @@ public class SeaTunnelSplitEnumeratorContext<SplitT extends SourceSplit>
             int subtaskIndex,
             String action,
             Supplier<CompletableFuture<Void>> splitDeliverySupplier) {
-        throwIfSplitDeliveryFailed();
-        splitDeliveryChains.compute(
-                subtaskIndex,
-                (ignored, previousDelivery) -> {
-                    CompletableFuture<Void> orderedDelivery =
-                            previousDelivery == null
-                                    ? CompletableFuture.completedFuture(null)
-                                    : previousDelivery;
-                    return new CompletableFuture<>(
-                            orderedDelivery.thenCompose(unused -> splitDeliverySupplier.get()));
-                });
+        // SourceSplitEnumeratorTask holds this same context monitor while taking a checkpoint
+        // snapshot, so no delivery can be accepted between the tail snapshot and state snapshot.
+        synchronized (this) {
+            throwIfSplitDeliveryFailed();
+            splitDeliveryChains.compute(
+                    subtaskIndex,
+                    (ignored, previousDelivery) -> {
+                        CompletableFuture<Void> orderedDelivery =
+                                previousDelivery == null
+                                        ? CompletableFuture.completedFuture(null)
+                                        : previousDelivery;
+                        return new CompletableFuture<>(
+                                orderedDelivery.thenCompose(
+                                        unused ->
+                                                invokeSplitDelivery(
+                                                        splitDeliverySupplier,
+                                                        subtaskIndex,
+                                                        action)));
+                    });
+        }
+    }
+
+    /**
+     * Converts synchronous remote-send failures into the same tracked failure used by asynchronous
+     * delivery completion.
+     */
+    private CompletableFuture<Void> invokeSplitDelivery(
+            Supplier<CompletableFuture<Void>> splitDeliverySupplier,
+            int subtaskIndex,
+            String action) {
+        try {
+            return splitDeliverySupplier.get();
+        } catch (RuntimeException throwable) {
+            IllegalStateException failure =
+                    recordSplitDeliveryFailure(throwable, subtaskIndex, action);
+            CompletableFuture<Void> failedDelivery = new CompletableFuture<>();
+            failedDelivery.completeExceptionally(failure);
+            return failedDelivery;
+        }
     }
 
     /**
@@ -206,14 +239,28 @@ public class SeaTunnelSplitEnumeratorContext<SplitT extends SourceSplit>
                         return;
                     }
                     IllegalStateException failure =
-                            new IllegalStateException(
-                                    String.format(
-                                            "Failed to %s for reader %s", action, subtaskIndex),
-                                    unwrapSplitDeliveryThrowable(throwable));
-                    splitDeliveryFailure.compareAndSet(null, failure);
+                            recordSplitDeliveryFailure(throwable, subtaskIndex, action);
                     splitDeliveryFuture.completeExceptionally(failure);
                 });
         return splitDeliveryFuture;
+    }
+
+    /**
+     * Records and returns the normalized split-delivery failure.
+     *
+     * @param throwable synchronous or asynchronous delivery failure
+     * @param subtaskIndex target reader index
+     * @param action delivery action description
+     * @return normalized failure retained by the enumerator context
+     */
+    private IllegalStateException recordSplitDeliveryFailure(
+            Throwable throwable, int subtaskIndex, String action) {
+        IllegalStateException failure =
+                new IllegalStateException(
+                        String.format("Failed to %s for reader %s", action, subtaskIndex),
+                        unwrapSplitDeliveryThrowable(throwable));
+        splitDeliveryFailure.compareAndSet(null, failure);
+        return failure;
     }
 
     /** Unwraps nested async wrappers and exposes the original split-delivery failure cause. */

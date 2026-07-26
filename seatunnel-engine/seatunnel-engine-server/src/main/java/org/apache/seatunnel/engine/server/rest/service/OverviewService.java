@@ -46,7 +46,7 @@ public class OverviewService extends BaseService {
         if (seaTunnelServer == null) {
             // Master election may not be finished yet (e.g. right after local engine startup).
             // Avoid sending operation to a null master address which will trigger NPE.
-            if (nodeEngine.getMasterAddress() == null) {
+            if (NodeEngineUtil.getActiveMasterAddress(nodeEngine) == null) {
                 overviewInfo = new OverviewInfo();
             } else {
                 overviewInfo =

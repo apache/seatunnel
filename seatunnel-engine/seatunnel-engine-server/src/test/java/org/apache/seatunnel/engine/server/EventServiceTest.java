@@ -25,7 +25,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 import com.hazelcast.cluster.Address;
-import com.hazelcast.cluster.Member;
+import com.hazelcast.cluster.impl.MemberImpl;
 import com.hazelcast.internal.cluster.ClusterService;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import com.hazelcast.spi.impl.operationservice.InvocationBuilder;
@@ -46,7 +46,7 @@ public class EventServiceTest {
         Address masterAddress = new Address("localhost", 5801);
         NodeEngineImpl nodeEngine = Mockito.mock(NodeEngineImpl.class);
         ClusterService clusterService = Mockito.mock(ClusterService.class);
-        Member masterMember = Mockito.mock(Member.class);
+        MemberImpl masterMember = Mockito.mock(MemberImpl.class);
         OperationServiceImpl operationService = Mockito.mock(OperationServiceImpl.class);
         InvocationBuilder invocationBuilder = Mockito.mock(InvocationBuilder.class);
         InvocationFuture<Void> failedInvocation = Mockito.mock(InvocationFuture.class);

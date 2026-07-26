@@ -167,15 +167,25 @@ public class ServerExecuteCommand implements Command<ServerCommandArgs> {
         }
     }
 
-    private Address getActiveMasterAddress(Collection<Member> memberList, Member masterMember) {
-        if (masterMember != null && !masterMember.isLiteMember()) {
+    /**
+     * Resolves the active coordinator shown by the member-list command.
+     *
+     * @param memberList current cluster members
+     * @param masterMember Hazelcast master member, or {@code null} when it is unknown
+     * @return active coordinator address, or {@code null} when no coordinator is known
+     */
+    Address getActiveMasterAddress(Collection<Member> memberList, Member masterMember) {
+        if (masterMember == null) {
+            return null;
+        }
+        if (!masterMember.isLiteMember()) {
             return masterMember.getAddress();
         }
         return memberList.stream()
                 .filter(member -> !member.isLiteMember())
                 .map(Member::getAddress)
                 .findFirst()
-                .orElse(masterMember == null ? null : masterMember.getAddress());
+                .orElse(null);
     }
 
     private String getRole(Address masterAddress, Member member) {

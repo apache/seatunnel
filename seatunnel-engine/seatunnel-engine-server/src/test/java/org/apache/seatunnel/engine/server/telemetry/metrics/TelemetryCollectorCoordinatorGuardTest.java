@@ -363,7 +363,7 @@ public class TelemetryCollectorCoordinatorGuardTest {
 
     @Test
     void testClusterMetricExportsSkipsClusterInfoWhenMasterAddressNull() {
-        Mockito.when(mockClusterService.getMasterAddress()).thenReturn(null);
+        Mockito.when(mockNodeEngine.getMasterAddress()).thenReturn(null);
 
         List<Collector.MetricFamilySamples> result = new ClusterMetricExports(mockNode).collect();
 
@@ -375,8 +375,11 @@ public class TelemetryCollectorCoordinatorGuardTest {
     @Test
     void testClusterMetricExportsIncludesClusterInfoWhenMasterAddressAvailable()
             throws UnknownHostException {
-        Mockito.when(mockClusterService.getMasterAddress())
-                .thenReturn(new Address("127.0.0.1", 5801));
+        Address coordinatorAddress = new Address("127.0.0.1", 5801);
+        MemberImpl coordinatorMember = newMember(coordinatorAddress, false);
+        Mockito.when(mockNodeEngine.getMasterAddress()).thenReturn(coordinatorAddress);
+        Mockito.when(mockClusterService.getMember(coordinatorAddress))
+                .thenReturn(coordinatorMember);
 
         List<Collector.MetricFamilySamples> result = new ClusterMetricExports(mockNode).collect();
 
@@ -394,13 +397,35 @@ public class TelemetryCollectorCoordinatorGuardTest {
         Assertions.assertEquals("127.0.0.1:5801", sample.labelValues.get(masterLabelIndex));
     }
 
+    /**
+     * Verifies that cluster telemetry reports the active coordinator when Hazelcast elects a lite
+     * member as its raw master.
+     */
+    @Test
+    void testClusterMetricExportsUsesActiveCoordinatorInsteadOfLiteMaster()
+            throws UnknownHostException {
+        stubSeparatedClusterWithLocalCoordinator();
+
+        List<Collector.MetricFamilySamples> result = new ClusterMetricExports(mockNode).collect();
+
+        Collector.MetricFamilySamples clusterInfoMetric =
+                result.stream().filter(s -> "cluster_info".equals(s.name)).findFirst().orElse(null);
+        Assertions.assertNotNull(clusterInfoMetric);
+        Collector.MetricFamilySamples.Sample sample = clusterInfoMetric.samples.get(0);
+        int masterLabelIndex = sample.labelNames.indexOf("master");
+        Assertions.assertEquals("127.0.0.1:5802", sample.labelValues.get(masterLabelIndex));
+    }
+
     @Test
     void testClusterMetricExportsSkipsClusterInfoAndLogsWarningWhenMasterAddressUnresolvable()
             throws UnknownHostException {
         Address mockAddress = Mockito.mock(Address.class);
+        MemberImpl coordinatorMember = Mockito.mock(MemberImpl.class);
         Mockito.when(mockAddress.getInetAddress()).thenThrow(new UnknownHostException("mock"));
         Mockito.when(mockAddress.getPort()).thenReturn(5801);
-        Mockito.when(mockClusterService.getMasterAddress()).thenReturn(mockAddress);
+        Mockito.when(mockNodeEngine.getMasterAddress()).thenReturn(mockAddress);
+        Mockito.when(mockClusterService.getMember(mockAddress)).thenReturn(coordinatorMember);
+        Mockito.when(coordinatorMember.isLiteMember()).thenReturn(false);
 
         List<Collector.MetricFamilySamples> result = new ClusterMetricExports(mockNode).collect();
 

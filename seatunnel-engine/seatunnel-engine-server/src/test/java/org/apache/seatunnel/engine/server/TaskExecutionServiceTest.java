@@ -41,9 +41,12 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
 import com.hazelcast.flakeidgen.FlakeIdGenerator;
 import com.hazelcast.internal.serialization.Data;
+import com.hazelcast.spi.exception.RetryableHazelcastException;
+import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 import lombok.NonNull;
 
 import java.io.File;
@@ -79,6 +82,47 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
     public void before() {
         super.before();
         FLAKE_ID_GENERATOR = instance.getFlakeIdGenerator("test");
+    }
+
+    /**
+     * Verifies that a synchronous coordinator lookup gap does not escape the final task-state retry
+     * loop.
+     */
+    @Test
+    void testNotifyTaskStatusRetriesAfterCoordinatorGap() throws Exception {
+        TaskExecutionService taskExecutionService = Mockito.spy(server.getTaskExecutionService());
+        InvocationFuture<Object> successfulInvocation = Mockito.mock(InvocationFuture.class);
+        Mockito.when(successfulInvocation.get()).thenReturn(null);
+        Mockito.doThrow(new RetryableHazelcastException("coordinator unavailable"))
+                .doReturn(successfulInvocation)
+                .when(taskExecutionService)
+                .sendOperationToMaster(Mockito.any());
+        TaskGroupLocation location = new TaskGroupLocation(jobId, pipeLineId, 1);
+
+        taskExecutionService.notifyTaskStatusToMaster(
+                location, new TaskExecutionState(location, FINISHED));
+
+        Mockito.verify(taskExecutionService, Mockito.times(2)).sendOperationToMaster(Mockito.any());
+    }
+
+    /**
+     * Verifies that one synchronous coordinator lookup gap returns normally and allows the next
+     * metrics reporting cycle to run.
+     */
+    @Test
+    void testMetricsReportingContinuesAfterCoordinatorGap() throws Exception {
+        TaskExecutionService taskExecutionService = Mockito.spy(server.getTaskExecutionService());
+        InvocationFuture<Object> successfulInvocation = Mockito.mock(InvocationFuture.class);
+        Mockito.when(successfulInvocation.get()).thenReturn(null);
+        Mockito.doThrow(new RetryableHazelcastException("coordinator unavailable"))
+                .doReturn(successfulInvocation)
+                .when(taskExecutionService)
+                .sendOperationToMaster(Mockito.any());
+
+        taskExecutionService.updateMetricsContextInImap();
+        taskExecutionService.updateMetricsContextInImap();
+
+        Mockito.verify(taskExecutionService, Mockito.times(2)).sendOperationToMaster(Mockito.any());
     }
 
     private PassiveCompletableFuture<TaskExecutionState> deployLocalTask(

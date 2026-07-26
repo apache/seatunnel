@@ -26,7 +26,9 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnJre;
 import org.junit.jupiter.api.condition.JRE;
+import org.mockito.Mockito;
 
+import com.hazelcast.cluster.Address;
 import com.hazelcast.cluster.Member;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 
@@ -91,6 +93,26 @@ public class ServerExecuteCommandTest {
                 }
             }
         }
+    }
+
+    /**
+     * Verifies that the member-list command does not invent an active coordinator while Hazelcast
+     * mastership is unknown.
+     */
+    @Test
+    void testUnknownMasterDoesNotSelectFallbackCoordinator() {
+        ServerExecuteCommand command =
+                new ServerExecuteCommand(Mockito.mock(ServerCommandArgs.class));
+        Member coordinatorMember = Mockito.mock(Member.class);
+        Mockito.when(coordinatorMember.isLiteMember()).thenReturn(false);
+        Mockito.when(coordinatorMember.getAddress())
+                .thenReturn(Address.createUnresolvedAddress("localhost", 5801));
+
+        Address activeMaster =
+                command.getActiveMasterAddress(
+                        java.util.Collections.singletonList(coordinatorMember), null);
+
+        Assertions.assertNull(activeMaster);
     }
 
     public static String getClusterName(String testClassName) {
