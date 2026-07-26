@@ -173,15 +173,10 @@ public class RestJobExecutionEnvironment extends AbstractJobEnvironment {
 
     private List<JobPipelineCheckpointData> loadPipelineCheckpointsFromMasterNode() {
         if (seaTunnelServer.isMasterNode() && seaTunnelServer.getCheckpointService() != null) {
-            if (restoreMode == RestoreMode.CHECKPOINT) {
+            if (restoreMode.isRestore()) {
                 return seaTunnelServer
                         .getCheckpointService()
-                        .getLatestCompletedCheckpointData(String.valueOf(restoreSourceJobId));
-            }
-            if (restoreMode == RestoreMode.SAVEPOINT) {
-                return seaTunnelServer
-                        .getCheckpointService()
-                        .getLatestSavepointData(String.valueOf(restoreSourceJobId));
+                        .getLatestCheckpointData(String.valueOf(restoreSourceJobId), restoreMode);
             }
             throw new IllegalStateException(
                     "Unsupported restore mode for checkpoint loading: " + restoreMode);

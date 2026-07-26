@@ -26,7 +26,6 @@ import org.apache.seatunnel.engine.common.utils.ExceptionUtil;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointIDCounter;
-import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.core.job.Job;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
@@ -47,6 +46,7 @@ import org.apache.seatunnel.engine.server.master.JobMaster;
 import org.apache.seatunnel.engine.server.task.SourceSplitEnumeratorTask;
 import org.apache.seatunnel.engine.server.task.operation.TaskOperation;
 import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
+import org.apache.seatunnel.engine.server.utils.CheckpointRestoreUtils;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
 import com.hazelcast.map.IMap;
@@ -172,23 +172,11 @@ public class CheckpointManager {
         return pipelineStates.stream()
                 .filter(
                         state ->
-                                matchesRestoreCheckpointType(
+                                CheckpointRestoreUtils.matchesRestoreCheckpointType(
                                         deserializeCheckpoint(state).getCheckpointType(),
                                         restoreMode))
                 .max(Comparator.comparingLong(PipelineState::getCheckpointId))
                 .orElse(null);
-    }
-
-    private boolean matchesRestoreCheckpointType(
-            CheckpointType checkpointType, RestoreMode restoreMode) {
-        if (restoreMode == RestoreMode.CHECKPOINT) {
-            return checkpointType == CheckpointType.CHECKPOINT_TYPE
-                    || checkpointType == CheckpointType.COMPLETED_POINT_TYPE;
-        }
-        if (restoreMode == RestoreMode.SAVEPOINT) {
-            return checkpointType == CheckpointType.SAVEPOINT_TYPE;
-        }
-        return false;
     }
 
     private CompletedCheckpoint deserializeCheckpoint(PipelineState pipelineState) {

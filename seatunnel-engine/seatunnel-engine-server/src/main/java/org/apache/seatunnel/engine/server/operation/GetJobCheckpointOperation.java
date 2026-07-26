@@ -104,12 +104,9 @@ public class GetJobCheckpointOperation extends Operation
 
     private Object getCheckpointData(SeaTunnelServer service) {
         RestoreMode restoreMode = RestoreMode.fromCode(restoreModeCode);
-        if (restoreMode == RestoreMode.CHECKPOINT) {
+        if (restoreMode.isRestore()) {
             return service.getCheckpointService()
-                    .getLatestCompletedCheckpointData(String.valueOf(jobId));
-        }
-        if (restoreMode == RestoreMode.SAVEPOINT) {
-            return service.getCheckpointService().getLatestSavepointData(String.valueOf(jobId));
+                    .getLatestCheckpointData(String.valueOf(jobId), restoreMode);
         }
         return service.getCheckpointService().getLatestCheckpointData(String.valueOf(jobId));
     }

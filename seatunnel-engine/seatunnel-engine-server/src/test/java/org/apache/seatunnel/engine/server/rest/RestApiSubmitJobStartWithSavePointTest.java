@@ -272,6 +272,36 @@ public class RestApiSubmitJobStartWithSavePointTest {
         Assertions.assertFalse(jobImmutableInformation.isStartWithSavePoint());
     }
 
+    @Test
+    public void testBuildJobStartWithCheckpointOnWorkerWhenOnlyGeneralCheckpointExists()
+            throws Exception {
+        Assertions.assertNotNull(masterServer);
+        Assertions.assertNotNull(masterServer.getCheckpointService());
+        Assertions.assertNotNull(workerServer);
+        Assertions.assertNull(workerServer.getCheckpointService());
+
+        long sourceJobId = System.currentTimeMillis();
+        storeFakeSourceCheckpoint(sourceJobId, 1L, CheckpointType.CHECKPOINT_TYPE);
+
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setName(TEST_JOB_NAME);
+        org.apache.seatunnel.shade.com.typesafe.config.Config seaTunnelJobConfig =
+                buildSeaTunnelJobConfigFromJsonRequest();
+
+        RestJobExecutionEnvironment restJobExecutionEnvironment =
+                new RestJobExecutionEnvironment(
+                        workerServer,
+                        jobConfig,
+                        seaTunnelJobConfig,
+                        workerInstance.node,
+                        RestoreMode.CHECKPOINT,
+                        sourceJobId);
+        JobImmutableInformation jobImmutableInformation = restJobExecutionEnvironment.build();
+        Assertions.assertNotEquals(sourceJobId, jobImmutableInformation.getJobId());
+        Assertions.assertEquals(RestoreMode.CHECKPOINT, jobImmutableInformation.getRestoreMode());
+        Assertions.assertEquals(sourceJobId, jobImmutableInformation.getRestoreSourceJobId());
+    }
+
     private int getHttpPort(SeaTunnelServer seaTunnelServer) throws Exception {
         Field jettyServiceField = SeaTunnelServer.class.getDeclaredField("jettyService");
         jettyServiceField.setAccessible(true);
@@ -309,6 +339,11 @@ public class RestApiSubmitJobStartWithSavePointTest {
 
     private void storeFakeSourceCheckpoint(long jobId, CheckpointType checkpointType)
             throws Exception {
+        storeFakeSourceCheckpoint(jobId, 1L, checkpointType);
+    }
+
+    private void storeFakeSourceCheckpoint(
+            long jobId, long checkpointId, CheckpointType checkpointType) throws Exception {
         Assertions.assertNotNull(masterServer);
         Assertions.assertNotNull(masterServer.getCheckpointService());
 
@@ -328,7 +363,6 @@ public class RestApiSubmitJobStartWithSavePointTest {
         Map<ActionStateKey, ActionState> taskStates = new HashMap<>();
         taskStates.put(actionStateKey, actionState);
 
-        long checkpointId = 1L;
         int pipelineId = 1;
         long now = System.currentTimeMillis();
         CompletedCheckpoint completedCheckpoint =

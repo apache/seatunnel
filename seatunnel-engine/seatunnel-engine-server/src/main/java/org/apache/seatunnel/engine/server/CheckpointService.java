@@ -22,14 +22,15 @@ import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorageFactory;
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.utils.FactoryUtil;
-import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
 import org.apache.seatunnel.engine.core.job.JobPipelineCheckpointData;
+import org.apache.seatunnel.engine.core.job.RestoreMode;
 import org.apache.seatunnel.engine.serializer.api.Serializer;
 import org.apache.seatunnel.engine.serializer.protobuf.ProtoStuffSerializer;
 import org.apache.seatunnel.engine.server.checkpoint.ActionState;
 import org.apache.seatunnel.engine.server.checkpoint.ActionStateKey;
 import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
 import org.apache.seatunnel.engine.server.checkpoint.CompletedCheckpoint;
+import org.apache.seatunnel.engine.server.utils.CheckpointRestoreUtils;
 
 import lombok.Getter;
 import lombok.SneakyThrows;
@@ -70,28 +71,6 @@ public class CheckpointService {
                 .collect(Collectors.toList());
     }
 
-    @SneakyThrows
-    public List<CompletedCheckpoint> getLatestCheckpointsByType(
-            String jobId, CheckpointType checkpointType) {
-        return checkpointStorage.getAllCheckpoints(jobId).stream()
-                .map(this::deserializeCheckpoint)
-                .filter(checkpoint -> checkpoint.getCheckpointType() == checkpointType)
-                .collect(Collectors.groupingBy(CompletedCheckpoint::getPipelineId))
-                .values()
-                .stream()
-                .map(
-                        checkpoints ->
-                                checkpoints.stream()
-                                        .max(
-                                                Comparator.comparingLong(
-                                                        CompletedCheckpoint
-                                                                ::getCompletedTimestamp)))
-                .filter(Optional::isPresent)
-                .map(Optional::get)
-                .sorted(Comparator.comparingInt(CompletedCheckpoint::getPipelineId))
-                .collect(Collectors.toList());
-    }
-
     /**
      * Get the latest checkpoint data of a job.
      *
@@ -105,14 +84,44 @@ public class CheckpointService {
         return toJobPipelineCheckpointData(getLatestCheckpoint(jobId));
     }
 
-    public List<JobPipelineCheckpointData> getLatestCompletedCheckpointData(String jobId) {
-        return toJobPipelineCheckpointData(
-                getLatestCheckpointsByType(jobId, CheckpointType.COMPLETED_POINT_TYPE));
+    /**
+     * Get the latest checkpoint data of a job after filtering by restore mode.
+     *
+     * @param jobId job id
+     * @param restoreMode restore mode used to filter eligible checkpoint types
+     * @return latest restore-eligible checkpoint data for each pipeline
+     */
+    public List<JobPipelineCheckpointData> getLatestCheckpointData(
+            String jobId, RestoreMode restoreMode) {
+        return toJobPipelineCheckpointData(getLatestCheckpointsForRestore(jobId, restoreMode));
     }
 
-    public List<JobPipelineCheckpointData> getLatestSavepointData(String jobId) {
-        return toJobPipelineCheckpointData(
-                getLatestCheckpointsByType(jobId, CheckpointType.SAVEPOINT_TYPE));
+    @SneakyThrows
+    public List<CompletedCheckpoint> getLatestCheckpointsForRestore(
+            String jobId, RestoreMode restoreMode) {
+        return checkpointStorage.getAllCheckpoints(jobId).stream()
+                .map(this::deserializeCheckpoint)
+                .filter(
+                        checkpoint ->
+                                CheckpointRestoreUtils.matchesRestoreCheckpointType(
+                                        checkpoint.getCheckpointType(), restoreMode))
+                .collect(Collectors.groupingBy(CompletedCheckpoint::getPipelineId))
+                .values()
+                .stream()
+                .map(
+                        checkpoints ->
+                                checkpoints.stream()
+                                        .max(
+                                                Comparator.comparingLong(
+                                                                CompletedCheckpoint
+                                                                        ::getCheckpointId)
+                                                        .thenComparingLong(
+                                                                CompletedCheckpoint
+                                                                        ::getCompletedTimestamp)))
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .sorted(Comparator.comparingInt(CompletedCheckpoint::getPipelineId))
+                .collect(Collectors.toList());
     }
 
     private CompletedCheckpoint deserializeCheckpoint(PipelineState pipelineState) {
