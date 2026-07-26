@@ -49,6 +49,14 @@ class LocalFileFactoryTest {
         Assertions.assertTrue(
                 optionRule.getOptionalOptions().contains(FileBaseSourceOptions.COMPARE_MODE));
         Assertions.assertTrue(
+                optionRule
+                        .getOptionalOptions()
+                        .contains(FileBaseSourceOptions.UPDATE_COMPARE_PARALLELISM));
+        Assertions.assertTrue(
+                optionRule
+                        .getOptionalOptions()
+                        .contains(FileBaseSourceOptions.UPDATE_COMPARE_BULK_THRESHOLD));
+        Assertions.assertTrue(
                 optionRule.getOptionalOptions().contains(FileBaseSourceOptions.DISCOVERY_MODE));
         Assertions.assertTrue(
                 optionRule.getOptionalOptions().contains(FileBaseSourceOptions.SCAN_INTERVAL));
