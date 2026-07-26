@@ -15,26 +15,21 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.e2e.connector.fake;
+package org.apache.seatunnel.e2e.common.junit;
 
-import org.apache.seatunnel.e2e.common.TestSuiteBase;
-import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.TestContainerId;
-import org.apache.seatunnel.e2e.common.junit.ReuseTestContainers;
 
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.TestTemplate;
-import org.testcontainers.containers.Container;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Inherited;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
-import java.io.IOException;
+/** Opts a test class into sharing selected containers with other opted-in classes in the JVM. */
+@Target(ElementType.TYPE)
+@Retention(RetentionPolicy.RUNTIME)
+@Inherited
+public @interface ReuseTestContainers {
 
-@ReuseTestContainers(TestContainerId.SEATUNNEL)
-public class FakeSqlConfIT extends TestSuiteBase {
-
-    @TestTemplate
-    public void testFakeConnector(TestContainer container)
-            throws IOException, InterruptedException {
-        Container.ExecResult textWriteResult = container.executeJob("/fake_to_assert.sql");
-        Assertions.assertEquals(0, textWriteResult.getExitCode());
-    }
+    TestContainerId[] value();
 }

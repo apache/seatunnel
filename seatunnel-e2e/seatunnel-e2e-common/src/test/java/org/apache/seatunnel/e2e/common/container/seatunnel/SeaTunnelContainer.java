@@ -25,6 +25,7 @@ import org.apache.seatunnel.common.utils.FileUtils;
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.e2e.common.container.AbstractTestContainer;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
+import org.apache.seatunnel.e2e.common.container.ReusableTestContainer;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.TestContainerId;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
@@ -77,7 +78,7 @@ import static org.apache.seatunnel.e2e.common.util.ContainerUtil.copyAllConnecto
 @NoArgsConstructor
 @Slf4j
 @AutoService(TestContainer.class)
-public class SeaTunnelContainer extends AbstractTestContainer {
+public class SeaTunnelContainer extends AbstractTestContainer implements ReusableTestContainer {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final String REST_STOP_JOB_PATH = "/stop-job";
     private static final String REST_CHECKPOINT_OVERVIEW_PATH = "/jobs/checkpoints";
@@ -229,6 +230,38 @@ public class SeaTunnelContainer extends AbstractTestContainer {
             server.close();
         }
         FileUtils.deleteFile(HOST_VOLUME_MOUNT_PATH);
+    }
+
+    @Override
+    public void cleanUpAfterTestClass() throws Exception {
+        if (runningCount.get() != 0) {
+            throw new IllegalStateException("Cannot clean a SeaTunnelContainer with running jobs");
+        }
+        assertNoRunningJobs();
+        Container.ExecResult cleanupResult =
+                server.execInContainer(
+                        "sh",
+                        "-c",
+                        "find /tmp/seatunnel_mnt -mindepth 1 -delete"
+                                + " && find /tmp -maxdepth 1 -type f \\( -name '*.conf' -o -name '*.sql' \\) -delete"
+                                + " && find /tmp/seatunnel/connectors -maxdepth 1 -type f -name '*.jar' -delete");
+        if (cleanupResult.getExitCode() != 0) {
+            throw new IllegalStateException(
+                    "Failed to clean shared SeaTunnelContainer: " + cleanupResult.getStderr());
+        }
+    }
+
+    private void assertNoRunningJobs() throws IOException {
+        HttpGet get = new HttpGet("http://localhost:5801/hazelcast/rest/maps/running-jobs");
+        try (CloseableHttpClient client = HttpClients.createDefault();
+                CloseableHttpResponse response = client.execute(get)) {
+            String runningJobs = EntityUtils.toString(response.getEntity());
+            if (response.getStatusLine().getStatusCode() != HttpStatus.SC_OK
+                    || !OBJECT_MAPPER.readTree(runningJobs).isEmpty()) {
+                throw new IllegalStateException(
+                        "Shared SeaTunnelContainer still has running jobs: " + runningJobs);
+            }
+        }
     }
 
     @Override
