@@ -156,6 +156,12 @@ public class HybridSplitAssigner<C extends SourceConfig> implements SplitAssigne
         incrementalSplitAssigner.notifyCheckpointComplete(checkpointId);
     }
 
+    @Override
+    public void close() {
+        snapshotSplitAssigner.close();
+        incrementalSplitAssigner.close();
+    }
+
     @VisibleForTesting
     IncrementalSplitAssigner<C> getIncrementalSplitAssigner() {
         return incrementalSplitAssigner;

@@ -430,6 +430,119 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
         }
     }
 
+    /**
+     * Verifies that INSERT, UPDATE, and DELETE committed while the snapshot SELECT is active are
+     * reconciled before the incremental reader starts from the high watermark.
+     */
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.SPARK, EngineType.FLINK},
+            disabledReason =
+                    "This case observes the Zeta snapshot reader and its replication slots while the job is running.")
+    public void testPostgresCdcBackfillsConcurrentChangesDuringSnapshot(TestContainer container) {
+        String slotName = createSlotName();
+        String slotVariable = toSlotVariable(slotName);
+        Long jobId = JobIdGenerator.newJobId();
+        CompletableFuture<Void> job = null;
+
+        try {
+            clearTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_1);
+            clearTable(POSTGRESQL_SCHEMA, SINK_TABLE_1);
+            executeSql(
+                    "INSERT INTO "
+                            + POSTGRESQL_SCHEMA
+                            + "."
+                            + SOURCE_TABLE_1
+                            + " (id, f_big, f_text) "
+                            + "SELECT id, id, 'snapshot-' || id "
+                            + "FROM generate_series(1, 10000) AS id");
+
+            job =
+                    CompletableFuture.runAsync(
+                            () -> {
+                                try {
+                                    container.executeJob(
+                                            "/postgrescdc_to_postgres_exactly_once.conf",
+                                            String.valueOf(jobId),
+                                            slotVariable);
+                                } catch (Exception e) {
+                                    throw new RuntimeException("PostgreSQL CDC job failed", e);
+                                }
+                            });
+
+            await().ignoreExceptions()
+                    .atMost(30, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertTrue(
+                                            backfillReplicationSlotExists(slotName),
+                                            "Backfill replication slot was not created"));
+            await().pollInterval(10, TimeUnit.MILLISECONDS)
+                    .atMost(30, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertTrue(
+                                            isSnapshotSelectRunning(SOURCE_TABLE_1),
+                                            "Snapshot SELECT is not running"));
+
+            executeSql(
+                    "INSERT INTO "
+                            + POSTGRESQL_SCHEMA
+                            + "."
+                            + SOURCE_TABLE_1
+                            + " (id, f_big, f_text) VALUES (20001, 20001, 'concurrent-insert')");
+            executeSql(
+                    "UPDATE "
+                            + POSTGRESQL_SCHEMA
+                            + "."
+                            + SOURCE_TABLE_1
+                            + " SET f_big = 500000, f_text = 'concurrent-update' WHERE id = 5000");
+            executeSql(
+                    "DELETE FROM " + POSTGRESQL_SCHEMA + "." + SOURCE_TABLE_1 + " WHERE id = 6000");
+
+            waitForReplicationSlotActive(slotName);
+            await().ignoreExceptions()
+                    .atMost(30, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertFalse(
+                                            backfillReplicationSlotExists(slotName),
+                                            "Backfill replication slot was not dropped"));
+            await().atMost(2, TimeUnit.MINUTES)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertIterableEquals(
+                                            query(getQuerySQL(POSTGRESQL_SCHEMA, SOURCE_TABLE_1)),
+                                            query(getQuerySQL(POSTGRESQL_SCHEMA, SINK_TABLE_1))));
+            assertJobHasNoAsyncFailure(job);
+        } finally {
+            if (job != null) {
+                if (job.isDone()) {
+                    assertJobHasNoAsyncFailure(job);
+                } else {
+                    try {
+                        Container.ExecResult cancelJobResult =
+                                container.cancelJob(String.valueOf(jobId));
+                        Assertions.assertEquals(
+                                0, cancelJobResult.getExitCode(), cancelJobResult.getStderr());
+                        await().ignoreExceptions()
+                                .atMost(30, TimeUnit.SECONDS)
+                                .untilAsserted(
+                                        () ->
+                                                Assertions.assertFalse(
+                                                        replicationSlotExists(slotName),
+                                                        "Streaming replication slot was not dropped after cancellation"));
+                    } catch (IOException | InterruptedException e) {
+                        throw new RuntimeException("Failed to cancel PostgreSQL CDC job", e);
+                    }
+                }
+            }
+            clearTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_1);
+            clearTable(POSTGRESQL_SCHEMA, SINK_TABLE_1);
+        }
+    }
+
     @TestTemplate
     @DisabledOnContainer(
             value = {},
@@ -1323,6 +1436,35 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
             return resultSet.next();
         } catch (SQLException e) {
             throw new RuntimeException("Failed to query replication slot: " + slotName, e);
+        }
+    }
+
+    /** Returns whether this job currently owns a generated snapshot backfill slot. */
+    private boolean backfillReplicationSlotExists(String streamingSlotName) {
+        return listGeneratedReplicationSlots().stream()
+                .anyMatch(
+                        slotName ->
+                                !slotName.equals(streamingSlotName)
+                                        && slotName.contains("_st_backfill_")
+                                        && slotName.endsWith("_0"));
+    }
+
+    /** Returns whether another PostgreSQL backend is actively scanning the captured table. */
+    private boolean isSnapshotSelectRunning(String tableName) {
+        try (Connection connection = getJdbcConnection();
+                Statement statement = connection.createStatement();
+                ResultSet resultSet =
+                        statement.executeQuery(
+                                "SELECT 1 FROM pg_stat_activity "
+                                        + "WHERE pid <> pg_backend_pid() "
+                                        + "AND state = 'active' "
+                                        + "AND query LIKE 'SELECT%FROM%"
+                                        + tableName
+                                        + "%'")) {
+            return resultSet.next();
+        } catch (SQLException e) {
+            throw new RuntimeException(
+                    "Failed to query active snapshot SELECT for table: " + tableName, e);
         }
     }
 

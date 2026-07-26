@@ -24,7 +24,9 @@ import org.apache.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
 import org.apache.seatunnel.connectors.cdc.base.source.split.wartermark.WatermarkKind;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.reader.PostgresSourceFetchTaskContext;
+import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.reader.wal.PostgresWalFetchTask;
 
+import io.debezium.pipeline.source.spi.ChangeEventSource;
 import io.debezium.pipeline.spi.SnapshotResult;
 import lombok.extern.slf4j.Slf4j;
 
@@ -84,17 +86,54 @@ public class PostgresSnapshotFetchTask implements FetchTask<SourceSplitBase> {
         }
 
         final IncrementalSplit backfillSplit = createBackFillWalSplit(changeEventSourceContext);
-        // optimization that skip the binlog read when the low watermark equals high
-        // watermark
-        // todo Add backfill task
-        if (true) {
+        // Skip WAL reading when no changes occurred or streaming is disabled for snapshot-only
+        // startup.
+        if (!changed || !sourceFetchContext.getSnapshotter().shouldStream()) {
+            sourceFetchContext.closeReplicationConnection();
             dispatchBinlogEndEvent(
                     backfillSplit,
-                    ((PostgresSourceFetchTaskContext) context).getPartition().getSourcePartition(),
-                    ((PostgresSourceFetchTaskContext) context).getDispatcher());
+                    sourceFetchContext.getPartition().getSourcePartition(),
+                    sourceFetchContext.getDispatcher());
             taskRunning = false;
             return;
         }
+
+        PostgresWalFetchTask.PostgresWalSplitReadTask backfillReadTask =
+                createBackfillWalSplitReadTask(backfillSplit, sourceFetchContext);
+        log.info(
+                "Start bounded WAL backfill for snapshot split {}, start offset: {}, stop offset: {}",
+                split.splitId(),
+                backfillSplit.getStartupOffset(),
+                backfillSplit.getStopOffset());
+        Throwable backfillFailure = null;
+        try {
+            backfillReadTask.execute(
+                    new SnapshotWalSplitChangeEventSourceContext(),
+                    sourceFetchContext.getPartition(),
+                    sourceFetchContext.loadOffsetContext(backfillSplit.getStartupOffset()));
+        } catch (Exception e) {
+            backfillFailure = e;
+            throw e;
+        } catch (Error e) {
+            backfillFailure = e;
+            throw e;
+        } finally {
+            // Debezium closes the temporary connection. Explicitly drop and verify the slot
+            // because Debezium otherwise logs and swallows shutdown failures.
+            sourceFetchContext.releaseReplicationConnection();
+            try {
+                sourceFetchContext.dropBackfillReplicationSlot();
+            } catch (RuntimeException cleanupFailure) {
+                if (backfillFailure != null) {
+                    backfillFailure.addSuppressed(cleanupFailure);
+                } else {
+                    throw cleanupFailure;
+                }
+            } finally {
+                taskRunning = false;
+            }
+        }
+        log.info("Bounded WAL backfill finished for snapshot split {}", split.splitId());
     }
 
     private IncrementalSplit createBackFillWalSplit(
@@ -119,6 +158,24 @@ public class PostgresSnapshotFetchTask implements FetchTask<SourceSplitBase> {
                 WatermarkKind.END);
     }
 
+    /**
+     * Creates the bounded Debezium WAL reader over the snapshot split's temporary replication slot.
+     */
+    private PostgresWalFetchTask.PostgresWalSplitReadTask createBackfillWalSplitReadTask(
+            IncrementalSplit backfillSplit, PostgresSourceFetchTaskContext context) {
+        return new PostgresWalFetchTask.PostgresWalSplitReadTask(
+                context.getDbzConnectorConfig(),
+                context.getSnapshotter(),
+                context.getDataConnection(),
+                context.getPgEventDispatcher(),
+                context.getDispatcher(),
+                context.getErrorHandler(),
+                context.getDatabaseSchema(),
+                context.getTaskContext(),
+                context.getReplicationConnection(),
+                backfillSplit);
+    }
+
     @Override
     public boolean isRunning() {
         return taskRunning;
@@ -132,5 +189,18 @@ public class PostgresSnapshotFetchTask implements FetchTask<SourceSplitBase> {
     @Override
     public SourceSplitBase getSplit() {
         return split;
+    }
+
+    /**
+     * Keeps the bounded WAL reader cancellable through the enclosing snapshot task lifecycle.
+     *
+     * <p>The Debezium loop observes {@link #taskRunning} while waiting for the high watermark.
+     */
+    private class SnapshotWalSplitChangeEventSourceContext
+            implements ChangeEventSource.ChangeEventSourceContext {
+        @Override
+        public boolean isRunning() {
+            return taskRunning;
+        }
     }
 }
