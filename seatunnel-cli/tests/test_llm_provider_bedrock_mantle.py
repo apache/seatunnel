@@ -189,6 +189,36 @@ def test_stream_events_collect_to_internal_response():
                           "input": {"expr": "1"}}]
 
 
+# ── endpoint construction ──
+
+def test_client_uses_documented_mantle_openai_path():
+    """These models are served on the `openai/v1` path of the bedrock-mantle
+    endpoint — NOT the generic `v1` path used by other Responses-API models.
+    See the AWS model card for gpt-5.6-terra ("available on the
+    openai/v1/responses path ... different from the v1/responses path").
+    Empirically, the generic /v1 path rejects these models with
+    "does not support the '/v1/responses' API"."""
+    provider = BedrockMantleProvider.__new__(BedrockMantleProvider)
+    provider._region = "eu-west-3"
+    provider._model_id = "m"
+    provider._fast_model_id = "m"
+    provider._client = None
+    provider._token_born = 0.0
+
+    fake_openai = mock.MagicMock()
+    fake_generator = mock.MagicMock()
+    fake_generator.provide_token.return_value = "tok"
+    with mock.patch.dict("sys.modules", {
+        "openai": fake_openai,
+        "aws_bedrock_token_generator": fake_generator,
+    }):
+        provider._get_client()
+    kwargs = fake_openai.OpenAI.call_args.kwargs
+    assert kwargs["base_url"] == \
+        "https://bedrock-mantle.eu-west-3.api.aws/openai/v1"
+    assert kwargs["api_key"] == "tok"
+
+
 # ── token refresh ──
 
 def test_client_refreshes_after_ttl():
