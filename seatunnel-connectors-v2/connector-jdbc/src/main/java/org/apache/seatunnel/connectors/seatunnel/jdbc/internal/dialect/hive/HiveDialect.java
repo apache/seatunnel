@@ -69,7 +69,23 @@ public class HiveDialect implements JdbcDialect {
         return new HiveJdbcConnectionProvider(jdbcConnectionConfig);
     }
 
+    /**
+     * Adds a metadata-only limit for simple Hive queries while preserving top-level CTE syntax.
+     *
+     * <p>Hive does not allow a WITH clause inside a subquery block, so CTE queries must keep their
+     * original top-level form instead of being wrapped by SELECT * FROM (...).
+     */
     private String modifySQLToLimit1(String sql) {
-        return String.format("SELECT * FROM (%s) s LIMIT 1", sql.trim().replaceAll(";$", ""));
+        String normalizedSql = sql.trim().replaceAll(";$", "");
+        if (isTopLevelWithQuery(normalizedSql)) {
+            return normalizedSql;
+        }
+        return String.format("SELECT * FROM (%s) s LIMIT 1", normalizedSql);
+    }
+
+    /** Returns true when the query starts with a top-level Hive WITH clause. */
+    private boolean isTopLevelWithQuery(String sql) {
+        return sql.regionMatches(true, 0, "WITH", 0, 4)
+                && (sql.length() == 4 || Character.isWhitespace(sql.charAt(4)));
     }
 }
