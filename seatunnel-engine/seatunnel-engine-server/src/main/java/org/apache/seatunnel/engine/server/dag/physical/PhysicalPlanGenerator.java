@@ -21,7 +21,11 @@ import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
 import org.apache.seatunnel.api.options.EnvCommonOptions;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
+import org.apache.seatunnel.engine.common.config.EngineConfig;
+import org.apache.seatunnel.engine.common.config.server.ManagedSourceRuntimeConfig;
 import org.apache.seatunnel.engine.common.config.server.QueueType;
+import org.apache.seatunnel.engine.common.runtime.source.ManagedSourceRuntimeSelection;
+import org.apache.seatunnel.engine.common.runtime.source.ManagedSourceRuntimeSelector;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
@@ -84,6 +88,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static org.apache.seatunnel.common.constants.JobMode.BATCH;
 import static org.apache.seatunnel.engine.common.config.server.QueueType.BLOCKINGQUEUE;
 
 public class PhysicalPlanGenerator {
@@ -129,6 +134,9 @@ public class PhysicalPlanGenerator {
     private final QueueType queueType;
 
     private final ObservabilityConfig observabilityConfig;
+    private final ManagedSourceRuntimeConfig managedSourceRuntimeConfig;
+    private final Map<SourceAction<?, ?, ?>, ManagedSourceRuntimeSelection>
+            managedSourceSelections = new HashMap<>();
 
     public PhysicalPlanGenerator(
             @NonNull ExecutionPlan executionPlan,
@@ -140,7 +148,8 @@ public class PhysicalPlanGenerator {
             @NonNull FlakeIdGenerator flakeIdGenerator,
             @NonNull IMap runningJobStateIMap,
             @NonNull IMap runningJobStateTimestampsIMap,
-            @NonNull QueueType queueType) {
+            @NonNull QueueType queueType,
+            @NonNull EngineConfig engineConfig) {
         this.pipelines = executionPlan.getPipelines();
         this.nodeEngine = nodeEngine;
         this.jobImmutableInformation = jobImmutableInformation;
@@ -155,6 +164,7 @@ public class PhysicalPlanGenerator {
         this.runningJobStateIMap = runningJobStateIMap;
         this.runningJobStateTimestampsIMap = runningJobStateTimestampsIMap;
         this.queueType = queueType;
+        this.managedSourceRuntimeConfig = engineConfig.getManagedSourceRuntimeConfig();
         this.observabilityConfig =
                 ObservabilityConfig.fromEnvOptions(
                         jobImmutableInformation.getJobConfig().getEnvOptions());
@@ -353,7 +363,8 @@ public class PhysicalPlanGenerator {
                                     new SourceSplitEnumeratorTask<>(
                                             jobImmutableInformation.getJobId(),
                                             taskLocation,
-                                            sourceAction);
+                                            sourceAction,
+                                            managedSourceSelection(sourceAction));
                             // checkpoint
                             pipelineTasks.add(taskLocation);
                             startingTasks.add(taskLocation);
@@ -563,6 +574,13 @@ public class PhysicalPlanGenerator {
                 SourceConfig config = new SourceConfig();
                 config.setEnumeratorTask(
                         enumeratorTaskIDMap.get((SourceAction<?, ?, ?>) flow.getAction()));
+                ManagedSourceRuntimeSelection selection =
+                        managedSourceSelection((SourceAction<?, ?, ?>) flow.getAction());
+                config.setRuntimeMode(selection.getMode());
+                config.setRuntimeProtocolVersion(selection.getRuntimeProtocolVersion());
+                config.setConnectorStateVersion(selection.getConnectorStateVersion());
+                config.setCapabilityDigest(selection.getCapabilityDigest());
+                config.setCheckpointEnabled(selection.isCheckpointEnabled());
                 flow.setConfig(config);
             } else if (flow.getAction() instanceof SinkAction) {
                 SinkConfig config = new SinkConfig();
@@ -586,6 +604,25 @@ public class PhysicalPlanGenerator {
         if (!f.getNext().isEmpty()) {
             f.getNext().forEach(this::setFlowConfig);
         }
+    }
+
+    private ManagedSourceRuntimeSelection managedSourceSelection(
+            SourceAction<?, ?, ?> sourceAction) {
+        return managedSourceSelections.computeIfAbsent(
+                sourceAction,
+                action ->
+                        ManagedSourceRuntimeSelector.select(
+                                        action.getSource(), managedSourceRuntimeConfig)
+                                .withCheckpointEnabled(isCheckpointEnabled()));
+    }
+
+    private boolean isCheckpointEnabled() {
+        return jobImmutableInformation.getJobConfig() == null
+                || jobImmutableInformation.getJobConfig().getJobContext().getJobMode() != BATCH
+                || jobImmutableInformation
+                        .getJobConfig()
+                        .getEnvOptions()
+                        .containsKey(EnvCommonOptions.CHECKPOINT_INTERVAL.key());
     }
 
     /**

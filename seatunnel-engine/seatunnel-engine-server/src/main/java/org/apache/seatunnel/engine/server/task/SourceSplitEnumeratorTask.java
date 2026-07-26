@@ -24,6 +24,9 @@ import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.source.event.EnumeratorCloseEvent;
 import org.apache.seatunnel.api.source.event.EnumeratorOpenEvent;
+import org.apache.seatunnel.api.source.scheduler.CoordinatorScheduler;
+import org.apache.seatunnel.engine.common.config.server.ManagedSourceRuntimeConfig;
+import org.apache.seatunnel.engine.common.runtime.source.ManagedSourceRuntimeSelection;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 import org.apache.seatunnel.engine.server.checkpoint.ActionStateKey;
@@ -38,6 +41,13 @@ import org.apache.seatunnel.engine.server.task.operation.checkpoint.BarrierFlowO
 import org.apache.seatunnel.engine.server.task.operation.source.CloseIdleReaderOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.LastCheckpointNotifyOperation;
 import org.apache.seatunnel.engine.server.task.record.Barrier;
+import org.apache.seatunnel.engine.server.task.source.ManagedCoordinatorCheckpointState;
+import org.apache.seatunnel.engine.server.task.source.ManagedCoordinatorCheckpointStateSerializer;
+import org.apache.seatunnel.engine.server.task.source.ManagedSourceCoordinatorRuntime;
+import org.apache.seatunnel.engine.server.task.source.ManagedSourceRegistration;
+import org.apache.seatunnel.engine.server.task.source.SourceCommandAdmissionAck;
+import org.apache.seatunnel.engine.server.task.source.SourceCommandAdmissionStatus;
+import org.apache.seatunnel.engine.server.task.source.SourceCommandEnvelope;
 import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
 
 import com.hazelcast.cluster.Address;
@@ -77,6 +87,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
     private static final long serialVersionUID = -3713701594297977775L;
 
     private final SourceAction<?, SplitT, Serializable> source;
+    private final ManagedSourceRuntimeSelection runtimeSelection;
     private SourceSplitEnumerator<SplitT, Serializable> enumerator;
     private SeaTunnelSplitEnumeratorContext<SplitT> enumeratorContext;
 
@@ -95,6 +106,9 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
 
     private volatile boolean prepareCloseTriggered;
 
+    private transient ManagedSourceCoordinatorRuntime<SplitT> managedCoordinatorRuntime;
+    private transient ManagedSourceRuntimeConfig managedSourceRuntimeConfig;
+
     @Override
     public void init() throws Exception {
         currState = SeaTunnelTaskState.INIT;
@@ -103,12 +117,6 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         log.info(
                 "starting seatunnel source split enumerator task, source name: "
                         + source.getName());
-        enumeratorContext =
-                new SeaTunnelSplitEnumeratorContext<>(
-                        this.source.getParallelism(),
-                        this,
-                        getMetricsContext(),
-                        new JobEventListener(taskLocation, getExecutionContext()));
         enumeratorStateSerializer = this.source.getSource().getEnumeratorStateSerializer();
         splitSerializer = this.source.getSource().getSplitSerializer();
         taskMemberMapping = new ConcurrentHashMap<>();
@@ -116,11 +124,36 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
         taskIndexToTaskLocationMapping = new ConcurrentHashMap<>();
         maxReaderSize = source.getParallelism();
         unfinishedReaders = new CopyOnWriteArraySet<>();
+        managedSourceRuntimeConfig =
+                getExecutionContext()
+                        .getTaskExecutionService()
+                        .getSeaTunnelConfig()
+                        .getEngineConfig()
+                        .getManagedSourceRuntimeConfig();
+        if (isManagedCoordinatorRuntime()) {
+            managedCoordinatorRuntime =
+                    new ManagedSourceCoordinatorRuntime<>(
+                            this,
+                            splitSerializer,
+                            enumeratorStateSerializer,
+                            managedSourceRuntimeConfig,
+                            runtimeSelection,
+                            Thread.currentThread().getContextClassLoader());
+        }
+        enumeratorContext =
+                new SeaTunnelSplitEnumeratorContext<>(
+                        this.source.getParallelism(),
+                        this,
+                        getMetricsContext(),
+                        new JobEventListener(taskLocation, getExecutionContext()));
     }
 
     @Override
     public void close() throws IOException {
         super.close();
+        if (managedCoordinatorRuntime != null) {
+            managedCoordinatorRuntime.close();
+        }
         if (enumerator != null) {
             enumerator.close();
             enumeratorContext.getEventListener().onEvent(new EnumeratorCloseEvent());
@@ -131,8 +164,18 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
     @SuppressWarnings("unchecked")
     public SourceSplitEnumeratorTask(
             long jobID, TaskLocation taskID, SourceAction<?, SplitT, ?> source) {
+        this(jobID, taskID, source, ManagedSourceRuntimeSelection.legacy());
+    }
+
+    @SuppressWarnings("unchecked")
+    public SourceSplitEnumeratorTask(
+            long jobID,
+            TaskLocation taskID,
+            SourceAction<?, SplitT, ?> source,
+            ManagedSourceRuntimeSelection runtimeSelection) {
         super(jobID, taskID);
         this.source = (SourceAction<?, SplitT, Serializable>) source;
+        this.runtimeSelection = runtimeSelection;
         this.currState = SeaTunnelTaskState.CREATED;
     }
 
@@ -144,6 +187,10 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
 
     @Override
     public void triggerBarrier(Barrier barrier) throws Exception {
+        if (isManagedCoordinatorRuntime()) {
+            managedCoordinatorRuntime.admitBarrier(barrier);
+            return;
+        }
         long startTime = System.currentTimeMillis();
 
         log.debug("split enumer trigger barrier [{}]", barrier);
@@ -187,18 +234,46 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
     @Override
     public void restoreState(List<ActionSubtaskState> actionStateList) throws Exception {
         log.debug("restoreState for split enumerator [{}]", actionStateList);
-        Optional<Serializable> state =
+        Optional<byte[]> serializedState =
                 actionStateList.stream()
                         .map(ActionSubtaskState::getState)
                         .flatMap(Collection::stream)
                         .filter(Objects::nonNull)
-                        .map(bytes -> sneaky(() -> enumeratorStateSerializer.deserialize(bytes)))
                         .findFirst();
+        Optional<Serializable> state;
+        if (isManagedCoordinatorRuntime() && serializedState.isPresent()) {
+            if (!ManagedCoordinatorCheckpointStateSerializer.isManagedState(
+                    serializedState.get())) {
+                throw new IllegalStateException(
+                        "Cannot restore a managed Source coordinator from legacy state");
+            }
+            ManagedCoordinatorCheckpointState restored =
+                    managedCoordinatorRuntime.restoreRuntimeState(serializedState.get());
+            state =
+                    Optional.of(
+                            enumeratorStateSerializer.deserialize(
+                                    restored.getConnectorEnumeratorState()));
+        } else if (isManagedCoordinatorRuntime()) {
+            state = Optional.empty();
+        } else {
+            if (serializedState.isPresent()
+                    && ManagedCoordinatorCheckpointStateSerializer.isManagedState(
+                            serializedState.get())) {
+                throw new IllegalStateException(
+                        "Cannot silently restore managed Source coordinator state in the legacy lane");
+            }
+            state =
+                    serializedState.map(
+                            bytes -> sneaky(() -> enumeratorStateSerializer.deserialize(bytes)));
+        }
         if (state.isPresent()) {
             this.enumerator =
                     this.source.getSource().restoreEnumerator(enumeratorContext, state.get());
         } else {
             this.enumerator = this.source.getSource().createEnumerator(enumeratorContext);
+        }
+        if (isManagedCoordinatorRuntime()) {
+            managedCoordinatorRuntime.setEnumerator(enumerator);
         }
         enumerator.open();
         enumeratorContext.getEventListener().onEvent(new EnumeratorOpenEvent());
@@ -207,19 +282,42 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
     }
 
     public Serializer<SplitT> getSplitSerializer() throws ExecutionException, InterruptedException {
-        // Because the splitSerializer is initialized in the init method, it's necessary to wait for
-        // the Enumerator to finish initializing.
-        getEnumerator();
+        if (splitSerializer == null) {
+            getEnumerator();
+        }
         return splitSerializer;
     }
 
     public synchronized void addSplitsBack(List<SplitT> splits, int subtaskId)
             throws ExecutionException, InterruptedException {
+        if (isManagedCoordinatorRuntime()) {
+            managedCoordinatorRuntime.admitLegacyRestoredSplits(splits, subtaskId);
+            return;
+        }
         getEnumerator().addSplitsBack(splits, subtaskId);
+    }
+
+    /**
+     * Transfers operation-owned serialized splits without deserializing connector state on an
+     * operation thread.
+     *
+     * @param serializedSplits versioned connector split bytes
+     * @param subtaskId failed Reader subtask
+     */
+    public void addSerializedSplitsBack(List<byte[]> serializedSplits, int subtaskId) {
+        if (!isManagedCoordinatorRuntime()) {
+            throw new IllegalStateException(
+                    "Serialized split admission requires the managed coordinator runtime");
+        }
+        managedCoordinatorRuntime.admitLegacySerializedRestoredSplits(serializedSplits, subtaskId);
     }
 
     public void receivedReader(TaskLocation readerId, Address memberAddr)
             throws InterruptedException, ExecutionException {
+        if (isManagedCoordinatorRuntime()) {
+            managedCoordinatorRuntime.admitLegacyRegistration(readerId, memberAddr);
+            return;
+        }
         log.info("received reader register, readerID: " + readerId);
 
         SourceSplitEnumerator<SplitT, Serializable> enumerator = getEnumerator();
@@ -249,11 +347,19 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
     }
 
     public void requestSplit(long taskIndex) throws ExecutionException, InterruptedException {
+        if (isManagedCoordinatorRuntime()) {
+            managedCoordinatorRuntime.admitLegacySplitRequest((int) taskIndex);
+            return;
+        }
         getEnumerator().handleSplitRequest((int) taskIndex);
     }
 
     public void handleSourceEvent(int subtaskId, SourceEvent sourceEvent)
             throws ExecutionException, InterruptedException {
+        if (isManagedCoordinatorRuntime()) {
+            managedCoordinatorRuntime.admitLegacySourceEvent(subtaskId, sourceEvent);
+            return;
+        }
         getEnumerator().handleSourceEvent(subtaskId, sourceEvent);
     }
 
@@ -293,6 +399,10 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
     }
 
     public void readerFinished(TaskLocation taskLocation) {
+        if (isManagedCoordinatorRuntime()) {
+            managedCoordinatorRuntime.admitLegacyReaderFinished(taskLocation);
+            return;
+        }
         unfinishedReaders.remove(taskLocation.getTaskID());
         if (unfinishedReaders.isEmpty()) {
             prepareCloseStatus = true;
@@ -314,10 +424,14 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
                 reportTaskStatus(WAITING_RESTORE);
                 break;
             case WAITING_RESTORE:
+                boolean bootstrapProgress = false;
+                if (isManagedCoordinatorRuntime() && restoreComplete.isDone()) {
+                    bootstrapProgress = managedCoordinatorRuntime.runOneTurn();
+                }
                 if (restoreComplete.isDone() && readerRegisterComplete) {
                     currState = READY_START;
                     reportTaskStatus(READY_START);
-                } else {
+                } else if (!bootstrapProgress) {
                     Thread.sleep(100);
                 }
                 break;
@@ -341,6 +455,10 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
                     currState = PREPARE_CLOSE;
                 } else if (prepareCloseTriggered) {
                     currState = PREPARE_CLOSE;
+                } else if (isManagedCoordinatorRuntime()) {
+                    if (!managedCoordinatorRuntime.runOneTurn()) {
+                        Thread.sleep(managedSourceRuntimeConfig.getIdleWaitMillis());
+                    }
                 } else {
                     Thread.sleep(100);
                 }
@@ -403,6 +521,10 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
 
     @Override
     public void notifyCheckpointComplete(long checkpointId) throws Exception {
+        if (isManagedCoordinatorRuntime()) {
+            managedCoordinatorRuntime.admitCheckpointComplete(checkpointId);
+            return;
+        }
         getEnumerator().notifyCheckpointComplete(checkpointId);
         if (prepareCloseBarrierId.get() == checkpointId) {
             closeCall();
@@ -411,9 +533,101 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
 
     @Override
     public void notifyCheckpointAborted(long checkpointId) throws Exception {
+        if (isManagedCoordinatorRuntime()) {
+            managedCoordinatorRuntime.admitCheckpointAborted(checkpointId);
+            return;
+        }
         getEnumerator().notifyCheckpointAborted(checkpointId);
         if (prepareCloseBarrierId.get() == checkpointId) {
             closeCall();
         }
+    }
+
+    @Override
+    public void notifyCheckpointEnd(long checkpointId) throws Exception {
+        if (isManagedCoordinatorRuntime()) {
+            managedCoordinatorRuntime.admitCheckpointEnd(checkpointId);
+        }
+    }
+
+    public boolean isManagedCoordinatorRuntime() {
+        return runtimeSelection != null && runtimeSelection.getMode().hasManagedCoordinator();
+    }
+
+    public SourceCommandAdmissionStatus admitManagedReaderRegistration(
+            ManagedSourceRegistration registration) {
+        if (!isManagedCoordinatorRuntime() || managedCoordinatorRuntime == null) {
+            return SourceCommandAdmissionStatus.STALE_TARGET;
+        }
+        return managedCoordinatorRuntime.admitRegistration(registration);
+    }
+
+    public SourceCommandAdmissionAck admitManagedCoordinatorCommand(SourceCommandEnvelope command) {
+        if (!isManagedCoordinatorRuntime() || managedCoordinatorRuntime == null) {
+            return SourceCommandAdmissionAck.of(
+                    SourceCommandAdmissionStatus.STALE_TARGET,
+                    command,
+                    -1L,
+                    0L,
+                    "Source coordinator is in the legacy lane");
+        }
+        return managedCoordinatorRuntime.admitReaderCommand(command);
+    }
+
+    public void dispatchManagedSourceSplits(int subtask, List<SplitT> splits) {
+        managedCoordinatorRuntime.dispatchSplits(subtask, splits);
+    }
+
+    /** Returns whether managed discovery may safely create additional assignments. */
+    public boolean isManagedAssignmentCapacityAvailable() {
+        return managedCoordinatorRuntime.canAcceptAssignments();
+    }
+
+    public void signalManagedNoMoreSplits(int subtask) {
+        managedCoordinatorRuntime.signalNoMoreSplits(subtask);
+    }
+
+    public void sendManagedEventToReader(int subtask, SourceEvent event) {
+        managedCoordinatorRuntime.sendEventToReader(subtask, event);
+    }
+
+    public CoordinatorScheduler getManagedCoordinatorScheduler() {
+        if (!isManagedCoordinatorRuntime() || managedCoordinatorRuntime == null) {
+            throw new UnsupportedOperationException(
+                    "CoordinatorScheduler is unavailable in the legacy Source lane");
+        }
+        return managedCoordinatorRuntime.getScheduler();
+    }
+
+    public void managedReaderRegistered(int currentReaderCount) {
+        readerRegisterComplete = currentReaderCount == maxReaderSize;
+    }
+
+    public void managedReaderFinished(TaskLocation readerLocation) {
+        unfinishedReaders.remove(readerLocation.getTaskID());
+        if (unfinishedReaders.isEmpty()) {
+            prepareCloseStatus = true;
+        } else if (Boundedness.UNBOUNDED.equals(source.getSource().getBoundedness())) {
+            getExecutionContext().sendToMaster(new CloseIdleReaderOperation(jobID, readerLocation));
+        }
+    }
+
+    public void managedPrepareCloseTriggered(long checkpointId) {
+        prepareCloseTriggered = true;
+        prepareCloseBarrierId.set(checkpointId);
+    }
+
+    public void managedCheckpointCallbackFinished(long checkpointId) {
+        if (prepareCloseBarrierId.get() == checkpointId) {
+            closeCall();
+        }
+    }
+
+    public SourceAction<?, SplitT, Serializable> getSourceAction() {
+        return source;
+    }
+
+    public ManagedSourceRuntimeSelection getRuntimeSelection() {
+        return runtimeSelection;
     }
 }

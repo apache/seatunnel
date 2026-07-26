@@ -19,7 +19,9 @@ package org.apache.seatunnel.connectors.seatunnel.fake.source;
 
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
-import org.apache.seatunnel.api.source.SourceReader;
+import org.apache.seatunnel.api.source.managed.ManagedSourceReader;
+import org.apache.seatunnel.api.source.managed.PollContext;
+import org.apache.seatunnel.api.source.managed.PollStatus;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.fake.config.FakeConfig;
 import org.apache.seatunnel.connectors.seatunnel.fake.config.MultipleTableFakeSourceConfig;
@@ -27,15 +29,15 @@ import org.apache.seatunnel.connectors.seatunnel.fake.config.MultipleTableFakeSo
 import lombok.extern.slf4j.Slf4j;
 
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.stream.Collectors;
 
 @Slf4j
-public class FakeSourceReader implements SourceReader<SeaTunnelRow, FakeSourceSplit> {
+public class FakeSourceReader implements ManagedSourceReader<SeaTunnelRow, FakeSourceSplit> {
 
     private final SourceReader.Context context;
     private final Deque<FakeSourceSplit> splits = new ConcurrentLinkedDeque<>();
@@ -115,14 +117,87 @@ public class FakeSourceReader implements SourceReader<SeaTunnelRow, FakeSourceSp
     }
 
     @Override
+    public PollStatus pollNextManaged(Collector<SeaTunnelRow> output, PollContext pollContext) {
+        FakeSourceSplit split = splits.peek();
+        if (split == null) {
+            return noMoreSplit && Boundedness.BOUNDED.equals(context.getBoundedness())
+                    ? PollStatus.END_OF_INPUT
+                    : PollStatus.NOTHING_AVAILABLE;
+        }
+        if (split.getRowNum() == split.getTotalRowNum()) {
+            long currentTimestamp = Instant.now().toEpochMilli();
+            if (currentTimestamp <= latestTimestamp + minSplitReadInterval) {
+                return PollStatus.NOTHING_AVAILABLE;
+            }
+            latestTimestamp = currentTimestamp;
+        }
+
+        FakeDataGenerator generator = fakeDataGeneratorMap.get(split.getTableId());
+        int maxRows = Math.min(split.getRowNum(), pollContext.remainingRecords());
+        int start = Math.max(0, split.getTotalRowNum() - split.getRowNum());
+        long generated = 0L;
+        while (generated < maxRows && !pollContext.shouldYield()) {
+            long currentGenerated =
+                    generator.generateFakedRows(
+                            split.getTotalRowNum(),
+                            start + Math.toIntExact(generated),
+                            1,
+                            output::collect);
+            if (currentGenerated != 1L) {
+                throw new IllegalStateException(
+                        "Managed Fake source generator made no progress for split "
+                                + split.splitId());
+            }
+            generated += currentGenerated;
+        }
+        split.setRowNum(split.getRowNum() - Math.toIntExact(generated));
+        if (split.getRowNum() == 0) {
+            splits.poll();
+        }
+        if (noMoreSplit
+                && splits.isEmpty()
+                && Boundedness.BOUNDED.equals(context.getBoundedness())) {
+            return PollStatus.END_OF_INPUT;
+        }
+        return splits.isEmpty() ? PollStatus.NOTHING_AVAILABLE : PollStatus.MORE_AVAILABLE;
+    }
+
+    @Override
+    public CompletableFuture<Void> isAvailable() {
+        return CompletableFuture.completedFuture(null);
+    }
+
+    @Override
+    public void wakeUp() {}
+
+    @Override
     public List<FakeSourceSplit> snapshotState(long checkpointId) throws Exception {
-        return new ArrayList<>(splits);
+        return splits.stream()
+                .map(
+                        split ->
+                                new FakeSourceSplit(
+                                        split.getTableId(),
+                                        split.getSplitId(),
+                                        split.getRowNum(),
+                                        split.getTotalRowNum()))
+                .collect(Collectors.toList());
     }
 
     @Override
     public void addSplits(List<FakeSourceSplit> splits) {
         log.debug("reader {} add splits {}", context.getIndexOfSubtask(), splits);
-        this.splits.addAll(splits);
+        for (FakeSourceSplit split : splits) {
+            FakeDataGenerator generator = fakeDataGeneratorMap.get(split.getTableId());
+            int totalRows = split.getTotalRowNum();
+            int remainingRows = split.getRowNum();
+            if (totalRows <= 0 || totalRows == remainingRows) {
+                totalRows = generator.effectiveRowCount(split.getRowNum());
+                remainingRows = totalRows;
+            }
+            this.splits.add(
+                    new FakeSourceSplit(
+                            split.getTableId(), split.getSplitId(), remainingRows, totalRows));
+        }
     }
 
     @Override

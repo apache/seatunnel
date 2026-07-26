@@ -28,6 +28,7 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.core.starter.flowcontrol.FlowControlStrategy;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
+import org.apache.seatunnel.engine.common.runtime.source.ManagedSourceRuntimeSelection;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.server.dag.physical.config.SourceConfig;
@@ -36,6 +37,8 @@ import org.apache.seatunnel.engine.server.execution.ProgressState;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.flow.SourceFlowLifeCycle;
 import org.apache.seatunnel.engine.server.task.record.Barrier;
+import org.apache.seatunnel.engine.server.task.source.SourceCommandAdmissionAck;
+import org.apache.seatunnel.engine.server.task.source.SourceCommandEnvelope;
 
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
@@ -141,7 +144,13 @@ public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunne
                 taskLocation,
                 completableFuture,
                 metricsContext,
-                flushIntervalMs);
+                flushIntervalMs,
+                new ManagedSourceRuntimeSelection(
+                        config.getRuntimeMode(),
+                        config.getRuntimeProtocolVersion(),
+                        config.getConnectorStateVersion(),
+                        config.getCapabilityDigest(),
+                        config.isCheckpointEnabled()));
     }
 
     @Override
@@ -159,10 +168,39 @@ public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunne
         ((SourceFlowLifeCycle<T, SplitT>) startFlowLifeCycle).receivedSplits(splits);
     }
 
+    /** Transfers operation-owned split bytes to the managed Reader owner thread. */
+    public void receivedSerializedSourceSplit(List<byte[]> splits) {
+        ((SourceFlowLifeCycle<T, SplitT>) startFlowLifeCycle).receivedSerializedSplits(splits);
+    }
+
     @Override
     public void triggerBarrier(Barrier barrier) throws Exception {
         SourceFlowLifeCycle<T, SplitT> sourceFlow =
                 (SourceFlowLifeCycle<T, SplitT>) startFlowLifeCycle;
         sourceFlow.triggerBarrier(barrier);
+    }
+
+    public SourceCommandAdmissionAck admitManagedSourceCommand(SourceCommandEnvelope command) {
+        return ((SourceFlowLifeCycle<T, SplitT>) startFlowLifeCycle)
+                .admitManagedSourceCommand(command);
+    }
+
+    public boolean isManagedReaderRuntime() {
+        return ((SourceFlowLifeCycle<T, SplitT>) startFlowLifeCycle).isManagedReaderRuntime();
+    }
+
+    @Override
+    protected boolean waitForCheckpointAcknowledge() {
+        return !isManagedReaderRuntime();
+    }
+
+    @Override
+    protected void onCheckpointAcknowledgeFailure(long checkpointId, Throwable failure) {
+        ((SourceFlowLifeCycle<T, SplitT>) startFlowLifeCycle)
+                .reportManagedRuntimeFailure(
+                        new IllegalStateException(
+                                "Managed Source checkpoint acknowledgement failed for barrier "
+                                        + checkpointId,
+                                failure));
     }
 }

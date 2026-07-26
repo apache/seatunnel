@@ -32,6 +32,9 @@ import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 public class TaskExecutionContext {
 
     private final Task task;
+    /** Monotonic engine deployment identity used to fence delayed task-attempt messages. */
+    private final long executionId;
+
     private final NodeEngineImpl nodeEngine;
     private final SeaTunnelEngineContext engineContext;
     private final TaskExecutionService taskExecutionService;
@@ -41,7 +44,26 @@ public class TaskExecutionContext {
             NodeEngineImpl nodeEngine,
             SeaTunnelEngineContext engineContext,
             TaskExecutionService taskExecutionService) {
+        this(task, 0L, nodeEngine, engineContext, taskExecutionService);
+    }
+
+    /**
+     * Creates a task execution context bound to one immutable deployment.
+     *
+     * @param task task owned by this context
+     * @param executionId engine-generated deployment identity
+     * @param nodeEngine local Hazelcast node engine
+     * @param engineContext shared engine services
+     * @param taskExecutionService worker task execution service
+     */
+    public TaskExecutionContext(
+            Task task,
+            long executionId,
+            NodeEngineImpl nodeEngine,
+            SeaTunnelEngineContext engineContext,
+            TaskExecutionService taskExecutionService) {
         this.task = task;
+        this.executionId = executionId;
         this.nodeEngine = nodeEngine;
         this.engineContext = engineContext;
         this.taskExecutionService = taskExecutionService;
@@ -72,6 +94,11 @@ public class TaskExecutionContext {
 
     public TaskExecutionService getTaskExecutionService() {
         return taskExecutionService;
+    }
+
+    /** Returns the immutable engine deployment identity for this task attempt. */
+    public long getExecutionId() {
+        return executionId;
     }
 
     public HazelcastInstance getInstance() {

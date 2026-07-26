@@ -242,20 +242,23 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
     /** Updates source-side metrics, samples new traces when enabled, and forwards the record. */
     @Override
     public void collect(T row) {
+        collectAndGetSize(row);
+    }
+
+    /**
+     * Forwards one record and returns the same payload estimate used by Source metrics.
+     *
+     * <p>The managed Source runtime uses this method to enforce its cooperative byte budget without
+     * serializing records a second time.
+     *
+     * @param row source record
+     * @return estimated payload bytes, with one byte as the conservative minimum for non-row types
+     */
+    public int collectAndGetSize(T row) {
+        int estimatedBytes = estimateRecordSize(row);
         try {
             if (row instanceof SeaTunnelRow) {
                 String tableId = ((SeaTunnelRow) row).getTableId();
-                // init the size of row early with rowType, this way is faster than init the size
-                // without rowType
-                int size;
-                if (rowType instanceof SeaTunnelRowType) {
-                    size = ((SeaTunnelRow) row).getBytesSize((SeaTunnelRowType) rowType);
-                } else if (rowType instanceof MultipleRowType) {
-                    size = ((SeaTunnelRow) row).getBytesSize(rowTypeMap.get(tableId));
-                } else {
-                    throw new SeaTunnelEngineException(
-                            "Unsupported row type: " + rowType.getClass().getName());
-                }
                 flowControlGate.audit((SeaTunnelRow) row);
                 connectorMetricsCalcContext.updateMetrics(row, tableId);
                 tryStainTrace((SeaTunnelRow) row);
@@ -265,6 +268,27 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+        return estimatedBytes;
+    }
+
+    /**
+     * Estimates one source record with the row type already owned by this collector.
+     *
+     * @param row source record
+     * @return estimated payload bytes
+     */
+    public int estimateRecordSize(T row) {
+        if (!(row instanceof SeaTunnelRow)) {
+            return 1;
+        }
+        if (rowType instanceof SeaTunnelRowType) {
+            return ((SeaTunnelRow) row).getBytesSize((SeaTunnelRowType) rowType);
+        }
+        if (rowType instanceof MultipleRowType) {
+            String tableId = ((SeaTunnelRow) row).getTableId();
+            return ((SeaTunnelRow) row).getBytesSize(rowTypeMap.get(tableId));
+        }
+        throw new SeaTunnelEngineException("Unsupported row type: " + rowType.getClass().getName());
     }
 
     @Override

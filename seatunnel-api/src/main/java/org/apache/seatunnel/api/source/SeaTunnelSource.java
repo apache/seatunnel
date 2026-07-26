@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.common.PluginIdentifierInterface;
 import org.apache.seatunnel.api.common.SeaTunnelPluginLifeCycle;
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.serialization.Serializer;
+import org.apache.seatunnel.api.source.managed.ManagedSourceCapability;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 
@@ -119,5 +120,16 @@ public interface SeaTunnelSource<T, SplitT extends SourceSplit, StateT extends S
      */
     default Serializer<StateT> getEnumeratorStateSerializer() {
         return new DefaultSerializer<>();
+    }
+
+    /**
+     * Returns the versioned behavioral contract supported by this source.
+     *
+     * <p>The default keeps every existing connector on the legacy compatibility lane. Declaring a
+     * capability does not activate the managed runtime by itself; the engine feature flag,
+     * connector allowlist, protocol negotiation, and conformance gate must also succeed.
+     */
+    default ManagedSourceCapability getManagedSourceCapability() {
+        return ManagedSourceCapability.legacy();
     }
 }

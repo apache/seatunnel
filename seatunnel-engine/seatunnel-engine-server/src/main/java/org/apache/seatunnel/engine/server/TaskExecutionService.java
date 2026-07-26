@@ -21,6 +21,7 @@ import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
 import org.apache.seatunnel.api.common.metrics.MetricTags;
 import org.apache.seatunnel.api.event.Event;
+import org.apache.seatunnel.api.source.scheduler.AsyncWorkerClass;
 import org.apache.seatunnel.api.tracing.MDCExecutorService;
 import org.apache.seatunnel.api.tracing.MDCScheduledExecutorService;
 import org.apache.seatunnel.api.tracing.MDCTracer;
@@ -28,6 +29,7 @@ import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.StringFormatUtils;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
+import org.apache.seatunnel.engine.common.config.server.ManagedSourceRuntimeConfig;
 import org.apache.seatunnel.engine.common.config.server.ThreadShareMode;
 import org.apache.seatunnel.engine.common.exception.JobNotFoundException;
 import org.apache.seatunnel.engine.common.exception.JobRestoreInProgressException;
@@ -56,6 +58,7 @@ import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
 import org.apache.seatunnel.engine.server.task.operation.NotifyTaskStatusOperation;
 import org.apache.seatunnel.engine.server.task.operation.ReportMetricsOperation;
+import org.apache.seatunnel.engine.server.task.source.ManagedSourceMemoryBudget;
 import org.apache.seatunnel.engine.server.telemetry.metrics.entity.ReportMetricsOperationStats;
 
 import org.apache.commons.collections4.CollectionUtils;
@@ -83,6 +86,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -209,6 +213,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             timerFlushFutures = new ConcurrentHashMap<>();
 
     private final SeaTunnelConfig seaTunnelConfig;
+    private final ManagedSourceMemoryBudget managedSourceMemoryBudget;
     // Track worker-side metrics reporting cost without changing the report path semantics.
     private final AtomicLong reportMetricsOperationSuccessCount = new AtomicLong();
     private final AtomicLong reportMetricsOperationFailureCount = new AtomicLong();
@@ -219,6 +224,15 @@ public class TaskExecutionService implements DynamicMetricsProvider {
 
     /** Scheduled executor for periodic tasks like metrics backup. */
     private final ScheduledExecutorService scheduledExecutorService;
+
+    /** Shared timer for managed Source coordinator callbacks; never executes connector code. */
+    private final ScheduledThreadPoolExecutor managedSourceTimer;
+
+    /** Worker-bounded pool for managed Source catalog and other blocking discovery calls. */
+    private final ThreadPoolExecutor managedSourceIoExecutor;
+
+    /** Worker-bounded pool for managed Source CPU-heavy discovery transformations. */
+    private final ThreadPoolExecutor managedSourceCpuExecutor;
 
     /** Client for managing connector packages on the server. */
     private final ScheduledThreadPoolExecutor timerFlushWorker;
@@ -241,6 +255,12 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             SeaTunnelEngineContext engineContext,
             EventService eventService) {
         seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
+        managedSourceMemoryBudget =
+                new ManagedSourceMemoryBudget(
+                        seaTunnelConfig
+                                .getEngineConfig()
+                                .getManagedSourceRuntimeConfig()
+                                .getWorkerMailboxMaxBytes());
         this.hzInstanceName = nodeEngine.getHazelcastInstance().getName();
         this.nodeEngine = nodeEngine;
         this.engineContext = engineContext;
@@ -259,6 +279,38 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 0,
                 seaTunnelConfig.getEngineConfig().getJobMetricsBackupInterval(),
                 TimeUnit.SECONDS);
+
+        int managedTimerThreads =
+                Math.max(
+                        1,
+                        Math.min(
+                                4,
+                                seaTunnelConfig
+                                        .getEngineConfig()
+                                        .getManagedSourceRuntimeConfig()
+                                        .getCoordinatorAsyncMaxConcurrency()));
+        managedSourceTimer =
+                new ScheduledThreadPoolExecutor(
+                        managedTimerThreads,
+                        runnable ->
+                                new Thread(
+                                        runnable,
+                                        "hz."
+                                                + hzInstanceName
+                                                + ".managed-source-coordinator-timer"));
+        managedSourceTimer.setRemoveOnCancelPolicy(true);
+        ManagedSourceRuntimeConfig managedSourceConfig =
+                seaTunnelConfig.getEngineConfig().getManagedSourceRuntimeConfig();
+        managedSourceIoExecutor =
+                createManagedSourceExecutor(
+                        "io",
+                        managedSourceConfig.getCoordinatorAsyncIoThreads(),
+                        managedSourceConfig.getCoordinatorAsyncQueueCapacity());
+        managedSourceCpuExecutor =
+                createManagedSourceExecutor(
+                        "cpu",
+                        managedSourceConfig.getCoordinatorAsyncCpuThreads(),
+                        managedSourceConfig.getCoordinatorAsyncQueueCapacity());
 
         serverConnectorPackageClient =
                 new ServerConnectorPackageClient(nodeEngine, seaTunnelConfig);
@@ -294,6 +346,9 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         isRunning = false;
         executorService.shutdownNow();
         scheduledExecutorService.shutdown();
+        managedSourceTimer.shutdownNow();
+        managedSourceIoExecutor.shutdownNow();
+        managedSourceCpuExecutor.shutdownNow();
         timerFlushWorker.shutdown();
     }
 
@@ -514,7 +569,8 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                     }
                     return TaskDeployState.success();
                 }
-                deployLocalTask(taskGroup, classLoaders, taskJars);
+                deployLocalTask(
+                        taskGroup, classLoaders, taskJars, taskImmutableInfo.getExecutionId());
                 return TaskDeployState.success();
             }
         } catch (Throwable t) {
@@ -542,6 +598,23 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             @NonNull TaskGroup taskGroup,
             @NonNull ConcurrentHashMap<Long, ClassLoader> classLoaders,
             ConcurrentHashMap<Long, Collection<URL>> jars) {
+        return deployLocalTask(taskGroup, classLoaders, jars, 0L);
+    }
+
+    /**
+     * Deploys a task group locally and propagates its immutable deployment identity to every task.
+     *
+     * @param taskGroup the task group to deploy
+     * @param classLoaders map of task IDs to class loaders
+     * @param jars map of task IDs to connector jars
+     * @param executionId engine-generated deployment identity
+     * @return a future that completes with the task execution state
+     */
+    public PassiveCompletableFuture<TaskExecutionState> deployLocalTask(
+            @NonNull TaskGroup taskGroup,
+            @NonNull ConcurrentHashMap<Long, ClassLoader> classLoaders,
+            ConcurrentHashMap<Long, Collection<URL>> jars,
+            long executionId) {
         CompletableFuture<TaskExecutionState> resultFuture = new CompletableFuture<>();
         try {
             taskGroup.init();
@@ -561,7 +634,11 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                                     task -> {
                                         TaskExecutionContext taskExecutionContext =
                                                 new TaskExecutionContext(
-                                                        task, nodeEngine, engineContext, this);
+                                                        task,
+                                                        executionId,
+                                                        nodeEngine,
+                                                        engineContext,
+                                                        this);
                                         task.setTaskExecutionContext(taskExecutionContext);
                                         taskExecutionContextMap.put(
                                                 task.getTaskID(), taskExecutionContext);
@@ -1028,6 +1105,64 @@ public class TaskExecutionService implements DynamicMetricsProvider {
      */
     public SeaTunnelConfig getSeaTunnelConfig() {
         return seaTunnelConfig;
+    }
+
+    /** Returns the worker-wide memory budget shared by managed Source mailboxes. */
+    public ManagedSourceMemoryBudget getManagedSourceMemoryBudget() {
+        return managedSourceMemoryBudget;
+    }
+
+    /**
+     * Submits connector async work to a bounded, worker-class-specific engine pool.
+     *
+     * <p>Queue rejection is intentional backpressure and is reconciled by the coordinator owner.
+     */
+    public <T> Future<T> submitManagedSourceAsync(
+            AsyncWorkerClass workerClass, java.util.concurrent.Callable<T> callable) {
+        if (workerClass == AsyncWorkerClass.CPU_BOUND) {
+            return managedSourceCpuExecutor.submit(callable);
+        }
+        return managedSourceIoExecutor.submit(callable);
+    }
+
+    /** Schedules a timer that must only enqueue work back to a Source coordinator event loop. */
+    public ScheduledFuture<?> scheduleManagedSourceCoordinatorTimer(
+            Runnable callback, long delayMillis) {
+        return managedSourceTimer.schedule(
+                callback, Math.max(0L, delayMillis), TimeUnit.MILLISECONDS);
+    }
+
+    /**
+     * Schedules one reusable managed Reader watchdog.
+     *
+     * <p>Unlike per-poll timers, this keeps timer allocation independent of record throughput.
+     */
+    public ScheduledFuture<?> scheduleManagedSourcePollWatchdog(
+            Runnable callback, long intervalMillis) {
+        long boundedInterval = Math.max(1L, intervalMillis);
+        return managedSourceTimer.scheduleWithFixedDelay(
+                callback, boundedInterval, boundedInterval, TimeUnit.MILLISECONDS);
+    }
+
+    private ThreadPoolExecutor createManagedSourceExecutor(
+            String workerClass, int threads, int queueCapacity) {
+        AtomicInteger threadIndex = new AtomicInteger();
+        return new ThreadPoolExecutor(
+                threads,
+                threads,
+                0L,
+                TimeUnit.MILLISECONDS,
+                new ArrayBlockingQueue<>(queueCapacity),
+                runnable ->
+                        new Thread(
+                                runnable,
+                                "hz."
+                                        + hzInstanceName
+                                        + ".managed-source-"
+                                        + workerClass
+                                        + "-"
+                                        + threadIndex.incrementAndGet()),
+                new ThreadPoolExecutor.AbortPolicy());
     }
 
     /**

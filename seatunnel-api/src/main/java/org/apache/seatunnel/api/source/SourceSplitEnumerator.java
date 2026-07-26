@@ -19,6 +19,7 @@ package org.apache.seatunnel.api.source;
 
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.event.EventListener;
+import org.apache.seatunnel.api.source.scheduler.CoordinatorScheduler;
 import org.apache.seatunnel.api.state.CheckpointListener;
 
 import java.io.IOException;
@@ -147,5 +148,26 @@ public interface SourceSplitEnumerator<SplitT extends SourceSplit, StateT>
          * @return
          */
         EventListener getEventListener();
+
+        /**
+         * Returns the engine-owned scheduler for managed coordinator work.
+         *
+         * <p>The legacy lane does not provide this service. Connectors must only call this method
+         * after declaring {@code supportsManagedCoordinator} in their managed capability.
+         */
+        default CoordinatorScheduler getCoordinatorScheduler() {
+            throw new UnsupportedOperationException(
+                    "CoordinatorScheduler is only available in the managed Source runtime");
+        }
+
+        /**
+         * Returns whether the engine-owned assignment tracker is below its soft capacity watermark.
+         *
+         * <p>Managed async discovery should defer new work while this method returns {@code false}.
+         * The legacy lane always returns {@code true}.
+         */
+        default boolean isAssignmentCapacityAvailable() {
+            return true;
+        }
     }
 }

@@ -104,6 +104,141 @@ public final class MetricNames {
     /** Maximum nanoseconds spent acknowledging and forwarding a source checkpoint barrier. */
     public static final String SOURCE_BARRIER_FORWARD_MAX_NANOS = "SourceBarrierForwardMaxNs";
 
+    /** Current command count in an engine-managed Source mailbox. */
+    public static final String SOURCE_MANAGED_MAILBOX_COMMANDS = "SourceManagedMailboxCommands";
+
+    /** Current payload bytes retained by an engine-managed Source mailbox. */
+    public static final String SOURCE_MANAGED_MAILBOX_BYTES = "SourceManagedMailboxBytes";
+
+    /** Current age in milliseconds of the oldest engine-managed Source command. */
+    public static final String SOURCE_MANAGED_MAILBOX_OLDEST_AGE_MILLIS =
+            "SourceManagedMailboxOldestAgeMs";
+
+    /** Current command count retained by a managed Source outbound retry window. */
+    public static final String SOURCE_MANAGED_OUTBOUND_COMMANDS = "SourceManagedOutboundCommands";
+
+    /** Current bytes retained by a managed Source outbound retry window. */
+    public static final String SOURCE_MANAGED_OUTBOUND_BYTES = "SourceManagedOutboundBytes";
+
+    /** Current command count consuming reserved managed Source control capacity. */
+    public static final String SOURCE_MANAGED_RESERVED_COMMANDS = "SourceManagedReservedCommands";
+
+    /** Current bytes consuming reserved managed Source control capacity. */
+    public static final String SOURCE_MANAGED_RESERVED_BYTES = "SourceManagedReservedBytes";
+
+    /** Managed Source admission result counter prefix followed by a bounded status suffix. */
+    public static final String SOURCE_MANAGED_ADMISSION_TOTAL = "SourceManagedAdmissionTotal";
+
+    /** Cumulative time spent in managed Source admission paths. */
+    public static final String SOURCE_MANAGED_ADMISSION_NANOS = "SourceManagedAdmissionNs";
+
+    /** Maximum time spent in one managed Source admission path. */
+    public static final String SOURCE_MANAGED_ADMISSION_MAX_NANOS = "SourceManagedAdmissionMaxNs";
+
+    /** Total managed Source admissions exceeding the configured operation-thread budget. */
+    public static final String SOURCE_MANAGED_ADMISSION_BUDGET_EXCEEDED_TOTAL =
+            "SourceManagedAdmissionBudgetExceededTotal";
+
+    /** Total managed Source commands executed by an event-loop owner. */
+    public static final String SOURCE_MANAGED_COMMAND_TOTAL = "SourceManagedCommandTotal";
+
+    /** Cumulative managed Source command queue wait time. */
+    public static final String SOURCE_MANAGED_COMMAND_QUEUE_NANOS = "SourceManagedCommandQueueNs";
+
+    /** Maximum managed Source command queue wait time. */
+    public static final String SOURCE_MANAGED_COMMAND_QUEUE_MAX_NANOS =
+            "SourceManagedCommandQueueMaxNs";
+
+    /** Cumulative managed Source command service time. */
+    public static final String SOURCE_MANAGED_COMMAND_NANOS = "SourceManagedCommandNs";
+
+    /** Maximum managed Source command service time. */
+    public static final String SOURCE_MANAGED_COMMAND_MAX_NANOS = "SourceManagedCommandMaxNs";
+
+    /** Total managed Source transport retries. */
+    public static final String SOURCE_MANAGED_TRANSPORT_RETRY_TOTAL =
+            "SourceManagedTransportRetryTotal";
+
+    /** Total records emitted by cooperative managed Source poll turns. */
+    public static final String SOURCE_MANAGED_POLL_RECORDS = "SourceManagedPollRecords";
+
+    /** Estimated payload bytes emitted by cooperative managed Source poll turns. */
+    public static final String SOURCE_MANAGED_POLL_BYTES = "SourceManagedPollBytes";
+
+    /** Total managed Source wakeup requests used to enforce hard poll bounds. */
+    public static final String SOURCE_MANAGED_WAKEUP_TOTAL = "SourceManagedWakeupTotal";
+
+    /** Total managed Source polls that exceeded the cancellation timeout after wakeup. */
+    public static final String SOURCE_MANAGED_WAKEUP_TIMEOUT_TOTAL =
+            "SourceManagedWakeupTimeoutTotal";
+
+    /** Current applied sender sequence watermark of a managed Source Reader. */
+    public static final String SOURCE_MANAGED_APPLIED_WATERMARK = "SourceManagedAppliedWatermark";
+
+    /** Current number of non-contiguous sender sequence proofs retained by a Reader. */
+    public static final String SOURCE_MANAGED_DEDUPE_GAPS = "SourceManagedDedupeGaps";
+
+    /** Cumulative time blocked while a managed Source collector forwards output. */
+    public static final String SOURCE_MANAGED_COLLECT_BLOCKED_NANOS =
+            "SourceManagedCollectBlockedNs";
+
+    /** Current assignment tracker entry count. */
+    public static final String SOURCE_MANAGED_ASSIGNMENT_ENTRIES = "SourceManagedAssignmentEntries";
+
+    /** Current assignment tracker retained bytes. */
+    public static final String SOURCE_MANAGED_ASSIGNMENT_BYTES = "SourceManagedAssignmentBytes";
+
+    /** Current age in milliseconds of the oldest uncheckpointed assignment. */
+    public static final String SOURCE_MANAGED_ASSIGNMENT_OLDEST_AGE_MILLIS =
+            "SourceManagedAssignmentOldestAgeMs";
+
+    /** Assignment tracker state count prefix followed by a bounded state suffix. */
+    public static final String SOURCE_MANAGED_ASSIGNMENT_STATE_ENTRIES =
+            "SourceManagedAssignmentStateEntries";
+
+    /** Total assignment tracker entries removed after durable ownership reconciliation. */
+    public static final String SOURCE_MANAGED_ASSIGNMENT_COMPACTION_TOTAL =
+            "SourceManagedAssignmentCompactionTotal";
+
+    /** Cumulative time split requests were deferred by assignment tracker backpressure. */
+    public static final String SOURCE_MANAGED_ASSIGNMENT_BACKPRESSURE_NANOS =
+            "SourceManagedAssignmentBackpressureNs";
+
+    /** Cumulative time spent reconciling Reader registration and assignment replay. */
+    public static final String SOURCE_MANAGED_REGISTRATION_RECONCILIATION_NANOS =
+            "SourceManagedRegistrationReconciliationNs";
+
+    /** Current engine-managed coordinator async running count. */
+    public static final String SOURCE_MANAGED_ASYNC_RUNNING = "SourceManagedAsyncRunning";
+
+    /** Current engine-managed coordinator async waiting count. */
+    public static final String SOURCE_MANAGED_ASYNC_WAITING = "SourceManagedAsyncWaiting";
+
+    /** Current engine-managed coordinator callback queue count. */
+    public static final String SOURCE_MANAGED_ASYNC_CALLBACKS = "SourceManagedAsyncCallbacks";
+
+    /** Total engine-managed coordinator async timeout count. */
+    public static final String SOURCE_MANAGED_ASYNC_TIMEOUT_TOTAL =
+            "SourceManagedAsyncTimeoutTotal";
+
+    /** Total engine-managed coordinator overlap coalescing count. */
+    public static final String SOURCE_MANAGED_ASYNC_COALESCED_TOTAL =
+            "SourceManagedAsyncCoalescedTotal";
+
+    /** Total engine-managed coordinator overlap skip count. */
+    public static final String SOURCE_MANAGED_ASYNC_SKIPPED_TOTAL =
+            "SourceManagedAsyncSkippedTotal";
+
+    /** Total stale coordinator callback count rejected by epoch fencing. */
+    public static final String SOURCE_MANAGED_ASYNC_STALE_TOTAL = "SourceManagedAsyncStaleTotal";
+
+    /** Cumulative queue wait time for engine-managed coordinator async work. */
+    public static final String SOURCE_MANAGED_ASYNC_QUEUE_NANOS = "SourceManagedAsyncQueueNs";
+
+    /** Cumulative worker execution time for engine-managed coordinator async work. */
+    public static final String SOURCE_MANAGED_ASYNC_EXECUTION_NANOS =
+            "SourceManagedAsyncExecutionNs";
+
     /** Total nanoseconds spent processing records in Transform chain. */
     public static final String TRANSFORM_PROCESS_NANOS = "TransformProcessNs";
 

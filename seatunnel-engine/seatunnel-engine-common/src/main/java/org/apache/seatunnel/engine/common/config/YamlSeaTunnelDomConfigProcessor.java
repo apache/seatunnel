@@ -29,6 +29,7 @@ import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageConfi
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageMode;
 import org.apache.seatunnel.engine.common.config.server.CoordinatorServiceConfig;
 import org.apache.seatunnel.engine.common.config.server.HttpConfig;
+import org.apache.seatunnel.engine.common.config.server.ManagedSourceRuntimeConfig;
 import org.apache.seatunnel.engine.common.config.server.QueueType;
 import org.apache.seatunnel.engine.common.config.server.ScheduleStrategy;
 import org.apache.seatunnel.engine.common.config.server.ServerConfigOptions;
@@ -47,6 +48,7 @@ import com.hazelcast.internal.config.AbstractDomConfigProcessor;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -321,6 +323,8 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                 }
             } else if (ServerConfigOptions.TELEMETRY.key().equals(name)) {
                 engineConfig.setTelemetryConfig(parseTelemetryConfig(node));
+            } else if (ServerConfigOptions.MANAGED_SOURCE_RUNTIME.key().equals(name)) {
+                engineConfig.setManagedSourceRuntimeConfig(parseManagedSourceRuntimeConfig(node));
             } else if (ServerConfigOptions.MasterServerConfigOptions.JOB_SCHEDULE_STRATEGY
                     .key()
                     .equals(name)) {
@@ -344,6 +348,126 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
             LOGGER.info("Dynamic slot is enabled, the schedule strategy is set to REJECT");
             engineConfig.setScheduleStrategy(ScheduleStrategy.REJECT);
         }
+    }
+
+    private ManagedSourceRuntimeConfig parseManagedSourceRuntimeConfig(Node runtimeNode) {
+        ManagedSourceRuntimeConfig config = new ManagedSourceRuntimeConfig();
+        for (Node node : childElements(runtimeNode)) {
+            String name = cleanNodeName(node);
+            String value = getTextContent(node);
+            switch (name) {
+                case "enabled":
+                    config.setEnabled(getBooleanValue(value));
+                    break;
+                case "connector-allowlist":
+                    config.setConnectorAllowlist(parseStringList(node));
+                    break;
+                case "runtime-protocol-version":
+                    config.setRuntimeProtocolVersion(
+                            getIntegerValue("runtime-protocol-version", value));
+                    break;
+                case "reader-mailbox-max-commands":
+                    config.setReaderMailboxMaxCommands(
+                            getIntegerValue("reader-mailbox-max-commands", value));
+                    break;
+                case "reader-mailbox-max-bytes":
+                    config.setReaderMailboxMaxBytes(Long.parseLong(value));
+                    break;
+                case "reader-reserved-control-commands":
+                    config.setReaderReservedControlCommands(
+                            getIntegerValue("reader-reserved-control-commands", value));
+                    break;
+                case "reader-reserved-control-bytes":
+                    config.setReaderReservedControlBytes(Long.parseLong(value));
+                    break;
+                case "worker-mailbox-max-bytes":
+                    config.setWorkerMailboxMaxBytes(Long.parseLong(value));
+                    break;
+                case "max-command-payload-bytes":
+                    config.setMaxCommandPayloadBytes(
+                            getIntegerValue("max-command-payload-bytes", value));
+                    break;
+                case "poll-max-records":
+                    config.setPollMaxRecords(getIntegerValue("poll-max-records", value));
+                    break;
+                case "poll-max-bytes":
+                    config.setPollMaxBytes(Long.parseLong(value));
+                    break;
+                case "poll-soft-duration-ms":
+                    config.setPollSoftDurationMillis(Long.parseLong(value));
+                    break;
+                case "poll-hard-duration-ms":
+                    config.setPollHardDurationMillis(Long.parseLong(value));
+                    break;
+                case "poll-cancellation-timeout-ms":
+                    config.setPollCancellationTimeoutMillis(Long.parseLong(value));
+                    break;
+                case "idle-wait-ms":
+                    config.setIdleWaitMillis(Long.parseLong(value));
+                    break;
+                case "admission-budget-ms":
+                    config.setAdmissionBudgetMillis(Long.parseLong(value));
+                    break;
+                case "retry-initial-backoff-ms":
+                    config.setRetryInitialBackoffMillis(Long.parseLong(value));
+                    break;
+                case "retry-max-backoff-ms":
+                    config.setRetryMaxBackoffMillis(Long.parseLong(value));
+                    break;
+                case "command-retry-deadline-ms":
+                    config.setCommandRetryDeadlineMillis(Long.parseLong(value));
+                    break;
+                case "coordinator-async-max-concurrency":
+                    config.setCoordinatorAsyncMaxConcurrency(
+                            getIntegerValue("coordinator-async-max-concurrency", value));
+                    break;
+                case "coordinator-async-io-threads":
+                    config.setCoordinatorAsyncIoThreads(
+                            getIntegerValue("coordinator-async-io-threads", value));
+                    break;
+                case "coordinator-async-cpu-threads":
+                    config.setCoordinatorAsyncCpuThreads(
+                            getIntegerValue("coordinator-async-cpu-threads", value));
+                    break;
+                case "coordinator-async-queue-capacity":
+                    config.setCoordinatorAsyncQueueCapacity(
+                            getIntegerValue("coordinator-async-queue-capacity", value));
+                    break;
+                case "assignment-tracker-max-entries":
+                    config.setAssignmentTrackerMaxEntries(
+                            getIntegerValue("assignment-tracker-max-entries", value));
+                    break;
+                case "assignment-tracker-max-bytes":
+                    config.setAssignmentTrackerMaxBytes(Long.parseLong(value));
+                    break;
+                default:
+                    LOGGER.warning("Unrecognized managed Source runtime element: " + name);
+            }
+        }
+        config.validate();
+        return config;
+    }
+
+    private List<String> parseStringList(Node listNode) {
+        List<String> values = new ArrayList<>();
+        for (Node child : childElements(listNode)) {
+            String value = getTextContent(child).trim();
+            if (!value.isEmpty()) {
+                values.add(value);
+            }
+        }
+        if (!values.isEmpty()) {
+            return values;
+        }
+        String text = getTextContent(listNode);
+        if (StringUtils.isBlank(text)) {
+            return values;
+        }
+        Arrays.stream(text.split(","))
+                .map(String::trim)
+                .filter(value -> !value.isEmpty())
+                .forEach(values::add);
+        return values;
     }
 
     private CheckpointConfig parseCheckpointConfig(Node checkpointNode) {

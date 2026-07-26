@@ -214,6 +214,24 @@ class KafkaSourceSplitEnumeratorTest {
     }
 
     @Test
+    void managedBoundedDiscoveryShouldPreserveMissingOffsetFallback() throws Exception {
+        KafkaSourceSplitEnumerator enumerator =
+                new KafkaSourceSplitEnumerator(
+                        adminClient,
+                        new HashMap<TopicPartition, KafkaSourceSplit>(),
+                        new HashMap<TopicPartition, KafkaSourceSplit>(),
+                        false);
+        Method method =
+                KafkaSourceSplitEnumerator.class.getDeclaredMethod(
+                        "shouldIncludeManagedSplit", Long.class);
+        method.setAccessible(true);
+
+        Assertions.assertTrue((Boolean) method.invoke(enumerator, new Object[] {null}));
+        Assertions.assertTrue((Boolean) method.invoke(enumerator, 0L));
+        Assertions.assertFalse((Boolean) method.invoke(enumerator, -1L));
+    }
+
+    @Test
     void testIgnoreNoLeaderPartition() throws ExecutionException, InterruptedException {
 
         Map<TopicPartition, KafkaSourceSplit> assignedSplit = new HashMap<>();

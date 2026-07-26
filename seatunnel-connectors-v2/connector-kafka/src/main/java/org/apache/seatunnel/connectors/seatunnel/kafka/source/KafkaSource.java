@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.source.SupportParallelism;
+import org.apache.seatunnel.api.source.managed.ManagedSourceCapability;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.constants.JobMode;
@@ -122,6 +123,19 @@ public class KafkaSource
                 checkpointState,
                 true,
                 getBoundedness() == Boundedness.UNBOUNDED);
+    }
+
+    @Override
+    public ManagedSourceCapability getManagedSourceCapability() {
+        return ManagedSourceCapability.builder()
+                .supportsManagedReader(true)
+                .supportsManagedCoordinator(true)
+                .supportsBoundedPoll(true)
+                .supportsWakeup(true)
+                .supportsAttemptFencing(true)
+                .supportsAsyncEnumerator(true)
+                .stableSplitIdentifiers(true)
+                .build();
     }
 
     @Override

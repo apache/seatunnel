@@ -139,6 +139,39 @@ public class FakeDataGenerator {
         return rowCount;
     }
 
+    public int effectiveRowCount(int configuredRowCount) {
+        return fakeConfig.getFakeRows() == null
+                ? configuredRowCount
+                : fakeConfig.getFakeRows().size();
+    }
+
+    /** Generates a bounded, restartable range for the managed Source reader. */
+    public long generateFakedRows(
+            int configuredRowCount,
+            int startInclusive,
+            int maxRows,
+            Consumer<SeaTunnelRow> consumer) {
+        int totalRows = effectiveRowCount(configuredRowCount);
+        int endExclusive = Math.min(totalRows, startInclusive + Math.max(0, maxRows));
+        long rowCount = 0L;
+        if (fakeConfig.getFakeRows() != null) {
+            SeaTunnelDataType<?>[] fieldTypes = catalogTable.getSeaTunnelRowType().getFieldTypes();
+            String[] fieldNames = catalogTable.getSeaTunnelRowType().getFieldNames();
+            for (int i = startInclusive; i < endExclusive; i++) {
+                FakeConfig.RowData rowData = fakeConfig.getFakeRows().get(i);
+                customField(rowData, fieldTypes, fieldNames);
+                consumer.accept(convertRow(rowData));
+                rowCount++;
+            }
+        } else {
+            for (int i = startInclusive; i < endExclusive; i++) {
+                consumer.accept(randomRow());
+                rowCount++;
+            }
+        }
+        return rowCount;
+    }
+
     private void customField(
             FakeConfig.RowData rowData, SeaTunnelDataType<?>[] fieldTypes, String[] fieldNames) {
         if (rowData.getFieldsJson() == null) {
