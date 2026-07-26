@@ -32,6 +32,8 @@ import java.io.BufferedInputStream;
 import java.io.DataInputStream;
 import java.io.EOFException;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 import static org.apache.seatunnel.engine.imap.storage.file.common.WALDataUtils.WAL_DATA_METADATA_LENGTH;
 
@@ -48,6 +50,13 @@ public class DefaultReader implements IFileReader<IMapFileData> {
     public void initialize(FileSystem fs, Serializer serializer) throws IOException {
         this.fs = fs;
         this.serializer = serializer;
+    }
+
+    @Override
+    public List<IMapFileData> readAllData(Path parentPath) throws IOException {
+        List<IMapFileData> result = new ArrayList<>();
+        forEachData(parentPath, result::add);
+        return result;
     }
 
     @Override
