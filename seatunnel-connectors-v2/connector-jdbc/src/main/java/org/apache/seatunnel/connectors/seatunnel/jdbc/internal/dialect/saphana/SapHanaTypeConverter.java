@@ -36,6 +36,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 
 // reference
 // https://help.sap.com/docs/SAP_HANA_PLATFORM/4fe29514fd584807ac9f2a04f6754767/20a1569875191014b507cf392724b7eb.html?locale=en-US
@@ -413,9 +414,13 @@ public class SapHanaTypeConverter implements TypeConverter<BasicTypeDefine> {
                 builder.dataType(HANA_BLOB);
                 break;
             case STRING:
-                if (HANA_CHAR.equals(column.getSourceType())) {
+                if (column.getSourceType() != null
+                        && HANA_CHAR.equals(
+                                removeColumnSizeIfNeed(
+                                        column.getSourceType().toUpperCase(Locale.ROOT)))) {
                     builder.columnType(HANA_CHAR);
                     builder.dataType(HANA_CHAR);
+                    builder.length(column.getColumnLength());
                 } else if (column.getColumnLength() == null
                         || column.getColumnLength() <= MAX_NVARCHAR_LENGTH) {
                     builder.columnType(HANA_NVARCHAR);

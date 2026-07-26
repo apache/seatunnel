@@ -650,6 +650,22 @@ public class SapHanaTypeConverterTest {
 
         BasicTypeDefine typeDefine = SapHanaTypeConverter.INSTANCE.reconvert(column);
 
-        Assertions.assertEquals(SapHanaTypeConverter.HANA_CHAR, typeDefine.getColumnType());
+        Assertions.assertEquals("CHAR(10)", typeDefine.getColumnType());
+        Assertions.assertEquals(SapHanaTypeConverter.HANA_CHAR, typeDefine.getDataType());
+        Assertions.assertEquals(10L, typeDefine.getLength());
+
+        column =
+                PhysicalColumn.builder()
+                        .name("test")
+                        .dataType(BasicType.STRING_TYPE)
+                        .columnLength(15L)
+                        .sourceType("CHAR(15)")
+                        .build();
+
+        typeDefine = SapHanaTypeConverter.INSTANCE.reconvert(column);
+
+        Assertions.assertEquals("CHAR(15)", typeDefine.getColumnType());
+        Assertions.assertEquals(SapHanaTypeConverter.HANA_CHAR, typeDefine.getDataType());
+        Assertions.assertEquals(15L, typeDefine.getLength());
     }
 }
