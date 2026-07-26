@@ -110,6 +110,9 @@
                             <excludes>
                                 <!-- Spark provides the Scala runtime used by its classloader. -->
                                 <exclude>scala/**</exclude>
+                                <exclude>META-INF/*.SF</exclude>
+                                <exclude>META-INF/*.DSA</exclude>
+                                <exclude>META-INF/*.RSA</exclude>
                             </excludes>
                         </filter>
                     </filters>
