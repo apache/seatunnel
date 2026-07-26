@@ -92,7 +92,7 @@ Every plugin in the job is reported in a validation summary with one of two stat
 sh bin/seatunnel.sh --master local --config $SEATUNNEL_HOME/config/v2.batch.config.template --dry-run sample --sample-limit 10
 ```
 
-The `--dry-run sample` mode runs the configured sources and transforms locally and prints their schemas and a bounded number of rows from each source. It replaces configured sinks with an internal no-op sink, skips sink plugin creation and save-mode actions, and disables checkpoints. This mode can read from external sources, but it does not write to configured target systems. It does not support cluster mode, asynchronous submission, restore, or savepoint operations.
+The `--dry-run sample` mode runs the configured sources and transforms locally and prints their schemas and a bounded number of rows from each source. It uses parallelism `1` for every action, including sources configured with higher parallelism, so the row limit is source-wide and the preview output is deterministic. It replaces configured sinks with an internal no-op sink, skips sink plugin creation and save-mode actions, and disables checkpoints. This mode can read from external sources, but it does not write to configured target systems. It does not support cluster mode, asynchronous submission, restore, or savepoint operations.
 
 ## Viewing The Job List
 

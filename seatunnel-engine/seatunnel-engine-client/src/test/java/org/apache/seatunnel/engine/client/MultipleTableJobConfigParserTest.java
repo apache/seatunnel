@@ -100,6 +100,28 @@ public class MultipleTableJobConfigParserTest {
     }
 
     @Test
+    public void testSampleDryRunUsesSingleParallelismForConfiguredSources() {
+        Common.setDeployMode(DeployMode.CLIENT);
+        String filePath =
+                ContentFormatUtilTest.getResource("/batch_fakesource_to_file_complex.conf");
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setJobContext(new JobContext());
+        DryRunSampleConfig.configure(jobConfig.getEnvOptions(), 10);
+
+        ImmutablePair<List<Action>, Set<URL>> parsed =
+                new MultipleTableJobConfigParser(filePath, new IdGenerator(), jobConfig)
+                        .parse(null);
+
+        Assertions.assertEquals(1, parsed.getLeft().size());
+        Action sinkAction = parsed.getLeft().get(0);
+        Assertions.assertEquals(1, sinkAction.getParallelism());
+        Assertions.assertEquals(2, sinkAction.getUpstream().size());
+        sinkAction
+                .getUpstream()
+                .forEach(sourceAction -> Assertions.assertEquals(1, sourceAction.getParallelism()));
+    }
+
+    @Test
     public void testSimpleJobParse() {
         Common.setDeployMode(DeployMode.CLIENT);
         String filePath = ContentFormatUtilTest.getResource("/batch_fakesource_to_file.conf");

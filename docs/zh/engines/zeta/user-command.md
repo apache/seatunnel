@@ -108,7 +108,7 @@ bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template --dry-
 bin/seatunnel.sh --master local --config $SEATUNNEL_HOME/config/v2.batch.config.template --dry-run sample --sample-limit 10
 ```
 
-`--dry-run sample` 模式会在本地运行配置的 source 和 transform，并输出它们的 schema 和每个 source 中指定数量的样例数据。该模式会用内部无操作 sink 替换配置的 sink，跳过 sink 插件创建和 save-mode 操作，并禁用 checkpoint。该模式可能从外部 source 读取数据，但不会向配置的目标系统写入数据。它不支持集群模式、异步提交、恢复或 savepoint 操作。
+`--dry-run sample` 模式会在本地运行配置的 source 和 transform，并输出它们的 schema 和每个 source 中指定数量的样例数据。所有 action 都使用并行度 `1`，包括已配置更高并行度的 source，以确保行数限制作用于整个 source，并使预览输出具有确定性。该模式会用内部无操作 sink 替换配置的 sink，跳过 sink 插件创建和 save-mode 操作，并禁用 checkpoint。该模式可能从外部 source 读取数据，但不会向配置的目标系统写入数据。它不支持集群模式、异步提交、恢复或 savepoint 操作。
 
 ## 查看作业列表
 

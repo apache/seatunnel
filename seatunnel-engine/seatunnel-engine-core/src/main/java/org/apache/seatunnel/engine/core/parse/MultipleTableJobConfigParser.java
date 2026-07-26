@@ -376,6 +376,7 @@ public class MultipleTableJobConfigParser {
 
     private int getParallelism(ReadonlyConfig config) {
         if (DryRunSampleConfig.isEnabled(jobConfig.getEnvOptions())) {
+            // Keep task-local sample counters source-wide and the preview output deterministic.
             return 1;
         }
         return Math.max(
