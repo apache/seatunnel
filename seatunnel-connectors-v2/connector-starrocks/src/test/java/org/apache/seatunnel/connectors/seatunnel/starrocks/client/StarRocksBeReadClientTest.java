@@ -37,11 +37,6 @@ import java.util.Map;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-/**
- * @Author li jie @Date 2026/1/7 19:12
- *
- * @desc StarRocksBeReadClientTest
- */
 public class StarRocksBeReadClientTest {
     @Test
     void testBeHostPortMappingNormal() throws Exception {
@@ -54,7 +49,7 @@ public class StarRocksBeReadClientTest {
 
         Map<String, Pair<String, Integer>> result = formatBeHostPortMapping(sourceConfig);
 
-        Pair<String, Integer> mapping = result.get("be1");
+        Pair<String, Integer> mapping = result.get("be1:9060");
         Assertions.assertNotNull(mapping);
         Assertions.assertEquals("192.168.1.1", mapping.getKey());
         Assertions.assertEquals(31088, mapping.getValue().intValue());
@@ -69,7 +64,7 @@ public class StarRocksBeReadClientTest {
 
         Map<String, Pair<String, Integer>> result = formatBeHostPortMapping(sourceConfig);
 
-        Assertions.assertFalse(result.containsKey("be1"));
+        Assertions.assertFalse(result.containsKey("be1:9060"));
     }
 
     @Test
@@ -79,7 +74,7 @@ public class StarRocksBeReadClientTest {
                         InvocationTargetException.class,
                         () ->
                                 invokePrivate(
-                                        "extractHost",
+                                        "extractHostPort",
                                         new Class[] {BeHostPortMapping.class},
                                         new BeHostPortMapping("be1", "192.168.1.1:31088")));
         Assertions.assertTrue(exception.getCause() instanceof StarRocksConnectorException);
@@ -112,6 +107,36 @@ public class StarRocksBeReadClientTest {
     }
 
     @Test
+    void testBeHostPortMappingEmptyAccessibleHost() {
+        InvocationTargetException exception =
+                Assertions.assertThrows(
+                        InvocationTargetException.class,
+                        () ->
+                                invokePrivate(
+                                        "parseAccessiblePort",
+                                        new Class[] {BeHostPortMapping.class},
+                                        new BeHostPortMapping("be1:9060", ":31088")));
+        Assertions.assertTrue(exception.getCause() instanceof StarRocksConnectorException);
+    }
+
+    @Test
+    void testBeHostPortMappingDistinguishesPorts() throws Exception {
+        SourceConfig sourceConfig = mock(SourceConfig.class);
+        List<BeHostPortMapping> mappings =
+                Arrays.asList(
+                        new BeHostPortMapping("be1:9060", "192.168.1.1:31088"),
+                        new BeHostPortMapping("be1:9061", "192.168.1.2:31089"));
+        when(sourceConfig.getBeHostPortMapping()).thenReturn(mappings);
+
+        Map<String, Pair<String, Integer>> result = formatBeHostPortMapping(sourceConfig);
+
+        Assertions.assertEquals("192.168.1.1", result.get("be1:9060").getKey());
+        Assertions.assertEquals(31088, result.get("be1:9060").getValue());
+        Assertions.assertEquals("192.168.1.2", result.get("be1:9061").getKey());
+        Assertions.assertEquals(31089, result.get("be1:9061").getValue());
+    }
+
+    @Test
     void testDuplicateBeHostPortMappingUsesFirst() throws Exception {
         SourceConfig sourceConfig = mock(SourceConfig.class);
         List<BeHostPortMapping> mappings =
@@ -122,7 +147,7 @@ public class StarRocksBeReadClientTest {
 
         Map<String, Pair<String, Integer>> result = formatBeHostPortMapping(sourceConfig);
 
-        Pair<String, Integer> mapping = result.get("be1");
+        Pair<String, Integer> mapping = result.get("be1:9060");
         Assertions.assertNotNull(mapping);
         Assertions.assertEquals("192.168.1.1", mapping.getKey());
         Assertions.assertEquals(31088, mapping.getValue().intValue());

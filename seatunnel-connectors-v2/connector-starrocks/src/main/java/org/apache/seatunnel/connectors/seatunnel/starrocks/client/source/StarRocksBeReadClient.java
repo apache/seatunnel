@@ -75,13 +75,15 @@ public class StarRocksBeReadClient implements Serializable {
                     StarRocksConnectorErrorCode.CREATE_BE_READER_FAILED,
                     String.format("Format of StarRocks BE address[%s] is illegal", beNodeInfo));
         }
+        String normalizedBeNodeInfo =
+                hostPort[0].trim() + ":" + Integer.parseInt(hostPort[1].trim());
 
         // If the user has configured beHostPortMapping, we need to parse it
         Map<String, Pair<String, Integer>> beHostPortMapping =
                 formatBeHostPortMapping(sourceConfig);
 
-        if (beHostPortMapping.containsKey(hostPort[0].trim())) {
-            Pair<String, Integer> accessIpPort = beHostPortMapping.get(hostPort[0].trim());
+        if (beHostPortMapping.containsKey(normalizedBeNodeInfo)) {
+            Pair<String, Integer> accessIpPort = beHostPortMapping.get(normalizedBeNodeInfo);
             this.ip = accessIpPort.getKey();
             this.port = accessIpPort.getValue();
             log.debug(
@@ -124,7 +126,7 @@ public class StarRocksBeReadClient implements Serializable {
         return sourceConfig.getBeHostPortMapping().stream()
                 .collect(
                         Collectors.toMap(
-                                StarRocksBeReadClient::extractHost,
+                                StarRocksBeReadClient::extractHostPort,
                                 StarRocksBeReadClient::parseAccessiblePort,
                                 (existing, duplicate) -> {
                                     log.warn(
@@ -137,11 +139,11 @@ public class StarRocksBeReadClient implements Serializable {
     }
 
     /**
-     * Validate and extract host from host_port field.
+     * Validate and normalize the host:port mapping key.
      *
      * @throws StarRocksConnectorException if format is invalid
      */
-    private static String extractHost(BeHostPortMapping mapping) {
+    private static String extractHostPort(BeHostPortMapping mapping) {
         // host:be_port
         String hostPort = mapping.getHostPort();
         if (StringUtils.isBlank(hostPort)) {
@@ -149,7 +151,7 @@ public class StarRocksBeReadClient implements Serializable {
                     StarRocksConnectorErrorCode.HOST_MAPPING_ILLEGAL, "host_port cannot be blank");
         }
 
-        String[] parts = hostPort.split(":");
+        String[] parts = hostPort.split(":", -1);
         if (parts.length != 2) {
             throw new StarRocksConnectorException(
                     StarRocksConnectorErrorCode.HOST_MAPPING_ILLEGAL,
@@ -164,7 +166,7 @@ public class StarRocksBeReadClient implements Serializable {
                     String.format("Host cannot be empty in host_port: '%s'", hostPort));
         }
 
-        return host;
+        return host + ":" + parseMappingPort(parts[1], "host_port", hostPort);
     }
 
     /**
@@ -177,7 +179,7 @@ public class StarRocksBeReadClient implements Serializable {
         // accessible ip and be_port
         String[] accessIpInfo;
         if (StringUtils.isBlank(actualValue)
-                || (accessIpInfo = actualValue.split(":")).length != 2) {
+                || (accessIpInfo = actualValue.split(":", -1)).length != 2) {
             log.error(
                     "Invalid ip_port configuration: '{}'. Expected format 'ip:port'", actualValue);
             throw new StarRocksConnectorException(
@@ -186,30 +188,32 @@ public class StarRocksBeReadClient implements Serializable {
                             "Invalid ip_port configuration: '%s'. Expected format 'ip:port'",
                             actualValue));
         }
+        String host = accessIpInfo[0].trim();
+        if (StringUtils.isBlank(host)) {
+            throw new StarRocksConnectorException(
+                    StarRocksConnectorErrorCode.HOST_MAPPING_ILLEGAL,
+                    String.format("Host cannot be empty in ip_port: '%s'", actualValue));
+        }
+        return Pair.of(host, parseMappingPort(accessIpInfo[1], "ip_port", actualValue));
+    }
+
+    private static int parseMappingPort(String portValue, String optionName, String actualValue) {
         try {
-            int port = Integer.parseInt(accessIpInfo[1].trim());
+            int port = Integer.parseInt(portValue.trim());
             if (port <= 0 || port > 65535) {
-                log.error(
-                        "Invalid port number: '{}' in ip_port '{}'. Port must be between 1 and 65535",
-                        port,
-                        actualValue);
                 throw new StarRocksConnectorException(
                         StarRocksConnectorErrorCode.HOST_MAPPING_ILLEGAL,
                         String.format(
-                                "Invalid port number: %s in ip_port '%s'. Port must be between 1 and 65535",
-                                port, actualValue));
+                                "Invalid port number: %s in %s '%s'. Port must be between 1 and 65535",
+                                port, optionName, actualValue));
             }
-            return Pair.of(accessIpInfo[0].trim(), port);
+            return port;
         } catch (NumberFormatException e) {
-            log.error(
-                    "The port '{}' in ip_port '{}' is not a valid number",
-                    accessIpInfo[1],
-                    actualValue);
             throw new StarRocksConnectorException(
                     StarRocksConnectorErrorCode.HOST_MAPPING_ILLEGAL,
                     String.format(
-                            "The port '%s' in ip_port '%s' is not a valid number",
-                            accessIpInfo[1], actualValue),
+                            "The port '%s' in %s '%s' is not a valid number",
+                            portValue, optionName, actualValue),
                     e);
         }
     }
