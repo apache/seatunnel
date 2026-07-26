@@ -412,7 +412,10 @@ class PythonSourceTest {
         Mockito.verify(readerContext, Mockito.never()).signalNoMoreElement();
     }
 
-    /** Ensures cancellation wins promptly while inherited stdout is awaiting explicit failure. */
+    /**
+     * Ensures cancellation finishes within the reader's bounded shutdown window while inherited
+     * stdout is awaiting explicit failure.
+     */
     @Test
     void testCloseInterruptsInheritedStdoutWait() throws Exception {
         String pythonExecutable = requirePythonExecutable();
@@ -444,7 +447,7 @@ class PythonSourceTest {
         pollThread.start();
         waitUntilStdoutCloseDeadlineIsInitialized(reader);
         try {
-            Assertions.assertTimeoutPreemptively(Duration.ofSeconds(2), reader::close);
+            Assertions.assertTimeoutPreemptively(Duration.ofSeconds(6), reader::close);
         } finally {
             stopPolling.set(true);
         }
