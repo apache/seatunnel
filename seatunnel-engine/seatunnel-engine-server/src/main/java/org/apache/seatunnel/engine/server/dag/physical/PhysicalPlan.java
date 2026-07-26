@@ -34,6 +34,7 @@ import org.apache.seatunnel.engine.core.job.PipelineStatus;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.master.JobMaster;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
+import org.apache.seatunnel.engine.server.task.DynamicLookupMultiInputTask;
 
 import com.hazelcast.map.IMap;
 import lombok.NonNull;
@@ -140,6 +141,7 @@ public class PhysicalPlan {
     }
 
     public PassiveCompletableFuture<JobResult> initStateFuture() {
+        validateDeployable();
         jobEndFuture = new CompletableFuture<>();
         pipelineList.forEach(this::addPipelineEndCallback);
         return new PassiveCompletableFuture<>(jobEndFuture);
@@ -347,6 +349,7 @@ public class PhysicalPlan {
     }
 
     public synchronized void startJob() {
+        validateDeployable();
         isRunning = true;
         log.info("{} state process is start", getJobFullName());
         updateJobState(JobStatus.SCHEDULED);
@@ -356,6 +359,26 @@ public class PhysicalPlan {
     public void stopJobStateProcess() {
         isRunning = false;
         log.info("{} state process is stop", getJobFullName());
+    }
+
+    /**
+     * Rejects the Phase-0 descriptor prototype before any physical vertex can start.
+     *
+     * <p>The prototype intentionally exposes planning metadata for review and serialization tests,
+     * but it has no exchange transport. Scheduling its source tasks would therefore risk consuming
+     * records without a downstream receiver.
+     */
+    private void validateDeployable() {
+        boolean containsDynamicLookupPrototype =
+                pipelineList.stream()
+                        .flatMap(subPlan -> subPlan.getPhysicalVertexList().stream())
+                        .flatMap(vertex -> vertex.getTaskGroup().getTasks().stream())
+                        .anyMatch(DynamicLookupMultiInputTask.class::isInstance);
+        if (containsDynamicLookupPrototype) {
+            throw new IllegalStateException(
+                    "Dynamic Lookup Phase-0 is a descriptor prototype and cannot be deployed; "
+                            + "no source or lookup task was started");
+        }
     }
 
     private synchronized void stateProcess() {

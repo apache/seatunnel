@@ -62,6 +62,7 @@ import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -1083,7 +1084,9 @@ public class CheckpointCoordinator {
     }
 
     public InvocationFuture<?>[] triggerCheckpoint(CheckpointBarrier checkpointBarrier) {
-        return plan.getStartingSubtasks().stream()
+        Set<TaskLocation> checkpointRoots = new LinkedHashSet<>(plan.getStartingSubtasks());
+        checkpointRoots.addAll(plan.getCoordinatorCheckpointRoots());
+        return checkpointRoots.stream()
                 .filter(
                         taskLocation ->
                                 !SeaTunnelTaskState.CLOSED.equals(
