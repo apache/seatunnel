@@ -15,19 +15,18 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.common.statestore;
+package org.apache.seatunnel.engine.server.task.error;
 
-import lombok.Getter;
+import java.io.Serializable;
 
-/**
- * Bundle of map names required to build a Hazelcast-based {@link EngineStateStores} implementation.
- */
-@Getter
-public class EngineStateStoreNames {
-    private EngineStateStoreNames() {}
+/** Counter abstraction for row-level error threshold accounting. */
+public interface ErrorHandlerCounter extends Serializable {
 
-    public static final String CHECKPOINT_ID = "engine_checkpoint-id-map";
-    public static final String ERROR_HANDLER_COUNTER = "engine_error-handler-counter-map";
-    public static final String RUNNING_JOB_METRICS = "engine_runningJobMetrics";
-    public static final String CHECKPOINT_MONITOR = "engine_checkpoint_monitor";
+    long incrementTotalRecords();
+
+    long incrementErrorRecords();
+
+    long getTotalRecords();
+
+    long getErrorRecords();
 }

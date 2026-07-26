@@ -20,7 +20,7 @@ package org.apache.seatunnel.engine.server.task.error;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.Objects;
 
 /** Error handler for row-level error counting, logging and threshold checks. */
 @Slf4j
@@ -33,25 +33,31 @@ public class ErrorHandler<T> implements Serializable, AutoCloseable {
 
     private final StageErrorConfig config;
     private final ErrorSinkRowWriter<T> errorSinkWriter;
-
-    private final AtomicLong totalRecords = new AtomicLong(0);
-    private final AtomicLong errorRecords = new AtomicLong(0);
+    private final ErrorHandlerCounter counter;
 
     public ErrorHandler(StageErrorConfig config) {
         this(config, null);
     }
 
     public ErrorHandler(StageErrorConfig config, ErrorSinkRowWriter<T> errorSinkWriter) {
+        this(config, errorSinkWriter, new LocalErrorHandlerCounter());
+    }
+
+    public ErrorHandler(
+            StageErrorConfig config,
+            ErrorSinkRowWriter<T> errorSinkWriter,
+            ErrorHandlerCounter counter) {
         this.config = config;
         this.errorSinkWriter = errorSinkWriter;
+        this.counter = Objects.requireNonNull(counter, "counter");
     }
 
     public void incrementTotalRecords() {
         if (config.getMode() == ErrorHandlerMode.DISABLE) {
             return;
         }
-        long currentTotal = totalRecords.incrementAndGet();
-        maybeThrowOnRatioThreshold(null, errorRecords.get(), currentTotal);
+        long currentTotal = counter.incrementTotalRecords();
+        maybeThrowOnRatioThreshold(null, counter.getErrorRecords(), currentTotal);
     }
 
     public ErrorHandlerMode getMode() {
@@ -63,7 +69,7 @@ public class ErrorHandler<T> implements Serializable, AutoCloseable {
             return ErrorHandleResult.DROPPED;
         }
 
-        long currentErrorCount = errorRecords.incrementAndGet();
+        long currentErrorCount = counter.incrementErrorRecords();
         ErrorHandleResult result = ErrorHandleResult.DROPPED;
 
         // Build original data safely.
@@ -101,7 +107,7 @@ public class ErrorHandler<T> implements Serializable, AutoCloseable {
                             pluginName,
                             tableId,
                             errorMessage,
-                            totalRecords.get(),
+                            counter.getTotalRecords(),
                             currentErrorCount,
                             originalData,
                             t);
@@ -112,7 +118,7 @@ public class ErrorHandler<T> implements Serializable, AutoCloseable {
                             pluginName,
                             tableId,
                             errorMessage,
-                            totalRecords.get(),
+                            counter.getTotalRecords(),
                             currentErrorCount,
                             originalData);
                 }
@@ -173,7 +179,7 @@ public class ErrorHandler<T> implements Serializable, AutoCloseable {
                             config.getMaxErrorRecords()));
         }
 
-        maybeThrowOnRatioThreshold(ctx, currentErrorCount, totalRecords.get());
+        maybeThrowOnRatioThreshold(ctx, currentErrorCount, counter.getTotalRecords());
     }
 
     private void maybeThrowOnRatioThreshold(
@@ -230,8 +236,8 @@ public class ErrorHandler<T> implements Serializable, AutoCloseable {
             log.info(
                     "ErrorHandler summary: mode={}, totalRecords={}, errorRecords={}, errorSinkEnabled={}",
                     config.getMode(),
-                    totalRecords.get(),
-                    errorRecords.get(),
+                    counter.getTotalRecords(),
+                    counter.getErrorRecords(),
                     errorSinkWriter != null);
         }
         if (errorSinkWriter != null) {

@@ -59,7 +59,7 @@ env {
 
 - 正常数据继续写入原来的 Sink。
 - 被判断为行级错误的数据会写入 `orders_error`。
-- 同一个 task attempt、同一个 subtask 中处理的行级错误超过 10 条时，作业失败。
+- 同一个作业里的同一个 Sink 阶段处理的行级错误超过 10 条时，作业失败。
 - 连接失败等系统级错误仍然会导致作业失败。
 
 如果您只是想先观察行级错误，可以把 `mode = "ROUTE"` 改成 `mode = "LOG"`。`LOG` 模式只会把错误信息写入日志，不会写入错误表。
@@ -226,7 +226,7 @@ env {
 | `original_data_format` | String    | `TEXT`  | **预留参数**。当前版本仅支持 `TEXT`，内部统一按字符串形式写入错误表（`original_data` 为记录的字符串表示，即 `String.valueOf(row)`）。 |
 | `original_data_max_length` | Integer | `8192`  | 原始数据序列化后的最大长度，超过部分将被截断，用于控制单条错误记录大小。                                                |
 
-阈值统计口径：当前版本阈值使用每个 Zeta task attempt、每个 subtask 内部的内存计数器：Sink 每次 `write(...)` 计 1；Transform 链中每个 `map(...)`/`flatMap(...)` 调用计 1；同一条 Transform 链上的多个算子共享同一个计数器。这些计数器不会写入 checkpoint，也不会跨并行 subtask 聚合成作业级或阶段级总数。任务恢复后，新 attempt 会从 0 重新计数；提高并行度也会相应放大实际可容忍的阈值预算。配置 `max_error_records` 和 `max_error_ratio` 时，需要按这种“单 subtask、单 attempt”的口径预估。
+阈值统计口径：Zeta 会把阈值计数写入引擎状态，计数 key 带有版本号，并按作业 ID、pipeline ID、action ID 和阶段（`TRANSFORM` 或 `SINK`）划分。同一个 action、同一个阶段下的所有并行 subtask 共享同一组总记录数/错误记录数计数器，因此 `max_error_records` 和 `max_error_ratio` 按该作业、该 pipeline 的阶段级总量触发，而不是给每个 subtask 单独分配一份预算。Sink 每次 `write(...)` 计 1；Transform 链中每个 `map(...)`/`flatMap(...)` 调用计 1；同一条 Transform 链上的多个算子共享同一个阶段计数器。任务恢复后，新 attempt 会复用同一组引擎状态计数器，不会从 0 重新计数，所以重启或调整并行度不会放大可容忍的错误数量。
 
 ### 错误 Sink 相关参数一览
 

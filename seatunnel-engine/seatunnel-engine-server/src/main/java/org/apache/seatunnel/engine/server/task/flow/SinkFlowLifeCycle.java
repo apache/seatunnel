@@ -61,8 +61,10 @@ import org.apache.seatunnel.engine.server.task.error.ErrorHandlerMode;
 import org.apache.seatunnel.engine.server.task.error.ErrorHandlingSinkWriter;
 import org.apache.seatunnel.engine.server.task.error.ErrorSinkConfig;
 import org.apache.seatunnel.engine.server.task.error.ErrorSinkRowWriter;
+import org.apache.seatunnel.engine.server.task.error.LocalErrorHandlerCounter;
 import org.apache.seatunnel.engine.server.task.error.RowErrorClassifier;
 import org.apache.seatunnel.engine.server.task.error.StageErrorConfig;
+import org.apache.seatunnel.engine.server.task.error.StateStoreErrorHandlerCounter;
 import org.apache.seatunnel.engine.server.task.error.SynchronizedErrorSinkRowWriter;
 import org.apache.seatunnel.engine.server.task.operation.GetTaskGroupAddressOperation;
 import org.apache.seatunnel.engine.server.task.operation.checkpoint.BarrierFlowOperation;
@@ -364,7 +366,9 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
         }
 
         ErrorSinkRowWriter<T> errorSinkWriter = createErrorSinkWriter(seaTunnelTask, stageConfig);
-        ErrorHandler<T> handler = new ErrorHandler<>(stageConfig, errorSinkWriter);
+        ErrorHandler<T> handler =
+                createErrorHandler(
+                        seaTunnelTask, stageConfig, errorSinkWriter, sinkAction.getId(), "SINK");
         RowErrorClassifier<T> classifier = new DefaultRowErrorClassifier<>();
 
         this.stageErrorHandler = handler;
@@ -399,7 +403,13 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
         if (handler == null || classifier == null) {
             ErrorSinkRowWriter<T> errorSinkWriter =
                     createErrorSinkWriter(seaTunnelTask, stageConfig);
-            handler = new ErrorHandler<>(stageConfig, errorSinkWriter);
+            handler =
+                    createErrorHandler(
+                            seaTunnelTask,
+                            stageConfig,
+                            errorSinkWriter,
+                            sinkAction.getId(),
+                            "SINK");
             classifier = new DefaultRowErrorClassifier<>();
             stageErrorHandler = handler;
             stageRowErrorClassifier = classifier;
@@ -431,6 +441,30 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                 new ErrorHandlingSinkWriter<>(this.writer, handler, classifier, pluginName);
         errorHandlingWriter.registerFlushAction(writerContext);
         this.writer = errorHandlingWriter;
+    }
+
+    private ErrorHandler<T> createErrorHandler(
+            SeaTunnelTask seaTunnelTask,
+            StageErrorConfig stageConfig,
+            ErrorSinkRowWriter<T> errorSinkWriter,
+            long actionId,
+            String stageName) {
+        TaskLocation location = seaTunnelTask.getTaskLocation();
+        if (location == null || seaTunnelTask.getExecutionContext() == null) {
+            return new ErrorHandler<>(stageConfig, errorSinkWriter, new LocalErrorHandlerCounter());
+        }
+        return new ErrorHandler<>(
+                stageConfig,
+                errorSinkWriter,
+                new StateStoreErrorHandlerCounter(
+                        seaTunnelTask
+                                .getExecutionContext()
+                                .getStateStores()
+                                .errorHandlerCounterStore(),
+                        location.getJobId(),
+                        location.getPipelineId(),
+                        actionId,
+                        stageName));
     }
 
     private static long getJobIdOrDefault(SeaTunnelTask seaTunnelTask) {

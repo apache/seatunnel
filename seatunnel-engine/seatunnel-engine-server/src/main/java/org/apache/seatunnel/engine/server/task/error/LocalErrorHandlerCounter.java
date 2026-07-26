@@ -15,19 +15,33 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.common.statestore;
+package org.apache.seatunnel.engine.server.task.error;
 
-import lombok.Getter;
+import java.util.concurrent.atomic.AtomicLong;
 
-/**
- * Bundle of map names required to build a Hazelcast-based {@link EngineStateStores} implementation.
- */
-@Getter
-public class EngineStateStoreNames {
-    private EngineStateStoreNames() {}
+/** In-memory counter used by unit tests and non-engine fallback paths. */
+public class LocalErrorHandlerCounter implements ErrorHandlerCounter {
 
-    public static final String CHECKPOINT_ID = "engine_checkpoint-id-map";
-    public static final String ERROR_HANDLER_COUNTER = "engine_error-handler-counter-map";
-    public static final String RUNNING_JOB_METRICS = "engine_runningJobMetrics";
-    public static final String CHECKPOINT_MONITOR = "engine_checkpoint_monitor";
+    private final AtomicLong totalRecords = new AtomicLong();
+    private final AtomicLong errorRecords = new AtomicLong();
+
+    @Override
+    public long incrementTotalRecords() {
+        return totalRecords.incrementAndGet();
+    }
+
+    @Override
+    public long incrementErrorRecords() {
+        return errorRecords.incrementAndGet();
+    }
+
+    @Override
+    public long getTotalRecords() {
+        return totalRecords.get();
+    }
+
+    @Override
+    public long getErrorRecords() {
+        return errorRecords.get();
+    }
 }

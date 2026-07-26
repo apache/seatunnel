@@ -31,6 +31,7 @@ import org.apache.seatunnel.engine.core.dag.actions.TransformChainAction;
 import org.apache.seatunnel.engine.server.checkpoint.ActionStateKey;
 import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointBarrier;
+import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.error.DefaultErrorSinkWriter;
 import org.apache.seatunnel.engine.server.task.error.DefaultRowErrorClassifier;
@@ -42,8 +43,10 @@ import org.apache.seatunnel.engine.server.task.error.ErrorHandlingFlatMapTransfo
 import org.apache.seatunnel.engine.server.task.error.ErrorHandlingMapTransform;
 import org.apache.seatunnel.engine.server.task.error.ErrorSinkConfig;
 import org.apache.seatunnel.engine.server.task.error.ErrorSinkRowWriter;
+import org.apache.seatunnel.engine.server.task.error.LocalErrorHandlerCounter;
 import org.apache.seatunnel.engine.server.task.error.RowErrorClassifier;
 import org.apache.seatunnel.engine.server.task.error.StageErrorConfig;
+import org.apache.seatunnel.engine.server.task.error.StateStoreErrorHandlerCounter;
 import org.apache.seatunnel.engine.server.task.error.SynchronizedErrorSinkRowWriter;
 import org.apache.seatunnel.engine.server.task.record.Barrier;
 import org.apache.seatunnel.engine.server.trace.StainTraceConstants;
@@ -351,7 +354,9 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
             return;
         }
         ErrorSinkRowWriter<T> errorSinkWriter = createErrorSinkWriter(seaTunnelTask, stageConfig);
-        ErrorHandler<T> handler = new ErrorHandler<>(stageConfig, errorSinkWriter);
+        ErrorHandler<T> handler =
+                createErrorHandler(
+                        seaTunnelTask, stageConfig, errorSinkWriter, action.getId(), "TRANSFORM");
         this.errorHandler = handler;
         RowErrorClassifier<T> classifier = new DefaultRowErrorClassifier<>();
 
@@ -369,6 +374,30 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
                                 (SeaTunnelMapTransform<T>) t, handler, classifier));
             }
         }
+    }
+
+    private ErrorHandler<T> createErrorHandler(
+            SeaTunnelTask seaTunnelTask,
+            StageErrorConfig stageConfig,
+            ErrorSinkRowWriter<T> errorSinkWriter,
+            long actionId,
+            String stageName) {
+        TaskLocation location = seaTunnelTask.getTaskLocation();
+        if (location == null || seaTunnelTask.getExecutionContext() == null) {
+            return new ErrorHandler<>(stageConfig, errorSinkWriter, new LocalErrorHandlerCounter());
+        }
+        return new ErrorHandler<>(
+                stageConfig,
+                errorSinkWriter,
+                new StateStoreErrorHandlerCounter(
+                        seaTunnelTask
+                                .getExecutionContext()
+                                .getStateStores()
+                                .errorHandlerCounterStore(),
+                        location.getJobId(),
+                        location.getPipelineId(),
+                        actionId,
+                        stageName));
     }
 
     private static long getJobIdOrDefault(SeaTunnelTask seaTunnelTask) {

@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.transform.SeaTunnelFlatMapTransform;
 import org.apache.seatunnel.api.transform.SeaTunnelMapTransform;
+import org.apache.seatunnel.engine.server.common.statestore.counter.CounterStateStore;
 
 import org.junit.jupiter.api.Test;
 
@@ -31,6 +32,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -192,6 +194,80 @@ public class ErrorHandlerTest {
         assertTrue(ex.getMessage().contains("error ratio"));
         assertTrue(ex.getMessage().contains("exceeded max_error_ratio"));
         handler.close();
+    }
+
+    @Test
+    public void testStateStoreCounterSharesMaxRecordsAcrossParallelHandlers() {
+        StageErrorConfig config =
+                StageErrorConfig.builder().mode(ErrorHandlerMode.LOG).maxErrorRecords(1).build();
+        InMemoryCounterStateStore counterStore = new InMemoryCounterStateStore();
+        ErrorHandler<SeaTunnelRow> firstSubtaskHandler =
+                new ErrorHandler<>(
+                        config,
+                        null,
+                        new StateStoreErrorHandlerCounter(counterStore, 1L, 2, 3L, "SINK"));
+        ErrorHandler<SeaTunnelRow> secondSubtaskHandler =
+                new ErrorHandler<>(
+                        config,
+                        null,
+                        new StateStoreErrorHandlerCounter(counterStore, 1L, 2, 3L, "SINK"));
+        RowErrorContext ctx = createContext();
+
+        firstSubtaskHandler.incrementTotalRecords();
+        firstSubtaskHandler.onError(ctx, createRow(1), new RuntimeException("first"));
+        secondSubtaskHandler.incrementTotalRecords();
+        RuntimeException ex =
+                assertThrows(
+                        RuntimeException.class,
+                        () ->
+                                secondSubtaskHandler.onError(
+                                        ctx, createRow(2), new RuntimeException("second")));
+
+        assertTrue(ex.getMessage().contains("2 records exceeded max_error_records=1"));
+        firstSubtaskHandler.close();
+        secondSubtaskHandler.close();
+    }
+
+    @Test
+    public void testStateStoreCounterSurvivesHandlerRecreationAfterRecovery() {
+        StageErrorConfig config =
+                StageErrorConfig.builder()
+                        .mode(ErrorHandlerMode.LOG)
+                        .maxErrorRatio(0.25)
+                        .maxErrorRatioMinRecords(4)
+                        .build();
+        InMemoryCounterStateStore counterStore = new InMemoryCounterStateStore();
+        RowErrorContext ctx = createContext();
+
+        ErrorHandler<SeaTunnelRow> beforeRecovery =
+                new ErrorHandler<>(
+                        config,
+                        null,
+                        new StateStoreErrorHandlerCounter(counterStore, 10L, 20, 30L, "TRANSFORM"));
+        beforeRecovery.incrementTotalRecords();
+        beforeRecovery.onError(ctx, createRow(1), new RuntimeException("first"));
+        beforeRecovery.incrementTotalRecords();
+        beforeRecovery.onError(ctx, createRow(2), new RuntimeException("second"));
+
+        ErrorHandler<SeaTunnelRow> afterRecovery =
+                new ErrorHandler<>(
+                        config,
+                        null,
+                        new StateStoreErrorHandlerCounter(counterStore, 10L, 20, 30L, "TRANSFORM"));
+
+        RuntimeException ex =
+                assertThrows(
+                        RuntimeException.class,
+                        () -> {
+                            afterRecovery.incrementTotalRecords();
+                            afterRecovery.incrementTotalRecords();
+                        });
+
+        assertTrue(ex.getMessage().contains("error ratio"));
+        assertTrue(ex.getMessage().contains("errors=2"));
+        assertTrue(ex.getMessage().contains("total=4"));
+        beforeRecovery.close();
+        afterRecovery.close();
     }
 
     @Test
@@ -546,6 +622,39 @@ public class ErrorHandlerTest {
         SeaTunnelRow row = new SeaTunnelRow(new Object[] {id, "name_" + id, 20 + id});
         row.setTableId(TEST_TABLE);
         return row;
+    }
+
+    private static class InMemoryCounterStateStore implements CounterStateStore<String> {
+
+        private final Map<String, Long> values = new ConcurrentHashMap<>();
+
+        @Override
+        public boolean initializeIfAbsent(String key, long initialValue) {
+            return values.putIfAbsent(key, initialValue) == null;
+        }
+
+        @Override
+        public Long get(String key) {
+            return values.get(key);
+        }
+
+        @Override
+        public Long incrementAndGet(String key) {
+            if (!values.containsKey(key)) {
+                return null;
+            }
+            return values.computeIfPresent(key, (ignored, current) -> current + 1L);
+        }
+
+        @Override
+        public void set(String key, long value) {
+            values.put(key, value);
+        }
+
+        @Override
+        public void remove(String key) {
+            values.remove(key);
+        }
     }
 
     /** Mock error sink writer for testing. */

@@ -59,7 +59,7 @@ What this means in practice:
 
 - Valid rows continue to flow to the normal Sink.
 - Rows classified as row-level errors are written to `orders_error`.
-- If more than 10 row-level errors are handled by the same task attempt and subtask, the job fails.
+- If more than 10 row-level errors are handled by the same Sink stage in this job, the job fails.
 - System-level errors, such as connection failures, still fail the job.
 
 If you only want to observe row-level errors first, use `mode = "LOG"` instead of `mode = "ROUTE"`. In `LOG` mode, SeaTunnel records the error information in logs but does not write an error table.
@@ -226,7 +226,7 @@ The existing error handling options of each Transform / Sink plugin (such as `ro
 | `original_data_format`        | String  | `TEXT`   | **Reserved parameter**. Current version only supports `TEXT`, internally unified as string form written to error table (`original_data` is the string representation of the record, i.e., `String.valueOf(row)`).                   |
 | `original_data_max_length`    | Integer | `8192`   | Maximum length of serialized original data, excess will be truncated, used to control the size of individual error records.                                                                                                         |
 
-Threshold statistics scope: Current version thresholds use in-memory counters in each Zeta task attempt and subtask. Sink counts 1 per `write(...)`; Transform chain counts 1 per `map(...)`/`flatMap(...)` call; multiple operators on the same Transform chain share the same counter. These counters are not checkpointed and are not aggregated into a job-wide or stage-wide total across parallel subtasks. After task recovery the counters start from zero for the new attempt, and increasing parallelism also increases the effective threshold budget. Configure `max_error_records` and `max_error_ratio` with this per-subtask attempt scope in mind.
+Threshold statistics scope: Zeta stores threshold counters in engine state with a versioned key scoped by job ID, pipeline ID, action ID, and stage (`TRANSFORM` or `SINK`). All parallel subtasks of the same action and stage share the same total/error counters, so `max_error_records` and `max_error_ratio` are enforced as stage-level totals for that job and pipeline instead of per-subtask budgets. Sink counts 1 per `write(...)`; Transform chain counts 1 per `map(...)`/`flatMap(...)` call; multiple operators on the same Transform chain share the same stage counter. When a task attempt is recreated during recovery, the new handler reuses the same engine-state counters instead of resetting them to zero, so restart or rescale does not multiply the accepted error allowance.
 
 ### Error Sink Related Parameters Overview
 

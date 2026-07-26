@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server.execution;
 
 import org.apache.seatunnel.engine.server.TaskExecutionService;
 import org.apache.seatunnel.engine.server.common.SeaTunnelEngineContext;
+import org.apache.seatunnel.engine.server.common.statestore.EngineStateStores;
 import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
@@ -64,6 +65,10 @@ public class TaskExecutionContext {
                 .getStateStores()
                 .metricsSnapshotStore()
                 .getOrDefault(taskLocation, new SeaTunnelMetricsContext());
+    }
+
+    public EngineStateStores getStateStores() {
+        return engineContext.getStateStores();
     }
 
     public <T> T getTask() {
