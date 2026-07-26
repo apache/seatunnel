@@ -43,8 +43,6 @@ import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.Elasticsea
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SearchApiTypeEnum;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.SearchTypeEnum;
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.ElasticsearchConnectorErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.ElasticsearchConnectorException;
 
 import org.apache.commons.collections4.CollectionUtils;
 
@@ -76,22 +74,9 @@ public class ElasticsearchSource
         boolean multiSource = config.getOptional(ElasticsearchSourceOptions.INDEX_LIST).isPresent();
         boolean singleSource = config.getOptional(ElasticsearchSourceOptions.INDEX).isPresent();
 
-        boolean sqlQuery = config.getOptional(SQL_QUERY).isPresent();
-
-        if (SearchTypeEnum.SQL.equals(config.get(SEARCH_TYPE)) && !sqlQuery) {
-            throw new ElasticsearchConnectorException(
-                    ElasticsearchConnectorErrorCode.SOURCE_CONFIG_ERROR_02,
-                    ElasticsearchConnectorErrorCode.SOURCE_CONFIG_ERROR_02.getDescription());
-        }
-
         if (multiSource && singleSource) {
             log.warn(
                     "Elasticsearch Source config warn: when both 'index' and 'index_list' are present in the configuration, only the 'index_list' configuration will take effect");
-        }
-        if (!multiSource && !singleSource) {
-            throw new ElasticsearchConnectorException(
-                    ElasticsearchConnectorErrorCode.SOURCE_CONFIG_ERROR_01,
-                    ElasticsearchConnectorErrorCode.SOURCE_CONFIG_ERROR_01.getDescription());
         }
         if (multiSource) {
             this.elasticsearchConfigList = createMultiSource(config);
@@ -107,6 +92,11 @@ public class ElasticsearchSource
                 configMaps.stream().map(ReadonlyConfig::fromMap).collect(Collectors.toList());
         List<ElasticsearchConfig> elasticsearchConfigList = new ArrayList<>(configList.size());
         for (ReadonlyConfig readonlyConfig : configList) {
+            // NOTE: per-entry configs inside `index_list` are NOT validated by the factory's
+            // OptionRule (which only validates the top-level config). If an entry is missing
+            // `index`, or sets `search_type=SQL` without `sql_query`, parseOneIndexQueryConfig
+            // below will fail at runtime. This is a pre-existing limitation; revisit if/when
+            // per-entry declarative validation is supported.
             ElasticsearchConfig elasticsearchConfig = parseOneIndexQueryConfig(readonlyConfig);
             elasticsearchConfigList.add(elasticsearchConfig);
         }
@@ -181,6 +171,11 @@ public class ElasticsearchSource
         String sqlQuery = readonlyConfig.get(ElasticsearchSourceOptions.SQL_QUERY);
         String scrollTime = readonlyConfig.get(ElasticsearchSourceOptions.SCROLL_TIME);
         int scrollSize = readonlyConfig.get(ElasticsearchSourceOptions.SCROLL_SIZE);
+        int sliceMax = readonlyConfig.get(ElasticsearchSourceOptions.SLICE_MAX);
+        if (SearchTypeEnum.SQL.equals(searchType) && sliceMax > 1) {
+            log.warn("SQL search_type does not support slicing. slice_max will be ignored.");
+            sliceMax = 1;
+        }
 
         long pitKeepAlive = readonlyConfig.get(ElasticsearchSourceOptions.PIT_KEEP_ALIVE);
         int pitBatchSize = readonlyConfig.get(ElasticsearchSourceOptions.PIT_BATCH_SIZE);
@@ -208,6 +203,7 @@ public class ElasticsearchSource
 
         elasticsearchConfig.setPitKeepAlive(pitKeepAlive);
         elasticsearchConfig.setPitBatchSize(pitBatchSize);
+        elasticsearchConfig.setSliceMax(sliceMax);
         return elasticsearchConfig;
     }
 

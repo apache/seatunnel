@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.hive;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
@@ -29,6 +32,8 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 public class HiveDialect implements JdbcDialect {
@@ -49,8 +54,14 @@ public class HiveDialect implements JdbcDialect {
     }
 
     @Override
+    public boolean supportsPrimaryKeyMetadata() {
+        // Hive 3.x can throw from getPrimaryKeys while partition metadata is still available.
+        return false;
+    }
+
+    @Override
     public Optional<String> getUpsertStatement(
-            String database, String tableName, String[] fieldNames, String[] uniqueKeyFields) {
+            String database, String tableName, String[] fieldNames, String[] pkNames) {
         return Optional.empty();
     }
 
@@ -67,6 +78,44 @@ public class HiveDialect implements JdbcDialect {
     public JdbcConnectionProvider getJdbcConnectionProvider(
             JdbcConnectionConfig jdbcConnectionConfig) {
         return new HiveJdbcConnectionProvider(jdbcConnectionConfig);
+    }
+
+    @Override
+    public List<String> getPartitionKeys(Connection connection, TablePath tablePath)
+            throws SQLException {
+        List<String> partitionKeys = new ArrayList<>();
+        boolean partitionSection = false;
+        boolean partitionHeader = false;
+        String describeSql = "DESCRIBE " + tableIdentifier(tablePath);
+        try (PreparedStatement preparedStatement = connection.prepareStatement(describeSql);
+                ResultSet resultSet = preparedStatement.executeQuery()) {
+            while (resultSet.next()) {
+                String columnName = StringUtils.trimToEmpty(resultSet.getString(1));
+                if (StringUtils.isBlank(columnName)) {
+                    continue;
+                }
+                if ("# Partition Information".equalsIgnoreCase(columnName)) {
+                    partitionSection = true;
+                    partitionHeader = true;
+                    continue;
+                }
+                if (!partitionSection) {
+                    continue;
+                }
+                if (columnName.startsWith("#")) {
+                    if (!partitionHeader) {
+                        break;
+                    }
+                    partitionHeader = false;
+                    continue;
+                }
+                if (partitionHeader) {
+                    partitionHeader = false;
+                }
+                partitionKeys.add(columnName);
+            }
+        }
+        return partitionKeys;
     }
 
     /**

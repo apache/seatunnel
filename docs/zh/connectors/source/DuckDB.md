@@ -86,7 +86,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | table_list                   | Array      | 否    | -               | 要读取的表列表，您可以使用此配置代替 `table_path` 示例：```[{ table_path = "main.table1"}, {table_path = "main.table2", query = "select * id, name from main.table2"}]``` |
 | where_condition              | String     | 否    | -               | 所有表/查询的通用行过滤条件，必须以 `where` 开头。例如 `where id > 100`                                                                                                    |
 | split.size                   | Int        | 否    | 8096            | 表的拆分大小（行数），读取表时捕获的表被拆分为多个拆分。                                                                                                                         |
-| common-options               |            | 否    | -               | 源插件通用参数，详情请参考 [Source Common Options](../source-common-options.md)                                                                                   |
+| common-options               |            | 否    | -               | 源插件通用参数，详情请参考 [Source Common Options](../common-options/source-common-options.md)                                                                                   |
 
 ## 并行读取器
 

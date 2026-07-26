@@ -60,6 +60,7 @@
         <trino.version>460</trino.version>
         <aws.sdk.version>2.31.30</aws.sdk.version>
         <duckdb.version>1.3.1.0</duckdb.version>
+        <yashandb.jdbc.version>1.10.7</yashandb.jdbc.version>
     </properties>
 
     <dependencyManagement>
@@ -252,6 +253,12 @@
                 <version>${duckdb.version}</version>
                 <scope>provided</scope>
             </dependency>
+            <dependency>
+                <groupId>com.yashandb</groupId>
+                <artifactId>yashandb-jdbc</artifactId>
+                <version>${yashandb.jdbc.version}</version>
+                <scope>provided</scope>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
@@ -351,6 +358,10 @@
             <artifactId>hive-jdbc</artifactId>
         </dependency>
         <dependency>
+            <groupId>com.yashandb</groupId>
+            <artifactId>yashandb-jdbc</artifactId>
+        </dependency>
+        <dependency>
             <groupId>com.oceanbase</groupId>
             <artifactId>oceanbase-client</artifactId>
         </dependency>
@@ -429,6 +440,13 @@
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>junit-jupiter</artifactId>
+            <version>${testcontainer.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>oracle-xe</artifactId>
             <version>${testcontainer.version}</version>
             <scope>test</scope>
         </dependency>

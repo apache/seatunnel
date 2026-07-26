@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
@@ -31,6 +32,10 @@ import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.paimon.exception.PaimonConnectorException;
+
+import org.apache.paimon.catalog.Identifier;
+import org.apache.paimon.schema.SchemaChange;
+import org.apache.paimon.types.DataTypes;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -41,6 +46,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -253,6 +259,27 @@ public class PaimonCatalogTest {
                         throw e;
                     }
                 });
+    }
+
+    @Test
+    public void alterTableShouldRespectIgnoreIfNotExists() {
+        Identifier identifier = Identifier.create(DATABASE_NAME, "missing_table");
+        SchemaChange change = SchemaChange.addColumn("new_column", DataTypes.STRING());
+
+        Assertions.assertThrows(
+                TableNotExistException.class,
+                () -> paimonCatalog.alterTable(identifier, change, false));
+        Assertions.assertDoesNotThrow(() -> paimonCatalog.alterTable(identifier, change, true));
+
+        Assertions.assertThrows(
+                TableNotExistException.class,
+                () ->
+                        paimonCatalog.alterTable(
+                                identifier, Collections.singletonList(change), false));
+        Assertions.assertDoesNotThrow(
+                () ->
+                        paimonCatalog.alterTable(
+                                identifier, Collections.singletonList(change), true));
     }
 
     @AfterEach

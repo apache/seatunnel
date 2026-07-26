@@ -1,10 +1,10 @@
-# LLM
+# 大语言模型处理
 
-> LLM 转换插件
+> LLM：调用大语言模型完成清洗、标注、推理或数据丰富
 
 ## 描述
 
-利用大型语言模型 (LLM) 的强大功能来处理数据，方法是将数据发送到 LLM 并接收生成的结果。利用 LLM 的功能来标记、清理、丰富数据、执行数据推理等。
+LLM 转换插件利用大型语言模型（LLM）的能力处理数据，将输入内容发送到 LLM 并接收生成结果，可用于标记、清理、丰富数据以及执行数据推理等场景。
 
 ## 属性
 
@@ -93,7 +93,7 @@ transform {
 ### api_key
 
 用于模型提供者的 API 密钥。
-如果使用 OpenAI 模型，请参考 https://platform.openai.com/docs/api-reference/api-keys 文档的如何获取 API 密钥。
+如果使用 OpenAI 模型，请参考 https://help.openai.com/en/articles/4936850-how-to-create-and-use-an-api-key 文档了解如何获取 API 密钥。
 
 ### api_path
 
@@ -156,7 +156,7 @@ transform {
 
 ## tips
 大模型API接口通常会有速率限制，可以配合Seatunnel的限速配置，已确保任务顺利运行。
-Seatunnel限速配置,请参考[speed-limit](../introduction/concepts/speed-limit.md)了解详情
+Seatunnel限速配置,请参考[speed-limit](../introduction/configuration/speed-limit.md)了解详情
 
 ## 示例 OPENAI
 

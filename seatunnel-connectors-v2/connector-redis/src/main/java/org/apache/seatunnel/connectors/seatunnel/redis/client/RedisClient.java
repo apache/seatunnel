@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.redis.client;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisDataType;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisParameters;
+import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisTableConfig;
 
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.params.ScanParams;
@@ -97,7 +98,8 @@ public abstract class RedisClient {
 
     public abstract List<Set<String>> batchGetSet(List<String> keys);
 
-    public abstract List<Map<String, String>> batchGetHash(List<String> keys);
+    public abstract List<Map<String, String>> batchGetHash(
+            List<String> keys, RedisTableConfig tableConfig);
 
     public abstract List<List<String>> batchGetZset(List<String> keys);
 

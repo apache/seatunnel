@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.sftp.system;
 
+import org.apache.seatunnel.connectors.seatunnel.file.hadoop.FileStatusListingSession;
+import org.apache.seatunnel.connectors.seatunnel.file.hadoop.StreamingFileSystem;
+
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FSDataOutputStream;
@@ -31,6 +34,7 @@ import org.slf4j.LoggerFactory;
 
 import com.jcraft.jsch.ChannelSftp;
 import com.jcraft.jsch.ChannelSftp.LsEntry;
+import com.jcraft.jsch.ChannelSftp.LsEntrySelector;
 import com.jcraft.jsch.SftpATTRS;
 import com.jcraft.jsch.SftpException;
 
@@ -45,7 +49,7 @@ import java.util.ArrayList;
 import java.util.Vector;
 
 /** SFTP FileSystem. */
-public class SFTPFileSystem extends FileSystem {
+public class SFTPFileSystem extends FileSystem implements StreamingFileSystem {
 
     public static final Logger LOG = LoggerFactory.getLogger(SFTPFileSystem.class);
 
@@ -115,7 +119,7 @@ public class SFTPFileSystem extends FileSystem {
         }
 
         int connectionMax = conf.getInt(FS_SFTP_CONNECTION_MAX, DEFAULT_MAX_CONNECTION);
-        connectionPool = new SFTPConnectionPool(connectionMax, connectionMax);
+        connectionPool = new SFTPConnectionPool(connectionMax, 0);
     }
 
     private ChannelSftp connect() throws IOException {
@@ -235,13 +239,17 @@ public class SFTPFileSystem extends FileSystem {
 
     private FileStatus getFileStatus(ChannelSftp channel, LsEntry sftpFile, Path parentPath)
             throws IOException {
+        return getFileStatus(channel, sftpFile.getFilename(), sftpFile.getAttrs(), parentPath);
+    }
 
-        SftpATTRS attr = sftpFile.getAttrs();
+    private FileStatus getFileStatus(
+            ChannelSftp channel, String fileName, SftpATTRS attr, Path parentPath)
+            throws IOException {
         long length = attr.getSize();
         boolean isDir = attr.isDir();
         boolean isLink = attr.isLink();
         if (isLink) {
-            String link = parentPath.toUri().getPath() + "/" + sftpFile.getFilename();
+            String link = parentPath.toUri().getPath() + "/" + fileName;
             try {
                 link = channel.realpath(link);
 
@@ -260,12 +268,12 @@ public class SFTPFileSystem extends FileSystem {
         long blockSize = DEFAULT_BLOCK_SIZE;
         long modTime = attr.getMTime() * 1000L; // convert to milliseconds
         long accessTime = attr.getATime() * 1000L;
-        FsPermission permission = getPermissions(sftpFile);
+        FsPermission permission = new FsPermission((short) attr.getPermissions());
         // not be able to get the real user group name, just use the user and group
         // id
         String user = Integer.toString(attr.getUId());
         String group = Integer.toString(attr.getGId());
-        Path filePath = new Path(parentPath, sftpFile.getFilename());
+        Path filePath = new Path(parentPath, fileName);
 
         return new FileStatus(
                 length,
@@ -548,8 +556,11 @@ public class SFTPFileSystem extends FileSystem {
                 new FSDataOutputStream(os, statistics) {
                     @Override
                     public void close() throws IOException {
-                        super.close();
-                        disconnect(client);
+                        try {
+                            super.close();
+                        } finally {
+                            disconnect(client);
+                        }
                     }
                 };
 
@@ -596,6 +607,82 @@ public class SFTPFileSystem extends FileSystem {
             return stats;
         } finally {
             disconnect(client);
+        }
+    }
+
+    @Override
+    public FileStatusListingSession openFileStatusListingSession() throws IOException {
+        return new SftpListingSession(connect());
+    }
+
+    private final class SftpListingSession implements FileStatusListingSession {
+        private final ChannelSftp client;
+
+        private SftpListingSession(ChannelSftp client) {
+            this.client = client;
+        }
+
+        @Override
+        public FileStatus getFileStatus(Path path) throws IOException {
+            Path absolute;
+            try {
+                absolute = makeAbsolute(new Path(client.pwd()), path);
+                if (absolute.getParent() == null) {
+                    return SFTPFileSystem.this.getFileStatus(client, absolute);
+                }
+                SftpATTRS attrs = client.lstat(absolute.toUri().getPath());
+                return SFTPFileSystem.this.getFileStatus(
+                        client, absolute.getName(), attrs, absolute.getParent());
+            } catch (SftpException e) {
+                if (e.id == ChannelSftp.SSH_FX_NO_SUCH_FILE) {
+                    throw new FileNotFoundException(String.format(E_FILE_NOTFOUND, path));
+                }
+                throw new IOException("SFTP lstat failed for path=" + path, e);
+            }
+        }
+
+        @Override
+        public void list(Path directory, FileStatusConsumer consumer) throws IOException {
+            Path absolute;
+            try {
+                absolute = makeAbsolute(new Path(client.pwd()), directory);
+                client.ls(
+                        absolute.toUri().getPath(),
+                        entry -> {
+                            String name = entry.getFilename();
+                            if (!".".equals(name) && !"..".equals(name)) {
+                                try {
+                                    consumer.accept(
+                                            SFTPFileSystem.this.getFileStatus(
+                                                    client, entry, absolute));
+                                } catch (IOException e) {
+                                    throw new ListingRuntimeException(e);
+                                }
+                            }
+                            return LsEntrySelector.CONTINUE;
+                        });
+            } catch (ListingRuntimeException e) {
+                throw e.ioException;
+            } catch (SftpException e) {
+                if (e.id == ChannelSftp.SSH_FX_NO_SUCH_FILE) {
+                    throw new FileNotFoundException(String.format(E_FILE_NOTFOUND, directory));
+                }
+                throw new IOException("SFTP READDIR failed for path=" + directory, e);
+            }
+        }
+
+        @Override
+        public void close() throws IOException {
+            disconnect(client);
+        }
+    }
+
+    private static final class ListingRuntimeException extends RuntimeException {
+        private final IOException ioException;
+
+        private ListingRuntimeException(IOException ioException) {
+            super(ioException);
+            this.ioException = ioException;
         }
     }
 
@@ -651,7 +738,12 @@ public class SFTPFileSystem extends FileSystem {
 
     @Override
     public void close() throws IOException {
-        super.close();
-        connectionPool.shutdown();
+        try {
+            super.close();
+        } finally {
+            if (connectionPool != null) {
+                connectionPool.shutdown();
+            }
+        }
     }
 }

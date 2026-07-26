@@ -51,6 +51,7 @@ public class SftpFileSourceFactory implements TableSourceFactory {
                 .optional(SftpFileSourceOptions.SFTP_PORT)
                 .optional(SftpFileSourceOptions.SFTP_USER)
                 .optional(SftpFileSourceOptions.SFTP_PASSWORD)
+                .optional(SftpFileSourceOptions.SFTP_KEYFILE)
                 .optional(FileBaseSourceOptions.FILE_FORMAT_TYPE)
                 .conditional(
                         FileBaseSourceOptions.FILE_FORMAT_TYPE,
@@ -89,18 +90,29 @@ public class SftpFileSourceFactory implements TableSourceFactory {
                 .optional(FileBaseSourceOptions.NULL_FORMAT)
                 .optional(FileBaseSourceOptions.FILENAME_EXTENSION)
                 .optional(FileBaseSourceOptions.READ_COLUMNS)
+                .conditional(
+                        FileBaseSourceOptions.FILE_FORMAT_TYPE,
+                        FileFormat.MARKDOWN,
+                        FileBaseSourceOptions.MARKDOWN_RAG_METADATA_ENABLED)
                 .optional(FileBaseSourceOptions.QUOTE_CHAR)
                 .optional(FileBaseSourceOptions.ESCAPE_CHAR)
                 .optional(ConnectorCommonOptions.METALAKE_TYPE)
                 .optional(
+                        FileBaseSourceOptions.DISCOVERY_MODE,
+                        FileBaseSourceOptions.SCAN_INTERVAL,
+                        FileBaseSourceOptions.START_MODE)
+                .optional(
                         FileBaseSourceOptions.SYNC_MODE,
                         FileBaseSourceOptions.TARGET_HADOOP_CONF,
                         FileBaseSourceOptions.UPDATE_STRATEGY,
-                        FileBaseSourceOptions.COMPARE_MODE)
+                        FileBaseSourceOptions.COMPARE_MODE,
+                        FileBaseSourceOptions.UPDATE_COMPARE_PARALLELISM,
+                        FileBaseSourceOptions.UPDATE_COMPARE_BULK_THRESHOLD)
                 .conditional(
                         FileBaseSourceOptions.SYNC_MODE,
                         FileSyncMode.UPDATE,
                         FileBaseSourceOptions.TARGET_PATH)
+                .optional(FileBaseSourceOptions.RECURSIVE_FILE_SCAN)
                 .build();
     }
 
