@@ -130,6 +130,10 @@ export OPENAI_MODEL='openai.gpt-5.6-terra'
 
 These models do not accept the `temperature` parameter; the provider omits it.
 
+All requests are sent with `store=false`, so Bedrock does not retain your
+prompts or responses server-side (the service default would otherwise keep
+them for 30 days).
+
 #### Option B: Anthropic API
 
 ```bash

@@ -246,3 +246,117 @@ def test_client_refreshes_after_ttl():
         provider._token_born = -10_000.0
         provider._get_client()
         assert fake_generator.provide_token.call_count == 2
+
+# ── store=False on every request (Bedrock retains data by default) ──
+
+def test_chat_sends_store_false():
+    provider = _make_provider()
+    provider._client.responses.create.return_value = _resp(
+        [_message_item("OK")])
+    provider.chat([{"role": "user", "content": [{"text": "hi"}]}])
+    assert provider._client.responses.create.call_args.kwargs["store"] is False
+
+
+def test_chat_stream_sends_store_false():
+    provider = _make_provider()
+    provider._client.responses.create.return_value = iter([
+        _ev("response.completed"),
+    ])
+    list(provider.chat_stream([{"role": "user", "content": [{"text": "hi"}]}]))
+    assert provider._client.responses.create.call_args.kwargs["store"] is False
+
+
+# ── reasoning items are preserved and replayed in order ──
+
+def _reasoning_item():
+    item = mock.MagicMock()
+    item.type = "reasoning"
+    item.model_dump.return_value = {
+        "type": "reasoning", "id": "rs_1",
+        "summary": [], "content": None,
+    }
+    return item
+
+
+def test_chat_preserves_reasoning_for_replay():
+    provider = _make_provider()
+    provider._client.responses.create.return_value = _resp([
+        _reasoning_item(),
+        _function_call_item("call_1", "calc", '{"expr": "1"}'),
+    ])
+    resp = provider.chat([{"role": "user", "content": [{"text": "hi"}]}])
+    blocks = resp["output"]["message"]["content"]
+    assert blocks[0] == {"mantleResponsesItem": {
+        "type": "reasoning", "id": "rs_1", "summary": [], "content": None}}
+    assert "toolUse" in blocks[1]
+
+    # replay: history containing the reasoning block converts back verbatim,
+    # in order, before the function_call item
+    history = [
+        {"role": "user", "content": [{"text": "hi"}]},
+        resp["output"]["message"],
+        {"role": "user", "content": [{"toolResult": {
+            "toolUseId": "call_1", "content": [{"text": "1"}]}}]},
+    ]
+    items = BedrockMantleProvider._to_responses_input(history)
+    assert items[1] == {"type": "reasoning", "id": "rs_1",
+                        "summary": [], "content": None}
+    assert items[2]["type"] == "function_call"
+    assert items[3]["type"] == "function_call_output"
+
+
+def test_chat_stream_forwards_reasoning_items():
+    provider = _make_provider()
+    r_item = mock.MagicMock()
+    r_item.type = "reasoning"
+    r_item.model_dump.return_value = {"type": "reasoning", "id": "rs_2"}
+    provider._client.responses.create.return_value = iter([
+        _ev("response.output_item.added", item=r_item),
+        _ev("response.output_item.done", item=r_item),
+        _ev("response.completed"),
+    ])
+    events = list(provider.chat_stream(
+        [{"role": "user", "content": [{"text": "hi"}]}]))
+    assert {"type": "mantle_responses_item",
+            "item": {"type": "reasoning", "id": "rs_2"}} in events
+    # and collect_stream lands it in history
+    resp = BedrockMantleProvider.collect_stream(events)
+    assert {"mantleResponsesItem": {"type": "reasoning", "id": "rs_2"}} \
+        in resp["output"]["message"]["content"]
+
+
+# ── terminal states must not become successful end_turns ──
+
+def test_chat_incomplete_status_raises():
+    provider = _make_provider()
+    response = _resp([_message_item("truncated par")])
+    response.status = "incomplete"
+    response.incomplete_details = mock.MagicMock(reason="max_output_tokens")
+    response.error = None
+    provider._client.responses.create.return_value = response
+    with pytest.raises(RuntimeError, match="incomplete.*max_output_tokens"):
+        provider.chat([{"role": "user", "content": [{"text": "hi"}]}])
+
+
+def test_chat_refusal_raises():
+    provider = _make_provider()
+    refusal_part = mock.MagicMock()
+    refusal_part.type = "refusal"
+    refusal_part.refusal = "cannot help with that"
+    msg = mock.MagicMock()
+    msg.type = "message"
+    msg.content = [refusal_part]
+    provider._client.responses.create.return_value = _resp([msg])
+    with pytest.raises(RuntimeError, match="refused"):
+        provider.chat([{"role": "user", "content": [{"text": "hi"}]}])
+
+
+def test_chat_stream_failed_event_raises():
+    provider = _make_provider()
+    provider._client.responses.create.return_value = iter([
+        _ev("response.output_text.delta", delta="par"),
+        _ev("response.failed", response=None, message="internal model error"),
+    ])
+    with pytest.raises(RuntimeError, match="abnormally"):
+        list(provider.chat_stream(
+            [{"role": "user", "content": [{"text": "hi"}]}]))

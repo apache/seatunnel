@@ -1512,7 +1512,7 @@ def main():
     )
     parser.add_argument(
         "--provider",
-        choices=["bedrock", "anthropic", "openai"],
+        choices=["bedrock", "bedrock-mantle", "anthropic", "openai"],
         help="LLM provider (overrides AI_PROVIDER env var and config.json)",
     )
     parser.add_argument(
@@ -1563,15 +1563,18 @@ def main():
     # Override provider if specified via CLI flags
     if args.provider:
         os.environ["AI_PROVIDER"] = args.provider
+    # Providers speaking the OpenAI protocol read OPENAI_MODEL*;
+    # bedrock/anthropic read ANTHROPIC_MODEL*.
+    _OPENAI_FAMILY = ("openai", "bedrock-mantle")
     if args.model:
         provider = os.environ.get("AI_PROVIDER", "").lower()
-        if provider == "openai":
+        if provider in _OPENAI_FAMILY:
             os.environ["OPENAI_MODEL"] = args.model
         else:
             os.environ["ANTHROPIC_MODEL"] = args.model
     if args.fast_model:
         provider = os.environ.get("AI_PROVIDER", "").lower()
-        if provider == "openai":
+        if provider in _OPENAI_FAMILY:
             os.environ["OPENAI_SMALL_FAST_MODEL"] = args.fast_model
         else:
             os.environ["ANTHROPIC_SMALL_FAST_MODEL"] = args.fast_model
