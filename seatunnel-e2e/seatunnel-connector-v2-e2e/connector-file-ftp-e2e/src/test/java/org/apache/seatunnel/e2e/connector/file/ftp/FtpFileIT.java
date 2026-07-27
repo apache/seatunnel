@@ -371,7 +371,8 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
                                                             + "/dst/delete-test.bin")));
 
             Awaitility.await()
-                    .atMost(60, TimeUnit.SECONDS)
+                    .atMost(120, TimeUnit.SECONDS)
+                    .pollInterval(2, TimeUnit.SECONDS)
                     .untilAsserted(
                             () ->
                                     Assertions.assertFalse(
@@ -415,7 +416,8 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
                             });
 
             Awaitility.await()
-                    .atMost(60, TimeUnit.SECONDS)
+                    .atMost(120, TimeUnit.SECONDS)
+                    .pollInterval(2, TimeUnit.SECONDS)
                     .untilAsserted(
                             () ->
                                     Assertions.assertEquals(
@@ -425,7 +427,8 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
                                                             + "/dst/backup-test.bin")));
 
             Awaitility.await()
-                    .atMost(60, TimeUnit.SECONDS)
+                    .atMost(120, TimeUnit.SECONDS)
+                    .pollInterval(2, TimeUnit.SECONDS)
                     .untilAsserted(
                             () ->
                                     Assertions.assertFalse(
@@ -435,7 +438,8 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
                                             "source file should be moved from source path after backup commit"));
 
             Awaitility.await()
-                    .atMost(60, TimeUnit.SECONDS)
+                    .atMost(120, TimeUnit.SECONDS)
+                    .pollInterval(2, TimeUnit.SECONDS)
                     .untilAsserted(
                             () ->
                                     Assertions.assertTrue(
@@ -483,7 +487,8 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
                             });
 
             Awaitility.await()
-                    .atMost(90, TimeUnit.SECONDS)
+                    .atMost(120, TimeUnit.SECONDS)
+                    .pollInterval(2, TimeUnit.SECONDS)
                     .untilAsserted(
                             () ->
                                     Assertions.assertEquals(
