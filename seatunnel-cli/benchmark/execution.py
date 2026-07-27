@@ -153,6 +153,23 @@ def rewrite_hosts_for_docker(config: str) -> str:
     return config
 
 
+# Host-side port remaps for services whose compose host port differs from
+# the in-network port (docker-compose.yml remaps them to avoid clashes
+# with services commonly present on developer machines). Tasks/prompts use
+# the canonical in-network ports; the LOCAL engine backend connects from
+# the host, so those endpoints must be rewritten to the remapped ports.
+_LOCAL_PORT_REWRITES = [
+    (re.compile(r"localhost:5432\b"), "localhost:15432"),   # postgres
+]
+
+
+def rewrite_ports_for_local(config: str) -> str:
+    """Map canonical service ports to the compose host-side remapped ports."""
+    for pattern, replacement in _LOCAL_PORT_REWRITES:
+        config = pattern.sub(replacement, config)
+    return config
+
+
 def _variable_args(config: str) -> list[str]:
     """Build -i KEY=VALUE args for every ${VAR} the config references."""
     args = []
@@ -273,6 +290,8 @@ def run_execute(config: str, task: dict) -> dict:
     prepare_setup_files(task)
     if backend == "docker":
         config = rewrite_hosts_for_docker(config)
+    else:
+        config = rewrite_ports_for_local(config)
     conf_path = _write_conf(config)
 
     container_name = None

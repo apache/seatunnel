@@ -132,7 +132,11 @@ def evaluate_layers(task: dict, config: str, levels: list[str]) -> dict:
     from benchmark.execution import run_dry_run, run_execute
 
     result = {"l1": None, "l2": None, "l3": None,
-              "all_passed": True, "failed_layer": None, "error_detail": ""}
+              "all_passed": True, "failed_layer": None, "error_detail": "",
+              # Layers requested but not executed (backend/service missing or
+              # task-level skip). all_passed still holds for executed layers,
+              # but reports must not treat such a trial as full-gate coverage.
+              "skipped_layers": [], "all_gates_executed": True}
 
     # L1 static
     score = score_task(task, config)
@@ -158,6 +162,9 @@ def evaluate_layers(task: dict, config: str, levels: list[str]) -> dict:
             result["failed_layer"] = "l2"
             result["error_detail"] = f"Engine dry-run failed:\n{dry['detail']}"
             return result
+        if dry["passed"] is None:
+            result["skipped_layers"].append("l2")
+            result["all_gates_executed"] = False
 
     # L3 real execution
     if "l3" in levels:
@@ -168,6 +175,9 @@ def evaluate_layers(task: dict, config: str, levels: list[str]) -> dict:
             result["failed_layer"] = "l3"
             result["error_detail"] = f"Job execution failed:\n{execu['detail']}"
             return result
+        if execu["passed"] is None:
+            result["skipped_layers"].append("l3")
+            result["all_gates_executed"] = False
 
     return result
 
@@ -182,12 +192,28 @@ def run_task_with_repairs(client, task: dict, levels: list[str],
         "tier": task["tier"],
         "category": task.get("category", ""),
         "attempts": [],
-        "first_pass_round": None,   # 0 = first try; k = after k repairs
+        "first_pass_round": None,   # 0 = first CLI-delivered config;
+                                    # k = after k benchmark-level repairs.
+                                    # The CLI may additionally run up to 3
+                                    # internal fix rounds before delivering —
+                                    # see internal_repair_rounds.
+        "internal_repair_rounds": 0,
         "clarification_asked": False,
         "generation_error": None,
     }
 
-    orchestrator = Orchestrator(client)
+    # The CLI's process_user_input runs its own validate/fix loop (up to 3
+    # rounds) before returning — that is the product behavior this benchmark
+    # measures, so "round 0" means "the CLI's first delivered config", not
+    # "the model's raw first sample". Count those internal rounds via the
+    # status callback so reports can expose both timelines.
+    internal_repairs = {"count": 0}
+
+    def _count_fixing(kind, _msg=""):
+        if kind == "fixing":
+            internal_repairs["count"] += 1
+
+    orchestrator = Orchestrator(client, on_status=_count_fixing)
     start = time.monotonic()
 
     # ── Initial generation ──
@@ -204,6 +230,8 @@ def run_task_with_repairs(client, task: dict, levels: list[str],
     except Exception as e:
         record["generation_error"] = f"{type(e).__name__}: {e}"
         traceback.print_exc()
+
+    record["internal_repair_rounds"] = internal_repairs["count"]
 
     if not config:
         record["attempts"].append({

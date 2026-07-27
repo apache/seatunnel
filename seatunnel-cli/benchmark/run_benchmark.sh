@@ -63,10 +63,14 @@ if command -v docker >/dev/null 2>&1; then
         echo "✔ L3 enabled  — benchmark data environment is running"
     else
         echo "✘ L3 data env not running."
-        read -r -p "  Start it now? (docker compose up -d --wait) [y/N] " reply
-        if [[ "${reply,,}" == "y" ]]; then
-            docker compose -f benchmark/docker/docker-compose.yml up -d --wait
-            echo "✔ L3 enabled  — data environment started"
+        if [[ -t 0 ]]; then
+            read -r -p "  Start it now? (docker compose up -d --wait) [y/N] " reply
+            if [[ "${reply,,}" == "y" ]]; then
+                docker compose -f benchmark/docker/docker-compose.yml up -d --wait
+                echo "✔ L3 enabled  — data environment started"
+            fi
+        else
+            echo "  (non-interactive: start it with: docker compose -f benchmark/docker/docker-compose.yml up -d --wait)"
         fi
     fi
 else
@@ -78,6 +82,7 @@ echo "────────────────────────�
 python3 -m benchmark.runner "$@"
 
 OUT_DIR="benchmark/results"
+prev_arg=""
 for arg in "$@"; do
     if [[ "$prev_arg" == "--out" ]]; then OUT_DIR="$arg"; fi
     prev_arg="$arg"

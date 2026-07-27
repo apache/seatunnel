@@ -67,6 +67,13 @@ def _fmt(rate: float | None) -> str:
 
 
 def _aggregate(results: dict) -> list[dict]:
+    """Compute per-model metrics from raw results.
+
+    Denominators: layer-funnel rates use only trials where that layer
+    actually executed (None = skipped is excluded); repair-curve rates
+    average over all trials of every task; incomplete_gate_trials counts
+    trials whose last attempt had requested-but-skipped layers.
+    """
     max_repairs = results.get("max_repairs", 5)
     trials_n = results.get("trials", 1)
     rows = []
@@ -127,6 +134,15 @@ def _aggregate(results: dict) -> list[dict]:
             if t["trials"]:
                 b["pk"] += sum(_trial_pass_within(tr, max_repairs) for tr in t["trials"]) / len(t["trials"])
 
+        # Gate-coverage accounting: trials where a requested layer was
+        # skipped (missing backend/service) must be visible in reports.
+        all_trials_pre = [tr for t in tasks for tr in t["trials"]]
+        incomplete = sum(
+            1 for tr in all_trials_pre
+            if tr["attempts"] and not
+            (tr["attempts"][-1].get("layers") or {}).get("all_gates_executed", True)
+        )
+
         # Telemetry across all trials
         all_trials = [tr for t in tasks for tr in t["trials"]]
         total_seconds = sum(
@@ -152,6 +168,7 @@ def _aggregate(results: dict) -> list[dict]:
             "avg_repairs_when_needed": (
                 sum(repair_rounds) / len(repair_rounds) if repair_rounds else 0.0
             ),
+            "incomplete_gate_trials": incomplete,
             "clarifications": sum(
                 bool(tr.get("clarification_asked")) for tr in all_trials),
             "generation_errors": sum(
@@ -201,6 +218,10 @@ def print_summary(results: dict) -> None:
             print(f"    {cat:<20s}: {_fmt(_rate(b['pk'], b['n']))}  ({b['n']} tasks)")
         print(f"  avg wall time: {row['avg_seconds']:.1f}s/trial; "
               f"avg repairs when needed: {row['avg_repairs_when_needed']:.1f}")
+        if row.get("incomplete_gate_trials"):
+            print(f"  ⚠ trials with requested-but-skipped gates: "
+                  f"{row['incomplete_gate_trials']} (see skipped_layers in CSV; "
+                  f"these did NOT execute every requested layer)")
         if row["clarifications"]:
             print(f"  clarifications: {row['clarifications']}")
         if row["generation_errors"]:
@@ -219,7 +240,8 @@ def _write_csv(results: dict, path: Path) -> None:
     fieldnames = [
         "model", "task_id", "tier", "category", "trial",
         "l1_first", "l2_first", "l3_first",
-        "first_pass_round", "attempts", "passed",
+        "first_pass_round", "internal_repair_rounds", "attempts", "passed",
+        "skipped_layers", "all_gates_executed",
         "total_seconds", "clarification_asked", "generation_error",
         "failed_layer_last", "error_detail_last",
     ]
@@ -243,8 +265,15 @@ def _write_csv(results: dict, path: Path) -> None:
                         "l2_first": _trial_layer_pass(tr, "l2"),
                         "l3_first": _trial_layer_pass(tr, "l3"),
                         "first_pass_round": tr.get("first_pass_round"),
+                        "internal_repair_rounds": tr.get("internal_repair_rounds", 0),
                         "attempts": len(tr["attempts"]),
                         "passed": tr.get("first_pass_round") is not None,
+                        "skipped_layers": ";".join(
+                            (tr["attempts"][-1].get("layers") or {}).get("skipped_layers", [])
+                            if tr["attempts"] else []),
+                        "all_gates_executed": bool(
+                            (tr["attempts"][-1].get("layers") or {}).get("all_gates_executed", True)
+                            if tr["attempts"] else False),
                         "total_seconds": last.get("seconds", ""),
                         "clarification_asked": tr.get("clarification_asked", False),
                         "generation_error": tr.get("generation_error") or "",

@@ -26,7 +26,24 @@ repair agent (the same one behind `/check`/`/run` auto-fix) and the config is
 re-evaluated — up to `--max-repairs` rounds (default 5). Each task records
 `first_pass_round`:
 
-- `pass@1` — first-try success (round 0), the RFC's "First-Run Pass Rate"
+- `pass@1` — first-try success (round 0), the RFC's "First-Run Pass Rate".
+  **Measurement unit is the CLI product, not the bare model**: the CLI's
+  generation pipeline internally validates and may fix a config up to 3
+  times before delivering it, and round 0 means "the CLI's first delivered
+  config". The number of internal fix rounds is recorded per trial as
+  `internal_repair_rounds` (in results.json and summary.csv), so both
+  timelines are observable. Benchmark-level repairs (driven by gate
+  errors) are counted separately in `pass@≤k`.
+- **Gate coverage**: a requested layer that cannot execute (missing engine,
+  Docker service down, task-level skip) is recorded in `skipped_layers`
+  with `all_gates_executed=false` for that trial — it is *not* counted as
+  a pass of that layer, and the summary prints a per-model warning so runs
+  with different coverage are never silently compared.
+- **L3 verdict scope**: batch L3 verifies process exit (plus sink row
+  counts for tasks with a `verify` block); streaming L3 verifies 60s
+  healthy execution. This catches "config doesn't run" errors; it does not
+  prove full semantic equivalence of the output data for every task —
+  extending per-task `verify` probes is the intended path for that.
 - `pass@≤3` — success within 3 repair rounds
 - `pass@≤5` — success within 5 repair rounds
 
@@ -96,7 +113,7 @@ Task format:
 | Service | Image | Endpoint | Credentials | Seeded content |
 |---------|-------|----------|-------------|----------------|
 | MySQL (binlog/GTID on, CDC-ready) | `mysql:8.0.43` | `localhost:3306` | root / Test@123 | db `shop`: users, orders, payments, products, audit_log, transactions, fact_sales + sink tables orders_rt, users_replica |
-| PostgreSQL (`wal_level=logical`) | `postgres:14-alpine` | `localhost:5432` | bench / Test@123 | db `analytics`: app_logs, customers, web_events, inventory |
+| PostgreSQL (`wal_level=logical`) | `postgres:14-alpine` | `localhost:15432` (host) / `postgres:5432` (in-network); task prompts use the canonical `5432`, the harness rewrites per backend | bench / Test@123 | db `analytics`: app_logs, customers, web_events, inventory |
 | Kafka (KRaft) | `apache/kafka:3.7.0` | `localhost:9092` | PLAINTEXT | topics clicks, order_events, dbz.shop.users (seeded), events, wms.inventory, shop.orders.changelog |
 | ClickHouse | `clickhouse/clickhouse-server:23.3.13.6` | `localhost:8123` | default / Test@123 | db `bench`: pre-created sink tables |
 | Elasticsearch | `elasticsearch:8.9.0` | `localhost:9200` | security disabled | — |
@@ -119,17 +136,24 @@ to `seatunnel.sh`, so no secrets ever land in config files or the repo.
 ```bash
 cd seatunnel-cli
 
+# Put credentials in provider-standard environment variables (recommended —
+# secrets passed as CLI arguments leak into shell history and process lists):
+export OPENAI_API_KEY=sk-...          # or ANTHROPIC_API_KEY / AWS credentials
+
 # single model, one command (auto-installs deps, preflights L2/L3, prints report)
-./benchmark/run_benchmark.sh --provider openai --model gpt-4o --api-key sk-...
-./benchmark/run_benchmark.sh --provider anthropic --model claude-sonnet-4-20250514 --api-key sk-ant-...
-./benchmark/run_benchmark.sh --provider openai --model deepseek-chat \
-    --api-key sk-... --base-url https://api.deepseek.com/v1        # any OpenAI-compatible API
+./benchmark/run_benchmark.sh --provider openai --model gpt-4o
+./benchmark/run_benchmark.sh --provider anthropic --model claude-sonnet-4-20250514
+OPENAI_BASE_URL=https://api.deepseek.com/v1 \
+    ./benchmark/run_benchmark.sh --provider openai --model deepseek-chat   # any OpenAI-compatible API
 ./benchmark/run_benchmark.sh --provider bedrock --model us.anthropic.claude-sonnet-4-20250514-v1:0
                                                                     # bedrock uses AWS credentials
 
 # multi-model comparison
 ./benchmark/run_benchmark.sh --models benchmark/models.json
 ```
+
+`--api-key` is still accepted for throwaway keys in disposable environments,
+but prefer the environment variables above for anything real.
 
 The script never blocks on missing infrastructure: without `SEATUNNEL_HOME`
 you get an L1 report, with it L1+L2, with the Docker env L1+L2+L3 — the
