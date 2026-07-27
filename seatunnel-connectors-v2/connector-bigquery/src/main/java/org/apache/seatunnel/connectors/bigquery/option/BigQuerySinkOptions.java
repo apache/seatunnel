@@ -74,6 +74,20 @@ public class BigQuerySinkOptions {
                     .defaultValue(1000)
                     .withDescription("The number of rows sent in a single batch");
 
+    public static final Option<Boolean> SCHEMA_EVOLUTION_ENABLED =
+            Options.key("schema_evolution_enabled")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Whether to apply ADD COLUMN schema change events to the target BigQuery table.");
+
+    public static final Option<Boolean> SCHEMA_EVOLUTION_RELAX_NOT_NULL =
+            Options.key("schema_evolution_relax_not_null")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Whether to add non-null source columns as NULLABLE BigQuery fields during schema evolution.");
+
     public static final Option<String> EMULATOR_HOST =
             Options.key("emulator_host")
                     .stringType()

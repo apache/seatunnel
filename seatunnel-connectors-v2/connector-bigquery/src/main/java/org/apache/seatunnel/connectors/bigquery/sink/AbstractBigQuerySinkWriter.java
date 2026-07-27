@@ -20,11 +20,16 @@ package org.apache.seatunnel.connectors.bigquery.sink;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
+import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
+import org.apache.seatunnel.api.table.schema.handler.AlterTableSchemaEventHandler;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.bigquery.convert.BigQuerySerializer;
 import org.apache.seatunnel.connectors.bigquery.exception.BigQueryConnectorErrorCode;
 import org.apache.seatunnel.connectors.bigquery.exception.BigQueryConnectorException;
 import org.apache.seatunnel.connectors.bigquery.option.BigQuerySinkOptions;
+import org.apache.seatunnel.connectors.bigquery.schema.BigQuerySchemaChangeManager;
 import org.apache.seatunnel.connectors.bigquery.sink.committer.BigQueryCommitInfo;
 import org.apache.seatunnel.connectors.bigquery.sink.writer.BigQueryWriter;
 
@@ -40,24 +45,37 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 public abstract class AbstractBigQuerySinkWriter
         implements SinkWriter<SeaTunnelRow, BigQueryCommitInfo, BigQuerySinkState>,
-                SupportMultiTableSinkWriter<Void> {
+                SupportMultiTableSinkWriter<Void>,
+                SupportSchemaEvolutionSinkWriter {
     protected final ReadonlyConfig config;
-    protected final BigQuerySerializer serializer;
+    protected BigQuerySerializer serializer;
     protected final BigQueryWriteClient client;
     protected BigQueryWriter streamWriter;
+    protected TableSchema tableSchema;
 
     protected final int batchSize;
     protected JSONArray buffer = new JSONArray();
+    private BigQuerySchemaChangeManager schemaChangeManager;
 
     protected AbstractBigQuerySinkWriter(
             ReadonlyConfig readOnlyConfig,
             BigQueryWriter streamWriter,
             BigQuerySerializer serializer,
             BigQueryWriteClient client) {
+        this(readOnlyConfig, streamWriter, serializer, null, client);
+    }
+
+    protected AbstractBigQuerySinkWriter(
+            ReadonlyConfig readOnlyConfig,
+            BigQueryWriter streamWriter,
+            BigQuerySerializer serializer,
+            TableSchema tableSchema,
+            BigQueryWriteClient client) {
         this.config = readOnlyConfig;
         this.batchSize = readOnlyConfig.get(BigQuerySinkOptions.BATCH_SIZE);
         this.streamWriter = streamWriter;
         this.serializer = serializer;
+        this.tableSchema = tableSchema;
         this.client = client;
     }
 
@@ -84,6 +102,47 @@ public abstract class AbstractBigQuerySinkWriter
 
     protected boolean flushOnClose() {
         return true;
+    }
+
+    /**
+     * Flushes rows encoded with the old schema, applies the BigQuery DDL, and rebuilds both the row
+     * serializer and JSON stream writer before rows with the new schema are accepted.
+     */
+    @Override
+    public void applySchemaChange(SchemaChangeEvent event) {
+        if (!config.get(BigQuerySinkOptions.SCHEMA_EVOLUTION_ENABLED)) {
+            throw new BigQueryConnectorException(
+                    BigQueryConnectorErrorCode.SCHEMA_CHANGE_FAILED,
+                    "Received schema change event but schema_evolution_enabled=false. "
+                            + "Enable it on the BigQuery sink or disable schema-changes.enabled "
+                            + "on the CDC source.");
+        }
+
+        if (tableSchema == null) {
+            throw new BigQueryConnectorException(
+                    BigQueryConnectorErrorCode.SCHEMA_CHANGE_FAILED,
+                    "The current SeaTunnel table schema is required to apply a BigQuery schema "
+                            + "change.");
+        }
+        TableSchema evolvedTableSchema =
+                new AlterTableSchemaEventHandler().reset(tableSchema).apply(event);
+        BigQuerySerializer evolvedSerializer =
+                new BigQuerySerializer(evolvedTableSchema.toPhysicalRowDataType(), config);
+
+        flush();
+        getSchemaChangeManager().applySchemaChange(event);
+        BigQueryWriter evolvedWriter = streamWriter.refreshSchema(client, config);
+
+        this.tableSchema = evolvedTableSchema;
+        this.serializer = evolvedSerializer;
+        this.streamWriter = evolvedWriter;
+    }
+
+    private BigQuerySchemaChangeManager getSchemaChangeManager() {
+        if (schemaChangeManager == null) {
+            schemaChangeManager = new BigQuerySchemaChangeManager(config);
+        }
+        return schemaChangeManager;
     }
 
     @Override

@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.bigquery.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.bigquery.convert.BigQuerySerializer;
 import org.apache.seatunnel.connectors.bigquery.exception.BigQueryConnectorErrorCode;
@@ -51,6 +52,15 @@ public class BigQuerySinkBatchWriter extends AbstractBigQuerySinkWriter {
             BigQuerySerializer serializer,
             BigQueryWriteClient client) {
         super(readOnlyConfig, streamWriter, serializer, client);
+    }
+
+    public BigQuerySinkBatchWriter(
+            ReadonlyConfig readOnlyConfig,
+            BigQueryWriter streamWriter,
+            BigQuerySerializer serializer,
+            TableSchema tableSchema,
+            BigQueryWriteClient client) {
+        super(readOnlyConfig, streamWriter, serializer, tableSchema, client);
     }
 
     @Override

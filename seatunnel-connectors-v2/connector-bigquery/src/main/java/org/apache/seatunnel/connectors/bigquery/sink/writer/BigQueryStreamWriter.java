@@ -80,4 +80,10 @@ public class BigQueryStreamWriter implements BigQueryWriter {
     public void close() {
         streamWriter.close();
     }
+
+    @Override
+    public BigQueryWriter refreshSchema(BigQueryWriteClient client, ReadonlyConfig config) {
+        close();
+        return of(client, config);
+    }
 }

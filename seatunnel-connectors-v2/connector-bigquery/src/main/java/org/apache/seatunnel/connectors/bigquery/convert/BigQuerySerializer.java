@@ -51,7 +51,10 @@ public class BigQuerySerializer {
     private int sequenceFieldIndex = -1;
 
     public BigQuerySerializer(CatalogTable catalogTable, ReadonlyConfig config) {
-        SeaTunnelRowType rowType = catalogTable.getSeaTunnelRowType();
+        this(catalogTable.getSeaTunnelRowType(), config);
+    }
+
+    public BigQuerySerializer(SeaTunnelRowType rowType, ReadonlyConfig config) {
         initialize(rowType, config);
         this.jsonSerializationSchema = new JsonSerializationSchema(rowType);
     }

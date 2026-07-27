@@ -41,20 +41,14 @@ import static org.apache.seatunnel.connectors.bigquery.sink.writer.TableSchemaUt
 @Slf4j
 public class BigQueryBatchWriter implements BigQueryWriter {
     private final JsonStreamWriter streamWriter;
-    private final BigQueryWriteClient client;
 
     @Getter private final String streamName;
     @Getter private final String tablePath;
     @Getter private long nextOffset;
 
     public BigQueryBatchWriter(
-            JsonStreamWriter streamWriter,
-            BigQueryWriteClient client,
-            String streamName,
-            String tablePath,
-            long nextOffset) {
+            JsonStreamWriter streamWriter, String streamName, String tablePath, long nextOffset) {
         this.streamWriter = streamWriter;
-        this.client = client;
         this.streamName = streamName;
         this.tablePath = tablePath;
         this.nextOffset = nextOffset;
@@ -102,7 +96,6 @@ public class BigQueryBatchWriter implements BigQueryWriter {
 
         return new BigQueryBatchWriter(
                 createStreamWriter(assignedStreamName, tableSchema, client),
-                client,
                 assignedStreamName,
                 parentTable,
                 nextOffset);
@@ -123,5 +116,11 @@ public class BigQueryBatchWriter implements BigQueryWriter {
     @Override
     public void close() {
         streamWriter.close();
+    }
+
+    @Override
+    public BigQueryWriter refreshSchema(BigQueryWriteClient client, ReadonlyConfig config) {
+        close();
+        return restore(client, config, streamName, nextOffset);
     }
 }
