@@ -1,0 +1,149 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.seatunnel.connectors.seatunnel.firebase.client;
+
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
+import org.apache.seatunnel.connectors.seatunnel.firebase.config.FirebaseSourceOptions;
+
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.extern.slf4j.Slf4j;
+
+import java.io.IOException;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
+
+@Slf4j
+public class FirebaseHttpClient {
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private final HttpClient httpClient;
+    private final String baseUrl;
+    private final String path;
+    private final long timeoutMs;
+    private final Map<String, String> extraQueryParams;
+
+    public FirebaseHttpClient(ReadonlyConfig config) {
+        this.baseUrl = config.get(FirebaseSourceOptions.URL).replaceAll("/+$", "");
+        this.path = config.get(FirebaseSourceOptions.PATH).replaceAll("^/+|/+$", "");
+        this.timeoutMs = config.get(FirebaseSourceOptions.TIMEOUT_MS);
+        this.extraQueryParams =
+                config.getOptional(FirebaseSourceOptions.QUERY_PARAMS)
+                        .orElse(Collections.emptyMap());
+
+        this.httpClient =
+                HttpClient.newBuilder()
+                        .connectTimeout(Duration.ofMillis(timeoutMs))
+                        .followRedirects(HttpClient.Redirect.NORMAL)
+                        .build();
+    }
+
+    /**
+     * Executes a shallow scan on the configured node path to retrieve top-level keys. Endpoint: GET
+     * /<path>.json?shallow=true
+     */
+    public List<String> fetchShallowKeys() {
+        String endpointUrl = buildUrl(this.path, "shallow=true");
+        log.info("Firebase HTTP GET {}", endpointUrl);
+        String jsonResponse = executeGet(endpointUrl);
+        log.info("response : {}", jsonResponse);
+        if (jsonResponse == null || jsonResponse.trim().equals("null")) {
+            return Collections.emptyList();
+        }
+        try {
+            Map<String, Boolean> keysMap =
+                    OBJECT_MAPPER.readValue(
+                            jsonResponse, new TypeReference<Map<String, Boolean>>() {});
+            return new ArrayList<>(keysMap.keySet());
+        } catch (Exception e) {
+            throw new SeaTunnelException(
+                    "Failed to parse shallow keys from Firebase response: " + jsonResponse, e);
+        }
+    }
+
+    /**
+     * Fetches the raw JSON payload for a given sub-path or individual node key. Endpoint: GET
+     * /<path>/<nodeKey>.json
+     */
+    public String fetchNodeData(String nodeKey) {
+        String targetPath =
+                nodeKey == null || nodeKey.isEmpty() ? this.path : this.path + "/" + nodeKey;
+
+        String endpointUrl = buildUrl(targetPath, null);
+        return executeGet(endpointUrl);
+    }
+
+    /** Constructs a full REST URL with .json extension and query string parameters. */
+    private String buildUrl(String subPath, String extraQueryParam) {
+        StringBuilder urlBuilder = new StringBuilder(baseUrl);
+        if (!subPath.isEmpty()) {
+            urlBuilder.append("/").append(subPath);
+        }
+        urlBuilder.append(".json");
+
+        List<String> queryParts = new ArrayList<>();
+        if (extraQueryParam != null && !extraQueryParam.isEmpty()) {
+            queryParts.add(extraQueryParam);
+        }
+        for (Map.Entry<String, String> entry : extraQueryParams.entrySet()) {
+            queryParts.add(entry.getKey() + "=" + entry.getValue());
+        }
+
+        if (!queryParts.isEmpty()) {
+            urlBuilder.append("?").append(String.join("&", queryParts));
+        }
+
+        return urlBuilder.toString();
+    }
+
+    /** Sends an HTTP GET request and handles status code verification. */
+    private String executeGet(String url) {
+        try {
+            HttpRequest request =
+                    HttpRequest.newBuilder()
+                            .uri(URI.create(url))
+                            .timeout(Duration.ofMillis(timeoutMs))
+                            .header("Accept", "application/json")
+                            .GET()
+                            .build();
+
+            HttpResponse<String> response =
+                    httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+            if (response.statusCode() >= 200 && response.statusCode() < 300) {
+                return response.body();
+            } else {
+                throw new SeaTunnelException(
+                        String.format(
+                                "Firebase HTTP request failed with status code %d for URL: %s. Response: %s",
+                                response.statusCode(), url, response.body()));
+            }
+        } catch (IOException | InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new SeaTunnelException(
+                    "Failed to execute HTTP request to Firebase endpoint: " + url, e);
+        }
+    }
+}
