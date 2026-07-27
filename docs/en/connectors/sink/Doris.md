@@ -21,7 +21,7 @@ import ChangeLog from '../changelog/connector-doris.md';
 - [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
-- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
+- [x] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Description
 
@@ -173,6 +173,7 @@ You can use the following placeholders
 | ARRAY           | ARRAY                                   |
 | MAP             | MAP                                     |
 | JSON            | STRING                                  |
+| VARIANT         | STRING                                  |
 | HLL             | Not supported yet                       |
 | BITMAP          | Not supported yet                       |
 | QUANTILE_STATE  | Not supported yet                       |
@@ -182,6 +183,9 @@ You can use the following placeholders
 
 The supported formats include CSV and JSON
 
+When writing to Doris `VARIANT` columns from SeaTunnel `STRING` fields, the field value should be a
+valid JSON document.
+
 ## Tuning Guide
 Appropriately increasing the value of `sink.buffer-size` and `doris.batch.size` can increase the write performance.
 
@@ -190,6 +194,33 @@ In stream mode, if the `doris.batch.size` and `checkpoint.interval` are both con
 This is because the total amount of data arriving at the end may not exceed the threshold specified by `doris.batch.size`. Therefore, commit can only be triggered by checkpoint before the volume of received data does not exceed this threshold. Therefore, you should select an appropriate `checkpoint.interval`.
 
 Otherwise, if you enable the 2pc by the property `sink.enable-2pc=true`.The `sink.buffer-size` will have no effect. So only the checkpoint can trigger the commit.
+
+### Timer flush on Zeta
+
+This engine-level feature is supported only by Zeta. Spark and Flink do not inject `FlushSignal` records. On Zeta, configure `sink.flush.interval` in the `env` block to finish the current Stream Load before `doris.batch.size` is reached.
+
+Timer flush is registered only when `sink.enable-2pc=false`. It is intentionally disabled when `sink.enable-2pc=true` because flushing and opening a new Stream Load between checkpoints would break the 2PC transaction boundary and exactly-once guarantee. The initial timer flush implementation therefore provides at-least-once delivery only.
+
+```hocon
+env {
+  job.mode = "STREAMING"
+  checkpoint.interval = 300000
+  sink.flush.interval = 5000
+}
+
+sink {
+  Doris {
+    fenodes = "doris-fe:8030"
+    username = root
+    password = ""
+    database = "mydb"
+    table = "mytable"
+    sink.label-prefix = "timer-flush"
+    sink.enable-2pc = false
+    doris.batch.size = 10000
+  }
+}
+```
 
 ## Troubleshooting 307 Temporary Redirect
 

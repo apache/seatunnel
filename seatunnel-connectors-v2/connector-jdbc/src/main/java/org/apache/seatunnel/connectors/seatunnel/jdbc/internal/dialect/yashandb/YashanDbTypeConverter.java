@@ -35,7 +35,8 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseI
 import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 
-import java.util.HashSet;
+import java.util.Collections;
+import java.util.EnumSet;
 import java.util.Set;
 
 // reference
@@ -132,20 +133,14 @@ public class YashanDbTypeConverter implements TypeConverter<BasicTypeDefine> {
     public static final long MAX_NVARCHAR_LENGTH = 32767;
     public static final long MAX_UROWID_LENGTH = 4000;
     public static final int MAX_JSON_LENGTH = 32 * 1024 * 1024;
-
     public static final long BYTES_4GB = (long) Math.pow(2, 32);
 
     public static final YashanDbTypeConverter INSTANCE = new YashanDbTypeConverter();
-    private static final Set<SqlType> SUPPORT_VECTOR = new HashSet<>();
-
-    static {
-        SUPPORT_VECTOR.add(SqlType.BIGINT);
-        SUPPORT_VECTOR.add(SqlType.DOUBLE);
-        SUPPORT_VECTOR.add(SqlType.FLOAT);
-        SUPPORT_VECTOR.add(SqlType.INT);
-        SUPPORT_VECTOR.add(SqlType.SMALLINT);
-        SUPPORT_VECTOR.add(SqlType.TINYINT);
-    }
+    static final Set<SqlType> SUPPORT_FLOAT32_VECTOR =
+            Collections.unmodifiableSet(
+                    EnumSet.of(SqlType.FLOAT, SqlType.INT, SqlType.SMALLINT, SqlType.TINYINT));
+    static final Set<SqlType> SUPPORT_FLOAT64_VECTOR =
+            Collections.unmodifiableSet(EnumSet.of(SqlType.BIGINT, SqlType.DOUBLE));
 
     public YashanDbTypeConverter() {}
 
@@ -301,10 +296,6 @@ public class YashanDbTypeConverter implements TypeConverter<BasicTypeDefine> {
                 builder.dataType(BasicType.STRING_TYPE);
                 break;
             case VECTOR_NAME:
-                String columnType = typeDefine.getColumnType().toUpperCase();
-                if ("FLOAT64".equals(columnType)) {
-                    log.warn("{} vector convert to float32 vector.", columnType);
-                }
                 builder.dataType(VectorType.VECTOR_FLOAT_TYPE);
                 builder.scale(typeDefine.getScale());
                 builder.columnLength(typeDefine.getLength());
@@ -418,13 +409,21 @@ public class YashanDbTypeConverter implements TypeConverter<BasicTypeDefine> {
                 break;
             case ARRAY:
                 // YashanDB does not have a native ARRAY column type, store as vector
-                if (SUPPORT_VECTOR.contains(
+                if (SUPPORT_FLOAT32_VECTOR.contains(
                         ((ArrayType) column.getDataType()).getElementType().getSqlType())) {
                     log.warn(
                             "The column {} with type ARRAY will be converted to VECTOR in YashanDB",
                             column.getName());
                     builder.columnType(
-                            String.format("%s(%s)", VECTOR_NAME, column.getColumnLength()));
+                            String.format("%s(%s,FLOAT32)", VECTOR_NAME, column.getColumnLength()));
+                    builder.dataType(VECTOR_NAME);
+                } else if (SUPPORT_FLOAT64_VECTOR.contains(
+                        ((ArrayType) column.getDataType()).getElementType().getSqlType())) {
+                    log.warn(
+                            "The column {} with type ARRAY will be converted to VECTOR in YashanDB",
+                            column.getName());
+                    builder.columnType(
+                            String.format("%s(%s,FLOAT64)", VECTOR_NAME, column.getColumnLength()));
                     builder.dataType(VECTOR_NAME);
                 } else {
                     throw new UnsupportedOperationException(
