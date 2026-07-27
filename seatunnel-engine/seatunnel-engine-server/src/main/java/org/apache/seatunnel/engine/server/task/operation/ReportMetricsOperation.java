@@ -53,10 +53,11 @@ public class ReportMetricsOperation extends TracingOperation implements Identifi
                         () -> {
                             try {
                                 ReportMetricsOperation.this.run();
-                                ReportMetricsOperation.this.sendResponse(null);
                             } catch (Throwable t) {
                                 ReportMetricsOperation.this.sendFailureResponse(t);
+                                return;
                             }
+                            ReportMetricsOperation.this.sendResponse(null);
                         });
             }
         };
