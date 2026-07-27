@@ -44,6 +44,7 @@ public class IntermediateBlockingQueue extends AbstractIntermediateQueue<Blockin
     private final Counter putBlockedNs;
     private final Counter flushSignalQueueSuccessTotal;
     private final Counter flushSignalQueueFailureTotal;
+    private final QueueSizeTracker queueSizeTracker;
 
     public IntermediateBlockingQueue(
             BlockingQueue<Record<?>> queue,
@@ -52,12 +53,31 @@ public class IntermediateBlockingQueue extends AbstractIntermediateQueue<Blockin
             Counter putBlockedNs,
             Counter flushSignalQueueSuccessTotal,
             Counter flushSignalQueueFailureTotal) {
+        this(
+                queue,
+                totalIntermediateQueueSize,
+                intermediateQueueSize,
+                putBlockedNs,
+                flushSignalQueueSuccessTotal,
+                flushSignalQueueFailureTotal,
+                new QueueSizeTracker());
+    }
+
+    public IntermediateBlockingQueue(
+            BlockingQueue<Record<?>> queue,
+            Counter totalIntermediateQueueSize,
+            Counter intermediateQueueSize,
+            Counter putBlockedNs,
+            Counter flushSignalQueueSuccessTotal,
+            Counter flushSignalQueueFailureTotal,
+            QueueSizeTracker queueSizeTracker) {
         super(queue);
         this.totalIntermediateQueueSize = totalIntermediateQueueSize;
         this.intermediateQueueSize = intermediateQueueSize;
         this.putBlockedNs = putBlockedNs;
         this.flushSignalQueueSuccessTotal = flushSignalQueueSuccessTotal;
         this.flushSignalQueueFailureTotal = flushSignalQueueFailureTotal;
+        this.queueSizeTracker = queueSizeTracker;
     }
 
     @Override
@@ -86,10 +106,7 @@ public class IntermediateBlockingQueue extends AbstractIntermediateQueue<Blockin
                                 StainTraceStage.QUEUE_IN);
             }
             if (result) {
-                totalIntermediateQueueSize.inc();
-                if (metricsEnabled) {
-                    intermediateQueueSize.set(getIntermediateQueue().size());
-                }
+                recordEnqueued(metricsEnabled);
             }
         } catch (Exception e) {
             throw new RuntimeException(e);
@@ -105,13 +122,8 @@ public class IntermediateBlockingQueue extends AbstractIntermediateQueue<Blockin
             if (record == null) {
                 break;
             }
-            boolean result = handleRecord(record, collector::collect, StainTraceStage.QUEUE_OUT);
-            if (result) {
-                totalIntermediateQueueSize.dec();
-                if (metricsEnabled) {
-                    intermediateQueueSize.set(getIntermediateQueue().size());
-                }
-            }
+            recordDequeued(metricsEnabled);
+            handleRecord(record, collector::collect, StainTraceStage.QUEUE_OUT);
         }
     }
 
@@ -171,5 +183,43 @@ public class IntermediateBlockingQueue extends AbstractIntermediateQueue<Blockin
             flushSignalQueueFailureTotal.inc();
         }
         return offered;
+    }
+
+    private void recordEnqueued(boolean metricsEnabled) {
+        synchronized (queueSizeTracker) {
+            if (queueSizeTracker.pendingDequeues > 0) {
+                queueSizeTracker.pendingDequeues--;
+            } else {
+                queueSizeTracker.accountedQueueSize++;
+                totalIntermediateQueueSize.inc();
+            }
+        }
+        if (metricsEnabled) {
+            intermediateQueueSize.set(getIntermediateQueue().size());
+        }
+    }
+
+    private void recordDequeued(boolean metricsEnabled) {
+        synchronized (queueSizeTracker) {
+            if (queueSizeTracker.accountedQueueSize > 0) {
+                queueSizeTracker.accountedQueueSize--;
+                totalIntermediateQueueSize.dec();
+            } else {
+                queueSizeTracker.pendingDequeues++;
+            }
+        }
+        if (metricsEnabled) {
+            intermediateQueueSize.set(getIntermediateQueue().size());
+        }
+    }
+
+    /**
+     * Metric state shared by all wrappers for one queue. A consumer can report a dequeue before the
+     * producer returns from {@code put}; pending dequeues pair those reordered notifications
+     * without decrementing the total counter below zero.
+     */
+    public static final class QueueSizeTracker {
+        private long accountedQueueSize;
+        private long pendingDequeues;
     }
 }

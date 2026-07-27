@@ -39,6 +39,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
+import org.testcontainers.containers.Container;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
@@ -62,6 +63,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -177,7 +179,9 @@ public class MysqlCDCSpecificStartingOffsetIT extends TestSuiteBase implements T
             throws IOException, InterruptedException {
         String jobId = String.valueOf(JobIdGenerator.newJobId());
         String jobConfigFile = "/mysqlcdc_earliest_offset.conf";
-        purgeBinaryLogs();
+        clearTable(MYSQL_DATABASE, SOURCE_TABLE_1);
+        clearTable(MYSQL_DATABASE, SINK_TABLE);
+        rotateAndPurgeBinaryLogs();
         // Insert data
         executeSql(
                 String.format(
@@ -274,7 +278,7 @@ public class MysqlCDCSpecificStartingOffsetIT extends TestSuiteBase implements T
     public void testMysqlCdcSpecificOffset(TestContainer container) throws Exception {
         String jobId = String.valueOf(JobIdGenerator.newJobId());
         String jobConfigFile = "/mysqlcdc_specific_offset.conf";
-        purgeBinaryLogs();
+        rotateAndPurgeBinaryLogs();
         String source_sql_where_id_template =
                 "select id, cast(f_binary as char) as f_binary, cast(f_blob as char) as f_blob, cast(f_long_varbinary as char) as f_long_varbinary,"
                         + " cast(f_longblob as char) as f_longblob, cast(f_tinyblob as char) as f_tinyblob, cast(f_varbinary as char) as f_varbinary,"
@@ -394,6 +398,88 @@ public class MysqlCDCSpecificStartingOffsetIT extends TestSuiteBase implements T
                                                     "14,15")),
                                     query(getSinkQuerySQL(MYSQL_DATABASE, SINK_TABLE)));
                         });
+    }
+
+    @TestTemplate
+    public void testMysqlCdcSpecificGtidOffsetWithSkipRows(TestContainer container)
+            throws Exception {
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
+        String jobConfigFile = "/mysqlcdc_specific_gtid_offset.conf";
+        String sourceSqlWhereIdTemplate =
+                "select id, cast(f_binary as char) as f_binary, cast(f_blob as char) as f_blob, cast(f_long_varbinary as char) as f_long_varbinary,"
+                        + " cast(f_longblob as char) as f_longblob, cast(f_tinyblob as char) as f_tinyblob, cast(f_varbinary as char) as f_varbinary,"
+                        + " f_smallint, f_smallint_unsigned, f_mediumint, f_mediumint_unsigned, f_int, f_int_unsigned, f_integer, f_integer_unsigned,"
+                        + " f_bigint, f_bigint_unsigned, f_numeric, f_decimal, f_float, f_double, f_double_precision, f_longtext, f_mediumtext,"
+                        + " f_text, f_tinytext, f_varchar, f_date, f_datetime, f_timestamp, f_bit1, cast(f_bit64 as char) as f_bit64, f_char,"
+                        + " f_enum, cast(f_mediumblob as char) as f_mediumblob, f_long_varchar, f_real, f_time, f_tinyint, f_tinyint_unsigned,"
+                        + " f_json, f_year from %s.%s where id in (%s)";
+
+        clearTable(MYSQL_DATABASE, SOURCE_TABLE_1);
+        clearTable(MYSQL_DATABASE, SINK_TABLE);
+        rotateAndPurgeBinaryLogs();
+
+        BinlogOffset binlogOffset = getCurrentBinlogOffset();
+        String gtidSet = binlogOffset.getGtidSet();
+        Assertions.assertNotNull(gtidSet);
+        Assertions.assertFalse(gtidSet.trim().isEmpty());
+        String[] variables = {
+            "specific_offset_file=" + binlogOffset.getFilename(),
+            "specific_offset_pos=" + binlogOffset.getPosition(),
+            "specific_offset_gtid_set=" + gtidSet,
+            "specific_offset_skip_rows=1"
+        };
+
+        executeSql(
+                String.format(
+                        "INSERT INTO %s.%s (id) VALUES (16), (17)",
+                        MYSQL_DATABASE, SOURCE_TABLE_1));
+
+        CompletableFuture<Container.ExecResult> jobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.executeJob(jobConfigFile, jobId, variables);
+                            } catch (Exception e) {
+                                log.error("Commit task exception :" + e.getMessage());
+                                throw new RuntimeException(e);
+                            }
+                        });
+
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            assertJobHasNotFinished(jobFuture);
+                            Assertions.assertIterableEquals(
+                                    query(
+                                            String.format(
+                                                    sourceSqlWhereIdTemplate,
+                                                    MYSQL_DATABASE,
+                                                    SOURCE_TABLE_1,
+                                                    "17")),
+                                    query(getSinkQuerySQL(MYSQL_DATABASE, SINK_TABLE)));
+                        });
+
+        Container.ExecResult cancelResult = container.cancelJob(jobId);
+        Assertions.assertEquals(0, cancelResult.getExitCode(), cancelResult.getStderr());
+
+        Container.ExecResult result = jobFuture.get(60, TimeUnit.SECONDS);
+        Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
+    }
+
+    private static void assertJobHasNotFinished(CompletableFuture<Container.ExecResult> jobFuture) {
+        if (!jobFuture.isDone()) {
+            return;
+        }
+        try {
+            Container.ExecResult result = jobFuture.getNow(null);
+            Assertions.fail(
+                    "Streaming job finished before the sink assertion. exitCode="
+                            + result.getExitCode()
+                            + ", stderr="
+                            + result.getStderr());
+        } catch (CompletionException e) {
+            Assertions.fail("Streaming job failed before the sink assertion.", e);
+        }
     }
 
     @TestTemplate
@@ -573,6 +659,11 @@ public class MysqlCDCSpecificStartingOffsetIT extends TestSuiteBase implements T
 
     private void flushLogs() {
         executeSql("FLUSH LOGS;");
+    }
+
+    private void rotateAndPurgeBinaryLogs() {
+        flushLogs();
+        purgeBinaryLogs();
     }
 
     private String getSourceQuerySQL(String database, String tableName) {

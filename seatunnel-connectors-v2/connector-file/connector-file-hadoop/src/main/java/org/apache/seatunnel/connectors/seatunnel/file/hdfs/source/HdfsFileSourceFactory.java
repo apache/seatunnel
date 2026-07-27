@@ -121,7 +121,9 @@ public class HdfsFileSourceFactory implements TableSourceFactory {
                         HdfsFileSourceOptions.SYNC_MODE,
                         HdfsFileSourceOptions.TARGET_HADOOP_CONF,
                         HdfsFileSourceOptions.UPDATE_STRATEGY,
-                        HdfsFileSourceOptions.COMPARE_MODE)
+                        HdfsFileSourceOptions.COMPARE_MODE,
+                        HdfsFileSourceOptions.UPDATE_COMPARE_PARALLELISM,
+                        HdfsFileSourceOptions.UPDATE_COMPARE_BULK_THRESHOLD)
                 .conditional(
                         HdfsFileSourceOptions.SYNC_MODE,
                         FileSyncMode.UPDATE,

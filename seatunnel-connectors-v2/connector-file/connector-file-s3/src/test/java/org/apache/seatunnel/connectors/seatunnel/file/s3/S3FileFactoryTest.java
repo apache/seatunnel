@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.configuration.util.Expression;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.configuration.util.RequiredOption;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.s3.config.S3FileBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.s3.sink.S3FileSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.file.s3.source.S3FileSourceFactory;
 
@@ -60,6 +61,37 @@ class S3FileFactoryTest {
                         FileBaseSourceOptions.ENABLE_FILE_SPLIT,
                         FileBaseSourceOptions.FILE_SPLIT_SIZE),
                 "S3File source optionRule should expose file_split_size when enable_file_split=true");
+    }
+
+    @Test
+    void credentialsProviderConditionalRequiresAccessKeys() {
+        OptionRule sourceRule = new S3FileSourceFactory().optionRule();
+        Assertions.assertTrue(
+                hasConditionalRequiredOption(
+                        sourceRule,
+                        S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER_CLASS,
+                        S3FileBaseOptions.S3_ACCESS_KEY),
+                "S3File source optionRule should require access_key when the credentials provider is SimpleAWSCredentialsProvider");
+        Assertions.assertTrue(
+                hasConditionalRequiredOption(
+                        sourceRule,
+                        S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER_CLASS,
+                        S3FileBaseOptions.S3_SECRET_KEY),
+                "S3File source optionRule should require secret_key when the credentials provider is SimpleAWSCredentialsProvider");
+
+        OptionRule sinkRule = new S3FileSinkFactory().optionRule();
+        Assertions.assertTrue(
+                hasConditionalRequiredOption(
+                        sinkRule,
+                        S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER_CLASS,
+                        S3FileBaseOptions.S3_ACCESS_KEY),
+                "S3File sink optionRule should require access_key when the credentials provider is SimpleAWSCredentialsProvider");
+        Assertions.assertTrue(
+                hasConditionalRequiredOption(
+                        sinkRule,
+                        S3FileBaseOptions.S3A_AWS_CREDENTIALS_PROVIDER_CLASS,
+                        S3FileBaseOptions.S3_SECRET_KEY),
+                "S3File sink optionRule should require secret_key when the credentials provider is SimpleAWSCredentialsProvider");
     }
 
     private static boolean optionRuleContains(OptionRule rule, Option<?> option) {
