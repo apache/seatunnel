@@ -108,6 +108,7 @@ public class StateStoreErrorHandlerCounter implements ErrorHandlerCounter {
                         ? null
                         : pendingSnapshots.floorEntry(checkpointId).getValue();
         if (snapshot == null) {
+            refreshCommittedCounters();
             return;
         }
 
@@ -154,6 +155,11 @@ public class StateStoreErrorHandlerCounter implements ErrorHandlerCounter {
             throw new IllegalStateException("Error handler counter is absent after initialize");
         }
         return current;
+    }
+
+    private void refreshCommittedCounters() {
+        visibleCommittedTotalRecords.set(getOrZero(totalRecordsKey));
+        visibleCommittedErrorRecords.set(getOrZero(errorRecordsKey));
     }
 
     private long getOrZero(String key) {

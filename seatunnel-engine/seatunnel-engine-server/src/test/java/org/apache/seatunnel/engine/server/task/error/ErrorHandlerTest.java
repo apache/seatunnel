@@ -217,6 +217,7 @@ public class ErrorHandlerTest {
         firstSubtaskHandler.onError(ctx, createRow(1), new RuntimeException("first"));
         firstSubtaskHandler.snapshotState(1L);
         firstSubtaskHandler.notifyCheckpointComplete(1L);
+        secondSubtaskHandler.notifyCheckpointComplete(1L);
         secondSubtaskHandler.incrementTotalRecords();
         RuntimeException ex =
                 assertThrows(
