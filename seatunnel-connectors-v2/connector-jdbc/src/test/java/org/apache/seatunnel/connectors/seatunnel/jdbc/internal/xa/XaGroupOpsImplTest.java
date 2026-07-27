@@ -33,10 +33,15 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 
-/** Tests grouped XA commit failure propagation and retry state. */
+/**
+ * Tests grouped XA commit failure propagation, retry accounting, and strict unknown-XID handling.
+ */
 class XaGroupOpsImplTest {
 
-    /** Verifies that a permanent commit failure is never reported as a successful checkpoint. */
+    /**
+     * Verifies that a permanent commit failure propagates instead of being reported as a successful
+     * checkpoint.
+     */
     @Test
     void testCommitPropagatesPermanentFailure() {
         XaFacade xaFacade = mock(XaFacade.class);
@@ -53,13 +58,14 @@ class XaGroupOpsImplTest {
                                         new ArrayList<>(
                                                 Collections.singletonList(new XidInfo(xid, 0))),
                                         false,
-                                        false,
                                         3));
 
         Assertions.assertSame(commitFailure, exception.getCause());
     }
 
-    /** Verifies that a transient failure is returned with an incremented attempt count. */
+    /**
+     * Verifies that a transient failure is returned for retry with an incremented attempt count.
+     */
     @Test
     void testCommitReturnsTransientFailureForRetry() {
         XaFacade xaFacade = mock(XaFacade.class);
@@ -72,17 +78,17 @@ class XaGroupOpsImplTest {
 
         GroupXaOperationResult<XidInfo> result =
                 xaGroupOps.commit(
-                        new ArrayList<>(Collections.singletonList(new XidInfo(xid, 0))),
-                        false,
-                        false,
-                        3);
+                        new ArrayList<>(Collections.singletonList(new XidInfo(xid, 0))), false, 3);
 
         Assertions.assertEquals(1, result.getForRetry().size());
         Assertions.assertEquals(1, result.getForRetry().get(0).getAttempts());
         Assertions.assertSame(xid, result.getForRetry().get(0).getXid());
     }
 
-    /** Verifies that retry exhaustion fails instead of silently discarding the transaction. */
+    /**
+     * Verifies that retry exhaustion fails the commit instead of silently discarding the
+     * transaction.
+     */
     @Test
     void testCommitFailsWhenTransientRetryLimitIsReached() {
         XaFacade xaFacade = mock(XaFacade.class);
@@ -101,26 +107,30 @@ class XaGroupOpsImplTest {
                                         new ArrayList<>(
                                                 Collections.singletonList(new XidInfo(xid, 2))),
                                         false,
-                                        false,
                                         3));
 
         Assertions.assertTrue(exception.getMessage().contains("reached max number"));
     }
 
-    /** Verifies that recovery attempts enable idempotent handling of an unknown transaction. */
+    /**
+     * Verifies that grouped commits require an explicit resource-manager result for unknown
+     * transactions.
+     */
     @Test
-    void testCommitPassesIgnoreUnknownDuringRecovery() {
+    void testCommitRequiresExplicitResourceManagerResult() {
         XaFacade xaFacade = mock(XaFacade.class);
         Xid xid = createXid();
         XaGroupOps xaGroupOps = new XaGroupOpsImpl(xaFacade);
 
         xaGroupOps.commit(
-                new ArrayList<>(Collections.singletonList(new XidInfo(xid, 0))), false, true, 3);
+                new ArrayList<>(Collections.singletonList(new XidInfo(xid, 0))), false, 3);
 
-        verify(xaFacade).commit(xid, true);
+        verify(xaFacade).commit(xid, false);
     }
 
-    /** Creates a stable transaction identifier for grouped commit tests. */
+    /**
+     * Creates a stable transaction identifier whose value is shared across grouped commit tests.
+     */
     private Xid createXid() {
         return new XidImpl(1, new byte[] {1}, new byte[] {1});
     }

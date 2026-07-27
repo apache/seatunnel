@@ -32,8 +32,12 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
-/** Tests XA error classification and idempotent recovery behavior. */
+/**
+ * Tests XA error classification and explicit recovery outcomes without requiring a database
+ * resource manager.
+ */
 class XaFacadeImplAutoLoadTest {
 
     /**
@@ -55,7 +59,10 @@ class XaFacadeImplAutoLoadTest {
         Assertions.assertSame(transientFailure, exception.getCause());
     }
 
-    /** Verifies that XA_RETRY is handled as a retryable operation with no effect. */
+    /**
+     * Verifies that XA_RETRY remains retryable because the resource manager reports that the
+     * operation had no effect.
+     */
     @Test
     void testCommitRetriesWhenResourceManagerRequestsRetry() throws Exception {
         XAResource xaResource = mock(XAResource.class);
@@ -69,6 +76,21 @@ class XaFacadeImplAutoLoadTest {
                         () -> xaFacade.commit(createXid(), false));
 
         Assertions.assertSame(retry, exception.getCause());
+    }
+
+    /**
+     * Verifies that an explicit heuristic-commit result is accepted as durable completion evidence.
+     */
+    @Test
+    void testCommitAcceptsHeuristicCommitResult() throws Exception {
+        XAResource xaResource = mock(XAResource.class);
+        XAException heuristicallyCommitted = new XAException(XAException.XA_HEURCOM);
+        doThrow(heuristicallyCommitted).when(xaResource).commit(any(), eq(false));
+        XaFacadeImplAutoLoad xaFacade = createOpenFacade(xaResource);
+
+        Assertions.assertDoesNotThrow(() -> xaFacade.commit(createXid(), false));
+
+        verify(xaResource).forget(any());
     }
 
     /**
@@ -114,7 +136,9 @@ class XaFacadeImplAutoLoadTest {
         return xaFacade;
     }
 
-    /** Creates a stable transaction identifier for commit tests. */
+    /**
+     * Creates a stable transaction identifier whose value is shared across the commit test cases.
+     */
     private Xid createXid() {
         return new XidImpl(1, new byte[] {1}, new byte[] {1});
     }
