@@ -62,6 +62,16 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
 
     @Override
     public Collection<SnapshotSplit> generateSplits(TableId tableId) {
+        // When concurrent read is disabled, skip split analysis and return a single full-table
+        // split. This avoids expensive MIN/MAX scans on tables without proper indexes.
+        if (!sourceConfig.isEnableConcurrentRead()) {
+            log.info(
+                    "Concurrent read is disabled for table {}, using single split without analysis.",
+                    tableId);
+            return Collections.singletonList(
+                    createSnapshotSplit(null, tableId, 0, null, null, null));
+        }
+
         try (JdbcConnection jdbc = dialect.openJdbcConnection(sourceConfig)) {
             log.info("Start splitting table {} into chunks...", tableId);
             long start = System.currentTimeMillis();

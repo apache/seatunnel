@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.starrocks.sink;
 
+import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
 import org.apache.seatunnel.api.table.catalog.TablePath;
@@ -58,13 +59,17 @@ public class StarRocksSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
             new TableSchemaChangeEventDispatcher();
 
     public StarRocksSinkWriter(
-            SinkConfig sinkConfig, TableSchema tableSchema, TablePath tablePath) {
+            SinkWriter.Context context,
+            SinkConfig sinkConfig,
+            TableSchema tableSchema,
+            TablePath tablePath) {
         this.tableSchema = tableSchema;
         SeaTunnelRowType seaTunnelRowType = tableSchema.toPhysicalRowDataType();
         this.serializer = createSerializer(sinkConfig, seaTunnelRowType);
         this.manager = new StarRocksSinkManager(sinkConfig, tableSchema);
         this.sinkConfig = sinkConfig;
         this.sinkTablePath = tablePath;
+        context.registerFlushAction(this::timerFlush);
     }
 
     @Override
@@ -120,6 +125,10 @@ public class StarRocksSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
         // Flush to storage before snapshot state is performed
         manager.flush();
         return super.prepareCommit();
+    }
+
+    private void timerFlush() throws IOException {
+        manager.flush();
     }
 
     @Override

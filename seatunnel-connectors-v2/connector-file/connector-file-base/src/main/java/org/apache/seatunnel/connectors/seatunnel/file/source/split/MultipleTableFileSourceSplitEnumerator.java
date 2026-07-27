@@ -48,7 +48,7 @@ public class MultipleTableFileSourceSplitEnumerator
     private final Context<FileSourceSplit> context;
     private final Set<FileSourceSplit> allSplit;
     private final Set<FileSourceSplit> assignedSplit;
-    private final Map<String, List<String>> filePathMap;
+    private final List<BaseFileSourceConfig> fileSourceConfigs;
     private final AtomicInteger assignCount = new AtomicInteger(0);
     private final Object lock = new Object();
     private final FileSplitStrategy fileSplitStrategy;
@@ -58,17 +58,7 @@ public class MultipleTableFileSourceSplitEnumerator
             BaseMultipleTableFileSourceConfig multipleTableFileSourceConfig,
             FileSplitStrategy fileSplitStrategy) {
         this.context = context;
-        this.filePathMap =
-                multipleTableFileSourceConfig.getFileSourceConfigs().stream()
-                        .collect(
-                                Collectors.toMap(
-                                        localFileSourceConfig ->
-                                                localFileSourceConfig
-                                                        .getCatalogTable()
-                                                        .getTableId()
-                                                        .toTablePath()
-                                                        .toString(),
-                                        BaseFileSourceConfig::getFilePaths));
+        this.fileSourceConfigs = multipleTableFileSourceConfig.getFileSourceConfigs();
         this.assignedSplit = new HashSet<>();
         this.allSplit = new TreeSet<>(Comparator.comparing(FileSourceSplit::splitId));
         this.fileSplitStrategy = fileSplitStrategy;
@@ -95,9 +85,10 @@ public class MultipleTableFileSourceSplitEnumerator
     public void open() {
         boolean hasMultiSplits = false;
         Map<String, Integer> splitCountByTable = new HashMap<>();
-        for (Map.Entry<String, List<String>> filePathEntry : filePathMap.entrySet()) {
-            String tableId = filePathEntry.getKey();
-            List<String> filePaths = filePathEntry.getValue();
+        for (BaseFileSourceConfig fileSourceConfig : fileSourceConfigs) {
+            String tableId =
+                    fileSourceConfig.getCatalogTable().getTableId().toTablePath().toString();
+            List<String> filePaths = fileSourceConfig.getFilePathsForSplitEnumerator();
             for (String filePath : filePaths) {
                 List<FileSourceSplit> splits = fileSplitStrategy.split(tableId, filePath);
                 splitCountByTable.merge(tableId, splits.size(), Integer::sum);

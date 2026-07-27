@@ -115,6 +115,7 @@ public class ElasticsearchSinkWriter
                 new RetryMaterial(maxRetryCount, true, exception -> true, DEFAULT_SLEEP_TIME_MS);
         this.tableSchema = catalogTable.getTableSchema();
         this.tableSchemaChangeEventHandler = new TableSchemaChangeEventDispatcher();
+        context.registerFlushAction(this::timerFlush);
     }
 
     @Override
@@ -178,6 +179,11 @@ public class ElasticsearchSinkWriter
     public Optional<ElasticsearchCommitInfo> prepareCommit() {
         bulkEsWithRetry(this.esRestClient, this.requestEsList);
         return Optional.empty();
+    }
+
+    /** Flushes pending bulk requests when the Zeta engine delivers a timer flush signal. */
+    private void timerFlush() {
+        bulkEsWithRetry(this.esRestClient, this.requestEsList);
     }
 
     @Override

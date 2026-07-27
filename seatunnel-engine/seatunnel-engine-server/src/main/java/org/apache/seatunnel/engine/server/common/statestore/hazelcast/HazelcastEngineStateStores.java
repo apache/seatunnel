@@ -24,6 +24,8 @@ import org.apache.seatunnel.engine.server.common.statestore.DefaultAuxiliaryStat
 import org.apache.seatunnel.engine.server.common.statestore.EngineStateStores;
 import org.apache.seatunnel.engine.server.common.statestore.checkpoint.CheckpointOverviewStateStore;
 import org.apache.seatunnel.engine.server.common.statestore.checkpoint.hazelcast.HazelcastCheckpointOverviewStateStore;
+import org.apache.seatunnel.engine.server.common.statestore.counter.CounterStateStore;
+import org.apache.seatunnel.engine.server.common.statestore.counter.hazelcast.HazelcastCounterStateStore;
 import org.apache.seatunnel.engine.server.common.statestore.metrics.MetricsSnapshotStateStore;
 import org.apache.seatunnel.engine.server.common.statestore.metrics.hazelcast.HazelcastMetricsSnapshotStateStore;
 
@@ -31,6 +33,7 @@ import com.hazelcast.spi.impl.NodeEngine;
 
 import java.util.Objects;
 
+import static org.apache.seatunnel.engine.server.common.statestore.EngineStateStoreNames.CHECKPOINT_ID;
 import static org.apache.seatunnel.engine.server.common.statestore.EngineStateStoreNames.CHECKPOINT_MONITOR;
 import static org.apache.seatunnel.engine.server.common.statestore.EngineStateStoreNames.RUNNING_JOB_METRICS;
 
@@ -66,10 +69,14 @@ public class HazelcastEngineStateStores implements EngineStateStores {
                     new HazelcastMetricsSnapshotStateStore(
                             nodeEngine.getHazelcastInstance().getMap(RUNNING_JOB_METRICS),
                             metricsPartitionCount);
+            CounterStateStore<String> checkpointCounterStore =
+                    new HazelcastCounterStateStore<>(
+                            nodeEngine.getHazelcastInstance().getMap(CHECKPOINT_ID));
             CheckpointOverviewStateStore checkpointOverviewStateStore =
                     new HazelcastCheckpointOverviewStateStore(
                             nodeEngine.getHazelcastInstance().getMap(CHECKPOINT_MONITOR));
-            this.authoritativeStateStores = new DefaultAuthoritativeStateStores();
+            this.authoritativeStateStores =
+                    new DefaultAuthoritativeStateStores(checkpointCounterStore);
             this.auxiliaryStateStores =
                     new DefaultAuxiliaryStateStores(
                             metricsSnapshotStore, checkpointOverviewStateStore);

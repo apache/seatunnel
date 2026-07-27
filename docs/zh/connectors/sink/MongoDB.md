@@ -13,6 +13,7 @@ import ChangeLog from '../changelog/connector-mongodb.md';
 ## 关键特性
 
 - [x] [exactly-once 精准一次写入](../../introduction/concepts/connector-v2-features.md)
+- [x] [定时刷新](../../introduction/concepts/connector-v2-features.md)（仅 Zeta 引擎）
 - [x] [CDC（变更数据捕获）](../../introduction/concepts/connector-v2-features.md)
 - [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
 
@@ -80,9 +81,33 @@ MongoDB 连接器提供从 MongoDB 读取数据以及向 MongoDB 写入数据的
 
 ### 提示
 
-> 1. MongoDB Sink 连接器的数据刷新逻辑由以下三个参数共同控制：`buffer-flush.max-rows`、`buffer-flush.interval` 和 `checkpoint.interval`。  
+> 1. MongoDB Sink 的连接器级数据刷新逻辑由以下三个参数共同控制：`buffer-flush.max-rows`、`buffer-flush.interval` 和 `checkpoint.interval`。<br/>
      > 任一条件满足时，都会触发数据刷写。<br/>
 > 2. 兼容历史参数 `upsert-key`。若已设置 `upsert-key`，请勿同时设置 `primary-key`。
+
+### Zeta 定时刷新
+
+该引擎级能力仅由 Zeta 支持，Spark 和 Flink 不会注入 `FlushSignal`。在 Zeta 中，可以在 `env` 块配置 `sink.flush.interval`，使未达到 `buffer-flush.max-rows` 的待处理 bulk 请求也能定时写出。与 `buffer-flush.interval` 不同，引擎定时器不需要新记录到达才触发检查。
+
+定时刷新仅在 `transaction = false` 时启用。MongoDB 事务模式通过 checkpoint 提交，因此会禁用定时刷新以保持事务边界。初始定时刷新实现提供至少一次语义，不提供基于 2PC 的精确一次语义。启用 upsert 并使用确定性主键可使重试具备幂等性。
+
+```hocon
+env {
+  job.mode = "STREAMING"
+  checkpoint.interval = 300000
+  sink.flush.interval = 5000
+}
+
+sink {
+  MongoDB {
+    uri = "mongodb://127.0.0.1:27017"
+    database = "test_db"
+    collection = "users"
+    buffer-flush.max-rows = 10000
+    transaction = false
+  }
+}
+```
 
 ## 如何创建 MongoDB 数据同步任务
 
