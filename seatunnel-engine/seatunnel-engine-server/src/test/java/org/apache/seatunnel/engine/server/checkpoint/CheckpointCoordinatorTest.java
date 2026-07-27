@@ -922,38 +922,45 @@ public class CheckpointCoordinatorTest
                                             () ->
                                                     new IllegalStateException(
                                                             "runningJobStateIMap field not found"));
-            CompletedCheckpoint completedCheckpoint =
-                    new CompletedCheckpoint(
-                            1L,
-                            1,
-                            1L,
-                            System.currentTimeMillis(),
-                            CheckpointType.COMPLETED_POINT_TYPE,
-                            System.currentTimeMillis(),
-                            new HashMap<>(),
-                            new HashMap<>());
-            ReflectionUtils.setField(coordinator, "latestCompletedCheckpoint", completedCheckpoint);
-
-            CheckpointCoordinatorStatus[] incompleteStates = {
+            CheckpointCoordinatorStatus[] states = {
                 null,
                 CheckpointCoordinatorStatus.RUNNING,
                 CheckpointCoordinatorStatus.CANCELED,
-                CheckpointCoordinatorStatus.FAILED
+                CheckpointCoordinatorStatus.FAILED,
+                CheckpointCoordinatorStatus.FINISHED,
+                CheckpointCoordinatorStatus.SUSPEND
             };
-            for (CheckpointCoordinatorStatus status : incompleteStates) {
-                Mockito.when(runningJobStateIMap.get(Mockito.any())).thenReturn(status);
-                Assertions.assertFalse(
-                        coordinator.isNoErrorCompleted(),
-                        "Unexpected completed state for " + status);
-            }
+            for (CheckpointType checkpointType : CheckpointType.values()) {
+                for (boolean restored : new boolean[] {false, true}) {
+                    CompletedCheckpoint completedCheckpoint =
+                            new CompletedCheckpoint(
+                                    1L,
+                                    1,
+                                    1L,
+                                    System.currentTimeMillis(),
+                                    checkpointType,
+                                    System.currentTimeMillis(),
+                                    new HashMap<>(),
+                                    new HashMap<>());
+                    completedCheckpoint.setRestored(restored);
+                    ReflectionUtils.setField(
+                            coordinator, "latestCompletedCheckpoint", completedCheckpoint);
 
-            CheckpointCoordinatorStatus[] completedStates = {
-                CheckpointCoordinatorStatus.FINISHED, CheckpointCoordinatorStatus.SUSPEND
-            };
-            for (CheckpointCoordinatorStatus status : completedStates) {
-                Mockito.when(runningJobStateIMap.get(Mockito.any())).thenReturn(status);
-                Assertions.assertTrue(
-                        coordinator.isNoErrorCompleted(), "Expected completed state for " + status);
+                    for (CheckpointCoordinatorStatus status : states) {
+                        Mockito.when(runningJobStateIMap.get(Mockito.any())).thenReturn(status);
+                        boolean expected =
+                                checkpointType.isFinalCheckpoint()
+                                        && (status == CheckpointCoordinatorStatus.FINISHED
+                                                || status == CheckpointCoordinatorStatus.SUSPEND)
+                                        && !restored;
+                        Assertions.assertEquals(
+                                expected,
+                                coordinator.isNoErrorCompleted(),
+                                String.format(
+                                        "checkpointType=%s, status=%s, restored=%s",
+                                        checkpointType, status, restored));
+                    }
+                }
             }
         } finally {
             executorService.shutdownNow();
