@@ -17,8 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.parser;
 
-import org.apache.seatunnel.api.table.schema.event.AlterTableCommentEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableCommentEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableEvent;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceConfigFactory;
@@ -52,7 +52,7 @@ public class CustomMySqlAntlrDdlParserTest {
         parser.parse(
                 "ALTER TABLE products ADD COLUMN add_column1 VARCHAR(64) NOT NULL DEFAULT 'db-a'",
                 new Tables());
-        List<AlterTableColumnEvent> firstDatabaseEvents = parser.getAndClearParsedEvents();
+        List<AlterTableColumnEvent> firstDatabaseEvents = parser.getAndClearParsedColumnEvents();
         Assertions.assertEquals(1, firstDatabaseEvents.size());
         Assertions.assertEquals(
                 "multi_schema_shop_a",
@@ -63,7 +63,7 @@ public class CustomMySqlAntlrDdlParserTest {
         parser.setCurrentDatabase("multi_schema_shop_b");
         parser.parse(
                 "ALTER TABLE products ADD COLUMN add_column2 INT NOT NULL DEFAULT 1", new Tables());
-        List<AlterTableColumnEvent> secondDatabaseEvents = parser.getAndClearParsedEvents();
+        List<AlterTableColumnEvent> secondDatabaseEvents = parser.getAndClearParsedColumnEvents();
         Assertions.assertEquals(1, secondDatabaseEvents.size());
         Assertions.assertEquals(
                 "multi_schema_shop_b",

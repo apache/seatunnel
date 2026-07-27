@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.parser;
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableEvent;
 
 import io.debezium.antlr.AntlrDdlParserListener;
@@ -35,6 +36,7 @@ import java.sql.Types;
 import java.util.Arrays;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 /** A ddl parser that will use custom listener. */
 public class CustomMySqlAntlrDdlParser extends MySqlAntlrDdlParser {
@@ -312,5 +314,12 @@ public class CustomMySqlAntlrDdlParser extends MySqlAntlrDdlParser {
         List<AlterTableEvent> result = Lists.newArrayList(parsedEvents);
         parsedEvents.clear();
         return result;
+    }
+
+    public List<AlterTableColumnEvent> getAndClearParsedColumnEvents() {
+        return getAndClearParsedEvents().stream()
+                .filter(event -> event instanceof AlterTableColumnEvent)
+                .map(event -> (AlterTableColumnEvent) event)
+                .collect(Collectors.toList());
     }
 }

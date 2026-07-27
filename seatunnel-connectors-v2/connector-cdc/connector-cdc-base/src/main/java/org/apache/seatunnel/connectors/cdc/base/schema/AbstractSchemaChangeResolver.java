@@ -92,8 +92,8 @@ public abstract class AbstractSchemaChangeResolver implements SchemaChangeResolv
         ddlParser.setCurrentSchema(tablePath.getSchemaName());
         // Parse DDL statement using Debezium's Antlr parser
         ddlParser.parse(ddl, tables);
-        List<AlterTableEvent> parsedEvents = getAndClearParsedEvents();
-        parsedEvents = completionEvent(parsedEvents, catalogTables, tablePath);
+        List<AlterTableEvent> parsedEvents = getAndClearParsedSchemaChangeEvents();
+        parsedEvents = completeSchemaChangeEvents(parsedEvents, catalogTables, tablePath);
         parsedEvents.forEach(e -> e.setSourceDialectName(getSourceDialectName()));
 
         if (parsedEvents.isEmpty()) {
@@ -144,7 +144,19 @@ public abstract class AbstractSchemaChangeResolver implements SchemaChangeResolv
         return alterTableColumnsEvent;
     }
 
-    List<AlterTableEvent> completionEvent(
+    List<AlterTableColumnEvent> completionEvent(
+            List<AlterTableColumnEvent> events, List<CatalogTable> catalogTables) {
+        return completeSchemaChangeEvents(
+                        Lists.newArrayList(events),
+                        catalogTables,
+                        events.isEmpty() ? null : events.get(0).getTablePath())
+                .stream()
+                .filter(event -> event instanceof AlterTableColumnEvent)
+                .map(event -> (AlterTableColumnEvent) event)
+                .collect(Collectors.toList());
+    }
+
+    List<AlterTableEvent> completeSchemaChangeEvents(
             List<AlterTableEvent> events, List<CatalogTable> catalogTables, TablePath tablePath) {
         return events.stream()
                 .map(
@@ -154,15 +166,7 @@ public abstract class AbstractSchemaChangeResolver implements SchemaChangeResolv
                                 return event;
                             }
 
-                            CatalogTable table =
-                                    catalogTables.stream()
-                                            .filter(
-                                                    catalogTable ->
-                                                            catalogTable
-                                                                    .getTablePath()
-                                                                    .equals(tablePath))
-                                            .findFirst()
-                                            .orElse(null);
+                            CatalogTable table = findCatalogTable(catalogTables, tablePath);
 
                             // Handle table comment event - fill in old comment
                             if (event instanceof AlterTableCommentEvent) {
@@ -237,6 +241,16 @@ public abstract class AbstractSchemaChangeResolver implements SchemaChangeResolv
                 .collect(Collectors.toList());
     }
 
+    private CatalogTable findCatalogTable(List<CatalogTable> catalogTables, TablePath tablePath) {
+        if (tablePath == null) {
+            return null;
+        }
+        return catalogTables.stream()
+                .filter(catalogTable -> catalogTable.getTablePath().equals(tablePath))
+                .findFirst()
+                .orElse(null);
+    }
+
     private AlterColumnCommentEvent convertToColumnCommentEventIfOnlyCommentChanged(
             AlterTableModifyColumnEvent modifyColumnEvent, Column oldColumn) {
         if (oldColumn == null
@@ -277,7 +291,11 @@ public abstract class AbstractSchemaChangeResolver implements SchemaChangeResolv
 
     protected abstract DdlParser createDdlParser(TablePath tablePath);
 
-    protected abstract List<AlterTableEvent> getAndClearParsedEvents();
+    protected List<AlterTableEvent> getAndClearParsedSchemaChangeEvents() {
+        return Lists.newArrayList(getAndClearParsedEvents());
+    }
+
+    protected abstract List<AlterTableColumnEvent> getAndClearParsedEvents();
 
     protected abstract String getSourceDialectName();
 }
