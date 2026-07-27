@@ -17,11 +17,26 @@
 
 package org.apache.seatunnel.engine.server.task.flow;
 
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_IDLE_NANOS;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_READ_NANOS;
+import static org.apache.seatunnel.engine.server.task.AbstractTask.serializeStates;
+
+import com.hazelcast.cluster.Address;
+
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
+import lombok.extern.slf4j.Slf4j;
+
 import org.apache.seatunnel.api.common.metrics.Counter;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.serialization.Serializer;
+import org.apache.seatunnel.api.source.FactSourceGateCapability;
 import org.apache.seatunnel.api.source.SourceEvent;
+import org.apache.seatunnel.api.source.SourceGateCommand;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.source.event.ReaderCloseEvent;
@@ -34,11 +49,16 @@ import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.server.checkpoint.ActionStateKey;
 import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointBarrier;
+import org.apache.seatunnel.engine.server.dag.physical.config.IntermediateQueueConfig;
+import org.apache.seatunnel.engine.server.dag.physical.config.SourceConfig;
 import org.apache.seatunnel.engine.server.event.JobEventListener;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.SeaTunnelSourceCollector;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
+import org.apache.seatunnel.engine.server.task.TaskRuntimeException;
 import org.apache.seatunnel.engine.server.task.context.SourceReaderContext;
+import org.apache.seatunnel.engine.server.task.group.AbstractTaskGroupWithIntermediateQueue;
+import org.apache.seatunnel.engine.server.task.group.queue.AbstractIntermediateQueue;
 import org.apache.seatunnel.engine.server.task.operation.GetTaskGroupAddressOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.RequestSplitOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.RestoredSplitOperation;
@@ -47,28 +67,17 @@ import org.apache.seatunnel.engine.server.task.operation.source.SourceReaderEven
 import org.apache.seatunnel.engine.server.task.operation.source.SourceRegisterOperation;
 import org.apache.seatunnel.engine.server.task.record.Barrier;
 
-import com.hazelcast.cluster.Address;
-import lombok.AccessLevel;
-import lombok.Getter;
-import lombok.RequiredArgsConstructor;
-import lombok.Setter;
-import lombok.ToString;
-import lombok.extern.slf4j.Slf4j;
-
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
-
-import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_IDLE_NANOS;
-import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_READ_NANOS;
-import static org.apache.seatunnel.engine.server.task.AbstractTask.serializeStates;
 
 /**
  * Runtime lifecycle bridge between the Zeta engine and a connector's {@link SourceReader}.
@@ -98,6 +107,7 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
     private static final long IDLE_SLEEP_NS = TimeUnit.MILLISECONDS.toNanos(IDLE_SLEEP_MS);
 
     private final SourceAction<T, SplitT, ?> sourceAction;
+    private final SourceConfig sourceConfig;
     private final TaskLocation enumeratorTaskLocation;
 
     private Address enumeratorTaskAddress;
@@ -124,9 +134,12 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
     private final long flushIntervalMs;
 
     private transient volatile ScheduledFuture<?> flushFuture;
+    private transient BlockingQueue<SourceGateCommand> gateCommandQueue;
+    private transient FactSourceGateCapability factGateCapability;
 
     public SourceFlowLifeCycle(
             SourceAction<T, SplitT, ?> sourceAction,
+            SourceConfig sourceConfig,
             int indexID,
             TaskLocation enumeratorTaskLocation,
             SeaTunnelTask runningTask,
@@ -136,6 +149,7 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
             long flushIntervalMs) {
         super(sourceAction, runningTask, completableFuture);
         this.sourceAction = sourceAction;
+        this.sourceConfig = sourceConfig;
         this.indexID = indexID;
         this.enumeratorTaskLocation = enumeratorTaskLocation;
         this.currentTaskLocation = currentTaskLocation;
@@ -167,6 +181,15 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
         this.sourceReadNs = metricsContext.counter(SOURCE_READ_NANOS + "#" + sourceAction.getId());
         this.sourceIdleNs = metricsContext.counter(SOURCE_IDLE_NANOS + "#" + sourceAction.getId());
         this.reader = sourceAction.getSource().createReader(context);
+        if (sourceConfig.isDynamicLookupFactGate()) {
+            if (!(reader instanceof FactSourceGateCapability)) {
+                throw new TaskRuntimeException(
+                        "Dynamic lookup fact source requires FactSourceGateCapability: "
+                                + sourceAction.getName());
+            }
+            this.factGateCapability = (FactSourceGateCapability) reader;
+            this.factGateCapability.prepareClosedGate();
+        }
         this.enumeratorTaskAddress = getEnumeratorTaskAddress();
     }
 
@@ -181,6 +204,10 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
     @Override
     public void open() throws Exception {
         context.getEventListener().onEvent(new ReaderOpenEvent());
+        if (sourceConfig.isDynamicLookupFactGate()) {
+            this.gateCommandQueue =
+                    openGateCommandQueue(sourceConfig.getDynamicLookupGateCommandQueue());
+        }
         reader.open();
         register();
     }
@@ -264,6 +291,7 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
                 return;
             }
 
+            drainGateCommands();
             collector.resetEmptyThisPollNext();
             long startNs = metricsEnabled ? System.nanoTime() : 0L;
             reader.pollNext(collector);
@@ -449,6 +477,40 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
             reader.handleNoMoreSplits();
         } else {
             reader.addSplits(splits);
+        }
+    }
+
+    private BlockingQueue<SourceGateCommand> openGateCommandQueue(IntermediateQueueConfig config) {
+        if (config == null) {
+            throw new TaskRuntimeException("Dynamic lookup fact gate command queue is missing");
+        }
+        if (!(runningTask.getTaskGroup() instanceof AbstractTaskGroupWithIntermediateQueue)) {
+            throw new TaskRuntimeException(
+                    "Dynamic lookup fact gate requires an intermediate-queue task group");
+        }
+        AbstractIntermediateQueue<?> queue =
+                ((AbstractTaskGroupWithIntermediateQueue) runningTask.getTaskGroup())
+                        .getQueueCache(
+                                config.getQueueID(),
+                                config.getCapacity(),
+                                runningTask.getMetricsContext());
+        Object rawQueue = queue.getIntermediateQueue();
+        if (!(rawQueue instanceof BlockingQueue)) {
+            throw new TaskRuntimeException(
+                    "Dynamic lookup fact gate requires blocking command queue");
+        }
+        @SuppressWarnings("unchecked")
+        BlockingQueue<SourceGateCommand> typedQueue = (BlockingQueue<SourceGateCommand>) rawQueue;
+        return typedQueue;
+    }
+
+    private void drainGateCommands() throws Exception {
+        if (gateCommandQueue == null || factGateCapability == null) {
+            return;
+        }
+        SourceGateCommand command;
+        while ((command = gateCommandQueue.poll()) != null) {
+            factGateCapability.applyGateCommand(command);
         }
     }
 

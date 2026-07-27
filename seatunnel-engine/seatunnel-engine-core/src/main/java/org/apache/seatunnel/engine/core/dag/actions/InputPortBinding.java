@@ -26,9 +26,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Objects;
 
-/**
- * Explicit binding between one upstream action and one target input port.
- */
+/** Explicit binding between one upstream action and one target input port. */
 public final class InputPortBinding implements Serializable {
 
     private static final long serialVersionUID = 1L;
@@ -39,24 +37,16 @@ public final class InputPortBinding implements Serializable {
     private static final byte[] EDGE_ID_DOMAIN =
             "seatunnel-port-edge-v1".getBytes(StandardCharsets.UTF_8);
 
-    /**
-     * Logical upstream action ID captured before execution-plan IDs are regenerated.
-     */
+    /** Logical upstream action ID captured before execution-plan IDs are regenerated. */
     private final long upstreamActionId;
 
-    /**
-     * Stable edge identity carried unchanged through every planning layer.
-     */
+    /** Stable edge identity carried unchanged through every planning layer. */
     private final long edgeId;
 
-    /**
-     * Target input port assigned by the planner, never inferred from list order.
-     */
+    /** Target input port assigned by the planner, never inferred from list order. */
     private final int targetInputPort;
 
-    /**
-     * Versioned routing declaration retained for the later exchange implementation.
-     */
+    /** Versioned routing declaration retained for the later exchange implementation. */
     private final ExchangeDescriptor exchangeDescriptor;
 
     /**

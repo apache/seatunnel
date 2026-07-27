@@ -17,7 +17,14 @@
 
 package org.apache.seatunnel.engine.server.dag.physical;
 
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+import static org.apache.seatunnel.engine.common.config.server.QueueType.BLOCKINGQUEUE;
+
+import com.hazelcast.flakeidgen.FlakeIdGenerator;
+import com.hazelcast.jet.datamodel.Tuple2;
+import com.hazelcast.map.IMap;
+import com.hazelcast.spi.impl.NodeEngine;
+
+import lombok.NonNull;
 
 import org.apache.seatunnel.api.options.EnvCommonOptions;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
@@ -45,6 +52,7 @@ import org.apache.seatunnel.engine.server.dag.execution.ExecutionPlan;
 import org.apache.seatunnel.engine.server.dag.execution.ExecutionVertex;
 import org.apache.seatunnel.engine.server.dag.execution.Pipeline;
 import org.apache.seatunnel.engine.server.dag.execution.PortAwareExecutionEdge;
+import org.apache.seatunnel.engine.server.dag.physical.config.DynamicLookupConfig;
 import org.apache.seatunnel.engine.server.dag.physical.config.FlowConfig;
 import org.apache.seatunnel.engine.server.dag.physical.config.IntermediateQueueConfig;
 import org.apache.seatunnel.engine.server.dag.physical.config.SinkConfig;
@@ -58,21 +66,15 @@ import org.apache.seatunnel.engine.server.execution.TaskGroupDefaultImpl;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.observability.ObservabilityConfig;
-import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.DynamicLookupCoordinatorTask;
-import org.apache.seatunnel.engine.server.task.DynamicLookupMultiInputTask;
+import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.SinkAggregatedCommitterTask;
 import org.apache.seatunnel.engine.server.task.SourceSeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.SourceSplitEnumeratorTask;
 import org.apache.seatunnel.engine.server.task.TransformSeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.group.TaskGroupWithIntermediateBlockingQueue;
 import org.apache.seatunnel.engine.server.task.group.TaskGroupWithIntermediateDisruptor;
-
-import com.hazelcast.flakeidgen.FlakeIdGenerator;
-import com.hazelcast.jet.datamodel.Tuple2;
-import com.hazelcast.map.IMap;
-import com.hazelcast.spi.impl.NodeEngine;
-import lombok.NonNull;
+import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
 import java.io.IOException;
 import java.net.URL;
@@ -90,8 +92,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-
-import static org.apache.seatunnel.engine.common.config.server.QueueType.BLOCKINGQUEUE;
 
 public class PhysicalPlanGenerator {
 
@@ -129,29 +129,19 @@ public class PhysicalPlanGenerator {
      */
     private final Map<TaskLocation, Set<Tuple2<ActionStateKey, Integer>>> subtaskActions;
 
-    /**
-     * Reader task locations indexed by source action ID and source subtask.
-     */
+    /** Reader task locations indexed by source action ID and source subtask. */
     private final Map<Long, Map<Integer, TaskLocation>> sourceTaskLocations;
 
-    /**
-     * Coordinator tasks that receive checkpoint triggers without becoming source roots.
-     */
+    /** Coordinator tasks that receive checkpoint triggers without becoming source roots. */
     private final Set<TaskLocation> coordinatorCheckpointRoots;
 
-    /**
-     * Operator-scoped coordinator checkpoint identities.
-     */
+    /** Operator-scoped coordinator checkpoint identities. */
     private final Map<CoordinatorStateKey, TaskLocation> dynamicLookupCoordinatorTasks;
 
-    /**
-     * Port topology retained in the checkpoint plan for each multi-input task.
-     */
+    /** Port topology retained in the checkpoint plan for each multi-input task. */
     private final Map<TaskLocation, List<InputPortDescriptor>> checkpointInputPorts;
 
-    /**
-     * Coordinator actions that are not ordinary execution vertices.
-     */
+    /** Coordinator actions that are not ordinary execution vertices. */
     private final Map<ActionStateKey, Integer> coordinatorPipelineActions;
 
     private final IMap<Object, Object> runningJobStateIMap;
@@ -235,7 +225,7 @@ public class PhysicalPlanGenerator {
                                     this.coordinatorPipelineActions.clear();
                                     final int pipelineId = pipeline.getId();
                                     final List<ExecutionEdge> edges = pipeline.getEdges();
-                                    validatePhaseZeroPipeline(pipeline);
+                                    validateDynamicLookupPipeline(pipeline);
 
                                     List<SourceAction<?, ?, ?>> sources = findSourceAction(edges);
 
@@ -249,11 +239,14 @@ public class PhysicalPlanGenerator {
                                                     pipeline, pipelineId, totalPipelineNum));
 
                                     List<PhysicalVertex> physicalVertexList =
-                                            getSourceTask(
-                                                    edges, sources, pipelineId, totalPipelineNum);
-                                    physicalVertexList.addAll(
-                                            getDynamicLookupMultiInputTask(
-                                                    pipeline, pipelineId, totalPipelineNum));
+                                            containsDynamicLookup(pipeline)
+                                                    ? getDynamicLookupRuntimeTask(
+                                                            pipeline, pipelineId, totalPipelineNum)
+                                                    : getSourceTask(
+                                                            edges,
+                                                            sources,
+                                                            pipelineId,
+                                                            totalPipelineNum);
 
                                     CompletableFuture<PipelineStatus> pipelineFuture =
                                             new CompletableFuture<>();
@@ -261,24 +254,7 @@ public class PhysicalPlanGenerator {
                                             new PassiveCompletableFuture<>(pipelineFuture));
 
                                     Map<ActionStateKey, Integer> pipelineActions =
-                                            pipeline.getVertexes().values().stream()
-                                                            .map(ExecutionVertex::getAction)
-                                                            .anyMatch(
-                                                                    DynamicLookupAction.class
-                                                                            ::isInstance)
-                                                    ? pipeline.getVertexes().values().stream()
-                                                            .map(ExecutionVertex::getAction)
-                                                            .filter(
-                                                                    action ->
-                                                                            !(action
-                                                                                    instanceof
-                                                                                    DynamicLookupAction))
-                                                            .collect(
-                                                                    Collectors.toMap(
-                                                                            ActionStateKey::of,
-                                                                            Action
-                                                                                    ::getParallelism))
-                                                    : new HashMap<>(pipeline.getActions());
+                                            new HashMap<>(pipeline.getActions());
                                     pipelineActions.putAll(coordinatorPipelineActions);
                                     checkpointPlans.put(
                                             pipelineId,
@@ -290,8 +266,7 @@ public class PhysicalPlanGenerator {
                                                             coordinatorCheckpointRoots)
                                                     .pipelineActions(pipelineActions)
                                                     .subtaskActions(subtaskActions)
-                                                    .coordinatorTasks(
-                                                            dynamicLookupCoordinatorTasks)
+                                                    .coordinatorTasks(dynamicLookupCoordinatorTasks)
                                                     .inputPortsByTask(checkpointInputPorts)
                                                     .build());
                                     return new SubPlan(
@@ -324,6 +299,12 @@ public class PhysicalPlanGenerator {
                 .map(s -> (SourceAction<?, ?, ?>) s.getLeftVertex().getAction())
                 .distinct()
                 .collect(Collectors.toList());
+    }
+
+    private static boolean containsDynamicLookup(Pipeline pipeline) {
+        return pipeline.getVertexes().values().stream()
+                .map(ExecutionVertex::getAction)
+                .anyMatch(DynamicLookupAction.class::isInstance);
     }
 
     private List<PhysicalVertex> getCommitterTask(
@@ -488,8 +469,7 @@ public class PhysicalPlanGenerator {
                                             jobImmutableInformation.getJobId(),
                                             pipelineIndex,
                                             taskGroupId);
-                            TaskLocation taskLocation =
-                                    new TaskLocation(taskGroupLocation, 0, 0);
+                            TaskLocation taskLocation = new TaskLocation(taskGroupLocation, 0, 0);
                             DynamicLookupCoordinatorTask task =
                                     new DynamicLookupCoordinatorTask(
                                             jobImmutableInformation.getJobId(),
@@ -526,8 +506,7 @@ public class PhysicalPlanGenerator {
                                     pipelineIndex,
                                     totalPipelineNum,
                                     Collections.singletonList(task.getJarsUrl()),
-                                    Collections.singletonList(
-                                            task.getConnectorPluginJars()),
+                                    Collections.singletonList(task.getConnectorPluginJars()),
                                     jobImmutableInformation,
                                     initializationTimestamp,
                                     nodeEngine,
@@ -631,13 +610,13 @@ public class PhysicalPlanGenerator {
                                                         () ->
                                                                 new IllegalStateException(
                                                                         "Missing source task for "
-                                                                                + flow
-                                                                                        .getAction()
+                                                                                + flow.getAction()
                                                                                         .getName()))
                                                 .getTaskLocation();
                                 sourceTaskLocations
                                         .computeIfAbsent(
-                                                flow.getAction().getId(), ignored -> new HashMap<>())
+                                                flow.getAction().getId(),
+                                                ignored -> new HashMap<>())
                                         .put(finalParallelismIndex, sourceTaskLocation);
                                 List<Set<URL>> jars =
                                         taskList.stream()
@@ -714,37 +693,20 @@ public class PhysicalPlanGenerator {
                 .collect(Collectors.toList());
     }
 
-    /**
-     * Creates one physical multi-input task per target subtask.
-     *
-     * <p>The task carries deployment and checkpoint topology only. It is deliberately fail-fast if
-     * run before the separately gated exchange, barrier, managed-state, and lookup proposals are
-     * implemented.
-     */
-    private List<PhysicalVertex> getDynamicLookupMultiInputTask(
+    private List<PhysicalVertex> getDynamicLookupRuntimeTask(
             Pipeline pipeline, int pipelineIndex, int totalPipelineNum) {
+        if (!queueType.equals(BLOCKINGQUEUE)) {
+            throw new IllegalArgumentException(
+                    "Dynamic lookup M1 requires engine.queue.type=BLOCKINGQUEUE");
+        }
         List<ExecutionVertex> lookupVertices =
                 pipeline.getVertexes().values().stream()
-                        .filter(
-                                vertex ->
-                                        vertex.getAction() instanceof DynamicLookupAction)
+                        .filter(vertex -> vertex.getAction() instanceof DynamicLookupAction)
                         .sorted(java.util.Comparator.comparingLong(ExecutionVertex::getVertexId))
                         .collect(Collectors.toList());
         List<PhysicalVertex> physicalVertices = new ArrayList<>();
         for (ExecutionVertex lookupVertex : lookupVertices) {
-            DynamicLookupAction lookupAction =
-                    (DynamicLookupAction) lookupVertex.getAction();
-            boolean hasDownstream =
-                    pipeline.getEdges().stream()
-                            .anyMatch(
-                                    edge ->
-                                            edge.getLeftVertexId()
-                                                    .equals(lookupVertex.getVertexId()));
-            if (hasDownstream) {
-                throw new IllegalArgumentException(
-                        "Phase-0 PR-1 supports only a terminal multi-input descriptor prototype; "
-                                + "lookup output materialization is not implemented");
-            }
+            DynamicLookupAction lookupAction = (DynamicLookupAction) lookupVertex.getAction();
             List<PortAwareExecutionEdge> inputEdges =
                     pipeline.getEdges().stream()
                             .filter(PortAwareExecutionEdge.class::isInstance)
@@ -756,67 +718,200 @@ public class PhysicalPlanGenerator {
                             .sorted(
                                     java.util.Comparator.comparingInt(
                                                     PortAwareExecutionEdge::getTargetInputPort)
-                                            .thenComparingLong(
-                                                    PortAwareExecutionEdge::getEdgeId))
+                                            .thenComparingLong(PortAwareExecutionEdge::getEdgeId))
                             .collect(Collectors.toList());
             validateDynamicLookupInputEdges(lookupAction, inputEdges);
             for (int subtaskIndex = 0;
                     subtaskIndex < lookupVertex.getParallelism();
                     subtaskIndex++) {
-                long taskGroupId = taskGroupIdGenerator.getNextId();
-                TaskGroupLocation taskGroupLocation =
-                        new TaskGroupLocation(
-                                jobImmutableInformation.getJobId(),
-                                pipelineIndex,
-                                taskGroupId);
-                TaskLocation taskLocation =
-                        new TaskLocation(taskGroupLocation, 0, subtaskIndex);
-                List<InputPortDescriptor> inputPorts =
-                        createInputPortDescriptors(
-                                lookupVertex, taskLocation, subtaskIndex, inputEdges);
-                MultiInputTaskDeploymentDescriptor deploymentDescriptor =
-                        new MultiInputTaskDeploymentDescriptor(
-                                lookupAction.getOperatorUid(),
-                                lookupAction.getId(),
-                                subtaskIndex,
-                                inputPorts);
-                DynamicLookupMultiInputTask task =
-                        new DynamicLookupMultiInputTask(
-                                jobImmutableInformation.getJobId(),
-                                taskLocation,
-                                lookupAction,
-                                deploymentDescriptor);
-
-                // The disabled PR-1 shell has no barrier transport and must not be added to the
-                // PendingCheckpoint ACK set. Its port topology is retained separately so PR-3 can
-                // make it a real checkpoint participant without inferring channels.
-                checkpointInputPorts.put(taskLocation, inputPorts);
-
                 physicalVertices.add(
-                        new PhysicalVertex(
+                        createDynamicLookupRuntimeVertex(
+                                pipeline,
+                                lookupVertex,
+                                inputEdges,
                                 subtaskIndex,
-                                lookupVertex.getParallelism(),
-                                new TaskGroupDefaultImpl(
-                                        taskGroupLocation,
-                                        lookupAction.getName() + "-MultiInputTask",
-                                        Collections.singletonList(task)),
-                                flakeIdGenerator,
                                 pipelineIndex,
-                                totalPipelineNum,
-                                Collections.singletonList(task.getJarsUrl()),
-                                Collections.singletonList(task.getConnectorPluginJars()),
-                                jobImmutableInformation,
-                                initializationTimestamp,
-                                nodeEngine,
-                                runningJobStateIMap,
-                                runningJobStateTimestampsIMap,
-                                inputPorts));
+                                totalPipelineNum));
             }
         }
         return physicalVertices;
     }
 
-    private static void validatePhaseZeroPipeline(Pipeline pipeline) {
+    private PhysicalVertex createDynamicLookupRuntimeVertex(
+            Pipeline pipeline,
+            ExecutionVertex lookupVertex,
+            List<PortAwareExecutionEdge> inputEdges,
+            int subtaskIndex,
+            int pipelineIndex,
+            int totalPipelineNum) {
+        DynamicLookupAction lookupAction = (DynamicLookupAction) lookupVertex.getAction();
+        long taskGroupId = taskGroupIdGenerator.getNextId();
+        TaskGroupLocation taskGroupLocation =
+                new TaskGroupLocation(
+                        jobImmutableInformation.getJobId(), pipelineIndex, taskGroupId);
+        AtomicInteger taskInTaskGroupIndex = new AtomicInteger(0);
+        Map<Integer, IntermediateQueue> inputQueues = createDynamicLookupInputQueues(lookupAction);
+        IntermediateQueue factGateCommandQueue = createDynamicLookupGateCommandQueue(lookupAction);
+        List<Flow> flows = new ArrayList<>();
+        Map<Long, TaskLocation> sourceLocationsByAction = new HashMap<>();
+        long factSourceActionId =
+                inputEdges.stream()
+                        .filter(edge -> edge.getTargetInputPort() == DynamicLookupAction.FACT_INPUT)
+                        .map(edge -> edge.getLeftVertex().getAction().getId())
+                        .findFirst()
+                        .orElseThrow(
+                                () ->
+                                        new IllegalStateException(
+                                                "Missing dynamic lookup fact source action"));
+
+        for (PortAwareExecutionEdge inputEdge : inputEdges) {
+            SourceAction<?, ?, ?> sourceAction =
+                    (SourceAction<?, ?, ?>) inputEdge.getLeftVertex().getAction();
+            IntermediateQueue queue = inputQueues.get(inputEdge.getTargetInputPort());
+            IntermediateExecutionFlow<?> queueFlow = new IntermediateExecutionFlow<>(queue);
+            flows.add(
+                    new PhysicalExecutionFlow<>(
+                            sourceAction, Collections.singletonList(queueFlow)));
+        }
+
+        PhysicalExecutionFlow<DynamicLookupAction, DynamicLookupConfig> lookupFlow =
+                new PhysicalExecutionFlow<>(
+                        lookupAction, getNextWrapper(pipeline.getEdges(), lookupAction));
+        flows.add(lookupFlow);
+        List<Flow> splitRoots = new ArrayList<>(Collections.singletonList(lookupFlow));
+        for (Flow root : splitRoots) {
+            flows.addAll(splitSinkFromFlow(root));
+        }
+
+        List<SeaTunnelTask> taskList =
+                flows.stream()
+                        .map(
+                                flow -> {
+                                    setFlowConfig(
+                                            flow,
+                                            inputQueues,
+                                            factGateCommandQueue,
+                                            factSourceActionId);
+                                    TaskLocation taskLocation =
+                                            new TaskLocation(
+                                                    taskGroupLocation,
+                                                    taskInTaskGroupIndex.getAndIncrement(),
+                                                    subtaskIndex);
+                                    if (flow instanceof PhysicalExecutionFlow
+                                            && ((PhysicalExecutionFlow<?, ?>) flow).getAction()
+                                                    instanceof SourceAction) {
+                                        SourceSeaTunnelTask<?, ?> sourceTask =
+                                                new SourceSeaTunnelTask<>(
+                                                        jobImmutableInformation.getJobId(),
+                                                        taskLocation,
+                                                        subtaskIndex,
+                                                        (PhysicalExecutionFlow<
+                                                                        SourceAction, SourceConfig>)
+                                                                flow,
+                                                        jobImmutableInformation
+                                                                .getJobConfig()
+                                                                .getEnvOptions());
+                                        sourceLocationsByAction.put(
+                                                ((PhysicalExecutionFlow<?, ?>) flow)
+                                                        .getAction()
+                                                        .getId(),
+                                                taskLocation);
+                                        return sourceTask;
+                                    }
+                                    return new TransformSeaTunnelTask(
+                                            jobImmutableInformation.getJobId(),
+                                            taskLocation,
+                                            subtaskIndex,
+                                            flow);
+                                })
+                        .peek(this::fillCheckpointPlan)
+                        .collect(Collectors.toList());
+
+        for (Map.Entry<Long, TaskLocation> entry : sourceLocationsByAction.entrySet()) {
+            sourceTaskLocations
+                    .computeIfAbsent(entry.getKey(), ignored -> new HashMap<>())
+                    .put(subtaskIndex, entry.getValue());
+        }
+        TaskLocation lookupTaskLocation =
+                taskList.stream()
+                        .filter(
+                                task ->
+                                        task.getActionStateKeys()
+                                                .contains(ActionStateKey.of(lookupAction)))
+                        .findFirst()
+                        .orElseThrow(
+                                () ->
+                                        new IllegalStateException(
+                                                "Missing dynamic lookup task for "
+                                                        + lookupAction.getName()))
+                        .getTaskLocation();
+        checkpointInputPorts.put(
+                lookupTaskLocation,
+                createInputPortDescriptors(
+                        lookupVertex, lookupTaskLocation, subtaskIndex, inputEdges));
+
+        List<Set<URL>> jars =
+                taskList.stream().map(SeaTunnelTask::getJarsUrl).collect(Collectors.toList());
+        List<Set<ConnectorJarIdentifier>> jarIdentifiers =
+                taskList.stream()
+                        .map(SeaTunnelTask::getConnectorPluginJars)
+                        .collect(Collectors.toList());
+        return new PhysicalVertex(
+                subtaskIndex,
+                lookupVertex.getParallelism(),
+                new TaskGroupWithIntermediateBlockingQueue(
+                        taskGroupLocation,
+                        lookupAction.getName() + "-DynamicLookupTask",
+                        taskList.stream().map(task -> (Task) task).collect(Collectors.toList())),
+                flakeIdGenerator,
+                pipelineIndex,
+                totalPipelineNum,
+                jars,
+                jarIdentifiers,
+                jobImmutableInformation,
+                initializationTimestamp,
+                nodeEngine,
+                runningJobStateIMap,
+                runningJobStateTimestampsIMap,
+                checkpointInputPorts.get(lookupTaskLocation));
+    }
+
+    private static Map<Integer, IntermediateQueue> createDynamicLookupInputQueues(
+            DynamicLookupAction lookupAction) {
+        Map<Integer, IntermediateQueue> queues = new HashMap<>();
+        queues.put(
+                DynamicLookupAction.FACT_INPUT,
+                new IntermediateQueue(
+                        dynamicLookupInputQueueId(
+                                lookupAction.getId(), DynamicLookupAction.FACT_INPUT),
+                        lookupAction.getName() + "-FactQueue",
+                        lookupAction.getParallelism()));
+        queues.put(
+                DynamicLookupAction.DIMENSION_INPUT,
+                new IntermediateQueue(
+                        dynamicLookupInputQueueId(
+                                lookupAction.getId(), DynamicLookupAction.DIMENSION_INPUT),
+                        lookupAction.getName() + "-DimensionQueue",
+                        lookupAction.getParallelism()));
+        return queues;
+    }
+
+    private static IntermediateQueue createDynamicLookupGateCommandQueue(
+            DynamicLookupAction lookupAction) {
+        return new IntermediateQueue(
+                dynamicLookupGateCommandQueueId(lookupAction.getId()),
+                lookupAction.getName() + "-FactGateCommandQueue",
+                lookupAction.getParallelism(),
+                1);
+    }
+
+    private static void validateDynamicLookupPipeline(Pipeline pipeline) {
+        Set<Long> portAwareSourceActionIds =
+                pipeline.getEdges().stream()
+                        .filter(PortAwareExecutionEdge.class::isInstance)
+                        .map(PortAwareExecutionEdge.class::cast)
+                        .map(edge -> edge.getLeftVertex().getAction().getId())
+                        .collect(Collectors.toSet());
         boolean hasUnsupportedPortAwareTarget =
                 pipeline.getEdges().stream()
                         .filter(PortAwareExecutionEdge.class::isInstance)
@@ -826,32 +921,32 @@ public class PhysicalPlanGenerator {
                                                 instanceof DynamicLookupAction));
         if (hasUnsupportedPortAwareTarget) {
             throw new IllegalArgumentException(
-                    "Phase-0 supports only DynamicLookupAction as a port-aware action");
+                    "Dynamic lookup currently supports only DynamicLookupAction as a port-aware"
+                            + " action");
+        }
+        boolean hasUnownedSourceBranch =
+                pipeline.getVertexes().values().stream()
+                        .map(ExecutionVertex::getAction)
+                        .filter(SourceAction.class::isInstance)
+                        .map(Action::getId)
+                        .anyMatch(
+                                sourceActionId ->
+                                        !portAwareSourceActionIds.contains(sourceActionId));
+        if (hasUnownedSourceBranch) {
+            throw new IllegalArgumentException(
+                    "Dynamic lookup M1 requires every source in the pipeline to be owned by a "
+                            + "DynamicLookupAction input port");
         }
         Set<String> operatorUids = new HashSet<>();
         for (ExecutionVertex lookupVertex :
                 pipeline.getVertexes().values().stream()
-                        .filter(
-                                vertex ->
-                                        vertex.getAction() instanceof DynamicLookupAction)
+                        .filter(vertex -> vertex.getAction() instanceof DynamicLookupAction)
                         .collect(Collectors.toList())) {
-            DynamicLookupAction lookupAction =
-                    (DynamicLookupAction) lookupVertex.getAction();
+            DynamicLookupAction lookupAction = (DynamicLookupAction) lookupVertex.getAction();
             if (!operatorUids.add(lookupAction.getOperatorUid())) {
                 throw new IllegalArgumentException(
                         "DYNAMIC_LOOKUP_OPERATOR_UID_COLLISION: operatorUid="
                                 + lookupAction.getOperatorUid());
-            }
-            boolean hasDownstream =
-                    pipeline.getEdges().stream()
-                            .anyMatch(
-                                    edge ->
-                                            edge.getLeftVertexId()
-                                                    .equals(lookupVertex.getVertexId()));
-            if (hasDownstream) {
-                throw new IllegalArgumentException(
-                        "Phase-0 PR-1 supports only a terminal multi-input descriptor prototype; "
-                                + "lookup output materialization is not implemented");
             }
             List<PortAwareExecutionEdge> inputEdges =
                     pipeline.getEdges().stream()
@@ -885,7 +980,7 @@ public class PhysicalPlanGenerator {
                         .allMatch(edge -> edge.getLeftVertex().getAction() instanceof SourceAction);
         if (!allInputsAreSources) {
             throw new IllegalArgumentException(
-                    "Phase-0 dynamic lookup requires direct SourceAction inputs");
+                    "Dynamic lookup M1 requires direct SourceAction inputs");
         }
         boolean allForwardInputsMatchTargetParallelism =
                 inputEdges.stream()
@@ -895,8 +990,7 @@ public class PhysicalPlanGenerator {
                                                 == edge.getRightVertex().getParallelism());
         if (!allForwardInputsMatchTargetParallelism) {
             throw new IllegalArgumentException(
-                    "Phase-0 FORWARD input requires equal source and target parallelism; "
-                            + "HASH routing belongs to PR-2");
+                    "Dynamic lookup M1 FORWARD input requires equal source and target parallelism");
         }
     }
 
@@ -905,20 +999,17 @@ public class PhysicalPlanGenerator {
             TaskLocation targetTaskLocation,
             int targetSubtask,
             List<PortAwareExecutionEdge> inputEdges) {
-        Map<Integer, List<PhysicalInputChannel>> channelsByPort =
-                new java.util.TreeMap<>();
+        Map<Integer, List<PhysicalInputChannel>> channelsByPort = new java.util.TreeMap<>();
         for (PortAwareExecutionEdge inputEdge : inputEdges) {
             ExecutionVertex sourceVertex = inputEdge.getLeftVertex();
             Map<Integer, TaskLocation> sourceLocations =
                     sourceTaskLocations.get(sourceVertex.getAction().getId());
-            if (sourceLocations == null
-                    || sourceLocations.size() != sourceVertex.getParallelism()) {
+            if (sourceLocations == null || !sourceLocations.containsKey(targetSubtask)) {
                 throw new IllegalStateException(
                         "Missing source task locations for action "
                                 + sourceVertex.getAction().getName());
             }
-            DynamicLookupAction lookupAction =
-                    (DynamicLookupAction) lookupVertex.getAction();
+            DynamicLookupAction lookupAction = (DynamicLookupAction) lookupVertex.getAction();
             LogicalChannelKey logicalChannelKey =
                     new LogicalChannelKey(
                             Long.toString(jobImmutableInformation.getJobId()),
@@ -935,8 +1026,7 @@ public class PhysicalPlanGenerator {
                             targetTaskLocation,
                             inputEdge.getExchangeDescriptor());
             channelsByPort
-                    .computeIfAbsent(
-                            inputEdge.getTargetInputPort(), ignored -> new ArrayList<>())
+                    .computeIfAbsent(inputEdge.getTargetInputPort(), ignored -> new ArrayList<>())
                     .add(channel);
         }
         return channelsByPort.entrySet().stream()
@@ -963,6 +1053,14 @@ public class PhysicalPlanGenerator {
      */
     @SuppressWarnings("unchecked")
     private void setFlowConfig(Flow f) {
+        setFlowConfig(f, Collections.emptyMap(), null, -1L);
+    }
+
+    private void setFlowConfig(
+            Flow f,
+            Map<Integer, IntermediateQueue> dynamicLookupInputQueues,
+            IntermediateQueue dynamicLookupFactGateCommandQueue,
+            long dynamicLookupFactSourceActionId) {
 
         if (f instanceof PhysicalExecutionFlow) {
             PhysicalExecutionFlow<?, FlowConfig> flow = (PhysicalExecutionFlow<?, FlowConfig>) f;
@@ -970,6 +1068,13 @@ public class PhysicalPlanGenerator {
                 SourceConfig config = new SourceConfig();
                 config.setEnumeratorTask(
                         enumeratorTaskIDMap.get((SourceAction<?, ?, ?>) flow.getAction()));
+                if (flow.getAction().getId() == dynamicLookupFactSourceActionId) {
+                    config.setDynamicLookupFactGate(true);
+                    config.setDynamicLookupGateCommandQueue(
+                            new IntermediateQueueConfig(
+                                    dynamicLookupFactGateCommandQueue.getId(),
+                                    dynamicLookupFactGateCommandQueue.getCapacity()));
+                }
                 flow.setConfig(config);
             } else if (flow.getAction() instanceof SinkAction) {
                 SinkConfig config = new SinkConfig();
@@ -979,6 +1084,20 @@ public class PhysicalPlanGenerator {
                             committerTaskIDMap.get((SinkAction<?, ?, ?, ?>) flow.getAction()));
                 }
                 flow.setConfig(config);
+            } else if (flow.getAction() instanceof DynamicLookupAction) {
+                Map<Integer, IntermediateQueueConfig> inputQueueConfigs = new HashMap<>();
+                dynamicLookupInputQueues.forEach(
+                        (inputPort, queue) ->
+                                inputQueueConfigs.put(
+                                        inputPort,
+                                        new IntermediateQueueConfig(
+                                                queue.getId(), queue.getCapacity())));
+                flow.setConfig(
+                        new DynamicLookupConfig(
+                                inputQueueConfigs,
+                                new IntermediateQueueConfig(
+                                        dynamicLookupFactGateCommandQueue.getId(),
+                                        dynamicLookupFactGateCommandQueue.getCapacity())));
             }
         } else if (f instanceof IntermediateExecutionFlow) {
             ((IntermediateExecutionFlow<IntermediateQueueConfig>) f)
@@ -991,7 +1110,14 @@ public class PhysicalPlanGenerator {
         }
 
         if (!f.getNext().isEmpty()) {
-            f.getNext().forEach(this::setFlowConfig);
+            f.getNext()
+                    .forEach(
+                            next ->
+                                    setFlowConfig(
+                                            next,
+                                            dynamicLookupInputQueues,
+                                            dynamicLookupFactGateCommandQueue,
+                                            dynamicLookupFactSourceActionId));
         }
     }
 
@@ -1120,6 +1246,16 @@ public class PhysicalPlanGenerator {
         return -((actionId * 2) + 1);
     }
 
+    private static long dynamicLookupInputQueueId(long actionId, int inputPort) {
+        // Keep dynamic lookup queues away from the existing negative even/odd queue namespaces.
+        return -((actionId * 100) + 10 + inputPort);
+    }
+
+    private static long dynamicLookupGateCommandQueueId(long actionId) {
+        // Keep dynamic lookup control queues away from data input queue namespaces.
+        return -((actionId * 100) + 90);
+    }
+
     private List<Flow> getNextWrapper(List<ExecutionEdge> edges, Action start) {
         List<Action> actions =
                 edges.stream()
@@ -1142,8 +1278,8 @@ public class PhysicalPlanGenerator {
     /**
      * Builds the legacy source-local flow only up to a port-aware target.
      *
-     * <p>The target is materialized exactly once by {@link
-     * #getDynamicLookupMultiInputTask(Pipeline, int, int)} instead of once per source root.
+     * <p>The target is materialized exactly once by {@link #getDynamicLookupRuntimeTask(Pipeline,
+     * int, int)} instead of once per source root.
      */
     private List<Flow> getNextWrapperBeforePortAwareTarget(
             List<ExecutionEdge> edges, Action start) {
@@ -1165,8 +1301,7 @@ public class PhysicalPlanGenerator {
                                 action ->
                                         new PhysicalExecutionFlow<>(
                                                 action,
-                                                getNextWrapperBeforePortAwareTarget(
-                                                        edges, action)))
+                                                getNextWrapperBeforePortAwareTarget(edges, action)))
                         .collect(Collectors.toList()));
         return wrappers;
     }

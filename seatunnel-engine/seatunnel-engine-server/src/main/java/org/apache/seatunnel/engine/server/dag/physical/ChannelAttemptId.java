@@ -21,38 +21,28 @@ import java.io.Serializable;
 import java.util.Objects;
 
 /**
- * Attempt-scoped channel identity used by future transport fencing.
+ * Attempt-scoped channel identity used by dynamic lookup transport fencing.
  *
- * <p>PR-1 defines the complete identity shape. Binding real deployment attempts into transport
- * envelopes remains disabled until the exchange protocol is implemented.
+ * <p>The job execution epoch is part of the identity so a full job restart can fence stale messages
+ * even when task deployment attempt counters are reused.
  */
 public final class ChannelAttemptId implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    /**
-     * Global job execution epoch used to fence messages from an earlier job restart.
-     */
+    /** Global job execution epoch used to fence messages from an earlier job restart. */
     private final long jobExecutionEpoch;
 
-    /**
-     * Stable logical channel identity shared across attempts.
-     */
+    /** Stable logical channel identity shared across attempts. */
     private final LogicalChannelKey channelKey;
 
-    /**
-     * Source task deployment attempt.
-     */
+    /** Source task deployment attempt. */
     private final long sourceDeploymentAttempt;
 
-    /**
-     * Target task deployment attempt.
-     */
+    /** Target task deployment attempt. */
     private final long targetDeploymentAttempt;
 
-    /**
-     * Reconnect epoch within the same pair of task deployment attempts.
-     */
+    /** Reconnect epoch within the same pair of task deployment attempts. */
     private final long connectionEpoch;
 
     /**

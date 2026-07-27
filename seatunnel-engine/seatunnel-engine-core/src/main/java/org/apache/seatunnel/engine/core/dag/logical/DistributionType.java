@@ -17,20 +17,17 @@
 
 package org.apache.seatunnel.engine.core.dag.logical;
 
-/**
- * Distribution contract carried by a port-aware logical edge.
- */
+/** Distribution contract carried by a port-aware logical edge. */
 public enum DistributionType {
     /**
-     * Phase-0 direct channel declaration.
+     * Direct channel declaration used by the current dynamic lookup runtime.
      *
-     * <p>HASH and BROADCAST routing are deliberately reserved for the follow-up exchange proposal.
-    */
+     * <p>HASH and BROADCAST routing remain reserved until the exchange protocol owns partitioned
+     * routing and restore-safe channel state.
+     */
     FORWARD(0);
 
-    /**
-     * Stable serialized value independent of enum declaration order.
-     */
+    /** Stable serialized value independent of enum declaration order. */
     private final int wireCode;
 
     DistributionType(int wireCode) {
@@ -41,9 +38,7 @@ public enum DistributionType {
         return wireCode;
     }
 
-    /**
-     * Resolves a stable wire code without depending on enum declaration order.
-     */
+    /** Resolves a stable wire code without depending on enum declaration order. */
     public static DistributionType fromWireCode(int wireCode) {
         for (DistributionType value : values()) {
             if (value.wireCode == wireCode) {

@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.core.dag.actions;
 
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
 
 import lombok.NonNull;
@@ -26,60 +27,52 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 /**
- * Phase-0 action that declares the fact and dimension inputs of a future dynamic lookup operator.
+ * Action that declares and executes a dynamic lookup operator with fact and dimension inputs.
  *
- * <p>This action intentionally contains no lookup implementation. It establishes stable operator
- * and port identities for the multi-input execution infrastructure while M1 remains unapproved.
+ * <p>The action owns the planner-visible lookup contract, stable source identities, and fixed input
+ * port bindings. Runtime support is intentionally constrained to the M1 direct-source topology so
+ * unsupported routing fails during planning instead of creating ambiguous checkpoint ownership.
  */
 public final class DynamicLookupAction extends AbstractAction implements PortAwareAction {
 
     private static final long serialVersionUID = 1L;
 
-    /**
-     * Stable fact-stream input port.
-     */
+    /** Stable fact-stream input port. */
     public static final int FACT_INPUT = 0;
 
-    /**
-     * Stable dimension-bootstrap input port.
-     */
+    /** Stable dimension-bootstrap input port. */
     public static final int DIMENSION_INPUT = 1;
 
-    /**
-     * Stable operator identity shared by planner, coordinator, and checkpoint topology.
-     */
+    /** Stable operator identity shared by planner, coordinator, and checkpoint topology. */
     private final String operatorUid;
 
-    /**
-     * Logical fact-source action ID used only within the planned DAG.
-     */
+    /** Logical fact-source action ID used only within the planned DAG. */
     private final long factSourceActionId;
 
-    /**
-     * Stable fact-source identity retained when action IDs are regenerated.
-     */
+    /** Stable fact-source identity retained when action IDs are regenerated. */
     private final String factSourceActionUid;
 
-    /**
-     * Logical dimension-source action ID used only within the planned DAG.
-     */
+    /** Logical dimension-source action ID used only within the planned DAG. */
     private final long dimensionSourceActionId;
 
-    /**
-     * Stable dimension-source identity retained when action IDs are regenerated.
-     */
+    /** Stable dimension-source identity retained when action IDs are regenerated. */
     private final String dimensionSourceActionUid;
 
-    /**
-     * Immutable fact and dimension port bindings created by logical planning.
-     */
+    /** Immutable fact and dimension port bindings created by logical planning. */
     private final List<InputPortBinding> inputPortBindings;
 
+    /** Parsed lookup contract retained through planning and execution reconstruction. */
+    private final DynamicLookupDescriptor descriptor;
+
+    /** Materialized output schema that later transforms and sinks consume. */
+    private final CatalogTable producedCatalogTable;
+
     /**
-     * Creates the Phase-0 declaration from two direct source actions.
+     * Creates the lookup declaration from two direct source actions.
      *
      * @param id logical action ID
      * @param name action name
@@ -99,12 +92,14 @@ public final class DynamicLookupAction extends AbstractAction implements PortAwa
             @NonNull String factSourceActionUid,
             @NonNull Action dimensionInput,
             @NonNull String dimensionSourceActionUid,
+            @NonNull DynamicLookupDescriptor descriptor,
+            @NonNull CatalogTable producedCatalogTable,
             @NonNull Set<URL> jarUrls,
             @NonNull Set<ConnectorJarIdentifier> connectorJarIdentifiers) {
         super(id, name, Arrays.asList(factInput, dimensionInput), jarUrls, connectorJarIdentifiers);
         if (!(factInput instanceof SourceAction) || !(dimensionInput instanceof SourceAction)) {
             throw new IllegalArgumentException(
-                    "Phase-0 dynamic lookup requires direct SourceAction inputs");
+                    "Dynamic lookup M1 requires direct SourceAction inputs");
         }
         validate(
                 operatorUid,
@@ -118,6 +113,9 @@ public final class DynamicLookupAction extends AbstractAction implements PortAwa
         this.dimensionSourceActionId = dimensionInput.getId();
         this.dimensionSourceActionUid = dimensionSourceActionUid;
         this.inputPortBindings = bindings(id, factSourceActionId, dimensionSourceActionId);
+        this.descriptor = Objects.requireNonNull(descriptor, "descriptor");
+        this.producedCatalogTable =
+                Objects.requireNonNull(producedCatalogTable, "producedCatalogTable");
     }
 
     /**
@@ -144,6 +142,8 @@ public final class DynamicLookupAction extends AbstractAction implements PortAwa
             long dimensionSourceActionId,
             @NonNull String dimensionSourceActionUid,
             @NonNull List<InputPortBinding> inputPortBindings,
+            @NonNull DynamicLookupDescriptor descriptor,
+            @NonNull CatalogTable producedCatalogTable,
             @NonNull Set<URL> jarUrls,
             @NonNull Set<ConnectorJarIdentifier> connectorJarIdentifiers) {
         super(id, name, jarUrls, connectorJarIdentifiers);
@@ -159,8 +159,10 @@ public final class DynamicLookupAction extends AbstractAction implements PortAwa
         this.factSourceActionUid = factSourceActionUid;
         this.dimensionSourceActionId = dimensionSourceActionId;
         this.dimensionSourceActionUid = dimensionSourceActionUid;
-        this.inputPortBindings =
-                Collections.unmodifiableList(new ArrayList<>(inputPortBindings));
+        this.inputPortBindings = Collections.unmodifiableList(new ArrayList<>(inputPortBindings));
+        this.descriptor = Objects.requireNonNull(descriptor, "descriptor");
+        this.producedCatalogTable =
+                Objects.requireNonNull(producedCatalogTable, "producedCatalogTable");
     }
 
     public String getOperatorUid() {
@@ -183,9 +185,7 @@ public final class DynamicLookupAction extends AbstractAction implements PortAwa
         return dimensionSourceActionUid;
     }
 
-    /**
-     * Returns the planner-provided stable source UID for a declared input port.
-     */
+    /** Returns the planner-provided stable source UID for a declared input port. */
     public String getSourceActionUid(int targetInputPort) {
         if (targetInputPort == FACT_INPUT) {
             return factSourceActionUid;
@@ -199,6 +199,14 @@ public final class DynamicLookupAction extends AbstractAction implements PortAwa
     @Override
     public List<InputPortBinding> getInputPortBindings() {
         return inputPortBindings;
+    }
+
+    public DynamicLookupDescriptor getDescriptor() {
+        return descriptor;
+    }
+
+    public CatalogTable getProducedCatalogTable() {
+        return producedCatalogTable;
     }
 
     private static void validate(

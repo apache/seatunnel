@@ -141,6 +141,8 @@ public class ExecutionPlanGenerator {
                             lookupAction.getDimensionSourceActionId(),
                             lookupAction.getDimensionSourceActionUid(),
                             lookupAction.getInputPortBindings(),
+                            lookupAction.getDescriptor(),
+                            lookupAction.getProducedCatalogTable(),
                             action.getJarUrls(),
                             action.getConnectorJarIdentifiers());
         } else if (action instanceof DynamicLookupCoordinatorAction) {

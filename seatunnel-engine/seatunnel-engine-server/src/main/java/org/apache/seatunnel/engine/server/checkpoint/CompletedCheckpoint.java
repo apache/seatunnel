@@ -17,12 +17,12 @@
 
 package org.apache.seatunnel.engine.server.checkpoint;
 
-import org.apache.seatunnel.engine.core.checkpoint.Checkpoint;
-import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
-
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
+
+import org.apache.seatunnel.engine.core.checkpoint.Checkpoint;
+import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
 
 import java.io.Serializable;
 import java.util.Map;
@@ -46,6 +46,8 @@ public class CompletedCheckpoint implements Checkpoint, Serializable {
 
     private final Map<Long, TaskStatistics> taskStatistics;
 
+    private final CheckpointIntent checkpointIntent;
+
     @Getter @Setter private volatile boolean isRestored = false;
 
     public CompletedCheckpoint(
@@ -57,6 +59,28 @@ public class CompletedCheckpoint implements Checkpoint, Serializable {
             long completedTimestamp,
             Map<ActionStateKey, ActionState> taskStates,
             Map<Long, TaskStatistics> taskStatistics) {
+        this(
+                jobId,
+                pipelineId,
+                checkpointId,
+                triggerTimestamp,
+                checkpointType,
+                completedTimestamp,
+                taskStates,
+                taskStatistics,
+                CheckpointIntent.normal(jobId, pipelineId, checkpointId));
+    }
+
+    public CompletedCheckpoint(
+            long jobId,
+            int pipelineId,
+            long checkpointId,
+            long triggerTimestamp,
+            CheckpointType checkpointType,
+            long completedTimestamp,
+            Map<ActionStateKey, ActionState> taskStates,
+            Map<Long, TaskStatistics> taskStatistics,
+            CheckpointIntent checkpointIntent) {
         this.jobId = jobId;
         this.pipelineId = pipelineId;
         this.checkpointId = checkpointId;
@@ -65,6 +89,7 @@ public class CompletedCheckpoint implements Checkpoint, Serializable {
         this.completedTimestamp = completedTimestamp;
         this.taskStates = taskStates;
         this.taskStatistics = taskStatistics;
+        this.checkpointIntent = checkpointIntent;
     }
 
     @Override
@@ -102,5 +127,11 @@ public class CompletedCheckpoint implements Checkpoint, Serializable {
 
     public Map<Long, TaskStatistics> getTaskStatistics() {
         return taskStatistics;
+    }
+
+    public CheckpointIntent getCheckpointIntent() {
+        return checkpointIntent == null
+                ? CheckpointIntent.normal(jobId, pipelineId, checkpointId)
+                : checkpointIntent;
     }
 }

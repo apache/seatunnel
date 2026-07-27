@@ -17,6 +17,14 @@
 
 package org.apache.seatunnel.engine.server.task;
 
+import static org.apache.seatunnel.api.options.EnvCommonOptions.SINK_FLUSH_INTERVAL;
+
+import com.hazelcast.logging.ILogger;
+import com.hazelcast.logging.Logger;
+
+import lombok.Getter;
+import lombok.NonNull;
+
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.serialization.Serializer;
@@ -37,17 +45,10 @@ import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.flow.SourceFlowLifeCycle;
 import org.apache.seatunnel.engine.server.task.record.Barrier;
 
-import com.hazelcast.logging.ILogger;
-import com.hazelcast.logging.Logger;
-import lombok.Getter;
-import lombok.NonNull;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
-
-import static org.apache.seatunnel.api.options.EnvCommonOptions.SINK_FLUSH_INTERVAL;
 
 public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunnelTask {
 
@@ -135,6 +136,7 @@ public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunne
         }
         return new SourceFlowLifeCycle<>(
                 sourceAction,
+                config,
                 indexID,
                 config.getEnumeratorTask(),
                 this,
@@ -149,7 +151,8 @@ public class SourceSeaTunnelTask<T, SplitT extends SourceSplit> extends SeaTunne
         ((SourceFlowLifeCycle<T, SplitT>) startFlowLifeCycle).collect();
     }
 
-    @NonNull @Override
+    @NonNull
+    @Override
     public ProgressState call() throws Exception {
         stateProcess();
         return progress.toState();

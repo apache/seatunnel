@@ -29,32 +29,24 @@ import java.util.Objects;
 /**
  * Versioned exchange envelope attached to a {@link PortAwareLogicalEdge}.
  *
- * <p>PR-1 freezes the envelope and supports only {@link DistributionType#FORWARD}. The later
- * exchange proposal can add a new descriptor version without changing the legacy {@link
- * LogicalEdge} wire layout or guessing a version from trailing bytes.
+ * <p>The current runtime supports only {@link DistributionType#FORWARD}. Later exchange work can
+ * add a new descriptor version without changing the legacy {@link LogicalEdge} wire layout or
+ * guessing a version from trailing bytes.
  */
 public final class ExchangeDescriptor implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    /**
-     * Defensive upper bound for a future versioned canonical descriptor payload.
-     */
+    /** Defensive upper bound for a future versioned canonical descriptor payload. */
     private static final int MAX_CANONICAL_BYTES = 1024;
 
-    /**
-     * Canonical descriptor version implemented by this Phase-0 prototype.
-     */
+    /** Canonical descriptor version implemented by the current dynamic lookup runtime. */
     public static final int CURRENT_VERSION = 1;
 
-    /**
-     * Canonical descriptor format version written independently of Java serialization.
-     */
+    /** Canonical descriptor format version written independently of Java serialization. */
     private final int protocolVersion;
 
-    /**
-     * Stable routing mode encoded through an explicit wire code.
-     */
+    /** Stable routing mode encoded through an explicit wire code. */
     private final DistributionType distributionType;
 
     /**
@@ -72,9 +64,7 @@ public final class ExchangeDescriptor implements Serializable {
         this.distributionType = Objects.requireNonNull(distributionType, "distributionType");
     }
 
-    /**
-     * Returns the only routing declaration supported by the Phase-0 multi-input proposal.
-     */
+    /** Returns the only routing declaration supported by the current dynamic lookup runtime. */
     public static ExchangeDescriptor forward() {
         return new ExchangeDescriptor(CURRENT_VERSION, DistributionType.FORWARD);
     }
@@ -98,18 +88,14 @@ public final class ExchangeDescriptor implements Serializable {
                 .array();
     }
 
-    /**
-     * Writes a length-framed canonical descriptor.
-     */
+    /** Writes a length-framed canonical descriptor. */
     public void writeTo(ObjectDataOutput out) throws IOException {
         byte[] canonicalBytes = toCanonicalBytes();
         out.writeInt(canonicalBytes.length);
         out.write(canonicalBytes);
     }
 
-    /**
-     * Reads and validates a length-framed canonical descriptor.
-     */
+    /** Reads and validates a length-framed canonical descriptor. */
     public static ExchangeDescriptor readFrom(ObjectDataInput in) throws IOException {
         int payloadLength = in.readInt();
         if (payloadLength <= 0 || payloadLength > MAX_CANONICAL_BYTES) {
@@ -120,9 +106,7 @@ public final class ExchangeDescriptor implements Serializable {
         return fromCanonicalBytes(payload);
     }
 
-    /**
-     * Decodes a canonical descriptor and rejects unknown or malformed versions.
-     */
+    /** Decodes a canonical descriptor and rejects unknown or malformed versions. */
     public static ExchangeDescriptor fromCanonicalBytes(byte[] payload) throws IOException {
         if (payload == null || payload.length != Integer.BYTES * 2) {
             throw new IOException(
@@ -139,7 +123,8 @@ public final class ExchangeDescriptor implements Serializable {
             return new ExchangeDescriptor(
                     version, DistributionType.fromWireCode(distributionWireCode));
         } catch (IllegalArgumentException e) {
-            throw new IOException("Unknown exchange distribution wire code: " + distributionWireCode, e);
+            throw new IOException(
+                    "Unknown exchange distribution wire code: " + distributionWireCode, e);
         }
     }
 

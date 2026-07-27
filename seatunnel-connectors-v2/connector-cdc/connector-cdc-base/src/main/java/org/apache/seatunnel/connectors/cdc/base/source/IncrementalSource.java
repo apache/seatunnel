@@ -17,11 +17,15 @@
 
 package org.apache.seatunnel.connectors.cdc.base.source;
 
-import org.apache.seatunnel.shade.com.google.common.collect.Sets;
+import io.debezium.relational.TableId;
+
+import lombok.NoArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.Boundedness;
+import org.apache.seatunnel.api.source.DynamicLookupSourceCapability;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
@@ -64,10 +68,7 @@ import org.apache.seatunnel.connectors.seatunnel.common.source.reader.RecordEmit
 import org.apache.seatunnel.connectors.seatunnel.common.source.reader.RecordsWithSplitIds;
 import org.apache.seatunnel.connectors.seatunnel.common.source.reader.SourceReaderOptions;
 import org.apache.seatunnel.format.compatible.debezium.json.CompatibleDebeziumJsonDeserializationSchema;
-
-import io.debezium.relational.TableId;
-import lombok.NoArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.apache.seatunnel.shade.com.google.common.collect.Sets;
 
 import java.sql.DriverManager;
 import java.util.ArrayList;
@@ -88,7 +89,15 @@ import java.util.stream.Stream;
 @NoArgsConstructor
 @Slf4j
 public abstract class IncrementalSource<T, C extends SourceConfig>
-        implements SeaTunnelSource<T, SourceSplitBase, PendingSplitsState> {
+        implements SeaTunnelSource<T, SourceSplitBase, PendingSplitsState>,
+                DynamicLookupSourceCapability {
+
+    private static final Set<String> DYNAMIC_LOOKUP_CAPABILITIES =
+            Collections.unmodifiableSet(
+                    Sets.newHashSet(
+                            DynamicLookupSourceCapability.ORDERED_BOOTSTRAP_V1,
+                            DynamicLookupSourceCapability.PK_UPDATE_REJECT_V1,
+                            DynamicLookupSourceCapability.ATOMIC_UPDATE_PAIR_V1));
 
     static {
         // Load DriverManager first to avoid deadlock between DriverManager's
@@ -256,6 +265,11 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
                         && startupConfig.getStartupMode() != StartupMode.SNAPSHOT_ONLY
                 ? Boundedness.UNBOUNDED
                 : Boundedness.BOUNDED;
+    }
+
+    @Override
+    public Set<String> dynamicLookupCapabilities() {
+        return DYNAMIC_LOOKUP_CAPABILITIES;
     }
 
     @SuppressWarnings("MagicNumber")

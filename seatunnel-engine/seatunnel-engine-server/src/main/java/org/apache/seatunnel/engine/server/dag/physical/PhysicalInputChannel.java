@@ -23,31 +23,21 @@ import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import java.io.Serializable;
 import java.util.Objects;
 
-/**
- * Physical endpoint declaration for one logical input channel.
- */
+/** Physical endpoint declaration for one logical input channel. */
 public final class PhysicalInputChannel implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    /**
-     * Stable channel identity independent of deployments and reconnects.
-     */
+    /** Stable channel identity independent of deployments and reconnects. */
     private final LogicalChannelKey logicalChannelKey;
 
-    /**
-     * Current physical source endpoint assigned by planning.
-     */
+    /** Current physical source endpoint assigned by planning. */
     private final TaskLocation sourceTaskLocation;
 
-    /**
-     * Current physical target endpoint assigned by planning.
-     */
+    /** Current physical target endpoint assigned by planning. */
     private final TaskLocation targetTaskLocation;
 
-    /**
-     * Versioned routing declaration for the channel.
-     */
+    /** Versioned routing declaration for the channel. */
     private final ExchangeDescriptor exchangeDescriptor;
 
     /**
@@ -63,14 +53,10 @@ public final class PhysicalInputChannel implements Serializable {
             TaskLocation sourceTaskLocation,
             TaskLocation targetTaskLocation,
             ExchangeDescriptor exchangeDescriptor) {
-        this.logicalChannelKey =
-                Objects.requireNonNull(logicalChannelKey, "logicalChannelKey");
-        this.sourceTaskLocation =
-                Objects.requireNonNull(sourceTaskLocation, "sourceTaskLocation");
-        this.targetTaskLocation =
-                Objects.requireNonNull(targetTaskLocation, "targetTaskLocation");
-        this.exchangeDescriptor =
-                Objects.requireNonNull(exchangeDescriptor, "exchangeDescriptor");
+        this.logicalChannelKey = Objects.requireNonNull(logicalChannelKey, "logicalChannelKey");
+        this.sourceTaskLocation = Objects.requireNonNull(sourceTaskLocation, "sourceTaskLocation");
+        this.targetTaskLocation = Objects.requireNonNull(targetTaskLocation, "targetTaskLocation");
+        this.exchangeDescriptor = Objects.requireNonNull(exchangeDescriptor, "exchangeDescriptor");
     }
 
     public LogicalChannelKey getLogicalChannelKey() {
@@ -89,9 +75,7 @@ public final class PhysicalInputChannel implements Serializable {
         return exchangeDescriptor;
     }
 
-    /**
-     * Binds this stable logical channel to one concrete pair of deployment attempts.
-     */
+    /** Binds this stable logical channel to one concrete pair of deployment attempts. */
     public ChannelAttemptId bindAttempts(
             long jobExecutionEpoch,
             long sourceDeploymentAttempt,

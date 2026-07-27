@@ -17,17 +17,13 @@
 
 package org.apache.seatunnel.engine.server.checkpoint;
 
-/**
- * Stable checkpoint identity for an operator-scoped coordinator.
- */
+/** Stable checkpoint identity for an operator-scoped coordinator. */
 public final class CoordinatorStateKey extends ActionStateKey {
 
     private static final long serialVersionUID = 1L;
     private static final String NAME_PREFIX = "DynamicLookupCoordinatorStateKey - ";
 
-    /**
-     * Stable operator identity embedded in the checkpoint map key.
-     */
+    /** Stable operator identity embedded in the checkpoint map key. */
     private final String operatorUid;
 
     /**
@@ -44,9 +40,7 @@ public final class CoordinatorStateKey extends ActionStateKey {
         return operatorUid;
     }
 
-    /**
-     * Coordinator checkpoint identities are immutable once used as map keys.
-     */
+    /** Coordinator checkpoint identities are immutable once used as map keys. */
     @Override
     public void setName(String ignored) {
         throw new UnsupportedOperationException("CoordinatorStateKey is immutable");

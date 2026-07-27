@@ -99,9 +99,7 @@ public class PhysicalVertex {
     // including the storage path of the Jar package on the server.
     private final List<Set<ConnectorJarIdentifier>> connectorJarIdentifiers;
 
-    /**
-     * Immutable port-aware deployment metadata; empty for every legacy vertex.
-     */
+    /** Immutable port-aware deployment metadata; empty for every legacy vertex. */
     private final List<InputPortDescriptor> inputPorts;
 
     private final IMap<Object, Object> runningJobStateIMap;

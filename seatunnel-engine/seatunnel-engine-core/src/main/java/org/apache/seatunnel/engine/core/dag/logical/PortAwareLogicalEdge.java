@@ -34,34 +34,22 @@ import java.util.Objects;
  */
 public final class PortAwareLogicalEdge extends LogicalEdge {
 
-    /**
-     * Tagged payload version for the dedicated port-aware Hazelcast class ID.
-     */
+    /** Tagged payload version for the dedicated port-aware Hazelcast class ID. */
     public static final int CURRENT_FORMAT_VERSION = 1;
 
-    /**
-     * Version of the tagged edge payload, separate from the legacy edge format.
-     */
+    /** Version of the tagged edge payload, separate from the legacy edge format. */
     private int edgeFormatVersion;
 
-    /**
-     * Stable logical identity propagated through all planning layers.
-     */
+    /** Stable logical identity propagated through all planning layers. */
     private long edgeId;
 
-    /**
-     * Target input port declared by the planner.
-     */
+    /** Target input port declared by the planner. */
     private int targetInputPort;
 
-    /**
-     * Versioned routing declaration for this edge.
-     */
+    /** Versioned routing declaration for this edge. */
     private ExchangeDescriptor exchangeDescriptor;
 
-    /**
-     * Creates an empty instance for Hazelcast identified-data deserialization.
-     */
+    /** Creates an empty instance for Hazelcast identified-data deserialization. */
     public PortAwareLogicalEdge() {}
 
     /**

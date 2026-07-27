@@ -50,9 +50,7 @@ public class CheckpointPlan {
     /** All starting task of a pipeline. */
     private final Set<TaskLocation> startingSubtasks;
 
-    /**
-     * Coordinator tasks that receive checkpoint triggers but are not source completion roots.
-     */
+    /** Coordinator tasks that receive checkpoint triggers but are not source completion roots. */
     private final Set<TaskLocation> coordinatorCheckpointRoots;
 
     /**
@@ -69,17 +67,10 @@ public class CheckpointPlan {
      */
     private final Map<TaskLocation, Set<Tuple2<ActionStateKey, Integer>>> subtaskActions;
 
-    /**
-     * Stable operator coordinator identity to physical task mapping.
-     */
+    /** Stable operator coordinator identity to physical task mapping. */
     private final Map<CoordinatorStateKey, TaskLocation> coordinatorTasks;
 
-    /**
-     * Input-port topology retained for the disabled PR-1 task prototype.
-     *
-     * <p>These tasks do not enter {@link #pipelineSubtasks} until PR-3 supplies barrier routing and
-     * ACK semantics.
-     */
+    /** Input-port topology used by dynamic lookup tasks for checkpoint barrier ownership. */
     private final Map<TaskLocation, List<InputPortDescriptor>> inputPortsByTask;
 
     public static final class Builder {
@@ -123,8 +114,7 @@ public class CheckpointPlan {
             return this;
         }
 
-        public Builder coordinatorTasks(
-                Map<CoordinatorStateKey, TaskLocation> coordinatorTasks) {
+        public Builder coordinatorTasks(Map<CoordinatorStateKey, TaskLocation> coordinatorTasks) {
             this.coordinatorTasks.putAll(coordinatorTasks);
             return this;
         }

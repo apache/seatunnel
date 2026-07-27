@@ -34,14 +34,10 @@ public final class DynamicLookupCoordinatorAction extends AbstractAction {
 
     private static final long serialVersionUID = 1L;
 
-    /**
-     * Stable identity shared with the paired lookup action.
-     */
+    /** Stable identity shared with the paired lookup action. */
     private final String operatorUid;
 
-    /**
-     * Logical identity of the paired lookup action.
-     */
+    /** Logical identity of the paired lookup action. */
     private final long lookupActionId;
 
     /**
@@ -67,9 +63,7 @@ public final class DynamicLookupCoordinatorAction extends AbstractAction {
         setParallelism(1);
     }
 
-    /**
-     * Creates the unique coordinator action for a dynamic lookup action.
-     */
+    /** Creates the unique coordinator action for a dynamic lookup action. */
     public static DynamicLookupCoordinatorAction from(DynamicLookupAction lookupAction) {
         long coordinatorActionId = lookupAction.getId() ^ Long.MIN_VALUE;
         return new DynamicLookupCoordinatorAction(

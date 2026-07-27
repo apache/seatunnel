@@ -22,21 +22,15 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-/**
- * Immutable set of physical channels assigned to one target input port.
- */
+/** Immutable set of physical channels assigned to one target input port. */
 public final class InputPortDescriptor implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    /**
-     * Explicit target port ID.
-     */
+    /** Explicit target port ID. */
     private final int inputPortId;
 
-    /**
-     * Immutable physical channels routed to this port.
-     */
+    /** Immutable physical channels routed to this port. */
     private final List<PhysicalInputChannel> channels;
 
     /**

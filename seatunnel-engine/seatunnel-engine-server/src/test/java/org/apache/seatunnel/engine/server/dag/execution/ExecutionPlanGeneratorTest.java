@@ -20,12 +20,21 @@ package org.apache.seatunnel.engine.server.dag.execution;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.core.dag.actions.DynamicLookupAction;
+import org.apache.seatunnel.engine.core.dag.actions.DynamicLookupDescriptor;
+import org.apache.seatunnel.engine.core.dag.actions.DynamicLookupProjectionField;
+import org.apache.seatunnel.engine.core.dag.actions.DynamicLookupSideSpec;
 import org.apache.seatunnel.engine.core.dag.actions.PortAwareAction;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
@@ -39,8 +48,10 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -137,6 +148,8 @@ public class ExecutionPlanGeneratorTest {
                         "orders",
                         dimension,
                         "customer_dimension",
+                        lookupDescriptor("lookup-output"),
+                        lookupCatalogTable("lookup-output"),
                         Collections.emptySet(),
                         Collections.emptySet());
         lookup.setParallelism(3);
@@ -274,8 +287,7 @@ public class ExecutionPlanGeneratorTest {
                 dynamicLookup(
                         24L, "lookup-1", fact, "orders", firstDimension, "customer_dimension");
         DynamicLookupAction second =
-                dynamicLookup(
-                        25L, "lookup-2", fact, "orders", secondDimension, "region_dimension");
+                dynamicLookup(25L, "lookup-2", fact, "orders", secondDimension, "region_dimension");
 
         IllegalArgumentException error =
                 Assertions.assertThrows(
@@ -287,8 +299,7 @@ public class ExecutionPlanGeneratorTest {
                                                 new IdGenerator())
                                         .generate());
 
-        Assertions.assertTrue(
-                error.getMessage().contains("DYNAMIC_LOOKUP_SOURCE_MULTIPLE_OWNERS"));
+        Assertions.assertTrue(error.getMessage().contains("DYNAMIC_LOOKUP_SOURCE_MULTIPLE_OWNERS"));
     }
 
     @Test
@@ -320,17 +331,16 @@ public class ExecutionPlanGeneratorTest {
                                                 new IdGenerator())
                                         .generate());
 
-        Assertions.assertTrue(
-                error.getMessage().contains("DYNAMIC_LOOKUP_OPERATOR_UID_COLLISION"));
+        Assertions.assertTrue(error.getMessage().contains("DYNAMIC_LOOKUP_OPERATOR_UID_COLLISION"));
     }
 
     @Test
     @SuppressWarnings({"rawtypes", "unchecked"})
-    public void testPhaseZeroRejectsUnmaterializedLookupOutput() {
+    public void testDynamicLookupOutputCanFeedDownstreamSink() {
         DynamicLookupAction lookup =
                 dynamicLookup(
                         41L,
-                        "terminal-prototype",
+                        "lookup-with-output",
                         sourceAction(42L, "fact"),
                         "orders",
                         sourceAction(43L, "dimension"),
@@ -344,23 +354,28 @@ public class ExecutionPlanGeneratorTest {
                         Collections.emptySet(),
                         Collections.emptySet());
 
-        IllegalArgumentException error =
-                Assertions.assertThrows(
-                        IllegalArgumentException.class,
-                        () ->
-                                new LogicalDagGenerator(
-                                                Collections.singletonList(sink),
-                                                new JobConfig(),
-                                                new IdGenerator())
-                                        .generate());
+        LogicalDag logicalDag =
+                new LogicalDagGenerator(
+                                Collections.singletonList(sink), new JobConfig(), new IdGenerator())
+                        .generate();
+        ExecutionPlan executionPlan =
+                new ExecutionPlanGenerator(
+                                logicalDag, new JobImmutableInformation(), new EngineConfig())
+                        .generate();
 
         Assertions.assertTrue(
-                error.getMessage()
-                        .contains("terminal multi-input descriptor prototype"));
+                executionPlan.getPipelines().stream()
+                        .flatMap(pipeline -> pipeline.getEdges().stream())
+                        .anyMatch(
+                                edge ->
+                                        edge.getLeftVertex().getAction()
+                                                        instanceof DynamicLookupAction
+                                                && edge.getRightVertex().getAction()
+                                                        instanceof SinkAction));
     }
 
     @Test
-    public void testPhaseZeroRejectsOtherPortAwareActionTypes() {
+    public void testDynamicLookupRejectsOtherPortAwareActionTypes() {
         PortAwareAction unsupportedAction = Mockito.mock(PortAwareAction.class);
         Mockito.when(unsupportedAction.getId()).thenReturn(51L);
         Mockito.when(unsupportedAction.getName()).thenReturn("unsupported-port-aware-action");
@@ -375,8 +390,7 @@ public class ExecutionPlanGeneratorTest {
                                                 new IdGenerator())
                                         .generate());
 
-        Assertions.assertTrue(
-                error.getMessage().contains("only DynamicLookupAction"));
+        Assertions.assertTrue(error.getMessage().contains("only DynamicLookupAction"));
     }
 
     @Test
@@ -450,7 +464,39 @@ public class ExecutionPlanGeneratorTest {
                 factSourceUid,
                 dimension,
                 dimensionSourceUid,
+                lookupDescriptor("lookup-" + id),
+                lookupCatalogTable("lookup-" + id),
                 Collections.emptySet(),
                 Collections.emptySet());
+    }
+
+    private static DynamicLookupDescriptor lookupDescriptor(String outputId) {
+        return new DynamicLookupDescriptor(
+                outputId,
+                new DynamicLookupSideSpec(
+                        "orders",
+                        "orders",
+                        Collections.singletonList("id"),
+                        Collections.singletonList(0)),
+                new DynamicLookupSideSpec(
+                        "customer_dimension",
+                        "customer_dimension",
+                        Collections.singletonList("id"),
+                        Collections.singletonList(0)),
+                DynamicLookupDescriptor.JoinType.LEFT,
+                Collections.singletonList(
+                        new DynamicLookupProjectionField(
+                                DynamicLookupProjectionField.InputSide.FACT, "id", 0, "id")));
+    }
+
+    private static CatalogTable lookupCatalogTable(String outputId) {
+        List<Column> columns = new ArrayList<>();
+        columns.add(PhysicalColumn.of("id", BasicType.INT_TYPE, 11L, 0, true, null, ""));
+        return CatalogTable.of(
+                TableIdentifier.of("default", TablePath.of("default", outputId)),
+                TableSchema.builder().columns(columns).build(),
+                new HashMap<>(),
+                Collections.emptyList(),
+                "dynamic lookup output");
     }
 }

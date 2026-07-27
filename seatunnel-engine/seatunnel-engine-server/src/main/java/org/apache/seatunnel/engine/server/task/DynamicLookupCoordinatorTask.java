@@ -47,28 +47,23 @@ import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTask
 import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.WAITING_RESTORE;
 
 /**
- * Operator-scoped coordinator task introduced by the Phase-0 physical-plan proposal.
+ * Operator-scoped coordinator task for dynamic lookup control-plane state.
  *
- * <p>It participates in lifecycle and checkpoint topology with an empty state payload. Bootstrap,
- * leases, ready aggregation, and gate commands remain disabled until the bootstrap proposal.
+ * <p>The current runtime participates in lifecycle and checkpoint topology with an empty state
+ * payload. Bootstrap leases, ready aggregation, and source gate commands are still fenced out until
+ * their protocol state is implemented.
  */
 public final class DynamicLookupCoordinatorTask extends CoordinatorTask {
 
     private static final long serialVersionUID = 1L;
 
-    /**
-     * Immutable control-plane action paired with the lookup declaration.
-     */
+    /** Immutable control-plane action paired with the lookup declaration. */
     private final DynamicLookupCoordinatorAction action;
 
-    /**
-     * Stable operator-scoped checkpoint identity.
-     */
+    /** Stable operator-scoped checkpoint identity. */
     private final CoordinatorStateKey coordinatorStateKey;
 
-    /**
-     * Local lifecycle state for the disabled Phase-0 coordinator shell.
-     */
+    /** Local lifecycle state for the coordinator shell. */
     private volatile SeaTunnelTaskState currentState;
 
     /**

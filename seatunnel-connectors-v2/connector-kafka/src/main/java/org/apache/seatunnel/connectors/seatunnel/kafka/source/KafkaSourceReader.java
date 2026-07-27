@@ -17,6 +17,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kafka.source;
 
+import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.kafka.clients.consumer.OffsetAndMetadata;
+import org.apache.kafka.common.TopicPartition;
+import org.apache.seatunnel.api.source.FactSourceGateCapability;
+import org.apache.seatunnel.api.source.SourceGateCommand;
+import org.apache.seatunnel.api.source.SourceGateState;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.common.source.reader.RecordEmitter;
@@ -25,14 +31,18 @@ import org.apache.seatunnel.connectors.seatunnel.common.source.reader.SingleThre
 import org.apache.seatunnel.connectors.seatunnel.common.source.reader.SourceReaderOptions;
 import org.apache.seatunnel.connectors.seatunnel.common.source.reader.fetcher.SingleThreadFetcherManager;
 import org.apache.seatunnel.connectors.seatunnel.kafka.source.fetch.KafkaSourceFetcherManager;
-
-import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.kafka.clients.consumer.OffsetAndMetadata;
-import org.apache.kafka.common.TopicPartition;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -48,7 +58,8 @@ public class KafkaSourceReader
                 ConsumerRecord<byte[], byte[]>,
                 SeaTunnelRow,
                 KafkaSourceSplit,
-                KafkaSourceSplitState> {
+                KafkaSourceSplitState>
+        implements FactSourceGateCapability {
 
     private static final Logger logger = LoggerFactory.getLogger(KafkaSourceReader.class);
     private final SourceReader.Context context;
@@ -57,6 +68,10 @@ public class KafkaSourceReader
     private final SortedMap<Long, Map<TopicPartition, OffsetAndMetadata>> checkpointOffsetMap;
 
     private final ConcurrentMap<TopicPartition, OffsetAndMetadata> offsetsOfFinishedSplits;
+    private final Object gateLock = new Object();
+    private final List<KafkaSourceSplit> stagedSplits = new ArrayList<>();
+    private volatile boolean gateOpen = true;
+    private volatile boolean stagedNoMoreSplits;
 
     KafkaSourceReader(
             BlockingQueue<RecordsWithSplitIds<ConsumerRecord<byte[], byte[]>>> elementsQueue,
@@ -72,6 +87,15 @@ public class KafkaSourceReader
         this.context = context;
         this.checkpointOffsetMap = Collections.synchronizedSortedMap(new TreeMap<>());
         this.offsetsOfFinishedSplits = new ConcurrentHashMap<>();
+    }
+
+    @Override
+    public void pollNext(org.apache.seatunnel.api.source.Collector<SeaTunnelRow> output)
+            throws Exception {
+        if (!gateOpen) {
+            return;
+        }
+        super.pollNext(output);
     }
 
     @Override
@@ -102,7 +126,10 @@ public class KafkaSourceReader
 
     @Override
     public List<KafkaSourceSplit> snapshotState(long checkpointId) {
-        List<KafkaSourceSplit> sourceSplits = super.snapshotState(checkpointId);
+        List<KafkaSourceSplit> sourceSplits;
+        synchronized (gateLock) {
+            sourceSplits = gateOpen ? super.snapshotState(checkpointId) : copySplits(stagedSplits);
+        }
         if (!kafkaSourceConfig.isCommitOnCheckpoint()) {
             return sourceSplits;
         }
@@ -123,6 +150,101 @@ public class KafkaSourceReader
             offsetAndMetadataMap.putAll(offsetsOfFinishedSplits);
         }
         return sourceSplits;
+    }
+
+    @Override
+    public void addSplits(List<KafkaSourceSplit> splits) {
+        synchronized (gateLock) {
+            if (!gateOpen) {
+                splits.stream().map(KafkaSourceSplit::copy).forEach(stagedSplits::add);
+                return;
+            }
+        }
+        super.addSplits(splits);
+    }
+
+    @Override
+    public void handleNoMoreSplits() {
+        synchronized (gateLock) {
+            if (!gateOpen) {
+                stagedNoMoreSplits = true;
+                return;
+            }
+        }
+        super.handleNoMoreSplits();
+    }
+
+    @Override
+    public void prepareClosedGate() {
+        synchronized (gateLock) {
+            gateOpen = false;
+            stagedSplits.clear();
+            stagedNoMoreSplits = false;
+        }
+    }
+
+    @Override
+    public SourceGateState snapshotGate(long checkpointId) throws Exception {
+        synchronized (gateLock) {
+            List<SourceGateState.PreparedSplit> preparedSplits =
+                    new ArrayList<>(stagedSplits.size());
+            for (KafkaSourceSplit split : stagedSplits) {
+                byte[] serializedSplit = serializeSplit(split);
+                preparedSplits.add(
+                        new SourceGateState.PreparedSplit(
+                                split.splitId(), serializedSplit, sha256(serializedSplit)));
+            }
+            return new SourceGateState(gateOpen, stagedNoMoreSplits, preparedSplits);
+        }
+    }
+
+    @Override
+    public void restoreGateState(SourceGateState gateState) throws Exception {
+        List<KafkaSourceSplit> restoredSplits = new ArrayList<>();
+        for (SourceGateState.PreparedSplit preparedSplit : gateState.getPreparedSplits()) {
+            byte[] serializedSplit = preparedSplit.getSerializedSplit();
+            if (!Arrays.equals(sha256(serializedSplit), preparedSplit.getSerializedSplitDigest())) {
+                throw new IOException(
+                        "Kafka source gate split digest mismatch: " + preparedSplit.getSplitId());
+            }
+            restoredSplits.add(deserializeSplit(serializedSplit));
+        }
+        synchronized (gateLock) {
+            stagedSplits.clear();
+            stagedSplits.addAll(restoredSplits);
+            stagedNoMoreSplits = gateState.isNoMoreSplits();
+            gateOpen = false;
+        }
+        if (gateState.isGateOpen()) {
+            activateStagedSplits();
+        }
+    }
+
+    @Override
+    public void applyGateCommand(SourceGateCommand command) {
+        switch (command) {
+            case OPEN:
+                activateStagedSplits();
+                return;
+            case CLOSE:
+                synchronized (gateLock) {
+                    if (gateOpen) {
+                        throw new IllegalStateException(
+                                "Kafka source gate cannot be closed after activation");
+                    }
+                }
+                return;
+            case ABORT:
+                synchronized (gateLock) {
+                    stagedSplits.clear();
+                    stagedNoMoreSplits = false;
+                    gateOpen = false;
+                }
+                return;
+            default:
+                throw new IllegalArgumentException(
+                        "Unsupported Kafka source gate command: " + command);
+        }
     }
 
     @Override
@@ -167,6 +289,61 @@ public class KafkaSourceReader
     private void removeAllOffsetsToCommitUpToCheckpoint(long checkpointId) {
         while (!checkpointOffsetMap.isEmpty() && checkpointOffsetMap.firstKey() <= checkpointId) {
             checkpointOffsetMap.remove(checkpointOffsetMap.firstKey());
+        }
+    }
+
+    private void activateStagedSplits() {
+        List<KafkaSourceSplit> splitsToActivate;
+        boolean noMoreSplits;
+        synchronized (gateLock) {
+            if (gateOpen) {
+                return;
+            }
+            gateOpen = true;
+            splitsToActivate = copySplits(stagedSplits);
+            stagedSplits.clear();
+            noMoreSplits = stagedNoMoreSplits;
+            stagedNoMoreSplits = false;
+        }
+        if (!splitsToActivate.isEmpty()) {
+            super.addSplits(splitsToActivate);
+        }
+        if (noMoreSplits) {
+            super.handleNoMoreSplits();
+        }
+    }
+
+    private static List<KafkaSourceSplit> copySplits(List<KafkaSourceSplit> splits) {
+        List<KafkaSourceSplit> copies = new ArrayList<>(splits.size());
+        splits.stream().map(KafkaSourceSplit::copy).forEach(copies::add);
+        return copies;
+    }
+
+    private static byte[] serializeSplit(KafkaSourceSplit split) throws IOException {
+        ByteArrayOutputStream output = new ByteArrayOutputStream();
+        try (ObjectOutputStream objectOutputStream = new ObjectOutputStream(output)) {
+            objectOutputStream.writeObject(split);
+        }
+        return output.toByteArray();
+    }
+
+    private static KafkaSourceSplit deserializeSplit(byte[] serializedSplit)
+            throws IOException, ClassNotFoundException {
+        try (ObjectInputStream objectInputStream =
+                new ObjectInputStream(new ByteArrayInputStream(serializedSplit))) {
+            Object split = objectInputStream.readObject();
+            if (!(split instanceof KafkaSourceSplit)) {
+                throw new IOException("Unexpected Kafka source gate split type: " + split);
+            }
+            return ((KafkaSourceSplit) split).copy();
+        }
+    }
+
+    private static byte[] sha256(byte[] payload) throws IOException {
+        try {
+            return MessageDigest.getInstance("SHA-256").digest(payload);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IOException("SHA-256 is required by the Java runtime", e);
         }
     }
 }

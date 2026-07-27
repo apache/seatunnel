@@ -18,7 +18,11 @@
 package org.apache.seatunnel.engine.server.dag.physical;
 
 import java.io.Serializable;
-import java.util.Objects;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.Arrays;
 
 /**
  * Stable identity of one logical upstream-to-downstream channel.
@@ -30,39 +34,25 @@ public final class LogicalChannelKey implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
-    /**
-     * Stable job identity shared by every deployment attempt of the channel.
-     */
+    /** Stable job identity shared by every deployment attempt of the channel. */
     private final String jobId;
 
-    /**
-     * Stable lookup operator identity used by checkpoint and coordinator state.
-     */
+    /** Stable lookup operator identity used by checkpoint and coordinator state. */
     private final String operatorUid;
 
-    /**
-     * Planner-provided source identity; runtime action IDs are deliberately excluded.
-     */
+    /** Planner-provided source identity; runtime action IDs are deliberately excluded. */
     private final String sourceActionUid;
 
-    /**
-     * Stable logical edge identity.
-     */
+    /** Stable logical edge identity. */
     private final long edgeId;
 
-    /**
-     * Target fact or dimension input port.
-     */
+    /** Target fact or dimension input port. */
     private final int targetInputPort;
 
-    /**
-     * Logical upstream subtask index.
-     */
+    /** Logical upstream subtask index. */
     private final int upstreamSubtask;
 
-    /**
-     * Logical downstream subtask index.
-     */
+    /** Logical downstream subtask index. */
     private final int downstreamSubtask;
 
     /**
@@ -139,6 +129,42 @@ public final class LogicalChannelKey implements Serializable {
         return downstreamSubtask;
     }
 
+    /** Returns canonical bytes for stable hashing and envelope validation. */
+    public byte[] toCanonicalBytes() {
+        byte[] jobBytes = jobId.getBytes(StandardCharsets.UTF_8);
+        byte[] operatorBytes = operatorUid.getBytes(StandardCharsets.UTF_8);
+        byte[] sourceBytes = sourceActionUid.getBytes(StandardCharsets.UTF_8);
+        return ByteBuffer.allocate(
+                        Integer.BYTES
+                                + jobBytes.length
+                                + Integer.BYTES
+                                + operatorBytes.length
+                                + Integer.BYTES
+                                + sourceBytes.length
+                                + Long.BYTES
+                                + Integer.BYTES * 3)
+                .putInt(jobBytes.length)
+                .put(jobBytes)
+                .putInt(operatorBytes.length)
+                .put(operatorBytes)
+                .putInt(sourceBytes.length)
+                .put(sourceBytes)
+                .putLong(edgeId)
+                .putInt(targetInputPort)
+                .putInt(upstreamSubtask)
+                .putInt(downstreamSubtask)
+                .array();
+    }
+
+    /** Returns SHA-256 over the canonical channel identity. */
+    public byte[] canonicalDigest() {
+        try {
+            return MessageDigest.getInstance("SHA-256").digest(toCanonicalBytes());
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 is required by the Java runtime", e);
+        }
+    }
+
     @Override
     public boolean equals(Object other) {
         if (this == other) {
@@ -159,14 +185,7 @@ public final class LogicalChannelKey implements Serializable {
 
     @Override
     public int hashCode() {
-        return Objects.hash(
-                jobId,
-                operatorUid,
-                sourceActionUid,
-                edgeId,
-                targetInputPort,
-                upstreamSubtask,
-                downstreamSubtask);
+        return Arrays.hashCode(toCanonicalBytes());
     }
 
     @Override

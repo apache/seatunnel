@@ -64,9 +64,7 @@ public final class JobDataSerializerHook implements DataSerializerHook {
 
     public static final int CONNECTOR_JAR_REF_COUNT = 7;
 
-    /**
-     * Serialization ID of the {@link PortAwareLogicalEdge} class.
-     */
+    /** Serialization ID of the {@link PortAwareLogicalEdge} class. */
     public static final int PORT_AWARE_LOGICAL_EDGE = 8;
 
     public static final int FACTORY_ID =

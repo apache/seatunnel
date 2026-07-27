@@ -252,7 +252,7 @@ public class CheckpointCoordinator {
                 plan);
         if (pipelineState != null) {
             this.latestCompletedCheckpoint =
-                    serializer.deserialize(pipelineState.getStates(), CompletedCheckpoint.class);
+                    CompletedCheckpointCodec.decode(pipelineState.getStates(), serializer);
             this.latestCompletedCheckpoint.setRestored(true);
             LOG.info(
                     "Restore checkpoint, job id: {}, pipeline id: {}, checkpoint id: {}, data: {} ",
@@ -1138,7 +1138,10 @@ public class CheckpointCoordinator {
                         .values()
                         .forEach(
                                 pendingCheckpoint -> {
-                                    if (checkpointMonitorService != null
+                                    boolean aborted =
+                                            pendingCheckpoint.abortCheckpoint(closedReason, null);
+                                    if (aborted
+                                            && checkpointMonitorService != null
                                             && closedReason
                                                     != CheckpointCloseReason
                                                             .CHECKPOINT_COORDINATOR_RESET) {
@@ -1151,7 +1154,6 @@ public class CheckpointCoordinator {
                                                 null,
                                                 pendingCheckpoint.getCheckpointTimestamp());
                                     }
-                                    pendingCheckpoint.abortCheckpoint(closedReason, null);
                                 });
                 // TODO: clear related future & scheduler task
                 pendingCheckpoints.clear();
@@ -1295,7 +1297,7 @@ public class CheckpointCoordinator {
         completedCheckpointIds.addLast(String.valueOf(completedCheckpoint.getCheckpointId()));
         try {
             if (completedCheckpoint.getCheckpointType().notCompletedCheckpoint()) {
-                byte[] states = serializer.serialize(completedCheckpoint);
+                byte[] states = CompletedCheckpointCodec.encode(completedCheckpoint, serializer);
                 checkpointStorage.storeCheckPoint(
                         PipelineState.builder()
                                 .checkpointId(checkpointId)

@@ -23,24 +23,16 @@ import org.apache.seatunnel.engine.core.dag.logical.PortAwareLogicalEdge;
 import java.util.Arrays;
 import java.util.Objects;
 
-/**
- * Execution edge that preserves the identity and target port of a port-aware logical edge.
- */
+/** Execution edge that preserves the identity and target port of a port-aware logical edge. */
 public final class PortAwareExecutionEdge extends ExecutionEdge {
 
-    /**
-     * Stable logical edge identity copied without regeneration.
-     */
+    /** Stable logical edge identity copied without regeneration. */
     private final long edgeId;
 
-    /**
-     * Explicit downstream input port.
-     */
+    /** Explicit downstream input port. */
     private final int targetInputPort;
 
-    /**
-     * Versioned routing declaration copied from the logical edge.
-     */
+    /** Versioned routing declaration copied from the logical edge. */
     private final ExchangeDescriptor exchangeDescriptor;
 
     /**
@@ -61,13 +53,10 @@ public final class PortAwareExecutionEdge extends ExecutionEdge {
         super(leftVertex, rightVertex);
         this.edgeId = edgeId;
         this.targetInputPort = targetInputPort;
-        this.exchangeDescriptor =
-                Objects.requireNonNull(exchangeDescriptor, "exchangeDescriptor");
+        this.exchangeDescriptor = Objects.requireNonNull(exchangeDescriptor, "exchangeDescriptor");
     }
 
-    /**
-     * Converts a logical port-aware edge without deriving or rewriting any edge metadata.
-     */
+    /** Converts a logical port-aware edge without deriving or rewriting any edge metadata. */
     public static PortAwareExecutionEdge fromLogicalEdge(
             ExecutionVertex leftVertex,
             ExecutionVertex rightVertex,
@@ -96,11 +85,7 @@ public final class PortAwareExecutionEdge extends ExecutionEdge {
     public ExecutionEdge withVertices(
             ExecutionVertex replacementLeft, ExecutionVertex replacementRight) {
         return new PortAwareExecutionEdge(
-                replacementLeft,
-                replacementRight,
-                edgeId,
-                targetInputPort,
-                exchangeDescriptor);
+                replacementLeft, replacementRight, edgeId, targetInputPort, exchangeDescriptor);
     }
 
     @Override

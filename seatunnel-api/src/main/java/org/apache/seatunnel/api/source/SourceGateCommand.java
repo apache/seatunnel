@@ -15,18 +15,11 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.core.dag.actions;
+package org.apache.seatunnel.api.source;
 
-import java.util.List;
-
-/**
- * Action whose upstream edges are assigned to explicit input ports.
- *
- * <p>The bindings are planner products. Runtime layers must propagate them and must never infer a
- * port from upstream list order.
- */
-public interface PortAwareAction extends Action {
-
-    /** Returns immutable planner-assigned input bindings. */
-    List<InputPortBinding> getInputPortBindings();
+/** Commands that transition a gate-capable fact source reader. */
+public enum SourceGateCommand {
+    CLOSE,
+    OPEN,
+    ABORT
 }

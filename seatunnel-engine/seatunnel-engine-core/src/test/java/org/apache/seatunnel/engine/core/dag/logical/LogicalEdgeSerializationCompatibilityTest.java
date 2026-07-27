@@ -23,18 +23,16 @@ import org.apache.seatunnel.engine.core.serializable.JobDataSerializerHook;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import com.hazelcast.internal.serialization.InternalSerializationService;
-import com.hazelcast.internal.serialization.impl.DefaultSerializationServiceBuilder;
 import com.hazelcast.internal.nio.BufferObjectDataInput;
 import com.hazelcast.internal.nio.BufferObjectDataOutput;
+import com.hazelcast.internal.serialization.InternalSerializationService;
+import com.hazelcast.internal.serialization.impl.DefaultSerializationServiceBuilder;
 
 import java.io.IOException;
 import java.util.LinkedHashSet;
 import java.util.Set;
 
-/**
- * Verifies that port-aware edge serialization does not change the legacy edge wire contract.
- */
+/** Verifies that port-aware edge serialization does not change the legacy edge wire contract. */
 class LogicalEdgeSerializationCompatibilityTest {
 
     private final InternalSerializationService serializationService =
@@ -84,8 +82,7 @@ class LogicalEdgeSerializationCompatibilityTest {
                 new byte[] {0, 0, 0, 1, 0, 0, 0, 0},
                 ExchangeDescriptor.forward().toCanonicalBytes());
         Assertions.assertEquals(
-                2584707732897459687L,
-                InputPortBinding.forward(11L, 22L, 1).getEdgeId());
+                2584707732897459687L, InputPortBinding.forward(11L, 22L, 1).getEdgeId());
     }
 
     @Test

@@ -53,9 +53,7 @@ public class LogicalDagGenerator {
      */
     private final Map<Long, LinkedHashSet<Long>> inputVerticesMap = new LinkedHashMap<>();
 
-    /**
-     * Port-aware edges staged until all logical vertices have been materialized.
-     */
+    /** Port-aware edges staged until all logical vertices have been materialized. */
     private final List<PortAwareEdgeSpec> portAwareEdgeSpecs = new ArrayList<>();
 
     public LogicalDagGenerator(
@@ -99,7 +97,7 @@ public class LogicalDagGenerator {
         if (action instanceof PortAwareAction) {
             if (!(action instanceof DynamicLookupAction)) {
                 throw new IllegalArgumentException(
-                        "Phase-0 supports only DynamicLookupAction as a port-aware action");
+                        "Dynamic lookup currently supports only DynamicLookupAction as a port-aware action");
             }
             createPortAwareEdges((PortAwareAction) action, logicalVertexId);
         } else {
@@ -157,7 +155,7 @@ public class LogicalDagGenerator {
             }
             if (action instanceof DynamicLookupAction && !(upstream instanceof SourceAction)) {
                 throw new IllegalArgumentException(
-                        "Phase-0 dynamic lookup requires direct SourceAction inputs");
+                        "Dynamic lookup M1 requires direct SourceAction inputs");
             }
             createLogicalVertex(upstream);
             PortAwareEdgeSpec candidate =
@@ -188,8 +186,8 @@ public class LogicalDagGenerator {
     }
 
     /**
-     * Rejects Phase-0 topologies whose source ownership or routing semantics are not yet
-     * implementable.
+     * Rejects dynamic lookup topologies whose source ownership or routing semantics are not
+     * implemented by the current runtime.
      */
     private void validatePortAwareTopology() {
         Map<String, Long> lookupActionByOperatorUid = new LinkedHashMap<>();
@@ -218,26 +216,15 @@ public class LogicalDagGenerator {
                                     sourceActionByUid,
                                     lookupAction.getDimensionSourceActionUid(),
                                     lookupAction.getDimensionSourceActionId());
-                            Set<Long> lookupTargets =
-                                    inputVerticesMap.get(lookupAction.getId());
-                            if (lookupTargets != null && !lookupTargets.isEmpty()) {
-                                throw new IllegalArgumentException(
-                                        "Phase-0 PR-1 supports only a terminal multi-input "
-                                                + "descriptor prototype; lookup output "
-                                                + "materialization is not implemented");
-                            }
-                            for (InputPortBinding binding :
-                                    lookupAction.getInputPortBindings()) {
+                            for (InputPortBinding binding : lookupAction.getInputPortBindings()) {
                                 long sourceActionId = binding.getUpstreamActionId();
-                                LogicalVertex sourceVertex =
-                                        logicalVertexMap.get(sourceActionId);
+                                LogicalVertex sourceVertex = logicalVertexMap.get(sourceActionId);
                                 if (sourceVertex == null
                                         || sourceVertex.getParallelism()
                                                 != lookupAction.getParallelism()) {
                                     throw new IllegalArgumentException(
-                                            "Phase-0 FORWARD input requires equal source and "
-                                                    + "target parallelism; HASH routing belongs "
-                                                    + "to PR-2");
+                                            "Dynamic lookup M1 FORWARD input requires equal source "
+                                                    + "and target parallelism");
                                 }
                                 Long existingOwner =
                                         lookupOwnerBySourceAction.putIfAbsent(
@@ -268,34 +255,22 @@ public class LogicalDagGenerator {
         }
     }
 
-    /**
-     * Immutable edge metadata retained while the logical DAG is assembled.
-     */
+    /** Immutable edge metadata retained while the logical DAG is assembled. */
     private static final class PortAwareEdgeSpec {
 
-        /**
-         * Stable edge identity supplied by the action binding.
-         */
+        /** Stable edge identity supplied by the action binding. */
         private final long edgeId;
 
-        /**
-         * Upstream logical vertex identity.
-         */
+        /** Upstream logical vertex identity. */
         private final long inputVertexId;
 
-        /**
-         * Downstream logical vertex identity.
-         */
+        /** Downstream logical vertex identity. */
         private final long targetVertexId;
 
-        /**
-         * Explicit downstream input port.
-         */
+        /** Explicit downstream input port. */
         private final int targetInputPort;
 
-        /**
-         * Versioned routing declaration.
-         */
+        /** Versioned routing declaration. */
         private final ExchangeDescriptor exchangeDescriptor;
 
         private PortAwareEdgeSpec(

@@ -17,15 +17,14 @@
 
 package org.apache.seatunnel.engine.core.parse;
 
-import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
-import org.apache.seatunnel.shade.com.google.common.base.Preconditions;
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueType;
-import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
-import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.ImmutablePair;
+import static org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode.HANDLE_SAVE_MODE_FAILED;
+import static org.apache.seatunnel.api.table.factory.FactoryUtil.DEFAULT_ID;
+import static org.apache.seatunnel.engine.core.parse.ConfigParserUtil.getFactoryId;
+import static org.apache.seatunnel.engine.core.parse.ConfigParserUtil.getInputIds;
 
+import lombok.extern.slf4j.Slf4j;
+
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.seatunnel.api.common.PluginIdentifier;
 import org.apache.seatunnel.api.common.multitable.MultiTableFailedTable;
 import org.apache.seatunnel.api.common.multitable.MultiTableFailureHelper;
@@ -44,10 +43,15 @@ import org.apache.seatunnel.api.sink.SaveModeHandler;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SupportMultiTableSink;
 import org.apache.seatunnel.api.sink.SupportSaveMode;
+import org.apache.seatunnel.api.source.DynamicLookupSourceCapability;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.factory.ChangeStreamTableSourceCheckpoint;
 import org.apache.seatunnel.api.table.factory.FactoryUtil;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -65,6 +69,10 @@ import org.apache.seatunnel.engine.common.loader.SeaTunnelChildFirstClassLoader;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.core.classloader.ClassLoaderService;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
+import org.apache.seatunnel.engine.core.dag.actions.DynamicLookupAction;
+import org.apache.seatunnel.engine.core.dag.actions.DynamicLookupDescriptor;
+import org.apache.seatunnel.engine.core.dag.actions.DynamicLookupProjectionField;
+import org.apache.seatunnel.engine.core.dag.actions.DynamicLookupSideSpec;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
 import org.apache.seatunnel.engine.core.dag.actions.SinkConfig;
 import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
@@ -74,10 +82,17 @@ import org.apache.seatunnel.engine.core.job.JobPipelineCheckpointData;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSinkPluginDiscovery;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSourcePluginDiscovery;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelTransformPluginDiscovery;
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
+import org.apache.seatunnel.shade.com.google.common.base.Preconditions;
+import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueType;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.ImmutablePair;
 
-import org.apache.commons.collections4.CollectionUtils;
-
-import lombok.extern.slf4j.Slf4j;
 import scala.Tuple2;
 
 import java.io.Serializable;
@@ -85,6 +100,7 @@ import java.net.URL;
 import java.nio.file.Paths;
 import java.sql.DriverManager;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -93,6 +109,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -102,13 +119,15 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode.HANDLE_SAVE_MODE_FAILED;
-import static org.apache.seatunnel.api.table.factory.FactoryUtil.DEFAULT_ID;
-import static org.apache.seatunnel.engine.core.parse.ConfigParserUtil.getFactoryId;
-import static org.apache.seatunnel.engine.core.parse.ConfigParserUtil.getInputIds;
-
 @Slf4j
 public class MultipleTableJobConfigParser {
+
+    private static final long KIB = 1024L;
+    private static final long MIB = KIB * 1024L;
+    private static final long GIB = MIB * 1024L;
+    private static final long DYNAMIC_LOOKUP_M1_MAX_LOGICAL_STATE_BYTES = 4L * GIB;
+    private static final long DYNAMIC_LOOKUP_M1_MAX_RESIDENT_STATE_BYTES = 512L * MIB;
+    private static final long DYNAMIC_LOOKUP_LOCAL_SAFETY_BYTES = 8L * GIB;
 
     static {
         // Load DriverManager first to avoid deadlock between DriverManager's
@@ -222,6 +241,8 @@ public class MultipleTableJobConfigParser {
         List<? extends Config> transformConfigs =
                 TypesafeConfigUtils.getConfigList(
                         seaTunnelJobConfig, "transform", Collections.emptyList());
+        List<NamedDynamicLookupConfig> dynamicLookupConfigs =
+                getDynamicLookupConfigs(seaTunnelJobConfig);
         List<? extends Config> sinkConfigs =
                 TypesafeConfigUtils.getConfigList(
                         seaTunnelJobConfig, "sink", Collections.emptyList());
@@ -245,7 +266,10 @@ public class MultipleTableJobConfigParser {
 
         try {
             Thread.currentThread().setContextClassLoader(sourceAndTransformClassLoader);
-            ConfigParserUtil.checkGraph(sourceConfigs, transformConfigs, sinkConfigs);
+            ConfigParserUtil.checkGraph(
+                    sourceConfigs,
+                    mergeGraphMiddleConfigs(transformConfigs, dynamicLookupConfigs),
+                    sinkConfigs);
             LinkedHashMap<String, List<Tuple2<CatalogTable, Action>>> tableWithActionMap =
                     new LinkedHashMap<>();
 
@@ -255,7 +279,8 @@ public class MultipleTableJobConfigParser {
                     && !pipelineCheckpoints.isEmpty()) {
                 Preconditions.checkState(
                         sourceConfigs.size() == pipelineCheckpoints.size(),
-                        "The number of source configurations and pipeline checkpoints must be equal.");
+                        "The number of source configurations and pipeline checkpoints must be"
+                                + " equal.");
             }
             for (int configIndex = 0; configIndex < sourceConfigs.size(); configIndex++) {
                 Config sourceConfig = sourceConfigs.get(configIndex);
@@ -275,6 +300,9 @@ public class MultipleTableJobConfigParser {
 
             log.info("start generating all transforms.");
             parseTransforms(transformConfigs, sourceAndTransformClassLoader, tableWithActionMap);
+
+            log.info("start generating all dynamic lookups.");
+            parseDynamicLookups(dynamicLookupConfigs, tableWithActionMap);
 
             Thread.currentThread().setContextClassLoader(sinkClassLoader);
             log.info("start generating all sinks.");
@@ -305,6 +333,50 @@ public class MultipleTableJobConfigParser {
                         Long.parseLong(jobConfig.getJobContext().getJobId()), sinkConnectorJars);
             }
         }
+    }
+
+    private List<Config> mergeGraphMiddleConfigs(
+            List<? extends Config> transformConfigs,
+            List<NamedDynamicLookupConfig> dynamicLookupConfigs) {
+        List<Config> middleConfigs = new ArrayList<>(transformConfigs);
+        for (NamedDynamicLookupConfig dynamicLookupConfig : dynamicLookupConfigs) {
+            middleConfigs.add(toGraphConfig(dynamicLookupConfig));
+        }
+        return middleConfigs;
+    }
+
+    private static List<NamedDynamicLookupConfig> getDynamicLookupConfigs(Config rootConfig) {
+        if (!rootConfig.hasPath("dynamic_lookup")) {
+            return Collections.emptyList();
+        }
+        Config dynamicLookupRoot = rootConfig.getConfig("dynamic_lookup");
+        List<NamedDynamicLookupConfig> configs = new ArrayList<>();
+        for (Map.Entry<String, ConfigValue> entry : dynamicLookupRoot.root().entrySet()) {
+            if (entry.getValue().valueType() != ConfigValueType.OBJECT) {
+                continue;
+            }
+            configs.add(
+                    new NamedDynamicLookupConfig(
+                            entry.getKey(), dynamicLookupRoot.getConfig(entry.getKey())));
+        }
+        return configs;
+    }
+
+    private static Config toGraphConfig(NamedDynamicLookupConfig namedConfig) {
+        List<String> inputIds =
+                Arrays.asList(
+                        namedConfig.config.getConfig("fact").getString("input"),
+                        namedConfig.config.getConfig("dimension").getString("input"));
+        return ConfigFactory.empty()
+                .withValue("plugin_name", ConfigValueFactory.fromAnyRef("DynamicLookup"))
+                .withValue(
+                        "plugin_output",
+                        ConfigValueFactory.fromAnyRef(getLookupOutputId(namedConfig.config)))
+                .withValue("plugin_input", ConfigValueFactory.fromIterable(inputIds));
+    }
+
+    private static String getLookupOutputId(Config config) {
+        return config.getString("plugin_output");
     }
 
     private ClassLoader getClassLoader(
@@ -523,7 +595,8 @@ public class MultipleTableJobConfigParser {
             if (!usedTransformNames.add(configuredName)) {
                 throw new JobDefineCheckException(
                         String.format(
-                                "Duplicated transform name '%s'. Transform names must be unique within a job.",
+                                "Duplicated transform name '%s'. Transform names must be unique"
+                                        + " within a job.",
                                 configuredName));
             }
             actionName = configuredName;
@@ -577,8 +650,633 @@ public class MultipleTableJobConfigParser {
                     .getTransform()
                     .getProducedCatalogTable()
                     .getSeaTunnelRowType();
+        } else if (action instanceof DynamicLookupAction) {
+            return ((DynamicLookupAction) action).getProducedCatalogTable().getSeaTunnelRowType();
         }
         throw new UnsupportedOperationException();
+    }
+
+    private void parseDynamicLookups(
+            List<NamedDynamicLookupConfig> dynamicLookupConfigs,
+            LinkedHashMap<String, List<Tuple2<CatalogTable, Action>>> tableWithActionMap) {
+        for (NamedDynamicLookupConfig namedConfig : dynamicLookupConfigs) {
+            parseDynamicLookup(namedConfig, tableWithActionMap);
+        }
+    }
+
+    private void parseDynamicLookup(
+            NamedDynamicLookupConfig namedConfig,
+            LinkedHashMap<String, List<Tuple2<CatalogTable, Action>>> tableWithActionMap) {
+        Config config = namedConfig.config;
+        Config factConfig = config.getConfig("fact");
+        Config dimensionConfig = config.getConfig("dimension");
+        validateDynamicLookupModeConfig(config, factConfig, dimensionConfig);
+        validateDynamicLookupResourceConfig(config);
+        String factInputId = factConfig.getString("input");
+        String dimensionInputId = dimensionConfig.getString("input");
+        Tuple2<CatalogTable, Action> factInput =
+                getSingleLookupInput(namedConfig, tableWithActionMap, factInputId, "fact");
+        Tuple2<CatalogTable, Action> dimensionInput =
+                getSingleLookupInput(
+                        namedConfig, tableWithActionMap, dimensionInputId, "dimension");
+        validateRequiredCapabilities(namedConfig, factConfig, factInput._2(), "fact");
+        validateRequiredCapabilities(
+                namedConfig, dimensionConfig, dimensionInput._2(), "dimension");
+        validateDimensionTableBinding(namedConfig, dimensionConfig, dimensionInput._1());
+        if (factInput._2().getParallelism() != dimensionInput._2().getParallelism()) {
+            throw new JobDefineCheckException(
+                    "Dynamic lookup requires equal fact and dimension parallelism, but got "
+                            + factInput._2().getParallelism()
+                            + " and "
+                            + dimensionInput._2().getParallelism());
+        }
+
+        String operatorUid = config.hasPath("uid") ? config.getString("uid") : namedConfig.name;
+        String actionName = namedConfig.name;
+        String outputId = getLookupOutputId(config);
+        List<DynamicLookupProjectionField> projectionFields =
+                parseProjectionFields(
+                        config.getStringList("join.fields"), factInput._1(), dimensionInput._1());
+        CatalogTable producedCatalogTable =
+                buildDynamicLookupCatalogTable(
+                        outputId, factInput._1(), dimensionInput._1(), projectionFields);
+        DynamicLookupDescriptor descriptor =
+                new DynamicLookupDescriptor(
+                        outputId,
+                        new DynamicLookupSideSpec(
+                                factInputId,
+                                factInput._1().getTablePath().getFullName(),
+                                factConfig.getStringList("key"),
+                                resolveFieldIndexes(
+                                        factInput._1(), factConfig.getStringList("key"))),
+                        new DynamicLookupSideSpec(
+                                dimensionInputId,
+                                dimensionInput._1().getTablePath().getFullName(),
+                                dimensionConfig.getStringList("key"),
+                                resolveFieldIndexes(
+                                        dimensionInput._1(), dimensionConfig.getStringList("key"))),
+                        parseJoinType(config.getString("join.type")),
+                        projectionFields);
+        Set<URL> jarUrls = new HashSet<>();
+        jarUrls.addAll(factInput._2().getJarUrls());
+        jarUrls.addAll(dimensionInput._2().getJarUrls());
+        Set<ConnectorJarIdentifier> connectorJarIdentifiers = new HashSet<>();
+        connectorJarIdentifiers.addAll(factInput._2().getConnectorJarIdentifiers());
+        connectorJarIdentifiers.addAll(dimensionInput._2().getConnectorJarIdentifiers());
+        DynamicLookupAction action =
+                new DynamicLookupAction(
+                        idGenerator.getNextId(),
+                        actionName,
+                        operatorUid,
+                        factInput._2(),
+                        stableSourceUid(factInputId, factInput._2()),
+                        dimensionInput._2(),
+                        stableSourceUid(dimensionInputId, dimensionInput._2()),
+                        descriptor,
+                        producedCatalogTable,
+                        jarUrls,
+                        connectorJarIdentifiers);
+        action.setParallelism(factInput._2().getParallelism());
+        tableWithActionMap.put(
+                outputId, Collections.singletonList(new Tuple2<>(producedCatalogTable, action)));
+    }
+
+    private static Tuple2<CatalogTable, Action> getSingleLookupInput(
+            NamedDynamicLookupConfig namedConfig,
+            LinkedHashMap<String, List<Tuple2<CatalogTable, Action>>> tableWithActionMap,
+            String inputId,
+            String sideName) {
+        List<Tuple2<CatalogTable, Action>> candidates = tableWithActionMap.get(inputId);
+        if (CollectionUtils.isEmpty(candidates)) {
+            throw new JobDefineCheckException(
+                    "Dynamic lookup '"
+                            + namedConfig.name
+                            + "' cannot resolve "
+                            + sideName
+                            + " input '"
+                            + inputId
+                            + "'");
+        }
+        if (candidates.size() != 1) {
+            throw new JobDefineCheckException(
+                    "Dynamic lookup '"
+                            + namedConfig.name
+                            + "' requires exactly one table for "
+                            + sideName
+                            + " input '"
+                            + inputId
+                            + "'");
+        }
+        return candidates.get(0);
+    }
+
+    private static String stableSourceUid(String inputId, Action action) {
+        return inputId + "-" + action.getId();
+    }
+
+    private static void validateRequiredCapabilities(
+            NamedDynamicLookupConfig namedConfig,
+            Config sideConfig,
+            Action inputAction,
+            String sideName) {
+        List<String> requiredCapabilities = getRequiredCapabilities(sideConfig);
+        if (requiredCapabilities.isEmpty()) {
+            return;
+        }
+        if (!(inputAction instanceof SourceAction)) {
+            throw new JobDefineCheckException(
+                    "Dynamic lookup '"
+                            + namedConfig.name
+                            + "' "
+                            + sideName
+                            + " input must be a SourceAction");
+        }
+        SeaTunnelSource<?, ?, ?> source = ((SourceAction<?, ?, ?>) inputAction).getSource();
+        if (!(source instanceof DynamicLookupSourceCapability)) {
+            throw new JobDefineCheckException(
+                    "Dynamic lookup '"
+                            + namedConfig.name
+                            + "' "
+                            + sideName
+                            + " source does not declare dynamic lookup capabilities "
+                            + requiredCapabilities);
+        }
+        Set<String> actualCapabilities =
+                ((DynamicLookupSourceCapability) source).dynamicLookupCapabilities();
+        List<String> missingCapabilities =
+                requiredCapabilities.stream()
+                        .filter(required -> !actualCapabilities.contains(required))
+                        .collect(Collectors.toList());
+        if (!missingCapabilities.isEmpty()) {
+            throw new JobDefineCheckException(
+                    "Dynamic lookup '"
+                            + namedConfig.name
+                            + "' "
+                            + sideName
+                            + " source misses required capabilities "
+                            + missingCapabilities);
+        }
+    }
+
+    private static List<String> getRequiredCapabilities(Config sideConfig) {
+        if (!sideConfig.hasPath("required-capability")) {
+            return Collections.emptyList();
+        }
+        ConfigValue capabilityValue = sideConfig.getValue("required-capability");
+        if (capabilityValue.valueType() == ConfigValueType.STRING) {
+            return Collections.singletonList(sideConfig.getString("required-capability"));
+        }
+        return sideConfig.getStringList("required-capability");
+    }
+
+    private static void validateDimensionTableBinding(
+            NamedDynamicLookupConfig namedConfig,
+            Config dimensionConfig,
+            CatalogTable dimensionCatalogTable) {
+        if (!dimensionConfig.hasPath("table")) {
+            return;
+        }
+        String expectedTable = dimensionConfig.getString("table");
+        String actualTable = dimensionCatalogTable.getTablePath().getFullName();
+        if (!expectedTable.equals(actualTable)) {
+            throw new JobDefineCheckException(
+                    "Dynamic lookup '"
+                            + namedConfig.name
+                            + "' dimension.table expects '"
+                            + expectedTable
+                            + "' but input table is '"
+                            + actualTable
+                            + "'");
+        }
+    }
+
+    private static CatalogTable buildDynamicLookupCatalogTable(
+            String outputId,
+            CatalogTable factCatalogTable,
+            CatalogTable dimensionCatalogTable,
+            List<DynamicLookupProjectionField> projectionFields) {
+        List<Column> columns = new ArrayList<>(projectionFields.size());
+        for (DynamicLookupProjectionField projectionField : projectionFields) {
+            CatalogTable sourceTable =
+                    projectionField.getInputSide() == DynamicLookupProjectionField.InputSide.FACT
+                            ? factCatalogTable
+                            : dimensionCatalogTable;
+            Column sourceColumn =
+                    sourceTable.getTableSchema().getColumns().stream()
+                            .filter(
+                                    column ->
+                                            column.getName()
+                                                    .equals(projectionField.getSourceFieldName()))
+                            .findFirst()
+                            .orElseThrow(
+                                    () ->
+                                            new JobDefineCheckException(
+                                                    "Dynamic lookup projection field '"
+                                                            + projectionField.getSourceFieldName()
+                                                            + "' is missing from "
+                                                            + projectionField
+                                                                    .getInputSide()
+                                                                    .name()
+                                                                    .toLowerCase(Locale.ROOT)
+                                                            + " schema"));
+            columns.add(copyColumn(sourceColumn, projectionField.getOutputFieldName()));
+        }
+        TableIdentifier factTableId = factCatalogTable.getTableId();
+        TableIdentifier outputTableId =
+                TableIdentifier.of(
+                        factTableId.getCatalogName(),
+                        factTableId.getDatabaseName(),
+                        factTableId.getSchemaName(),
+                        outputId);
+        return CatalogTable.of(
+                outputTableId,
+                TableSchema.builder().columns(columns).build(),
+                new HashMap<>(),
+                Collections.emptyList(),
+                "Dynamic lookup output",
+                factCatalogTable.getCatalogName());
+    }
+
+    private static Column copyColumn(Column sourceColumn, String outputFieldName) {
+        Map<String, Object> columnOptions =
+                sourceColumn.getOptions() == null
+                        ? new HashMap<>()
+                        : new HashMap<>(sourceColumn.getOptions());
+        return PhysicalColumn.builder()
+                .name(outputFieldName)
+                .dataType(sourceColumn.getDataType())
+                .columnLength(sourceColumn.getColumnLength())
+                .scale(sourceColumn.getScale())
+                .nullable(sourceColumn.isNullable())
+                .defaultValue(sourceColumn.getDefaultValue())
+                .comment(sourceColumn.getComment())
+                .sourceType(sourceColumn.getSourceType())
+                .options(columnOptions)
+                .build();
+    }
+
+    private static List<DynamicLookupProjectionField> parseProjectionFields(
+            List<String> fieldSpecs,
+            CatalogTable factCatalogTable,
+            CatalogTable dimensionCatalogTable) {
+        List<DynamicLookupProjectionField> fields = new ArrayList<>(fieldSpecs.size());
+        for (String fieldSpec : fieldSpecs) {
+            String[] aliasSplit = fieldSpec.trim().split("(?i)\\s+as\\s+", 2);
+            String sourceSpec = aliasSplit[0].trim();
+            String outputFieldName;
+            int dotIndex = sourceSpec.indexOf('.');
+            if (dotIndex < 0 || dotIndex == sourceSpec.length() - 1) {
+                throw new JobDefineCheckException(
+                        "Dynamic lookup field projection must use '<side>.<field>' syntax, but got"
+                                + " '"
+                                + fieldSpec
+                                + "'");
+            }
+            String side = sourceSpec.substring(0, dotIndex).trim();
+            String sourceFieldName = sourceSpec.substring(dotIndex + 1).trim();
+            outputFieldName = aliasSplit.length == 2 ? aliasSplit[1].trim() : sourceFieldName;
+            DynamicLookupProjectionField.InputSide inputSide;
+            if ("fact".equalsIgnoreCase(side)) {
+                inputSide = DynamicLookupProjectionField.InputSide.FACT;
+            } else if ("dimension".equalsIgnoreCase(side)) {
+                inputSide = DynamicLookupProjectionField.InputSide.DIMENSION;
+            } else {
+                throw new JobDefineCheckException(
+                        "Dynamic lookup field projection side must be fact or dimension, but got '"
+                                + side
+                                + "'");
+            }
+            CatalogTable sourceTable =
+                    inputSide == DynamicLookupProjectionField.InputSide.FACT
+                            ? factCatalogTable
+                            : dimensionCatalogTable;
+            fields.add(
+                    new DynamicLookupProjectionField(
+                            inputSide,
+                            sourceFieldName,
+                            resolveFieldIndex(sourceTable, sourceFieldName),
+                            outputFieldName));
+        }
+        return fields;
+    }
+
+    private static DynamicLookupDescriptor.JoinType parseJoinType(String joinType) {
+        if ("LEFT".equalsIgnoreCase(joinType)) {
+            return DynamicLookupDescriptor.JoinType.LEFT;
+        }
+        if ("INNER".equalsIgnoreCase(joinType)) {
+            return DynamicLookupDescriptor.JoinType.INNER;
+        }
+        throw new JobDefineCheckException(
+                "Dynamic lookup join.type must be LEFT or INNER, but got '" + joinType + "'");
+    }
+
+    private static void validateDynamicLookupModeConfig(
+            Config lookupConfig, Config factConfig, Config dimensionConfig) {
+        if (factConfig.hasPath("changelog-mode")
+                && !"APPEND_ONLY".equalsIgnoreCase(factConfig.getString("changelog-mode"))) {
+            throw new JobDefineCheckException(
+                    "Dynamic lookup M1 requires fact.changelog-mode=APPEND_ONLY");
+        }
+        if (dimensionConfig.hasPath("primary-key-update")
+                && !"FAIL".equalsIgnoreCase(dimensionConfig.getString("primary-key-update"))) {
+            throw new JobDefineCheckException(
+                    "Dynamic lookup M1 requires dimension.primary-key-update=FAIL");
+        }
+        if (lookupConfig.hasPath("schema-change.behavior")
+                && !"FAIL".equalsIgnoreCase(lookupConfig.getString("schema-change.behavior"))) {
+            throw new JobDefineCheckException(
+                    "Dynamic lookup M1 requires schema-change.behavior=FAIL");
+        }
+    }
+
+    private static void validateDynamicLookupResourceConfig(Config lookupConfig) {
+        if (lookupConfig.hasPath("state.max-concurrent-snapshots")
+                && lookupConfig.getInt("state.max-concurrent-snapshots") != 1) {
+            throw new JobDefineCheckException(
+                    "Dynamic lookup M1 requires state.max-concurrent-snapshots=1");
+        }
+        if (lookupConfig.hasPath("resource.max-concurrent-snapshots")
+                && lookupConfig.getInt("resource.max-concurrent-snapshots") != 1) {
+            throw new JobDefineCheckException(
+                    "Dynamic lookup M1 requires resource.max-concurrent-snapshots=1");
+        }
+        if (lookupConfig.hasPath("state.backend")
+                && !"DISK_BACKED".equalsIgnoreCase(lookupConfig.getString("state.backend"))) {
+            throw new JobDefineCheckException(
+                    "Dynamic lookup M1 requires state.backend=DISK_BACKED");
+        }
+        if (lookupConfig.hasPath("state.ttl")
+                && !"NONE".equalsIgnoreCase(lookupConfig.getString("state.ttl"))) {
+            throw new JobDefineCheckException("Dynamic lookup M1 requires state.ttl=NONE");
+        }
+        if (!lookupConfig.hasPath("resource.max-logical-state-bytes-per-subtask")) {
+            return;
+        }
+        long logicalStateBytes =
+                getDynamicLookupBytes(lookupConfig, "resource.max-logical-state-bytes-per-subtask");
+        if (logicalStateBytes > DYNAMIC_LOOKUP_M1_MAX_LOGICAL_STATE_BYTES) {
+            throw new JobDefineCheckException(
+                    "Dynamic lookup M1 supports at most 4 GiB logical state per subtask");
+        }
+        if (lookupConfig.hasPath("resource.max-resident-state-bytes-per-subtask")) {
+            long residentStateBytes =
+                    getDynamicLookupBytes(
+                            lookupConfig, "resource.max-resident-state-bytes-per-subtask");
+            if (residentStateBytes > DYNAMIC_LOOKUP_M1_MAX_RESIDENT_STATE_BYTES) {
+                throw new JobDefineCheckException(
+                        "Dynamic lookup M1 supports at most 512 MiB resident state per subtask");
+            }
+        }
+        if (logicalStateBytes > DYNAMIC_LOOKUP_M1_MAX_RESIDENT_STATE_BYTES) {
+            validateDynamicLookupUncommittedBudget(lookupConfig);
+        }
+    }
+
+    private static void validateDynamicLookupUncommittedBudget(Config lookupConfig) {
+        requireDynamicLookupPaths(
+                lookupConfig,
+                "resource.required-backend-certified-max-sealed-snapshot-bytes",
+                "resource.max-partial-upload-bytes-per-attempt",
+                "resource.max-outstanding-uncommitted-attempts",
+                "resource.max-outstanding-uncommitted-bytes",
+                "resource.local-disk-reservation",
+                "resource.remote-staging-quota",
+                "resource.min-checkpoint-start-interval",
+                "resource.max-abort-rate",
+                "resource.configured-abort-burst-count",
+                "resource.admitted-store-outage",
+                "resource.partial-upload-timeout",
+                "resource.partial-orphan-grace",
+                "resource.sealed-orphan-grace",
+                "resource.failover-margin",
+                "resource.clock-skew-margin",
+                "resource.max-reconcile-delay",
+                "resource.min-cleanup-throughput",
+                "resource.checkpoint-progress-deadline");
+        long sealedBytes =
+                getDynamicLookupBytes(
+                        lookupConfig,
+                        "resource.required-backend-certified-max-sealed-snapshot-bytes");
+        long partialBytes =
+                getDynamicLookupBytes(
+                        lookupConfig, "resource.max-partial-upload-bytes-per-attempt");
+        long perAttemptBytes = Math.addExact(sealedBytes, partialBytes);
+        double checkpointIntervalSeconds =
+                getDynamicLookupSeconds(lookupConfig, "resource.min-checkpoint-start-interval");
+        double lambdaSnapshots = 1.0D / checkpointIntervalSeconds;
+        double abortRate = getDynamicLookupRatePerSecond(lookupConfig, "resource.max-abort-rate");
+        if (abortRate > lambdaSnapshots) {
+            throw new JobDefineCheckException(
+                    "Dynamic lookup resource.max-abort-rate must not exceed checkpoint start rate");
+        }
+        double checkpointDeadlineSeconds =
+                getDynamicLookupSeconds(lookupConfig, "resource.checkpoint-progress-deadline");
+        double failoverMarginSeconds =
+                getDynamicLookupSeconds(lookupConfig, "resource.failover-margin");
+        double clockSkewSeconds =
+                getDynamicLookupSeconds(lookupConfig, "resource.clock-skew-margin");
+        double sealedGraceSeconds =
+                getDynamicLookupSeconds(lookupConfig, "resource.sealed-orphan-grace");
+        double partialTimeoutSeconds =
+                getDynamicLookupSeconds(lookupConfig, "resource.partial-upload-timeout");
+        double partialGraceSeconds =
+                getDynamicLookupSeconds(lookupConfig, "resource.partial-orphan-grace");
+        double safetyWindow = checkpointDeadlineSeconds + failoverMarginSeconds + clockSkewSeconds;
+        if (sealedGraceSeconds <= safetyWindow) {
+            throw new JobDefineCheckException(
+                    "Dynamic lookup resource.sealed-orphan-grace must exceed checkpoint deadline"
+                            + " plus failover and clock-skew margins");
+        }
+        if (partialTimeoutSeconds + partialGraceSeconds <= safetyWindow) {
+            throw new JobDefineCheckException(
+                    "Dynamic lookup partial upload timeout plus grace must exceed checkpoint"
+                            + " deadline plus failover and clock-skew margins");
+        }
+        double outageSeconds =
+                getDynamicLookupSeconds(lookupConfig, "resource.admitted-store-outage");
+        double reconcileSeconds =
+                getDynamicLookupSeconds(lookupConfig, "resource.max-reconcile-delay");
+        double uncommittedWindow =
+                outageSeconds
+                        + Math.max(sealedGraceSeconds, partialTimeoutSeconds + partialGraceSeconds)
+                        + reconcileSeconds;
+        long burstCount = lookupConfig.getLong("resource.configured-abort-burst-count");
+        long uncommittedAttempts =
+                (long) Math.ceil(Math.min(lambdaSnapshots, abortRate) * uncommittedWindow)
+                        + burstCount;
+        double uncommittedBytes = uncommittedAttempts * (double) perAttemptBytes;
+        long requiredAttemptCount = 1L + uncommittedAttempts;
+        long configuredAttemptCount =
+                lookupConfig.getLong("resource.max-outstanding-uncommitted-attempts");
+        if (configuredAttemptCount < requiredAttemptCount) {
+            throw new JobDefineCheckException(
+                    "Dynamic lookup resource.max-outstanding-uncommitted-attempts is below the M1"
+                            + " worst-case bound");
+        }
+        double requiredOutstandingBytes = perAttemptBytes + uncommittedBytes;
+        if (getDynamicLookupBytes(lookupConfig, "resource.max-outstanding-uncommitted-bytes")
+                < requiredOutstandingBytes) {
+            throw new JobDefineCheckException(
+                    "Dynamic lookup resource.max-outstanding-uncommitted-bytes is below the M1"
+                            + " worst-case bound");
+        }
+        if (getDynamicLookupBytes(lookupConfig, "resource.remote-staging-quota")
+                < requiredOutstandingBytes) {
+            throw new JobDefineCheckException(
+                    "Dynamic lookup resource.remote-staging-quota is below the M1 worst-case"
+                            + " bound");
+        }
+        double cleanupBytesPerSecond =
+                getDynamicLookupBytesPerSecond(lookupConfig, "resource.min-cleanup-throughput");
+        double uncommittedBytesRate = Math.min(lambdaSnapshots, abortRate) * perAttemptBytes;
+        if (cleanupBytesPerSecond <= uncommittedBytesRate) {
+            throw new JobDefineCheckException(
+                    "Dynamic lookup cleanup throughput must exceed uncommitted bytes arrival rate");
+        }
+        double requiredLocalBytes =
+                sealedBytes
+                        + requiredOutstandingBytes
+                        + sealedBytes
+                        + DYNAMIC_LOOKUP_LOCAL_SAFETY_BYTES;
+        if (getDynamicLookupBytes(lookupConfig, "resource.local-disk-reservation")
+                < requiredLocalBytes) {
+            throw new JobDefineCheckException(
+                    "Dynamic lookup resource.local-disk-reservation is below the M1 worst-case"
+                            + " bound");
+        }
+    }
+
+    private static void requireDynamicLookupPaths(Config config, String... paths) {
+        for (String path : paths) {
+            if (!config.hasPath(path)) {
+                throw new JobDefineCheckException(
+                        "Dynamic lookup M1 resource admission requires '" + path + "'");
+            }
+        }
+    }
+
+    private static long getDynamicLookupBytes(Config config, String path) {
+        String value = getDynamicLookupScalar(config, path);
+        return parseDynamicLookupBytes(value, path);
+    }
+
+    private static double getDynamicLookupBytesPerSecond(Config config, String path) {
+        String value = getDynamicLookupScalar(config, path).toLowerCase(Locale.ROOT);
+        if (!value.endsWith("/s")) {
+            throw new JobDefineCheckException(
+                    "Dynamic lookup resource value must use '<bytes>/s': " + path);
+        }
+        return parseDynamicLookupBytes(value.substring(0, value.length() - 2), path);
+    }
+
+    private static double getDynamicLookupSeconds(Config config, String path) {
+        return parseDynamicLookupSeconds(getDynamicLookupScalar(config, path), path);
+    }
+
+    private static double getDynamicLookupRatePerSecond(Config config, String path) {
+        String value = getDynamicLookupScalar(config, path).toLowerCase(Locale.ROOT);
+        String[] parts = value.split("/", 2);
+        if (parts.length != 2) {
+            throw new JobDefineCheckException(
+                    "Dynamic lookup rate must use '<count>/<duration>': " + path);
+        }
+        return Double.parseDouble(parts[0].trim())
+                / parseDynamicLookupSeconds(parts[1].trim(), path);
+    }
+
+    private static String getDynamicLookupScalar(Config config, String path) {
+        return String.valueOf(config.getValue(path).unwrapped()).trim();
+    }
+
+    private static long parseDynamicLookupBytes(String value, String path) {
+        String normalized = value.trim().toLowerCase(Locale.ROOT);
+        long multiplier;
+        String number;
+        if (normalized.endsWith("kb")) {
+            multiplier = KIB;
+            number = normalized.substring(0, normalized.length() - 2);
+        } else if (normalized.endsWith("mb")) {
+            multiplier = MIB;
+            number = normalized.substring(0, normalized.length() - 2);
+        } else if (normalized.endsWith("gb")) {
+            multiplier = GIB;
+            number = normalized.substring(0, normalized.length() - 2);
+        } else if (normalized.endsWith("tb")) {
+            multiplier = GIB * 1024L;
+            number = normalized.substring(0, normalized.length() - 2);
+        } else if (normalized.endsWith("b")) {
+            multiplier = 1L;
+            number = normalized.substring(0, normalized.length() - 1);
+        } else {
+            multiplier = 1L;
+            number = normalized;
+        }
+        double parsed = Double.parseDouble(number.trim());
+        if (parsed < 0) {
+            throw new JobDefineCheckException(
+                    "Dynamic lookup byte value must be non-negative: " + path);
+        }
+        return (long) Math.ceil(parsed * multiplier);
+    }
+
+    private static double parseDynamicLookupSeconds(String value, String path) {
+        String normalized = value.trim().toLowerCase(Locale.ROOT);
+        double multiplier;
+        String number;
+        if (normalized.endsWith("ms")) {
+            multiplier = 0.001D;
+            number = normalized.substring(0, normalized.length() - 2);
+        } else if (normalized.endsWith("min")) {
+            multiplier = 60D;
+            number = normalized.substring(0, normalized.length() - 3);
+        } else if (normalized.endsWith("s")) {
+            multiplier = 1D;
+            number = normalized.substring(0, normalized.length() - 1);
+        } else if (normalized.endsWith("h")) {
+            multiplier = 3600D;
+            number = normalized.substring(0, normalized.length() - 1);
+        } else {
+            multiplier = 1D;
+            number = normalized;
+        }
+        double parsed = Double.parseDouble(number.trim()) * multiplier;
+        if (parsed <= 0) {
+            throw new JobDefineCheckException(
+                    "Dynamic lookup duration value must be positive: " + path);
+        }
+        return parsed;
+    }
+
+    private static List<Integer> resolveFieldIndexes(
+            CatalogTable catalogTable, List<String> fields) {
+        return fields.stream()
+                .map(field -> resolveFieldIndex(catalogTable, field))
+                .collect(Collectors.toList());
+    }
+
+    private static int resolveFieldIndex(CatalogTable catalogTable, String fieldName) {
+        List<Column> columns = catalogTable.getTableSchema().getColumns();
+        for (int i = 0; i < columns.size(); i++) {
+            if (columns.get(i).getName().equals(fieldName)) {
+                return i;
+            }
+        }
+        throw new JobDefineCheckException(
+                "Dynamic lookup field '"
+                        + fieldName
+                        + "' is missing from schema "
+                        + catalogTable.getTablePath().getFullName());
+    }
+
+    private static final class NamedDynamicLookupConfig {
+        private final String name;
+        private final Config config;
+
+        private NamedDynamicLookupConfig(String name, Config config) {
+            this.name = name;
+            this.config = config;
+        }
     }
 
     public static void checkProducedTypeEquals(Set<Action> inputActions) {
@@ -587,7 +1285,8 @@ public class MultipleTableJobConfigParser {
             SeaTunnelDataType<?> producedType = getProducedType(action);
             if (!expectedType.equals(producedType)) {
                 throw new JobDefineCheckException(
-                        "Transform/Sink don't support processing data with two different structures.");
+                        "Transform/Sink don't support processing data with two different"
+                                + " structures.");
             }
         }
     }
@@ -628,7 +1327,8 @@ public class MultipleTableJobConfigParser {
             for (List<Tuple2<CatalogTable, Action>> inputVertex : inputVertices) {
                 if (inputVertex.size() > 1) {
                     throw new JobDefineCheckException(
-                            "Sink don't support simultaneous writing of data from multi-table source and other sources.");
+                            "Sink don't support simultaneous writing of data from multi-table"
+                                    + " source and other sources.");
                 }
             }
         }
@@ -819,7 +1519,8 @@ public class MultipleTableJobConfigParser {
                     .get(EnvCommonOptions.SAVEMODE_EXECUTE_LOCATION)
                     .equals(SaveModeExecuteLocation.CLIENT)) {
                 log.warn(
-                        "SaveMode execute location on CLIENT is deprecated, please use CLUSTER instead.");
+                        "SaveMode execute location on CLIENT is deprecated, please use CLUSTER"
+                                + " instead.");
                 Optional<SaveModeHandler> saveModeHandler = saveModeSink.getSaveModeHandler();
                 if (saveModeHandler.isPresent()) {
                     try (SaveModeHandler handler = saveModeHandler.get()) {
