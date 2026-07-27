@@ -24,6 +24,7 @@ import lombok.NoArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
@@ -63,6 +64,11 @@ public final class ErrorHandlerConfigUtil {
         ErrorHandlerMode mode = ErrorHandlerMode.fromString(modeStr);
 
         double maxErrorRatio = getDouble(stage, global, "max_error_ratio", 0.0d);
+        if (maxErrorRatio < 0.0d || maxErrorRatio > 1.0d) {
+            throw new IllegalArgumentException(
+                    "error handler max_error_ratio must be between 0.0 and 1.0, but was "
+                            + maxErrorRatio);
+        }
         int maxErrorRatioMinRecords =
                 getNonNegativeInt(
                         stage,
@@ -70,6 +76,11 @@ public final class ErrorHandlerConfigUtil {
                         "max_error_ratio_min_records",
                         DEFAULT_MAX_ERROR_RATIO_MIN_RECORDS);
         long maxErrorRecords = getLong(stage, global, "max_error_records", 0L);
+        if (maxErrorRecords < 0L) {
+            throw new IllegalArgumentException(
+                    "error handler max_error_records must be non-negative, but was "
+                            + maxErrorRecords);
+        }
 
         int queueCapacity = getNonNegativeInt(stage, global, "queue_capacity", 10000);
         String overflowStr = getString(stage, global, "queue_overflow_policy", "FAIL");
@@ -80,9 +91,10 @@ public final class ErrorHandlerConfigUtil {
 
         String dataFormatStr = getString(stage, global, "original_data_format", "TEXT");
         if (!"TEXT".equalsIgnoreCase(dataFormatStr)) {
-            log.warn(
-                    "Unsupported original_data_format='{}'. Current version only supports 'TEXT' (String.valueOf(row)); fallback to TEXT.",
-                    dataFormatStr);
+            throw new IllegalArgumentException(
+                    "Unsupported original_data_format='"
+                            + dataFormatStr
+                            + "'. Current version only supports TEXT.");
         }
         OriginalDataFormat originalDataFormat = OriginalDataFormat.TEXT;
 
@@ -146,7 +158,8 @@ public final class ErrorHandlerConfigUtil {
         Map<String, Object> globalSink =
                 getNestedMap(global, "sink").orElse(Collections.emptyMap());
 
-        Map<String, Object> effectiveSink = !stageSink.isEmpty() ? stageSink : globalSink;
+        Map<String, Object> effectiveSink = new HashMap<>(globalSink);
+        effectiveSink.putAll(stageSink);
         if (effectiveSink.isEmpty()) {
             return ErrorSinkConfig.empty();
         }
@@ -182,7 +195,8 @@ public final class ErrorHandlerConfigUtil {
             try {
                 return Long.parseLong(value.toString());
             } catch (NumberFormatException ignore) {
-                return defaultValue;
+                throw new IllegalArgumentException(
+                        "Invalid error handler numeric value for '" + key + "': " + value, ignore);
             }
         }
         return defaultValue;
@@ -201,7 +215,8 @@ public final class ErrorHandlerConfigUtil {
             try {
                 return Double.parseDouble(value.toString());
             } catch (NumberFormatException ignore) {
-                return defaultValue;
+                throw new IllegalArgumentException(
+                        "Invalid error handler numeric value for '" + key + "': " + value, ignore);
             }
         }
         return defaultValue;
@@ -217,7 +232,15 @@ public final class ErrorHandlerConfigUtil {
             return (Boolean) value;
         }
         if (value != null) {
-            return Boolean.parseBoolean(value.toString());
+            String booleanValue = value.toString().trim();
+            if ("true".equalsIgnoreCase(booleanValue)) {
+                return true;
+            }
+            if ("false".equalsIgnoreCase(booleanValue)) {
+                return false;
+            }
+            throw new IllegalArgumentException(
+                    "Invalid error handler boolean value for '" + key + "': " + value);
         }
         return defaultValue;
     }
@@ -226,8 +249,13 @@ public final class ErrorHandlerConfigUtil {
             Map<String, Object> stage, Map<String, Object> global, String key, int defaultValue) {
         long value = getLong(stage, global, key, defaultValue);
         if (value < 0 || value > Integer.MAX_VALUE) {
-            log.warn("Invalid '{}' value={}, fallback to default={}", key, value, defaultValue);
-            return defaultValue;
+            throw new IllegalArgumentException(
+                    "error handler "
+                            + key
+                            + " must be between 0 and "
+                            + Integer.MAX_VALUE
+                            + ", but was "
+                            + value);
         }
         return (int) value;
     }

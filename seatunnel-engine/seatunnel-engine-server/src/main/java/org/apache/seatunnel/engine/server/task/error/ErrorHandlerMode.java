@@ -32,8 +32,9 @@ public enum ErrorHandlerMode {
             case "ROUTE":
                 return ROUTE;
             case "DISABLE":
-            default:
                 return DISABLE;
+            default:
+                throw new IllegalArgumentException("Unsupported error handler mode: " + value);
         }
     }
 }

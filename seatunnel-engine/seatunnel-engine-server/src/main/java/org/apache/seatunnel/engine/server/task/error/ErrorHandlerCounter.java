@@ -22,11 +22,34 @@ import java.io.Serializable;
 /** Counter abstraction for row-level error threshold accounting. */
 public interface ErrorHandlerCounter extends Serializable {
 
+    /**
+     * Records one successfully observed input row for threshold checks.
+     *
+     * @return the counter value visible to this handler after the increment
+     */
     long incrementTotalRecords();
 
+    /**
+     * Records one row-level error for threshold checks.
+     *
+     * @return the counter value visible to this handler after the increment
+     */
     long incrementErrorRecords();
 
+    /** Returns the total-record count visible to this handler. */
     long getTotalRecords();
 
+    /** Returns the error-record count visible to this handler. */
     long getErrorRecords();
+
+    /**
+     * Captures local counter deltas for the given checkpoint without publishing them globally yet.
+     */
+    default void snapshotState(long checkpointId) {}
+
+    /** Publishes deltas captured for the completed checkpoint. */
+    default void notifyCheckpointComplete(long checkpointId) {}
+
+    /** Drops deltas captured for an aborted checkpoint. */
+    default void notifyCheckpointAborted(long checkpointId) {}
 }

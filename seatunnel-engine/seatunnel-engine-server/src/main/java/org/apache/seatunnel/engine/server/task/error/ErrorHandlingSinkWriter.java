@@ -162,7 +162,10 @@ public class ErrorHandlingSinkWriter<T, CommT, StateT> implements SinkWriter<T, 
     @Override
     public List<StateT> snapshotState(long checkpointId) throws IOException {
         List<StateT> states = delegate.snapshotState(checkpointId);
-        flushErrorHandler();
+        flushErrorHandler(checkpointId);
+        if (errorHandler != null) {
+            errorHandler.snapshotState(checkpointId);
+        }
         return states;
     }
 
@@ -199,11 +202,19 @@ public class ErrorHandlingSinkWriter<T, CommT, StateT> implements SinkWriter<T, 
     }
 
     private void flushErrorHandler() throws IOException {
+        flushErrorHandler(null);
+    }
+
+    private void flushErrorHandler(Long checkpointId) throws IOException {
         if (errorHandler == null) {
             return;
         }
         try {
-            errorHandler.flush();
+            if (checkpointId == null) {
+                errorHandler.flush();
+            } else {
+                errorHandler.flush(checkpointId);
+            }
         } catch (Exception e) {
             throw toIOException(e);
         }

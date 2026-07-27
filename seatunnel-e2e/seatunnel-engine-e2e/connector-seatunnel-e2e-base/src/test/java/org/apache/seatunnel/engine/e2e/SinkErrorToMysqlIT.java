@@ -67,8 +67,12 @@ public class SinkErrorToMysqlIT extends TestSuiteBase implements TestResource {
                         container.execInContainer(
                                 "bash",
                                 "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && wget "
-                                        + DRIVER_JAR);
+                                "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib"
+                                        + " && cd /tmp/seatunnel/plugins/Jdbc/lib"
+                                        + " && (test -s mysql-connector-j-8.0.32.jar"
+                                        + " || curl -fsSLO --retry 5 --retry-delay 2 "
+                                        + DRIVER_JAR
+                                        + ")");
                 Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
             };
 

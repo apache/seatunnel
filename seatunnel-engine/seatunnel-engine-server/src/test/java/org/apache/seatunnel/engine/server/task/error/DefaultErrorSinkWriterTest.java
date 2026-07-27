@@ -43,6 +43,7 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -102,6 +103,42 @@ public class DefaultErrorSinkWriterTest {
         assertTrue(context.getFlushAction() == flushAction);
         context.getFlushAction().run();
         assertTrue(flushes.get() == 1);
+    }
+
+    @Test
+    public void testFlushWithCheckpointUsesCheckpointAwarePrepareCommit() throws Exception {
+        Class<?> contextClass =
+                Class.forName(DefaultErrorSinkWriter.class.getName() + "$SimpleWriterContext");
+        Constructor<?> constructor =
+                Arrays.stream(contextClass.getDeclaredConstructors())
+                        .filter(candidate -> candidate.getParameterCount() == 3)
+                        .findFirst()
+                        .orElseThrow(() -> new AssertionError("SimpleWriterContext constructor"));
+        constructor.setAccessible(true);
+        SinkWriter.Context context = (SinkWriter.Context) constructor.newInstance(null, null, 0);
+        AtomicInteger flushes = new AtomicInteger();
+        context.registerFlushAction(flushes::incrementAndGet);
+
+        CountingWriter sinkWriter = new CountingWriter();
+        DefaultErrorSinkWriter<SeaTunnelRow> writer =
+                new DefaultErrorSinkWriter<>(
+                        StageErrorConfig.builder().mode(ErrorHandlerMode.ROUTE).build(),
+                        ErrorSinkConfig.empty(),
+                        1L,
+                        0,
+                        null);
+        setField(writer, "initialized", true);
+        setField(writer, "writer", sinkWriter);
+        setField(writer, "writerLock", new Object());
+        setField(writer, "writerContext", context);
+        setField(writer, "pendingRows", new AtomicInteger(0));
+
+        writer.flush(37L);
+
+        assertEquals(1, flushes.get());
+        assertEquals(0, sinkWriter.noArgPrepareCommits.get());
+        assertEquals(1, sinkWriter.checkpointPrepareCommits.get());
+        assertEquals(37L, sinkWriter.lastCheckpointId);
     }
 
     @Test
@@ -259,6 +296,26 @@ public class DefaultErrorSinkWriterTest {
 
         @Override
         public void close() {}
+    }
+
+    private static class CountingWriter extends NoopWriter {
+
+        private final AtomicInteger noArgPrepareCommits = new AtomicInteger();
+        private final AtomicInteger checkpointPrepareCommits = new AtomicInteger();
+        private long lastCheckpointId = -1L;
+
+        @Override
+        public Optional<String> prepareCommit() {
+            noArgPrepareCommits.incrementAndGet();
+            return Optional.empty();
+        }
+
+        @Override
+        public Optional<String> prepareCommit(long checkpointId) {
+            checkpointPrepareCommits.incrementAndGet();
+            lastCheckpointId = checkpointId;
+            return Optional.empty();
+        }
     }
 
     private static class NoopCommitter implements SinkCommitter<String> {

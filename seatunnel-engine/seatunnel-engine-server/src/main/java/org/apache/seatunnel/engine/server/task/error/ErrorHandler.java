@@ -22,7 +22,13 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.Serializable;
 import java.util.Objects;
 
-/** Error handler for row-level error counting, logging and threshold checks. */
+/**
+ * Error handler for row-level error counting, logging, routing, and threshold checks.
+ *
+ * <p>The handler keeps row-processing operations synchronous with the owning task. Checkpoint-aware
+ * counters and error-sink flushes are exposed through explicit lifecycle methods so task flows can
+ * bind them to SeaTunnel checkpoint completion instead of publishing partial state immediately.
+ */
 @Slf4j
 public class ErrorHandler<T> implements Serializable, AutoCloseable {
 
@@ -52,6 +58,7 @@ public class ErrorHandler<T> implements Serializable, AutoCloseable {
         this.counter = Objects.requireNonNull(counter, "counter");
     }
 
+    /** Records a non-error input row for ratio/record thresholds. */
     public void incrementTotalRecords() {
         if (config.getMode() == ErrorHandlerMode.DISABLE) {
             return;
@@ -64,6 +71,7 @@ public class ErrorHandler<T> implements Serializable, AutoCloseable {
         return config.getMode();
     }
 
+    /** Handles a row-level failure according to the configured mode and thresholds. */
     public ErrorHandleResult onError(RowErrorContext ctx, T row, Throwable t) {
         if (config.getMode() == ErrorHandlerMode.DISABLE) {
             return ErrorHandleResult.DROPPED;
@@ -102,25 +110,31 @@ public class ErrorHandler<T> implements Serializable, AutoCloseable {
 
                 if (config.isIncludeStacktrace() && t != null) {
                     log.warn(
-                            "Row-level error in stage [{}], plugin [{}] on table [{}]: {}. TotalRecords={}, ErrorRecords={}, Original data: {}",
+                            "Row-level error in stage [{}], plugin [{}] on table [{}]: {}. TotalRecords={}, ErrorRecords={}",
                             stage,
                             pluginName,
                             tableId,
                             errorMessage,
                             counter.getTotalRecords(),
                             currentErrorCount,
-                            originalData,
                             t);
                 } else {
                     log.warn(
-                            "Row-level error in stage [{}], plugin [{}] on table [{}]: {}. TotalRecords={}, ErrorRecords={}, Original data: {}",
+                            "Row-level error in stage [{}], plugin [{}] on table [{}]: {}. TotalRecords={}, ErrorRecords={}",
                             stage,
                             pluginName,
                             tableId,
                             errorMessage,
                             counter.getTotalRecords(),
-                            currentErrorCount,
-                            originalData);
+                            currentErrorCount);
+                }
+                if (originalData != null) {
+                    log.debug(
+                            "Original row data for row-level error is available only in routed error records. stage={}, plugin={}, tableId={}, originalDataLength={}",
+                            stage,
+                            pluginName,
+                            tableId,
+                            originalData.length());
                 }
             } catch (Throwable logEx) {
                 if (logEx instanceof Error) {
@@ -224,10 +238,33 @@ public class ErrorHandler<T> implements Serializable, AutoCloseable {
         return value.substring(0, maxLength);
     }
 
+    /** Flushes pending error-sink rows outside a checkpoint boundary. */
     public void flush() throws Exception {
         if (errorSinkWriter != null) {
             errorSinkWriter.flush();
         }
+    }
+
+    /** Flushes pending error-sink rows as part of the given checkpoint. */
+    public void flush(long checkpointId) throws Exception {
+        if (errorSinkWriter != null) {
+            errorSinkWriter.flush(checkpointId);
+        }
+    }
+
+    /** Captures local threshold-counter deltas for the checkpoint. */
+    public void snapshotState(long checkpointId) {
+        counter.snapshotState(checkpointId);
+    }
+
+    /** Publishes threshold-counter deltas captured for a completed checkpoint. */
+    public void notifyCheckpointComplete(long checkpointId) {
+        counter.notifyCheckpointComplete(checkpointId);
+    }
+
+    /** Drops threshold-counter deltas captured for an aborted checkpoint. */
+    public void notifyCheckpointAborted(long checkpointId) {
+        counter.notifyCheckpointAborted(checkpointId);
     }
 
     @Override

@@ -19,9 +19,20 @@ package org.apache.seatunnel.engine.server.task.error;
 
 import org.apache.seatunnel.engine.server.common.statestore.counter.CounterStateStore;
 
+import java.io.Serializable;
+import java.util.NavigableMap;
 import java.util.Objects;
+import java.util.TreeMap;
+import java.util.concurrent.atomic.AtomicLong;
 
-/** State-store-backed counter shared by all subtasks in one job/pipeline/action/stage scope. */
+/**
+ * Checkpoint-aware state-store-backed counter.
+ *
+ * <p>Row processing updates local atomics only. Local deltas are captured on checkpoint barriers
+ * and published to the shared state store only after the checkpoint is reported complete, keeping
+ * Hazelcast operations out of the per-row hot path and avoiding committed counters for aborted
+ * checkpoints.
+ */
 public class StateStoreErrorHandlerCounter implements ErrorHandlerCounter {
 
     private static final String KEY_VERSION = "v1";
@@ -31,6 +42,13 @@ public class StateStoreErrorHandlerCounter implements ErrorHandlerCounter {
     private final CounterStateStore<String> counterStore;
     private final String totalRecordsKey;
     private final String errorRecordsKey;
+    private final AtomicLong localTotalRecords = new AtomicLong();
+    private final AtomicLong localErrorRecords = new AtomicLong();
+    private final AtomicLong committedLocalTotalRecords = new AtomicLong();
+    private final AtomicLong committedLocalErrorRecords = new AtomicLong();
+    private final AtomicLong visibleCommittedTotalRecords = new AtomicLong();
+    private final AtomicLong visibleCommittedErrorRecords = new AtomicLong();
+    private final NavigableMap<Long, CounterSnapshot> pendingSnapshots = new TreeMap<>();
 
     public StateStoreErrorHandlerCounter(
             CounterStateStore<String> counterStore,
@@ -44,26 +62,71 @@ public class StateStoreErrorHandlerCounter implements ErrorHandlerCounter {
         this.errorRecordsKey = scopeKey + ":" + ERROR_COUNTER;
         initializeIfAbsent(totalRecordsKey);
         initializeIfAbsent(errorRecordsKey);
+        this.visibleCommittedTotalRecords.set(getOrZero(totalRecordsKey));
+        this.visibleCommittedErrorRecords.set(getOrZero(errorRecordsKey));
     }
 
     @Override
     public long incrementTotalRecords() {
-        return incrementAndGet(totalRecordsKey);
+        return visibleCommittedTotalRecords.get()
+                + localTotalRecords.incrementAndGet()
+                - committedLocalTotalRecords.get();
     }
 
     @Override
     public long incrementErrorRecords() {
-        return incrementAndGet(errorRecordsKey);
+        return visibleCommittedErrorRecords.get()
+                + localErrorRecords.incrementAndGet()
+                - committedLocalErrorRecords.get();
     }
 
     @Override
     public long getTotalRecords() {
-        return getOrZero(totalRecordsKey);
+        return visibleCommittedTotalRecords.get()
+                + localTotalRecords.get()
+                - committedLocalTotalRecords.get();
     }
 
     @Override
     public long getErrorRecords() {
-        return getOrZero(errorRecordsKey);
+        return visibleCommittedErrorRecords.get()
+                + localErrorRecords.get()
+                - committedLocalErrorRecords.get();
+    }
+
+    @Override
+    public synchronized void snapshotState(long checkpointId) {
+        pendingSnapshots.put(
+                checkpointId,
+                new CounterSnapshot(localTotalRecords.get(), localErrorRecords.get()));
+    }
+
+    @Override
+    public synchronized void notifyCheckpointComplete(long checkpointId) {
+        CounterSnapshot snapshot =
+                pendingSnapshots.floorEntry(checkpointId) == null
+                        ? null
+                        : pendingSnapshots.floorEntry(checkpointId).getValue();
+        if (snapshot == null) {
+            return;
+        }
+
+        long totalDelta = snapshot.totalRecords - committedLocalTotalRecords.get();
+        long errorDelta = snapshot.errorRecords - committedLocalErrorRecords.get();
+        if (totalDelta > 0) {
+            visibleCommittedTotalRecords.set(addAndGet(totalRecordsKey, totalDelta));
+            committedLocalTotalRecords.addAndGet(totalDelta);
+        }
+        if (errorDelta > 0) {
+            visibleCommittedErrorRecords.set(addAndGet(errorRecordsKey, errorDelta));
+            committedLocalErrorRecords.addAndGet(errorDelta);
+        }
+        pendingSnapshots.headMap(checkpointId, true).clear();
+    }
+
+    @Override
+    public synchronized void notifyCheckpointAborted(long checkpointId) {
+        pendingSnapshots.remove(checkpointId);
     }
 
     static String buildScopeKey(long jobId, int pipelineId, long actionId, String stageName) {
@@ -80,13 +143,13 @@ public class StateStoreErrorHandlerCounter implements ErrorHandlerCounter {
         counterStore.initializeIfAbsent(key, 0L);
     }
 
-    private long incrementAndGet(String key) {
-        Long current = counterStore.incrementAndGet(key);
+    private long addAndGet(String key, long delta) {
+        Long current = counterStore.addAndGet(key, delta);
         if (current != null) {
             return current;
         }
         initializeIfAbsent(key);
-        current = counterStore.incrementAndGet(key);
+        current = counterStore.addAndGet(key, delta);
         if (current == null) {
             throw new IllegalStateException("Error handler counter is absent after initialize");
         }
@@ -96,5 +159,17 @@ public class StateStoreErrorHandlerCounter implements ErrorHandlerCounter {
     private long getOrZero(String key) {
         Long current = counterStore.get(key);
         return current == null ? 0L : current;
+    }
+
+    private static final class CounterSnapshot implements Serializable {
+        private static final long serialVersionUID = 1L;
+
+        private final long totalRecords;
+        private final long errorRecords;
+
+        private CounterSnapshot(long totalRecords, long errorRecords) {
+            this.totalRecords = totalRecords;
+            this.errorRecords = errorRecords;
+        }
     }
 }

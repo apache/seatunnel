@@ -22,15 +22,39 @@ import java.io.Serializable;
 /** Sink writer used by {@link ErrorHandler} to persist error records. */
 public interface ErrorSinkRowWriter<T> extends Serializable, AutoCloseable {
 
+    /**
+     * Writes one row-level error to the configured error sink.
+     *
+     * @param ctx context describing the source stage, plugin, and table
+     * @param row original row that caused the row-level error
+     * @param t original row-level failure
+     */
     void write(RowErrorContext ctx, T row, Throwable t) throws Exception;
 
+    /**
+     * Writes one row-level error and reports whether the error sink accepted it.
+     *
+     * <p>Implementations can return {@code false} when the row is intentionally dropped, for
+     * example because of a bounded queue overflow policy.
+     */
     default boolean writeAndCheckAccepted(RowErrorContext ctx, T row, Throwable t)
             throws Exception {
         write(ctx, row, t);
         return true;
     }
 
+    /** Flushes pending error rows outside a checkpoint boundary. */
     default void flush() throws Exception {}
+
+    /**
+     * Flushes pending error rows for the given checkpoint.
+     *
+     * <p>The default delegates to {@link #flush()} so simple sinks do not need checkpoint-specific
+     * handling.
+     */
+    default void flush(long checkpointId) throws Exception {
+        flush();
+    }
 
     @Override
     void close() throws Exception;

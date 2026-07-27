@@ -300,6 +300,9 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
             }
         }
         connectorMetricsCalcContext.commitPendingMetrics(checkpointId);
+        if (stageErrorHandler != null) {
+            stageErrorHandler.notifyCheckpointComplete(checkpointId);
+        }
     }
 
     @Override
@@ -313,6 +316,9 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
             }
         }
         connectorMetricsCalcContext.abortPendingMetrics(checkpointId);
+        if (stageErrorHandler != null) {
+            stageErrorHandler.notifyCheckpointAborted(checkpointId);
+        }
     }
 
     @Override
@@ -482,14 +488,17 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
         if (sinkConfig == null || !sinkConfig.isConfigured()) {
             return null;
         }
-        return (ErrorSinkRowWriter<T>)
-                new SynchronizedErrorSinkRowWriter<>(
-                        new DefaultErrorSinkWriter<>(
-                                stageConfig,
-                                sinkConfig,
-                                seaTunnelTask.getTaskLocation().getJobId(),
-                                seaTunnelTask.getTaskLocation().getTaskIndex(),
-                                seaTunnelTask.getExecutionContext().getClassLoaderService()));
+        DefaultErrorSinkWriter<T> writer =
+                new DefaultErrorSinkWriter<>(
+                        stageConfig,
+                        sinkConfig,
+                        seaTunnelTask.getTaskLocation().getJobId(),
+                        seaTunnelTask.getTaskLocation().getTaskIndex(),
+                        seaTunnelTask.getExecutionContext().getClassLoaderService(),
+                        metricsContext,
+                        eventListener);
+        writer.open();
+        return (ErrorSinkRowWriter<T>) new SynchronizedErrorSinkRowWriter<>(writer);
     }
 
     private void processDataRecord(Record<?> record) throws IOException {

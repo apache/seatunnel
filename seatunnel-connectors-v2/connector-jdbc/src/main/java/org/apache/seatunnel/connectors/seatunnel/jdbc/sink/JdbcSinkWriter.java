@@ -60,7 +60,6 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
     private final Integer primaryKeyIndex;
     private final Optional<RowErrorCollector> rowErrorCollector;
     private final int batchSize;
-    private final boolean autoCommit;
     private final Object batchLock = new Object();
     private List<SeaTunnelRow> pendingRows;
 
@@ -98,7 +97,6 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
         this.rowErrorCollector =
                 context == null ? Optional.empty() : context.getRowErrorCollector();
         this.batchSize = jdbcSinkConfig.getJdbcConnectionConfig().getBatchSize();
-        this.autoCommit = jdbcSinkConfig.getJdbcConnectionConfig().isAutoCommit();
         if (rowErrorCollector.isPresent()) {
             // Only maintain pending rows when collector is available.
             this.pendingRows = new ArrayList<>(Math.max(this.batchSize, 16));
@@ -364,7 +362,7 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
         if (pendingRows == null) {
             return;
         }
-        if (autoCommit && autoFlushed) {
+        if (autoFlushed) {
             pendingRows.clear();
         }
     }

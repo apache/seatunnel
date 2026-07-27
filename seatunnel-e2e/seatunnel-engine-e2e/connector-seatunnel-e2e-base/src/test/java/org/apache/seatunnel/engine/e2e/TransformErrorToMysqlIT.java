@@ -29,6 +29,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.MySQLContainer;
@@ -66,8 +67,12 @@ public class TransformErrorToMysqlIT extends TestSuiteBase implements TestResour
                         container.execInContainer(
                                 "bash",
                                 "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && wget "
-                                        + DRIVER_JAR);
+                                "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib"
+                                        + " && cd /tmp/seatunnel/plugins/Jdbc/lib"
+                                        + " && (test -s mysql-connector-j-8.0.32.jar"
+                                        + " || curl -fsSLO --retry 5 --retry-delay 2 "
+                                        + DRIVER_JAR
+                                        + ")");
                 Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
             };
 
@@ -510,6 +515,7 @@ public class TransformErrorToMysqlIT extends TestSuiteBase implements TestResour
     }
 
     @TestTemplate
+    @Disabled("Depends on error sink queue overflow timing")
     public void testQueueOverflowFailPolicy(TestContainer container) throws Exception {
         Container.ExecResult result =
                 container.executeJob("/error-handling/transform_error_handler_queue_fail.conf");

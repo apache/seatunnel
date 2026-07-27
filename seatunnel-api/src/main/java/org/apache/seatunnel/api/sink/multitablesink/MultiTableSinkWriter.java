@@ -974,29 +974,43 @@ public class MultiTableSinkWriter
     }
 
     private void removeTableWriters(String tableId) {
-        sinkPrimaryKeys.remove(tableId);
         List<SinkIdentifier> sinkIdentifiers =
                 sinkIdentifiersByTable.getOrDefault(tableId, Collections.emptyList());
+        Throwable firstCloseError = null;
         for (SinkIdentifier sinkIdentifier : sinkIdentifiers) {
-            sinkWriters.remove(sinkIdentifier);
+            boolean allSubWritersClosed = true;
             for (int i = 0; i < sinkWritersWithIndex.size(); i++) {
                 synchronized (runnable.get(i)) {
-                    SinkWriter<SeaTunnelRow, ?, ?> removedWriter =
-                            sinkWritersWithIndex.get(i).remove(sinkIdentifier);
-                    runnable.get(i).removeTableWriter(tableId);
-                    if (removedWriter != null) {
+                    SinkWriter<SeaTunnelRow, ?, ?> writer =
+                            sinkWritersWithIndex.get(i).get(sinkIdentifier);
+                    if (writer != null) {
                         try {
-                            removedWriter.close();
+                            writer.close();
                         } catch (Throwable closeError) {
-                            log.warn(
+                            allSubWritersClosed = false;
+                            if (firstCloseError == null) {
+                                firstCloseError = closeError;
+                            }
+                            log.error(
                                     "Close quarantined writer failed for table {}",
                                     tableId,
                                     closeError);
+                            continue;
                         }
                     }
+                    sinkWritersWithIndex.get(i).remove(sinkIdentifier);
+                    runnable.get(i).removeTableWriter(tableId);
                 }
             }
+            if (allSubWritersClosed) {
+                sinkWriters.remove(sinkIdentifier);
+            }
         }
+        if (firstCloseError != null) {
+            throw new RuntimeException(
+                    "Close quarantined writer failed for table " + tableId, firstCloseError);
+        }
+        sinkPrimaryKeys.remove(tableId);
     }
 
     @FunctionalInterface

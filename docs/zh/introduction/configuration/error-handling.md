@@ -215,18 +215,18 @@ env {
 
 | 参数                     | 类型     | 默认值   | 说明 / 取值                                                                                 |
 |------------------------|--------|--------|------------------------------------------------------------------------------------------|
-| `mode`                 | String    | `DISABLE` | 行级错误处理模式：`DISABLE`（关闭）、`LOG`（只记录）、`ROUTE`（记录并路由到错误 Sink）。                         |
-| `max_error_ratio`      | Double     | `0.0`   | 允许的错误比例，0.0–1.0；例如 `0.01` 表示错误记录超过 1% 时失败作业；`0.0` 表示不按比例触发失败。                          |
+| `mode`                 | String    | `DISABLE` | 行级错误处理模式：`DISABLE`（关闭）、`LOG`（只记录）、`ROUTE`（记录并路由到错误 Sink）。不支持的取值会在解析配置时快速失败。                         |
+| `max_error_ratio`      | Double     | `0.0`   | 允许的错误比例，0.0–1.0；例如 `0.01` 表示错误记录超过 1% 时失败作业；`0.0` 表示不按比例触发失败。超出 0.0–1.0 的取值会在解析配置时快速失败。                          |
 | `max_error_ratio_min_records` | Integer | `10000`  | `max_error_ratio` 的预热阈值：当总处理记录数小于该值时，不进行比例触发，避免在处理记录数还不够时过早失败。 |
-| `max_error_records`    | Long    | `0`     | 允许的错误记录总数上限；`0` 表示不按错误条数触发失败。                                                           |
+| `max_error_records`    | Long    | `0`     | 允许的错误记录总数上限；`0` 表示不按错误条数触发失败。负数会在解析配置时快速失败。                                                           |
 | `queue_capacity`       | Integer     | `10000` | 内部错误队列（缓冲区）容量上限，队列中最多可同时缓存的错误记录数量。                                                     |
-| `queue_overflow_policy`| String    | `FAIL`  | 错误队列已满时的策略：`FAIL`（失败作业）、`DROP`（丢弃新错误记录）、`BLOCK`（阻塞生产错误的线程，可能影响吞吐）。                 |
+| `queue_overflow_policy`| String    | `FAIL`  | 错误队列已满时的策略：`FAIL`（失败作业）、`DROP`（丢弃新错误记录）、`BLOCK`（阻塞生产错误的线程，可能影响吞吐）。不支持的取值会在解析配置时快速失败。                 |
 | `include_original_data`| Boolean    | `false` | 是否在错误记录中包含原始数据内容。                                             |
 | `include_stacktrace`   | Boolean    | `false` | 是否在错误记录中包含完整 Java 异常堆栈；开启会增加单条错误记录的体积。                                                |
-| `original_data_format` | String    | `TEXT`  | **预留参数**。当前版本仅支持 `TEXT`，内部统一按字符串形式写入错误表（`original_data` 为记录的字符串表示，即 `String.valueOf(row)`）。 |
+| `original_data_format` | String    | `TEXT`  | **预留参数**。当前版本仅支持 `TEXT`，内部统一按字符串形式写入错误表（`original_data` 为记录的字符串表示，即 `String.valueOf(row)`）。不支持的取值会在解析配置时快速失败。 |
 | `original_data_max_length` | Integer | `8192`  | 原始数据序列化后的最大长度，超过部分将被截断，用于控制单条错误记录大小。                                                |
 
-阈值统计口径：Zeta 会把阈值计数写入引擎状态，计数 key 带有版本号，并按作业 ID、pipeline ID、action ID 和阶段（`TRANSFORM` 或 `SINK`）划分。同一个 action、同一个阶段下的所有并行 subtask 共享同一组总记录数/错误记录数计数器，因此 `max_error_records` 和 `max_error_ratio` 按该作业、该 pipeline 的阶段级总量触发，而不是给每个 subtask 单独分配一份预算。Sink 每次 `write(...)` 计 1；Transform 链中每个 `map(...)`/`flatMap(...)` 调用计 1；同一条 Transform 链上的多个算子共享同一个阶段计数器。任务恢复后，新 attempt 会复用同一组引擎状态计数器，不会从 0 重新计数，所以重启或调整并行度不会放大可容忍的错误数量。
+阈值统计口径：Zeta 会把阈值计数写入引擎状态，计数 key 带有版本号，并按作业 ID、pipeline ID、action ID 和阶段（`TRANSFORM` 或 `SINK`）划分。行处理时先更新本地 task 计数，只在对应 checkpoint 完成后把增量发布到共享引擎状态，因此热路径不会每行写一次共享状态，已中止的 checkpoint 也不会推进已提交阈值。同一个 action、同一个阶段下的所有并行 subtask 共享同一组总记录数/错误记录数计数器，因此 `max_error_records` 和 `max_error_ratio` 按该作业、该 pipeline 的阶段级总量触发，而不是给每个 subtask 单独分配一份预算。Sink 每次 `write(...)` 计 1；Transform 链中每个 `map(...)`/`flatMap(...)` 调用计 1；同一条 Transform 链上的多个算子共享同一个阶段计数器。任务恢复后，新 attempt 会复用同一组引擎状态计数器，不会从 0 重新计数，所以重启或调整并行度不会放大可容忍的错误数量。
 
 ### 错误 Sink 相关参数一览
 

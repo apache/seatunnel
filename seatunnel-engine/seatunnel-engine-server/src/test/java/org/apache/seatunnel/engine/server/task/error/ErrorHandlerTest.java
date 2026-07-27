@@ -197,7 +197,7 @@ public class ErrorHandlerTest {
     }
 
     @Test
-    public void testStateStoreCounterSharesMaxRecordsAcrossParallelHandlers() {
+    public void testStateStoreCounterSharesMaxRecordsAcrossParallelHandlersAfterCheckpoint() {
         StageErrorConfig config =
                 StageErrorConfig.builder().mode(ErrorHandlerMode.LOG).maxErrorRecords(1).build();
         InMemoryCounterStateStore counterStore = new InMemoryCounterStateStore();
@@ -215,6 +215,8 @@ public class ErrorHandlerTest {
 
         firstSubtaskHandler.incrementTotalRecords();
         firstSubtaskHandler.onError(ctx, createRow(1), new RuntimeException("first"));
+        firstSubtaskHandler.snapshotState(1L);
+        firstSubtaskHandler.notifyCheckpointComplete(1L);
         secondSubtaskHandler.incrementTotalRecords();
         RuntimeException ex =
                 assertThrows(
@@ -248,6 +250,8 @@ public class ErrorHandlerTest {
         beforeRecovery.onError(ctx, createRow(1), new RuntimeException("first"));
         beforeRecovery.incrementTotalRecords();
         beforeRecovery.onError(ctx, createRow(2), new RuntimeException("second"));
+        beforeRecovery.snapshotState(1L);
+        beforeRecovery.notifyCheckpointComplete(1L);
 
         ErrorHandler<SeaTunnelRow> afterRecovery =
                 new ErrorHandler<>(
@@ -412,6 +416,11 @@ public class ErrorHandlerTest {
                     }
 
                     @Override
+                    public void flush(long checkpointId) {
+                        flushCount.addAndGet((int) checkpointId);
+                    }
+
+                    @Override
                     public void close() {}
                 };
 
@@ -420,8 +429,9 @@ public class ErrorHandlerTest {
                 new ErrorHandler<>(config, new SynchronizedErrorSinkRowWriter<>(delegate));
 
         handler.flush();
+        handler.flush(2L);
 
-        assertEquals(1, flushCount.get());
+        assertEquals(3, flushCount.get());
         handler.close();
     }
 
@@ -441,6 +451,68 @@ public class ErrorHandlerTest {
 
         assertTrue(ex.getMessage().contains("env.transform_error_handler.mode=ROUTE"));
         assertTrue(ex.getMessage().contains("env.transform_error_handler.sink.plugin_name"));
+    }
+
+    @Test
+    public void testInvalidErrorHandlerModeFailsFast() {
+        Map<String, Object> envOptions = new HashMap<>();
+        Map<String, Object> errorHandler = new HashMap<>();
+        errorHandler.put("mode", "unknown");
+        envOptions.put("error_handler", errorHandler);
+
+        IllegalArgumentException ex =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () ->
+                                ErrorHandlerConfigUtil.buildStageConfig(
+                                        envOptions, ErrorHandlerConfigUtil.StageType.SINK));
+
+        assertTrue(ex.getMessage().contains("Unsupported error handler mode"));
+    }
+
+    @Test
+    public void testInvalidErrorHandlerNumericValueFailsFast() {
+        Map<String, Object> envOptions = new HashMap<>();
+        Map<String, Object> errorHandler = new HashMap<>();
+        errorHandler.put("mode", "LOG");
+        errorHandler.put("max_error_ratio", "not-a-number");
+        envOptions.put("error_handler", errorHandler);
+
+        IllegalArgumentException ex =
+                assertThrows(
+                        IllegalArgumentException.class,
+                        () ->
+                                ErrorHandlerConfigUtil.buildStageConfig(
+                                        envOptions, ErrorHandlerConfigUtil.StageType.SINK));
+
+        assertTrue(ex.getMessage().contains("max_error_ratio"));
+    }
+
+    @Test
+    public void testStageSinkOptionsMergeWithGlobalSinkOptions() {
+        Map<String, Object> envOptions = new HashMap<>();
+        Map<String, Object> global = new HashMap<>();
+        global.put("mode", "ROUTE");
+        Map<String, Object> globalSink = new HashMap<>();
+        globalSink.put("plugin_name", "Jdbc");
+        globalSink.put("url", "jdbc:mysql://localhost:3306/test");
+        global.put("sink", globalSink);
+        envOptions.put("error_handler", global);
+
+        Map<String, Object> stage = new HashMap<>();
+        stage.put("mode", "ROUTE");
+        Map<String, Object> stageSink = new HashMap<>();
+        stageSink.put("error_table", "sink_errors");
+        stage.put("sink", stageSink);
+        envOptions.put("sink_error_handler", stage);
+
+        StageErrorConfig config =
+                ErrorHandlerConfigUtil.buildStageConfig(
+                        envOptions, ErrorHandlerConfigUtil.StageType.SINK);
+
+        assertEquals("Jdbc", config.getSink().getPluginName());
+        assertEquals("sink_errors", config.getSink().getErrorTable());
+        assertEquals("jdbc:mysql://localhost:3306/test", config.getSink().getOptions().get("url"));
     }
 
     @Test
@@ -644,6 +716,14 @@ public class ErrorHandlerTest {
                 return null;
             }
             return values.computeIfPresent(key, (ignored, current) -> current + 1L);
+        }
+
+        @Override
+        public Long addAndGet(String key, long delta) {
+            if (!values.containsKey(key)) {
+                return null;
+            }
+            return values.computeIfPresent(key, (ignored, current) -> current + delta);
         }
 
         @Override

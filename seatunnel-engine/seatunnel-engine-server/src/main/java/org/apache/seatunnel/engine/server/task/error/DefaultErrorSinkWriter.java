@@ -80,6 +80,8 @@ public class DefaultErrorSinkWriter<T> implements ErrorSinkRowWriter<T> {
     private final long jobId;
     private final int subtaskIndex;
     private final ClassLoaderService classLoaderService;
+    private final transient MetricsContext metricsContext;
+    private final transient EventListener eventListener;
 
     private transient volatile boolean initialized;
     private transient volatile boolean closed;
@@ -103,11 +105,29 @@ public class DefaultErrorSinkWriter<T> implements ErrorSinkRowWriter<T> {
             long jobId,
             int subtaskIndex,
             ClassLoaderService classLoaderService) {
+        this(stageConfig, sinkConfig, jobId, subtaskIndex, classLoaderService, null, null);
+    }
+
+    public DefaultErrorSinkWriter(
+            StageErrorConfig stageConfig,
+            ErrorSinkConfig sinkConfig,
+            long jobId,
+            int subtaskIndex,
+            ClassLoaderService classLoaderService,
+            MetricsContext metricsContext,
+            EventListener eventListener) {
         this.stageConfig = stageConfig;
         this.sinkConfig = sinkConfig;
         this.jobId = jobId;
         this.subtaskIndex = subtaskIndex;
         this.classLoaderService = classLoaderService;
+        this.metricsContext = metricsContext == null ? new NoopMetricsContext() : metricsContext;
+        this.eventListener = eventListener == null ? event -> {} : eventListener;
+    }
+
+    /** Initializes the child sink and worker thread during task startup. */
+    public void open() {
+        ensureInitialized();
     }
 
     @Override
@@ -194,6 +214,15 @@ public class DefaultErrorSinkWriter<T> implements ErrorSinkRowWriter<T> {
 
     @Override
     public void flush() throws Exception {
+        flushInternal(null);
+    }
+
+    @Override
+    public void flush(long checkpointId) throws Exception {
+        flushInternal(checkpointId);
+    }
+
+    private void flushInternal(Long checkpointId) throws Exception {
         if (!initialized) {
             return;
         }
@@ -211,7 +240,11 @@ public class DefaultErrorSinkWriter<T> implements ErrorSinkRowWriter<T> {
                 if (flushAction != null) {
                     flushAction.run();
                 }
-                sinkWriter.prepareCommit();
+                if (checkpointId == null) {
+                    sinkWriter.prepareCommit();
+                } else {
+                    sinkWriter.prepareCommit(checkpointId);
+                }
             } catch (Throwable e) {
                 workerFailure = e;
                 if (e instanceof Exception) {
@@ -359,7 +392,8 @@ public class DefaultErrorSinkWriter<T> implements ErrorSinkRowWriter<T> {
             this.errorSink = sink;
             validateSupportedErrorSinkLifecycle(sinkConfig.getPluginName(), sink);
             SimpleWriterContext writerContext =
-                    new SimpleWriterContext(new NoopMetricsContext(), event -> {}, subtaskIndex);
+                    new SimpleWriterContext(
+                            metricsContextOrNoop(), eventListenerOrNoop(), subtaskIndex);
             this.writerContext = writerContext;
             @SuppressWarnings("unchecked")
             SinkWriter<SeaTunnelRow, ?, ?> sinkWriter =
@@ -405,6 +439,14 @@ public class DefaultErrorSinkWriter<T> implements ErrorSinkRowWriter<T> {
                     "Failed to initialize error sink writer",
                     e);
         }
+    }
+
+    private MetricsContext metricsContextOrNoop() {
+        return metricsContext == null ? new NoopMetricsContext() : metricsContext;
+    }
+
+    private EventListener eventListenerOrNoop() {
+        return eventListener == null ? event -> {} : eventListener;
     }
 
     static void validateSupportedErrorSinkLifecycle(

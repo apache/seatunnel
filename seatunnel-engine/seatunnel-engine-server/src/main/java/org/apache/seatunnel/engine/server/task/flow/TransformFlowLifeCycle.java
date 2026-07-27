@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.task.flow;
 
 import org.apache.seatunnel.api.common.metrics.Counter;
+import org.apache.seatunnel.api.signal.FlushSignal;
 import org.apache.seatunnel.api.signal.Signal;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.Record;
@@ -27,6 +28,7 @@ import org.apache.seatunnel.api.transform.SeaTunnelFlatMapTransform;
 import org.apache.seatunnel.api.transform.SeaTunnelMapTransform;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
+import org.apache.seatunnel.engine.core.checkpoint.InternalCheckpointListener;
 import org.apache.seatunnel.engine.core.dag.actions.TransformChainAction;
 import org.apache.seatunnel.engine.server.checkpoint.ActionStateKey;
 import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
@@ -70,7 +72,7 @@ import static org.apache.seatunnel.api.common.metrics.MetricNames.TRANSFORM_RECO
 /** Executes transform operators and extends stain trace payloads across transform boundaries. */
 @Slf4j
 public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
-        implements OneInputFlowLifeCycle<Record<?>> {
+        implements OneInputFlowLifeCycle<Record<?>>, InternalCheckpointListener {
 
     private final TransformChainAction<T> action;
 
@@ -131,7 +133,8 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
                 prepareClose = true;
             }
             if (barrier.snapshot()) {
-                flushErrorHandler();
+                flushErrorHandler(barrier.getId());
+                snapshotErrorHandler(barrier.getId());
                 runningTask.addState(barrier, ActionStateKey.of(action), Collections.emptyList());
             }
             // ack after #addState
@@ -173,6 +176,9 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
         } else if (record.getData() instanceof Signal) {
             if (prepareClose) {
                 return;
+            }
+            if (record.getData() instanceof FlushSignal) {
+                flushErrorHandler();
             }
             collector.collect(record);
         } else {
@@ -329,13 +335,41 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
     }
 
     private void flushErrorHandler() {
+        flushErrorHandler(null);
+    }
+
+    private void flushErrorHandler(Long checkpointId) {
         if (errorHandler == null) {
             return;
         }
         try {
-            errorHandler.flush();
+            if (checkpointId == null) {
+                errorHandler.flush();
+            } else {
+                errorHandler.flush(checkpointId);
+            }
         } catch (Exception e) {
             throw new RuntimeException("Flush ErrorHandler for transform stage failed", e);
+        }
+    }
+
+    private void snapshotErrorHandler(long checkpointId) {
+        if (errorHandler != null) {
+            errorHandler.snapshotState(checkpointId);
+        }
+    }
+
+    @Override
+    public void notifyCheckpointComplete(long checkpointId) {
+        if (errorHandler != null) {
+            errorHandler.notifyCheckpointComplete(checkpointId);
+        }
+    }
+
+    @Override
+    public void notifyCheckpointAborted(long checkpointId) {
+        if (errorHandler != null) {
+            errorHandler.notifyCheckpointAborted(checkpointId);
         }
     }
 
@@ -416,14 +450,17 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
         if (sinkConfig == null || !sinkConfig.isConfigured()) {
             return null;
         }
-        return (ErrorSinkRowWriter<T>)
-                new SynchronizedErrorSinkRowWriter<>(
-                        new DefaultErrorSinkWriter<>(
-                                stageConfig,
-                                sinkConfig,
-                                seaTunnelTask.getTaskLocation().getJobId(),
-                                seaTunnelTask.getTaskLocation().getTaskIndex(),
-                                seaTunnelTask.getExecutionContext().getClassLoaderService()));
+        DefaultErrorSinkWriter<T> writer =
+                new DefaultErrorSinkWriter<>(
+                        stageConfig,
+                        sinkConfig,
+                        seaTunnelTask.getTaskLocation().getJobId(),
+                        seaTunnelTask.getTaskLocation().getTaskIndex(),
+                        seaTunnelTask.getExecutionContext().getClassLoaderService(),
+                        runningTask.getMetricsContext(),
+                        event -> {});
+        writer.open();
+        return (ErrorSinkRowWriter<T>) new SynchronizedErrorSinkRowWriter<>(writer);
     }
 
     private Counter getStainTraceEntriesTruncatedTotal() {

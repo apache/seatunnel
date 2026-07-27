@@ -32,8 +32,10 @@ public enum QueueOverflowPolicy {
             case "BLOCK":
                 return BLOCK;
             case "FAIL":
-            default:
                 return FAIL;
+            default:
+                throw new IllegalArgumentException(
+                        "Unsupported error handler queue_overflow_policy: " + value);
         }
     }
 }
