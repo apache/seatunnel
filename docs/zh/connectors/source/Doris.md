@@ -54,6 +54,8 @@ import ChangeLog from '../changelog/connector-doris.md';
 | FLOAT                                | FLOAT                                                                                                                                               |
 | DOUBLE                               | DOUBLE                                                                                                                                              |
 | CHAR<br/>VARCHAR<br/>STRING<br/>TEXT | STRING                                                                                                                                              |
+| JSON                                 | STRING                                                                                                                                              |
+| VARIANT                              | STRING                                                                                                                                              |
 | DATE                                 | DATE                                                                                                                                                |
 | DATETIME<br/>DATETIME(p)             | TIMESTAMP                                                                                                                                           |
 | ARRAY                                | ARRAY                                                                                                                                               |
