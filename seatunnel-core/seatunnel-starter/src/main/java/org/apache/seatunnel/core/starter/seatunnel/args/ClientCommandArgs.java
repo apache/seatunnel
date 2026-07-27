@@ -45,8 +45,7 @@ public class ClientCommandArgs extends AbstractCommandArgs {
 
     @Parameter(
             names = {"-d", "--dry-run"},
-            description =
-                    "Static config validation without running the job. Currently only [static] is supported.",
+            description = "Validate without running the job. Supported modes: [static, connect].",
             converter = DryRunConverter.class)
     protected DryRun dryRun = null;
 
@@ -148,7 +147,7 @@ public class ClientCommandArgs extends AbstractCommandArgs {
     @Override
     public Command<?> buildCommand() {
         Common.setDeployMode(getDeployMode());
-        if (checkConfig || (dryRun != null && dryRun == DryRun.STATIC)) {
+        if (checkConfig || dryRun != null) {
             return new SeaTunnelConfValidateCommand(this);
         }
         if (encrypt) {
@@ -175,10 +174,14 @@ public class ClientCommandArgs extends AbstractCommandArgs {
                     || DryRun.STATIC.name().equalsIgnoreCase(trimmed)) {
                 return DryRun.STATIC;
             }
+            if (DryRun.CONNECT.getName().equalsIgnoreCase(trimmed)
+                    || DryRun.CONNECT.name().equalsIgnoreCase(trimmed)) {
+                return DryRun.CONNECT;
+            }
             throw new IllegalArgumentException(
                     "Unsupported dry-run mode '"
                             + value
-                            + "'. Currently only [static] is supported; connect, sample, and shadow"
+                            + "'. Currently only [static, connect] are supported; sample and shadow"
                             + " are not implemented yet.");
         }
     }
