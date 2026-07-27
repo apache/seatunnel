@@ -909,6 +909,29 @@ public class CheckpointCoordinatorTest
                 null);
     }
 
+    @Test
+    void testIsNoErrorCompletedReturnsFalseWhenCheckpointStateIsMissing() {
+        ExecutorService executorService = Executors.newCachedThreadPool();
+        try {
+            CheckpointCoordinator coordinator = buildMinimalCoordinator(executorService);
+            CompletedCheckpoint completedCheckpoint =
+                    new CompletedCheckpoint(
+                            1L,
+                            1,
+                            1L,
+                            System.currentTimeMillis(),
+                            CheckpointType.COMPLETED_POINT_TYPE,
+                            System.currentTimeMillis(),
+                            new HashMap<>(),
+                            new HashMap<>());
+            ReflectionUtils.setField(coordinator, "latestCompletedCheckpoint", completedCheckpoint);
+
+            Assertions.assertFalse(coordinator.isNoErrorCompleted());
+        } finally {
+            executorService.shutdownNow();
+        }
+    }
+
     /**
      * Regression: when {@code notifyCompleted()} fails (returns {@code false}), {@code
      * completePendingCheckpoint} must return immediately without decrementing {@code
