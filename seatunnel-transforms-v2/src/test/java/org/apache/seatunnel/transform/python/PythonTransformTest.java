@@ -50,6 +50,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
@@ -407,15 +408,14 @@ class PythonTransformTest {
     void testOpenRejectedWhenPythonExecutableNotAllowlisted() {
         System.setProperty(PythonProcessWorker.PYTHON_TRANSFORM_ENABLED_PROPERTY, "true");
         System.setProperty(
-                PythonProcessWorker.PYTHON_ALLOWED_EXECUTABLES_PROPERTY, "/usr/bin/python3");
+                PythonProcessWorker.PYTHON_ALLOWED_EXECUTABLES_PROPERTY,
+                createUnusedAbsoluteAllowlistPath());
 
         Map<String, Object> config = baseConfig();
         config.put(
                 PythonTransformConfig.SOURCE_CODE.key(),
                 "def process(row, context):\n    return [row['name'], row['age']]\n");
-        config.put(
-                PythonTransformConfig.PYTHON_EXECUTABLE.key(),
-                Paths.get(System.getProperty("java.home"), "bin", "java").toString());
+        config.put(PythonTransformConfig.PYTHON_EXECUTABLE.key(), createJavaExecutablePath());
 
         PythonTransform transform =
                 new PythonTransform(
@@ -428,7 +428,10 @@ class PythonTransformTest {
         Assertions.assertTrue(
                 exception
                         .getMessage()
-                        .contains(PythonProcessWorker.PYTHON_ALLOWED_EXECUTABLES_PROPERTY));
+                        .contains(
+                                PythonTransformErrorCode.PYTHON_EXECUTABLE_NOT_ALLOWED
+                                        .getDescription()),
+                exception.getMessage());
     }
 
     /** Verifies stdout protocol pollution poisons the worker instead of shifting later rows. */
@@ -1123,6 +1126,34 @@ class PythonTransformTest {
             }
             return null;
         }
+    }
+
+    /**
+     * Resolves the current JVM executable with the platform-specific suffix for allowlist tests.
+     *
+     * @return absolute Java executable path
+     */
+    private String createJavaExecutablePath() {
+        String executableName =
+                System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("windows")
+                        ? "java.exe"
+                        : "java";
+        return Paths.get(System.getProperty("java.home"), "bin", executableName)
+                .toAbsolutePath()
+                .normalize()
+                .toString();
+    }
+
+    /**
+     * Creates a valid absolute allowlist entry that intentionally differs from the Java executable.
+     *
+     * @return absolute non-matching allowlist path
+     */
+    private String createUnusedAbsoluteAllowlistPath() {
+        return Paths.get(System.getProperty("java.home"), "bin", "not-python")
+                .toAbsolutePath()
+                .normalize()
+                .toString();
     }
 
     /**
