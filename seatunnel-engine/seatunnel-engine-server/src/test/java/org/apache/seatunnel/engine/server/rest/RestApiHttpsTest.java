@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.rest;
 
+import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.config.server.HttpConfig;
 import org.apache.seatunnel.engine.common.job.JobStatus;
