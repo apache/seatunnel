@@ -910,10 +910,18 @@ public class CheckpointCoordinatorTest
     }
 
     @Test
-    void testIsNoErrorCompletedReturnsFalseWhenCheckpointStateIsMissing() {
+    void testIsNoErrorCompletedUsesCheckpointStateMatrix() {
         ExecutorService executorService = Executors.newCachedThreadPool();
         try {
             CheckpointCoordinator coordinator = buildMinimalCoordinator(executorService);
+            @SuppressWarnings("unchecked")
+            IMap<Object, Object> runningJobStateIMap =
+                    (IMap<Object, Object>)
+                            ReflectionUtils.getField(coordinator, "runningJobStateIMap")
+                                    .orElseThrow(
+                                            () ->
+                                                    new IllegalStateException(
+                                                            "runningJobStateIMap field not found"));
             CompletedCheckpoint completedCheckpoint =
                     new CompletedCheckpoint(
                             1L,
@@ -926,7 +934,27 @@ public class CheckpointCoordinatorTest
                             new HashMap<>());
             ReflectionUtils.setField(coordinator, "latestCompletedCheckpoint", completedCheckpoint);
 
-            Assertions.assertFalse(coordinator.isNoErrorCompleted());
+            CheckpointCoordinatorStatus[] incompleteStates = {
+                null,
+                CheckpointCoordinatorStatus.RUNNING,
+                CheckpointCoordinatorStatus.CANCELED,
+                CheckpointCoordinatorStatus.FAILED
+            };
+            for (CheckpointCoordinatorStatus status : incompleteStates) {
+                Mockito.when(runningJobStateIMap.get(Mockito.any())).thenReturn(status);
+                Assertions.assertFalse(
+                        coordinator.isNoErrorCompleted(),
+                        "Unexpected completed state for " + status);
+            }
+
+            CheckpointCoordinatorStatus[] completedStates = {
+                CheckpointCoordinatorStatus.FINISHED, CheckpointCoordinatorStatus.SUSPEND
+            };
+            for (CheckpointCoordinatorStatus status : completedStates) {
+                Mockito.when(runningJobStateIMap.get(Mockito.any())).thenReturn(status);
+                Assertions.assertTrue(
+                        coordinator.isNoErrorCompleted(), "Expected completed state for " + status);
+            }
         } finally {
             executorService.shutdownNow();
         }
