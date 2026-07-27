@@ -32,13 +32,7 @@ public enum StartupMode {
     /** Start from user-supplied timestamp. */
     TIMESTAMP,
     /** Startup from user-supplied specific offsets. */
-    SPECIFIC,
-    /**
-     * Read snapshot data only and then finish. The source does not enter incremental/binlog
-     * streaming after the snapshot completes; the job is bounded and terminates cleanly. Intended
-     * for one-time backfill and initial bootstrap scenarios.
-     */
-    SNAPSHOT;
+    SPECIFIC;
 
     @Override
     public String toString() {

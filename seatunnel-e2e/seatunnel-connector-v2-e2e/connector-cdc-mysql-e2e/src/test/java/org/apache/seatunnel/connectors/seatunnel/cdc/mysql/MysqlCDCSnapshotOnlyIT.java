@@ -53,7 +53,7 @@ import java.util.stream.Stream;
 import static org.awaitility.Awaitility.await;
 
 /**
- * E2E for the MySQL-CDC {@code startup.mode = "snapshot"} bounded bootstrap mode.
+ * E2E for the MySQL-CDC {@code startup.mode = "snapshot-only"} bounded bootstrap mode.
  *
  * <p>The job runs in BATCH mode, so {@link TestContainer#executeJob} blocks until the job
  * terminates. This is the core assertion: a snapshot-only job must finish on its own after the

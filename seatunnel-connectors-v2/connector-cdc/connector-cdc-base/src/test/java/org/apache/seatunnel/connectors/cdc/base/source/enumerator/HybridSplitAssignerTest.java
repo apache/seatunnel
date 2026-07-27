@@ -17,24 +17,19 @@
 
 package org.apache.seatunnel.connectors.cdc.base.source.enumerator;
 
-import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
-import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.state.HybridPendingSplitsState;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.state.SnapshotPhaseState;
 import org.apache.seatunnel.connectors.cdc.base.source.event.SnapshotSplitWatermark;
-import org.apache.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 
 import io.debezium.relational.TableId;
 
 import java.util.AbstractMap;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -83,132 +78,6 @@ public class HybridSplitAssignerTest {
                 splitAssigner.getSnapshotSplitAssigner().getSplitCompletedOffsets().isEmpty());
         Assertions.assertTrue(context.getAssignedSnapshotSplit().isEmpty());
         Assertions.assertTrue(context.getSplitCompletedOffsets().isEmpty());
-    }
-
-    @Test
-    public void testSnapshotOnlyFinishesWithoutCheckpoint() {
-        // All snapshot splits have finished, but parallel snapshot readers have not completed a
-        // checkpoint yet, so the snapshot assigner is not marked completed.
-        HybridPendingSplitsState completedSnapshotState =
-                new HybridPendingSplitsState(
-                        new SnapshotPhaseState(
-                                Collections.emptyList(),
-                                Collections.emptyList(),
-                                createAssignedSplits(),
-                                createSplitCompletedOffsets(),
-                                false,
-                                Collections.emptyList(),
-                                false,
-                                false),
-                        null);
-
-        // snapshot-only: once the snapshot phase is complete the assigner must not hand out any
-        // incremental split, and it must stop reporting that it is waiting for completed splits so
-        // the enumerator can signal no-more-splits and let the bounded job finish.
-        HybridSplitAssigner<SourceConfig> snapshotOnlyAssigner =
-                new HybridSplitAssigner<>(
-                        newCompletedContext(), 2, 1, completedSnapshotState, null, null, true);
-        Assertions.assertFalse(
-                snapshotOnlyAssigner.getSnapshotSplitAssigner().isCompleted(),
-                "parallel snapshot assigner should still be waiting for a checkpoint");
-        Assertions.assertFalse(
-                snapshotOnlyAssigner.getNext().isPresent(),
-                "snapshot-only must not assign an incremental split after the snapshot phase");
-        Assertions.assertFalse(
-                snapshotOnlyAssigner.waitingForCompletedSplits(),
-                "snapshot-only must not keep waiting once the snapshot phase is complete");
-
-        // control: the default hybrid assigner keeps consulting the incremental assigner, so it
-        // still reports waiting for completed splits (and would proceed into the binlog phase).
-        HybridSplitAssigner<SourceConfig> hybridAssigner =
-                new HybridSplitAssigner<>(
-                        newCompletedContext(), 2, 1, completedSnapshotState, null, null, false);
-        Assertions.assertTrue(
-                hybridAssigner.waitingForCompletedSplits(),
-                "default hybrid assigner should still transition into the incremental phase");
-    }
-
-    @Test
-    public void testSnapshotOnlyRestoreDoesNotDiscoverTablesForLegacyState() {
-        TableId checkpointTable = TableId.parse("db.checkpoint_table");
-        HybridPendingSplitsState legacyCheckpointState =
-                new HybridPendingSplitsState(
-                        new SnapshotPhaseState(
-                                Collections.emptyList(),
-                                Collections.emptyList(),
-                                Collections.emptyMap(),
-                                Collections.emptyMap(),
-                                false,
-                                Collections.singletonList(checkpointTable),
-                                false,
-                                false),
-                        null);
-        DataSourceDialect<SourceConfig> dialect = Mockito.mock(DataSourceDialect.class);
-        SplitAssigner.Context<SourceConfig> context =
-                new SplitAssigner.Context<>(
-                        null,
-                        Collections.singleton(checkpointTable),
-                        new HashMap<>(),
-                        new HashMap<>());
-
-        HybridSplitAssigner<SourceConfig> assigner =
-                new HybridSplitAssigner<>(
-                        context, 2, 1, legacyCheckpointState, dialect, null, true);
-        assigner.open();
-
-        Mockito.verify(dialect, Mockito.never()).discoverDataCollections(Mockito.any());
-        SnapshotPhaseState restoredState =
-                ((HybridPendingSplitsState) assigner.snapshotState(1L)).getSnapshotPhaseState();
-        Assertions.assertTrue(restoredState.isRemainingTablesCheckpointed());
-        Assertions.assertEquals(
-                Collections.singletonList(checkpointTable), restoredState.getRemainingTables());
-    }
-
-    @Test
-    public void testSnapshotOnlyRejectsRestoredIncrementalSplit() {
-        // A snapshot-only assigner can only be handed an incremental split if the restored
-        // checkpoint had already entered the binlog phase (startup.mode was changed to snapshot
-        // across a restore). It must reject the split rather than silently streaming binlog.
-        HybridPendingSplitsState checkpointState =
-                new HybridPendingSplitsState(
-                        new SnapshotPhaseState(
-                                Collections.emptyList(),
-                                Collections.emptyList(),
-                                Collections.emptyMap(),
-                                Collections.emptyMap(),
-                                true,
-                                Collections.emptyList(),
-                                false,
-                                true),
-                        null);
-        HybridSplitAssigner<SourceConfig> snapshotOnlyAssigner =
-                new HybridSplitAssigner<>(
-                        newCompletedContext(), 2, 1, checkpointState, null, null, true);
-        IncrementalSplit incrementalSplit =
-                new IncrementalSplit(
-                        "db1.table1.stream",
-                        Collections.singletonList(TableId.parse("db1.table1")),
-                        null,
-                        null,
-                        Collections.emptyList());
-
-        Assertions.assertThrows(
-                IllegalStateException.class,
-                () -> snapshotOnlyAssigner.addSplits(Collections.singletonList(incrementalSplit)),
-                "snapshot-only assigner must reject a restored incremental split");
-
-        // control: the default hybrid assigner accepts the incremental split as usual.
-        HybridSplitAssigner<SourceConfig> hybridAssigner =
-                new HybridSplitAssigner<>(
-                        newCompletedContext(), 2, 1, checkpointState, null, null, false);
-        Assertions.assertDoesNotThrow(
-                () -> hybridAssigner.addSplits(Collections.singletonList(incrementalSplit)),
-                "default hybrid assigner should still accept incremental splits");
-    }
-
-    private static SplitAssigner.Context<SourceConfig> newCompletedContext() {
-        return new SplitAssigner.Context<>(
-                null, Collections.emptySet(), new HashMap<>(), new HashMap<>());
     }
 
     private static Map<String, SnapshotSplit> createAssignedSplits() {

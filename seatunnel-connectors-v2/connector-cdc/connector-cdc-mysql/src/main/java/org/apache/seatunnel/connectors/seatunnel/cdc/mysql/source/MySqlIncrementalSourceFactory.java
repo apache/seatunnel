@@ -92,7 +92,7 @@ public class MySqlIncrementalSourceFactory extends BaseChangeStreamTableSourceFa
                         MySqlIncrementalSourceOptions.STOP_MODE)
                 .conditional(
                         MySqlIncrementalSourceOptions.STARTUP_MODE,
-                        Arrays.asList(StartupMode.INITIAL, StartupMode.SNAPSHOT),
+                        Arrays.asList(StartupMode.INITIAL, StartupMode.SNAPSHOT_ONLY),
                         SourceOptions.EXACTLY_ONCE)
                 .conditional(
                         MySqlIncrementalSourceOptions.STOP_MODE,

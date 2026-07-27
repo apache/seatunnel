@@ -63,7 +63,7 @@ public class MySqlIncrementalSourceFactoryTest {
         }
 
         Assertions.assertEquals(
-                new HashSet<>(Arrays.asList(StartupMode.INITIAL, StartupMode.SNAPSHOT)),
+                new HashSet<>(Arrays.asList(StartupMode.INITIAL, StartupMode.SNAPSHOT_ONLY)),
                 startupModes);
     }
 }

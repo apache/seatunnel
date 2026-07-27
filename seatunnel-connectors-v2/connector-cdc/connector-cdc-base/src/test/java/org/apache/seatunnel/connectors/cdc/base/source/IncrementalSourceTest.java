@@ -29,7 +29,6 @@ import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
-import org.apache.seatunnel.connectors.cdc.base.source.enumerator.state.HybridPendingSplitsState;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.state.IncrementalPhaseState;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.state.PendingSplitsState;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.state.SnapshotPhaseState;
@@ -44,12 +43,9 @@ import org.mockito.Mockito;
 
 import io.debezium.relational.TableId;
 
-import java.util.Arrays;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 
 class IncrementalSourceTest {
 
@@ -66,71 +62,34 @@ class IncrementalSourceTest {
                     .withDescription("Test stop mode");
 
     @Test
-    void testSnapshotOnlyRestoreKeepsCheckpointedTables() {
+    @SuppressWarnings("unchecked")
+    void testSnapshotOnlyRestoreUsesCheckpointedTablesWithoutCatalogDiscovery() throws Exception {
         TableId processedTable = TableId.parse("db.processed");
         TableId remainingTable = TableId.parse("db.remaining");
         TableId remainingSplitTable = TableId.parse("db.remaining_split");
         TableId assignedSplitTable = TableId.parse("db.assigned_split");
         TableId newlyDiscoveredTable = TableId.parse("db.new");
-        Set<TableId> checkpointedTables =
-                new HashSet<>(
-                        Arrays.asList(
-                                processedTable,
-                                remainingTable,
-                                remainingSplitTable,
-                                assignedSplitTable));
         SnapshotSplit remainingSplit =
                 new SnapshotSplit("db.remaining_split.0", remainingSplitTable, null, null, null);
         SnapshotSplit assignedSplit =
                 new SnapshotSplit("db.assigned_split.0", assignedSplitTable, null, null, null);
-        HybridPendingSplitsState checkpointState =
-                new HybridPendingSplitsState(
-                        new SnapshotPhaseState(
-                                Collections.singletonList(processedTable),
-                                Collections.singletonList(remainingSplit),
-                                Collections.singletonMap(assignedSplit.splitId(), assignedSplit),
-                                Collections.emptyMap(),
-                                false,
-                                Collections.singletonList(remainingTable),
-                                false,
-                                true),
-                        null);
-
-        Set<TableId> discoveredTables =
-                new HashSet<>(
-                        Arrays.asList(remainingTable, remainingSplitTable, newlyDiscoveredTable));
-
-        Assertions.assertEquals(
-                checkpointedTables,
-                IncrementalSource.getCapturedTablesForRestore(
-                        StartupMode.SNAPSHOT, discoveredTables, checkpointState));
-        Assertions.assertEquals(
-                discoveredTables,
-                IncrementalSource.getCapturedTablesForRestore(
-                        StartupMode.INITIAL, discoveredTables, checkpointState));
-    }
-
-    @Test
-    @SuppressWarnings("unchecked")
-    void testSnapshotOnlyRestoreEnumeratorDoesNotDiscoverCatalog() throws Exception {
-        TableId checkpointTable = TableId.parse("db.checkpoint_table");
-        HybridPendingSplitsState checkpointState =
-                new HybridPendingSplitsState(
-                        new SnapshotPhaseState(
-                                Collections.emptyList(),
-                                Collections.emptyList(),
-                                Collections.emptyMap(),
-                                Collections.emptyMap(),
-                                false,
-                                Collections.singletonList(checkpointTable),
-                                false,
-                                false),
-                        null);
+        SnapshotPhaseState checkpointState =
+                new SnapshotPhaseState(
+                        Collections.singletonList(processedTable),
+                        Collections.singletonList(remainingSplit),
+                        Collections.singletonMap(assignedSplit.splitId(), assignedSplit),
+                        Collections.emptyMap(),
+                        false,
+                        Collections.singletonList(remainingTable),
+                        false,
+                        false);
         TestIncrementalSource source =
                 new TestIncrementalSource(
                         ReadonlyConfig.fromMap(
-                                Collections.singletonMap(STARTUP_MODE.key(), "snapshot")),
+                                Collections.singletonMap(STARTUP_MODE.key(), "snapshot-only")),
                         Collections.emptyList());
+        Mockito.when(source.getDialect().discoverDataCollections(source.getSourceConfig()))
+                .thenReturn(Collections.singletonList(newlyDiscoveredTable));
         SourceSplitEnumerator.Context<SourceSplitBase> enumeratorContext =
                 Mockito.mock(SourceSplitEnumerator.Context.class);
         Mockito.when(enumeratorContext.currentParallelism()).thenReturn(2);
@@ -141,25 +100,23 @@ class IncrementalSourceTest {
 
         Mockito.verify(source.getDialect(), Mockito.never())
                 .discoverDataCollections(source.getSourceConfig());
-        HybridPendingSplitsState restoredState =
-                (HybridPendingSplitsState) enumerator.snapshotState(1L);
-        Assertions.assertTrue(
-                restoredState.getSnapshotPhaseState().isRemainingTablesCheckpointed());
+        SnapshotPhaseState restoredState = (SnapshotPhaseState) enumerator.snapshotState(1L);
+        Assertions.assertTrue(restoredState.isRemainingTablesCheckpointed());
         Assertions.assertEquals(
-                Collections.singletonList(checkpointTable),
-                restoredState.getSnapshotPhaseState().getRemainingTables());
+                Collections.singletonList(remainingTable), restoredState.getRemainingTables());
+        Assertions.assertFalse(restoredState.getRemainingTables().contains(newlyDiscoveredTable));
     }
 
     @Test
     @SuppressWarnings("unchecked")
     void testSnapshotOnlyRestoreRejectsIncrementalCheckpoint() {
         // A job that already entered the binlog phase checkpoints an IncrementalPhaseState.
-        // Restoring it with startup.mode changed to snapshot must fail fast rather than resume
+        // Restoring it with startup.mode changed to snapshot-only must fail fast rather than resume
         // binlog streaming, which would break the bounded snapshot-only contract.
         TestIncrementalSource source =
                 new TestIncrementalSource(
                         ReadonlyConfig.fromMap(
-                                Collections.singletonMap(STARTUP_MODE.key(), "snapshot")),
+                                Collections.singletonMap(STARTUP_MODE.key(), "snapshot-only")),
                         Collections.emptyList());
         SourceSplitEnumerator.Context<SourceSplitBase> enumeratorContext =
                 Mockito.mock(SourceSplitEnumerator.Context.class);
@@ -168,6 +125,31 @@ class IncrementalSourceTest {
                 IllegalStateException.class,
                 () -> source.restoreEnumerator(enumeratorContext, new IncrementalPhaseState()),
                 "snapshot-only restore must reject an incremental (binlog) checkpoint");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void testInitialRestoreRejectsSnapshotOnlyCheckpoint() {
+        TestIncrementalSource source =
+                new TestIncrementalSource(
+                        ReadonlyConfig.fromMap(Collections.emptyMap()), Collections.emptyList());
+        SourceSplitEnumerator.Context<SourceSplitBase> enumeratorContext =
+                Mockito.mock(SourceSplitEnumerator.Context.class);
+        SnapshotPhaseState checkpointState =
+                new SnapshotPhaseState(
+                        Collections.emptyList(),
+                        Collections.emptyList(),
+                        Collections.emptyMap(),
+                        Collections.emptyMap(),
+                        false,
+                        Collections.emptyList(),
+                        false,
+                        true);
+
+        Assertions.assertThrows(
+                IllegalStateException.class,
+                () -> source.restoreEnumerator(enumeratorContext, checkpointState),
+                "initial restore must reject a snapshot-only checkpoint");
     }
 
     private static class TestIncrementalSource extends IncrementalSource<Object, SourceConfig> {

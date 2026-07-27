@@ -136,7 +136,7 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
      * and user-supplied binlog startup offsets are therefore rejected rather than silently ignored.
      */
     private void validateSnapshotOnlyConfig(ReadonlyConfig config) {
-        if (startupConfig.getStartupMode() != StartupMode.SNAPSHOT) {
+        if (startupConfig.getStartupMode() != StartupMode.SNAPSHOT_ONLY) {
             return;
         }
         config.getOptional(getStopModeOption())
@@ -147,7 +147,7 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
                                     String.format(
                                             "'%s' startup mode is a bounded snapshot-only job and does not enter continuous binlog streaming, "
                                                     + "so it is incompatible with '%s = %s'. Remove the stop mode option.",
-                                            StartupMode.SNAPSHOT.name().toLowerCase(),
+                                            StartupMode.SNAPSHOT_ONLY,
                                             SourceOptions.STOP_MODE_KEY,
                                             mode.name().toLowerCase()));
                         });
@@ -160,7 +160,7 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
                     String.format(
                             "'%s' startup mode derives bounded backfill offsets from the snapshot phase and does not use startup binlog offsets, "
                                     + "so binlog-oriented startup offset options ('%s', '%s') are not allowed.",
-                            StartupMode.SNAPSHOT.name().toLowerCase(),
+                            StartupMode.SNAPSHOT_ONLY,
                             SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE.key(),
                             SourceOptions.STARTUP_SPECIFIC_OFFSET_POS.key()));
         }
@@ -169,8 +169,7 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
                     String.format(
                             "'%s' startup mode derives bounded backfill offsets from the snapshot phase and does not use startup binlog offsets, "
                                     + "so binlog-oriented startup offset option '%s' is not allowed.",
-                            StartupMode.SNAPSHOT.name().toLowerCase(),
-                            SourceOptions.STARTUP_TIMESTAMP.key()));
+                            StartupMode.SNAPSHOT_ONLY, SourceOptions.STARTUP_TIMESTAMP.key()));
         }
     }
 
@@ -297,20 +296,10 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
 
     @Override
     public Boundedness getBoundedness() {
-        if (isSnapshotOnly()) {
-            // Snapshot-only jobs read the snapshot and finish; they never enter binlog streaming,
-            // so the source is always bounded regardless of the configured stop mode.
-            return Boundedness.BOUNDED;
-        }
-        return stopMode == StopMode.NEVER ? Boundedness.UNBOUNDED : Boundedness.BOUNDED;
-    }
-
-    /**
-     * Whether the source runs in snapshot-only startup mode: read the snapshot data and then finish
-     * cleanly without transitioning into incremental/binlog streaming.
-     */
-    protected boolean isSnapshotOnly() {
-        return startupConfig.getStartupMode() == StartupMode.SNAPSHOT;
+        return stopMode == StopMode.NEVER
+                        && startupConfig.getStartupMode() != StartupMode.SNAPSHOT_ONLY
+                ? Boundedness.UNBOUNDED
+                : Boundedness.BOUNDED;
     }
 
     @SuppressWarnings("MagicNumber")
@@ -375,24 +364,31 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
                         new HashSet<>(remainingTables),
                         new HashMap<>(),
                         new HashMap<>());
-        StartupMode startupMode = sourceConfig.getStartupConfig().getStartupMode();
-        // Snapshot-only reuses the hybrid (snapshot + incremental) assigner for its snapshot
-        // planning, then short-circuits before the incremental phase via the snapshotOnly flag.
-        if (startupMode == StartupMode.INITIAL || startupMode == StartupMode.SNAPSHOT) {
+        if (sourceConfig.getStartupConfig().getStartupMode() == StartupMode.INITIAL
+                || sourceConfig.getStartupConfig().getStartupMode() == StartupMode.SNAPSHOT_ONLY) {
             try {
 
                 boolean isTableIdCaseSensitive =
                         dataSourceDialect.isDataCollectionIdCaseSensitive(sourceConfig);
-                splitAssigner =
-                        new HybridSplitAssigner<>(
-                                assignerContext,
-                                enumeratorContext.currentParallelism(),
-                                incrementalParallelism,
-                                remainingTables,
-                                isTableIdCaseSensitive,
-                                dataSourceDialect,
-                                offsetFactory,
-                                startupMode == StartupMode.SNAPSHOT);
+                if (sourceConfig.getStartupConfig().getStartupMode() == StartupMode.SNAPSHOT_ONLY) {
+                    splitAssigner =
+                            new SnapshotOnlySplitAssigner<>(
+                                    assignerContext,
+                                    enumeratorContext.currentParallelism(),
+                                    remainingTables,
+                                    isTableIdCaseSensitive,
+                                    dataSourceDialect);
+                } else {
+                    splitAssigner =
+                            new HybridSplitAssigner<>(
+                                    assignerContext,
+                                    enumeratorContext.currentParallelism(),
+                                    incrementalParallelism,
+                                    remainingTables,
+                                    isTableIdCaseSensitive,
+                                    dataSourceDialect,
+                                    offsetFactory);
+                }
             } catch (Exception e) {
                 throw new RuntimeException("Failed to discover captured tables for enumerator", e);
             }
@@ -420,22 +416,29 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
         }
         C sourceConfig = configFactory.create(0);
         StartupMode startupMode = sourceConfig.getStartupConfig().getStartupMode();
+        validateRestoredState(startupMode, checkpointState);
 
         final SplitAssigner splitAssigner;
-        if (checkpointState instanceof HybridPendingSplitsState) {
-            HybridPendingSplitsState hybridCheckpointState =
-                    (HybridPendingSplitsState) checkpointState;
-            Set<TableId> discoveredTables =
-                    startupMode == StartupMode.SNAPSHOT
-                            ? Collections.emptySet()
-                            : new HashSet<>(
-                                    dataSourceDialect.discoverDataCollections(sourceConfig));
+        if (checkpointState instanceof SnapshotPhaseState) {
+            SnapshotPhaseState snapshotState = (SnapshotPhaseState) checkpointState;
+            Set<TableId> capturedTables = getCheckpointCapturedTables(snapshotState);
+            SplitAssigner.Context<C> assignerContext =
+                    new SplitAssigner.Context<>(
+                            sourceConfig,
+                            capturedTables,
+                            snapshotState.getAssignedSplits(),
+                            snapshotState.getSplitCompletedOffsets());
+            splitAssigner =
+                    new SnapshotOnlySplitAssigner<>(
+                            assignerContext,
+                            enumeratorContext.currentParallelism(),
+                            snapshotState,
+                            dataSourceDialect);
+        } else if (checkpointState instanceof HybridPendingSplitsState) {
             Set<TableId> capturedTables =
-                    getCapturedTablesForRestore(
-                            startupMode, discoveredTables, hybridCheckpointState);
-            if (startupMode != StartupMode.SNAPSHOT) {
-                hybridCheckpointState = restore(capturedTables, hybridCheckpointState);
-            }
+                    new HashSet<>(dataSourceDialect.discoverDataCollections(sourceConfig));
+            HybridPendingSplitsState hybridCheckpointState =
+                    restore(capturedTables, (HybridPendingSplitsState) checkpointState);
             SnapshotPhaseState checkpointSnapshotState =
                     hybridCheckpointState.getSnapshotPhaseState();
             SplitAssigner.Context<C> assignerContext =
@@ -451,20 +454,8 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
                             incrementalParallelism,
                             hybridCheckpointState,
                             dataSourceDialect,
-                            offsetFactory,
-                            startupMode == StartupMode.SNAPSHOT);
+                            offsetFactory);
         } else if (checkpointState instanceof IncrementalPhaseState) {
-            if (startupMode == StartupMode.SNAPSHOT) {
-                // The checkpoint was taken while the job was already in the incremental/binlog
-                // phase. Restoring it as a bounded snapshot-only job would either stream binlog
-                // forever or drop committed progress, so reject the incompatible startup-mode
-                // change instead of silently violating the bounded contract.
-                throw new IllegalStateException(
-                        "Cannot restore a snapshot-only job (startup.mode=snapshot) from a checkpoint "
-                                + "that had already entered binlog/incremental streaming. Changing "
-                                + "startup.mode to snapshot across a restore is not supported; submit a "
-                                + "new job instead.");
-            }
             Set<TableId> capturedTables =
                     new HashSet<>(dataSourceDialect.discoverDataCollections(sourceConfig));
             SplitAssigner.Context<C> assignerContext =
@@ -483,19 +474,20 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
         return new IncrementalSourceEnumerator(enumeratorContext, splitAssigner);
     }
 
-    static Set<TableId> getCapturedTablesForRestore(
-            StartupMode startupMode,
-            Set<TableId> discoveredTables,
-            HybridPendingSplitsState checkpointState) {
-        if (startupMode != StartupMode.SNAPSHOT) {
-            return discoveredTables;
+    private static void validateRestoredState(
+            StartupMode startupMode, PendingSplitsState checkpointState) {
+        boolean snapshotOnlyMode = startupMode == StartupMode.SNAPSHOT_ONLY;
+        boolean snapshotOnlyState = checkpointState instanceof SnapshotPhaseState;
+        if (snapshotOnlyMode != snapshotOnlyState) {
+            throw new IllegalStateException(
+                    String.format(
+                            "Cannot restore startup mode '%s' from checkpoint state '%s'. Changing "
+                                    + "startup.mode across a restore is not supported; submit a new job instead.",
+                            startupMode, checkpointState.getClass().getSimpleName()));
         }
-        return getCheckpointCapturedTables(checkpointState);
     }
 
-    private static Set<TableId> getCheckpointCapturedTables(
-            HybridPendingSplitsState checkpointState) {
-        SnapshotPhaseState snapshotState = checkpointState.getSnapshotPhaseState();
+    private static Set<TableId> getCheckpointCapturedTables(SnapshotPhaseState snapshotState) {
         Set<TableId> checkpointTables = new HashSet<>(snapshotState.getAlreadyProcessedTables());
         checkpointTables.addAll(snapshotState.getRemainingTables());
         snapshotState.getRemainingSplits().stream()
@@ -510,7 +502,8 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
     private HybridPendingSplitsState restore(
             Set<TableId> capturedTables, HybridPendingSplitsState checkpointState) {
         SnapshotPhaseState checkpointSnapshotState = checkpointState.getSnapshotPhaseState();
-        Set<TableId> checkpointCapturedTables = getCheckpointCapturedTables(checkpointState);
+        Set<TableId> checkpointCapturedTables =
+                getCheckpointCapturedTables(checkpointSnapshotState);
         Set<TableId> newTables = Sets.difference(capturedTables, checkpointCapturedTables);
         Set<TableId> deletedTables = Sets.difference(checkpointCapturedTables, capturedTables);
 

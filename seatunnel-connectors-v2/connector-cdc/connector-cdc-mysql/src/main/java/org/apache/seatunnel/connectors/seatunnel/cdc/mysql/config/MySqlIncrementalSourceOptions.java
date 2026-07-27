@@ -68,12 +68,12 @@ public class MySqlIncrementalSourceOptions extends JdbcSourceOptions implements 
                                     StartupMode.LATEST,
                                     StartupMode.SPECIFIC,
                                     StartupMode.TIMESTAMP,
-                                    StartupMode.SNAPSHOT))
+                                    StartupMode.SNAPSHOT_ONLY))
                     .defaultValue(StartupMode.INITIAL)
                     .withDescription(
                             "Optional startup mode for CDC source, valid enumerations are "
                                     + "\"initial\", \"earliest\", \"latest\" , \"specific\", \"timestamp\" "
-                                    + "or \"snapshot\". \"snapshot\" reads snapshot data only and then "
+                                    + "or \"snapshot-only\". \"snapshot-only\" reads snapshot data only and then "
                                     + "finishes without entering continuous binlog streaming. It may "
                                     + "perform bounded binlog backfill during the snapshot phase when "
                                     + "exactly_once is enabled.");

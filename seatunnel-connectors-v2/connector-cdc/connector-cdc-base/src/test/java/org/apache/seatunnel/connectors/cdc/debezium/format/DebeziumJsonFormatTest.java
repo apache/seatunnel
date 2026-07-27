@@ -53,7 +53,7 @@ class DebeziumJsonFormatTest {
                                     StartupMode.EARLIEST,
                                     StartupMode.LATEST,
                                     StartupMode.SPECIFIC,
-                                    StartupMode.SNAPSHOT))
+                                    StartupMode.SNAPSHOT_ONLY))
                     .defaultValue(StartupMode.INITIAL)
                     .withDescription(
                             "Optional startup mode for CDC source, valid enumerations are "
@@ -132,7 +132,7 @@ class DebeziumJsonFormatTest {
     @Test
     void testSnapshotOnlyRejectsStartupTimestampBeforeSourceInitialization() {
         Map<String, Object> options = new HashMap<>();
-        options.put(STARTUP_MODE.key(), "snapshot");
+        options.put(STARTUP_MODE.key(), "snapshot-only");
         options.put(SourceOptions.STARTUP_TIMESTAMP.key(), 1L);
 
         assertSnapshotOnlyConfigRejected(options, "startup.timestamp");
@@ -141,7 +141,7 @@ class DebeziumJsonFormatTest {
     @Test
     void testSnapshotOnlyRejectsStopModeBeforeSourceInitialization() {
         Map<String, Object> options = new HashMap<>();
-        options.put(STARTUP_MODE.key(), "snapshot");
+        options.put(STARTUP_MODE.key(), "snapshot-only");
         options.put(STOP_MODE.key(), "latest");
 
         assertSnapshotOnlyConfigRejected(options, "stop.mode");
@@ -154,7 +154,7 @@ class DebeziumJsonFormatTest {
                         SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE,
                         SourceOptions.STARTUP_SPECIFIC_OFFSET_POS)) {
             Map<String, Object> options = new HashMap<>();
-            options.put(STARTUP_MODE.key(), "snapshot");
+            options.put(STARTUP_MODE.key(), "snapshot-only");
             options.put(
                     offsetOption.key(),
                     offsetOption == SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE
