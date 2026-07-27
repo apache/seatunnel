@@ -114,6 +114,19 @@
   - **影响**：依赖 `scan_row_limit` 限制总输出量的存量作业（抽样、测试、成本控制、下游容量）在升级后、配置不变的情况下，可能读出远超以前的行数。
   - **迁移指南**：若仍需要整表级上限，请用 `start_rowkey` / `end_rowkey` 收窄扫描范围，或下调 `scan_row_limit`，使 `scan_row_limit × 预期 split 数` 不超过原预算。采样失败、无采样点或求交为空时仍会回退为单个 split，但这不是用来锁定旧语义的受支持方式。(#11876)
 
+- **破坏性变更：Multi-table sink schema evolution 要求实现
+  `SupportSchemaEvolutionSinkWriter`**
+  - **影响范围**：`seatunnel-api` multi-table sink 路径，以及配置
+    `schema-changes.enabled = true` 的 CDC 任务。
+  - **变更说明**：当 schema change event 到达 `MultiTableSinkWriter` 时，SeaTunnel 现在要求目标
+    sink writer 实现 `SupportSchemaEvolutionSinkWriter`。旧的 deprecated
+    `SinkWriter.applySchemaChange` fallback，包括其默认 no-op 实现，不再被使用。
+  - **影响**：已有 CDC 任务如果启用了 schema changes，并且使用的 sink writer 只实现了 deprecated
+    方法或依赖默认 no-op 行为，则在 schema change event 到达 Sink 时会失败。
+  - **迁移指南**：将 sink writer 迁移到 `SupportSchemaEvolutionSinkWriter`；如果不希望传播 schema
+    变更，请关闭 `schema-changes.enabled`；仅对可安全忽略的 schema 变更使用
+    `schema-changes.behavior = ignore`。
+
 - **破坏性变更：Iceberg 连接器 — 不再自动继承源表主键**
   - **影响范围**：`seatunnel-connectors-v2/connector-iceberg`
   - **变更说明**：当未显式配置 `iceberg.table.primary-keys` 时，`SchemaUtils.toIcebergSchema()`

@@ -17,8 +17,24 @@
 
 package org.apache.seatunnel.api.table.schema;
 
+/** Policy values for handling schema change events emitted by CDC sources. */
 public enum SchemaChangeBehavior {
+    /**
+     * Fails the job as soon as a schema change event is observed, before downstream schema
+     * coordination or sink-side schema mutation is attempted.
+     */
     STRICT,
+
+    /**
+     * Forwards supported schema change events through the normal schema coordination path.
+     * Unsupported event types, unsupported sink capabilities, and sink-side apply failures are
+     * fatal.
+     */
     EVOLVE,
+
+    /**
+     * Consumes schema change events and drops them before downstream schema coordination only when
+     * the current row encoding can safely ignore the change.
+     */
     IGNORE
 }

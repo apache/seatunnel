@@ -159,6 +159,15 @@ Behavior matrix:
 | Sink does not support schema evolution | Not reached | Fail before deprecated sink fallback/default no-op handling | Not reached |
 | Sink apply throws at runtime | Not reached | Fail the job with the sink apply error | Not reached |
 
+Upgrade note: in `evolve` mode, a sink writer must implement
+`SupportSchemaEvolutionSinkWriter` to receive and apply schema change events. The older deprecated
+`SinkWriter.applySchemaChange` fallback, including its default no-op implementation, is no longer
+used by the multi-table sink path. Jobs that previously set `schema-changes.enabled = true` with a
+sink writer that only relied on the deprecated method now fail when a schema change event reaches the
+sink. Migrate the sink writer to `SupportSchemaEvolutionSinkWriter`, set `schema-changes.behavior =
+ignore` only for safe-to-ignore metadata changes, or disable `schema-changes.enabled` if schema
+changes should not be propagated.
+
 ## Examples
 
 ### Mysql-CDC -> Jdbc-Mysql

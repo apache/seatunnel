@@ -120,6 +120,21 @@ You need to check this document before you upgrade to related version.
   - **Impact**: Existing jobs that set `scan_row_limit` to bound total output (sampling, testing, cost control, or downstream capacity) can read far more rows after upgrade with no config change.
   - **Migration Guide**: If you need a table-wide cap, narrow the scan with `start_rowkey` / `end_rowkey`, or lower `scan_row_limit` so that `scan_row_limit × expected split count` stays within the previous budget. To keep the previous single-split behavior, the connector still falls back to one split when sampling fails, returns no keys, or the intersection is empty — that is not a supported way to pin the old cap. (#11876)
 
+- **Breaking Change: Multi-table sink schema evolution requires
+  `SupportSchemaEvolutionSinkWriter`**
+  - **Affected component**: `seatunnel-api` multi-table sink path and CDC jobs with
+    `schema-changes.enabled = true`
+  - **Description**: When a schema change event reaches `MultiTableSinkWriter`, SeaTunnel now
+    requires the target sink writer to implement `SupportSchemaEvolutionSinkWriter`. The deprecated
+    `SinkWriter.applySchemaChange` fallback, including the default no-op implementation, is no
+    longer used.
+  - **Impact**: Existing CDC jobs that enabled schema changes and used a sink writer that only
+    implemented the deprecated method, or relied on its default no-op behavior, now fail when a
+    schema change event reaches the sink.
+  - **Migration Guide**: Migrate the sink writer to `SupportSchemaEvolutionSinkWriter`, disable
+    `schema-changes.enabled` when schema changes should not be propagated, or use
+    `schema-changes.behavior = ignore` only for schema changes that are safe to ignore.
+
 - **Breaking Change: Iceberg Connector — source table primary key is no longer silently inherited**
   - **Affected component**: `seatunnel-connectors-v2/connector-iceberg`
   - **Description**: `SchemaUtils.toIcebergSchema()` previously fell back to the CDC source

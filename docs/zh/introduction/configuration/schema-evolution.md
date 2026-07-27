@@ -126,7 +126,7 @@ sink {
 }
 ```
 
-## Schema change behavior
+## Schema 变更行为策略
 
 CDC Source 在配置 `schema-changes.enabled = true` 时，可以继续配置 `schema-changes.behavior`。
 默认值是 `evolve`，因此已有作业只配置 `schema-changes.enabled = true` 时，会保持最接近现有语义的行为。
@@ -147,6 +147,13 @@ CDC Source 在配置 `schema-changes.enabled = true` 时，可以继续配置 `s
 | Sink 支持 schema evolution | 不会到达 Sink | 通过 `SupportSchemaEvolutionSinkWriter` 应用 | 不会到达 Sink |
 | Sink 不支持 schema evolution | 不会到达 Sink | 在 deprecated Sink fallback/default no-op 处理前失败 | 不会到达 Sink |
 | Sink apply 在运行时抛出异常 | 不会到达 Sink | 使用 Sink apply 错误让作业失败 | 不会到达 Sink |
+
+升级说明：在 `evolve` 模式下，Sink writer 必须实现 `SupportSchemaEvolutionSinkWriter` 才能接收并应用
+schema change event。multi-table sink 路径不再使用旧的 deprecated
+`SinkWriter.applySchemaChange` fallback，也不会再执行其默认 no-op 实现。已有任务如果配置了
+`schema-changes.enabled = true`，但 Sink writer 只依赖 deprecated 方法，则在 schema change event 到达
+Sink 时会失败。请将 Sink writer 迁移到 `SupportSchemaEvolutionSinkWriter`；仅对可安全忽略的元数据变更使用
+`schema-changes.behavior = ignore`；如果不希望传播 schema 变更，请关闭 `schema-changes.enabled`。
 
 ## 示例
 

@@ -19,7 +19,20 @@ package org.apache.seatunnel.api.source;
 
 import org.apache.seatunnel.api.table.schema.SchemaChangeBehavior;
 
+/**
+ * Source-side contract for selecting how schema change events are handled after they are emitted by
+ * the source.
+ *
+ * <p>The runtime resolves this behavior for each source before validating or forwarding schema
+ * change events. Sources that do not implement this interface are treated as {@link
+ * SchemaChangeBehavior#EVOLVE}.
+ */
 public interface SupportSchemaChangeBehavior {
 
+    /**
+     * Returns the configured schema change behavior for this source.
+     *
+     * @return behavior used to validate, forward, or ignore emitted schema change events
+     */
     SchemaChangeBehavior getSchemaChangeBehavior();
 }

@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.api.table.schema;
 
+import org.apache.seatunnel.api.source.SupportSchemaChangeBehavior;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnsEvent;
@@ -26,18 +27,34 @@ import org.apache.seatunnel.api.table.schema.exception.SchemaEvolutionException;
 
 import java.util.List;
 
+/** Utility methods for enforcing source schema change behavior before downstream coordination. */
 public final class SchemaChangePolicy {
 
     private SchemaChangePolicy() {}
 
+    /**
+     * Resolves the schema change behavior advertised by a source.
+     *
+     * <p>Sources that do not implement {@link SupportSchemaChangeBehavior} default to {@link
+     * SchemaChangeBehavior#EVOLVE}.
+     *
+     * @param source source instance to inspect
+     * @return configured schema change behavior, or {@link SchemaChangeBehavior#EVOLVE}
+     */
     public static SchemaChangeBehavior resolveBehavior(Object source) {
-        if (source instanceof org.apache.seatunnel.api.source.SupportSchemaChangeBehavior) {
-            return ((org.apache.seatunnel.api.source.SupportSchemaChangeBehavior) source)
-                    .getSchemaChangeBehavior();
+        if (source instanceof SupportSchemaChangeBehavior) {
+            return ((SupportSchemaChangeBehavior) source).getSchemaChangeBehavior();
         }
         return SchemaChangeBehavior.EVOLVE;
     }
 
+    /**
+     * Fails fast when strict mode observes any schema change event.
+     *
+     * @param behavior resolved source behavior
+     * @param event schema change event emitted by the source
+     * @param jobId job identifier used in the raised exception
+     */
     public static void validateStrict(
             SchemaChangeBehavior behavior, SchemaChangeEvent event, String jobId) {
         if (behavior == SchemaChangeBehavior.STRICT) {
@@ -50,6 +67,13 @@ public final class SchemaChangePolicy {
         }
     }
 
+    /**
+     * Validates whether ignore mode can safely drop the event before downstream propagation.
+     *
+     * @param behavior resolved source behavior
+     * @param event schema change event emitted by the source
+     * @param jobId job identifier used in the raised exception
+     */
     public static void validateIgnore(
             SchemaChangeBehavior behavior, SchemaChangeEvent event, String jobId) {
         if (behavior == SchemaChangeBehavior.IGNORE && !isSafeToIgnore(event)) {
@@ -62,10 +86,23 @@ public final class SchemaChangePolicy {
         }
     }
 
+    /**
+     * Returns whether schema change events should be dropped before downstream coordination.
+     *
+     * @param behavior resolved source behavior
+     * @return true when the behavior is {@link SchemaChangeBehavior#IGNORE}
+     */
     public static boolean shouldIgnore(SchemaChangeBehavior behavior) {
         return behavior == SchemaChangeBehavior.IGNORE;
     }
 
+    /**
+     * Returns whether the event type is covered by the sink-advertised schema change capabilities.
+     *
+     * @param event schema change event to validate
+     * @param supportedTypes sink-advertised schema change capabilities
+     * @return true when the event can be handled end to end
+     */
     public static boolean isSupported(
             SchemaChangeEvent event, List<SchemaChangeType> supportedTypes) {
         if (supportedTypes == null || supportedTypes.isEmpty()) {
@@ -96,6 +133,13 @@ public final class SchemaChangePolicy {
         }
     }
 
+    /**
+     * Fails when the event cannot be handled by the sink-advertised schema change capabilities.
+     *
+     * @param event schema change event to validate
+     * @param supportedTypes sink-advertised schema change capabilities
+     * @param jobId job identifier used in the raised exception
+     */
     public static void validateSupported(
             SchemaChangeEvent event, List<SchemaChangeType> supportedTypes, String jobId) {
         if (!isSupported(event, supportedTypes)) {
