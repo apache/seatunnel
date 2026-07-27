@@ -31,6 +31,7 @@ maven_repository=${SEATUNNEL_MAVEN_REPOSITORY:-https://repo.maven.apache.org/mav
 maven_repository=${maven_repository%/}
 temporary_file=
 checksum_file=
+temporary_directory=
 
 cleanup_temporary_files() {
     if [ -n "$temporary_file" ]; then
@@ -38,6 +39,9 @@ cleanup_temporary_files() {
     fi
     if [ -n "$checksum_file" ]; then
         rm -f "$checksum_file"
+    fi
+    if [ -n "$temporary_directory" ]; then
+        rmdir "$temporary_directory" 2>/dev/null || true
     fi
 }
 
@@ -79,6 +83,10 @@ if [ "$download_method" = "https" ]; then
         echo "Error: curl is required to download connector plugins over HTTPS." >&2
         exit 1
     fi
+    if ! command -v mktemp >/dev/null 2>&1; then
+        echo "Error: mktemp is required to create secure temporary files." >&2
+        exit 1
+    fi
     if ! command -v sha512sum >/dev/null 2>&1 &&
         ! command -v sha1sum >/dev/null 2>&1 &&
         ! command -v shasum >/dev/null 2>&1 &&
@@ -111,7 +119,6 @@ download_https() {
         return 0
     fi
 
-    rm -f "$output_file"
     if [ "$allow_not_found" = "true" ] && [ "$http_status" = "404" ]; then
         return 44
     fi
@@ -199,9 +206,11 @@ download_release_plugin() {
     artifact_name="${artifact_id}-${version}.jar"
     artifact_url="${maven_repository}/org/apache/seatunnel/${artifact_id}/${version}/${artifact_name}"
     target_file="${SEATUNNEL_HOME}/connectors/${artifact_name}"
-    unique_suffix="$$"
-    temporary_file="${target_file}.part.${unique_suffix}"
-    checksum_file="${temporary_file}.checksum"
+    temporary_directory=$(
+        mktemp -d "${SEATUNNEL_HOME}/connectors/.install-plugin.XXXXXX"
+    ) || return 1
+    temporary_file="${temporary_directory}/${artifact_name}"
+    checksum_file="${temporary_directory}/${artifact_name}.checksum"
 
     echo "Install connector: ${artifact_id}"
     download_https "$artifact_url" "$temporary_file" || return 1
@@ -234,6 +243,10 @@ download_release_plugin() {
     fi
     mv "$temporary_file" "$target_file" || return 1
     rm -f "$checksum_file"
+    rmdir "$temporary_directory" || return 1
+    temporary_file=
+    checksum_file=
+    temporary_directory=
 }
 
 download_plugin_with_maven() {

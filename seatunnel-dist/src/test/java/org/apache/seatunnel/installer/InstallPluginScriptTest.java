@@ -27,7 +27,9 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.attribute.PosixFilePermission;
 import java.security.MessageDigest;
+import java.util.EnumSet;
 import java.util.Map;
 import java.util.stream.Stream;
 
@@ -56,6 +58,13 @@ public class InstallPluginScriptTest {
         Assertions.assertEquals(0, exitCode);
         Path installedJar = distribution.resolve("connectors").resolve("connector-fake-2.3.13.jar");
         Assertions.assertArrayEquals(JAR_CONTENT, Files.readAllBytes(installedJar));
+        Assertions.assertEquals(
+                EnumSet.of(
+                        PosixFilePermission.OWNER_READ,
+                        PosixFilePermission.OWNER_WRITE,
+                        PosixFilePermission.GROUP_READ,
+                        PosixFilePermission.OTHERS_READ),
+                Files.getPosixFilePermissions(installedJar));
         assertNoTemporaryFiles(distribution.resolve("connectors"));
     }
 
@@ -154,6 +163,26 @@ public class InstallPluginScriptTest {
     }
 
     /**
+     * Verifies that a checksum-matching response is still rejected when it does not have a JAR
+     * archive header.
+     */
+    @Test
+    public void testNonJarPayloadIsRejected() throws Exception {
+        byte[] nonJarContent = "not-a-jar".getBytes(StandardCharsets.UTF_8);
+        Path distribution = createDistribution("connector-fake");
+        Path fakeBinaryDirectory =
+                createFakeCurl(sha1Hex(nonJarContent), false, 404, "printf 'not-a-jar'");
+
+        int exitCode = runInstaller(distribution, fakeBinaryDirectory, "2.3.13", null);
+
+        Assertions.assertNotEquals(0, exitCode);
+        Assertions.assertFalse(
+                Files.exists(
+                        distribution.resolve("connectors").resolve("connector-fake-2.3.13.jar")));
+        assertNoTemporaryFiles(distribution.resolve("connectors"));
+    }
+
+    /**
      * Verifies that snapshot versions retain Maven metadata resolution instead of using a direct
      * release URL.
      */
@@ -176,6 +205,34 @@ public class InstallPluginScriptTest {
     }
 
     /**
+     * Verifies that a fixed release can explicitly retain Maven resolution behavior for existing
+     * mirror, proxy, and authentication policies.
+     */
+    @Test
+    public void testReleaseUsesExplicitMavenFallback() throws Exception {
+        Path distribution = createDistribution("connector-fake");
+        Path fakeBinaryDirectory = createFakeCurl(repeat("0", 40), false, 404);
+        Path capturedArguments = temporaryDirectory.resolve("release-maven-arguments.txt");
+        createFakeMavenWrapper(distribution, capturedArguments);
+
+        int exitCode =
+                runInstaller(
+                        distribution,
+                        fakeBinaryDirectory,
+                        "2.3.13",
+                        capturedArguments,
+                        false,
+                        "maven",
+                        "https://repo.example.test/maven2");
+
+        Assertions.assertEquals(0, exitCode);
+        String arguments =
+                new String(Files.readAllBytes(capturedArguments), StandardCharsets.UTF_8);
+        Assertions.assertTrue(arguments.contains("-Dversion=2.3.13"));
+        Assertions.assertTrue(arguments.contains("-DartifactId=connector-fake"));
+    }
+
+    /**
      * Verifies that unsafe release version text is rejected before a download is attempted or a
      * connectors directory is created.
      */
@@ -185,6 +242,43 @@ public class InstallPluginScriptTest {
         Path fakeBinaryDirectory = createFakeCurl(sha1Hex(JAR_CONTENT), false, 404);
 
         int exitCode = runInstaller(distribution, fakeBinaryDirectory, "../2.3.13", null);
+
+        Assertions.assertNotEquals(0, exitCode);
+        Assertions.assertFalse(Files.exists(distribution.resolve("connectors")));
+    }
+
+    /**
+     * Verifies that an unsafe connector artifact ID is rejected before any artifact download is
+     * attempted.
+     */
+    @Test
+    public void testInvalidArtifactIdIsRejected() throws Exception {
+        Path distribution = createDistribution("../connector-fake");
+        Path fakeBinaryDirectory = createFakeCurl(sha1Hex(JAR_CONTENT), false, 404);
+
+        int exitCode = runInstaller(distribution, fakeBinaryDirectory, "2.3.13", null);
+
+        Assertions.assertNotEquals(0, exitCode);
+        assertNoTemporaryFiles(distribution.resolve("connectors"));
+    }
+
+    /**
+     * Verifies that the direct-download repository cannot use plaintext HTTP as its base protocol.
+     */
+    @Test
+    public void testHttpRepositoryIsRejected() throws Exception {
+        Path distribution = createDistribution("connector-fake");
+        Path fakeBinaryDirectory = createFakeCurl(sha1Hex(JAR_CONTENT), false, 404);
+
+        int exitCode =
+                runInstaller(
+                        distribution,
+                        fakeBinaryDirectory,
+                        "2.3.13",
+                        null,
+                        false,
+                        null,
+                        "http://repo.example.test/maven2");
 
         Assertions.assertNotEquals(0, exitCode);
         Assertions.assertFalse(Files.exists(distribution.resolve("connectors")));
@@ -223,6 +317,22 @@ public class InstallPluginScriptTest {
      */
     private Path createFakeCurl(String checksum, boolean sha512Available, int sha512Status)
             throws Exception {
+        return createFakeCurl(
+                checksum, sha512Available, sha512Status, "printf '\\120\\113\\003\\004fixture'");
+    }
+
+    /**
+     * Creates a deterministic curl replacement with a configurable artifact response.
+     *
+     * @param checksum checksum response returned by the fake repository
+     * @param sha512Available whether the fake repository publishes SHA-512
+     * @param sha512Status HTTP status returned for the SHA-512 request
+     * @param artifactCommand shell command that writes artifact bytes to standard output
+     * @return directory containing the fake curl executable
+     */
+    private Path createFakeCurl(
+            String checksum, boolean sha512Available, int sha512Status, String artifactCommand)
+            throws Exception {
         Path fakeBinaryDirectory =
                 temporaryDirectory.resolve("fake-bin-" + checksum.substring(0, 8));
         Files.createDirectories(fakeBinaryDirectory);
@@ -231,15 +341,22 @@ public class InstallPluginScriptTest {
                 "#!/bin/sh\n"
                         + "output=\n"
                         + "url=\n"
+                        + "secure_proto=false\n"
+                        + "secure_redirect=false\n"
                         + "while [ \"$#\" -gt 0 ]; do\n"
                         + "  case \"$1\" in\n"
                         + "    --output) output=$2; shift 2 ;;\n"
-                        + "    --retry|--connect-timeout|--proto|--proto-redir|--write-out)"
+                        + "    --proto) [ \"$2\" = '=https' ] && secure_proto=true; shift 2 ;;\n"
+                        + "    --proto-redir) [ \"$2\" = '=https' ] && secure_redirect=true;"
+                        + " shift 2 ;;\n"
+                        + "    --retry|--connect-timeout|--write-out)"
                         + " shift 2 ;;\n"
                         + "    --fail|--location) shift ;;\n"
                         + "    *) url=$1; shift ;;\n"
                         + "  esac\n"
                         + "done\n"
+                        + "[ \"$secure_proto\" = true ] || exit 90\n"
+                        + "[ \"$secure_redirect\" = true ] || exit 91\n"
                         + "case \"$url\" in\n"
                         + "  *.jar.sha512)\n"
                         + (sha512Available
@@ -249,7 +366,9 @@ public class InstallPluginScriptTest {
                         + "  *.jar.sha1) printf '%s\\n' '"
                         + checksum
                         + "' > \"$output\" ;;\n"
-                        + "  *.jar) printf '\\120\\113\\003\\004fixture' > \"$output\" ;;\n"
+                        + "  *.jar) "
+                        + artifactCommand
+                        + " > \"$output\" ;;\n"
                         + "  *) exit 22 ;;\n"
                         + "esac\n"
                         + "printf '%s' '200'\n";
@@ -282,7 +401,9 @@ public class InstallPluginScriptTest {
     private void createIsolatedSha1Tools(Path fakeBinaryDirectory, String checksum)
             throws Exception {
         for (String tool :
-                new String[] {"awk", "cut", "dirname", "mkdir", "mv", "od", "rm", "tr"}) {
+                new String[] {
+                    "awk", "cut", "dirname", "mkdir", "mktemp", "mv", "od", "rm", "rmdir", "tr"
+                }) {
             Path source = locateSystemTool(tool);
             Files.createSymbolicLink(fakeBinaryDirectory.resolve(tool), source);
         }
@@ -355,10 +476,44 @@ public class InstallPluginScriptTest {
             Path capturedArguments,
             boolean isolatePath)
             throws Exception {
+        return runInstaller(
+                distribution,
+                fakeBinaryDirectory,
+                version,
+                capturedArguments,
+                isolatePath,
+                null,
+                "https://repo.example.test/maven2");
+    }
+
+    /**
+     * Runs the installer with explicit method and repository environment values.
+     *
+     * @param distribution minimal SeaTunnel distribution
+     * @param fakeBinaryDirectory directory used as PATH
+     * @param version connector version passed to the installer
+     * @param capturedArguments optional Maven argument capture file
+     * @param isolatePath whether PATH should exclude host checksum executables
+     * @param downloadMethod optional installer download method
+     * @param mavenRepository repository base URL
+     * @return installer process exit code
+     */
+    private int runInstaller(
+            Path distribution,
+            Path fakeBinaryDirectory,
+            String version,
+            Path capturedArguments,
+            boolean isolatePath,
+            String downloadMethod,
+            String mavenRepository)
+            throws Exception {
         Path output = temporaryDirectory.resolve("installer-output-" + version.hashCode() + ".txt");
         ProcessBuilder processBuilder =
                 new ProcessBuilder(
                         "/bin/sh",
+                        "-c",
+                        "umask 022; exec /bin/sh \"$1\" \"$2\"",
+                        "install-plugin-test",
                         distribution.resolve("bin").resolve("install-plugin.sh").toString(),
                         version);
         processBuilder.redirectErrorStream(true);
@@ -369,8 +524,12 @@ public class InstallPluginScriptTest {
             path += System.getProperty("path.separator") + environment.getOrDefault("PATH", "");
         }
         environment.put("PATH", path);
-        environment.put("SEATUNNEL_MAVEN_REPOSITORY", "https://repo.example.test/maven2");
-        environment.remove("SEATUNNEL_PLUGIN_DOWNLOAD_METHOD");
+        environment.put("SEATUNNEL_MAVEN_REPOSITORY", mavenRepository);
+        if (downloadMethod == null) {
+            environment.remove("SEATUNNEL_PLUGIN_DOWNLOAD_METHOD");
+        } else {
+            environment.put("SEATUNNEL_PLUGIN_DOWNLOAD_METHOD", downloadMethod);
+        }
         if (capturedArguments != null) {
             environment.put("CAPTURE_FILE", capturedArguments.toString());
         }
@@ -386,7 +545,8 @@ public class InstallPluginScriptTest {
     private void assertNoTemporaryFiles(Path connectorsDirectory) throws Exception {
         try (Stream<Path> files = Files.list(connectorsDirectory)) {
             Assertions.assertFalse(
-                    files.anyMatch(path -> path.getFileName().toString().contains(".part.")));
+                    files.anyMatch(
+                            path -> path.getFileName().toString().contains(".install-plugin.")));
         }
     }
 

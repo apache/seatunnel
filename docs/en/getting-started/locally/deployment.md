@@ -41,7 +41,7 @@ If you need a specific connector version, taking 3.0.0 as an example, you need t
 sh bin/install-plugin.sh 3.0.0
 ```
 
-For released connector versions, `install-plugin.sh` downloads JARs and their checksums directly over HTTPS, so Maven is not required on Linux and macOS. This path requires `curl` and one of `sha512sum`, `sha1sum`, `shasum`, or `openssl`. The Windows `install-plugin.cmd` script continues to use the bundled Maven Wrapper. To use an HTTPS Maven-compatible mirror with `install-plugin.sh`, set `SEATUNNEL_MAVEN_REPOSITORY` to its base URL:
+For released connector versions, `install-plugin.sh` downloads JARs and their checksums directly over HTTPS, so Maven is not required on Linux and macOS. This path requires `curl`, `mktemp`, and one of `sha512sum`, `sha1sum`, `shasum`, or `openssl`. The Windows `install-plugin.cmd` script continues to use the bundled Maven Wrapper. To use an HTTPS Maven-compatible mirror with `install-plugin.sh`, set `SEATUNNEL_MAVEN_REPOSITORY` to its base URL:
 
 ```bash
 SEATUNNEL_MAVEN_REPOSITORY=https://repo.example.com/maven2 \

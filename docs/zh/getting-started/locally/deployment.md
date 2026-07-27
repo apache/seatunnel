@@ -41,7 +41,7 @@ sh bin/install-plugin.sh
 sh bin/install-plugin.sh 3.0.0
 ```
 
-对于正式发布的连接器版本，`install-plugin.sh` 通过 HTTPS 直接下载 JAR 及其校验文件，因此 Linux 和 macOS 不需要 Maven。该方式需要 `curl`，以及 `sha512sum`、`sha1sum`、`shasum` 或 `openssl` 中的任意一个。Windows 的 `install-plugin.cmd` 仍使用发行包内置的 Maven Wrapper。如果需要为 `install-plugin.sh` 使用 Maven 兼容的 HTTPS 镜像，可以通过 `SEATUNNEL_MAVEN_REPOSITORY` 指定仓库根地址：
+对于正式发布的连接器版本，`install-plugin.sh` 通过 HTTPS 直接下载 JAR 及其校验文件，因此 Linux 和 macOS 不需要 Maven。该方式需要 `curl`、`mktemp`，以及 `sha512sum`、`sha1sum`、`shasum` 或 `openssl` 中的任意一个。Windows 的 `install-plugin.cmd` 仍使用发行包内置的 Maven Wrapper。如果需要为 `install-plugin.sh` 使用 Maven 兼容的 HTTPS 镜像，可以通过 `SEATUNNEL_MAVEN_REPOSITORY` 指定仓库根地址：
 
 ```bash
 SEATUNNEL_MAVEN_REPOSITORY=https://repo.example.com/maven2 \
