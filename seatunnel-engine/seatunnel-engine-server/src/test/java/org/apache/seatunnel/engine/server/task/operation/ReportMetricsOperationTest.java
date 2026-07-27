@@ -20,15 +20,20 @@ package org.apache.seatunnel.engine.server.task.operation;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.TestUtils;
+import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
+import org.apache.seatunnel.engine.server.operation.GetNodeHttpPortOperation;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
+import com.hazelcast.internal.util.executor.ManagedExecutorService;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 import com.hazelcast.spi.impl.executionservice.ExecutionService;
 import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 
+import java.util.Collections;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -37,6 +42,96 @@ import java.util.concurrent.atomic.AtomicReference;
 import static org.awaitility.Awaitility.await;
 
 public class ReportMetricsOperationTest {
+
+    @Test
+    void shouldKeepRemoteGenericOperationsResponsiveWhileMetricsWaitForOffloadExecutor()
+            throws Exception {
+        String clusterName =
+                TestUtils.getClusterName("ReportMetricsOperationTest_remoteInvocationOffload");
+        HazelcastInstanceImpl master = SeaTunnelServerStarter.createHazelcastInstance(clusterName);
+        HazelcastInstanceImpl caller = SeaTunnelServerStarter.createHazelcastInstance(clusterName);
+        CountDownLatch releaseOffloadExecutor = new CountDownLatch(1);
+
+        try {
+            await().atMost(20, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertEquals(2, master.getCluster().getMembers().size());
+                                Assertions.assertEquals(2, caller.getCluster().getMembers().size());
+                            });
+
+            NodeEngineImpl masterEngine = master.node.getNodeEngine();
+            NodeEngineImpl callerEngine = caller.node.getNodeEngine();
+            Assertions.assertEquals(masterEngine.getThisAddress(), callerEngine.getMasterAddress());
+            Assertions.assertNotEquals(
+                    callerEngine.getThisAddress(), callerEngine.getMasterAddress());
+
+            ManagedExecutorService offloadExecutor =
+                    masterEngine
+                            .getExecutionService()
+                            .getExecutor(ExecutionService.OFFLOADABLE_EXECUTOR);
+            CountDownLatch allOffloadThreadsBlocked =
+                    new CountDownLatch(offloadExecutor.getMaximumPoolSize());
+            for (int i = 0; i < offloadExecutor.getMaximumPoolSize(); i++) {
+                offloadExecutor.execute(
+                        () -> {
+                            allOffloadThreadsBlocked.countDown();
+                            try {
+                                releaseOffloadExecutor.await(20, TimeUnit.SECONDS);
+                            } catch (InterruptedException e) {
+                                Thread.currentThread().interrupt();
+                            }
+                        });
+            }
+            Assertions.assertTrue(allOffloadThreadsBlocked.await(20, TimeUnit.SECONDS));
+
+            TaskLocation taskLocation = new TaskLocation();
+            taskLocation.setTaskID(1);
+            InvocationFuture<Object> metricsInvocation =
+                    invoke(
+                            callerEngine,
+                            new ReportMetricsOperation(
+                                    Collections.singletonMap(
+                                            taskLocation, new SeaTunnelMetricsContext())));
+
+            await().atMost(10, TimeUnit.SECONDS)
+                    .untilAsserted(() -> Assertions.assertTrue(offloadExecutor.getQueueSize() > 0));
+            Assertions.assertFalse(metricsInvocation.isDone());
+
+            Object httpPort =
+                    callerEngine
+                            .getOperationService()
+                            .createInvocationBuilder(
+                                    SeaTunnelServer.SERVICE_NAME,
+                                    new GetNodeHttpPortOperation(),
+                                    callerEngine.getMasterAddress())
+                            .invoke()
+                            .get(10, TimeUnit.SECONDS);
+            Assertions.assertInstanceOf(Integer.class, httpPort);
+
+            releaseOffloadExecutor.countDown();
+            metricsInvocation.get(10, TimeUnit.SECONDS);
+
+            SeaTunnelServer masterServer = masterEngine.getService(SeaTunnelServer.SERVICE_NAME);
+            await().atMost(10, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            1,
+                                            masterServer
+                                                    .getEngineContext()
+                                                    .getStateStores()
+                                                    .metricsSnapshotStore()
+                                                    .size()));
+            await().atMost(10, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> Assertions.assertEquals(0, offloadExecutor.getQueueSize()));
+        } finally {
+            releaseOffloadExecutor.countDown();
+            caller.shutdown();
+            master.shutdown();
+        }
+    }
 
     @Test
     void shouldOffloadExecutionAndCompleteInvocationAfterMetricsUpdate() throws Exception {
