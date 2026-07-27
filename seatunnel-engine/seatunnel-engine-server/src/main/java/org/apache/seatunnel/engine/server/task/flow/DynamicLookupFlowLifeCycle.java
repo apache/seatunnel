@@ -79,6 +79,7 @@ public final class DynamicLookupFlowLifeCycle extends ActionFlowLifeCycle
     private final DynamicLookupConfig config;
     private final Map<LookupKey, SeaTunnelRow> dimensionState = new HashMap<>();
     private final Map<Long, BarrierAlignment> barrierAlignments = new HashMap<>();
+    private final Map<Integer, Long> blockedPorts = new HashMap<>();
     private LookupKey pendingDimensionUpdateBeforeKey;
 
     private transient BlockingQueue<Record<?>> factQueue;
@@ -122,6 +123,8 @@ public final class DynamicLookupFlowLifeCycle extends ActionFlowLifeCycle
     @Override
     public void restoreState(List<ActionSubtaskState> actionStateList) throws Exception {
         dimensionState.clear();
+        barrierAlignments.clear();
+        blockedPorts.clear();
         pendingDimensionUpdateBeforeKey = null;
         restoredFromDurableLookupState = !actionStateList.isEmpty();
         for (ActionSubtaskState actionSubtaskState : actionStateList) {
@@ -135,6 +138,7 @@ public final class DynamicLookupFlowLifeCycle extends ActionFlowLifeCycle
     public void close() throws IOException {
         dimensionState.clear();
         barrierAlignments.clear();
+        blockedPorts.clear();
         pendingDimensionUpdateBeforeKey = null;
         super.close();
     }
@@ -186,9 +190,13 @@ public final class DynamicLookupFlowLifeCycle extends ActionFlowLifeCycle
     private boolean drainPort(
             int inputPort, BlockingQueue<Record<?>> queue, Collector<Record<?>> collector)
             throws Exception {
+        if (blockedPorts.containsKey(inputPort)) {
+            return false;
+        }
         boolean processed = false;
         Record<?> record;
-        while ((record = queue.poll(10, TimeUnit.MILLISECONDS)) != null) {
+        while (!blockedPorts.containsKey(inputPort)
+                && (record = queue.poll(10, TimeUnit.MILLISECONDS)) != null) {
             processed = true;
             processRecord(inputPort, record, collector);
         }
@@ -296,7 +304,16 @@ public final class DynamicLookupFlowLifeCycle extends ActionFlowLifeCycle
         BarrierAlignment alignment =
                 barrierAlignments.computeIfAbsent(
                         barrier.getId(), ignored -> new BarrierAlignment());
+        Long blockedCheckpointId = blockedPorts.get(inputPort);
+        if (blockedCheckpointId != null && blockedCheckpointId != barrier.getId()) {
+            throw new TaskRuntimeException(
+                    "Dynamic lookup input port "
+                            + inputPort
+                            + " is already aligned to checkpoint "
+                            + blockedCheckpointId);
+        }
         alignment.seenPorts.add(inputPort);
+        blockedPorts.put(inputPort, barrier.getId());
         if (!alignment.seenPorts.contains(DynamicLookupAction.FACT_INPUT)
                 || !alignment.seenPorts.contains(DynamicLookupAction.DIMENSION_INPUT)) {
             return;
@@ -320,6 +337,7 @@ public final class DynamicLookupFlowLifeCycle extends ActionFlowLifeCycle
         }
         runningTask.ack(barrier);
         collector.collect(new Record<>(barrier));
+        alignment.seenPorts.forEach(blockedPorts::remove);
     }
 
     @Override
