@@ -24,7 +24,7 @@ import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.DisabledOnJre;
+import org.junit.jupiter.api.condition.EnabledOnJre;
 import org.junit.jupiter.api.condition.JRE;
 
 import com.hazelcast.cluster.Member;
@@ -37,7 +37,7 @@ import java.util.Set;
 public class ServerExecuteCommandTest {
 
     @Test
-    @DisabledOnJre(value = JRE.JAVA_11, disabledReason = "the test case only works on Java 8")
+    @EnabledOnJre(value = JRE.JAVA_8, disabledReason = "the test case only works on Java 8")
     public void testJavaVersionCheck() {
         String realVersion = System.getProperty("java.version");
         try {
