@@ -95,7 +95,7 @@ public class FlussSourceSplitReader implements SplitReader<FlussRecord, FlussSou
         this.pollTimeout = Duration.ofMillis(config.getPollTimeoutMs());
     }
 
-    private FlussAdminClient adminClient() {
+    FlussAdminClient adminClient() {
         if (adminClient == null) {
             adminClient =
                     new FlussAdminClient(
@@ -297,7 +297,7 @@ public class FlussSourceSplitReader implements SplitReader<FlussRecord, FlussSou
     }
 
     @SuppressWarnings("resource")
-    private TableScan createTableScan() {
+    TableScan createTableScan() {
         TablePath tablePath = config.getTablePath();
         com.alibaba.fluss.metadata.TablePath flussTablePath =
                 com.alibaba.fluss.metadata.TablePath.of(
@@ -392,7 +392,7 @@ public class FlussSourceSplitReader implements SplitReader<FlussRecord, FlussSou
     }
 
     /** The configured table's scanning resources. */
-    private static class TableScan {
+    static class TableScan {
         private final TablePath tablePath;
         private final Table table;
         private final LogScanner logScanner;
@@ -400,8 +400,7 @@ public class FlussSourceSplitReader implements SplitReader<FlussRecord, FlussSou
         private final DataType[] fieldTypes;
         private final InternalRow.FieldGetter[] fieldGetters;
 
-        private TableScan(
-                TablePath tablePath, Table table, LogScanner logScanner, RowType rowType) {
+        TableScan(TablePath tablePath, Table table, LogScanner logScanner, RowType rowType) {
             this.tablePath = tablePath;
             this.table = table;
             this.logScanner = logScanner;
