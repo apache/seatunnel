@@ -27,6 +27,7 @@ on:
 env:
   DOCKER_USERNAME: ${{ secrets.DOCKERHUB_USER }}
   DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
+  JAVA_TOOL_OPTIONS: --add-exports=java.security.jgss/sun.security.krb5=ALL-UNNAMED
 
 jobs:
   build:

@@ -46,6 +46,7 @@ jobs:
     env:
       OLD_SEATUNNEL_VERSION: ${{ github.event.inputs.old_version || '2.3.13' }}
       SCENARIO: ${{ github.event.inputs.scenario || 'all' }}
+      JAVA_TOOL_OPTIONS: --add-exports=java.security.jgss/sun.security.krb5=ALL-UNNAMED
     steps:
       - uses: actions/checkout@v4
 
