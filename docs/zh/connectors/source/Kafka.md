@@ -63,6 +63,8 @@ import ChangeLog from '../changelog/connector-kafka.md';
 | protobuf_schema                     | String                              | 否    | -                            | 当格式设置为 protobuf 时有效，指定 Schema 定义。                                                                                                                                                                                                                                                                                              |
 | strip_schema_registry_header        | Boolean                             | 否    | false                        | 当格式设置为 protobuf 时有效。是否在 Protobuf 反序列化之前去除 Confluent Schema Registry 线格式头部（magic byte、schema id 和 message indexes）。当消费使用 Confluent Schema Registry 编码的 Protobuf 消息时，此选项非常有用。启用后，连接器将尝试在解析 Protobuf 消息之前检测并删除 Schema Registry 头部。如果未检测到头部，它将回退到标准的 Protobuf 反序列化。                                                                                                                                                                                                                                                                                              |
 | reader_cache_queue_size             | Integer                             | 否    | 2                            | Fetcher 与 Reader 线程之间缓冲队列的容量。每个元素是一次 `consumer.poll()` 的整批结果，而非单条消息。详见 [reader_cache_queue_size](#reader_cache_queue_size)。 |
+| is_native                           | Boolean                             | 否    | false                        | 支持保留record的源信息。                                                                                                                                                                                                                                                                                                                |
+| kafka_headers_fields                | Array                               | 否    | -                            | 指定要从 Kafka 消息 header 中提取并映射为行字段的 header key 列表。每个 header 值以 STRING 类型追加到输出行的末尾（位于正常 schema 字段之后）。不支持 NATIVE 格式。                                                                                                                                                                                                               |
 
 > 从 checkpoint 或 savepoint 恢复时，Kafka Source 会优先使用 checkpoint 中保存的 split offset。
 > `start_mode` 和 consumer group offset 只在首次启动，或为尚未存在 checkpoint 状态的新发现分区初始化位点时生效。
@@ -135,6 +137,34 @@ transform {
 ```
 
 ## 任务示例
+
+### 读取 Kafka 消息 Header
+
+使用 `kafka_headers_fields` 将指定的 Kafka 消息 header 提取为行字段。header 值以 STRING 类型追加在正常 schema 字段之后。
+
+> 注意：不支持 `NATIVE` 格式，该格式已通过 `Map<String, String>` 字段暴露了所有 header。
+
+```hocon
+source {
+  Kafka {
+    topic = "my-topic"
+    bootstrap.servers = "localhost:9092"
+    kafka_headers_fields = ["correlation-id", "x-trace-id"]
+    schema = {
+      fields {
+        user_id = "int"
+        name = "string"
+      }
+    }
+    format = json
+  }
+}
+```
+
+输出行将包含：`user_id`（int）、`name`（string）、`correlation-id`（string）、`x-trace-id`（string）。  
+如果某条消息中不存在对应的 header key，则该字段值为 `null`。
+
+此功能与 Kafka sink 连接器的 `kafka_headers_fields` 对应，支持 header 在 topic 间的全链路传递。
 
 ### 简单示例
 
