@@ -102,7 +102,7 @@ public class Neo4jIT extends TestSuiteBase implements TestResource {
                 GraphDatabase.driver(
                         URI.create(
                                 String.format(
-                                        "neo4j://%s:%s",
+                                        "bolt://%s:%s",
                                         container.getHost(), container.getMappedPort(BOLT_PORT))),
                         AuthTokens.basic(CONTAINER_NEO4J_USERNAME, CONTAINER_NEO4J_PASSWORD));
         neo4jSession = neo4jDriver.session(SessionConfig.forDatabase("neo4j"));

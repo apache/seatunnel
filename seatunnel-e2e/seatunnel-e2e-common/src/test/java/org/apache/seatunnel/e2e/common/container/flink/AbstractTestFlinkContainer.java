@@ -78,6 +78,7 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
                     "restart-strategy.fixed-delay.delay: 1000");
 
     protected static final String DEFAULT_DOCKER_IMAGE = "flink:1.13.6-scala_2.11";
+    private static final int FLINK_REST_PORT = 8081;
 
     protected GenericContainer<?> jobManager;
     protected GenericContainer<?> taskManager;
@@ -97,7 +98,7 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
                         .withCommand("jobmanager")
                         .withNetwork(NETWORK)
                         .withNetworkAliases("jobmanager")
-                        .withExposedPorts(8081)
+                        .withExposedPorts(FLINK_REST_PORT)
                         .withEnv("FLINK_PROPERTIES", properties)
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
@@ -205,6 +206,14 @@ public abstract class AbstractTestFlinkContainer extends AbstractTestContainer {
     public String executeJobManagerInnerCommand(String command)
             throws IOException, InterruptedException {
         return jobManager.execInContainer("bash", "-c", command).getStdout();
+    }
+
+    public String getJobManagerHost() {
+        return jobManager.getHost();
+    }
+
+    public int getJobManagerRestPort() {
+        return jobManager.getMappedPort(FLINK_REST_PORT);
     }
 
     @Override
