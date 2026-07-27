@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server.rest;
 
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.config.server.HttpConfig;
+import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.common.runtime.ExecutionMode;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.dag.logical.LogicalDag;
@@ -28,6 +29,7 @@ import org.apache.seatunnel.engine.server.CoordinatorService;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.TestUtils;
+import org.apache.seatunnel.engine.server.master.JobHistoryService.JobState;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -195,6 +197,67 @@ public class RestApiHttpsTest extends AbstractSeaTunnelServerTest {
                     Assertions.assertTrue(resultJson != null);
                     Assertions.assertTrue(resultJson.size() == jobNum);
                 });
+        shutdown(jobInformation);
+    }
+
+    // Verifies that the incremental monitoring endpoint is exposed through the Jetty REST API.
+    @Test
+    public void testIncrementalJobsApi() throws Exception {
+        JobInformation jobInformation = getSeatunnelServer("testIncrementalJobsApi");
+        jobInformation
+                .coordinatorService
+                .getJobHistoryService()
+                .storeFinishedJobState(
+                        new JobState(
+                                5001L,
+                                "failed-job",
+                                JobStatus.FAILED,
+                                1000L,
+                                null,
+                                2000L,
+                                Collections.emptyMap(),
+                                "expected failure"));
+        await().atMost(10, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        1L,
+                                        jobInformation
+                                                .healcastInstance
+                                                .getMap(
+                                                        Constant
+                                                                .IMAP_FINISHED_JOB_MONITORING_METADATA)
+                                                .getOrDefault(
+                                                        Constant
+                                                                .FINISHED_JOB_MONITORING_COMMITTED_SEQUENCE_KEY,
+                                                        0L)));
+
+        restApiRequestHttp(
+                "http://localhost:" + HTTP_PORT2 + "/jobs?status=FAILED&start=beginning&limit=10",
+                (code, content) -> {
+                    Assertions.assertEquals(200, code);
+                    JsonObject response = Json.parse(content).asObject();
+                    JsonArray data = response.get("data").asArray();
+                    Assertions.assertEquals(1, data.size());
+                    Assertions.assertEquals(
+                            "5001", data.get(0).asObject().getString("jobId", null));
+                    Assertions.assertEquals(
+                            "expected failure",
+                            data.get(0).asObject().getString("errorSummary", null));
+                    Assertions.assertFalse(response.getBoolean("hasMore", true));
+                    Assertions.assertNotNull(response.getString("nextCursor", null));
+                });
+        restApiRequestHttp(
+                "http://localhost:" + HTTP_PORT2 + "/jobs?start=latest&limit=1001",
+                (code, content) -> Assertions.assertEquals(400, code));
+
+        // The more specific existing checkpoint mappings must not be captured by /jobs/*.
+        restApiRequestHttp(
+                "http://localhost:" + HTTP_PORT2 + "/jobs/checkpoints/999",
+                (code, content) -> Assertions.assertEquals(200, code));
+        restApiRequestHttp(
+                "http://localhost:" + HTTP_PORT2 + "/jobs/checkpoints/history/999",
+                (code, content) -> Assertions.assertEquals(200, code));
         shutdown(jobInformation);
     }
 
