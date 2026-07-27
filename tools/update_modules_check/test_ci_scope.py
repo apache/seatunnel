@@ -27,8 +27,18 @@ class CiScopeTest(unittest.TestCase):
     def test_force_full_api_check_on_dev_branch(self) -> None:
         self.assertTrue(should_force_full_api_check("apache", "refs/heads/dev"))
 
+    def test_force_full_api_check_on_main_and_master_branches(self) -> None:
+        for branch_name in ("main", "master"):
+            with self.subTest(branch_name=branch_name):
+                self.assertTrue(
+                    should_force_full_api_check("apache", f"refs/heads/{branch_name}")
+                )
+
     def test_force_full_api_check_on_release_branch(self) -> None:
         self.assertTrue(should_force_full_api_check("apache", "refs/heads/2.3.13-release"))
+
+    def test_force_full_api_check_on_two_component_release_branch(self) -> None:
+        self.assertTrue(should_force_full_api_check("apache", "refs/heads/2.4-release"))
 
     def test_force_full_api_check_on_pull_request_base_branch(self) -> None:
         self.assertTrue(should_force_full_api_check("apache", "dev"))
@@ -38,6 +48,16 @@ class CiScopeTest(unittest.TestCase):
 
     def test_skip_force_full_api_check_on_pull_request_merge_ref(self) -> None:
         self.assertFalse(should_force_full_api_check("apache", "refs/pull/123/merge"))
+
+    def test_skip_force_full_api_check_on_non_version_release_branch(self) -> None:
+        self.assertFalse(
+            should_force_full_api_check("apache", "refs/heads/hotfix-release")
+        )
+
+    def test_skip_force_full_api_check_on_release_tag(self) -> None:
+        self.assertFalse(
+            should_force_full_api_check("apache", "refs/tags/2.3.13-release")
+        )
 
     def test_skip_full_api_check_for_ci_only_fork_change(self) -> None:
         self.assertFalse(

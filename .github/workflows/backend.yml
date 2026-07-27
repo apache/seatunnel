@@ -220,9 +220,9 @@ jobs:
           api_files=`python tools/update_modules_check/check_file_updates.py ua $workspace apache/dev origin/$current_branch "seatunnel-api/**" "seatunnel-common/**" "seatunnel-config/**" "seatunnel-core/**" "seatunnel-e2e/seatunnel-e2e-common/**" "seatunnel-formats/**" "seatunnel-plugin-discovery/**" "seatunnel-transforms-v2/**" "seatunnel-translation/**" "seatunnel-e2e/seatunnel-transforms-v2-e2e/**" "pom.xml" "**/workflows/**" "tools/**" "seatunnel-dist/**"`
           true_or_false=${api_files%%$'\n'*}
           file_list=${api_files#*$'\n'}
-          # Keep broad API coverage for protected apache branches and source-level API changes.
-          # CI tooling, workflow, and dist script changes are validated by lightweight checks instead
-          # of fanning out the full connector matrix on every fork push.
+          # Apache dev, main, master, and numeric *-release pushes force full API coverage.
+          # On fork pushes, workflow files, tools/update_modules_check, seatunnel-dist, and
+          # bin/install-plugin.sh do not trigger the full connector matrix by themselves.
           ci_scope_ref="${GITHUB_BASE_REF:-$GITHUB_REF}"
           if ! true_or_false=$(python tools/update_modules_check/ci_scope.py "$repository_owner" "$ci_scope_ref" --api-changed "$true_or_false" --api-files-json "$file_list"); then
             echo "::warning::CI scope helper failed; forcing full API coverage"
