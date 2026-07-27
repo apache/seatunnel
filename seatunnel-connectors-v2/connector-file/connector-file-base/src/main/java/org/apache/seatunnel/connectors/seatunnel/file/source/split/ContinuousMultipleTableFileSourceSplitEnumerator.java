@@ -883,6 +883,16 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
             return OpCommitResult.STALE_SKIPPED;
         }
 
+        if (sourceStatus != null
+                && stagingStatus == null
+                && !isSinkTargetCommitted(ctx, op, checkpointId, op.getSourcePath())) {
+            // Keep the source visible until the sink target reaches its final committed location.
+            // This avoids unnecessary source-side rename/restore churn on file systems such as FTP
+            // where a staged move can temporarily hide the discovery root before the sink commit is
+            // actually durable.
+            return OpCommitResult.FAILED_RETRYABLE;
+        }
+
         if (stagingStatus == null) {
             try {
                 ctx.sourceFs.renameFile(op.getSourcePath(), stagingPath, false);

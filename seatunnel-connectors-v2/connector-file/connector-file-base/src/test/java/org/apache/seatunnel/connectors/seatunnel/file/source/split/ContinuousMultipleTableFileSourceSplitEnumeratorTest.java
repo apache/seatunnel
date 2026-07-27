@@ -1013,6 +1013,80 @@ class ContinuousMultipleTableFileSourceSplitEnumeratorTest {
     }
 
     @Test
+    void testPostSyncBackupWaitsForSinkTargetBeforeStagingSource() throws Exception {
+        Path srcDir = Files.createDirectories(tempDir.resolve("src14_wait_for_target"));
+        Path dstDir = Files.createDirectories(tempDir.resolve("dst14_wait_for_target"));
+        Path backupDir = Files.createDirectories(tempDir.resolve("backup14_wait_for_target"));
+        Path srcFile = srcDir.resolve("test.bin");
+        Path dstFile = dstDir.resolve("test.bin");
+        Files.write(srcFile, "abc".getBytes());
+
+        Map<String, Object> extraConfig = new HashMap<>();
+        extraConfig.put(FileBaseSourceOptions.POST_SYNC_ACTION.key(), "backup");
+        extraConfig.put(FileBaseSourceOptions.BACKUP_PATH.key(), backupDir.toString());
+        EnumeratorWithContext enumeratorWithContext =
+                createEnumerator(
+                        srcDir,
+                        dstDir,
+                        "earliest",
+                        new FileSourceState(Collections.emptySet()),
+                        extraConfig);
+        try {
+            FileSourceOperationState operation =
+                    stageSinglePostSyncOperation(enumeratorWithContext, 1L);
+            Path backupTarget =
+                    java.nio.file.Paths.get(
+                            new org.apache.hadoop.fs.Path(operation.getBackupTargetPath()).toUri());
+
+            HadoopFileSystemProxy sourceFs =
+                    getTableScanContextFileSystem(enumeratorWithContext.enumerator, "sourceFs");
+            HadoopFileSystemProxy sourceFsSpy = Mockito.spy(sourceFs);
+            setTableScanContextFileSystem(
+                    enumeratorWithContext.enumerator, "sourceFs", sourceFsSpy);
+
+            enumeratorWithContext.enumerator.notifyCheckpointComplete(1L);
+
+            Assertions.assertTrue(
+                    Files.exists(srcFile),
+                    "backup should keep the source visible while the sink target is not committed");
+            Assertions.assertFalse(
+                    Files.exists(backupTarget),
+                    "backup target should not be published before the sink target is committed");
+            Assertions.assertTrue(
+                    enumeratorWithContext
+                            .enumerator
+                            .snapshotState(2L)
+                            .getPendingOpsByCheckpoint()
+                            .containsKey(1L),
+                    "backup operation should remain pending until the sink target is committed");
+            Mockito.verify(sourceFsSpy, Mockito.never())
+                    .renameFile(
+                            Mockito.eq(operation.getSourcePath()),
+                            Mockito.anyString(),
+                            Mockito.eq(false));
+
+            Files.write(dstFile, "abc".getBytes());
+            enumeratorWithContext.enumerator.notifyCheckpointComplete(1L);
+
+            Assertions.assertFalse(
+                    Files.exists(srcFile),
+                    "backup commit should move the source after the sink target is committed");
+            Assertions.assertTrue(
+                    Files.exists(backupTarget),
+                    "backup target should be created after the sink target is committed");
+            Assertions.assertFalse(
+                    enumeratorWithContext
+                            .enumerator
+                            .snapshotState(3L)
+                            .getPendingOpsByCheckpoint()
+                            .containsKey(1L),
+                    "successful backup commit should clear the pending checkpoint operation");
+        } finally {
+            enumeratorWithContext.enumerator.close();
+        }
+    }
+
+    @Test
     void testPostSyncBackupSkipsStaleOperationWhenSourceContentChangesWithoutVersionDrift()
             throws Exception {
         Path srcDir = Files.createDirectories(tempDir.resolve("src14_same_version"));
