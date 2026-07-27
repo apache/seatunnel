@@ -32,8 +32,8 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Slf4j
 public class JdbcSinkAggregatedCommitter
@@ -70,22 +70,47 @@ public class JdbcSinkAggregatedCommitter
     @Override
     public List<JdbcAggregatedCommitInfo> commit(
             List<JdbcAggregatedCommitInfo> aggregatedCommitInfos) throws IOException {
+        return commit(aggregatedCommitInfos, false);
+    }
+
+    /**
+     * Repeats commits restored from checkpoint state. XAER_NOTA is idempotent here because the
+     * original commit may have succeeded before its response was lost.
+     */
+    @Override
+    public List<JdbcAggregatedCommitInfo> restoreCommit(
+            List<JdbcAggregatedCommitInfo> aggregatedCommitInfos) throws IOException {
+        return commit(aggregatedCommitInfos, true);
+    }
+
+    /**
+     * Commits prepared transactions while preserving idempotency only for recovery attempts.
+     *
+     * @param aggregatedCommitInfos prepared transactions grouped for commit
+     * @param ignoreUnknown whether XAER_NOTA can be treated as an already completed commit
+     * @return an empty list after all prepared transactions have been committed
+     * @throws IOException when the committer cannot open its XA resource
+     */
+    private List<JdbcAggregatedCommitInfo> commit(
+            List<JdbcAggregatedCommitInfo> aggregatedCommitInfos, boolean ignoreUnknown)
+            throws IOException {
         tryOpen();
-        return aggregatedCommitInfos.stream()
-                .map(
-                        aggregatedCommitInfo -> {
-                            log.info("commit xid: " + aggregatedCommitInfo.getXidInfoList());
-                            GroupXaOperationResult<XidInfo> result =
-                                    xaGroupOps.commit(
-                                            new ArrayList<>(aggregatedCommitInfo.getXidInfoList()),
-                                            false,
-                                            jdbcSinkConfig
-                                                    .getJdbcConnectionConfig()
-                                                    .getMaxCommitAttempts());
-                            return new JdbcAggregatedCommitInfo(result.getForRetry());
-                        })
-                .filter(ainfo -> !ainfo.getXidInfoList().isEmpty())
-                .collect(Collectors.toList());
+        for (JdbcAggregatedCommitInfo aggregatedCommitInfo : aggregatedCommitInfos) {
+            log.info("commit xid: " + aggregatedCommitInfo.getXidInfoList());
+            List<XidInfo> pending = new ArrayList<>(aggregatedCommitInfo.getXidInfoList());
+            while (!pending.isEmpty()) {
+                GroupXaOperationResult<XidInfo> result =
+                        xaGroupOps.commit(
+                                pending,
+                                false,
+                                ignoreUnknown,
+                                jdbcSinkConfig.getJdbcConnectionConfig().getMaxCommitAttempts());
+                // Zeta does not persist the returned committables before restarting a failed
+                // checkpoint, so complete bounded retries in this invocation.
+                pending = new ArrayList<>(result.getForRetry());
+            }
+        }
+        return Collections.emptyList();
     }
 
     @Override

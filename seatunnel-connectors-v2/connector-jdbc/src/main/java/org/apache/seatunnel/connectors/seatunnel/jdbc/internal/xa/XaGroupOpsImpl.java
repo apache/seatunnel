@@ -48,7 +48,10 @@ public class XaGroupOpsImpl implements XaGroupOps {
 
     @Override
     public GroupXaOperationResult<XidInfo> commit(
-            List<XidInfo> xids, boolean allowOutOfOrderCommits, int maxCommitAttempts) {
+            List<XidInfo> xids,
+            boolean allowOutOfOrderCommits,
+            boolean ignoreUnknown,
+            int maxCommitAttempts) {
         GroupXaOperationResult<XidInfo> result = new GroupXaOperationResult<>();
         int origSize = xids.size();
         LOG.info("commit {} transactions", origSize);
@@ -58,7 +61,7 @@ public class XaGroupOpsImpl implements XaGroupOps {
             i.remove();
             try {
                 LOG.info("committing {} transaction", x.getXid());
-                xaFacade.commit(x.getXid(), false);
+                xaFacade.commit(x.getXid(), ignoreUnknown);
                 result.succeeded(x);
             } catch (XaFacade.TransientXaException e) {
                 result.failedTransiently(x.withAttemptsIncremented(), e);
@@ -67,12 +70,9 @@ public class XaGroupOpsImpl implements XaGroupOps {
             }
         }
         result.getForRetry().addAll(xids);
-        // TODO At present, it is impossible to distinguish whether
-        // the repeated Commit failure caused by restore (exception should not be thrown) or
-        // the failure of normal process Commit (exception should be thrown).
-        // So currently the exception is not thrown.
-
-        // result.throwIfAnyFailed("commit");
+        // A permanent commit failure must fail the checkpoint. Only checkpoint restore may ignore
+        // XAER_NOTA because the resource manager may have committed before the response was lost.
+        result.throwIfAnyFailed("commit");
         throwIfAnyReachedMaxAttempts(result, maxCommitAttempts);
         result.getTransientFailure()
                 .ifPresent(

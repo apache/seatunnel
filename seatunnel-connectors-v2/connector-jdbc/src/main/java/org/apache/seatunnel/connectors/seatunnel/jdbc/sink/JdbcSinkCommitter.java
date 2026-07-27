@@ -57,6 +57,7 @@ public class JdbcSinkCommitter implements SinkCommitter<XidInfo> {
                 .commit(
                         new ArrayList<>(committables),
                         false,
+                        false,
                         jdbcConnectionConfig.getMaxCommitAttempts())
                 .getForRetry();
     }
