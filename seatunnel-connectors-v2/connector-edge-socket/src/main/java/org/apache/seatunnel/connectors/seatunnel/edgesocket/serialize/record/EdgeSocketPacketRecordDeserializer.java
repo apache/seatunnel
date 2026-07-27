@@ -32,6 +32,7 @@ import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
 
 import java.security.GeneralSecurityException;
+import java.security.ProviderException;
 import java.util.Base64;
 
 public class EdgeSocketPacketRecordDeserializer implements EdgeSocketRecordDeserializer {
@@ -119,7 +120,7 @@ public class EdgeSocketPacketRecordDeserializer implements EdgeSocketRecordDeser
             cipher.init(
                     Cipher.DECRYPT_MODE, key, new GCMParameterSpec(AES_GCM_TAG_LENGTH_BITS, iv));
             return cipher.doFinal(payloadBytes);
-        } catch (GeneralSecurityException | RuntimeException securityException) {
+        } catch (GeneralSecurityException | ProviderException securityException) {
             throw new EdgeSocketConnectorException(
                     EdgeSocketConnectorErrorCode.PACKET_DECRYPT_ERROR,
                     "AES_GCM decrypt failed",
