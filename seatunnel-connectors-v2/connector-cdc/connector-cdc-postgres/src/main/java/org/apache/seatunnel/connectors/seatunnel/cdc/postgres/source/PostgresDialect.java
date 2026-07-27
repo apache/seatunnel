@@ -44,7 +44,6 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseI
 
 import io.debezium.connector.postgresql.PostgresConnectorConfig;
 import io.debezium.connector.postgresql.PostgresObjectUtils;
-import io.debezium.connector.postgresql.PostgresSchema;
 import io.debezium.connector.postgresql.PostgresTaskContext;
 import io.debezium.connector.postgresql.PostgresTopicSelector;
 import io.debezium.connector.postgresql.TypeRegistry;
@@ -134,7 +133,7 @@ public class PostgresDialect implements JdbcDataSourceDialect {
                                     .build());
             TopicSelector<TableId> topicSelector = PostgresTopicSelector.create(bootstrapConfig);
             TypeRegistry typeRegistry = connection.getTypeRegistry();
-            PostgresSchema schema =
+            io.debezium.connector.postgresql.PostgresSchema schema =
                     PostgresObjectUtils.newSchema(
                             connection,
                             bootstrapConfig,

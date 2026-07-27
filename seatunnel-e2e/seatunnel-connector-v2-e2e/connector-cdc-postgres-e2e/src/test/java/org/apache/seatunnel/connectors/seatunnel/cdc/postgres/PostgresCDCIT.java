@@ -72,6 +72,8 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -132,6 +134,14 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
 
     private static final String SOURCE_SQL_TEMPLATE = "select * from %s.%s order by id";
     private static final String GENERATED_SLOT_PREFIX = "seatunnel_";
+    /*
+     * PostgreSQL truncates logical replication slot identifiers above this byte length.
+     */
+    private static final int MAX_REPLICATION_SLOT_NAME_LENGTH = 63;
+    /*
+     * Lowercase hexadecimal digits used to mirror production backfill slot hashing.
+     */
+    private static final char[] HEX_DIGITS = "0123456789abcdef".toCharArray();
     /**
      * Debezium JSON change events can lag under CI load, so snapshot and DML record waits use the
      * same timeout budget.
@@ -1439,14 +1449,54 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
         }
     }
 
-    /** Returns whether this job currently owns a generated snapshot backfill slot. */
+    /**
+     * Returns whether this job currently owns the generated snapshot backfill slot.
+     *
+     * <p>The expected slot name is derived from this job's streaming slot to avoid stale-slot
+     * matches in the shared PostgreSQL container.
+     */
     private boolean backfillReplicationSlotExists(String streamingSlotName) {
-        return listGeneratedReplicationSlots().stream()
-                .anyMatch(
-                        slotName ->
-                                !slotName.equals(streamingSlotName)
-                                        && slotName.contains("_st_backfill_")
-                                        && slotName.endsWith("_0"));
+        return replicationSlotExists(createBackfillSlotName(streamingSlotName, 0));
+    }
+
+    /**
+     * Mirrors the production backfill slot naming so the assertion cannot match a stale slot from
+     * another CDC job in the shared PostgreSQL container.
+     */
+    private String createBackfillSlotName(String slotName, int subtaskId) {
+        String suffix = "_st_backfill_" + stableSlotHash(slotName) + "_" + subtaskId;
+        int maxBaseLength = MAX_REPLICATION_SLOT_NAME_LENGTH - suffix.length();
+        String truncatedSlotName =
+                slotName.length() > maxBaseLength ? slotName.substring(0, maxBaseLength) : slotName;
+        String backfillSlotName = truncatedSlotName + suffix;
+        if (backfillSlotName.equals(slotName)) {
+            char firstCharacter = backfillSlotName.charAt(0) == 'z' ? 'y' : 'z';
+            backfillSlotName = firstCharacter + backfillSlotName.substring(1);
+        }
+        return backfillSlotName;
+    }
+
+    /**
+     * Returns the deterministic digest used in generated backfill replication slot names.
+     *
+     * <p>Only the first eight bytes are encoded because the slot name must stay within PostgreSQL's
+     * identifier length limit.
+     */
+    private String stableSlotHash(String slotName) {
+        try {
+            byte[] digest =
+                    MessageDigest.getInstance("SHA-256")
+                            .digest(slotName.getBytes(StandardCharsets.UTF_8));
+            char[] encoded = new char[16];
+            for (int i = 0; i < 8; i++) {
+                int value = digest[i] & 0xff;
+                encoded[i * 2] = HEX_DIGITS[value >>> 4];
+                encoded[i * 2 + 1] = HEX_DIGITS[value & 0x0f];
+            }
+            return new String(encoded);
+        } catch (NoSuchAlgorithmException e) {
+            throw new IllegalStateException("SHA-256 is unavailable", e);
+        }
     }
 
     /** Returns whether another PostgreSQL backend is actively scanning the captured table. */
