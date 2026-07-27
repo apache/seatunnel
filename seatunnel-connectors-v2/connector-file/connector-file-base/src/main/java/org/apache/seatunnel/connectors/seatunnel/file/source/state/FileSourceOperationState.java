@@ -41,6 +41,7 @@ public class FileSourceOperationState implements Serializable {
     private final long sourceModificationTime;
     private final FilePostSyncAction action;
     private final String backupTargetPath;
+    private final String sourceContentFingerprint;
     private int retryCount;
 
     public FileSourceOperationState(
@@ -51,6 +52,26 @@ public class FileSourceOperationState implements Serializable {
             long sourceModificationTime,
             FilePostSyncAction action,
             String backupTargetPath) {
+        this(
+                tableId,
+                splitId,
+                sourcePath,
+                sourceLength,
+                sourceModificationTime,
+                action,
+                backupTargetPath,
+                null);
+    }
+
+    public FileSourceOperationState(
+            String tableId,
+            String splitId,
+            String sourcePath,
+            long sourceLength,
+            long sourceModificationTime,
+            FilePostSyncAction action,
+            String backupTargetPath,
+            String sourceContentFingerprint) {
         this.tableId = tableId;
         this.splitId = splitId;
         this.sourcePath = sourcePath;
@@ -58,6 +79,7 @@ public class FileSourceOperationState implements Serializable {
         this.sourceModificationTime = sourceModificationTime;
         this.action = action;
         this.backupTargetPath = backupTargetPath;
+        this.sourceContentFingerprint = sourceContentFingerprint;
         this.retryCount = 0;
     }
 
@@ -80,7 +102,8 @@ public class FileSourceOperationState implements Serializable {
                 && Objects.equals(splitId, that.splitId)
                 && Objects.equals(sourcePath, that.sourcePath)
                 && action == that.action
-                && Objects.equals(backupTargetPath, that.backupTargetPath);
+                && Objects.equals(backupTargetPath, that.backupTargetPath)
+                && Objects.equals(sourceContentFingerprint, that.sourceContentFingerprint);
     }
 
     @Override
@@ -92,6 +115,7 @@ public class FileSourceOperationState implements Serializable {
                 sourceLength,
                 sourceModificationTime,
                 action,
-                backupTargetPath);
+                backupTargetPath,
+                sourceContentFingerprint);
     }
 }

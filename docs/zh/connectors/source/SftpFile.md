@@ -426,11 +426,13 @@ compare_mode = "len_mtime"
 
 支持的时长格式包括带 `MS`、`S`、`M`、`H`、`D` 后缀的简写格式，例如 `500MS`、`30S`、`10M`、`12H`、`7D`，也支持 ISO-8601 时长，例如 `PT1H30M`。
 
+时长后缀不区分大小写：`MS`（毫秒）、`S`（秒）、`M`（分钟）、`H`（小时）、`D`（天）。`M` 始终表示分钟，不是月份。非法值（如 `PT7D`、`P1M`）会导致配置校验失败并报错。
+
 ### retention_check_interval [string]
 
 保留清理扫描间隔，默认 `1H`。仅在 `post_sync_action=backup` 且配置 `retention_max_age` 后生效，清理任务最多按该间隔执行一次。单独设置 `retention_check_interval` 不会产生效果。
 
-支持的时长格式与 `retention_max_age` 相同，例如 `1H` 或 `PT30M`。
+时长后缀不区分大小写：`MS`、`S`、`M`、`H`、`D`。`M` 始终表示分钟，不是月份。非法值会导致配置校验失败并报错。
 
 ### schema [config]
 

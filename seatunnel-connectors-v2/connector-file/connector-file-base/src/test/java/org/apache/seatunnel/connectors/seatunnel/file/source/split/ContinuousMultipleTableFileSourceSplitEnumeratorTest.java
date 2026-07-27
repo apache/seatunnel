@@ -49,6 +49,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.attribute.FileTime;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -857,6 +859,60 @@ class ContinuousMultipleTableFileSourceSplitEnumeratorTest {
     }
 
     @Test
+    void testPostSyncDeleteSkipsStaleOperationWhenSourceContentChangesWithoutVersionDrift()
+            throws Exception {
+        Path srcDir = Files.createDirectories(tempDir.resolve("src13_same_version"));
+        Path dstDir = Files.createDirectories(tempDir.resolve("dst13_same_version"));
+        Path srcFile = srcDir.resolve("test.bin");
+        Path dstFile = dstDir.resolve("test.bin");
+        byte[] originalContent = "abc".getBytes();
+        byte[] recreatedContent = "xyz".getBytes();
+        Files.write(srcFile, originalContent);
+        Files.write(dstFile, originalContent);
+
+        Map<String, Object> extraConfig = new HashMap<>();
+        extraConfig.put(FileBaseSourceOptions.POST_SYNC_ACTION.key(), "delete");
+        EnumeratorWithContext enumeratorWithContext =
+                createEnumerator(
+                        srcDir,
+                        dstDir,
+                        "earliest",
+                        new FileSourceState(Collections.emptySet()),
+                        extraConfig);
+        try {
+            FileSourceOperationState operation =
+                    stageSinglePostSyncOperation(enumeratorWithContext, 1L);
+            Files.write(srcFile, recreatedContent);
+            Files.setLastModifiedTime(
+                    srcFile, FileTime.fromMillis(operation.getSourceModificationTime()));
+
+            enumeratorWithContext.enumerator.notifyCheckpointComplete(1L);
+
+            Assertions.assertTrue(
+                    Files.exists(srcFile),
+                    "stale delete should keep the recreated source file in place");
+            Assertions.assertArrayEquals(recreatedContent, Files.readAllBytes(srcFile));
+            Assertions.assertFalse(
+                    Files.exists(
+                            java.nio.file.Paths.get(
+                                    new org.apache.hadoop.fs.Path(
+                                                    ContinuousMultipleTableFileSourceSplitEnumerator
+                                                            .buildDeleteStagingPath(operation, 1L))
+                                            .toUri())),
+                    "stale delete should not leave behind a staged trash file");
+            Assertions.assertFalse(
+                    enumeratorWithContext
+                            .enumerator
+                            .snapshotState(2L)
+                            .getPendingOpsByCheckpoint()
+                            .containsKey(1L),
+                    "stale same-version delete should be skipped instead of retried forever");
+        } finally {
+            enumeratorWithContext.enumerator.close();
+        }
+    }
+
+    @Test
     void testPostSyncBackupStagesTargetOnSourceFileSystem() throws Exception {
         Path srcDir = Files.createDirectories(tempDir.resolve("src14_qualified_backup"));
         Path dstDir = Files.createDirectories(tempDir.resolve("dst14_qualified_backup"));
@@ -951,6 +1007,59 @@ class ContinuousMultipleTableFileSourceSplitEnumeratorTest {
                 backupFileCount = stream.filter(Files::isRegularFile).count();
             }
             Assertions.assertEquals(0, backupFileCount, "stale backup operation should be skipped");
+        } finally {
+            enumeratorWithContext.enumerator.close();
+        }
+    }
+
+    @Test
+    void testPostSyncBackupSkipsStaleOperationWhenSourceContentChangesWithoutVersionDrift()
+            throws Exception {
+        Path srcDir = Files.createDirectories(tempDir.resolve("src14_same_version"));
+        Path dstDir = Files.createDirectories(tempDir.resolve("dst14_same_version"));
+        Path backupDir = Files.createDirectories(tempDir.resolve("backup14_same_version"));
+        Path srcFile = srcDir.resolve("test.bin");
+        Path dstFile = dstDir.resolve("test.bin");
+        byte[] originalContent = "abc".getBytes();
+        byte[] recreatedContent = "xyz".getBytes();
+        Files.write(srcFile, originalContent);
+        Files.write(dstFile, originalContent);
+
+        Map<String, Object> extraConfig = new HashMap<>();
+        extraConfig.put(FileBaseSourceOptions.POST_SYNC_ACTION.key(), "backup");
+        extraConfig.put(FileBaseSourceOptions.BACKUP_PATH.key(), backupDir.toString());
+        EnumeratorWithContext enumeratorWithContext =
+                createEnumerator(
+                        srcDir,
+                        dstDir,
+                        "earliest",
+                        new FileSourceState(Collections.emptySet()),
+                        extraConfig);
+        try {
+            FileSourceOperationState operation =
+                    stageSinglePostSyncOperation(enumeratorWithContext, 1L);
+            Files.write(srcFile, recreatedContent);
+            Files.setLastModifiedTime(
+                    srcFile, FileTime.fromMillis(operation.getSourceModificationTime()));
+
+            enumeratorWithContext.enumerator.notifyCheckpointComplete(1L);
+
+            Assertions.assertTrue(
+                    Files.exists(srcFile), "stale backup should restore the recreated source file");
+            Assertions.assertArrayEquals(recreatedContent, Files.readAllBytes(srcFile));
+            Assertions.assertFalse(
+                    Files.exists(
+                            java.nio.file.Paths.get(
+                                    new org.apache.hadoop.fs.Path(operation.getBackupTargetPath())
+                                            .toUri())),
+                    "stale backup should not publish a backup file for the wrong content");
+            Assertions.assertFalse(
+                    enumeratorWithContext
+                            .enumerator
+                            .snapshotState(2L)
+                            .getPendingOpsByCheckpoint()
+                            .containsKey(1L),
+                    "stale same-version backup should be skipped instead of retried forever");
         } finally {
             enumeratorWithContext.enumerator.close();
         }
@@ -1305,6 +1414,83 @@ class ContinuousMultipleTableFileSourceSplitEnumeratorTest {
     }
 
     @Test
+    void testRetentionKeepsFreshBackupEvenWhenRenamePreservesAnExpiredSourceMtime()
+            throws Exception {
+        Path srcDir = Files.createDirectories(tempDir.resolve("src16_fresh_backup"));
+        Path dstDir = Files.createDirectories(tempDir.resolve("dst16_fresh_backup"));
+        Path backupDir = Files.createDirectories(tempDir.resolve("backup16_fresh_backup"));
+        Path srcFile = srcDir.resolve("test.bin");
+        Path dstFile = dstDir.resolve("test.bin");
+        byte[] content = "abc".getBytes();
+        Files.write(srcFile, content);
+        Files.write(dstFile, content);
+        long expiredSourceMtime = System.currentTimeMillis() - 60_000;
+        Files.setLastModifiedTime(srcFile, FileTime.fromMillis(expiredSourceMtime));
+
+        Map<String, Object> extraConfig = new HashMap<>();
+        extraConfig.put(FileBaseSourceOptions.POST_SYNC_ACTION.key(), "backup");
+        extraConfig.put(FileBaseSourceOptions.BACKUP_PATH.key(), backupDir.toString());
+        extraConfig.put(FileBaseSourceOptions.RETENTION_MAX_AGE.key(), "1S");
+        extraConfig.put(FileBaseSourceOptions.RETENTION_CHECK_INTERVAL.key(), "1S");
+
+        EnumeratorWithContext enumeratorWithContext =
+                createEnumerator(
+                        srcDir,
+                        dstDir,
+                        "earliest",
+                        new FileSourceState(Collections.emptySet()),
+                        extraConfig);
+        try {
+            FileSourceOperationState operation =
+                    stageSinglePostSyncOperation(enumeratorWithContext, 1L);
+            Path backupTarget =
+                    java.nio.file.Paths.get(
+                            new org.apache.hadoop.fs.Path(operation.getBackupTargetPath()).toUri());
+            Assertions.assertTrue(
+                    backupTarget.getFileName().toString().matches(".+\\.v\\d+_\\d+_\\d+"),
+                    "backup target name should encode the backup creation time");
+
+            HadoopFileSystemProxy sourceFs =
+                    getTableScanContextFileSystem(enumeratorWithContext.enumerator, "sourceFs");
+            HadoopFileSystemProxy sourceFsWithExpiredBackupMtime = Mockito.spy(sourceFs);
+            Mockito.doAnswer(
+                            invocation -> {
+                                invocation.callRealMethod();
+                                String newFilePath = invocation.getArgument(1);
+                                Path renamedPath =
+                                        java.nio.file.Paths.get(
+                                                new org.apache.hadoop.fs.Path(newFilePath).toUri());
+                                if (renamedPath.startsWith(backupDir)
+                                        && Files.exists(renamedPath)) {
+                                    Files.setLastModifiedTime(
+                                            renamedPath, FileTime.fromMillis(expiredSourceMtime));
+                                }
+                                return null;
+                            })
+                    .when(sourceFsWithExpiredBackupMtime)
+                    .renameFile(Mockito.anyString(), Mockito.anyString(), Mockito.anyBoolean());
+            setTableScanContextFileSystem(
+                    enumeratorWithContext.enumerator, "sourceFs", sourceFsWithExpiredBackupMtime);
+
+            enumeratorWithContext.enumerator.notifyCheckpointComplete(1L);
+
+            Assertions.assertTrue(
+                    Files.exists(backupTarget),
+                    "retention should not delete a backup created in the current checkpoint");
+            Assertions.assertFalse(Files.exists(srcFile), "backup commit should still move source");
+            Assertions.assertFalse(
+                    enumeratorWithContext
+                            .enumerator
+                            .snapshotState(2L)
+                            .getPendingOpsByCheckpoint()
+                            .containsKey(1L),
+                    "successful backup commit should clear the pending checkpoint operation");
+        } finally {
+            enumeratorWithContext.enumerator.close();
+        }
+    }
+
+    @Test
     void testRetentionKeepsExpiredFilesWithoutSeaTunnelVersionSuffix() throws Exception {
         Path srcDir = Files.createDirectories(tempDir.resolve("src16_suffix"));
         Path dstDir = Files.createDirectories(tempDir.resolve("dst16_suffix"));
@@ -1602,7 +1788,13 @@ class ContinuousMultipleTableFileSourceSplitEnumeratorTest {
                 .assignSplit(Mockito.eq(0), splitsCaptor.capture());
         FileSourceSplit assigned = splitsCaptor.getValue().get(0);
         enumeratorWithContext.enumerator.handleSourceEvent(
-                0, new FileSplitFinishedEvent(assigned.splitId()));
+                0,
+                new FileSplitFinishedEvent(
+                        assigned.splitId(),
+                        calculateFileFingerprint(
+                                java.nio.file.Paths.get(
+                                        new org.apache.hadoop.fs.Path(assigned.getFilePath())
+                                                .toUri()))));
 
         return enumeratorWithContext
                 .enumerator
@@ -1610,6 +1802,27 @@ class ContinuousMultipleTableFileSourceSplitEnumeratorTest {
                 .getPendingOpsByCheckpoint()
                 .get(checkpointId)
                 .get(0);
+    }
+
+    private static String calculateFileFingerprint(Path filePath) throws IOException {
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            digest.update(Files.readAllBytes(filePath));
+            return toHex(digest.digest());
+        } catch (NoSuchAlgorithmException e) {
+            throw new IOException("SHA-256 is not supported by this JVM", e);
+        }
+    }
+
+    private static String toHex(byte[] bytes) {
+        char[] digits = "0123456789abcdef".toCharArray();
+        char[] encoded = new char[bytes.length * 2];
+        for (int i = 0; i < bytes.length; i++) {
+            int current = bytes[i] & 0xff;
+            encoded[i * 2] = digits[current >>> 4];
+            encoded[i * 2 + 1] = digits[current & 0x0f];
+        }
+        return new String(encoded);
     }
 
     private static final class EnumeratorWithContext {

@@ -98,7 +98,7 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
     private static final String METRIC_RETENTION_DELETED = "retention_deleted_files";
     private static final String METRIC_RETENTION_FAILED = "retention_failed_operations";
     private static final Pattern BACKUP_VERSION_SUFFIX_PATTERN =
-            Pattern.compile("^.+\\.v\\d+_\\d+$");
+            Pattern.compile("^.+\\.v(\\d+)_(\\d+)(?:_(\\d+))?$");
 
     private final Context<FileSourceSplit> context;
     private final List<TableScanContext> tableScanContexts;
@@ -325,7 +325,8 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
         if (!(sourceEvent instanceof FileSplitFinishedEvent)) {
             return;
         }
-        String splitId = ((FileSplitFinishedEvent) sourceEvent).getSplitId();
+        FileSplitFinishedEvent fileSplitFinishedEvent = (FileSplitFinishedEvent) sourceEvent;
+        String splitId = fileSplitFinishedEvent.getSplitId();
         InFlightSplitContext finishedContext;
         synchronized (lock) {
             finishedContext = inFlightSplitContexts.get(splitId);
@@ -349,7 +350,10 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
             return;
         }
         FileSourceOperationState opState =
-                buildOperationStateFromFinishedSplit(tableScanContext, finishedContext);
+                buildOperationStateFromFinishedSplit(
+                        tableScanContext,
+                        finishedContext,
+                        fileSplitFinishedEvent.getContentFingerprint());
         if (opState == null) {
             return;
         }
@@ -724,11 +728,8 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
             throws IOException {
         String trashPath = buildDeleteStagingPath(op, checkpointId);
         FileStatus trashedStatus = getFileStatusIfPresent(ctx.sourceFs, trashPath);
-        if (trashedStatus != null) {
-            return completeStagedDelete(ctx, op, checkpointId, trashPath, trashedStatus);
-        }
-
-        if (getFileStatusIfPresent(ctx.sourceFs, op.getSourcePath()) == null) {
+        if (trashedStatus == null
+                && getFileStatusIfPresent(ctx.sourceFs, op.getSourcePath()) == null) {
             log.info(
                     "Post-sync delete dropped: source and staged file are absent, source={}, "
                             + "trash={}, checkpointId={}",
@@ -738,23 +739,19 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
             return OpCommitResult.SUCCESS;
         }
 
-        if (!isSinkTargetCommitted(ctx, op, checkpointId)) {
-            return OpCommitResult.FAILED_RETRYABLE;
+        if (trashedStatus == null) {
+            try {
+                ctx.sourceFs.renameFile(op.getSourcePath(), trashPath, false);
+            } catch (Exception e) {
+                log.warn(
+                        "Post-sync delete: rename-to-trash failed, will retry: source={}",
+                        maskUriUserInfo(op.getSourcePath()),
+                        e);
+                return OpCommitResult.FAILED_RETRYABLE;
+            }
+            trashedStatus = getFileStatusIfPresent(ctx.sourceFs, trashPath);
         }
 
-        // Stage first and then validate the staged inode. This closes the gap between the version
-        // check and deletion for filesystem updates that are visible through rename.
-        try {
-            ctx.sourceFs.renameFile(op.getSourcePath(), trashPath, false);
-        } catch (Exception e) {
-            log.warn(
-                    "Post-sync delete: rename-to-trash failed, will retry: source={}",
-                    maskUriUserInfo(op.getSourcePath()),
-                    e);
-            return OpCommitResult.FAILED_RETRYABLE;
-        }
-
-        trashedStatus = getFileStatusIfPresent(ctx.sourceFs, trashPath);
         if (trashedStatus == null) {
             // Another actor removed the staged file after rename. There is no source-side data
             // left for this operation to protect.
@@ -766,39 +763,15 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
                     checkpointId);
             return OpCommitResult.SUCCESS;
         }
-        return completeStagedDelete(ctx, op, checkpointId, trashPath, trashedStatus);
-    }
 
-    private OpCommitResult completeStagedDelete(
-            TableScanContext ctx,
-            FileSourceOperationState op,
-            long checkpointId,
-            String trashPath,
-            FileStatus trashedStatus)
-            throws IOException {
-        if (!isVersionMatched(trashedStatus, op)) {
-            // A late write landed before the source was staged. Restore without replacing an
-            // independently recreated source file, so the next scan can re-discover it.
-            try {
-                ctx.sourceFs.renameFile(trashPath, op.getSourcePath(), false);
-            } catch (Exception restoreEx) {
-                log.error(
-                        "Post-sync delete: failed to restore staged file after version mismatch; "
-                                + "operation will be retried: source={}, trash={}, checkpointId={}",
-                        maskUriUserInfo(op.getSourcePath()),
-                        maskUriUserInfo(trashPath),
-                        checkpointId,
-                        restoreEx);
-                return OpCommitResult.FAILED_RETRYABLE;
-            }
-            log.warn(
-                    "Post-sync delete skipped due to stale version after staging: splitId={}, "
-                            + "source={}, trash={}, checkpointId={}",
-                    op.getSplitId(),
-                    maskUriUserInfo(op.getSourcePath()),
-                    maskUriUserInfo(trashPath),
-                    checkpointId);
-            return OpCommitResult.STALE_SKIPPED;
+        if (!isOperationContentMatched(ctx, op, trashPath, trashedStatus)) {
+            return handleStaleStagedOperation(
+                    ctx, op, checkpointId, trashPath, "delete", trashedStatus);
+        }
+
+        if (!isSinkTargetCommitted(ctx, op, checkpointId, trashPath)) {
+            return handleRetryableStagedOperation(
+                    ctx, op, checkpointId, trashPath, "delete", trashedStatus);
         }
 
         ctx.sourceFs.deleteFile(trashPath);
@@ -823,20 +796,23 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
 
     private static String sha256Hex(String value) {
         try {
-            byte[] hash =
+            return sha256Hex(
                     MessageDigest.getInstance("SHA-256")
-                            .digest(value.getBytes(StandardCharsets.UTF_8));
-            char[] encoded = new char[hash.length * 2];
-            char[] digits = "0123456789abcdef".toCharArray();
-            for (int i = 0; i < hash.length; i++) {
-                int current = hash[i] & 0xff;
-                encoded[i * 2] = digits[current >>> 4];
-                encoded[i * 2 + 1] = digits[current & 0x0f];
-            }
-            return new String(encoded);
+                            .digest(value.getBytes(StandardCharsets.UTF_8)));
         } catch (NoSuchAlgorithmException e) {
             throw new IllegalStateException("SHA-256 is not supported by this JVM", e);
         }
+    }
+
+    private static String sha256Hex(byte[] bytes) {
+        char[] digits = "0123456789abcdef".toCharArray();
+        char[] encoded = new char[bytes.length * 2];
+        for (int i = 0; i < bytes.length; i++) {
+            int current = bytes[i] & 0xff;
+            encoded[i * 2] = digits[current >>> 4];
+            encoded[i * 2 + 1] = digits[current & 0x0f];
+        }
+        return new String(encoded);
     }
 
     private OpCommitResult commitBackupOperation(
@@ -850,17 +826,14 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
             return OpCommitResult.FAILED_RETRYABLE;
         }
 
+        String stagingPath = buildBackupStagingPath(op);
         FileStatus sourceStatus = getFileStatusIfPresent(ctx.sourceFs, op.getSourcePath());
         FileStatus targetStatus = getFileStatusIfPresent(ctx.sourceFs, op.getBackupTargetPath());
+        FileStatus stagingStatus = getFileStatusIfPresent(ctx.sourceFs, stagingPath);
 
-        // Crash recovery: the rename can complete before a checkpoint persists removal of this
-        // operation. A rename need not preserve mtime on every supported filesystem, so the
-        // version-suffixed target name plus its captured length identifies completed work here.
-        // An inconsistent target stays pending rather than being silently treated as a completed
-        // backup.
         if (sourceStatus == null) {
             if (targetStatus != null) {
-                if (targetStatus.getLen() == op.getSourceLength()) {
+                if (isOperationContentMatched(ctx, op, op.getBackupTargetPath(), targetStatus)) {
                     log.info(
                             "Post-sync backup completed during a previous attempt: source={}, target={}, "
                                     + "checkpointId={}, capturedLen={}, capturedMtime={}",
@@ -884,18 +857,20 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
                         targetStatus.getModificationTime());
                 return OpCommitResult.FAILED_RETRYABLE;
             }
-            log.warn(
-                    "Post-sync backup cannot determine completion because both source and backup "
-                            + "target are absent; operation will be retried: splitId={}, source={}, "
-                            + "target={}, checkpointId={}",
-                    op.getSplitId(),
-                    maskUriUserInfo(op.getSourcePath()),
-                    maskUriUserInfo(op.getBackupTargetPath()),
-                    checkpointId);
-            return OpCommitResult.FAILED_RETRYABLE;
+            if (stagingStatus == null) {
+                log.warn(
+                        "Post-sync backup cannot determine completion because source, staging, and "
+                                + "backup target are absent; operation will be retried: splitId={}, "
+                                + "source={}, target={}, checkpointId={}",
+                        op.getSplitId(),
+                        maskUriUserInfo(op.getSourcePath()),
+                        maskUriUserInfo(op.getBackupTargetPath()),
+                        checkpointId);
+                return OpCommitResult.FAILED_RETRYABLE;
+            }
         }
 
-        if (targetStatus != null) {
+        if (targetStatus != null && sourceStatus != null) {
             // Never use an existing target as proof that this source can be deleted: it may belong
             // to a previous attempt while a writer has recreated the source path.
             log.warn(
@@ -908,54 +883,62 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
             return OpCommitResult.STALE_SKIPPED;
         }
 
-        if (!isSinkTargetCommitted(ctx, op, checkpointId)) {
+        if (stagingStatus == null) {
+            try {
+                ctx.sourceFs.renameFile(op.getSourcePath(), stagingPath, false);
+            } catch (Exception e) {
+                log.warn(
+                        "Post-sync backup: rename-to-staging failed, will retry: source={}, staging={}",
+                        maskUriUserInfo(op.getSourcePath()),
+                        maskUriUserInfo(stagingPath),
+                        e);
+                return OpCommitResult.FAILED_RETRYABLE;
+            }
+            stagingStatus = getFileStatusIfPresent(ctx.sourceFs, stagingPath);
+        }
+
+        if (stagingStatus == null) {
+            log.warn(
+                    "Post-sync backup staging disappeared before verification; operation will be retried: "
+                            + "splitId={}, source={}, staging={}, checkpointId={}",
+                    op.getSplitId(),
+                    maskUriUserInfo(op.getSourcePath()),
+                    maskUriUserInfo(stagingPath),
+                    checkpointId);
             return OpCommitResult.FAILED_RETRYABLE;
         }
 
-        // The sink-side content check above is the authoritative safety gate here. Requiring the
-        // source mtime to match the value captured at scan time causes false stale skips on
-        // filesystems such as FTP, where repeated stat calls for unchanged files can drift.
-        // Phase 1: rename source to backup target (act-then-verify)
-        ctx.sourceFs.renameFile(op.getSourcePath(), op.getBackupTargetPath(), false);
-
-        // Phase 2: re-stat the backup target and verify version
-        targetStatus = getFileStatusIfPresent(ctx.sourceFs, op.getBackupTargetPath());
-        if (targetStatus == null) {
-            // rename succeeded but target gone — someone else cleaned up
-            log.info(
-                    "Post-sync backup completed externally after rename: source={}, target={}, "
-                            + "checkpointId={}",
-                    maskUriUserInfo(op.getSourcePath()),
-                    maskUriUserInfo(op.getBackupTargetPath()),
-                    checkpointId);
-            return OpCommitResult.SUCCESS;
+        if (!isOperationContentMatched(ctx, op, stagingPath, stagingStatus)) {
+            return handleStaleStagedOperation(
+                    ctx, op, checkpointId, stagingPath, "backup", stagingStatus);
         }
 
-        if (targetStatus.getLen() != op.getSourceLength()) {
-            // Target mtime is not stable across every supported filesystem after rename, so the
-            // stale-write guard must use the source version captured before rename. After rename,
-            // only an unexpected length mismatch remains actionable here.
-            try {
-                ctx.sourceFs.renameFile(op.getBackupTargetPath(), op.getSourcePath(), false);
-            } catch (Exception rollbackEx) {
-                log.error(
-                        "Post-sync backup: failed to rollback after length mismatch; operation will "
-                                + "be retried: source={}, target={}, checkpointId={}",
-                        maskUriUserInfo(op.getSourcePath()),
-                        maskUriUserInfo(op.getBackupTargetPath()),
-                        checkpointId,
-                        rollbackEx);
-                return OpCommitResult.FAILED_RETRYABLE;
-            }
+        if (!isSinkTargetCommitted(ctx, op, checkpointId, stagingPath)) {
+            return handleRetryableStagedOperation(
+                    ctx, op, checkpointId, stagingPath, "backup", stagingStatus);
+        }
+
+        ctx.sourceFs.renameFile(stagingPath, op.getBackupTargetPath(), false);
+        targetStatus = getFileStatusIfPresent(ctx.sourceFs, op.getBackupTargetPath());
+        if (targetStatus == null) {
             log.warn(
-                    "Post-sync backup skipped due to unexpected target length after rename: "
-                            + "splitId={}, source={}, target={}, expectedLen={}, actualLen={}",
+                    "Post-sync backup promotion target is absent after rename; operation will be retried: "
+                            + "splitId={}, source={}, target={}, checkpointId={}",
                     op.getSplitId(),
                     maskUriUserInfo(op.getSourcePath()),
                     maskUriUserInfo(op.getBackupTargetPath()),
-                    op.getSourceLength(),
-                    targetStatus.getLen());
-            return OpCommitResult.STALE_SKIPPED;
+                    checkpointId);
+            return OpCommitResult.FAILED_RETRYABLE;
+        }
+        if (!isOperationContentMatched(ctx, op, op.getBackupTargetPath(), targetStatus)) {
+            log.warn(
+                    "Post-sync backup promoted an unexpected target version; operation will be retried: "
+                            + "splitId={}, source={}, target={}, checkpointId={}",
+                    op.getSplitId(),
+                    maskUriUserInfo(op.getSourcePath()),
+                    maskUriUserInfo(op.getBackupTargetPath()),
+                    checkpointId);
+            return OpCommitResult.FAILED_RETRYABLE;
         }
 
         log.info(
@@ -979,7 +962,10 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
      * exists.
      */
     private boolean isSinkTargetCommitted(
-            TableScanContext ctx, FileSourceOperationState op, long checkpointId) {
+            TableScanContext ctx,
+            FileSourceOperationState op,
+            long checkpointId,
+            String sourcePathToCompare) {
         String targetPath = ctx.targetFilePath(op.getSourcePath());
         FileStatus targetStatus;
         try {
@@ -996,12 +982,12 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
                         targetStatus == null ? null : targetStatus.getLen());
                 return false;
             }
-            if (!ctx.fileContentEquals(op.getSourcePath(), targetPath)) {
+            if (!ctx.fileContentEquals(sourcePathToCompare, targetPath)) {
                 log.info(
                         "Post-sync operation is waiting for sink target content: action={}, "
                                 + "source={}, target={}, checkpointId={}",
                         op.getAction(),
-                        maskUriUserInfo(op.getSourcePath()),
+                        maskUriUserInfo(sourcePathToCompare),
                         maskUriUserInfo(targetPath),
                         checkpointId);
                 return false;
@@ -1020,6 +1006,23 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
         }
     }
 
+    private boolean isOperationContentMatched(
+            TableScanContext ctx,
+            FileSourceOperationState op,
+            String candidatePath,
+            FileStatus candidateStatus)
+            throws IOException {
+        if (candidateStatus == null) {
+            return false;
+        }
+        if (StringUtils.isNotBlank(op.getSourceContentFingerprint())) {
+            return Objects.equals(
+                    op.getSourceContentFingerprint(),
+                    calculateContentFingerprint(ctx.sourceFs, candidatePath));
+        }
+        return isVersionMatched(candidateStatus, op);
+    }
+
     private FileStatus getFileStatusIfPresent(HadoopFileSystemProxy sourceFs, String path)
             throws IOException {
         try {
@@ -1032,6 +1035,115 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
     private boolean isVersionMatched(FileStatus status, FileSourceOperationState op) {
         return status.getLen() == op.getSourceLength()
                 && status.getModificationTime() == op.getSourceModificationTime();
+    }
+
+    private OpCommitResult handleStaleStagedOperation(
+            TableScanContext ctx,
+            FileSourceOperationState op,
+            long checkpointId,
+            String stagedPath,
+            String actionLabel,
+            FileStatus stagedStatus)
+            throws IOException {
+        RestoreStagedFileResult restoreResult =
+                restoreStagedSource(ctx, op, stagedPath, stagedStatus, actionLabel);
+        if (restoreResult == RestoreStagedFileResult.FAILED) {
+            log.error(
+                    "Post-sync {}: failed to restore staged file after stale-content detection; "
+                            + "operation will be retried: source={}, staging={}, checkpointId={}",
+                    actionLabel,
+                    maskUriUserInfo(op.getSourcePath()),
+                    maskUriUserInfo(stagedPath),
+                    checkpointId);
+            return OpCommitResult.FAILED_RETRYABLE;
+        }
+        log.warn(
+                "Post-sync {} skipped due to stale staged content: splitId={}, source={}, staging={}, "
+                        + "checkpointId={}",
+                actionLabel,
+                op.getSplitId(),
+                maskUriUserInfo(op.getSourcePath()),
+                maskUriUserInfo(stagedPath),
+                checkpointId);
+        return OpCommitResult.STALE_SKIPPED;
+    }
+
+    private OpCommitResult handleRetryableStagedOperation(
+            TableScanContext ctx,
+            FileSourceOperationState op,
+            long checkpointId,
+            String stagedPath,
+            String actionLabel,
+            FileStatus stagedStatus)
+            throws IOException {
+        RestoreStagedFileResult restoreResult =
+                restoreStagedSource(ctx, op, stagedPath, stagedStatus, actionLabel);
+        if (restoreResult == RestoreStagedFileResult.FAILED) {
+            log.warn(
+                    "Post-sync {} cannot restore staged source while waiting for sink target; "
+                            + "operation will be retried with staged file intact: source={}, staging={}, "
+                            + "checkpointId={}",
+                    actionLabel,
+                    maskUriUserInfo(op.getSourcePath()),
+                    maskUriUserInfo(stagedPath),
+                    checkpointId);
+        }
+        return OpCommitResult.FAILED_RETRYABLE;
+    }
+
+    private RestoreStagedFileResult restoreStagedSource(
+            TableScanContext ctx,
+            FileSourceOperationState op,
+            String stagedPath,
+            FileStatus stagedStatus,
+            String actionLabel)
+            throws IOException {
+        FileStatus currentSourceStatus = getFileStatusIfPresent(ctx.sourceFs, op.getSourcePath());
+        if (currentSourceStatus != null) {
+            if (ctx.fileContentEquals(stagedPath, op.getSourcePath())) {
+                ctx.sourceFs.deleteFile(stagedPath);
+                log.info(
+                        "Post-sync {} found identical source content already restored; deleted staged file: "
+                                + "source={}, staging={}",
+                        actionLabel,
+                        maskUriUserInfo(op.getSourcePath()),
+                        maskUriUserInfo(stagedPath));
+                return RestoreStagedFileResult.ALREADY_VISIBLE;
+            }
+            return RestoreStagedFileResult.FAILED;
+        }
+
+        try {
+            ctx.sourceFs.renameFile(stagedPath, op.getSourcePath(), false);
+            return RestoreStagedFileResult.RESTORED;
+        } catch (Exception restoreEx) {
+            log.debug(
+                    "Post-sync {} restore failed: source={}, staging={}",
+                    actionLabel,
+                    maskUriUserInfo(op.getSourcePath()),
+                    maskUriUserInfo(stagedPath),
+                    restoreEx);
+            return RestoreStagedFileResult.FAILED;
+        }
+    }
+
+    private static String buildBackupStagingPath(FileSourceOperationState op) {
+        return op.getBackupTargetPath() + ".staging";
+    }
+
+    private String calculateContentFingerprint(HadoopFileSystemProxy fs, String filePath)
+            throws IOException {
+        try (InputStream inputStream = fs.getInputStream(filePath)) {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+            byte[] buffer = new byte[8 * 1024];
+            int read;
+            while ((read = inputStream.read(buffer)) != -1) {
+                digest.update(buffer, 0, read);
+            }
+            return sha256Hex(digest.digest());
+        } catch (NoSuchAlgorithmException e) {
+            throw new IOException("SHA-256 is not supported by this JVM", e);
+        }
     }
 
     private void runRetentionIfNeeded(long checkpointId) {
@@ -1107,7 +1219,7 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
             if (!BACKUP_VERSION_SUFFIX_PATTERN.matcher(status.getPath().getName()).matches()) {
                 continue;
             }
-            if (status.getModificationTime() > expireBefore) {
+            if (resolveBackupCreatedTimeMillis(status) > expireBefore) {
                 continue;
             }
             try {
@@ -1126,8 +1238,23 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
         }
     }
 
+    private long resolveBackupCreatedTimeMillis(FileStatus status) {
+        java.util.regex.Matcher matcher =
+                BACKUP_VERSION_SUFFIX_PATTERN.matcher(status.getPath().getName());
+        if (matcher.matches() && matcher.group(3) != null) {
+            try {
+                return Long.parseLong(matcher.group(3));
+            } catch (NumberFormatException ignored) {
+                // Fall through to filesystem mtime for malformed legacy file names.
+            }
+        }
+        return status.getModificationTime();
+    }
+
     private FileSourceOperationState buildOperationStateFromFinishedSplit(
-            TableScanContext tableScanContext, InFlightSplitContext inFlightSplitContext) {
+            TableScanContext tableScanContext,
+            InFlightSplitContext inFlightSplitContext,
+            String sourceContentFingerprint) {
         FileSourceSplit split = inFlightSplitContext.split;
         SplitVersion splitVersion = inFlightSplitContext.splitVersion;
         if (splitVersion == null) {
@@ -1145,8 +1272,15 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
         if (tableScanContext.postSyncAction == FilePostSyncAction.BACKUP) {
             String relativePath =
                     resolveRelativePath(tableScanContext.rootPath, split.getFilePath());
+            long backupCreatedTimeMillis = System.currentTimeMillis();
             String versionedRelativePath =
-                    relativePath + ".v" + splitVersion.length + "_" + splitVersion.modificationTime;
+                    relativePath
+                            + ".v"
+                            + splitVersion.length
+                            + "_"
+                            + splitVersion.modificationTime
+                            + "_"
+                            + backupCreatedTimeMillis;
             backupTargetPath =
                     buildTargetFilePath(tableScanContext.backupPath, versionedRelativePath);
         }
@@ -1158,7 +1292,8 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
                 splitVersion.length,
                 splitVersion.modificationTime,
                 tableScanContext.postSyncAction,
-                backupTargetPath);
+                backupTargetPath,
+                sourceContentFingerprint);
     }
 
     private SplitVersion resolveSplitVersion(
@@ -2001,6 +2136,12 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
     private static final class RetentionResult {
         private long deletedFiles;
         private long failedOperations;
+    }
+
+    private enum RestoreStagedFileResult {
+        RESTORED,
+        ALREADY_VISIBLE,
+        FAILED
     }
 
     private static final class InFlightSplitContext {
