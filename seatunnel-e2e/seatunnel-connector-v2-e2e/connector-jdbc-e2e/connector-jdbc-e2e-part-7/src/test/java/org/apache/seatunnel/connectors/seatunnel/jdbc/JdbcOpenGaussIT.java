@@ -356,8 +356,7 @@ public class JdbcOpenGaussIT extends AbstractJdbcIT {
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(OPENGAUSS_IMAGE)));
-        container.setPortBindings(
-                Lists.newArrayList(String.format("%s:%s", OPEN_GAUSS_PORT, OPEN_GAUSS_PORT)));
+        container.addExposedPort(OPEN_GAUSS_PORT);
 
         return container;
     }

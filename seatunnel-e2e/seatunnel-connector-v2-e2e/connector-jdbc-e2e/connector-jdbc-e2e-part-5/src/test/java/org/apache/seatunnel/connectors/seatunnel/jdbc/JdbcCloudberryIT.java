@@ -142,10 +142,7 @@ public class JdbcCloudberryIT extends AbstractJdbcIT {
                         .withPrivilegedMode(true); // Set privileged mode
         // Mount cgroup volume
         container.addFileSystemBind("/sys/fs/cgroup", "/sys/fs/cgroup", BindMode.READ_ONLY);
-        container.setPortBindings(
-                Lists.newArrayList(
-                        String.format(
-                                "%s:%s", CLOUDBERRY_CONTAINER_PORT, CLOUDBERRY_CONTAINER_PORT)));
+        container.addExposedPort(CLOUDBERRY_CONTAINER_PORT);
         return container;
     }
 
@@ -197,6 +194,7 @@ public class JdbcCloudberryIT extends AbstractJdbcIT {
         dbServer = initContainer().withImagePullPolicy(PullPolicy.alwaysPull());
         Startables.deepStart(Stream.of(dbServer)).join();
         jdbcCase = getJdbcCase();
+        updateJdbcCaseWithMappedPort();
         beforeStartUP();
         // Increase retry count and timeout, CloudberryDB might need more time to start
         given().ignoreExceptions()

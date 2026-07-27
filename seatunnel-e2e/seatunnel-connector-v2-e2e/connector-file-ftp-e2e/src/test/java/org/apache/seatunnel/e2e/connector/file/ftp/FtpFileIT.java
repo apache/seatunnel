@@ -55,7 +55,6 @@ import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
@@ -98,12 +97,6 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
             (startPort, endPort) ->
                     IntStream.rangeClosed(startPort, endPort).boxed().toArray(Integer[]::new);
 
-    private BiFunction<Integer, Integer, List<String>> generatePortBindings =
-            (startPort, endPort) ->
-                    IntStream.rangeClosed(startPort, endPort)
-                            .mapToObj(i -> i + ":" + i)
-                            .collect(Collectors.toList());
-
     @BeforeAll
     @Override
     public void startUp() throws Exception {
@@ -132,11 +125,6 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
                         .waitingFor(Wait.forLogMessage(".*", 1))
                         .withPrivilegedMode(true);
 
-        List<String> portBind = new ArrayList<>();
-        portBind.add("21:21");
-        portBind.addAll(generatePortBindings.apply(passiveStartPort, passiveEndPort));
-
-        ftpContainer.setPortBindings(portBind);
         ftpContainer.start();
         Startables.deepStart(Stream.of(ftpContainer)).join();
 

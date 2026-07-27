@@ -18,6 +18,8 @@
 
 package org.apache.seatunnel.e2e.connector.hbase;
 
+import org.apache.seatunnel.e2e.common.util.HostPortForwarder;
+
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 import org.apache.hadoop.hbase.TableName;
@@ -37,9 +39,9 @@ import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 
+import com.alibaba.dcm.DnsCacheManipulator;
+
 import java.io.IOException;
-import java.net.InetAddress;
-import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -62,9 +64,9 @@ public class HbaseCluster {
 
     private Connection connection;
     private GenericContainer<?> hbaseContainer;
+    private HostPortForwarder hostPortForwarder;
 
     public Connection startService() throws IOException {
-        String hostname = InetAddress.getLocalHost().getHostName();
         hbaseContainer =
                 new GenericContainer<>(HBASE_DOCKER_IMAGE)
                         .withNetwork(NETWORK)
@@ -72,7 +74,7 @@ public class HbaseCluster {
                         .withExposedPorts(MASTER_PORT)
                         .withExposedPorts(REGION_PORT)
                         .withExposedPorts(ZOOKEEPER_PORT)
-                        .withCreateContainerCmdModifier(cmd -> cmd.withHostName(hostname))
+                        .withCreateContainerCmdModifier(cmd -> cmd.withHostName(HOST))
                         .withEnv("HBASE_MASTER_PORT", String.valueOf(MASTER_PORT))
                         .withEnv("HBASE_REGION_PORT", String.valueOf(REGION_PORT))
                         .withEnv(
@@ -81,12 +83,24 @@ public class HbaseCluster {
                         .withEnv("HBASE_ZOOKEEPER_QUORUM", HOST)
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(DOCKER_NAME)));
-        hbaseContainer.setPortBindings(
-                Arrays.asList(
-                        String.format("%s:%s", MASTER_PORT, MASTER_PORT),
-                        String.format("%s:%s", REGION_PORT, REGION_PORT),
-                        String.format("%s:%s", ZOOKEEPER_PORT, ZOOKEEPER_PORT)));
         Startables.deepStart(Stream.of(hbaseContainer)).join();
+
+        hostPortForwarder =
+                HostPortForwarder.start(
+                        Arrays.asList(
+                                HostPortForwarder.PortMapping.of(
+                                        MASTER_PORT,
+                                        hbaseContainer.getHost(),
+                                        hbaseContainer.getMappedPort(MASTER_PORT)),
+                                HostPortForwarder.PortMapping.of(
+                                        REGION_PORT,
+                                        hbaseContainer.getHost(),
+                                        hbaseContainer.getMappedPort(REGION_PORT)),
+                                HostPortForwarder.PortMapping.of(
+                                        ZOOKEEPER_PORT,
+                                        hbaseContainer.getHost(),
+                                        hbaseContainer.getMappedPort(ZOOKEEPER_PORT))));
+        DnsCacheManipulator.setDnsCache(HOST, hostPortForwarder.getLoopbackAddress());
         LOG.info("HBase container started");
 
         String zookeeperQuorum = getZookeeperQuorum();
@@ -120,19 +134,18 @@ public class HbaseCluster {
         if (Objects.nonNull(connection)) {
             connection.close();
         }
+        DnsCacheManipulator.removeDnsCache(HOST);
+        if (Objects.nonNull(hostPortForwarder)) {
+            hostPortForwarder.close();
+        }
         if (Objects.nonNull(hbaseContainer)) {
             hbaseContainer.close();
         }
+        hostPortForwarder = null;
         hbaseContainer = null;
     }
 
     public static String getZookeeperQuorum() {
-        String host = null;
-        try {
-            host = InetAddress.getLocalHost().getHostAddress();
-        } catch (UnknownHostException e) {
-            throw new RuntimeException(e);
-        }
-        return String.format("%s:%s", host, ZOOKEEPER_PORT);
+        return String.format("%s:%s", HOST, ZOOKEEPER_PORT);
     }
 }

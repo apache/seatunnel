@@ -30,6 +30,7 @@ import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisContainerInfo
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.util.HostPortForwarder;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
 
 import org.junit.jupiter.api.AfterAll;
@@ -46,6 +47,7 @@ import org.testcontainers.shaded.org.apache.commons.lang3.tuple.Pair;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 
+import com.alibaba.dcm.DnsCacheManipulator;
 import lombok.extern.slf4j.Slf4j;
 import redis.clients.jedis.ConnectionPoolConfig;
 import redis.clients.jedis.HostAndPort;
@@ -53,17 +55,12 @@ import redis.clients.jedis.JedisCluster;
 
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.net.Inet4Address;
-import java.net.InetAddress;
-import java.net.NetworkInterface;
-import java.net.SocketException;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Enumeration;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -77,6 +74,7 @@ public class RedisClusterIT extends TestSuiteBase implements TestResource {
 
     private GenericContainer<?>[] redisClusterNodes;
     private JedisCluster jedisCluster;
+    private HostPortForwarder hostPortForwarder;
 
     private RedisContainerInfo redisContainerInfo =
             new RedisContainerInfo("redis-cluster-e2e", 6379, "SeaTunnel", "redis:7");
@@ -86,7 +84,7 @@ public class RedisClusterIT extends TestSuiteBase implements TestResource {
 
     @BeforeAll
     @Override
-    public void startUp() {
+    public void startUp() throws Exception {
         setupRedisContainer();
         createRedisCluster();
         waitForRedisClusterReady();
@@ -94,9 +92,8 @@ public class RedisClusterIT extends TestSuiteBase implements TestResource {
         initSourceData();
     }
 
-    private void setupRedisContainer() {
+    private void setupRedisContainer() throws IOException {
         redisClusterNodes = new GenericContainer[REDIS_CLUSTER_SIZE];
-        String hostIp = getDockerHostIp();
 
         for (int i = 0; i < REDIS_CLUSTER_SIZE; i++) {
             String nodeName = "redis-cluster-" + i;
@@ -106,10 +103,12 @@ public class RedisClusterIT extends TestSuiteBase implements TestResource {
             String redisCommand =
                     String.format(
                             "redis-server --cluster-enabled yes --port %d --protected-mode no "
-                                    + "--bind 0.0.0.0 --cluster-announce-ip %s --cluster-announce-port %d "
+                                    + "--bind 0.0.0.0 --cluster-announce-hostname %s "
+                                    + "--cluster-preferred-endpoint-type hostname "
+                                    + "--cluster-announce-port %d "
                                     + "--cluster-announce-bus-port %d --requirepass %s",
                             redisPort,
-                            hostIp,
+                            nodeName,
                             redisPort,
                             busPort,
                             redisContainerInfo.getPassword());
@@ -127,12 +126,22 @@ public class RedisClusterIT extends TestSuiteBase implements TestResource {
                             .waitingFor(
                                     new HostPortWaitStrategy()
                                             .withStartupTimeout(Duration.ofMinutes(2)));
-
-            redisClusterNodes[i].setPortBindings(
-                    Arrays.asList(redisPort + ":" + redisPort, busPort + ":" + busPort));
         }
 
         Startables.deepStart(Stream.of(redisClusterNodes)).join();
+        List<HostPortForwarder.PortMapping> portMappings = new ArrayList<>();
+        for (int i = 0; i < REDIS_CLUSTER_SIZE; i++) {
+            portMappings.add(
+                    HostPortForwarder.PortMapping.of(
+                            REDIS_PORTS[i],
+                            redisClusterNodes[i].getHost(),
+                            redisClusterNodes[i].getMappedPort(REDIS_PORTS[i])));
+        }
+        hostPortForwarder = HostPortForwarder.start(portMappings);
+        for (int i = 0; i < REDIS_CLUSTER_SIZE; i++) {
+            DnsCacheManipulator.setDnsCache(
+                    "redis-cluster-" + i, hostPortForwarder.getLoopbackAddress());
+        }
         log.info("Redis cluster nodes started with ports: {}", Arrays.toString(REDIS_PORTS));
     }
 
@@ -225,9 +234,8 @@ public class RedisClusterIT extends TestSuiteBase implements TestResource {
     private void initJedisCluster() {
         Set<HostAndPort> jedisClusterNodes = new HashSet<>();
 
-        String hostIp = getDockerHostIp();
-        for (int port : REDIS_PORTS) {
-            jedisClusterNodes.add(new HostAndPort(hostIp, port));
+        for (int i = 0; i < REDIS_CLUSTER_SIZE; i++) {
+            jedisClusterNodes.add(new HostAndPort("redis-cluster-" + i, REDIS_PORTS[i]));
         }
 
         ConnectionPoolConfig poolConfig = new ConnectionPoolConfig();
@@ -309,6 +317,13 @@ public class RedisClusterIT extends TestSuiteBase implements TestResource {
                     }
                 }
             }
+        }
+        for (int i = 0; i < REDIS_CLUSTER_SIZE; i++) {
+            DnsCacheManipulator.removeDnsCache("redis-cluster-" + i);
+        }
+        if (hostPortForwarder != null) {
+            hostPortForwarder.close();
+            hostPortForwarder = null;
         }
     }
 
@@ -517,46 +532,5 @@ public class RedisClusterIT extends TestSuiteBase implements TestResource {
             rows.add(row);
         }
         return Pair.of(rowType, rows);
-    }
-
-    private String getDockerHostIp() {
-        String fallback = null;
-        try {
-            Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
-            while (interfaces.hasMoreElements()) {
-                NetworkInterface ni = interfaces.nextElement();
-                if (!ni.isUp() || ni.isLoopback() || ni.isVirtual()) {
-                    continue;
-                }
-
-                String name = ni.getName();
-                if (name.startsWith("utun")
-                        || name.startsWith("tun")
-                        || name.startsWith("tap")
-                        || name.startsWith("ppp")
-                        || name.startsWith("docker")
-                        || name.startsWith("br-")
-                        || name.startsWith("veth")
-                        || name.startsWith("vmnet")
-                        || name.startsWith("virbr")) {
-                    continue;
-                }
-
-                Enumeration<InetAddress> addrs = ni.getInetAddresses();
-                while (addrs.hasMoreElements()) {
-                    InetAddress addr = addrs.nextElement();
-                    if (addr instanceof Inet4Address && !addr.isLoopbackAddress()) {
-                        String ip = addr.getHostAddress();
-                        if ("en0".equals(name) || "eth0".equals(name) || "wlan0".equals(name)) {
-                            return ip;
-                        }
-                        fallback = ip;
-                    }
-                }
-            }
-        } catch (SocketException e) {
-            log.warn("Failed to enumerate network interfaces", e);
-        }
-        return fallback != null ? fallback : "127.0.0.1";
     }
 }

@@ -160,7 +160,10 @@ public class DruidIT extends TestSuiteBase implements TestResource {
     }
 
     private void changeCoordinatorURLConf(String resourceFilePath) throws UnknownHostException {
-        coordinatorURL = InetAddress.getLocalHost().getHostAddress() + ":8888";
+        coordinatorURL =
+                InetAddress.getLocalHost().getHostAddress()
+                        + ":"
+                        + environment.getServicePort(DRUID_SERVICE_NAME, DRUID_SERVICE_PORT);
         Path path = Paths.get(resourceFilePath);
         try {
             List<String> lines = Files.readAllLines(path);
