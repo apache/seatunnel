@@ -35,12 +35,17 @@ import org.testcontainers.containers.Container;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
+import org.testcontainers.utility.MountableFile;
 
 import com.google.cloud.bigquery.QueryJobConfiguration;
 import com.google.cloud.bigquery.TableId;
 import com.google.cloud.bigquery.TableResult;
+import com.mysql.cj.jdbc.Driver;
 import lombok.extern.slf4j.Slf4j;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -83,11 +88,12 @@ public class BigQueryCDCIT extends AbstractBigqueryIT {
             container -> {
                 Container.ExecResult extraCommands =
                         container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/MySQL-CDC/lib && cd /tmp/seatunnel/plugins/MySQL-CDC/lib && wget "
-                                        + driverUrl());
+                                "bash", "-c", "mkdir -p /tmp/seatunnel/plugins/MySQL-CDC/lib");
                 Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
+                Path driverJarPath = driverJarPath();
+                container.copyFileToContainer(
+                        MountableFile.forHostPath(driverJarPath),
+                        "/tmp/seatunnel/plugins/MySQL-CDC/lib/" + driverJarPath.getFileName());
             };
 
     private static MySqlContainer createMySqlContainer(MySqlVersion version) {
@@ -103,8 +109,21 @@ public class BigQueryCDCIT extends AbstractBigqueryIT {
                         new Slf4jLogConsumer(DockerLoggerFactory.getLogger("mysql-docker-image")));
     }
 
-    private String driverUrl() {
-        return "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
+    private Path driverJarPath() {
+        try {
+            Path driverJarPath =
+                    Paths.get(
+                            Driver.class
+                                    .getProtectionDomain()
+                                    .getCodeSource()
+                                    .getLocation()
+                                    .toURI());
+            Assertions.assertTrue(Files.isRegularFile(driverJarPath));
+            return driverJarPath;
+        } catch (Exception e) {
+            throw new IllegalStateException(
+                    "Failed to resolve MySQL JDBC driver jar from the test classpath", e);
+        }
     }
 
     @BeforeAll

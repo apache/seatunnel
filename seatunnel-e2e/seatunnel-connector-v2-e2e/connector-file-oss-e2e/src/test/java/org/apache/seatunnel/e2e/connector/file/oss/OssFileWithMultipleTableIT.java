@@ -23,67 +23,34 @@ import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.TestHelper;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 
-import org.junit.jupiter.api.Assertions;
+import org.apache.hadoop.fs.aliyun.oss.AliyunOSSFileSystem;
+
+import org.jdom.Document;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.TestTemplate;
-import org.testcontainers.containers.Container;
+
+import com.aliyun.oss.OSS;
 
 import java.io.IOException;
 
 @Disabled("Disabled because it needs user's personal oss account to run this test")
 public class OssFileWithMultipleTableIT extends TestSuiteBase {
 
-    public static final String OSS_SDK_DOWNLOAD =
-            "https://repo1.maven.org/maven2/com/aliyun/oss/aliyun-sdk-oss/3.4.1/aliyun-sdk-oss-3.4.1.jar";
-    public static final String JDOM_DOWNLOAD =
-            "https://repo1.maven.org/maven2/org/jdom/jdom/1.1/jdom-1.1.jar";
-    public static final String HADOOP_ALIYUN_DOWNLOAD =
-            "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aliyun/3.1.4/hadoop-aliyun-3.1.4.jar";
-
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
             container -> {
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/oss/lib && cd /tmp/seatunnel/plugins/oss/lib && curl -O "
-                                        + OSS_SDK_DOWNLOAD);
-                Assertions.assertEquals(0, extraCommands.getExitCode());
-
-                extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "cd /tmp/seatunnel/plugins/oss/lib && curl -O " + JDOM_DOWNLOAD);
-                Assertions.assertEquals(0, extraCommands.getExitCode());
-
-                extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "cd /tmp/seatunnel/plugins/oss/lib && curl -O "
-                                        + HADOOP_ALIYUN_DOWNLOAD);
-                Assertions.assertEquals(0, extraCommands.getExitCode());
-
-                extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "cd /tmp/seatunnel/lib && curl -O " + OSS_SDK_DOWNLOAD);
-                Assertions.assertEquals(0, extraCommands.getExitCode());
-
-                extraCommands =
-                        container.execInContainer(
-                                "bash", "-c", "cd /tmp/seatunnel/lib && curl -O " + JDOM_DOWNLOAD);
-                Assertions.assertEquals(0, extraCommands.getExitCode());
-
-                extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "cd /tmp/seatunnel/lib && curl -O " + HADOOP_ALIYUN_DOWNLOAD);
-                Assertions.assertEquals(0, extraCommands.getExitCode());
+                OssDependencyResolver.copyDependencyToContainer(
+                        container, OSS.class, "/tmp/seatunnel/plugins/oss/lib");
+                OssDependencyResolver.copyDependencyToContainer(
+                        container, Document.class, "/tmp/seatunnel/plugins/oss/lib");
+                OssDependencyResolver.copyDependencyToContainer(
+                        container, AliyunOSSFileSystem.class, "/tmp/seatunnel/plugins/oss/lib");
+                OssDependencyResolver.copyDependencyToContainer(
+                        container, OSS.class, "/tmp/seatunnel/lib");
+                OssDependencyResolver.copyDependencyToContainer(
+                        container, Document.class, "/tmp/seatunnel/lib");
+                OssDependencyResolver.copyDependencyToContainer(
+                        container, AliyunOSSFileSystem.class, "/tmp/seatunnel/lib");
             };
 
     /** Copy data files to oss */

@@ -51,9 +51,6 @@ import java.util.stream.Stream;
 @Slf4j
 public class JdbcMysqlTableOptionsIT extends TestSuiteBase implements TestResource {
 
-    private static final String MYSQL_DRIVER_JAR =
-            "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
-
     private static final String MYSQL_IMAGE = "mysql:8.0.43";
     private static final String MYSQL_CONTAINER_HOST = "mysql-e2e-table-options";
     private static final String MYSQL_DATABASE = "seatunnel";
@@ -87,15 +84,9 @@ public class JdbcMysqlTableOptionsIT extends TestSuiteBase implements TestResour
 
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
-            container -> {
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && wget "
-                                        + MYSQL_DRIVER_JAR);
-                Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
-            };
+            container ->
+                    JdbcE2EDriverResolver.copyDriverToContainer(
+                            container, "com.mysql.cj.jdbc.Driver");
 
     void initContainer() {
         DockerImageName imageName = DockerImageName.parse(MYSQL_IMAGE);

@@ -145,13 +145,11 @@ public class MetalakeIT extends SeaTunnelContainer {
         executeExtraCommands(server);
         server.start();
 
+        JdbcE2EDriverResolver.copyDriverToContainer(server, DRIVER_CLASS);
         server.execInContainer(
                 "bash",
                 "-c",
-                "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && wget "
-                        + driverUrl()
-                        + " --no-check-certificate"
-                        + "&& mkdir -p /tmp/gravitino && cd /tmp/gravitino && curl -C - --retry 5 -L -k -o gravitino-0.9.1-bin.tar.gz https://dlcdn.apache.org/gravitino/0.9.1/gravitino-0.9.1-bin.tar.gz && tar -zxvf gravitino-0.9.1-bin.tar.gz && cd /tmp/gravitino/gravitino-0.9.1-bin && ./bin/gravitino.sh start");
+                "mkdir -p /tmp/gravitino && cd /tmp/gravitino && curl -C - --retry 5 -L -k -o gravitino-0.9.1-bin.tar.gz https://dlcdn.apache.org/gravitino/0.9.1/gravitino-0.9.1-bin.tar.gz && tar -zxvf gravitino-0.9.1-bin.tar.gz && cd /tmp/gravitino/gravitino-0.9.1-bin && ./bin/gravitino.sh start");
 
         given().ignoreExceptions()
                 .await()
@@ -218,10 +216,6 @@ public class MetalakeIT extends SeaTunnelContainer {
         Container.ExecResult execResult =
                 executeJob("/jdbc_mysql_source_to_assert_sink_with_datasource_enable.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
-    }
-
-    String driverUrl() {
-        return "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
     }
 
     protected GenericContainer<?> initContainer() {

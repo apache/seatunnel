@@ -27,8 +27,6 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oceanbase.OceanBas
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 
-import org.junit.jupiter.api.Assertions;
-import org.testcontainers.containers.Container;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.images.PullPolicy;
@@ -59,15 +57,8 @@ public class JdbcOceanBaseMysqlIT extends JdbcOceanBaseITBase {
 
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
-            container -> {
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && wget "
-                                        + driverUrl());
-                Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
-            };
+            container ->
+                    JdbcE2EDriverResolver.copyDriverToContainer(container, OCEANBASE_DRIVER_CLASS);
 
     @Override
     List<String> configFile() {

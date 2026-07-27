@@ -94,6 +94,7 @@
         <dependency>
             <groupId>org.apache.hive</groupId>
             <artifactId>hive-jdbc</artifactId>
+            <classifier>standalone</classifier>
             <scope>test</scope>
         </dependency>
     </dependencies>

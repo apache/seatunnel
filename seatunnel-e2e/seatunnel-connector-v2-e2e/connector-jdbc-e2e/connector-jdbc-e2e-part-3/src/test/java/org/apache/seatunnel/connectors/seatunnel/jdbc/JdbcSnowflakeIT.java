@@ -38,16 +38,10 @@ public class JdbcSnowflakeIT extends TestSuiteBase implements TestResource {
     private static final String URL = "jdbc:snowflake://<account_name>.snowflakecomputing.com";
     private static final String USERNAME = "user";
     private static final String PASSWORD = "password";
-    private static final String SNOWFLAKE_DRIVER_JAR =
-            "https://repo1.maven.org/maven2/net/snowflake/snowflake-jdbc/3.13.29/snowflake-jdbc-3.13.29.jar";
     private final ContainerExtendedFactory extendedFactory =
-            container -> {
-                container.execInContainer(
-                        "bash",
-                        "-c",
-                        "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && curl -O "
-                                + SNOWFLAKE_DRIVER_JAR);
-            };
+            container ->
+                    JdbcE2EDriverResolver.copyDriverToContainer(
+                            container, "net.snowflake.client.jdbc.SnowflakeDriver");
 
     private Connection connection;
 

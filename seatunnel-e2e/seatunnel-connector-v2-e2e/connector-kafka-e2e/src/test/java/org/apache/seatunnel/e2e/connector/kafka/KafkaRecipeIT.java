@@ -56,11 +56,16 @@ import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.shaded.org.awaitility.Awaitility;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
+import org.testcontainers.utility.MountableFile;
 
+import com.mysql.cj.jdbc.Driver;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -109,10 +114,6 @@ public class KafkaRecipeIT extends TestSuiteBase implements TestResource {
     private static final String MYSQL_CDC_USER_NAME = "st_user_source";
     /** Kafka topic populated by the documented sink config. */
     private static final String TOPIC_NAME = "recipe_mysql_orders";
-    /** Driver JAR injected into the connector plugin before the job starts. */
-    private static final String DRIVER_JAR =
-            "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
-
     /** Kafka service used by the recipe job. */
     private KafkaContainer kafkaContainer;
     /** MySQL service used by the recipe job. */
@@ -129,12 +130,30 @@ public class KafkaRecipeIT extends TestSuiteBase implements TestResource {
             container -> {
                 Container.ExecResult extraCommands =
                         container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/MySQL-CDC/lib && cd /tmp/seatunnel/plugins/MySQL-CDC/lib && wget "
-                                        + DRIVER_JAR);
+                                "bash", "-c", "mkdir -p /tmp/seatunnel/plugins/MySQL-CDC/lib");
                 Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
+                Path driverJarPath = driverJarPath();
+                container.copyFileToContainer(
+                        MountableFile.forHostPath(driverJarPath),
+                        "/tmp/seatunnel/plugins/MySQL-CDC/lib/" + driverJarPath.getFileName());
             };
+
+    private Path driverJarPath() {
+        try {
+            Path driverJarPath =
+                    Paths.get(
+                            Driver.class
+                                    .getProtectionDomain()
+                                    .getCodeSource()
+                                    .getLocation()
+                                    .toURI());
+            Assertions.assertTrue(Files.isRegularFile(driverJarPath));
+            return driverJarPath;
+        } catch (Exception e) {
+            throw new IllegalStateException(
+                    "Failed to resolve MySQL JDBC driver jar from the test classpath", e);
+        }
+    }
 
     /** Starts the external systems and prepares the documented source and sink prerequisites. */
     @BeforeEach

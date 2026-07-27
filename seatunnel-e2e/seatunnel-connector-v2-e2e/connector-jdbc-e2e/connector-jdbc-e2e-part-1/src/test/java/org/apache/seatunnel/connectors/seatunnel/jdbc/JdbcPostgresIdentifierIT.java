@@ -53,12 +53,6 @@ import static org.awaitility.Awaitility.given;
 @Slf4j
 public class JdbcPostgresIdentifierIT extends TestSuiteBase implements TestResource {
     private static final String PG_IMAGE = "postgis/postgis";
-    private static final String PG_DRIVER_JAR =
-            "https://repo1.maven.org/maven2/org/postgresql/postgresql/42.3.3/postgresql-42.3.3.jar";
-    private static final String PG_JDBC_JAR =
-            "https://repo1.maven.org/maven2/net/postgis/postgis-jdbc/2.5.1/postgis-jdbc-2.5.1.jar";
-    private static final String PG_GEOMETRY_JAR =
-            "https://repo1.maven.org/maven2/net/postgis/postgis-geometry/2.5.1/postgis-geometry-2.5.1.jar";
     private static final List<String> PG_CONFIG_FILE_LIST =
             Lists.newArrayList("/jdbc_postgres_ide_source_and_sink.conf");
     private PostgreSQLContainer<?> POSTGRESQL_CONTAINER;
@@ -200,17 +194,9 @@ public class JdbcPostgresIdentifierIT extends TestSuiteBase implements TestResou
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
             container -> {
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && curl -O "
-                                        + PG_DRIVER_JAR
-                                        + " && curl -O "
-                                        + PG_JDBC_JAR
-                                        + " && curl -O "
-                                        + PG_GEOMETRY_JAR);
-                Assertions.assertEquals(0, extraCommands.getExitCode());
+                JdbcE2EDriverResolver.copyDriverToContainer(container, "org.postgresql.Driver");
+                JdbcE2EDriverResolver.copyDriverToContainer(container, "org.postgis.DriverWrapper");
+                JdbcE2EDriverResolver.copyDriverToContainer(container, "org.postgis.Geometry");
             };
 
     @BeforeAll

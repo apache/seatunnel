@@ -38,7 +38,6 @@ import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.TestMethodOrder;
 import org.junit.jupiter.api.TestTemplate;
-import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.images.PullPolicy;
@@ -170,29 +169,15 @@ public abstract class AbstractSchemaChangeBaseIT extends TestSuiteBase implement
                         new Slf4jLogConsumer(DockerLoggerFactory.getLogger("mysql-docker-image")));
     }
 
-    private String driverUrl() {
-        return "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
-    }
-
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
             container -> {
-                Container.ExecResult extraCommands1 =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/MySQL-CDC/lib && cd /tmp/seatunnel/plugins/MySQL-CDC/lib && wget "
-                                        + driverUrl());
-                Assertions.assertEquals(
-                        0, extraCommands1.getExitCode(), extraCommands1.getStderr());
-                Container.ExecResult extraCommands2 =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && wget "
-                                        + schemaChangeCase.getDriverUrl());
-                Assertions.assertEquals(
-                        0, extraCommands2.getExitCode(), extraCommands2.getStderr());
+                JdbcDdlDriverResolver.copyDriverToContainer(
+                        container,
+                        "com.mysql.cj.jdbc.Driver",
+                        "/tmp/seatunnel/plugins/MySQL-CDC/lib");
+                JdbcDdlDriverResolver.copyDriverToContainer(
+                        container, schemaChangeCase.getDriverClassName());
             };
 
     @Order(1)

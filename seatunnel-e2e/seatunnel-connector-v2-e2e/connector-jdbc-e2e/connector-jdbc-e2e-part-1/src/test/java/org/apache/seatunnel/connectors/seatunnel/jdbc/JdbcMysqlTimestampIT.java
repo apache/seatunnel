@@ -75,27 +75,13 @@ public class JdbcMysqlTimestampIT extends TestSuiteBase implements TestResource 
     private static final String MYSQL_USER = "root";
     private static final String MYSQL_PASSWORD = "Abc!@#135_seatunnel";
 
-    private static final String MYSQL_DRIVER_URL =
-            "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
-
     private MySQLContainer<?> mysqlContainer;
 
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
-            container -> {
-                Container.ExecResult result =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib"
-                                        + " && cd /tmp/seatunnel/plugins/Jdbc/lib"
-                                        + " && wget -q "
-                                        + MYSQL_DRIVER_URL);
-                Assertions.assertEquals(
-                        0,
-                        result.getExitCode(),
-                        "Failed to download MySQL driver: " + result.getStderr());
-            };
+            container ->
+                    JdbcE2EDriverResolver.copyDriverToContainer(
+                            container, "com.mysql.cj.jdbc.Driver");
 
     @BeforeAll
     @Override

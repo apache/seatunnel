@@ -39,7 +39,6 @@ import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.testcontainers.containers.Container;
 import org.testcontainers.containers.MSSQLServerContainer;
 import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -71,12 +70,6 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
     private static final String SQLSERVER_CONTAINER_HOST = "sqlserver";
     private static final int SQLSERVER_CONTAINER_PORT = 1433;
     private static final String PG_IMAGE = "postgis/postgis";
-    private static final String PG_DRIVER_JAR =
-            "https://repo1.maven.org/maven2/org/postgresql/postgresql/42.3.3/postgresql-42.3.3.jar";
-    private static final String PG_JDBC_JAR =
-            "https://repo1.maven.org/maven2/net/postgis/postgis-jdbc/2.5.1/postgis-jdbc-2.5.1.jar";
-    private static final String PG_GEOMETRY_JAR =
-            "https://repo1.maven.org/maven2/net/postgis/postgis-geometry/2.5.1/postgis-geometry-2.5.1.jar";
 
     private static final String MYSQL_IMAGE = "mysql:8.0.43";
     private static final String MYSQL_CONTAINER_HOST = "mysql-e2e";
@@ -110,10 +103,6 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
                     + "    SELECT 0 AS table_exists;";
     private static final String pgCheck =
             "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'mysql_auto_create_pg') AS table_exists;\n";
-
-    String driverSqlServerUrl() {
-        return "https://repo1.maven.org/maven2/com/microsoft/sqlserver/mssql-jdbc/9.4.1.jre8/mssql-jdbc-9.4.1.jre8.jar";
-    }
 
     private static final String CREATE_SQL_DATABASE =
             "IF NOT EXISTS (\n"
@@ -167,28 +156,13 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
     @TestContainerExtension
     private final ContainerExtendedFactory extendedSqlServerFactory =
             container -> {
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && curl -O "
-                                        + PG_DRIVER_JAR
-                                        + " && curl -O "
-                                        + PG_JDBC_JAR
-                                        + " && curl -O "
-                                        + PG_GEOMETRY_JAR
-                                        + " && curl -O "
-                                        + MYSQL_DRIVER_CLASS
-                                        + " && curl -O "
-                                        + driverSqlserverUrl()
-                                        + " && curl -O "
-                                        + driverMySqlUrl());
-                //                Assertions.assertEquals(0, extraCommands.getExitCode());
+                JdbcE2EDriverResolver.copyDriverToContainer(container, "org.postgresql.Driver");
+                JdbcE2EDriverResolver.copyDriverToContainer(container, "org.postgis.DriverWrapper");
+                JdbcE2EDriverResolver.copyDriverToContainer(container, "org.postgis.Geometry");
+                JdbcE2EDriverResolver.copyDriverToContainer(container, MYSQL_DRIVER_CLASS);
+                JdbcE2EDriverResolver.copyDriverToContainer(
+                        container, "com.microsoft.sqlserver.jdbc.SQLServerDriver");
             };
-
-    String driverMySqlUrl() {
-        return "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
-    }
 
     String driverSqlserverUrl() {
         return "https://repo1.maven.org/maven2/com/microsoft/sqlserver/mssql-jdbc/9.4.1.jre8/mssql-jdbc-9.4.1.jre8.jar";

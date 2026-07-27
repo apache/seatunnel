@@ -31,7 +31,6 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.testcontainers.containers.Container;
 import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.Wait;
@@ -55,9 +54,6 @@ import static org.awaitility.Awaitility.given;
 
 @Slf4j
 public class JdbcMySqlSaveModeCatalogIT extends TestSuiteBase implements TestResource {
-
-    private static final String MYSQL_DRIVER_JAR =
-            "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
 
     private static final String MYSQL_IMAGE = "mysql:8.0.43";
     private static final String MYSQL_CONTAINER_HOST = "mysql-e2e";
@@ -121,15 +117,11 @@ public class JdbcMySqlSaveModeCatalogIT extends TestSuiteBase implements TestRes
 
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
-            container -> {
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/MySQL-CDC/lib && cd /tmp/seatunnel/plugins/MySQL-CDC/lib && wget "
-                                        + MYSQL_DRIVER_JAR);
-                Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
-            };
+            container ->
+                    JdbcE2EDriverResolver.copyDriverToContainer(
+                            container,
+                            "com.mysql.cj.jdbc.Driver",
+                            "/tmp/seatunnel/plugins/MySQL-CDC/lib");
 
     void initContainer() throws ClassNotFoundException {
         // ============= mysql

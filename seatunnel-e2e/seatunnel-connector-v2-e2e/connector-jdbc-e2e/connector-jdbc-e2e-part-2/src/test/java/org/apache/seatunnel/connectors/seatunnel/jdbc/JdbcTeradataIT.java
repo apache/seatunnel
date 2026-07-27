@@ -42,16 +42,10 @@ public class JdbcTeradataIT extends TestSuiteBase implements TestResource {
     private static final String PASSWORD = "dbc";
     private static final String DATABASE = "test";
     private static final String SINK_TABLE = "sink_table";
-    private static final String TERADATA_DRIVER_JAR =
-            "https://repo1.maven.org/maven2/com/teradata/jdbc/terajdbc4/17.20.00.12/terajdbc4-17.20.00.12.jar";
     private final ContainerExtendedFactory extendedFactory =
-            container -> {
-                container.execInContainer(
-                        "bash",
-                        "-c",
-                        "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && curl -O "
-                                + TERADATA_DRIVER_JAR);
-            };
+            container ->
+                    JdbcE2EDriverResolver.copyDriverToContainer(
+                            container, TeraDataSource.class.getName());
 
     private Connection connection;
 

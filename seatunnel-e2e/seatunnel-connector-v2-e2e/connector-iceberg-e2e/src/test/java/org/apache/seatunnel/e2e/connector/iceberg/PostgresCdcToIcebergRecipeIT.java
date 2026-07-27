@@ -49,6 +49,8 @@ import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 
+import com.github.luben.zstd.Zstd;
+
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.sql.Connection;
@@ -86,11 +88,6 @@ public class PostgresCdcToIcebergRecipeIT extends TestSuiteBase implements TestR
     private static final String CATALOG_ROOT = "/tmp/seatunnel_mnt/iceberg/postgres-cdc-recipe/";
     private static final String NAMESPACE = "sales_analytics";
     private static final String TABLE = "customer_orders";
-    private static final String POSTGRES_DRIVER_URL =
-            "https://repo1.maven.org/maven2/org/postgresql/postgresql/42.5.1/postgresql-42.5.1.jar";
-    private static final String ZSTD_URL =
-            "https://repo1.maven.org/maven2/com/github/luben/zstd-jni/1.5.5-5/zstd-jni-1.5.5-5.jar";
-
     private static final PostgreSQLContainer<?> POSTGRES_CONTAINER =
             new PostgreSQLContainer<>(DockerImageName.parse("postgres:14-alpine"))
                     .withNetwork(NETWORK)
@@ -124,17 +121,12 @@ public class PostgresCdcToIcebergRecipeIT extends TestSuiteBase implements TestR
                                         + " /tmp/seatunnel/plugins/Iceberg/lib"
                                         + " && chmod -R 777 "
                                         + CATALOG_ROOT));
-                assertCommandSucceeded(
-                        container.execInContainer(
-                                "sh",
-                                "-c",
-                                "cd /tmp/seatunnel/plugins/Postgres-CDC/lib && wget -q "
-                                        + POSTGRES_DRIVER_URL));
-                assertCommandSucceeded(
-                        container.execInContainer(
-                                "sh",
-                                "-c",
-                                "cd /tmp/seatunnel/plugins/Iceberg/lib && wget -q " + ZSTD_URL));
+                IcebergDependencyResolver.copyDependencyToContainer(
+                        container,
+                        org.postgresql.Driver.class,
+                        "/tmp/seatunnel/plugins/Postgres-CDC/lib");
+                IcebergDependencyResolver.copyDependencyToContainer(
+                        container, Zstd.class, "/tmp/seatunnel/plugins/Iceberg/lib");
             };
 
     /** Starts PostgreSQL with logical replication enabled and creates deterministic source data. */

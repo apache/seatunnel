@@ -87,10 +87,6 @@ public class ElasticsearchRecipeIT extends TestSuiteBase implements TestResource
     private static final String MYSQL_CDC_USER_NAME = "st_user_source";
     // Elasticsearch index populated by the documented sink config.
     private static final String INDEX_NAME = "recipe_customer_profile";
-    // Driver JAR injected into the MySQL-CDC plugin before the job starts.
-    private static final String DRIVER_JAR =
-            "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
-
     // Elasticsearch service used by the recipe job.
     private ElasticsearchContainer elasticsearchContainer;
     // MySQL service used by the recipe job.
@@ -100,16 +96,7 @@ public class ElasticsearchRecipeIT extends TestSuiteBase implements TestResource
 
     // Injects the MySQL JDBC driver required by the MySQL-CDC connector.
     @TestContainerExtension
-    private final ContainerExtendedFactory extendedFactory =
-            container -> {
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/MySQL-CDC/lib && cd /tmp/seatunnel/plugins/MySQL-CDC/lib && wget "
-                                        + DRIVER_JAR);
-                Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
-            };
+    private final ContainerExtendedFactory extendedFactory = MysqlDriverResolver::copyToContainer;
 
     /**
      * Starts the external systems and prepares the source data used by the documented recipe.

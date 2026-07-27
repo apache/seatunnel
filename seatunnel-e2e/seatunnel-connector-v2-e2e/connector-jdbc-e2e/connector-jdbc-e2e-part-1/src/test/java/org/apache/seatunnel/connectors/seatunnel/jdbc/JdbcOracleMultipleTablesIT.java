@@ -107,13 +107,10 @@ public class JdbcOracleMultipleTablesIT extends TestSuiteBase implements TestRes
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
             container -> {
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && wget "
-                                        + "https://repo1.maven.org/maven2/com/oracle/database/jdbc/ojdbc8/12.2.0.1/ojdbc8-12.2.0.1.jar && wget https://repo1.maven.org/maven2/com/oracle/database/xml/xdb6/12.2.0.1/xdb6-12.2.0.1.jar && wget https://repo1.maven.org/maven2/com/oracle/database/xml/xmlparserv2/12.2.0.1/xmlparserv2-12.2.0.1.jar");
-                Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
+                JdbcE2EDriverResolver.copyDriverToContainer(container, "oracle.jdbc.OracleDriver");
+                JdbcE2EDriverResolver.copyDriverToContainer(container, "oracle.xdb.XMLType");
+                JdbcE2EDriverResolver.copyDriverToContainer(
+                        container, "oracle.xml.parser.v2.XMLParser");
             };
 
     @BeforeAll

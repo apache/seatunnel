@@ -78,8 +78,6 @@ public class JdbcDorisdbIT extends TestSuiteBase implements TestResource {
     private static final String DATABASE = "test";
     private static final String SOURCE_TABLE = "e2e_table_source";
     private static final String SINK_TABLE = "e2e_table_sink";
-    private static final String DRIVER_JAR =
-            "https://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0.16/mysql-connector-java-8.0.16.jar";
     private static final String COLUMN_STRING =
             "BIGINT_COL, LARGEINT_COL, SMALLINT_COL, TINYINT_COL, BOOLEAN_COL, DECIMAL_COL, DOUBLE_COL, FLOAT_COL, INT_COL, CHAR_COL, VARCHAR_11_COL, STRING_COL, DATETIME_COL, DATE_COL";
 
@@ -167,15 +165,7 @@ public class JdbcDorisdbIT extends TestSuiteBase implements TestResource {
 
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
-            container -> {
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && curl -O "
-                                        + DRIVER_JAR);
-                Assertions.assertEquals(0, extraCommands.getExitCode());
-            };
+            container -> JdbcE2EDriverResolver.copyDriverToContainer(container, DRIVER_CLASS);
 
     @BeforeAll
     @Override
@@ -290,7 +280,10 @@ public class JdbcDorisdbIT extends TestSuiteBase implements TestResource {
                     InstantiationException, IllegalAccessException {
         URLClassLoader urlClassLoader =
                 new URLClassLoader(
-                        new URL[] {new URL(DRIVER_JAR)}, JdbcDorisdbIT.class.getClassLoader());
+                        new URL[] {
+                            JdbcE2EDriverResolver.driverJarPath(DRIVER_CLASS).toUri().toURL()
+                        },
+                        JdbcDorisdbIT.class.getClassLoader());
         Thread.currentThread().setContextClassLoader(urlClassLoader);
         Driver driver = (Driver) urlClassLoader.loadClass(DRIVER_CLASS).newInstance();
         Properties props = new Properties();

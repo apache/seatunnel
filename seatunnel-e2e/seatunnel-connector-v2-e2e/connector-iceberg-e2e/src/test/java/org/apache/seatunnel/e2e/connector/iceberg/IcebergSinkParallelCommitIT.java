@@ -43,6 +43,7 @@ import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 import org.testcontainers.containers.Container;
 
+import com.github.luben.zstd.Zstd;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -85,10 +86,6 @@ public class IcebergSinkParallelCommitIT extends TestSuiteBase {
     private static final String CATALOG_DIR = "/tmp/seatunnel_mnt/iceberg/hadoop-parallel-sink/";
 
     private static final int EXPECTED_ROW_COUNT = 100;
-
-    private String zstdUrl() {
-        return "https://repo1.maven.org/maven2/com/github/luben/zstd-jni/1.5.5-5/zstd-jni-1.5.5-5.jar";
-    }
 
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
@@ -143,15 +140,8 @@ public class IcebergSinkParallelCommitIT extends TestSuiteBase {
                                 + "seatunnel_namespace/iceberg_parallel_row_delta_table/metadata");
                 container.execInContainer("sh", "-c", "chmod -R 777 " + CATALOG_DIR);
 
-                Container.ExecResult zstdResult =
-                        container.execInContainer(
-                                "sh",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/Iceberg/lib"
-                                        + " && cd /tmp/seatunnel/plugins/Iceberg/lib"
-                                        + " && wget "
-                                        + zstdUrl());
-                Assertions.assertEquals(0, zstdResult.getExitCode(), zstdResult.getStderr());
+                IcebergDependencyResolver.copyDependencyToContainer(
+                        container, Zstd.class, "/tmp/seatunnel/plugins/Iceberg/lib");
             };
 
     /**

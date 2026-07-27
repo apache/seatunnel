@@ -40,6 +40,7 @@ import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 import org.testcontainers.containers.Container;
 
+import com.github.luben.zstd.Zstd;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -62,10 +63,6 @@ public class IcebergSinkIT extends TestSuiteBase {
 
     private static final String CATALOG_DIR = "/tmp/seatunnel_mnt/iceberg/hadoop-sink/";
 
-    private String zstdUrl() {
-        return "https://repo1.maven.org/maven2/com/github/luben/zstd-jni/1.5.5-5/zstd-jni-1.5.5-5.jar";
-    }
-
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
             container -> {
@@ -83,11 +80,8 @@ public class IcebergSinkIT extends TestSuiteBase {
                                 + "seatunnel_namespace/iceberg_sink_table/metadata");
                 container.execInContainer("sh", "-c", "chmod -R 777  " + CATALOG_DIR);
 
-                container.execInContainer(
-                        "sh",
-                        "-c",
-                        "mkdir -p /tmp/seatunnel/plugins/Iceberg/lib && cd /tmp/seatunnel/plugins/Iceberg/lib && wget "
-                                + zstdUrl());
+                IcebergDependencyResolver.copyDependencyToContainer(
+                        container, Zstd.class, "/tmp/seatunnel/plugins/Iceberg/lib");
             };
 
     @TestTemplate

@@ -74,8 +74,6 @@ public class ElasticsearchSchemaChangeIT extends TestSuiteBase implements TestRe
     private static final String MYSQL_USER_NAME = "mysqluser";
     private static final String MYSQL_USER_PASSWORD = "mysqlpw";
     private static final String DATABASE = "shop";
-    protected static final String DRIVER_JAR =
-            "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
     private final UniqueDatabase shopDatabase = new UniqueDatabase(MYSQL_CONTAINER, DATABASE);
 
     private EsRestClient esRestClient;
@@ -115,16 +113,7 @@ public class ElasticsearchSchemaChangeIT extends TestSuiteBase implements TestRe
     }
 
     @TestContainerExtension
-    private final ContainerExtendedFactory extendedFactory =
-            container -> {
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/MySQL-CDC/lib && cd /tmp/seatunnel/plugins/MySQL-CDC/lib && wget "
-                                        + DRIVER_JAR);
-                Assertions.assertEquals(0, extraCommands.getExitCode());
-            };
+    private final ContainerExtendedFactory extendedFactory = MysqlDriverResolver::copyToContainer;
 
     private static MySqlContainer createMySqlContainer(MySqlVersion version) {
         MySqlContainer mySqlContainer =

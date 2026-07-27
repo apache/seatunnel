@@ -40,6 +40,9 @@ import org.testcontainers.utility.MountableFile;
 import java.io.File;
 import java.io.IOException;
 import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Optional;
 import java.util.stream.Stream;
 
@@ -87,12 +90,30 @@ public class TestDynamicCompileIT extends TestSuiteBase implements TestResource 
             container -> {
                 Container.ExecResult extraCommands =
                         container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/Fake/lib && cd /tmp/seatunnel/plugins/Fake/lib && wget  "
-                                        + "https://repo1.maven.org/maven2/cn/hutool/hutool-all/5.3.6/hutool-all-5.3.6.jar");
+                                "bash", "-c", "mkdir -p /tmp/seatunnel/plugins/Fake/lib");
                 Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
+                Path hutoolJarPath = hutoolJarPath();
+                container.copyFileToContainer(
+                        MountableFile.forHostPath(hutoolJarPath),
+                        "/tmp/seatunnel/plugins/Fake/lib/" + hutoolJarPath.getFileName());
             };
+
+    private Path hutoolJarPath() {
+        try {
+            Path hutoolJarPath =
+                    Paths.get(
+                            cn.hutool.core.util.StrUtil.class
+                                    .getProtectionDomain()
+                                    .getCodeSource()
+                                    .getLocation()
+                                    .toURI());
+            Assertions.assertTrue(Files.isRegularFile(hutoolJarPath));
+            return hutoolJarPath;
+        } catch (Exception e) {
+            throw new IllegalStateException(
+                    "Failed to resolve Hutool jar from the test classpath", e);
+        }
+    }
 
     @AfterAll
     @Override

@@ -96,14 +96,21 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
             container -> {
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && wget "
-                                        + driverUrl()
-                                        + " --no-check-certificate");
-                Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
+                if (isMavenRepositoryDriver()) {
+                    for (String driverClassName : driverDependencyClassNames()) {
+                        JdbcE2EDriverResolver.copyDriverToContainer(container, driverClassName);
+                    }
+                } else {
+                    Container.ExecResult extraCommands =
+                            container.execInContainer(
+                                    "bash",
+                                    "-c",
+                                    "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && wget "
+                                            + driverUrl()
+                                            + " --no-check-certificate");
+                    Assertions.assertEquals(
+                            0, extraCommands.getExitCode(), extraCommands.getStderr());
+                }
             };
 
     protected GenericContainer<?> dbServer;
@@ -124,13 +131,28 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
 
     protected URLClassLoader getUrlClassLoader() throws MalformedURLException {
         if (urlClassLoader == null) {
+            URL driverUrl =
+                    isMavenRepositoryDriver()
+                            ? JdbcE2EDriverResolver.driverJarPath(
+                                            driverDependencyClassNames().get(0))
+                                    .toUri()
+                                    .toURL()
+                            : new URL(driverUrl());
             urlClassLoader =
                     new InsecureURLClassLoader(
-                            new URL[] {new URL(driverUrl())},
-                            AbstractJdbcIT.class.getClassLoader());
+                            new URL[] {driverUrl}, AbstractJdbcIT.class.getClassLoader());
             Thread.currentThread().setContextClassLoader(urlClassLoader);
         }
         return urlClassLoader;
+    }
+
+    protected List<String> driverDependencyClassNames() {
+        return Arrays.asList(getJdbcCase().getDriverClass());
+    }
+
+    private boolean isMavenRepositoryDriver() {
+        return driverUrl().contains("repo1.maven.org/maven2")
+                || driverUrl().contains("repo.maven.apache.org/maven2");
     }
 
     protected Class<?> loadDriverClassFromUrl() {

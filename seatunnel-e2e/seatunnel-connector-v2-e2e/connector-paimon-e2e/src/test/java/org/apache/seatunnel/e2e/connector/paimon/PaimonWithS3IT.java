@@ -19,7 +19,6 @@ package org.apache.seatunnel.e2e.connector.paimon;
 
 import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonBaseOptions;
 import org.apache.seatunnel.e2e.common.container.seatunnel.SeaTunnelContainer;
-import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.paimon.catalog.CatalogContext;
@@ -37,13 +36,14 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.testcontainers.containers.Container;
+import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.MinIOContainer;
 
 import io.minio.BucketExistsArgs;
 import io.minio.MakeBucketArgs;
 import io.minio.MinioClient;
 
-import java.nio.file.Paths;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -71,11 +71,6 @@ public class PaimonWithS3IT extends SeaTunnelContainer {
     private PrivilegedCatalog privilegedCatalog;
     private final String DATABASE_NAME = "seatunnel_namespace11";
     private final String TABLE_NAME = "st_test";
-
-    protected static final String AWS_SDK_DOWNLOAD =
-            "https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/1.11.271/aws-java-sdk-bundle-1.11.271.jar";
-    protected static final String HADOOP_AWS_DOWNLOAD =
-            "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/3.1.4/hadoop-aws-3.1.4.jar";
 
     @Override
     @BeforeAll
@@ -114,32 +109,19 @@ public class PaimonWithS3IT extends SeaTunnelContainer {
     }
 
     @Override
+    protected void executeExtraCommands(GenericContainer<?> server)
+            throws IOException, InterruptedException {
+        super.executeExtraCommands(server);
+        PaimonDependencyResolver.addS3DependenciesToContainer(server, SEATUNNEL_HOME + "lib");
+    }
+
+    @Override
     @AfterAll
     public void tearDown() throws Exception {
         super.tearDown();
         if (container != null) {
             container.close();
         }
-    }
-
-    @Override
-    protected String[] buildStartCommand() {
-        return new String[] {
-            "bash",
-            "-c",
-            "wget -P "
-                    + SEATUNNEL_HOME
-                    + "lib "
-                    + AWS_SDK_DOWNLOAD
-                    + " &&"
-                    + "wget -P "
-                    + SEATUNNEL_HOME
-                    + "lib "
-                    + HADOOP_AWS_DOWNLOAD
-                    + " &&"
-                    + ContainerUtil.adaptPathForWin(
-                            Paths.get(SEATUNNEL_HOME, "bin", SERVER_SHELL).toString())
-        };
     }
 
     @Override

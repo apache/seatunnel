@@ -121,19 +121,8 @@ public class JdbcOceanBaseMilvusIT extends TestSuiteBase implements TestResource
 
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
-            container -> {
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && wget "
-                                        + driverUrl());
-                Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
-            };
-
-    String driverUrl() {
-        return "https://repo1.maven.org/maven2/com/oceanbase/oceanbase-client/2.4.12/oceanbase-client-2.4.12.jar";
-    }
+            container ->
+                    JdbcE2EDriverResolver.copyDriverToContainer(container, OCEANBASE_DRIVER_CLASS);
 
     @BeforeAll
     @Override

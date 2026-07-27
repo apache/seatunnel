@@ -32,6 +32,9 @@ import org.testcontainers.containers.Container;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerLoggerFactory;
+import org.testcontainers.utility.MountableFile;
+
+import com.mysql.cj.jdbc.Driver;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -74,18 +77,31 @@ public class EdgeAgentFileToEngineIT extends AbstractEdgeAgentEngineIT {
             container -> {
                 Container.ExecResult extraCommands =
                         container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && wget "
-                                        + driverUrl()
-                                        + " --no-check-certificate");
+                                "bash", "-c", "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib");
                 Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
+                Path driverJarPath = driverJarPath();
+                container.copyFileToContainer(
+                        MountableFile.forHostPath(driverJarPath),
+                        "/tmp/seatunnel/plugins/Jdbc/lib/" + driverJarPath.getFileName());
             };
 
     @TempDir Path tempDir;
 
-    private String driverUrl() {
-        return "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
+    private Path driverJarPath() {
+        try {
+            Path driverJarPath =
+                    Paths.get(
+                            Driver.class
+                                    .getProtectionDomain()
+                                    .getCodeSource()
+                                    .getLocation()
+                                    .toURI());
+            Assertions.assertTrue(Files.isRegularFile(driverJarPath));
+            return driverJarPath;
+        } catch (Exception e) {
+            throw new IllegalStateException(
+                    "Failed to resolve MySQL JDBC driver jar from the test classpath", e);
+        }
     }
 
     @Override

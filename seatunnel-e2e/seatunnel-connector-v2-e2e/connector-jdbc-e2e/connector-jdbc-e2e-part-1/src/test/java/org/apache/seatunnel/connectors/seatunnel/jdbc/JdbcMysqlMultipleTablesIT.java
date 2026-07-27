@@ -133,15 +133,9 @@ public class JdbcMysqlMultipleTablesIT extends TestSuiteBase implements TestReso
 
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
-            container -> {
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && wget "
-                                        + "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar");
-                Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
-            };
+            container ->
+                    JdbcE2EDriverResolver.copyDriverToContainer(
+                            container, "com.mysql.cj.jdbc.Driver");
 
     @BeforeAll
     @Override
