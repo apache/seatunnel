@@ -196,7 +196,7 @@ schema {
 | file_format_type                | string  | 是    | -                                                     | 文件类型，支持以下文件类型：`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf`                                                                                                                                                                                                                                   |
 | bucket                          | string  | 是    | -                                                     | s3文件系统的bucket地址，例如：`s3n://seatunnel-test`，如果您使用`s3a`协议，此参数应为`s3a://seatunnel-test`。                                                                                                                                                                                                                                   |
 | fs.s3a.endpoint                 | string  | 是    | -                                                     | fs s3a端点                                                                                                                                                                                                                                                                                                              |
-| fs.s3a.aws.credentials.provider | string  | 是    | com.amazonaws.auth.InstanceProfileCredentialsProvider | Hadoop S3A 的凭据 provider。S3File 连接器目前只接受 `org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider` 和 `com.amazonaws.auth.InstanceProfileCredentialsProvider`，其它 provider 类名会在选项解析时被拒绝。详情请参阅 [Hadoop AWS 文档](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html)。 |
+| fs.s3a.aws.credentials.provider | string  | 是    | com.amazonaws.auth.InstanceProfileCredentialsProvider | 透传给 Hadoop 的 S3A 凭据提供程序的全限定类名。除了两个常用值 `org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider`（使用静态 `access_key`/`secret_key`）和 `com.amazonaws.auth.InstanceProfileCredentialsProvider`（默认值）之外，任何 classpath 上可用的 S3A 凭据提供程序类都可以使用，例如基于容器的 `com.amazonaws.auth.ContainerCredentialsProvider` 或自定义提供程序。该类必须实现 `com.amazonaws.auth.AWSCredentialsProvider` 接口，并提供 Hadoop 3.1.4 支持的任一创建方式：公共 `(java.net.URI, org.apache.hadoop.conf.Configuration)` 构造器、公共 `(org.apache.hadoop.conf.Configuration)` 构造器、返回 `AWSCredentialsProvider` 的公共静态无参 `getInstance()` 工厂方法，或公共无参构造器。支持 Hadoop 风格的逗号或换行分隔的提供程序链，且每个类都会被独立校验。该提供程序 jar 必须存在于**每个**集群节点的运行时 classpath 中（例如放在 `${SEATUNNEL_HOME}/lib` 下），而不仅仅是提交作业的节点。共享/多租户集群的运维者请注意：此选项允许作业编写者按类名加载类，因此请相应地限制作业提交权限。有关凭据提供程序的更多信息，您可以查看[Hadoop AWS文档](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html#Simple_name.2Fsecret_credentials_with_SimpleAWSCredentialsProvider.2A) |
 | read_columns                    | list    | 否    | -                                                     | 数据源的读取列列表，用户可以使用它来实现字段投影。支持列投影的文件类型如下所示：`text` `csv` `parquet` `orc` `json` `excel` `xml`。如果用户想在读取`text` `json` `csv`文件时使用此功能，必须配置"schema"选项。                                                                                                                                                                         |
 | access_key                      | string  | 否    | -                                                     | 仅在`fs.s3a.aws.credentials.provider = org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider`时使用                                                                                                                                                                                                                        |
 | secret_key                      | string  | 否    | -                                                     | 仅在`fs.s3a.aws.credentials.provider = org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider`时使用                                                                                                                                                                                                                        |
@@ -420,37 +420,6 @@ PDF 特有的解析行为如下：
 - `element_type` 在 PDF 场景下可能为 `heading`、`paragraph`、`image` 或 `link`。
 
 注意：仅支持单栏（从上到下）PDF 布局。不支持多栏布局（例如并排的双栏文档），可能会产生不正确的文本顺序。
-
-### fs.s3a.aws.credentials.provider [string]
-
-SeaTunnel 会将该参数传递给 Hadoop S3A，但 S3File source 会在 Hadoop 初始化前校验它。当前支持的值只有：
-
-- `org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider`
-- `com.amazonaws.auth.InstanceProfileCredentialsProvider`
-
-其它 provider 类名（包括 `com.amazonaws.auth.DefaultAWSCredentialsProviderChain` 和 `com.amazonaws.auth.ContainerCredentialsProvider`）会被拒绝。详情请参阅 [Hadoop AWS 文档](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html)。
-
-#### 容器环境（Kubernetes/ECS/EKS）
-
-如果 SeaTunnel 容器运行在基于 EC2 的主机上（包括 EKS 节点），可使用 EC2 instance profile provider，避免在作业配置中填写 AK/SK：
-
-```hocon
-fs.s3a.aws.credentials.provider = "com.amazonaws.auth.InstanceProfileCredentialsProvider"
-```
-
-请仅向节点 instance profile 授予所需 bucket/prefix 的最小权限，并注意同一节点上能够使用该节点角色的工作负载可能共享这些权限。
-
-ECS task role 和 EKS IAM Roles for Service Accounts（IRSA）需要 container 或 web-identity provider，而当前 S3File 尚不支持这些 provider。如果 instance profile 不适用，兼容退路是 `SimpleAWSCredentialsProvider`：通过 [配置变量替换](../../introduction/concepts/config.md#配置变量替换)和平台 secret manager 在部署时注入 AK/SK。这是静态凭据方案，不等同于 workload identity，也不支持 STS session 凭据。渲染后的凭据可能通过 Zeta REST 作业配置/info 接口或详细日志暴露，因此应限制 REST API 访问，并将连接器日志级别保持在 INFO 或更高。请按最小权限授权、定期轮换，并且不要把渲染后的凭据提交到版本库。
-
-#### 传递更多 S3A 参数
-
-可通过 `hadoop_s3_properties` 传递其它 `fs.s3a.*` 参数，但不能用它选择未支持的凭据 provider：连接器会在该 map 之后应用顶层 `fs.s3a.aws.credentials.provider`，并覆盖同名键。
-
-#### 常见排障
-
-- `Factory initialize failed` 或 `Could not parse value for enum ... S3aAwsCredentialsProvider`：确认 provider 值与上面两个受支持的类名完全一致；转换错误会列出 `SimpleAWSCredentialsProvider` 和 `InstanceProfileCredentialsProvider`。
-- `ClassNotFoundException`：确认依赖章节列出的 Hadoop/AWS jar 已加载到每个运行节点。
-- `403 AccessDenied`：检查 IAM role/policy 是否对 bucket/prefix 具备权限。
 
 ### schema [config]
 

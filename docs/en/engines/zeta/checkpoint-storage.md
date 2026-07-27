@@ -162,7 +162,8 @@ seatunnel:
           fs.s3a.aws.credentials.provider: com.amazonaws.auth.InstanceProfileCredentialsProvider
 ```
 
-Checkpoint storage differs from the S3File source and sink: values under `plugin-config` are passed directly to Hadoop configuration and are not limited by the S3File provider enum. With the AWS SDK v1 bundled in the current distribution, `com.amazonaws.auth.DefaultAWSCredentialsProviderChain` can read environment, profile, ECS container, and EC2 instance profile credentials. For an ECS task role, you can also select the container provider explicitly:
+
+Checkpoint storage differs from the S3File source and sink: values under `plugin-config` are passed directly to Hadoop configuration and are not limited by S3File option validation. With the AWS SDK v1 bundled in the current distribution, `com.amazonaws.auth.DefaultAWSCredentialsProviderChain` can read environment, profile, ECS container, and EC2 instance profile credentials. For an ECS task role, you can also select the container provider explicitly:
 
 ```yaml
 seatunnel:

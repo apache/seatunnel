@@ -160,7 +160,8 @@ seatunnel:
           fs.s3a.aws.credentials.provider: com.amazonaws.auth.InstanceProfileCredentialsProvider
 ```
 
-Checkpoint 存储与 S3File source/sink 不同：`plugin-config` 下的值会直接传入 Hadoop configuration，不受 S3File provider 枚举限制。使用当前发行包内置的 AWS SDK v1 类时，`com.amazonaws.auth.DefaultAWSCredentialsProviderChain` 可以读取环境变量、profile、ECS container 和 EC2 instance profile 凭据。对于 ECS task role，也可以显式选择 container provider：
+
+Checkpoint 存储与 S3File source/sink 不同：`plugin-config` 下的值会直接传入 Hadoop configuration，不受 S3File 选项校验限制。使用当前发行包内置的 AWS SDK v1 类时，`com.amazonaws.auth.DefaultAWSCredentialsProviderChain` 可以读取环境变量、profile、ECS container 和 EC2 instance profile 凭据。对于 ECS task role，也可以显式选择 container provider：
 
 ```yaml
 seatunnel:

@@ -74,7 +74,7 @@ import static org.awaitility.Awaitility.await;
 public class ElasticsearchRecipeIT extends TestSuiteBase implements TestResource {
 
     // MySQL hostname referenced by the documented job config.
-    private static final String MYSQL_HOST = "mysql_cdc_e2e";
+    private static final String MYSQL_HOST = "mysql_cdc_elasticsearch_recipe";
     // Source database consumed by the CDC job.
     private static final String MYSQL_DATABASE = "crm";
     // Application user used for incremental source changes.

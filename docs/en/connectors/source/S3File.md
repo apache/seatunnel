@@ -196,7 +196,7 @@ If you assign file type to `parquet` `orc`, schema option not required, connecto
 | file_format_type                | string  | yes      | -                                                     | File type, supported as the following file types: `text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf`                                                                                                                                                                                                                                                                                    |
 | bucket                          | string  | yes      | -                                                     | The bucket address of s3 file system, for example: `s3n://seatunnel-test`, if you use `s3a` protocol, this parameter should be `s3a://seatunnel-test`.                                                                                                                                                                                                                                                     |
 | fs.s3a.endpoint                 | string  | yes      | -                                                     | fs s3a endpoint                                                                                                                                                                                                                                                                                                                                                                                            |
-| fs.s3a.aws.credentials.provider | string  | yes      | com.amazonaws.auth.InstanceProfileCredentialsProvider | Credential provider for Hadoop S3A. The S3File connector currently accepts only `org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider` and `com.amazonaws.auth.InstanceProfileCredentialsProvider`; other provider class names are rejected during option parsing. See the [Hadoop AWS documentation](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html) for provider details. |
+| fs.s3a.aws.credentials.provider | string  | yes      | com.amazonaws.auth.InstanceProfileCredentialsProvider | The fully-qualified class name of the S3A credentials provider passed through to Hadoop. Besides the two well-known values `org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider` (static `access_key`/`secret_key`) and `com.amazonaws.auth.InstanceProfileCredentialsProvider` (default), any S3A credentials provider class available on the classpath is accepted, for example container-based providers such as `com.amazonaws.auth.ContainerCredentialsProvider` or a custom provider. The class must implement `com.amazonaws.auth.AWSCredentialsProvider` and expose one of Hadoop 3.1.4's supported creation mechanisms: a public `(java.net.URI, org.apache.hadoop.conf.Configuration)` constructor, a public `(org.apache.hadoop.conf.Configuration)` constructor, a public static no-arg `getInstance()` factory method returning `AWSCredentialsProvider`, or a public no-arg constructor. Hadoop-style comma- or newline-separated provider chains are accepted and each class is validated independently. The provider jar must be present on the runtime classpath of **every** cluster node (for example under `${SEATUNNEL_HOME}/lib`), not just the submitting node. Note for operators of shared/multi-tenant clusters: this option lets job authors load classes by name, so restrict who can submit jobs accordingly. More information about the credential provider you can see [Hadoop AWS Document](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html#Simple_name.2Fsecret_credentials_with_SimpleAWSCredentialsProvider.2A) |
 | read_columns                    | list    | no       | -                                                     | The read column list of the data source, user can use it to implement field projection. The file type supported column projection as the following shown: `text` `csv` `parquet` `orc` `json` `excel` `xml` . If the user wants to use this feature when reading `text` `json` `csv` files, the "schema" option must be configured.                                                                        |
 | access_key                      | string  | no       | -                                                     | Only used when `fs.s3a.aws.credentials.provider = org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider `                                                                                                                                                                                                                                                                                                  |
 | secret_key                      | string  | no       | -                                                     | Only used when `fs.s3a.aws.credentials.provider = org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider `                                                                                                                                                                                                                                                                                                  |
@@ -270,37 +270,6 @@ The main PDF-specific behaviors are:
 - `element_type` values for PDF are `heading`, `paragraph`, `image`, and `link`.
 
 Note: Only single-column (top-to-bottom) PDF layouts are supported. Multi-column layouts (e.g., side-by-side two-column documents) are not supported and may produce incorrect text ordering.
-
-### fs.s3a.aws.credentials.provider [string]
-
-SeaTunnel passes this option to Hadoop S3A, but the S3File source validates it before Hadoop is initialized. The supported values are:
-
-- `org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider`
-- `com.amazonaws.auth.InstanceProfileCredentialsProvider`
-
-Other provider class names, including `com.amazonaws.auth.DefaultAWSCredentialsProviderChain` and `com.amazonaws.auth.ContainerCredentialsProvider`, are rejected. See the [Hadoop AWS documentation](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html) for provider details.
-
-#### Container environments (Kubernetes/ECS/EKS)
-
-For SeaTunnel containers running on EC2-backed hosts, including EKS nodes, use the EC2 instance profile provider to avoid putting access keys in the job configuration:
-
-```hocon
-fs.s3a.aws.credentials.provider = "com.amazonaws.auth.InstanceProfileCredentialsProvider"
-```
-
-Grant the node instance profile only the required bucket and prefix permissions. Workloads able to use that node role may share those permissions.
-
-ECS task roles and EKS IAM Roles for Service Accounts (IRSA) require container or web-identity providers, which S3File does not currently support. If an instance profile is not suitable, the compatibility fallback is `SimpleAWSCredentialsProvider`: inject access and secret keys at deployment time through [config variable substitution](../../introduction/concepts/config.md#config-variable-substitution) and your platform's secret manager. This is a static-credential path, not workload identity; it does not support STS session credentials. Rendered values can be exposed through Zeta REST job-configuration/info endpoints and verbose logs, so restrict REST API access and keep connector logging at INFO or above. Grant least privilege, rotate keys regularly, and never commit rendered credentials to source control.
-
-#### Passing extra S3A options
-
-Use `hadoop_s3_properties` to pass additional `fs.s3a.*` options. It cannot select an unsupported credential provider: the connector applies the top-level `fs.s3a.aws.credentials.provider` after this map and overrides the same key.
-
-#### Troubleshooting
-
-- `Factory initialize failed` or `Could not parse value for enum ... S3aAwsCredentialsProvider`: verify that the provider value is exactly one of the two supported class names above. The conversion error lists `SimpleAWSCredentialsProvider` and `InstanceProfileCredentialsProvider` as the expected values.
-- `ClassNotFoundException`: verify that the Hadoop/AWS jars described in the Dependency section are loaded on every runtime node.
-- `403 AccessDenied`: verify that the IAM role or policy has permissions to the bucket and prefix.
 
 ### delimiter/field_delimiter [string]
 
