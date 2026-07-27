@@ -21,7 +21,12 @@ import ChangeLog from '../changelog/connector-socket.md';
 
 ## 描述
 
-用于从 Socket 服务端读取按行分隔的文本数据。Socket 中收到的每一行都会成为一条 SeaTunnel 数据。
+用于从 Socket 服务端读取按行分隔的文本数据。Socket 中收到的每一行都会成为一条 `STRING` 类型的
+SeaTunnel 数据。流处理模式下连接器保持连接持续打开并按行处理；批处理模式下它会一直读取，直到对端
+关闭连接或在读取超时内没有新行出现。
+
+每个并行子任务会建立一条 TCP 连接。`host`/`port` 指的是 SeaTunnel 要连接的 *服务端* 地址，
+对端可以是 Sink、Transform，也可以通过 `nc -l` 等工具手动提供。
 
 ## 数据类型映射
 
@@ -41,7 +46,8 @@ Socket Source 会把每一行输入读取为字符串。
 
 :::tip
 
-Socket Source 更适合本地调试和简单文本流读取。它不会保存 Socket 服务端的读取位点，如果需要可重放或精确一次读取，请使用 Kafka 等具备位点管理能力的 Source。
+Socket Source 更适合本地调试和简单文本流读取。它不会保存 Socket 服务端的读取位点，如果需要可重放或精确一次读取，请使用 Kafka 等具备位点管理能力的 Source。每行都会作为一条数据
+处理；空行会被跳过。
 
 :::
 
@@ -99,6 +105,31 @@ spark
 [hello]
 [flink]
 [spark]
+```
+
+### 流处理模式
+
+流处理模式下，源端会保持连接持续打开，持续读取新行。建议配合可以缓冲或 checkpoint 的下游 Sink：
+
+```bash
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 10000
+}
+
+source {
+  Socket {
+    host = "localhost"
+    port = 9999
+  }
+}
+
+sink {
+  Console {
+    parallelism = 1
+  }
+}
 ```
 
 ## 变更日志

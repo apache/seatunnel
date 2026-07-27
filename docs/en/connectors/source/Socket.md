@@ -21,7 +21,14 @@ import ChangeLog from '../changelog/connector-socket.md';
 
 ## Description
 
-Used to read newline-delimited text data from a socket server. Each line received from the socket becomes one SeaTunnel row.
+Used to read newline-delimited text data from a socket server. Each line received from the socket
+becomes one SeaTunnel row of type `STRING`. In streaming mode the source stays connected to the
+socket and reads lines as they arrive; in batch mode it reads until the peer closes the connection
+or no new line appears within the read timeout.
+
+The connector opens one TCP connection per parallel subtask. `host` and `port` refer to the *server*
+endpoint that SeaTunnel connects to; configure a sink, transformer, or peer like `nc -l` on the
+other side.
 
 ## Data Type Mapping
 
@@ -41,7 +48,8 @@ Socket source reads each incoming line as a string record.
 
 :::tip
 
-Socket source is mainly used for local debugging and simple text streams. It does not checkpoint socket-server offsets, so it should not be used when replayable, exactly-once reads are required.
+Socket source is mainly used for local debugging and simple text streams. It does not checkpoint socket-server offsets, so it should not be used when replayable, exactly-once reads are required. Each line
+is treated as one record; empty lines are skipped.
 
 :::
 
@@ -99,6 +107,32 @@ spark
 [hello]
 [flink]
 [spark]
+```
+
+### Streaming Mode
+
+In streaming mode the source keeps the socket open and reads new lines continuously. Pair it with a
+downstream sink that can buffer events or checkpoint them:
+
+```bash
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 10000
+}
+
+source {
+  Socket {
+    host = "localhost"
+    port = 9999
+  }
+}
+
+sink {
+  Console {
+    parallelism = 1
+  }
+}
 ```
 
 ## Changelog

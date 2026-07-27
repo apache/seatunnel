@@ -17,22 +17,25 @@ import ChangeLog from '../changelog/connector-socket.md';
 
 ## 描述
 
-用于向 Socket Server 发送数据，支持流模式和批模式。每条 SeaTunnel 数据会被序列化为一行 JSON。
+用于向 Socket Server 发送数据，支持流模式和批模式。每条 SeaTunnel 数据会被序列化为一行 JSON 写入
+配置的 TCP 端口，写入内容默认不带分隔符，所以对端需要能够把字节流按行切分（例如 `nc -l` 或者
+其它按行解析 JSON 的工具）。
 
 > 例如，如果来自上游的数据是 [`age: 17, name: jared`]，则发送到 Socket Server 的内容如下：`{"name":"jared","age":17}`
 
 ## Sink 选项
 
 |      名称      |  类型   | 是否必传 | 默认值  |                                                   描述                                                   |
-|----------------|---------|----------|---------|-----------------------------------------------------------------------------------------------------------------|
+|----------------|---------|----------|---------|----------------------------------------------------------------------------------------------------------------|
 | host           | String  | 是      | -       | socket 服务器主机                                                                                              |
 | port           | Integer | 是      | -       | socket 服务器端口                                                                                              |
-| max_retries    | Integer | 否       | 3       | 发送失败后的最大重试次数                                                                     |
+| max_retries    | Integer | 否       | 3       | 发送失败后的最大重试次数。设置为 `-1` 表示无限重试，`0` 表示失败后立即抛出异常。                              |
 | common-options |         | 否       | -       | Sink 插件通用参数，详见 [Sink 通用选项](../common-options/sink-common-options.md) |
 
 :::tip
 
 Socket Sink 更适合本地调试和简单集成。它会根据 `max_retries` 进行重连和重试，但不提供精确一次写入保证。
+每个 Writer 会建立一条 TCP 连接；`host`/`port` 指的是客户端要连接的 *服务端* 地址。
 
 :::
 
@@ -62,6 +65,7 @@ sink {
   Socket {
     host = "localhost"
     port = 9999
+    max_retries = 3
   }
 }
 ```

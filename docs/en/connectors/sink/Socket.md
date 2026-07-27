@@ -16,7 +16,10 @@ import ChangeLog from '../changelog/connector-socket.md';
 
 ## Description
 
-Used to send data to a socket server in streaming or batch mode. Each SeaTunnel row is serialized as one JSON line.
+Used to send data to a socket server in streaming or batch mode. Each SeaTunnel row is serialized as one
+JSON line and pushed to the configured TCP port. There is no separator appended by default, so the
+peer must be able to split incoming bytes into lines (for example `nc -l` or any line-oriented
+JSON parser).
 
 > For example, if the data from upstream is [`age: 12, name: jared`], the content send to socket server is the following: `{"name":"jared","age":17}`
 
@@ -26,12 +29,13 @@ Used to send data to a socket server in streaming or batch mode. Each SeaTunnel 
 |----------------|---------|----------|---------|-----------------------------------------------------------------------------------------------------------------|
 | host           | String  | Yes      |         | socket server host                                                                                              |
 | port           | Integer | Yes      |         | socket server port                                                                                              |
-| max_retries    | Integer | No       | 3       | The number of retries to send record failed                                                                     |
+| max_retries    | Integer | No       | 3       | The number of retries to send record failed. Set to `-1` to retry indefinitely, or `0` to fail immediately.      |
 | common-options |         | No       | -       | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details |
 
 :::tip
 
-Socket sink is mainly used for local debugging and simple integrations. It reconnects and retries failed writes according to `max_retries`, but it does not provide exactly-once delivery.
+Socket sink is mainly used for local debugging and simple integrations. It reconnects and retries failed writes according to `max_retries`, but it does not provide exactly-once delivery. The TCP client
+opens one connection per writer; `host`/`port` are the *server* endpoint that this client connects to.
 
 :::
 
@@ -61,6 +65,7 @@ sink {
   Socket {
     host = "localhost"
     port = 9999
+    max_retries = 3
   }
 }
 ```
