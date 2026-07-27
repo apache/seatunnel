@@ -33,8 +33,13 @@ import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.factory.MultiTableFactoryContext;
+import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
+import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.constants.JobMode;
 
@@ -890,6 +895,45 @@ public class MultiTableSinkWriterTest {
     }
 
     @Test
+    public void testExplicitDeprecatedSchemaChangeOverrideRemainsSupported() throws IOException {
+        SchemaChangeEvent event = createAddColumnEvent();
+        String tableId = event.tablePath().getFullName();
+        LegacySchemaEvolutionSinkWriter legacyWriter = new LegacySchemaEvolutionSinkWriter();
+        SinkIdentifier sinkIdentifier = SinkIdentifier.of(tableId, 0);
+        MultiTableSinkWriter multiTableSinkWriter =
+                new MultiTableSinkWriter(
+                        Collections.singletonMap(sinkIdentifier, legacyWriter),
+                        1,
+                        Collections.singletonMap(sinkIdentifier, new TestSinkWriterContext()));
+
+        multiTableSinkWriter.applySchemaChange(event);
+
+        Assertions.assertEquals(1, legacyWriter.appliedCount.get());
+    }
+
+    @Test
+    public void testInheritedNoOpSchemaChangeMethodFailsWithMigrationGuidance() {
+        SchemaChangeEvent event = createAddColumnEvent();
+        String tableId = event.tablePath().getFullName();
+        TestSinkWriter noOpWriter = new TestSinkWriter();
+        SinkIdentifier sinkIdentifier = SinkIdentifier.of(tableId, 0);
+        MultiTableSinkWriter multiTableSinkWriter =
+                new MultiTableSinkWriter(
+                        Collections.singletonMap(sinkIdentifier, noOpWriter),
+                        1,
+                        Collections.singletonMap(sinkIdentifier, new TestSinkWriterContext()));
+
+        RuntimeException error =
+                Assertions.assertThrows(
+                        RuntimeException.class,
+                        () -> multiTableSinkWriter.applySchemaChange(event));
+
+        Assertions.assertTrue(error.getMessage().contains(tableId));
+        Assertions.assertTrue(error.getMessage().contains("SupportSchemaEvolutionSinkWriter"));
+        Assertions.assertTrue(error.getMessage().contains("schema-changes.enabled"));
+    }
+
+    @Test
     public void testFailedTableMetadataIsSerializable() throws IOException {
         MultiTableFailedTable failedTable =
                 MultiTableFailureHelper.buildFailedTable(
@@ -938,6 +982,12 @@ public class MultiTableSinkWriterTest {
         Field executorServiceField = MultiTableSinkWriter.class.getDeclaredField("executorService");
         executorServiceField.setAccessible(true);
         return (ExecutorService) executorServiceField.get(multiTableSinkWriter);
+    }
+
+    private SchemaChangeEvent createAddColumnEvent() {
+        return AlterTableAddColumnEvent.add(
+                TableIdentifier.of("catalog", "database", "table"),
+                PhysicalColumn.of("added_col", BasicType.STRING_TYPE, 64L, true, null, null));
     }
 
     static class TestSinkWriter
@@ -1035,6 +1085,15 @@ public class MultiTableSinkWriterTest {
 
         void releaseWrite() {
             releaseWrite.countDown();
+        }
+    }
+
+    static class LegacySchemaEvolutionSinkWriter extends TestSinkWriter {
+        private final AtomicInteger appliedCount = new AtomicInteger();
+
+        @Override
+        public void applySchemaChange(SchemaChangeEvent event) {
+            appliedCount.incrementAndGet();
         }
     }
 

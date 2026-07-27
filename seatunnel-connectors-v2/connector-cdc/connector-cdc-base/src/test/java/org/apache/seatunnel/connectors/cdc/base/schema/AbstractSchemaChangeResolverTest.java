@@ -24,11 +24,11 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.schema.event.AlterColumnCommentEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableChangeColumnEvent;
-import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableCommentEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableModifyColumnEvent;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -38,6 +38,8 @@ import io.debezium.relational.ddl.DdlParser;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+
+import static org.mockito.Mockito.mock;
 
 public class AbstractSchemaChangeResolverTest {
 
@@ -67,9 +69,10 @@ public class AbstractSchemaChangeResolverTest {
                         null,
                         null);
 
-        List<AlterTableColumnEvent> events =
-                resolver.completionEvent(
-                        Arrays.asList(changeColumnEvent), Arrays.asList(catalogTable));
+        TablePath tablePath = TablePath.of("test_db", "test_table");
+        List<AlterTableEvent> events =
+                resolver.completeSchemaChangeEvents(
+                        Arrays.asList(changeColumnEvent), Arrays.asList(catalogTable), tablePath);
         changeColumnEvent = (AlterTableChangeColumnEvent) events.get(0);
         Assertions.assertEquals("mysql", changeColumnEvent.getSourceDialectName());
         Assertions.assertEquals(BasicType.STRING_TYPE, changeColumnEvent.getColumn().getDataType());
@@ -293,14 +296,15 @@ public class AbstractSchemaChangeResolverTest {
     }
 
     private AbstractSchemaChangeResolver createResolver() {
-        return new AbstractSchemaChangeResolver(null) {
+        JdbcSourceConfig config = mock(JdbcSourceConfig.class);
+        return new AbstractSchemaChangeResolver(config) {
             @Override
             protected DdlParser createDdlParser(TablePath tablePath) {
                 return null;
             }
 
             @Override
-            protected List<AlterTableColumnEvent> getAndClearParsedEvents() {
+            protected List<AlterTableEvent> getAndClearAlterTableEvents() {
                 return Collections.emptyList();
             }
 

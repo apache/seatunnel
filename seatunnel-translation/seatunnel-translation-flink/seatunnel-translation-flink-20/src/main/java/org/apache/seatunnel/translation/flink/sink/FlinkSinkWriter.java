@@ -143,6 +143,16 @@ public class FlinkSinkWriter<CommT, WriterStateT>
                 "FlinkSinkWriter applying SchemaChangeEvent for table: {}",
                 schemaChangeEvent.tableIdentifier());
 
+        if ((supportedSchemaChangeTypes == null
+                        || !SchemaChangePolicy.isSupported(
+                                schemaChangeEvent, supportedSchemaChangeTypes))
+                && SchemaChangePolicy.isSafeToIgnore(schemaChangeEvent)) {
+            log.warn(
+                    "Drop unsupported comment-only schema change event {} for table {}.",
+                    schemaChangeEvent.getEventType(),
+                    schemaChangeEvent.tableIdentifier());
+            return;
+        }
         if (!(sinkWriter instanceof SupportSchemaEvolutionSinkWriter)) {
             throw new SinkWriterSchemaException(
                     SchemaEvolutionErrorCode.SCHEMA_EVENT_PROCESSING_FAILED,

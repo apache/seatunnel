@@ -152,7 +152,14 @@ public final class SchemaChangePolicy {
         }
     }
 
-    private static boolean isSafeToIgnore(SchemaChangeEvent event) {
+    /**
+     * Returns whether an event only changes metadata and can be dropped without changing the
+     * runtime row encoding.
+     *
+     * @param event schema change event to inspect
+     * @return true when dropping the event cannot change row decoding
+     */
+    public static boolean isSafeToIgnore(SchemaChangeEvent event) {
         switch (event.getEventType()) {
             case SCHEMA_CHANGE_ALTER_TABLE_COMMENT:
             case SCHEMA_CHANGE_ALTER_COLUMN_COMMENT:

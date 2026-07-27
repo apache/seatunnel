@@ -178,6 +178,15 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
             return;
         }
         List<SchemaChangeType> supportedTypes = source.supports();
+        if (!SchemaChangePolicy.isSupported(event, supportedTypes)
+                && SchemaChangePolicy.isSafeToIgnore(event)) {
+            log.warn(
+                    "Drop unsupported comment-only schema change event {} for table {} "
+                            + "under EVOLVE behavior.",
+                    event.getEventType(),
+                    event.tableIdentifier());
+            return;
+        }
         SchemaChangePolicy.validateSupported(event, supportedTypes, jobId);
 
         if (event instanceof TableEvent) {

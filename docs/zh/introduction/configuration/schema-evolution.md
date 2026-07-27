@@ -135,24 +135,23 @@ CDC Source 在配置 `schema-changes.enabled = true` 时，可以继续配置 `s
 | 值 | 运行时契约 |
 | --- | --- |
 | `strict` | 一旦观察到 schema change event，立即让作业失败，并且不会尝试下游 schema 协调或 Sink 侧 schema 变更。 |
-| `evolve` | 将受支持的 schema change event 转发到正常的 schema 协调路径。不支持的事件类型、不支持 schema evolution 的 Sink 能力，以及 Sink 侧 apply 失败都会让作业失败。 |
-| `ignore` | 消费 schema change event，但在下游 schema 协调和 Sink 侧 schema evolution 之前丢弃。只有当前行编码可以安全忽略该变更时，作业才会继续；否则会快速失败。 |
+| `evolve` | 将受支持的 schema change event 转发到正常的 schema 协调路径。不支持的行结构变更和 Sink 侧 apply 失败都会让作业失败；不受支持的纯注释事件会记录日志并丢弃，因为它们不影响行编码。 |
+| `ignore` | 消费 schema change event，但在下游 schema 协调和 Sink 侧 schema evolution 之前丢弃。`ALTER_TABLE_COMMENT` 和 `ALTER_COLUMN_COMMENT` 可以安全忽略；行结构变更会快速失败。 |
 
 行为矩阵：
 
 | 场景 | `strict` | `evolve` | `ignore` |
 | --- | --- | --- | --- |
 | Source 发出受支持的 schema change 类型 | 在下游传播前失败 | 通过 Sink 协调并应用 | 仅在可以安全忽略时，在下游传播前丢弃 |
-| Source 发出不支持的 schema change 类型 | 在下游传播前失败 | 在 Sink 侧 apply 前失败 | 除非事件可以安全忽略，否则失败 |
+| Source 发出不支持的 schema change 类型 | 在下游传播前失败 | 纯注释事件记录日志后丢弃；其他事件在 Sink 侧 apply 前失败 | 丢弃 `ALTER_TABLE_COMMENT` 和 `ALTER_COLUMN_COMMENT`；行结构变更失败 |
 | Sink 支持 schema evolution | 不会到达 Sink | 通过 `SupportSchemaEvolutionSinkWriter` 应用 | 不会到达 Sink |
-| Sink 不支持 schema evolution | 不会到达 Sink | 在 deprecated Sink fallback/default no-op 处理前失败 | 不会到达 Sink |
+| Sink 不支持 schema evolution | 不会到达 Sink | 纯注释事件记录日志后丢弃；兼容窗口内调用显式覆写的 deprecated 方法，继承的默认 no-op 则失败 | 不会到达 Sink |
 | Sink apply 在运行时抛出异常 | 不会到达 Sink | 使用 Sink apply 错误让作业失败 | 不会到达 Sink |
 
-升级说明：在 `evolve` 模式下，Sink writer 必须实现 `SupportSchemaEvolutionSinkWriter` 才能接收并应用
-schema change event。multi-table sink 路径不再使用旧的 deprecated
-`SinkWriter.applySchemaChange` fallback，也不会再执行其默认 no-op 实现。已有任务如果配置了
-`schema-changes.enabled = true`，但 Sink writer 只依赖 deprecated 方法，则在 schema change event 到达
-Sink 时会失败。请将 Sink writer 迁移到 `SupportSchemaEvolutionSinkWriter`；仅对可安全忽略的元数据变更使用
+升级说明：在 `evolve` 模式下，Sink writer 应实现 `SupportSchemaEvolutionSinkWriter` 来接收并应用
+schema change event。在 deprecated 兼容窗口内，multi-table sink 路径仍会调用 Sink writer 显式覆写的
+`SinkWriter.applySchemaChange`，并记录迁移告警；继承的默认 no-op 会被拒绝，以避免 Source 与 Sink schema
+静默不一致。请将 Sink writer 迁移到 `SupportSchemaEvolutionSinkWriter`；对纯注释变更可使用
 `schema-changes.behavior = ignore`；如果不希望传播 schema 变更，请关闭 `schema-changes.enabled`。
 
 ## 示例

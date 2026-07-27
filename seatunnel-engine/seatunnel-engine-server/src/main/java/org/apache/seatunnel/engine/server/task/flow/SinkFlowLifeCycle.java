@@ -38,6 +38,7 @@ import org.apache.seatunnel.api.sink.multitablesink.MultiTableSinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.schema.SchemaChangePolicy;
+import org.apache.seatunnel.api.table.schema.SchemaChangeType;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.schema.exception.SchemaEvolutionErrorCode;
 import org.apache.seatunnel.api.table.schema.exception.SinkWriterSchemaException;
@@ -828,6 +829,15 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
 
     private void processSchemaChangeEvent(SchemaChangeEvent event) throws IOException {
         if (!(sinkAction.getSink() instanceof SupportSchemaEvolutionSink)) {
+            if (SchemaChangePolicy.isSafeToIgnore(event)) {
+                log.warn(
+                        "Drop unsupported comment-only schema change event {} for table {} "
+                                + "because sink {} does not advertise schema evolution support.",
+                        event.getEventType(),
+                        event.tableIdentifier(),
+                        sinkAction.getSink().getPluginName());
+                return;
+            }
             throw new SinkWriterSchemaException(
                     SchemaEvolutionErrorCode.SCHEMA_EVENT_PROCESSING_FAILED,
                     String.format(
@@ -837,10 +847,19 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                     event.getJobId(),
                     null);
         }
-        SchemaChangePolicy.validateSupported(
-                event,
-                ((SupportSchemaEvolutionSink) sinkAction.getSink()).supports(),
-                event.getJobId());
+        List<SchemaChangeType> supportedTypes =
+                ((SupportSchemaEvolutionSink) sinkAction.getSink()).supports();
+        if (!SchemaChangePolicy.isSupported(event, supportedTypes)
+                && SchemaChangePolicy.isSafeToIgnore(event)) {
+            log.warn(
+                    "Drop unsupported comment-only schema change event {} for table {} "
+                            + "because sink {} does not advertise this capability.",
+                    event.getEventType(),
+                    event.tableIdentifier(),
+                    sinkAction.getSink().getPluginName());
+            return;
+        }
+        SchemaChangePolicy.validateSupported(event, supportedTypes, event.getJobId());
         if (writer instanceof SupportSchemaEvolutionSinkWriter) {
             ((SupportSchemaEvolutionSinkWriter) writer).applySchemaChange(event);
         } else {

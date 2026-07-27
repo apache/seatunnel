@@ -146,27 +146,26 @@ When `schema-changes.enabled = false`, schema change events are not sent downstr
 | Value | Runtime contract |
 | --- | --- |
 | `strict` | Fail the job as soon as a schema change event is observed, before downstream schema coordination or sink-side schema mutation is attempted. |
-| `evolve` | Forward supported schema change events through the normal schema coordination path. Unsupported event types, unsupported sink capabilities, and sink-side apply failures are fatal. |
-| `ignore` | Consume the schema change event and drop it before downstream schema coordination and sink-side schema evolution. The job continues only for schema changes that can be safely ignored by the current row encoding; otherwise it fails fast. |
+| `evolve` | Forward supported schema change events through the normal schema coordination path. Unsupported row-layout changes and sink-side apply failures are fatal. Unsupported comment-only events are logged and dropped because they do not affect row encoding. |
+| `ignore` | Consume the schema change event and drop it before downstream schema coordination and sink-side schema evolution. `ALTER_TABLE_COMMENT` and `ALTER_COLUMN_COMMENT` are safe to ignore; row-layout changes fail fast. |
 
 Behavior matrix:
 
 | Case | `strict` | `evolve` | `ignore` |
 | --- | --- | --- | --- |
 | Source emits supported schema change type | Fail before downstream propagation | Coordinate and apply through the sink | Drop before downstream propagation only if safe to ignore |
-| Source emits unsupported schema change type | Fail before downstream propagation | Fail before sink-side apply | Fail unless the event is safe to ignore |
+| Source emits unsupported schema change type | Fail before downstream propagation | Log and drop comment-only events; otherwise fail before sink-side apply | Drop `ALTER_TABLE_COMMENT` and `ALTER_COLUMN_COMMENT`; fail for row-layout changes |
 | Sink supports schema evolution | Not reached | Apply through `SupportSchemaEvolutionSinkWriter` | Not reached |
-| Sink does not support schema evolution | Not reached | Fail before deprecated sink fallback/default no-op handling | Not reached |
+| Sink does not support schema evolution | Not reached | Log and drop comment-only events; otherwise use an explicitly overridden deprecated method during the compatibility window, or fail for the inherited no-op | Not reached |
 | Sink apply throws at runtime | Not reached | Fail the job with the sink apply error | Not reached |
 
-Upgrade note: in `evolve` mode, a sink writer must implement
-`SupportSchemaEvolutionSinkWriter` to receive and apply schema change events. The older deprecated
-`SinkWriter.applySchemaChange` fallback, including its default no-op implementation, is no longer
-used by the multi-table sink path. Jobs that previously set `schema-changes.enabled = true` with a
-sink writer that only relied on the deprecated method now fail when a schema change event reaches the
-sink. Migrate the sink writer to `SupportSchemaEvolutionSinkWriter`, set `schema-changes.behavior =
-ignore` only for safe-to-ignore metadata changes, or disable `schema-changes.enabled` if schema
-changes should not be propagated.
+Upgrade note: in `evolve` mode, sink writers should implement
+`SupportSchemaEvolutionSinkWriter` to receive and apply schema change events. During the deprecation
+window, the multi-table sink path still invokes a deprecated `SinkWriter.applySchemaChange` method
+that the writer explicitly overrides and logs a migration warning. The inherited default no-op is
+rejected to prevent silent source/sink schema divergence. Migrate the sink writer to
+`SupportSchemaEvolutionSinkWriter`, set `schema-changes.behavior = ignore` for comment-only
+changes, or disable `schema-changes.enabled` if schema changes should not be propagated.
 
 ## Examples
 

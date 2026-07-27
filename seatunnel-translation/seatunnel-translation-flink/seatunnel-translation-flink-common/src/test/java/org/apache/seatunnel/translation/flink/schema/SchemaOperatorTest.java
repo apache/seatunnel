@@ -205,6 +205,28 @@ public class SchemaOperatorTest {
     }
 
     @Test
+    void testEvolveBehaviorDropsUnsupportedCommentEvent() throws Exception {
+        OperatorTestContext context =
+                createOperator(
+                        Collections.singletonList(SchemaChangeType.ADD_COLUMN),
+                        SchemaChangeBehavior.EVOLVE,
+                        false);
+        AlterTableCommentEvent event =
+                AlterTableCommentEvent.of(
+                        TableIdentifier.of("catalog", "database", "table"),
+                        "old comment",
+                        "new comment");
+        SeaTunnelRow row = createDataRow("row-after-unsupported-comment");
+
+        context.operator.processElement(new StreamRecord<>(createSchemaRow(event), 450L));
+        context.operator.processElement(new StreamRecord<>(row, 451L));
+
+        assertEquals(1, context.output.records.size());
+        assertEquals(row, context.output.records.get(0).getValue());
+        assertFalse(getBooleanField(context.operator, "schemaChangePending"));
+    }
+
+    @Test
     void testStrictBehaviorFailsWhenSchemaChangeDetected() throws Exception {
         OperatorTestContext context =
                 createOperator(

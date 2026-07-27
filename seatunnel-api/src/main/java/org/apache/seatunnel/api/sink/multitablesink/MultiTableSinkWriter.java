@@ -533,12 +533,26 @@ public class MultiTableSinkWriter
                     if (dispatchTarget.getWriter() instanceof SupportSchemaEvolutionSinkWriter) {
                         ((SupportSchemaEvolutionSinkWriter) dispatchTarget.getWriter())
                                 .applySchemaChange(event);
+                    } else if (overridesDeprecatedSchemaChangeMethod(dispatchTarget.getWriter())) {
+                        log.warn(
+                                "Sink writer {} for table {} still uses the deprecated "
+                                        + "SinkWriter.applySchemaChange method. Migrate it to "
+                                        + "SupportSchemaEvolutionSinkWriter.",
+                                dispatchTarget.getWriter().getClass().getName(),
+                                dispatchTarget.getSinkIdentifier().getTableIdentifier());
+                        dispatchTarget.getWriter().applySchemaChange(event);
                     } else {
                         throw new SinkWriterSchemaException(
                                 SchemaEvolutionErrorCode.SCHEMA_EVENT_PROCESSING_FAILED,
                                 String.format(
-                                        "Sink writer %s does not support schema evolution for event %s.",
-                                        dispatchTarget.getWriter().getClass().getSimpleName(),
+                                        "Sink writer %s for table %s does not support schema "
+                                                + "evolution for event %s. Implement "
+                                                + "SupportSchemaEvolutionSinkWriter, set "
+                                                + "schema-changes.behavior = ignore for "
+                                                + "comment-only changes, or disable "
+                                                + "schema-changes.enabled.",
+                                        dispatchTarget.getWriter().getClass().getName(),
+                                        dispatchTarget.getSinkIdentifier().getTableIdentifier(),
                                         event.getEventType()),
                                 event.tableIdentifier(),
                                 event.getJobId(),
@@ -560,6 +574,19 @@ public class MultiTableSinkWriter
             return physicalSinkIdentifier == null ? Optional.empty() : physicalSinkIdentifier;
         }
         return Optional.empty();
+    }
+
+    private boolean overridesDeprecatedSchemaChangeMethod(
+            SinkWriter<SeaTunnelRow, ?, ?> sinkWriter) {
+        try {
+            return sinkWriter
+                            .getClass()
+                            .getMethod("applySchemaChange", SchemaChangeEvent.class)
+                            .getDeclaringClass()
+                    != SinkWriter.class;
+        } catch (NoSuchMethodException e) {
+            return false;
+        }
     }
 
     /**

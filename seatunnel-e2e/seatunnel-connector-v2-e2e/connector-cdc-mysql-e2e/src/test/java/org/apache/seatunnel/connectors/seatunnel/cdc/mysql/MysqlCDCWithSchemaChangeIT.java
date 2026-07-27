@@ -95,6 +95,7 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
             "mysql_cdc_e2e_sink_table_with_schema_change_exactly_once";
     /** Dedicated sink table used by the event-type filter regression coverage. */
     private static final String SINK_TABLE_FILTER = "mysql_cdc_e2e_sink_table_schema_change_filter";
+
     private static final String SINK_TABLE_STRICT =
             "mysql_cdc_e2e_sink_table_with_schema_change_strict";
     private static final String SINK_TABLE_IGNORE =
@@ -453,9 +454,11 @@ public class MysqlCDCWithSchemaChangeIT extends TestSuiteBase implements TestRes
                 result.getExitCode(),
                 "strict schema change behavior should fail when a schema change event is observed");
         Assertions.assertTrue(
-                result.getStderr().contains("Schema change behavior is STRICT")
-                        || result.getStdout().contains("Schema change behavior is STRICT"),
-                "strict failure should report the schema change behavior contract");
+                columnExists(MYSQL_DATABASE, SOURCE_TABLE, "add_column1"),
+                "the source schema change must be applied before verifying the strict failure");
+        Assertions.assertFalse(
+                columnExists(MYSQL_DATABASE, SINK_TABLE_STRICT, "add_column1"),
+                "strict schema change behavior must fail before mutating the sink schema");
     }
 
     @Order(6)

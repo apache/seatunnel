@@ -30,6 +30,7 @@ import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.schema.SchemaChangeType;
 import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnsEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableCommentEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableDropColumnEvent;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.Record;
@@ -79,6 +80,32 @@ public class SinkFlowLifeCycleSchemaChangePolicyTest {
                         () -> sinkFlow.received(new Record<>(createAddColumnEvent())));
 
         Assertions.assertTrue(error.getMessage().contains("not supported end to end"));
+        Assertions.assertEquals(0, writer.appliedCount.get());
+    }
+
+    @Test
+    void testUnsupportedCommentEventIsDroppedForSchemaEvolutionSink() throws Exception {
+        RecordingSchemaEvolutionWriter writer = new RecordingSchemaEvolutionWriter();
+        SinkFlowLifeCycle<SeaTunnelRow, String, String, String> sinkFlow =
+                createSinkFlow(new SchemaEvolutionSink(writer, SchemaChangeType.ADD_COLUMN));
+        sinkFlow.init();
+        sinkFlow.restoreState(Collections.emptyList());
+
+        sinkFlow.received(new Record<>(createCommentEvent()));
+
+        Assertions.assertEquals(0, writer.appliedCount.get());
+    }
+
+    @Test
+    void testCommentEventIsDroppedForSinkWithoutSchemaEvolutionSupport() throws Exception {
+        RecordingSchemaEvolutionWriter writer = new RecordingSchemaEvolutionWriter();
+        SinkFlowLifeCycle<SeaTunnelRow, String, String, String> sinkFlow =
+                createSinkFlow(new PlainSink(writer));
+        sinkFlow.init();
+        sinkFlow.restoreState(Collections.emptyList());
+
+        sinkFlow.received(new Record<>(createCommentEvent()));
+
         Assertions.assertEquals(0, writer.appliedCount.get());
     }
 
@@ -156,6 +183,16 @@ public class SinkFlowLifeCycleSchemaChangePolicyTest {
                         TableIdentifier.of("catalog", "database", "table"),
                         PhysicalColumn.of(
                                 "added_col", BasicType.STRING_TYPE, 64L, true, null, null));
+        event.setJobId("job-under-test");
+        return event;
+    }
+
+    private static AlterTableCommentEvent createCommentEvent() {
+        AlterTableCommentEvent event =
+                AlterTableCommentEvent.of(
+                        TableIdentifier.of("catalog", "database", "table"),
+                        "old comment",
+                        "new comment");
         event.setJobId("job-under-test");
         return event;
     }
