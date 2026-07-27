@@ -14,7 +14,7 @@ import ChangeLog from '../changelog/connector-starrocks.md';
 
 - [ ] [精准一次](../../introduction/concepts/connector-v2-features.md)
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
-- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
+- [x] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## 描述
 
@@ -160,6 +160,37 @@ sink {
       replication_num = "3"
       storage_format = "V2"
     }
+  }
+}
+```
+
+### Zeta 定时刷新
+
+该引擎级能力仅由 Zeta 支持。可以在 `env` 块中配置 `sink.flush.interval`，使尚未达到 `batch_max_rows` 和 `batch_max_bytes` 的缓冲数据也能定时通过 StarRocks Stream Load 写出。Spark 和 Flink 不会触发该定时刷新。
+
+:::tip
+
+StarRocks 定时刷新不提供基于 2PC 的精准一次语义，StarRocks Sink 仍为至少一次语义，任务重启后可能重复提交数据。如果业务场景适用，可以使用具有确定性主键的 Primary Key 表吸收重复写入。
+
+:::
+
+```hocon
+env {
+  job.mode = "STREAMING"
+  checkpoint.interval = 300000
+  sink.flush.interval = 5000
+}
+
+sink {
+  StarRocks {
+    nodeUrls = ["starrocks-fe:8030"]
+    base-url = "jdbc:mysql://starrocks-fe:9030/mydb"
+    username = root
+    password = ""
+    database = "mydb"
+    table = "mytable"
+    batch_max_rows = 10000
+    batch_max_bytes = 104857600
   }
 }
 ```
