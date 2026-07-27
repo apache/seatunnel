@@ -23,6 +23,8 @@ import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.metadata.MetadataConfig;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 
 /** Declares the server-side configuration keys that are exposed through `seatunnel.yaml`. */
@@ -352,6 +354,14 @@ public class ServerConfigOptions {
                         .booleanType()
                         .defaultValue(false)
                         .withDescription("Whether to enable basic authentication for the web UI.");
+
+        /** Environment variables exposed to HOCON configurations submitted through REST. */
+        public static final Option<List<String>> HOCON_ENVIRONMENT_VARIABLE_ALLOWLIST =
+                Options.key("hocon-environment-variable-allowlist")
+                        .listType()
+                        .defaultValue(Collections.emptyList())
+                        .withDescription(
+                                "Environment variables that HOCON job configurations submitted through the REST API may resolve.");
 
         public static final Option<String> BASIC_AUTH_USERNAME =
                 Options.key("basic-auth-username")

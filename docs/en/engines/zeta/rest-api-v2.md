@@ -771,6 +771,18 @@ When we can't get the job info, the response will be:
 
 **Note:** The dry-run feature is intentionally not supported via the REST API. It is exclusively available through the SeaTunnel CLI.
 
+HOCON request bodies can resolve environment variables explicitly allowed by the server. Add the variable names to `seatunnel.engine.http.hocon-environment-variable-allowlist` in `seatunnel.yaml`, and make the variables available to the SeaTunnel Engine process before submitting the job:
+
+```yaml
+seatunnel:
+  engine:
+    http:
+      hocon-environment-variable-allowlist:
+        - JOB_NAME
+```
+
+The job configuration can then use `job.name = ${JOB_NAME}`. The allowlist is empty by default to prevent REST callers from reading arbitrary server-side environment variables. JVM system properties are never exposed through this mechanism. The REST API does not accept CLI `-i` variables.
+
 #### Body
 
 You can choose json, hocon or sql to pass request body.
@@ -907,6 +919,8 @@ The name of the uploaded file key is config_file, and supports the following for
 - `.json` files: parsed in JSON format
 - `.conf` or `.config` files: parsed in HOCON format
 - `.sql` files: parsed in SQL format, supports CREATE TABLE and INSERT INTO syntax
+
+Uploaded HOCON files use the same `hocon-environment-variable-allowlist` as HOCON request bodies.
 
 curl Example :
 ```bash

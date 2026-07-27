@@ -21,6 +21,10 @@ seatunnel:
       basic-auth-password: "your_password"
 ```
 
+## REST HOCON Environment Variables
+
+HOCON jobs submitted through REST can resolve only the Engine process environment variables listed in `seatunnel.engine.http.hocon-environment-variable-allowlist`. The list is empty by default, and JVM system properties are never exposed. Add only variables whose values every REST job submitter is authorized to read. Configure the same allowlist and values on every node that accepts REST submissions. See [RESTful API V2](./rest-api-v2.md) for an example.
+
 ## HTTPS Configuration
 
 You can secure your REST-API-V2 service by enabling HTTPS. Both HTTP and HTTPS can be enabled simultaneously, or only one of them can be enabled.

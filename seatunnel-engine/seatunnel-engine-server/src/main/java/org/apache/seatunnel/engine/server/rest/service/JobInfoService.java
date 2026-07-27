@@ -18,7 +18,6 @@
 package org.apache.seatunnel.engine.server.rest.service;
 
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
 import org.apache.seatunnel.api.common.metrics.JobMetrics;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
@@ -70,6 +69,19 @@ public class JobInfoService extends BaseService {
 
     public JobInfoService(NodeEngineImpl nodeEngine) {
         super(nodeEngine);
+    }
+
+    /**
+     * Parses a REST HOCON job configuration using the server-side environment variable allowlist.
+     */
+    public Config buildHoconConfig(String content) {
+        return RestUtil.buildHoconConfig(
+                content,
+                getSeaTunnelServer(false)
+                        .getSeaTunnelConfig()
+                        .getEngineConfig()
+                        .getHttpConfig()
+                        .getHoconEnvironmentVariableAllowlist());
     }
 
     public JsonObject getJobInfoJson(Long jobId) {
@@ -394,7 +406,7 @@ public class JobInfoService extends BaseService {
 
         switch (configFormat) {
             case HOCON:
-                config = ConfigFactory.parseString(new String(requestBody, StandardCharsets.UTF_8));
+                config = buildHoconConfig(new String(requestBody, StandardCharsets.UTF_8));
                 break;
             case SQL:
                 config = SqlConfigBuilder.of(new String(requestBody, StandardCharsets.UTF_8));

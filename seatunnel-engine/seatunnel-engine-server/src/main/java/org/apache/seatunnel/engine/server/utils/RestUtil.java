@@ -20,6 +20,8 @@ package org.apache.seatunnel.engine.server.utils;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
 
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.core.starter.utils.ConfigBuilder;
@@ -31,6 +33,8 @@ import scala.Tuple2;
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -74,6 +78,33 @@ public class RestUtil {
     public static Config buildConfig(JsonNode jsonNode) {
         Map<String, Object> objectMap = JsonUtils.toMap(jsonNode);
         return ConfigBuilder.of(objectMap);
+    }
+
+    /**
+     * Parses a HOCON REST request and resolves only explicitly allowed environment variables.
+     *
+     * <p>System properties and all other process environment variables are excluded because REST
+     * callers must not be able to inspect arbitrary server-side secrets. Unresolved substitutions
+     * remain unresolved, matching the CLI configuration loading policy.
+     */
+    public static Config buildHoconConfig(
+            String content, Collection<String> environmentVariableAllowlist) {
+        Map<String, Object> allowedEnvironment = new HashMap<>();
+        if (environmentVariableAllowlist != null) {
+            environmentVariableAllowlist.forEach(
+                    variableName -> {
+                        if (variableName != null && !variableName.isEmpty()) {
+                            String value = System.getenv(variableName);
+                            if (value != null) {
+                                allowedEnvironment.put(variableName, value);
+                            }
+                        }
+                    });
+        }
+        return ConfigFactory.parseString(content)
+                .resolveWith(
+                        ConfigFactory.parseMap(allowedEnvironment),
+                        ConfigResolveOptions.noSystem().setAllowUnresolved(true));
     }
 
     public static List<Tuple2<Map<String, String>, Config>> buildConfigList(JsonNode jsonNode) {

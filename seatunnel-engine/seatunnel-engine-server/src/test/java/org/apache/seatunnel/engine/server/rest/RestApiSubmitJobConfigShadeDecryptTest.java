@@ -22,6 +22,7 @@ import org.apache.seatunnel.shade.org.eclipse.jetty.server.ServerConnector;
 
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.FileUtils;
+import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.config.server.HttpConfig;
@@ -36,6 +37,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
+import org.junitpioneer.jupiter.SetEnvironmentVariable;
 
 import com.hazelcast.config.Config;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
@@ -49,12 +51,13 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Paths;
+import java.util.Collections;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
- * Integration test verifying that REST API submit-job endpoints correctly call
- * ConfigShadeUtils.decryptConfig() for HOCON, SQL and upload formats.
+ * Integration test verifying HOCON variable resolution and ConfigShade decryption across REST API
+ * submit-job endpoints.
  *
  * @see <a href="https://github.com/apache/seatunnel/issues/10590">#10590</a>
  */
@@ -63,6 +66,18 @@ public class RestApiSubmitJobConfigShadeDecryptTest {
 
     private static final String ENCRYPTED_USERNAME = "c2VhdHVubmVs";
     private static final String ENCRYPTED_PASSWORD = "c2VhdHVubmVsX3Bhc3N3b3Jk";
+
+    /** Allowlisted environment variable used by REST submission tests. */
+    private static final String REST_JOB_NAME_ENV = "SEATUNNEL_REST_TEST_JOB_NAME";
+
+    /** Expected job name after resolving the allowlisted environment variable. */
+    private static final String REST_JOB_NAME = "rest_environment_variable_job";
+
+    /** Environment variable intentionally excluded from the REST allowlist. */
+    private static final String DENIED_ENV = "SEATUNNEL_REST_TEST_DENIED_ENV";
+
+    /** Secret marker that must never appear in a REST response. */
+    private static final String DENIED_ENV_VALUE = "must_not_be_exposed";
 
     private HazelcastInstanceImpl instance;
     private SeaTunnelServer server;
@@ -86,6 +101,8 @@ public class RestApiSubmitJobConfigShadeDecryptTest {
         httpConfig.setPort(24000);
         httpConfig.setEnableDynamicPort(true);
         httpConfig.setPortRange(2000);
+        httpConfig.setHoconEnvironmentVariableAllowlist(
+                Collections.singletonList(REST_JOB_NAME_ENV));
 
         instance = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
         server = instance.node.nodeEngine.getService(SeaTunnelServer.SERVICE_NAME);
@@ -169,6 +186,43 @@ public class RestApiSubmitJobConfigShadeDecryptTest {
         Assertions.assertTrue(
                 response.body.contains("jobId"),
                 "Response should contain jobId, got: " + response.body);
+    }
+
+    @Test
+    @SetEnvironmentVariable(key = REST_JOB_NAME_ENV, value = REST_JOB_NAME)
+    public void testSubmitJobWithHoconFormatResolvesEnvironmentVariable() throws Exception {
+        String requestUrl = "http://localhost:" + restPort + "/submit-job?format=hocon";
+
+        HttpResponse response = post(requestUrl, "text/plain", buildEnvironmentVariableHoconBody());
+
+        Assertions.assertEquals(200, response.code, () -> "responseBody=" + response.body);
+        Assertions.assertEquals(
+                REST_JOB_NAME, JsonUtils.parseObject(response.body).get("jobName").asText());
+    }
+
+    @Test
+    @SetEnvironmentVariable(key = REST_JOB_NAME_ENV, value = REST_JOB_NAME)
+    public void testSubmitJobByUploadHoconFileResolvesEnvironmentVariable() throws Exception {
+        String requestUrl = "http://localhost:" + restPort + "/submit-job/upload";
+
+        HttpResponse response =
+                postMultipart(requestUrl, "job.conf", buildEnvironmentVariableHoconBody());
+
+        Assertions.assertEquals(200, response.code, () -> "responseBody=" + response.body);
+        Assertions.assertEquals(
+                REST_JOB_NAME, JsonUtils.parseObject(response.body).get("jobName").asText());
+    }
+
+    @Test
+    @SetEnvironmentVariable(key = DENIED_ENV, value = DENIED_ENV_VALUE)
+    public void testSubmitJobDoesNotExposeEnvironmentVariableOutsideAllowlist() throws Exception {
+        String requestUrl = "http://localhost:" + restPort + "/submit-job?format=hocon";
+
+        HttpResponse response =
+                post(requestUrl, "text/plain", buildEnvironmentVariableHoconBody(DENIED_ENV));
+
+        Assertions.assertNotEquals(200, response.code);
+        Assertions.assertFalse(response.body.contains(DENIED_ENV_VALUE));
     }
 
     @Test
@@ -321,6 +375,29 @@ public class RestApiSubmitJobConfigShadeDecryptTest {
                 + "    password = \""
                 + ENCRYPTED_PASSWORD
                 + "\"\n"
+                + "    schema { fields { name = \"string\" } }\n"
+                + "  }\n"
+                + "}\n"
+                + "transform {}\n"
+                + "sink { Console {} }";
+    }
+
+    /** Builds a HOCON job that references the allowlisted test environment variable. */
+    private String buildEnvironmentVariableHoconBody() {
+        return buildEnvironmentVariableHoconBody(REST_JOB_NAME_ENV);
+    }
+
+    /** Builds a HOCON job whose name references the requested environment variable. */
+    private String buildEnvironmentVariableHoconBody(String variableName) {
+        return "env {\n"
+                + "  job.mode = \"BATCH\"\n"
+                + "  job.name = ${"
+                + variableName
+                + "}\n"
+                + "}\n"
+                + "source {\n"
+                + "  FakeSource {\n"
+                + "    row.num = 1\n"
                 + "    schema { fields { name = \"string\" } }\n"
                 + "  }\n"
                 + "}\n"

@@ -750,6 +750,18 @@ seatunnel:
 
 **注意:** REST API 不支持 dry-run 功能。该功能仅通过 CLI 提供。
 
+HOCON 请求体可以解析服务端显式允许的环境变量。先在 `seatunnel.yaml` 中把变量名加入 `seatunnel.engine.http.hocon-environment-variable-allowlist`，并确保 SeaTunnel Engine 进程能够读取这些变量：
+
+```yaml
+seatunnel:
+  engine:
+    http:
+      hocon-environment-variable-allowlist:
+        - JOB_NAME
+```
+
+之后作业配置即可使用 `job.name = ${JOB_NAME}`。允许列表默认为空，防止 REST 调用方读取任意服务端环境变量；该机制也不会暴露 JVM system property。REST API 不接收 CLI 的 `-i` 变量。
+
 #### 请求体
 
 你可以选择用json、hocon或者sql的方式来传递请求体。
@@ -886,6 +898,8 @@ INSERT INTO console_sink SELECT * FROM fake_source;
 - `.json` 文件：按照 JSON 格式解析
 - `.conf` 或 `.config` 文件：按照 HOCON 格式解析
 - `.sql` 文件：按照 SQL 格式解析，支持 CREATE TABLE 和 INSERT INTO 语法
+
+上传的 HOCON 文件与 HOCON 请求体共用 `hocon-environment-variable-allowlist`。
 
 curl Example
 
