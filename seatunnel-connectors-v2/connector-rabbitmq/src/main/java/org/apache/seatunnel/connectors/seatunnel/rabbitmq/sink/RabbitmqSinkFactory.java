@@ -44,8 +44,11 @@ public class RabbitmqSinkFactory implements TableSinkFactory {
                         RabbitmqSinkOptions.VIRTUAL_HOST,
                         RabbitmqSinkOptions.QUEUE_NAME)
                 .bundled(RabbitmqSinkOptions.USERNAME, RabbitmqSinkOptions.PASSWORD)
+                .exclusive(RabbitmqSinkOptions.URL, RabbitmqSinkOptions.URI)
                 .optional(
                         RabbitmqSinkOptions.URL,
+                        RabbitmqSinkOptions.URI,
+                        RabbitmqSinkOptions.SSL,
                         RabbitmqSinkOptions.ROUTING_KEY,
                         RabbitmqSinkOptions.EXCHANGE,
                         RabbitmqSinkOptions.NETWORK_RECOVERY_INTERVAL,
@@ -56,6 +59,7 @@ public class RabbitmqSinkFactory implements TableSinkFactory {
                         RabbitmqSinkOptions.DURABLE,
                         RabbitmqSinkOptions.EXCLUSIVE,
                         RabbitmqSinkOptions.AUTO_DELETE,
+                        RabbitmqSinkOptions.PASSIVE,
                         RabbitmqSinkOptions.RABBITMQ_CONFIG)
                 .build();
     }

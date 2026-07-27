@@ -17,11 +17,17 @@
 
 package org.apache.seatunnel.connectors.seatunnel.rabbitmq;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqBaseOptions;
+import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.sink.RabbitmqSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.source.RabbitmqSourceFactory;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import java.util.HashMap;
+import java.util.Map;
 
 class RabbitmqFactoryTest {
 
@@ -29,5 +35,29 @@ class RabbitmqFactoryTest {
     void optionRule() {
         Assertions.assertNotNull((new RabbitmqSourceFactory()).optionRule());
         Assertions.assertNotNull((new RabbitmqSinkFactory()).optionRule());
+    }
+
+    @Test
+    void readsLegacyUriOption() {
+        Map<String, Object> options = new HashMap<>();
+        options.put(RabbitmqBaseOptions.URI.key(), "amqps://guest:guest@localhost:5671/%2F");
+
+        RabbitmqConfig config = new RabbitmqConfig(ReadonlyConfig.fromMap(options));
+
+        Assertions.assertEquals("amqps://guest:guest@localhost:5671/%2F", config.getUri());
+    }
+
+    @Test
+    void readsSecurePassiveOptions() {
+        Map<String, Object> options = new HashMap<>();
+        options.put(RabbitmqBaseOptions.HOST.key(), "localhost");
+        options.put(RabbitmqBaseOptions.PORT.key(), 5671);
+        options.put(RabbitmqBaseOptions.SSL.key(), true);
+        options.put(RabbitmqBaseOptions.PASSIVE.key(), true);
+
+        RabbitmqConfig config = new RabbitmqConfig(ReadonlyConfig.fromMap(options));
+
+        Assertions.assertTrue(config.isSsl());
+        Assertions.assertTrue(config.isPassive());
     }
 }

@@ -39,6 +39,7 @@ public class RabbitmqConfig implements Serializable {
     private String username;
     private String password;
     private String uri;
+    private boolean ssl;
     private Integer networkRecoveryInterval;
     private Boolean automaticRecovery;
     private Boolean topologyRecovery;
@@ -52,6 +53,7 @@ public class RabbitmqConfig implements Serializable {
     private Boolean durable;
     private Boolean exclusive;
     private Boolean autoDelete;
+    private boolean passive;
     private String routingKey;
     private boolean logFailuresOnly = false;
     private String exchange = "";
@@ -124,11 +126,15 @@ public class RabbitmqConfig implements Serializable {
         this.durable = config.get(RabbitmqBaseOptions.DURABLE);
         this.exclusive = config.get(RabbitmqBaseOptions.EXCLUSIVE);
         this.autoDelete = config.get(RabbitmqBaseOptions.AUTO_DELETE);
+        this.ssl = config.get(RabbitmqBaseOptions.SSL);
+        this.passive = config.get(RabbitmqBaseOptions.PASSIVE);
         if (config.getOptional(RabbitmqSinkOptions.RABBITMQ_CONFIG).isPresent()) {
             this.sinkOptionProps = config.get(RabbitmqSinkOptions.RABBITMQ_CONFIG);
         }
         if (config.getOptional(RabbitmqBaseOptions.URL).isPresent()) {
             this.uri = config.get(RabbitmqBaseOptions.URL);
+        } else if (config.getOptional(RabbitmqBaseOptions.URI).isPresent()) {
+            this.uri = config.get(RabbitmqBaseOptions.URI);
         }
     }
 }

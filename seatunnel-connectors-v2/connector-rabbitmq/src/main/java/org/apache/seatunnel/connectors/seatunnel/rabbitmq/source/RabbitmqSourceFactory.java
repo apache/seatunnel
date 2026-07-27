@@ -44,9 +44,12 @@ public class RabbitmqSourceFactory implements TableSourceFactory {
                 .required(RabbitmqSourceOptions.HOST, RabbitmqSourceOptions.PORT)
                 .bundled(RabbitmqSourceOptions.USERNAME, RabbitmqSourceOptions.PASSWORD)
                 .exclusive(RabbitmqSourceOptions.TABLE_CONFIGS, RabbitmqSourceOptions.QUEUE_NAME)
+                .exclusive(RabbitmqSourceOptions.URL, RabbitmqSourceOptions.URI)
                 .optional(
                         RabbitmqSourceOptions.VIRTUAL_HOST,
                         RabbitmqSourceOptions.URL,
+                        RabbitmqSourceOptions.URI,
+                        RabbitmqSourceOptions.SSL,
                         RabbitmqSourceOptions.ROUTING_KEY,
                         RabbitmqSourceOptions.EXCHANGE,
                         RabbitmqSourceOptions.NETWORK_RECOVERY_INTERVAL,
@@ -57,6 +60,7 @@ public class RabbitmqSourceFactory implements TableSourceFactory {
                         RabbitmqSinkOptions.DURABLE,
                         RabbitmqSinkOptions.EXCLUSIVE,
                         RabbitmqSinkOptions.AUTO_DELETE,
+                        RabbitmqSourceOptions.PASSIVE,
                         RabbitmqSourceOptions.REQUESTED_CHANNEL_MAX,
                         RabbitmqSourceOptions.REQUESTED_FRAME_MAX,
                         RabbitmqSourceOptions.REQUESTED_HEARTBEAT,

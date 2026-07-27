@@ -121,6 +121,13 @@ public class RabbitmqClient implements AutoCloseable {
             }
             factory.setUsername(config.getUsername());
             factory.setPassword(config.getPassword());
+            if (config.isSsl()) {
+                try {
+                    factory.useSslProtocol();
+                } catch (NoSuchAlgorithmException | KeyManagementException e) {
+                    throw new RabbitmqConnectorException(INIT_SSL_CONTEXT_FAILED, e);
+                }
+            }
         }
 
         if (config.getAutomaticRecovery() != null) {
@@ -221,6 +228,19 @@ public class RabbitmqClient implements AutoCloseable {
     /** Declare a specific queue */
     public void setupQueue(String queueName) throws IOException {
         if (StringUtils.isNotEmpty(queueName)) {
+            declareQueue(channel, config, queueName);
+        }
+    }
+
+    private void declareQueueDefaults(Channel channel, RabbitmqConfig config) throws IOException {
+        declareQueue(channel, config, config.getQueueName());
+    }
+
+    static void declareQueue(Channel channel, RabbitmqConfig config, String queueName)
+            throws IOException {
+        if (config.isPassive()) {
+            channel.queueDeclarePassive(queueName);
+        } else {
             channel.queueDeclare(
                     queueName,
                     config.getDurable(),
@@ -228,14 +248,5 @@ public class RabbitmqClient implements AutoCloseable {
                     config.getAutoDelete(),
                     null);
         }
-    }
-
-    private void declareQueueDefaults(Channel channel, RabbitmqConfig config) throws IOException {
-        channel.queueDeclare(
-                config.getQueueName(),
-                config.getDurable(),
-                config.getExclusive(),
-                config.getAutoDelete(),
-                null);
     }
 }

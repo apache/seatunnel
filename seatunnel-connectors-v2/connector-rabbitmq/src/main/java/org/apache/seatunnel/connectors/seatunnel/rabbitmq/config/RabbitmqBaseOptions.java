@@ -66,6 +66,19 @@ public class RabbitmqBaseOptions extends ConnectorCommonOptions {
                     .withDescription(
                             "convenience method for setting the fields in an AMQP URI: host, port, username, password and virtual host");
 
+    public static final Option<String> URI =
+            Options.key("uri")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("legacy alias of url for an AMQP URI");
+
+    public static final Option<Boolean> SSL =
+            Options.key("ssl")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "whether to enable SSL/TLS when connecting with host and port");
+
     public static final Option<String> ROUTING_KEY =
             Options.key("routing_key")
                     .stringType()
@@ -132,4 +145,11 @@ public class RabbitmqBaseOptions extends ConnectorCommonOptions {
                     .withDescription(
                             "true: The queue will be deleted automatically when the last consumer unsubscribes."
                                     + "false: The queue will not be automatically deleted.");
+
+    public static final Option<Boolean> PASSIVE =
+            Options.key("passive")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "whether to verify an existing queue without declaring or creating it");
 }
