@@ -37,6 +37,8 @@ import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOp
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskReportStatusOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TriggerSchemaChangeAfterCheckpointOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TriggerSchemaChangeBeforeCheckpointOperation;
+import org.apache.seatunnel.engine.server.common.SeaTunnelEngineContext;
+import org.apache.seatunnel.engine.server.common.statestore.counter.CounterStateStore;
 import org.apache.seatunnel.engine.server.dag.execution.Pipeline;
 import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
@@ -103,6 +105,7 @@ public class CheckpointManager {
             CheckpointStorage checkpointStorage,
             ExecutorService executorService,
             IMap<Object, Object> runningJobStateIMap,
+            SeaTunnelEngineContext engineContext,
             CheckpointMonitorService checkpointMonitorService) {
         this.jobId = jobId;
         this.nodeEngine = nodeEngine;
@@ -110,14 +113,18 @@ public class CheckpointManager {
         this.checkpointStorage = checkpointStorage;
         this.checkpointConfig = checkpointConfig;
         this.checkpointMonitorService = checkpointMonitorService;
+        CounterStateStore<String> checkpointCounterStore =
+                engineContext.getStateStores().checkpointCounterStore();
 
         this.coordinatorMap =
                 MDCTracer.tracing(checkpointPlanMap.values().parallelStream())
                         .map(
                                 plan -> {
-                                    IMapCheckpointIDCounter idCounter =
-                                            new IMapCheckpointIDCounter(
-                                                    jobId, plan.getPipelineId(), nodeEngine);
+                                    StateStoreCheckpointIDCounter idCounter =
+                                            new StateStoreCheckpointIDCounter(
+                                                    jobId,
+                                                    plan.getPipelineId(),
+                                                    checkpointCounterStore);
                                     try {
                                         idCounter.start();
                                         PipelineState pipelineState = null;

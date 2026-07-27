@@ -28,6 +28,7 @@ import org.apache.seatunnel.engine.core.job.RestoreMode;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
 import org.apache.seatunnel.engine.server.checkpoint.monitor.CheckpointMonitorService;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOperation;
+import org.apache.seatunnel.engine.server.common.SeaTunnelEngineContext;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.master.JobMaster;
@@ -89,6 +90,7 @@ public class CheckpointCoordinatorTest
                         server.getCheckpointService().getCheckpointStorage(),
                         instance.getExecutorService("test"),
                         nodeEngine.getHazelcastInstance().getMap(IMAP_RUNNING_JOB_STATE),
+                        server.getEngineContext(),
                         null);
         checkpointManager.acknowledgeTask(
                 new TaskAcknowledgeOperation(
@@ -128,6 +130,7 @@ public class CheckpointCoordinatorTest
                             server.getCheckpointService().getCheckpointStorage(),
                             executorService,
                             nodeEngine.getHazelcastInstance().getMap(IMAP_RUNNING_JOB_STATE),
+                            server.getEngineContext(),
                             null) {
 
                         @Override
@@ -175,6 +178,7 @@ public class CheckpointCoordinatorTest
                             server.getCheckpointService().getCheckpointStorage(),
                             executorService,
                             nodeEngine.getHazelcastInstance().getMap(IMAP_RUNNING_JOB_STATE),
+                            server.getEngineContext(),
                             null) {
                         @Override
                         protected void handleCheckpointError(int pipelineId, boolean neverRestore) {
@@ -251,6 +255,7 @@ public class CheckpointCoordinatorTest
                             server.getCheckpointService().getCheckpointStorage(),
                             executorService,
                             nodeEngine.getHazelcastInstance().getMap(IMAP_RUNNING_JOB_STATE),
+                            server.getEngineContext(),
                             null) {
 
                         @Override
@@ -321,6 +326,7 @@ public class CheckpointCoordinatorTest
                         server.getCheckpointService().getCheckpointStorage(),
                         instance.getExecutorService("test"),
                         nodeEngine.getHazelcastInstance().getMap(IMAP_RUNNING_JOB_STATE),
+                        server.getEngineContext(),
                         null);
 
         TaskGroupLocation group1 = new TaskGroupLocation(1L, 1, 1);
@@ -1084,6 +1090,7 @@ class TestCheckpointManager extends CheckpointManager {
             CheckpointStorage checkpointStorage,
             ExecutorService executorService,
             IMap<Object, Object> runningJobStateIMap,
+            SeaTunnelEngineContext engineContext,
             CheckpointMonitorService checkpointMonitorService) {
         super(
                 jobId,
@@ -1097,6 +1104,7 @@ class TestCheckpointManager extends CheckpointManager {
                 checkpointStorage,
                 executorService,
                 runningJobStateIMap,
+                engineContext,
                 checkpointMonitorService);
     }
 

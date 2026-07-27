@@ -78,20 +78,25 @@ public class ClientCommandArgsTest {
     }
 
     @Test
+    public void testConnectDryRunParam() {
+        String[] args = {"-c", "app.conf", "--dry-run", "connect"};
+        ClientCommandArgs clientCommandArgs =
+                CommandLineUtils.parse(args, new ClientCommandArgs(), "seatunnel-client", true);
+        Assertions.assertEquals(DryRun.CONNECT, clientCommandArgs.getDryRun());
+    }
+
+    @Test
     public void testDryRunConverterWithValidStatic() {
         ClientCommandArgs.DryRunConverter converter = new ClientCommandArgs.DryRunConverter();
         Assertions.assertEquals(DryRun.STATIC, converter.convert("static"));
         Assertions.assertEquals(DryRun.STATIC, converter.convert("STATIC"));
+        Assertions.assertEquals(DryRun.CONNECT, converter.convert("connect"));
+        Assertions.assertEquals(DryRun.CONNECT, converter.convert("CONNECT"));
     }
 
     @Test
     public void testDryRunConverterRejectsUnsupportedModes() {
         ClientCommandArgs.DryRunConverter converter = new ClientCommandArgs.DryRunConverter();
-        IllegalArgumentException ex =
-                Assertions.assertThrows(
-                        IllegalArgumentException.class, () -> converter.convert("connect"));
-        Assertions.assertTrue(
-                ex.getMessage().contains("not implemented yet"), "Actual: " + ex.getMessage());
         Assertions.assertThrows(IllegalArgumentException.class, () -> converter.convert("sample"));
         Assertions.assertThrows(IllegalArgumentException.class, () -> converter.convert("shadow"));
     }
@@ -104,7 +109,7 @@ public class ClientCommandArgsTest {
                         IllegalArgumentException.class,
                         () -> converter.convert("nonexistent_mode"));
         Assertions.assertTrue(
-                ex.getMessage().contains("Currently only [static] is supported"),
+                ex.getMessage().contains("Currently only [static, connect] are supported"),
                 "Actual: " + ex.getMessage());
     }
 
