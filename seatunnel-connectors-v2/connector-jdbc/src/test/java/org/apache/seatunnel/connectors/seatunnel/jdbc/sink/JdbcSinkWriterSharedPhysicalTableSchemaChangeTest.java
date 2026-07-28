@@ -91,6 +91,7 @@ class JdbcSinkWriterSharedPhysicalTableSchemaChangeTest {
         JdbcSinkWriter writerA =
                 new JdbcSinkWriter(
                         SHARED_SINK_TABLE,
+                        new TestSinkWriterContext(),
                         dialect,
                         sinkConfig,
                         schemaBeforeDrop,
@@ -99,6 +100,7 @@ class JdbcSinkWriterSharedPhysicalTableSchemaChangeTest {
         JdbcSinkWriter writerB =
                 new JdbcSinkWriter(
                         SHARED_SINK_TABLE,
+                        new TestSinkWriterContext(),
                         dialect,
                         sinkConfig,
                         schemaBeforeDrop,

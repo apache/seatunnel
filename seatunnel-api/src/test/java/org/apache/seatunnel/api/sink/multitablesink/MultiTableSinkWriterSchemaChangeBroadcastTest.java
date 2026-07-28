@@ -409,7 +409,10 @@ public class MultiTableSinkWriterSchemaChangeBroadcastTest {
                                         new TestSchemaChangeEvent(
                                                 TablePath.of("dbA", null, "users"))));
         assertEquals("boom-before-schema-entry", schemaChangeFailure.getMessage());
-        org.junit.jupiter.api.Assertions.assertDoesNotThrow(coordinator::close);
+        RuntimeException closeFailure =
+                org.junit.jupiter.api.Assertions.assertThrows(
+                        RuntimeException.class, coordinator::close);
+        assertTrue(closeFailure.getCause() instanceof IOException);
     }
 
     /**
@@ -459,7 +462,10 @@ public class MultiTableSinkWriterSchemaChangeBroadcastTest {
                 "a barrier enqueued after worker exit must not wait forever");
         assertTrue(schemaChangeFailure.get() instanceof IOException);
         assertEquals("boom-during-barrier-enqueue", schemaChangeFailure.get().getMessage());
-        org.junit.jupiter.api.Assertions.assertDoesNotThrow(coordinator::close);
+        RuntimeException closeFailure =
+                org.junit.jupiter.api.Assertions.assertThrows(
+                        RuntimeException.class, coordinator::close);
+        assertTrue(closeFailure.getCause() instanceof IOException);
     }
 
     /** Builds the writer-context map required by the multi-table coordinator constructor. */
