@@ -53,9 +53,15 @@ public class ClientCommandArgs extends AbstractCommandArgs {
 
     @Parameter(
             names = {"--sample-limit"},
-            description = "Maximum rows read from each source by sample dry-run mode",
+            description =
+                    "Maximum rows read from each source by sample dry-run mode (default: 10, max: 10000)",
             validateWith = PositiveIntegerValidator.class)
-    private int sampleLimit = DryRunSampleConfig.DEFAULT_LIMIT;
+    private Integer sampleLimit;
+
+    @Parameter(
+            names = {"--sample-print-data"},
+            description = "Print sampled row values to persistent logs")
+    private boolean samplePrintData;
 
     @Parameter(
             names = {"-m", "--master", "-e", "--deploy-mode"},
@@ -154,11 +160,13 @@ public class ClientCommandArgs extends AbstractCommandArgs {
 
     @Override
     public Command<?> buildCommand() {
-        Common.setDeployMode(getDeployMode());
+        validateSampleOptions();
         if (dryRun == DryRun.SAMPLE) {
             validateSampleMode();
+            Common.setDeployMode(getDeployMode());
             return new ClientExecuteCommand(this);
         }
+        Common.setDeployMode(getDeployMode());
         if (checkConfig || dryRun != null) {
             return new SeaTunnelConfValidateCommand(this);
         }
@@ -202,16 +210,40 @@ public class ClientCommandArgs extends AbstractCommandArgs {
         }
     }
 
-    private void validateSampleMode() {
+    public int getSampleLimit() {
+        return sampleLimit == null ? DryRunSampleConfig.DEFAULT_LIMIT : sampleLimit;
+    }
+
+    public void validateSampleMode() {
         if (masterType != MasterType.LOCAL) {
-            throw new ParameterException("Sample dry-run mode requires --master local.");
+            throw new ParameterException(
+                    "Sample dry-run mode requires --master/--deploy-mode local.");
         }
         if (async) {
             throw new ParameterException("Sample dry-run mode does not support --async.");
         }
-        if (restoreJobId != null || savePointJobId != null) {
+        if (restoreJobId != null
+                || savePointJobId != null
+                || checkConfig
+                || listJob
+                || getRunningJobMetrics
+                || jobId != null
+                || cancelJobId != null
+                || forceCancelJobId != null
+                || metricsJobId != null
+                || checkpointOverviewJobId != null
+                || checkpointHistoryJobId != null
+                || encrypt
+                || decrypt) {
             throw new ParameterException(
-                    "Sample dry-run mode does not support restore or savepoint operations.");
+                    "Sample dry-run mode cannot be combined with validation, job control, restore, savepoint, encryption, or decryption options.");
+        }
+    }
+
+    private void validateSampleOptions() {
+        if (dryRun != DryRun.SAMPLE && (sampleLimit != null || samplePrintData)) {
+            throw new ParameterException(
+                    "--sample-limit and --sample-print-data require --dry-run sample.");
         }
     }
 
@@ -219,8 +251,13 @@ public class ClientCommandArgs extends AbstractCommandArgs {
         @Override
         public void validate(String name, String value) throws ParameterException {
             try {
-                if (Integer.parseInt(value) < 1) {
+                int limit = Integer.parseInt(value);
+                if (limit < 1) {
                     throw new ParameterException(name + " must be greater than zero.");
+                }
+                if (limit > DryRunSampleConfig.MAX_LIMIT) {
+                    throw new ParameterException(
+                            name + " must not exceed " + DryRunSampleConfig.MAX_LIMIT + ".");
                 }
             } catch (NumberFormatException e) {
                 throw new ParameterException(name + " must be an integer.", e);

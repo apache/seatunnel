@@ -85,6 +85,9 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
 
     @Override
     public void execute() throws CommandExecuteException {
+        if (clientCommandArgs.getDryRun() == DryRun.SAMPLE) {
+            clientCommandArgs.validateSampleMode();
+        }
         JobMetricsRunner.JobMetricsSummary jobMetricsSummary = null;
         LocalDateTime startTime = LocalDateTime.now();
         LocalDateTime endTime = LocalDateTime.now();
@@ -187,7 +190,9 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                 jobConfig.setName(clientCommandArgs.getJobName());
                 if (clientCommandArgs.getDryRun() == DryRun.SAMPLE) {
                     DryRunSampleConfig.configure(
-                            jobConfig.getEnvOptions(), clientCommandArgs.getSampleLimit());
+                            jobConfig,
+                            clientCommandArgs.getSampleLimit(),
+                            clientCommandArgs.isSamplePrintData());
                 }
                 if (null != clientCommandArgs.getRestoreJobId()) {
                     jobExecutionEnv =

@@ -367,6 +367,7 @@ public class MultipleTableJobConfigParser {
             jobConfig.setName(envOptions.get(EnvCommonOptions.JOB_NAME));
         }
         jobConfig.getEnvOptions().putAll(envOptions.getSourceMap());
+        DryRunSampleConfig.applyTrustedConfiguration(jobConfig);
         if (DryRunSampleConfig.isEnabled(jobConfig.getEnvOptions())) {
             jobConfig.getJobContext().setEnableCheckpoint(false);
         }

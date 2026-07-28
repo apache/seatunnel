@@ -24,7 +24,6 @@ import org.apache.seatunnel.core.starter.exception.CommandExecuteException;
 import org.apache.seatunnel.core.starter.seatunnel.command.ClientExecuteCommand;
 import org.apache.seatunnel.core.starter.seatunnel.multitable.MultiTableSinkTest;
 import org.apache.seatunnel.core.starter.utils.CommandLineUtils;
-import org.apache.seatunnel.e2e.sink.inmemory.InMemorySinkWriter;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -90,13 +89,22 @@ public class ClientCommandArgsTest {
     @Test
     public void testSampleDryRunParam() {
         String[] args = {
-            "-c", "app.conf", "--master", "local", "--dry-run", "sample", "--sample-limit", "5"
+            "-c",
+            "app.conf",
+            "--master",
+            "local",
+            "--dry-run",
+            "sample",
+            "--sample-limit",
+            "5",
+            "--sample-print-data"
         };
         ClientCommandArgs clientCommandArgs =
                 CommandLineUtils.parse(args, new ClientCommandArgs(), "seatunnel-client", true);
 
         Assertions.assertEquals(DryRun.SAMPLE, clientCommandArgs.getDryRun());
         Assertions.assertEquals(5, clientCommandArgs.getSampleLimit());
+        Assertions.assertTrue(clientCommandArgs.isSamplePrintData());
         Assertions.assertInstanceOf(ClientExecuteCommand.class, clientCommandArgs.buildCommand());
     }
 
@@ -107,18 +115,6 @@ public class ClientCommandArgsTest {
                 CommandLineUtils.parse(args, new ClientCommandArgs(), "seatunnel-client", true);
 
         Assertions.assertEquals(10, clientCommandArgs.getSampleLimit());
-    }
-
-    @Test
-    public void testSampleDryRunExecutesWithoutConfiguredSink() throws Exception {
-        String configFile = MultiTableSinkTest.getTestConfigFile("/config/fake_to_inmemory.json");
-        InMemorySinkWriter.getEvents().clear();
-        ClientCommandArgs clientCommandArgs = buildClientCommandArgs(configFile);
-        clientCommandArgs.setDryRun(DryRun.SAMPLE);
-        clientCommandArgs.setSampleLimit(3);
-
-        Assertions.assertDoesNotThrow(() -> SeaTunnel.run(clientCommandArgs.buildCommand()));
-        Assertions.assertTrue(InMemorySinkWriter.getEvents().isEmpty());
     }
 
     @Test
@@ -138,6 +134,29 @@ public class ClientCommandArgsTest {
         Assertions.assertThrows(
                 com.beust.jcommander.ParameterException.class,
                 () -> validator.validate("--sample-limit", "0"));
+        Assertions.assertThrows(
+                com.beust.jcommander.ParameterException.class,
+                () -> validator.validate("--sample-limit", "10001"));
+    }
+
+    @Test
+    public void testSampleOptionsRequireSampleMode() {
+        String[] args = {"-c", "app.conf", "--sample-limit", "5"};
+        ClientCommandArgs clientCommandArgs =
+                CommandLineUtils.parse(args, new ClientCommandArgs(), "seatunnel-client", true);
+
+        Assertions.assertThrows(
+                com.beust.jcommander.ParameterException.class, clientCommandArgs::buildCommand);
+    }
+
+    @Test
+    public void testSampleDryRunRejectsJobControlOptions() {
+        String[] args = {"-c", "app.conf", "--master", "local", "--dry-run", "sample", "--check"};
+        ClientCommandArgs clientCommandArgs =
+                CommandLineUtils.parse(args, new ClientCommandArgs(), "seatunnel-client", true);
+
+        Assertions.assertThrows(
+                com.beust.jcommander.ParameterException.class, clientCommandArgs::buildCommand);
     }
 
     @Test

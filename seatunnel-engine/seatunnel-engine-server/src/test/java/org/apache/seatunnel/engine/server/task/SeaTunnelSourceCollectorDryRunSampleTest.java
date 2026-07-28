@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.core.starter.flowcontrol.FlowControlStrategy;
 import org.apache.seatunnel.engine.common.config.DryRunSampleConfig;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
+import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.flow.OneInputFlowLifeCycle;
@@ -33,8 +34,6 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.mockito.Mockito.times;
@@ -47,8 +46,9 @@ class SeaTunnelSourceCollectorDryRunSampleTest {
     void shouldForwardOnlyTheConfiguredNumberOfRowsAndCompleteOnce() throws Exception {
         OneInputFlowLifeCycle<Record<?>> output = Mockito.mock(OneInputFlowLifeCycle.class);
         AtomicInteger completionCount = new AtomicInteger();
-        Map<String, Object> envOptions = new HashMap<>();
-        DryRunSampleConfig.configure(envOptions, 2);
+        JobConfig jobConfig = new JobConfig();
+        DryRunSampleConfig.configure(jobConfig, 2, false);
+        DryRunSampleConfig.applyTrustedConfiguration(jobConfig);
         SeaTunnelSourceCollector<String> collector =
                 new SeaTunnelSourceCollector<>(
                         new Object(),
@@ -59,7 +59,7 @@ class SeaTunnelSourceCollectorDryRunSampleTest {
                         Collections.emptyList(),
                         sourceTask(),
                         new EngineConfig(),
-                        envOptions,
+                        jobConfig.getEnvOptions(),
                         completionCount::incrementAndGet);
 
         collector.collect("first");

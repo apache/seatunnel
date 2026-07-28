@@ -37,7 +37,8 @@ Usage: seatunnel.sh [options]
     -n, --name                                  The SeaTunnel job name (default: SeaTunnel).
     -r, --restore, --restore-job                Restore with savepoint by jobId.
     -s, --savepoint, --savepoint-job            Savepoint the job by jobId.
-    --sample-limit                              Maximum rows read from each source by sample dry-run mode (default: 10).
+    --sample-limit                              Maximum rows read from each source by sample dry-run mode (default: 10, max: 10000).
+    --sample-print-data                         Print sampled row values to persistent logs (default: false).
     -i, --variable                              Variable substitution, such as -i city=beijing, or -i date=20190318. We use ',' as a separator. When inside "", ',' are treated as normal characters instead of delimiters. (default: []).
 
 ```
@@ -89,10 +90,10 @@ Every plugin in the job is reported in a validation summary with one of two stat
 ### Previewing Sample Rows
 
 ```shell
-sh bin/seatunnel.sh --master local --config $SEATUNNEL_HOME/config/v2.batch.config.template --dry-run sample --sample-limit 10
+sh bin/seatunnel.sh --master local --config $SEATUNNEL_HOME/config/v2.batch.config.template --dry-run sample --sample-limit 10 --sample-print-data
 ```
 
-The `--dry-run sample` mode runs the configured sources and transforms locally and prints their schemas and a bounded number of rows from each source. It uses parallelism `1` for every action, including sources configured with higher parallelism, so the row limit is source-wide and the preview output is deterministic. It replaces configured sinks with an internal no-op sink, skips sink plugin creation and save-mode actions, and disables checkpoints. This mode can read from external sources, but it does not write to configured target systems. It does not support cluster mode, asynchronous submission, restore, or savepoint operations.
+The `--dry-run sample` mode runs the configured sources and transforms locally and prints their schemas. Add `--sample-print-data` to print the bounded source and transform row values. Row values are hidden by default because they are written to persistent engine logs and may contain sensitive data. It uses parallelism `1` for every action, including sources configured with higher parallelism, so the row limit is source-wide and the preview output is deterministic. The limit defaults to `10` and cannot exceed `10000`. It replaces configured sinks with an internal no-op sink, skips sink plugin creation and save-mode actions, and disables checkpoints. This mode can read from external sources, but it does not write to configured target systems. It does not support cluster mode, asynchronous submission, restore, savepoint, validation, or job-control operations. Sample options are rejected when sample mode is not selected.
 
 ## Viewing The Job List
 

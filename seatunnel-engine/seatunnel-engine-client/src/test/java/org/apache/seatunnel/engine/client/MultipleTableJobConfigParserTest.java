@@ -80,7 +80,7 @@ public class MultipleTableJobConfigParserTest {
                 ContentFormatUtilTest.getResource("/batch_fake_to_console_multi_table.conf");
         JobConfig jobConfig = new JobConfig();
         jobConfig.setJobContext(new JobContext());
-        DryRunSampleConfig.configure(jobConfig.getEnvOptions(), 10);
+        DryRunSampleConfig.configure(jobConfig, 10, false);
 
         ImmutablePair<List<Action>, Set<URL>> parsed =
                 new MultipleTableJobConfigParser(filePath, new IdGenerator(), jobConfig)
@@ -106,7 +106,7 @@ public class MultipleTableJobConfigParserTest {
                 ContentFormatUtilTest.getResource("/batch_fakesource_to_file_complex.conf");
         JobConfig jobConfig = new JobConfig();
         jobConfig.setJobContext(new JobContext());
-        DryRunSampleConfig.configure(jobConfig.getEnvOptions(), 10);
+        DryRunSampleConfig.configure(jobConfig, 10, false);
 
         ImmutablePair<List<Action>, Set<URL>> parsed =
                 new MultipleTableJobConfigParser(filePath, new IdGenerator(), jobConfig)
@@ -119,6 +119,34 @@ public class MultipleTableJobConfigParserTest {
         sinkAction
                 .getUpstream()
                 .forEach(sourceAction -> Assertions.assertEquals(1, sourceAction.getParallelism()));
+    }
+
+    @Test
+    public void testUserEnvCannotEnableSampleDryRun() {
+        Common.setDeployMode(DeployMode.CLIENT);
+        String filePath =
+                ContentFormatUtilTest.getResource("/batch_fake_to_console_multi_table.conf");
+        Config baseConfig = ConfigBuilder.of(Paths.get(filePath));
+        Config config =
+                ConfigFactory.parseString("env { __seatunnel_dry_run_sample = true }")
+                        .withFallback(baseConfig);
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setJobContext(new JobContext());
+
+        ImmutablePair<List<Action>, Set<URL>> parsed =
+                new MultipleTableJobConfigParser(config, new IdGenerator(), jobConfig).parse(null);
+
+        Assertions.assertFalse(
+                DryRunSampleConfig.isEnabled(jobConfig.getEnvOptions()),
+                "User env options must not activate sample mode");
+        parsed.getLeft()
+                .forEach(
+                        action ->
+                                Assertions.assertNotEquals(
+                                        "dry-run-sample",
+                                        ((SinkAction<?, ?, ?, ?>) action)
+                                                .getSink()
+                                                .getPluginName()));
     }
 
     @Test

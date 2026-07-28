@@ -91,6 +91,7 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
     private final LongSupplier currentTimeMillisSupplier;
     private final boolean dryRunSampleEnabled;
     private final int dryRunSampleLimit;
+    private final boolean dryRunSamplePrintData;
     private final Runnable dryRunSampleComplete;
     private int dryRunSampleCount;
 
@@ -214,6 +215,8 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
                 taskEnvOption != null && DryRunSampleConfig.isEnabled(taskEnvOption);
         this.dryRunSampleLimit =
                 this.dryRunSampleEnabled ? DryRunSampleConfig.getLimit(taskEnvOption) : 0;
+        this.dryRunSamplePrintData =
+                this.dryRunSampleEnabled && DryRunSampleConfig.isPrintData(taskEnvOption);
         this.dryRunSampleComplete = dryRunSampleComplete;
         if (rowType instanceof MultipleRowType) {
             ((MultipleRowType) rowType)
@@ -305,9 +308,11 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
                 connectorMetricsCalcContext.updateMetrics(row, tableId);
                 tryStainTrace((SeaTunnelRow) row);
             }
-            if (dryRunSampleEnabled) {
+            if (dryRunSamplePrintData) {
                 dryRunSampleCount++;
                 log.info("Dry-run sample [source] row {}: {}", dryRunSampleCount, row);
+            } else if (dryRunSampleEnabled) {
+                dryRunSampleCount++;
             }
             sendRecordToNext(new Record<>(row));
             emptyThisPollNext = false;

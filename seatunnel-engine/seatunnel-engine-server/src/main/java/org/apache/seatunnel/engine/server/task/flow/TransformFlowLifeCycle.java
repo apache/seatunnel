@@ -70,6 +70,7 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
     private volatile Boolean stainTracePropagateToAllSplits;
     private volatile int stainTraceMaxEntriesPerTrace = -1;
     private boolean dryRunSampleEnabled;
+    private boolean dryRunSamplePrintData;
     private int dryRunSampleLimit;
     private int[] dryRunSampleCounts;
 
@@ -96,6 +97,7 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
         Map<String, Object> jobEnvOptions = runningTask.getJobEnvOptions();
         this.dryRunSampleEnabled = DryRunSampleConfig.isEnabled(jobEnvOptions);
         this.dryRunSampleLimit = DryRunSampleConfig.getLimit(jobEnvOptions);
+        this.dryRunSamplePrintData = DryRunSampleConfig.isPrintData(jobEnvOptions);
         this.processNs = metricsContext.counter(TRANSFORM_PROCESS_NANOS + "#" + action.getId());
         this.recordsIn = metricsContext.counter(TRANSFORM_RECORDS_IN + "#" + action.getId());
         this.recordsOut = metricsContext.counter(TRANSFORM_RECORDS_OUT + "#" + action.getId());
@@ -289,7 +291,7 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
             }
 
             dataList = nextInputDataList;
-            if (dryRunSampleEnabled) {
+            if (dryRunSampleEnabled && dryRunSamplePrintData) {
                 for (T output : dataList) {
                     if (dryRunSampleCounts[transformIndex] >= dryRunSampleLimit) {
                         break;

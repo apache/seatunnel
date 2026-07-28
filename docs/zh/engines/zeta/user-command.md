@@ -49,7 +49,8 @@ Usage: seatunnel.sh [options]
     -n, --name                                SeaTunnel job name (default: SeaTunnel)
     -r, --restore, --restore-job              restore with savepoint by jobId
     -s, --savepoint, --savepoint-job          savepoint job by jobId
-    --sample-limit                            Maximum rows read from each source by sample dry-run mode (default: 10)
+    --sample-limit                            Maximum rows read from each source by sample dry-run mode (default: 10, max: 10000)
+    --sample-print-data                       Print sampled row values to persistent logs (default: false)
     -i, --variable                            Variable substitution, such as -i
                                               city=beijing, or -i date=20190318.We use
                                               ',' as separator, when inside "", ',' are
@@ -105,10 +106,10 @@ bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template --dry-
 ### 预览样例数据
 
 ```shell
-bin/seatunnel.sh --master local --config $SEATUNNEL_HOME/config/v2.batch.config.template --dry-run sample --sample-limit 10
+bin/seatunnel.sh --master local --config $SEATUNNEL_HOME/config/v2.batch.config.template --dry-run sample --sample-limit 10 --sample-print-data
 ```
 
-`--dry-run sample` 模式会在本地运行配置的 source 和 transform，并输出它们的 schema 和每个 source 中指定数量的样例数据。所有 action 都使用并行度 `1`，包括已配置更高并行度的 source，以确保行数限制作用于整个 source，并使预览输出具有确定性。该模式会用内部无操作 sink 替换配置的 sink，跳过 sink 插件创建和 save-mode 操作，并禁用 checkpoint。该模式可能从外部 source 读取数据，但不会向配置的目标系统写入数据。它不支持集群模式、异步提交、恢复或 savepoint 操作。
+`--dry-run sample` 模式会在本地运行配置的 source 和 transform，并输出它们的 schema。添加 `--sample-print-data` 后才会输出限定数量的 source 和 transform 行数据。默认不输出行内容，因为这些内容会写入持久化的引擎日志，并且可能包含敏感数据。所有 action 都使用并行度 `1`，包括已配置更高并行度的 source，以确保行数限制作用于整个 source，并使预览输出具有确定性。行数限制默认为 `10`，最大为 `10000`。该模式会用内部无操作 sink 替换配置的 sink，跳过 sink 插件创建和 save-mode 操作，并禁用 checkpoint。该模式可能从外部 source 读取数据，但不会向配置的目标系统写入数据。它不支持集群模式、异步提交、恢复、savepoint、校验或作业控制操作。未选择 sample 模式时，sample 相关选项会被拒绝。
 
 ## 查看作业列表
 

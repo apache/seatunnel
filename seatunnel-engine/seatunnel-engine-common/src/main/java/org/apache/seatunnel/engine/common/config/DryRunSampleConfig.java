@@ -23,15 +23,40 @@ import java.util.Map;
 public final class DryRunSampleConfig {
 
     public static final int DEFAULT_LIMIT = 10;
+    public static final int MAX_LIMIT = 10_000;
 
     private static final String ENABLED_KEY = "__seatunnel_dry_run_sample";
     private static final String LIMIT_KEY = "__seatunnel_dry_run_sample_limit";
+    private static final String PRINT_DATA_KEY = "__seatunnel_dry_run_sample_print_data";
 
     private DryRunSampleConfig() {}
 
-    public static void configure(Map<String, Object> envOptions, int limit) {
+    /** Records a sample request from the validated local CLI without exposing it as job config. */
+    public static void configure(JobConfig jobConfig, int limit, boolean printData) {
+        jobConfig.setDryRunSample(true);
+        jobConfig.setDryRunSampleLimit(limit);
+        jobConfig.setDryRunSamplePrintData(printData);
+    }
+
+    /** Removes user-provided internal keys and publishes only the trusted CLI request to tasks. */
+    public static void applyTrustedConfiguration(JobConfig jobConfig) {
+        Map<String, Object> envOptions = jobConfig.getEnvOptions();
+        envOptions.remove(ENABLED_KEY);
+        envOptions.remove(LIMIT_KEY);
+        envOptions.remove(PRINT_DATA_KEY);
+        if (jobConfig.isDryRunSample()) {
+            configureRuntimeOptions(
+                    envOptions,
+                    jobConfig.getDryRunSampleLimit(),
+                    jobConfig.isDryRunSamplePrintData());
+        }
+    }
+
+    private static void configureRuntimeOptions(
+            Map<String, Object> envOptions, int limit, boolean printData) {
         envOptions.put(ENABLED_KEY, true);
         envOptions.put(LIMIT_KEY, limit);
+        envOptions.put(PRINT_DATA_KEY, printData);
     }
 
     public static boolean isEnabled(Map<String, Object> envOptions) {
@@ -41,5 +66,9 @@ public final class DryRunSampleConfig {
     public static int getLimit(Map<String, Object> envOptions) {
         Object limit = envOptions.get(LIMIT_KEY);
         return limit instanceof Number ? ((Number) limit).intValue() : DEFAULT_LIMIT;
+    }
+
+    public static boolean isPrintData(Map<String, Object> envOptions) {
+        return Boolean.TRUE.equals(envOptions.get(PRINT_DATA_KEY));
     }
 }

@@ -65,6 +65,7 @@ class TransformFlowLifeCycleDryRunSampleTest {
                         },
                         new CompletableFuture<>());
         setField(flow, "dryRunSampleEnabled", true);
+        setField(flow, "dryRunSamplePrintData", true);
         setField(flow, "dryRunSampleLimit", 1);
 
         assertEquals(Collections.singletonList("row-second"), flow.transform("row"));
