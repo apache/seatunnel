@@ -93,5 +93,13 @@ public class BigQuerySinkOptions {
                     .stringType()
                     .noDefaultValue()
                     .withDescription(
-                            "The host of the BigQuery emulator (e.g. localhost:9050). Only for testing purposes.");
+                            "The REST host of the BigQuery emulator (e.g. localhost:9050). Only for testing purposes.");
+
+    public static final Option<String> EMULATOR_GRPC_HOST =
+            Options.key("emulator_grpc_host")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "The gRPC Storage Write API host of the BigQuery emulator (e.g. localhost:9060). "
+                                    + "Only for testing purposes. Falls back to emulator_host when omitted.");
 }

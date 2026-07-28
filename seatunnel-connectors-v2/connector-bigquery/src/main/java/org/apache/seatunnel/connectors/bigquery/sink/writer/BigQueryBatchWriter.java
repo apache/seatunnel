@@ -95,7 +95,7 @@ public class BigQueryBatchWriter implements BigQueryWriter {
         }
 
         return new BigQueryBatchWriter(
-                createStreamWriter(assignedStreamName, tableSchema, client),
+                createStreamWriter(assignedStreamName, tableSchema, client, config),
                 assignedStreamName,
                 parentTable,
                 nextOffset);

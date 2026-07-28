@@ -54,6 +54,7 @@ public class BigQuerySinkFactory implements TableSinkFactory {
                         BigQuerySinkOptions.SCHEMA_EVOLUTION_ENABLED,
                         BigQuerySinkOptions.SCHEMA_EVOLUTION_RELAX_NOT_NULL,
                         BigQuerySinkOptions.EMULATOR_HOST,
+                        BigQuerySinkOptions.EMULATOR_GRPC_HOST,
                         SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
                 .build();
     }

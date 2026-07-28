@@ -61,9 +61,16 @@ public class BigQueryStreamWriter implements BigQueryWriter {
         TableSchema tableSchema = getActualTableSchema(config, true);
 
         String streamName = createStreamName(projectId, datasetId, tableId);
+        if (config.get(BigQuerySinkOptions.EMULATOR_HOST) != null) {
+            // goccy/bigquery-emulator registers a table's implicit default stream on the first
+            // GetWriteStream request, while BigQuery allows clients to append without this lookup.
+            client.getWriteStream(streamName);
+        }
         log.info("Created Default write stream {}", streamName);
         return new BigQueryStreamWriter(
-                createStreamWriter(streamName, tableSchema, client), streamName, parentTable);
+                createStreamWriter(streamName, tableSchema, client, config),
+                streamName,
+                parentTable);
     }
 
     private static String createStreamName(String projectId, String datasetId, String tableId) {

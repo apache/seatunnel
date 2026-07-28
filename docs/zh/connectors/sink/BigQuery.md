@@ -42,7 +42,8 @@ import ChangeLog from '../changelog/connector-bigquery.md';
 | schema_evolution_enabled    | boolean | 否      | false   | 是否将 `ADD COLUMN` Schema 变更事件应用到目标 BigQuery 表                                                        |
 | schema_evolution_relax_not_null | boolean | 否   | false   | Schema 演进时是否将源端非空列创建为 BigQuery `NULLABLE` 字段                                                     |
 | batch_size                  | int     | 否      | 1000    | 发送到 BigQuery 之前批量处理的行数                                                                               |
-| emulator_host               | string  | 否      | -       | BigQuery emulator 地址，例如 `localhost:9050`。该参数仅用于测试。                                                |
+| emulator_host               | string  | 否      | -       | BigQuery emulator REST 地址，例如 `localhost:9050`。该参数仅用于测试。                                           |
+| emulator_grpc_host          | string  | 否      | -       | BigQuery emulator Storage Write API 地址，例如 `localhost:9060`；默认回退到 `emulator_host`。仅用于测试。          |
 | multi_table_sink_replica    | int     | 否      | -       | Sink 通用参数，用于控制多表运行时每张表的 sink 副本数；但该连接器仍只写入配置中的单个 BigQuery 表。                    |
 | common-options              |         | 否      | -       | Sink 通用参数，详见 [Sink Common Options](../common-options/sink-common-options.md)。                            |
 
@@ -93,7 +94,7 @@ Schema 更新使用 `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`。如果目标表
 
 ### emulator_host
 
-`emulator_host` 只用于本地测试或 CI 测试。配置该参数后，SeaTunnel 会无凭据连接 BigQuery emulator。生产任务不要使用该参数。
+`emulator_host` 只用于本地测试或 CI 测试，用于配置 emulator 的 REST 地址。配置后，SeaTunnel 会无凭据连接 BigQuery emulator。当 emulator 的 Storage Write API 使用不同地址时，需要设置 `emulator_grpc_host`；例如 goccy BigQuery emulator 默认使用 `9060` 端口。未配置时，gRPC 地址会回退到 `emulator_host`。生产任务不要使用这些参数。
 
 ## 任务示例
 
@@ -139,6 +140,7 @@ sink {
     table_id = "test_table"
     batch_size = 2
     emulator_host = "localhost:9050"
+    emulator_grpc_host = "localhost:9060"
   }
 }
 ```
@@ -223,8 +225,8 @@ sink {
 
 ### 测试
 
-该连接器使用 BigQuery Storage Write API。当前本地 BigQuery emulator 不能完整支持该连接器使用的写入路径。
-`emulator_host` 只适合用于本地或 CI 中与 emulator 兼容的检查。生产可用性验证应在真实 BigQuery 环境中完成。
+该连接器同时使用 BigQuery REST API 和 Storage Write API。使用 goccy BigQuery emulator 时，请将 `emulator_host` 配置为 REST 端口（默认 `9050`），并将 `emulator_grpc_host` 配置为 gRPC 端口（默认 `9060`）。
+Emulator 适合用于本地和 CI 覆盖，但生产可用性仍应在真实 BigQuery 环境中验证。
 
 ## 更新日志
 

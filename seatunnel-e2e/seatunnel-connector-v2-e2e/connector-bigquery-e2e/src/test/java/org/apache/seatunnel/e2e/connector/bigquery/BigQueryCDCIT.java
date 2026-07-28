@@ -29,6 +29,7 @@ import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
@@ -57,13 +58,16 @@ import java.util.stream.StreamSupport;
 import static org.awaitility.Awaitility.await;
 
 @Slf4j
-@Disabled("bigquery-emulator does not support bigquery storage write api.")
 @DisabledOnContainer(
         value = {},
         type = {EngineType.SPARK},
         disabledReason = "Currently SPARK do not support cdc")
+@Disabled(
+        "goccy/bigquery-emulator treats _CHANGE_TYPE=DELETE as INSERT and cannot verify BigQuery CDC semantics.")
 public class BigQueryCDCIT extends AbstractBigqueryIT {
 
+    private static final int INITIAL_SNAPSHOT_TIMEOUT_SECONDS = 180;
+    private static final int CHANGE_TIMEOUT_SECONDS = 60;
     private static final String CDC_TABLE_NAME = "cdc_test_table";
     private static final String MYSQL_HOST = "mysql_cdc_e2e";
     private static final String MYSQL_USER_NAME = "mysqluser";
@@ -108,24 +112,25 @@ public class BigQueryCDCIT extends AbstractBigqueryIT {
     }
 
     @BeforeAll
-    @Override
-    public void startUp() {
-        super.startUp();
-
+    public void startMySql() {
         log.info("Starting MySQL containers...");
         Startables.deepStart(Stream.of(MYSQL_CONTAINER)).join();
         log.info("MySQL containers are started");
         inventoryDatabase.createAndInitialize();
         log.info("MySQL ddl execution is complete");
+    }
 
+    @BeforeEach
+    public void initializeBigQueryCDCTable() {
+        resetMysqlSourceTable();
         try {
-            initializeBigQueryCDCTable();
+            createBigQueryCDCTable();
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
     }
 
-    private void initializeBigQueryCDCTable() throws InterruptedException {
+    private void createBigQueryCDCTable() throws InterruptedException {
         this.cdcTableId = TableId.of(PROJECT_NAME, DATASET_NAME, CDC_TABLE_NAME);
 
         String sql =
@@ -144,18 +149,14 @@ public class BigQueryCDCIT extends AbstractBigqueryIT {
     }
 
     @AfterAll
-    @Override
-    public void tearDown() {
+    public void stopMySql() {
         if (MYSQL_CONTAINER != null) {
             MYSQL_CONTAINER.close();
         }
-        super.tearDown();
     }
 
     @TestTemplate
     public void testBigQueryCDCSink(TestContainer container) {
-        cleanCDCTable();
-
         CompletableFuture.supplyAsync(
                 () -> {
                     try {
@@ -173,7 +174,8 @@ public class BigQueryCDCIT extends AbstractBigqueryIT {
                                 Arrays.asList(1L, "Alice", 95L), Arrays.asList(2L, "Bob", 88L))
                         .collect(Collectors.toSet());
 
-        await().atMost(60000, TimeUnit.MILLISECONDS)
+        await().atMost(INITIAL_SNAPSHOT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                .pollInterval(1, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
                             Set<List<Object>> actual = queryBigQueryCDCTable();
@@ -188,7 +190,8 @@ public class BigQueryCDCIT extends AbstractBigqueryIT {
         Set<List<Object>> expectedAfterDelete =
                 Stream.<List<Object>>of(Arrays.asList(2L, "Bob", 88L)).collect(Collectors.toSet());
 
-        await().atMost(60000, TimeUnit.MILLISECONDS)
+        await().atMost(CHANGE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                .pollInterval(1, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
                             Set<List<Object>> actual = queryBigQueryCDCTable();
@@ -200,7 +203,8 @@ public class BigQueryCDCIT extends AbstractBigqueryIT {
                 "INSERT INTO " + MYSQL_DATABASE + "." + SOURCE_TABLE + " VALUES (1, 'Alice', 95)");
 
         // Verify after re-insert
-        await().atMost(60000, TimeUnit.MILLISECONDS)
+        await().atMost(CHANGE_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                .pollInterval(1, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
                             Set<List<Object>> actual = queryBigQueryCDCTable();
@@ -235,17 +239,14 @@ public class BigQueryCDCIT extends AbstractBigqueryIT {
         }
     }
 
-    private void cleanCDCTable() {
-        if (bigquery.getTable(cdcTableId) != null) {
-            bigquery.delete(cdcTableId);
-            log.info("BigQuery CDC table deleted: {}", cdcTableId);
-        }
-        try {
-            initializeBigQueryCDCTable();
-            Thread.sleep(10000);
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
+    private void resetMysqlSourceTable() {
+        executeMysqlSql("TRUNCATE TABLE " + MYSQL_DATABASE + "." + SOURCE_TABLE);
+        executeMysqlSql(
+                "INSERT INTO "
+                        + MYSQL_DATABASE
+                        + "."
+                        + SOURCE_TABLE
+                        + " (uuid, name, score) VALUES (1, 'Alice', 95), (2, 'Bob', 88)");
     }
 
     private Connection getMysqlJdbcConnection() throws SQLException {

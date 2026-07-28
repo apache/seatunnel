@@ -43,7 +43,8 @@ Sink connector for Google Cloud BigQuery using the Storage Write API for high-pe
 | schema_evolution_enabled    | boolean | No       | false   | Whether to apply `ADD COLUMN` schema change events to the target BigQuery table                             |
 | schema_evolution_relax_not_null | boolean | No    | false   | Whether to add non-null source columns as `NULLABLE` BigQuery fields during schema evolution                |
 | batch_size                  | int     | No       | 1000    | Number of rows to batch before sending to BigQuery                                                          |
-| emulator_host               | string  | No       | -       | BigQuery emulator host, such as `localhost:9050`. This option is intended for tests only.                    |
+| emulator_host               | string  | No       | -       | BigQuery emulator REST host, such as `localhost:9050`. This option is intended for tests only.               |
+| emulator_grpc_host          | string  | No       | -       | BigQuery emulator Storage Write API host, such as `localhost:9060`. Falls back to `emulator_host`. Tests only. |
 | multi_table_sink_replica    | int     | No       | -       | Sink common option. It controls sink replica count in multi-table runtime, but this connector still writes to the single configured BigQuery table. |
 | common-options              |         | No       | -       | Sink common options. See [Sink Common Options](../common-options/sink-common-options.md).                    |
 
@@ -94,7 +95,7 @@ If `sequence_number_column` is not configured, `_CHANGE_SEQUENCE_NUMBER` is not 
 
 ### emulator_host
 
-`emulator_host` is only for local or CI tests. When it is configured, SeaTunnel connects to the emulator without Google credentials. Do not use this option for production BigQuery jobs.
+`emulator_host` is only for local or CI tests and configures the emulator REST endpoint. When it is configured, SeaTunnel connects to the emulator without Google credentials. Set `emulator_grpc_host` when the emulator exposes its Storage Write API on a different endpoint, as goccy BigQuery emulator does by default on port `9060`. If omitted, the gRPC endpoint falls back to `emulator_host`. Do not use these options for production BigQuery jobs.
 
 ## Task Example
 
@@ -140,6 +141,7 @@ sink {
     table_id = "test_table"
     batch_size = 2
     emulator_host = "localhost:9050"
+    emulator_grpc_host = "localhost:9060"
   }
 }
 ```
@@ -224,8 +226,8 @@ sink {
 
 ### Testing
 
-This connector uses the BigQuery Storage Write API. The current local BigQuery emulator does not fully support the write path used by this connector.
-Use `emulator_host` only for local or CI checks that are compatible with the emulator. Production validation should be done against a real BigQuery environment.
+This connector uses both the BigQuery REST API and Storage Write API. For goccy BigQuery emulator, configure `emulator_host` with its REST port (`9050` by default) and `emulator_grpc_host` with its gRPC port (`9060` by default).
+The emulator is suitable for local and CI coverage, but production validation should still be done against real BigQuery.
 
 ## Changelog
 
