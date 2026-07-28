@@ -24,6 +24,13 @@ public final class CheckpointRestoreUtils {
 
     private CheckpointRestoreUtils() {}
 
+    /**
+     * Returns whether a checkpoint type is eligible for the requested restore mode.
+     *
+     * <p>{@link RestoreMode#SAVEPOINT} accepts only savepoint. {@link RestoreMode#CHECKPOINT}
+     * accepts regular completed checkpoints and completed-point snapshots used by the runtime.
+     * {@link RestoreMode#NONE} never matches because it is not a restore request.
+     */
     public static boolean matchesRestoreCheckpointType(
             CheckpointType checkpointType, RestoreMode restoreMode) {
         if (restoreMode == RestoreMode.CHECKPOINT) {

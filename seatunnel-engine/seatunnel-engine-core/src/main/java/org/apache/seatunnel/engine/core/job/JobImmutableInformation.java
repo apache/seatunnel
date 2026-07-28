@@ -38,6 +38,14 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
+/**
+ * Immutable job submission payload shared between the submitter and the engine master.
+ *
+ * <p>The serialized layout keeps the historic prefix unchanged and appends restore metadata as an
+ * optional trailer. Old payloads without the trailer derive restore semantics from {@code
+ * isStartWithSavePoint}; new payloads carry explicit {@link RestoreMode} and {@code
+ * restoreSourceJobId} values.
+ */
 public class JobImmutableInformation implements IdentifiedDataSerializable {
     private long jobId;
 
@@ -256,7 +264,7 @@ public class JobImmutableInformation implements IdentifiedDataSerializable {
             return false;
         }
         try {
-            Method availableMethod = in.getClass().getDeclaredMethod("available");
+            Method availableMethod = in.getClass().getMethod("available");
             availableMethod.setAccessible(true);
             Object available = availableMethod.invoke(in);
             return available instanceof Integer && ((Integer) available) > 0;

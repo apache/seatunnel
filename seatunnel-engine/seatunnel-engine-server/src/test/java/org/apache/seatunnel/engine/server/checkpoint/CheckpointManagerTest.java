@@ -132,6 +132,8 @@ public class CheckpointManagerTest extends AbstractSeaTunnelServerTest {
         return new CheckpointManager(
                 jobId,
                 isStartWithSavePoint,
+                isStartWithSavePoint ? RestoreMode.SAVEPOINT : RestoreMode.NONE,
+                isStartWithSavePoint ? jobId : null,
                 nodeEngine,
                 null,
                 planMap,
@@ -188,6 +190,7 @@ public class CheckpointManagerTest extends AbstractSeaTunnelServerTest {
                         server.getCheckpointService().getCheckpointStorage(),
                         instance.getExecutorService("test"),
                         nodeEngine.getHazelcastInstance().getMap(IMAP_RUNNING_JOB_STATE),
+                        server.getEngineContext(),
                         null);
 
         // Checkpoint should be retained on CANCELED when retainAfterJobCancelled=true
@@ -243,6 +246,7 @@ public class CheckpointManagerTest extends AbstractSeaTunnelServerTest {
                         server.getCheckpointService().getCheckpointStorage(),
                         instance.getExecutorService("test"),
                         nodeEngine.getHazelcastInstance().getMap(IMAP_RUNNING_JOB_STATE),
+                        server.getEngineContext(),
                         null);
 
         // Checkpoint should still be deleted on FINISHED even when retainAfterJobCancelled=true
@@ -298,6 +302,7 @@ public class CheckpointManagerTest extends AbstractSeaTunnelServerTest {
                         server.getCheckpointService().getCheckpointStorage(),
                         instance.getExecutorService("test"),
                         nodeEngine.getHazelcastInstance().getMap(IMAP_RUNNING_JOB_STATE),
+                        server.getEngineContext(),
                         null);
 
         // Default behavior: checkpoint should be deleted on CANCELED

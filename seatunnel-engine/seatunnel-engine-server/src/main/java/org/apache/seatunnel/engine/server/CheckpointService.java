@@ -89,13 +89,26 @@ public class CheckpointService {
      *
      * @param jobId job id
      * @param restoreMode restore mode used to filter eligible checkpoint types
-     * @return latest restore-eligible checkpoint data for each pipeline
+     * @return latest restore-eligible checkpoint data for each pipeline, ordered by pipeline id
      */
     public List<JobPipelineCheckpointData> getLatestCheckpointData(
             String jobId, RestoreMode restoreMode) {
         return toJobPipelineCheckpointData(getLatestCheckpointsForRestore(jobId, restoreMode));
     }
 
+    /**
+     * Returns the latest restore-eligible checkpoint for each pipeline of a job.
+     *
+     * <p>Selection rules:
+     *
+     * <ul>
+     *   <li>filter checkpoints by {@link CheckpointRestoreUtils#matchesRestoreCheckpointType}
+     *   <li>group by pipeline id
+     *   <li>select the latest checkpoint within each pipeline by checkpoint id, then completed
+     *       timestamp as tie-breaker
+     *   <li>sort the final result by pipeline id
+     * </ul>
+     */
     @SneakyThrows
     public List<CompletedCheckpoint> getLatestCheckpointsForRestore(
             String jobId, RestoreMode restoreMode) {
