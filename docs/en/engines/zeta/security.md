@@ -23,7 +23,7 @@ seatunnel:
 
 ## REST HOCON Environment Variables
 
-HOCON jobs submitted through REST can resolve only the Engine process environment variables listed in `seatunnel.engine.http.hocon-environment-variable-allowlist`. The list is empty by default, and JVM system properties are never exposed. Add only variables whose values every REST job submitter is authorized to read. Configure the same allowlist and values on every node that accepts REST submissions. See [RESTful API V2](./rest-api-v2.md) for an example.
+HOCON jobs submitted through REST can resolve only the Engine process environment variables listed in `seatunnel.engine.http.hocon-environment-variable-allowlist`. The list is empty by default, and JVM system properties are never exposed. Add only variables whose values every REST job submitter is authorized to read. Configure the same allowlist and values on every node that accepts REST submissions. SeaTunnel connector runtime placeholders, such as `${table_name}`, remain reserved placeholders and are not resolved from the Engine environment. See [RESTful API V2](./rest-api-v2.md) for an example.
 
 ## HTTPS Configuration
 

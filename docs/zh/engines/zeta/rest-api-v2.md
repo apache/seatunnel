@@ -760,7 +760,7 @@ seatunnel:
         - JOB_NAME
 ```
 
-之后作业配置即可使用 `job.name = ${JOB_NAME}`。允许列表默认为空，防止 REST 调用方读取任意服务端环境变量；该机制也不会暴露 JVM system property。REST API 不接收 CLI 的 `-i` 变量。
+之后作业配置即可使用 `job.name = ${JOB_NAME}`。允许列表默认为空，防止 REST 调用方读取任意服务端环境变量；该机制也不会暴露 JVM system property。REST API 不接收 CLI 的 `-i` 变量。SeaTunnel connector runtime placeholder，例如 `${table_name}`，仍是保留占位符，不会从 Engine 环境变量解析。
 
 #### 请求体
 

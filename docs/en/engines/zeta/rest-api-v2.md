@@ -781,7 +781,7 @@ seatunnel:
         - JOB_NAME
 ```
 
-The job configuration can then use `job.name = ${JOB_NAME}`. The allowlist is empty by default to prevent REST callers from reading arbitrary server-side environment variables. JVM system properties are never exposed through this mechanism. The REST API does not accept CLI `-i` variables.
+The job configuration can then use `job.name = ${JOB_NAME}`. The allowlist is empty by default to prevent REST callers from reading arbitrary server-side environment variables. JVM system properties are never exposed through this mechanism. The REST API does not accept CLI `-i` variables. SeaTunnel connector runtime placeholders, such as `${table_name}`, remain reserved placeholders and are not resolved from the Engine environment.
 
 #### Body
 
