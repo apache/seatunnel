@@ -2,37 +2,71 @@
 
 ## Start Here
 
-Use [REST API And Web UI](./rest-api-and-web-ui.md) as the main operations entry point. That page explains when to enable the HTTP service, which REST API pages to read next, and how Web UI fits into day-to-day operations.
+Use [HTTP Operations: REST API and Web UI](./rest-api-and-web-ui.md) as the main operations entry point. That page explains when to enable the HTTP service, which REST API pages to read next, and how Web UI fits into day-to-day operations.
 
-This page focuses only on the Web UI screens themselves.
+This page focuses on the Web UI screens themselves and the current capability boundary of the built-in console.
 
 ## Access
 
-Before accessing the web ui we need to enable the http rest api. first you need to configure it in the `seatunnel.yaml` configuration file
+Before accessing Web UI, enable the SeaTunnel Engine HTTP service in `seatunnel.yaml`:
 
-```
+```yaml
 seatunnel:
   engine:
     http:
       enable-http: true
       port: 8080
-
 ```
 
-Then visit `http://ip:8080/#/overview`
+Then visit:
+
+```text
+http://<host>:8080/#/overview
+```
+
+If `context-path` is configured, include it before the hash route:
+
+```text
+http://<host>:8080/<context-path>/#/overview
+```
 
 ## Overview
 
-The Web UI of Apache SeaTunnel offers a user-friendly interface for monitoring and managing SeaTunnel jobs. Through the Web UI, users can view real-time information on currently running jobs, finished jobs, and the status of worker and master nodes within the cluster. The main functional modules include Jobs, Workers, and Master, each providing detailed status information and operational options to help users efficiently manage and optimize their data processing workflows.
+The Web UI of Apache SeaTunnel is a visual inspection console for SeaTunnel Engine. It helps operators view cluster overview data, running and finished jobs, job detail pages, logs, realtime DAG metrics, and the status of worker and master nodes.
+
+The current UI is focused on inspection. Lifecycle operations such as submitting, stopping, cancelling, savepoint, restoring, and batch automation are available through the [REST API](./rest-api-v2.md), [Job Lifecycle API](./rest-api-job-lifecycle.md), or command line.
+
 ![overview.png](../../../images/ui/overview.png)
+
+## Capability Summary
+
+| UI area | Current capability | Use REST API or CLI for |
+|---------|--------------------|-------------------------|
+| Overview | View cluster version, slot usage, worker count, and job counts | Cluster configuration changes |
+| Jobs | View running and finished jobs, paginate job lists, and open job details | Submit, stop, cancel, savepoint, restore, or batch-operate jobs |
+| Job Detail | View DAG, job metrics, exception text, job configuration, logs, and realtime observability data | Editing job configuration or changing job lifecycle state |
+| Workers | View worker-node system monitoring information | Updating worker tags or changing worker membership |
+| Master | View master-node system monitoring information | Changing security, HTTP, or cluster-level configuration |
 
 ## Jobs
 
 ### Running Jobs
 
-The "Running Jobs" section lists all SeaTunnel jobs that are currently in execution. Users can view basic information for each job, including Job ID, submission time, status, execution time, and more. By clicking on a specific job, users can access detailed information such as task distribution, resource utilization, and log outputs, allowing for real-time monitoring of job progress and timely handling of potential issues.
+The "Running Jobs" section lists SeaTunnel jobs that are currently in execution. Users can view job ID, job name, creation time, status, and open a detail page for a specific job.
+
+The list refreshes periodically and supports pagination. It does not submit, stop, or cancel jobs from the UI.
+
 ![running.png](../../../images/ui/running.png)
 ![detail.png](../../../images/ui/detail.png)
+
+### Job Detail
+
+The Job Detail page contains four main tabs:
+
+- **Overview**: shows the job DAG, source and sink throughput metrics, flush-signal metrics, and realtime vertex or edge metrics when observability is enabled.
+- **Exception**: shows the job error message when the job has failed or reported an exception.
+- **Configuration**: shows the runtime job configuration exposed by the engine.
+- **Log**: shows job log files returned by the engine log API.
 
 #### Realtime Observability
 
@@ -46,25 +80,48 @@ This capability requires the job to enable `env.engine.observability` or configu
 
 ### Finished Jobs
 
-The "Finished Jobs" section displays all SeaTunnel jobs that have either successfully completed or failed. This section provides execution results, completion times, durations, and failure reasons (if any) for each job. Users can review past job records through this module to analyze job performance, troubleshoot issues, or rerun specific jobs as needed.
+The "Finished Jobs" section displays jobs that have reached a terminal state, such as finished, failed, cancelled, or savepoint done. Users can review historical records and open the detail page to inspect configuration, exception text, metrics retained by the engine, and logs.
+
+The current UI does not rerun finished jobs. To restart from a checkpoint or savepoint, use the [Job Lifecycle API](./rest-api-job-lifecycle.md) or command line.
+
 ![finished.png](../../../images/ui/finished.png)
 
 ## Workers
 
 ### Workers Information
 
-The "Workers" section displays detailed information about all worker nodes in the cluster, including each worker's address, running status, CPU and memory usage, number of tasks being executed, and more. Through this module, users can monitor the health of each worker node, promptly identify and address resource bottlenecks or node failures, ensuring the stable operation of the SeaTunnel cluster.
+The "Workers" section displays system monitoring information for worker nodes. Use it to inspect worker address, resource status, and runtime health signals exposed by the engine.
+
+The current UI is read-only for workers. To update node tags or integrate worker state into automation, use [RESTful API V2](./rest-api-v2.md).
+
 ![workers.png](../../../images/ui/workers.png)
 
 ## Master
 
 ### Master Information
 
-The "Master" section provides the status and configuration information of the master node in the SeaTunnel cluster. Users can view the master's address, running status, job scheduling responsibilities, and overall resource allocation within the cluster. This module helps users gain a comprehensive understanding of the cluster's core management components, facilitating cluster configuration optimization and troubleshooting.
+The "Master" section displays system monitoring information for master nodes. Use it to inspect the current master-side runtime state and resource signals exposed by the engine.
+
+The current UI does not edit HTTP, security, storage, scheduling, or other cluster-level configuration. Configure those settings in SeaTunnel configuration files and use the related REST API pages for runtime inspection.
+
 ![master.png](../../../images/ui/master.png)
+
+## Missing UI Operations
+
+For product planning, the most important capability gaps in the current Web UI are:
+
+- job submission from configuration text or uploaded files
+- graceful stop, force cancel, stop-with-savepoint, and restart-from-savepoint actions
+- checkpoint overview and checkpoint history views
+- connector option metadata browsing for dynamic form builders
+- worker tag update operations
+- security and HTTP configuration status checks
+
+Until those controls are added to the UI, treat REST API V2 and the command line as the operational control plane, and treat Web UI as the built-in visual inspection plane.
 
 ## Next Steps
 
-- [REST API And Web UI](./rest-api-and-web-ui.md)
+- [HTTP Operations: REST API and Web UI](./rest-api-and-web-ui.md)
 - [REST API V2](./rest-api-v2.md)
+- [Job Lifecycle API](./rest-api-job-lifecycle.md)
 - [Security](./security.md)

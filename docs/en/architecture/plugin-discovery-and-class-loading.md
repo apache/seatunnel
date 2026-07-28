@@ -146,7 +146,7 @@ This is why the plugin system needs access to factory-level metadata such as:
 Related docs:
 
 - [Configuration And Option System](./configuration-and-option-system.md)
-- [REST API and Web UI](../engines/zeta/rest-api-and-web-ui.md)
+- [HTTP Operations: REST API and Web UI](../engines/zeta/rest-api-and-web-ui.md)
 
 ## Failure Modes and What They Usually Mean
 

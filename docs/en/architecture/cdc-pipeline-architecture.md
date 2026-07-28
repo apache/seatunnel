@@ -217,7 +217,7 @@ When a CDC job behaves incorrectly, the first places to inspect are:
 
 Related docs:
 
-- [REST API and Web UI](../engines/zeta/rest-api-and-web-ui.md)
+- [HTTP Operations: REST API and Web UI](../engines/zeta/rest-api-and-web-ui.md)
 - [Plugin Discovery and Class Loading](./plugin-discovery-and-class-loading.md)
 - [Connector Isolated Dependency Loading Mechanism](../connectors/connector-isolated-dependency.md)
 

@@ -80,5 +80,5 @@ SeaTunnel 是一个分布式数据集成平台，用统一的连接器模型处�
 - [作业配置指南](./job-configuration-guide.md)
 - [场景教程](./recipes/overview.md)
 - [SeaTunnel 引擎（Zeta）安装部署](../engines/zeta/deployment.md)
-- [REST API 与 Web UI](../engines/zeta/rest-api-and-web-ui.md)
+- [HTTP 运维能力：REST API 与 Web UI](../engines/zeta/rest-api-and-web-ui.md)
 - [向远程 Zeta 集群提交作业](./submit-job-to-remote-zeta-cluster.md)

@@ -62,7 +62,7 @@ SeaTunnel Engine 的整体设计遵循以下路径：
 2. [下载安装](download-seatunnel.md)
 3. [SeaTunnel 引擎快速开始](../../getting-started/locally/quick-start-seatunnel-engine.md)
 4. [作业配置指南](../../getting-started/job-configuration-guide.md)
-5. [REST API 与 Web UI](rest-api-and-web-ui.md)
+5. [HTTP 运维能力：REST API 与 Web UI](rest-api-and-web-ui.md)
 
 如果你已经跑通第一个任务，接下来可以继续看：
 
