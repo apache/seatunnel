@@ -869,6 +869,9 @@ class ContinuousMultipleTableFileSourceSplitEnumeratorTest {
         byte[] recreatedContent = "xyz".getBytes();
         Files.write(srcFile, originalContent);
         Files.write(dstFile, originalContent);
+        long baseTime = System.currentTimeMillis();
+        Files.setLastModifiedTime(dstFile, FileTime.fromMillis(baseTime - 5_000));
+        Files.setLastModifiedTime(srcFile, FileTime.fromMillis(baseTime));
 
         Map<String, Object> extraConfig = new HashMap<>();
         extraConfig.put(FileBaseSourceOptions.POST_SYNC_ACTION.key(), "delete");
@@ -1098,6 +1101,9 @@ class ContinuousMultipleTableFileSourceSplitEnumeratorTest {
         byte[] recreatedContent = "xyz".getBytes();
         Files.write(srcFile, originalContent);
         Files.write(dstFile, originalContent);
+        long baseTime = System.currentTimeMillis();
+        Files.setLastModifiedTime(dstFile, FileTime.fromMillis(baseTime - 5_000));
+        Files.setLastModifiedTime(srcFile, FileTime.fromMillis(baseTime));
 
         Map<String, Object> extraConfig = new HashMap<>();
         extraConfig.put(FileBaseSourceOptions.POST_SYNC_ACTION.key(), "backup");
@@ -1220,6 +1226,7 @@ class ContinuousMultipleTableFileSourceSplitEnumeratorTest {
         Path srcDir = Files.createDirectories(tempDir.resolve("src14_staged_delete"));
         Path dstDir = Files.createDirectories(tempDir.resolve("dst14_staged_delete"));
         Path srcFile = srcDir.resolve("test.bin");
+        Path dstFile = dstDir.resolve("test.bin");
         Files.write(srcFile, "abc".getBytes());
 
         Map<String, Object> extraConfig = new HashMap<>();
@@ -1242,6 +1249,7 @@ class ContinuousMultipleTableFileSourceSplitEnumeratorTest {
                                     .toUri());
             Files.createDirectories(trashPath.getParent());
             Files.move(srcFile, trashPath, StandardCopyOption.ATOMIC_MOVE);
+            Files.write(dstFile, "abc".getBytes());
 
             enumeratorWithContext.enumerator.notifyCheckpointComplete(1L);
 
@@ -1499,6 +1507,7 @@ class ContinuousMultipleTableFileSourceSplitEnumeratorTest {
         Files.write(srcFile, content);
         Files.write(dstFile, content);
         long expiredSourceMtime = System.currentTimeMillis() - 60_000;
+        Files.setLastModifiedTime(dstFile, FileTime.fromMillis(expiredSourceMtime - 5_000));
         Files.setLastModifiedTime(srcFile, FileTime.fromMillis(expiredSourceMtime));
 
         Map<String, Object> extraConfig = new HashMap<>();

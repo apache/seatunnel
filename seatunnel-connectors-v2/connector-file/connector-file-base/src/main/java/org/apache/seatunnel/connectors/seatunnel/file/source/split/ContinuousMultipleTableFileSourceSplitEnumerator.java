@@ -967,15 +967,15 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
      *
      * <p>Source and sink checkpoint completion callbacks are independent. A source enumerator can
      * therefore observe the completed checkpoint before the sink committer has renamed its
-     * temporary file. Checking both length and content prevents post-sync delete or backup from
-     * racing ahead of that final sink commit, including when an older same-length target already
-     * exists.
+     * temporary file. Checking both length and the checkpoint-captured content prevents post-sync
+     * delete or backup from racing ahead of that final sink commit, including when an older
+     * same-length target already exists.
      */
     private boolean isSinkTargetCommitted(
             TableScanContext ctx,
             FileSourceOperationState op,
             long checkpointId,
-            String sourcePathToCompare) {
+            String sourcePathToCompareWhenFingerprintMissing) {
         String targetPath = ctx.targetFilePath(op.getSourcePath());
         FileStatus targetStatus;
         try {
@@ -992,12 +992,13 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
                         targetStatus == null ? null : targetStatus.getLen());
                 return false;
             }
-            if (!ctx.fileContentEquals(sourcePathToCompare, targetPath)) {
+            if (!isSinkTargetContentMatched(
+                    ctx, op, targetPath, sourcePathToCompareWhenFingerprintMissing)) {
                 log.info(
                         "Post-sync operation is waiting for sink target content: action={}, "
                                 + "source={}, target={}, checkpointId={}",
                         op.getAction(),
-                        maskUriUserInfo(sourcePathToCompare),
+                        maskUriUserInfo(op.getSourcePath()),
                         maskUriUserInfo(targetPath),
                         checkpointId);
                 return false;
@@ -1014,6 +1015,23 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
                     e);
             return false;
         }
+    }
+
+    private boolean isSinkTargetContentMatched(
+            TableScanContext ctx,
+            FileSourceOperationState op,
+            String targetPath,
+            String sourcePathToCompareWhenFingerprintMissing)
+            throws IOException {
+        if (StringUtils.isNotBlank(op.getSourceContentFingerprint())) {
+            return Objects.equals(
+                    op.getSourceContentFingerprint(),
+                    calculateContentFingerprint(ctx.targetFs, targetPath));
+        }
+        if (StringUtils.isBlank(sourcePathToCompareWhenFingerprintMissing)) {
+            return false;
+        }
+        return ctx.fileContentEquals(sourcePathToCompareWhenFingerprintMissing, targetPath);
     }
 
     private boolean isOperationContentMatched(
