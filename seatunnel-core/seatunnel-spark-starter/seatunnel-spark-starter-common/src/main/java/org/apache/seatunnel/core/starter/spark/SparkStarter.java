@@ -59,8 +59,6 @@ public class SparkStarter implements Starter {
 
     static final String STARTER_JAR_NAME_PROPERTY = "seatunnel.spark.starter.jar.name";
     static final String SPARK_35_STARTER_JAR_NAME = "seatunnel-spark-3.5-starter.jar";
-    static final String DRIVER_USER_CLASS_PATH_FIRST = "spark.driver.userClassPathFirst";
-    static final String EXECUTOR_USER_CLASS_PATH_FIRST = "spark.executor.userClassPathFirst";
 
     /** original commandline args */
     protected String[] args;
@@ -131,14 +129,6 @@ public class SparkStarter implements Starter {
     /** parse spark configurations from SeaTunnel config file */
     private void setSparkConf() throws FileNotFoundException {
         this.sparkConf = getSparkConf(commandArgs.getConfigFile(), commandArgs.getVariables());
-        applyCompatibilityDefaults(this.sparkConf);
-    }
-
-    static void applyCompatibilityDefaults(Map<String, String> sparkConf) {
-        if (SPARK_35_STARTER_JAR_NAME.equals(getStarterJarName())) {
-            sparkConf.putIfAbsent(DRIVER_USER_CLASS_PATH_FIRST, Boolean.TRUE.toString());
-            sparkConf.putIfAbsent(EXECUTOR_USER_CLASS_PATH_FIRST, Boolean.TRUE.toString());
-        }
     }
 
     /** Get spark configurations from SeaTunnel job config file. */

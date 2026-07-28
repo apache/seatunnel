@@ -23,7 +23,7 @@ cd /d "%PRG_DIR%" || (
   exit /b 1
 )
 
-set "APP_DIR=%~dp0"
+for %%D in ("%PRG_DIR%..") do set "APP_DIR=%%~fD"
 set "CONF_DIR=%APP_DIR%\config"
 set "APP_JAR_NAME=seatunnel-spark-3.5-starter.jar"
 set "APP_JAR=%APP_DIR%\starter\%APP_JAR_NAME%"
