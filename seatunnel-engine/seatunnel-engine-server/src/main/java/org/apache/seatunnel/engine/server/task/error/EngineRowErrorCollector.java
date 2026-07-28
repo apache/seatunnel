@@ -21,6 +21,8 @@ import org.apache.seatunnel.api.common.error.RowErrorCollector;
 import org.apache.seatunnel.api.common.error.RowErrorEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -32,6 +34,7 @@ public final class EngineRowErrorCollector implements RowErrorCollector {
     private final AtomicLong collectedErrors = new AtomicLong();
     private final AtomicLong routedErrors = new AtomicLong();
     private final AtomicLong droppedErrors = new AtomicLong();
+    private final List<CollectedRowErrorOutcome> terminalOutcomes = new ArrayList<>();
 
     public EngineRowErrorCollector(ErrorHandler<SeaTunnelRow> errorHandler, String pluginName) {
         this.errorHandler = Objects.requireNonNull(errorHandler, "errorHandler must not be null");
@@ -54,6 +57,9 @@ public final class EngineRowErrorCollector implements RowErrorCollector {
         } else {
             droppedErrors.incrementAndGet();
         }
+        synchronized (terminalOutcomes) {
+            terminalOutcomes.add(new CollectedRowErrorOutcome(row, result));
+        }
     }
 
     public long getCollectedErrors() {
@@ -66,5 +72,31 @@ public final class EngineRowErrorCollector implements RowErrorCollector {
 
     public long getDroppedErrors() {
         return droppedErrors.get();
+    }
+
+    public List<CollectedRowErrorOutcome> drainTerminalOutcomes() {
+        synchronized (terminalOutcomes) {
+            List<CollectedRowErrorOutcome> drained = new ArrayList<>(terminalOutcomes);
+            terminalOutcomes.clear();
+            return drained;
+        }
+    }
+
+    public static final class CollectedRowErrorOutcome {
+        private final SeaTunnelRow row;
+        private final ErrorHandler.ErrorHandleResult result;
+
+        private CollectedRowErrorOutcome(SeaTunnelRow row, ErrorHandler.ErrorHandleResult result) {
+            this.row = row;
+            this.result = result;
+        }
+
+        public SeaTunnelRow getRow() {
+            return row;
+        }
+
+        public ErrorHandler.ErrorHandleResult getResult() {
+            return result;
+        }
     }
 }

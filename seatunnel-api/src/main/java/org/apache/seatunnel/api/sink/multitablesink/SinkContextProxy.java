@@ -65,6 +65,16 @@ public class SinkContextProxy implements SinkWriter.Context {
     }
 
     @Override
+    public void enableDeferredTerminalWriteOutcomes() {
+        context.enableDeferredTerminalWriteOutcomes();
+    }
+
+    @Override
+    public boolean isDeferredTerminalWriteOutcomesEnabled() {
+        return context.isDeferredTerminalWriteOutcomesEnabled();
+    }
+
+    @Override
     public void registerFlushAction(RunnableWithException action) {
         Objects.requireNonNull(action, "flushAction");
         this.flushAction = action;

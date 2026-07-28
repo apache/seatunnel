@@ -239,7 +239,7 @@ env {
 
 除此之外，错误 Sink 还需要配置各自 Connector 的常规参数，例如 JDBC 的 `url`、`username`、`password`、`driver` 等，写法与普通 Sink 完全一致。
 
-如果 `mode = ROUTE` 但没有配置 `sink { ... }`（或 `plugin_name` 为空），则行级错误会被识别并记录日志，但由于没有可用的错误 Sink，错误记录不会写入错误表。
+如果 `mode = ROUTE`，必须配置 `sink.plugin_name`。当缺少 `sink { ... }` 或 `plugin_name` 为空时，作业会在配置解析阶段快速失败，因为没有可接收路由错误记录的错误 Sink。
 
 ### 错误表结构
 

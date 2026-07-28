@@ -128,6 +128,23 @@ public interface SinkWriter<T, CommitInfoT, StateT> {
         }
 
         /**
+         * Mark that this writer may report row-level errors after {@link SinkWriter#write(Object)}
+         * returns, for example during timer flush, prepareCommit, or close.
+         *
+         * <p>Engines can use this signal to delay terminal success metrics/tracing until buffered
+         * rows are flushed and no delayed row errors were reported.
+         */
+        default void enableDeferredTerminalWriteOutcomes() {}
+
+        /**
+         * Returns whether a writer requested deferred terminal success reporting through {@link
+         * #enableDeferredTerminalWriteOutcomes()}.
+         */
+        default boolean isDeferredTerminalWriteOutcomesEnabled() {
+            return false;
+        }
+
+        /**
          * Register an action to be invoked by the engine when a periodic flush signal arrives.
          *
          * <p>This is the opt-in point for engine-level timer flush. A writer that wants to be

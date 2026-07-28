@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server.task.flow;
 import org.apache.seatunnel.api.common.error.RowErrorEvent;
 import org.apache.seatunnel.api.common.error.RowErrorPhase;
 import org.apache.seatunnel.api.common.metrics.ThreadSafeCounter;
+import org.apache.seatunnel.api.signal.FlushSignal;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.Record;
@@ -30,6 +31,7 @@ import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
+import org.apache.seatunnel.engine.server.task.context.SinkWriterContext;
 import org.apache.seatunnel.engine.server.task.error.EngineRowErrorCollector;
 import org.apache.seatunnel.engine.server.task.error.ErrorHandler;
 import org.apache.seatunnel.engine.server.task.error.ErrorHandlerMode;
@@ -47,7 +49,9 @@ import org.mockito.Mockito;
 
 import java.io.IOException;
 import java.lang.reflect.Field;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 import java.util.Optional;
 
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_ERROR_RECORDS_DROPPED;
@@ -178,6 +182,72 @@ class SinkFlowLifeCycleErrorOutcomeTest {
         Assertions.assertTrue(hasStage(row, StainTraceStage.SINK_ERROR_DROPPED));
     }
 
+    @Test
+    void delayedCollectorErrorDuringFlushDoesNotReportMainSinkSuccess() throws Exception {
+        SeaTunnelMetricsContext metrics = new SeaTunnelMetricsContext();
+        ErrorHandler<SeaTunnelRow> handler =
+                new ErrorHandler<>(
+                        StageErrorConfig.builder().mode(ErrorHandlerMode.ROUTE).build(),
+                        new NoopErrorSinkWriter());
+        EngineRowErrorCollector collector = new EngineRowErrorCollector(handler, "test");
+        DelayedCollectorReportingWriter delayedWriter =
+                new DelayedCollectorReportingWriter(collector, true);
+        SinkFlowLifeCycle<SeaTunnelRow, String, String, String> flow =
+                createFlow(metrics, delayedWriter, handler);
+        SinkWriterContext context = sinkWriterContext(metrics, collector);
+        context.enableDeferredTerminalWriteOutcomes();
+        context.registerFlushAction(delayedWriter::timerFlush);
+        setField(flow, "writerContext", context);
+        setField(flow, "stageRowErrorCollector", collector);
+        setField(flow, "deferTerminalWriteOutcomes", true);
+        SeaTunnelRow row = tracedRow();
+
+        flow.received(new Record<>(row));
+
+        Assertions.assertEquals(1L, metrics.counter(SINK_RECORDS_IN + "#7").getCount());
+        Assertions.assertEquals(0L, metrics.counter(SINK_WRITE_COUNT).getCount());
+        Assertions.assertFalse(hasStage(row, StainTraceStage.SINK_WRITE_DONE));
+
+        flow.received(new Record<>(FlushSignal.of(1L, 2L)));
+
+        Assertions.assertEquals(0L, metrics.counter(SINK_WRITE_COUNT).getCount());
+        Assertions.assertEquals(1L, metrics.counter(SINK_ERROR_RECORDS_ROUTED + "#7").getCount());
+        Assertions.assertFalse(hasStage(row, StainTraceStage.SINK_WRITE_DONE));
+        Assertions.assertTrue(hasStage(row, StainTraceStage.SINK_ERROR_ROUTED));
+    }
+
+    @Test
+    void deferredSuccessfulWriteReportsMainSinkSuccessAfterFlush() throws Exception {
+        SeaTunnelMetricsContext metrics = new SeaTunnelMetricsContext();
+        ErrorHandler<SeaTunnelRow> handler =
+                new ErrorHandler<>(
+                        StageErrorConfig.builder().mode(ErrorHandlerMode.ROUTE).build(),
+                        new NoopErrorSinkWriter());
+        EngineRowErrorCollector collector = new EngineRowErrorCollector(handler, "test");
+        DelayedCollectorReportingWriter delayedWriter =
+                new DelayedCollectorReportingWriter(collector, false);
+        SinkFlowLifeCycle<SeaTunnelRow, String, String, String> flow =
+                createFlow(metrics, delayedWriter, handler);
+        SinkWriterContext context = sinkWriterContext(metrics, collector);
+        context.enableDeferredTerminalWriteOutcomes();
+        context.registerFlushAction(delayedWriter::timerFlush);
+        setField(flow, "writerContext", context);
+        setField(flow, "stageRowErrorCollector", collector);
+        setField(flow, "deferTerminalWriteOutcomes", true);
+        SeaTunnelRow row = tracedRow();
+
+        flow.received(new Record<>(row));
+        Assertions.assertEquals(0L, metrics.counter(SINK_WRITE_COUNT).getCount());
+        Assertions.assertFalse(hasStage(row, StainTraceStage.SINK_WRITE_DONE));
+
+        flow.received(new Record<>(FlushSignal.of(1L, 2L)));
+
+        Assertions.assertEquals(1L, metrics.counter(SINK_WRITE_COUNT).getCount());
+        Assertions.assertEquals(0L, metrics.counter(SINK_ERROR_RECORDS_ROUTED + "#7").getCount());
+        Assertions.assertTrue(hasStage(row, StainTraceStage.SINK_WRITE_DONE));
+        Assertions.assertFalse(hasStage(row, StainTraceStage.SINK_ERROR_ROUTED));
+    }
+
     @SuppressWarnings("unchecked")
     private static SinkFlowLifeCycle<SeaTunnelRow, String, String, String> createFlow(
             SeaTunnelMetricsContext metrics,
@@ -223,6 +293,11 @@ class SinkFlowLifeCycleErrorOutcomeTest {
                 (byte[]) row.getOptionsOrNull().get(StainTraceConstants.TRACE_PAYLOAD_OPTION_KEY);
         return StainTracePayload.readEntries(payload).stream()
                 .anyMatch(entry -> entry.stageCode == (stage.getCode() & 0xFF));
+    }
+
+    private static SinkWriterContext sinkWriterContext(
+            SeaTunnelMetricsContext metrics, EngineRowErrorCollector collector) {
+        return new SinkWriterContext(1, 0, metrics, event -> {}, collector);
     }
 
     private static void setField(Object target, String name, Object value) throws Exception {
@@ -274,6 +349,48 @@ class SinkFlowLifeCycleErrorOutcomeTest {
             } catch (Exception e) {
                 throw new IOException(e);
             }
+        }
+
+        @Override
+        public Optional<String> prepareCommit() {
+            return Optional.empty();
+        }
+
+        @Override
+        public void abortPrepare() {}
+
+        @Override
+        public void close() {}
+    }
+
+    private static final class DelayedCollectorReportingWriter
+            implements SinkWriter<SeaTunnelRow, String, String> {
+        private final EngineRowErrorCollector collector;
+        private final boolean failOnFlush;
+        private final List<SeaTunnelRow> pendingRows = new ArrayList<>();
+
+        private DelayedCollectorReportingWriter(
+                EngineRowErrorCollector collector, boolean failOnFlush) {
+            this.collector = collector;
+            this.failOnFlush = failOnFlush;
+        }
+
+        @Override
+        public void write(SeaTunnelRow element) {
+            pendingRows.add(element);
+        }
+
+        private void timerFlush() throws Exception {
+            if (!failOnFlush) {
+                pendingRows.clear();
+                return;
+            }
+            for (SeaTunnelRow row : new ArrayList<>(pendingRows)) {
+                collector.collect(
+                        new RowErrorEvent(
+                                RowErrorPhase.FLUSH, null, row, new IOException("row error")));
+            }
+            pendingRows.clear();
         }
 
         @Override

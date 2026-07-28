@@ -81,10 +81,13 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.io.Serializable;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Deque;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -151,6 +154,8 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
     private transient RowErrorClassifier<T> stageRowErrorClassifier;
     private transient RowErrorCollector stageRowErrorCollector;
     private transient boolean multiTableTerminalOutcomeCallbackEnabled;
+    private transient boolean deferTerminalWriteOutcomes;
+    private final Deque<SeaTunnelRow> pendingTerminalWriteRows = new ArrayDeque<>();
 
     private final Counter stainTraceEventsReportedTotal;
     private final Counter stainTraceInvalidPayloadTotal;
@@ -243,6 +248,8 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
     public void close() throws IOException {
         super.close();
         writer.close();
+        drainCollectedTerminalWriteOutcomes();
+        flushDeferredTerminalWriteOutcomes();
         writerContext.getEventListener().onEvent(new WriterCloseEvent());
     }
 
@@ -352,6 +359,7 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
         } else {
             this.writer = sinkAction.getSink().restoreWriter(writerContext, states);
         }
+        this.deferTerminalWriteOutcomes = writerContext.isDeferredTerminalWriteOutcomesEnabled();
         wrapWriterIfNeed();
     }
 
@@ -432,7 +440,7 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                     (RowErrorClassifier<SeaTunnelRow>) classifier;
             multiTableSinkWriter.setWriteSuccessHandler(
                     row ->
-                            recordTerminalWriteOutcome(
+                            recordOrDeferTerminalWriteOutcome(
                                     row, ErrorHandlingSinkWriter.WriteOutcome.WRITTEN));
             multiTableTerminalOutcomeCallbackEnabled = true;
             multiTableSinkWriter.setRowErrorHandler(
@@ -446,6 +454,7 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
         ErrorHandlingSinkWriter<T, CommitInfoT, StateT> errorHandlingWriter =
                 new ErrorHandlingSinkWriter<>(this.writer, handler, classifier, pluginName);
         errorHandlingWriter.registerFlushAction(writerContext);
+        this.deferTerminalWriteOutcomes = writerContext.isDeferredTerminalWriteOutcomesEnabled();
         this.writer = errorHandlingWriter;
     }
 
@@ -504,9 +513,6 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
     private void processDataRecord(Record<?> record) throws IOException {
         boolean metricsEnabled = runningTask != null && runningTask.isObservabilityEnabled();
         long writeStartNs = metricsEnabled ? System.nanoTime() : 0L;
-        long collectedErrorsBeforeWrite = getCollectedErrorCount();
-        long routedErrorsBeforeWrite = getCollectedRoutedCount();
-        long droppedErrorsBeforeWrite = getCollectedDroppedCount();
         boolean asyncMultiTableWriter = isAsyncMultiTableWriter();
         ErrorHandlingSinkWriter.WriteOutcome writeOutcome;
         if (writer instanceof ErrorHandlingSinkWriter) {
@@ -517,21 +523,17 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
             writer.write((T) record.getData());
             writeOutcome = ErrorHandlingSinkWriter.WriteOutcome.WRITTEN;
         }
-        if (writeOutcome == ErrorHandlingSinkWriter.WriteOutcome.WRITTEN
-                && getCollectedErrorCount() > collectedErrorsBeforeWrite) {
-            writeOutcome =
-                    getCollectedDroppedCount() > droppedErrorsBeforeWrite
-                                    || getCollectedRoutedCount() == routedErrorsBeforeWrite
-                            ? ErrorHandlingSinkWriter.WriteOutcome.DROPPED
-                            : ErrorHandlingSinkWriter.WriteOutcome.ROUTED_TO_ERROR_SINK;
-        }
+        boolean currentRowAlreadyResolved = drainCollectedTerminalWriteOutcomes(record.getData());
         if (metricsEnabled) {
             sinkWriteNs.inc(System.nanoTime() - writeStartNs);
             sinkRecordsIn.inc();
         }
         if (!asyncMultiTableWriter
                 || writeOutcome != ErrorHandlingSinkWriter.WriteOutcome.WRITTEN) {
-            recordTerminalWriteOutcome(record.getData(), writeOutcome);
+            if (writeOutcome != ErrorHandlingSinkWriter.WriteOutcome.WRITTEN
+                    || !currentRowAlreadyResolved) {
+                recordOrDeferTerminalWriteOutcome(record.getData(), writeOutcome);
+            }
         }
     }
 
@@ -603,6 +605,71 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
         }
     }
 
+    private void recordOrDeferTerminalWriteOutcome(
+            Object data, ErrorHandlingSinkWriter.WriteOutcome writeOutcome) {
+        if (writeOutcome == ErrorHandlingSinkWriter.WriteOutcome.WRITTEN
+                && deferTerminalWriteOutcomes
+                && data instanceof SeaTunnelRow) {
+            synchronized (pendingTerminalWriteRows) {
+                pendingTerminalWriteRows.addLast((SeaTunnelRow) data);
+            }
+            return;
+        }
+        recordTerminalWriteOutcome(data, writeOutcome);
+    }
+
+    private boolean drainCollectedTerminalWriteOutcomes(Object currentData) {
+        if (!(stageRowErrorCollector instanceof EngineRowErrorCollector)) {
+            return false;
+        }
+        List<EngineRowErrorCollector.CollectedRowErrorOutcome> outcomes =
+                ((EngineRowErrorCollector) stageRowErrorCollector).drainTerminalOutcomes();
+        boolean currentRowAlreadyResolved = false;
+        for (EngineRowErrorCollector.CollectedRowErrorOutcome outcome : outcomes) {
+            if (outcome.getRow() == currentData) {
+                currentRowAlreadyResolved = true;
+            }
+            removePendingTerminalWriteRow(outcome.getRow());
+            recordTerminalWriteOutcome(outcome.getRow(), toWriteOutcome(outcome.getResult()));
+        }
+        return currentRowAlreadyResolved;
+    }
+
+    private void drainCollectedTerminalWriteOutcomes() {
+        drainCollectedTerminalWriteOutcomes(null);
+    }
+
+    private ErrorHandlingSinkWriter.WriteOutcome toWriteOutcome(
+            ErrorHandler.ErrorHandleResult result) {
+        return result == ErrorHandler.ErrorHandleResult.ROUTED_TO_ERROR_SINK
+                ? ErrorHandlingSinkWriter.WriteOutcome.ROUTED_TO_ERROR_SINK
+                : ErrorHandlingSinkWriter.WriteOutcome.DROPPED;
+    }
+
+    private void flushDeferredTerminalWriteOutcomes() {
+        List<SeaTunnelRow> writtenRows = new ArrayList<>();
+        synchronized (pendingTerminalWriteRows) {
+            while (!pendingTerminalWriteRows.isEmpty()) {
+                writtenRows.add(pendingTerminalWriteRows.removeFirst());
+            }
+        }
+        for (SeaTunnelRow row : writtenRows) {
+            recordTerminalWriteOutcome(row, ErrorHandlingSinkWriter.WriteOutcome.WRITTEN);
+        }
+    }
+
+    private void removePendingTerminalWriteRow(SeaTunnelRow row) {
+        synchronized (pendingTerminalWriteRows) {
+            Iterator<SeaTunnelRow> iterator = pendingTerminalWriteRows.iterator();
+            while (iterator.hasNext()) {
+                if (iterator.next() == row) {
+                    iterator.remove();
+                    return;
+                }
+            }
+        }
+    }
+
     private String resolveSinkTableId(SeaTunnelRow row) {
         if (this.sinkAction.getSink() instanceof MultiTableSink) {
             if (row.getTableId() == null || row.getTableId().isEmpty()) {
@@ -642,6 +709,8 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
         if (signal instanceof FlushSignal && writerContext.getFlushAction() != null) {
             try {
                 writerContext.getFlushAction().run();
+                drainCollectedTerminalWriteOutcomes();
+                flushDeferredTerminalWriteOutcomes();
                 flushSignalSinkSuccessTotal.inc();
                 flushSignalSinkQPS.markEvent();
             } catch (Exception e) {
@@ -663,6 +732,8 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
             try {
                 long prepareStartNs = metricsEnabled ? System.nanoTime() : 0L;
                 lastCommitInfo = writer.prepareCommit(barrier.getId());
+                drainCollectedTerminalWriteOutcomes();
+                flushDeferredTerminalWriteOutcomes();
                 prepared = true;
                 if (metricsEnabled) {
                     sinkPrepareCommitNs.inc(System.nanoTime() - prepareStartNs);

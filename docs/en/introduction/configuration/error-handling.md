@@ -239,7 +239,7 @@ Configure where error records should be written under `..._error_handler.sink`:
 
 In addition, the error sink also needs to configure the regular parameters of each Connector, such as JDBC's `url`, `username`, `password`, `driver`, etc., written exactly the same as a normal Sink.
 
-If `mode = ROUTE` but no `sink { ... }` is configured (or `plugin_name` is empty), row-level errors will be identified and logged, but since there is no available error sink, error records will not be written to the error table.
+If `mode = ROUTE`, `sink.plugin_name` must be configured. When `sink { ... }` is missing or `plugin_name` is empty, the job fails fast during configuration parsing because there is no error sink that can receive routed records.
 
 ### Error Table Structure
 

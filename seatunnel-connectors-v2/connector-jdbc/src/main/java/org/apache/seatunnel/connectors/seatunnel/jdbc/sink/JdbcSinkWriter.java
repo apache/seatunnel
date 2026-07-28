@@ -100,6 +100,9 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
         if (rowErrorCollector.isPresent()) {
             // Only maintain pending rows when collector is available.
             this.pendingRows = new ArrayList<>(Math.max(this.batchSize, 16));
+            if (context != null) {
+                context.enableDeferredTerminalWriteOutcomes();
+            }
         }
         this.connectionProvider =
                 dialect.getJdbcConnectionProvider(jdbcSinkConfig.getJdbcConnectionConfig());

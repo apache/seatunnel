@@ -37,6 +37,7 @@ public class SinkWriterContext implements SinkWriter.Context {
     private final EventListener eventListener;
     private final transient RowErrorCollector rowErrorCollector;
     private transient volatile RunnableWithException flushAction;
+    private transient volatile boolean deferredTerminalWriteOutcomesEnabled;
 
     public SinkWriterContext(
             int numberOfParallelSubtasks,
@@ -85,6 +86,16 @@ public class SinkWriterContext implements SinkWriter.Context {
     @Override
     public Optional<RowErrorCollector> getRowErrorCollector() {
         return Optional.ofNullable(rowErrorCollector);
+    }
+
+    @Override
+    public void enableDeferredTerminalWriteOutcomes() {
+        this.deferredTerminalWriteOutcomesEnabled = true;
+    }
+
+    @Override
+    public boolean isDeferredTerminalWriteOutcomesEnabled() {
+        return deferredTerminalWriteOutcomesEnabled;
     }
 
     @Override
