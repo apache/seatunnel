@@ -37,17 +37,9 @@ import java.util.Set;
 public class ServerExecuteCommandTest {
 
     @Test
-    @EnabledOnJre(value = JRE.JAVA_8, disabledReason = "the test case only works on Java 8")
-    public void testJavaVersionCheck() {
-        String realVersion = System.getProperty("java.version");
-        try {
-            System.setProperty("java.version", "1.8.0_191");
-            Assertions.assertFalse(ServerExecuteCommand.isAllocatingThreadGetName());
-            System.setProperty("java.version", "1.8.0_60");
-            Assertions.assertTrue(ServerExecuteCommand.isAllocatingThreadGetName());
-        } finally {
-            System.setProperty("java.version", realVersion);
-        }
+    @EnabledOnJre(value = {JRE.JAVA_11, JRE.JAVA_17})
+    public void testSupportedJavaVersionCheck() {
+        Assertions.assertFalse(ServerExecuteCommand.isUnsupportedJavaVersion());
     }
 
     @Test

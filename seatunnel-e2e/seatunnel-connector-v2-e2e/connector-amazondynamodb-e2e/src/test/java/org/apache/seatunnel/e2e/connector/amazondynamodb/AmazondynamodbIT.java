@@ -98,7 +98,7 @@ public class AmazondynamodbIT extends TestSuiteBase implements TestResource {
         Container.ExecResult execResult = container.executeJob(AMAZONDYNAMODB_JOB_CONFIG);
         Assertions.assertEquals(0, execResult.getExitCode());
         assertHasData(SOURCE_TABLE);
-        assertHasData(SINK_TABLE);
+        assertEventuallyHasData(SINK_TABLE);
         compareResult();
         clearSinkTable();
     }
@@ -172,6 +172,13 @@ public class AmazondynamodbIT extends TestSuiteBase implements TestResource {
                         ScanRequest.builder().tableName(tableName).consistentRead(true).build());
         Assertions.assertTrue(
                 !scan.items().isEmpty(), String.format("table %s is empty.", tableName));
+    }
+
+    private void assertEventuallyHasData(String tableName) {
+        given().ignoreExceptions()
+                .await()
+                .atMost(30, TimeUnit.SECONDS)
+                .untilAsserted(() -> assertHasData(tableName));
     }
 
     private void compareResult() {

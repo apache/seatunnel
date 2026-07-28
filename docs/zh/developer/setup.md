@@ -14,7 +14,7 @@
 在设置开发环境之前， 需要做一些准备工作， 确保你安装了以下软件：
 
 * 安装 [Git](https://git-scm.com/book/en/v2/Getting-Started-Installing-Git)。
-* 安装 [Java](https://www.java.com/en/download/) (目前只支持 JDK8/JDK11) 并且设置 `JAVA_HOME` 环境变量。
+* 安装 [Java](https://www.java.com/en/download/) (目前只支持 JDK11/JDK17) 并且设置 `JAVA_HOME` 环境变量。
 * 安装 [Scala](https://www.scala-lang.org/download/2.11.12.html) (目前只支持 scala 2.11.12)。
 * 安装 [JetBrains IDEA](https://www.jetbrains.com/idea/)。
 
@@ -122,4 +122,3 @@ sink {
   Console {}
 }
 ```
-

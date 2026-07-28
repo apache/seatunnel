@@ -11,7 +11,7 @@ import TabItem from '@theme/TabItem';
 
 Before starting to download SeaTunnel, you need to ensure that you have installed the following software required by SeaTunnel:
 
-* Install [Java](https://www.java.com/en/download/) (Java 8 or 11, and other versions higher than Java 8 can theoretically work) and set `JAVA_HOME`.
+* Install [Java](https://www.java.com/en/download/) (Java 11 or Java 17) and set `JAVA_HOME`.
 
 ## Step 2: Download SeaTunnel
 
