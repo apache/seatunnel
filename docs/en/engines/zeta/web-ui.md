@@ -34,19 +34,17 @@ http://<host>:8080/<context-path>/#/overview
 
 The Web UI of Apache SeaTunnel is a visual inspection console for SeaTunnel Engine. It helps operators view cluster overview data, running and finished jobs, job detail pages, logs, realtime DAG metrics, and the status of worker and master nodes.
 
-The current UI is focused on inspection. Lifecycle operations such as submitting, stopping, cancelling, savepoint, restoring, and batch automation are available through the [REST API](./rest-api-v2.md), [Job Lifecycle API](./rest-api-job-lifecycle.md), or command line.
-
 ![overview.png](../../../images/ui/overview.png)
 
 ## Capability Summary
 
-| UI area | Current capability | Use REST API or CLI for |
-|---------|--------------------|-------------------------|
-| Overview | View cluster version, slot usage, worker count, and job counts | Cluster configuration changes |
-| Jobs | View running and finished jobs, paginate job lists, and open job details | Submit, stop, cancel, savepoint, restore, or batch-operate jobs |
-| Job Detail | View DAG, job metrics, exception text, job configuration, logs, and realtime observability data | Editing job configuration or changing job lifecycle state |
-| Workers | View worker-node system monitoring information | Updating worker tags or changing worker membership |
-| Master | View master-node system monitoring information | Changing security, HTTP, or cluster-level configuration |
+| UI area | Current capability |
+|---------|--------------------|
+| Overview | View cluster version, slot usage, worker count, and job counts |
+| Jobs | View running and finished jobs, paginate job lists, and open job details |
+| Job Detail | View DAG, job metrics, exception text, job configuration, logs, and realtime observability data |
+| Workers | View worker-node system monitoring information |
+| Master | View master-node system monitoring information |
 
 ## Jobs
 
@@ -54,7 +52,7 @@ The current UI is focused on inspection. Lifecycle operations such as submitting
 
 The "Running Jobs" section lists SeaTunnel jobs that are currently in execution. Users can view job ID, job name, creation time, status, and open a detail page for a specific job.
 
-The list refreshes periodically and supports pagination. It does not submit, stop, or cancel jobs from the UI.
+The list refreshes periodically and supports pagination.
 
 ![running.png](../../../images/ui/running.png)
 ![detail.png](../../../images/ui/detail.png)
@@ -82,8 +80,6 @@ This capability requires the job to enable `env.engine.observability` or configu
 
 The "Finished Jobs" section displays jobs that have reached a terminal state, such as finished, failed, cancelled, or savepoint done. Users can review historical records and open the detail page to inspect configuration, exception text, metrics retained by the engine, and logs.
 
-The current UI does not rerun finished jobs. To restart from a checkpoint or savepoint, use the [Job Lifecycle API](./rest-api-job-lifecycle.md) or command line.
-
 ![finished.png](../../../images/ui/finished.png)
 
 ## Workers
@@ -91,8 +87,6 @@ The current UI does not rerun finished jobs. To restart from a checkpoint or sav
 ### Workers Information
 
 The "Workers" section displays system monitoring information for worker nodes. Use it to inspect worker address, resource status, and runtime health signals exposed by the engine.
-
-The current UI is read-only for workers. To update node tags or integrate worker state into automation, use [RESTful API V2](./rest-api-v2.md).
 
 ![workers.png](../../../images/ui/workers.png)
 
@@ -102,22 +96,7 @@ The current UI is read-only for workers. To update node tags or integrate worker
 
 The "Master" section displays system monitoring information for master nodes. Use it to inspect the current master-side runtime state and resource signals exposed by the engine.
 
-The current UI does not edit HTTP, security, storage, scheduling, or other cluster-level configuration. Configure those settings in SeaTunnel configuration files and use the related REST API pages for runtime inspection.
-
 ![master.png](../../../images/ui/master.png)
-
-## Missing UI Operations
-
-For product planning, the most important capability gaps in the current Web UI are:
-
-- job submission from configuration text or uploaded files
-- graceful stop, force cancel, stop-with-savepoint, and restart-from-savepoint actions
-- checkpoint overview and checkpoint history views
-- connector option metadata browsing for dynamic form builders
-- worker tag update operations
-- security and HTTP configuration status checks
-
-Until those controls are added to the UI, treat REST API V2 and the command line as the operational control plane, and treat Web UI as the built-in visual inspection plane.
 
 ## Next Steps
 

@@ -73,8 +73,6 @@ The current Web UI is an inspection console. It provides:
 | Workers | View worker-node system monitoring information |
 | Master | View master-node system monitoring information |
 
-The current UI does not expose all REST operations as buttons or forms. For job submission, stop, cancel, savepoint, restore, bulk operations, connector option metadata, node-tag updates, checkpoint history queries, and production security settings, use [RESTful API V2](./rest-api-v2.md), [Job Lifecycle API](./rest-api-job-lifecycle.md), or the command line.
-
 See the screen-level walkthrough in [Web UI](./web-ui.md).
 
 ## Common REST API Scenarios

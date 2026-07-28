@@ -73,8 +73,6 @@ http://<host>:<port>/<context-path>/#/overview
 | Workers | 查看 worker 节点系统监控信息 |
 | Master | 查看 master 节点系统监控信息 |
 
-当前 UI 还没有把所有 REST 操作都做成按钮或表单。作业提交、停止、取消、savepoint、恢复、批量操作、connector option 元数据、节点 tag 更新、checkpoint history 查询和生产安全配置，仍建议通过 [RESTful API V2](./rest-api-v2.md)、[作业生命周期 API](./rest-api-job-lifecycle.md) 或命令行完成。
-
 界面级说明请继续查看 [Web UI](./web-ui.md)。
 
 ## REST API 的典型用途
