@@ -2,9 +2,9 @@
 sidebar_position: 1
 ---
 
-# HTTP 运维能力：REST API 与 Web UI
+# REST API 与 Web UI
 
-SeaTunnel Engine 通过同一个内嵌 HTTP 服务提供 REST API 和 Web UI。本页是 HTTP 运维能力的入口页，用于帮助你判断应该开启哪个能力、接下来阅读哪篇文档，以及当前 Web UI 支持哪些运维操作。
+SeaTunnel Engine 通过 REST API 和 Web UI 提供远程运维与可视化观测入口。本页说明两者的关系、如何开启共用的 HTTP 服务，以及下一步应该阅读哪些参考文档。
 
 ## 应该先看哪一页
 

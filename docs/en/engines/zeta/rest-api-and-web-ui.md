@@ -2,9 +2,9 @@
 sidebar_position: 1
 ---
 
-# HTTP Operations: REST API and Web UI
+# REST API and Web UI
 
-SeaTunnel Engine exposes REST API and Web UI through the same embedded HTTP service. This page is the orientation page for that HTTP operations surface. Use it to decide which interface to enable, which page to read next, and which operational actions are supported by the UI today.
+SeaTunnel Engine provides REST API and Web UI as the primary interfaces for remote operations and visual monitoring. This page explains how the two interfaces relate, how to enable the shared HTTP service, and where to find detailed reference pages.
 
 ## Which Page Should I Read?
 
@@ -26,7 +26,7 @@ REST API and Web UI are not separate services. Both depend on the same SeaTunnel
 
 Use the Web UI when you need a quick operational view. Use REST API or the command line when you need lifecycle control such as job submission, stop, cancel, savepoint, restore, or batch automation.
 
-## Enable The HTTP Service
+## Enable the HTTP Service
 
 Before using either interface, enable the HTTP service in `seatunnel.yaml`:
 
@@ -47,7 +47,7 @@ Optional settings commonly used in production:
 
 For the full REST parameter details, see [RESTful API V2](./rest-api-v2.md). For HTTPS and authentication, see [Security](./security.md).
 
-## Access Web UI
+## Access the Web UI
 
 Once HTTP is enabled, open:
 

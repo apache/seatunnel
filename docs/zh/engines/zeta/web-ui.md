@@ -2,7 +2,7 @@
 
 ## 从这里开始
 
-建议把 [HTTP 运维能力：REST API 与 Web UI](./rest-api-and-web-ui.md) 作为运维入口页先读完。那一页会先解释什么时候启用 HTTP 服务、接下来该看哪些 REST API 页面，以及 Web UI 在日常运维里的位置。
+建议把 [REST API 与 Web UI](./rest-api-and-web-ui.md) 作为运维入口页先读完。那一页会先解释什么时候启用 HTTP 服务、接下来该看哪些 REST API 页面，以及 Web UI 在日常运维里的位置。
 
 本页聚焦 Web UI 各个界面本身，以及当前内置控制台的能力边界。
 
@@ -101,7 +101,7 @@ Apache SeaTunnel 的 Web UI 是 SeaTunnel Engine 的可视化巡检控制台。�
 
 ## 下一步
 
-- [HTTP 运维能力：REST API 与 Web UI](./rest-api-and-web-ui.md)
+- [REST API 与 Web UI](./rest-api-and-web-ui.md)
 - [REST API V2](./rest-api-v2.md)
 - [作业生命周期 API](./rest-api-job-lifecycle.md)
 - [安全](./security.md)

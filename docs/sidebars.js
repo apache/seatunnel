@@ -251,7 +251,7 @@ const sidebars = {
                         "engines/zeta/resource-isolation",
                         {
                             "type": "category",
-                            "label": "HTTP Operations",
+                            "label": "REST API and Web UI",
                             "link": {
                                 "type": "doc",
                                 "id": "engines/zeta/rest-api-and-web-ui"

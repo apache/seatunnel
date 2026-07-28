@@ -2,7 +2,7 @@
 
 ## Start Here
 
-Use [HTTP Operations: REST API and Web UI](./rest-api-and-web-ui.md) as the main operations entry point. That page explains when to enable the HTTP service, which REST API pages to read next, and how Web UI fits into day-to-day operations.
+Use [REST API and Web UI](./rest-api-and-web-ui.md) as the main operations entry point. That page explains when to enable the HTTP service, which REST API pages to read next, and how Web UI fits into day-to-day operations.
 
 This page focuses on the Web UI screens themselves and the current capability boundary of the built-in console.
 
@@ -100,7 +100,7 @@ The "Master" section displays system monitoring information for master nodes. Us
 
 ## Next Steps
 
-- [HTTP Operations: REST API and Web UI](./rest-api-and-web-ui.md)
+- [REST API and Web UI](./rest-api-and-web-ui.md)
 - [REST API V2](./rest-api-v2.md)
 - [Job Lifecycle API](./rest-api-job-lifecycle.md)
 - [Security](./security.md)
