@@ -93,7 +93,12 @@ public class PythonSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> 
     private volatile boolean stderrShutdownRequested;
     /** Prevents duplicate bounded-source completion signals across later poll calls. */
     private volatile boolean processExitVerified;
-    /** Persistent deadline for stdout EOF after the direct process exits. */
+    /**
+     * Immutable deadline for draining inherited stdout after the direct Python process exits.
+     *
+     * <p>Child output must not renew this deadline, otherwise a periodic child process can keep a
+     * bounded source alive forever after the configured script has already exited.
+     */
     private volatile long stdoutCloseDeadlineNanos;
     /** Number of poll calls that must finish before close can release process resources. */
     private int activePolls;
@@ -188,8 +193,6 @@ public class PythonSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> 
                 checkPumpFailures();
                 return;
             }
-            stdoutCloseDeadlineNanos = 0L;
-
             synchronized (output.getCheckpointLock()) {
                 if (closeRequested) {
                     return;
@@ -430,7 +433,7 @@ public class PythonSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> 
     }
 
     private void finishIfProcessCompleted() throws Exception {
-        if (closeRequested || processExitVerified || !stdoutLines.isEmpty()) {
+        if (closeRequested || processExitVerified) {
             return;
         }
 
@@ -510,16 +513,21 @@ public class PythonSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> 
      *     continue or engine cancellation won the race
      */
     private boolean awaitStdoutPumpAfterProcessExit() throws IOException {
-        if (closeRequested || !isAlive(stdoutPumpThread)) {
-            return !closeRequested && stdoutLines.isEmpty();
-        }
-        if (!stdoutLines.isEmpty()) {
-            stdoutCloseDeadlineNanos = 0L;
+        if (closeRequested) {
             return false;
         }
         if (stdoutCloseDeadlineNanos == 0L) {
             stdoutCloseDeadlineNanos =
                     System.nanoTime() + TimeUnit.SECONDS.toNanos(PROCESS_DESTROY_TIMEOUT_SECONDS);
+        }
+        if (!isAlive(stdoutPumpThread)) {
+            return !closeRequested && stdoutLines.isEmpty();
+        }
+        if (!stdoutLines.isEmpty()) {
+            if (System.nanoTime() >= stdoutCloseDeadlineNanos) {
+                throw inheritedStdoutTimeout();
+            }
+            return false;
         }
 
         long remainingNanos = stdoutCloseDeadlineNanos - System.nanoTime();
@@ -542,7 +550,9 @@ public class PythonSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> 
             return false;
         }
         if (!stdoutLines.isEmpty()) {
-            stdoutCloseDeadlineNanos = 0L;
+            if (System.nanoTime() >= stdoutCloseDeadlineNanos) {
+                throw inheritedStdoutTimeout();
+            }
             return false;
         }
         if (isAlive(stdoutPumpThread)) {

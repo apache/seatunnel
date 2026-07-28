@@ -21,9 +21,15 @@ import tempfile
 
 def main():
     sys.stdin.readline()
-    subprocess.Popen(
-        [sys.executable, "-c", "import time; time.sleep(10)"], cwd=tempfile.gettempdir()
+    child_code = (
+        "import time\n"
+        "index = 0\n"
+        "while index < 20:\n"
+        "    print(f'{index + 2},python_child_{index}', flush=True)\n"
+        "    index += 1\n"
+        "    time.sleep(1)\n"
     )
+    subprocess.Popen([sys.executable, "-c", child_code], cwd=tempfile.gettempdir())
     print("1,python_1", flush=True)
 
 

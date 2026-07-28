@@ -630,6 +630,34 @@ class PythonSourceTest {
         Mockito.verify(readerContext, Mockito.never()).signalNoMoreElement();
     }
 
+    // Periodic child output must not renew the post-exit stdout drain deadline.
+    @Test
+    void testPeriodicChildOutputCannotRenewInheritedStdoutDeadline() throws Exception {
+        String pythonExecutable = requirePythonExecutable();
+        Path scriptPath = copyResource("python/spawn_periodic_stdout_child_then_exit.py");
+        SingleSplitReaderContext readerContext = Mockito.mock(SingleSplitReaderContext.class);
+        PythonSourceReader reader =
+                createReader(
+                        new PythonSource(
+                                ReadonlyConfig.fromMap(
+                                        baseConfig(pythonExecutable, scriptPath.toString()))),
+                        readerContext);
+        RecordingCollector collector = new RecordingCollector();
+
+        reader.open();
+        try {
+            IOException exception =
+                    Assertions.assertTimeoutPreemptively(
+                            Duration.ofSeconds(8), () -> pollUntilIOException(reader, collector));
+            Assertions.assertTrue(exception.getMessage().contains("child processes"));
+            Assertions.assertFalse(collector.rows.isEmpty());
+        } finally {
+            reader.close();
+        }
+
+        Mockito.verify(readerContext, Mockito.never()).signalNoMoreElement();
+    }
+
     private PythonSourceReader createReader(PythonSource source) {
         return createReader(source, Mockito.mock(SingleSplitReaderContext.class));
     }
