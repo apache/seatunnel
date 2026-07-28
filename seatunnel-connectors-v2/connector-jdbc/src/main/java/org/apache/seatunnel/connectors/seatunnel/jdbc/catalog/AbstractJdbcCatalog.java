@@ -175,16 +175,26 @@ public abstract class AbstractJdbcCatalog implements Catalog {
 
     @Override
     public void close() throws CatalogException {
+        CatalogException closeException = null;
         for (Map.Entry<String, Connection> entry : connectionMap.entrySet()) {
             try {
                 entry.getValue().close();
             } catch (SQLException e) {
-                throw new CatalogException(
-                        String.format("Failed to close %s via JDBC.", entry.getKey()), e);
+                CatalogException currentException =
+                        new CatalogException(
+                                String.format("Failed to close %s via JDBC.", entry.getKey()), e);
+                if (closeException == null) {
+                    closeException = currentException;
+                } else {
+                    closeException.addSuppressed(currentException);
+                }
             }
         }
         connectionMap.clear();
         LOG.info("Catalog {} closing", catalogName);
+        if (closeException != null) {
+            throw closeException;
+        }
     }
 
     protected String getSelectColumnsSql(TablePath tablePath) {
