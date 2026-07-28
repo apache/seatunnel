@@ -789,6 +789,30 @@ public class CoordinatorServiceTest {
     }
 
     @Test
+    void testEnumeratorTaskGroupsArePlacedOnAssignedWorkers() throws Exception {
+        Address firstWorker = new Address("127.0.0.1", 5801);
+        Address secondWorker = new Address("127.0.0.1", 5802);
+        TaskGroupLocation firstGroup = new TaskGroupLocation(1L, 1, 1L);
+        TaskGroupLocation secondGroup = new TaskGroupLocation(1L, 1, 2L);
+        TaskGroupLocation thirdGroup = new TaskGroupLocation(1L, 2, 1L);
+        Map<Address, List<TaskGroupLocation>> taskGroupsByWorker = new HashMap<>();
+
+        CoordinatorService.addEnumeratorTaskGroup(
+                taskGroupsByWorker, firstGroup, new SlotProfile(firstWorker, 1, null, "slot-1"));
+        CoordinatorService.addEnumeratorTaskGroup(
+                taskGroupsByWorker, secondGroup, new SlotProfile(firstWorker, 2, null, "slot-2"));
+        CoordinatorService.addEnumeratorTaskGroup(
+                taskGroupsByWorker, thirdGroup, new SlotProfile(secondWorker, 1, null, "slot-3"));
+        CoordinatorService.addEnumeratorTaskGroup(taskGroupsByWorker, thirdGroup, null);
+
+        Assertions.assertEquals(
+                Arrays.asList(firstGroup, secondGroup), taskGroupsByWorker.get(firstWorker));
+        Assertions.assertEquals(
+                Collections.singletonList(thirdGroup), taskGroupsByWorker.get(secondWorker));
+        Assertions.assertEquals(2, taskGroupsByWorker.size());
+    }
+
+    @Test
     void testForceStopRunningJob() {
         JobInformation jobInformation =
                 submitJob(

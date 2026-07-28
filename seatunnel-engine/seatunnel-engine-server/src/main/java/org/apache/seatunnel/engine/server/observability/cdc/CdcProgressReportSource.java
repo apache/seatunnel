@@ -20,16 +20,27 @@ package org.apache.seatunnel.engine.server.observability.cdc;
 import org.apache.seatunnel.api.cdc.CdcProgressReport;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 
-/** Engine task capability for collecting connector-owned CDC progress facts. */
+/**
+ * Engine task capability for collecting connector-owned CDC progress facts.
+ *
+ * <p>Implementations expose stable task and source-vertex identity for their full execution
+ * attempt. Report collection must be non-blocking and thread-safe. The runtime adds attempt-local
+ * ordering and removes reports when the owning pipeline is cleaned up.
+ */
 public interface CdcProgressReportSource<R extends CdcProgressReport> {
 
+    /** Returns the runtime component that owns the report payload. */
     CdcProgressOwner getCdcProgressOwner();
 
+    /** Returns the latest immutable report, or {@code null} when none is available. */
     R getCdcProgressReport();
 
+    /** Returns the stable physical task identity for the current execution attempt. */
     TaskLocation getTaskLocation();
 
+    /** Returns the logical source vertex represented by this report source. */
     long getCdcProgressSourceVertexId();
 
+    /** Returns the next monotonically increasing sequence within this execution attempt. */
     long nextCdcProgressSequence();
 }

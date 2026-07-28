@@ -19,10 +19,21 @@ package org.apache.seatunnel.api.cdc;
 
 import org.apache.seatunnel.api.annotation.Experimental;
 
-/** Non-blocking capability for reading the latest immutable connector-owned CDC progress. */
+/**
+ * Non-blocking capability for reading the latest immutable connector-owned CDC progress.
+ *
+ * <p>Implementations must return an already-maintained snapshot. Collection can run concurrently
+ * with reader or enumerator lifecycle callbacks, so this method must be thread-safe and must not
+ * perform source, network, checkpoint, or other blocking I/O. Returning {@code null} means that no
+ * report is currently available.
+ */
 @Experimental
 public interface CdcProgressProvider<R extends CdcProgressReport> {
 
-    /** Returns the latest local report without performing source or network I/O. */
+    /**
+     * Returns the latest local report, or {@code null} when one is not available yet.
+     *
+     * @return an immutable connector-owned report, or {@code null}
+     */
     R getCdcProgress();
 }

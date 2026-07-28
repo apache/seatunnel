@@ -80,7 +80,9 @@ import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.service.jar.ConnectorPackageService;
+import org.apache.seatunnel.engine.server.task.SourceSplitEnumeratorTask;
 import org.apache.seatunnel.engine.server.task.operation.CleanTaskGroupContextOperation;
+import org.apache.seatunnel.engine.server.task.operation.CollectCdcEnumeratorProgressOperation;
 import org.apache.seatunnel.engine.server.task.operation.GetMetricsOperation;
 import org.apache.seatunnel.engine.server.telemetry.metrics.entity.JobCounter;
 import org.apache.seatunnel.engine.server.telemetry.metrics.entity.ThreadPoolStatus;
@@ -1986,6 +1988,89 @@ public class CoordinatorService {
                         threadPoolStatus.getCompletedTaskCount(),
                         "taskCount",
                         threadPoolStatus.getTaskCount()));
+    }
+
+    /**
+     * Collects enumerator-owned CDC progress from task groups tracked by the active coordinator.
+     *
+     * <p>Enumerator tasks follow normal coordinator-task placement and may execute on any member.
+     * Their current locations are derived from the coordinator-owned slot map. After master
+     * failover, recovered job masters and slot assignments rebuild the collection set, so
+     * worker-local registration is not part of the ownership contract.
+     */
+    public void collectCdcEnumeratorProgress() {
+        if (!isCoordinatorActive()) {
+            return;
+        }
+
+        Map<Address, List<TaskGroupLocation>> taskGroupsByWorker = new HashMap<>();
+        runningJobMasterMap
+                .values()
+                .forEach(
+                        jobMaster ->
+                                jobMaster
+                                        .getPhysicalPlan()
+                                        .getPipelineList()
+                                        .forEach(
+                                                subPlan -> {
+                                                    Map<TaskGroupLocation, SlotProfile>
+                                                            pipelineSlots =
+                                                                    ownedSlotProfilesIMap.get(
+                                                                            subPlan
+                                                                                    .getPipelineLocation());
+                                                    if (pipelineSlots == null) {
+                                                        return;
+                                                    }
+                                                    subPlan.getCoordinatorVertexList().stream()
+                                                            .filter(
+                                                                    vertex ->
+                                                                            vertex.getTaskGroup()
+                                                                                    .getTasks()
+                                                                                    .stream()
+                                                                                    .anyMatch(
+                                                                                            SourceSplitEnumeratorTask
+                                                                                                            .class
+                                                                                                    ::isInstance))
+                                                            .forEach(
+                                                                    vertex -> {
+                                                                        addEnumeratorTaskGroup(
+                                                                                taskGroupsByWorker,
+                                                                                vertex
+                                                                                        .getTaskGroupLocation(),
+                                                                                pipelineSlots.get(
+                                                                                        vertex
+                                                                                                .getTaskGroupLocation()));
+                                                                    });
+                                                }));
+
+        taskGroupsByWorker.forEach(
+                (worker, taskGroupLocations) -> {
+                    try {
+                        NodeEngineUtil.sendOperationToMemberNode(
+                                        nodeEngine,
+                                        new CollectCdcEnumeratorProgressOperation(
+                                                taskGroupLocations),
+                                        worker)
+                                .get();
+                    } catch (Exception e) {
+                        logger.warning(
+                                String.format(
+                                        "Collect CDC enumerator progress from %s failed: %s",
+                                        worker, ExceptionUtils.getMessage(e)));
+                    }
+                });
+    }
+
+    static void addEnumeratorTaskGroup(
+            Map<Address, List<TaskGroupLocation>> taskGroupsByWorker,
+            TaskGroupLocation taskGroupLocation,
+            SlotProfile slot) {
+        if (slot == null || slot.getWorker() == null) {
+            return;
+        }
+        taskGroupsByWorker
+                .computeIfAbsent(slot.getWorker(), ignored -> new ArrayList<>())
+                .add(taskGroupLocation);
     }
 
     public void printJobDetailInfo() {

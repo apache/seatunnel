@@ -385,6 +385,7 @@ public class SeaTunnelServer
     private void printExecutionInfo() {
         coordinatorService.printExecutionInfo();
         if (coordinatorService.isCoordinatorActive() && this.isMasterNode()) {
+            coordinatorService.collectCdcEnumeratorProgress();
             coordinatorService.printJobDetailInfo();
         }
     }

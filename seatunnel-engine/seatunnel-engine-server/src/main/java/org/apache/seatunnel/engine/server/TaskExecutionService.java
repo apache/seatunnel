@@ -188,10 +188,6 @@ public class TaskExecutionService implements DynamicMetricsProvider {
     private final ConcurrentMap<TaskGroupLocation, TaskGroupContext> executionContexts =
             new ConcurrentHashMap<>();
 
-    /** Coordinator-task CDC progress sources, registered once when their task group is deployed. */
-    private final ConcurrentMap<TaskLocation, EnumeratorProgressSourceRegistration>
-            enumeratorProgressSources = new ConcurrentHashMap<>();
-
     /**
      * Cache of finished execution contexts, keyed by TaskGroupLocation. Contains context for tasks
      * that have completed but have not been cleaned up yet.
@@ -555,7 +551,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         return deployLocalTask(taskGroup, classLoaders, jars, 0L);
     }
 
-    private PassiveCompletableFuture<TaskExecutionState> deployLocalTask(
+    PassiveCompletableFuture<TaskExecutionState> deployLocalTask(
             @NonNull TaskGroup taskGroup,
             @NonNull ConcurrentHashMap<Long, ClassLoader> classLoaders,
             ConcurrentHashMap<Long, Collection<URL>> jars,
@@ -605,7 +601,6 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             executionContexts.put(
                     taskGroup.getTaskGroupLocation(),
                     new TaskGroupContext(taskGroup, executionId, classLoaders, jars));
-            registerEnumeratorProgressSources(tasks, executionId);
             cancellationFutures.put(taskGroup.getTaskGroupLocation(), cancellationFuture);
             submitThreadShareTask(executionTracker, byCooperation.get(true));
             submitBlockingTask(executionTracker, byCooperation.get(false));
@@ -859,7 +854,6 @@ public class TaskExecutionService implements DynamicMetricsProvider {
 
     private void reportCdcProgress() {
         reportReaderCdcProgress();
-        collectEnumeratorCdcProgress();
     }
 
     private void reportReaderCdcProgress() {
@@ -890,37 +884,25 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         }
     }
 
-    private void collectEnumeratorCdcProgress() {
-        try {
-            List<CdcProgressEnvelope<?>> enumeratorReports = new ArrayList<>();
-            long observedAt = System.currentTimeMillis();
-            enumeratorProgressSources
-                    .values()
-                    .forEach(
-                            registration ->
-                                    collectCdcProgress(
-                                            registration.source,
-                                            registration.executionAttemptId,
-                                            observedAt,
-                                            enumeratorReports));
-
-            if (enumeratorReports.isEmpty()) {
-                return;
+    /**
+     * Collects enumerator reports requested by the active coordinator.
+     *
+     * <p>The caller supplies the task groups currently assigned to this worker. Collection reads
+     * only immutable, non-blocking provider snapshots and preserves the execution attempt stored
+     * with each active task group. Reports are returned to the coordinator by the requesting
+     * operation; this method performs no network I/O.
+     */
+    public List<CdcProgressEnvelope<?>> collectEnumeratorCdcProgress(
+            Collection<TaskGroupLocation> taskGroupLocations) {
+        List<CdcProgressEnvelope<?>> reports = new ArrayList<>();
+        long observedAt = System.currentTimeMillis();
+        for (TaskGroupLocation taskGroupLocation : taskGroupLocations) {
+            TaskGroupContext context = executionContexts.get(taskGroupLocation);
+            if (context != null) {
+                collectCdcProgress(context, CdcProgressOwner.ENUMERATOR, observedAt, reports);
             }
-
-            if (nodeEngine.getThisAddress().equals(nodeEngine.getMasterAddress())) {
-                SeaTunnelServer seaTunnelServer =
-                        nodeEngine.getService(SeaTunnelServer.SERVICE_NAME);
-                seaTunnelServer.getCdcProgressService().updateReports(enumeratorReports);
-            } else {
-                reportCdcProgressToMaster(enumeratorReports);
-            }
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            logger.warning("CDC enumerator progress reporting interrupted", e);
-        } catch (Exception e) {
-            logger.warning("CDC enumerator progress reporting failed", e);
         }
+        return reports;
     }
 
     private void collectCdcProgress(
@@ -956,28 +938,6 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                         source.nextCdcProgressSequence(),
                         observedAt,
                         report));
-    }
-
-    private void registerEnumeratorProgressSources(
-            Collection<Task> tasks, long executionAttemptId) {
-        for (Task task : tasks) {
-            if (task instanceof CdcProgressReportSource) {
-                CdcProgressReportSource<?> source = (CdcProgressReportSource<?>) task;
-                if (source.getCdcProgressOwner() == CdcProgressOwner.ENUMERATOR) {
-                    enumeratorProgressSources.put(
-                            source.getTaskLocation(),
-                            new EnumeratorProgressSourceRegistration(source, executionAttemptId));
-                }
-            }
-        }
-    }
-
-    private void removeEnumeratorProgressSources(TaskGroupLocation taskGroupLocation) {
-        enumeratorProgressSources
-                .keySet()
-                .removeIf(
-                        taskLocation ->
-                                taskLocation.getTaskGroupLocation().equals(taskGroupLocation));
     }
 
     private void reportCdcProgressToMaster(List<? extends CdcProgressEnvelope<?>> reports)
@@ -1547,7 +1507,6 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 recycleClassLoader(taskGroupLocation);
                 finishedExecutionContexts.put(
                         taskGroupLocation, executionContexts.remove(taskGroupLocation));
-                removeEnumeratorProgressSources(taskGroupLocation);
                 cancellationFutures.remove(taskGroupLocation);
                 try {
                     cancelAsyncFunction(taskGroupLocation);
@@ -1604,17 +1563,6 @@ public class TaskExecutionService implements DynamicMetricsProvider {
 
         boolean executionCompletedExceptionally() {
             return executionException.get() != null;
-        }
-    }
-
-    private static final class EnumeratorProgressSourceRegistration {
-        private final CdcProgressReportSource<?> source;
-        private final long executionAttemptId;
-
-        private EnumeratorProgressSourceRegistration(
-                CdcProgressReportSource<?> source, long executionAttemptId) {
-            this.source = source;
-            this.executionAttemptId = executionAttemptId;
         }
     }
 

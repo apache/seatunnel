@@ -156,6 +156,22 @@ class ReportCdcProgressOperationSerializationTest {
     }
 
     @Test
+    void testEnumeratorCollectionRequestIsPreservedAfterSerialization() {
+        TaskGroupLocation location = new TaskGroupLocation(1L, 2, 3L);
+        CollectCdcEnumeratorProgressOperation original =
+                new CollectCdcEnumeratorProgressOperation(Collections.singletonList(location));
+
+        Data data = serializationService.toData(original);
+        CollectCdcEnumeratorProgressOperation restored = serializationService.toObject(data);
+
+        List<?> taskGroupLocations =
+                ReflectionUtils.getField(restored, "taskGroupLocations")
+                        .map(field -> (List<?>) field)
+                        .orElseThrow(() -> new AssertionError("Missing taskGroupLocations field"));
+        Assertions.assertEquals(Collections.singletonList(location), taskGroupLocations);
+    }
+
+    @Test
     void testRejectsNegativeCollectionSize() throws IOException {
         BufferObjectDataOutput output = serializationService.createObjectDataOutput();
         output.writeInt(-1);

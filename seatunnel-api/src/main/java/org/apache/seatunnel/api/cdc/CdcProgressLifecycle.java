@@ -19,7 +19,7 @@ package org.apache.seatunnel.api.cdc;
 
 import org.apache.seatunnel.api.annotation.Experimental;
 
-/** Current lifecycle stage reported by a CDC reader or enumerator. */
+/** Current lifecycle stage observed and reported by a CDC reader. */
 @Experimental
 public enum CdcProgressLifecycle {
     /** Snapshot splits are being discovered, assigned, or read. */
