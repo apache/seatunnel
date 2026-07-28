@@ -33,4 +33,5 @@ public class InfluxDBSourceState implements Serializable {
     private static final long serialVersionUID = 7132198105704653582L;
     private boolean shouldEnumerate;
     private Map<Integer, List<InfluxDBSourceSplit>> pendingSplit;
+    private int assignCount;
 }
