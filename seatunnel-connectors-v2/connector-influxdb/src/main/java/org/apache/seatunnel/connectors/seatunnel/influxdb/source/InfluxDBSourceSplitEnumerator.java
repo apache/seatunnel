@@ -31,11 +31,14 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 @Slf4j
 public class InfluxDBSourceSplitEnumerator
@@ -44,6 +47,7 @@ public class InfluxDBSourceSplitEnumerator
     private final Context<InfluxDBSourceSplit> context;
     private final Map<Integer, List<InfluxDBSourceSplit>> pendingSplit;
     private final Object stateLock = new Object();
+    private final AtomicInteger assignCount = new AtomicInteger(0);
     private volatile boolean shouldEnumerate;
 
     public InfluxDBSourceSplitEnumerator(
@@ -62,6 +66,7 @@ public class InfluxDBSourceSplitEnumerator
         if (sourceState != null) {
             this.shouldEnumerate = sourceState.isShouldEnumerate();
             this.pendingSplit.putAll(sourceState.getPendingSplit());
+            this.assignCount.set(sourceState.getAssignCount());
         }
     }
 
@@ -85,11 +90,18 @@ public class InfluxDBSourceSplitEnumerator
     }
 
     @Override
-    public void addSplitsBack(List splits, int subtaskId) {
+    public void addSplitsBack(List<InfluxDBSourceSplit> splits, int subtaskId) {
         log.debug("Add back splits {} to InfluxDBSourceSplitEnumerator.", splits);
         if (!splits.isEmpty()) {
-            addPendingSplit(splits);
-            assignSplit(Collections.singletonList(subtaskId));
+            addPendingSplit(splits, subtaskId);
+            if (context.registeredReaders().contains(subtaskId)) {
+                assignSplit(Collections.singletonList(subtaskId));
+            } else {
+                log.warn(
+                        "Reader {} is not registered. Pending splits {} are not assigned.",
+                        subtaskId,
+                        splits);
+            }
         }
     }
 
@@ -109,7 +121,7 @@ public class InfluxDBSourceSplitEnumerator
     @Override
     public InfluxDBSourceState snapshotState(long checkpointId) {
         synchronized (stateLock) {
-            return new InfluxDBSourceState(shouldEnumerate, pendingSplit);
+            return new InfluxDBSourceState(shouldEnumerate, pendingSplit, assignCount.get());
         }
     }
 
@@ -181,11 +193,21 @@ public class InfluxDBSourceSplitEnumerator
 
     private void addPendingSplit(Collection<InfluxDBSourceSplit> splits) {
         int readerCount = context.currentParallelism();
-        for (InfluxDBSourceSplit split : splits) {
-            int ownerReader = getSplitOwner(split.splitId(), readerCount);
+
+        List<InfluxDBSourceSplit> sortedSplits =
+                splits.stream()
+                        .sorted(Comparator.comparing(InfluxDBSourceSplit::splitId))
+                        .collect(Collectors.toList());
+
+        for (InfluxDBSourceSplit split : sortedSplits) {
+            int ownerReader = getSplitOwner(assignCount.getAndIncrement(), readerCount);
             log.info("Assigning {} to {} reader.", split, ownerReader);
             pendingSplit.computeIfAbsent(ownerReader, r -> new ArrayList<>()).add(split);
         }
+    }
+
+    private void addPendingSplit(Collection<InfluxDBSourceSplit> splits, int ownerReader) {
+        pendingSplit.computeIfAbsent(ownerReader, r -> new ArrayList<>()).addAll(splits);
     }
 
     private void assignSplit(Collection<Integer> readers) {
@@ -209,8 +231,8 @@ public class InfluxDBSourceSplitEnumerator
         }
     }
 
-    private static int getSplitOwner(String tp, int numReaders) {
-        return (tp.hashCode() & Integer.MAX_VALUE) % numReaders;
+    private static int getSplitOwner(int currentAssignCount, int numReaders) {
+        return currentAssignCount % numReaders;
     }
 
     @Override
