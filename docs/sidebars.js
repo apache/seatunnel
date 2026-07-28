@@ -152,6 +152,8 @@ const sidebars = {
                     ]
                 },
                 "connectors/cdc-production-cookbook",
+                "connectors/type-schema-faq",
+                "connectors/file-object-storage-faq",
                 {
                     "type": "category",
                     "label": "Scenario Recipes",
@@ -191,6 +193,7 @@ const sidebars = {
                     ]
                 },
                 "transforms/recipes",
+                "transforms/transform-faq",
                 "transforms/calcite",
                 "transforms/calcite-udf",
                 "transforms/copy",
@@ -378,6 +381,7 @@ const sidebars = {
                 "developer/coding-guide",
                 "developer/test-coding-guide",
                 "developer/how-to-create-your-connector",
+                "developer/connector-runtime-boundaries",
                 "developer/source-connector-development",
                 "developer/sink-connector-development",
                 "developer/contribute-plugin",
