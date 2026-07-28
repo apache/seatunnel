@@ -1,0 +1,186 @@
+---
+sidebar_position: 4
+title: 动态 Lookup
+---
+
+# 动态 Lookup 架构
+
+## 1. 概述
+
+动态 Lookup 是 SeaTunnel Engine 原生的流式补全动作。它在同一个 SeaTunnel Engine 作业中把
+append-only 的事实流与 CDC 维表流关联起来，并输出补全后的结果表。
+
+首个支持范围有意收窄：
+
+- fact 侧必须是 append-only
+- dimension 侧必须拒绝主键更新
+- schema 变更必须 fail fast
+- fact 与 dimension 并行度必须相同
+- fact source 只能有一个 dynamic lookup 消费者
+- dimension bootstrap 边必须专用于该 lookup
+- 运行时依赖 SeaTunnel Engine checkpoint barrier 完成恢复
+
+Dynamic lookup 不是普通 Transform 插件。解析器会创建专用的 `DynamicLookupAction`，因为运行
+时需要协调两个 source 输入、source gate 打开时序、checkpoint intent 元数据和维表状态所有权。
+
+## 2. 基本配置
+
+`dynamic_lookup` 与 `source`、`transform`、`sink` 同级声明。
+
+```hocon
+env {
+  job.mode = "STREAMING"
+}
+
+source {
+  Kafka {
+    plugin_output = "orders_fact"
+    topic = "orders"
+    # 其他 Kafka 参数。
+  }
+
+  MySQL-CDC {
+    plugin_output = "customer_dimension"
+    # 其他 CDC 参数。
+  }
+}
+
+dynamic_lookup {
+  orders_with_customer {
+    plugin_output = "orders_enriched"
+
+    fact {
+      input = "orders_fact"
+      key = ["customer_id"]
+      changelog-mode = "APPEND_ONLY"
+      required-capability = ["FACT_SOURCE_GATE_V1"]
+    }
+
+    dimension {
+      input = "customer_dimension"
+      table = "customers"
+      key = ["id"]
+      primary-key-update = "FAIL"
+      required-capability = [
+        "ORDERED_BOOTSTRAP_V1",
+        "ATOMIC_UPDATE_PAIR_V1",
+        "PK_UPDATE_REJECT_V1"
+      ]
+    }
+
+    join {
+      type = "LEFT"
+      fields = [
+        "fact.order_id",
+        "fact.customer_id",
+        "fact.amount",
+        "dimension.name as customer_name",
+        "dimension.level as customer_level"
+      ]
+    }
+
+    schema-change {
+      behavior = "FAIL"
+    }
+
+    state {
+      backend = "DISK_BACKED"
+      ttl = "NONE"
+      max-concurrent-snapshots = 1
+    }
+
+    resource {
+      max-logical-state-bytes-per-subtask = "4gb"
+      max-resident-state-bytes-per-subtask = "512mb"
+      max-concurrent-snapshots = 1
+      required-backend-certified-max-sealed-snapshot-bytes = "4gb"
+      max-partial-upload-bytes-per-attempt = "2gb"
+      max-outstanding-uncommitted-attempts = 8
+      max-outstanding-uncommitted-bytes = "48gb"
+      local-disk-reservation = "73gb"
+      remote-staging-quota = "48gb"
+      min-checkpoint-start-interval = "60s"
+      max-abort-rate = "1/60s"
+      configured-abort-burst-count = 1
+      admitted-store-outage = "300s"
+      partial-upload-timeout = "300s"
+      partial-orphan-grace = "300s"
+      sealed-orphan-grace = "600s"
+      failover-margin = "60s"
+      clock-skew-margin = "10s"
+      max-reconcile-delay = "120s"
+      min-cleanup-throughput = "64mb/s"
+      checkpoint-progress-deadline = "300s"
+    }
+  }
+}
+
+sink {
+  Console {
+    plugin_input = "orders_enriched"
+  }
+}
+```
+
+## 3. Join 语义
+
+Dynamic lookup 支持两种 join 类型：
+
+| `join.type` | 行为 |
+|---|---|
+| `LEFT` | 每条 fact 记录都会输出。dimension key 不存在时，dimension 字段输出为 null。 |
+| `INNER` | 只有找到匹配 dimension 记录的 fact 记录才会输出。 |
+
+投影字段必须使用 `<side>.<field>` 语法，`side` 只能是 `fact` 或 `dimension`。字段别名使用
+`as`，例如 `dimension.name as customer_name`。
+
+输出表 schema 由投影字段生成。字段类型、可空性、精度、scale 以及其他列元数据从被选择的输入
+列复制而来。
+
+## 4. 运行时与恢复模型
+
+作业启动时，dimension 流先消费，fact 流暂不打开。fact source gate 会暂存 fact splits，直到
+checkpoint 把维表状态与 fact position 作为 durable anchor 记录下来。
+
+checkpoint 期间：
+
+1. fact 与 dimension 输入 barrier 按端口对齐
+2. 只有两个端口都到达同一个 checkpoint barrier 后，才 snapshot dimension state
+3. completed checkpoint 保存 dynamic lookup intent 元数据
+4. fact position 是否 durable 由已提交 checkpoint 内容推导，而不是依赖易失内存回调
+5. durable anchor checkpoint 完成后，fact gate 被打开
+
+恢复时，dynamic lookup state envelope 会通过稳定的 payload length 和 SHA-256 digest 校验后再
+使用。没有新 envelope 的 completed checkpoint 进入严格 legacy 路径。
+
+## 5. Source 能力要求
+
+fact source 必须声明 `FACT_SOURCE_GATE_V1`。首个实现为 Kafka 接入了该能力。gate 关闭期间，
+Kafka splits 会被暂存，并通过原生 reader state 路径参与 snapshot。durable anchor checkpoint
+完成后，engine 发送 open command，暂存 splits 只会被激活一次。
+
+dimension source 必须声明 ordered bootstrap 与 update-pair 能力。CDC incremental source 声明：
+
+- `ORDERED_BOOTSTRAP_V1`
+- `ATOMIC_UPDATE_PAIR_V1`
+- `PK_UPDATE_REJECT_V1`
+
+dynamic lookup runtime 会强制 `UPDATE_BEFORE` 与 `UPDATE_AFTER` 是同一个 key。主键更新会被当作
+作业失败错误处理。
+
+## 6. M1 限制
+
+首个实现会直接拒绝或限制这些场景：
+
+- dimension 侧主键更新
+- schema change event
+- append-only 以外的 fact changelog mode
+- fact 与 dimension 并行度不同
+- 同一个 fact source 被多个 dynamic lookup 消费
+- 非 dedicated dimension bootstrap edge
+- 无法证明所需精度的时间 key 类型
+- 单个 lookup subtask 超过一个并发 snapshot
+- 单个 subtask 的逻辑维表状态超过 4 GiB
+
+如果作业需要分支级 gate、远程多 channel exchange、temporal join、schema evolution 或维表主键
+重写，需要使用后续协议版本。
