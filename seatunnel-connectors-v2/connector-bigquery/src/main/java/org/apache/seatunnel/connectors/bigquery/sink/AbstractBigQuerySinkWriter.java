@@ -38,6 +38,8 @@ import org.json.JSONArray;
 import com.google.api.core.ApiFuture;
 import com.google.cloud.bigquery.storage.v1.AppendRowsResponse;
 import com.google.cloud.bigquery.storage.v1.BigQueryWriteClient;
+import com.google.cloud.bigquery.storage.v1.Exceptions;
+import com.google.cloud.bigquery.storage.v1.Exceptions.SchemaMismatchedException;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.concurrent.TimeUnit;
@@ -47,6 +49,11 @@ public abstract class AbstractBigQuerySinkWriter
         implements SinkWriter<SeaTunnelRow, BigQueryCommitInfo, BigQuerySinkState>,
                 SupportMultiTableSinkWriter<Void>,
                 SupportSchemaEvolutionSinkWriter {
+    private static final long SCHEMA_PROPAGATION_RETRY_TIMEOUT_MILLIS =
+            TimeUnit.MINUTES.toMillis(5);
+    private static final long SCHEMA_PROPAGATION_INITIAL_RETRY_DELAY_MILLIS = 1_000L;
+    private static final long SCHEMA_PROPAGATION_MAX_RETRY_DELAY_MILLIS = 10_000L;
+
     protected final ReadonlyConfig config;
     protected BigQuerySerializer serializer;
     protected final BigQueryWriteClient client;
@@ -56,6 +63,7 @@ public abstract class AbstractBigQuerySinkWriter
     protected final int batchSize;
     protected JSONArray buffer = new JSONArray();
     private BigQuerySchemaChangeManager schemaChangeManager;
+    private boolean storageSchemaPropagationPending;
 
     protected AbstractBigQuerySinkWriter(
             ReadonlyConfig readOnlyConfig,
@@ -86,8 +94,7 @@ public abstract class AbstractBigQuerySinkWriter
         buffer = new JSONArray();
 
         try {
-            ApiFuture<AppendRowsResponse> future = streamWriter.append(dataToSend);
-            future.get(60, TimeUnit.SECONDS);
+            appendRows(dataToSend);
             streamWriter.onAppendSuccess(dataToSend.length());
             log.info("Successfully appended {} rows.", dataToSend.length());
         } catch (InterruptedException e) {
@@ -98,6 +105,108 @@ public abstract class AbstractBigQuerySinkWriter
             buffer = dataToSend;
             throw new BigQueryConnectorException(BigQueryConnectorErrorCode.APPEND_ROWS_FAILED, e);
         }
+    }
+
+    /**
+     * Retries the first append after a schema change while the Storage Write API catches up with
+     * the table metadata. BigQuery can expose the new column through the REST API before the
+     * Storage Write API accepts rows using it.
+     */
+    protected AppendRowsResponse appendRows(JSONArray dataToSend) throws Exception {
+        if (!storageSchemaPropagationPending) {
+            ApiFuture<AppendRowsResponse> future = streamWriter.append(dataToSend);
+            return future.get(60, TimeUnit.SECONDS);
+        }
+
+        long retryDeadline = 0L;
+        int retryCount = 0;
+
+        while (true) {
+            try {
+                ApiFuture<AppendRowsResponse> future = streamWriter.append(dataToSend);
+                AppendRowsResponse response = future.get(60, TimeUnit.SECONDS);
+                if (storageSchemaPropagationPending && isSchemaMismatch(response)) {
+                    if (retryDeadline == 0L) {
+                        retryDeadline =
+                                System.currentTimeMillis()
+                                        + SCHEMA_PROPAGATION_RETRY_TIMEOUT_MILLIS;
+                    }
+                    if (!retrySchemaPropagation(retryDeadline, retryCount++, dataToSend.length())) {
+                        throw new BigQueryConnectorException(
+                                BigQueryConnectorErrorCode.APPEND_ROWS_FAILED,
+                                "BigQuery Storage Write API did not detect the updated table "
+                                        + "schema within 5 minutes: "
+                                        + response.getError().getMessage());
+                    }
+                    continue;
+                }
+                if (!response.hasError()) {
+                    storageSchemaPropagationPending = false;
+                }
+                return response;
+            } catch (InterruptedException e) {
+                throw e;
+            } catch (Exception e) {
+                if (!storageSchemaPropagationPending || !isSchemaMismatch(e)) {
+                    throw e;
+                }
+                if (retryDeadline == 0L) {
+                    retryDeadline =
+                            System.currentTimeMillis() + SCHEMA_PROPAGATION_RETRY_TIMEOUT_MILLIS;
+                }
+                if (!retrySchemaPropagation(retryDeadline, retryCount++, dataToSend.length())) {
+                    throw e;
+                }
+            }
+        }
+    }
+
+    private boolean retrySchemaPropagation(long retryDeadline, int retryCount, int rowCount)
+            throws InterruptedException {
+        long remainingMillis = retryDeadline - System.currentTimeMillis();
+        if (remainingMillis <= 0) {
+            return false;
+        }
+
+        long retryDelayMillis =
+                Math.min(
+                        SCHEMA_PROPAGATION_INITIAL_RETRY_DELAY_MILLIS << Math.min(retryCount, 4),
+                        SCHEMA_PROPAGATION_MAX_RETRY_DELAY_MILLIS);
+        retryDelayMillis = Math.min(retryDelayMillis, remainingMillis);
+        log.warn(
+                "BigQuery Storage Write API has not detected the updated table schema yet. "
+                        + "Retrying the same {} rows in {} ms.",
+                rowCount,
+                retryDelayMillis);
+        waitForSchemaPropagation(retryDelayMillis);
+        if (streamWriter.isClosed()) {
+            log.warn(
+                    "The BigQuery writer closed while waiting for schema propagation. "
+                            + "Recreating it before retrying.");
+            streamWriter = streamWriter.refreshSchema(client, config);
+        }
+        return true;
+    }
+
+    void waitForSchemaPropagation(long delayMillis) throws InterruptedException {
+        Thread.sleep(delayMillis);
+    }
+
+    private boolean isSchemaMismatch(AppendRowsResponse response) {
+        return response != null
+                && response.hasError()
+                && isSchemaMismatch(Exceptions.toStorageException(response.getError(), null));
+    }
+
+    private boolean isSchemaMismatch(Throwable throwable) {
+        Throwable current = throwable;
+        while (current != null) {
+            if (current instanceof SchemaMismatchedException) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 
     protected boolean flushOnClose() {
@@ -136,6 +245,7 @@ public abstract class AbstractBigQuerySinkWriter
         this.tableSchema = evolvedTableSchema;
         this.serializer = evolvedSerializer;
         this.streamWriter = evolvedWriter;
+        this.storageSchemaPropagationPending = true;
     }
 
     private BigQuerySchemaChangeManager getSchemaChangeManager() {

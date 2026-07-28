@@ -84,6 +84,11 @@ public class BigQueryStreamWriter implements BigQueryWriter {
     }
 
     @Override
+    public boolean isClosed() {
+        return streamWriter.isClosed();
+    }
+
+    @Override
     public void close() {
         streamWriter.close();
     }

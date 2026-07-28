@@ -29,7 +29,6 @@ import org.apache.seatunnel.connectors.bigquery.sink.writer.BigQueryWriter;
 
 import org.json.JSONArray;
 
-import com.google.api.core.ApiFuture;
 import com.google.api.gax.rpc.ApiException;
 import com.google.api.gax.rpc.StatusCode;
 import com.google.cloud.bigquery.storage.v1.AppendRowsResponse;
@@ -40,7 +39,6 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 
 @Slf4j
 public class BigQuerySinkBatchWriter extends AbstractBigQuerySinkWriter {
@@ -73,8 +71,7 @@ public class BigQuerySinkBatchWriter extends AbstractBigQuerySinkWriter {
         buffer = new JSONArray();
 
         try {
-            ApiFuture<AppendRowsResponse> future = streamWriter.append(dataToSend);
-            AppendRowsResponse response = future.get(60, TimeUnit.SECONDS);
+            AppendRowsResponse response = appendRows(dataToSend);
 
             if (response.hasError()) {
                 if (isAlreadyExists(response)) {

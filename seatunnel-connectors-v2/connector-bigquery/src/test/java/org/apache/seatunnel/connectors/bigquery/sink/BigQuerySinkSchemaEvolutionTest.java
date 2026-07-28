@@ -49,6 +49,7 @@ import com.google.cloud.bigquery.TableId;
 import com.google.cloud.bigquery.TableResult;
 import com.google.cloud.bigquery.storage.v1.AppendRowsResponse;
 import com.google.cloud.bigquery.storage.v1.BigQueryWriteClient;
+import com.google.cloud.bigquery.storage.v1.Exceptions.SchemaMismatchedException;
 
 import java.util.Arrays;
 import java.util.HashMap;
@@ -59,6 +60,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -121,6 +124,120 @@ class BigQuerySinkSchemaEvolutionTest {
         JSONObject writtenRow = rows.getValue().getJSONObject(0);
         assertEquals("alice@example.com", writtenRow.getString("email"));
         assertEquals("F", writtenRow.getString(SEQUENCE_NUM));
+    }
+
+    @Test
+    void testRetriesWithOpenWriterUntilStorageWriteApiDetectsSchemaChange() throws Exception {
+        Map<String, Object> options = new HashMap<>();
+        options.put(BigQuerySinkOptions.PROJECT_ID.key(), "test-project");
+        options.put(BigQuerySinkOptions.DATASET_ID.key(), "test_dataset");
+        options.put(BigQuerySinkOptions.TABLE_ID.key(), "test_table");
+        options.put(BigQuerySinkOptions.WRITE_MODE.key(), BigQuerySinkStreamWriter.STREAMING);
+        options.put(BigQuerySinkOptions.SCHEMA_EVOLUTION_ENABLED.key(), true);
+        options.put(BigQuerySinkOptions.BATCH_SIZE.key(), 1);
+        ReadonlyConfig config = ReadonlyConfig.fromMap(options);
+
+        TableSchema originalSchema = schema(column("id", BasicType.LONG_TYPE));
+        BigQueryWriter oldWriter = mock(BigQueryWriter.class);
+        BigQueryWriter staleSchemaWriter = mock(BigQueryWriter.class);
+        BigQueryWriteClient writeClient = mock(BigQueryWriteClient.class);
+        SchemaMismatchedException schemaMismatch = mock(SchemaMismatchedException.class);
+
+        when(oldWriter.refreshSchema(writeClient, config)).thenReturn(staleSchemaWriter);
+        when(staleSchemaWriter.append(any(JSONArray.class)))
+                .thenReturn(
+                        ApiFutures.immediateFailedFuture(schemaMismatch),
+                        ApiFutures.immediateFuture(AppendRowsResponse.getDefaultInstance()));
+
+        BigQuery bigQuery = mockBigQueryWithSchema();
+        BigQuerySinkStreamWriter sinkWriter =
+                new BigQuerySinkStreamWriter(
+                        config,
+                        oldWriter,
+                        new BigQuerySerializer(originalSchema.toPhysicalRowDataType(), config),
+                        originalSchema,
+                        writeClient) {
+                    @Override
+                    void waitForSchemaPropagation(long delayMillis) {
+                        // Avoid a real backoff in the unit test.
+                    }
+                };
+
+        AlterTableAddColumnEvent event =
+                AlterTableAddColumnEvent.add(SOURCE_TABLE, column("email", BasicType.STRING_TYPE));
+
+        try (MockedStatic<BigQueryClientFactory> clientFactory =
+                mockStatic(BigQueryClientFactory.class)) {
+            clientFactory
+                    .when(() -> BigQueryClientFactory.getBigQuery(any(ReadonlyConfig.class)))
+                    .thenReturn(bigQuery);
+
+            sinkWriter.applySchemaChange(event);
+            sinkWriter.write(new SeaTunnelRow(new Object[] {1L, "alice@example.com"}));
+        }
+
+        verify(staleSchemaWriter, times(2)).append(any(JSONArray.class));
+        verify(staleSchemaWriter, never()).refreshSchema(writeClient, config);
+        verify(staleSchemaWriter).onAppendSuccess(1);
+    }
+
+    @Test
+    void testRecreatesClosedWriterWhileWaitingForStorageSchema() throws Exception {
+        Map<String, Object> options = new HashMap<>();
+        options.put(BigQuerySinkOptions.PROJECT_ID.key(), "test-project");
+        options.put(BigQuerySinkOptions.DATASET_ID.key(), "test_dataset");
+        options.put(BigQuerySinkOptions.TABLE_ID.key(), "test_table");
+        options.put(BigQuerySinkOptions.WRITE_MODE.key(), BigQuerySinkStreamWriter.STREAMING);
+        options.put(BigQuerySinkOptions.SCHEMA_EVOLUTION_ENABLED.key(), true);
+        options.put(BigQuerySinkOptions.BATCH_SIZE.key(), 1);
+        ReadonlyConfig config = ReadonlyConfig.fromMap(options);
+
+        TableSchema originalSchema = schema(column("id", BasicType.LONG_TYPE));
+        BigQueryWriter oldWriter = mock(BigQueryWriter.class);
+        BigQueryWriter closedWriter = mock(BigQueryWriter.class);
+        BigQueryWriter recreatedWriter = mock(BigQueryWriter.class);
+        BigQueryWriteClient writeClient = mock(BigQueryWriteClient.class);
+        SchemaMismatchedException schemaMismatch = mock(SchemaMismatchedException.class);
+
+        when(oldWriter.refreshSchema(writeClient, config)).thenReturn(closedWriter);
+        when(closedWriter.append(any(JSONArray.class)))
+                .thenReturn(ApiFutures.immediateFailedFuture(schemaMismatch));
+        when(closedWriter.isClosed()).thenReturn(true);
+        when(closedWriter.refreshSchema(writeClient, config)).thenReturn(recreatedWriter);
+        when(recreatedWriter.append(any(JSONArray.class)))
+                .thenReturn(ApiFutures.immediateFuture(AppendRowsResponse.getDefaultInstance()));
+
+        BigQuery bigQuery = mockBigQueryWithSchema();
+        BigQuerySinkStreamWriter sinkWriter =
+                new BigQuerySinkStreamWriter(
+                        config,
+                        oldWriter,
+                        new BigQuerySerializer(originalSchema.toPhysicalRowDataType(), config),
+                        originalSchema,
+                        writeClient) {
+                    @Override
+                    void waitForSchemaPropagation(long delayMillis) {
+                        // Avoid a real backoff in the unit test.
+                    }
+                };
+
+        AlterTableAddColumnEvent event =
+                AlterTableAddColumnEvent.add(SOURCE_TABLE, column("email", BasicType.STRING_TYPE));
+
+        try (MockedStatic<BigQueryClientFactory> clientFactory =
+                mockStatic(BigQueryClientFactory.class)) {
+            clientFactory
+                    .when(() -> BigQueryClientFactory.getBigQuery(any(ReadonlyConfig.class)))
+                    .thenReturn(bigQuery);
+
+            sinkWriter.applySchemaChange(event);
+            sinkWriter.write(new SeaTunnelRow(new Object[] {1L, "alice@example.com"}));
+        }
+
+        verify(closedWriter).append(any(JSONArray.class));
+        verify(closedWriter).refreshSchema(writeClient, config);
+        verify(recreatedWriter).append(any(JSONArray.class));
+        verify(recreatedWriter).onAppendSuccess(1);
     }
 
     private static BigQuery mockBigQueryWithSchema() throws InterruptedException {

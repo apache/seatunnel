@@ -34,6 +34,11 @@ public interface BigQueryWriter {
 
     default void onAppendSuccess(int rowCount) {}
 
+    /** Returns whether the underlying JSON stream writer can no longer accept appends. */
+    default boolean isClosed() {
+        return false;
+    }
+
     void close();
 
     String getStreamName();
