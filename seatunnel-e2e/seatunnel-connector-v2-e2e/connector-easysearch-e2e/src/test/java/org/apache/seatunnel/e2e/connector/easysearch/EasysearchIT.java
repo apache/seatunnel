@@ -109,6 +109,7 @@ public class EasysearchIT extends TestSuiteBase implements TestResource {
         Awaitility.given()
                 .ignoreExceptions()
                 .atLeast(5L, TimeUnit.SECONDS)
+                .pollDelay(5L, TimeUnit.SECONDS)
                 .pollInterval(1L, TimeUnit.SECONDS)
                 .atMost(120L, TimeUnit.SECONDS)
                 .untilAsserted(this::initConnection);

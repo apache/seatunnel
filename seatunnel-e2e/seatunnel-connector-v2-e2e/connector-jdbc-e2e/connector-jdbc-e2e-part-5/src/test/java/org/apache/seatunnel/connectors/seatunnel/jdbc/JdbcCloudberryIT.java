@@ -27,14 +27,12 @@ import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
-import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.images.PullPolicy;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 
 import java.io.IOException;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -133,8 +131,6 @@ public class JdbcCloudberryIT extends AbstractJdbcIT {
                 new GenericContainer<>(imageName)
                         .withNetwork(NETWORK)
                         .withNetworkAliases(CLOUDBERRY_CONTAINER_HOST)
-                        .waitingFor(
-                                Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(5)))
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(CLOUDBERRY_IMAGE)))
@@ -143,6 +139,8 @@ public class JdbcCloudberryIT extends AbstractJdbcIT {
         // Mount cgroup volume
         container.addFileSystemBind("/sys/fs/cgroup", "/sys/fs/cgroup", BindMode.READ_ONLY);
         container.addExposedPort(CLOUDBERRY_CONTAINER_PORT);
+        // The database is started by beforeStartUP(), so its port cannot be ready yet.
+        container.setWaitStrategy(null);
         return container;
     }
 

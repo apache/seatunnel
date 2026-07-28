@@ -163,6 +163,9 @@ public class DorisCatalogIT extends AbstractDorisIT {
                         new HashMap<String, Object>() {
                             {
                                 put(DorisBaseOptions.FENODES.key(), getFrontendNodes());
+                                put(
+                                        DorisBaseOptions.QUERY_PORT.key(),
+                                        container.getMappedPort(QUERY_PORT));
                                 put(DorisBaseOptions.USERNAME.key(), USERNAME);
                                 put(DorisBaseOptions.PASSWORD.key(), PASSWORD);
                             }
@@ -174,6 +177,9 @@ public class DorisCatalogIT extends AbstractDorisIT {
                         new HashMap<String, Object>() {
                             {
                                 put(DorisBaseOptions.FENODES.key(), getFrontendNodes());
+                                put(
+                                        DorisBaseOptions.QUERY_PORT.key(),
+                                        container.getMappedPort(QUERY_PORT));
                                 put(DorisBaseOptions.DATABASE.key(), "test2");
                                 put(DorisBaseOptions.TABLE.key(), "test2");
                                 put(DorisBaseOptions.USERNAME.key(), USERNAME);
@@ -187,6 +193,9 @@ public class DorisCatalogIT extends AbstractDorisIT {
                         new HashMap<String, Object>() {
                             {
                                 put(DorisBaseOptions.FENODES.key(), getFrontendNodes());
+                                put(
+                                        DorisBaseOptions.QUERY_PORT.key(),
+                                        container.getMappedPort(QUERY_PORT));
                                 put(DorisSinkOptions.TABLE_IDENTIFIER.key(), "test3.test3");
                                 put(DorisBaseOptions.USERNAME.key(), USERNAME);
                                 put(DorisBaseOptions.PASSWORD.key(), PASSWORD);
@@ -199,6 +208,9 @@ public class DorisCatalogIT extends AbstractDorisIT {
                         new HashMap<String, Object>() {
                             {
                                 put(DorisBaseOptions.FENODES.key(), getFrontendNodes());
+                                put(
+                                        DorisBaseOptions.QUERY_PORT.key(),
+                                        container.getMappedPort(QUERY_PORT));
                                 put(DorisBaseOptions.DATABASE.key(), "test5");
                                 put(DorisBaseOptions.TABLE.key(), "${table_name}");
                                 put(DorisBaseOptions.USERNAME.key(), USERNAME);
@@ -212,6 +224,9 @@ public class DorisCatalogIT extends AbstractDorisIT {
                         new HashMap<String, Object>() {
                             {
                                 put(DorisBaseOptions.FENODES.key(), getFrontendNodes());
+                                put(
+                                        DorisBaseOptions.QUERY_PORT.key(),
+                                        container.getMappedPort(QUERY_PORT));
                                 put(DorisBaseOptions.DATABASE.key(), "test4");
                                 put(DorisBaseOptions.TABLE.key(), "test4");
                                 put(DorisBaseOptions.USERNAME.key(), USERNAME);
@@ -273,6 +288,9 @@ public class DorisCatalogIT extends AbstractDorisIT {
                         new HashMap<String, Object>() {
                             {
                                 put(DorisBaseOptions.FENODES.key(), getFrontendNodes());
+                                put(
+                                        DorisBaseOptions.QUERY_PORT.key(),
+                                        container.getMappedPort(QUERY_PORT));
                                 put(DorisBaseOptions.DATABASE.key(), "test");
                                 put(DorisBaseOptions.TABLE.key(), "unbounded_string");
                                 put(DorisBaseOptions.USERNAME.key(), USERNAME);
