@@ -89,6 +89,15 @@ public class OracleIncrementalSource<T> extends IncrementalSource<T, JdbcSourceC
         return getOracleStartupConfig(config);
     }
 
+    /**
+     * Builds the startup configuration for Oracle CDC. A specific SCN is mapped to the standard
+     * {@link RedoLogOffset} structure. Generic file and position offsets are rejected because they
+     * do not apply to Oracle. The initial {@code commit_scn=0} and {@code lcr_position=null} values
+     * intentionally match the offset shape expected by the existing Oracle offset loader.
+     *
+     * @param config connector configuration
+     * @return the Oracle startup configuration
+     */
     static StartupConfig getOracleStartupConfig(ReadonlyConfig config) {
         StartupMode startupMode = config.get(OracleIncrementalSourceOptions.STARTUP_MODE);
         Optional<Long> startupSpecificOffsetScn =
