@@ -22,12 +22,14 @@ import org.apache.seatunnel.shade.com.google.common.hash.Hashing;
 import org.apache.seatunnel.common.exception.CommonErrorCode;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
+import org.apache.seatunnel.common.utils.EncodingUtils;
 import org.apache.seatunnel.transform.exception.TransformException;
 import org.apache.seatunnel.transform.sql.zeta.ZetaSQLFunction;
 
 import org.apache.groovy.parser.antlr4.util.StringUtils;
 
 import java.lang.reflect.Array;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -36,6 +38,7 @@ import java.time.ZoneOffset;
 import java.time.temporal.Temporal;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -187,6 +190,46 @@ public class StringFunction {
             buff.append(hex);
         }
         return buff.toString();
+    }
+
+    public static String toBase64(List<Object> args) {
+        if (args.size() > 2) {
+            throw new IllegalArgumentException("TO_BASE64 requires one or two arguments");
+        }
+        Object arg = args.get(0);
+        if (arg == null) {
+            return null;
+        }
+        if (arg instanceof byte[]) {
+            if (args.size() == 2) {
+                throw new IllegalArgumentException(
+                        "TO_BASE64 does not support charset for bytes input");
+            }
+            return Base64.getEncoder().encodeToString((byte[]) arg);
+        }
+        Charset charset = getBase64Charset(args);
+        return Base64.getEncoder().encodeToString(arg.toString().getBytes(charset));
+    }
+
+    public static String fromBase64(List<Object> args) {
+        if (args.size() > 2) {
+            throw new IllegalArgumentException("FROM_BASE64 requires one or two arguments");
+        }
+        Object arg = args.get(0);
+        if (arg == null) {
+            return null;
+        }
+        Charset charset = getBase64Charset(args);
+        try {
+            return new String(Base64.getDecoder().decode(arg.toString()), charset);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Invalid Base64 content", e);
+        }
+    }
+
+    private static Charset getBase64Charset(List<Object> args) {
+        String charsetName = args.size() == 2 ? (String) args.get(1) : null;
+        return EncodingUtils.tryParseCharset(charsetName);
     }
 
     public static String insert(List<Object> args) {

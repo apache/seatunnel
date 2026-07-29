@@ -128,6 +128,14 @@ seatunnel:
     history-job-expire-minutes: 1440
 ```
 
+SeaTunnel 还会在分布式 Map 中短暂保留终态作业状态，然后再统一删除。这个保留窗口由 `state-cleanup-delay-ms` 控制，默认值是 `60000` 毫秒。短暂保留终态 tombstone 可以让晚到的异步回调读到终态，而不是直接遇到缺失的状态项。将它设置为 `0` 会恢复更激进的清理策略，但也会缩小终态竞态的保护窗口。
+
+```yaml
+seatunnel:
+  engine:
+    state-cleanup-delay-ms: 60000
+```
+
 ### 4.5 类加载器缓存模式
 
 此配置主要解决不断创建和尝试销毁类加载器所导致的资源泄漏问题。
@@ -306,6 +314,11 @@ map:
            storage.type: hdfs
            fs.defaultFS: file:///
 ```
+
+说明：`engine_runningJobMetrics` 保存的是高频运行时指标快照。即使通过 `map.engine*`
+配置了 `map-store`，它也会被有意排除在持久化 IMAP 存储之外，以避免仅用于可观测性的状态导致
+WAL 持续膨胀。Engine 重启后，running-job metrics 不会延续重启前的 snapshot，而是由后续
+report 重新构建。
 
 如果您使用 OSS，可以像这样配置：
 

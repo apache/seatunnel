@@ -22,7 +22,9 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
+import org.apache.seatunnel.api.table.factory.FactoryUtil;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
@@ -43,7 +45,10 @@ import java.net.URL;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 import static org.apache.seatunnel.common.constants.CollectionConstants.PLUGIN_NAME;
 
@@ -207,5 +212,66 @@ public class CatalogTableUtilTest {
             throw new FileNotFoundException("Can't find config file: " + configFile);
         }
         return Paths.get(resource.toURI()).toString();
+    }
+
+    @Test
+    void createOptionalCatalogWithValidConfig() {
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put("username", "admin");
+        configMap.put("password", "secret");
+        ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
+
+        Optional<Catalog> catalog =
+                FactoryUtil.createOptionalCatalog(
+                        "test", config, Thread.currentThread().getContextClassLoader(), "InMemory");
+
+        Assertions.assertTrue(catalog.isPresent());
+    }
+
+    @Test
+    void createOptionalCatalogWithMissingRequiredOptionsThrows() {
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put("host", "localhost");
+        ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
+
+        Assertions.assertThrows(
+                OptionValidationException.class,
+                () ->
+                        FactoryUtil.createOptionalCatalog(
+                                "test",
+                                config,
+                                Thread.currentThread().getContextClassLoader(),
+                                "InMemory"));
+    }
+
+    @Test
+    void createOptionalCatalogWithPartialRequiredOptionsThrows() {
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put("username", "admin");
+        ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
+
+        Assertions.assertThrows(
+                OptionValidationException.class,
+                () ->
+                        FactoryUtil.createOptionalCatalog(
+                                "test",
+                                config,
+                                Thread.currentThread().getContextClassLoader(),
+                                "InMemory"));
+    }
+
+    @Test
+    void createOptionalCatalogWithUnknownFactoryReturnsEmpty() {
+        Map<String, Object> configMap = new HashMap<>();
+        ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
+
+        Optional<Catalog> catalog =
+                FactoryUtil.createOptionalCatalog(
+                        "test",
+                        config,
+                        Thread.currentThread().getContextClassLoader(),
+                        "NonExistentFactory");
+
+        Assertions.assertFalse(catalog.isPresent());
     }
 }

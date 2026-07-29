@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.master;
 
 import org.apache.seatunnel.engine.common.Constant;
+import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.job.JobResult;
 import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
@@ -34,6 +35,9 @@ import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
 import org.apache.seatunnel.engine.server.dag.physical.UnknownPhysicalPlanException;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
+import org.apache.seatunnel.engine.server.execution.TaskLocation;
+import org.apache.seatunnel.engine.server.master.cleanup.PipelineCleanupRecord;
+import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.service.slot.SlotService;
 import org.apache.seatunnel.engine.server.task.CoordinatorTask;
@@ -49,8 +53,12 @@ import org.junit.jupiter.api.condition.OS;
 import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.map.IMap;
 
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 import static org.awaitility.Awaitility.await;
@@ -105,6 +113,8 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
      * active
      */
     private IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfilesIMap;
+
+    private final ExecutorService jobMasterTestExecutor = Executors.newCachedThreadPool();
 
     @BeforeAll
     public void before() {
@@ -262,9 +272,59 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
                 () -> jobMaster.init(System.currentTimeMillis(), false));
     }
 
+    @Test
+    void testFailedPipelineCleanupEnqueuesRecordAndRemovesMetrics() throws Exception {
+        long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+        JobMaster jobMaster = newJobInstanceWithRunningState(jobId);
+        PipelineLocation pipelineLocation = getRunningPipelineLocation(jobMaster);
+
+        upsertMetricsForPipeline(pipelineLocation);
+        Assertions.assertTrue(hasMetricsForPipeline(pipelineLocation));
+
+        IMap<PipelineLocation, PipelineCleanupRecord> pendingCleanupIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_PENDING_PIPELINE_CLEANUP);
+
+        try {
+            jobMaster.enqueuePipelineCleanupIfNeeded(pipelineLocation, PipelineStatus.FAILED);
+
+            PipelineCleanupRecord cleanupRecord = pendingCleanupIMap.get(pipelineLocation);
+            Assertions.assertNotNull(cleanupRecord);
+            Assertions.assertEquals(PipelineStatus.FAILED, cleanupRecord.getFinalStatus());
+            Assertions.assertFalse(cleanupRecord.isSavepointEnd());
+
+            jobMaster.removeMetricsContext(pipelineLocation, PipelineStatus.FAILED);
+
+            await().atMost(30, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> Assertions.assertFalse(hasMetricsForPipeline(pipelineLocation)));
+        } finally {
+            server.getCoordinatorService().cancelJob(jobId).join();
+            testIMapRemovedAfterJobComplete(jobId, jobMaster);
+        }
+    }
+
+    @Test
+    void testRestoreStartWithSavePointKeepsFinishedPipelines() throws Exception {
+        long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+        JobMaster jobMaster =
+                newJobMaster(
+                        jobId,
+                        "batch_fake_to_console.conf",
+                        "test_restore_savepoint_pipeline",
+                        true);
+
+        runningJobStateIMap.put(new PipelineLocation(jobId, 1), PipelineStatus.FINISHED);
+
+        Assertions.assertDoesNotThrow(() -> jobMaster.init(System.currentTimeMillis(), true));
+        Assertions.assertEquals(1, jobMaster.getPhysicalPlan().getPipelineList().size());
+    }
+
     private void assertCloseIdleTask(JobMaster jobMaster) {
         SlotService slotService = server.getSlotService();
-        Assertions.assertEquals(4, slotService.getWorkerProfile().getAssignedSlots().length);
+        long jobId = jobMaster.getJobId();
+        // Savepoint restore can overlap old slot release with new task scheduling for a short time.
+        await().atMost(60, TimeUnit.SECONDS)
+                .until(() -> getAssignedSlotCount(slotService, jobId) == 4);
 
         Assertions.assertEquals(1, jobMaster.getPhysicalPlan().getPipelineList().size());
         SubPlan subPlan = jobMaster.getPhysicalPlan().getPipelineList().get(0);
@@ -283,18 +343,29 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
 
         Assertions.assertEquals(2, subPlan.getPhysicalVertexList().size());
         PhysicalVertex taskGroup1 = subPlan.getPhysicalVertexList().get(0);
+        Assertions.assertEquals(3, taskGroup1.getTaskGroup().getTasks().size());
         SeaTunnelTask seaTunnelTask =
                 (SeaTunnelTask) taskGroup1.getTaskGroup().getTasks().stream().findFirst().get();
         jobMaster.getCheckpointManager().readyToCloseIdleTask(seaTunnelTask.getTaskLocation());
+        int expectedClosedIdleTaskSize = taskGroup1.getTaskGroup().getTasks().size();
 
         CheckpointCoordinator checkpointCoordinator =
                 jobMaster
                         .getCheckpointManager()
                         .getCheckpointCoordinator(seaTunnelTask.getTaskLocation().getPipelineId());
         await().atMost(60, TimeUnit.SECONDS)
-                .until(() -> checkpointCoordinator.getClosedIdleTask().size() == 3);
+                .until(
+                        () ->
+                                checkpointCoordinator.getClosedIdleTask().size()
+                                        >= expectedClosedIdleTaskSize);
         await().atMost(60, TimeUnit.SECONDS)
-                .until(() -> slotService.getWorkerProfile().getAssignedSlots().length == 3);
+                .until(() -> getAssignedSlotCount(slotService, jobId) == 3);
+    }
+
+    private long getAssignedSlotCount(SlotService slotService, long jobId) {
+        return Arrays.stream(slotService.getWorkerProfile().getAssignedSlots())
+                .filter(slotProfile -> slotProfile.getOwnerJobID() == jobId)
+                .count();
     }
 
     private JobMaster newJobInstanceWithRunningState(long jobId) throws InterruptedException {
@@ -335,5 +406,60 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
         // status become running again
         Thread.sleep(5000);
         return jobMaster;
+    }
+
+    private JobMaster newJobMaster(long jobId, String configFile, String jobName, boolean restore) {
+        runningJobInfoIMap = nodeEngine.getHazelcastInstance().getMap("runningJobInfo");
+        runningJobStateIMap = nodeEngine.getHazelcastInstance().getMap("runningJobState");
+        runningJobStateTimestampsIMap = nodeEngine.getHazelcastInstance().getMap("stateTimestamps");
+        ownedSlotProfilesIMap = nodeEngine.getHazelcastInstance().getMap("ownedSlotProfilesIMap");
+
+        LogicalDag testLogicalDag = TestUtils.createTestLogicalPlan(configFile, jobName, jobId);
+        JobImmutableInformation jobImmutableInformation =
+                new JobImmutableInformation(
+                        jobId,
+                        "Test",
+                        restore,
+                        nodeEngine.getSerializationService(),
+                        testLogicalDag,
+                        Collections.emptyList(),
+                        Collections.emptyList());
+        Data data = nodeEngine.getSerializationService().toData(jobImmutableInformation);
+
+        return new JobMaster(
+                jobId,
+                data,
+                nodeEngine,
+                jobMasterTestExecutor,
+                server.getCoordinatorService().getResourceManager(),
+                server.getCoordinatorService().getJobHistoryService(),
+                runningJobStateIMap,
+                runningJobStateTimestampsIMap,
+                ownedSlotProfilesIMap,
+                runningJobInfoIMap,
+                ConfigProvider.locateAndGetSeaTunnelConfig().getEngineConfig(),
+                server);
+    }
+
+    private PipelineLocation getRunningPipelineLocation(JobMaster jobMaster) {
+        return jobMaster.getPhysicalPlan().getPipelineList().get(0).getPipelineLocation();
+    }
+
+    private void upsertMetricsForPipeline(PipelineLocation pipelineLocation) {
+        TaskGroupLocation taskGroupLocation =
+                new TaskGroupLocation(
+                        pipelineLocation.getJobId(), pipelineLocation.getPipelineId(), 1L);
+        TaskLocation taskLocation = new TaskLocation(taskGroupLocation, 0, 0);
+
+        Map<TaskLocation, SeaTunnelMetricsContext> local = new HashMap<>();
+        local.put(taskLocation, new SeaTunnelMetricsContext());
+        server.updateMetrics(local);
+    }
+
+    private boolean hasMetricsForPipeline(PipelineLocation pipelineLocation) {
+        return server.getEngineContext()
+                .getStateStores()
+                .metricsSnapshotStore()
+                .containsPipeline(pipelineLocation);
     }
 }

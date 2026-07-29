@@ -21,9 +21,11 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 
 import java.io.Serializable;
+import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
 
 @Data
@@ -41,10 +43,17 @@ public class ConstraintKey implements Serializable {
             String constraintName,
             List<ConstraintKeyColumn> columnNames) {
         checkNotNull(constraintType, "constraintType must not be null");
+        List<ConstraintKeyColumn> safeColumns =
+                columnNames == null ? Collections.emptyList() : columnNames;
+        if (constraintType == ConstraintType.VECTOR_INDEX_KEY && !safeColumns.isEmpty()) {
+            checkArgument(
+                    safeColumns.stream().allMatch(c -> c instanceof VectorIndex),
+                    "constraintType VECTOR_INDEX_KEY requires VectorIndex columns");
+        }
 
         this.constraintType = constraintType;
         this.constraintName = constraintName;
-        this.columnNames = columnNames;
+        this.columnNames = safeColumns;
     }
 
     public static ConstraintKey of(
@@ -83,7 +92,10 @@ public class ConstraintKey implements Serializable {
 
     public ConstraintKey copy() {
         List<ConstraintKeyColumn> collect =
-                columnNames.stream().map(ConstraintKeyColumn::copy).collect(Collectors.toList());
+                (constraintType == ConstraintType.VECTOR_INDEX_KEY
+                                ? columnNames.stream().map(c -> ((VectorIndex) c).copy())
+                                : columnNames.stream().map(ConstraintKeyColumn::copy))
+                        .collect(Collectors.toList());
         return ConstraintKey.of(constraintType, constraintName, collect);
     }
 }

@@ -46,7 +46,6 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.Optional;
@@ -207,10 +206,9 @@ public class TextReadStrategy extends AbstractReadStrategy {
         // rebuild inputStream
         final boolean useSplitRead = enableSplitFile && split.getLength() > -1;
         if (useSplitRead) {
-            actualInputStream = safeSlice(inputStream, split.getStart(), split.getLength());
+            actualInputStream = safeSlice(actualInputStream, split.getStart(), split.getLength());
         }
-        try (BufferedReader reader =
-                new BufferedReader(new InputStreamReader(actualInputStream, encoding))) {
+        try (BufferedReader reader = createBomAwareBufferedReader(actualInputStream, encoding)) {
 
             LineProcessor lineProcessor =
                     line -> {

@@ -124,9 +124,6 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
     private static final String SINK_SQL_ORDERS =
             "select order_number,order_date,quantity,product_id from orders order by order_number asc";
 
-    private static final String MYSQL_DRIVER_JAR =
-            "https://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0.16/mysql-connector-java-8.0.16.jar";
-
     private final UniqueDatabase inventoryDatabase =
             new UniqueDatabase(MYSQL_CONTAINER, MYSQL_DATABASE);
 
@@ -146,15 +143,7 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
 
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
-            container -> {
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && wget "
-                                        + MYSQL_DRIVER_JAR);
-                Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
-            };
+            MysqlDriverResolver::copyMySQLDriverToJdbcContainer;
 
     @BeforeAll
     @Override

@@ -8,6 +8,12 @@ import ChangeLog from '../changelog/connector-redis.md';
 
 用于从 `Redis` 读取数据
 
+## 支持引擎
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## 主要功能
 
 - [x] [批处理](../../introduction/concepts/connector-v2-features.md)
@@ -16,26 +22,53 @@ import ChangeLog from '../changelog/connector-redis.md';
 - [ ] [列投影](../../introduction/concepts/connector-v2-features.md)
 - [ ] [并行度](../../introduction/concepts/connector-v2-features.md)
 - [ ] [支持用户自定义分片](../../introduction/concepts/connector-v2-features.md)
+- [x] [支持多表读取](../../introduction/concepts/connector-v2-features.md)
+
+## 支持的数据源信息
+
+使用 Redis 连接器时，需要安装以下依赖。可以通过 `install-plugin.sh` 安装，也可以从 Maven 中央仓库下载。
+
+| 数据源 | 依赖 |
+|--------|------|
+| Redis  | [下载](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-redis) |
 
 ## 配置选项
 
-| 名称                  | 类型     | 是否必须               | 默认值    |
-|---------------------|--------|--------------------|--------|
-| host                | string | `mode=single`时必须   | -      |
-| port                | int    | 否                  | 6379   |
-| keys                | string | 是                  | -      |
-| batch_size          | int    | 是                  | 10     |
-| data_type           | string | 是                  | -      |
-| user                | string | 否                  | -      |
-| auth                | string | 否                  | -      |
-| db_num              | int    | 否                  | 0      |
-| mode                | string | 否                  | single |
-| hash_key_parse_mode | string | 否                  | all    |
-| nodes               | list   | `mode=cluster` 时必须 | -      |
-| schema              | config | `format=json` 时必须  | -      |
-| format              | string | 否                  | json   |
-| field_delimiter     | string | 否                  | ','    |
-| common-options      |        | 否                  | -      |
+| 名称            | 类型   | 是否必须               | 默认值 | 描述 |
+|----------------|--------|--------------------|-------|------|
+| host           | string | `mode=single`时必须   | -     | Redis 服务器主机地址 |
+| port           | int    | 否                  | 6379  | Redis 服务器端口 |
+| user           | string | 否                  | -     | Redis 认证用户名 |
+| auth           | string | 否                  | -     | Redis 认证密码 |
+| db_num         | int    | 否                  | 0     | Redis 数据库索引 |
+| mode           | string | 否                  | single | Redis 模式：`single` 或 `cluster` |
+| nodes          | list   | `mode=cluster` 时必须 | -     | Redis 集群节点，格式为 `["host1:port1", "host2:port2"]` |
+| tables_configs | list   | 否                  | -     | 多表读取时的表配置列表 |
+| common-options |        | 否                  | -     | 源连接器插件通用参数，详情请参见 [Source Common Options](../common-options/source-common-options.md) |
+
+读取单个 key pattern 时使用 `keys` 和 `data_type`。读取多个 key pattern 时使用 `tables_configs`；`keys` 和
+`tables_configs` 不能同时配置。
+
+### 表级配置参数
+
+使用 `tables_configs` 读取多个 key 模式时，每个表配置可以包含以下参数：
+
+| 名称                  | 类型     | 是否必须 | 默认值 | 描述                                         |
+|---------------------|---------|--------|-------|--------------------------------------------|
+| keys                | string  | 是     | -     | 要扫描的 Redis key pattern                     |
+| data_type           | string  | 是     | -     | Redis 数据类型：`key`、`string`、`hash`、`list`、`set`、`zset` |
+| batch_size          | int     | 否     | 10    | SCAN 操作的批量大小                               |
+| format              | string  | 否     | json  | 数据格式：`json` 或 `text`                       |
+| schema              | config  | 否     | -     | Schema 配置                               |
+| hash_key_parse_mode | string  | 否     | all   | Hash key 解析模式：`all` 或 `kv`                 |
+| read_key_enabled    | boolean | 否     | false | 是否在输出中包含 Redis key                         |
+| key_field_name      | string  | 否     | -     | Redis key 的字段名称                            |
+| single_field_name   | string  | 否     | -     | 单值类型的字段名称                                  |
+| field_delimiter     | string  | 否     | ','   | 文本格式的分隔符                                   |
+
+**注意：** 当只读取单表时，请把这些表级参数直接配置在 `Redis` 外层，例如 `keys`、`data_type`、`format`、`schema`，不需要使用 `tables_configs`。
+
+**重要提示：** 在多表模式下，上述表级参数需要配置在 `tables_configs` 的每个表项中。
 
 ### host [string]
 
@@ -109,11 +142,50 @@ schema {
 
 hash key 中的每个 kv 将会被视为一行并被发送给上游。
 
-**提示：连接器将使用 scheme config 的第一个字段信息作为每个 kv 中每个 k 的字段名称**
+**提示：连接器会使用 schema 配置中的第一个字段作为每个 hash kv 中 key 的字段名。**
 
 ### keys [string]
 
 keys 模式
+
+### read_key_enabled [boolean]
+
+配置为 `true` 时，Redis source 会把 Redis key 和 value 一起读出。
+
+默认值为 `false`，也就是只读取 value。
+
+如果读取的是 `string`、`list`、`set`、`zset` 这类单值类型，并且开启了 `read_key_enabled`，必须配置 `single_field_name`，指定 Redis value 写入哪一列。`key_field_name` 是可选项，默认字段名为 `key`。
+
+配置 schema 时，需要包含实际输出的字段名，包括默认的 `key` 字段或 `key_field_name` 指定的字段名。
+
+示例：
+
+```hocon
+read_key_enabled = true
+key_field_name = key
+single_field_name = value
+schema {
+  fields {
+    key = string
+    value = string
+  }
+}
+```
+
+### key_field_name [string]
+
+指定 Redis key 输出到哪一个字段。
+
+- 当 `read_key_enabled = true` 时，如果不配置，默认字段名是 `key`。
+- 当 `data_type = hash` 且不配置该选项时，默认字段名是 `hash_key`。
+
+当默认字段名和已有字段冲突，或者想使用更明确的字段名时，可以配置该选项。
+
+### single_field_name [string]
+
+读取单值类型并且 `read_key_enabled = true` 时，指定 Redis value 输出到哪一个字段。
+
+该选项主要用于 `string`、`list`、`set`、`zset` 这类不能直接映射成多列对象的数据。
 
 ### batch_size [int]
 
@@ -123,9 +195,9 @@ keys 模式
 
 ### data_type [string]
 
-redis 数据类型, 支持 `key` `hash` `list` `set` `zset`。
+redis 数据类型, 支持 `key` `string` `hash` `list` `set` `zset`。
 
-- key
+- key/string
 
 > 将每个 key 的值将作为单行数据发送给下游。  
 > 例如，key 对应的值为 `SeaTunnel test message`，则下游接收到的数据为 `SeaTunnel test message`，并且仅会收到一条信息。
@@ -254,6 +326,7 @@ Redis 数据的 schema 字段列表。更多详情请参考 [Schema 特性](../.
 
 ## 示例
 
+### 单表模式
 简单使用示例：
 
 ```hocon
@@ -306,6 +379,162 @@ sink {
     data_type = list
     batch_size = 33
   }
+}
+```
+
+读取 string 类型时同时读取 Redis key：
+
+```hocon
+source {
+  Redis {
+    host = "redis-e2e"
+    port = 6379
+    auth = "U2VhVHVubmVs"
+    keys = "string_test*"
+    data_type = string
+    batch_size = 33
+    read_key_enabled = true
+    key_field_name = custom_key
+    single_field_name = custom_value
+    format = json
+    schema = {
+      table = "RedisDatabase.RedisTable"
+      columns = [
+        {
+          name = "custom_key"
+          type = "string"
+        },
+        {
+          name = "custom_value"
+          type = "string"
+        }
+      ]
+    }
+  }
+}
+
+sink {
+  Console {}
+}
+```
+
+### 多表模式
+
+**示例 1：读取具有不同数据类型的多个 key pattern**
+
+```hocon
+env {
+  job.mode = "BATCH"
+}
+
+source {
+  Redis {
+    host = "localhost"
+    port = 6379
+    auth = "password"
+    db_num = 0
+    tables_configs = [
+      {
+        keys = "user:active:*"
+        data_type = STRING
+        format = JSON
+        batch_size = 50
+        schema {
+          table = "user_table"
+          fields {
+            id = int
+            name = string
+            email = string
+            created_at = timestamp
+          }
+        }
+      },
+      {
+        keys = "session:*"
+        data_type = HASH
+        hash_key_parse_mode = KV
+        read_key_enabled = true
+        key_field_name = "session_id"
+        schema {
+          table = "session_table"
+          fields {
+            session_id = string
+            user_id = int
+            ip_address = string
+            last_active = timestamp
+          }
+        }
+      },
+      {
+        keys = "queue:task:*"
+        data_type = LIST
+        format = TEXT
+        field_delimiter = "|"
+        schema {
+          table = "task_table"
+          fields {
+            content = string
+          }
+        }
+      }
+    ]
+  }
+}
+
+sink {
+  Redis {
+    host = "localhost"
+    port = 6379
+    key = "redis-result-${table_name}"
+    data_type = LIST
+  }
+}
+```
+
+多表模式下，表名来自 `schema.table`。下游 Sink 可以使用 `${table_name}`，把不同 Redis key pattern 的数据路由到不同目标表或 key。
+
+**示例 2：集群模式下的多表配置**
+
+```hocon
+source {
+  Redis {
+    mode = CLUSTER
+    nodes = ["node1:6379", "node2:6379", "node3:6379"]
+    auth = "cluster_password"
+    tables_configs = [
+      {
+        keys = "metric:cpu:*"
+        data_type = STRING
+        format = JSON
+        batch_size = 10
+        schema {
+          fields {
+            host = string
+            timestamp = timestamp
+            usage = double
+          }
+        }
+      },
+      {
+        keys = "metric:memory:*"
+        data_type = STRING
+        format = JSON
+        batch_size = 10
+        schema {
+          fields {
+            host = string
+            timestamp = timestamp
+            used = long
+            total = long
+          }
+        }
+      }
+    ]
+  }
+}
+
+sink {
+  Console {}
 }
 ```
 

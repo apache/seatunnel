@@ -75,6 +75,7 @@ public abstract class AbstractDorisTypeConverter implements TypeConverter<BasicT
 
     public static final String DORIS_JSON = "JSON";
     public static final String DORIS_JSONB = "JSONB";
+    public static final String DORIS_VARIANT = "VARIANT";
 
     public static final Long DEFAULT_PRECISION = 9L;
     public static final Long MAX_PRECISION = 38L;
@@ -184,6 +185,7 @@ public abstract class AbstractDorisTypeConverter implements TypeConverter<BasicT
                 break;
             case DORIS_STRING:
             case DORIS_JSON:
+            case DORIS_VARIANT:
                 builder.dataType(BasicType.STRING_TYPE);
                 builder.columnLength(MAX_STRING_LENGTH);
                 break;
@@ -353,6 +355,12 @@ public abstract class AbstractDorisTypeConverter implements TypeConverter<BasicT
                 builder.columnType(String.format("%s(%s)", DORIS_VARCHAR, 8));
                 builder.dataType(DORIS_VARCHAR);
                 break;
+            case TIMESTAMP_TZ:
+                // Doris has no timezone-aware datetime type; store as DATETIME (wall-clock value)
+                builder.columnType(String.format("%s(%s)", DORIS_DATETIME, MAX_DATETIME_SCALE));
+                builder.dataType(DORIS_DATETIME);
+                builder.scale(MAX_DATETIME_SCALE);
+                break;
             case ARRAY:
                 SeaTunnelDataType<?> dataType = column.getDataType();
                 SeaTunnelDataType elementType = null;
@@ -426,6 +434,7 @@ public abstract class AbstractDorisTypeConverter implements TypeConverter<BasicT
                 builder.dataType(DORIS_DATEV2_ARRAY);
                 break;
             case TIMESTAMP:
+            case TIMESTAMP_TZ:
                 builder.columnType(DORIS_DATETIMEV2_ARRAY);
                 builder.dataType(DORIS_DATETIMEV2_ARRAY);
                 break;

@@ -227,6 +227,9 @@ public class DorisTypeConverterV2 extends AbstractDorisTypeConverter {
                 builder.dataType(DORIS_DATE);
                 break;
             case TIMESTAMP:
+            case TIMESTAMP_TZ:
+                // Doris has no timezone-aware datetime type; TIMESTAMP_TZ is stored as DATETIME
+                // (wall-clock value, timezone offset is lost).
                 if (column.getScale() != null
                         && column.getScale() >= 0
                         && column.getScale() <= MAX_DATETIME_SCALE) {
@@ -281,6 +284,12 @@ public class DorisTypeConverterV2 extends AbstractDorisTypeConverter {
             // Compatible with Doris 1.x and Doris 2.x versions
             builder.columnType(DORIS_JSON);
             builder.dataType(DORIS_JSON);
+            return;
+        }
+        if (column.getSourceType() != null
+                && column.getSourceType().equalsIgnoreCase(DORIS_VARIANT)) {
+            builder.columnType(DORIS_VARIANT);
+            builder.dataType(DORIS_VARIANT);
             return;
         }
 

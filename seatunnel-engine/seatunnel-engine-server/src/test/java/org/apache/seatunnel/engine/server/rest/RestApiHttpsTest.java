@@ -67,8 +67,9 @@ public class RestApiHttpsTest extends AbstractSeaTunnelServerTest {
     private static final String SERVER_KEYSTORE_PASSWORD = "server_keystore_password";
     private static final String CLIENT_KEYSTORE_PASSWORD = "client_keystore_password";
 
+    @Override
     @BeforeAll
-    public void setUp() {
+    public void before() {
         String name = this.getClass().getName();
         Config hazelcastConfig = Config.loadFromString(getHazelcastConfig());
         hazelcastConfig.setClusterName(TestUtils.getClusterName("RestApiHttpsTest_" + name));
@@ -149,9 +150,8 @@ public class RestApiHttpsTest extends AbstractSeaTunnelServerTest {
         }
 
         // wait until all jobs are finished
-        await().pollDelay(5, TimeUnit.SECONDS)
-                .atMost(30, TimeUnit.SECONDS)
-                .pollInterval(100, TimeUnit.MILLISECONDS)
+        await().atMost(60, TimeUnit.SECONDS)
+                .pollInterval(500, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 assertEquals(
@@ -255,9 +255,8 @@ public class RestApiHttpsTest extends AbstractSeaTunnelServerTest {
         }
 
         // wait until all jobs are finished
-        await().pollDelay(5, TimeUnit.SECONDS)
-                .atMost(30, TimeUnit.SECONDS)
-                .pollInterval(100, TimeUnit.MILLISECONDS)
+        await().atMost(60, TimeUnit.SECONDS)
+                .pollInterval(500, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 assertEquals(

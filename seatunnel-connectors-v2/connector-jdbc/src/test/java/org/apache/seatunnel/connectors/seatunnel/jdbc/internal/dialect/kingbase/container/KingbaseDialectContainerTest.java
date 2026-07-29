@@ -28,6 +28,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 
+import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -41,36 +42,37 @@ import java.util.Optional;
 @DisabledOnOs(OS.WINDOWS)
 public class KingbaseDialectContainerTest extends AbstractKingbaseContainerTest {
 
-    private static KingbaseDialect dialect;
     private static final String TEST_TABLE = "dialect_test_table";
+    private KingbaseDialect dialect;
 
     @BeforeAll
-    public static void setupDialect() throws SQLException {
+    public void setupDialect() throws SQLException {
         dialect = new KingbaseDialect();
 
-        String createTableSql =
-                String.format(
-                        "CREATE TABLE %s.%s ("
-                                + "id INT8 PRIMARY KEY, "
-                                + "name VARCHAR(100), "
-                                + "value NUMERIC(10,2), "
-                                + "created_at TIMESTAMP"
-                                + ")",
-                        quoteIdentifier(SCHEMA), quoteIdentifier(TEST_TABLE));
+        String qualifiedTable =
+                String.format("%s.%s", quoteIdentifier(SCHEMA), quoteIdentifier(TEST_TABLE));
 
-        try (Statement stmt = connection.createStatement()) {
-            stmt.execute(createTableSql);
-        }
+        String createTableSql =
+                "CREATE TABLE IF NOT EXISTS "
+                        + qualifiedTable
+                        + " ("
+                        + "id BIGINT PRIMARY KEY, "
+                        + "name VARCHAR(100), "
+                        + "value NUMERIC(10,2), "
+                        + "created_at TIMESTAMP"
+                        + ")";
+        executeSql(createTableSql);
+
+        String truncateSql = "TRUNCATE TABLE " + qualifiedTable;
+        executeSql(truncateSql);
 
         // Insert test data
         String insertSql =
-                String.format(
-                        "INSERT INTO %s.%s (id, name, value, created_at) "
-                                + "VALUES (1, 'test1', 100.50, CURRENT_TIMESTAMP)",
-                        quoteIdentifier(SCHEMA), quoteIdentifier(TEST_TABLE));
-        try (Statement stmt = connection.createStatement()) {
-            stmt.execute(insertSql);
-        }
+                "INSERT INTO "
+                        + qualifiedTable
+                        + " (id, name, value, created_at) "
+                        + "VALUES (1, 'test1', 100.50, CURRENT_TIMESTAMP)";
+        executeSql(insertSql);
     }
 
     @Test
@@ -221,7 +223,8 @@ public class KingbaseDialectContainerTest extends AbstractKingbaseContainerTest 
             executeSql(insertSql);
 
             // Verify insert
-            try (Statement stmt = connection.createStatement();
+            try (Connection connection = getConnection();
+                    Statement stmt = connection.createStatement();
                     ResultSet rs =
                             stmt.executeQuery(
                                     String.format(
@@ -290,20 +293,15 @@ public class KingbaseDialectContainerTest extends AbstractKingbaseContainerTest 
 
     @Test
     public void testCreatPreparedStatement() throws SQLException {
-        PreparedStatement ps = null;
-        try {
-            String sql =
-                    String.format(
-                            "SELECT * FROM %s.%s",
-                            quoteIdentifier(SCHEMA), quoteIdentifier(TEST_TABLE));
-            ps = dialect.creatPreparedStatement(connection, sql, 100);
+        String sql =
+                String.format(
+                        "SELECT * FROM %s.%s",
+                        quoteIdentifier(SCHEMA), quoteIdentifier(TEST_TABLE));
 
+        try (Connection connection = getConnection();
+                PreparedStatement ps = dialect.creatPreparedStatement(connection, sql, 100)) {
             Assertions.assertNotNull(ps);
             Assertions.assertEquals(100, ps.getFetchSize());
-        } finally {
-            if (ps != null) {
-                ps.close();
-            }
         }
     }
 

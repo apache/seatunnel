@@ -34,6 +34,7 @@ semantics (using XA transaction guarantee).
 
 > Use `Xa transactions` to ensure `exactly-once`. So only support `exactly-once` for the database which is
 > support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Supported DataSource Info
 
@@ -55,12 +56,20 @@ Cloudberry uses PostgreSQL's data type implementation. Please refer to PostgreSQ
 Cloudberry connector uses the same options as PostgreSQL. For detailed configuration options, please refer to the PostgreSQL documentation.
 
 Key options include:
+
 - url (required): The JDBC connection URL
 - driver (required): The driver class name (org.postgresql.Driver)
-- user/password: Authentication credentials
+- username/password: Authentication credentials. `user` is also accepted as a fallback key for `username`.
 - query or database/table combination: What data to write and how
 - is_exactly_once: Enable exactly-once semantics with XA transactions
 - batch_size: Control batch writing behavior
+
+## Notes
+
+- Use the `Jdbc` plugin name for Cloudberry jobs.
+- Cloudberry uses PostgreSQL JDBC behavior; configure `driver = "org.postgresql.Driver"` and a `jdbc:postgresql://...` URL.
+- Use `query` for a hand-written INSERT statement, or use `generate_sink_sql` with `database` and `table` when SeaTunnel should generate SQL.
+- `is_exactly_once=true` also needs a valid XA data source class, for example `org.postgresql.xa.PGXADataSource`.
 
 ## Task Example
 

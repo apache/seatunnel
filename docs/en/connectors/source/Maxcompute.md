@@ -20,27 +20,36 @@ Used to read data from Maxcompute.
 
 | name           | type   | required | default value |
 |----------------|--------|----------|---------------|
-| accessId       | string | yes      | -             |
-| accesskey      | string | yes      | -             |
+| accessId       | string | no       | -             |
+| accesskey      | string | no       | -             |
+| sts_token      | string | no       | -             |
 | endpoint       | string | yes      | -             |
 | project        | string | yes      | -             |
-| table_name     | string | yes      | -             |
+| table_name     | string | yes when `table_list` is not set | -             |
+| schema_name    | string | no       | -             |
 | partition_spec | string | no       | -             |
 | split_row      | int    | no       | 10000         |
 | read_columns   | Array  | no       | -             |
 | table_list     | Array  | No       | -             |
-| tunnel_endpoint| string | no       | -             |
-| tunnel_name    | string | no       | -             |
+| tunnel_endpoint | string | no       | -             |
+| tunnel_name     | string | no       | -             |
 | common-options | string | no       |               |
 | schema         | config | no       |               |
 
 ### accessId [string]
 
-`accessId` Your Maxcompute accessId which cloud be access from Alibaba Cloud.
+`accessId` Your Maxcompute accessId that can access Alibaba Cloud.
 
 ### accesskey [string]
 
-`accesskey` Your Maxcompute accessKey which cloud be access from Alibaba Cloud.
+`accesskey` Your Maxcompute accessKey that can access Alibaba Cloud.
+
+### sts_token [string]
+
+`sts_token` Your MaxCompute STS Token for temporary authentication. **Note:** If `sts_token` is provided, `accessId` and `accesskey` are strictly required.
+
+> **Passwordless Authentication (ECS RAM Role, Environment Variables, etc.)**
+> To use passwordless authentication seamlessly, simply leave `accessId`, `accesskey`, and `sts_token` all blank. The connector will automatically fall back to the Aliyun DefaultCredentialsProvider chain (Environment Variables, System Properties, CLI Profiles, OIDC, ECS RAM Roles).
 
 ### endpoint [string]
 
@@ -52,11 +61,23 @@ Used to read data from Maxcompute.
 
 ### table_name [string]
 
-`table_name` Target Maxcompute table name eg: fake.
+`table_name` Target Maxcompute table name, for example `fake`.
+
+`table_name` and `table_list` are mutually exclusive. Use `table_name` for one table and `table_list` for multiple tables.
 
 ### partition_spec [string]
 
 `partition_spec` This spec of Maxcompute partition table eg:ds='20220101'.
+
+### schema_name [string]
+
+`schema_name` The MaxCompute Schema name (the namespace between Project and Table).
+Only required when the table resides in a **non-default schema** within your MaxCompute project.
+See [Schema-related operations](https://www.alibabacloud.com/help/en/maxcompute/user-guide/schema-related-operations).
+
+When using `table_list`, each entry can specify its own `schema_name`, which overrides the top-level value.
+
+Default: not set (uses the project default schema).
 
 ### split_row [int]
 
@@ -69,6 +90,10 @@ Used to read data from Maxcompute.
 ### table_list [Array]
 
 The list of tables to be read, you can use this configuration instead of `table_name`.
+
+Each table item must contain `table_name`. It can also override `project`, `schema_name`, `partition_spec`, `split_row`, and `read_columns`. If an item does not set those values, the connector uses the top-level value.
+
+This mode is useful when one job needs to read several MaxCompute tables with the same account, endpoint, and default project.
 
 ### tunnel_endpoint [String]
 Specifies the custom endpoint URL for the MaxCompute Tunnel service.
@@ -120,6 +145,7 @@ source {
     endpoint="<http://service.odps.aliyun.com/api>"
     project="<your project>"
     table_name="<your table name>"
+    #tunnel_endpoint="<your tunnel endpoint>"
     #partition_spec="<your partition spec>"
     #split_row = 10000
     #read_columns = ["col1", "col2"]
@@ -136,6 +162,7 @@ source {
     accesskey="<your access Key>"
     endpoint="<http://service.odps.aliyun.com/api>"
     project="<your project>" # default project
+    #tunnel_endpoint="<your tunnel endpoint>"
     table_list = [
       {
         table_name = "test_table"
