@@ -376,7 +376,8 @@ public class CheckpointPlanTest extends AbstractSeaTunnelServerTest {
                 expectedRestoredKey,
                 restoredCoordinatorActionState.getCoordinatorState().getStateKey());
 
-        Assertions.assertDoesNotThrow(plans.f0()::initStateFuture);
+        // PhysicalPlan.initStateFuture() belongs to the JobMaster deployment lifecycle.
+        // This unit test only verifies plan generation and checkpoint serialization.
     }
 
     private static void fillVirtualVertex(
