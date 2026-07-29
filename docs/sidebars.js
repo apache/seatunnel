@@ -134,6 +134,7 @@ const sidebars = {
                     "label": "Common Options",
                     "items": [
                         "connectors/common-options/source-common-options",
+                        "connectors/common-options/sink-write-modes",
                         "connectors/common-options/sink-common-options"
                     ]
                 },

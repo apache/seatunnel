@@ -64,3 +64,6 @@ CDC（Change Data Capture）连接器从数据库事务日志中读取实时变�
 3. **文件与对象存储问题**（例如 MinIO/S3、小文件、save mode、多表文件路径）→ 参阅[文件与对象存储常见问题](./file-object-storage-faq.md)。
 4. **跨连接器主题**（例如「SeaTunnel 是否支持 CDC？」「`schema_save_mode` 是什么？」）→ 参阅[通用常见问题](../faq.md)。
 5. **仍未解决？** → 在 [GitHub Issues](https://github.com/apache/seatunnel/issues) 中搜索，或通过[邮件列表](https://lists.apache.org/list.html?dev@seatunnel.apache.org)联系社区。
+2. **跨 Sink 写入主题**（例如「`generate_sink_sql` 和 `query` 怎么选？」「`schema_save_mode` 是什么？」「`data_save_mode` 是否支持？」「`enable_upsert` 什么时候生效？」）→ 参阅 [Sink 写入模式与 Save Mode](./common-options/sink-write-modes.md)。
+3. **其他跨连接器主题**（例如「SeaTunnel 是否支持 CDC？」）→ 参阅[通用常见问题](../faq.md)。
+4. **仍未解决？** → 在 [GitHub Issues](https://github.com/apache/seatunnel/issues) 中搜索，或通过[邮件列表](https://lists.apache.org/list.html?dev@seatunnel.apache.org)联系社区。
