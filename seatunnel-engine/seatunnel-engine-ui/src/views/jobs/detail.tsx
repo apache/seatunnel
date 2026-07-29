@@ -46,7 +46,7 @@ import {
   type RealtimeVerticesResponse,
   type RealtimeVertexPoint
 } from '@/service/realtime-metrics'
-import { readVertexMetricValue, collectVertexMetrics } from './detail-metrics'
+import { readVertexMetricValue, collectVertexMetrics, extractVertexIdentifier } from './detail-metrics'
 
 export default defineComponent({
   setup() {
@@ -102,6 +102,10 @@ export default defineComponent({
     const tableData = computed(() => {
       return job.jobDag?.vertexInfoMap?.filter((v) => v.type !== 'transform') || []
     })
+    const formatNumber = (val: number): number => {
+      if (Number.isInteger(val)) return val
+      return Math.round(val * 100) / 100
+    }
     const sourceCell = (
       row: Vertex,
       key:
@@ -111,10 +115,11 @@ export default defineComponent({
         | 'TableSourceReceivedBytesPerSeconds'
     ) => {
       if (row.type === 'source') {
-        return row.tablePaths.reduce(
+        const val = row.tablePaths.reduce(
           (s, path) => s + readVertexMetricValue(job.metrics?.[key], row, path),
           0
         )
+        return formatNumber(val)
       }
       return 0
     }
@@ -128,12 +133,23 @@ export default defineComponent({
         | 'TableSinkWriteBytesPerSeconds'
     ) => {
       if (row.type === 'sink') {
-        return row.tablePaths.reduce(
+        const val = row.tablePaths.reduce(
           (s, path) => s + readVertexMetricValue(job.metrics?.[key], row, path),
           0
         )
+        return formatNumber(val)
       }
       return 0
+    }
+    const flushSignalQpsCell = (row: Vertex) => {
+      const vertexId = extractVertexIdentifier(row.vertexName) || row.vertexName
+      if (row.type === 'source') {
+        return formatNumber(Number(job.metrics?.FlushSignalQPSPerVertex?.[vertexId]) || 0)
+      }
+      if (row.type === 'sink') {
+        return formatNumber(Number(job.metrics?.FlushSignalSinkQPSPerVertex?.[vertexId]) || 0)
+      }
+      return '--'
     }
 
     const columns: DataTableColumns<Vertex> = [
@@ -180,6 +196,11 @@ export default defineComponent({
         title: t('detail.table.writeBytesPerSecond'),
         key: 'key',
         render: (row) => sinkCell(row, 'TableSinkWriteBytesPerSeconds')
+      },
+      {
+        title: 'Flush Signal QPS',
+        key: 'key',
+        render: (row) => flushSignalQpsCell(row)
       }
     ]
 
@@ -366,6 +387,18 @@ export default defineComponent({
             vertex
           )
         )
+        const vertexId = extractVertexIdentifier(vertex.vertexName)
+        if (vertexId) {
+          if (job.metrics?.FlushSignalTotalPerVertex?.[vertexId]) {
+            metrics[`FlushSignalTotal.${vertexId}`] = job.metrics.FlushSignalTotalPerVertex[vertexId]
+          }
+          if (job.metrics?.FlushSignalQueueSuccessTotalPerVertex?.[vertexId]) {
+            metrics[`FlushSignalQueueSuccess.${vertexId}`] = job.metrics.FlushSignalQueueSuccessTotalPerVertex[vertexId]
+          }
+          if (job.metrics?.FlushSignalQueueFailureTotalPerVertex?.[vertexId]) {
+            metrics[`FlushSignalQueueFailure.${vertexId}`] = job.metrics.FlushSignalQueueFailureTotalPerVertex[vertexId]
+          }
+        }
       }
       if (vertex?.type === 'sink') {
         Object.assign(
@@ -379,6 +412,15 @@ export default defineComponent({
             vertex
           )
         )
+        const vertexId = extractVertexIdentifier(vertex.vertexName)
+        if (vertexId) {
+          if (job.metrics?.FlushSignalSinkSuccessTotalPerVertex?.[vertexId]) {
+            metrics[`FlushSignalSinkSuccess.${vertexId}`] = job.metrics.FlushSignalSinkSuccessTotalPerVertex[vertexId]
+          }
+          if (job.metrics?.FlushSignalSinkFailureTotalPerVertex?.[vertexId]) {
+            metrics[`FlushSignalSinkFailure.${vertexId}`] = job.metrics.FlushSignalSinkFailureTotalPerVertex[vertexId]
+          }
+        }
       }
       const realtime = realtimeVertexStats.value[focusedId.value]
       if (realtime) {

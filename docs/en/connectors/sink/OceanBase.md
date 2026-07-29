@@ -12,13 +12,16 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## Key Features
 
-- [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
-- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
+- [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
+- [x] [timer flush](../../introduction/concepts/connector-v2-features.md)
+
+> Exactly-once uses XA transactions. Enable it with `is_exactly_once = true`, `max_retries = 0`, and a valid OceanBase XA data source class from the OceanBase JDBC driver.
 
 ## Description
 
-Write data through jdbc. Support Batch mode and Streaming mode, support concurrent writing, support exactly-once semantics.
+Write data to OceanBase through JDBC. The sink supports batch and streaming jobs, CDC row kinds, generated SQL, save modes, multi-table writes, and exactly-once semantics when XA transactions are configured.
 
 ## Supported DataSource Info
 
@@ -76,25 +79,39 @@ Write data through jdbc. Support Batch mode and Streaming mode, support concurre
 | driver                                    | String  | Yes      | -       | The jdbc class name used to connect to the remote data source, should be `com.oceanbase.jdbc.Driver`.                                                                                                                                          |
 | username                                      | String  | No       | -       | Connection instance user name                                                                                                                                                                                                                  |
 | password                                  | String  | No       | -       | Connection instance password                                                                                                                                                                                                                   |
-| query                                     | String  | No       | -       | Use this sql write upstream input datas to database. e.g `INSERT ...`,`query` have the higher priority                                                                                                                                         |
+| query                                     | String  | No       | -       | Use this SQL to write upstream data to OceanBase, for example `INSERT ...`. When `generate_sink_sql = false`, `query` is required. Save mode options do not run in custom `query` mode.                                                        |
 | compatible_mode                           | String  | Yes      | -       | The compatible mode of OceanBase, can be 'mysql' or 'oracle'.                                                                                                                                                                                  |
-| database                                  | String  | No       | -       | Use this `database` and `table-name` auto-generate sql and receive upstream input datas write to database.<br/>This option is mutually exclusive with `query` and has a higher priority.                                                       |
-| table                                     | String  | No       | -       | Use database and this table-name auto-generate sql and receive upstream input datas write to database.<br/>This option is mutually exclusive with `query` and has a higher priority.                                                           |
+| database                                  | String  | No       | -       | Database used when `generate_sink_sql = true`. This option is required when generated SQL is enabled.                                                                                                                                          |
+| table                                     | String  | No       | -       | Target table used when `generate_sink_sql = true`. It supports placeholders such as `${schema_name}` and `${table_name}` for multi-table writes.                                                                                               |
 | primary_keys                              | Array   | No       | -       | This option is used to support operations such as `insert`, `delete`, and `update` when automatically generate sql.                                                                                                                            |
 | connection_check_timeout_sec              | Int     | No       | 30      | The time in seconds to wait for the database operation used to validate the connection to complete.                                                                                                                                            |
 | max_retries                               | Int     | No       | 0       | The number of retries to submit failed (executeBatch)                                                                                                                                                                                          |
-| batch_size                                | Int     | No       | 1000    | For batch writing, when the number of buffered records reaches the number of `batch_size` or the time reaches `checkpoint.interval`<br/>, the data will be flushed into the database                                                           |
+| batch_size                                | Int     | No       | 1000    | For batch writing, when buffered record count reaches `batch_size`, data is flushed to OceanBase. If `batch_interval_ms` is greater than 0, elapsed time can also trigger a flush.                                                             |
+| batch_interval_ms                         | Long    | No       | 0       | Write-triggered flush interval in milliseconds. `0` disables time-based flushing. When greater than 0, the writer checks elapsed time on each record and flushes synchronously when the interval is reached.                                  |
+| is_exactly_once                           | Boolean | No       | false   | Whether to enable exactly-once semantics through XA transactions. If enabled, set `xa_data_source_class_name` and keep `max_retries = 0`.                                                                                                     |
 | generate_sink_sql                         | Boolean | No       | false   | Generate sql statements based on the database table you want to write to                                                                                                                                                                       |
+| xa_data_source_class_name                 | String  | No       | -       | XA data source class name from the OceanBase JDBC driver. Required when `is_exactly_once = true`.                                                                                                                                              |
 | max_commit_attempts                       | Int     | No       | 3       | The number of retries for transaction commit failures                                                                                                                                                                                          |
 | transaction_timeout_sec                   | Int     | No       | -1      | The timeout after the transaction is opened, the default is -1 (never timeout). Note that setting the timeout may affect<br/>exactly-once semantics                                                                                            |
 | auto_commit                               | Boolean | No       | true    | Automatic transaction commit is enabled by default                                                                                                                                                                                             |
+| field_ide                                 | String  | No       | -       | Controls field name case conversion. Available values are `ORIGINAL`, `UPPERCASE`, and `LOWERCASE`.                                                                                                                                           |
 | properties                                | Map     | No       | -       | Additional connection configuration parameters,when properties and URL have the same parameters, the priority is determined by the <br/>specific implementation of the driver. For example, in MySQL, properties take precedence over the URL. |
+| schema_save_mode                          | Enum    | No       | CREATE_SCHEMA_WHEN_NOT_EXIST | Controls how target table structure is handled before the job starts.                                                                                                                                                           |
+| data_save_mode                            | Enum    | No       | APPEND_DATA | Controls how existing target table data is handled before the job starts.                                                                                                                                                                      |
+| custom_sql                                | String  | No       | -       | SQL executed before synchronization when `data_save_mode = CUSTOM_PROCESSING`. This option is not executed in custom `query` mode.                                                                                                             |
 | common-options                            |         | No       | -       | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details                                                                                                                                    |
 | enable_upsert                             | Boolean | No       | true    | Enable upsert by primary_keys exist, If the task has no key duplicate data, setting this parameter to `false` can speed up data import                                                                                                         |
+| is_primary_key_updated                    | Boolean | No       | true    | Whether primary key fields are included when generated update statements are built.                                                                                                                                                             |
+| support_upsert_by_insert_only             | Boolean | No       | false   | Whether to support upsert behavior through insert-only statements for compatible dialects.                                                                                                                                                      |
+| multi_table_sink_replica                  | Int     | No       | 1       | Number of sink writer replicas used when writing multiple tables.                                                                                                                                                                              |
 
 ### Tips
 
-> If partition_column is not set, it will run in single concurrency, and if partition_column is set, it will be executed  in parallel according to the concurrency of tasks.
+> Configure `compatible_mode = "mysql"` for OceanBase MySQL mode and `compatible_mode = "oracle"` for OceanBase Oracle mode.
+>
+> Use `query` when you want to provide the full write SQL yourself. Use `generate_sink_sql = true` with `database` and `table` when you want SeaTunnel to generate INSERT/UPSERT SQL and apply save mode settings.
+>
+> To consume CDC data, use generated SQL and configure `primary_keys`; otherwise UPDATE and DELETE events cannot be mapped safely.
 
 ## Task Example
 
@@ -165,6 +182,26 @@ sink {
 }
 ```
 
+### Generated SQL With Save Mode
+
+```
+sink {
+  jdbc {
+    url = "jdbc:oceanbase://localhost:2883/test"
+    driver = "com.oceanbase.jdbc.Driver"
+    username = "root@test"
+    password = ""
+    compatible_mode = "mysql"
+    generate_sink_sql = true
+    database = "test"
+    table = "sink_table"
+    primary_keys = ["id"]
+    schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
+    data_save_mode = "APPEND_DATA"
+  }
+}
+```
+
 ### CDC(Change Data Capture) Event
 
 > CDC change data is also supported by us In this case, you need config database, table and primary_keys.
@@ -183,6 +220,42 @@ sink {
         table = sink_table
         primary_keys = ["id","name"]
     }
+}
+```
+
+### Oracle-Compatible Mode
+
+```
+sink {
+  jdbc {
+    url = "jdbc:oceanbase://localhost:2883/TESTUSER"
+    driver = "com.oceanbase.jdbc.Driver"
+    username = "TESTUSER@test"
+    password = ""
+    compatible_mode = "oracle"
+    query = "INSERT INTO SINK_TABLE (ID, NAME, CREATE_TIME) VALUES (?, ?, ?)"
+  }
+}
+```
+
+### Multiple Table Write
+
+Use placeholders in `table` when rows from upstream carry table identity.
+
+```
+sink {
+  jdbc {
+    url = "jdbc:oceanbase://localhost:2883/test"
+    driver = "com.oceanbase.jdbc.Driver"
+    username = "root@test"
+    password = ""
+    compatible_mode = "mysql"
+    generate_sink_sql = true
+    database = "test"
+    table = "${table_name}_sink"
+    primary_keys = ["id"]
+    multi_table_sink_replica = 2
+  }
 }
 ```
 

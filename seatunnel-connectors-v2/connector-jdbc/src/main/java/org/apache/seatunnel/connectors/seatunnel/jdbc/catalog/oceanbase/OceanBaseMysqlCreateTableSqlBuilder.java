@@ -27,6 +27,7 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.api.table.type.SqlType;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MySqlCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oceanbase.OceanBaseMySqlTypeConverter;
@@ -85,9 +86,9 @@ public class OceanBaseMysqlCreateTableSqlBuilder {
         return new OceanBaseMysqlCreateTableSqlBuilder(
                         tablePath.getTableName(), typeConverter, createIndex)
                 .comment(catalogTable.getComment())
-                // todo: set charset and collate
-                .engine(null)
-                .charset(null)
+                .engine(catalogTable.getOptions().get(MySqlCatalog.TABLE_OPTION_ENGINE))
+                .charset(catalogTable.getOptions().get(MySqlCatalog.TABLE_OPTION_CHARSET))
+                .collate(catalogTable.getOptions().get(MySqlCatalog.TABLE_OPTION_COLLATE))
                 .primaryKey(tableSchema.getPrimaryKey())
                 .constraintKeys(tableSchema.getConstraintKeys())
                 .addColumn(tableSchema.getColumns())

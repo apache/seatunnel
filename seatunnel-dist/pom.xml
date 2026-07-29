@@ -48,7 +48,7 @@
                         <phase>package</phase>
                         <configuration>
                             <descriptors>
-                                <descriptor>src/main/assembly/assembly-bin-ci.xml</descriptor>
+                                <descriptor>src/main/assembly/assembly-seatunnel-bin-ci.xml</descriptor>
                             </descriptors>
                             <appendAssemblyId>true</appendAssemblyId>
                         </configuration>
@@ -61,8 +61,36 @@
                         <phase>package</phase>
                         <configuration>
                             <descriptors>
-                                <descriptor>src/main/assembly/assembly-src.xml</descriptor>
+                                <descriptor>src/main/assembly/assembly-seatunnel-src.xml</descriptor>
                             </descriptors>
+                            <appendAssemblyId>true</appendAssemblyId>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>edge-agent-bin</id>
+                        <goals>
+                            <goal>single</goal>
+                        </goals>
+                        <phase>package</phase>
+                        <configuration>
+                            <descriptors>
+                                <descriptor>src/main/assembly/assembly-edge-agent-bin-ci.xml</descriptor>
+                            </descriptors>
+                            <finalName>apache-seatunnel-edge-agent-${project.version}</finalName>
+                            <appendAssemblyId>true</appendAssemblyId>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>edge-agent-src</id>
+                        <goals>
+                            <goal>single</goal>
+                        </goals>
+                        <phase>package</phase>
+                        <configuration>
+                            <descriptors>
+                                <descriptor>src/main/assembly/assembly-edge-agent-src.xml</descriptor>
+                            </descriptors>
+                            <finalName>apache-seatunnel-edge-agent-${project.version}</finalName>
                             <appendAssemblyId>true</appendAssemblyId>
                         </configuration>
                     </execution>
@@ -152,6 +180,38 @@
                     <version>${project.version}</version>
                     <scope>provided</scope>
                 </dependency>
+                <!-- Edge agent library jars (packaged by seatunnel-dist assembly-edge-agent-*.xml). -->
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>seatunnel-edge-agent-starter</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-api</artifactId>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>jcl-over-slf4j</artifactId>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.logging.log4j</groupId>
+                    <artifactId>log4j-api</artifactId>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.logging.log4j</groupId>
+                    <artifactId>log4j-core</artifactId>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.logging.log4j</groupId>
+                    <artifactId>log4j-slf4j-impl</artifactId>
+                    <scope>provided</scope>
+                </dependency>
                 <!-- transforms -->
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
@@ -229,6 +289,12 @@
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
                     <artifactId>connector-http-klaviyo</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-http-zendesk</artifactId>
                     <version>${project.version}</version>
                     <scope>provided</scope>
                 </dependency>
@@ -1074,6 +1140,38 @@
                     <version>${project.version}</version>
                     <scope>provided</scope>
                 </dependency>
+                <!-- Edge agent library jars (packaged by seatunnel-dist assembly-edge-agent-*.xml). -->
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>seatunnel-edge-agent-starter</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-api</artifactId>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>jcl-over-slf4j</artifactId>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.logging.log4j</groupId>
+                    <artifactId>log4j-api</artifactId>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.logging.log4j</groupId>
+                    <artifactId>log4j-core</artifactId>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.logging.log4j</groupId>
+                    <artifactId>log4j-slf4j-impl</artifactId>
+                    <scope>provided</scope>
+                </dependency>
                 <!-- seatunnel connectors for demo -->
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
@@ -1169,7 +1267,7 @@
                                 <phase>package</phase>
                                 <configuration>
                                     <descriptors>
-                                        <descriptor>src/main/assembly/assembly-bin.xml</descriptor>
+                                        <descriptor>src/main/assembly/assembly-seatunnel-bin.xml</descriptor>
                                     </descriptors>
                                     <appendAssemblyId>true</appendAssemblyId>
                                 </configuration>
@@ -1183,8 +1281,36 @@
                                 <phase>package</phase>
                                 <configuration>
                                     <descriptors>
-                                        <descriptor>src/main/assembly/assembly-src.xml</descriptor>
+                                        <descriptor>src/main/assembly/assembly-seatunnel-src.xml</descriptor>
                                     </descriptors>
+                                    <appendAssemblyId>true</appendAssemblyId>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>edge-agent-bin</id>
+                                <goals>
+                                    <goal>single</goal>
+                                </goals>
+                                <phase>package</phase>
+                                <configuration>
+                                    <descriptors>
+                                        <descriptor>src/main/assembly/assembly-edge-agent-bin.xml</descriptor>
+                                    </descriptors>
+                                    <finalName>apache-seatunnel-edge-agent-${project.version}</finalName>
+                                    <appendAssemblyId>true</appendAssemblyId>
+                                </configuration>
+                            </execution>
+                            <execution>
+                                <id>edge-agent-src</id>
+                                <goals>
+                                    <goal>single</goal>
+                                </goals>
+                                <phase>package</phase>
+                                <configuration>
+                                    <descriptors>
+                                        <descriptor>src/main/assembly/assembly-edge-agent-src.xml</descriptor>
+                                    </descriptors>
+                                    <finalName>apache-seatunnel-edge-agent-${project.version}</finalName>
                                     <appendAssemblyId>true</appendAssemblyId>
                                 </configuration>
                             </execution>

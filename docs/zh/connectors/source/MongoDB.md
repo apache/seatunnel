@@ -72,7 +72,7 @@ MongoDB连接器提供了从MongoDB读取数据和向MongoDB写入数据的能�
 | uri                  | String  | 是  | -                | MongoDB标准连接uri。例如 mongodb://user:password@hosts:27017/database?readPreference=secondary&slaveOk=true.                                                                                                                                                                                              |
 | database             | String  | 是  | -                | 要读取或写入的MongoDB数据库的名称。                                                                                                                                                                                                                                                                              |
 | collection           | String  | 是  | -                | 要读取或写入的MongoDB集合的名称。                                                                                                                                                                                                                                                                               |
-| schema               | String  | 是  | -                | MongoDB的BSON和seatunnel数据结构映射。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。                                                                                                                                                                                                                                                                      |
+| schema               | Config  | 是  | -                | MongoDB 的 BSON 与 SeaTunnel 数据结构映射。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。                                                                                                                                                                                                                                                                      |
 | match.query          | String  | 否  | -                | 在MongoDB中，过滤器用于过滤查询操作的文档。                                                                                                                                                                                                                                                                          |
 | match.projection     | String  | 否 | -                | 在MongoDB中，投影用于控制查询结果中包含的字段。                                                                                                                                                                                                                                                                        |
 | partition.split-key  | String  | 否 | _id              | 分片字段。                                                                                                                                                                                                                                                                                              |
@@ -80,7 +80,7 @@ MongoDB连接器提供了从MongoDB读取数据和向MongoDB写入数据的能�
 | cursor.no-timeout    | Boolean | 否 | true             | MongoDB服务器通常在非活动期（10分钟）后超时空闲游标，以防止过度使用内存。将此选项设置为true以防止这种情况发生。但是，如果应用程序处理当前一批文档的时间超过30分钟，则会话将标记为已过期并关闭。 |
 | fetch.size           | Int     | 否 | 2048             | 设置每批从服务器获取的文档数量。设置适当的批大小可以提高查询性能，避免一次获取大量数据造成的内存压力。                                                                                    |
 | max.time-min         | Long    | 否 | 10               | 此参数是一个MongoDB查询选项，用于限制查询操作的最大执行时间。maxTimeMin的值以分钟为单位。如果查询的执行时间超过指定的时间限制，MongoDB将终止操作并返回错误。                                     |
-| flat.sync-string     | Boolean | 否 | true             | 通过使用flatSyncString，只能设置一个字段属性值，字段类型必须是String。此操作将对单个MongoDB数据条目执行字符串映射。                                                                                                                      |
+| flat.sync-string     | Boolean | 否 | false            | 开启后，会把整个 MongoDB 文档映射到一个 SeaTunnel `STRING` 字段。此时 schema 只能配置一个字段，并且该字段类型必须是 `STRING`。                                                                                                                      |
 | common-options       |         | 否 | -                | 源插件常用参数，请参考 [源通用选项](../common-options/source-common-options.md)                                                                                                                                                                                              |
 
 ### 提示
@@ -115,7 +115,7 @@ source {
         c_double = double
         c_bytes = bytes
         c_date = date
-        c_decimal = "decimal(38, 18)"
+        c_decimal = "decimal(34, 18)"
         c_timestamp = timestamp
         c_row = {
           c_map = "map<string, string>"
@@ -127,7 +127,7 @@ source {
           c_double = double
           c_bytes = bytes
           c_date = date
-          c_decimal = "decimal(38, 18)"
+          c_decimal = "decimal(34, 18)"
           c_timestamp = timestamp
         }
       }
@@ -451,4 +451,3 @@ sink {
 ## 修改日志
 
 <ChangeLog />
-
