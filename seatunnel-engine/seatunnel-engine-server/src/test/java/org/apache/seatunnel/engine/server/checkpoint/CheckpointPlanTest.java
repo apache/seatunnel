@@ -59,6 +59,7 @@ import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalVertex;
 import org.apache.seatunnel.engine.server.dag.physical.PlanUtils;
 import org.apache.seatunnel.engine.server.task.DynamicLookupCoordinatorTask;
+import org.apache.seatunnel.engine.server.task.SourceSeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.TransformSeaTunnelTask;
 
 import org.junit.jupiter.api.Assertions;
@@ -206,7 +207,7 @@ public class CheckpointPlanTest extends AbstractSeaTunnelServerTest {
                 plans.f0().getPipelineList().get(0).getPhysicalVertexList();
         List<PhysicalVertex> coordinatorVertices =
                 plans.f0().getPipelineList().get(0).getCoordinatorVertexList();
-        Assertions.assertEquals(6, physicalVertices.size());
+        Assertions.assertEquals(2, physicalVertices.size());
         Assertions.assertEquals(3, coordinatorVertices.size());
 
         List<PhysicalVertex> lookupPhysicalVertices =
@@ -266,6 +267,11 @@ public class CheckpointPlanTest extends AbstractSeaTunnelServerTest {
 
         PhysicalVertex lookupPhysicalVertex = lookupPhysicalVertices.get(0);
         Assertions.assertEquals(2, lookupPhysicalVertex.getInputPorts().size());
+        Assertions.assertEquals(
+                2,
+                lookupPhysicalVertex.getTaskGroup().getTasks().stream()
+                        .filter(SourceSeaTunnelTask.class::isInstance)
+                        .count());
         Assertions.assertTrue(
                 lookupPhysicalVertex.getTaskGroup().getTasks().stream()
                         .anyMatch(TransformSeaTunnelTask.class::isInstance));

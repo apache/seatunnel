@@ -906,6 +906,9 @@ public class PhysicalPlanGenerator {
     }
 
     private static void validateDynamicLookupPipeline(Pipeline pipeline) {
+        if (!containsDynamicLookup(pipeline)) {
+            return;
+        }
         Set<Long> portAwareSourceActionIds =
                 pipeline.getEdges().stream()
                         .filter(PortAwareExecutionEdge.class::isInstance)
