@@ -1938,6 +1938,14 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         String keepAliveData = sourceData + "-keepalive-" + resourceSuffix;
         long sinkStartOffset = endOffsetOnP0(consumerTopic);
 
+        // Write the readiness probe once before startup. The config uses earliest because a brand
+        // new consumer group has no stored offsets for group_offsets split assignment.
+        ProducerRecord<byte[], byte[]> readinessRecord =
+                new ProducerRecord<>(
+                        producerTopic, null, readinessData.getBytes(StandardCharsets.UTF_8));
+        producer.send(readinessRecord);
+        producer.flush();
+
         // async execute
         CompletableFuture.supplyAsync(
                 () -> {
@@ -1958,18 +1966,10 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                 .await()
                 .atMost(5, MINUTES)
                 .untilAsserted(
-                        () -> {
-                            ProducerRecord<byte[], byte[]> readinessRecord =
-                                    new ProducerRecord<>(
-                                            producerTopic,
-                                            null,
-                                            readinessData.getBytes(StandardCharsets.UTF_8));
-                            producer.send(readinessRecord);
-                            producer.flush();
-                            Assertions.assertTrue(
-                                    getKafkaConsumerListData(consumerTopic, sinkStartOffset)
-                                            .contains(readinessData));
-                        });
+                        () ->
+                                Assertions.assertTrue(
+                                        getKafkaConsumerListData(consumerTopic, sinkStartOffset)
+                                                .contains(readinessData)));
 
         for (int i = 0; i < 10; i++) {
             ProducerRecord<byte[], byte[]> record =
@@ -2647,8 +2647,8 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                 // consumer position so we do not stop early while the broker is still advancing the
                 // transactional scan range.
                 if (records.isEmpty()
-                        && currentPosition == nextOffset
-                        && consecutiveEmptyPolls >= 20) {
+                        && shouldStopAfterEmptyReadCommittedPoll(
+                                currentPosition, nextOffset, consecutiveEmptyPolls)) {
                     break;
                 }
                 nextOffset = currentPosition;
@@ -2657,6 +2657,17 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         } finally {
             closeKafkaConsumer(consumer);
         }
+    }
+
+    /**
+     * Decides whether repeated empty READ_COMMITTED polls are stable enough to stop scanning.
+     *
+     * <p>If the broker advances the consumer position across aborted or control records, the scan
+     * must continue even when no visible records are returned.
+     */
+    static boolean shouldStopAfterEmptyReadCommittedPoll(
+            long currentPosition, long previousPosition, int consecutiveEmptyPolls) {
+        return currentPosition == previousPosition && consecutiveEmptyPolls >= 20;
     }
 
     private Properties kafkaManualConsumerConfig() {

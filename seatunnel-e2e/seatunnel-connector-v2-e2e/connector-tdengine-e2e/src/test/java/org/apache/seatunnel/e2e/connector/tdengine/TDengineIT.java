@@ -57,7 +57,9 @@ public class TDengineIT extends TestSuiteBase implements TestResource {
     /**
      * Keeps the test database within the vnode budget that small CI machines can provide.
      *
-     * <p>A single vgroup is sufficient for connector assertions and avoids CI startup failures.
+     * <p>This is purely a CI resource workaround. The STABLE-backed source and sink queries in this
+     * suite do not assert per-vgroup parallelism, so a single vgroup is expected to behave the same
+     * as the default multi-vgroup layout for the exercised SQL paths.
      */
     private static final String SINGLE_VGROUP_DATABASE_OPTIONS = " KEEP 3650 VGROUPS 1";
 
@@ -230,7 +232,7 @@ public class TDengineIT extends TestSuiteBase implements TestResource {
         try (Statement statement = connection.createStatement()) {
             statement.execute("DROP DATABASE IF EXISTS " + databaseName);
             statement.execute("CREATE DATABASE " + databaseName + SINGLE_VGROUP_DATABASE_OPTIONS);
-            statement.execute("DROP DATABASE " + databaseName);
+            statement.execute("DROP DATABASE IF EXISTS " + databaseName);
         }
     }
 

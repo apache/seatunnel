@@ -95,7 +95,13 @@ public class MultipleTableFileSourceReader implements SourceReader<SeaTunnelRow,
 
         if (split != null) {
             if (Boundedness.UNBOUNDED.equals(context.getBoundedness())) {
-                SourceEvent event = new FileSplitFinishedEvent(split.splitId());
+                ReadStrategy readStrategy = readStrategyMap.get(split.getTableId());
+                SourceEvent event =
+                        new FileSplitFinishedEvent(
+                                split.splitId(),
+                                readStrategy == null
+                                        ? null
+                                        : readStrategy.getLastReadFingerprint());
                 context.sendSourceEventToEnumerator(event);
             }
             return;

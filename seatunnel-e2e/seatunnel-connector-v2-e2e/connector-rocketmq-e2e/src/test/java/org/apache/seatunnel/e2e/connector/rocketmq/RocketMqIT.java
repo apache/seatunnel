@@ -397,7 +397,7 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
                         DEFAULT_FORMAT,
                         DEFAULT_FIELD_DELIMITER);
         generateTestData(row -> serializer.serializeRow(row), topicName, 100, 150);
-        testRocketMqGroupOffsetsToConsole(container, topicName, consumerGroup);
+        executeRocketMqGroupOffsetsToConsole(container, topicName, consumerGroup);
     }
 
     @TestTemplate
@@ -422,7 +422,7 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
     /**
      * Uses isolated topic and consumer-group names so template invocations cannot share offsets.
      */
-    public void testRocketMqGroupOffsetsToConsole(
+    private void executeRocketMqGroupOffsetsToConsole(
             TestContainer container, String topicName, String consumerGroup)
             throws IOException, InterruptedException {
         Container.ExecResult execResult =
@@ -839,6 +839,8 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
 
     /**
      * Returns a collision-resistant suffix for broker resources shared by template invocations.
+     * RocketMQ accepts independent topic creation requests, so no synchronization is needed for
+     * UUID-backed resource names.
      *
      * @return UUID text without separators, suitable for topic and consumer-group names
      */

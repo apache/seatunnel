@@ -66,11 +66,16 @@ import static org.awaitility.Awaitility.await;
 public class MysqlCDCWithFlinkSchemaChangeIT extends TestSuiteBase implements TestResource {
     /**
      * Flink schema evolution can restart after XA recover/rollback on loaded CI runners, so these
-     * assertions need enough time for the job to recover and replay the schema-change event.
+     * assertions need enough time for the job to recover and replay the schema-change event. The
+     * long bound is a failure deadline, not the expected recovery duration.
      */
     private static final long SCHEMA_EVOLUTION_ASSERT_TIMEOUT_MILLIS = 600_000L;
 
     private static final long STRUCTURE_AND_DATA_ASSERT_TIMEOUT_MILLIS = 300_000L;
+    /**
+     * The timestamp default is evaluated by different MySQL statements during CDC replay, so the
+     * assertion keeps the historical 60 second tolerance while still detecting stalled propagation.
+     */
     private static final int MAX_TIMESTAMP_DRIFT_SECONDS = 60;
 
     private static final String MYSQL_DATABASE = "shop";
