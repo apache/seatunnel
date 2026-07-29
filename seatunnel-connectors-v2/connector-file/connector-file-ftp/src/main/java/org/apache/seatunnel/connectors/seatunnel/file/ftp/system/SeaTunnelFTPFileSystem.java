@@ -833,8 +833,8 @@ public class SeaTunnelFTPFileSystem extends FileSystem implements StreamingFileS
             throw new IOException(
                     "Cannot rename " + absoluteSrc + " under itself" + " : " + absoluteDst);
         }
-        String from = absoluteSrc.toString();
-        String to = absoluteDst.toString();
+        String from = absoluteSrc.toUri().getPath();
+        String to = absoluteDst.toUri().getPath();
         return client.rename(from, to);
     }
 
