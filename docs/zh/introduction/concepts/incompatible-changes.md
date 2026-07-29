@@ -182,3 +182,6 @@
 ### 引擎行为变更
 
 ### 依赖升级
+
+- 构建的 Maven 依赖解析现在统一通过 Apache Public 仓库（配置在 `.mvn/settings.xml`，由 `.mvn/maven.config` 自动加载）。内置的 Maven Central 被镜像至 Apache Public，从而让所有 Central 工件都走 Apache CDN；这里使用 `<mirrorOf>central</mirrorOf>`（而非 `*`），因此项目 POM 或传递依赖中声明的其它仓库不受影响。Snapshot 解析需要通过 `./mvnw -DshadeSnapshots=true` 显式开启。
+- `seatunnel-shade` 模块已从本仓库移除。`seatunnel-shade-*`（hadoop3-uber、jackson、hazelcast、scala-compiler 等）现作为外部 Maven 依赖，从单独的 `apache/seatunnel-shade` 仓库经由 Apache Public 解析。如果你在企业内部 Nexus / Artifactory 代理环境下从源码构建，请确保该仓库在你的构建环境中可达。

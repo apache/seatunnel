@@ -287,6 +287,12 @@ if [ "$MVNW_VERBOSE" = true ]; then
   echo $MAVEN_PROJECTBASEDIR
 fi
 MAVEN_OPTS="$(concat_lines "$MAVEN_PROJECTBASEDIR/.mvn/jvm.config") $MAVEN_OPTS"
+# Read .mvn/maven.config (project-scoped Maven CLI args, e.g. -s settings.xml).
+# This project pins to wrapper 3.1.0 which does NOT read this file natively; the
+# standard Apache Maven Wrapper 3.2.0+ does. We re-introduce the read here so
+# the settings file wired via .mvn/maven.config is forwarded to Maven on every
+# ./mvnw invocation (local dev and CI).
+MAVEN_CONFIG="$(concat_lines "$MAVEN_PROJECTBASEDIR/.mvn/maven.config")"
 
 # For Cygwin, switch paths to Windows format before running java
 if $cygwin; then
