@@ -30,6 +30,7 @@ import ChangeLog from '../changelog/connector-file-sftp.md';
   - [x] xml
   - [x] binary
   - [x] markdown
+  - [x] pdf
 
 ## 描述
 
@@ -116,6 +117,12 @@ import ChangeLog from '../changelog/connector-file-sftp.md';
 | target_hadoop_conf         | map     | 否    | -                   | 仅在 `sync_mode=update` 时使用。目标端 Hadoop 配置（可选），可在其中设置 `fs.defaultFS` 覆盖目标 defaultFS。                                                                                                                                                                                     |
 | update_strategy            | string  | 否    | distcp              | 仅在 `sync_mode=update` 时使用。支持：`distcp`（默认）、`strict`。                                                                                                                                                                                     |
 | compare_mode               | string  | 否    | len_mtime           | 仅在 `sync_mode=update` 时使用。支持：`len_mtime`（默认）、`checksum`（仅在 `update_strategy=strict` 时可用）。                                                                                                                                             |
+| update_compare_parallelism | int     | 否    | 8                   | 稀疏目标元数据点查的最大并发数，有效范围为 `1-64`。                                                                                                                                                                                                       |
+| update_compare_bulk_threshold | int  | 否    | 0                   | 设置正数后，同一目标父目录达到该候选数时切换为单次目录枚举；`0` 表示关闭自动批量枚举。                                                                                                                                                                     |
+| post_sync_action           | string  | 否    | none                | `discovery_mode=continuous` 下的后置运维动作，支持：`none`（默认）、`delete`、`backup`。                                                                                                                                                             |
+| backup_path                | string  | 否    | -                   | `post_sync_action=backup` 时的备份目标基础路径，不能与 `path` 重叠。                                                                                                                                                                                   |
+| retention_max_age          | string  | 否    | -                   | `backup_path` 中 SeaTunnel 备份文件的可选保留时长，仅在 `post_sync_action=backup` 时有效。                                                                                                                                                            |
+| retention_check_interval   | string  | 否    | 1H                  | 保留清理扫描间隔，仅在 `post_sync_action=backup` 且配置 `retention_max_age` 时生效。                                                                                                                                                                    |
 | common-options             |         | 否    | -                   | 数据源插件通用参数，请参考[数据源通用选项](../common-options/source-common-options.md)了解详情。                                                                                                                                                                                           |
 | file_filter_modified_start | string  | 否    | -                   | 按照最后修改时间过滤文件。 要过滤的开始时间(包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`                                                                                                                                                                                          |
 | file_filter_modified_end   | string  | 否    | -                   | 按照最后修改时间过滤文件。 要过滤的结束时间(不包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`                                                                                                                                                                                         |
@@ -181,7 +188,7 @@ abc.*
 ### file_format_type [string]
 
 文件类型，支持以下文件类型：
-`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown`
+`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf`
 如果您将文件类型指定为`json`，您还应该指定schema选项来告诉连接器如何将数据解析为您想要的行。
 例如：
 上游数据如下：
@@ -249,7 +256,7 @@ schema {
 
 如果您将文件类型指定为 `markdown`，SeaTunnel 可以解析 markdown 文件并提取结构化数据。
 markdown 解析器提取各种元素，包括标题、段落、列表、代码块、表格等。
-每个元素都转换为具有以下架构的行：
+每个提取出的元素都会转换为一条文档元素结构化记录，schema 如下：
 - `element_id`：元素的唯一标识符
 - `element_type`：元素类型（Heading、Paragraph、ListItem 等）
 - `heading_level`：标题级别（1-6，非标题元素为 null）
@@ -269,6 +276,18 @@ markdown 解析器提取各种元素，包括标题、段落、列表、代码�
 该选项默认值为 `false`，因此只有显式启用后才会改变原始 Markdown schema。
 
 注意：Markdown 格式仅支持读取，不支持写入。
+
+如果您将文件类型指定为 `pdf`，SeaTunnel 可以解析 PDF 文件并提取结构化的文档元素。
+PDF 使用与上文相同的文档元素 schema。
+
+PDF 特有的解析行为如下：
+
+- **有大纲**：提取 `heading`（标题）、`paragraph`（段落）、`image`（图片）和 `link`（链接）元素。标题从大纲结构中派生，元素按照文档的逻辑结构组织为父子层级关系。
+- **无大纲**：仅提取 `paragraph`（段落）和 `image`（图片）元素，以扁平结构呈现，不包含层级关系。
+- `element_type` 在 PDF 场景下可能为 `heading`、`paragraph`、`image` 或 `link`。
+
+注意：仅支持单栏（从上到下）PDF 布局。不支持多栏布局（例如并排的双栏文档），可能会产生不正确的文本顺序。
+
 在此要求下，您需要确保源和接收器同时使用`binary`格式进行文件同步。
 
 ### compress_codec [string]
@@ -371,6 +390,49 @@ compare_mode = "len_mtime"
 ### compare_mode [string]
 
 仅在 `sync_mode=update` 时使用。支持：`len_mtime`（默认）、`checksum`（仅在 `update_strategy=strict` 时可用）。
+
+### update_compare_parallelism [int]
+
+`sync_mode=update` 对稀疏目标文件执行元数据点查时的最大并发数。默认值为 `8`，有效范围为 `1` 到 `64`；范围外的值会在配置校验阶段被拒绝；已提交但未完成的任务上限为该值的 8 倍。
+
+### update_compare_bulk_threshold [int]
+
+设置正数后，同一目标父目录的候选文件达到该阈值时，SeaTunnel 改为只枚举一次目标目录。默认值 `0` 表示关闭自动批量枚举，使用有界并发点查，避免意外扫描庞大的目标目录。该行为适用于所有目标文件系统。源端会边枚举边过滤，以降低元数据峰值内存；但 SFTP 平铺目录仍需返回全部条目，因为标准 `READDIR` 不支持服务端按修改时间过滤。
+
+### post_sync_action [string]
+
+仅在 `discovery_mode=continuous` 时使用。支持：`none`（默认）、`delete`、`backup`。当 `discovery_mode=once` 时，若配置 `post_sync_action=delete` 或 `post_sync_action=backup`，会在配置校验阶段被显式拒绝。
+
+- `none`：默认行为，不对源文件执行运维动作。
+- `delete`：在 `notifyCheckpointComplete` 后删除已处理源文件；失败动作会在后续 checkpoint 回调中重试。
+- `backup`：在 `notifyCheckpointComplete` 后将已处理源文件移动到 `backup_path`；失败动作会在后续 checkpoint 回调中重试。
+
+执行 `delete` 或 `backup` 前，SeaTunnel 会先将源文件重命名到 staging/trash 路径，然后重新检查文件长度和修改时间。如果重命名后版本不一致，文件会被恢复到原路径，以便后续扫描重新发现变更后的文件。
+
+**mtime 粒度限制**：SFTP mtime 分辨率通常为 1 秒。act-then-verify 方式缩小了但不能完全消除同秒同长度修改的竞态窗口。为了最大安全性，请确保 post-sync 处理期间没有并发写入，或使用 `backup` 而非 `delete` 以便文件可恢复。
+
+**安全提示**：在 SFTP 上使用 `post_sync_action=delete` 或 `backup` 时，建议使用专用最小权限账户，仅对监控目录有 DELETE/RENAME 权限。此功能需要写/删权限，会增加凭证泄露后的影响范围。
+
+### backup_path [string]
+
+仅在 `post_sync_action=backup` 时使用。在 checkpoint 完成提交后，已处理文件会移动到该基础路径，目标文件名会附带源文件版本后缀以避免覆盖冲突。phase-1 仅支持与 `path` 同文件系统（scheme + authority 相同）的 backup，跨文件系统 backup 会被显式拒绝。
+
+`backup_path` 不能与 `path` 相同，不能位于 `path` 之下，`path` 也不能位于 `backup_path` 之下。建议使用专用备份目录，因为保留清理只会管理带 SeaTunnel 版本后缀的备份文件。
+
+### retention_max_age [string]
+
+`backup_path` 的可选保留策略。超过该时长的 SeaTunnel 备份文件会在 checkpoint 完成后的保留扫描中被清理。
+仅在 `post_sync_action=backup` 时有效。
+
+支持的时长格式包括带 `MS`、`S`、`M`、`H`、`D` 后缀的简写格式，例如 `500MS`、`30S`、`10M`、`12H`、`7D`，也支持 ISO-8601 时长，例如 `PT1H30M`。
+
+时长后缀不区分大小写：`MS`（毫秒）、`S`（秒）、`M`（分钟）、`H`（小时）、`D`（天）。`M` 始终表示分钟，不是月份。非法值（如 `PT7D`、`P1M`）会导致配置校验失败并报错。
+
+### retention_check_interval [string]
+
+保留清理扫描间隔，默认 `1H`。仅在 `post_sync_action=backup` 且配置 `retention_max_age` 后生效，清理任务最多按该间隔执行一次。单独设置 `retention_check_interval` 不会产生效果。
+
+时长后缀不区分大小写：`MS`、`S`、`M`、`H`、`D`。`M` 始终表示分钟，不是月份。非法值会导致配置校验失败并报错。
 
 ### schema [config]
 
@@ -606,6 +668,11 @@ source {
     target_path = "tmp/seatunnel/watch/dst"
     update_strategy = "distcp"
     compare_mode = "len_mtime"
+
+    post_sync_action = "backup"
+    backup_path = "tmp/seatunnel/watch/backup"
+    retention_max_age = "7D"
+    retention_check_interval = "1H"
   }
 }
 

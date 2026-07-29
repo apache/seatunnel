@@ -79,6 +79,10 @@ public class PostgresIncrementalSourceFactory implements TableSourceFactory {
                         PostgresSourceOptions.STARTUP_MODE,
                         StartupMode.INITIAL,
                         JdbcSourceOptions.EXACTLY_ONCE)
+                .conditional(
+                        PostgresSourceOptions.STARTUP_MODE,
+                        StartupMode.SNAPSHOT_ONLY,
+                        JdbcSourceOptions.EXACTLY_ONCE)
                 .build();
     }
 

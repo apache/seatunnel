@@ -22,6 +22,7 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
+import java.util.List;
 import java.util.Map;
 
 public class KafkaSourceOptions extends KafkaBaseOptions {
@@ -55,7 +56,7 @@ public class KafkaSourceOptions extends KafkaBaseOptions {
                     .booleanType()
                     .defaultValue(true)
                     .withDescription(
-                            "If true the consumer's offset will be periodically committed in the background.");
+                            "If true, consumer offsets are committed only after a SeaTunnel checkpoint completes, and Kafka auto commit is disabled. If false, checkpoint commits are disabled and Kafka auto commit is enabled.");
 
     public static final Option<Boolean> DEBEZIUM_RECORD_INCLUDE_SCHEMA =
             Options.key("debezium_record_include_schema")
@@ -146,4 +147,13 @@ public class KafkaSourceOptions extends KafkaBaseOptions {
                             "Effective when the format is avro. The writer Avro schema used to "
                                     + "deserialize binary Avro messages whose record name, namespace, "
                                     + "or union layout differs from the SeaTunnel schema.");
+
+    public static final Option<List<String>> KAFKA_HEADERS_FIELDS =
+            Options.key("kafka_headers_fields")
+                    .listType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Specify which Kafka message header keys to extract as row fields. "
+                                    + "Each header value is read as a STRING and appended to the output row. "
+                                    + "Cannot be used with NATIVE format.");
 }
