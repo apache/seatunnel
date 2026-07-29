@@ -190,6 +190,3 @@ You need to check this document before you upgrade to related version.
 ### Engine Behavior Changes
 
 ### Dependency Upgrades
-
-- Maven dependency resolution now goes through Apache Public repository (configured in `.mvn/settings.xml`, wired automatically via `.mvn/maven.config`). The built-in Maven Central is mirrored to Apache Public so all Central artifacts flow through the Apache CDN; `<mirrorOf>central</mirrorOf>` is used (not `*`) so any repositories declared in project or transitive POMs are unaffected. Snapshot resolution is opt-in via `./mvnw -DshadeSnapshots=true`.
-- The `seatunnel-shade` module has been removed from this repository. All `seatunnel-shade-*` artifacts (hadoop3-uber, jackson, hazelcast, scala-compiler, etc.) are now resolved as external Maven dependencies from the separate `apache/seatunnel-shade` repository through Apache Public. Consumers building from source behind a corporate Nexus/Artifactory must make sure that repository is reachable from their build environment.
