@@ -21,6 +21,9 @@ import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -30,6 +33,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class PostgresTypeMapper implements JdbcDialectTypeMapper {
+
+    private static final Logger LOG = LoggerFactory.getLogger(PostgresTypeMapper.class);
 
     private static final Pattern FROM_TABLE_PATTERN =
             Pattern.compile("(?i)\\bFROM\\s+([\\w.\"`]+)");
@@ -112,7 +117,7 @@ public class PostgresTypeMapper implements JdbcDialectTypeMapper {
      * schemaName may be null if it cannot be determined.
      */
     private String[] resolveTableInfo(ResultSetMetaData metadata, int colIndex, String sqlQuery) {
-        // Try ResultSetMetaData first — the PostgreSQL JDBC driver often populates this
+        // Try ResultSetMetaData first - the PostgreSQL JDBC driver often populates this.
         try {
             String tableName = metadata.getTableName(colIndex);
             if (tableName != null && !tableName.isEmpty()) {
