@@ -227,3 +227,17 @@ After publishing new shade artifacts, update the SeaTunnel project:
 | Update code imports | All `.java` files using the library |
 
 If only `seatunnel.shade.version` changes (e.g., `3.0.0` → `3.0.1`), it affects **all** shade dependencies and every module must be republished.
+
+### Propagation Delay Between Shade Release and SeaTunnel CI
+
+Once a new `seatunnel-shade-*` artifact is published to [Apache's release repository](https://repository.apache.org/content/repositories/releases/), Maven Central's global CDN typically needs **up to ~24 hours** to pick it up and serve it to all mirrors. During this window, the SeaTunnel main project — which resolves dependencies through Maven Central — will not be able to download the freshly released shade artifact, and CI will fail with `Could not find artifact org.apache.seatunnel:seatunnel-shade-*:...`.
+
+If a release is bumped in the SeaTunnel root `pom.xml` immediately after the shade release, expect CI to be red for roughly the first day until Central propagation completes. If you need CI green right away, wait for Central to catch up before bumping the version in SeaTunnel (or rerun CI on the failing commit the next day — no code change needed).
+
+You can confirm an artifact is live on Central by checking https://search.maven.org/search?q=org.apache.seatunnel or by querying:
+
+```bash
+curl -sI https://repo.maven.apache.org/maven2/org/apache/seatunnel/seatunnel-shade-guava/<lib.version>-<shade.version>/seatunnel-shade-guava-<lib.version>-<shade.version>.pom
+```
+
+A `200 OK` means Central has propagated the release.

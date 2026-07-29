@@ -227,3 +227,20 @@ git push origin v3.0.0.fix
 | 更新代码 import | 所有使用该库的 `.java` 文件 |
 
 如果仅变更了 `seatunnel.shade.version`（如 `3.0.0` → `3.0.1`），则会影响到**所有** shade 依赖，每个模块都必须重新发布。
+
+### Shade 发版到 SeaTunnel CI 通过之间的传播延迟
+
+新的 `seatunnel-shade-*` 制品发布到 [Apache 发布仓库](https://repository.apache.org/content/repositories/releases/) 后，Maven Central 的全球 CDN 通常需要 **最长约 24 小时** 才会拉取并分发到所有镜像。在这个时间窗口内，SeaTunnel 主工程（依赖通过 Maven Central 解析）会无法下载新发布的 shade 制品，CI 会以 `Could not find artifact org.apache.seatunnel:seatunnel-shade-*:...` 失败。
+
+如果在 shade 发版后立即在 SeaTunnel 根 `pom.xml` 里升版本号，预计 CI 会在第一天左右持续红，直到 Central 传播完成。如果希望 CI 立刻通过，请等 Central 同步后再升 SeaTunnel 版本号（或者隔天对失败的 commit 重新触发 CI — 不需要改代码）。
+
+可以通过以下方式确认制品已在 Central 上线：
+
+- 访问 https://search.maven.org/search?q=org.apache.seatunnel 查看
+- 或直接 curl：
+
+```bash
+curl -sI https://repo.maven.apache.org/maven2/org/apache/seatunnel/seatunnel-shade-guava/<lib.version>-<shade.version>/seatunnel-shade-guava-<lib.version>-<shade.version>.pom
+```
+
+返回 `200 OK` 即代表 Central 已经传播该发布。
