@@ -44,7 +44,9 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.util.Collections;
@@ -88,12 +90,12 @@ public class KubernetesIT {
         MavenXpp3Reader pomReader = new MavenXpp3Reader();
         Model model = pomReader.read(new FileReader(pomPath), true);
         String artifactId = model.getArtifactId();
-        String tag = artifactId + ":latest";
+        String tag = artifactId + ":" + hazelCastConfigFile.replace(".yaml", "");
         Info info = dockerClient.infoCmd().exec();
         log.info("Docker's environmental information");
         log.info(info.toString());
+        copyFileToCurrentResources(hazelCastConfigFile, targetPath);
         if (dockerClient.listImagesCmd().withImageNameFilter(tag).exec().isEmpty()) {
-            copyFileToCurrentResources(hazelCastConfigFile, targetPath);
             File file =
                     new File(
                             PROJECT_ROOT_PATH
@@ -116,6 +118,7 @@ public class KubernetesIT {
                                 new File(
                                         PROJECT_ROOT_PATH
                                                 + "/seatunnel-e2e/seatunnel-engine-e2e/seatunnel-engine-k8s-e2e/src/test/resources/seatunnel-statefulset.yaml"));
+        yamlStatefulSet.getSpec().getTemplate().getSpec().getContainers().get(0).setImage(tag);
         try {
             coreV1Api.createNamespacedService(namespace, yamlSvc, null, null, null, null);
             appsV1Api.createNamespacedStatefulSet(
@@ -133,34 +136,43 @@ public class KubernetesIT {
             // submit job
             String command =
                     "/opt/seatunnel/bin/seatunnel.sh --config /opt/seatunnel/config/v2.batch.config.template";
-            Process process =
-                    Runtime.getRuntime()
-                            .exec(
-                                    "kubectl exec -it "
-                                            + podName
-                                            + " -n "
-                                            + namespace
-                                            + " -- "
-                                            + command);
-            Assertions.assertEquals(0, process.waitFor());
+            Assertions.assertEquals(0, executePodCommand(command));
             // submit an error job
             String commandError =
                     "/opt/seatunnel/bin/seatunnel.sh --config /opt/seatunnel/config/v2.batch.config.template.error";
-            process =
-                    Runtime.getRuntime()
-                            .exec(
-                                    "kubectl exec -it "
-                                            + podName
-                                            + " -n "
-                                            + namespace
-                                            + " -- "
-                                            + commandError);
-            Assertions.assertEquals(1, process.waitFor());
+            Assertions.assertEquals(1, executePodCommand(commandError));
         } finally {
             appsV1Api.deleteNamespacedStatefulSet(
                     stsName, namespace, null, null, null, null, null, null);
             coreV1Api.deleteNamespacedService(
                     svcName, namespace, null, null, null, null, null, null);
+        }
+    }
+
+    private int executePodCommand(String command) throws IOException, InterruptedException {
+        Path outputPath = Files.createTempFile("seatunnel-k8s-command-", ".log");
+        try {
+            Process process =
+                    new ProcessBuilder(
+                                    "kubectl", "exec", podName, "-n", namespace, "--", "/bin/sh",
+                                    "-c", command)
+                            .redirectErrorStream(true)
+                            .redirectOutput(outputPath.toFile())
+                            .start();
+            int exitCode = process.waitFor();
+            String output = new String(Files.readAllBytes(outputPath), StandardCharsets.UTF_8);
+            if (exitCode == 0) {
+                log.info("kubectl exec command succeeded: {}\n{}", command, output);
+            } else {
+                log.error(
+                        "kubectl exec command failed with exit code {}: {}\n{}",
+                        exitCode,
+                        command,
+                        output);
+            }
+            return exitCode;
+        } finally {
+            Files.deleteIfExists(outputPath);
         }
     }
 
