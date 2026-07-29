@@ -360,3 +360,29 @@ def test_chat_stream_failed_event_raises():
     with pytest.raises(RuntimeError, match="abnormally"):
         list(provider.chat_stream(
             [{"role": "user", "content": [{"text": "hi"}]}]))
+
+# ── dependency contract: every extra bundling this provider must satisfy it ──
+
+def test_extras_bundling_mantle_share_responses_capable_floor():
+    """The provider calls client.responses.create, which needs a modern
+    openai SDK. Any extra that installs this provider (bedrock-mantle, all,
+    dev) must therefore pin the same floor — a lower one would install a
+    broken provider (review finding)."""
+    import re
+    from pathlib import Path
+    pyproject = Path(__file__).parent.parent / "pyproject.toml"
+    extras = {}
+    for line in pyproject.read_text().splitlines():
+        m = re.match(r'^([\w-]+)\s*=\s*\[(.*)\]', line.strip())
+        if m:
+            extras[m.group(1)] = m.group(2)
+    for extra in ("bedrock-mantle", "all", "dev"):
+        assert extra in extras, f"extra '{extra}' missing"
+        deps = extras[extra]
+        m = re.search(r'openai>=([\d.]+)', deps)
+        assert m, f"extra '{extra}' has no openai floor"
+        version = tuple(int(x) for x in m.group(1).split("."))
+        assert version >= (2, 45, 0), \
+            f"extra '{extra}' allows openai {m.group(1)} < 2.45.0"
+        assert "aws-bedrock-token-generator" in deps, \
+            f"extra '{extra}' missing aws-bedrock-token-generator"

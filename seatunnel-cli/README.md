@@ -207,7 +207,7 @@ When the engine is running, the CLI operates in **cluster mode** with live conne
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `AI_PROVIDER` | No | `bedrock` | LLM provider: `bedrock`, `anthropic`, or `openai` |
+| `AI_PROVIDER` | No | `bedrock` | LLM provider: `bedrock`, `bedrock-mantle`, `anthropic`, or `openai` |
 | `AWS_REGION` | Bedrock | `us-east-1` | AWS region for Bedrock |
 | `ANTHROPIC_API_KEY` | Anthropic | -- | Anthropic API key |
 | `OPENAI_API_KEY` | OpenAI | -- | OpenAI API key |
