@@ -134,6 +134,7 @@ const sidebars = {
                     "label": "Common Options",
                     "items": [
                         "connectors/common-options/source-common-options",
+                        "connectors/common-options/sink-write-modes",
                         "connectors/common-options/sink-common-options"
                     ]
                 },
@@ -246,6 +247,7 @@ const sidebars = {
                         "getting-started/submit-job-to-remote-zeta-cluster",
                         "engines/zeta/checkpoint-storage",
                         "engines/zeta/state-storage-and-recovery",
+                        "engines/zeta/timer-flush",
                         "engines/zeta/engine-jar-storage-mode",
                         "engines/zeta/tcp",
                         "engines/zeta/resource-isolation",
