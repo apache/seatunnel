@@ -20,40 +20,31 @@ package org.apache.seatunnel.engine.server.task;
 import org.apache.seatunnel.api.common.metrics.Counter;
 import org.apache.seatunnel.api.common.metrics.Meter;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
-import org.apache.seatunnel.api.common.metrics.ThreadSafeCounter;
-import org.apache.seatunnel.api.common.metrics.ThreadSafeQPSMeter;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.core.starter.flowcontrol.FlowControlStrategy;
 import org.apache.seatunnel.engine.common.config.DryRunSampleConfig;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.JobConfig;
-import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
-import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
-import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
-import org.apache.seatunnel.engine.server.dag.physical.config.SourceConfig;
-import org.apache.seatunnel.engine.server.execution.ProgressState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.flow.OneInputFlowLifeCycle;
-import org.apache.seatunnel.engine.server.task.flow.SourceFlowLifeCycle;
 
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
-import java.net.URL;
-import java.util.ArrayList;
 import java.util.Collections;
-import java.util.List;
-import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 class SeaTunnelSourceCollectorDryRunSampleTest {
 
     @Test
     void shouldForwardOnlyTheConfiguredNumberOfRowsAndCompleteOnce() throws Exception {
-        RecordingOutput output = new RecordingOutput();
+        OneInputFlowLifeCycle<Record<?>> output = Mockito.mock(OneInputFlowLifeCycle.class);
         AtomicInteger completionCount = new AtomicInteger();
         JobConfig jobConfig = new JobConfig();
         DryRunSampleConfig.configure(jobConfig, 2, false);
@@ -75,79 +66,21 @@ class SeaTunnelSourceCollectorDryRunSampleTest {
         collector.collect("second");
         collector.collect("ignored");
 
-        assertEquals(2, output.records.size());
-        assertEquals(1, completionCount.get());
+        verify(output, times(2)).received(Mockito.any());
+        org.junit.jupiter.api.Assertions.assertEquals(1, completionCount.get());
     }
 
     private static SeaTunnelTask sourceTask() {
-        return new TestSeaTunnelTask();
+        SeaTunnelTask sourceTask = Mockito.mock(SeaTunnelTask.class);
+        when(sourceTask.getTaskLocation())
+                .thenReturn(new TaskLocation(new TaskGroupLocation(1L, 1, 1L), 1L, 0));
+        return sourceTask;
     }
 
     private static MetricsContext metricsContext() {
-        return new TestMetricsContext();
-    }
-
-    private static class RecordingOutput implements OneInputFlowLifeCycle<Record<?>> {
-        private final List<Record<?>> records = new ArrayList<>();
-
-        @Override
-        public void received(Record<?> record) {
-            records.add(record);
-        }
-    }
-
-    private static class TestSeaTunnelTask extends SeaTunnelTask {
-        private TestSeaTunnelTask() {
-            super(1L, new TaskLocation(new TaskGroupLocation(1L, 1, 1L), 1L, 0), 0, null);
-        }
-
-        @Override
-        protected SourceFlowLifeCycle<?, ?> createSourceFlowLifeCycle(
-                SourceAction<?, ?, ?> sourceAction,
-                SourceConfig config,
-                CompletableFuture<Void> completableFuture,
-                MetricsContext metricsContext) {
-            throw new UnsupportedOperationException();
-        }
-
-        @Override
-        protected void collect() {}
-
-        @Override
-        public Set<URL> getJarsUrl() {
-            return Collections.emptySet();
-        }
-
-        @Override
-        public Set<ConnectorJarIdentifier> getConnectorPluginJars() {
-            return Collections.emptySet();
-        }
-
-        @Override
-        public ProgressState call() {
-            throw new UnsupportedOperationException();
-        }
-    }
-
-    private static class TestMetricsContext implements MetricsContext {
-        @Override
-        public Counter counter(String name) {
-            return new ThreadSafeCounter(name);
-        }
-
-        @Override
-        public <C extends Counter> C counter(String name, C counter) {
-            return counter;
-        }
-
-        @Override
-        public Meter meter(String name) {
-            return new ThreadSafeQPSMeter(name);
-        }
-
-        @Override
-        public <M extends Meter> M meter(String name, M meter) {
-            return meter;
-        }
+        MetricsContext metricsContext = Mockito.mock(MetricsContext.class);
+        when(metricsContext.counter(Mockito.anyString())).thenReturn(Mockito.mock(Counter.class));
+        when(metricsContext.meter(Mockito.anyString())).thenReturn(Mockito.mock(Meter.class));
+        return metricsContext;
     }
 }
