@@ -423,6 +423,23 @@ public class ArrowToSeatunnelRowReaderTest {
     }
 
     @Test
+    public void testReadArrowClosesOwnedResources() throws Exception {
+        try (ByteArrayOutputStream out = new ByteArrayOutputStream();
+                ArrowStreamWriter writer =
+                        new ArrowStreamWriter(
+                                root, /*DictionaryProvider=*/ null, Channels.newChannel(out))) {
+            writer.writeBatch();
+            out.flush();
+
+            ArrowToSeatunnelRowReader reader =
+                    new ArrowToSeatunnelRowReader(out.toByteArray(), getSeatunnelRowType(true))
+                            .readArrow();
+
+            Assertions.assertEquals(10, reader.getReadRowCount());
+        }
+    }
+
+    @Test
     public void testConvertArrowSpeed() throws Exception {
         Stopwatch stopwatch = Stopwatch.createStarted();
         int count = 1000000;
