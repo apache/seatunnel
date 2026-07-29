@@ -62,7 +62,8 @@ public class TestPythonTransformIT {
     private static final String BASE_PATH = "/python_transform/";
     private static final String SEATUNNEL_CONFIG_DIR = "/tmp/seatunnel/config";
     private static final String PYTHON_EXECUTABLE_ALLOWLIST =
-            "/usr/bin/python3,/usr/local/bin/python3,/usr/bin/python,/usr/local/bin/python";
+            "/usr/bin/python3,/usr/local/bin/python3,/opt/bitnami/python/bin/python3,"
+                    + "/usr/bin/python,/usr/local/bin/python";
     private static final String PYTHON_TRANSFORM_ENABLED_PROPERTY =
             "seatunnel.transform.python.enabled";
     private static final String PYTHON_ALLOWED_EXECUTABLES_PROPERTY =
