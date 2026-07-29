@@ -25,7 +25,9 @@ import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FilePostSyncAction;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSyncMode;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.hdfs.config.HdfsFileSourceOptions;
@@ -120,11 +122,22 @@ public class HdfsFileSourceFactory implements TableSourceFactory {
                         HdfsFileSourceOptions.SYNC_MODE,
                         HdfsFileSourceOptions.TARGET_HADOOP_CONF,
                         HdfsFileSourceOptions.UPDATE_STRATEGY,
-                        HdfsFileSourceOptions.COMPARE_MODE)
+                        HdfsFileSourceOptions.COMPARE_MODE,
+                        HdfsFileSourceOptions.UPDATE_COMPARE_PARALLELISM,
+                        HdfsFileSourceOptions.UPDATE_COMPARE_BULK_THRESHOLD)
+                .optional(
+                        HdfsFileSourceOptions.POST_SYNC_ACTION,
+                        HdfsFileSourceOptions.BACKUP_PATH,
+                        HdfsFileSourceOptions.RETENTION_MAX_AGE,
+                        HdfsFileSourceOptions.RETENTION_CHECK_INTERVAL)
                 .conditional(
                         HdfsFileSourceOptions.SYNC_MODE,
                         FileSyncMode.UPDATE,
                         HdfsFileSourceOptions.TARGET_PATH)
+                .conditional(
+                        HdfsFileSourceOptions.POST_SYNC_ACTION,
+                        FilePostSyncAction.BACKUP,
+                        HdfsFileSourceOptions.BACKUP_PATH)
                 .optional(HdfsFileSourceOptions.HDFS_SITE_PATH)
                 .optional(HdfsFileSourceOptions.KERBEROS_PRINCIPAL)
                 .optional(HdfsFileSourceOptions.KERBEROS_KEYTAB_PATH)
@@ -133,6 +146,7 @@ public class HdfsFileSourceFactory implements TableSourceFactory {
                 .optional(HdfsFileSourceOptions.QUOTE_CHAR)
                 .optional(HdfsFileSourceOptions.ESCAPE_CHAR)
                 .optional(ConnectorCommonOptions.METALAKE_TYPE)
+                .optional(FileBaseSourceOptions.RECURSIVE_FILE_SCAN)
                 .build();
     }
 

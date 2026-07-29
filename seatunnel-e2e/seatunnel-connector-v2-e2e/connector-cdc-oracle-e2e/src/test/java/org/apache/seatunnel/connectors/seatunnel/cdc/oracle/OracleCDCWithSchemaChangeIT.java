@@ -47,7 +47,6 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.TestMethodOrder;
 import org.junit.jupiter.api.TestTemplate;
 import org.junit.platform.commons.util.StringUtils;
-import org.testcontainers.containers.Container;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
@@ -121,22 +120,11 @@ public class OracleCDCWithSchemaChangeIT extends AbstractOracleCDCIT implements 
                         new Slf4jLogConsumer(DockerLoggerFactory.getLogger("mysql-docker-image")));
     }
 
-    private String mysqlDriverUrl() {
-        return "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
-    }
-
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
             container -> {
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/Oracle-CDC/lib && cd /tmp/seatunnel/plugins/Oracle-CDC/lib && wget "
-                                        + oracleDriverUrl()
-                                        + " && mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && wget "
-                                        + mysqlDriverUrl());
-                Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
+                copyOracleDriverToContainer(container);
+                copyMySQLDriverToJdbcContainer(container);
             };
 
     @BeforeAll

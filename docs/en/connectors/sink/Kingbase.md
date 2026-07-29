@@ -18,6 +18,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [x] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Description
 
@@ -57,9 +58,9 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 |                   Name                    |  Type   | Required | Default |                                                                                                                 Description                                                                                                                  |
 |-------------------------------------------|---------|----------|---------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| url                                       | String  | Yes      | -       | The URL of the JDBC connection. Refer to a case: jdbc:db2://127.0.0.1:50000/dbname                                                                                                                                                           |
-| driver                                    | String  | Yes      | -       | The jdbc class name used to connect to the remote data source,<br/> if you use DB2 the value is `com.ibm.db2.jdbc.app.DB2Driver`.                                                                                                            |
-| username                                      | String  | No       | -       | Connection instance user name                                                                                                                                                                                                                |
+| url                                       | String  | Yes      | -       | The URL of the JDBC connection. Refer to a case: jdbc:kingbase8://localhost:54321/db_test                                                                                                                                                           |
+| driver                                    | String  | Yes      | -       | The jdbc class name used to connect to the remote data source,<br/> if you use Kingbase the value is `com.kingbase8.Driver`.                                                                                                            |
+| username                                      | String  | No       | -       | Connection instance user name. The old key `user` is still accepted as a fallback.                                                                                                                                                                                                                |
 | password                                  | String  | No       | -       | Connection instance password                                                                                                                                                                                                                 |
 | query                                     | String  | No       | -       | Use this sql write upstream input datas to database. e.g `INSERT ...`,`query` have the higher priority                                                                                                                                       |
 | database                                  | String  | No       | -       | Use this `database` and `table-name` auto-generate sql and receive upstream input datas write to database.<br/>This option is mutually exclusive with `query` and has a higher priority.                                                     |
@@ -68,6 +69,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | connection_check_timeout_sec              | Int     | No       | 30      | The time in seconds to wait for the database operation used to validate the connection to complete.                                                                                                                                          |
 | max_retries                               | Int     | No       | 0       | The number of retries to submit failed (executeBatch)                                                                                                                                                                                        |
 | batch_size                                | Int     | No       | 1000    | For batch writing, when the number of buffered records reaches the number of `batch_size` or the time reaches `checkpoint.interval`<br/>, the data will be flushed into the database                                                         |
+| batch_interval_ms                         | Long    | No       | 0       | Write-triggered flush interval in milliseconds. `0` disables interval flushing. When the value is greater than `0`, each write checks elapsed time and flushes synchronously if the interval has passed. |
 | is_exactly_once                           | Boolean | No       | false   | Whether to enable exactly-once semantics, which will use Xa transactions. If on, you need to<br/>set `xa_data_source_class_name`. Kingbase currently does not support                                                                        |
 | generate_sink_sql                         | Boolean | No       | false   | Generate sql statements based on the database table you want to write to                                                                                                                                                                     |
 | xa_data_source_class_name                 | String  | No       | -       | The xa data source class name of the database Driver，Kingbase currently does not support                                                                                                                                                     |
@@ -127,12 +129,12 @@ source {
     }
   }
   # If you would like to get more information about how to configure seatunnel and see full list of source plugins,
-  # please go to https://seatunnel.apache.org/docs/connector-v2/source
+  # please go to https://seatunnel.apache.org/docs/connectors/source
 }
 
 transform {
   # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
-    # please go to https://seatunnel.apache.org/docs/transform-v2
+    # please go to https://seatunnel.apache.org/docs/transforms
 }
 
 sink {
@@ -144,7 +146,7 @@ sink {
         query = "insert into test_table(c_string,c_boolean,c_tinyint,c_smallint,c_int,c_bigint,c_float,c_double,c_decimal,c_date,c_time,c_timestamp) values(?,?,?,?,?,?,?,?,?,?,?,?)"
         }
   # If you would like to get more information about how to configure seatunnel and see full list of sink plugins,
-  # please go to https://seatunnel.apache.org/docs/connector-v2/sink
+  # please go to https://seatunnel.apache.org/docs/connectors/sink
 }
 ```
 
@@ -165,6 +167,22 @@ sink {
         database = test
         table = test_table
     }
+}
+```
+
+### Write To A Schema Table
+
+> When writing with a custom `query`, the placeholder count must match the upstream fields. Kingbase schema-qualified tables can be written as `public.table_name`.
+
+```
+sink {
+  Jdbc {
+    driver = "com.kingbase8.Driver"
+    url = "jdbc:kingbase8://localhost:54321/test"
+    user = "SYSTEM"
+    password = "123456"
+    query = "INSERT INTO public.e2e_table_sink (c1, c2, c3) VALUES (?, ?, ?)"
+  }
 }
 ```
 

@@ -30,6 +30,7 @@ import ChangeLog from '../changelog/connector-file-sftp.md';
   - [x] xml
   - [x] binary
   - [x] markdown
+  - [x] pdf
 
 ## Description
 
@@ -83,9 +84,10 @@ The File does not have a specific type list, and we can indicate which SeaTunnel
 | host                       | String  | Yes      | -                             | The target sftp host is required                                                                                                                                                                                                                                                                                                                                                |
 | port                       | Int     | Yes      | -                             | The target sftp port is required                                                                                                                                                                                                                                                                                                                                                |
 | user                       | String  | Yes      | -                             | The target sftp username is required                                                                                                                                                                                                                                                                                                                                            |
-| password                   | String  | Yes      | -                             | The target sftp password is required                                                                                                                                                                                                                                                                                                                                            |
+| password                   | String  | No       | -                             | The target sftp password. Required when `keyfile` is not set.                                                                                                                                                                                                                                                                                                                   |
+| keyfile                    | String  | No       | -                             | The private key file path used for SFTP public key authentication.                                                                                                                                                                                                                                                                                                              |
 | path                       | String  | Yes      | -                             | The source file path.                                                                                                                                                                                                                                                                                                                                                           |
-| file_format_type           | String  | Yes      | -                             | Please check #file_format_type below                                                                                                                                                                                                                                                                                                                                            |
+| file_format_type           | String  | Yes      | -                             | Please check #file_format_type below. Supported file types: `text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf`                                                                                                                                                                                                                                                                                                                                            |
 | file_filter_pattern        | String  | No       | -                             | Filter pattern, which used for filtering files.                                                                                                                                                                                                                                                                                                                                 |
 | filename_extension         | string  | no       | -                             | Filter filename extension, which used for filtering files with specific extension. Example: `csv` `.txt` `json` `.xml`.                                                                                                                                                                                                                                                         |
 | delimiter/field_delimiter  | String  | No       | \001 for text and ',' for csv | **delimiter** parameter will deprecate after version 2.3.5, please use **field_delimiter** instead. <br/> Field delimiter, used to tell connector how to slice and dice fields when reading text files. <br/> Default `\001`, the same as hive's default delimiter                                                                                                              |
@@ -115,11 +117,20 @@ The File does not have a specific type list, and we can indicate which SeaTunnel
 | target_hadoop_conf         | map     | no       | -                             | Only used when `sync_mode=update`. Extra Hadoop configuration for target filesystem. You can set `fs.defaultFS` in this map to override target defaultFS.                                                                                                                                                                           |
 | update_strategy            | string  | no       | distcp                        | Only used when `sync_mode=update`. Supported values: `distcp` (default), `strict`.                                                                                                                                                                                                                                               |
 | compare_mode               | string  | no       | len_mtime                     | Only used when `sync_mode=update`. Supported values: `len_mtime` (default), `checksum` (only valid when `update_strategy=strict`).                                                                                                                                                                                              |
+| update_compare_parallelism | int     | no       | 8                             | Maximum parallelism for sparse target metadata lookups. Valid range: `1-64`.                                                                                                                                                                                                                                                   |
+| update_compare_bulk_threshold | int  | no       | 0                             | A positive value switches comparison to one directory listing when the candidate count under one target parent reaches the threshold. `0` disables automatic bulk listing.                                                                                                                                                     |
+| post_sync_action           | string  | no       | none                          | Post-sync action in `discovery_mode=continuous`. Supported values: `none` (default), `delete`, `backup`.                                                                                                                                                                                                                        |
+| backup_path                | string  | no       | -                             | Backup destination base path when `post_sync_action=backup`. It must not overlap with `path`.                                                                                                                                                                                                                                   |
+| retention_max_age          | string  | no       | -                             | Optional retention age for SeaTunnel backup files in `backup_path`, only valid when `post_sync_action=backup`.                                                                                                                                                                                                                  |
+| retention_check_interval   | string  | no       | 1H                            | Retention scan interval, only effective when `post_sync_action=backup` and `retention_max_age` is configured.                                                                                                                                                                                                                   |
 | common-options             |         | No       | -                             | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details.                                                                                                                                                                                                                                                              |
 | file_filter_modified_start | string  | no       | -                             | File modification time filter. The connector will filter some files base on the last modification start time (include start time). The default data format is `yyyy-MM-dd HH:mm:ss`.                                                                                                                                                                                            |
 | file_filter_modified_end   | string  | no       | -                             | File modification time filter. The connector will filter some files base on the last modification end time (not include end time). The default data format is `yyyy-MM-dd HH:mm:ss`.                                                                                                                                                                                            |
 | quote_char                 | string  | no       | "                             | A single character that encloses CSV fields, allowing fields with commas, line breaks, or quotes to be read correctly.                                                                                                                                                                                                                                                          |
 | escape_char                | string  | no       | -                             | A single character that allows the quote or other special characters to appear inside a CSV field without ending the field.                                                                                                                                                                                                                                                     |
+| metalake_type              | string  | no       | gravitino                    | The type of metalake service, currently supports `gravitino`.                                                                                                                                                                                                                                                                                                                                                              |
+| recursive_file_scan        | boolean | no       | true                          | Whether to scan subdirectories recursively. If `false`, subdirectories will be ignored.                                                                                                                                                                                                                                                                                         |
+| sort_files_by_modification_time | boolean | no       | false                       | Sort files by modification time in descending order. Enable this when reading evolving schemas to ensure schema inference uses the latest file.                                                                                                               |
 
 ### file_filter_pattern [string]
 
@@ -177,7 +188,7 @@ The result of this example matching is:
 ### file_format_type [string]
 
 File type, supported as the following file types:
-`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown`
+`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf`
 If you assign file type to `json`, you should also assign schema option to tell connector how to parse data to the row you want.
 For example:
 upstream data is the following:
@@ -247,7 +258,7 @@ at the same time.
 
 If you assign file type to `markdown`, SeaTunnel can parse markdown files and extract structured data.
 The markdown parser extracts various elements including headings, paragraphs, lists, code blocks, tables, and more.
-Each element is converted to a row with the following schema:
+Each extracted element is converted to a document-element row with the following schema:
 - `element_id`: Unique identifier for the element
 - `element_type`: Type of the element (Heading, Paragraph, ListItem, etc.)
 - `heading_level`: Level of heading (1-6, null for non-heading elements)
@@ -267,6 +278,17 @@ When `markdown_rag_metadata_enabled` is set to `true`, SeaTunnel appends the fol
 The option defaults to `false`, so the original Markdown schema is unchanged unless you enable it.
 
 Note: Markdown format only supports reading, not writing.
+
+If you assign file type to `pdf`, SeaTunnel can parse PDF files and extract structured document elements.
+PDF uses the same document-element row schema described above.
+
+The main PDF-specific behaviors are:
+
+- **With outline**: Extracts `heading`, `paragraph`, `image`, and `link` elements. Headings are derived from the outline structure, and elements are organized into a parent-child hierarchy reflecting the document's logical structure.
+- **Without outline**: Extracts only `paragraph` and `image` elements in a flat structure without hierarchy.
+- `element_type` values for PDF are `heading`, `paragraph`, `image`, and `link`.
+
+Note: Only single-column (top-to-bottom) PDF layouts are supported. Multi-column layouts (e.g., side-by-side two-column documents) are not supported and may produce incorrect text ordering.
 
 ### compress_codec [string]
 
@@ -369,6 +391,49 @@ Only used when `sync_mode=update`. Supported values: `distcp` (default), `strict
 
 Only used when `sync_mode=update`. Supported values: `len_mtime` (default), `checksum` (only valid when `update_strategy=strict`).
 
+### update_compare_parallelism [int]
+
+Maximum parallelism for sparse target metadata lookups in `sync_mode=update`. The default is `8`; valid values are `1` through `64`; values outside this range are rejected during configuration validation. The maximum number of submitted-but-incomplete lookups is eight times this value.
+
+### update_compare_bulk_threshold [int]
+
+A positive value switches comparison to one directory listing when the candidate count under a target parent reaches the threshold. The default `0` disables automatic bulk listing and uses bounded point lookups, avoiding an unexpectedly expensive target directory scan. This behavior applies to all target filesystems. Source filters are applied while entries are listed to reduce peak metadata memory. A flat SFTP directory must still return all entries because SFTP `READDIR` has no server-side modification-time filter.
+
+### post_sync_action [string]
+
+Only used when `discovery_mode=continuous`. Supported values: `none` (default), `delete`, `backup`. In `discovery_mode=once`, setting `post_sync_action=delete` or `post_sync_action=backup` is rejected during config validation.
+
+- `none`: default behavior, no source-side file operation.
+- `delete`: delete processed source files after `notifyCheckpointComplete`; failed operations are retried on later checkpoints.
+- `backup`: move processed source files to `backup_path` after `notifyCheckpointComplete`; failed operations are retried on later checkpoints.
+
+Before `delete` or `backup`, SeaTunnel renames the source file to a staging/trash path first, then re-checks the file length and modification time. If the version differs after the rename, the file is restored so the next scan can re-discover the changed version.
+
+**mtime granularity limitation**: SFTP mtime resolution is typically 1 second. The act-then-verify approach narrows but cannot fully eliminate the race window if a same-second, same-length modification occurs. For maximum safety, ensure no concurrent writers are active during post-sync processing, or use `backup` instead of `delete` so the file is recoverable.
+
+**Security note**: When using `post_sync_action=delete` or `backup` with SFTP, use a dedicated least-privilege account that only has DELETE/RENAME permission on the watched directory. This feature requires write/delete permissions that increase the blast radius of a credential compromise.
+
+### backup_path [string]
+
+Only used when `post_sync_action=backup`. Processed files are moved to this base path after checkpoint-complete commit, and destination file names include source version suffix to avoid overwrite collision. Phase-1 only supports backup on the same filesystem as `path` (same scheme and authority); cross-filesystem backup is rejected.
+
+`backup_path` must not be the same as `path`, must not be under `path`, and `path` must not be under `backup_path`. Use a dedicated backup directory because retention only manages files created by SeaTunnel with the version suffix.
+
+### retention_max_age [string]
+
+Optional retention policy for `backup_path`. SeaTunnel backup files older than this age are cleaned up during checkpoint-complete retention scans.
+Only valid when `post_sync_action=backup`.
+
+Supported duration formats are shorthand values with `MS`, `S`, `M`, `H`, or `D` suffixes, such as `500MS`, `30S`, `10M`, `12H`, `7D`, and ISO-8601 durations such as `PT1H30M`.
+
+Duration suffixes are case-insensitive: `MS` (milliseconds), `S` (seconds), `M` (minutes), `H` (hours), `D` (days). `M` always means minutes, never months. Invalid values (e.g., `PT7D`, `P1M`) fail config validation with an error.
+
+### retention_check_interval [string]
+
+Retention scan interval, default `1H`. Cleanup runs at most once per interval when `post_sync_action=backup` and `retention_max_age` is configured. Setting `retention_check_interval` without `retention_max_age` has no effect.
+
+Duration suffixes are case-insensitive: `MS`, `S`, `M`, `H`, `D`. `M` always means minutes, never months. Invalid values fail config validation with an error.
+
 ### quote_char [string]
 
 A single character that encloses CSV fields, allowing fields with commas, line breaks, or quotes to be read correctly.
@@ -376,6 +441,19 @@ A single character that encloses CSV fields, allowing fields with commas, line b
 ### escape_char [string]
 
 A single character that allows the quote or other special characters to appear inside a CSV field without ending the field.
+
+### recursive_file_scan [boolean]
+
+Whether to scan subdirectories recursively.
+If `false`, subdirectories will be ignored.
+
+### sort_files_by_modification_time [boolean]
+
+Whether to sort files by modification time in descending order. Default is `false`.
+
+When enabled, files will be sorted by their modification time (newest first). This is useful when:
+- Reading files with evolving schemas and you want schema inference to use the latest file
+- You need to process files in chronological order
 
 ### schema [config]
 
@@ -599,6 +677,11 @@ source {
     target_path = "tmp/seatunnel/watch/dst"
     update_strategy = "distcp"
     compare_mode = "len_mtime"
+
+    post_sync_action = "backup"
+    backup_path = "tmp/seatunnel/watch/backup"
+    retention_max_age = "7D"
+    retention_check_interval = "1H"
   }
 }
 

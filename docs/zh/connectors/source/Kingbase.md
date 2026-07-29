@@ -61,7 +61,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 |--------|------|------|--------|------|
 | url | String | 是 | - | JDBC 连接的 URL。参考示例：jdbc:kingbase8://localhost:54321/test |
 | driver | String | 是 | - | 用于连接到远程数据源的 jdbc 类名，应为 `com.kingbase8.Driver`。 |
-| username | String | 否 | - | 连接实例用户名 |
+| username | String | 否 | - | 连接实例用户名。旧配置名 `user` 仍可作为兼容写法使用。 |
 | password | String | 否 | - | 连接实例密码 |
 | query | String | 是 | - | 查询语句 |
 | connection_check_timeout_sec | Int | 否 | 30 | 等待用于验证连接的数据库操作完成的时间（秒） |
@@ -108,7 +108,7 @@ source {
 
 transform {
     # 如果您想了解有关如何配置 seatunnel 的更多信息并查看完整的转换插件列表，
-    # 请访问 https://seatunnel.apache.org/docs/transform/sql
+    # 请访问 https://seatunnel.apache.org/docs/transforms/sql
 }
 
 sink {
@@ -158,7 +158,22 @@ source {
 }
 ```
 
+### 使用 Schema 表名查询
+
+> Kingbase 表名通常写成 `schema.table`。连接用户名可以使用 `username`，也可以使用兼容写法 `user`。
+
+```
+source {
+  Jdbc {
+    driver = "com.kingbase8.Driver"
+    url = "jdbc:kingbase8://localhost:54321/test"
+    user = "SYSTEM"
+    password = "123456"
+    query = "select * from public.e2e_table_source"
+  }
+}
+```
+
 ## 变更日志
 
 <ChangeLog />
-

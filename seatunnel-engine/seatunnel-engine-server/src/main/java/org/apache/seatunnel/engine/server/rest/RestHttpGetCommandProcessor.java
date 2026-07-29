@@ -32,6 +32,7 @@ import org.apache.seatunnel.engine.server.rest.service.OverviewService;
 import org.apache.seatunnel.engine.server.rest.service.RunningThreadService;
 import org.apache.seatunnel.engine.server.rest.service.SystemMonitoringService;
 import org.apache.seatunnel.engine.server.rest.service.ThreadDumpService;
+import org.apache.seatunnel.engine.server.rest.service.TraceTaskMappingService;
 
 import com.google.gson.Gson;
 import com.hazelcast.internal.ascii.TextCommandService;
@@ -69,10 +70,15 @@ import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_OPTI
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_OVERVIEW;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_RUNNING_JOB;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_RUNNING_JOBS;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_RUNNING_JOBS_SUMMARY;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_RUNNING_THREADS;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_SYSTEM_MONITORING_INFORMATION;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_THREAD_DUMP;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_TRACE_TASK_MAPPING;
 
+/**
+ * Dispatches Hazelcast ASCII GET requests to SeaTunnel-specific overview, log, and trace services.
+ */
 @Slf4j
 public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCommand> {
 
@@ -84,6 +90,7 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
     private ThreadDumpService threadDumpService;
     private RunningThreadService runningThreadService;
     private LogService logService;
+    private TraceTaskMappingService traceTaskMappingService;
     private OptionRulesService optionRulesService;
 
     public RestHttpGetCommandProcessor(TextCommandService textCommandService) {
@@ -96,6 +103,7 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
         this.threadDumpService = new ThreadDumpService(nodeEngine);
         this.runningThreadService = new RunningThreadService(nodeEngine);
         this.logService = new LogService(nodeEngine);
+        this.traceTaskMappingService = new TraceTaskMappingService(nodeEngine);
         this.optionRulesService = new OptionRulesService(nodeEngine);
     }
 
@@ -113,15 +121,21 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
         this.threadDumpService = new ThreadDumpService(nodeEngine);
         this.runningThreadService = new RunningThreadService(nodeEngine);
         this.logService = new LogService(nodeEngine);
+        this.traceTaskMappingService = new TraceTaskMappingService(nodeEngine);
         this.optionRulesService = new OptionRulesService(nodeEngine);
     }
 
+    /**
+     * Routes each GET request to the matching SeaTunnel REST service or falls back to Hazelcast.
+     */
     @Override
     public void handle(HttpGetCommand httpGetCommand) {
         String uri = httpGetCommand.getURI();
 
         try {
-            if (uri.startsWith(CONTEXT_PATH + REST_URL_RUNNING_JOBS)) {
+            if (uri.startsWith(CONTEXT_PATH + REST_URL_RUNNING_JOBS_SUMMARY)) {
+                handleRunningJobsSummaryInfo(httpGetCommand);
+            } else if (uri.startsWith(CONTEXT_PATH + REST_URL_RUNNING_JOBS)) {
                 handleRunningJobsInfo(httpGetCommand);
             } else if (uri.startsWith(CONTEXT_PATH + REST_URL_FINISHED_JOBS)) {
                 handleFinishedJobsInfo(httpGetCommand, uri);
@@ -148,6 +162,8 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
                 getAllNodeLog(httpGetCommand, uri);
             } else if (uri.startsWith(CONTEXT_PATH + REST_URL_LOG)) {
                 getCurrentNodeLog(httpGetCommand, uri);
+            } else if (uri.startsWith(CONTEXT_PATH + REST_URL_TRACE_TASK_MAPPING)) {
+                handleTraceTaskMapping(httpGetCommand, uri);
             } else {
                 original.handle(httpGetCommand);
             }
@@ -218,6 +234,10 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
         this.prepareResponse(command, jobInfoService.getRunningJobsJson());
     }
 
+    private void handleRunningJobsSummaryInfo(HttpGetCommand command) {
+        this.prepareResponse(command, jobInfoService.getRunningJobsSummaryJson());
+    }
+
     private void handleFinishedJobsInfo(HttpGetCommand command, String uri) {
 
         uri = StringUtil.stripTrailingSlash(uri);
@@ -242,6 +262,21 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
 
     private void getRunningThread(HttpGetCommand command) {
         this.prepareResponse(command, runningThreadService.getRunningThread());
+    }
+
+    /**
+     * Parses the job id from the trace mapping endpoint and returns the current task mapping JSON.
+     */
+    private void handleTraceTaskMapping(HttpGetCommand command, String uri) {
+        uri = StringUtil.stripTrailingSlash(uri);
+        String prefix = CONTEXT_PATH + REST_URL_TRACE_TASK_MAPPING + "/";
+        if (!uri.startsWith(prefix)) {
+            command.send400();
+            return;
+        }
+        String jobIdStr = uri.substring(prefix.length());
+        long jobId = Long.parseLong(jobIdStr);
+        this.prepareResponse(command, traceTaskMappingService.getJobTaskMappingJson(jobId));
     }
 
     private void handleMetrics(HttpGetCommand httpGetCommand, String contentType) {

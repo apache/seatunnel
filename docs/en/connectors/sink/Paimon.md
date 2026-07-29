@@ -56,30 +56,60 @@ libfb303-xxx.jar
 ## Key features
 
 - [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [x] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Options
 
 | name                         | type    | required | default value                | Description                                                                                                                                                      |
 |------------------------------|---------|----------|------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | warehouse                    | String  | Yes      | -                            | Paimon warehouse path                                                                                                                                            |
+| catalog_name                 | String  | No       | paimon                       | The name of Paimon catalog                                                                                                                                       |
 | catalog_type                 | String  | No       | filesystem                   | Catalog type of Paimon, support filesystem and hive                                                                                                              |
-| catalog_uri                  | String  | No       | -                            | Catalog uri of Paimon, only needed when catalog_type is hive                                                                                                     |
+| catalog_uri                  | String  | Yes when `catalog_type` is `hive` | -                            | Catalog URI of Paimon. Required when `catalog_type` is `hive`.                                                                                                  |
 | database                     | String  | Yes      | -                            | The database you want to access                                                                                                                                  |
 | table                        | String  | Yes      | -                            | The table you want to access                                                                                                                                     |
 | user                         | String  | No       | -                            | Paimon user to access table                                                                                                                                      |
 | password                     | String  | No      | -                            | Paimon user password to access table                                                                                                                             |
-| hdfs_site_path               | String  | No       | -                            | The path of hdfs-site.xml                                                                                                                                        |
+| hdfs_site_path               | String  | No       | -                            | Deprecated. The path of hdfs-site.xml. Prefer `paimon.hadoop.conf` or `paimon.hadoop.conf-path` for new jobs                                                     |
 | schema_save_mode             | Enum    | No       | CREATE_SCHEMA_WHEN_NOT_EXIST | The schema save mode                                                                                                                                             |
 | data_save_mode               | Enum    | No       | APPEND_DATA                  | The data save mode                                                                                                                                               |
 | paimon.table.primary-keys    | String  | No       | -                            | Default comma-separated list of columns (primary key) that identify a row in tables.(Notice: The partition field needs to be included in the primary key fields) |
 | paimon.table.partition-keys  | String  | No       | -                            | Default comma-separated list of partition fields to use when creating tables.                                                                                    |
 | paimon.table.write-props     | Map     | No       | -                            | Properties passed through to paimon table initialization, [reference](https://paimon.apache.org/docs/master/maintenance/configurations/#coreoptions).            |
+| table_options                | Map     | No       | -                            | Sink-specific table options for SaveMode auto-create only (not runtime write-props). See below.                                                                  |
 | paimon.hadoop.conf           | Map     | No       | -                            | Properties in hadoop conf                                                                                                                                        |
 | paimon.hadoop.conf-path      | String  | No       | -                            | The specified loading path for the 'core-site.xml', 'hdfs-site.xml', 'hive-site.xml' files                                                                       |
-| paimon.table.non-primary-key | Boolean | false    | -                            | Switch to create `table with PK` or `table without PK`. true : `table without PK`, false : `table with PK`                                                       |
-| branch                       | String  | No       | main                         | The branch name of Paimon table to write data to. If the branch does not exist, an exception will be thrown.                                                     |
+| paimon.table.non-primary-key | Boolean | No       | false                        | Switch to create `table with PK` or `table without PK`. true : `table without PK`, false : `table with PK`                                                       |
+| branch                       | String  | No       | -                            | The branch name of Paimon table to write data to. If omitted, data is written to the main branch. For non-main branches, the main table and target branch must already exist, and `schema_save_mode=RECREATE_SCHEMA` or `data_save_mode=DROP_DATA` is not supported. |
 
+### table_options [Map]
+
+Sink-specific table options applied when SaveMode auto-creates the target table. They take effect only when `schema_save_mode` triggers table creation, such as `CREATE_SCHEMA_WHEN_NOT_EXIST` or `RECREATE_SCHEMA`. They do **not** alter an existing table and do **not** change runtime writer settings such as `changelog-producer` / `changelog-tmp-path` derived from `paimon.table.write-props`.
+
+`table_options` are merged into the schema options used by auto-create. **On key conflict, `paimon.table.write-props` wins**, so existing jobs that only set write-props keep their current behavior. `paimon.table.write-props` remains the runtime writer config. Use CoreOptions keys from the [Paimon CoreOptions documentation](https://paimon.apache.org/docs/master/maintenance/configurations/#coreoptions); SeaTunnel does not maintain an allowlist—invalid keys fail when Paimon creates the table. Blank keys and null values are rejected at job submission.
+
+Example:
+
+```hocon
+sink {
+  Paimon {
+    warehouse = "file:///tmp/paimon"
+    database = "seatunnel"
+    table = "test"
+    schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
+    table_options = {
+      bucket = "4"
+      file.format = "parquet"
+    }
+    # Wins over table_options when the same key is set
+    paimon.table.write-props = {
+      bucket = "8"
+    }
+  }
+}
+```
 
 ## Checkpoint in batch mode
 
@@ -87,7 +117,7 @@ When you set `checkpoint.interval` to a value greater than 0 in batch mode, the 
 However, if you do not set `checkpoint.interval` in batch mode, the paimon sink connector will commit the data after all records are written. The written data in paimon that is not visible until the batch task completes.
 
 ## Changelog
-You must configure the `changelog-producer=input` option to enable the changelog producer mode of the paimon table. If you use the auto-create table function of paimon sink, you can configure this property in `paimon.table.write-props`.
+You must configure the `changelog-producer=input` option to enable the changelog producer mode of the paimon table. If you use the auto-create table function of paimon sink, you can configure this property in `paimon.table.write-props` or `table_options`.
 
 The changelog producer mode of the paimon table has [four mode](https://paimon.apache.org/docs/master/primary-key-table/changelog-producer/) which is `none`、`input`、`lookup` and `full-compaction`.
 

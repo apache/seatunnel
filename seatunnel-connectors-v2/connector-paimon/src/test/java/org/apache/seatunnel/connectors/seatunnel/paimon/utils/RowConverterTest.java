@@ -370,6 +370,152 @@ public class RowConverterTest {
     }
 
     @Test
+    public void seaTunnelToPaimonWithNestedRow() {
+        SeaTunnelRowType sourceType = nestedRowType(BasicType.STRING_TYPE);
+        SeaTunnelRow data = nestedRowData("Alice");
+        RowType sinkRowType =
+                nestedPaimonRowType(
+                        RowType.of(
+                                new DataType[] {DataTypes.BIGINT(), DataTypes.STRING()},
+                                new String[] {"id", "name"}));
+
+        InternalRow actual = RowConverter.reconvert(data, sourceType, tableSchema(sinkRowType));
+
+        Assertions.assertEquals(1L, actual.getLong(0));
+        InternalRow buyer = actual.getRow(1, 2);
+        Assertions.assertEquals(1001L, buyer.getLong(0));
+        Assertions.assertEquals("Alice", buyer.getString(1).toString());
+        Assertions.assertEquals(
+                new BigDecimal("20.50"), actual.getDecimal(2, 10, 2).toBigDecimal());
+    }
+
+    @Test
+    public void seaTunnelToPaimonWithNestedRowFieldCountMismatch() {
+        SeaTunnelRowType sourceType = nestedRowType(BasicType.STRING_TYPE);
+        SeaTunnelRow data = nestedRowData("Alice");
+        RowType sinkRowType =
+                nestedPaimonRowType(
+                        RowType.of(new DataType[] {DataTypes.BIGINT()}, new String[] {"id"}));
+
+        SeaTunnelRuntimeException actual =
+                Assertions.assertThrows(
+                        SeaTunnelRuntimeException.class,
+                        () -> RowConverter.reconvert(data, sourceType, tableSchema(sinkRowType)));
+
+        Assertions.assertEquals(
+                CommonError.writeRowErrorWithFieldsCountNotMatch("Paimon", 2, 1).getMessage(),
+                actual.getMessage());
+    }
+
+    @Test
+    public void seaTunnelToPaimonRejectsIncompatibleNestedRowSchema() {
+        SeaTunnelRowType sourceType = nestedRowType(BasicType.STRING_TYPE);
+        SeaTunnelRow data = nestedRowData("Alice");
+        RowType sinkBuyerRowType =
+                RowType.of(
+                        new DataType[] {DataTypes.BIGINT(), DataTypes.INT()},
+                        new String[] {"id", "name"});
+        RowType sinkRowType = nestedPaimonRowType(sinkBuyerRowType);
+
+        SeaTunnelRuntimeException actual =
+                Assertions.assertThrows(
+                        SeaTunnelRuntimeException.class,
+                        () -> RowConverter.reconvert(data, sourceType, tableSchema(sinkRowType)));
+
+        Assertions.assertEquals(
+                CommonError.writeRowErrorWithSchemaIncompatibleSchema(
+                                "Paimon",
+                                "name" + StringUtils.SPACE + "STRING",
+                                new DataField(1, "name", DataTypes.STRING()).asSQLString(),
+                                sinkBuyerRowType.getFields().get(1).asSQLString())
+                        .getMessage(),
+                actual.getMessage());
+    }
+
+    @Test
+    public void seaTunnelToPaimonRejectsNestedRowFieldNameMismatch() {
+        SeaTunnelRowType sourceType = nestedRowType(BasicType.STRING_TYPE);
+        SeaTunnelRow data = nestedRowData("Alice");
+        RowType sinkBuyerRowType =
+                RowType.of(
+                        new DataType[] {DataTypes.BIGINT(), DataTypes.STRING()},
+                        new String[] {"id", "full_name"});
+        RowType sinkRowType = nestedPaimonRowType(sinkBuyerRowType);
+
+        SeaTunnelRuntimeException actual =
+                Assertions.assertThrows(
+                        SeaTunnelRuntimeException.class,
+                        () -> RowConverter.reconvert(data, sourceType, tableSchema(sinkRowType)));
+
+        Assertions.assertEquals(
+                CommonError.writeRowErrorWithSchemaIncompatibleSchema(
+                                "Paimon",
+                                "name" + StringUtils.SPACE + "STRING",
+                                new DataField(1, "name", DataTypes.STRING()).asSQLString(),
+                                sinkBuyerRowType.getFields().get(1).asSQLString())
+                        .getMessage(),
+                actual.getMessage());
+    }
+
+    @Test
+    public void seaTunnelToPaimonWithNullNestedRow() {
+        SeaTunnelRowType sourceType = nestedRowType(BasicType.STRING_TYPE);
+        SeaTunnelRow data = new SeaTunnelRow(new Object[] {1L, null, new BigDecimal("20.50")});
+        RowType sinkRowType =
+                nestedPaimonRowType(
+                        RowType.of(
+                                new DataType[] {DataTypes.BIGINT(), DataTypes.STRING()},
+                                new String[] {"id", "name"}));
+
+        InternalRow actual = RowConverter.reconvert(data, sourceType, tableSchema(sinkRowType));
+
+        Assertions.assertTrue(actual.isNullAt(1));
+    }
+
+    @Test
+    public void seaTunnelToPaimonWithNestedRowPrecision() {
+        SeaTunnelRowType buyerType =
+                new SeaTunnelRowType(
+                        new String[] {"created_at", "score"},
+                        new SeaTunnelDataType<?>[] {
+                            LocalTimeType.LOCAL_DATE_TIME_TYPE, new DecimalType(6, 2)
+                        });
+        SeaTunnelRowType sourceType =
+                new SeaTunnelRowType(
+                        new String[] {"order_id", "buyer", "amount"},
+                        new SeaTunnelDataType<?>[] {
+                            BasicType.LONG_TYPE, buyerType, new DecimalType(10, 2)
+                        });
+        LocalDateTime createdAt = LocalDateTime.of(2024, 1, 2, 3, 4, 5, 123000000);
+        SeaTunnelRow data =
+                new SeaTunnelRow(
+                        new Object[] {
+                            1L,
+                            new SeaTunnelRow(new Object[] {createdAt, new BigDecimal("12.34")}),
+                            new BigDecimal("20.50")
+                        });
+        RowType sinkRowType =
+                RowType.of(
+                        new DataType[] {
+                            DataTypes.BIGINT(),
+                            RowType.of(
+                                    new DataType[] {
+                                        DataTypes.TIMESTAMP(3), DataTypes.DECIMAL(8, 4)
+                                    },
+                                    new String[] {"created_at", "score"}),
+                            DataTypes.DECIMAL(10, 2)
+                        },
+                        new String[] {"order_id", "buyer", "amount"});
+
+        InternalRow actual = RowConverter.reconvert(data, sourceType, tableSchema(sinkRowType));
+
+        InternalRow buyer = actual.getRow(1, 2);
+        Assertions.assertEquals(createdAt, buyer.getTimestamp(0, 3).toLocalDateTime());
+        Assertions.assertEquals(
+                0, new BigDecimal("12.34").compareTo(buyer.getDecimal(1, 8, 4).toBigDecimal()));
+    }
+
+    @Test
     public void nestedRowPaimonToSeaTunnel() {
         // Top-level: c_int INT, c_string STRING, c_nested ROW<a INT, b STRING>
         RowType nestedRowType =
@@ -417,7 +563,7 @@ public class RowConverterTest {
                             BasicType.INT_TYPE, BasicType.STRING_TYPE, seaTunnelNestedType
                         });
 
-        // Convert Paimon → SeaTunnel
+        // Convert Paimon to SeaTunnel
         SeaTunnelRow result = RowConverter.convert(binaryRow, seaTunnelTopLevelType, tableSchema);
 
         Assertions.assertEquals(1, result.getField(0));
@@ -465,7 +611,7 @@ public class RowConverterTest {
         SeaTunnelRow nestedRow = new SeaTunnelRow(new Object[] {42, "world"});
         SeaTunnelRow topLevelRow = new SeaTunnelRow(new Object[] {1, "hello", nestedRow});
 
-        // Convert SeaTunnel → Paimon (would throw before fix due to field count mismatch)
+        // Convert SeaTunnel to Paimon (would throw before fix due to field count mismatch)
         InternalRow result =
                 RowConverter.reconvert(topLevelRow, seaTunnelTopLevelType, tableSchema);
 
@@ -474,5 +620,41 @@ public class RowConverterTest {
         InternalRow nestedResult = result.getRow(2, 2);
         Assertions.assertEquals(42, nestedResult.getInt(0));
         Assertions.assertEquals("world", nestedResult.getString(1).toString());
+    }
+
+    private static SeaTunnelRowType nestedRowType(SeaTunnelDataType<?> buyerNameType) {
+        SeaTunnelRowType buyerType =
+                new SeaTunnelRowType(
+                        new String[] {"id", "name"},
+                        new SeaTunnelDataType<?>[] {BasicType.LONG_TYPE, buyerNameType});
+        return new SeaTunnelRowType(
+                new String[] {"order_id", "buyer", "amount"},
+                new SeaTunnelDataType<?>[] {
+                    BasicType.LONG_TYPE, buyerType, new DecimalType(10, 2)
+                });
+    }
+
+    private static SeaTunnelRow nestedRowData(String buyerName) {
+        return new SeaTunnelRow(
+                new Object[] {
+                    1L, new SeaTunnelRow(new Object[] {1001L, buyerName}), new BigDecimal("20.50")
+                });
+    }
+
+    private static RowType nestedPaimonRowType(RowType buyerType) {
+        return RowType.of(
+                new DataType[] {DataTypes.BIGINT(), buyerType, DataTypes.DECIMAL(10, 2)},
+                new String[] {"order_id", "buyer", "amount"});
+    }
+
+    private static TableSchema tableSchema(RowType rowType) {
+        return new TableSchema(
+                0,
+                TableSchema.newFields(rowType),
+                rowType.getFieldCount(),
+                Collections.emptyList(),
+                Collections.emptyList(),
+                Collections.emptyMap(),
+                "");
     }
 }

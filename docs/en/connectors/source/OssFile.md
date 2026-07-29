@@ -46,6 +46,7 @@ import ChangeLog from '../changelog/connector-file-oss.md';
   - [x] xml
   - [x] binary
   - [x] markdown
+  - [x] pdf
 
 ## Data Type Mapping
 
@@ -186,7 +187,7 @@ If you assign file type to `parquet` `orc`, schema option not required, connecto
 | name                       | type    | required | default value       | Description                                                                                                                                                                                                                                                                                                                         |
 |----------------------------|---------|----------|---------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | path                       | string  | yes      | -                   | The Oss path that needs to be read can have sub paths, but the sub paths need to meet certain format requirements. Specific requirements can be referred to "parse_partition_from_path" option                                                                                                                                      |
-| file_format_type           | string  | yes      | -                   | File type, supported as the following file types: `text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown`                                                                                                                                                                                                             |
+| file_format_type           | string  | yes      | -                   | File type, supported as the following file types: `text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf`                                                                                                                                                                                                             |
 | bucket                     | string  | yes      | -                   | The bucket address of oss file system, for example: `oss://seatunnel-test`.                                                                                                                                                                                                                                                         |
 | endpoint                   | string  | yes      | -                   | fs oss endpoint                                                                                                                                                                                                                                                                                                                     |
 | read_columns               | list    | no       | -                   | The read column list of the data source, user can use it to implement field projection. The file type supported column projection as the following shown: `text` `csv` `parquet` `orc` `json` `excel` `xml` . If the user wants to use this feature when reading `text` `json` `csv` files, the "schema" option must be configured. |
@@ -200,14 +201,13 @@ If you assign file type to `parquet` `orc`, schema option not required, connecto
 | time_format                | string  | no       | HH:mm:ss            | Time type format, used to tell connector how to convert string to time, supported as the following formats:`HH:mm:ss` `HH:mm:ss.SSS`                                                                                                                                                                                                |
 | filename_extension         | string  | no       | -                   | Filter filename extension, which used for filtering files with specific extension. Example: `csv` `.txt` `json` `.xml`.                                                                                                                                                                                                             |
 | skip_header_row_number     | long    | no       | 0                   | Skip the first few lines, but only for the txt and csv. For example, set like following:`skip_header_row_number = 2`. Then SeaTunnel will skip the first 2 lines from source files                                                                                                                                                  |
-| csv_use_header_line        | boolean | no       | false               | Whether to use the header line to parse the file, only used when the file_format is `csv` and the file contains the header line that match RFC 4180                                                                                                                                                                                 |
 | schema                     | config  | no       | -                   | The schema of upstream data.                                                                                                                                                                                                                                                                                                        |
 | sheet_name                 | string  | no       | -                   | Reader the sheet of the workbook,Only used when file_format is excel.                                                                                                                                                                                                                                                               |
 | xml_row_tag                | string  | no       | -                   | Specifies the tag name of the data rows within the XML file, only used when file_format is xml.                                                                                                                                                                                                                                     |
 | xml_use_attr_format        | boolean | no       | -                   | Specifies whether to process data using the tag attribute format, only used when file_format is xml.                                                                                                                                                                                                                                |
 | csv_use_header_line        | boolean | no       | false               | Whether to use the header line to parse the file, only used when the file_format is `csv` and the file contains the header line that match RFC 4180                                                                                                                                                                                 |
 | compress_codec             | string  | no       | none                | Which compress codec the files used.                                                                                                                                                                                                                                                                                                |
-| encoding                   | string  | no       | UTF-8               |
+| encoding                   | string  | no       | UTF-8               | File encoding, only used when `file_format_type` is `json`, `text`, `csv`, or `xml`.                                                                                                                                                                                                                                                |
 | null_format                | string  | no       | -                   | Only used when file_format_type is text. null_format to define which strings can be represented as null. e.g: `\N`                                                                                                                                                                                                                  |
 | binary_chunk_size          | int     | no       | 1024                | Only used when file_format_type is binary. The chunk size (in bytes) for reading binary files. Default is 1024 bytes. Larger values may improve performance for large files but use more memory.                                                                                                                                    |
 | binary_complete_file_mode  | boolean | no       | false               | Only used when file_format_type is binary. Whether to read the complete file as a single chunk instead of splitting into chunks. When enabled, the entire file content will be read into memory at once. Default is false.                                                                                                          |
@@ -217,16 +217,19 @@ If you assign file type to `parquet` `orc`, schema option not required, connecto
 | file_filter_modified_end   | string  | no       | -                   | File modification time filter. The connector will filter some files base on the last modification end time (not include end time). The default data format is `yyyy-MM-dd HH:mm:ss`.                                                                                                                                                |
 | quote_char                 | string  | no       | "                   | A single character that encloses CSV fields, allowing fields with commas, line breaks, or quotes to be read correctly.                                                                                                                                                                                                              |
 | escape_char                | string  | no       | -                   | A single character that allows the quote or other special characters to appear inside a CSV field without ending the field.                                                                                                                                                                                                         |
+| metalake_type              | string  | no       | gravitino          | The type of metalake service, currently supports `gravitino`.                                                                                                                                                                                                                                                              |
+| recursive_file_scan        | boolean | no       | true                | Whether to scan subdirectories recursively. If `false`, subdirectories will be ignored.                                                                                                                                                                                                                                             |
+| sort_files_by_modification_time | boolean | no       | false               | Sort files by modification time in descending order. Enable this when reading evolving schemas to ensure schema inference uses the latest file.                                                                                                               |
 
 ### file_format_type [string]
 
 File type, supported as the following file types:
 
-`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown`
+`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf`
 
 If you assign file type to `markdown`, SeaTunnel can parse markdown files and extract structured data.
 The markdown parser extracts various elements including headings, paragraphs, lists, code blocks, tables, and more.
-Each element is converted to a row with the following schema:
+Each extracted element is converted to a document-element row with the following schema:
 - `element_id`: Unique identifier for the element
 - `element_type`: Type of the element (Heading, Paragraph, ListItem, etc.)
 - `heading_level`: Level of heading (1-6, null for non-heading elements)
@@ -246,6 +249,17 @@ When `markdown_rag_metadata_enabled` is set to `true`, SeaTunnel appends the fol
 The option defaults to `false`, so the original Markdown schema is unchanged unless you enable it.
 
 Note: Markdown format only supports reading, not writing.
+
+If you assign file type to `pdf`, SeaTunnel can parse PDF files and extract structured document elements.
+PDF uses the same document-element row schema described above.
+
+The main PDF-specific behaviors are:
+
+- **With outline**: Extracts `heading`, `paragraph`, `image`, and `link` elements. Headings are derived from the outline structure, and elements are organized into a parent-child hierarchy reflecting the document's logical structure.
+- **Without outline**: Extracts only `paragraph` and `image` elements in a flat structure without hierarchy.
+- `element_type` values for PDF are `heading`, `paragraph`, `image`, and `link`.
+
+Note: Only single-column (top-to-bottom) PDF layouts are supported. Multi-column layouts (e.g., side-by-side two-column documents) are not supported and may produce incorrect text ordering.
 
 ### compress_codec [string]
 
@@ -281,6 +295,19 @@ A single character that encloses CSV fields, allowing fields with commas, line b
 ### escape_char [string]
 
 A single character that allows the quote or other special characters to appear inside a CSV field without ending the field.
+
+### recursive_file_scan [boolean]
+
+Whether to scan subdirectories recursively.
+If `false`, subdirectories will be ignored.
+
+### sort_files_by_modification_time [boolean]
+
+Whether to sort files by modification time in descending order. Default is `false`.
+
+When enabled, files will be sorted by their modification time (newest first). This is useful when:
+- Reading files with evolving schemas and you want schema inference to use the latest file
+- You need to process files in chronological order
 
 ### file_filter_pattern [string]
 

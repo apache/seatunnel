@@ -41,16 +41,17 @@ import ChangeLog from '../changelog/connector-http.md';
 | schema.fields                 | Config  | 否       | -           | 上游数据的 schema 字段                                                                                                                                                                |
 | json_field                    | Config  | 否       | -           | 此参数帮助您配置 schema，因此此参数必须与 schema 一起使用。                                                                                         |
 | pageing                       | Config  | 否       | -           | 此参数用于分页查询                                                                                                                                                         |
-| pageing.page_field            | String  | 否       | -           | 此参数用于指定请求中的页面字段名称。它可以在 headers、params 或 body 中使用占位符，如 ${page_field}。                             |
+| pageing.page_field            | String  | 否       | page        | 此参数用于指定请求中的分页字段名。它可以在 headers、params 或 body 中使用占位符，例如 `${page}`。                             |
 | pageing.use_placeholder_replacement | Boolean | 否 | false | 如果为 true，则使用占位符替换（${field}）用于 headers、parameters 和 body 值，否则使用基于键的替换。                                                  |
-| pageing.total_page_size       | Int     | 否       | -           | 此参数用于控制总页数                                                                                                                       |
-| pageing.batch_size            | Int     | 否       | -           | 每个请求返回的批量大小，用于在总页数未知时确定是否继续                                                            |
+| pageing.total_page_size       | Long    | 否       | 0           | 用于控制总页数。`0` 表示总页数未知，连接器会在返回行数小于 `pageing.batch_size` 时停止。                                                                                                                       |
+| pageing.batch_size            | Int     | 否       | 100         | 每个请求返回的批量大小，用于在总页数未知时判断是否继续。                                                            |
 | pageing.start_page_number     | Int     | 否       | 1           | 指定同步开始的页码                                                                                                                         |
 | pageing.page_type             | String  | 否       | PageNumber  | 此参数用于指定页面类型，如果未设置则为 PageNumber，仅支持 `PageNumber` 和 `Cursor`。                                  |
 | pageing.cursor_field          | String  | 否       | -           | 此参数用于指定请求参数中的游标字段名称。                                                                                       |
 | pageing.cursor_response_field | String  | 否       | -           | 此参数指定从中检索游标的响应字段。                                                                                            |
 | content_field                  | String  | 否       | -           | 此参数可以获取一些 json 数据。如果您只需要 'book' 部分的数据，配置 `content_field = "$.store.book.*"`。                                              |
-| format                        | String  | 否       | text        | 上游数据的格式，目前仅支持 `json` `text`，默认为 `text`。                                                                                                      |
+| format                        | String  | 否       | text        | 上游数据的格式，支持 `json` `text` `binary`，默认为 `text`。当设置为 `binary` 时，响应体作为原始字节处理，用于下载文件（PDF、图片、ZIP 等）。                                     |
+| binary_chunk_size             | Long    | 否       | 10485760    | 当 `format = binary` 时的分片大小（字节）。大文件会被拆分为多行。默认 10MB。仅在 BATCH 模式下生效。                                                                             |
 | method                        | String  | 否       | get         | Http 请求方法，仅支持 GET、POST 方法。                                                                                                                              |
 | headers                       | Map     | 否       | -           | Http 头信息。                                                                                                                                                                     |
 | params                        | Map     | 否       | -           | Http 参数。                                                                                                                                                                      |
@@ -66,6 +67,12 @@ import ChangeLog from '../changelog/connector-http.md';
 | keep_params_as_form           | Boolean | 否       | false       | 是否按照表单提交参数，用于兼容旧行为。当为 true 时，params 参数的值通过表单提交。 |
 | keep_page_param_as_http_param | Boolean | 否       | false       | 是否将分页参数设置为 params。用于兼容旧行为。                                                                                          |
 | json_filed_missed_return_null | Boolean | 否      | false        | 当 JSON 字段缺失时，设置为 true 并返回 null，否则返回错误。|
+
+## 参数说明
+
+- `pageing` 是连接器现有参数名，作业配置中需要保持这个拼写。
+- `format = json` 通常需要配置 `schema`。当字段来自嵌套 JSON 路径时，可以配合 `json_field` 使用；如果想直接抽取某个 JSON 数组或对象片段，可以使用 `content_field`。
+- `format = binary` 会输出固定字段 `(data: bytes, relativePath: string, partIndex: long)`，只支持批模式，且不能和 `pageing` 一起使用。
 
 ## 如何创建 Http 数据同步作业
 
@@ -180,6 +187,40 @@ schema {
 |----------------------------------------------------------|
 | {"code":  200, "data":  "get success", "success":  true} |
 
+当您指定 format 为 `binary` 时，HTTP 响应体作为原始字节处理，用于下载文件（PDF、图片、ZIP 等）。输出 schema 固定为 `(data: bytes, relativePath: string, partIndex: long)`。大文件会根据 `binary_chunk_size` 自动拆分为多行。仅支持 BATCH 模式，且不支持分页（`pageing`）。
+
+示例：通过 HTTP 下载文件并写入 LocalFileSink：
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Http {
+    url = "http://example.com/files/report.pdf"
+    method = "GET"
+    format = "binary"
+    binary_chunk_size = 10485760  # 每个分片 10MB
+    schema = {
+      fields {
+        data = bytes
+        relativePath = string
+        partIndex = long
+      }
+    }
+  }
+}
+
+sink {
+  LocalFile {
+    path = "/tmp/download"
+    file_format = "binary"
+  }
+}
+```
+
 ### keep_params_as_form
 为了兼容旧版本的 http。
 当设置为 true 时，`<params>` 和 `<pageing>` 将以表单形式提交。
@@ -210,7 +251,7 @@ HTTP body 用于在请求或响应中携带实际数据，包括 JSON、表单�
 
 参考格式如下：
 ```hocon
-body="{"id":1,"name":"seatunnel"}"
+body="""{"id":1,"name":"seatunnel"}"""
 ```
 
 对于表单提交，请按如下设置 content-type。
@@ -218,6 +259,110 @@ body="{"id":1,"name":"seatunnel"}"
 headers {
     Content-Type = "application/x-www-form-urlencoded"
 }
+```
+
+### 分页与最终请求形态排查
+
+下面几条规则最容易混淆，建议先按“最终发出的 HTTP 请求长什么样”来理解：
+
+1. `GET` 请求：`params` 一定会被拼到 URL 查询串里。
+2. `POST` 且 `keep_params_as_form = false`：
+   - `params` 仍然会拼到 URL 查询串里
+   - 在默认的非 form 分支上，`body` 会作为 JSON body 发送
+   - 如果没有配置 `body`，并且请求仍然走这个默认非 form 分支，运行时会发送一个空 JSON 对象 `{}` 作为请求体
+   - 如果你显式把 `Content-Type` 设为 `application/x-www-form-urlencoded`，运行时会改走 form-body 分支，而不是默认 JSON 分支
+3. `POST` 且 `keep_params_as_form = true`：
+   - `params` 会并入表单 body
+   - 如果未显式设置 `Content-Type`，SeaTunnel 会自动补 `application/x-www-form-urlencoded`
+   - 如果 `body` 与 `params` 出现同名键，`params` 的值会覆盖 `body` 中同名键
+4. `keep_page_param_as_http_param = true`：分页字段会直接写入 `params`
+5. `keep_page_param_as_http_param = false`：SeaTunnel 只会更新 headers、params、body 里已经存在的同名键或占位符，不会凭空新增分页字段
+6. `pageing.use_placeholder_replacement = true`：支持 `${page}`、`${cursor}` 占位符，也支持 `"10${page}" -> "105"` 这种带前后缀的替换；为 `false` 时只做按 key 的整值替换
+
+示例 1：GET 分页，页码写入查询参数
+
+```hocon
+source {
+  Http {
+    url = "https://api.example.com/orders"
+    method = "GET"
+    params = {
+      page = "${page}"
+      size = "100"
+    }
+    pageing = {
+      page_field = "page"
+      page_type = "PageNumber"
+      start_page_number = 3
+      use_placeholder_replacement = true
+    }
+  }
+}
+```
+
+当页码推进到 `3` 时，最终请求为：
+
+```text
+GET https://api.example.com/orders?page=3&size=100
+```
+
+示例 2：POST JSON（默认非 form 分支），请求参数进 URL，分页字段留在 body
+
+```hocon
+source {
+  Http {
+    url = "https://api.example.com/orders/search"
+    method = "POST"
+    keep_params_as_form = false
+    params = {
+      tenant = "acme"
+    }
+    body = """{"page":"${page}","pageSize":100}"""
+    pageing = {
+      page_field = "page"
+      page_type = "PageNumber"
+      start_page_number = 3
+      use_placeholder_replacement = true
+    }
+  }
+}
+```
+
+当页码推进到 `3` 时，最终请求为：
+
+```text
+POST https://api.example.com/orders/search?tenant=acme
+Content-Type: application/json
+Body: {"page":"3","pageSize":100}
+```
+
+示例 3：POST 表单，请求参数和分页字段都写入表单 body
+
+```hocon
+source {
+  Http {
+    url = "https://api.example.com/orders/search"
+    method = "POST"
+    keep_params_as_form = true
+    keep_page_param_as_http_param = true
+    params = {
+      size = "100"
+    }
+    pageing = {
+      page_field = "page"
+      page_type = "PageNumber"
+      start_page_number = 3
+    }
+  }
+}
+```
+
+当页码推进到 `3` 时，最终请求为：
+
+```text
+POST https://api.example.com/orders/search
+Content-Type: application/x-www-form-urlencoded
+Body: size=100&page=3
 ```
 
 ### content_field
@@ -544,7 +689,7 @@ source {
 `pageing.page_type` 参数必须设置为 `Cursor`。
 `cursor_field` 是请求参数中游标的字段名称。
 `cursor_response_field` 是响应数据中分页令牌字段的名称，我们应该将其添加到请求的分页字段中。
-````hocon
+```hocon
 
 source {
     Http {

@@ -101,6 +101,15 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
         log.info("Start splitting table {} into chunks...", table.getTablePath());
         long start = System.currentTimeMillis();
 
+        // When concurrent read is disabled, skip all split analysis and return a single
+        // full-table split. This avoids expensive MIN/MAX scans on tables without proper indexes.
+        if (!config.isEnableConcurrentRead()) {
+            log.info(
+                    "Concurrent read is disabled for table {}, using single split.",
+                    table.getTablePath());
+            return Collections.singletonList(createSingleSplit(table));
+        }
+
         Collection<JdbcSourceSplit> splits;
         Optional<SeaTunnelRowType> splitKeyOptional = findSplitKey(table);
         if (!splitKeyOptional.isPresent()) {
@@ -143,7 +152,7 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
         if (connection.getAutoCommit() != autoCommit) {
             connection.setAutoCommit(autoCommit);
         }
-        log.debug("Prepared statement: {}", sql);
+        log.info("Prepared statement: {}", sql);
         return jdbcDialect.creatPreparedStatement(connection, sql, fetchSize);
     }
 

@@ -17,9 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.kingbase;
 
-import org.apache.seatunnel.shade.com.google.common.base.Preconditions;
-import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
-
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.catalog.Catalog;
@@ -51,9 +48,6 @@ public class KingbaseCatalogFactory implements CatalogFactory {
     @Override
     public Catalog createCatalog(String catalogName, ReadonlyConfig options) {
         String urlWithDatabase = options.get(JdbcCommonOptions.URL);
-        Preconditions.checkArgument(
-                StringUtils.isNoneBlank(urlWithDatabase),
-                "Miss config <base-url>! Please check your config.");
         JdbcUrlUtil.UrlInfo urlInfo = JdbcUrlUtil.getUrlInfo(urlWithDatabase);
         String compatibleMode = detectCompatibleMode(options);
         if (isMySQL(compatibleMode)) {
@@ -70,7 +64,7 @@ public class KingbaseCatalogFactory implements CatalogFactory {
 
     @Override
     public OptionRule optionRule() {
-        return JdbcCommonOptions.BASE_CATALOG_RULE.build();
+        return JdbcCommonOptions.baseCatalogRule().build();
     }
 
     private String detectCompatibleMode(ReadonlyConfig config) {

@@ -39,16 +39,17 @@ import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
+import org.testcontainers.utility.MountableFile;
 
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.net.MalformedURLException;
-import java.net.URL;
-import java.net.URLClassLoader;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.sql.Connection;
-import java.sql.Driver;
+import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -57,7 +58,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
-import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -78,8 +78,11 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
     private static final String SOURCE_TABLE = "e2e_table_source";
     private static final String SOURCE_TABLE_3 = "e2e_table_source_3";
     private static final String SINK_TABLE = "e2e_table_sink";
-    private static final String SR_DRIVER_JAR =
-            "https://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0.16/mysql-connector-java-8.0.16.jar";
+    private static final String TABLE_OPTIONS_SINK_TABLE = "sink_table_options";
+    private static final String TABLE_OPTIONS_CONFIG_FILE =
+            "/fake-to-starrocks-with-table-options.conf";
+    private static final String SR_DRIVER_CONTAINER_PATH =
+            "/tmp/seatunnel/plugins/Jdbc/lib/mysql-connector-java.jar";
     private static final String COLUMN_STRING =
             "BIGINT_COL, LARGEINT_COL, SMALLINT_COL, TINYINT_COL, BOOLEAN_COL, DECIMAL_COL, DOUBLE_COL, FLOAT_COL, INT_COL, CHAR_COL, VARCHAR_11_COL, STRING_COL, DATETIME_COL, DATE_COL";
 
@@ -222,14 +225,36 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
             container -> {
+                Path driverJarPath = driverJarPath();
+                Assertions.assertTrue(
+                        Files.isRegularFile(driverJarPath),
+                        "MySQL JDBC driver should be resolved from the test classpath before E2E runs: "
+                                + driverJarPath);
                 Container.ExecResult extraCommands =
                         container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && curl -O "
-                                        + SR_DRIVER_JAR);
-                Assertions.assertEquals(0, extraCommands.getExitCode());
+                                "bash", "-c", "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib");
+                Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
+                container.copyFileToContainer(
+                        MountableFile.forHostPath(driverJarPath), SR_DRIVER_CONTAINER_PATH);
             };
+
+    /**
+     * Resolve the MySQL JDBC test dependency from the active test classpath instead of downloading
+     * it inside the container.
+     */
+    private Path driverJarPath() {
+        try {
+            return Paths.get(
+                    com.mysql.cj.jdbc.Driver.class
+                            .getProtectionDomain()
+                            .getCodeSource()
+                            .getLocation()
+                            .toURI());
+        } catch (Exception e) {
+            throw new RuntimeException(
+                    "Failed to resolve MySQL JDBC driver jar from the test classpath", e);
+        }
+    }
 
     @BeforeAll
     @Override
@@ -342,18 +367,24 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
 
-    private void initializeJdbcConnection()
-            throws SQLException, ClassNotFoundException, MalformedURLException,
-                    InstantiationException, IllegalAccessException {
-        URLClassLoader urlClassLoader =
-                new URLClassLoader(
-                        new URL[] {new URL(SR_DRIVER_JAR)}, StarRocksIT.class.getClassLoader());
-        Thread.currentThread().setContextClassLoader(urlClassLoader);
-        Driver driver = (Driver) urlClassLoader.loadClass(DRIVER_CLASS).newInstance();
-        Properties props = new Properties();
-        props.put("user", USERNAME);
-        props.put("password", PASSWORD);
-        jdbcConnection = driver.connect(String.format(URL, starRocksServer.getHost()), props);
+    @TestTemplate
+    public void testTableOptionsSink(TestContainer container)
+            throws IOException, InterruptedException, SQLException {
+        try {
+            dropTableIfExists(TABLE_OPTIONS_SINK_TABLE);
+            Container.ExecResult execResult = container.executeJob(TABLE_OPTIONS_CONFIG_FILE);
+            Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+            assertTableOptionsSink();
+        } finally {
+            dropTableIfExists(TABLE_OPTIONS_SINK_TABLE);
+        }
+    }
+
+    private void initializeJdbcConnection() throws SQLException, ClassNotFoundException {
+        Class.forName(DRIVER_CLASS);
+        jdbcConnection =
+                DriverManager.getConnection(
+                        String.format(URL, starRocksServer.getHost()), USERNAME, PASSWORD);
     }
 
     private void initializeJdbcTable() {
@@ -406,6 +437,35 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
             statement.execute(String.format("TRUNCATE TABLE %s.%s", DATABASE, SINK_TABLE));
         } catch (SQLException e) {
             throw new RuntimeException("test starrocks server image error", e);
+        }
+    }
+
+    private void assertTableOptionsSink() throws SQLException {
+        try (Statement statement = jdbcConnection.createStatement()) {
+            ResultSet createTableResult =
+                    statement.executeQuery(
+                            String.format(
+                                    "SHOW CREATE TABLE %s.%s", DATABASE, TABLE_OPTIONS_SINK_TABLE));
+            Assertions.assertTrue(createTableResult.next());
+            String createTableSql = createTableResult.getString(2).toLowerCase();
+            Assertions.assertTrue(
+                    createTableSql.contains("\"storage_format\" = \"v2\""), createTableSql);
+
+            ResultSet countResult =
+                    statement.executeQuery(
+                            String.format(
+                                    "SELECT COUNT(*) FROM %s.%s",
+                                    DATABASE, TABLE_OPTIONS_SINK_TABLE));
+            Assertions.assertTrue(countResult.next());
+            Assertions.assertEquals(100, countResult.getInt(1));
+        }
+    }
+
+    private void dropTableIfExists(String table) {
+        try (Statement statement = jdbcConnection.createStatement()) {
+            statement.execute(String.format("DROP TABLE IF EXISTS %s.%s", DATABASE, table));
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to drop table " + table, e);
         }
     }
 
