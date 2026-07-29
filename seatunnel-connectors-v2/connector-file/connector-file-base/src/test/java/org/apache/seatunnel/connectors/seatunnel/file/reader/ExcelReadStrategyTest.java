@@ -28,6 +28,7 @@ import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
+import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ExcelReadStrategy;
 
 import org.junit.jupiter.api.Assertions;
@@ -235,6 +236,66 @@ public class ExcelReadStrategyTest {
                 1);
         testLargeExcelRead("/excel/e2e.xls", "/excel/e2exls.conf", 5);
         testLargeExcelRead("/excel/e2e.xlsx", "/excel/e2exls.conf", 5);
+    }
+
+    @Test
+    public void testEasyExcelIgnoresPoiFileSizeLimit() throws IOException, URISyntaxException {
+        URL excelFile = ExcelReadStrategyTest.class.getResource("/excel/e2e.xlsx");
+        URL conf = ExcelReadStrategyTest.class.getResource("/excel/e2exls.conf");
+
+        Assertions.assertNotNull(excelFile);
+        Assertions.assertNotNull(conf);
+        String excelFilePath = Paths.get(excelFile.toURI()).toString();
+        String confPath = Paths.get(conf.toURI()).toString();
+        Config pluginConfig =
+                ConfigFactory.parseString("poi_excel_max_file_size = 1")
+                        .withFallback(ConfigFactory.parseFile(new File(confPath)));
+        ExcelReadStrategy excelReadStrategy = new ExcelReadStrategy();
+        LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        excelReadStrategy.setPluginConfig(pluginConfig);
+        excelReadStrategy.init(localConf);
+
+        List<String> fileNamesByPath = excelReadStrategy.getFileNamesByPath(excelFilePath);
+        CatalogTable userDefinedCatalogTable = CatalogTableUtil.buildWithConfig(pluginConfig);
+        excelReadStrategy.setCatalogTable(userDefinedCatalogTable);
+
+        TestCollector testCollector = new TestCollector();
+        excelReadStrategy.read(fileNamesByPath.get(0), "", testCollector);
+
+        Assertions.assertEquals(5, testCollector.getRows().size());
+    }
+
+    @Test
+    public void testPoiRejectsExcelLargerThanConfiguredLimit()
+            throws IOException, URISyntaxException {
+        URL excelFile = ExcelReadStrategyTest.class.getResource("/excel/e2e.xlsx");
+        URL conf = ExcelReadStrategyTest.class.getResource("/excel/e2exls.conf");
+
+        Assertions.assertNotNull(excelFile);
+        Assertions.assertNotNull(conf);
+        String excelFilePath = Paths.get(excelFile.toURI()).toString();
+        String confPath = Paths.get(conf.toURI()).toString();
+        Config pluginConfig =
+                ConfigFactory.parseString("poi_excel_max_file_size = 1")
+                        .withFallback(ConfigFactory.parseFile(new File(confPath)))
+                        .withoutPath("excel_engine");
+        ExcelReadStrategy excelReadStrategy = new ExcelReadStrategy();
+        LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        excelReadStrategy.setPluginConfig(pluginConfig);
+        excelReadStrategy.init(localConf);
+
+        List<String> fileNamesByPath = excelReadStrategy.getFileNamesByPath(excelFilePath);
+        CatalogTable userDefinedCatalogTable = CatalogTableUtil.buildWithConfig(pluginConfig);
+        excelReadStrategy.setCatalogTable(userDefinedCatalogTable);
+
+        FileConnectorException exception =
+                Assertions.assertThrows(
+                        FileConnectorException.class,
+                        () ->
+                                excelReadStrategy.read(
+                                        fileNamesByPath.get(0), "", new TestCollector()));
+        Assertions.assertTrue(exception.getMessage().contains("larger than POI limit"));
+        Assertions.assertTrue(exception.getMessage().contains("excel_engine = EasyExcel"));
     }
 
     private void testLargeExcelRead(String filePath, String configPath, int rowCount)
