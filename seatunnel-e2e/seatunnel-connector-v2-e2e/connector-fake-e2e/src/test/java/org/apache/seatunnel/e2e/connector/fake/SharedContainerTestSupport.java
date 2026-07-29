@@ -15,14 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.e2e.common.container;
+package org.apache.seatunnel.e2e.connector.fake;
 
-/** A test container that can remove test-class state without stopping the underlying service. */
-public interface ReusableTestContainer extends TestContainer {
+import org.apache.seatunnel.e2e.common.container.TestContainer;
 
-    /** Records or verifies the clean baseline before a test class uses this container. */
-    default void prepareForTestClass() throws Exception {}
+import org.junit.jupiter.api.Assertions;
 
-    /** Removes state owned by the completed test class and verifies the clean baseline. */
-    void cleanUpAfterTestClass() throws Exception;
+final class SharedContainerTestSupport {
+
+    private static TestContainer firstContainer;
+
+    private SharedContainerTestSupport() {}
+
+    static synchronized void assertSameContainer(TestContainer container) {
+        if (firstContainer == null) {
+            firstContainer = container;
+            return;
+        }
+        Assertions.assertSame(firstContainer, container);
+    }
 }

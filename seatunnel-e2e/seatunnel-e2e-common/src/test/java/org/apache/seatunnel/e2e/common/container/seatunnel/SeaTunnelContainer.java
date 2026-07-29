@@ -66,6 +66,8 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Pattern;
@@ -88,6 +90,8 @@ public class SeaTunnelContainer extends AbstractTestContainer implements Reusabl
     protected static final String CONNECTOR_CHECK_SHELL = "seatunnel-connector.sh";
     protected GenericContainer<?> server;
     private final AtomicInteger runningCount = new AtomicInteger();
+    private Set<String> connectorJarsBeforeTest = Collections.emptySet();
+    private Set<String> temporaryConfigsBeforeTest = Collections.emptySet();
 
     @Override
     public void startUp() throws Exception {
@@ -233,21 +237,95 @@ public class SeaTunnelContainer extends AbstractTestContainer implements Reusabl
     }
 
     @Override
+    public void prepareForTestClass() throws Exception {
+        assertNoRunningJobs();
+        assertVolumeEmpty();
+        connectorJarsBeforeTest = listConnectorJars();
+        temporaryConfigsBeforeTest = listTemporaryConfigs();
+    }
+
+    @Override
     public void cleanUpAfterTestClass() throws Exception {
         if (runningCount.get() != 0) {
             throw new IllegalStateException("Cannot clean a SeaTunnelContainer with running jobs");
         }
         assertNoRunningJobs();
         Container.ExecResult cleanupResult =
-                server.execInContainer(
-                        "sh",
-                        "-c",
-                        "find /tmp/seatunnel_mnt -mindepth 1 -delete"
-                                + " && find /tmp -maxdepth 1 -type f \\( -name '*.conf' -o -name '*.sql' \\) -delete"
-                                + " && find /tmp/seatunnel/connectors -maxdepth 1 -type f -name '*.jar' -delete");
+                server.execInContainer("sh", "-c", "find /tmp/seatunnel_mnt -mindepth 1 -delete");
         if (cleanupResult.getExitCode() != 0) {
             throw new IllegalStateException(
                     "Failed to clean shared SeaTunnelContainer: " + cleanupResult.getStderr());
+        }
+        deleteAddedArtifacts(
+                "/tmp/seatunnel/connectors", connectorJarsBeforeTest, listConnectorJars());
+        deleteAddedArtifacts("/tmp", temporaryConfigsBeforeTest, listTemporaryConfigs());
+        assertVolumeEmpty();
+        assertArtifactsRestored("connector JARs", connectorJarsBeforeTest, listConnectorJars());
+        assertArtifactsRestored(
+                "temporary configs", temporaryConfigsBeforeTest, listTemporaryConfigs());
+        assertNoRunningJobs();
+    }
+
+    private Set<String> listConnectorJars() throws IOException, InterruptedException {
+        return listArtifacts(
+                "find /tmp/seatunnel/connectors -maxdepth 1 -type f -name '*.jar' "
+                        + "-exec basename {} \\;");
+    }
+
+    private Set<String> listTemporaryConfigs() throws IOException, InterruptedException {
+        return listArtifacts(
+                "find /tmp -maxdepth 1 -type f \\( -name '*.conf' -o -name '*.sql' \\) "
+                        + "-exec basename {} \\;");
+    }
+
+    private Set<String> listArtifacts(String command) throws IOException, InterruptedException {
+        Container.ExecResult result = server.execInContainer("sh", "-c", command);
+        if (result.getExitCode() != 0) {
+            throw new IllegalStateException(
+                    "Failed to inspect shared SeaTunnelContainer artifacts: " + result.getStderr());
+        }
+        return Arrays.stream(result.getStdout().split("\\R"))
+                .filter(name -> !name.isEmpty())
+                .collect(Collectors.toCollection(TreeSet::new));
+    }
+
+    private void deleteAddedArtifacts(
+            String directory, Set<String> baseline, Set<String> currentArtifacts)
+            throws IOException, InterruptedException {
+        currentArtifacts.removeAll(baseline);
+        for (String artifact : currentArtifacts) {
+            Container.ExecResult result =
+                    server.execInContainer("rm", "-f", directory + "/" + artifact);
+            if (result.getExitCode() != 0) {
+                throw new IllegalStateException(
+                        "Failed to remove shared SeaTunnelContainer artifact "
+                                + artifact
+                                + ": "
+                                + result.getStderr());
+            }
+        }
+    }
+
+    private void assertArtifactsRestored(
+            String artifactType, Set<String> expected, Set<String> actual) {
+        if (!actual.equals(expected)) {
+            throw new IllegalStateException(
+                    "Shared SeaTunnelContainer did not restore "
+                            + artifactType
+                            + ", expected "
+                            + expected
+                            + " but found "
+                            + actual);
+        }
+    }
+
+    private void assertVolumeEmpty() throws IOException, InterruptedException {
+        Container.ExecResult result =
+                server.execInContainer(
+                        "sh", "-c", "find /tmp/seatunnel_mnt -mindepth 1 -print -quit");
+        if (result.getExitCode() != 0 || !result.getStdout().trim().isEmpty()) {
+            throw new IllegalStateException(
+                    "Shared SeaTunnelContainer volume is not empty: " + result.getStdout());
         }
     }
 

@@ -42,9 +42,13 @@ final class SharedTestContainerResource implements ExtensionContext.Store.Closea
                 container.startUp();
                 started = true;
             }
+            container.prepareForTestClass();
             container.executeExtraCommands(extendedFactory);
             acquired = true;
             return container;
+        } catch (Exception acquireFailure) {
+            stopAfterFailure(acquireFailure);
+            throw acquireFailure;
         } finally {
             if (!acquired) {
                 classLease.release();
@@ -55,6 +59,9 @@ final class SharedTestContainerResource implements ExtensionContext.Store.Closea
     void release() throws Exception {
         try {
             container.cleanUpAfterTestClass();
+        } catch (Exception cleanupFailure) {
+            stopAfterFailure(cleanupFailure);
+            throw cleanupFailure;
         } finally {
             classLease.release();
         }
@@ -63,7 +70,24 @@ final class SharedTestContainerResource implements ExtensionContext.Store.Closea
     @Override
     public void close() throws Exception {
         if (started) {
+            try {
+                container.tearDown();
+            } finally {
+                started = false;
+            }
+        }
+    }
+
+    private void stopAfterFailure(Exception failure) {
+        if (!started) {
+            return;
+        }
+        try {
             container.tearDown();
+        } catch (Exception tearDownFailure) {
+            failure.addSuppressed(tearDownFailure);
+        } finally {
+            started = false;
         }
     }
 }

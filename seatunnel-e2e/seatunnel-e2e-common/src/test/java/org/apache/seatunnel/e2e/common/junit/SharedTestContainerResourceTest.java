@@ -47,6 +47,7 @@ class SharedTestContainerResourceTest {
         resource.close();
 
         assertEquals(1, container.startCount);
+        assertEquals(2, container.prepareCount);
         assertEquals(2, container.extensionCount);
         assertEquals(2, container.cleanupCount);
         assertEquals(1, container.tearDownCount);
@@ -68,13 +69,74 @@ class SharedTestContainerResourceTest {
         assertEquals(1, container.tearDownCount);
     }
 
+    @Test
+    void shouldRestartAfterPreparationFailure() throws Exception {
+        CountingTestContainer container = new CountingTestContainer();
+        container.failFirstPreparation = true;
+        SharedTestContainerResource resource = new SharedTestContainerResource(container);
+
+        assertThrows(IOException.class, () -> resource.acquire(NO_EXTENSION));
+        assertSame(container, resource.acquire(NO_EXTENSION));
+        resource.release();
+        resource.close();
+
+        assertEquals(2, container.startCount);
+        assertEquals(2, container.prepareCount);
+        assertEquals(1, container.cleanupCount);
+        assertEquals(2, container.tearDownCount);
+    }
+
+    @Test
+    void shouldRestartAfterExtensionFailure() throws Exception {
+        CountingTestContainer container = new CountingTestContainer();
+        SharedTestContainerResource resource = new SharedTestContainerResource(container);
+
+        assertThrows(
+                IOException.class,
+                () ->
+                        resource.acquire(
+                                ignored -> {
+                                    throw new IOException("extension failed");
+                                }));
+        assertSame(container, resource.acquire(NO_EXTENSION));
+        resource.release();
+        resource.close();
+
+        assertEquals(2, container.startCount);
+        assertEquals(2, container.prepareCount);
+        assertEquals(2, container.extensionCount);
+        assertEquals(1, container.cleanupCount);
+        assertEquals(2, container.tearDownCount);
+    }
+
+    @Test
+    void shouldRestartAfterCleanupFailure() throws Exception {
+        CountingTestContainer container = new CountingTestContainer();
+        container.failFirstCleanup = true;
+        SharedTestContainerResource resource = new SharedTestContainerResource(container);
+
+        assertSame(container, resource.acquire(NO_EXTENSION));
+        assertThrows(IOException.class, resource::release);
+        assertSame(container, resource.acquire(NO_EXTENSION));
+        resource.release();
+        resource.close();
+
+        assertEquals(2, container.startCount);
+        assertEquals(2, container.prepareCount);
+        assertEquals(2, container.cleanupCount);
+        assertEquals(2, container.tearDownCount);
+    }
+
     private static final class CountingTestContainer implements ReusableTestContainer {
 
         private int startCount;
+        private int prepareCount;
         private int extensionCount;
         private int cleanupCount;
         private int tearDownCount;
         private boolean failFirstStartup;
+        private boolean failFirstPreparation;
+        private boolean failFirstCleanup;
 
         @Override
         public void startUp() throws Exception {
@@ -91,8 +153,21 @@ class SharedTestContainerResourceTest {
         }
 
         @Override
-        public void cleanUpAfterTestClass() {
+        public void prepareForTestClass() throws IOException {
+            prepareCount++;
+            if (failFirstPreparation) {
+                failFirstPreparation = false;
+                throw new IOException("preparation failed");
+            }
+        }
+
+        @Override
+        public void cleanUpAfterTestClass() throws IOException {
             cleanupCount++;
+            if (failFirstCleanup) {
+                failFirstCleanup = false;
+                throw new IOException("cleanup failed");
+            }
         }
 
         @Override

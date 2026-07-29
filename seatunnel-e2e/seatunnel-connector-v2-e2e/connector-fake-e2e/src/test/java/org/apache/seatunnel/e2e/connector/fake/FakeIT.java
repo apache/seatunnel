@@ -33,6 +33,9 @@ public class FakeIT extends TestSuiteBase {
     @TestTemplate
     public void testFakeConnector(TestContainer container)
             throws IOException, InterruptedException {
+        if (container.identifier() == TestContainerId.SEATUNNEL) {
+            SharedContainerTestSupport.assertSameContainer(container);
+        }
         Container.ExecResult textWriteResult = container.executeJob("/fake_to_assert.conf");
         Assertions.assertEquals(0, textWriteResult.getExitCode());
         Container.ExecResult fakeWithRange =
