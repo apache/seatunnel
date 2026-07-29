@@ -15,25 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.source.event;
+package org.apache.seatunnel.connectors.seatunnel.file.config;
 
-import org.apache.seatunnel.api.source.SourceEvent;
+import java.io.Serializable;
 
-import lombok.Getter;
-
-@Getter
-public class FileSplitFinishedEvent implements SourceEvent {
-    private static final long serialVersionUID = 1L;
-
-    private final String splitId;
-    private final String contentFingerprint;
-
-    public FileSplitFinishedEvent(String splitId) {
-        this(splitId, null);
-    }
-
-    public FileSplitFinishedEvent(String splitId, String contentFingerprint) {
-        this.splitId = splitId;
-        this.contentFingerprint = contentFingerprint;
-    }
+public enum FilePostSyncAction implements Serializable {
+    NONE,
+    DELETE,
+    BACKUP
 }
