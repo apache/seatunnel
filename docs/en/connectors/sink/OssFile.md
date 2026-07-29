@@ -97,7 +97,7 @@ If write to `csv`, `text`, `json` file type, All column will be string.
 
 | Name                                  | Type    | Required | Default                                    | Description                                                                                                                                                                     |
 |---------------------------------------|---------|----------|--------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| path                                  | string  | yes      | The oss path to write file in.             |                                                                                                                                                                                 |
+| path                                  | string  | yes      | -                                          | The OSS path to write files in.                                                                                                                                                  |
 | tmp_path                              | string  | no       | /tmp/seatunnel                             | The result file will write to a tmp path first and then use `mv` to submit tmp dir to target dir. Need a OSS dir.                                                               |
 | bucket                                | string  | yes      | -                                          |                                                                                                                                                                                 |
 | access_key                            | string  | yes      | -                                          |                                                                                                                                                                                 |
@@ -140,6 +140,8 @@ If write to `csv`, `text`, `json` file type, All column will be string.
 ### path [string]
 
 The target dir path is required.
+
+For example, set `bucket = "oss://seatunnel-test"` and `path = "/warehouse/events"` to write files under `oss://seatunnel-test/warehouse/events`.
 
 ### bucket [string]
 

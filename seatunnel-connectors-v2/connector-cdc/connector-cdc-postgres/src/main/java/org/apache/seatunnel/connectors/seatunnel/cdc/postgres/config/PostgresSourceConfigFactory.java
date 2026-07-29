@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.postgres.config;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfigFactory;
+import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.debezium.EmbeddedDatabaseHistory;
 
 import io.debezium.connector.postgresql.PostgresConnector;
@@ -31,6 +32,8 @@ import java.util.stream.Collectors;
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
 
 public class PostgresSourceConfigFactory extends JdbcSourceConfigFactory {
+
+    private static final long serialVersionUID = 1L;
 
     private static final String DATABASE_SERVER_NAME = "postgres_cdc_source";
 
@@ -107,31 +110,41 @@ public class PostgresSourceConfigFactory extends JdbcSourceConfigFactory {
         if (dbzProperties != null) {
             props.putAll(dbzProperties);
         }
+        if (startupConfig != null && startupConfig.getStartupMode() == StartupMode.SNAPSHOT_ONLY) {
+            props.setProperty("snapshot.mode", "initial_only");
+        } else if (startupConfig != null
+                && startupConfig.getStartupMode() == StartupMode.COMMITTED_OFFSET) {
+            props.setProperty("snapshot.mode", "never");
+        }
 
-        return new PostgresSourceConfig(
-                startupConfig,
-                stopConfig,
-                databaseList,
-                tableList,
-                splitSize,
-                splitColumn,
-                distributionFactorUpper,
-                distributionFactorLower,
-                sampleShardingThreshold,
-                inverseSamplingRate,
-                sampleShardingAllow,
-                props,
-                DRIVER_CLASS_NAME,
-                hostname,
-                port,
-                username,
-                password,
-                originUrl,
-                fetchSize,
-                serverTimeZone,
-                connectTimeoutMillis,
-                connectMaxRetries,
-                connectionPoolSize,
-                exactlyOnce);
+        PostgresSourceConfig config =
+                new PostgresSourceConfig(
+                        startupConfig,
+                        stopConfig,
+                        databaseList,
+                        tableList,
+                        splitSize,
+                        splitColumn,
+                        distributionFactorUpper,
+                        distributionFactorLower,
+                        sampleShardingThreshold,
+                        inverseSamplingRate,
+                        sampleShardingAllow,
+                        props,
+                        DRIVER_CLASS_NAME,
+                        hostname,
+                        port,
+                        username,
+                        password,
+                        originUrl,
+                        fetchSize,
+                        serverTimeZone,
+                        connectTimeoutMillis,
+                        connectMaxRetries,
+                        connectionPoolSize,
+                        exactlyOnce);
+        // Propagate the enableConcurrentRead flag so the chunk splitter can skip split analysis.
+        config.setEnableConcurrentRead(this.enableConcurrentRead);
+        return config;
     }
 }
