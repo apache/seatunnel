@@ -903,16 +903,31 @@ public class DynamicChunkSplitter extends ChunkSplitter {
                 statement.setObject(i + 1, splitEnd[i]);
                 statement.setObject(i + 1 + splitKeyNumbers, splitEnd[i]);
             }
+            log.info(
+                    "Dynamic split (first) - params: [{}={}, {}={}]",
+                    1,
+                    splitEnd[0],
+                    2,
+                    splitEnd[0]);
         } else if (isLastSplit) {
             for (int i = 0; i < splitKeyNumbers; i++) {
                 statement.setObject(i + 1, splitStart[i]);
             }
+            log.info("Dynamic split (last) - params: [{}={}]", 1, splitStart[0]);
         } else {
             for (int i = 0; i < splitKeyNumbers; i++) {
                 statement.setObject(i + 1, splitStart[i]);
                 statement.setObject(i + 1 + splitKeyNumbers, splitEnd[i]);
                 statement.setObject(i + 1 + 2 * splitKeyNumbers, splitEnd[i]);
             }
+            log.info(
+                    "Dynamic split (middle) - params: [{}={}, {}={}, {}={}]",
+                    1,
+                    splitStart[0],
+                    2,
+                    splitEnd[0],
+                    3,
+                    splitEnd[0]);
         }
     }
 

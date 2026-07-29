@@ -47,9 +47,8 @@ public class SimpleJdbcConnectionPoolProviderProxy implements JdbcConnectionProv
     @Override
     public boolean isConnectionValid() throws SQLException {
         return poolManager.containsConnection(queueIndex)
-                && poolManager
-                        .getConnection(queueIndex)
-                        .isValid(jdbcConfig.getConnectionCheckTimeoutSeconds());
+                && JdbcConnectionValidationUtils.isConnectionValid(
+                        poolManager.getConnection(queueIndex), jdbcConfig);
     }
 
     @Override

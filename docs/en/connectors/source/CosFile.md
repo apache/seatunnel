@@ -35,10 +35,11 @@ import ChangeLog from '../changelog/connector-file-cos.md';
   - [x] xml
   - [x] binary
   - [x] markdown
+  - [x] pdf
 
 ## Description
 
-Read data from aliyun Cos file system.
+Read data from Tencent Cloud COS file system.
 
 :::tip
 
@@ -60,7 +61,7 @@ To use this connector you need put hadoop-cos-{hadoop.version}-{version}.jar and
 | secret_id                  | string  | yes      | -                           |
 | secret_key                 | string  | yes      | -                           |
 | region                     | string  | yes      | -                           |
-| read_columns               | list    | yes      | -                           |
+| read_columns               | list    | no       | -                           |
 | delimiter/field_delimiter  | string  | no       | \001 for text and , for csv |
 | row_delimiter              | string  | no       | \n                          |
 | parse_partition_from_path  | boolean | no       | true                        |
@@ -85,6 +86,8 @@ To use this connector you need put hadoop-cos-{hadoop.version}-{version}.jar and
 | file_filter_modified_end   | string  | no       | -                           | 
 | quote_char                 | string  | no       | "                           |
 | escape_char                | string  | no       | -                           |
+| recursive_file_scan        | boolean | no       | true                        |
+| sort_files_by_modification_time | boolean | no       | false                       |
 
 ### path [string]
 
@@ -94,7 +97,7 @@ The source file path.
 
 File type, supported as the following file types:
 
-`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown`
+`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf`
 
 If you assign file type to `json`, you should also assign schema option to tell connector how to parse data to the row you want.
 
@@ -185,7 +188,7 @@ at the same time. You can find the specific usage in the example below.
 
 If you assign file type to `markdown`, SeaTunnel can parse markdown files and extract structured data.
 The markdown parser extracts various elements including headings, paragraphs, lists, code blocks, tables, and more.
-Each element is converted to a row with the following schema:
+Each extracted element is converted to a document-element row with the following schema:
 - `element_id`: Unique identifier for the element
 - `element_type`: Type of the element (Heading, Paragraph, ListItem, etc.)
 - `heading_level`: Level of heading (1-6, null for non-heading elements)
@@ -206,9 +209,20 @@ The option defaults to `false`, so the original Markdown schema is unchanged unl
 
 Note: Markdown format only supports reading, not writing.
 
+If you assign file type to `pdf`, SeaTunnel can parse PDF files and extract structured document elements.
+PDF uses the same document-element row schema described above.
+
+The main PDF-specific behaviors are:
+
+- **With outline**: Extracts `heading`, `paragraph`, `image`, and `link` elements. Headings are derived from the outline structure, and elements are organized into a parent-child hierarchy reflecting the document's logical structure.
+- **Without outline**: Extracts only `paragraph` and `image` elements in a flat structure without hierarchy.
+- `element_type` values for PDF are `heading`, `paragraph`, `image`, and `link`.
+
+Note: Only single-column (top-to-bottom) PDF layouts are supported. Multi-column layouts (e.g., side-by-side two-column documents) are not supported and may produce incorrect text ordering.
+
 ### bucket [string]
 
-The bucket address of Cos file system, for example: `Cos://tyrantlucifer-image-bed`
+The bucket address of COS file system, for example: `cosn://seatunnel-test`
 
 ### secret_id [string]
 
@@ -436,6 +450,19 @@ A single character that encloses CSV fields, allowing fields with commas, line b
 
 A single character that allows the quote or other special characters to appear inside a CSV field without ending the field.
 
+### recursive_file_scan [boolean]
+
+Whether to scan subdirectories recursively.
+If `false`, subdirectories will be ignored.
+
+### sort_files_by_modification_time [boolean]
+
+Whether to sort files by modification time in descending order. Default is `false`.
+
+When enabled, files will be sorted by their modification time (newest first). This is useful when:
+- Reading files with evolving schemas and you want schema inference to use the latest file
+- You need to process files in chronological order
+
 ### common options
 
 Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details.
@@ -539,4 +566,3 @@ sink {
 ## Changelog
 
 <ChangeLog />
-

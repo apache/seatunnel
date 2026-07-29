@@ -44,6 +44,7 @@ import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.nio.ByteBuffer;
 import java.sql.Timestamp;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -181,9 +182,8 @@ public class TypeConvertUtil {
                     fields[i] = row.getLocalDate(i);
                     break;
                 case ProtocolConstants.DataType.TIMESTAMP:
-                    fields[i] =
-                            Timestamp.from(Objects.requireNonNull(row.getInstant(i)))
-                                    .toLocalDateTime();
+                    Instant instant = row.getInstant(i);
+                    fields[i] = instant == null ? null : Timestamp.from(instant).toLocalDateTime();
                     break;
                 case ProtocolConstants.DataType.BLOB:
                     fields[i] =

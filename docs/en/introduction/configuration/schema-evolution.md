@@ -254,6 +254,8 @@ sink {
 }
 ```
 
+> **Note (schema evolution + 2PC):** With `sink.enable-2pc = "true"`, Doris schema evolution only supports `format = "json"` because JSON loads match columns by name. Positional formats such as CSV are rejected at runtime for schema evolution with 2PC enabled. Use `format = "json"` or set `sink.enable-2pc = "false"` so the sink can flush buffered rows before applying the DDL.
+
 ### Mysql-CDC -> Jdbc-Postgres
 ```hocon
 env {

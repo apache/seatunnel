@@ -374,6 +374,7 @@ public class ServerConfigOptions {
         public static final String EVENT_REPORT_HTTP = "event-report-http";
         public static final String EVENT_REPORT_HTTP_URL = "url";
         public static final String EVENT_REPORT_HTTP_HEADERS = "headers";
+        public static final String REPORT_NON_TERMINAL_JOB_STATE = "report-non-terminal-job-state";
 
         // The options for http server end
         /////////////////////////////////////////////////////
@@ -505,5 +506,11 @@ public class ServerConfigOptions {
         // The options for slot end
         /////////////////////////////////////////////////
 
+        public static final Option<Integer> TIMER_FLUSH_POOL_SIZE =
+                Options.key("timer-flush-pool-size")
+                        .intType()
+                        .defaultValue(1)
+                        .withDescription(
+                                "The number of threads in the timer flush worker pool used to inject FlushSignals into the pipeline.");
     }
 }

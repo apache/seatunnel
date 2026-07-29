@@ -32,6 +32,13 @@ import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
+import java.sql.Types;
+
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
 public class PostgresTypeConverterTest {
     @Test
     public void testConvertUnsupported() {
@@ -265,6 +272,42 @@ public class PostgresTypeConverterTest {
         Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
         Assertions.assertEquals(null, column.getColumnLength());
         Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
+    }
+
+    @Test
+    public void testConvertCustomEnumAsString() {
+        BasicTypeDefine<Object> typeDefine =
+                BasicTypeDefine.builder()
+                        .name("status")
+                        .columnType("JobStatus")
+                        .dataType("JobStatus")
+                        .sqlType(Types.OTHER)
+                        .nullable(true)
+                        .build();
+
+        Column column = PostgresTypeConverter.INSTANCE.convert(typeDefine);
+
+        Assertions.assertEquals(typeDefine.getName(), column.getName());
+        Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
+        Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
+        Assertions.assertTrue(column.isNullable());
+    }
+
+    @Test
+    public void testTypeMapperPassesJdbcTypeForCustomEnum() throws SQLException {
+        ResultSetMetaData metadata = mock(ResultSetMetaData.class);
+        when(metadata.getColumnLabel(1)).thenReturn("status");
+        when(metadata.getColumnTypeName(1)).thenReturn("JobStatus");
+        when(metadata.getColumnType(1)).thenReturn(Types.OTHER);
+        when(metadata.isNullable(1)).thenReturn(ResultSetMetaData.columnNullable);
+        when(metadata.getPrecision(1)).thenReturn(0);
+        when(metadata.getScale(1)).thenReturn(0);
+
+        Column column = new PostgresTypeMapper().mappingColumn(metadata, 1);
+
+        Assertions.assertEquals("status", column.getName());
+        Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
+        Assertions.assertEquals("JobStatus", column.getSourceType());
     }
 
     @Test

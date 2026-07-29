@@ -210,6 +210,14 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                     .key()
                     .equals(name)) {
                 engineConfig.setSlotServiceConfig(parseSlotServiceConfig(node));
+            } else if (ServerConfigOptions.WorkerServerConfigOptions.TIMER_FLUSH_POOL_SIZE
+                    .key()
+                    .equals(name)) {
+                engineConfig.setTimerFlushPoolSize(
+                        getIntegerValue(
+                                ServerConfigOptions.WorkerServerConfigOptions.TIMER_FLUSH_POOL_SIZE
+                                        .key(),
+                                getTextContent(node)));
             } else if (ServerConfigOptions.MasterServerConfigOptions.CHECKPOINT
                     .key()
                     .equals(name)) {
@@ -300,6 +308,15 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                             headers.put(cleanNodeName(item), getTextContent(item));
                         }
                         engineConfig.setEventReportHttpHeaders(headers);
+                    }
+
+                    Node reportNonTerminalJobStateNode =
+                            attributes.getNamedItem(
+                                    ServerConfigOptions.MasterServerConfigOptions
+                                            .REPORT_NON_TERMINAL_JOB_STATE);
+                    if (reportNonTerminalJobStateNode != null) {
+                        engineConfig.setReportNonTerminalJobState(
+                                getBooleanValue(getTextContent(reportNonTerminalJobStateNode)));
                     }
                 }
             } else if (ServerConfigOptions.TELEMETRY.key().equals(name)) {

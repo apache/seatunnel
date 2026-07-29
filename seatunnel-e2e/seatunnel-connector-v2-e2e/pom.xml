@@ -83,6 +83,7 @@
         <module>connector-prometheus-e2e</module>
         <module>connector-qdrant-e2e</module>
         <module>connector-sls-e2e</module>
+        <module>connector-socket-e2e</module>
         <module>connector-typesense-e2e</module>
         <module>connector-email-e2e</module>
         <module>connector-edge-socket-e2e</module>
@@ -94,6 +95,7 @@
         <module>connector-hugegraph-e2e</module>
         <module>connector-fluss-e2e</module>
         <module>connector-lance-e2e</module>
+        <module>connector-bigquery-e2e</module>
     </modules>
 
     <dependencies>

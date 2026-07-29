@@ -49,6 +49,8 @@ import java.util.stream.Collectors;
 public class FlinkSourceReader<SplitT extends SourceSplit>
         implements SourceReader<SeaTunnelRow, SplitWrapper<SplitT>> {
 
+    private static final String SOURCE_KEEP_ALIVE_CONFIG = "schema-changes.source-keep-alive";
+
     private final Logger LOGGER = LoggerFactory.getLogger(FlinkSourceReader.class);
 
     private final org.apache.seatunnel.api.source.SourceReader<SeaTunnelRow, SplitT> sourceReader;
@@ -64,6 +66,8 @@ public class FlinkSourceReader<SplitT extends SourceSplit>
     private static final long DEFAULT_WAIT_TIME_MILLIS = 1000L;
 
     private final ScheduledExecutorService scheduledExecutor;
+
+    private final boolean sourceKeepAliveEnabled;
 
     public FlinkSourceReader(
             org.apache.seatunnel.api.source.SourceReader<SeaTunnelRow, SplitT> sourceReader,
@@ -81,6 +85,9 @@ public class FlinkSourceReader<SplitT extends SourceSplit>
         this.sourceReader = sourceReader;
         this.context = context;
         this.flinkRowCollector = new FlinkRowCollector(envConfig, context.getMetricsContext());
+        this.sourceKeepAliveEnabled =
+                envConfig.hasPath(SOURCE_KEEP_ALIVE_CONFIG)
+                        && envConfig.getBoolean(SOURCE_KEEP_ALIVE_CONFIG);
     }
 
     @Override
@@ -108,8 +115,11 @@ public class FlinkSourceReader<SplitT extends SourceSplit>
                 return InputStatus.NOTHING_AVAILABLE;
             }
         } else {
-            // reduce CPU idle
-            Thread.sleep(DEFAULT_WAIT_TIME_MILLIS);
+            if (sourceKeepAliveEnabled) {
+                // Flink 1.13 requires idle source subtasks to stay alive so checkpoints continue.
+                Thread.sleep(DEFAULT_WAIT_TIME_MILLIS);
+                return InputStatus.NOTHING_AVAILABLE;
+            }
         }
         return inputStatus;
     }
@@ -132,6 +142,12 @@ public class FlinkSourceReader<SplitT extends SourceSplit>
 
     @Override
     public void addSplits(List<SplitWrapper<SplitT>> splits) {
+        if (!splits.isEmpty() && context instanceof FlinkSourceReaderContext) {
+            if (sourceKeepAliveEnabled) {
+                ((FlinkSourceReaderContext) context).resetNoMoreElementEvent();
+                inputStatus = InputStatus.MORE_AVAILABLE;
+            }
+        }
         sourceReader.addSplits(
                 splits.stream().map(SplitWrapper::getSourceSplit).collect(Collectors.toList()));
     }
@@ -144,7 +160,8 @@ public class FlinkSourceReader<SplitT extends SourceSplit>
     @Override
     public void handleSourceEvents(SourceEvent sourceEvent) {
         if (sourceEvent instanceof NoMoreElementEvent) {
-            inputStatus = InputStatus.END_OF_INPUT;
+            inputStatus =
+                    sourceKeepAliveEnabled ? InputStatus.MORE_AVAILABLE : InputStatus.END_OF_INPUT;
         }
         if (sourceEvent instanceof SourceEventWrapper) {
             sourceReader.handleSourceEvent((((SourceEventWrapper) sourceEvent).getSourceEvent()));

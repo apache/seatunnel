@@ -52,6 +52,7 @@ public class PostgresTypeMapper implements JdbcDialectTypeMapper {
                         .name(columnName)
                         .columnType(nativeType)
                         .dataType(nativeType)
+                        .sqlType(metadata.getColumnType(colIndex))
                         .nullable(isNullable == ResultSetMetaData.columnNullable)
                         .length((long) precision)
                         .precision((long) precision)

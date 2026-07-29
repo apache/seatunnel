@@ -36,6 +36,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
+import org.junit.jupiter.api.parallel.ResourceLock;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -69,6 +70,7 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 @Slf4j
+@ResourceLock("redis-cluster-e2e")
 public class RedisClusterIT extends TestSuiteBase implements TestResource {
 
     private static final int REDIS_CLUSTER_SIZE = 3;
@@ -94,14 +96,13 @@ public class RedisClusterIT extends TestSuiteBase implements TestResource {
 
     private void setupRedisContainer() {
         redisClusterNodes = new GenericContainer[REDIS_CLUSTER_SIZE];
+        String hostIp = getDockerHostIp();
 
         for (int i = 0; i < REDIS_CLUSTER_SIZE; i++) {
-            String nodeName = "redis-cluster-" + (i + 1);
+            String nodeName = "redis-cluster-" + i;
             int redisPort = REDIS_PORTS[i];
             int busPort = REDIS_BUS_PORTS[i];
 
-            // Get the host machine's IP address
-            String hostIp = getHostIpAddress();
             String redisCommand =
                     String.format(
                             "redis-server --cluster-enabled yes --port %d --protected-mode no "
@@ -127,7 +128,6 @@ public class RedisClusterIT extends TestSuiteBase implements TestResource {
                                     new HostPortWaitStrategy()
                                             .withStartupTimeout(Duration.ofMinutes(2)));
 
-            // Set the fixed port mapping
             redisClusterNodes[i].setPortBindings(
                     Arrays.asList(redisPort + ":" + redisPort, busPort + ":" + busPort));
         }
@@ -138,13 +138,17 @@ public class RedisClusterIT extends TestSuiteBase implements TestResource {
 
     private void createRedisCluster() {
         try {
-            String hostIp = getHostIpAddress();
             StringBuilder clusterCreateCmd =
                     new StringBuilder(
                             "redis-cli --cluster create --cluster-replicas 0 --cluster-yes ");
 
-            for (int port : REDIS_PORTS) {
-                clusterCreateCmd.append(hostIp).append(":").append(port).append(" ");
+            for (int i = 0; i < REDIS_CLUSTER_SIZE; i++) {
+                clusterCreateCmd
+                        .append("redis-cluster-")
+                        .append(i)
+                        .append(":")
+                        .append(REDIS_PORTS[i])
+                        .append(" ");
             }
 
             clusterCreateCmd.append("-a ").append(redisContainerInfo.getPassword());
@@ -154,14 +158,11 @@ public class RedisClusterIT extends TestSuiteBase implements TestResource {
             Container.ExecResult result =
                     redisClusterNodes[0].execInContainer("sh", "-c", clusterCreateCmd.toString());
 
-            // Wait for the cluster to be created
-            Thread.sleep(5000);
-
             if (result.getExitCode() != 0) {
                 throw new RuntimeException("Failed to create Redis cluster: " + result.getStderr());
             }
 
-            log.info("Redis cluster created successfully");
+            log.info("Redis cluster created, waiting for slot assignment via CLUSTER INFO...");
         } catch (Exception e) {
             throw new RuntimeException("Error creating Redis cluster", e);
         }
@@ -170,7 +171,7 @@ public class RedisClusterIT extends TestSuiteBase implements TestResource {
     private void waitForRedisClusterReady() {
         log.info("Waiting for Redis cluster to be ready...");
 
-        int maxRetries = 10;
+        int maxRetries = 30;
         int retryCount = 0;
 
         while (retryCount < maxRetries) {
@@ -185,29 +186,34 @@ public class RedisClusterIT extends TestSuiteBase implements TestResource {
                                     String.valueOf(REDIS_PORTS[i]),
                                     "-a",
                                     redisContainerInfo.getPassword(),
-                                    "ping");
+                                    "cluster",
+                                    "info");
 
-                    if (!"PONG".equals(result.getStdout().trim())) {
+                    String output = result.getStdout().trim();
+                    if (!output.contains("cluster_state:ok")
+                            || !output.contains("cluster_slots_ok:16384")) {
                         allReady = false;
                         break;
                     }
                 }
 
                 if (allReady) {
-                    log.info("All Redis nodes are ready after {} attempts", retryCount + 1);
+                    log.info(
+                            "Redis cluster is fully ready after {} attempts (all slots assigned)",
+                            retryCount + 1);
                     return;
                 }
 
             } catch (Exception e) {
                 log.debug(
-                        "Redis readiness check failed, attempt {}: {}",
+                        "Redis cluster readiness check failed, attempt {}: {}",
                         retryCount + 1,
                         e.getMessage());
             }
 
             retryCount++;
             try {
-                Thread.sleep(3000);
+                Thread.sleep(2000);
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             }
@@ -219,7 +225,7 @@ public class RedisClusterIT extends TestSuiteBase implements TestResource {
     private void initJedisCluster() {
         Set<HostAndPort> jedisClusterNodes = new HashSet<>();
 
-        String hostIp = getHostIpAddress();
+        String hostIp = getDockerHostIp();
         for (int port : REDIS_PORTS) {
             jedisClusterNodes.add(new HostAndPort(hostIp, port));
         }
@@ -318,7 +324,7 @@ public class RedisClusterIT extends TestSuiteBase implements TestResource {
             Assertions.assertEquals(100, amount);
         } finally {
             jedisCluster.del("key_set");
-            Assertions.assertEquals(0, jedisCluster.llen("key_set"));
+            Assertions.assertFalse(jedisCluster.exists("key_set"));
         }
     }
 
@@ -513,24 +519,44 @@ public class RedisClusterIT extends TestSuiteBase implements TestResource {
         return Pair.of(rowType, rows);
     }
 
-    private String getHostIpAddress() {
-        String ip = "";
+    private String getDockerHostIp() {
+        String fallback = null;
         try {
-            Enumeration<NetworkInterface> networkInterfaces =
-                    NetworkInterface.getNetworkInterfaces();
-            while (networkInterfaces.hasMoreElements()) {
-                NetworkInterface networkInterface = networkInterfaces.nextElement();
-                Enumeration<InetAddress> inetAddresses = networkInterface.getInetAddresses();
-                while (inetAddresses.hasMoreElements()) {
-                    InetAddress inetAddress = inetAddresses.nextElement();
-                    if (!inetAddress.isLoopbackAddress() && inetAddress instanceof Inet4Address) {
-                        ip = inetAddress.getHostAddress();
+            Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
+            while (interfaces.hasMoreElements()) {
+                NetworkInterface ni = interfaces.nextElement();
+                if (!ni.isUp() || ni.isLoopback() || ni.isVirtual()) {
+                    continue;
+                }
+
+                String name = ni.getName();
+                if (name.startsWith("utun")
+                        || name.startsWith("tun")
+                        || name.startsWith("tap")
+                        || name.startsWith("ppp")
+                        || name.startsWith("docker")
+                        || name.startsWith("br-")
+                        || name.startsWith("veth")
+                        || name.startsWith("vmnet")
+                        || name.startsWith("virbr")) {
+                    continue;
+                }
+
+                Enumeration<InetAddress> addrs = ni.getInetAddresses();
+                while (addrs.hasMoreElements()) {
+                    InetAddress addr = addrs.nextElement();
+                    if (addr instanceof Inet4Address && !addr.isLoopbackAddress()) {
+                        String ip = addr.getHostAddress();
+                        if ("en0".equals(name) || "eth0".equals(name) || "wlan0".equals(name)) {
+                            return ip;
+                        }
+                        fallback = ip;
                     }
                 }
             }
-        } catch (SocketException ex) {
-            ex.printStackTrace();
+        } catch (SocketException e) {
+            log.warn("Failed to enumerate network interfaces", e);
         }
-        return ip;
+        return fallback != null ? fallback : "127.0.0.1";
     }
 }

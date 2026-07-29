@@ -35,6 +35,8 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseI
 import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 
+import java.sql.Types;
+
 // reference http://www.postgres.cn/docs/13/datatype.html
 @Slf4j
 @AutoService(TypeConverter.class)
@@ -300,6 +302,11 @@ public class PostgresTypeConverter implements TypeConverter<BasicTypeDefine> {
                 }
                 break;
             default:
+                if (typeDefine.getSqlType() == Types.OTHER) {
+                    builder.dataType(BasicType.STRING_TYPE);
+                    builder.sourceType(typeDefine.getColumnType());
+                    break;
+                }
                 throw CommonError.convertToSeaTunnelTypeError(
                         identifier(), typeDefine.getDataType(), typeDefine.getName());
         }
