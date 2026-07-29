@@ -17,7 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.kafka.source;
 
-import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.apache.seatunnel.shade.com.google.common.base.Supplier;
+
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.Boundedness;
@@ -34,7 +35,8 @@ import org.apache.seatunnel.connectors.seatunnel.common.source.reader.SourceRead
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.kafka.source.fetch.KafkaSourceFetcherManager;
 import org.apache.seatunnel.connectors.seatunnel.kafka.state.KafkaSourceState;
-import org.apache.seatunnel.shade.com.google.common.base.Supplier;
+
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 
 import java.util.Collections;
 import java.util.List;

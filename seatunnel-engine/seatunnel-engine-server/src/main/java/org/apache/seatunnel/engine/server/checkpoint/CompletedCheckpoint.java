@@ -17,12 +17,12 @@
 
 package org.apache.seatunnel.engine.server.checkpoint;
 
+import org.apache.seatunnel.engine.core.checkpoint.Checkpoint;
+import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
+
 import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
-
-import org.apache.seatunnel.engine.core.checkpoint.Checkpoint;
-import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
 
 import java.io.Serializable;
 import java.util.Map;

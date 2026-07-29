@@ -17,10 +17,7 @@
 
 package org.apache.seatunnel.connectors.cdc.base.source;
 
-import io.debezium.relational.TableId;
-
-import lombok.NoArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import org.apache.seatunnel.shade.com.google.common.collect.Sets;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
@@ -68,7 +65,10 @@ import org.apache.seatunnel.connectors.seatunnel.common.source.reader.RecordEmit
 import org.apache.seatunnel.connectors.seatunnel.common.source.reader.RecordsWithSplitIds;
 import org.apache.seatunnel.connectors.seatunnel.common.source.reader.SourceReaderOptions;
 import org.apache.seatunnel.format.compatible.debezium.json.CompatibleDebeziumJsonDeserializationSchema;
-import org.apache.seatunnel.shade.com.google.common.collect.Sets;
+
+import io.debezium.relational.TableId;
+import lombok.NoArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import java.sql.DriverManager;
 import java.util.ArrayList;

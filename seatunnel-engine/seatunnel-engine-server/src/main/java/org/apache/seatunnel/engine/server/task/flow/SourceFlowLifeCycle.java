@@ -17,19 +17,6 @@
 
 package org.apache.seatunnel.engine.server.task.flow;
 
-import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_IDLE_NANOS;
-import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_READ_NANOS;
-import static org.apache.seatunnel.engine.server.task.AbstractTask.serializeStates;
-
-import com.hazelcast.cluster.Address;
-
-import lombok.AccessLevel;
-import lombok.Getter;
-import lombok.RequiredArgsConstructor;
-import lombok.Setter;
-import lombok.ToString;
-import lombok.extern.slf4j.Slf4j;
-
 import org.apache.seatunnel.api.common.metrics.Counter;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.event.EventListener;
@@ -67,6 +54,14 @@ import org.apache.seatunnel.engine.server.task.operation.source.SourceReaderEven
 import org.apache.seatunnel.engine.server.task.operation.source.SourceRegisterOperation;
 import org.apache.seatunnel.engine.server.task.record.Barrier;
 
+import com.hazelcast.cluster.Address;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
+import lombok.extern.slf4j.Slf4j;
+
 import java.io.IOException;
 import java.io.Serializable;
 import java.util.Collection;
@@ -78,6 +73,10 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
+
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_IDLE_NANOS;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_READ_NANOS;
+import static org.apache.seatunnel.engine.server.task.AbstractTask.serializeStates;
 
 /**
  * Runtime lifecycle bridge between the Zeta engine and a connector's {@link SourceReader}.

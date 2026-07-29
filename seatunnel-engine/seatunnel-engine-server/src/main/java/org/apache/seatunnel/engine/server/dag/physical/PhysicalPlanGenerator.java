@@ -17,14 +17,7 @@
 
 package org.apache.seatunnel.engine.server.dag.physical;
 
-import static org.apache.seatunnel.engine.common.config.server.QueueType.BLOCKINGQUEUE;
-
-import com.hazelcast.flakeidgen.FlakeIdGenerator;
-import com.hazelcast.jet.datamodel.Tuple2;
-import com.hazelcast.map.IMap;
-import com.hazelcast.spi.impl.NodeEngine;
-
-import lombok.NonNull;
+import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
 import org.apache.seatunnel.api.options.EnvCommonOptions;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
@@ -74,7 +67,12 @@ import org.apache.seatunnel.engine.server.task.SourceSplitEnumeratorTask;
 import org.apache.seatunnel.engine.server.task.TransformSeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.group.TaskGroupWithIntermediateBlockingQueue;
 import org.apache.seatunnel.engine.server.task.group.TaskGroupWithIntermediateDisruptor;
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
+
+import com.hazelcast.flakeidgen.FlakeIdGenerator;
+import com.hazelcast.jet.datamodel.Tuple2;
+import com.hazelcast.map.IMap;
+import com.hazelcast.spi.impl.NodeEngine;
+import lombok.NonNull;
 
 import java.io.IOException;
 import java.net.URL;
@@ -92,6 +90,8 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+
+import static org.apache.seatunnel.engine.common.config.server.QueueType.BLOCKINGQUEUE;
 
 public class PhysicalPlanGenerator {
 
