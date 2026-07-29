@@ -36,9 +36,13 @@ re-evaluated — up to `--max-repairs` rounds (default 5). Each task records
   errors) are counted separately in `pass@≤k`.
 - **Gate coverage**: a requested layer that cannot execute (missing engine,
   Docker service down, task-level skip) is recorded in `skipped_layers`
-  with `all_gates_executed=false` for that trial — it is *not* counted as
-  a pass of that layer, and the summary prints a per-model warning so runs
-  with different coverage are never silently compared.
+  with `all_gates_executed=false` for that trial. Such a trial is
+  **excluded from every advertised success metric** — `first_pass_round`
+  is only set when *all requested gates executed and passed*
+  (`full_gate_passed`), so pass@1 / pass@≤k / pass^k / per-tier and
+  per-category rates and the CSV `passed` column can never be inflated by
+  partial coverage. The summary prints a per-model warning with the count
+  of incomplete-coverage trials.
 - **L3 verdict scope**: batch L3 verifies process exit (plus sink row
   counts for tasks with a `verify` block); streaming L3 verifies 60s
   healthy execution. This catches "config doesn't run" errors; it does not

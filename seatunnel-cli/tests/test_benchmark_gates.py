@@ -38,12 +38,42 @@ sink { Console { plugin_input = "f" } }
 """
 
 TASK = {
-    "id": "t_test", "tier": 1, "category": "smoke", "name": "t", 
+    "id": "t_test", "tier": 1, "category": "smoke", "name": "t",
     "prompt": "p",
     "expect": {"source": ["FakeSource"], "sink": ["Console"],
                "job_mode": "BATCH", "must_match": [], "must_not_match": []},
     "execution": {"services": [], "mode": "batch", "l3": "run"},
 }
+
+
+def test_skipped_gate_excluded_from_pass_metrics():
+    """A trial whose requested L3 was skipped must not produce a
+    first_pass_round (i.e. can never increase pass@1 / CSV passed)."""
+    from benchmark.runner import run_task_with_repairs
+
+    class _StubClient:
+        pass
+
+    ok_result = {"type": "config", "config": VALID_CONFIG, "explanation": ""}
+    with mock.patch("seatunnel_cli.agents.Orchestrator") as orch_cls, \
+         mock.patch("benchmark.execution.run_dry_run",
+                    return_value={"passed": True, "detail": "PASS",
+                                  "seconds": 0.1}), \
+         mock.patch("benchmark.execution.run_execute",
+                    return_value={"passed": None, "detail": "SKIPPED: svc",
+                                  "seconds": 0.0}):
+        orch = orch_cls.return_value
+        orch.process_user_input.return_value = ok_result
+        record = run_task_with_repairs(_StubClient(), TASK,
+                                       ["l1", "l2", "l3"], max_repairs=2)
+    # executed layers passed, but the trial is NOT a full-gate success
+    assert record["first_pass_round"] is None
+    layers = record["attempts"][-1]["layers"]
+    assert layers["all_passed"] is True
+    assert layers["full_gate_passed"] is False
+    assert layers["skipped_layers"] == ["l3"]
+    # and no repair was attempted (nothing failed)
+    assert len(record["attempts"]) == 1
 
 
 def test_skipped_l2_l3_marked_not_executed_not_passed():

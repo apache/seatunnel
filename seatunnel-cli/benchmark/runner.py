@@ -179,6 +179,14 @@ def evaluate_layers(task: dict, config: str, levels: list[str]) -> dict:
             result["skipped_layers"].append("l3")
             result["all_gates_executed"] = False
 
+    # full_gate_passed drives every advertised pass@k/pass^k metric:
+    # every requested gate must have EXECUTED and passed. all_passed
+    # ("executed layers passed") is kept for repair-loop control only —
+    # a skipped gate is not a failure to repair, but it is not a success
+    # either.
+    result["full_gate_passed"] = (
+        result["all_passed"] and result["all_gates_executed"]
+    )
     return result
 
 
@@ -249,8 +257,12 @@ def run_task_with_repairs(client, task: dict, levels: list[str],
             "layers": layers,
             "seconds": round(time.monotonic() - start, 2),
         })
-        if layers["all_passed"]:
+        if layers.get("full_gate_passed"):
             record["first_pass_round"] = round_num
+            break
+        if layers["all_passed"]:
+            # Executed layers passed but a requested gate was skipped:
+            # nothing to repair, but not a full-gate success either.
             break
         if round_num == max_repairs:
             break
@@ -339,47 +351,65 @@ def run_benchmark(models: list[dict], tasks: list[dict], levels: list[str],
             restore_env(previous_env)
             continue
 
-        for task in tasks:
-            task_entry = {
-                "task_id": task["id"],
-                "tier": task["tier"],
-                "category": task.get("category", ""),
-                "trials": [],
-            }
-            for trial in range(trials):
-                label = task["id"] + (f" trial {trial + 1}/{trials}" if trials > 1 else "")
-                print(f"  [{label}] ...", end="", flush=True)
-                record = run_task_with_repairs(client, task, levels, max_repairs)
+        try:
+            for task in tasks:
+                task_entry = {
+                    "task_id": task["id"],
+                    "tier": task["tier"],
+                    "category": task.get("category", ""),
+                    "trials": [],
+                }
+                for trial in range(trials):
+                    label = task["id"] + (f" trial {trial + 1}/{trials}" if trials > 1 else "")
+                    print(f"  [{label}] ...", end="", flush=True)
+                    # Per-task boundary: an unexpected harness error (scoring
+                    # crash, setup-file I/O, subprocess construction, ...)
+                    # becomes one structured failed trial instead of aborting
+                    # the whole multi-hour model comparison.
+                    try:
+                        record = run_task_with_repairs(
+                            client, task, levels, max_repairs)
+                    except Exception:
+                        import traceback as _tb
+                        record = {
+                            "attempts": [],
+                            "first_pass_round": None,
+                            "internal_repair_rounds": 0,
+                            "clarification_asked": False,
+                            "generation_error":
+                                f"harness error:\n{_tb.format_exc(limit=8)}",
+                        }
 
-                # Persist every attempted config
-                for attempt in record["attempts"]:
-                    if attempt.get("config"):
-                        fname = (f"{_slug(model_name)}__{task['id']}"
-                                 f"__t{trial}_r{attempt['round']}.conf")
-                        (configs_dir / fname).write_text(
-                            attempt["config"], encoding="utf-8")
-                        attempt["config_file"] = fname
-                    attempt.pop("config", None)  # keep results.json compact
+                    # Persist every attempted config
+                    for attempt in record["attempts"]:
+                        if attempt.get("config"):
+                            fname = (f"{_slug(model_name)}__{task['id']}"
+                                     f"__t{trial}_r{attempt['round']}.conf")
+                            (configs_dir / fname).write_text(
+                                attempt["config"], encoding="utf-8")
+                            attempt["config_file"] = fname
+                        attempt.pop("config", None)  # keep results.json compact
 
-                record["trial"] = trial
-                fp = record["first_pass_round"]
-                if fp is None:
-                    status = f"FAIL after {len(record['attempts'])} attempt(s)"
-                elif fp == 0:
-                    status = "PASS@1"
-                else:
-                    status = f"PASS after {fp} repair(s)"
-                print(f" {status}", flush=True)
-                task_entry["trials"].append(record)
+                    record["trial"] = trial
+                    fp = record["first_pass_round"]
+                    if fp is None:
+                        status = f"FAIL after {len(record['attempts'])} attempt(s)"
+                    elif fp == 0:
+                        status = "PASS@1"
+                    else:
+                        status = f"PASS after {fp} repair(s)"
+                    print(f" {status}", flush=True)
+                    task_entry["trials"].append(record)
 
-            # pass^k: every trial must succeed (first_pass_round set)
-            task_entry["pass_all_trials"] = all(
-                t["first_pass_round"] is not None for t in task_entry["trials"]
-            )
-            model_result["tasks"].append(task_entry)
+                # pass^k: every trial must succeed (first_pass_round set)
+                task_entry["pass_all_trials"] = all(
+                    t["first_pass_round"] is not None for t in task_entry["trials"]
+                )
+                model_result["tasks"].append(task_entry)
 
-        all_results["models"].append(model_result)
-        restore_env(previous_env)
+            all_results["models"].append(model_result)
+        finally:
+            restore_env(previous_env)
 
     results_path = out_dir / "results.json"
     results_path.write_text(
