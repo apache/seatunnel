@@ -107,8 +107,8 @@ sink {
 ```
 
 Refer to the
-[Couchbase TLS documentation](https://docs.couchbase.com/java-sdk/current/howtos/secure-connections.html)
-for certificate pinning, client certificates, and mutual TLS options supported by the SDK.
+[Couchbase Java SDK — Secure Connections](https://docs.couchbase.com/java-sdk/current/howtos/managing-connections.html#ssl)
+for TLS configuration, certificate pinning, client certificates, and cipher suite options.
 
 ### Least-privilege service account
 
@@ -122,7 +122,7 @@ Create a dedicated Couchbase user with the minimal required role:
 
 Avoid storing passwords in plain-text job configuration files.
 SeaTunnel supports encrypted configuration values — see the
-[SeaTunnel credential encryption documentation](https://seatunnel.apache.org/docs/start-v2/locally/quick-start-seatunnel-engine/#use-the-special-placeholder-for-secret-value)
+[SeaTunnel credential encryption documentation](../../introduction/configuration/config-encryption-decryption.md)
 for details on substituting secrets at runtime.
 
 ## Task Example

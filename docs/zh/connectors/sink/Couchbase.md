@@ -100,8 +100,8 @@ sink {
 }
 ```
 
-有关证书固定、客户端证书和双向 TLS 的更多选项，请参阅
-[Couchbase TLS 文档](https://docs.couchbase.com/java-sdk/current/howtos/secure-connections.html)。
+有关 TLS 配置、证书固定、客户端证书和密码套件选项，请参阅
+[Couchbase Java SDK — 安全连接](https://docs.couchbase.com/java-sdk/current/howtos/managing-connections.html#ssl)。
 
 ### 最小权限服务账户
 
@@ -115,7 +115,7 @@ sink {
 
 请避免在 Job 配置文件中以明文存储密码。
 SeaTunnel 支持加密配置值，详情请参阅
-[SeaTunnel 凭据加密文档](https://seatunnel.apache.org/docs/start-v2/locally/quick-start-seatunnel-engine/#use-the-special-placeholder-for-secret-value)，
+[SeaTunnel 凭据加密文档](../../introduction/configuration/config-encryption-decryption.md)，
 了解如何在运行时动态替换密钥。
 
 ## 任务示例
