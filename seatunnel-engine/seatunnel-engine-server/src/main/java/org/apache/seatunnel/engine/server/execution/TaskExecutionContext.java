@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.execution;
 
+import org.apache.seatunnel.engine.core.classloader.ClassLoaderService;
 import org.apache.seatunnel.engine.server.TaskExecutionService;
 import org.apache.seatunnel.engine.server.common.SeaTunnelEngineContext;
 import org.apache.seatunnel.engine.server.common.statestore.EngineStateStores;
@@ -79,7 +80,7 @@ public class TaskExecutionContext {
         return taskExecutionService;
     }
 
-    public org.apache.seatunnel.engine.core.classloader.ClassLoaderService getClassLoaderService() {
+    public ClassLoaderService getClassLoaderService() {
         return taskExecutionService.getClassLoaderService();
     }
 
