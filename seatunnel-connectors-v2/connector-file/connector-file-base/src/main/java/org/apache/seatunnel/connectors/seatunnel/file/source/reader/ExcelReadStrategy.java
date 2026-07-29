@@ -117,97 +117,173 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
                         dateTimeFormatterPattern,
                         timeFormatterPattern);
 
-        if (pluginConfig.hasPath(FileBaseSourceOptions.EXCEL_ENGINE.key())
-                && pluginConfig
-                        .getString(FileBaseSourceOptions.EXCEL_ENGINE.key())
-                        .equals(ExcelEngine.EASY_EXCEL.getExcelEngineName())) {
-            log.info("Parsing Excel with EasyExcel");
-
-            ExcelReaderBuilder read =
-                    EasyExcel.read(
-                            inputStream,
-                            new ExcelReaderListener(
-                                    tableId, output, excelCellUtils, seaTunnelRowType));
-            if (pluginConfig.hasPath(FileBaseSourceOptions.SHEET_NAME.key())) {
-                read.sheet(pluginConfig.getString(FileBaseSourceOptions.SHEET_NAME.key()))
-                        .headRowNumber((int) skipHeaderNumber)
-                        .doReadSync();
-            } else {
-                read.sheet(0).headRowNumber((int) skipHeaderNumber).doReadSync();
-            }
+        ExcelEngine excelEngine = getExcelEngine();
+        if (ExcelEngine.EASY_EXCEL.equals(excelEngine)) {
+            readByEasyExcel(tableId, output, inputStream, excelCellUtils);
         } else {
-            log.info("Parsing Excel with POI");
-
-            Workbook workbook;
-            FormulaEvaluator formulaEvaluator;
-            if (currentFileName.endsWith(".xls")) {
-                workbook = new HSSFWorkbook(inputStream);
-                formulaEvaluator = workbook.getCreationHelper().createFormulaEvaluator();
-            } else if (currentFileName.endsWith(".xlsx")) {
-                workbook = new XSSFWorkbook(inputStream);
-                formulaEvaluator = new XSSFFormulaEvaluator((XSSFWorkbook) workbook);
-            } else {
-                throw new FileConnectorException(
-                        CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
-                        "Only support read excel file");
-            }
-            DataFormatter formatter = new DataFormatter();
-            Sheet sheet =
-                    pluginConfig.hasPath(FileBaseSourceOptions.SHEET_NAME.key())
-                            ? workbook.getSheet(
-                                    pluginConfig.getString(FileBaseSourceOptions.SHEET_NAME.key()))
-                            : workbook.getSheetAt(0);
-            cellCount = seaTunnelRowType.getTotalFields();
-            cellCount = partitionsMap.isEmpty() ? cellCount : cellCount + partitionsMap.size();
-            SeaTunnelDataType<?>[] fieldTypes = seaTunnelRowType.getFieldTypes();
-            int firstRowNum = sheet.getFirstRowNum();
-            int lastRowNum = sheet.getLastRowNum();
-            if (firstRowNum == -1 || lastRowNum == -1) {
-                return;
-            }
-            // Calculate the actual start row considering skipHeaderNumber
-            int startRow = Math.max(firstRowNum + (int) skipHeaderNumber, firstRowNum);
-            if (startRow > lastRowNum) {
-                throw new FileConnectorException(
-                        CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
-                        "Skip the number of rows exceeds the maximum or minimum limit of Sheet");
-            }
-            IntStream.range(startRow, lastRowNum + 1)
-                    .mapToObj(sheet::getRow)
-                    .filter(Objects::nonNull)
-                    .forEach(
-                            rowData -> {
-                                int[] cellIndexes =
-                                        indexes == null
-                                                ? IntStream.range(0, cellCount).toArray()
-                                                : indexes;
-                                int z = 0;
-                                SeaTunnelRow seaTunnelRow = new SeaTunnelRow(cellCount);
-                                for (int j : cellIndexes) {
-                                    Cell cell = rowData.getCell(j);
-                                    seaTunnelRow.setField(
-                                            z++,
-                                            cell == null
-                                                    ? null
-                                                    : excelCellUtils.convert(
-                                                            getCellValue(
-                                                                    cell.getCellType(),
-                                                                    cell,
-                                                                    formulaEvaluator,
-                                                                    formatter),
-                                                            fieldTypes[z - 1],
-                                                            null));
-                                }
-                                if (isMergePartition) {
-                                    int index = seaTunnelRowType.getTotalFields();
-                                    for (String value : partitionsMap.values()) {
-                                        seaTunnelRow.setField(index++, value);
-                                    }
-                                }
-                                seaTunnelRow.setTableId(tableId);
-                                output.collect(seaTunnelRow);
-                            });
+            readByPoi(
+                    split,
+                    tableId,
+                    output,
+                    inputStream,
+                    partitionsMap,
+                    currentFileName,
+                    excelCellUtils);
         }
+    }
+
+    private ExcelEngine getExcelEngine() {
+        if (!pluginConfig.hasPath(FileBaseSourceOptions.EXCEL_ENGINE.key())) {
+            return FileBaseSourceOptions.EXCEL_ENGINE.defaultValue();
+        }
+        String configuredExcelEngine =
+                pluginConfig.getString(FileBaseSourceOptions.EXCEL_ENGINE.key());
+        for (ExcelEngine excelEngine : ExcelEngine.values()) {
+            if (excelEngine.name().equalsIgnoreCase(configuredExcelEngine)
+                    || excelEngine.getExcelEngineName().equalsIgnoreCase(configuredExcelEngine)) {
+                return excelEngine;
+            }
+        }
+        throw new FileConnectorException(
+                CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                "Unsupported excel_engine: " + configuredExcelEngine);
+    }
+
+    private void readByEasyExcel(
+            String tableId,
+            Collector<SeaTunnelRow> output,
+            InputStream inputStream,
+            ExcelCellUtils excelCellUtils) {
+        log.info("Parsing Excel with EasyExcel");
+
+        ExcelReaderBuilder read =
+                EasyExcel.read(
+                        inputStream,
+                        new ExcelReaderListener(tableId, output, excelCellUtils, seaTunnelRowType));
+        if (pluginConfig.hasPath(FileBaseSourceOptions.SHEET_NAME.key())) {
+            read.sheet(pluginConfig.getString(FileBaseSourceOptions.SHEET_NAME.key()))
+                    .headRowNumber((int) skipHeaderNumber)
+                    .doReadSync();
+        } else {
+            read.sheet(0).headRowNumber((int) skipHeaderNumber).doReadSync();
+        }
+    }
+
+    private void readByPoi(
+            FileSourceSplit split,
+            String tableId,
+            Collector<SeaTunnelRow> output,
+            InputStream inputStream,
+            Map<String, String> partitionsMap,
+            String currentFileName,
+            ExcelCellUtils excelCellUtils)
+            throws IOException {
+        assertPoiFileSize(split, currentFileName);
+        log.info("Parsing Excel with POI");
+
+        Workbook workbook;
+        FormulaEvaluator formulaEvaluator;
+        if (currentFileName.endsWith(".xls")) {
+            workbook = new HSSFWorkbook(inputStream);
+            formulaEvaluator = workbook.getCreationHelper().createFormulaEvaluator();
+        } else if (currentFileName.endsWith(".xlsx")) {
+            workbook = new XSSFWorkbook(inputStream);
+            formulaEvaluator = new XSSFFormulaEvaluator((XSSFWorkbook) workbook);
+        } else {
+            throw new FileConnectorException(
+                    CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                    "Only support read excel file");
+        }
+        DataFormatter formatter = new DataFormatter();
+        Sheet sheet =
+                pluginConfig.hasPath(FileBaseSourceOptions.SHEET_NAME.key())
+                        ? workbook.getSheet(
+                                pluginConfig.getString(FileBaseSourceOptions.SHEET_NAME.key()))
+                        : workbook.getSheetAt(0);
+        cellCount = seaTunnelRowType.getTotalFields();
+        cellCount = partitionsMap.isEmpty() ? cellCount : cellCount + partitionsMap.size();
+        SeaTunnelDataType<?>[] fieldTypes = seaTunnelRowType.getFieldTypes();
+        int firstRowNum = sheet.getFirstRowNum();
+        int lastRowNum = sheet.getLastRowNum();
+        if (firstRowNum == -1 || lastRowNum == -1) {
+            return;
+        }
+        // Calculate the actual start row considering skipHeaderNumber
+        int startRow = Math.max(firstRowNum + (int) skipHeaderNumber, firstRowNum);
+        if (startRow > lastRowNum) {
+            throw new FileConnectorException(
+                    CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                    "Skip the number of rows exceeds the maximum or minimum limit of Sheet");
+        }
+        IntStream.range(startRow, lastRowNum + 1)
+                .mapToObj(sheet::getRow)
+                .filter(Objects::nonNull)
+                .forEach(
+                        rowData -> {
+                            int[] cellIndexes =
+                                    indexes == null
+                                            ? IntStream.range(0, cellCount).toArray()
+                                            : indexes;
+                            int z = 0;
+                            SeaTunnelRow seaTunnelRow = new SeaTunnelRow(cellCount);
+                            for (int j : cellIndexes) {
+                                Cell cell = rowData.getCell(j);
+                                seaTunnelRow.setField(
+                                        z++,
+                                        cell == null
+                                                ? null
+                                                : excelCellUtils.convert(
+                                                        getCellValue(
+                                                                cell.getCellType(),
+                                                                cell,
+                                                                formulaEvaluator,
+                                                                formatter),
+                                                        fieldTypes[z - 1],
+                                                        null));
+                            }
+                            if (isMergePartition) {
+                                int index = seaTunnelRowType.getTotalFields();
+                                for (String value : partitionsMap.values()) {
+                                    seaTunnelRow.setField(index++, value);
+                                }
+                            }
+                            seaTunnelRow.setTableId(tableId);
+                            output.collect(seaTunnelRow);
+                        });
+    }
+
+    private void assertPoiFileSize(FileSourceSplit split, String currentFileName)
+            throws IOException {
+        long maxFileSize = getPoiExcelMaxFileSize();
+        long fileSize =
+                split.getLength() > -1
+                        ? split.getLength()
+                        : hadoopFileSystemProxy.getFileStatus(split.getFilePath()).getLen();
+        if (fileSize > maxFileSize) {
+            throw new FileConnectorException(
+                    CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                    String.format(
+                            "Excel file [%s] is %,d bytes, larger than POI limit %,d bytes. "
+                                    + "Please set excel_engine = EasyExcel, or increase %s if POI is required.",
+                            currentFileName,
+                            fileSize,
+                            maxFileSize,
+                            FileBaseSourceOptions.POI_EXCEL_MAX_FILE_SIZE.key()));
+        }
+    }
+
+    private long getPoiExcelMaxFileSize() {
+        long maxFileSize =
+                pluginConfig.hasPath(FileBaseSourceOptions.POI_EXCEL_MAX_FILE_SIZE.key())
+                        ? pluginConfig.getLong(FileBaseSourceOptions.POI_EXCEL_MAX_FILE_SIZE.key())
+                        : FileBaseSourceOptions.POI_EXCEL_MAX_FILE_SIZE.defaultValue();
+        if (maxFileSize <= 0) {
+            throw new FileConnectorException(
+                    CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                    FileBaseSourceOptions.POI_EXCEL_MAX_FILE_SIZE.key()
+                            + " must be greater than 0");
+        }
+        return maxFileSize;
     }
 
     @Override

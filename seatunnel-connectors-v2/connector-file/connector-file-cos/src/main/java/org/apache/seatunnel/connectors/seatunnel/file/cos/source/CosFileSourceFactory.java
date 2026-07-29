@@ -70,7 +70,9 @@ public class CosFileSourceFactory implements TableSourceFactory {
                 .conditional(
                         FileBaseSourceOptions.FILE_FORMAT_TYPE,
                         FileFormat.EXCEL,
-                        FileBaseSourceOptions.SHEET_NAME)
+                        FileBaseSourceOptions.SHEET_NAME,
+                        FileBaseSourceOptions.EXCEL_ENGINE,
+                        FileBaseSourceOptions.POI_EXCEL_MAX_FILE_SIZE)
                 .conditional(
                         FileBaseSourceOptions.FILE_FORMAT_TYPE,
                         Arrays.asList(
