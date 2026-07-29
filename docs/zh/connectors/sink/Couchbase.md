@@ -80,9 +80,50 @@ sh bin/install-plugin.sh ${version}
 | retry.max              | Integer        | 否       | `3`        | 写入失败时的最大重试次数。 |
 | retry.interval         | Long           | 否       | `1000`     | 线性退避基础间隔（毫秒）。第 n 次重试等待 `retry.interval × n` 毫秒。 |
 
+## 安全性
+
+### TLS / 加密传输
+
+在生产环境中，请使用 `couchbases://` 协议（注意末尾的 **s**）来启用 TLS 加密传输。
+如需配置 CA 证书或自定义信任库，可通过 Couchbase Java SDK 的 `ClusterEnvironment` 进行设置：
+
+```hocon
+sink {
+  Couchbase {
+    # 使用 couchbases://（末尾带 's'）以启用 TLS 加密传输
+    connection.string = "couchbases://couchbase.example.com"
+    username          = "seatunnel_writer"
+    password          = "${env:COUCHBASE_PASSWORD}"
+    bucket            = "my_bucket"
+    collection        = "my_collection"
+  }
+}
+```
+
+有关证书固定、客户端证书和双向 TLS 的更多选项，请参阅
+[Couchbase TLS 文档](https://docs.couchbase.com/java-sdk/current/howtos/secure-connections.html)。
+
+### 最小权限服务账户
+
+生产环境中**不应**使用内置的 `Administrator` 账户。
+请创建一个专用的 Couchbase 用户，并仅授予所需的最小权限：
+
+- 针对目标 Bucket/Scope/Collection 的 `Data Writer` 角色（仅插入场景）。
+- `Data Reader` + `Data Writer` 角色（Upsert 场景下可能需要读后写）。
+
+### 凭据保护
+
+请避免在 Job 配置文件中以明文存储密码。
+SeaTunnel 支持加密配置值，详情请参阅
+[SeaTunnel 凭据加密文档](https://seatunnel.apache.org/docs/start-v2/locally/quick-start-seatunnel-engine/#use-the-special-placeholder-for-secret-value)，
+了解如何在运行时动态替换密钥。
+
 ## 任务示例
 
-### 简单示例
+### 简单示例 *(仅供开发使用)*
+
+> ⚠️ 以下连接字符串和凭据**仅适用于本地开发环境**。
+> 生产部署前请参阅上方的[安全性](#安全性)章节。
 
 ```hocon
 sink {
@@ -96,7 +137,10 @@ sink {
 }
 ```
 
-### 使用 Upsert 和复合文档键
+### 使用 Upsert 和复合文档键 *(仅供开发使用)*
+
+> ⚠️ 以下连接字符串和凭据**仅适用于本地开发环境**。
+> 生产部署前请参阅上方的[安全性](#安全性)章节。
 
 ```hocon
 sink {

@@ -81,8 +81,12 @@ public class CouchbaseSinkOptions extends CouchbaseConfig {
                                     + " will cause an error.");
 
     /**
-     * Field names whose values are concatenated (with {@code _}) to form the Couchbase document
-     * key. When not provided a random UUID is used as the document key.
+     * Field names whose values are assembled into the Couchbase document key using a
+     * <em>length-prefixed canonical encoding</em>. Each component is encoded as {@code
+     * <len>:<value>} and components are separated by {@code #}, e.g. field values {@code "a_b"} and
+     * {@code "c"} produce the key {@code "3:a_b#1:c"}. This encoding is collision-free regardless
+     * of the character content of the values. When not provided a random UUID is used as the
+     * document key.
      */
     public static final Option<List<String>> PRIMARY_KEY =
             Options.key("primary-key")
@@ -90,6 +94,9 @@ public class CouchbaseSinkOptions extends CouchbaseConfig {
                     .noDefaultValue()
                     .withDescription(
                             "The field names used to build the Couchbase document key."
-                                    + " Values are joined with '_'. When not set, a random UUID"
+                                    + " Each value is encoded as '<len>:<value>' and components"
+                                    + " are separated by '#' (e.g. field values 'a_b' and 'c'"
+                                    + " produce the key '3:a_b#1:c'). This length-prefixed"
+                                    + " encoding is collision-free. When not set, a random UUID"
                                     + " is used as the document key.");
 }

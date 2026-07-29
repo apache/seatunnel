@@ -85,9 +85,52 @@ Couchbase stores JSON documents. The connector maps SeaTunnel types to JSON valu
 | retry.max             | Integer       | No       | `3`        | Maximum retry attempts on transient write failure. |
 | retry.interval        | Long          | No       | `1000`     | Base milliseconds for linear retry delay. Attempt `n` waits `retry.interval × n` ms. |
 
+## Security
+
+### TLS / encrypted transport
+
+For production deployments, use the `couchbases://` scheme (note the trailing **s**) to enable
+TLS. Pass the CA certificate or a custom trust store through the Couchbase Java SDK's
+`ClusterEnvironment`:
+
+```hocon
+sink {
+  Couchbase {
+    # Use couchbases:// (with trailing 's') for TLS-encrypted transport
+    connection.string = "couchbases://couchbase.example.com"
+    username          = "seatunnel_writer"
+    password          = "${env:COUCHBASE_PASSWORD}"
+    bucket            = "my_bucket"
+    collection        = "my_collection"
+  }
+}
+```
+
+Refer to the
+[Couchbase TLS documentation](https://docs.couchbase.com/java-sdk/current/howtos/secure-connections.html)
+for certificate pinning, client certificates, and mutual TLS options supported by the SDK.
+
+### Least-privilege service account
+
+Do **not** use the built-in `Administrator` account in production.
+Create a dedicated Couchbase user with the minimal required role:
+
+- `Data Writer` on the target bucket/scope/collection (for insert-only workloads).
+- `Data Reader` + `Data Writer` (for upsert workloads that may need to read-before-write).
+
+### Credential protection
+
+Avoid storing passwords in plain-text job configuration files.
+SeaTunnel supports encrypted configuration values — see the
+[SeaTunnel credential encryption documentation](https://seatunnel.apache.org/docs/start-v2/locally/quick-start-seatunnel-engine/#use-the-special-placeholder-for-secret-value)
+for details on substituting secrets at runtime.
+
 ## Task Example
 
-### Simple example
+### Simple example *(development only)*
+
+> ⚠️ The connection string and credentials below are for **local development only**.
+> See the [Security](#security) section above before deploying to production.
 
 ```hocon
 sink {
@@ -101,7 +144,10 @@ sink {
 }
 ```
 
-### Upsert with composite document key
+### Upsert with composite document key *(development only)*
+
+> ⚠️ The connection string and credentials below are for **local development only**.
+> See the [Security](#security) section above before deploying to production.
 
 ```hocon
 sink {
