@@ -17,26 +17,35 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.source;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConditionExtension;
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.api.table.factory.SupportSourceDryRunValidation;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceTableConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectLoader;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.JdbcCatalogUtils;
 
 import com.google.auto.service.AutoService;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Slf4j
 @AutoService(Factory.class)
-public class JdbcSourceFactory implements TableSourceFactory {
+public class JdbcSourceFactory implements TableSourceFactory, SupportSourceDryRunValidation {
     @Override
     public String factoryIdentifier() {
         return "Jdbc";
@@ -64,6 +73,15 @@ public class JdbcSourceFactory implements TableSourceFactory {
         return OptionRule.builder()
                 .required(JdbcSourceOptions.URL, JdbcSourceOptions.DRIVER)
                 .optional(
+                        JdbcSourceOptions.TABLE_LIST,
+                        Conditions.extension(
+                                JdbcSourceOptions.TABLE_LIST, new TableListExclusiveValidator()))
+                .optional(
+                        JdbcSourceOptions.WHERE_CONDITION,
+                        Conditions.extension(
+                                JdbcSourceOptions.WHERE_CONDITION,
+                                new WhereConditionPrefixValidator()))
+                .optional(
                         JdbcSourceOptions.USERNAME,
                         JdbcSourceOptions.PASSWORD,
                         JdbcSourceOptions.CONNECTION_CHECK_TIMEOUT_SEC,
@@ -74,6 +92,7 @@ public class JdbcSourceFactory implements TableSourceFactory {
                         JdbcSourceOptions.PARTITION_NUM,
                         JdbcSourceOptions.COMPATIBLE_MODE,
                         JdbcSourceOptions.STRING_SPLIT_MODE,
+                        JdbcSourceOptions.STRING_SPLIT_STRATEGY,
                         JdbcSourceOptions.STRING_SPLIT_MODE_COLLATE,
                         JdbcSourceOptions.PROPERTIES,
                         JdbcSourceOptions.QUERY,
@@ -81,21 +100,81 @@ public class JdbcSourceFactory implements TableSourceFactory {
                         JdbcSourceOptions.SKIP_ANALYZE,
                         JdbcSourceOptions.USE_REGEX,
                         JdbcSourceOptions.TABLE_PATH,
-                        JdbcSourceOptions.WHERE_CONDITION,
-                        JdbcSourceOptions.TABLE_LIST,
                         JdbcSourceOptions.SPLIT_SIZE,
                         JdbcSourceOptions.SPLIT_EVEN_DISTRIBUTION_FACTOR_UPPER_BOUND,
                         JdbcSourceOptions.SPLIT_EVEN_DISTRIBUTION_FACTOR_LOWER_BOUND,
                         JdbcSourceOptions.SPLIT_SAMPLE_SHARDING_THRESHOLD,
                         JdbcSourceOptions.SPLIT_INVERSE_SAMPLING_RATE,
+                        JdbcSourceOptions.SPLIT_ALLOW_SAMPLING,
                         JdbcSourceOptions.DECIMAL_TYPE_NARROWING,
                         JdbcSourceOptions.INT_TYPE_NARROWING,
-                        JdbcSourceOptions.DIALECT)
+                        JdbcSourceOptions.DIALECT,
+                        JdbcSourceOptions.ENABLE_CONCURRENT_READ)
                 .build();
     }
 
     @Override
     public Class<? extends SeaTunnelSource> getSourceClass() {
         return JdbcSource.class;
+    }
+
+    /**
+     * Infers source schemas for {@code --dry-run connect} by reading table metadata through the
+     * same catalog path used at runtime. This opens a real connection but never creates readers or
+     * reads records.
+     */
+    @Override
+    public List<CatalogTable> inferSchemaForDryRun(TableSourceFactoryContext context)
+            throws Exception {
+        JdbcSourceConfig config = JdbcSourceConfig.of(context.getOptions());
+        return JdbcCatalogUtils.getTables(
+                        config.getJdbcConnectionConfig(),
+                        config.getTableConfigList(),
+                        config.getMultiTableFailurePolicy())
+                .values().stream()
+                .map(JdbcSourceTable::getCatalogTable)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public void validateConnectionForDryRun(
+            TableSourceFactoryContext context, List<CatalogTable> catalogTables) {
+        // Schema inference above already opened a real connection and read table metadata,
+        // which covers credentials, permissions, and source table existence.
+    }
+
+    /**
+     * Submission-time validator that enforces mutual exclusion between {@code table_list} and the
+     * legacy {@code table_path}/{@code query} options. Users must choose one table selection mode,
+     * not both.
+     */
+    static class TableListExclusiveValidator
+            implements ConditionExtension<List<JdbcSourceTableConfig>> {
+        @Override
+        public String description() {
+            return "'table_list' and 'table_path'/'query' are mutually exclusive";
+        }
+
+        @Override
+        public boolean evaluate(ReadonlyConfig config, List<JdbcSourceTableConfig> value) {
+            return !config.getOptional(JdbcSourceOptions.TABLE_PATH).isPresent()
+                    && !config.getOptional(JdbcSourceOptions.QUERY).isPresent();
+        }
+    }
+
+    /**
+     * Submission-time validator that ensures {@code where_condition} starts with the keyword {@code
+     * "where"} to avoid malformed SQL at runtime.
+     */
+    static class WhereConditionPrefixValidator implements ConditionExtension<String> {
+        @Override
+        public String description() {
+            return "'where_condition' must start with 'where'";
+        }
+
+        @Override
+        public boolean evaluate(ReadonlyConfig config, String value) {
+            return value == null || value.toLowerCase().startsWith("where");
+        }
     }
 }

@@ -18,9 +18,11 @@
 package org.apache.seatunnel.core.starter.seatunnel.args;
 
 import org.apache.seatunnel.core.starter.SeaTunnel;
+import org.apache.seatunnel.core.starter.enums.DryRun;
 import org.apache.seatunnel.core.starter.enums.MasterType;
 import org.apache.seatunnel.core.starter.exception.CommandExecuteException;
 import org.apache.seatunnel.core.starter.seatunnel.multitable.MultiTableSinkTest;
+import org.apache.seatunnel.core.starter.utils.CommandLineUtils;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -69,6 +71,50 @@ public class ClientCommandArgsTest {
                 commandExecuteException.getCause().getMessage());
     }
 
+    @Test
+    public void testDryRunParam() {
+        String[] args = {"-c", "app.conf", "--dry-run", "static"};
+        ClientCommandArgs clientCommandArgs =
+                CommandLineUtils.parse(args, new ClientCommandArgs(), "seatunnel-client", true);
+        Assertions.assertEquals(DryRun.STATIC, clientCommandArgs.getDryRun());
+    }
+
+    @Test
+    public void testConnectDryRunParam() {
+        String[] args = {"-c", "app.conf", "--dry-run", "connect"};
+        ClientCommandArgs clientCommandArgs =
+                CommandLineUtils.parse(args, new ClientCommandArgs(), "seatunnel-client", true);
+        Assertions.assertEquals(DryRun.CONNECT, clientCommandArgs.getDryRun());
+    }
+
+    @Test
+    public void testDryRunConverterWithValidStatic() {
+        ClientCommandArgs.DryRunConverter converter = new ClientCommandArgs.DryRunConverter();
+        Assertions.assertEquals(DryRun.STATIC, converter.convert("static"));
+        Assertions.assertEquals(DryRun.STATIC, converter.convert("STATIC"));
+        Assertions.assertEquals(DryRun.CONNECT, converter.convert("connect"));
+        Assertions.assertEquals(DryRun.CONNECT, converter.convert("CONNECT"));
+    }
+
+    @Test
+    public void testDryRunConverterRejectsUnsupportedModes() {
+        ClientCommandArgs.DryRunConverter converter = new ClientCommandArgs.DryRunConverter();
+        Assertions.assertThrows(IllegalArgumentException.class, () -> converter.convert("sample"));
+        Assertions.assertThrows(IllegalArgumentException.class, () -> converter.convert("shadow"));
+    }
+
+    @Test
+    public void testDryRunConverterRejectsInvalidMode() {
+        ClientCommandArgs.DryRunConverter converter = new ClientCommandArgs.DryRunConverter();
+        IllegalArgumentException ex =
+                Assertions.assertThrows(
+                        IllegalArgumentException.class,
+                        () -> converter.convert("nonexistent_mode"));
+        Assertions.assertTrue(
+                ex.getMessage().contains("Currently only [static, connect] are supported"),
+                "Actual: " + ex.getMessage());
+    }
+
     private static ClientCommandArgs buildClientCommandArgs(String configFile, Long jobId) {
         ClientCommandArgs clientCommandArgs = new ClientCommandArgs();
         clientCommandArgs.setVariables(new ArrayList<>());
@@ -90,8 +136,8 @@ public class ClientCommandArgsTest {
         String configurePath = "/config/fake_to_inmemory.json";
         String configFile = MultiTableSinkTest.getTestConfigFile(configurePath);
         ClientCommandArgs clientCommandArgs = buildClientCommandArgs(configFile);
-        // Default port should be 0 (random assignment)
-        Assertions.assertEquals(0, clientCommandArgs.getHazelcastPort());
+        // Default null preserves the port configured in hazelcast.yaml.
+        Assertions.assertNull(clientCommandArgs.getHazelcastPort());
         Assertions.assertDoesNotThrow(() -> SeaTunnel.run(clientCommandArgs.buildCommand()));
     }
 

@@ -23,11 +23,16 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Stream;
 
+import static org.apache.seatunnel.api.table.type.CommonOptions.BINLOG_FILE;
+import static org.apache.seatunnel.api.table.type.CommonOptions.BINLOG_POS;
+import static org.apache.seatunnel.api.table.type.CommonOptions.BINLOG_ROW;
 import static org.apache.seatunnel.api.table.type.CommonOptions.DELAY;
 import static org.apache.seatunnel.api.table.type.CommonOptions.EVENT_TIME;
+import static org.apache.seatunnel.api.table.type.CommonOptions.GTID;
 import static org.apache.seatunnel.api.table.type.CommonOptions.IS_BINARY_FORMAT;
 import static org.apache.seatunnel.api.table.type.CommonOptions.IS_COMPLETE;
 import static org.apache.seatunnel.api.table.type.CommonOptions.PARTITION;
+import static org.apache.seatunnel.api.table.type.CommonOptions.SOURCE_TIMESTAMP;
 
 public class MetadataUtil {
 
@@ -51,6 +56,26 @@ public class MetadataUtil {
 
     public static void setEventTime(SeaTunnelRow row, Long delay) {
         row.getOptions().put(EVENT_TIME.getName(), delay);
+    }
+
+    public static void setBinlogFile(SeaTunnelRow row, String file) {
+        row.getOptions().put(BINLOG_FILE.getName(), file);
+    }
+
+    public static void setBinlogPos(SeaTunnelRow row, Long pos) {
+        row.getOptions().put(BINLOG_POS.getName(), pos);
+    }
+
+    public static void setBinlogRow(SeaTunnelRow row, Integer binlogRow) {
+        row.getOptions().put(BINLOG_ROW.getName(), binlogRow);
+    }
+
+    public static void setGtid(SeaTunnelRow row, String gtid) {
+        row.getOptions().put(GTID.getName(), gtid);
+    }
+
+    public static void setSourceTimestamp(SeaTunnelRow row, Long sourceTimestamp) {
+        row.getOptions().put(SOURCE_TIMESTAMP.getName(), sourceTimestamp);
     }
 
     public static void setBinaryRowComplete(SeaTunnelRow row) {

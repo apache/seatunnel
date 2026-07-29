@@ -21,6 +21,7 @@ import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerProfile;
+import org.apache.seatunnel.engine.server.telemetry.metrics.entity.RequestSlotOperationStats;
 
 import com.hazelcast.cluster.Address;
 import com.hazelcast.internal.services.MembershipServiceEvent;
@@ -71,4 +72,6 @@ public interface ResourceManager {
     int workerCount(Map<String, String> tags);
 
     ConcurrentMap<Address, WorkerProfile> getRegisterWorker();
+
+    RequestSlotOperationStats getRequestSlotOperationStats();
 }

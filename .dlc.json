@@ -4,6 +4,9 @@
       "pattern": "^http://localhost"
     },
     {
+      "pattern": "^http://127\\.0\\.0\\.1"
+    },
+    {
       "pattern": "^https://mvnrepository.com"
     },
     {
@@ -26,17 +29,20 @@
     },
     {
       "pattern": "^https://github.com/apache/seatunnel/commit/"
+    },
+    {
+      "pattern": "src/main/java/"
     }
   ],
   "timeout": "10s",
   "retryOn429": true,
   "retryCount": 10,
-  "fallbackRetryDelay": "1000s",
+  "fallbackRetryDelay": "1000ms",
   "aliveStatusCodes": [
     0,
     200,
     401,
-    403
+    403,
+    406
   ]
 }
-
