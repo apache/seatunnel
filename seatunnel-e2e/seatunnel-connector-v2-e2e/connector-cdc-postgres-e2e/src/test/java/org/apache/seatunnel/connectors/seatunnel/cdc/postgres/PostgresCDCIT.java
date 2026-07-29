@@ -455,6 +455,7 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
         String slotVariable = toSlotVariable(slotName);
         Long jobId = JobIdGenerator.newJobId();
         CompletableFuture<Void> job = null;
+        Connection snapshotGate = null;
 
         try {
             clearTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_1);
@@ -467,6 +468,8 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                             + " (id, f_big, f_text) "
                             + "SELECT id, id, 'snapshot-' || id "
                             + "FROM generate_series(1, 10000) AS id");
+
+            snapshotGate = lockSourceTableForSnapshotGate(SOURCE_TABLE_1);
 
             job =
                     CompletableFuture.runAsync(
@@ -493,23 +496,49 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                     .untilAsserted(
                             () ->
                                     Assertions.assertTrue(
-                                            isSnapshotSelectRunning(SOURCE_TABLE_1),
-                                            "Snapshot SELECT is not running"));
+                                            isSnapshotSelectWaitingForTableLock(SOURCE_TABLE_1),
+                                            "Snapshot SELECT is not waiting on the source table"));
 
-            executeSql(
-                    "INSERT INTO "
-                            + POSTGRESQL_SCHEMA
-                            + "."
-                            + SOURCE_TABLE_1
-                            + " (id, f_big, f_text) VALUES (20001, 20001, 'concurrent-insert')");
-            executeSql(
-                    "UPDATE "
-                            + POSTGRESQL_SCHEMA
-                            + "."
-                            + SOURCE_TABLE_1
-                            + " SET f_big = 500000, f_text = 'concurrent-update' WHERE id = 5000");
-            executeSql(
-                    "DELETE FROM " + POSTGRESQL_SCHEMA + "." + SOURCE_TABLE_1 + " WHERE id = 6000");
+            List<CompletableFuture<Void>> sourceChanges =
+                    Arrays.asList(
+                            CompletableFuture.runAsync(
+                                    () ->
+                                            executeSql(
+                                                    "INSERT INTO "
+                                                            + POSTGRESQL_SCHEMA
+                                                            + "."
+                                                            + SOURCE_TABLE_1
+                                                            + " (id, f_big, f_text) VALUES (20001, 20001, 'concurrent-insert')")),
+                            CompletableFuture.runAsync(
+                                    () ->
+                                            executeSql(
+                                                    "UPDATE "
+                                                            + POSTGRESQL_SCHEMA
+                                                            + "."
+                                                            + SOURCE_TABLE_1
+                                                            + " SET f_big = 500000, f_text = 'concurrent-update' WHERE id = 5000")),
+                            CompletableFuture.runAsync(
+                                    () ->
+                                            executeSql(
+                                                    "DELETE FROM "
+                                                            + POSTGRESQL_SCHEMA
+                                                            + "."
+                                                            + SOURCE_TABLE_1
+                                                            + " WHERE id = 6000")));
+
+            await().pollInterval(10, TimeUnit.MILLISECONDS)
+                    .atMost(30, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertTrue(
+                                            countSourceChangesWaitingForTableLock(SOURCE_TABLE_1)
+                                                    >= 3,
+                                            "Concurrent source changes are not waiting on the source table"));
+            commitAndCloseSnapshotGate(snapshotGate);
+            snapshotGate = null;
+            for (CompletableFuture<Void> sourceChange : sourceChanges) {
+                waitForAsyncTask(sourceChange, "Concurrent PostgreSQL source change failed");
+            }
 
             waitForReplicationSlotActive(slotName);
             await().ignoreExceptions()
@@ -527,6 +556,9 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                                             query(getQuerySQL(POSTGRESQL_SCHEMA, SINK_TABLE_1))));
             assertJobHasNoAsyncFailure(job);
         } finally {
+            if (snapshotGate != null) {
+                rollbackAndCloseSnapshotGate(snapshotGate);
+            }
             if (job != null) {
                 if (job.isDone()) {
                     assertJobHasNoAsyncFailure(job);
@@ -1378,6 +1410,46 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
     }
 
     /**
+     * Holds an ACCESS EXCLUSIVE lock so the snapshot SELECT and concurrent source changes can be
+     * queued behind a deterministic synchronization point.
+     */
+    private Connection lockSourceTableForSnapshotGate(String tableName) {
+        try {
+            Connection connection = getJdbcConnection();
+            connection.setAutoCommit(false);
+            try (Statement statement = connection.createStatement()) {
+                statement.execute(
+                        "LOCK TABLE "
+                                + POSTGRESQL_SCHEMA
+                                + "."
+                                + tableName
+                                + " IN ACCESS EXCLUSIVE MODE");
+            }
+            return connection;
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to lock PostgreSQL source table: " + tableName, e);
+        }
+    }
+
+    private void commitAndCloseSnapshotGate(Connection connection) {
+        try {
+            connection.commit();
+            connection.close();
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to release PostgreSQL snapshot gate", e);
+        }
+    }
+
+    private void rollbackAndCloseSnapshotGate(Connection connection) {
+        try {
+            connection.rollback();
+            connection.close();
+        } catch (SQLException e) {
+            log.warn("Failed to rollback PostgreSQL snapshot gate", e);
+        }
+    }
+
+    /**
      * The Postgres container is shared across all test methods in this class, so stale generated
      * replication slots must be dropped before the next CDC job starts.
      */
@@ -1499,22 +1571,62 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
         }
     }
 
-    /** Returns whether another PostgreSQL backend is actively scanning the captured table. */
-    private boolean isSnapshotSelectRunning(String tableName) {
+    /** Returns whether the snapshot SELECT is queued behind the test-owned table lock. */
+    private boolean isSnapshotSelectWaitingForTableLock(String tableName) {
         try (Connection connection = getJdbcConnection();
                 Statement statement = connection.createStatement();
                 ResultSet resultSet =
                         statement.executeQuery(
                                 "SELECT 1 FROM pg_stat_activity "
                                         + "WHERE pid <> pg_backend_pid() "
-                                        + "AND state = 'active' "
+                                        + "AND wait_event_type = 'Lock' "
                                         + "AND query LIKE 'SELECT%FROM%"
                                         + tableName
                                         + "%'")) {
             return resultSet.next();
         } catch (SQLException e) {
             throw new RuntimeException(
-                    "Failed to query active snapshot SELECT for table: " + tableName, e);
+                    "Failed to query waiting snapshot SELECT for table: " + tableName, e);
+        }
+    }
+
+    /**
+     * Returns how many concurrent INSERT/UPDATE/DELETE statements are queued behind the test-owned
+     * table lock.
+     */
+    private int countSourceChangesWaitingForTableLock(String tableName) {
+        try (Connection connection = getJdbcConnection();
+                Statement statement = connection.createStatement();
+                ResultSet resultSet =
+                        statement.executeQuery(
+                                "SELECT count(1) FROM pg_stat_activity "
+                                        + "WHERE pid <> pg_backend_pid() "
+                                        + "AND wait_event_type = 'Lock' "
+                                        + "AND (query LIKE 'INSERT%"
+                                        + tableName
+                                        + "%' "
+                                        + "OR query LIKE 'UPDATE%"
+                                        + tableName
+                                        + "%' "
+                                        + "OR query LIKE 'DELETE%"
+                                        + tableName
+                                        + "%')")) {
+            resultSet.next();
+            return resultSet.getInt(1);
+        } catch (SQLException e) {
+            throw new RuntimeException(
+                    "Failed to query waiting source changes for table: " + tableName, e);
+        }
+    }
+
+    private void waitForAsyncTask(CompletableFuture<Void> future, String message) {
+        try {
+            future.get(30, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException(message, e);
+        } catch (ExecutionException | TimeoutException e) {
+            throw new RuntimeException(message, e);
         }
     }
 
