@@ -27,7 +27,9 @@ import org.junit.jupiter.api.BeforeAll;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.utility.DockerImageName;
+import org.testcontainers.utility.MountableFile;
 
+import com.mysql.cj.jdbc.Driver;
 import lombok.extern.slf4j.Slf4j;
 
 import javax.crypto.Cipher;
@@ -42,6 +44,9 @@ import java.io.OutputStreamWriter;
 import java.net.Socket;
 import java.net.SocketTimeoutException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -64,6 +69,7 @@ public abstract class AbstractEdgeSocketIT extends TestSuiteBase implements Test
     protected static final String TRANSFORM_SUFFIX = "_transformed";
     protected static final String EDGE_BATCH_PREFIX = "__BATCH__:";
     protected static final String EDGE_COMMIT_PREFIX = "__COMMIT__:";
+    private static final String JDBC_PLUGIN_LIB = "/tmp/seatunnel/plugins/Jdbc/lib";
 
     protected GenericContainer<?> edgeSocketForwarderContainer;
     private String edgeSocketForwarderTargetHost;
@@ -73,6 +79,35 @@ public abstract class AbstractEdgeSocketIT extends TestSuiteBase implements Test
     protected void stopSinkDependencies() throws Exception {}
 
     protected abstract List<String> querySinkValues() throws Exception;
+
+    protected static void copyMySQLDriverToJdbcContainer(GenericContainer<?> container)
+            throws IOException, InterruptedException {
+        Container.ExecResult mkdirResult =
+                container.execInContainer("bash", "-c", "mkdir -p " + JDBC_PLUGIN_LIB);
+        Assertions.assertEquals(0, mkdirResult.getExitCode(), mkdirResult.getStderr());
+
+        Path driverJarPath = mysqlDriverJarPath();
+        container.copyFileToContainer(
+                MountableFile.forHostPath(driverJarPath),
+                JDBC_PLUGIN_LIB + "/" + driverJarPath.getFileName());
+    }
+
+    private static Path mysqlDriverJarPath() {
+        try {
+            Path driverJarPath =
+                    Paths.get(
+                            Driver.class
+                                    .getProtectionDomain()
+                                    .getCodeSource()
+                                    .getLocation()
+                                    .toURI());
+            Assertions.assertTrue(Files.isRegularFile(driverJarPath));
+            return driverJarPath;
+        } catch (Exception e) {
+            throw new RuntimeException(
+                    "Failed to resolve MySQL JDBC driver jar from the test classpath", e);
+        }
+    }
 
     @BeforeAll
     @Override
@@ -154,6 +189,56 @@ public abstract class AbstractEdgeSocketIT extends TestSuiteBase implements Test
                     batchId++;
                 }
                 return;
+            } catch (SocketTimeoutException timeoutException) {
+                if (System.currentTimeMillis() >= deadlineMillis) {
+                    throw timeoutException;
+                }
+                TimeUnit.MILLISECONDS.sleep(200);
+            } catch (IOException ioException) {
+                if (System.currentTimeMillis() >= deadlineMillis) {
+                    throw ioException;
+                }
+                TimeUnit.MILLISECONDS.sleep(500);
+            }
+        }
+        throw new IllegalStateException("Send records to edge socket timed out");
+    }
+
+    protected List<Long> sendRecordsThroughCollectorAndCollectWatermarks(List<String> messages)
+            throws Exception {
+        if (messages == null || messages.isEmpty()) {
+            throw new IllegalArgumentException("Messages should not be empty");
+        }
+        if (edgeSocketForwarderContainer == null) {
+            throw new IllegalStateException("Edge socket forwarder container is not initialized");
+        }
+        String forwarderHost = edgeSocketForwarderContainer.getHost();
+        int forwarderPort = edgeSocketForwarderContainer.getMappedPort(EDGE_FORWARDER_PORT);
+        long deadlineMillis = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(60);
+        while (System.currentTimeMillis() < deadlineMillis) {
+            try (Socket socket = new Socket(forwarderHost, forwarderPort);
+                    BufferedWriter writer =
+                            new BufferedWriter(
+                                    new OutputStreamWriter(
+                                            socket.getOutputStream(), StandardCharsets.UTF_8));
+                    BufferedReader reader =
+                            new BufferedReader(
+                                    new InputStreamReader(
+                                            socket.getInputStream(), StandardCharsets.UTF_8))) {
+                socket.setSoTimeout(3000);
+                writeLine(writer, "__AUTH__:" + AUTH_TOKEN);
+                String authReply = readLine(reader);
+                Assertions.assertEquals("ACK", authReply, "Auth response should be ACK");
+
+                List<Long> watermarks = new ArrayList<>();
+                long batchId = 1L;
+                for (String message : messages) {
+                    sendMessageWithRetry(writer, reader, batchId, message);
+                    watermarks.add(
+                            awaitBatchCheckpointAckAndReturnWatermark(writer, reader, batchId));
+                    batchId++;
+                }
+                return watermarks;
             } catch (SocketTimeoutException timeoutException) {
                 if (System.currentTimeMillis() >= deadlineMillis) {
                     throw timeoutException;
@@ -365,6 +450,34 @@ public abstract class AbstractEdgeSocketIT extends TestSuiteBase implements Test
                 long ackedBatchId = Long.parseLong(reply.substring("ACK:".length()));
                 if (ackedBatchId >= expectedBatchId) {
                     return;
+                }
+                TimeUnit.MILLISECONDS.sleep(200);
+                continue;
+            }
+            if ("RETRY".equals(reply)) {
+                TimeUnit.MILLISECONDS.sleep(200);
+                continue;
+            }
+            throw new IllegalStateException("Unexpected commit response: " + reply);
+        }
+        throw new IllegalStateException(
+                "Timeout waiting checkpoint ACK for batch: " + expectedBatchId);
+    }
+
+    private long awaitBatchCheckpointAckAndReturnWatermark(
+            BufferedWriter writer, BufferedReader reader, long expectedBatchId) throws Exception {
+        long deadlineMillis = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(30);
+        while (System.currentTimeMillis() < deadlineMillis) {
+            writeLine(writer, EDGE_COMMIT_PREFIX + expectedBatchId);
+            String reply = readLine(reader);
+            if ("PENDING".equals(reply)) {
+                TimeUnit.MILLISECONDS.sleep(200);
+                continue;
+            }
+            if (reply.startsWith("ACK:")) {
+                long ackedBatchId = Long.parseLong(reply.substring("ACK:".length()));
+                if (ackedBatchId >= expectedBatchId) {
+                    return ackedBatchId;
                 }
                 TimeUnit.MILLISECONDS.sleep(200);
                 continue;

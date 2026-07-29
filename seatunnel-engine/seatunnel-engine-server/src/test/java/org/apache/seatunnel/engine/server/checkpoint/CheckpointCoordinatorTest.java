@@ -27,6 +27,7 @@ import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
 import org.apache.seatunnel.engine.server.checkpoint.monitor.CheckpointMonitorService;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOperation;
+import org.apache.seatunnel.engine.server.common.SeaTunnelEngineContext;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.master.JobMaster;
@@ -86,6 +87,7 @@ public class CheckpointCoordinatorTest
                         server.getCheckpointService().getCheckpointStorage(),
                         instance.getExecutorService("test"),
                         nodeEngine.getHazelcastInstance().getMap(IMAP_RUNNING_JOB_STATE),
+                        server.getEngineContext(),
                         null);
         checkpointManager.acknowledgeTask(
                 new TaskAcknowledgeOperation(
@@ -123,6 +125,7 @@ public class CheckpointCoordinatorTest
                             server.getCheckpointService().getCheckpointStorage(),
                             executorService,
                             nodeEngine.getHazelcastInstance().getMap(IMAP_RUNNING_JOB_STATE),
+                            server.getEngineContext(),
                             null) {
 
                         @Override
@@ -168,6 +171,7 @@ public class CheckpointCoordinatorTest
                             server.getCheckpointService().getCheckpointStorage(),
                             executorService,
                             nodeEngine.getHazelcastInstance().getMap(IMAP_RUNNING_JOB_STATE),
+                            server.getEngineContext(),
                             null) {
                         @Override
                         protected void handleCheckpointError(int pipelineId, boolean neverRestore) {
@@ -242,6 +246,7 @@ public class CheckpointCoordinatorTest
                             server.getCheckpointService().getCheckpointStorage(),
                             executorService,
                             nodeEngine.getHazelcastInstance().getMap(IMAP_RUNNING_JOB_STATE),
+                            server.getEngineContext(),
                             null) {
 
                         @Override
@@ -312,6 +317,7 @@ public class CheckpointCoordinatorTest
                         server.getCheckpointService().getCheckpointStorage(),
                         instance.getExecutorService("test"),
                         nodeEngine.getHazelcastInstance().getMap(IMAP_RUNNING_JOB_STATE),
+                        server.getEngineContext(),
                         null);
 
         TaskGroupLocation group1 = new TaskGroupLocation(1L, 1, 1);
@@ -903,6 +909,64 @@ public class CheckpointCoordinatorTest
                 null);
     }
 
+    @Test
+    void testIsNoErrorCompletedUsesCheckpointStateMatrix() {
+        ExecutorService executorService = Executors.newCachedThreadPool();
+        try {
+            CheckpointCoordinator coordinator = buildMinimalCoordinator(executorService);
+            @SuppressWarnings("unchecked")
+            IMap<Object, Object> runningJobStateIMap =
+                    (IMap<Object, Object>)
+                            ReflectionUtils.getField(coordinator, "runningJobStateIMap")
+                                    .orElseThrow(
+                                            () ->
+                                                    new IllegalStateException(
+                                                            "runningJobStateIMap field not found"));
+            CheckpointCoordinatorStatus[] states = {
+                null,
+                CheckpointCoordinatorStatus.RUNNING,
+                CheckpointCoordinatorStatus.CANCELED,
+                CheckpointCoordinatorStatus.FAILED,
+                CheckpointCoordinatorStatus.FINISHED,
+                CheckpointCoordinatorStatus.SUSPEND
+            };
+            for (CheckpointType checkpointType : CheckpointType.values()) {
+                for (boolean restored : new boolean[] {false, true}) {
+                    CompletedCheckpoint completedCheckpoint =
+                            new CompletedCheckpoint(
+                                    1L,
+                                    1,
+                                    1L,
+                                    System.currentTimeMillis(),
+                                    checkpointType,
+                                    System.currentTimeMillis(),
+                                    new HashMap<>(),
+                                    new HashMap<>());
+                    completedCheckpoint.setRestored(restored);
+                    ReflectionUtils.setField(
+                            coordinator, "latestCompletedCheckpoint", completedCheckpoint);
+
+                    for (CheckpointCoordinatorStatus status : states) {
+                        Mockito.when(runningJobStateIMap.get(Mockito.any())).thenReturn(status);
+                        boolean expected =
+                                checkpointType.isFinalCheckpoint()
+                                        && (status == CheckpointCoordinatorStatus.FINISHED
+                                                || status == CheckpointCoordinatorStatus.SUSPEND)
+                                        && !restored;
+                        Assertions.assertEquals(
+                                expected,
+                                coordinator.isNoErrorCompleted(),
+                                String.format(
+                                        "checkpointType=%s, status=%s, restored=%s",
+                                        checkpointType, status, restored));
+                    }
+                }
+            }
+        } finally {
+            executorService.shutdownNow();
+        }
+    }
+
     /**
      * Regression: when {@code notifyCompleted()} fails (returns {@code false}), {@code
      * completePendingCheckpoint} must return immediately without decrementing {@code
@@ -1075,6 +1139,7 @@ class TestCheckpointManager extends CheckpointManager {
             CheckpointStorage checkpointStorage,
             ExecutorService executorService,
             IMap<Object, Object> runningJobStateIMap,
+            SeaTunnelEngineContext engineContext,
             CheckpointMonitorService checkpointMonitorService) {
         super(
                 jobId,
@@ -1086,6 +1151,7 @@ class TestCheckpointManager extends CheckpointManager {
                 checkpointStorage,
                 executorService,
                 runningJobStateIMap,
+                engineContext,
                 checkpointMonitorService);
     }
 

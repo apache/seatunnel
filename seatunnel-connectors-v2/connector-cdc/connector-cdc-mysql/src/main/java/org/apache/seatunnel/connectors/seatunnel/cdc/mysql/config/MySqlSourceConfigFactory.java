@@ -30,6 +30,8 @@ import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.ch
 
 /** A factory to initialize {@link MySqlSourceConfig}. */
 public class MySqlSourceConfigFactory extends JdbcSourceConfigFactory {
+    private static final long serialVersionUID = -6578851046816898665L;
+
     public static final String SCHEMA_CHANGE_KEY = "include.schema.changes";
 
     private ServerIdRange serverIdRange;
@@ -120,30 +122,34 @@ public class MySqlSourceConfigFactory extends JdbcSourceConfigFactory {
 
         Configuration dbzConfiguration = Configuration.from(props);
         String driverClassName = dbzConfiguration.getString(MySqlConnectorConfig.JDBC_DRIVER);
-        return new MySqlSourceConfig(
-                startupConfig,
-                stopConfig,
-                databaseList,
-                tableList,
-                splitSize,
-                splitColumn,
-                distributionFactorUpper,
-                distributionFactorLower,
-                sampleShardingThreshold,
-                inverseSamplingRate,
-                sampleShardingAllow,
-                props,
-                driverClassName,
-                hostname,
-                port,
-                username,
-                password,
-                originUrl,
-                fetchSize,
-                serverTimeZone,
-                connectTimeoutMillis,
-                connectMaxRetries,
-                connectionPoolSize,
-                exactlyOnce);
+        MySqlSourceConfig config =
+                new MySqlSourceConfig(
+                        startupConfig,
+                        stopConfig,
+                        databaseList,
+                        tableList,
+                        splitSize,
+                        splitColumn,
+                        distributionFactorUpper,
+                        distributionFactorLower,
+                        sampleShardingThreshold,
+                        inverseSamplingRate,
+                        sampleShardingAllow,
+                        props,
+                        driverClassName,
+                        hostname,
+                        port,
+                        username,
+                        password,
+                        originUrl,
+                        fetchSize,
+                        serverTimeZone,
+                        connectTimeoutMillis,
+                        connectMaxRetries,
+                        connectionPoolSize,
+                        exactlyOnce);
+        // Propagate the enableConcurrentRead flag so the chunk splitter can skip split analysis.
+        config.setEnableConcurrentRead(this.enableConcurrentRead);
+        return config;
     }
 }

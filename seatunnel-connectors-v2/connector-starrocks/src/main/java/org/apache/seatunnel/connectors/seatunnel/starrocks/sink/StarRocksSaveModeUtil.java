@@ -19,13 +19,22 @@ package org.apache.seatunnel.connectors.seatunnel.starrocks.sink;
 
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
+import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+import org.apache.seatunnel.connectors.seatunnel.common.sql.ClauseMergeFormat;
+import org.apache.seatunnel.connectors.seatunnel.common.sql.SqlTableClauseMerger;
 import org.apache.seatunnel.connectors.seatunnel.common.util.CatalogUtil;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.config.StarRocksSinkOptions;
 
 import lombok.extern.slf4j.Slf4j;
+
+import java.util.Map;
 
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
 
@@ -33,6 +42,66 @@ import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.ch
 public class StarRocksSaveModeUtil extends CatalogUtil {
 
     public static final StarRocksSaveModeUtil INSTANCE = new StarRocksSaveModeUtil();
+
+    private StarRocksSaveModeUtil() {}
+
+    public String getCreateTableSql(
+            String template,
+            String database,
+            String table,
+            TableSchema tableSchema,
+            String comment,
+            String optionsKey,
+            Map<String, String> tableOptions) {
+        String createTableSql =
+                getCreateTableSql(template, database, table, tableSchema, comment, optionsKey);
+        return applyTableOptionsToCreateTableSql(createTableSql, tableOptions);
+    }
+
+    public void validateTableOptions(ReadonlyConfig config, Map<String, String> tableOptions) {
+        if (tableOptions == null || tableOptions.isEmpty()) {
+            return;
+        }
+        if (isCustomCreateTemplate(config)) {
+            throw new SeaTunnelRuntimeException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    "table_options cannot be used together with a custom save_mode_create_template"
+                            + " for StarRocks sink.");
+        }
+        for (Map.Entry<String, String> entry : tableOptions.entrySet()) {
+            if (StringUtils.isBlank(entry.getKey())) {
+                throw new SeaTunnelRuntimeException(
+                        SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                        "table_options contains a blank property key for StarRocks sink.");
+            }
+            if (entry.getValue() == null) {
+                throw new SeaTunnelRuntimeException(
+                        SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                        String.format(
+                                "table_options property '%s' has null value for StarRocks sink.",
+                                entry.getKey()));
+            }
+        }
+    }
+
+    public String applyTableOptionsToCreateTableSql(
+            String createTableSql, Map<String, String> tableOptions) {
+        if (tableOptions == null || tableOptions.isEmpty()) {
+            return createTableSql;
+        }
+        return SqlTableClauseMerger.merge(
+                createTableSql, ClauseMergeFormat.DOUBLE_QUOTED_PROPERTIES, tableOptions);
+    }
+
+    private static boolean isCustomCreateTemplate(ReadonlyConfig config) {
+        return config.getOptional(StarRocksSinkOptions.SAVE_MODE_CREATE_TEMPLATE)
+                .map(
+                        template ->
+                                !template.equals(
+                                        StarRocksSinkOptions.SAVE_MODE_CREATE_TEMPLATE
+                                                .defaultValue()))
+                .orElse(false);
+    }
 
     public String columnToConnectorType(Column column) {
         checkNotNull(column, "The column is required.");

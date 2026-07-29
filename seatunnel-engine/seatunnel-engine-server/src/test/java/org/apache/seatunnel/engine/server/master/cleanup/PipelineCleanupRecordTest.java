@@ -84,8 +84,13 @@ class PipelineCleanupRecordTest {
         Assertions.assertTrue(record.isCleaned());
     }
 
+    /**
+     * Verifies that merge keeps cleanup progress while the newer terminal status wins.
+     *
+     * <p>This protects later cleanup intents from being hidden behind stale terminal statuses.
+     */
     @Test
-    void testMergeFromPrefersNonNullFieldsAndUnionsCollections() {
+    void testMergeFromUsesNewTerminalStatusAndUnionsCollections() {
         PipelineLocation pipelineLocation1 = new PipelineLocation(1L, 1);
         PipelineLocation pipelineLocation2 = new PipelineLocation(1L, 2);
         TaskGroupLocation taskGroupLocation1 = new TaskGroupLocation(1L, 1, 1L);
@@ -128,7 +133,7 @@ class PipelineCleanupRecordTest {
         PipelineCleanupRecord merged = record1.mergeFrom(record2);
 
         Assertions.assertEquals(pipelineLocation1, merged.getPipelineLocation());
-        Assertions.assertEquals(PipelineStatus.FINISHED, merged.getFinalStatus());
+        Assertions.assertEquals(PipelineStatus.CANCELED, merged.getFinalStatus());
         Assertions.assertTrue(merged.isSavepointEnd());
         Assertions.assertTrue(merged.isMetricsImapCleaned());
 

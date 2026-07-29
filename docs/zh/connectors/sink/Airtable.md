@@ -13,6 +13,7 @@ import ChangeLog from '../changelog/connector-http-airtable.md';
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [ ] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
+- [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 ## 选项
 
@@ -67,11 +68,39 @@ API 请求之间的最小间隔（毫秒），默认 220ms。
 
 ### common options
 
-汇插件通用参数，请参考 [Sink Common Options](../common-options/sink-common-options.md)。
+Sink 插件通用参数，请参考 [Sink Common Options](../common-options/sink-common-options.md)。
 
 ## 示例
 
+将数据写入 Airtable 表：
+
 ```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    schema = {
+      fields {
+        Name = string
+        Age = int
+      }
+    }
+    rows = [
+      {
+        kind = INSERT
+        fields = ["Alice", 30]
+      },
+      {
+        kind = INSERT
+        fields = ["Bob", 25]
+      }
+    ]
+  }
+}
+
 sink {
   Airtable {
     token = "patXXXXXXXX.XXXXXXXX"
@@ -79,6 +108,7 @@ sink {
     table = "Shipments"
     typecast = true
     batch_size = 10
+    request_interval_ms = 220
   }
 }
 ```

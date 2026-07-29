@@ -25,6 +25,7 @@ import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
+import org.apache.seatunnel.connectors.cdc.base.config.StartupConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
@@ -84,6 +85,13 @@ public class PostgresIncrementalSource<T> extends IncrementalSource<T, JdbcSourc
     }
 
     @Override
+    protected StartupConfig getStartupConfig(ReadonlyConfig config) {
+        StartupConfig startupConfig = super.getStartupConfig(config);
+        validateStartupOptions(config, startupConfig);
+        return startupConfig;
+    }
+
+    @Override
     public SourceConfig.Factory<JdbcSourceConfig> createSourceConfigFactory(ReadonlyConfig config) {
         PostgresSourceConfigFactory configFactory = new PostgresSourceConfigFactory();
         configFactory.fromReadonlyConfig(readonlyConfig);
@@ -135,6 +143,23 @@ public class PostgresIncrementalSource<T> extends IncrementalSource<T, JdbcSourc
     @Override
     public Optional<String> driverName() {
         return Optional.of("org.postgresql.Driver");
+    }
+
+    private void validateStartupOptions(ReadonlyConfig options, StartupConfig startupConfig) {
+        if (startupConfig.getStartupMode() != StartupMode.COMMITTED_OFFSET) {
+            return;
+        }
+        Optional<String> slotName =
+                options.getOptional(PostgresIncrementalSourceOptions.SLOT_NAME)
+                        .map(String::trim)
+                        .filter(name -> !name.isEmpty());
+        if (!slotName.isPresent()) {
+            throw new SeaTunnelException(
+                    String.format(
+                            "PostgreSQL-CDC startup.mode '%s' requires an explicit '%s' option.",
+                            StartupMode.COMMITTED_OFFSET,
+                            PostgresIncrementalSourceOptions.SLOT_NAME.key()));
+        }
     }
 
     private Map<TableId, Struct> tableChanges() {
