@@ -169,8 +169,9 @@ public class MultiTableSink
                         tableRetryTimes,
                         tableRetryIntervalSeconds,
                         sinkWriterTemplates,
-                        this::createRuntimeSinkWriter);
-        registerAggregatedFlushIfNeeded(context, writer, proxyContexts);
+                        this::createRuntimeSinkWriter,
+                        proxyContexts);
+        registerAggregatedFlush(context, writer);
         return writer;
     }
 
@@ -238,9 +239,10 @@ public class MultiTableSink
                         tableRetryTimes,
                         tableRetryIntervalSeconds,
                         sinkWriterTemplates,
-                        this::createRuntimeSinkWriter);
+                        this::createRuntimeSinkWriter,
+                        proxyContexts);
 
-        registerAggregatedFlushIfNeeded(context, writer, proxyContexts);
+        registerAggregatedFlush(context, writer);
         return writer;
     }
 
@@ -279,21 +281,15 @@ public class MultiTableSink
     }
 
     /**
-     * Registers an aggregated flush action on the parent context if any sub-writer registered a
-     * flush action via its {@link SinkContextProxy}.
+     * Registers an aggregated flush action on the parent context.
      *
      * <p>The registered action drains all blocking queues and then calls each sub-writer's flush
      * action under the corresponding lock, ensuring safe execution from the engine timer thread.
+     * Runtime-created writers can register their own flush action after startup, so the parent
+     * action must not depend only on the initially created writer set.
      */
-    private void registerAggregatedFlushIfNeeded(
-            SinkWriter.Context context,
-            MultiTableSinkWriter writer,
-            Map<SinkIdentifier, SinkContextProxy> proxyContexts) {
-        boolean anyFlush =
-                proxyContexts.values().stream().anyMatch(p -> p.getFlushAction() != null);
-        if (anyFlush) {
-            context.registerFlushAction(() -> writer.aggregatedFlush(proxyContexts));
-        }
+    private void registerAggregatedFlush(SinkWriter.Context context, MultiTableSinkWriter writer) {
+        context.registerFlushAction(writer::aggregatedFlush);
     }
 
     @Override

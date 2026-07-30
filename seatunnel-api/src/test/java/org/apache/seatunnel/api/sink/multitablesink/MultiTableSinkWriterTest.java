@@ -153,6 +153,40 @@ public class MultiTableSinkWriterTest {
     }
 
     @Test
+    public void testAggregatedFlushIncludesRuntimeCreatedWriterContext() throws Exception {
+        RuntimeFlushSinkWriter.FLUSH_COUNT.set(0);
+        Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters = new HashMap<>();
+        Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
+        TestSinkWriterContext context = new TestSinkWriterContext();
+        MultiTableSinkWriter.SinkWriterTemplate sinkWriterTemplate =
+                new MultiTableSinkWriter.SinkWriterTemplate(null, context, 0);
+        MultiTableSinkWriter multiTableSinkWriter =
+                new MultiTableSinkWriter(
+                        sinkWriters,
+                        1,
+                        sinkWritersContext,
+                        MultiTableFailurePolicy.FAIL_FAST,
+                        JobMode.STREAMING,
+                        Collections.emptyList(),
+                        0,
+                        0,
+                        Collections.singletonList(sinkWriterTemplate),
+                        (runtimeCatalogTable, runtimeContext) ->
+                                new RuntimeFlushSinkWriter(
+                                        runtimeCatalogTable.getTablePath().getFullName(),
+                                        runtimeContext));
+
+        CatalogTable catalogTable = catalogTable(TablePath.of("db1", "first_runtime_table"));
+        multiTableSinkWriter.applySchemaChange(
+                new CreateTableEvent(catalogTable.getTableId(), catalogTable));
+
+        multiTableSinkWriter.aggregatedFlush();
+        multiTableSinkWriter.close();
+
+        Assertions.assertEquals(1, RuntimeFlushSinkWriter.FLUSH_COUNT.get());
+    }
+
+    @Test
     public void testContinueOtherTablesKeepsHealthyTableRunning() throws IOException {
         Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters = new HashMap<>();
         Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
@@ -840,6 +874,15 @@ public class MultiTableSinkWriterTest {
             APPLIED_SCHEMA_EVENTS
                     .computeIfAbsent(tableId, key -> new CopyOnWriteArrayList<>())
                     .add(event.getEventType().name());
+        }
+    }
+
+    static class RuntimeFlushSinkWriter extends DynamicTestSinkWriter {
+        private static final AtomicInteger FLUSH_COUNT = new AtomicInteger();
+
+        RuntimeFlushSinkWriter(String tableId, SinkWriter.Context context) {
+            super(tableId);
+            context.registerFlushAction(FLUSH_COUNT::incrementAndGet);
         }
     }
 

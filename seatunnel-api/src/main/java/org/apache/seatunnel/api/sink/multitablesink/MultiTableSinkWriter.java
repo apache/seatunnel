@@ -78,6 +78,8 @@ public class MultiTableSinkWriter
 
     private final Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters;
     private final Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext;
+    private final ConcurrentMap<SinkIdentifier, SinkContextProxy> proxyContexts =
+            new ConcurrentHashMap<>();
     private final ConcurrentMap<String, Optional<Integer>> sinkPrimaryKeys =
             new ConcurrentHashMap<>();
     private final List<ConcurrentMap<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>>>
@@ -241,6 +243,32 @@ public class MultiTableSinkWriter
             int tableRetryIntervalSeconds,
             List<SinkWriterTemplate> sinkWriterTemplates,
             RuntimeSinkWriterFactory runtimeSinkWriterFactory) {
+        this(
+                sinkWriters,
+                queueSize,
+                sinkWritersContext,
+                failurePolicy,
+                jobMode,
+                initialFailedTables,
+                tableRetryTimes,
+                tableRetryIntervalSeconds,
+                sinkWriterTemplates,
+                runtimeSinkWriterFactory,
+                Collections.emptyMap());
+    }
+
+    MultiTableSinkWriter(
+            Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters,
+            int queueSize,
+            Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext,
+            MultiTableFailurePolicy failurePolicy,
+            JobMode jobMode,
+            Collection<MultiTableFailedTable> initialFailedTables,
+            int tableRetryTimes,
+            int tableRetryIntervalSeconds,
+            List<SinkWriterTemplate> sinkWriterTemplates,
+            RuntimeSinkWriterFactory runtimeSinkWriterFactory,
+            Map<SinkIdentifier, SinkContextProxy> proxyContexts) {
         if (!sinkWriterTemplates.isEmpty() && sinkWriterTemplates.size() != queueSize) {
             throw new IllegalArgumentException(
                     "The runtime sink writer template count must match the queue count");
@@ -252,6 +280,9 @@ public class MultiTableSinkWriter
         this.tableRetryTimes = Math.max(0, tableRetryTimes);
         this.tableRetryIntervalSeconds = Math.max(0, tableRetryIntervalSeconds);
         this.runtimeSinkWriterFactory = runtimeSinkWriterFactory;
+        if (proxyContexts != null) {
+            this.proxyContexts.putAll(proxyContexts);
+        }
         AtomicInteger cnt = new AtomicInteger(0);
         executorService =
                 MDCTracer.tracing(
@@ -662,7 +693,7 @@ public class MultiTableSinkWriter
                 if (baseContext == null) {
                     throw new IOException("Missing sink writer context for runtime table template");
                 }
-                SinkWriter.Context context =
+                SinkContextProxy context =
                         new SinkContextProxy(
                                 sinkWriterTemplate.getWriterIndex(),
                                 sinkWritersWithIndex.size(),
@@ -698,6 +729,7 @@ public class MultiTableSinkWriter
                 newMultiTableWriter.setMultiTableResourceManager(resourceManager, i);
                 sinkWriters.put(sinkIdentifier, newWriter);
                 sinkWritersWithIndex.get(i).put(sinkIdentifier, newWriter);
+                proxyContexts.put(sinkIdentifier, context);
                 sinkIdentifiersByTable
                         .computeIfAbsent(
                                 tableIdentifier,
@@ -1087,9 +1119,11 @@ public class MultiTableSinkWriter
      * Aggregated flush triggered by the engine timer. Drains all blocking queues first, then calls
      * each sub-writer's flush action under the corresponding {@link MultiTableWriterRunnable} lock
      * to prevent concurrent writes.
-     *
-     * @param proxyContexts map from sink identifier to its {@link SinkContextProxy}
      */
+    void aggregatedFlush() throws Exception {
+        aggregatedFlush(proxyContexts);
+    }
+
     void aggregatedFlush(Map<SinkIdentifier, SinkContextProxy> proxyContexts) throws Exception {
         checkQueueRemain();
         subSinkErrorCheck();
@@ -1313,6 +1347,7 @@ public class MultiTableSinkWriter
                 sinkIdentifiersByTable.getOrDefault(tableId, Collections.emptyList());
         for (SinkIdentifier sinkIdentifier : sinkIdentifiers) {
             sinkWriters.remove(sinkIdentifier);
+            proxyContexts.remove(sinkIdentifier);
             for (int i = 0; i < sinkWritersWithIndex.size(); i++) {
                 synchronized (runnable.get(i)) {
                     SinkWriter<SeaTunnelRow, ?, ?> removedWriter =
