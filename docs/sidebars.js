@@ -134,6 +134,7 @@ const sidebars = {
                     "label": "Common Options",
                     "items": [
                         "connectors/common-options/source-common-options",
+                        "connectors/common-options/sink-write-modes",
                         "connectors/common-options/sink-common-options"
                     ]
                 },
@@ -242,7 +243,6 @@ const sidebars = {
                                 "engines/zeta/separated-cluster-deployment"
                             ]
                         },
-                        "engines/zeta/rest-api-and-web-ui",
                         "getting-started/submit-job-to-remote-zeta-cluster",
                         "engines/zeta/checkpoint-storage",
                         "engines/zeta/state-storage-and-recovery",
@@ -252,11 +252,22 @@ const sidebars = {
                         "engines/zeta/resource-isolation",
                         {
                             "type": "category",
-                            "label": "REST API",
+                            "label": "REST API and Web UI",
+                            "link": {
+                                "type": "doc",
+                                "id": "engines/zeta/rest-api-and-web-ui"
+                            },
                             "items": [
-                                "engines/zeta/rest-api-v1",
-                                "engines/zeta/rest-api-v2",
-                                "engines/zeta/rest-api-job-lifecycle",
+                                {
+                                    "type": "category",
+                                    "label": "REST API",
+                                    "items": [
+                                        "engines/zeta/rest-api-v2",
+                                        "engines/zeta/rest-api-job-lifecycle",
+                                        "engines/zeta/rest-api-v1"
+                                    ]
+                                },
+                                "engines/zeta/web-ui",
                                 "engines/zeta/security",
                                 "engines/zeta/python-sdk"
                             ]
@@ -265,7 +276,6 @@ const sidebars = {
                         "engines/zeta/logging",
                         "engines/zeta/telemetry",
                         "engines/zeta/busyness-and-backpressure",
-                        "engines/zeta/web-ui",
                         "engines/zeta/slot-allocation-strategy",
                         "engines/zeta/tuning-guide"
                     ]
