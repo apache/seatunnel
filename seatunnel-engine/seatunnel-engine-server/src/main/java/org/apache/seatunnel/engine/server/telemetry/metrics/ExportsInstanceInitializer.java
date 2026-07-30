@@ -24,6 +24,7 @@ import org.apache.seatunnel.engine.server.telemetry.metrics.exports.JobMetricExp
 import org.apache.seatunnel.engine.server.telemetry.metrics.exports.JobThreadPoolStatusExports;
 import org.apache.seatunnel.engine.server.telemetry.metrics.exports.NodeMetricExports;
 import org.apache.seatunnel.engine.server.telemetry.metrics.exports.ReportMetricsOperationExports;
+import org.apache.seatunnel.engine.server.telemetry.metrics.exports.RequestSlotOperationExports;
 
 import com.hazelcast.instance.impl.Node;
 import io.prometheus.client.CollectorRegistry;
@@ -50,6 +51,8 @@ public final class ExportsInstanceInitializer {
             new NodeMetricExports(node).register(collectorRegistry);
             // ReportMetricsOperation metrics
             new ReportMetricsOperationExports(node).register(collectorRegistry);
+            // RequestSlotOperation metrics
+            new RequestSlotOperationExports(node).register(collectorRegistry);
             // Engine state store metrics
             new EngineStateStoreMetricExports(node).register(collectorRegistry);
             // Engine state store logical metrics
