@@ -226,13 +226,17 @@ public class TDengineIT extends TestSuiteBase implements TestResource {
 
     /**
      * TDengine can report a healthy socket before the storage node is ready to create databases.
+     *
+     * <p>The probe database is intentionally kept until the container stops. Reusing the same probe
+     * avoids repeated create/drop churn while the service is still becoming ready.
      */
     private void verifyDatabaseCanBeCreated(Connection connection, String databaseName)
             throws SQLException {
         try (Statement statement = connection.createStatement()) {
-            statement.execute("DROP DATABASE IF EXISTS " + databaseName);
-            statement.execute("CREATE DATABASE " + databaseName + SINGLE_VGROUP_DATABASE_OPTIONS);
-            statement.execute("DROP DATABASE IF EXISTS " + databaseName);
+            statement.execute(
+                    "CREATE DATABASE IF NOT EXISTS "
+                            + databaseName
+                            + SINGLE_VGROUP_DATABASE_OPTIONS);
         }
     }
 

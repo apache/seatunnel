@@ -28,7 +28,10 @@ public class KafkaITTest {
      */
     @Test
     public void shouldContinueEmptyReadCommittedPollWhenPositionAdvances() {
+        // Aborted transactions and control records can move the position without returning visible
+        // READ_COMMITTED records, so the helper must continue scanning that offset range.
         Assertions.assertFalse(KafkaIT.shouldStopAfterEmptyReadCommittedPoll(11L, 10L, 20));
+        Assertions.assertFalse(KafkaIT.shouldStopAfterEmptyReadCommittedPoll(15L, 10L, 30));
         Assertions.assertFalse(KafkaIT.shouldStopAfterEmptyReadCommittedPoll(10L, 10L, 19));
         Assertions.assertTrue(KafkaIT.shouldStopAfterEmptyReadCommittedPoll(10L, 10L, 20));
     }
