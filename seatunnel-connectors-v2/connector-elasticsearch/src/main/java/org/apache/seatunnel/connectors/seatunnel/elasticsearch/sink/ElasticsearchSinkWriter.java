@@ -85,6 +85,12 @@ public class ElasticsearchSinkWriter
     // Whether this writer, instead of the multi-table resource manager, owns the REST client.
     private boolean ownsEsRestClient;
 
+    // Resource manager that owns the shared client injected into this multi-table writer.
+    private ElasticsearchMultiTableResourceManager multiTableResourceManager;
+
+    // Retained connection-group resource released exactly once when this writer closes.
+    private ElasticsearchMultiTableResourceManager.ClientResource multiTableClientResource;
+
     private RetryMaterial retryMaterial;
     private static final long DEFAULT_SLEEP_TIME_MS = 200L;
     private final IndexInfo indexInfo;
@@ -136,6 +142,7 @@ public class ElasticsearchSinkWriter
             throw new IllegalArgumentException(
                     "Elasticsearch multi-table writer requires ElasticsearchMultiTableResourceManager");
         }
+        releaseSharedClientResource();
         closeOwnedClient();
         ElasticsearchMultiTableResourceManager resourceManager =
                 (ElasticsearchMultiTableResourceManager) multiTableResourceManager;
@@ -144,12 +151,16 @@ public class ElasticsearchSinkWriter
                     resourceManager.getOrCreateClientResource(config);
             this.esRestClient = clientResource.getEsRestClient();
             this.clusterInfo = clientResource.getClusterInfo();
+            this.multiTableResourceManager = resourceManager;
+            this.multiTableClientResource = clientResource;
             this.ownsEsRestClient = false;
             initializeSerializer(initialRowType);
         } catch (RuntimeException | Error e) {
             // A failed injection aborts MultiTableSinkWriter construction, whose close lifecycle
             // will not run. Close every cached connection group before propagating the failure.
             resourceManager.close();
+            this.multiTableResourceManager = null;
+            this.multiTableClientResource = null;
             this.esRestClient = null;
             this.clusterInfo = null;
             throw e;
@@ -252,6 +263,7 @@ public class ElasticsearchSinkWriter
         try {
             bulkEsWithRetry(this.esRestClient, this.requestEsList);
         } finally {
+            releaseSharedClientResource();
             closeOwnedClient();
         }
     }
@@ -297,6 +309,20 @@ public class ElasticsearchSinkWriter
         if (ownsEsRestClient && esRestClient != null) {
             esRestClient.close();
             ownsEsRestClient = false;
+        }
+    }
+
+    /**
+     * Releases the shared multi-table client reference retained during resource injection.
+     *
+     * <p>The manager closes the underlying REST client only when this writer was the last active
+     * user of the connection group.
+     */
+    private void releaseSharedClientResource() {
+        if (multiTableResourceManager != null && multiTableClientResource != null) {
+            multiTableResourceManager.releaseClientResource(multiTableClientResource);
+            multiTableResourceManager = null;
+            multiTableClientResource = null;
         }
     }
 }

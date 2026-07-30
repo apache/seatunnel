@@ -62,13 +62,15 @@ class ElasticsearchMultiTableResourceManager implements MultiTableResourceManage
         List<Object> connectionKey = connectionKey(config);
         ClientResource existingResource = clientResources.get(connectionKey);
         if (existingResource != null) {
+            existingResource.retain();
             return existingResource;
         }
         EsRestClient esRestClient = null;
         try {
             esRestClient = EsRestClient.createInstance(config);
             ClientResource newResource =
-                    new ClientResource(esRestClient, esRestClient.getClusterInfo());
+                    new ClientResource(connectionKey, esRestClient, esRestClient.getClusterInfo());
+            newResource.retain();
             clientResources.put(connectionKey, newResource);
             return newResource;
         } catch (RuntimeException | Error e) {
@@ -79,6 +81,25 @@ class ElasticsearchMultiTableResourceManager implements MultiTableResourceManage
             // connection groups here so task startup retries cannot accumulate client threads.
             close();
             throw e;
+        }
+    }
+
+    /**
+     * Releases one writer's reference to a connection group and closes the client at the last user.
+     *
+     * <p>Multi-table writers can be removed independently when a table fails with
+     * CONTINUE_OTHER_TABLES. Releasing per writer prevents unique connection groups from living
+     * until the whole sink stops.
+     *
+     * @param clientResource resource previously retained by {@link #getOrCreateClientResource}
+     */
+    synchronized void releaseClientResource(ClientResource clientResource) {
+        if (!clientResources.containsKey(clientResource.getConnectionKey())) {
+            return;
+        }
+        if (clientResource.release()) {
+            clientResources.remove(clientResource.getConnectionKey());
+            clientResource.getEsRestClient().close();
         }
     }
 
@@ -141,21 +162,41 @@ class ElasticsearchMultiTableResourceManager implements MultiTableResourceManage
      */
     static final class ClientResource {
 
+        // Connection key used to remove this resource when the last writer releases it.
+        private final List<Object> connectionKey;
+
         // REST client shared by all writers in this connection group.
         private final EsRestClient esRestClient;
 
         // Cluster metadata cached once for all serializers in this connection group.
         private final ElasticsearchClusterInfo clusterInfo;
 
+        // Number of active table writers currently using this connection group.
+        private int referenceCount;
+
         /**
          * Creates one connection-group resource.
          *
+         * @param connectionKey stable connection-group key
          * @param esRestClient shared REST client
          * @param clusterInfo cluster metadata loaded through the client
          */
-        private ClientResource(EsRestClient esRestClient, ElasticsearchClusterInfo clusterInfo) {
+        private ClientResource(
+                List<Object> connectionKey,
+                EsRestClient esRestClient,
+                ElasticsearchClusterInfo clusterInfo) {
+            this.connectionKey = connectionKey;
             this.esRestClient = esRestClient;
             this.clusterInfo = clusterInfo;
+        }
+
+        /**
+         * Returns the stable connection-group key.
+         *
+         * @return connection key
+         */
+        List<Object> getConnectionKey() {
+            return connectionKey;
         }
 
         /**
@@ -174,6 +215,21 @@ class ElasticsearchMultiTableResourceManager implements MultiTableResourceManage
          */
         ElasticsearchClusterInfo getClusterInfo() {
             return clusterInfo;
+        }
+
+        /** Records one active table writer using this connection group. */
+        void retain() {
+            referenceCount++;
+        }
+
+        /**
+         * Releases one active table writer.
+         *
+         * @return true when the connection group has no remaining users
+         */
+        boolean release() {
+            referenceCount--;
+            return referenceCount == 0;
         }
     }
 }

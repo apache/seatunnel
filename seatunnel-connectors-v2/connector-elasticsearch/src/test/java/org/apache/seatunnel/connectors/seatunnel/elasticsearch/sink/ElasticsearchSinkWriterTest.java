@@ -56,7 +56,7 @@ import static org.mockito.Mockito.when;
 class ElasticsearchSinkWriterTest {
 
     /**
-     * Multi-table writers must share one client and leave its lifecycle to the resource manager.
+     * Multi-table writers must share one client and release it only after the last writer closes.
      */
     @Test
     void testMultiTableWritersShareRestClient() {
@@ -86,8 +86,10 @@ class ElasticsearchSinkWriterTest {
                     resourceManager.getSharedResource().orElseThrow(AssertionError::new));
 
             firstWriter.close();
-            secondWriter.close();
             verify(sharedClient, never()).close();
+
+            secondWriter.close();
+            verify(sharedClient, times(1)).close();
 
             resourceManager.close();
             verify(sharedClient, times(1)).close();
@@ -128,9 +130,12 @@ class ElasticsearchSinkWriterTest {
             assertFalse(resourceManager.getSharedResource().isPresent());
 
             firstWriter.close();
-            secondWriter.close();
-            verify(firstClient, never()).close();
+            verify(firstClient, times(1)).close();
             verify(secondClient, never()).close();
+
+            secondWriter.close();
+            verify(firstClient, times(1)).close();
+            verify(secondClient, times(1)).close();
 
             resourceManager.close();
             resourceManager.close();
