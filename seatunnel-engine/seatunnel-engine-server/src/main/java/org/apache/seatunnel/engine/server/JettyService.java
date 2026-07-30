@@ -42,6 +42,7 @@ import org.apache.seatunnel.engine.server.rest.servlet.OptionRulesServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.OverviewServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.PendingJobsServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.RealtimeMetricsServlet;
+import org.apache.seatunnel.engine.server.rest.servlet.RunningJobSlotUsageServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.RunningJobsServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.RunningThreadsServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.StopJobServlet;
@@ -82,6 +83,7 @@ import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_PEND
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_REALTIME_METRICS;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_RUNNING_JOB;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_RUNNING_JOBS;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_RUNNING_JOBS_SLOT_USAGE;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_RUNNING_JOBS_SUMMARY;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_RUNNING_THREADS;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_STOP_JOB;
@@ -185,6 +187,8 @@ public class JettyService {
 
         ServletHolder overviewHolder = new ServletHolder(new OverviewServlet(nodeEngine));
         ServletHolder runningJobsHolder = new ServletHolder(new RunningJobsServlet(nodeEngine));
+        ServletHolder runningJobSlotUsageHolder =
+                new ServletHolder(new RunningJobSlotUsageServlet(nodeEngine));
         ServletHolder pendingJobsHolder = new ServletHolder(new PendingJobsServlet(nodeEngine));
         ServletHolder finishedJobsHolder = new ServletHolder(new FinishedJobsServlet(nodeEngine));
         ServletHolder systemMonitoringHolder =
@@ -223,6 +227,8 @@ public class JettyService {
         context.addServlet(overviewHolder, convertUrlToPath(REST_URL_OVERVIEW));
         context.addServlet(runningJobsHolder, convertUrlToPath(REST_URL_RUNNING_JOBS));
         context.addServlet(runningJobsHolder, convertUrlToPath(REST_URL_RUNNING_JOBS_SUMMARY));
+        context.addServlet(
+                runningJobSlotUsageHolder, convertUrlToPath(REST_URL_RUNNING_JOBS_SLOT_USAGE));
         context.addServlet(pendingJobsHolder, convertUrlToPath(REST_URL_PENDING_JOBS));
         context.addServlet(finishedJobsHolder, convertUrlToPath(REST_URL_FINISHED_JOBS));
         context.addServlet(

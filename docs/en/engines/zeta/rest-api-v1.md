@@ -241,6 +241,42 @@ network:
 
 ------------------------------------------------------------------------------------------
 
+### Returns Slot Usage Of Running Jobs
+
+<details>
+ <summary><code>GET</code> <code><b>/hazelcast/rest/maps/running-jobs/slot-usage</b></code> <code>(Returns slot usage grouped by running job.)</code></summary>
+
+#### Parameters
+
+#### Responses
+
+```json
+[
+  {
+    "jobId": "733584788375093248",
+    "slotCount": 3,
+    "pipelineSlotCounts": {
+      "1": 2,
+      "2": 1
+    },
+    "workerSlotCounts": {
+      "10.0.0.8:5801": 2,
+      "10.0.0.9:5801": 1
+    }
+  }
+]
+```
+
+**Notes:**
+- `slotCount` is the number of assigned task group slots owned by the running job.
+- `pipelineSlotCounts` groups the same slot count by pipeline id.
+- `workerSlotCounts` groups the same slot count by worker address.
+- A running job that has not received any slot yet is returned with `slotCount` set to `0`.
+
+</details>
+
+------------------------------------------------------------------------------------------
+
 ### Return Details Of A Job
 
 <details>
