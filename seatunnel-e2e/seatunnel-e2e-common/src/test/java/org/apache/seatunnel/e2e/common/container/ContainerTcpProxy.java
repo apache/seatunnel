@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.e2e.common.util;
+package org.apache.seatunnel.e2e.common.container;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -32,7 +32,6 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -43,7 +42,7 @@ import java.util.concurrent.atomic.AtomicInteger;
  * binds the advertised ports to a random address in the 127.0.0.0/8 loopback range, so concurrent
  * E2E runs can use the same service ports without competing for a fixed host port.
  */
-public final class HostPortForwarder implements Closeable {
+public final class ContainerTcpProxy implements Closeable {
 
     private static final int MAX_BIND_ATTEMPTS = 100;
     private static final AtomicInteger THREAD_COUNTER = new AtomicInteger();
@@ -56,26 +55,23 @@ public final class HostPortForwarder implements Closeable {
 
     private volatile boolean closed;
 
-    private HostPortForwarder(String loopbackAddress, List<ServerSocket> serverSockets) {
+    private ContainerTcpProxy(String loopbackAddress, List<ServerSocket> serverSockets) {
         this.loopbackAddress = loopbackAddress;
         this.serverSockets = serverSockets;
         this.executor =
                 Executors.newCachedThreadPool(
-                        new ThreadFactory() {
-                            @Override
-                            public Thread newThread(Runnable runnable) {
-                                Thread thread =
-                                        new Thread(
-                                                runnable,
-                                                "host-port-forwarder-"
-                                                        + THREAD_COUNTER.incrementAndGet());
-                                thread.setDaemon(true);
-                                return thread;
-                            }
+                        runnable -> {
+                            Thread thread =
+                                    new Thread(
+                                            runnable,
+                                            "container-tcp-proxy-"
+                                                    + THREAD_COUNTER.incrementAndGet());
+                            thread.setDaemon(true);
+                            return thread;
                         });
     }
 
-    public static HostPortForwarder start(List<PortMapping> portMappings) throws IOException {
+    public static ContainerTcpProxy start(List<PortMapping> portMappings) throws IOException {
         if (portMappings.isEmpty()) {
             throw new IllegalArgumentException("At least one port mapping is required");
         }
@@ -95,9 +91,9 @@ public final class HostPortForwarder implements Closeable {
                     serverSockets.add(serverSocket);
                 }
 
-                HostPortForwarder forwarder = new HostPortForwarder(loopbackAddress, serverSockets);
-                forwarder.startAcceptors(portMappings);
-                return forwarder;
+                ContainerTcpProxy proxy = new ContainerTcpProxy(loopbackAddress, serverSockets);
+                proxy.startAcceptors(portMappings);
+                return proxy;
             } catch (IOException e) {
                 lastFailure = e;
                 closeServerSockets(serverSockets);

@@ -18,7 +18,7 @@
 
 package org.apache.seatunnel.e2e.connector.hbase;
 
-import org.apache.seatunnel.e2e.common.util.HostPortForwarder;
+import org.apache.seatunnel.e2e.common.container.ContainerTcpProxy;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HBaseConfiguration;
@@ -64,7 +64,7 @@ public class HbaseCluster {
 
     private Connection connection;
     private GenericContainer<?> hbaseContainer;
-    private HostPortForwarder hostPortForwarder;
+    private ContainerTcpProxy proxy;
 
     public Connection startService() throws IOException {
         hbaseContainer =
@@ -83,22 +83,22 @@ public class HbaseCluster {
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(DOCKER_NAME)));
         Startables.deepStart(Stream.of(hbaseContainer)).join();
 
-        hostPortForwarder =
-                HostPortForwarder.start(
+        proxy =
+                ContainerTcpProxy.start(
                         Arrays.asList(
-                                HostPortForwarder.PortMapping.of(
+                                ContainerTcpProxy.PortMapping.of(
                                         MASTER_PORT,
                                         hbaseContainer.getHost(),
                                         hbaseContainer.getMappedPort(MASTER_PORT)),
-                                HostPortForwarder.PortMapping.of(
+                                ContainerTcpProxy.PortMapping.of(
                                         REGION_PORT,
                                         hbaseContainer.getHost(),
                                         hbaseContainer.getMappedPort(REGION_PORT)),
-                                HostPortForwarder.PortMapping.of(
+                                ContainerTcpProxy.PortMapping.of(
                                         ZOOKEEPER_PORT,
                                         hbaseContainer.getHost(),
                                         hbaseContainer.getMappedPort(ZOOKEEPER_PORT))));
-        DnsCacheManipulator.setDnsCache(HOST, hostPortForwarder.getLoopbackAddress());
+        DnsCacheManipulator.setDnsCache(HOST, proxy.getLoopbackAddress());
         LOG.info("HBase container started");
 
         String zookeeperQuorum = getZookeeperQuorum();
@@ -133,13 +133,13 @@ public class HbaseCluster {
             connection.close();
         }
         DnsCacheManipulator.removeDnsCache(HOST);
-        if (Objects.nonNull(hostPortForwarder)) {
-            hostPortForwarder.close();
+        if (Objects.nonNull(proxy)) {
+            proxy.close();
         }
         if (Objects.nonNull(hbaseContainer)) {
             hbaseContainer.close();
         }
-        hostPortForwarder = null;
+        proxy = null;
         hbaseContainer = null;
     }
 

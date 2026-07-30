@@ -18,7 +18,7 @@
 package org.apache.seatunnel.e2e.connector.tidb;
 
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
-import org.apache.seatunnel.e2e.common.util.HostPortForwarder;
+import org.apache.seatunnel.e2e.common.container.ContainerTcpProxy;
 
 import org.awaitility.Awaitility;
 import org.awaitility.core.ConditionTimeoutException;
@@ -114,36 +114,30 @@ public class TiDBTestBase extends TestSuiteBase {
                     .withStartupTimeout(Duration.ofSeconds(120))
                     .withLogConsumer(new Slf4jLogConsumer(log));
 
-    private static HostPortForwarder hostPortForwarder;
-
-    public static void startContainers() throws Exception {
+    public void startContainers() throws Exception {
         log.info("Starting containers...");
         Startables.deepStart(Stream.of(PD, TIKV, TIDB)).join();
-        hostPortForwarder =
-                HostPortForwarder.start(
+        ContainerTcpProxy proxy =
+                startContainerTcpProxy(
                         Arrays.asList(
-                                HostPortForwarder.PortMapping.of(
+                                ContainerTcpProxy.PortMapping.of(
                                         PD_PORT_ORIGIN,
                                         PD.getHost(),
                                         PD.getMappedPort(PD_PORT_ORIGIN)),
-                                HostPortForwarder.PortMapping.of(
+                                ContainerTcpProxy.PortMapping.of(
                                         TIKV_PORT_ORIGIN,
                                         TIKV.getHost(),
                                         TIKV.getMappedPort(TIKV_PORT_ORIGIN))));
         // PD returns its advertised PD and TiKV addresses to clients. Resolve those Docker aliases
-        // to the isolated host forwarder in this JVM while containers keep using Docker DNS.
-        DnsCacheManipulator.setDnsCache(PD_SERVICE_NAME, hostPortForwarder.getLoopbackAddress());
-        DnsCacheManipulator.setDnsCache(TIKV_SERVICE_NAME, hostPortForwarder.getLoopbackAddress());
+        // to the isolated TCP proxy in this JVM while containers keep using Docker DNS.
+        DnsCacheManipulator.setDnsCache(PD_SERVICE_NAME, proxy.getLoopbackAddress());
+        DnsCacheManipulator.setDnsCache(TIKV_SERVICE_NAME, proxy.getLoopbackAddress());
         log.info("Containers are started.");
     }
 
     public static void stopContainers() {
         DnsCacheManipulator.removeDnsCache(PD_SERVICE_NAME);
         DnsCacheManipulator.removeDnsCache(TIKV_SERVICE_NAME);
-        if (hostPortForwarder != null) {
-            hostPortForwarder.close();
-            hostPortForwarder = null;
-        }
         Stream.of(TIKV, PD, TIDB).forEach(GenericContainer::stop);
     }
 

@@ -29,8 +29,8 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisContainerInfo;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.ContainerTcpProxy;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
-import org.apache.seatunnel.e2e.common.util.HostPortForwarder;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
 
 import org.junit.jupiter.api.AfterAll;
@@ -74,8 +74,6 @@ public class RedisClusterIT extends TestSuiteBase implements TestResource {
 
     private GenericContainer<?>[] redisClusterNodes;
     private JedisCluster jedisCluster;
-    private HostPortForwarder hostPortForwarder;
-
     private RedisContainerInfo redisContainerInfo =
             new RedisContainerInfo("redis-cluster-e2e", 6379, "SeaTunnel", "redis:7");
 
@@ -129,18 +127,17 @@ public class RedisClusterIT extends TestSuiteBase implements TestResource {
         }
 
         Startables.deepStart(Stream.of(redisClusterNodes)).join();
-        List<HostPortForwarder.PortMapping> portMappings = new ArrayList<>();
+        List<ContainerTcpProxy.PortMapping> portMappings = new ArrayList<>();
         for (int i = 0; i < REDIS_CLUSTER_SIZE; i++) {
             portMappings.add(
-                    HostPortForwarder.PortMapping.of(
+                    ContainerTcpProxy.PortMapping.of(
                             REDIS_PORTS[i],
                             redisClusterNodes[i].getHost(),
                             redisClusterNodes[i].getMappedPort(REDIS_PORTS[i])));
         }
-        hostPortForwarder = HostPortForwarder.start(portMappings);
+        ContainerTcpProxy proxy = startContainerTcpProxy(portMappings);
         for (int i = 0; i < REDIS_CLUSTER_SIZE; i++) {
-            DnsCacheManipulator.setDnsCache(
-                    "redis-cluster-" + i, hostPortForwarder.getLoopbackAddress());
+            DnsCacheManipulator.setDnsCache("redis-cluster-" + i, proxy.getLoopbackAddress());
         }
         log.info("Redis cluster nodes started with ports: {}", Arrays.toString(REDIS_PORTS));
     }
@@ -320,10 +317,6 @@ public class RedisClusterIT extends TestSuiteBase implements TestResource {
         }
         for (int i = 0; i < REDIS_CLUSTER_SIZE; i++) {
             DnsCacheManipulator.removeDnsCache("redis-cluster-" + i);
-        }
-        if (hostPortForwarder != null) {
-            hostPortForwarder.close();
-            hostPortForwarder = null;
         }
     }
 
