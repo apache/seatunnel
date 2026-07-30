@@ -263,7 +263,7 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
                                     return container.executeJob(
                                             "/text/ftp_binary_update_distcp_continuous.conf",
                                             jobId,
-                                            "ftpHost=" + ftpPassiveAddress);
+                                            "ftpHost=" + FTP_CONTAINER_HOST);
                                 } catch (Exception e) {
                                     throw new RuntimeException(e);
                                 }
@@ -327,7 +327,7 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
                                     return container.executeJob(
                                             "/text/ftp_binary_update_distcp_continuous_post_sync_delete.conf",
                                             jobId,
-                                            "ftpHost=" + ftpPassiveAddress);
+                                            "ftpHost=" + FTP_CONTAINER_HOST);
                                 } catch (Exception e) {
                                     throw new RuntimeException(e);
                                 }
@@ -383,7 +383,7 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
                                     return container.executeJob(
                                             "/text/ftp_binary_update_distcp_continuous_post_sync_backup.conf",
                                             jobId,
-                                            "ftpHost=" + ftpPassiveAddress);
+                                            "ftpHost=" + FTP_CONTAINER_HOST);
                                 } catch (Exception e) {
                                     throw new RuntimeException(e);
                                 }
@@ -455,7 +455,7 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
                                     return container.executeJob(
                                             "/text/ftp_binary_update_distcp_continuous_post_sync_backup_retention.conf",
                                             jobId,
-                                            "ftpHost=" + ftpPassiveAddress);
+                                            "ftpHost=" + FTP_CONTAINER_HOST);
                                 } catch (Exception e) {
                                     throw new RuntimeException(e);
                                 }
@@ -504,7 +504,7 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
                                     return container.executeJob(
                                             "/text/ftp_binary_update_distcp_continuous_non_recursive.conf",
                                             jobId,
-                                            "ftpHost=" + ftpPassiveAddress);
+                                            "ftpHost=" + FTP_CONTAINER_HOST);
                                 } catch (Exception e) {
                                     throw new RuntimeException(e);
                                 }
