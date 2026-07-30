@@ -184,6 +184,7 @@ public class PythonSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> 
         try {
             checkPumpFailures();
 
+            boolean stdoutQueueWasFull = stdoutLines.remainingCapacity() == 0;
             String firstLine = stdoutLines.poll(STDOUT_POLL_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
             if (closeRequested) {
                 return;
@@ -211,6 +212,9 @@ public class PythonSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> 
                 }
             }
 
+            if (stdoutQueueWasFull) {
+                stdoutCloseDeadlineNanos = 0L;
+            }
             if (!closeRequested) {
                 finishIfProcessCompleted();
             }
@@ -245,7 +249,18 @@ public class PythonSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> 
             }
 
             closeException = joinThread(stdinWriterThread, "stdin writer", closeException);
-            closeException = joinThread(stdoutPumpThread, "stdout pump", closeException);
+            boolean inheritedStdoutClose = stdoutCloseDeadlineNanos != 0L;
+            long stdoutJoinTimeoutMillis =
+                    inheritedStdoutClose
+                            ? PROCESS_EXIT_CHECK_TIMEOUT_MILLIS
+                            : TimeUnit.SECONDS.toMillis(PROCESS_DESTROY_TIMEOUT_SECONDS);
+            closeException =
+                    joinThread(
+                            stdoutPumpThread,
+                            "stdout pump",
+                            closeException,
+                            stdoutJoinTimeoutMillis,
+                            !inheritedStdoutClose);
             closeException = joinThread(stderrPumpThread, "stderr pump", closeException);
         } finally {
             synchronized (lifecycleLock) {
@@ -634,6 +649,24 @@ public class PythonSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> 
     }
 
     private IOException joinThread(Thread thread, String threadName, IOException closeException) {
+        return joinThread(
+                thread,
+                threadName,
+                closeException,
+                TimeUnit.SECONDS.toMillis(PROCESS_DESTROY_TIMEOUT_SECONDS));
+    }
+
+    private IOException joinThread(
+            Thread thread, String threadName, IOException closeException, long timeoutMillis) {
+        return joinThread(thread, threadName, closeException, timeoutMillis, true);
+    }
+
+    private IOException joinThread(
+            Thread thread,
+            String threadName,
+            IOException closeException,
+            long timeoutMillis,
+            boolean failOnTimeout) {
         if (thread == null) {
             return closeException;
         }
@@ -642,14 +675,14 @@ public class PythonSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> 
             thread.interrupt();
         }
         try {
-            thread.join(TimeUnit.SECONDS.toMillis(PROCESS_DESTROY_TIMEOUT_SECONDS));
+            thread.join(timeoutMillis);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             if (closeException == null) {
                 return new IOException("Interrupted while closing python source " + threadName, e);
             }
         }
-        if (thread.isAlive() && closeException == null) {
+        if (failOnTimeout && thread.isAlive() && closeException == null) {
             return new IOException("Timed out while closing python source " + threadName);
         }
         return closeException;
