@@ -82,6 +82,22 @@ public class ArrowToSeatunnelRowReader implements AutoCloseable {
         initArrowReader(byteArray);
     }
 
+    /**
+     * Creates a reader with prebuilt Arrow resources.
+     *
+     * <p>The constructor keeps close-order regression tests focused on resource ownership while
+     * preserving the production byte-array constructor as the normal entry point.
+     */
+    ArrowToSeatunnelRowReader(
+            ArrowStreamReader arrowStreamReader,
+            RootAllocator rootAllocator,
+            SeaTunnelRowType seaTunnelRowType) {
+        this.seaTunnelDataTypes = seaTunnelRowType.getFieldTypes();
+        initFieldIndexMap(seaTunnelRowType);
+        this.arrowStreamReader = arrowStreamReader;
+        this.rootAllocator = rootAllocator;
+    }
+
     private void initFieldIndexMap(SeaTunnelRowType seaTunnelRowType) {
         for (int i = 0; i < seaTunnelRowType.getFieldNames().length; i++) {
             fieldIndexMap.put(seaTunnelRowType.getFieldNames()[i], i);
@@ -319,6 +335,7 @@ public class ArrowToSeatunnelRowReader implements AutoCloseable {
 
     @Override
     public void close() {
+        RuntimeException closeException = null;
         try {
             // ArrowStreamReader must be closed before RootAllocator.
             // ArrowStreamReader internally closes VectorSchemaRoot and releases all Arrow
@@ -328,11 +345,23 @@ public class ArrowToSeatunnelRowReader implements AutoCloseable {
             if (arrowStreamReader != null) {
                 arrowStreamReader.close();
             }
-            if (rootAllocator != null) {
-                rootAllocator.close();
-            }
         } catch (IOException e) {
-            throw new RuntimeException("failed to close arrow stream reader.", e);
+            closeException = new RuntimeException("failed to close arrow stream reader.", e);
+        } finally {
+            try {
+                if (rootAllocator != null) {
+                    rootAllocator.close();
+                }
+            } catch (RuntimeException e) {
+                if (closeException == null) {
+                    closeException = e;
+                } else {
+                    closeException.addSuppressed(e);
+                }
+            }
+        }
+        if (closeException != null) {
+            throw closeException;
         }
     }
 }
