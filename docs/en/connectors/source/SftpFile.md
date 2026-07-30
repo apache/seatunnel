@@ -119,6 +119,10 @@ The File does not have a specific type list, and we can indicate which SeaTunnel
 | compare_mode               | string  | no       | len_mtime                     | Only used when `sync_mode=update`. Supported values: `len_mtime` (default), `checksum` (only valid when `update_strategy=strict`).                                                                                                                                                                                              |
 | update_compare_parallelism | int     | no       | 8                             | Maximum parallelism for sparse target metadata lookups. Valid range: `1-64`.                                                                                                                                                                                                                                                   |
 | update_compare_bulk_threshold | int  | no       | 0                             | A positive value switches comparison to one directory listing when the candidate count under one target parent reaches the threshold. `0` disables automatic bulk listing.                                                                                                                                                     |
+| post_sync_action           | string  | no       | none                          | Post-sync action in `discovery_mode=continuous`. Supported values: `none` (default), `delete`, `backup`.                                                                                                                                                                                                                        |
+| backup_path                | string  | no       | -                             | Backup destination base path when `post_sync_action=backup`. It must not overlap with `path`.                                                                                                                                                                                                                                   |
+| retention_max_age          | string  | no       | -                             | Optional retention age for SeaTunnel backup files in `backup_path`, only valid when `post_sync_action=backup`.                                                                                                                                                                                                                  |
+| retention_check_interval   | string  | no       | 1H                            | Retention scan interval, only effective when `post_sync_action=backup` and `retention_max_age` is configured.                                                                                                                                                                                                                   |
 | common-options             |         | No       | -                             | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details.                                                                                                                                                                                                                                                              |
 | file_filter_modified_start | string  | no       | -                             | File modification time filter. The connector will filter some files base on the last modification start time (include start time). The default data format is `yyyy-MM-dd HH:mm:ss`.                                                                                                                                                                                            |
 | file_filter_modified_end   | string  | no       | -                             | File modification time filter. The connector will filter some files base on the last modification end time (not include end time). The default data format is `yyyy-MM-dd HH:mm:ss`.                                                                                                                                                                                            |
@@ -395,6 +399,41 @@ Maximum parallelism for sparse target metadata lookups in `sync_mode=update`. Th
 
 A positive value switches comparison to one directory listing when the candidate count under a target parent reaches the threshold. The default `0` disables automatic bulk listing and uses bounded point lookups, avoiding an unexpectedly expensive target directory scan. This behavior applies to all target filesystems. Source filters are applied while entries are listed to reduce peak metadata memory. A flat SFTP directory must still return all entries because SFTP `READDIR` has no server-side modification-time filter.
 
+### post_sync_action [string]
+
+Only used when `discovery_mode=continuous`. Supported values: `none` (default), `delete`, `backup`. In `discovery_mode=once`, setting `post_sync_action=delete` or `post_sync_action=backup` is rejected during config validation.
+
+- `none`: default behavior, no source-side file operation.
+- `delete`: delete processed source files after `notifyCheckpointComplete`; failed operations are retried on later checkpoints.
+- `backup`: move processed source files to `backup_path` after `notifyCheckpointComplete`; failed operations are retried on later checkpoints.
+
+Before `delete` or `backup`, SeaTunnel renames the source file to a staging/trash path first, then re-checks the file length and modification time. If the version differs after the rename, the file is restored so the next scan can re-discover the changed version.
+
+**mtime granularity limitation**: SFTP mtime resolution is typically 1 second. The act-then-verify approach narrows but cannot fully eliminate the race window if a same-second, same-length modification occurs. For maximum safety, ensure no concurrent writers are active during post-sync processing, or use `backup` instead of `delete` so the file is recoverable.
+
+**Security note**: When using `post_sync_action=delete` or `backup` with SFTP, use a dedicated least-privilege account that only has DELETE/RENAME permission on the watched directory. This feature requires write/delete permissions that increase the blast radius of a credential compromise.
+
+### backup_path [string]
+
+Only used when `post_sync_action=backup`. Processed files are moved to this base path after checkpoint-complete commit, and destination file names include source version suffix to avoid overwrite collision. Phase-1 only supports backup on the same filesystem as `path` (same scheme and authority); cross-filesystem backup is rejected.
+
+`backup_path` must not be the same as `path`, must not be under `path`, and `path` must not be under `backup_path`. Use a dedicated backup directory because retention only manages files created by SeaTunnel with the version suffix.
+
+### retention_max_age [string]
+
+Optional retention policy for `backup_path`. SeaTunnel backup files older than this age are cleaned up during checkpoint-complete retention scans.
+Only valid when `post_sync_action=backup`.
+
+Supported duration formats are shorthand values with `MS`, `S`, `M`, `H`, or `D` suffixes, such as `500MS`, `30S`, `10M`, `12H`, `7D`, and ISO-8601 durations such as `PT1H30M`.
+
+Duration suffixes are case-insensitive: `MS` (milliseconds), `S` (seconds), `M` (minutes), `H` (hours), `D` (days). `M` always means minutes, never months. Invalid values (e.g., `PT7D`, `P1M`) fail config validation with an error.
+
+### retention_check_interval [string]
+
+Retention scan interval, default `1H`. Cleanup runs at most once per interval when `post_sync_action=backup` and `retention_max_age` is configured. Setting `retention_check_interval` without `retention_max_age` has no effect.
+
+Duration suffixes are case-insensitive: `MS`, `S`, `M`, `H`, `D`. `M` always means minutes, never months. Invalid values fail config validation with an error.
+
 ### quote_char [string]
 
 A single character that encloses CSV fields, allowing fields with commas, line breaks, or quotes to be read correctly.
@@ -638,6 +677,11 @@ source {
     target_path = "tmp/seatunnel/watch/dst"
     update_strategy = "distcp"
     compare_mode = "len_mtime"
+
+    post_sync_action = "backup"
+    backup_path = "tmp/seatunnel/watch/backup"
+    retention_max_age = "7D"
+    retention_check_interval = "1H"
   }
 }
 
