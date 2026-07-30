@@ -57,9 +57,12 @@ public class SQLMultiCatalogFlatMapTransform extends AbstractMultiCatalogFlatMap
             return RowErrorClassification.SYSTEM_ERROR;
         }
         if (transformException.getSeaTunnelErrorCode()
-                        == TransformCommonErrorCode.EXPRESSION_EXECUTE_ERROR
-                || transformException.getSeaTunnelErrorCode()
-                        == TransformCommonErrorCode.WHERE_STATEMENT_ERROR) {
+                == TransformCommonErrorCode.EXPRESSION_EXECUTE_ERROR) {
+            return RowErrorClassification.ROW_ERROR;
+        }
+        if (transformException.getSeaTunnelErrorCode()
+                        == TransformCommonErrorCode.WHERE_STATEMENT_ERROR
+                && !SQLTransform.hasUnsupportedOperationCause(transformException)) {
             return RowErrorClassification.ROW_ERROR;
         }
         return RowErrorClassification.SYSTEM_ERROR;

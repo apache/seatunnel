@@ -35,4 +35,15 @@ public interface MultiTableRowErrorHandler {
      */
     boolean handleRowError(
             SinkWriter<SeaTunnelRow, ?, ?> writer, String tableId, SeaTunnelRow row, Throwable t);
+
+    /**
+     * Consumes a terminal row-error outcome that a sub-writer reported internally while returning
+     * normally from write.
+     *
+     * @return true when the row already has an error terminal outcome and must not be counted as a
+     *     successful write
+     */
+    default boolean consumeCollectedRowErrorOutcome(SeaTunnelRow row) {
+        return false;
+    }
 }

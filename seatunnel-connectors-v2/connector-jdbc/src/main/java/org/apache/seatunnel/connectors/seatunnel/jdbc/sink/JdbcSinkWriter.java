@@ -212,7 +212,7 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
                 try {
                     pendingRows.add(element);
                     boolean autoFlushed = outputFormat.writeRecordWithAutoFlush(element);
-                    clearPendingRowsIfAutoFlushed(autoFlushed);
+                    clearPendingRowsIfCommitted(autoFlushed);
                 } catch (Throwable e) {
                     if (!isRowLevelDataError(e)) {
                         throwAsIoException(e);
@@ -361,11 +361,11 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
         }
     }
 
-    private void clearPendingRowsIfAutoFlushed(boolean autoFlushed) {
+    private void clearPendingRowsIfCommitted(boolean autoFlushed) {
         if (pendingRows == null) {
             return;
         }
-        if (autoFlushed) {
+        if (autoFlushed && jdbcSinkConfig.getJdbcConnectionConfig().isAutoCommit()) {
             pendingRows.clear();
         }
     }

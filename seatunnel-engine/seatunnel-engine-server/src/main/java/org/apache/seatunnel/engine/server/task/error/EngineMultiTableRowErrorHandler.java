@@ -35,12 +35,13 @@ public class EngineMultiTableRowErrorHandler implements MultiTableRowErrorHandle
     private final RowErrorClassifier<SeaTunnelRow> rowErrorClassifier;
     private final String pluginName;
     private final BiConsumer<SeaTunnelRow, ErrorHandlingSinkWriter.WriteOutcome> outcomeConsumer;
+    private final EngineRowErrorCollector rowErrorCollector;
 
     public EngineMultiTableRowErrorHandler(
             ErrorHandler<SeaTunnelRow> errorHandler,
             RowErrorClassifier<SeaTunnelRow> rowErrorClassifier,
             String pluginName) {
-        this(errorHandler, rowErrorClassifier, pluginName, (row, outcome) -> {});
+        this(errorHandler, rowErrorClassifier, pluginName, (row, outcome) -> {}, null);
     }
 
     public EngineMultiTableRowErrorHandler(
@@ -48,10 +49,20 @@ public class EngineMultiTableRowErrorHandler implements MultiTableRowErrorHandle
             RowErrorClassifier<SeaTunnelRow> rowErrorClassifier,
             String pluginName,
             BiConsumer<SeaTunnelRow, ErrorHandlingSinkWriter.WriteOutcome> outcomeConsumer) {
+        this(errorHandler, rowErrorClassifier, pluginName, outcomeConsumer, null);
+    }
+
+    public EngineMultiTableRowErrorHandler(
+            ErrorHandler<SeaTunnelRow> errorHandler,
+            RowErrorClassifier<SeaTunnelRow> rowErrorClassifier,
+            String pluginName,
+            BiConsumer<SeaTunnelRow, ErrorHandlingSinkWriter.WriteOutcome> outcomeConsumer,
+            EngineRowErrorCollector rowErrorCollector) {
         this.errorHandler = errorHandler;
         this.rowErrorClassifier = rowErrorClassifier;
         this.pluginName = pluginName;
         this.outcomeConsumer = outcomeConsumer;
+        this.rowErrorCollector = rowErrorCollector;
     }
 
     @Override
@@ -82,6 +93,26 @@ public class EngineMultiTableRowErrorHandler implements MultiTableRowErrorHandle
         ErrorHandler.ErrorHandleResult result = errorHandler.onError(ctx, row, t);
         outcomeConsumer.accept(row, ErrorHandlingSinkWriter.toWriteOutcome(result));
         return true;
+    }
+
+    @Override
+    public boolean consumeCollectedRowErrorOutcome(SeaTunnelRow row) {
+        if (rowErrorCollector == null) {
+            return false;
+        }
+        return rowErrorCollector
+                .consumeTerminalOutcome(row)
+                .map(
+                        outcome -> {
+                            if (!outcome.isRecorded()) {
+                                outcomeConsumer.accept(
+                                        outcome.getRow(),
+                                        ErrorHandlingSinkWriter.toWriteOutcome(
+                                                outcome.getResult()));
+                            }
+                            return true;
+                        })
+                .orElse(false);
     }
 
     private boolean isRowError(

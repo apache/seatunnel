@@ -448,7 +448,10 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                             rowHandler,
                             rowClassifier,
                             pluginName,
-                            this::recordTerminalWriteOutcome));
+                            this::recordTerminalWriteOutcome,
+                            stageRowErrorCollector instanceof EngineRowErrorCollector
+                                    ? (EngineRowErrorCollector) stageRowErrorCollector
+                                    : null));
         }
 
         ErrorHandlingSinkWriter<T, CommitInfoT, StateT> errorHandlingWriter =
@@ -623,7 +626,8 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
             return false;
         }
         List<EngineRowErrorCollector.CollectedRowErrorOutcome> outcomes =
-                ((EngineRowErrorCollector) stageRowErrorCollector).drainTerminalOutcomes();
+                ((EngineRowErrorCollector) stageRowErrorCollector)
+                        .drainTerminalOutcomes(multiTableTerminalOutcomeCallbackEnabled);
         boolean currentRowAlreadyResolved = false;
         for (EngineRowErrorCollector.CollectedRowErrorOutcome outcome : outcomes) {
             if (outcome.getRow() == currentData) {
@@ -723,7 +727,6 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
     private void processCheckpointBarrier(Barrier barrier) throws IOException {
         boolean metricsEnabled = runningTask != null && runningTask.isObservabilityEnabled();
         long startTime = System.currentTimeMillis();
-        connectorMetricsCalcContext.sealCheckpointMetrics(barrier.getId());
         if (barrier.prepareClose(this.taskLocation)) {
             prepareClose = true;
         }
@@ -734,6 +737,7 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                 lastCommitInfo = writer.prepareCommit(barrier.getId());
                 drainCollectedTerminalWriteOutcomes();
                 flushDeferredTerminalWriteOutcomes();
+                connectorMetricsCalcContext.sealCheckpointMetrics(barrier.getId());
                 prepared = true;
                 if (metricsEnabled) {
                     sinkPrepareCommitNs.inc(System.nanoTime() - prepareStartNs);

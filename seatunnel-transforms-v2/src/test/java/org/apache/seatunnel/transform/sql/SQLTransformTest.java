@@ -30,6 +30,7 @@ import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.transform.exception.TransformCommonError;
 import org.apache.seatunnel.transform.exception.TransformException;
 
@@ -131,6 +132,15 @@ public class SQLTransformTest {
                 RowErrorClassification.SYSTEM_ERROR,
                 sqlTransform.classifyRowError(
                         TransformCommonError.encryptionError("name", new RuntimeException("error")),
+                        row));
+        Assertions.assertEquals(
+                RowErrorClassification.SYSTEM_ERROR,
+                sqlTransform.classifyRowError(
+                        TransformCommonError.sqlWhereStatementError(
+                                "id BETWEEN 1 AND 5",
+                                new TransformException(
+                                        CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                                        "Unsupported SQL Expression")),
                         row));
         Assertions.assertEquals(
                 RowErrorClassification.SYSTEM_ERROR,

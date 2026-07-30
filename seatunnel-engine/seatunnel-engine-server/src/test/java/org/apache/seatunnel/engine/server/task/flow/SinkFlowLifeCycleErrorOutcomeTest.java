@@ -32,6 +32,7 @@ import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.context.SinkWriterContext;
+import org.apache.seatunnel.engine.server.task.error.EngineMultiTableRowErrorHandler;
 import org.apache.seatunnel.engine.server.task.error.EngineRowErrorCollector;
 import org.apache.seatunnel.engine.server.task.error.ErrorHandler;
 import org.apache.seatunnel.engine.server.task.error.ErrorHandlerMode;
@@ -53,6 +54,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_ERROR_RECORDS_DROPPED;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_ERROR_RECORDS_ROUTED;
@@ -246,6 +248,55 @@ class SinkFlowLifeCycleErrorOutcomeTest {
         Assertions.assertEquals(0L, metrics.counter(SINK_ERROR_RECORDS_ROUTED + "#7").getCount());
         Assertions.assertTrue(hasStage(row, StainTraceStage.SINK_WRITE_DONE));
         Assertions.assertFalse(hasStage(row, StainTraceStage.SINK_ERROR_ROUTED));
+    }
+
+    @Test
+    void multiTableHandlerConsumesPendingCollectorOutcomeBeforeSuccess() {
+        ErrorHandler<SeaTunnelRow> handler =
+                new ErrorHandler<>(
+                        StageErrorConfig.builder().mode(ErrorHandlerMode.ROUTE).build(),
+                        new NoopErrorSinkWriter());
+        EngineRowErrorCollector collector = new EngineRowErrorCollector(handler, "test");
+        AtomicInteger outcomes = new AtomicInteger();
+        EngineMultiTableRowErrorHandler multiTableHandler =
+                new EngineMultiTableRowErrorHandler(
+                        handler,
+                        null,
+                        "test",
+                        (row, outcome) -> outcomes.incrementAndGet(),
+                        collector);
+        SeaTunnelRow row = tracedRow();
+
+        collector.collect(new RowErrorEvent(RowErrorPhase.WRITE, null, row, new IOException()));
+
+        Assertions.assertTrue(multiTableHandler.consumeCollectedRowErrorOutcome(row));
+        Assertions.assertEquals(1, outcomes.get());
+        Assertions.assertTrue(collector.drainTerminalOutcomes(true).isEmpty());
+    }
+
+    @Test
+    void multiTableHandlerConsumesAlreadyRecordedCollectorOutcomeBeforeSuccess() {
+        ErrorHandler<SeaTunnelRow> handler =
+                new ErrorHandler<>(
+                        StageErrorConfig.builder().mode(ErrorHandlerMode.ROUTE).build(),
+                        new NoopErrorSinkWriter());
+        EngineRowErrorCollector collector = new EngineRowErrorCollector(handler, "test");
+        AtomicInteger outcomes = new AtomicInteger();
+        EngineMultiTableRowErrorHandler multiTableHandler =
+                new EngineMultiTableRowErrorHandler(
+                        handler,
+                        null,
+                        "test",
+                        (row, outcome) -> outcomes.incrementAndGet(),
+                        collector);
+        SeaTunnelRow row = tracedRow();
+
+        collector.collect(new RowErrorEvent(RowErrorPhase.WRITE, null, row, new IOException()));
+        Assertions.assertEquals(1, collector.drainTerminalOutcomes(true).size());
+
+        Assertions.assertTrue(multiTableHandler.consumeCollectedRowErrorOutcome(row));
+        Assertions.assertEquals(0, outcomes.get());
+        Assertions.assertFalse(multiTableHandler.consumeCollectedRowErrorOutcome(row));
     }
 
     @SuppressWarnings("unchecked")

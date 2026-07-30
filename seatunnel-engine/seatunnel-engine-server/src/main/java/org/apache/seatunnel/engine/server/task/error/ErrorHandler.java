@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.engine.server.task.error;
 
+import org.apache.seatunnel.api.common.error.RowErrorHandlingFatalException;
+
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
@@ -170,7 +172,7 @@ public class ErrorHandler<T> implements Serializable, AutoCloseable {
                         ctx.getStage(),
                         ctx.getPluginName(),
                         sinkEx);
-                throw new RuntimeException(
+                throw new RowErrorHandlingFatalException(
                         String.format(
                                 "Error sink failed for stage [%s], plugin [%s]",
                                 ctx.getStage(), ctx.getPluginName()),
@@ -184,7 +186,7 @@ public class ErrorHandler<T> implements Serializable, AutoCloseable {
 
     private void maybeThrowOnThreshold(RowErrorContext ctx, long currentErrorCount) {
         if (config.getMaxErrorRecords() > 0 && currentErrorCount > config.getMaxErrorRecords()) {
-            throw new RuntimeException(
+            throw new RowErrorHandlingFatalException(
                     String.format(
                             "Too many row-level errors in stage [%s], plugin [%s]: %d records exceeded max_error_records=%d",
                             stageName(ctx),
@@ -204,7 +206,7 @@ public class ErrorHandler<T> implements Serializable, AutoCloseable {
         if (config.getMaxErrorRatio() > 0 && total >= minTotalForRatio) {
             double ratio = (double) currentErrorCount / (double) total;
             if (ratio > config.getMaxErrorRatio()) {
-                throw new RuntimeException(
+                throw new RowErrorHandlingFatalException(
                         String.format(
                                 "Row-level error ratio in stage [%s], plugin [%s] exceeded max_error_ratio=%.4f (current=%.4f, errors=%d, total=%d)",
                                 stageName(ctx),

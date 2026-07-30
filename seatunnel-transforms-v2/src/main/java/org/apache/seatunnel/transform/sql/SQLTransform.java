@@ -35,6 +35,8 @@ import org.apache.seatunnel.api.table.schema.handler.AlterTableSchemaEventHandle
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.transform.common.AbstractCatalogSupportFlatMapTransform;
 import org.apache.seatunnel.transform.exception.TransformCommonErrorCode;
 import org.apache.seatunnel.transform.exception.TransformException;
@@ -125,12 +127,28 @@ public class SQLTransform extends AbstractCatalogSupportFlatMapTransform
             return RowErrorClassification.SYSTEM_ERROR;
         }
         if (transformException.getSeaTunnelErrorCode()
-                        == TransformCommonErrorCode.EXPRESSION_EXECUTE_ERROR
-                || transformException.getSeaTunnelErrorCode()
-                        == TransformCommonErrorCode.WHERE_STATEMENT_ERROR) {
+                == TransformCommonErrorCode.EXPRESSION_EXECUTE_ERROR) {
+            return RowErrorClassification.ROW_ERROR;
+        }
+        if (transformException.getSeaTunnelErrorCode()
+                        == TransformCommonErrorCode.WHERE_STATEMENT_ERROR
+                && !hasUnsupportedOperationCause(transformException)) {
             return RowErrorClassification.ROW_ERROR;
         }
         return RowErrorClassification.SYSTEM_ERROR;
+    }
+
+    static boolean hasUnsupportedOperationCause(Throwable t) {
+        Throwable current = t.getCause();
+        while (current != null) {
+            if (current instanceof SeaTunnelRuntimeException
+                    && ((SeaTunnelRuntimeException) current).getSeaTunnelErrorCode()
+                            == CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 
     private TransformException findTransformException(Throwable t) {

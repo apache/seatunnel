@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.api.sink.multitablesink;
 
+import org.apache.seatunnel.api.common.error.RowErrorHandlingFatalException;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
@@ -128,7 +129,9 @@ public class MultiTableWriterRunnable implements Runnable {
                     }
                     try {
                         writeWithRetry(writer, row, currentTableId);
-                        writeSuccessHandler.accept(row);
+                        if (!consumeCollectedRowErrorOutcome(row)) {
+                            writeSuccessHandler.accept(row);
+                        }
                         processingRow = false;
                     } catch (InterruptedException e) {
                         processingRow = false;
@@ -187,6 +190,9 @@ public class MultiTableWriterRunnable implements Runnable {
     private boolean tryHandleRowError(
             SinkWriter<SeaTunnelRow, ?, ?> writer, SeaTunnelRow row, Throwable error)
             throws Throwable {
+        if (containsFatalRowErrorHandlingFailure(error)) {
+            throw error;
+        }
         if (row == null || rowErrorHandler == null || writer == null) {
             return false;
         }
@@ -208,6 +214,10 @@ public class MultiTableWriterRunnable implements Runnable {
 
     private TableFailure handleWriteFailure(SeaTunnelRow row, Throwable error) {
         log.error(String.format("MultiTableWriterRunnable error when write row %s", row), error);
+        if (containsFatalRowErrorHandlingFailure(error)) {
+            throwable = error;
+            return null;
+        }
         String failedTableId =
                 currentTableId != null ? currentTableId : row == null ? null : row.getTableId();
         if (continueOnTableFailure && failedTableId != null && !failedTableId.trim().isEmpty()) {
@@ -218,6 +228,21 @@ public class MultiTableWriterRunnable implements Runnable {
         }
         throwable = error;
         return null;
+    }
+
+    private boolean consumeCollectedRowErrorOutcome(SeaTunnelRow row) {
+        return rowErrorHandler != null && rowErrorHandler.consumeCollectedRowErrorOutcome(row);
+    }
+
+    private boolean containsFatalRowErrorHandlingFailure(Throwable error) {
+        Throwable current = error;
+        while (current != null) {
+            if (current instanceof RowErrorHandlingFatalException) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 
     private boolean notifyTableFailure(TableFailure tableFailure) {

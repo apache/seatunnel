@@ -65,19 +65,27 @@ class JdbcSinkWriterTest {
     }
 
     @Test
-    void testPendingRowsAreClearedAfterIntervalAutoFlush() throws Exception {
-        JdbcSinkWriter writer = createWriterWithRowErrorCollector();
+    void testPendingRowsAreClearedAfterAutoCommitAutoFlush() throws Exception {
+        JdbcSinkWriter writer = createWriterWithRowErrorCollector(true);
         List<SeaTunnelRow> pendingRows = new ArrayList<>();
         pendingRows.add(new SeaTunnelRow(new Object[] {1}));
         setPendingRows(writer, pendingRows);
 
-        Method method =
-                JdbcSinkWriter.class.getDeclaredMethod(
-                        "clearPendingRowsIfAutoFlushed", boolean.class);
-        method.setAccessible(true);
-        method.invoke(writer, true);
+        invokeClearPendingRowsIfCommitted(writer, true);
 
         Assertions.assertTrue(getPendingRows(writer).isEmpty());
+    }
+
+    @Test
+    void testPendingRowsAreRetainedAfterTransactionalAutoFlush() throws Exception {
+        JdbcSinkWriter writer = createWriterWithRowErrorCollector(false);
+        List<SeaTunnelRow> pendingRows = new ArrayList<>();
+        pendingRows.add(new SeaTunnelRow(new Object[] {1}));
+        setPendingRows(writer, pendingRows);
+
+        invokeClearPendingRowsIfCommitted(writer, true);
+
+        Assertions.assertEquals(1, getPendingRows(writer).size());
     }
 
     /** Verifies that Xugu pools use a validation query compatible with the driver. */
@@ -114,9 +122,9 @@ class JdbcSinkWriterTest {
         dataSource.close();
     }
 
-    private static JdbcSinkWriter createWriterWithRowErrorCollector() {
+    private static JdbcSinkWriter createWriterWithRowErrorCollector(boolean autoCommit) {
         JdbcConnectionConfig connectionConfig =
-                JdbcConnectionConfig.builder().batchSize(100).autoCommit(true).build();
+                JdbcConnectionConfig.builder().batchSize(100).autoCommit(autoCommit).build();
         JdbcSinkConfig sinkConfig =
                 JdbcSinkConfig.builder()
                         .jdbcConnectionConfig(connectionConfig)
@@ -145,6 +153,15 @@ class JdbcSinkWriterTest {
                 schema,
                 schema,
                 null);
+    }
+
+    private static void invokeClearPendingRowsIfCommitted(
+            JdbcSinkWriter writer, boolean autoFlushed) throws Exception {
+        Method method =
+                JdbcSinkWriter.class.getDeclaredMethod(
+                        "clearPendingRowsIfCommitted", boolean.class);
+        method.setAccessible(true);
+        method.invoke(writer, autoFlushed);
     }
 
     private static void setPendingRows(JdbcSinkWriter writer, List<SeaTunnelRow> pendingRows)
