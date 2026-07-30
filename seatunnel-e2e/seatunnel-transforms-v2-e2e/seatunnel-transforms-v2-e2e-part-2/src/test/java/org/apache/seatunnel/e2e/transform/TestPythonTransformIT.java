@@ -305,21 +305,53 @@ public class TestPythonTransformIT {
     }
 
     /**
-     * Appends the Python transform system properties to the Flink JVM option line.
+     * Appends the Python transform system properties to Flink JVM option keys used by different
+     * Flink versions.
      *
      * @param properties base Flink properties
      * @return copied properties with Python policy
      */
     private static List<String> withFlinkPolicy(List<String> properties) {
         List<String> updatedProperties = new ArrayList<>(properties);
-        for (int index = 0; index < updatedProperties.size(); index++) {
-            String property = updatedProperties.get(index);
-            if (property.trim().startsWith("env.java.opts:")) {
-                updatedProperties.set(index, property + " " + PYTHON_POLICY_JAVA_OPTS);
-                return updatedProperties;
+        appendFlinkJvmPolicy(updatedProperties, "env.java.opts:");
+        appendFlinkJvmPolicy(updatedProperties, "env.java.opts.all:");
+        return updatedProperties;
+    }
+
+    /**
+     * Appends the Python policy to an existing Flink option or inserts the option inside the Flink
+     * 2.0 replacement section.
+     *
+     * @param properties copied Flink properties to update
+     * @param optionPrefix Flink JVM option key prefix
+     */
+    private static void appendFlinkJvmPolicy(List<String> properties, String optionPrefix) {
+        for (int index = 0; index < properties.size(); index++) {
+            String property = properties.get(index);
+            if (property.trim().startsWith(optionPrefix)) {
+                if (!property.contains(PYTHON_TRANSFORM_ENABLED_PROPERTY)) {
+                    properties.set(index, property + " " + PYTHON_POLICY_JAVA_OPTS);
+                }
+                return;
             }
         }
-        updatedProperties.add("env.java.opts: " + PYTHON_POLICY_JAVA_OPTS);
-        return updatedProperties;
+        properties.add(
+                flinkPropertyInsertIndex(properties), optionPrefix + " " + PYTHON_POLICY_JAVA_OPTS);
+    }
+
+    /**
+     * Finds the insertion point that keeps added properties inside the Flink 2.0 config replacement
+     * block when that block is present.
+     *
+     * @param properties copied Flink properties to inspect
+     * @return insertion index for a new Flink property
+     */
+    private static int flinkPropertyInsertIndex(List<String> properties) {
+        for (int index = 0; index < properties.size(); index++) {
+            if ("# SEATUNNEL_FLINK20_CONFIG_REPLACE_END".equals(properties.get(index))) {
+                return index;
+            }
+        }
+        return properties.size();
     }
 }
