@@ -1,3 +1,5 @@
+# Engine-Managed Source Runtime
+
 ---
 sidebar_position: 16
 ---
@@ -18,8 +20,6 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 -->
-
-# Engine-Managed Source Runtime
 
 The engine-managed Source runtime is an experimental Zeta execution lane introduced by
 [STIP-31](https://github.com/apache/seatunnel/issues/11558). It serializes checkpoint-visible
