@@ -67,26 +67,11 @@ If you want to install connector plugins by manually downloading connectors, you
 
 :::
 
-## Build SeaTunnel From Source Code
+:::note Developer note
 
-### Download The Source Code
+This local deployment guide assumes that you use an official binary release package. If you need to validate unreleased code, debug SeaTunnel source code, or prepare a custom distribution, see [Set Up Develop Environment](../../developer/setup.md).
 
-Build from source code. The way of downloading the source code is the same as the way of downloading the binary package.
-You can download the source code from the [download page](https://seatunnel.apache.org/download/) or clone the source code from the [GitHub repository](https://github.com/apache/seatunnel/releases)
-
-### Build The Source Code
-
-```shell
-cd seatunnel
-sh ./mvnw clean install -DskipTests -Dskip.spotless=true
-# get the binary package
-cp seatunnel-dist/target/apache-seatunnel-3.0.0-bin.tar.gz /The-Path-You-Want-To-Copy
-
-cd /The-Path-You-Want-To-Copy
-tar -xzvf "apache-seatunnel-${version}-bin.tar.gz"
-```
-
-When built from the source code, all the connector plugins and some necessary dependencies (eg: mysql driver) are included in the binary package. You can directly use the connector plugins without the need to install them separately.
+:::
 
 # Run SeaTunnel
 
