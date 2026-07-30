@@ -28,25 +28,34 @@ public class ParameterSplitter implements IParameterSplitter {
 
         List<String> result = new ArrayList<>();
         StringBuilder currentToken = new StringBuilder();
-        boolean insideBrackets = false;
         boolean insideQuotes = false;
-        boolean insideJson = false;
+        int braceDepth = 0;
+        int bracketDepth = 0;
 
-        for (char c : value.toCharArray()) {
+        for (int i = 0; i < value.length(); i++) {
+            char c = value.charAt(i);
 
-            if (c == '[') {
-                insideBrackets = true;
-            } else if (c == ']') {
-                insideBrackets = false;
-            } else if (c == '{') {
-                insideJson = true;
-            } else if (c == '}') {
-                insideJson = false;
-            } else if (c == '"') {
+            if (c == '\\' && i + 1 < value.length()) {
+                char next = value.charAt(i + 1);
+                currentToken.append(next);
+                i++;
+                continue;
+            }
+            if (c == '"') {
                 insideQuotes = !insideQuotes;
+            } else if (!insideQuotes) {
+                if (c == '{') {
+                    braceDepth++;
+                } else if (c == '}') {
+                    braceDepth--;
+                } else if (c == '[') {
+                    bracketDepth++;
+                } else if (c == ']') {
+                    bracketDepth--;
+                }
             }
 
-            if (c == ',' && !insideQuotes && !insideBrackets && !insideJson) {
+            if (c == ',' && !insideQuotes && braceDepth == 0 && bracketDepth == 0) {
                 result.add(currentToken.toString().trim());
                 currentToken = new StringBuilder();
             } else {
@@ -56,6 +65,11 @@ public class ParameterSplitter implements IParameterSplitter {
 
         if (currentToken.length() > 0) {
             result.add(currentToken.toString().trim());
+        }
+
+        if (braceDepth != 0 || bracketDepth != 0 || insideQuotes) {
+            throw new IllegalArgumentException(
+                    "Invalid parameter string: unmatched braces/brackets or unclosed quotes");
         }
 
         return result;
