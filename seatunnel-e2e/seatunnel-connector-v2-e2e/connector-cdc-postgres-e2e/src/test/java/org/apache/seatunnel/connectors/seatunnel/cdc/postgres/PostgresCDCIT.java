@@ -147,6 +147,12 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
      * same timeout budget.
      */
     private static final long DEBEZIUM_JSON_RECORD_WAIT_TIMEOUT_SECONDS = 180L;
+    /**
+     * PostgreSQL CDC jobs can spend most of the initial wait budget in engine startup and table
+     * discovery on loaded CI runners, so control-plane observations need the same upper bound as
+     * CDC record propagation.
+     */
+    private static final long POSTGRES_CDC_WAIT_TIMEOUT_SECONDS = 180L;
 
     // kafka container
     private static final String KAFKA_IMAGE_NAME = "confluentinc/cp-kafka:7.0.9";
@@ -485,14 +491,14 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                             });
 
             await().ignoreExceptions()
-                    .atMost(30, TimeUnit.SECONDS)
+                    .atMost(POSTGRES_CDC_WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
                     .untilAsserted(
                             () ->
                                     Assertions.assertTrue(
                                             backfillReplicationSlotExists(slotName),
                                             "Backfill replication slot was not created"));
             await().pollInterval(10, TimeUnit.MILLISECONDS)
-                    .atMost(30, TimeUnit.SECONDS)
+                    .atMost(POSTGRES_CDC_WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
                     .untilAsserted(
                             () ->
                                     Assertions.assertTrue(
@@ -1231,7 +1237,7 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                     });
 
             // snapshot stage
-            await().atMost(60000, TimeUnit.MILLISECONDS)
+            await().atMost(POSTGRES_CDC_WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
                     .untilAsserted(
                             () -> {
                                 Assertions.assertIterableEquals(
@@ -1246,7 +1252,7 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
             upsertDeleteSourceTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_NO_PRIMARY_KEY);
 
             // stream stage
-            await().atMost(60000, TimeUnit.MILLISECONDS)
+            await().atMost(POSTGRES_CDC_WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
                     .untilAsserted(
                             () -> {
                                 Assertions.assertIterableEquals(
