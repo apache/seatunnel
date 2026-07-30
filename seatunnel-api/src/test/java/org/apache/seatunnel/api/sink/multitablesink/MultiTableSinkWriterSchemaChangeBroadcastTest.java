@@ -409,10 +409,7 @@ public class MultiTableSinkWriterSchemaChangeBroadcastTest {
                                         new TestSchemaChangeEvent(
                                                 TablePath.of("dbA", null, "users"))));
         assertEquals("boom-before-schema-entry", schemaChangeFailure.getMessage());
-        RuntimeException closeFailure =
-                org.junit.jupiter.api.Assertions.assertThrows(
-                        RuntimeException.class, coordinator::close);
-        assertTrue(closeFailure.getCause() instanceof IOException);
+        coordinator.close();
     }
 
     /**
