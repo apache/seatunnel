@@ -1,3 +1,5 @@
+# 引擎受管 Source 运行时
+
 ---
 sidebar_position: 16
 ---
@@ -18,8 +20,6 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 -->
-
-# 引擎受管 Source 运行时
 
 引擎受管 Source 运行时是 [STIP-31](https://github.com/apache/seatunnel/issues/11558)
 引入的实验性 Zeta 执行通道。它把 Reader 和 Split Enumerator 的 checkpoint 可见状态统一放入
