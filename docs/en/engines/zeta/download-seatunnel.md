@@ -95,4 +95,3 @@ When shade jar changes are required, the [seatunnel-shade](https://github.com/ap
 
 This ensures that the shade dependencies are available in Maven Central before the main project release.
 :::
-

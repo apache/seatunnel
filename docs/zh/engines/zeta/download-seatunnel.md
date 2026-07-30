@@ -95,5 +95,3 @@ connector-console
 
 这确保 shade 依赖在主项目发版前已在 Maven Central 上可用。
 :::
-
-

@@ -16,7 +16,7 @@
 #
 
 name: Setup Maven with Apache repository
-description: Configure Maven to use Apache Public repository as the single dependency source
+description: Add Apache Public as an additional repository alongside the super-POM central (release-only).
 
 runs:
   using: composite
@@ -31,21 +31,24 @@ runs:
             <profile>
               <id>apache-repo</id>
               <!--
-                Use Apache Public repository as the single source for all dependencies.
+                Register Apache Public as an additional repository alongside the super-POM
+                `central`. We deliberately do NOT mirror Central to Apache Public: Apache's
+                Central proxy is not 100% complete (it has been observed to 404 on artifacts
+                such as org.junit:junit-bom), and a hard mirror would turn any such gap into
+                a build failure with no fallback. With both repos live, Maven tries Apache
+                Public first and falls back to Central for anything Apache Public lacks.
 
-                Why Apache Public alone is sufficient:
-                  1. Apache Public is a superset of Maven Central — it mirrors Central content
-                     AND includes Apache-specific artifacts (snapshots, staging, third-party
-                     dependencies used by Apache projects).
-                  2. After voting and clicking "Release" in Nexus, new versions typically appear
-                     in Maven Central within hours, but global CDN propagation may take up to
-                     24 hours. Apache Public mirrors Central and has similar propagation delay,
-                     so using it as the single source is consistent.
-                  3. Apache Public is hosted on Apache's CDN, which typically responds faster
-                     than Maven Central, resulting in faster dependency resolution in CI.
-                  4. When seatunnel-shade project are updated and released, Apache Public
-                     receives them more promptly than Maven Central, making it the better
-                     choice for CI builds that depend on the latest shade artifacts.
+                Release-only: snapshots are disabled (see below). Shade iteration that needs
+                seatunnel-shade-*-SNAPSHOT should use a separate opt-in profile, or wait for
+                the official release.
+
+                Note on the shade propagation delay: after a seatunnel-shade-* artifact is
+                published to Apache, Maven Central's CDN typically needs up to ~24h to
+                propagate. Until that window closes, a freshly bumped seatunnel.shade.*
+                version in the root pom.xml will not resolve from Central and the only
+                chance of pulling it is Apache Public (or waiting for Central to catch up).
+                See docs/en/developer/shade-guide.md ("Propagation Delay Between Shade
+                Release and SeaTunnel CI") for details.
               -->
               <repositories>
                 <repository>
