@@ -390,6 +390,55 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
         }
     }
 
+    @Test
+    void testOldGenerationCleanupDoesNotFenceCurrentGeneration() throws Exception {
+        long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+        long oldInitializationTimestamp = 1L;
+        long currentInitializationTimestamp = 2L;
+        JobMaster jobMaster =
+                newJobMaster(
+                        jobId,
+                        "batch_fake_to_console.conf",
+                        "test_restore_cleanup_generation_fence",
+                        false);
+        IMap<Long, JobCleanupRecord> pendingJobCleanupIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_PENDING_JOB_CLEANUP);
+
+        try {
+            runningJobInfoIMap.put(jobId, new JobInfo(currentInitializationTimestamp, null));
+            jobMaster.init(currentInitializationTimestamp, false);
+
+            pendingJobCleanupIMap.put(
+                    jobId,
+                    new JobCleanupRecord(
+                            oldInitializationTimestamp,
+                            JobStatus.FINISHED,
+                            Collections.singleton(jobId),
+                            Collections.singleton(jobId),
+                            System.currentTimeMillis()));
+            Assertions.assertTrue(
+                    jobMaster.isStatePersistenceAllowed(),
+                    "A cleanup record from an older generation must not fence a restored job with the same job id");
+
+            pendingJobCleanupIMap.put(
+                    jobId,
+                    new JobCleanupRecord(
+                            currentInitializationTimestamp,
+                            JobStatus.FINISHED,
+                            Collections.singleton(jobId),
+                            Collections.singleton(jobId),
+                            System.currentTimeMillis()));
+            Assertions.assertFalse(
+                    jobMaster.isStatePersistenceAllowed(),
+                    "The cleanup record for the current generation must still fence late writers");
+        } finally {
+            pendingJobCleanupIMap.remove(jobId);
+            runningJobInfoIMap.remove(jobId);
+            runningJobStateIMap.remove(jobId);
+            runningJobStateTimestampsIMap.remove(jobId);
+        }
+    }
+
     private void assertCloseIdleTask(JobMaster jobMaster) {
         SlotService slotService = server.getSlotService();
         long jobId = jobMaster.getJobId();

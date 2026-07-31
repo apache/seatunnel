@@ -989,7 +989,10 @@ public class JobMaster {
         }
         IMap<Long, JobCleanupRecord> pendingJobCleanupIMap =
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_PENDING_JOB_CLEANUP);
-        return !pendingJobCleanupIMap.containsKey(jobId);
+        JobCleanupRecord cleanupRecord = pendingJobCleanupIMap.get(jobId);
+        return cleanupRecord == null
+                || !Objects.equals(
+                        cleanupRecord.getOwnerInitializationTimestamp(), initializationTimestamp);
     }
 
     /**
