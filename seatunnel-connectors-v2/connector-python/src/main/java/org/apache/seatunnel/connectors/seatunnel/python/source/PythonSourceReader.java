@@ -243,13 +243,17 @@ public class PythonSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> 
 
         IOException closeException = null;
         try {
+            boolean inheritedStdoutClose = stdoutCloseDeadlineNanos != 0L;
             if (process != null) {
-                destroyProcess(process);
+                long processDestroyTimeoutMillis =
+                        inheritedStdoutClose
+                                ? PROCESS_EXIT_CHECK_TIMEOUT_MILLIS
+                                : TimeUnit.SECONDS.toMillis(PROCESS_DESTROY_TIMEOUT_SECONDS);
+                destroyProcess(process, processDestroyTimeoutMillis);
                 closeProcessStreams(process);
             }
 
             closeException = joinThread(stdinWriterThread, "stdin writer", closeException);
-            boolean inheritedStdoutClose = stdoutCloseDeadlineNanos != 0L;
             long stdoutJoinTimeoutMillis =
                     inheritedStdoutClose
                             ? PROCESS_EXIT_CHECK_TIMEOUT_MILLIS
@@ -708,7 +712,7 @@ public class PythonSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> 
         return ". Recent stderr: " + String.join(" | ", recentStderrLines);
     }
 
-    private static void destroyProcess(Process runningProcess) {
+    private static void destroyProcess(Process runningProcess, long timeoutMillis) {
         if (!runningProcess.isAlive()) {
             return;
         }
@@ -716,7 +720,7 @@ public class PythonSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> 
         boolean interrupted = false;
         runningProcess.destroy();
         try {
-            if (!runningProcess.waitFor(PROCESS_DESTROY_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+            if (!runningProcess.waitFor(timeoutMillis, TimeUnit.MILLISECONDS)) {
                 runningProcess.destroyForcibly();
             }
         } catch (InterruptedException e) {
@@ -725,7 +729,7 @@ public class PythonSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> 
         }
         if (runningProcess.isAlive()) {
             try {
-                if (!runningProcess.waitFor(PROCESS_DESTROY_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+                if (!runningProcess.waitFor(timeoutMillis, TimeUnit.MILLISECONDS)) {
                     LOG.warn("Python source process did not terminate after forced shutdown");
                 }
             } catch (InterruptedException e) {
