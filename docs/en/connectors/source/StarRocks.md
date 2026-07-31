@@ -39,7 +39,7 @@ delivers the query plan as a parameter to BE nodes, and then obtains data result
 | scan_mem_limit          | long    | no       | 2147483648        |
 | max_retries             | int     | no       | 3                 |
 | scan.params.*           | string  | no       | -                 |
-
+| be_host_port_mapping    | array    | no       | -                 |
 ### nodeUrls [list]
 
 `StarRocks` cluster address, the format is `["fe_ip:fe_http_port", ...]`
@@ -148,6 +148,22 @@ number of retry requests sent to StarRocks
 
 The parameter of the scan data from be
 
+### be_host_port_mapping  [array]
+
+The mapping relationship between the `host:be_port` of `StarRocks` cluster `BE` and the accessible `ip:be_port`.
+This configuration is optional, mainly to solve the scenario where the computing cluster cannot directly access the host and `be_port` of `BE`, such as `StarRocks` deployed in k8s, but `Flink` cannot directly access the `host` and `be_port` of `BE`. With this configuration, Flink can access `BE` and `be_port`.
+
+such as:
+
+```
+be_host_port_mapping = [
+  {
+    host_port = "be_host_1:9060"
+    ip_port = "xx.xx.xx.xx:31088"
+  }
+]
+```
+
 ## Example
 
 ```
@@ -240,6 +256,47 @@ source {
     max_retries = 3
     scan.params.scanner_thread_pool_thread_num = "3"
     
+  }
+}
+```
+
+## Example 3:  Using 'be_host_port_mapping' to obtain data
+
+```
+source {
+  StarRocks {
+    nodeUrls = ["starrocks_e2e:8030"]
+    username = root
+    password = ""
+    database = "test"
+    table = "e2e_table_source"
+    scan_batch_rows = 10
+    max_retries = 3
+    schema {
+        fields {
+           BIGINT_COL = BIGINT
+           LARGEINT_COL = STRING
+           SMALLINT_COL = SMALLINT
+           TINYINT_COL = TINYINT
+           BOOLEAN_COL = BOOLEAN
+           DECIMAL_COL = "DECIMAL(20, 1)"
+           DOUBLE_COL = DOUBLE
+           FLOAT_COL = FLOAT
+           INT_COL = INT
+           CHAR_COL = STRING
+           VARCHAR_11_COL = STRING
+           STRING_COL = STRING
+           DATETIME_COL = TIMESTAMP
+           DATE_COL = DATE
+        }
+    }
+    scan.params.scanner_thread_pool_thread_num = "3"
+    be_host_port_mapping = [
+      {
+        host_port = "be_host_1:9060"
+        ip_port = "xx.xx.xx.xx:31088"
+      }
+    ]
   }
 }
 ```
