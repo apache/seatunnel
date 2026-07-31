@@ -521,7 +521,7 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
                     "{\"id\":1,\"nested\":[true,2]}", resultSet.getString("object_payload"));
             assertJsonEquals("[{\"id\":2},\"text\",false]", resultSet.getString("array_payload"));
             assertJsonEquals("7", resultSet.getString("scalar_payload"));
-            assertJsonEquals("null", resultSet.getString("json_null"));
+            Assertions.assertNull(resultSet.getString("json_null"));
             Assertions.assertFalse(resultSet.next());
         }
     }
