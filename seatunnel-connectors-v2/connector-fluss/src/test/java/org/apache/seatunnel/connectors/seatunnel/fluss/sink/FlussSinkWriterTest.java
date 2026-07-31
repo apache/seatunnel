@@ -133,9 +133,11 @@ public class FlussSinkWriterTest {
      * Verifies that normal shutdown closes every initialized resource without an error.
      *
      * <p>This is the primary successful lifecycle path for the shared close helper.
+     *
+     * @throws Exception if the mocked resources cannot be verified for close invocation
      */
     @Test
-    void shouldCloseAllResourcesWithoutFailure() {
+    void shouldCloseAllResourcesWithoutFailure() throws Exception {
         FlussSinkWriter sinkWriter = createSinkWriter();
 
         sinkWriter.close();
