@@ -75,6 +75,7 @@ import ChangeLog from '../changelog/connector-file-cos.md';
 | xml_use_attr_format        | boolean | 否  | -                   |
 | csv_use_header_line        | boolean | 否  | false               |
 | file_filter_pattern        | string  | 否  |                     |
+| filename_extension         | string  | 否  | -                   | 使用指定的文件扩展名筛选文件，例如 `csv`、`.txt`、`json` 或 `.xml`。 |
 | compress_codec             | string  | 否  | none                |
 | archive_compress_codec     | string  | 否  | none                |
 | encoding                   | string  | 否  | UTF-8               |
