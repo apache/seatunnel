@@ -528,13 +528,8 @@ public class MultiTableSinkWriter
                 dispatchTarget.getSinkIdentifier().getTableIdentifier(),
                 MultiTableFailurePhase.CHECKPOINT,
                 () -> {
-                    if (dispatchTarget.getWriter() instanceof SupportSchemaEvolutionSinkWriter) {
-                        ((SupportSchemaEvolutionSinkWriter) dispatchTarget.getWriter())
-                                .applySchemaChange(event);
-                    } else {
-                        // TODO remove deprecated method
-                        dispatchTarget.getWriter().applySchemaChange(event);
-                    }
+                    SupportSchemaEvolutionSinkWriter.applySchemaChangeToWriter(
+                            dispatchTarget.getWriter(), event);
                     return null;
                 });
         log.info(

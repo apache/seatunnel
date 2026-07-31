@@ -19,9 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.lance.sink;
 
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
-import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
-import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.lance.catalog.LanceCatalog;
@@ -51,8 +49,7 @@ import java.util.Optional;
 @Slf4j
 public class LanceSinkWriter
         implements SinkWriter<SeaTunnelRow, LanceCommitInfo, LanceSinkState>,
-                SupportMultiTableSinkWriter<Void>,
-                SupportSchemaEvolutionSinkWriter {
+                SupportMultiTableSinkWriter<Void> {
 
     private static final int DEFAULT_BATCH_SIZE = 1000;
 
@@ -173,11 +170,6 @@ public class LanceSinkWriter
                     "Failed to flush batch: " + e.getMessage(),
                     e);
         }
-    }
-
-    @Override
-    public void applySchemaChange(SchemaChangeEvent event) throws IOException {
-        SinkWriter.super.applySchemaChange(event);
     }
 
     @Override

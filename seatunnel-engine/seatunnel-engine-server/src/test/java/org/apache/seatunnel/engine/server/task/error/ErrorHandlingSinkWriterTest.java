@@ -18,10 +18,13 @@
 package org.apache.seatunnel.engine.server.task.error;
 
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.engine.server.task.context.SinkWriterContext;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
 import java.io.IOException;
 import java.util.Optional;
@@ -92,6 +95,20 @@ class ErrorHandlingSinkWriterTest {
         Assertions.assertEquals(1, mainFlushes.get());
     }
 
+    @Test
+    void applySchemaChangeFailsFastForUnsupportedDelegate() {
+        ErrorHandlingSinkWriter<String, String, String> writer =
+                new ErrorHandlingSinkWriter<>(new NoopSinkWriter(), null, null, "test");
+        SchemaChangeEvent event = schemaChangeEvent();
+
+        UnsupportedOperationException exception =
+                Assertions.assertThrows(
+                        UnsupportedOperationException.class, () -> writer.applySchemaChange(event));
+
+        Assertions.assertTrue(exception.getMessage().contains(NoopSinkWriter.class.getName()));
+        Assertions.assertTrue(exception.getMessage().contains("test_db.test_table"));
+    }
+
     private static ErrorHandlingSinkWriter<String, String, String> writer(
             ErrorHandlerMode mode, ErrorSinkRowWriter<String> errorSink, boolean fail) {
         return new ErrorHandlingSinkWriter<>(
@@ -99,6 +116,12 @@ class ErrorHandlingSinkWriterTest {
                 new ErrorHandler<>(StageErrorConfig.builder().mode(mode).build(), errorSink),
                 (error, row, ctx) -> true,
                 "test");
+    }
+
+    private static SchemaChangeEvent schemaChangeEvent() {
+        SchemaChangeEvent event = Mockito.mock(SchemaChangeEvent.class);
+        Mockito.when(event.tablePath()).thenReturn(TablePath.of("test_db", "test_table"));
+        return event;
     }
 
     private static final class NoopSinkWriter implements SinkWriter<String, String, String> {
