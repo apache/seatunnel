@@ -33,11 +33,13 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -53,6 +55,7 @@ public class KuduSourceSplitEnumerator
     private final Map<Integer, List<KuduSourceSplit>> pendingSplits;
     private final Map<TablePath, KuduSourceTableConfig> tables;
     private final KuduInputFormat kuduInputFormat;
+    private final AtomicInteger assignCount = new AtomicInteger(0);
 
     private final Object stateLock = new Object();
 
@@ -79,6 +82,7 @@ public class KuduSourceSplitEnumerator
         } else {
             this.pendingTables = new ConcurrentLinkedQueue<>(checkpointState.getPendingTables());
             this.pendingSplits = new HashMap<>(checkpointState.getPendingSplits());
+            this.assignCount.set(checkpointState.getAssignCount());
         }
     }
 
@@ -89,26 +93,33 @@ public class KuduSourceSplitEnumerator
 
     @Override
     public void run() throws IOException {
+        try {
+            Set<Integer> readers = enumeratorContext.registeredReaders();
+            while (!pendingTables.isEmpty()) {
+                synchronized (stateLock) {
+                    TablePath tablePath = pendingTables.poll();
+                    log.info("Splitting table {}.", tablePath);
 
-        Set<Integer> readers = enumeratorContext.registeredReaders();
-        while (!pendingTables.isEmpty()) {
-            synchronized (stateLock) {
-                TablePath tablePath = pendingTables.poll();
-                log.info("Splitting table {}.", tablePath);
+                    Collection<KuduSourceSplit> splits = discoverySplits(tables.get(tablePath));
+                    log.info("Split table {} into {} splits.", tablePath, splits.size());
 
-                Collection<KuduSourceSplit> splits = discoverySplits(tables.get(tablePath));
-                log.info("Split table {} into {} splits.", tablePath, splits.size());
+                    addPendingSplit(splits);
+                }
 
-                addPendingSplit(splits);
+                synchronized (stateLock) {
+                    assignSplit(readers);
+                }
             }
 
-            synchronized (stateLock) {
-                assignSplit(readers);
-            }
+            log.info(
+                    "No more splits to assign." + " Sending NoMoreSplitsEvent to reader {}.",
+                    readers);
+            readers.forEach(enumeratorContext::signalNoMoreSplits);
+        } finally {
+            // Scan tokens contain everything readers need, so the enumerator client can be
+            // released immediately instead of retaining Netty threads until job teardown.
+            kuduInputFormat.closeInputFormat();
         }
-
-        log.info("No more splits to assign." + " Sending NoMoreSplitsEvent to reader {}.", readers);
-        readers.forEach(enumeratorContext::signalNoMoreSplits);
     }
 
     private Set<KuduSourceSplit> discoverySplits(KuduSourceTableConfig kuduSourceTableConfig)
@@ -160,8 +171,14 @@ public class KuduSourceSplitEnumerator
 
     private void addPendingSplit(Collection<KuduSourceSplit> splits) {
         int readerCount = enumeratorContext.currentParallelism();
-        for (KuduSourceSplit split : splits) {
-            int ownerReader = getSplitOwner(split.splitId(), readerCount);
+
+        List<KuduSourceSplit> sortedSplits =
+                splits.stream()
+                        .sorted(Comparator.comparing(KuduSourceSplit::splitId))
+                        .collect(Collectors.toList());
+
+        for (KuduSourceSplit split : sortedSplits) {
+            int ownerReader = getSplitOwner(assignCount.getAndIncrement(), readerCount);
             log.info("Assigning {} to {} reader.", split, ownerReader);
             pendingSplits.computeIfAbsent(ownerReader, r -> new ArrayList<>()).add(split);
         }
@@ -171,8 +188,8 @@ public class KuduSourceSplitEnumerator
         pendingSplits.computeIfAbsent(ownerReader, r -> new ArrayList<>()).addAll(splits);
     }
 
-    private int getSplitOwner(String splitId, int numReaders) {
-        return (splitId.hashCode() & Integer.MAX_VALUE) % numReaders;
+    private int getSplitOwner(int currentAssignCount, int numReaders) {
+        return currentAssignCount % numReaders;
     }
 
     @Override
@@ -198,7 +215,10 @@ public class KuduSourceSplitEnumerator
     @Override
     public KuduSourceState snapshotState(long checkpointId) throws Exception {
         synchronized (stateLock) {
-            return new KuduSourceState(new ArrayList(pendingTables), new HashMap<>(pendingSplits));
+            return new KuduSourceState(
+                    new ArrayList<>(pendingTables),
+                    new HashMap<>(pendingSplits),
+                    assignCount.get());
         }
     }
 
