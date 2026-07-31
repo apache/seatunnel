@@ -114,6 +114,8 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
@@ -123,6 +125,7 @@ import static org.apache.seatunnel.common.constants.JobMode.BATCH;
 
 public class JobMaster {
     private static final ILogger LOGGER = Logger.getLogger(JobMaster.class);
+    private static final long METRICS_FETCH_TIMEOUT_MS = 3000L;
 
     private final Object metricsLock = new Object();
 
@@ -1084,7 +1087,9 @@ public class JobMaster {
                                                             new GetTaskGroupMetricsOperation(
                                                                     taskGroupLocations),
                                                             address)
-                                                    .get();
+                                                    .get(
+                                                            METRICS_FETCH_TIMEOUT_MS,
+                                                            TimeUnit.MILLISECONDS);
                             metrics.add(rawJobMetrics);
                         }
                     }
@@ -1096,8 +1101,24 @@ public class JobMaster {
                                         "%s get current job metrics with exception: %s.",
                                         Arrays.toString(taskGroupLocations.toArray()),
                                         ExceptionUtils.getMessage(e)));
+                    } catch (TimeoutException e) {
+                        LOGGER.warning(
+                                String.format(
+                                        "%s get current job metrics timed out after %d ms.",
+                                        Arrays.toString(taskGroupLocations.toArray()),
+                                        METRICS_FETCH_TIMEOUT_MS));
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                        LOGGER.warning(
+                                String.format(
+                                        "%s get current job metrics was interrupted.",
+                                        Arrays.toString(taskGroupLocations.toArray())));
                     } catch (Exception e) {
-                        throw new SeaTunnelEngineException(ExceptionUtils.getMessage(e));
+                        LOGGER.warning(
+                                String.format(
+                                        "%s get current job metrics failed: %s.",
+                                        Arrays.toString(taskGroupLocations.toArray()),
+                                        ExceptionUtils.getMessage(e)));
                     }
                 });
         return metrics;
