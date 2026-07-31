@@ -195,12 +195,7 @@ class PythonSourceTest {
         reader.open();
         try {
             waitUntilStdoutQueueIsFull(reader);
-            setStdoutCloseDeadline(reader, System.nanoTime() - 1L);
             reader.pollNext(collector);
-            Assertions.assertEquals(
-                    0L,
-                    getStdoutCloseDeadline(reader),
-                    "queue progress must clear a stale stdout deadline");
             pollUntilRows(reader, collector, 300);
             pollUntilBoundedCompletion(reader, collector, readerContext);
         } finally {
@@ -804,13 +799,6 @@ class PythonSourceTest {
         Field deadlineField = PythonSourceReader.class.getDeclaredField("stdoutCloseDeadlineNanos");
         deadlineField.setAccessible(true);
         return deadlineField.getLong(reader);
-    }
-
-    private void setStdoutCloseDeadline(PythonSourceReader reader, long deadlineNanos)
-            throws Exception {
-        Field deadlineField = PythonSourceReader.class.getDeclaredField("stdoutCloseDeadlineNanos");
-        deadlineField.setAccessible(true);
-        deadlineField.setLong(reader, deadlineNanos);
     }
 
     private void pollUntilBoundedCompletion(

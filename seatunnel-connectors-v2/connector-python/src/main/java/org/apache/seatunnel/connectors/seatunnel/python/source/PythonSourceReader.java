@@ -261,7 +261,13 @@ public class PythonSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> 
                             closeException,
                             stdoutJoinTimeoutMillis,
                             !inheritedStdoutClose);
-            closeException = joinThread(stderrPumpThread, "stderr pump", closeException);
+            closeException =
+                    joinThread(
+                            stderrPumpThread,
+                            "stderr pump",
+                            closeException,
+                            stdoutJoinTimeoutMillis,
+                            !inheritedStdoutClose);
         } finally {
             synchronized (lifecycleLock) {
                 closeComplete = true;
