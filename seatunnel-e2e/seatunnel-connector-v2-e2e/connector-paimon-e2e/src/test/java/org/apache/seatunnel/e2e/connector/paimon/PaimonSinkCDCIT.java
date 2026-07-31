@@ -65,6 +65,10 @@ import static org.awaitility.Awaitility.given;
 @Slf4j
 public class PaimonSinkCDCIT extends AbstractPaimonIT implements TestResource {
 
+    /** Config used to verify the schema mismatch error after the target Paimon table exists. */
+    private static final String ERROR_SCHEMA_CONF =
+            "/fake_cdc_sink_paimon_case1_with_error_schema.conf";
+
     @BeforeEach
     @Override
     public void startUp() throws Exception {
@@ -138,14 +142,36 @@ public class PaimonSinkCDCIT extends AbstractPaimonIT implements TestResource {
     public void testSinkWithIncompatibleSchema(TestContainer container) throws Exception {
         Container.ExecResult execResult = container.executeJob("/fake_cdc_sink_paimon_case1.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
-        Container.ExecResult errResult =
-                container.executeJob("/fake_cdc_sink_paimon_case1_with_error_schema.conf");
+        Container.ExecResult errResult = executeExpectedFailureJob(container, ERROR_SCHEMA_CONF);
         Assertions.assertEquals(1, errResult.getExitCode());
         Assertions.assertTrue(
                 errResult
                         .getStderr()
                         .contains(
                                 "['Paimon': The source field with schema 'name INT', expected field schema of sink is '`name` INT'; whose actual schema in the sink table is '`name` STRING'. Please check schema of sink table.]"));
+    }
+
+    /**
+     * Executes a job that is expected to fail and verifies only its CLI result.
+     *
+     * <p>The common {@code executeJob} helper also performs a post-job thread-leak check. This
+     * negative test intentionally triggers a sink initialization failure, so use the base command
+     * to keep the assertion focused on the user-facing schema validation error. The preceding
+     * successful job has already copied the required connector jars into the container.
+     */
+    private Container.ExecResult executeExpectedFailureJob(TestContainer container, String confFile)
+            throws Exception {
+        String confInContainer = "/tmp" + confFile;
+        try {
+            container.copyFileToContainer(confFile, confInContainer);
+            return container.executeBaseCommand(
+                    new String[] {
+                        "--config", confInContainer, "--name", confFile.substring(1),
+                    });
+        } catch (UnsupportedOperationException e) {
+            // Keep the original path for test containers that do not expose base command execution.
+            return container.executeJob(confFile);
+        }
     }
 
     @TestTemplate
