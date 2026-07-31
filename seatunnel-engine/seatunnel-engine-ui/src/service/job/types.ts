@@ -99,3 +99,77 @@ export interface JobPage {
   total: number
   data: Job[]
 }
+
+export type ConfigFormat = 'json' | 'hocon' | 'sql'
+
+export interface SubmitJobRequest {
+  config: string
+  format: ConfigFormat
+  jobName?: string
+  jobId?: string
+  isStartWithSavePoint?: boolean
+}
+
+export interface SubmitJobFileRequest {
+  file: File
+  jobName?: string
+  jobId?: string
+  isStartWithSavePoint?: boolean
+}
+
+export interface SubmitJobResponse {
+  jobId: string | number
+  jobName: string
+}
+
+export interface StopJobRequest {
+  jobId: string | number
+  isStopWithSavePoint?: boolean
+  force?: boolean
+}
+
+export interface StopJobResponse {
+  jobId: string | number
+}
+
+export interface CheckpointCounts {
+  triggered: number
+  completed: number
+  failed: number
+  inProgress: number
+  restored: number
+}
+
+export interface CheckpointInfo {
+  checkpointId: number
+  checkpointType: string
+  status?: string
+  triggerTimestamp?: number
+  completedTimestamp?: number
+  durationMillis?: number
+  stateSize?: number
+  failureReason?: string
+  acknowledged?: number
+  total?: number
+}
+
+export interface CheckpointHistoryRecord {
+  pipelineId: number
+  checkpoint: CheckpointInfo
+}
+
+export interface CheckpointPipeline {
+  pipelineId: number
+  counts: CheckpointCounts
+  latestCompleted?: CheckpointInfo | null
+  latestFailed?: CheckpointInfo | null
+  latestSavepoint?: CheckpointInfo | null
+  inProgress?: CheckpointInfo[]
+  history?: CheckpointHistoryRecord[]
+}
+
+export interface CheckpointOverview {
+  jobId: string
+  updatedAt: number
+  pipelines: CheckpointPipeline[]
+}

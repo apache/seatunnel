@@ -36,6 +36,7 @@ import org.apache.seatunnel.engine.server.rest.servlet.CheckpointOverviewServlet
 import org.apache.seatunnel.engine.server.rest.servlet.CurrentNodeLogServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.EncryptConfigServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.FinishedJobsServlet;
+import org.apache.seatunnel.engine.server.rest.servlet.HttpServiceStatusServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.JobInfoServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.MetricsServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.OptionRulesServlet;
@@ -71,6 +72,7 @@ import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_CHEC
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_ENCRYPT_CONFIG;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_FINISHED_JOBS;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_GET_ALL_LOG_NAME;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_HTTP_SERVICE_STATUS;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_JOB_INFO;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_LOG;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_LOGS;
@@ -219,6 +221,8 @@ public class JettyService {
                 new ServletHolder(new CheckpointOverviewServlet(nodeEngine));
         ServletHolder checkpointHistoryHolder =
                 new ServletHolder(new CheckpointHistoryServlet(nodeEngine));
+        ServletHolder httpServiceStatusHolder =
+                new ServletHolder(new HttpServiceStatusServlet(nodeEngine, seaTunnelConfig, server));
 
         context.addServlet(overviewHolder, convertUrlToPath(REST_URL_OVERVIEW));
         context.addServlet(runningJobsHolder, convertUrlToPath(REST_URL_RUNNING_JOBS));
@@ -253,6 +257,8 @@ public class JettyService {
         context.addServlet(
                 checkpointOverviewHolder, convertUrlToPath(REST_URL_CHECKPOINT_OVERVIEW));
         context.addServlet(checkpointHistoryHolder, convertUrlToPath(REST_URL_CHECKPOINT_HISTORY));
+        context.addServlet(
+                httpServiceStatusHolder, convertUrlToPath(REST_URL_HTTP_SERVICE_STATUS));
 
         server.setHandler(context);
 

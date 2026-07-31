@@ -16,6 +16,46 @@
  */
 
 export default {
-    runningJobs: 'Running Jobs',
-    finishedJobs: 'Finished Jobs'
+  runningJobs: 'Running Jobs',
+  finishedJobs: 'Finished Jobs',
+  operations: {
+    title: 'Submit Job',
+    textSubmit: 'Config Text',
+    fileSubmit: 'Config File',
+    jobName: 'Job Name',
+    jobNamePlaceholder: 'Optional job name',
+    configFormat: 'Format',
+    configContent: 'Config',
+    configPlaceholder: 'Paste JSON, HOCON, or SQL job config',
+    configFile: 'Config File',
+    startWithSavepoint: 'Restore',
+    restoreJobId: 'Restore Job ID',
+    restoreJobIdPlaceholder: 'Existing job ID with savepoint state',
+    chooseFile: 'Choose File',
+    reset: 'Reset',
+    submit: 'Submit',
+    configRequired: 'Job config is required.',
+    fileRequired: 'Please choose a config file.',
+    restoreJobIdRequired: 'Restore job ID is required when restore is enabled.',
+    submitSuccess: 'Submitted {job}.',
+    submitFailed: 'Failed to submit job.'
+  },
+  actions: {
+    view: 'View',
+    stop: 'Stop',
+    savepoint: 'Savepoint',
+    cancel: 'Cancel',
+    confirm: 'Confirm',
+    cancelConfirm: 'Dismiss',
+    stopConfirmMessage: 'Stop {job} gracefully?',
+    savepointConfirmMessage: 'Stop {job} with savepoint?',
+    cancelConfirmMessage: 'Force cancel {job}?',
+    stopSuccess: 'Stop request sent for {job}.',
+    stopFailed: 'Failed to stop {job}.',
+    savepointSuccess: 'Savepoint stop request sent for {job}.',
+    savepointFailed: 'Failed to stop {job} with savepoint.',
+    cancelSuccess: 'Cancel request sent for {job}.',
+    cancelFailed: 'Failed to cancel {job}.',
+    refreshFailed: 'Failed to refresh running jobs.'
+  }
 }

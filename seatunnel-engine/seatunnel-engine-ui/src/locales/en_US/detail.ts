@@ -23,7 +23,8 @@ export default {
     overview: 'Overview',
     exception: 'Exception',
     configuration: 'Configuration',
-    log: 'Log',
+    checkpoints: 'Checkpoints',
+    log: 'Log'
   },
   table: {
     name: 'Name',
@@ -34,7 +35,7 @@ export default {
     receivedQps: 'Received QPS',
     writeQps: 'Write QPS',
     receivedBytesPerSecond: 'Received Bytes PerSecond',
-    writeBytesPerSecond: 'Write Bytes PerSecond',
+    writeBytesPerSecond: 'Write Bytes PerSecond'
   },
   observability: {
     time: 'Time',
@@ -51,6 +52,27 @@ export default {
     writeMsPerRecord: 'Write (ms/record)',
     // Edge
     bpRatio: 'Downstream Wait Ratio',
-    queueFillRatio: 'Queue Fill Ratio',
+    queueFillRatio: 'Queue Fill Ratio'
   },
+  checkpoints: {
+    refresh: 'Refresh',
+    noSnapshot: 'No checkpoint snapshot',
+    updatedAt: 'Updated at {time}',
+    loadFailed: 'Failed to load checkpoint data.',
+    pipeline: 'Pipeline',
+    triggered: 'Triggered',
+    completed: 'Completed',
+    failed: 'Failed',
+    inProgress: 'In Progress',
+    restored: 'Restored',
+    latestCompleted: 'Latest Completed',
+    latestSavepoint: 'Latest Savepoint',
+    checkpoint: 'Checkpoint',
+    status: 'Status',
+    duration: 'Duration (ms)',
+    stateSize: 'State Size',
+    failureReason: 'Failure Reason',
+    action: 'Action',
+    restoreLatest: 'Restore Latest State'
+  }
 }

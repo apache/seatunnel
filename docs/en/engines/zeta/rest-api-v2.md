@@ -1203,7 +1203,20 @@ For more information about customize encryption, please refer to the documentati
 
 #### update node tags
 ##### Body
-If the request parameter is a `Map` object, it indicates that the tags of the current node need to be updated
+Use the member `uuid` from `/system-monitoring-information` to make the target explicit. The request must be sent to the REST address of the target node; otherwise the server returns an error instead of updating a different node.
+
+```json
+{
+  "uuid": "4f1c8c53-8d9f-4f5c-b9cc-278f3bbd2d2a",
+  "tags": {
+    "tag1": "dev_1",
+    "tag2": "dev_2"
+  }
+}
+```
+
+For backward compatibility, a flat `Map` still updates the current REST node:
+
 ```json
 {
   "tag1": "dev_1",
@@ -1220,7 +1233,17 @@ If the request parameter is a `Map` object, it indicates that the tags of the cu
 ```
 #### remove node tags
 ##### Body
-If the parameter is an empty `Map` object, it means that the tags of the current node need to be cleared
+Use an empty `tags` map to clear the target node tags:
+
+```json
+{
+  "uuid": "4f1c8c53-8d9f-4f5c-b9cc-278f3bbd2d2a",
+  "tags": {}
+}
+```
+
+For backward compatibility, an empty flat `Map` clears the current REST node:
+
 ```json
 {}
 ```
@@ -1334,6 +1357,36 @@ To get the content of a log file: `http://localhost:5801/log/job-898380162133917
 To get the metrics, you need to open `Telemetry` first, or you will get an empty response.  
 
 More information about `Telemetry` can be found in the [Telemetry](telemetry.md) documentation.
+
+</details>
+
+### Get HTTP Service Status
+
+<details>
+ <summary><code>GET</code> <code><b>/http-service/status</b></code> <code>(Return HTTP service runtime status.)</code></summary>
+
+#### Response
+
+Returns the HTTP service switches, configured ports, effective connector ports, context path, and authentication mode for the current node.
+Sensitive values such as passwords and keystore or truststore paths are not returned.
+
+#### Response Example
+
+```json
+{
+  "httpEnabled": true,
+  "httpsEnabled": false,
+  "contextPath": "/",
+  "configuredHttpPort": 5801,
+  "configuredHttpsPort": 58443,
+  "httpPort": 5801,
+  "httpsPort": 58443,
+  "dynamicPortEnabled": false,
+  "portRange": 100,
+  "basicAuthEnabled": false,
+  "mutualTlsEnabled": false
+}
+```
 
 </details>
 

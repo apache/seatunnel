@@ -111,6 +111,7 @@ public class RestConstant {
     public static final String REST_URL_CHECKPOINT_OVERVIEW = "/jobs/checkpoints";
     public static final String REST_URL_CHECKPOINT_HISTORY = "/jobs/checkpoints/history";
     public static final String REST_URL_REALTIME_METRICS = "/metrics/realtime";
+    public static final String REST_URL_HTTP_SERVICE_STATUS = "/http-service/status";
     // api path end
 
 }
