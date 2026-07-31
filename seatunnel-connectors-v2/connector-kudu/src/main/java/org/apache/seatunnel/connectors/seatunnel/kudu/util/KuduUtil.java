@@ -40,6 +40,7 @@ import org.apache.kudu.client.KuduScanToken;
 import org.apache.kudu.client.KuduTable;
 
 import lombok.extern.slf4j.Slf4j;
+
 import java.io.IOException;
 import java.security.PrivilegedExceptionAction;
 import java.util.Arrays;
