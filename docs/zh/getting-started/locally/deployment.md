@@ -67,26 +67,11 @@ connector-console
 
 :::
 
-## 从源码构建SeaTunnel
+:::note 开发者说明
 
-### 下载源码
+本地部署指南默认面向使用官方二进制发行包的用户。如果您需要验证未发布代码、调试 SeaTunnel 源码，或构建自定义发行包，请参考[搭建开发环境](../../developer/setup.md)。
 
-从源码构建SeaTunnel。下载源码的方式与下载二进制包的方式相同。
-您可以从[下载页面](https://seatunnel.apache.org/download/)下载源码，或者从[GitHub仓库](https://github.com/apache/seatunnel/releases)克隆源码。
-
-### 构建源码
-
-```shell
-cd seatunnel
-sh ./mvnw clean install -DskipTests -Dskip.spotless=true
-# 获取构建好的二进制包
-cp seatunnel-dist/target/apache-seatunnel-3.0.0-bin.tar.gz /The-Path-You-Want-To-Copy
-
-cd /The-Path-You-Want-To-Copy
-tar -xzvf "apache-seatunnel-${version}-bin.tar.gz"
-```
-
-当从源码构建时，所有的连接器插件和一些必要的依赖（例如：mysql驱动）都包含在二进制包中。您可以直接使用连接器插件，而无需单独安装它们。
+:::
 
 # 启动SeaTunnel
 

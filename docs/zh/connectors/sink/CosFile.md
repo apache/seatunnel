@@ -68,6 +68,7 @@ import ChangeLog from '../changelog/connector-file-cos.md';
 | compress_codec                        | string  | 否  | none                                       |                                                                 |
 | common-options                        | object  | 否  | -                                          |                                                                 |
 | max_rows_in_memory                    | int     | 否  | -                                          | 仅在file_format为excel时使用.                                         |
+| sheet_max_rows                         | int     | 否  | 1048576                                    | 仅在 `file_format_type` 为 `excel` 时使用；每个工作表允许写入的最大行数。 |
 | sheet_name                            | string  | 否  | Sheet${Random number}                      | 仅在file_format为excel时使用.                                         |
 | csv_string_quote_mode                 | enum    | 否  | MINIMAL                                    | 仅在file_format为csv时使用.                                           |
 | xml_root_tag                          | string  | 否  | RECORDS                                    | 仅在file_format为xml时使用.                                           |
@@ -206,6 +207,10 @@ Tips: excel 类型不支持任何压缩格式
 ### max_rows_in_memory [int]
 
 当文件格式为Excel时，内存中可以缓存的最大数据项数.
+
+### sheet_max_rows [int]
+
+仅在 `file_format_type` 为 `excel` 时使用。该选项限制每个工作表可以写入的最大行数，默认值为 `1048576`。
 
 ### sheet_name [string]
 
