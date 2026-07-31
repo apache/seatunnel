@@ -243,6 +243,8 @@ schema {
 > - `chunk_index`: One-based chunk order in the parsed document
 > - `content_hash`: SHA-256 hash of the emitted `text` value
 >
+> When this option is enabled for bounded Markdown file sources, the source enumerator assigns each whole-file split by the same `document_id` hash so all rows derived from one document stay in the same source route bucket. The default round-robin split assignment is unchanged when the option is disabled.
+>
 > The option defaults to `false`, so the original Markdown schema is unchanged unless you enable it.
 >
 > Note: Markdown format only supports reading, not writing.

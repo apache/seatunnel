@@ -607,17 +607,148 @@ public class LocalFileIT extends TestSuiteBase {
         Assertions.assertFalse(
                 isLocalFileExists("/tmp/seatunnel/continuous/dst/subdir/nested.bin"));
 
-        Container.ExecResult cancelResult = container.cancelJob(jobId);
-        Assertions.assertEquals(0, cancelResult.getExitCode(), cancelResult.getStderr());
+        cancelContinuousJob(container, jobId, jobFuture);
+        baseContainer.execInContainer("sh", "-c", "rm -rf /tmp/seatunnel/continuous");
+    }
 
-        Container.ExecResult execResult;
-        try {
-            execResult = jobFuture.get(120, TimeUnit.SECONDS);
-        } catch (Exception e) {
-            throw new RuntimeException("Wait continuous job exit failed.", e);
-        }
-        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.FLINK, EngineType.SPARK},
+            disabledReason =
+                    "Continuous discovery is a long-running job. Local filesystem is not shared between engine master/workers in Flink/Spark E2E.")
+    public void testLocalFileBinaryUpdateModeContinuousDiscoveryPostSyncBackup(
+            TestContainer container) throws IOException, InterruptedException {
+        resetContinuousTestPath();
+        putLocalFile("/tmp/seatunnel/continuous/src/backup-test.bin", "abc");
 
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
+        CompletableFuture<Container.ExecResult> jobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.executeJob(
+                                        "/binary/local_file_binary_update_distcp_continuous_post_sync_backup.conf",
+                                        jobId);
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+
+        Awaitility.await()
+                .atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        "abc",
+                                        readLocalFile(
+                                                "/tmp/seatunnel/continuous/dst/backup-test.bin")));
+
+        Awaitility.await()
+                .atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertFalse(
+                                        localFileExists(
+                                                "/tmp/seatunnel/continuous/src/backup-test.bin"),
+                                        "source file should be moved from source path after backup commit"));
+
+        Awaitility.await()
+                .atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertTrue(
+                                        countLocalFiles(
+                                                        "/tmp/seatunnel/continuous/backup",
+                                                        "backup-test.bin.v*")
+                                                > 0,
+                                        "backup target should contain version-suffixed file"));
+
+        cancelContinuousJob(container, jobId, jobFuture);
+        baseContainer.execInContainer("sh", "-c", "rm -rf /tmp/seatunnel/continuous");
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.FLINK, EngineType.SPARK},
+            disabledReason =
+                    "Continuous discovery is a long-running job. Local filesystem is not shared between engine master/workers in Flink/Spark E2E.")
+    public void testLocalFileContinuousBackupRetentionCleanup(TestContainer container)
+            throws IOException, InterruptedException {
+        resetContinuousTestPath();
+        putLocalFile("/tmp/seatunnel/continuous/backup/retention-old.bin.v3_123456", "abc");
+
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
+        CompletableFuture<Container.ExecResult> jobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.executeJob(
+                                        "/binary/local_file_binary_update_distcp_continuous_post_sync_backup_retention.conf",
+                                        jobId);
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+
+        Awaitility.await()
+                .atMost(90, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        0L,
+                                        countLocalFiles(
+                                                "/tmp/seatunnel/continuous/backup", "*.bin.v*"),
+                                        "retention should remove expired backup files"));
+
+        cancelContinuousJob(container, jobId, jobFuture);
+        baseContainer.execInContainer("sh", "-c", "rm -rf /tmp/seatunnel/continuous");
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.FLINK, EngineType.SPARK},
+            disabledReason =
+                    "Continuous discovery is a long-running job. Local filesystem is not shared between engine master/workers in Flink/Spark E2E.")
+    public void testLocalFileBinaryUpdateModeContinuousDiscoveryPostSyncDelete(
+            TestContainer container) throws IOException, InterruptedException {
+        resetContinuousTestPath();
+        putLocalFile("/tmp/seatunnel/continuous/src/delete-test.bin", "abc");
+
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
+        CompletableFuture<Container.ExecResult> jobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.executeJob(
+                                        "/binary/local_file_binary_update_distcp_continuous_post_sync_delete.conf",
+                                        jobId);
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+
+        Awaitility.await()
+                .atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        "abc",
+                                        readLocalFile(
+                                                "/tmp/seatunnel/continuous/dst/delete-test.bin")));
+
+        Awaitility.await()
+                .atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertFalse(
+                                        localFileExists(
+                                                "/tmp/seatunnel/continuous/src/delete-test.bin"),
+                                        "source file should be deleted after checkpoint-gated post-sync commit"));
+
+        cancelContinuousJob(container, jobId, jobFuture);
         baseContainer.execInContainer("sh", "-c", "rm -rf /tmp/seatunnel/continuous");
     }
 
@@ -750,7 +881,7 @@ public class LocalFileIT extends TestSuiteBase {
                 baseContainer.execInContainer(
                         "sh",
                         "-c",
-                        "rm -rf /tmp/seatunnel/continuous && mkdir -p /tmp/seatunnel/continuous/src /tmp/seatunnel/continuous/dst /tmp/seatunnel/continuous/tmp");
+                        "rm -rf /tmp/seatunnel/continuous && mkdir -p /tmp/seatunnel/continuous/src /tmp/seatunnel/continuous/dst /tmp/seatunnel/continuous/tmp /tmp/seatunnel/continuous/backup");
         Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
     }
 
@@ -789,6 +920,46 @@ public class LocalFileIT extends TestSuiteBase {
                 baseContainer.execInContainer("sh", "-c", "stat -c %Y '" + filePath + "'");
         Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
         return Long.parseLong(result.getStdout().trim());
+    }
+
+    private boolean localFileExists(String filePath) throws IOException, InterruptedException {
+        Container.ExecResult result =
+                baseContainer.execInContainer(
+                        "sh", "-c", "[ -f '" + filePath + "' ] && echo 1 || echo 0");
+        Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
+        return "1".equals(result.getStdout().trim());
+    }
+
+    private long countLocalFiles(String directoryPath, String fileNamePattern)
+            throws IOException, InterruptedException {
+        String command =
+                "if [ -d '"
+                        + directoryPath
+                        + "' ]; then find '"
+                        + directoryPath
+                        + "' -type f -name '"
+                        + fileNamePattern
+                        + "' | wc -l; else echo 0; fi";
+        Container.ExecResult result = baseContainer.execInContainer("sh", "-c", command);
+        Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
+        return Long.parseLong(result.getStdout().trim());
+    }
+
+    private void cancelContinuousJob(
+            TestContainer container,
+            String jobId,
+            CompletableFuture<Container.ExecResult> jobFuture)
+            throws IOException, InterruptedException {
+        Container.ExecResult cancelResult = container.cancelJob(jobId);
+        Assertions.assertEquals(0, cancelResult.getExitCode(), cancelResult.getStderr());
+
+        Container.ExecResult execResult;
+        try {
+            execResult = jobFuture.get(120, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            throw new RuntimeException("Wait continuous job exit failed.", e);
+        }
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
 
     private Path convertToLzoFile(File file) throws IOException {
