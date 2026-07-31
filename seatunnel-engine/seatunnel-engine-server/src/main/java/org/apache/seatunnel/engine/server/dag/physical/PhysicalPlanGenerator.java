@@ -1088,6 +1088,7 @@ public class PhysicalPlanGenerator {
                 }
                 flow.setConfig(config);
             } else if (flow.getAction() instanceof DynamicLookupAction) {
+                DynamicLookupAction dynamicLookupAction = (DynamicLookupAction) flow.getAction();
                 Map<Integer, IntermediateQueueConfig> inputQueueConfigs = new HashMap<>();
                 dynamicLookupInputQueues.forEach(
                         (inputPort, queue) ->
@@ -1100,7 +1101,9 @@ public class PhysicalPlanGenerator {
                                 inputQueueConfigs,
                                 new IntermediateQueueConfig(
                                         dynamicLookupFactGateCommandQueue.getId(),
-                                        dynamicLookupFactGateCommandQueue.getCapacity())));
+                                        dynamicLookupFactGateCommandQueue.getCapacity()),
+                                dynamicLookupAction.getMaxLogicalStateBytesPerSubtask(),
+                                dynamicLookupAction.getMaxResidentStateBytesPerSubtask()));
             }
         } else if (f instanceof IntermediateExecutionFlow) {
             ((IntermediateExecutionFlow<IntermediateQueueConfig>) f)

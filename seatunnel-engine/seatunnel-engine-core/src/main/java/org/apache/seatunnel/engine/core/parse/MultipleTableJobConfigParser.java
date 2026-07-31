@@ -126,9 +126,8 @@ public class MultipleTableJobConfigParser {
     private static final long KIB = 1024L;
     private static final long MIB = KIB * 1024L;
     private static final long GIB = MIB * 1024L;
-    private static final long DYNAMIC_LOOKUP_M1_MAX_LOGICAL_STATE_BYTES = 4L * GIB;
-    private static final long DYNAMIC_LOOKUP_M1_MAX_RESIDENT_STATE_BYTES = 512L * MIB;
-    private static final long DYNAMIC_LOOKUP_LOCAL_SAFETY_BYTES = 8L * GIB;
+    private static final long DYNAMIC_LOOKUP_M0_MAX_LOGICAL_STATE_BYTES = 512L * MIB;
+    private static final long DYNAMIC_LOOKUP_M0_MAX_RESIDENT_STATE_BYTES = 512L * MIB;
 
     static {
         // Load DriverManager first to avoid deadlock between DriverManager's
@@ -735,6 +734,10 @@ public class MultipleTableJobConfigParser {
                         stableSourceUid(dimensionInputId, dimensionInput._2()),
                         descriptor,
                         producedCatalogTable,
+                        getDynamicLookupBytes(
+                                config, "resource.max-logical-state-bytes-per-subtask"),
+                        getDynamicLookupBytes(
+                                config, "resource.max-resident-state-bytes-per-subtask"),
                         jarUrls,
                         connectorJarIdentifiers);
         action.setParallelism(factInput._2().getParallelism());
@@ -974,177 +977,65 @@ public class MultipleTableJobConfigParser {
 
     private static void validateDynamicLookupModeConfig(
             Config lookupConfig, Config factConfig, Config dimensionConfig) {
-        if (factConfig.hasPath("changelog-mode")
-                && !"APPEND_ONLY".equalsIgnoreCase(factConfig.getString("changelog-mode"))) {
+        requireDynamicLookupPaths(factConfig, "changelog-mode", "required-capability");
+        requireDynamicLookupPaths(dimensionConfig, "primary-key-update", "required-capability");
+        requireDynamicLookupPaths(lookupConfig, "schema-change.behavior");
+        if (!"APPEND_ONLY".equalsIgnoreCase(factConfig.getString("changelog-mode"))) {
             throw new JobDefineCheckException(
-                    "Dynamic lookup M1 requires fact.changelog-mode=APPEND_ONLY");
+                    "Dynamic lookup M0 requires fact.changelog-mode=APPEND_ONLY");
         }
-        if (dimensionConfig.hasPath("primary-key-update")
-                && !"FAIL".equalsIgnoreCase(dimensionConfig.getString("primary-key-update"))) {
+        if (!"FAIL".equalsIgnoreCase(dimensionConfig.getString("primary-key-update"))) {
             throw new JobDefineCheckException(
-                    "Dynamic lookup M1 requires dimension.primary-key-update=FAIL");
+                    "Dynamic lookup M0 requires dimension.primary-key-update=FAIL");
         }
-        if (lookupConfig.hasPath("schema-change.behavior")
-                && !"FAIL".equalsIgnoreCase(lookupConfig.getString("schema-change.behavior"))) {
+        if (!"FAIL".equalsIgnoreCase(lookupConfig.getString("schema-change.behavior"))) {
             throw new JobDefineCheckException(
-                    "Dynamic lookup M1 requires schema-change.behavior=FAIL");
+                    "Dynamic lookup M0 requires schema-change.behavior=FAIL");
         }
     }
 
     private static void validateDynamicLookupResourceConfig(Config lookupConfig) {
-        if (lookupConfig.hasPath("state.max-concurrent-snapshots")
-                && lookupConfig.getInt("state.max-concurrent-snapshots") != 1) {
+        requireDynamicLookupPaths(
+                lookupConfig,
+                "state.max-concurrent-snapshots",
+                "resource.max-concurrent-snapshots",
+                "state.backend",
+                "state.ttl",
+                "resource.max-logical-state-bytes-per-subtask",
+                "resource.max-resident-state-bytes-per-subtask");
+        if (lookupConfig.getInt("state.max-concurrent-snapshots") != 1) {
             throw new JobDefineCheckException(
-                    "Dynamic lookup M1 requires state.max-concurrent-snapshots=1");
+                    "Dynamic lookup M0 requires state.max-concurrent-snapshots=1");
         }
-        if (lookupConfig.hasPath("resource.max-concurrent-snapshots")
-                && lookupConfig.getInt("resource.max-concurrent-snapshots") != 1) {
+        if (lookupConfig.getInt("resource.max-concurrent-snapshots") != 1) {
             throw new JobDefineCheckException(
-                    "Dynamic lookup M1 requires resource.max-concurrent-snapshots=1");
+                    "Dynamic lookup M0 requires resource.max-concurrent-snapshots=1");
         }
-        if (lookupConfig.hasPath("state.backend")
-                && !"DISK_BACKED".equalsIgnoreCase(lookupConfig.getString("state.backend"))) {
+        if (!"IN_MEMORY".equalsIgnoreCase(lookupConfig.getString("state.backend"))) {
             throw new JobDefineCheckException(
-                    "Dynamic lookup M1 requires state.backend=DISK_BACKED");
+                    "Dynamic lookup M0 requires state.backend=IN_MEMORY");
         }
-        if (lookupConfig.hasPath("state.ttl")
-                && !"NONE".equalsIgnoreCase(lookupConfig.getString("state.ttl"))) {
-            throw new JobDefineCheckException("Dynamic lookup M1 requires state.ttl=NONE");
-        }
-        if (!lookupConfig.hasPath("resource.max-logical-state-bytes-per-subtask")) {
-            return;
+        if (!"NONE".equalsIgnoreCase(lookupConfig.getString("state.ttl"))) {
+            throw new JobDefineCheckException("Dynamic lookup M0 requires state.ttl=NONE");
         }
         long logicalStateBytes =
                 getDynamicLookupBytes(lookupConfig, "resource.max-logical-state-bytes-per-subtask");
-        if (logicalStateBytes > DYNAMIC_LOOKUP_M1_MAX_LOGICAL_STATE_BYTES) {
+        if (logicalStateBytes > DYNAMIC_LOOKUP_M0_MAX_LOGICAL_STATE_BYTES) {
             throw new JobDefineCheckException(
-                    "Dynamic lookup M1 supports at most 4 GiB logical state per subtask");
+                    "Dynamic lookup M0 in-memory runtime supports at most 512 MiB logical state"
+                            + " per subtask");
         }
-        if (lookupConfig.hasPath("resource.max-resident-state-bytes-per-subtask")) {
-            long residentStateBytes =
-                    getDynamicLookupBytes(
-                            lookupConfig, "resource.max-resident-state-bytes-per-subtask");
-            if (residentStateBytes > DYNAMIC_LOOKUP_M1_MAX_RESIDENT_STATE_BYTES) {
-                throw new JobDefineCheckException(
-                        "Dynamic lookup M1 supports at most 512 MiB resident state per subtask");
-            }
-        }
-        if (logicalStateBytes > DYNAMIC_LOOKUP_M1_MAX_RESIDENT_STATE_BYTES) {
-            validateDynamicLookupUncommittedBudget(lookupConfig);
-        }
-    }
-
-    private static void validateDynamicLookupUncommittedBudget(Config lookupConfig) {
-        requireDynamicLookupPaths(
-                lookupConfig,
-                "resource.required-backend-certified-max-sealed-snapshot-bytes",
-                "resource.max-partial-upload-bytes-per-attempt",
-                "resource.max-outstanding-uncommitted-attempts",
-                "resource.max-outstanding-uncommitted-bytes",
-                "resource.local-disk-reservation",
-                "resource.remote-staging-quota",
-                "resource.min-checkpoint-start-interval",
-                "resource.max-abort-rate",
-                "resource.configured-abort-burst-count",
-                "resource.admitted-store-outage",
-                "resource.partial-upload-timeout",
-                "resource.partial-orphan-grace",
-                "resource.sealed-orphan-grace",
-                "resource.failover-margin",
-                "resource.clock-skew-margin",
-                "resource.max-reconcile-delay",
-                "resource.min-cleanup-throughput",
-                "resource.checkpoint-progress-deadline");
-        long sealedBytes =
+        long residentStateBytes =
                 getDynamicLookupBytes(
-                        lookupConfig,
-                        "resource.required-backend-certified-max-sealed-snapshot-bytes");
-        long partialBytes =
-                getDynamicLookupBytes(
-                        lookupConfig, "resource.max-partial-upload-bytes-per-attempt");
-        long perAttemptBytes = Math.addExact(sealedBytes, partialBytes);
-        double checkpointIntervalSeconds =
-                getDynamicLookupSeconds(lookupConfig, "resource.min-checkpoint-start-interval");
-        double lambdaSnapshots = 1.0D / checkpointIntervalSeconds;
-        double abortRate = getDynamicLookupRatePerSecond(lookupConfig, "resource.max-abort-rate");
-        if (abortRate > lambdaSnapshots) {
+                        lookupConfig, "resource.max-resident-state-bytes-per-subtask");
+        if (residentStateBytes > DYNAMIC_LOOKUP_M0_MAX_RESIDENT_STATE_BYTES) {
             throw new JobDefineCheckException(
-                    "Dynamic lookup resource.max-abort-rate must not exceed checkpoint start rate");
+                    "Dynamic lookup M0 supports at most 512 MiB resident state per subtask");
         }
-        double checkpointDeadlineSeconds =
-                getDynamicLookupSeconds(lookupConfig, "resource.checkpoint-progress-deadline");
-        double failoverMarginSeconds =
-                getDynamicLookupSeconds(lookupConfig, "resource.failover-margin");
-        double clockSkewSeconds =
-                getDynamicLookupSeconds(lookupConfig, "resource.clock-skew-margin");
-        double sealedGraceSeconds =
-                getDynamicLookupSeconds(lookupConfig, "resource.sealed-orphan-grace");
-        double partialTimeoutSeconds =
-                getDynamicLookupSeconds(lookupConfig, "resource.partial-upload-timeout");
-        double partialGraceSeconds =
-                getDynamicLookupSeconds(lookupConfig, "resource.partial-orphan-grace");
-        double safetyWindow = checkpointDeadlineSeconds + failoverMarginSeconds + clockSkewSeconds;
-        if (sealedGraceSeconds <= safetyWindow) {
+        if (residentStateBytes < logicalStateBytes) {
             throw new JobDefineCheckException(
-                    "Dynamic lookup resource.sealed-orphan-grace must exceed checkpoint deadline"
-                            + " plus failover and clock-skew margins");
-        }
-        if (partialTimeoutSeconds + partialGraceSeconds <= safetyWindow) {
-            throw new JobDefineCheckException(
-                    "Dynamic lookup partial upload timeout plus grace must exceed checkpoint"
-                            + " deadline plus failover and clock-skew margins");
-        }
-        double outageSeconds =
-                getDynamicLookupSeconds(lookupConfig, "resource.admitted-store-outage");
-        double reconcileSeconds =
-                getDynamicLookupSeconds(lookupConfig, "resource.max-reconcile-delay");
-        double uncommittedWindow =
-                outageSeconds
-                        + Math.max(sealedGraceSeconds, partialTimeoutSeconds + partialGraceSeconds)
-                        + reconcileSeconds;
-        long burstCount = lookupConfig.getLong("resource.configured-abort-burst-count");
-        long uncommittedAttempts =
-                (long) Math.ceil(Math.min(lambdaSnapshots, abortRate) * uncommittedWindow)
-                        + burstCount;
-        double uncommittedBytes = uncommittedAttempts * (double) perAttemptBytes;
-        long requiredAttemptCount = 1L + uncommittedAttempts;
-        long configuredAttemptCount =
-                lookupConfig.getLong("resource.max-outstanding-uncommitted-attempts");
-        if (configuredAttemptCount < requiredAttemptCount) {
-            throw new JobDefineCheckException(
-                    "Dynamic lookup resource.max-outstanding-uncommitted-attempts is below the M1"
-                            + " worst-case bound");
-        }
-        double requiredOutstandingBytes = perAttemptBytes + uncommittedBytes;
-        if (getDynamicLookupBytes(lookupConfig, "resource.max-outstanding-uncommitted-bytes")
-                < requiredOutstandingBytes) {
-            throw new JobDefineCheckException(
-                    "Dynamic lookup resource.max-outstanding-uncommitted-bytes is below the M1"
-                            + " worst-case bound");
-        }
-        if (getDynamicLookupBytes(lookupConfig, "resource.remote-staging-quota")
-                < requiredOutstandingBytes) {
-            throw new JobDefineCheckException(
-                    "Dynamic lookup resource.remote-staging-quota is below the M1 worst-case"
-                            + " bound");
-        }
-        double cleanupBytesPerSecond =
-                getDynamicLookupBytesPerSecond(lookupConfig, "resource.min-cleanup-throughput");
-        double uncommittedBytesRate = Math.min(lambdaSnapshots, abortRate) * perAttemptBytes;
-        if (cleanupBytesPerSecond <= uncommittedBytesRate) {
-            throw new JobDefineCheckException(
-                    "Dynamic lookup cleanup throughput must exceed uncommitted bytes arrival rate");
-        }
-        double requiredLocalBytes =
-                sealedBytes
-                        + requiredOutstandingBytes
-                        + sealedBytes
-                        + DYNAMIC_LOOKUP_LOCAL_SAFETY_BYTES;
-        if (getDynamicLookupBytes(lookupConfig, "resource.local-disk-reservation")
-                < requiredLocalBytes) {
-            throw new JobDefineCheckException(
-                    "Dynamic lookup resource.local-disk-reservation is below the M1 worst-case"
-                            + " bound");
+                    "Dynamic lookup M0 in-memory runtime requires resident state budget to cover"
+                            + " logical state budget");
         }
     }
 
@@ -1152,7 +1043,7 @@ public class MultipleTableJobConfigParser {
         for (String path : paths) {
             if (!config.hasPath(path)) {
                 throw new JobDefineCheckException(
-                        "Dynamic lookup M1 resource admission requires '" + path + "'");
+                        "Dynamic lookup M0 requires '" + path + "'");
             }
         }
     }
@@ -1160,30 +1051,6 @@ public class MultipleTableJobConfigParser {
     private static long getDynamicLookupBytes(Config config, String path) {
         String value = getDynamicLookupScalar(config, path);
         return parseDynamicLookupBytes(value, path);
-    }
-
-    private static double getDynamicLookupBytesPerSecond(Config config, String path) {
-        String value = getDynamicLookupScalar(config, path).toLowerCase(Locale.ROOT);
-        if (!value.endsWith("/s")) {
-            throw new JobDefineCheckException(
-                    "Dynamic lookup resource value must use '<bytes>/s': " + path);
-        }
-        return parseDynamicLookupBytes(value.substring(0, value.length() - 2), path);
-    }
-
-    private static double getDynamicLookupSeconds(Config config, String path) {
-        return parseDynamicLookupSeconds(getDynamicLookupScalar(config, path), path);
-    }
-
-    private static double getDynamicLookupRatePerSecond(Config config, String path) {
-        String value = getDynamicLookupScalar(config, path).toLowerCase(Locale.ROOT);
-        String[] parts = value.split("/", 2);
-        if (parts.length != 2) {
-            throw new JobDefineCheckException(
-                    "Dynamic lookup rate must use '<count>/<duration>': " + path);
-        }
-        return Double.parseDouble(parts[0].trim())
-                / parseDynamicLookupSeconds(parts[1].trim(), path);
     }
 
     private static String getDynamicLookupScalar(Config config, String path) {
@@ -1219,34 +1086,6 @@ public class MultipleTableJobConfigParser {
                     "Dynamic lookup byte value must be non-negative: " + path);
         }
         return (long) Math.ceil(parsed * multiplier);
-    }
-
-    private static double parseDynamicLookupSeconds(String value, String path) {
-        String normalized = value.trim().toLowerCase(Locale.ROOT);
-        double multiplier;
-        String number;
-        if (normalized.endsWith("ms")) {
-            multiplier = 0.001D;
-            number = normalized.substring(0, normalized.length() - 2);
-        } else if (normalized.endsWith("min")) {
-            multiplier = 60D;
-            number = normalized.substring(0, normalized.length() - 3);
-        } else if (normalized.endsWith("s")) {
-            multiplier = 1D;
-            number = normalized.substring(0, normalized.length() - 1);
-        } else if (normalized.endsWith("h")) {
-            multiplier = 3600D;
-            number = normalized.substring(0, normalized.length() - 1);
-        } else {
-            multiplier = 1D;
-            number = normalized;
-        }
-        double parsed = Double.parseDouble(number.trim()) * multiplier;
-        if (parsed <= 0) {
-            throw new JobDefineCheckException(
-                    "Dynamic lookup duration value must be positive: " + path);
-        }
-        return parsed;
     }
 
     private static List<Integer> resolveFieldIndexes(

@@ -34,7 +34,7 @@ import java.util.Set;
  * Action that declares and executes a dynamic lookup operator with fact and dimension inputs.
  *
  * <p>The action owns the planner-visible lookup contract, stable source identities, and fixed input
- * port bindings. Runtime support is intentionally constrained to the M1 direct-source topology so
+ * port bindings. Runtime support is intentionally constrained to the M0 direct-source topology so
  * unsupported routing fails during planning instead of creating ambiguous checkpoint ownership.
  */
 public final class DynamicLookupAction extends AbstractAction implements PortAwareAction {
@@ -71,6 +71,12 @@ public final class DynamicLookupAction extends AbstractAction implements PortAwa
     /** Materialized output schema that later transforms and sinks consume. */
     private final CatalogTable producedCatalogTable;
 
+    /** M0 logical dimension state budget enforced by the runtime before snapshotting. */
+    private final long maxLogicalStateBytesPerSubtask;
+
+    /** M0 resident dimension state budget enforced against the serialized in-memory payload. */
+    private final long maxResidentStateBytesPerSubtask;
+
     /**
      * Creates the lookup declaration from two direct source actions.
      *
@@ -81,6 +87,8 @@ public final class DynamicLookupAction extends AbstractAction implements PortAwa
      * @param factSourceActionUid stable fact-source identity
      * @param dimensionInput dedicated dimension source
      * @param dimensionSourceActionUid stable dimension-source identity
+     * @param maxLogicalStateBytesPerSubtask logical dimension state cap for each lookup subtask
+     * @param maxResidentStateBytesPerSubtask resident dimension state cap for each lookup subtask
      * @param jarUrls action dependency URLs
      * @param connectorJarIdentifiers connector plugin dependencies
      */
@@ -94,12 +102,14 @@ public final class DynamicLookupAction extends AbstractAction implements PortAwa
             @NonNull String dimensionSourceActionUid,
             @NonNull DynamicLookupDescriptor descriptor,
             @NonNull CatalogTable producedCatalogTable,
+            long maxLogicalStateBytesPerSubtask,
+            long maxResidentStateBytesPerSubtask,
             @NonNull Set<URL> jarUrls,
             @NonNull Set<ConnectorJarIdentifier> connectorJarIdentifiers) {
         super(id, name, Arrays.asList(factInput, dimensionInput), jarUrls, connectorJarIdentifiers);
         if (!(factInput instanceof SourceAction) || !(dimensionInput instanceof SourceAction)) {
             throw new IllegalArgumentException(
-                    "Dynamic lookup M1 requires direct SourceAction inputs");
+                    "Dynamic lookup M0 requires direct SourceAction inputs");
         }
         validate(
                 operatorUid,
@@ -116,6 +126,9 @@ public final class DynamicLookupAction extends AbstractAction implements PortAwa
         this.descriptor = Objects.requireNonNull(descriptor, "descriptor");
         this.producedCatalogTable =
                 Objects.requireNonNull(producedCatalogTable, "producedCatalogTable");
+        validateResourceBudget(maxLogicalStateBytesPerSubtask, maxResidentStateBytesPerSubtask);
+        this.maxLogicalStateBytesPerSubtask = maxLogicalStateBytesPerSubtask;
+        this.maxResidentStateBytesPerSubtask = maxResidentStateBytesPerSubtask;
     }
 
     /**
@@ -130,6 +143,8 @@ public final class DynamicLookupAction extends AbstractAction implements PortAwa
      * @param dimensionSourceActionId planned dimension-source action ID
      * @param dimensionSourceActionUid stable dimension-source identity
      * @param inputPortBindings preserved planner bindings
+     * @param maxLogicalStateBytesPerSubtask logical dimension state cap for each lookup subtask
+     * @param maxResidentStateBytesPerSubtask resident dimension state cap for each lookup subtask
      * @param jarUrls action dependency URLs
      * @param connectorJarIdentifiers connector plugin dependencies
      */
@@ -144,6 +159,8 @@ public final class DynamicLookupAction extends AbstractAction implements PortAwa
             @NonNull List<InputPortBinding> inputPortBindings,
             @NonNull DynamicLookupDescriptor descriptor,
             @NonNull CatalogTable producedCatalogTable,
+            long maxLogicalStateBytesPerSubtask,
+            long maxResidentStateBytesPerSubtask,
             @NonNull Set<URL> jarUrls,
             @NonNull Set<ConnectorJarIdentifier> connectorJarIdentifiers) {
         super(id, name, jarUrls, connectorJarIdentifiers);
@@ -163,6 +180,9 @@ public final class DynamicLookupAction extends AbstractAction implements PortAwa
         this.descriptor = Objects.requireNonNull(descriptor, "descriptor");
         this.producedCatalogTable =
                 Objects.requireNonNull(producedCatalogTable, "producedCatalogTable");
+        validateResourceBudget(maxLogicalStateBytesPerSubtask, maxResidentStateBytesPerSubtask);
+        this.maxLogicalStateBytesPerSubtask = maxLogicalStateBytesPerSubtask;
+        this.maxResidentStateBytesPerSubtask = maxResidentStateBytesPerSubtask;
     }
 
     public String getOperatorUid() {
@@ -209,6 +229,14 @@ public final class DynamicLookupAction extends AbstractAction implements PortAwa
         return producedCatalogTable;
     }
 
+    public long getMaxLogicalStateBytesPerSubtask() {
+        return maxLogicalStateBytesPerSubtask;
+    }
+
+    public long getMaxResidentStateBytesPerSubtask() {
+        return maxResidentStateBytesPerSubtask;
+    }
+
     private static void validate(
             String operatorUid,
             long factSourceActionId,
@@ -231,6 +259,17 @@ public final class DynamicLookupAction extends AbstractAction implements PortAwa
     private static void requireNonBlank(String value, String fieldName) {
         if (value.trim().isEmpty()) {
             throw new IllegalArgumentException(fieldName + " must not be blank");
+        }
+    }
+
+    private static void validateResourceBudget(
+            long maxLogicalStateBytesPerSubtask, long maxResidentStateBytesPerSubtask) {
+        if (maxLogicalStateBytesPerSubtask <= 0 || maxResidentStateBytesPerSubtask <= 0) {
+            throw new IllegalArgumentException("Dynamic lookup state budgets must be positive");
+        }
+        if (maxResidentStateBytesPerSubtask < maxLogicalStateBytesPerSubtask) {
+            throw new IllegalArgumentException(
+                    "Dynamic lookup resident budget must cover logical state budget");
         }
     }
 

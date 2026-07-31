@@ -84,33 +84,15 @@ dynamic_lookup {
     }
 
     state {
-      backend = "DISK_BACKED"
+      backend = "IN_MEMORY"
       ttl = "NONE"
       max-concurrent-snapshots = 1
     }
 
     resource {
-      max-logical-state-bytes-per-subtask = "4gb"
+      max-logical-state-bytes-per-subtask = "512mb"
       max-resident-state-bytes-per-subtask = "512mb"
       max-concurrent-snapshots = 1
-      required-backend-certified-max-sealed-snapshot-bytes = "4gb"
-      max-partial-upload-bytes-per-attempt = "2gb"
-      max-outstanding-uncommitted-attempts = 8
-      max-outstanding-uncommitted-bytes = "48gb"
-      local-disk-reservation = "73gb"
-      remote-staging-quota = "48gb"
-      min-checkpoint-start-interval = "60s"
-      max-abort-rate = "1/60s"
-      configured-abort-burst-count = 1
-      admitted-store-outage = "300s"
-      partial-upload-timeout = "300s"
-      partial-orphan-grace = "300s"
-      sealed-orphan-grace = "600s"
-      failover-margin = "60s"
-      clock-skew-margin = "10s"
-      max-reconcile-delay = "120s"
-      min-cleanup-throughput = "64mb/s"
-      checkpoint-progress-deadline = "300s"
     }
   }
 }
@@ -156,8 +138,9 @@ checkpoint 期间：
 ## 5. Source 能力要求
 
 fact source 必须声明 `FACT_SOURCE_GATE_V1`。首个实现为 Kafka 接入了该能力。gate 关闭期间，
-Kafka splits 会被暂存，并通过原生 reader state 路径参与 snapshot。durable anchor checkpoint
-完成后，engine 发送 open command，暂存 splits 只会被激活一次。
+Kafka splits 会被暂存，并通过 fact gate state envelope 参与 snapshot，不再在恢复时回流到
+enumerator restore 路径。durable anchor checkpoint 完成后，engine 发送 open command，暂存
+splits 只会被激活一次。
 
 dimension source 必须声明 ordered bootstrap 与 update-pair 能力。CDC incremental source 声明：
 
@@ -168,7 +151,7 @@ dimension source 必须声明 ordered bootstrap 与 update-pair 能力。CDC inc
 dynamic lookup runtime 会强制 `UPDATE_BEFORE` 与 `UPDATE_AFTER` 是同一个 key。主键更新会被当作
 作业失败错误处理。
 
-## 6. M1 限制
+## 6. M0 限制
 
 首个实现会直接拒绝或限制这些场景：
 
@@ -180,7 +163,8 @@ dynamic lookup runtime 会强制 `UPDATE_BEFORE` 与 `UPDATE_AFTER` 是同一个
 - 非 dedicated dimension bootstrap edge
 - 无法证明所需精度的时间 key 类型
 - 单个 lookup subtask 超过一个并发 snapshot
-- 单个 subtask 的逻辑维表状态超过 4 GiB
+- 单个 subtask 的逻辑维表状态超过 512 MiB
+- disk-backed dimension state 与 remote staging 预算
 
 如果作业需要分支级 gate、远程多 channel exchange、temporal join、schema evolution 或维表主键
-重写，需要使用后续协议版本。
+重写，或逻辑状态超过 M0 in-memory 上限，需要使用后续协议版本。

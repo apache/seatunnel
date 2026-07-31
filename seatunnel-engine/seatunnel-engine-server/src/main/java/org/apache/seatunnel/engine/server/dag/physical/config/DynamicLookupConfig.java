@@ -24,7 +24,7 @@ import java.util.Map;
 /**
  * Runtime queue binding for a dynamic lookup task.
  *
- * <p>M1 starts with forward-only, same-task-group input queues. Cross-worker exchange uses the
+ * <p>M0 starts with forward-only, same-task-group input queues. Cross-worker exchange uses the
  * channel descriptors separately and must not infer queue IDs from logical edge IDs.
  */
 public final class DynamicLookupConfig implements FlowConfig {
@@ -36,17 +36,34 @@ public final class DynamicLookupConfig implements FlowConfig {
 
     private final IntermediateQueueConfig factGateCommandQueue;
 
+    /** Maximum serialized logical dimension state bytes allowed per lookup subtask. */
+    private final long maxLogicalStateBytesPerSubtask;
+
+    /** Maximum serialized resident dimension state bytes allowed per lookup subtask. */
+    private final long maxResidentStateBytesPerSubtask;
+
     public DynamicLookupConfig(
             Map<Integer, IntermediateQueueConfig> inputQueues,
-            IntermediateQueueConfig factGateCommandQueue) {
+            IntermediateQueueConfig factGateCommandQueue,
+            long maxLogicalStateBytesPerSubtask,
+            long maxResidentStateBytesPerSubtask) {
         if (inputQueues == null || inputQueues.isEmpty()) {
             throw new IllegalArgumentException("inputQueues must not be empty");
         }
         if (factGateCommandQueue == null) {
             throw new IllegalArgumentException("factGateCommandQueue must not be null");
         }
+        if (maxLogicalStateBytesPerSubtask <= 0 || maxResidentStateBytesPerSubtask <= 0) {
+            throw new IllegalArgumentException("Dynamic lookup state budgets must be positive");
+        }
+        if (maxResidentStateBytesPerSubtask < maxLogicalStateBytesPerSubtask) {
+            throw new IllegalArgumentException(
+                    "Dynamic lookup resident budget must cover logical state budget");
+        }
         this.inputQueues = Collections.unmodifiableMap(new HashMap<>(inputQueues));
         this.factGateCommandQueue = factGateCommandQueue;
+        this.maxLogicalStateBytesPerSubtask = maxLogicalStateBytesPerSubtask;
+        this.maxResidentStateBytesPerSubtask = maxResidentStateBytesPerSubtask;
     }
 
     public Map<Integer, IntermediateQueueConfig> getInputQueues() {
@@ -63,5 +80,13 @@ public final class DynamicLookupConfig implements FlowConfig {
 
     public IntermediateQueueConfig getFactGateCommandQueue() {
         return factGateCommandQueue;
+    }
+
+    public long getMaxLogicalStateBytesPerSubtask() {
+        return maxLogicalStateBytesPerSubtask;
+    }
+
+    public long getMaxResidentStateBytesPerSubtask() {
+        return maxResidentStateBytesPerSubtask;
     }
 }

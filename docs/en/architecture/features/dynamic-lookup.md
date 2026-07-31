@@ -86,33 +86,15 @@ dynamic_lookup {
     }
 
     state {
-      backend = "DISK_BACKED"
+      backend = "IN_MEMORY"
       ttl = "NONE"
       max-concurrent-snapshots = 1
     }
 
     resource {
-      max-logical-state-bytes-per-subtask = "4gb"
+      max-logical-state-bytes-per-subtask = "512mb"
       max-resident-state-bytes-per-subtask = "512mb"
       max-concurrent-snapshots = 1
-      required-backend-certified-max-sealed-snapshot-bytes = "4gb"
-      max-partial-upload-bytes-per-attempt = "2gb"
-      max-outstanding-uncommitted-attempts = 8
-      max-outstanding-uncommitted-bytes = "48gb"
-      local-disk-reservation = "73gb"
-      remote-staging-quota = "48gb"
-      min-checkpoint-start-interval = "60s"
-      max-abort-rate = "1/60s"
-      configured-abort-burst-count = 1
-      admitted-store-outage = "300s"
-      partial-upload-timeout = "300s"
-      partial-orphan-grace = "300s"
-      sealed-orphan-grace = "600s"
-      failover-margin = "60s"
-      clock-skew-margin = "10s"
-      max-reconcile-delay = "120s"
-      min-cleanup-throughput = "64mb/s"
-      checkpoint-progress-deadline = "300s"
     }
   }
 }
@@ -161,8 +143,9 @@ legacy path.
 
 The fact source must declare `FACT_SOURCE_GATE_V1`. The first implementation wires this capability
 for Kafka. While the gate is closed, Kafka splits are staged and snapshotted through the native
-reader state path. After the durable anchor checkpoint completes, the engine sends an open command
-and staged splits are activated exactly once.
+fact gate state envelope instead of being routed back through the enumerator restore path. After the
+durable anchor checkpoint completes, the engine sends an open command and staged splits are
+activated exactly once.
 
 The dimension source must declare ordered bootstrap and update-pair capabilities. CDC incremental
 sources declare:
@@ -174,7 +157,7 @@ sources declare:
 The dynamic lookup runtime enforces same-key `UPDATE_BEFORE` and `UPDATE_AFTER` pairs. A primary-key
 update is treated as a job-failing error.
 
-## 6. M1 Limitations
+## 6. M0 Limitations
 
 The first implementation deliberately rejects or limits these cases:
 
@@ -186,7 +169,9 @@ The first implementation deliberately rejects or limits these cases:
 - non-dedicated dimension bootstrap edges
 - time key types that cannot prove the required precision
 - more than one concurrent snapshot per lookup subtask
-- logical dimension state larger than 4 GiB per subtask
+- logical dimension state larger than 512 MiB per subtask
+- disk-backed dimension state and remote staging budgets
 
 If a job needs branch-level gating, remote multi-channel exchange, temporal joins, schema evolution,
-or dimension primary-key rewrites, it must use a later protocol version.
+dimension primary-key rewrites, or logical state beyond the in-memory M0 limit, it must use a later
+protocol version.

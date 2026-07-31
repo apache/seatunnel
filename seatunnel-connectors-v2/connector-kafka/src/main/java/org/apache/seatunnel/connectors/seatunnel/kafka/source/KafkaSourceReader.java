@@ -187,10 +187,11 @@ public class KafkaSourceReader
 
     @Override
     public SourceGateState snapshotGate(long checkpointId) throws Exception {
+        List<KafkaSourceSplit> sourceSplits = snapshotState(checkpointId);
         synchronized (gateLock) {
             List<SourceGateState.PreparedSplit> preparedSplits =
-                    new ArrayList<>(stagedSplits.size());
-            for (KafkaSourceSplit split : stagedSplits) {
+                    new ArrayList<>(sourceSplits.size());
+            for (KafkaSourceSplit split : sourceSplits) {
                 byte[] serializedSplit = serializeSplit(split);
                 preparedSplits.add(
                         new SourceGateState.PreparedSplit(

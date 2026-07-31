@@ -150,6 +150,8 @@ public class ExecutionPlanGeneratorTest {
                         "customer_dimension",
                         lookupDescriptor("lookup-output"),
                         lookupCatalogTable("lookup-output"),
+                        512L * 1024L * 1024L,
+                        512L * 1024L * 1024L,
                         Collections.emptySet(),
                         Collections.emptySet());
         lookup.setParallelism(3);
@@ -204,6 +206,10 @@ public class ExecutionPlanGeneratorTest {
         Assertions.assertEquals("orders", executionLookup.getFactSourceActionUid());
         Assertions.assertEquals(
                 "customer_dimension", executionLookup.getDimensionSourceActionUid());
+        Assertions.assertEquals(
+                512L * 1024L * 1024L, executionLookup.getMaxLogicalStateBytesPerSubtask());
+        Assertions.assertEquals(
+                512L * 1024L * 1024L, executionLookup.getMaxResidentStateBytesPerSubtask());
         inputEdges.forEach(
                 edge ->
                         Assertions.assertEquals(
@@ -466,6 +472,8 @@ public class ExecutionPlanGeneratorTest {
                 dimensionSourceUid,
                 lookupDescriptor("lookup-" + id),
                 lookupCatalogTable("lookup-" + id),
+                512L * 1024L * 1024L,
+                512L * 1024L * 1024L,
                 Collections.emptySet(),
                 Collections.emptySet());
     }
