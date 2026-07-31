@@ -40,9 +40,6 @@ import org.apache.kudu.client.KuduScanToken;
 import org.apache.kudu.client.KuduTable;
 
 import lombok.extern.slf4j.Slf4j;
-import sun.security.krb5.Config;
-import sun.security.krb5.KrbException;
-
 import java.io.IOException;
 import java.security.PrivilegedExceptionAction;
 import java.util.Arrays;
@@ -141,12 +138,22 @@ public class KuduUtil {
 
     private static void reloadKrb5conf(String krb5conf) {
         System.setProperty(KRB5_CONF_KEY, krb5conf);
+        refreshJdkKerberosConfig();
+        KerberosName.resetDefaultRealm();
+    }
+
+    /**
+     * Refresh the JDK Kerberos configuration without a compile-time dependency on internal JDK
+     * packages. Directly importing sun.security.krb5.Config breaks Java 17 compilation because the
+     * package is not exported by the java.security.jgss module.
+     */
+    private static void refreshJdkKerberosConfig() {
         try {
-            Config.refresh();
-            KerberosName.resetDefaultRealm();
-        } catch (KrbException e) {
+            Class.forName("sun.security.krb5.Config").getMethod("refresh").invoke(null);
+        } catch (ReflectiveOperationException | RuntimeException e) {
             log.warn(
-                    "resetting default realm failed, current default realm will still be used.", e);
+                    "refreshing JDK Kerberos configuration failed, current default realm will still be used.",
+                    e);
         }
     }
 
