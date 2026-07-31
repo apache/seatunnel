@@ -54,6 +54,7 @@ public abstract class BaseFileSource
     private final CatalogTable catalogTable;
     private final List<String> filePaths;
     private final ReadStrategy readStrategy;
+    private final boolean documentRoutingEnabled;
 
     /** shouldn't use this construct method. just for testing */
     @VisibleForTesting
@@ -61,13 +62,17 @@ public abstract class BaseFileSource
         this.catalogTable = null;
         this.filePaths = null;
         this.readStrategy = null;
+        this.documentRoutingEnabled = false;
     }
 
     public BaseFileSource(ReadonlyConfig pluginConfig) {
         this.pluginConfig = pluginConfig;
         HadoopConf hadoopConf = initHadoopConf();
-        this.readStrategy =
-                pluginConfig.get(FileBaseSourceOptions.FILE_FORMAT_TYPE).getReadStrategy();
+        FileFormat fileFormat = pluginConfig.get(FileBaseSourceOptions.FILE_FORMAT_TYPE);
+        this.readStrategy = fileFormat.getReadStrategy();
+        this.documentRoutingEnabled =
+                fileFormat == FileFormat.MARKDOWN
+                        && pluginConfig.get(FileBaseSourceOptions.MARKDOWN_RAG_METADATA_ENABLED);
         this.readStrategy.setPluginConfig(pluginConfig.toConfig());
         this.readStrategy.init(hadoopConf);
         String path = pluginConfig.get(FileBaseSourceOptions.FILE_PATH);
@@ -81,7 +86,6 @@ public abstract class BaseFileSource
 
         // support user-defined schema
         CatalogTable userDefinedCatalogTable;
-        FileFormat fileFormat = pluginConfig.get(FileBaseSourceOptions.FILE_FORMAT_TYPE);
         // only json text csv type support user-defined schema now
         if (pluginConfig.getOptional(ConnectorCommonOptions.SCHEMA).isPresent()) {
             switch (fileFormat) {
@@ -158,7 +162,7 @@ public abstract class BaseFileSource
     @Override
     public SourceSplitEnumerator<FileSourceSplit, FileSourceState> createEnumerator(
             SourceSplitEnumerator.Context<FileSourceSplit> enumeratorContext) throws Exception {
-        return new FileSourceSplitEnumerator(enumeratorContext, filePaths);
+        return new FileSourceSplitEnumerator(enumeratorContext, filePaths, documentRoutingEnabled);
     }
 
     @Override
@@ -166,6 +170,7 @@ public abstract class BaseFileSource
             SourceSplitEnumerator.Context<FileSourceSplit> enumeratorContext,
             FileSourceState checkpointState)
             throws Exception {
-        return new FileSourceSplitEnumerator(enumeratorContext, filePaths, checkpointState);
+        return new FileSourceSplitEnumerator(
+                enumeratorContext, filePaths, checkpointState, documentRoutingEnabled);
     }
 }

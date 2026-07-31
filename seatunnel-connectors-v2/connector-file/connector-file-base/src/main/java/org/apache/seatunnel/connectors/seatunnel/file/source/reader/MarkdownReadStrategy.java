@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.file.source.FileSourceDocumentRouting;
 
 import org.apache.commons.io.IOUtils;
 
@@ -49,11 +50,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.URI;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Paths;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
@@ -65,7 +62,6 @@ public class MarkdownReadStrategy extends AbstractReadStrategy {
 
     private static final int DEFAULT_PAGE_NUMBER = 1;
     private static final int DEFAULT_POSITION = 1;
-    private static final char[] HEX_CHARS = "0123456789abcdef".toCharArray();
     private static final String[] DEFAULT_FIELD_NAMES = {
         "element_id",
         "element_type",
@@ -124,7 +120,7 @@ public class MarkdownReadStrategy extends AbstractReadStrategy {
         }
         Parser parser = Parser.builder().build();
         Node document = parser.parse(markdown);
-        String sourceUri = normalizeSourceUri(path);
+        String sourceUri = FileSourceDocumentRouting.normalizeSourceUri(path);
 
         Map<Node, NodeInfo> nodeInfoMap = new IdentityHashMap<>();
         Map<String, Integer> typeCounters = new HashMap<>();
@@ -137,7 +133,7 @@ public class MarkdownReadStrategy extends AbstractReadStrategy {
                 nodeInfoMap,
                 DEFAULT_PAGE_NUMBER,
                 sourceUri,
-                buildDocumentId(sourceUri));
+                FileSourceDocumentRouting.buildDocumentId(sourceUri));
 
         for (SeaTunnelRow row : rows) {
             output.collect(row);
@@ -337,10 +333,13 @@ public class MarkdownReadStrategy extends AbstractReadStrategy {
 
     private Object[] appendRagMetadata(
             Object[] fields, String sourceUri, String documentId, int chunkIndex, String text) {
-        String contentHash = sha256Hex(text == null ? "" : text);
+        String contentHash = FileSourceDocumentRouting.sha256Hex(text == null ? "" : text);
         // Keep chunk ids stable across re-reads of the same logical document while still changing
         // when the chunk content changes.
-        String chunkId = "chunk_" + sha256Hex(documentId + ":" + chunkIndex + ":" + contentHash);
+        String chunkId =
+                "chunk_"
+                        + FileSourceDocumentRouting.sha256Hex(
+                                documentId + ":" + chunkIndex + ":" + contentHash);
         Object[] enriched = new Object[fields.length + RAG_METADATA_FIELD_NAMES.length];
         System.arraycopy(fields, 0, enriched, 0, fields.length);
         enriched[fields.length] = sourceUri;
@@ -349,41 +348,6 @@ public class MarkdownReadStrategy extends AbstractReadStrategy {
         enriched[fields.length + 3] = chunkIndex;
         enriched[fields.length + 4] = contentHash;
         return enriched;
-    }
-
-    private static String buildDocumentId(String sourceUri) {
-        // Document ids stay anchored to the normalized source location so every chunk from the same
-        // file shares one stable parent id.
-        return "doc_" + sha256Hex(sourceUri);
-    }
-
-    private static String normalizeSourceUri(String sourceUri) {
-        // Normalize local file URIs to the path form emitted by existing local-file reads so the
-        // metadata contract stays stable between "file:/..." and plain local paths.
-        if (!sourceUri.startsWith("file:")) {
-            return sourceUri;
-        }
-        try {
-            return Paths.get(URI.create(sourceUri)).toString();
-        } catch (IllegalArgumentException e) {
-            return sourceUri;
-        }
-    }
-
-    private static String sha256Hex(String value) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] bytes = digest.digest(value.getBytes(StandardCharsets.UTF_8));
-            char[] chars = new char[bytes.length * 2];
-            for (int i = 0; i < bytes.length; i++) {
-                int unsigned = bytes[i] & 0xFF;
-                chars[i * 2] = HEX_CHARS[unsigned >>> 4];
-                chars[i * 2 + 1] = HEX_CHARS[unsigned & 0x0F];
-            }
-            return new String(chars);
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 is not available", e);
-        }
     }
 
     private static String[] concat(String[] left, String[] right) {

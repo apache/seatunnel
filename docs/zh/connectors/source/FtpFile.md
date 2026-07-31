@@ -59,6 +59,7 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 | remote_verification_enabled | boolean | 否    | true                |
 | control_encoding            | string  | 否    | UTF-8               |
 | delimiter/field_delimiter   | string  | 否    | \001                |
+| row_delimiter               | string  | 否    | \n                  | 读取 `text` 文件时使用的行分隔符。默认值为 `\n`。 |
 | read_columns                | list    | 否    | -                   |
 | parse_partition_from_path   | boolean | 否    | true                |
 | date_format                 | string  | 否    | yyyy-MM-dd          |
@@ -71,6 +72,7 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 | xml_use_attr_format         | boolean | 否    | -                   |
 | csv_use_header_line         | boolean | 否    | false               |
 | file_filter_pattern         | string  | 否    | -                   |
+| filename_extension          | string  | 否    | -                   | 使用指定的文件扩展名筛选文件，例如 `csv`、`.txt`、`json` 或 `.xml`。 |
 | compress_codec              | string  | 否    | none                |
 | archive_compress_codec      | string  | 否    | none                |
 | encoding                    | string  | 否    | UTF-8               |
@@ -286,7 +288,9 @@ markdown 解析器提取各种元素，包括标题、段落、列表、代码�
 - `chunk_index`：解析后文档中的一基 chunk 顺序
 - `content_hash`：已输出 `text` 值的 SHA-256 哈希
 
-两个选项的默认值均为 `false`，因此除非启用对应选项，否则原始 Markdown / PDF schema 保持不变。
+启用该选项并读取有界 Markdown 文件时，source enumerator 会使用相同的 `document_id` 哈希分配整文件 split，使同一文档派生的所有行留在同一个 source 路由 bucket 中。禁用该选项时，默认的轮询 split 分配行为保持不变。
+
+该选项默认值为 `false`，因此只有显式启用后才会改变原始 Markdown schema。
 
 注意：Markdown 格式仅支持读取，不支持写入。
 
