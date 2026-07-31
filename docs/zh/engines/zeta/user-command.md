@@ -32,8 +32,8 @@ Usage: seatunnel.sh [options]
                                               and --encrypt are specified, only
                                               --encrypt will take effect (default:
                                               false)
-    -d, --dry-run                             Run the job in dry-run mode, support
-                                              [static, connect, sample]
+    -d, --dry-run                             Validate or preview without running sinks.
+                                              Supported modes: [static, connect, sample]
     -m, --master, -e, --deploy-mode           SeaTunnel job submit master, support
                                               [local, cluster] (default: cluster)
     --encrypt                                 Encrypt config file, when both --decrypt
@@ -106,10 +106,18 @@ bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template --dry-
 ### 预览样例数据
 
 ```shell
-bin/seatunnel.sh --master local --config $SEATUNNEL_HOME/config/v2.batch.config.template --dry-run sample --sample-limit 10 --sample-print-data
+sh bin/seatunnel.sh --master local --config $SEATUNNEL_HOME/config/v2.batch.config.template --dry-run sample --sample-limit 10 --sample-print-data
 ```
 
-`--dry-run sample` 模式会在本地运行配置的 source 和 transform，并输出它们的 schema。添加 `--sample-print-data` 后才会输出限定数量的 source 和 transform 行数据。默认不输出行内容，因为这些内容会写入持久化的引擎日志，并且可能包含敏感数据。所有 action 都使用并行度 `1`，包括已配置更高并行度的 source，以确保行数限制作用于整个 source，并使预览输出具有确定性。行数限制默认为 `10`，最大为 `10000`。该模式会用内部无操作 sink 替换配置的 sink，跳过 sink 插件创建和 save-mode 操作，并禁用 checkpoint。该模式可能从外部 source 读取数据，但不会向配置的目标系统写入数据。它不支持集群模式、异步提交、恢复、savepoint、校验或作业控制操作。未选择 sample 模式时，sample 相关选项会被拒绝。
+`--dry-run sample` 模式具有以下行为：
+
+- 在本地运行配置的 source 和 transform，并输出它们的 schema。
+- 仅当设置 `--sample-print-data` 时，才输出限定数量的 source 和 transform 行数据。默认不输出行内容，因为持久化的引擎日志可能暴露敏感数据。
+- 所有 action 都使用并行度 `1`，包括已配置更高并行度的 source，以确保行数限制作用于整个 source，并使预览输出具有确定性。
+- 默认从每个 source 读取 `10` 行，`--sample-limit` 最大为 `10000`。
+- 使用内部无操作 sink 替换配置的 sink，跳过 sink 插件创建和 save-mode 操作，并禁用 checkpoint。
+- 可能从外部 source 读取数据，但不会向配置的目标系统写入数据。
+- 仅支持本地执行。不支持集群模式、异步提交、恢复、savepoint、校验或作业控制操作。未选择 sample 模式时，sample 相关选项也会被拒绝。
 
 ## 查看作业列表
 

@@ -161,12 +161,11 @@ public class ClientCommandArgs extends AbstractCommandArgs {
     @Override
     public Command<?> buildCommand() {
         validateSampleOptions();
+        Common.setDeployMode(getDeployMode());
         if (dryRun == DryRun.SAMPLE) {
             validateSampleMode();
-            Common.setDeployMode(getDeployMode());
             return new ClientExecuteCommand(this);
         }
-        Common.setDeployMode(getDeployMode());
         if (checkConfig || dryRun != null) {
             return new SeaTunnelConfValidateCommand(this);
         }
@@ -210,10 +209,17 @@ public class ClientCommandArgs extends AbstractCommandArgs {
         }
     }
 
+    /** Returns the configured sample limit, or the default limit when it was not specified. */
     public int getSampleLimit() {
         return sampleLimit == null ? DryRunSampleConfig.DEFAULT_LIMIT : sampleLimit;
     }
 
+    /**
+     * Validates that sample mode runs locally without asynchronous submission, restore, savepoint,
+     * validation, job control, encryption, or decryption options.
+     *
+     * @throws ParameterException when sample mode is combined with an unsupported option
+     */
     public void validateSampleMode() {
         if (masterType != MasterType.LOCAL) {
             throw new ParameterException(
@@ -247,6 +253,7 @@ public class ClientCommandArgs extends AbstractCommandArgs {
         }
     }
 
+    /** Validates that a sample limit is between 1 and {@link DryRunSampleConfig#MAX_LIMIT}. */
     public static class PositiveIntegerValidator implements IParameterValidator {
         @Override
         public void validate(String name, String value) throws ParameterException {

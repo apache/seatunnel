@@ -85,9 +85,6 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
 
     @Override
     public void execute() throws CommandExecuteException {
-        if (clientCommandArgs.getDryRun() == DryRun.SAMPLE) {
-            clientCommandArgs.validateSampleMode();
-        }
         JobMetricsRunner.JobMetricsSummary jobMetricsSummary = null;
         LocalDateTime startTime = LocalDateTime.now();
         LocalDateTime endTime = LocalDateTime.now();

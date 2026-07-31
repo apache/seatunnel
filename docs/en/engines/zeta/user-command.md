@@ -26,7 +26,7 @@ Usage: seatunnel.sh [options]
     -cn, --cluster                              The name of the cluster.
     -c, --config                                Config file.
     --decrypt                                   Decrypt the config file. When both --decrypt and --encrypt are specified, only --encrypt will take effect (default: false).
-    -d, --dry-run                               Run the job in dry-run mode, support [static, connect, sample].
+    -d, --dry-run                               Validate or preview without running sinks. Supported modes: [static, connect, sample].
     -m, --master, -e, --deploy-mode             SeaTunnel job submit master, support [local, cluster] (default: cluster).
     --encrypt                                   Encrypt the config file. When both --decrypt and --encrypt are specified, only --encrypt will take effect (default: false).
     --get_running_job_metrics                   Get metrics for running jobs (default: false).
@@ -93,7 +93,15 @@ Every plugin in the job is reported in a validation summary with one of two stat
 sh bin/seatunnel.sh --master local --config $SEATUNNEL_HOME/config/v2.batch.config.template --dry-run sample --sample-limit 10 --sample-print-data
 ```
 
-The `--dry-run sample` mode runs the configured sources and transforms locally and prints their schemas. Add `--sample-print-data` to print the bounded source and transform row values. Row values are hidden by default because they are written to persistent engine logs and may contain sensitive data. It uses parallelism `1` for every action, including sources configured with higher parallelism, so the row limit is source-wide and the preview output is deterministic. The limit defaults to `10` and cannot exceed `10000`. It replaces configured sinks with an internal no-op sink, skips sink plugin creation and save-mode actions, and disables checkpoints. This mode can read from external sources, but it does not write to configured target systems. It does not support cluster mode, asynchronous submission, restore, savepoint, validation, or job-control operations. Sample options are rejected when sample mode is not selected.
+The `--dry-run sample` mode has the following behavior:
+
+- Runs the configured sources and transforms locally and prints their schemas.
+- Prints bounded source and transform row values only when `--sample-print-data` is set. Row values are hidden by default because persistent engine logs may expose sensitive data.
+- Uses parallelism `1` for every action, including sources configured with higher parallelism, so the row limit is source-wide and the preview output is deterministic.
+- Reads `10` rows from each source by default, with a maximum `--sample-limit` of `10000`.
+- Replaces configured sinks with an internal no-op sink, skips sink plugin creation and save-mode actions, and disables checkpoints.
+- May read from external sources, but does not write to configured target systems.
+- Supports local execution only. Cluster mode, asynchronous submission, restore, savepoint, validation, and job-control operations are rejected. Sample options are also rejected when sample mode is not selected.
 
 ## Viewing The Job List
 
