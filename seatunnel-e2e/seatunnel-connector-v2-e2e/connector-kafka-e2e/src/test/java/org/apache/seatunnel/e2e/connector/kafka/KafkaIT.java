@@ -105,10 +105,12 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
@@ -2590,27 +2592,42 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
             long visibleEndOffsetExclusive =
                     consumer.endOffsets(Collections.singletonList(topicPartition))
                             .get(topicPartition);
-            Long lastProcessedOffset = startOffset - 1;
+            long nextOffset = startOffset;
             int consecutiveEmptyPolls = 0;
+            Set<Long> seenOffsets = new HashSet<>();
             do {
                 ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(100));
                 if (records.isEmpty()) {
                     consecutiveEmptyPolls++;
-                    continue;
-                }
-                consecutiveEmptyPolls = 0;
-                for (ConsumerRecord<String, String> record : records.records(topicPartition)) {
-                    if (record.offset() >= startOffset && record.offset() > lastProcessedOffset) {
-                        data.add(record.value());
+                } else {
+                    consecutiveEmptyPolls = 0;
+                    for (ConsumerRecord<String, String> record : records.records(topicPartition)) {
+                        if (record.offset() >= startOffset && seenOffsets.add(record.offset())) {
+                            data.add(record.value());
+                        }
                     }
-                    lastProcessedOffset = record.offset();
                 }
-            } while (lastProcessedOffset < visibleEndOffsetExclusive - 1
-                    && consecutiveEmptyPolls < 20);
+                long currentPosition = consumer.position(topicPartition);
+                // Exactly-once topics can contain transaction control records or aborted records
+                // that advance offsets without surfacing visible READ_COMMITTED records. Track the
+                // consumer position so we do not stop early while the broker is still advancing the
+                // transactional scan range.
+                if (records.isEmpty()
+                        && shouldStopAfterEmptyReadCommittedPoll(
+                                currentPosition, nextOffset, consecutiveEmptyPolls)) {
+                    break;
+                }
+                nextOffset = currentPosition;
+            } while (nextOffset < visibleEndOffsetExclusive && consecutiveEmptyPolls < 20);
             return data;
         } finally {
             closeKafkaConsumer(consumer);
         }
+    }
+
+    private boolean shouldStopAfterEmptyReadCommittedPoll(
+            long currentPosition, long previousPosition, int consecutiveEmptyPolls) {
+        return currentPosition <= previousPosition && consecutiveEmptyPolls >= 20;
     }
 
     private Properties kafkaManualConsumerConfig() {
