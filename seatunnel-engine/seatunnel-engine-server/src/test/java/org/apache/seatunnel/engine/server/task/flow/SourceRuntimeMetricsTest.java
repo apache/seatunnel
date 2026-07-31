@@ -46,12 +46,14 @@ import static org.apache.seatunnel.api.common.metrics.MetricNames.SOURCE_READER_
 class SourceRuntimeMetricsTest {
 
     private static final long SOURCE_RUNTIME_ID = 1L;
-    private static final String METRIC_SUFFIX = "#" + SOURCE_RUNTIME_ID;
+    private static final long ATTEMPT_ID = 101L;
+    private static final long NEXT_ATTEMPT_ID = 102L;
 
     @Test
     void shouldRecordPollDurationAndSoftBudgetBoundary() {
         SeaTunnelMetricsContext context = new SeaTunnelMetricsContext();
-        SourceRuntimeMetrics metrics = new SourceRuntimeMetrics(context, SOURCE_RUNTIME_ID);
+        SourceRuntimeMetrics metrics =
+                new SourceRuntimeMetrics(context, SOURCE_RUNTIME_ID, ATTEMPT_ID);
         long budget = SourceRuntimeMetrics.POLL_SOFT_BUDGET_NANOS;
 
         metrics.recordPoll(budget);
@@ -67,7 +69,8 @@ class SourceRuntimeMetricsTest {
     @Test
     void shouldRecordReaderCallbackDurationAndSoftBudgetBoundary() {
         SeaTunnelMetricsContext context = new SeaTunnelMetricsContext();
-        SourceRuntimeMetrics metrics = new SourceRuntimeMetrics(context, SOURCE_RUNTIME_ID);
+        SourceRuntimeMetrics metrics =
+                new SourceRuntimeMetrics(context, SOURCE_RUNTIME_ID, ATTEMPT_ID);
         long budget = SourceRuntimeMetrics.READER_CALLBACK_SOFT_BUDGET_NANOS;
 
         metrics.recordReaderCallback(budget + 2L);
@@ -82,7 +85,8 @@ class SourceRuntimeMetricsTest {
     @Test
     void shouldKeepCheckpointStagesIndependentAndMaximumsMonotonic() {
         SeaTunnelMetricsContext context = new SeaTunnelMetricsContext();
-        SourceRuntimeMetrics metrics = new SourceRuntimeMetrics(context, SOURCE_RUNTIME_ID);
+        SourceRuntimeMetrics metrics =
+                new SourceRuntimeMetrics(context, SOURCE_RUNTIME_ID, ATTEMPT_ID);
 
         metrics.recordCheckpointLockWait(20L);
         metrics.recordCheckpointLockWait(5L);
@@ -101,6 +105,26 @@ class SourceRuntimeMetricsTest {
         Assertions.assertEquals(40L, count(context, SOURCE_BARRIER_FORWARD_MAX_NANOS));
     }
 
+    @Test
+    void shouldKeepRuntimeMetricsAttemptLocalAfterRecovery() {
+        SeaTunnelMetricsContext context = new SeaTunnelMetricsContext();
+        SourceRuntimeMetrics firstAttempt =
+                new SourceRuntimeMetrics(context, SOURCE_RUNTIME_ID, ATTEMPT_ID);
+        SourceRuntimeMetrics nextAttempt =
+                new SourceRuntimeMetrics(context, SOURCE_RUNTIME_ID, NEXT_ATTEMPT_ID);
+
+        firstAttempt.recordPoll(11L);
+        firstAttempt.recordCheckpointLockWait(13L);
+        nextAttempt.recordPoll(17L);
+
+        Assertions.assertEquals(1L, count(context, SOURCE_POLL_TOTAL, ATTEMPT_ID));
+        Assertions.assertEquals(11L, count(context, SOURCE_POLL_NANOS, ATTEMPT_ID));
+        Assertions.assertEquals(1L, count(context, SOURCE_CHECKPOINT_TOTAL, ATTEMPT_ID));
+        Assertions.assertEquals(1L, count(context, SOURCE_POLL_TOTAL, NEXT_ATTEMPT_ID));
+        Assertions.assertEquals(17L, count(context, SOURCE_POLL_NANOS, NEXT_ATTEMPT_ID));
+        Assertions.assertEquals(0L, count(context, SOURCE_CHECKPOINT_TOTAL, NEXT_ATTEMPT_ID));
+    }
+
     /**
      * Returns one source-scoped metric value from the task registry.
      *
@@ -109,6 +133,22 @@ class SourceRuntimeMetricsTest {
      * @return current metric value
      */
     private static long count(SeaTunnelMetricsContext context, String metricName) {
-        return context.counter(metricName + METRIC_SUFFIX).getCount();
+        return count(context, metricName, ATTEMPT_ID);
+    }
+
+    /**
+     * Returns one source-and-attempt-scoped metric value from the task registry.
+     *
+     * @param context task metrics registry
+     * @param metricName base metric name
+     * @param executionId immutable engine deployment identity for this task attempt
+     * @return current metric value
+     */
+    private static long count(
+            SeaTunnelMetricsContext context, String metricName, long executionId) {
+        return context.counter(
+                        metricName
+                                + SourceRuntimeMetrics.metricSuffix(SOURCE_RUNTIME_ID, executionId))
+                .getCount();
     }
 }

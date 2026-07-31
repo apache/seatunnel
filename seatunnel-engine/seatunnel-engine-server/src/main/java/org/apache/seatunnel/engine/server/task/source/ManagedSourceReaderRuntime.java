@@ -156,7 +156,10 @@ public final class ManagedSourceReaderRuntime<T, SplitT extends SourceSplit>
         this.config = config;
         this.selection = selection;
         this.metrics =
-                new ManagedSourceRuntimeMetrics(task.getMetricsContext(), sourceAction.getId());
+                new ManagedSourceRuntimeMetrics(
+                        task.getMetricsContext(),
+                        sourceAction.getId(),
+                        task.getExecutionContext().getExecutionId());
         this.budgetedCollector = new BudgetedCollector<>(collector, metrics);
         this.outboundMemoryBudget =
                 task.getExecutionContext().getTaskExecutionService().getManagedSourceMemoryBudget();

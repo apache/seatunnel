@@ -128,7 +128,9 @@ public final class ManagedSourceCoordinatorRuntime<SplitT extends SourceSplit>
         this.selection = selection;
         this.metrics =
                 new ManagedSourceRuntimeMetrics(
-                        task.getMetricsContext(), task.getSourceAction().getId());
+                        task.getMetricsContext(),
+                        task.getSourceAction().getId(),
+                        task.getExecutionContext().getExecutionId());
         this.assignmentTracker =
                 new SourceAssignmentTracker(
                         config.getAssignmentTrackerMaxEntries(),

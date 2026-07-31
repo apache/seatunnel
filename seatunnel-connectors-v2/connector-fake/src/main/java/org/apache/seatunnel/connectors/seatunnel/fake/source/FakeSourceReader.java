@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.fake.source;
 
 import org.apache.seatunnel.api.source.Boundedness;
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.source.managed.ManagedSourceReader;
 import org.apache.seatunnel.api.source.managed.PollContext;
 import org.apache.seatunnel.api.source.managed.PollStatus;

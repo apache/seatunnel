@@ -125,8 +125,8 @@ final class ManagedSourceRuntimeMetrics {
     private final Counter asyncQueueNanos;
     private final Counter asyncExecutionNanos;
 
-    ManagedSourceRuntimeMetrics(MetricsContext context, long sourceRuntimeId) {
-        String suffix = "#" + sourceRuntimeId;
+    ManagedSourceRuntimeMetrics(MetricsContext context, long sourceRuntimeId, long executionId) {
+        String suffix = metricSuffix(sourceRuntimeId, executionId);
         mailboxCommands = context.counter(SOURCE_MANAGED_MAILBOX_COMMANDS + suffix);
         mailboxBytes = context.counter(SOURCE_MANAGED_MAILBOX_BYTES + suffix);
         mailboxOldestAgeMillis = context.counter(SOURCE_MANAGED_MAILBOX_OLDEST_AGE_MILLIS + suffix);
@@ -308,5 +308,16 @@ final class ManagedSourceRuntimeMetrics {
                 maximum.set(candidate);
             }
         }
+    }
+
+    /**
+     * Builds a bounded-cardinality suffix for managed runtime metrics.
+     *
+     * @param sourceRuntimeId stable source action identifier within the job
+     * @param executionId immutable engine deployment identity for this task attempt
+     * @return metric suffix shared by all managed Source runtime counters
+     */
+    static String metricSuffix(long sourceRuntimeId, long executionId) {
+        return "#" + sourceRuntimeId + "#attempt-" + executionId;
     }
 }

@@ -113,13 +113,14 @@ final class SourceRuntimeMetrics {
     private final Counter barrierForwardMaxNanos;
 
     /**
-     * Registers all Source runtime metrics for one source action.
+     * Registers all Source runtime metrics for one source action and task attempt.
      *
      * @param metricsContext task metrics registry
      * @param sourceRuntimeId stable source action identifier within the job
+     * @param executionId immutable engine deployment identity for this task attempt
      */
-    SourceRuntimeMetrics(MetricsContext metricsContext, long sourceRuntimeId) {
-        String suffix = "#" + sourceRuntimeId;
+    SourceRuntimeMetrics(MetricsContext metricsContext, long sourceRuntimeId, long executionId) {
+        String suffix = metricSuffix(sourceRuntimeId, executionId);
         this.pollTotal = metricsContext.counter(SOURCE_POLL_TOTAL + suffix);
         this.pollNanos = metricsContext.counter(SOURCE_POLL_NANOS + suffix);
         this.pollMaxNanos = metricsContext.counter(SOURCE_POLL_MAX_NANOS + suffix);
@@ -145,6 +146,17 @@ final class SourceRuntimeMetrics {
         this.barrierForwardNanos = metricsContext.counter(SOURCE_BARRIER_FORWARD_NANOS + suffix);
         this.barrierForwardMaxNanos =
                 metricsContext.counter(SOURCE_BARRIER_FORWARD_MAX_NANOS + suffix);
+    }
+
+    /**
+     * Builds a bounded-cardinality suffix for runtime metrics introduced by the rollout lane.
+     *
+     * @param sourceRuntimeId stable source action identifier within the job
+     * @param executionId immutable engine deployment identity for this task attempt
+     * @return metric suffix shared by all Source runtime counters
+     */
+    static String metricSuffix(long sourceRuntimeId, long executionId) {
+        return "#" + sourceRuntimeId + "#attempt-" + executionId;
     }
 
     /**

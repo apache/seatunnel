@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.file.source.split;
 
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.connectors.seatunnel.file.source.FileSourceDocumentRouting;
 import org.apache.seatunnel.connectors.seatunnel.file.source.state.FileSourceState;
 
 import org.slf4j.Logger;
@@ -43,13 +44,22 @@ public class FileSourceSplitEnumerator
             new TreeSet<>(Comparator.comparing(FileSourceSplit::splitId));
     private Set<FileSourceSplit> assignedSplit;
     private final List<String> filePaths;
+    private final boolean documentRoutingEnabled;
     private final Object lock = new Object();
     private final AtomicInteger assignCount = new AtomicInteger(0);
 
     public FileSourceSplitEnumerator(
             SourceSplitEnumerator.Context<FileSourceSplit> context, List<String> filePaths) {
+        this(context, filePaths, false);
+    }
+
+    public FileSourceSplitEnumerator(
+            SourceSplitEnumerator.Context<FileSourceSplit> context,
+            List<String> filePaths,
+            boolean documentRoutingEnabled) {
         this.context = context;
         this.filePaths = filePaths;
+        this.documentRoutingEnabled = documentRoutingEnabled;
         this.assignedSplit = new HashSet<>();
     }
 
@@ -57,7 +67,15 @@ public class FileSourceSplitEnumerator
             SourceSplitEnumerator.Context<FileSourceSplit> context,
             List<String> filePaths,
             FileSourceState sourceState) {
-        this(context, filePaths);
+        this(context, filePaths, sourceState, false);
+    }
+
+    public FileSourceSplitEnumerator(
+            SourceSplitEnumerator.Context<FileSourceSplit> context,
+            List<String> filePaths,
+            FileSourceState sourceState,
+            boolean documentRoutingEnabled) {
+        this(context, filePaths, documentRoutingEnabled);
         this.assignedSplit = sourceState.getAssignedSplit();
     }
 
@@ -97,16 +115,19 @@ public class FileSourceSplitEnumerator
 
     private void assignSplit(int taskId) {
         ArrayList<FileSourceSplit> currentTaskSplits = new ArrayList<>();
-        if (context.currentParallelism() == 1) {
+        if (!documentRoutingEnabled && context.currentParallelism() == 1) {
             // if parallelism == 1, we should assign all the splits to reader
             currentTaskSplits.addAll(allSplit);
         } else {
-            // if parallelism > 1, according to polling strategy to determine whether to
-            // allocate the current task
+            // if parallelism > 1, according to polling strategy or document routing to determine
+            // whether to allocate the current task
             assignCount.set(0);
             for (FileSourceSplit fileSourceSplit : allSplit) {
                 int splitOwner =
-                        getSplitOwner(assignCount.getAndIncrement(), context.currentParallelism());
+                        getSplitOwner(
+                                fileSourceSplit,
+                                assignCount.getAndIncrement(),
+                                context.currentParallelism());
                 if (splitOwner == taskId) {
                     currentTaskSplits.add(fileSourceSplit);
                 }
@@ -126,8 +147,25 @@ public class FileSourceSplitEnumerator
         context.signalNoMoreSplits(taskId);
     }
 
-    private static int getSplitOwner(int assignCount, int numReaders) {
+    private int getSplitOwner(FileSourceSplit split, int assignCount, int numReaders) {
+        if (documentRoutingEnabled) {
+            return getDocumentRouteOwner(split, numReaders);
+        }
+        return getRoundRobinSplitOwner(assignCount, numReaders);
+    }
+
+    private static int getRoundRobinSplitOwner(int assignCount, int numReaders) {
         return assignCount % numReaders;
+    }
+
+    private static int getDocumentRouteOwner(FileSourceSplit split, int numReaders) {
+        if (split.getStart() != 0L || split.getLength() >= 0L) {
+            throw new IllegalStateException(
+                    "Document routing requires whole-file splits, but got split "
+                            + split.splitId());
+        }
+        String documentId = FileSourceDocumentRouting.buildDocumentId(split.getFilePath());
+        return FileSourceDocumentRouting.routeBucket(documentId, numReaders);
     }
 
     @Override

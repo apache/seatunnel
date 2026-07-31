@@ -205,7 +205,10 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
         this.sourceIdleNs = metricsContext.counter(SOURCE_IDLE_NANOS + "#" + sourceAction.getId());
         if (runningTask.isObservabilityEnabled()) {
             this.sourceRuntimeMetrics =
-                    new SourceRuntimeMetrics(metricsContext, sourceAction.getId());
+                    new SourceRuntimeMetrics(
+                            metricsContext,
+                            sourceAction.getId(),
+                            runningTask.getExecutionContext().getExecutionId());
         }
         this.managedSourceRuntimeConfig =
                 runningTask

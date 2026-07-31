@@ -51,6 +51,20 @@ class SourceAssignmentTrackerTest {
     }
 
     @Test
+    void shouldKeepAcceptedAssignmentUntilReaderCheckpointProofArrives() {
+        SourceAssignmentTracker tracker = new SourceAssignmentTracker(10, 16_384L);
+        recordAssignment(tracker, "command-1", 1L, 0, "attempt-1");
+
+        tracker.markAdmitted("command-1", "attempt-1");
+        tracker.markApplied("command-1", "attempt-1", Arrays.asList("split-1", "split-2"));
+        tracker.checkpointCompleted(11L);
+
+        Assertions.assertTrue(tracker.contains("command-1"));
+        Assertions.assertEquals(1, tracker.stateCount(SourceAssignmentState.APPLIED));
+        Assertions.assertEquals(0L, tracker.compactedEntries());
+    }
+
+    @Test
     void shouldFenceAttemptProofAndReturnAssignmentsFromMissingReader() {
         SourceAssignmentTracker tracker = new SourceAssignmentTracker(10, 16_384L);
         recordAssignment(tracker, "command-1", 1L, 3, "attempt-1");
