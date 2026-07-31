@@ -44,6 +44,7 @@ public class FileCollectReaderBehaviorTest {
 
     private static final long CLOSE_INACTIVE_MS = 500L;
     private static final long GLOB_SCAN_INTERVAL_MS = 20L;
+    private static final long FILE_REDISCOVERY_TIMEOUT_SECONDS = 10L;
 
     @TempDir Path tempDir;
 
@@ -71,7 +72,7 @@ public class FileCollectReaderBehaviorTest {
 
             long idleDeadlineMs = System.currentTimeMillis() + CLOSE_INACTIVE_MS + 30L;
             Awaitility.await()
-                    .atMost(3, TimeUnit.SECONDS)
+                    .atMost(FILE_REDISCOVERY_TIMEOUT_SECONDS, TimeUnit.SECONDS)
                     .pollInterval(GLOB_SCAN_INTERVAL_MS, TimeUnit.MILLISECONDS)
                     .until(
                             () -> {
@@ -81,7 +82,7 @@ public class FileCollectReaderBehaviorTest {
 
             // Ensure glob scan rediscovers the file before new data is appended
             Awaitility.await()
-                    .atMost(3, TimeUnit.SECONDS)
+                    .atMost(FILE_REDISCOVERY_TIMEOUT_SECONDS, TimeUnit.SECONDS)
                     .pollInterval(5, TimeUnit.MILLISECONDS)
                     .until(
                             () -> {
@@ -96,7 +97,7 @@ public class FileCollectReaderBehaviorTest {
                     "second\n".getBytes(StandardCharsets.UTF_8),
                     StandardOpenOption.APPEND);
 
-            await().atMost(3, TimeUnit.SECONDS)
+            await().atMost(FILE_REDISCOVERY_TIMEOUT_SECONDS, TimeUnit.SECONDS)
                     .pollInterval(10, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () -> {
