@@ -1012,8 +1012,7 @@ public class MultipleTableJobConfigParser {
                     "Dynamic lookup M0 requires resource.max-concurrent-snapshots=1");
         }
         if (!"IN_MEMORY".equalsIgnoreCase(lookupConfig.getString("state.backend"))) {
-            throw new JobDefineCheckException(
-                    "Dynamic lookup M0 requires state.backend=IN_MEMORY");
+            throw new JobDefineCheckException("Dynamic lookup M0 requires state.backend=IN_MEMORY");
         }
         if (!"NONE".equalsIgnoreCase(lookupConfig.getString("state.ttl"))) {
             throw new JobDefineCheckException("Dynamic lookup M0 requires state.ttl=NONE");
@@ -1042,8 +1041,7 @@ public class MultipleTableJobConfigParser {
     private static void requireDynamicLookupPaths(Config config, String... paths) {
         for (String path : paths) {
             if (!config.hasPath(path)) {
-                throw new JobDefineCheckException(
-                        "Dynamic lookup M0 requires '" + path + "'");
+                throw new JobDefineCheckException("Dynamic lookup M0 requires '" + path + "'");
             }
         }
     }
