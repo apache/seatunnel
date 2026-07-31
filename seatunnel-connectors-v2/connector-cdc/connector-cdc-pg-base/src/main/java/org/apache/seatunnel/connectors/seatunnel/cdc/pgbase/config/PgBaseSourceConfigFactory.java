@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.pgbase.config;
 
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfigFactory;
+import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.debezium.EmbeddedDatabaseHistory;
 
 import java.util.Properties;
@@ -70,7 +71,17 @@ public abstract class PgBaseSourceConfigFactory<C extends JdbcSourceConfig>
             props.putAll(dbzProperties);
         }
 
-        return createSourceConfig(props, driverClassName());
+        if (startupConfig != null && startupConfig.getStartupMode() == StartupMode.SNAPSHOT_ONLY) {
+            props.setProperty("snapshot.mode", "initial_only");
+        } else if (startupConfig != null
+                && startupConfig.getStartupMode() == StartupMode.COMMITTED_OFFSET) {
+            props.setProperty("snapshot.mode", "never");
+        }
+
+        C config = createSourceConfig(props, driverClassName());
+        // Keep the concurrent-read flag wired after moving concrete connectors onto PG-base.
+        config.setEnableConcurrentRead(this.enableConcurrentRead);
+        return config;
     }
 
     /** Returns the Debezium connector class name used by the concrete PG-base connector. */

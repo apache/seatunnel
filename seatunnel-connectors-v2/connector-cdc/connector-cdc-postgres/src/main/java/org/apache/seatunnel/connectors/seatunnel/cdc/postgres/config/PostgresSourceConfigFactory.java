@@ -30,6 +30,8 @@ import java.util.Properties;
  */
 public class PostgresSourceConfigFactory extends PgBaseSourceConfigFactory<PostgresSourceConfig> {
 
+    private static final long serialVersionUID = 1L;
+
     private static final String DATABASE_SERVER_NAME = "postgres_cdc_source";
 
     private static final String DRIVER_CLASS_NAME = "org.postgresql.Driver";

@@ -21,8 +21,10 @@ import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
+import org.apache.seatunnel.connectors.cdc.base.config.StartupConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
@@ -62,6 +64,13 @@ public class PostgresIncrementalSource<T> extends PgBaseIncrementalSource<T, Jdb
     }
 
     @Override
+    protected StartupConfig getStartupConfig(ReadonlyConfig config) {
+        StartupConfig startupConfig = super.getStartupConfig(config);
+        validateStartupOptions(config, startupConfig);
+        return startupConfig;
+    }
+
+    @Override
     public SourceConfig.Factory<JdbcSourceConfig> createSourceConfigFactory(ReadonlyConfig config) {
         PostgresSourceConfigFactory configFactory = new PostgresSourceConfigFactory();
         configFactory.fromReadonlyConfig(readonlyConfig);
@@ -96,5 +105,28 @@ public class PostgresIncrementalSource<T> extends PgBaseIncrementalSource<T, Jdb
     @Override
     public Optional<String> driverName() {
         return Optional.of("org.postgresql.Driver");
+    }
+
+    /**
+     * Validates PostgreSQL committed-offset startup before source config creation.
+     *
+     * <p>Debezium can only resume from a committed LSN when the replication slot is explicit and
+     * stable across job attempts.
+     */
+    private void validateStartupOptions(ReadonlyConfig options, StartupConfig startupConfig) {
+        if (startupConfig.getStartupMode() != StartupMode.COMMITTED_OFFSET) {
+            return;
+        }
+        Optional<String> slotName =
+                options.getOptional(PostgresIncrementalSourceOptions.SLOT_NAME)
+                        .map(String::trim)
+                        .filter(name -> !name.isEmpty());
+        if (!slotName.isPresent()) {
+            throw new SeaTunnelException(
+                    String.format(
+                            "PostgreSQL-CDC startup.mode '%s' requires an explicit '%s' option.",
+                            StartupMode.COMMITTED_OFFSET,
+                            PostgresIncrementalSourceOptions.SLOT_NAME.key()));
+        }
     }
 }

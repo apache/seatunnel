@@ -48,6 +48,15 @@ public class PostgresSourceConfigFactoryTest {
         Assertions.assertThrows(IllegalArgumentException.class, () -> factory.create(0));
     }
 
+    @Test
+    public void shouldDisableDebeziumSnapshotForCommittedOffsetStartup() {
+        PostgresSourceConfigFactory factory = baseFactory();
+        factory.startupOptions(new StartupConfig(StartupMode.COMMITTED_OFFSET, null, null, null));
+
+        Assertions.assertEquals(
+                "never", factory.create(0).getDbzConfiguration().getString("snapshot.mode"));
+    }
+
     private PostgresSourceConfigFactory baseFactory() {
         PostgresSourceConfigFactory factory = new PostgresSourceConfigFactory();
         factory.hostname("127.0.0.1");
