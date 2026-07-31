@@ -63,7 +63,7 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | datetime_format            | string  | no       | yyyy-MM-dd HH:mm:ss                  |
 | time_format                | string  | no       | HH:mm:ss                             |
 | skip_header_row_number     | long    | no       | 0                                    |
-| schema                     | config  | no       | -                                    |
+| schema                     | config  | conditionally yes | -                               |
 | sheet_name                 | string  | no       | -                                    |
 | excel_engine               | string  | no       | POI                                  |
 | xml_row_tag                | string  | no       | -                                    |
@@ -154,23 +154,9 @@ connector will generate data as the following:
 |------|-------------|---------|
 | 200  | get success | true    |
 
-If you assign file type to `parquet` `orc`, schema option not required, connector can find the schema of upstream data automatically.
+If you assign file type to `parquet` or `orc`, the schema option is not required because the connector can read the schema from the file metadata.
 
-If you assign file type to `text` `csv`, you can choose to specify the schema information or not.
-
-For example, upstream data is the following:
-
-```text
-
-tyrantlucifer#26#male
-
-```
-
-If you do not assign data schema connector will treat the upstream data as the following:
-
-|        content        |
-|-----------------------|
-| tyrantlucifer#26#male |
+If you assign file type to `text`, `json`, `excel`, `csv`, or `xml`, you must specify the schema because these formats do not provide the field types required by SeaTunnel.
 
 If you assign data schema, you should also assign the option `field_delimiter` too except CSV file type
 
@@ -308,7 +294,7 @@ then SeaTunnel will skip the first 2 lines from source files
 
 ### schema [config]
 
-Only need to be configured when the file_format_type are text, json, excel, xml or csv ( Or other format we can't read the schema from metadata).
+Required when `file_format_type` is `text`, `json`, `excel`, `xml`, or `csv` (or another format whose schema cannot be read from metadata).
 
 #### fields [Config]
 
@@ -354,7 +340,7 @@ Specifies Whether to process data using the tag attribute format.
 
 ### csv_use_header_line [boolean]
 
-Whether to use the header line to parse the file, only used when the file_format is `csv` and the file contains the header line that match RFC 4180
+When enabled, the connector consumes the first RFC 4180 CSV record as the header and maps its column names to the fields in the configured `schema`. This option does not infer the schema or field types. Do not also use `skip_header_row_number` to skip the same header row.
 
 ### file_filter_pattern [string]
 
