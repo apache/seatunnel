@@ -70,6 +70,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.sql.SQLException;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -117,6 +118,20 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
     private PostgresConnection.PostgresValueConverterBuilder postgresValueConverterBuilder;
 
     private Collection<TableChanges.TableChange> engineHistory;
+
+    /**
+     * Creates a PostgreSQL fetch context with the legacy constructor signature.
+     *
+     * <p>External callers may still construct this context directly. The empty history keeps that
+     * source-compatible path available while the dialect-owned path can pass split-specific schema
+     * history.
+     */
+    public PostgresSourceFetchTaskContext(
+            JdbcSourceConfig sourceConfig,
+            JdbcDataSourceDialect dataSourceDialect,
+            PostgresConnection dataConnection) {
+        this(sourceConfig, dataSourceDialect, dataConnection, Collections.emptyList());
+    }
 
     public PostgresSourceFetchTaskContext(
             JdbcSourceConfig sourceConfig,
