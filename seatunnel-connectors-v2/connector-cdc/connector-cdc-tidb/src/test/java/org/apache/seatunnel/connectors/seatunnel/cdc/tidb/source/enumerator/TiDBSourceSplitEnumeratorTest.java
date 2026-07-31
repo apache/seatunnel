@@ -33,6 +33,7 @@ import org.tikv.kvproto.Coprocessor;
 import org.tikv.shade.com.google.protobuf.ByteString;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -55,7 +56,7 @@ class TiDBSourceSplitEnumeratorTest {
         enumerator.addSplitsBack(splits, 0);
 
         Assertions.assertEquals(0, enumerator.currentUnassignedSplitSize());
-        Assertions.assertEquals(splits, context.getAssignedSplits(0));
+        assertSplitsEqualIgnoringOrder(splits, context.getAssignedSplits(0));
     }
 
     @Test
@@ -67,6 +68,56 @@ class TiDBSourceSplitEnumeratorTest {
         enumerator.addSplitsBack(Arrays.asList(newSplit("a"), newSplit("b"), newSplit("c")), 0);
 
         Assertions.assertEquals(3, enumerator.currentUnassignedSplitSize());
+    }
+
+    @Test
+    void addPendingSplitShouldAssignSplitsRoundRobin() throws Exception {
+        TestingEnumeratorContext context =
+                new TestingEnumeratorContext(2, new HashSet<>(Arrays.asList(0, 1)));
+        TiDBSourceSplitEnumerator enumerator =
+                new TiDBSourceSplitEnumerator(context, new TiDBSourceConfig());
+
+        invokeAddPendingSplit(
+                enumerator, Arrays.asList(newSplit("a"), newSplit("c"), newSplit("e")));
+        enumerator.registerReader(0);
+
+        Assertions.assertEquals(2, context.getAssignedSplits(0).size());
+        Assertions.assertEquals(1, enumerator.currentUnassignedSplitSize());
+    }
+
+    @Test
+    void addSplitsBackShouldReturnSplitsToOriginalReader() {
+        TestingEnumeratorContext context =
+                new TestingEnumeratorContext(2, new HashSet<>(Arrays.asList(0, 1)));
+        TiDBSourceSplitEnumerator enumerator =
+                new TiDBSourceSplitEnumerator(context, new TiDBSourceConfig());
+
+        enumerator.addSplitsBack(
+                Arrays.asList(newSplit("a"), newSplit("c"), newSplit("e"), newSplit("g")), 0);
+
+        Assertions.assertEquals(4, context.getAssignedSplits(0).size());
+        Assertions.assertEquals(0, enumerator.currentUnassignedSplitSize());
+    }
+
+    @Test
+    void snapshotStateShouldKeepAssignCountAcrossRestore() throws Exception {
+        TestingEnumeratorContext context =
+                new TestingEnumeratorContext(2, new HashSet<>(Arrays.asList(0, 1)));
+        TiDBSourceSplitEnumerator enumerator =
+                new TiDBSourceSplitEnumerator(context, new TiDBSourceConfig());
+
+        invokeAddPendingSplit(
+                enumerator, Arrays.asList(newSplit("a"), newSplit("b"), newSplit("c")));
+        TiDBSourceCheckpointState snapshot = enumerator.snapshotState(1L);
+
+        Assertions.assertEquals(3, snapshot.getAssignCount());
+
+        TiDBSourceSplitEnumerator restored =
+                new TiDBSourceSplitEnumerator(context, new TiDBSourceConfig(), snapshot);
+        invokeAddPendingSplit(restored, Collections.singletonList(newSplit("d")));
+        TiDBSourceCheckpointState restoredSnapshot = restored.snapshotState(2L);
+
+        Assertions.assertEquals(4, restoredSnapshot.getAssignCount());
     }
 
     @Test
@@ -115,6 +166,14 @@ class TiDBSourceSplitEnumeratorTest {
         pendingSplitField.set(state, pendingSplit);
     }
 
+    private static void invokeAddPendingSplit(
+            TiDBSourceSplitEnumerator enumerator, List<TiDBSourceSplit> splits) throws Exception {
+        Method addPendingSplit =
+                TiDBSourceSplitEnumerator.class.getDeclaredMethod("addPendingSplit", List.class);
+        addPendingSplit.setAccessible(true);
+        addPendingSplit.invoke(enumerator, splits);
+    }
+
     private static void assertSplitEquals(TiDBSourceSplit expected, TiDBSourceSplit actual) {
         Assertions.assertEquals(expected.getDatabase(), actual.getDatabase());
         Assertions.assertEquals(expected.getTable(), actual.getTable());
@@ -122,6 +181,22 @@ class TiDBSourceSplitEnumeratorTest {
         Assertions.assertEquals(expected.getResolvedTs(), actual.getResolvedTs());
         Assertions.assertEquals(expected.getSnapshotStart(), actual.getSnapshotStart());
         Assertions.assertEquals(expected.isSnapshotCompleted(), actual.isSnapshotCompleted());
+    }
+
+    private static void assertSplitsEqualIgnoringOrder(
+            List<TiDBSourceSplit> expected, List<TiDBSourceSplit> actual) {
+        Assertions.assertEquals(expected.size(), actual.size());
+        List<String> expectedStarts = new ArrayList<>();
+        for (TiDBSourceSplit split : expected) {
+            expectedStarts.add(split.getKeyRange().getStart().toStringUtf8());
+        }
+        List<String> actualStarts = new ArrayList<>();
+        for (TiDBSourceSplit split : actual) {
+            actualStarts.add(split.getKeyRange().getStart().toStringUtf8());
+        }
+        Collections.sort(expectedStarts);
+        Collections.sort(actualStarts);
+        Assertions.assertEquals(expectedStarts, actualStarts);
     }
 
     private static class TestingEnumeratorContext
