@@ -41,6 +41,7 @@ import org.apache.seatunnel.connectors.seatunnel.common.source.reader.SingleThre
 import org.apache.seatunnel.connectors.seatunnel.common.source.reader.SourceReaderOptions;
 import org.apache.seatunnel.connectors.seatunnel.common.source.reader.fetcher.SingleThreadFetcherManager;
 
+import io.debezium.relational.TableId;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
