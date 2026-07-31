@@ -92,9 +92,7 @@ If you want to install connector plugins by manually downloading connectors, you
 :::
 
 :::note Developer note
-
 This local deployment guide assumes that you use an official binary release package. If you need to validate unreleased code, debug SeaTunnel source code, or prepare a custom distribution, see [Set Up Develop Environment](../../developer/setup.md).
-
 :::
 
 # Run SeaTunnel
