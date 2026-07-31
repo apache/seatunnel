@@ -449,6 +449,13 @@ public class LocalFileIT extends TestSuiteBase {
     }
 
     @TestTemplate
+    public void testLocalFileReadTextMetadata(TestContainer container)
+            throws IOException, InterruptedException {
+        TestHelper helper = new TestHelper(container);
+        helper.execute("/text/local_file_text_metadata_to_assert.conf");
+    }
+
+    @TestTemplate
     @DisabledOnContainer(
             value = {},
             type = {EngineType.FLINK, EngineType.SPARK},

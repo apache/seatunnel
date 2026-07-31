@@ -28,6 +28,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSplit;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.hadoop.fs.Path;
@@ -38,6 +39,7 @@ import java.io.InputStream;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
+import java.util.Map;
 
 /** Used to read file to binary stream */
 public class BinaryReadStrategy extends AbstractReadStrategy {
@@ -100,17 +102,19 @@ public class BinaryReadStrategy extends AbstractReadStrategy {
                 new DigestTrackingInputStream(hadoopFileSystemProxy.getInputStream(path), digest)) {
             String relativePath = resolveBinaryRelativePath(path);
 
+            Map<String, Object> metadata =
+                    buildFileMetadata(new FileSourceSplit(tableId, path), path);
             if (completeFileMode) {
                 // Read entire file as a single chunk
-                readCompleteFile(inputStream, relativePath, tableId, output);
+                readCompleteFile(inputStream, relativePath, tableId, metadata, output);
             } else {
                 // Read file in configurable chunks
-                readFileInChunks(inputStream, relativePath, tableId, output);
+                readFileInChunks(inputStream, relativePath, tableId, metadata, output);
             }
             // Send an empty chunk as end-of-file marker
             byte[] endMarker = new byte[0];
             SeaTunnelRow endRow = new SeaTunnelRow(new Object[] {endMarker, relativePath, -1L});
-            endRow.setTableId(tableId);
+            applyRowMetadata(endRow, tableId, metadata);
             MetadataUtil.setBinaryRowComplete(endRow);
             output.collect(endRow);
             lastReadFingerprint = sha256Hex(digest.digest());
@@ -134,11 +138,12 @@ public class BinaryReadStrategy extends AbstractReadStrategy {
             InputStream inputStream,
             String relativePath,
             String tableId,
+            Map<String, Object> metadata,
             Collector<SeaTunnelRow> output)
             throws IOException {
         byte[] fileContent = IOUtils.toByteArray(inputStream);
         SeaTunnelRow row = new SeaTunnelRow(new Object[] {fileContent, relativePath, 0L});
-        row.setTableId(tableId);
+        applyRowMetadata(row, tableId, metadata);
         MetadataUtil.setBinaryFormat(row);
         output.collect(row);
     }
@@ -148,6 +153,7 @@ public class BinaryReadStrategy extends AbstractReadStrategy {
             InputStream inputStream,
             String relativePath,
             String tableId,
+            Map<String, Object> metadata,
             Collector<SeaTunnelRow> output)
             throws IOException {
         byte[] buffer = new byte[binaryChunkSize];
@@ -159,7 +165,7 @@ public class BinaryReadStrategy extends AbstractReadStrategy {
             }
             SeaTunnelRow row = new SeaTunnelRow(new Object[] {buffer, relativePath, partIndex});
             buffer = new byte[binaryChunkSize];
-            row.setTableId(tableId);
+            applyRowMetadata(row, tableId, metadata);
             MetadataUtil.setBinaryFormat(row);
             output.collect(row);
             partIndex++;

@@ -21,8 +21,12 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.MetadataColumn;
+import org.apache.seatunnel.api.table.catalog.MetadataSchema;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.CommonOptions;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
@@ -140,7 +144,7 @@ public abstract class BaseFileSourceConfig implements Serializable {
             if (fileFormat == FileFormat.BINARY || fileFormat == FileFormat.MARKDOWN) {
                 return newCatalogTable(catalogTable, getSchemaForEmptyFilePath(readonlyConfig));
             }
-            return catalogTable;
+            return attachMetadataSchema(catalogTable);
         }
         switch (fileFormat) {
             case CSV:
@@ -223,12 +227,87 @@ public abstract class BaseFileSourceConfig implements Serializable {
                         .constraintKey(tableSchema.getConstraintKeys())
                         .build();
 
+        MetadataSchema metadataSchema = buildMetadataSchema(catalogTable.getMetadataSchema());
         return CatalogTable.of(
                 catalogTable.getTableId(),
                 finalSchema,
                 catalogTable.getOptions(),
                 catalogTable.getPartitionKeys(),
                 catalogTable.getComment(),
-                catalogTable.getCatalogName());
+                catalogTable.getCatalogName(),
+                metadataSchema);
+    }
+
+    private CatalogTable attachMetadataSchema(CatalogTable catalogTable) {
+        return CatalogTable.of(
+                catalogTable.getTableId(),
+                catalogTable.getTableSchema(),
+                catalogTable.getOptions(),
+                catalogTable.getPartitionKeys(),
+                catalogTable.getComment(),
+                catalogTable.getCatalogName(),
+                buildMetadataSchema(catalogTable.getMetadataSchema()));
+    }
+
+    private MetadataSchema buildMetadataSchema(MetadataSchema existing) {
+        List<Column> metadataColumns = new ArrayList<>();
+        if (existing != null && CollectionUtils.isNotEmpty(existing.getColumns())) {
+            metadataColumns.addAll(existing.getColumns());
+        }
+        addMetadataColumnIfAbsent(
+                metadataColumns,
+                MetadataColumn.of(
+                        CommonOptions.FILE_PATH.getName(),
+                        BasicType.STRING_TYPE,
+                        (Long) null,
+                        true,
+                        null,
+                        null));
+        addMetadataColumnIfAbsent(
+                metadataColumns,
+                MetadataColumn.of(
+                        CommonOptions.FILE_CREATE_TIME.getName(),
+                        BasicType.LONG_TYPE,
+                        (Long) null,
+                        true,
+                        null,
+                        null));
+        addMetadataColumnIfAbsent(
+                metadataColumns,
+                MetadataColumn.of(
+                        CommonOptions.FILE_UPDATE_TIME.getName(),
+                        BasicType.LONG_TYPE,
+                        (Long) null,
+                        true,
+                        null,
+                        null));
+        addMetadataColumnIfAbsent(
+                metadataColumns,
+                MetadataColumn.of(
+                        CommonOptions.FILE_SIZE.getName(),
+                        BasicType.LONG_TYPE,
+                        (Long) null,
+                        true,
+                        null,
+                        null));
+        addMetadataColumnIfAbsent(
+                metadataColumns,
+                MetadataColumn.of(
+                        CommonOptions.FILE_TYPE.getName(),
+                        BasicType.STRING_TYPE,
+                        (Long) null,
+                        true,
+                        null,
+                        null));
+        return MetadataSchema.builder().columns(metadataColumns).build();
+    }
+
+    private void addMetadataColumnIfAbsent(List<Column> columns, MetadataColumn column) {
+        for (Column existing : columns) {
+            if (existing.getName().equals(column.getName())) {
+                return;
+            }
+        }
+        columns.add(column);
     }
 }

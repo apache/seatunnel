@@ -21,8 +21,8 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;
 
+import org.apache.seatunnel.connectors.seatunnel.file.BaseTest;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
-import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.JsonReadStrategy;
 
 import org.junit.jupiter.api.Assertions;
@@ -39,7 +39,7 @@ import java.util.List;
 
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_DEFAULT;
 
-public class FileFilterPatternTest {
+public class FileFilterPatternTest extends BaseTest {
     /**
      * filter based on the file directory at the same time, the expression needs to start with
      * `path`
@@ -119,25 +119,6 @@ public class FileFilterPatternTest {
         Assertions.assertEquals(3, filterFileNames.size());
         for (String fileName : filterFileNames) {
             Assertions.assertTrue(fileName.endsWith(".json"));
-        }
-    }
-
-    public static class LocalConf extends HadoopConf {
-        private static final String HDFS_IMPL = "org.apache.hadoop.fs.LocalFileSystem";
-        private static final String SCHEMA = "file";
-
-        public LocalConf(String hdfsNameKey) {
-            super(hdfsNameKey);
-        }
-
-        @Override
-        public String getFsHdfsImpl() {
-            return HDFS_IMPL;
-        }
-
-        @Override
-        public String getSchema() {
-            return SCHEMA;
         }
     }
 }

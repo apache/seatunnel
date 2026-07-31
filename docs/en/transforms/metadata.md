@@ -31,6 +31,11 @@ The Metadata transform plugin is used to extract metadata information from data 
 | BinlogPos  | long   | Binlog byte offset. `null` for snapshot rows. | MySQL-CDC only |
 | BinlogRow  | int    | Row index (0-based) within the binlog event. `null` for snapshot rows. | MySQL-CDC only |
 | Gtid       | string | Global Transaction ID (`server_uuid:transaction_id`). `null` when GTID is disabled or for snapshot rows. | MySQL-CDC only |
+| FilePath   | string | File path or archive entry path of the current record. | File source connectors |
+| FileCreateTime | long | File creation time in epoch milliseconds. Falls back to modification time when the filesystem does not expose creation time. | File source connectors |
+| FileUpdateTime | long | File modification time in epoch milliseconds. | File source connectors |
+| FileSize   | long   | File size in bytes. For archive reads, this is the outer archive file size. | File source connectors |
+| FileType   | string | File extension without the trailing dot. Empty when the file has no extension. | File source connectors |
 | Partition |  string  |  Partition information of the data, multiple partition fields separated by commas  | Connectors supporting partitions |
 
 ### Important Notes
@@ -39,6 +44,7 @@ The Metadata transform plugin is used to extract metadata information from data 
 2. **Time fields**: `Delay` and `SourceTimestamp` are only available for CDC connectors. `EventTime` is also provided by the Kafka source via `ConsumerRecord.timestamp` when available.
 3. **Kafka event time**: The Kafka source writes `ConsumerRecord.timestamp` (milliseconds) into `EventTime` when it is non-negative, so you can surface it with the `Metadata` transform.
 4. **Binlog/GTID fields**: `BinlogFile`, `BinlogPos`, `BinlogRow`, and `Gtid` are MySQL-CDC specific. For `startup.mode = initial`, snapshot rows return `null` for all four fields.
+5. **File metadata fields**: `FileCreateTime` may fall back to `FileUpdateTime` on filesystems that do not provide creation time. `FileType` is derived from the file name or archive entry suffix.
 
 ## Options
 

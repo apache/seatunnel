@@ -128,6 +128,7 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
         }
         Path filePath = new Path(path);
         Map<String, String> partitionsMap = parsePartitionsByPath(path);
+        Map<String, Object> metadata = buildFileMetadata(split, path);
         HadoopInputFile hadoopInputFile =
                 hadoopFileSystemProxy.doWithHadoopAuth(
                         (configuration, userGroupInformation) ->
@@ -166,7 +167,7 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
                     fields[i] = resolveObject(data, seaTunnelRowType.getFieldType(i));
                 }
                 SeaTunnelRow seaTunnelRow = new SeaTunnelRow(fields);
-                seaTunnelRow.setTableId(tableId);
+                applyRowMetadata(seaTunnelRow, tableId, metadata);
                 output.collect(seaTunnelRow);
             }
         }

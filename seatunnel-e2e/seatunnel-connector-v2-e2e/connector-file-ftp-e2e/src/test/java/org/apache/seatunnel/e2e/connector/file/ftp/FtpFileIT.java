@@ -648,6 +648,26 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
         deleteFileFromContainer(filterPath);
     }
 
+    @TestTemplate
+    public void testReadTextMetadata(TestContainer container)
+            throws IOException, InterruptedException {
+
+        ContainerUtil.copyFileIntoContainers(
+                "/text/e2e.txt",
+                ftpHomeDir
+                        + "/tmp/seatunnel/read/metadata/json2025/name=tyrantlucifer/hobby=coding/e2e_2025.txt",
+                ftpContainer);
+
+        ftpContainer.execInContainer("sh", "-c", "chmod -R 777 " + ftpHomeDir + "/");
+        ftpContainer.execInContainer("sh", "-c", "chown -R ftp:ftp " + ftpHomeDir + "/");
+
+        TestHelper helper = new TestHelper(container);
+        helper.execute("/text/ftp_file_text_metadata_to_assert.conf");
+        // delete path
+        String filterPath = ftpHomeDir + "/tmp/seatunnel/read/metadata";
+        deleteFileFromContainer(filterPath);
+    }
+
     private void assertJobExecution(TestContainer container, String configPath, List<String> params)
             throws IOException, InterruptedException {
         Container.ExecResult execResult = container.executeJob(configPath, params);

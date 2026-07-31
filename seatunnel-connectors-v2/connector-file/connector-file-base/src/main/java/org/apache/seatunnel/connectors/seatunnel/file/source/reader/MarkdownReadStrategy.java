@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSplit;
 
 import org.apache.commons.io.IOUtils;
 
@@ -126,6 +127,9 @@ public class MarkdownReadStrategy extends AbstractReadStrategy {
         Node document = parser.parse(markdown);
         String sourceUri = normalizeSourceUri(path);
 
+        FileSourceSplit split = new FileSourceSplit(tableId, path);
+        Map<String, Object> metadata = buildFileMetadata(split, path);
+
         Map<Node, NodeInfo> nodeInfoMap = new IdentityHashMap<>();
         Map<String, Integer> typeCounters = new HashMap<>();
         List<SeaTunnelRow> rows = new ArrayList<>();
@@ -140,6 +144,7 @@ public class MarkdownReadStrategy extends AbstractReadStrategy {
                 buildDocumentId(sourceUri));
 
         for (SeaTunnelRow row : rows) {
+            applyRowMetadata(row, tableId, metadata);
             output.collect(row);
         }
     }

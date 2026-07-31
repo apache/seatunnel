@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.CommonOptions;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -120,6 +121,22 @@ class HdfsFileSourceConfigTest {
         SeaTunnelDataType<?>[] fieldTypes = seaTunnelRowType.getFieldTypes();
         assertEquals(BasicType.INT_TYPE, fieldTypes[0]);
         assertEquals(BasicType.STRING_TYPE, fieldTypes[1]);
+
+        Assertions.assertNotNull(catalogTable.getMetadataSchema());
+        Assertions.assertTrue(
+                catalogTable.getMetadataSchema().contains(CommonOptions.FILE_PATH.getName()));
+        Assertions.assertTrue(
+                catalogTable
+                        .getMetadataSchema()
+                        .contains(CommonOptions.FILE_CREATE_TIME.getName()));
+        Assertions.assertTrue(
+                catalogTable
+                        .getMetadataSchema()
+                        .contains(CommonOptions.FILE_UPDATE_TIME.getName()));
+        Assertions.assertTrue(
+                catalogTable.getMetadataSchema().contains(CommonOptions.FILE_SIZE.getName()));
+        Assertions.assertTrue(
+                catalogTable.getMetadataSchema().contains(CommonOptions.FILE_TYPE.getName()));
 
         Assertions.assertInstanceOf(ParquetReadStrategy.class, readStrategy);
     }

@@ -31,6 +31,11 @@ Metadata 转换插件用于将数据行中的元数据信息提取为普通字�
 | BinlogPos  | long   | Binlog 字节偏移量。快照行返回 `null`。 | 仅 MySQL-CDC |
 | BinlogRow  | int    | Binlog 事件中的行索引（从 0 开始）。快照行返回 `null`。 | 仅 MySQL-CDC |
 | Gtid       | string | 全局事务 ID（格式：`server_uuid:transaction_id`）。GTID 未启用或快照行时返回 `null`。 | 仅 MySQL-CDC |
+| FilePath   | string | 当前记录所属的文件路径或压缩包内条目路径。 | 文件源连接器 |
+| FileCreateTime | long | 文件创建时间（毫秒时间戳）。当底层文件系统不提供创建时间时，会回退为修改时间。 | 文件源连接器 |
+| FileUpdateTime | long | 文件修改时间（毫秒时间戳）。 | 文件源连接器 |
+| FileSize   | long   | 文件大小（字节）。读取压缩包时，这里表示外层压缩包文件大小。 | 文件源连接器 |
+| FileType   | string | 文件扩展名（不含 `.`）。没有扩展名时返回空字符串。 | 文件源连接器 |
 | Partition |  string  |  数据所属的分区信息，多个分区字段使用逗号分隔  | 支持分区的连接器 |
 
 ### 重要说明
@@ -39,6 +44,7 @@ Metadata 转换插件用于将数据行中的元数据信息提取为普通字�
 2. **时间相关字段**：`Delay` 和 `SourceTimestamp` 仅在 CDC 连接器有效。`EventTime` 也会在 Kafka 源中使用 `ConsumerRecord.timestamp`（毫秒，非负时）写入。
 3. **Kafka 事件时间**：Kafka 源会在 `ConsumerRecord.timestamp` 非负时写入 `EventTime`，可通过 Metadata 转换将其暴露为普通字段。
 4. **Binlog/GTID 字段**：`BinlogFile`、`BinlogPos`、`BinlogRow`、`Gtid` 仅适用于 MySQL-CDC。使用 `startup.mode = initial` 时，快照行的这四个字段均为 `null`。
+5. **文件元数据字段**：`FileCreateTime` 在不支持创建时间的文件系统上可能回退为 `FileUpdateTime`。`FileType` 来自文件名或压缩包内条目的后缀。
 
 ## 配置选项
 
