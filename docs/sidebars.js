@@ -305,6 +305,7 @@ const sidebars = {
                 "architecture/core-api-design",
                 "architecture/transform-plugin-system",
                 "architecture/cdc-pipeline-architecture",
+                "architecture/cdc-schema-evolution-contract",
                 "architecture/data-format-handling",
                 "architecture/table-schema-and-type-system",
                 "architecture/plugin-discovery-and-class-loading",
