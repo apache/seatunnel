@@ -111,6 +111,29 @@ Converse responses when Bedrock returns them.
 > model for the rest of the session, so subsequent calls skip the parameter.
 > For these models any configured temperature value is not applied.
 
+#### Option A2: AWS Bedrock — OpenAI-family models (bedrock-mantle)
+
+Some OpenAI models on Bedrock (e.g. `openai.gpt-5.6-terra`) are not in the
+foundation-model catalog and only support the OpenAI Responses API on the
+dedicated `bedrock-mantle` endpoint. Use the `bedrock-mantle` provider for
+these:
+
+```bash
+export AI_PROVIDER=bedrock-mantle
+export AWS_REGION=us-east-1
+export OPENAI_MODEL='openai.gpt-5.6-terra'
+
+# Requires: pip install -e ".[bedrock-mantle]"
+# Auth: a short-term bearer token is derived automatically from your AWS
+# credentials (aws-bedrock-token-generator) and refreshed every 30 minutes.
+```
+
+These models do not accept the `temperature` parameter; the provider omits it.
+
+All requests are sent with `store=false`, so Bedrock does not retain your
+prompts or responses server-side (the service default would otherwise keep
+them for 30 days).
+
 #### Option B: Anthropic API
 
 ```bash
@@ -184,7 +207,7 @@ When the engine is running, the CLI operates in **cluster mode** with live conne
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `AI_PROVIDER` | No | `bedrock` | LLM provider: `bedrock`, `anthropic`, or `openai` |
+| `AI_PROVIDER` | No | `bedrock` | LLM provider: `bedrock`, `bedrock-mantle`, `anthropic`, or `openai` |
 | `AWS_REGION` | Bedrock | `us-east-1` | AWS region for Bedrock |
 | `ANTHROPIC_API_KEY` | Anthropic | -- | Anthropic API key |
 | `OPENAI_API_KEY` | OpenAI | -- | OpenAI API key |
