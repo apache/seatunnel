@@ -87,28 +87,42 @@ import static org.apache.seatunnel.connectors.seatunnel.iceberg.config.IcebergCa
 @Slf4j
 public class IcebergSourceIT extends TestSuiteBase implements TestResource {
 
-    public static final String HADOOP_AWS_DOWNLOAD =
+    private static final String HADOOP_AWS_3_1_DOWNLOAD =
             "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/3.1.4/hadoop-aws-3.1.4.jar";
-    public static final String AWS_SDK_DOWNLOAD =
+    private static final String AWS_SDK_1_11_DOWNLOAD =
             "https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/1.11.271/aws-java-sdk-bundle-1.11.271.jar";
+    private static final String HADOOP_AWS_3_3_DOWNLOAD =
+            "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/3.3.4/hadoop-aws-3.3.4.jar";
+    private static final String AWS_SDK_1_12_DOWNLOAD =
+            "https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/1.12.262/aws-java-sdk-bundle-1.12.262.jar";
 
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
             container -> {
+                boolean spark35 = container.getDockerImageName().startsWith("apache/spark:3.5");
+                String dependencyDirectory =
+                        spark35 ? "/opt/spark/jars" : "/tmp/seatunnel/plugins/Iceberg/lib";
+                String hadoopAwsDownload =
+                        spark35 ? HADOOP_AWS_3_3_DOWNLOAD : HADOOP_AWS_3_1_DOWNLOAD;
+                String awsSdkDownload = spark35 ? AWS_SDK_1_12_DOWNLOAD : AWS_SDK_1_11_DOWNLOAD;
+
                 Container.ExecResult extraCommands =
                         container.execInContainer(
                                 "bash",
                                 "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/Iceberg/lib && cd /tmp/seatunnel/plugins/Iceberg/lib && curl -O "
-                                        + HADOOP_AWS_DOWNLOAD);
+                                "mkdir -p "
+                                        + dependencyDirectory
+                                        + " && cd "
+                                        + dependencyDirectory
+                                        + " && curl -O "
+                                        + hadoopAwsDownload);
                 Assertions.assertEquals(0, extraCommands.getExitCode());
 
                 extraCommands =
                         container.execInContainer(
                                 "bash",
                                 "-c",
-                                "cd /tmp/seatunnel/plugins/Iceberg/lib && curl -O "
-                                        + AWS_SDK_DOWNLOAD);
+                                "cd " + dependencyDirectory + " && curl -O " + awsSdkDownload);
                 Assertions.assertEquals(0, extraCommands.getExitCode());
             };
 
