@@ -34,6 +34,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.util.LocalFileSystemConf;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import lombok.Getter;
 
@@ -44,6 +45,8 @@ import java.math.BigDecimal;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -129,12 +132,17 @@ public class XmlReadStrategyTest {
     }
 
     @Test
-    public void testXmlReadRejectsExternalEntityPayload() {
+    public void testXmlReadRejectsExternalEntityPayload(@TempDir Path tempDir) throws IOException {
         XmlReadStrategy xmlReadStrategy = createXmlReadStrategy();
+        Path sentinel = tempDir.resolve("seatunnel-xxe.txt");
+        Files.write(sentinel, Collections.singletonList("secret-from-temp-file"));
         String xxeXml =
                 "<?xml version=\"1.0\"?>\n"
-                        + "<!DOCTYPE row [<!ENTITY xxe SYSTEM \"file:///tmp/seatunnel-xxe.txt\">]>\n"
+                        + "<!DOCTYPE row [<!ENTITY xxe SYSTEM \""
+                        + sentinel.toUri()
+                        + "\">]>\n"
                         + "<RECORDS><RECORD c_string=\"&xxe;\"/></RECORDS>";
+        TestCollector collector = new TestCollector();
 
         FileConnectorException exception =
                 Assertions.assertThrows(
@@ -142,7 +150,7 @@ public class XmlReadStrategyTest {
                         () ->
                                 xmlReadStrategy.readProcess(
                                         new FileSourceSplit("xml", "poc.xml"),
-                                        new TestCollector(),
+                                        collector,
                                         new ByteArrayInputStream(
                                                 xxeXml.getBytes(StandardCharsets.UTF_8)),
                                         Collections.emptyMap(),
@@ -150,6 +158,21 @@ public class XmlReadStrategyTest {
 
         Assertions.assertEquals(
                 FileConnectorErrorCode.FILE_READ_FAILED, exception.getSeaTunnelErrorCode());
+        Assertions.assertTrue(collector.getRows().isEmpty());
+        Assertions.assertTrue(
+                containsMessage(exception, "DOCTYPE"),
+                "expected secure XML parser to reject the DOCTYPE declaration");
+    }
+
+    private boolean containsMessage(Throwable throwable, String message) {
+        Throwable current = throwable;
+        while (current != null) {
+            if (current.getMessage() != null && current.getMessage().contains(message)) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 
     /** Build a production-like XML reader instance with the shared test schema loaded. */

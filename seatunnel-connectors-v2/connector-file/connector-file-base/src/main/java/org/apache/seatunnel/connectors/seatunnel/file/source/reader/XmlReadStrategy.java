@@ -48,6 +48,7 @@ import org.dom4j.DocumentException;
 import org.dom4j.Element;
 import org.dom4j.Node;
 import org.dom4j.io.SAXReader;
+import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 
 import lombok.SneakyThrows;
@@ -58,6 +59,7 @@ import javax.xml.XMLConstants;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.StringReader;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -200,6 +202,8 @@ public class XmlReadStrategy extends AbstractReadStrategy {
             saxReader.setFeature(EXTERNAL_GENERAL_ENTITIES, false);
             saxReader.setFeature(EXTERNAL_PARAMETER_ENTITIES, false);
             saxReader.setFeature(LOAD_EXTERNAL_DTD, false);
+            saxReader.setEntityResolver(
+                    (publicId, systemId) -> new InputSource(new StringReader("")));
         } catch (SAXException e) {
             throw new FileConnectorException(
                     FileConnectorErrorCode.FILE_READ_FAILED,
