@@ -44,4 +44,26 @@ public class ConfigBuilderTest {
         List<String> keys = new ArrayList<>(desensitizationConfig.keySet());
         Assertions.assertIterableEquals(Arrays.asList("a", "b", "c", "d", "e", "f"), keys);
     }
+
+    @Test
+    public void testConfigDesensitizationMasksJdbcUrls() {
+        Map<String, Object> source = new LinkedHashMap<>();
+        source.put(
+                "url",
+                "jdbc:mysql://alice:secret-password@db.example.com:3306/orders?token=secret-token");
+        source.put("metadata_url", "https://catalog.example.com/tables");
+
+        Map<String, Object> config = new LinkedHashMap<>();
+        config.put("source", Arrays.asList(source));
+
+        Map<String, Object> desensitized =
+                ConfigBuilder.configDesensitization(
+                        config, ConfigShadeUtils.getSensitiveOptions(null));
+        List<?> sources = (List<?>) desensitized.get("source");
+        Map<?, ?> desensitizedSource = (Map<?, ?>) sources.get(0);
+
+        Assertions.assertEquals("******", desensitizedSource.get("url"));
+        Assertions.assertEquals(
+                "https://catalog.example.com/tables", desensitizedSource.get("metadata_url"));
+    }
 }

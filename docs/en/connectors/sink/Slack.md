@@ -17,21 +17,22 @@ import ChangeLog from '../changelog/connector-slack.md';
 
 ## Description
 
-Used to send data to Slack Channel. Both support streaming and batch mode.
+Used to send SeaTunnel rows to a Slack channel. Both streaming and batch jobs are supported.
 
-> For example, if the data from upstream is [`age: 12, name: huan`], the content send to socket server is the following: `{"name":"huan","age":17}`
+> The connector sends the row values as one comma-separated Slack message. For example, a row with values
+> `huan` and `17` is sent as `huan,17`.
 
 ## Data Type Mapping
 
-All data types are mapped to string.
+All field values are converted to strings before they are sent to Slack.
 
 ## Options
 
 |      Name      |  Type  | Required | Default |                                                 Description                                                 |
 |----------------|--------|----------|---------|-------------------------------------------------------------------------------------------------------------|
-| webhooks_url   | String | Yes      | -       | Slack webhook url                                                                                           |
-| oauth_token    | String | Yes      | -       | Slack oauth token used for the actual authentication                                                        |
-| slack_channel  | String | Yes      | -       | slack channel for data write                                                                                |
+| webhooks_url   | String | Yes      | -       | Slack webhook URL.                                                                                          |
+| oauth_token    | String | Yes      | -       | Slack OAuth token used to list channels and post messages.                                                   |
+| slack_channel  | String | Yes      | -       | Slack channel name for data writes.                                                                         |
 | common-options |        | no       | -       | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details |
 
 ## Task Example
@@ -40,10 +41,10 @@ All data types are mapped to string.
 
 ```hocon
 sink {
- SlackSink {
+ Slack {
   webhooks_url = "https://hooks.slack.com/services/xxxxxxxxxxxx/xxxxxxxxxxxx/xxxxxxxxxxxxxxxx"
   oauth_token = "xoxp-xxxxxxxxxx-xxxxxxxx-xxxxxxxxx-xxxxxxxxxxx"
-  slack_channel = "channel name"
+  slack_channel = "seatunnel-alerts"
  }
 }
 ```

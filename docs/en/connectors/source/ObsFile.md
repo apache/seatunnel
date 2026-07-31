@@ -35,6 +35,7 @@ import ChangeLog from '../changelog/connector-file-obs.md';
   - [x] json
   - [x] excel
   - [x] markdown
+  - [x] pdf
 
 ## Description
 
@@ -143,7 +144,7 @@ It only supports hadoop version **2.9.X+**.
 
 > File type, supported as the following file types:
 >
-> `text` `csv` `parquet` `orc` `json` `excel` `markdown`
+> `text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf`
 >
 > If you assign file type to `json`, you should also assign schema option to tell the connector how to parse data to the row you want.
 >
@@ -225,7 +226,7 @@ schema {
 
 > If you assign file type to `markdown`, SeaTunnel can parse markdown files and extract structured data.
 > The markdown parser extracts various elements including headings, paragraphs, lists, code blocks, tables, and more.
-> Each element is converted to a row with the following schema:
+> Each extracted element is converted to a document-element row with the following schema:
 > - `element_id`: Unique identifier for the element
 > - `element_type`: Type of the element (Heading, Paragraph, ListItem, etc.)
 > - `heading_level`: Level of heading (1-6, null for non-heading elements)
@@ -242,9 +243,22 @@ schema {
 > - `chunk_index`: One-based chunk order in the parsed document
 > - `content_hash`: SHA-256 hash of the emitted `text` value
 >
+> When this option is enabled for bounded Markdown file sources, the source enumerator assigns each whole-file split by the same `document_id` hash so all rows derived from one document stay in the same source route bucket. The default round-robin split assignment is unchanged when the option is disabled.
+>
 > The option defaults to `false`, so the original Markdown schema is unchanged unless you enable it.
 >
 > Note: Markdown format only supports reading, not writing.
+>
+> If you assign file type to `pdf`, SeaTunnel can parse PDF files and extract structured document elements.
+> PDF uses the same document-element row schema described above.
+>
+> The main PDF-specific behaviors are:
+>
+> - **With outline**: Extracts `heading`, `paragraph`, `image`, and `link` elements. Headings are derived from the outline structure, and elements are organized into a parent-child hierarchy reflecting the document's logical structure.
+> - **Without outline**: Extracts only `paragraph` and `image` elements in a flat structure without hierarchy.
+> - `element_type` values for PDF are `heading`, `paragraph`, `image`, and `link`.
+>
+> Note: Only single-column (top-to-bottom) PDF layouts are supported. Multi-column layouts (e.g., side-by-side two-column documents) are not supported and may produce incorrect text ordering.
 
 #### <span id="schema"> schema  </span>
 

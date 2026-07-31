@@ -67,8 +67,8 @@ public class BigQuerySinkBatchWriter extends AbstractBigQuerySinkWriter {
             AppendRowsResponse response = future.get(60, TimeUnit.SECONDS);
 
             if (response.hasError()) {
-                if (isOffsetConflict(response)) {
-                    recreateBatchStreamAndRetry(dataToSend);
+                if (isAlreadyExists(response)) {
+                    markAppendAsSuccessful(dataToSend);
                     return;
                 }
                 throw new BigQueryConnectorException(
@@ -83,8 +83,8 @@ public class BigQuerySinkBatchWriter extends AbstractBigQuerySinkWriter {
             buffer = dataToSend;
             throw new BigQueryConnectorException(BigQueryConnectorErrorCode.APPEND_ROWS_FAILED, e);
         } catch (Exception e) {
-            if (isOffsetConflict(e)) {
-                recreateBatchStreamAndRetry(dataToSend);
+            if (isAlreadyExists(e)) {
+                markAppendAsSuccessful(dataToSend);
                 return;
             }
             buffer = dataToSend;
@@ -92,62 +92,32 @@ public class BigQuerySinkBatchWriter extends AbstractBigQuerySinkWriter {
         }
     }
 
-    private void recreateBatchStreamAndRetry(JSONArray dataToSend) {
-        log.warn(
-                "Detected BigQuery buffered stream offset conflict. "
-                        + "Recreating buffered stream and retrying append.");
-        recreateBatchStream();
-        try {
-            ApiFuture<AppendRowsResponse> future = streamWriter.append(dataToSend);
-            AppendRowsResponse response = future.get(60, TimeUnit.SECONDS);
-
-            if (response.hasError()) {
-                throw new BigQueryConnectorException(
-                        BigQueryConnectorErrorCode.APPEND_ROWS_FAILED,
-                        response.getError().getMessage());
-            }
-
-            streamWriter.onAppendSuccess(dataToSend.length());
-            log.info("Successfully appended {} rows.", dataToSend.length());
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            buffer = dataToSend;
-            throw new BigQueryConnectorException(BigQueryConnectorErrorCode.APPEND_ROWS_FAILED, e);
-        } catch (Exception e) {
-            buffer = dataToSend;
-            throw new BigQueryConnectorException(BigQueryConnectorErrorCode.APPEND_ROWS_FAILED, e);
-        }
+    private void markAppendAsSuccessful(JSONArray dataToSend) {
+        streamWriter.onAppendSuccess(dataToSend.length());
+        log.info(
+                "BigQuery already accepted the append at the requested offset; "
+                        + "advancing the local offset by {} rows.",
+                dataToSend.length());
     }
 
-    private boolean isOffsetConflict(AppendRowsResponse response) {
+    private boolean isAlreadyExists(AppendRowsResponse response) {
         if (response == null || !response.hasError()) {
             return false;
         }
 
-        int code = response.getError().getCode();
-        return code == Code.ALREADY_EXISTS_VALUE || code == Code.OUT_OF_RANGE_VALUE;
+        return response.getError().getCode() == Code.ALREADY_EXISTS_VALUE;
     }
 
-    private boolean isOffsetConflict(Throwable throwable) {
+    private boolean isAlreadyExists(Throwable throwable) {
         Throwable current = throwable;
         while (current != null) {
             if (current instanceof ApiException) {
                 StatusCode.Code code = ((ApiException) current).getStatusCode().getCode();
-                return code == StatusCode.Code.ALREADY_EXISTS
-                        || code == StatusCode.Code.OUT_OF_RANGE;
+                return code == StatusCode.Code.ALREADY_EXISTS;
             }
             current = current.getCause();
         }
         return false;
-    }
-
-    private void recreateBatchStream() {
-        try {
-            streamWriter.close();
-        } catch (Exception e) {
-            log.warn("Failed to close stale BigQuery buffered stream writer", e);
-        }
-        streamWriter = BigQueryBatchWriter.of(client, config);
     }
 
     @Override

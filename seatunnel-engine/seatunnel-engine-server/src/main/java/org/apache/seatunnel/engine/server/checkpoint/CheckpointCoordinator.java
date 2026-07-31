@@ -1431,8 +1431,8 @@ public class CheckpointCoordinator {
         CheckpointCoordinatorStatus status =
                 (CheckpointCoordinatorStatus) runningJobStateIMap.get(checkpointStateImapKey);
         return latestCompletedCheckpoint.getCheckpointType().isFinalCheckpoint()
-                && (status.equals(CheckpointCoordinatorStatus.FINISHED)
-                        || status.equals(CheckpointCoordinatorStatus.SUSPEND))
+                && (CheckpointCoordinatorStatus.FINISHED.equals(status)
+                        || CheckpointCoordinatorStatus.SUSPEND.equals(status))
                 && !latestCompletedCheckpoint.isRestored();
     }
 
