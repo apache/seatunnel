@@ -41,6 +41,15 @@ If you need a specific connector version, taking 3.0.0 as an example, you need t
 sh bin/install-plugin.sh 3.0.0
 ```
 
+For released connector versions, `install-plugin.sh` downloads JARs and their checksums directly over HTTPS, so Maven is not required on Linux and macOS. This path requires `curl`, `mktemp`, and one of `sha512sum`, `sha1sum`, `shasum`, or `openssl`. The Windows `install-plugin.cmd` script continues to use the bundled Maven Wrapper. To use an HTTPS Maven-compatible mirror with `install-plugin.sh`, set `SEATUNNEL_MAVEN_REPOSITORY` to its base URL:
+
+```bash
+SEATUNNEL_MAVEN_REPOSITORY=https://repo.example.com/maven2 \
+  sh bin/install-plugin.sh 3.0.0
+```
+
+The direct download path supports immutable release versions from repositories that publish `.sha512` or `.sha1` checksum files. `SNAPSHOT`, `LATEST`, `RELEASE`, and version ranges automatically use the bundled Maven wrapper because Maven metadata must be resolved. You can also set `SEATUNNEL_PLUGIN_DOWNLOAD_METHOD=maven` to preserve Maven `settings.xml` behavior such as mirrors, authenticated repositories, proxies, and custom TLS policies.
+
 Typically, you do not need all the connector plugins. You can specify the required plugins by configuring `config/plugin_config`. For example, if you want the sample application to work properly, you will need the `connector-console` and `connector-fake` plugins. You can modify the `plugin_config` configuration file as follows:
 
 ```plugin_config
@@ -58,26 +67,11 @@ If you want to install connector plugins by manually downloading connectors, you
 
 :::
 
-## Build SeaTunnel From Source Code
+:::note Developer note
 
-### Download The Source Code
+This local deployment guide assumes that you use an official binary release package. If you need to validate unreleased code, debug SeaTunnel source code, or prepare a custom distribution, see [Set Up Develop Environment](../../developer/setup.md).
 
-Build from source code. The way of downloading the source code is the same as the way of downloading the binary package.
-You can download the source code from the [download page](https://seatunnel.apache.org/download/) or clone the source code from the [GitHub repository](https://github.com/apache/seatunnel/releases)
-
-### Build The Source Code
-
-```shell
-cd seatunnel
-sh ./mvnw clean install -DskipTests -Dskip.spotless=true
-# get the binary package
-cp seatunnel-dist/target/apache-seatunnel-3.0.0-bin.tar.gz /The-Path-You-Want-To-Copy
-
-cd /The-Path-You-Want-To-Copy
-tar -xzvf "apache-seatunnel-${version}-bin.tar.gz"
-```
-
-When built from the source code, all the connector plugins and some necessary dependencies (eg: mysql driver) are included in the binary package. You can directly use the connector plugins without the need to install them separately.
+:::
 
 # Run SeaTunnel
 
