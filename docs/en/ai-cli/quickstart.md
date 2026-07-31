@@ -45,7 +45,8 @@ seatunnel --init       # interactive provider setup
 export AI_PROVIDER=bedrock
 export AWS_REGION=us-east-1
 
-# Option A2: OpenAI-family Bedrock models (Responses-API-only, e.g. gpt-5.6-terra)
+# Option A2: OpenAI-family Bedrock models (bedrock-mantle) — see the
+# dedicated section below for the full contract
 export AI_PROVIDER=bedrock-mantle
 export OPENAI_MODEL='openai.gpt-5.6-terra'
 
@@ -58,6 +59,48 @@ export AI_PROVIDER=openai
 export OPENAI_API_KEY=sk-...
 # export OPENAI_BASE_URL=https://...   # Azure OpenAI, DeepSeek, local vLLM, ...
 ```
+
+### bedrock-mantle: OpenAI-family models on Bedrock
+
+Some OpenAI models on Bedrock (e.g. `openai.gpt-5.6-terra`, `openai.gpt-5.6-sol`)
+are not in the Bedrock foundation-model catalog and only support the OpenAI
+**Responses API** on the dedicated `bedrock-mantle` endpoint — the regular
+`bedrock` provider (Converse API) and the `openai` provider (Chat Completions)
+cannot reach them. Use the `bedrock-mantle` provider:
+
+```bash
+# 1. Install the provider extra (openai SDK >= 2.45 + AWS token generator)
+pip install -e ".[bedrock-mantle]"
+
+# 2. Configure — AWS credentials only, no OpenAI account or API key needed
+export AI_PROVIDER=bedrock-mantle
+export AWS_REGION=us-east-1                    # us-east-1 / us-east-2 / us-west-2
+export OPENAI_MODEL='openai.gpt-5.6-terra'     # default if unset
+# export OPENAI_SMALL_FAST_MODEL='openai.gpt-5.6-terra'
+
+# 3. Generate as usual
+seatunnel "Sync MySQL users table to S3 Parquet"
+```
+
+Provider contract:
+
+- **Endpoint**: `https://bedrock-mantle.{region}.api.aws/openai/v1` — the
+  model-specific `openai/v1` path required by these models (the generic `v1`
+  Responses path rejects them).
+- **Auth**: a short-term bearer token is derived automatically from your AWS
+  credentials (profile, env vars, or IAM role) via `aws-bedrock-token-generator`
+  and refreshed every 30 minutes. No long-lived key is stored anywhere.
+- **Data retention**: every request is sent with `store=false`, so Bedrock does
+  not retain your prompts or generated configs server-side (the service default
+  would otherwise keep them for 30 days).
+- **Parameters**: these models reject `temperature`; the provider never sends
+  it, so any configured temperature value is not applied.
+- **Errors**: truncated (`incomplete`), failed, and refused responses raise an
+  explicit error instead of being returned as a normal answer.
+
+The provider fully supports the CLI's internal tool-calling loop (connector
+lookups during planning) and multi-turn sessions, including replay of the
+model's reasoning output between tool calls.
 
 API keys are read from environment variables only — they are never written to config files.
 
