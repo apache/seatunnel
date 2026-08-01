@@ -23,7 +23,7 @@ export default {
     overview: 'Overview',
     exception: 'Exception',
     configuration: 'Configuration',
-    log: 'Log',
+    log: 'Log'
   },
   table: {
     name: 'Name',
@@ -34,7 +34,7 @@ export default {
     receivedQps: 'Received QPS',
     writeQps: 'Write QPS',
     receivedBytesPerSecond: 'Received Bytes PerSecond',
-    writeBytesPerSecond: 'Write Bytes PerSecond',
+    writeBytesPerSecond: 'Write Bytes PerSecond'
   },
   observability: {
     time: 'Time',
@@ -51,6 +51,36 @@ export default {
     writeMsPerRecord: 'Write (ms/record)',
     // Edge
     bpRatio: 'Downstream Wait Ratio',
-    queueFillRatio: 'Queue Fill Ratio',
+    queueFillRatio: 'Queue Fill Ratio'
   },
+  runtime: {
+    graphSize: 'Graph Size',
+    vertices: 'vertices',
+    edges: 'edges',
+    largeGraphActive: 'Large graph summary active',
+    normalGraph: 'Normal graph',
+    checkpoint: 'Checkpoint',
+    checkpointUnavailable: 'Checkpoint overview unavailable',
+    completed: 'completed',
+    inProgress: 'In progress',
+    latestCompleted: 'Latest completed',
+    latestFailed: 'Latest failed',
+    latestSavepoint: 'Latest savepoint',
+    updatedAt: 'Updated at',
+    runtimeError: 'Runtime Error',
+    noRuntimeError: 'No runtime error',
+    largeGraphSummary:
+      'Large graph detected. Use the vertex and downstream-input hotspot summary first, then zoom into the topology when needed.',
+    topBusyVertices: 'Top Busy Vertices',
+    topBlockedEdges: 'Top Blocked Inputs',
+    vertex: 'Vertex',
+    type: 'Type',
+    busyRatio: 'Busy Ratio',
+    from: 'From',
+    to: 'To',
+    downstreamWait: 'Downstream Wait',
+    queueFill: 'Queue Fill',
+    queueSize: 'Queue Size',
+    unavailable: 'N/A'
+  }
 }
