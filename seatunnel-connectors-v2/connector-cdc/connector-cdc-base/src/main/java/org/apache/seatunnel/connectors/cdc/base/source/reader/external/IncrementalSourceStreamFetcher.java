@@ -65,13 +65,14 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
     private volatile ChangeEventQueue<DataChangeEvent> queue;
     private volatile Throwable readException;
     private volatile boolean taskStarted = false;
-    // Set by the background thread itself right before it calls streamFetchTask.execute(), and
-    // cleared right after execute() returns/throws. isFinished() must not rely on polling
-    // streamFetchTask.isRunning() alone: that flag is flipped to true by the fetch task's own
-    // execute() method, which runs slightly after taskStarted is set here. If isFinished() is
-    // polled inside that gap it observes taskStarted=true and isRunning()=false and incorrectly
-    // reports the split as finished before the fetch task ever ran, silently truncating the
-    // whole incremental/bounded read (see bug-002).
+    // Set synchronously in submitTask(), before the fetch task is handed to the background
+    // thread, and cleared in a finally block once execute() returns/throws. isFinished() must
+    // not rely on polling streamFetchTask.isRunning() alone: that flag is owned by the fetch
+    // task and is only flipped to true from inside its own execute() method, which the
+    // (single-threaded) poller can observe as not-yet-run. Without this flag isFinished() could
+    // report the split as finished before the fetch task ever ran, silently truncating the whole
+    // incremental/bounded read (see bug-002/bug-008). Setting it inside the background thread's
+    // lambda instead of synchronously in submitTask() re-opens this exact race.
     private volatile boolean executing = false;
 
     private FetchTask<SourceSplitBase> streamFetchTask;
@@ -106,19 +107,20 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
         configureFilter();
         taskContext.configure(currentIncrementalSplit);
         this.queue = taskContext.getQueue();
+        // Set synchronously, before the task is handed to the background thread, so there is no
+        // window in which the (single-threaded) poller can observe taskStarted=true and
+        // executing=false before the background thread has actually started running. Setting
+        // this flag from inside the submitted lambda left a gap between "taskStarted = true" and
+        // the next statement (a log call) that the poller reliably hit on every run.
+        taskStarted = true;
+        executing = true;
         executorService.submit(
                 () -> {
                     try {
-                        taskStarted = true;  // Set flag inside the background thread
                         log.info(
                                 "Start incremental read task for incremental split: {} exactly-once: {}",
                                 currentIncrementalSplit,
                                 taskContext.isExactlyOnce());
-                        // Mark as executing right before entering the fetch task. This closes the
-                        // race where isFinished() could observe taskStarted=true but
-                        // streamFetchTask.isRunning()=false because the fetch task's own
-                        // execute() hasn't run its first statement yet.
-                        executing = true;
                         streamFetchTask.execute(taskContext);
                     } catch (Throwable e) {
                         log.error(
