@@ -104,7 +104,11 @@ public class EngineMultiTableRowErrorHandler implements MultiTableRowErrorHandle
                 .consumeTerminalOutcome(row)
                 .map(
                         outcome -> {
-                            if (!outcome.isRecorded()) {
+                            if (outcome.isWritten()) {
+                                outcomeConsumer.accept(
+                                        outcome.getRow(),
+                                        ErrorHandlingSinkWriter.WriteOutcome.WRITTEN);
+                            } else if (!outcome.isRecorded()) {
                                 outcomeConsumer.accept(
                                         outcome.getRow(),
                                         ErrorHandlingSinkWriter.toWriteOutcome(

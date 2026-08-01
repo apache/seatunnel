@@ -232,6 +232,38 @@ public class ErrorHandlerTest {
     }
 
     @Test
+    public void testStateStoreCounterSharesMaxRecordsAcrossParallelHandlersImmediately() {
+        StageErrorConfig config =
+                StageErrorConfig.builder().mode(ErrorHandlerMode.LOG).maxErrorRecords(1).build();
+        InMemoryCounterStateStore counterStore = new InMemoryCounterStateStore();
+        ErrorHandler<SeaTunnelRow> firstSubtaskHandler =
+                new ErrorHandler<>(
+                        config,
+                        null,
+                        new StateStoreErrorHandlerCounter(counterStore, 1L, 2, 3L, "SINK"));
+        ErrorHandler<SeaTunnelRow> secondSubtaskHandler =
+                new ErrorHandler<>(
+                        config,
+                        null,
+                        new StateStoreErrorHandlerCounter(counterStore, 1L, 2, 3L, "SINK"));
+        RowErrorContext ctx = createContext();
+
+        firstSubtaskHandler.incrementTotalRecords();
+        firstSubtaskHandler.onError(ctx, createRow(1), new RuntimeException("first"));
+        secondSubtaskHandler.incrementTotalRecords();
+        RuntimeException ex =
+                assertThrows(
+                        RuntimeException.class,
+                        () ->
+                                secondSubtaskHandler.onError(
+                                        ctx, createRow(2), new RuntimeException("second")));
+
+        assertTrue(ex.getMessage().contains("2 records exceeded max_error_records=1"));
+        firstSubtaskHandler.close();
+        secondSubtaskHandler.close();
+    }
+
+    @Test
     public void testStateStoreCounterSurvivesHandlerRecreationAfterRecovery() {
         StageErrorConfig config =
                 StageErrorConfig.builder()

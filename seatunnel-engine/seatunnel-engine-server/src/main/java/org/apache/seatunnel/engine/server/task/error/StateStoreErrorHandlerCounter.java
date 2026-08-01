@@ -19,19 +19,14 @@ package org.apache.seatunnel.engine.server.task.error;
 
 import org.apache.seatunnel.engine.server.common.statestore.counter.CounterStateStore;
 
-import java.io.Serializable;
-import java.util.NavigableMap;
 import java.util.Objects;
-import java.util.TreeMap;
-import java.util.concurrent.atomic.AtomicLong;
 
 /**
- * Checkpoint-aware state-store-backed counter.
+ * State-store-backed counter shared by all parallel subtasks of one stage.
  *
- * <p>Row processing updates local atomics only. Local deltas are captured on checkpoint barriers
- * and published to the shared state store only after the checkpoint is reported complete, keeping
- * Hazelcast operations out of the per-row hot path and avoiding committed counters for aborted
- * checkpoints.
+ * <p>Each row updates the shared state store immediately so stage-wide hard limits such as
+ * max_error_records are enforced against the current parallel total instead of checkpoint-delayed
+ * local snapshots.
  */
 public class StateStoreErrorHandlerCounter implements ErrorHandlerCounter {
 
@@ -42,13 +37,6 @@ public class StateStoreErrorHandlerCounter implements ErrorHandlerCounter {
     private final CounterStateStore<String> counterStore;
     private final String totalRecordsKey;
     private final String errorRecordsKey;
-    private final AtomicLong localTotalRecords = new AtomicLong();
-    private final AtomicLong localErrorRecords = new AtomicLong();
-    private final AtomicLong committedLocalTotalRecords = new AtomicLong();
-    private final AtomicLong committedLocalErrorRecords = new AtomicLong();
-    private final AtomicLong visibleCommittedTotalRecords = new AtomicLong();
-    private final AtomicLong visibleCommittedErrorRecords = new AtomicLong();
-    private final NavigableMap<Long, CounterSnapshot> pendingSnapshots = new TreeMap<>();
 
     public StateStoreErrorHandlerCounter(
             CounterStateStore<String> counterStore,
@@ -62,73 +50,36 @@ public class StateStoreErrorHandlerCounter implements ErrorHandlerCounter {
         this.errorRecordsKey = scopeKey + ":" + ERROR_COUNTER;
         initializeIfAbsent(totalRecordsKey);
         initializeIfAbsent(errorRecordsKey);
-        this.visibleCommittedTotalRecords.set(getOrZero(totalRecordsKey));
-        this.visibleCommittedErrorRecords.set(getOrZero(errorRecordsKey));
     }
 
     @Override
     public long incrementTotalRecords() {
-        return visibleCommittedTotalRecords.get()
-                + localTotalRecords.incrementAndGet()
-                - committedLocalTotalRecords.get();
+        return addAndGet(totalRecordsKey, 1L);
     }
 
     @Override
     public long incrementErrorRecords() {
-        return visibleCommittedErrorRecords.get()
-                + localErrorRecords.incrementAndGet()
-                - committedLocalErrorRecords.get();
+        return addAndGet(errorRecordsKey, 1L);
     }
 
     @Override
     public long getTotalRecords() {
-        return visibleCommittedTotalRecords.get()
-                + localTotalRecords.get()
-                - committedLocalTotalRecords.get();
+        return getOrZero(totalRecordsKey);
     }
 
     @Override
     public long getErrorRecords() {
-        return visibleCommittedErrorRecords.get()
-                + localErrorRecords.get()
-                - committedLocalErrorRecords.get();
+        return getOrZero(errorRecordsKey);
     }
 
     @Override
-    public synchronized void snapshotState(long checkpointId) {
-        pendingSnapshots.put(
-                checkpointId,
-                new CounterSnapshot(localTotalRecords.get(), localErrorRecords.get()));
-    }
+    public void snapshotState(long checkpointId) {}
 
     @Override
-    public synchronized void notifyCheckpointComplete(long checkpointId) {
-        CounterSnapshot snapshot =
-                pendingSnapshots.floorEntry(checkpointId) == null
-                        ? null
-                        : pendingSnapshots.floorEntry(checkpointId).getValue();
-        if (snapshot == null) {
-            refreshCommittedCounters();
-            return;
-        }
-
-        long totalDelta = snapshot.totalRecords - committedLocalTotalRecords.get();
-        long errorDelta = snapshot.errorRecords - committedLocalErrorRecords.get();
-        if (totalDelta > 0) {
-            visibleCommittedTotalRecords.set(addAndGet(totalRecordsKey, totalDelta));
-            committedLocalTotalRecords.addAndGet(totalDelta);
-        }
-        if (errorDelta > 0) {
-            visibleCommittedErrorRecords.set(addAndGet(errorRecordsKey, errorDelta));
-            committedLocalErrorRecords.addAndGet(errorDelta);
-        }
-        pendingSnapshots.headMap(checkpointId, true).clear();
-    }
+    public void notifyCheckpointComplete(long checkpointId) {}
 
     @Override
-    public synchronized void notifyCheckpointAborted(long checkpointId) {
-        pendingSnapshots.remove(checkpointId);
-    }
+    public void notifyCheckpointAborted(long checkpointId) {}
 
     static String buildScopeKey(long jobId, int pipelineId, long actionId, String stageName) {
         return String.join(
@@ -157,25 +108,8 @@ public class StateStoreErrorHandlerCounter implements ErrorHandlerCounter {
         return current;
     }
 
-    private void refreshCommittedCounters() {
-        visibleCommittedTotalRecords.set(getOrZero(totalRecordsKey));
-        visibleCommittedErrorRecords.set(getOrZero(errorRecordsKey));
-    }
-
     private long getOrZero(String key) {
         Long current = counterStore.get(key);
         return current == null ? 0L : current;
-    }
-
-    private static final class CounterSnapshot implements Serializable {
-        private static final long serialVersionUID = 1L;
-
-        private final long totalRecords;
-        private final long errorRecords;
-
-        private CounterSnapshot(long totalRecords, long errorRecords) {
-            this.totalRecords = totalRecords;
-            this.errorRecords = errorRecords;
-        }
     }
 }

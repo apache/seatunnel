@@ -66,6 +66,14 @@ public final class EngineRowErrorCollector implements RowErrorCollector {
         }
     }
 
+    @Override
+    public void collectWriteSuccess(SeaTunnelRow row) {
+        Objects.requireNonNull(row, "row must not be null");
+        synchronized (terminalOutcomes) {
+            terminalOutcomes.add(CollectedRowErrorOutcome.written(row));
+        }
+    }
+
     public long getCollectedErrors() {
         return collectedErrors.get();
     }
@@ -84,7 +92,9 @@ public final class EngineRowErrorCollector implements RowErrorCollector {
             terminalOutcomes.clear();
             if (rememberRecordedRows) {
                 for (CollectedRowErrorOutcome outcome : drained) {
-                    recordedTerminalRows.put(outcome.getRow(), Boolean.TRUE);
+                    if (outcome.isTerminalWriteOutcome()) {
+                        recordedTerminalRows.put(outcome.getRow(), Boolean.TRUE);
+                    }
                 }
             }
             return drained;
@@ -111,20 +121,29 @@ public final class EngineRowErrorCollector implements RowErrorCollector {
         private final SeaTunnelRow row;
         private final ErrorHandler.ErrorHandleResult result;
         private final boolean recorded;
+        private final boolean written;
 
         private CollectedRowErrorOutcome(SeaTunnelRow row, ErrorHandler.ErrorHandleResult result) {
-            this(row, result, false);
+            this(row, result, false, false);
         }
 
         private CollectedRowErrorOutcome(
-                SeaTunnelRow row, ErrorHandler.ErrorHandleResult result, boolean recorded) {
+                SeaTunnelRow row,
+                ErrorHandler.ErrorHandleResult result,
+                boolean recorded,
+                boolean written) {
             this.row = row;
             this.result = result;
             this.recorded = recorded;
+            this.written = written;
         }
 
         private static CollectedRowErrorOutcome recorded(SeaTunnelRow row) {
-            return new CollectedRowErrorOutcome(row, null, true);
+            return new CollectedRowErrorOutcome(row, null, true, false);
+        }
+
+        private static CollectedRowErrorOutcome written(SeaTunnelRow row) {
+            return new CollectedRowErrorOutcome(row, null, false, true);
         }
 
         public SeaTunnelRow getRow() {
@@ -137,6 +156,14 @@ public final class EngineRowErrorCollector implements RowErrorCollector {
 
         public boolean isRecorded() {
             return recorded;
+        }
+
+        public boolean isWritten() {
+            return written;
+        }
+
+        private boolean isTerminalWriteOutcome() {
+            return !recorded;
         }
     }
 }

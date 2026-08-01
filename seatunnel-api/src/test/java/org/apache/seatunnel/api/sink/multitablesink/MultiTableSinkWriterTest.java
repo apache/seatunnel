@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.api.sink.multitablesink;
 
+import org.apache.seatunnel.api.common.error.RowErrorHandlingFatalException;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.common.multitable.MultiTableFailedTable;
 import org.apache.seatunnel.api.common.multitable.MultiTableFailureHelper;
@@ -450,6 +451,33 @@ public class MultiTableSinkWriterTest {
     }
 
     @Test
+    public void testPrepareCommitFatalRowErrorHandlingFailureFailsFast() {
+        Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters = new HashMap<>();
+        Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
+        FatalPrepareCommitSinkWriter fatalWriter = new FatalPrepareCommitSinkWriter();
+        SinkIdentifier sinkIdentifier = SinkIdentifier.of("test.fatal", 0);
+        sinkWriters.put(sinkIdentifier, fatalWriter);
+        sinkWritersContext.put(sinkIdentifier, new TestSinkWriterContext());
+
+        MultiTableSinkWriter multiTableSinkWriter =
+                new MultiTableSinkWriter(
+                        sinkWriters,
+                        1,
+                        sinkWritersContext,
+                        MultiTableFailurePolicy.CONTINUE_OTHER_TABLES,
+                        JobMode.STREAMING,
+                        2,
+                        0);
+
+        RuntimeException exception =
+                Assertions.assertThrows(
+                        RuntimeException.class, () -> multiTableSinkWriter.prepareCommit(1L));
+
+        Assertions.assertFalse(MultiTableFailureHelper.isIsolatedFailure(exception.getMessage()));
+        Assertions.assertEquals(1, fatalWriter.getPrepareCommitCount());
+    }
+
+    @Test
     public void testSnapshotStateRetriesBeforeIsolation() throws IOException {
         Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters = new HashMap<>();
         Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
@@ -474,6 +502,33 @@ public class MultiTableSinkWriterTest {
         Assertions.assertEquals(1, retryWriter.getSnapshotCount());
         Assertions.assertEquals(2, retryWriter.getSnapshotAttemptCount());
         Assertions.assertDoesNotThrow(multiTableSinkWriter::close);
+    }
+
+    @Test
+    public void testSnapshotStateFatalRowErrorHandlingFailureFailsFast() {
+        Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters = new HashMap<>();
+        Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
+        FatalSnapshotSinkWriter fatalWriter = new FatalSnapshotSinkWriter();
+        SinkIdentifier sinkIdentifier = SinkIdentifier.of("test.fatal", 0);
+        sinkWriters.put(sinkIdentifier, fatalWriter);
+        sinkWritersContext.put(sinkIdentifier, new TestSinkWriterContext());
+
+        MultiTableSinkWriter multiTableSinkWriter =
+                new MultiTableSinkWriter(
+                        sinkWriters,
+                        1,
+                        sinkWritersContext,
+                        MultiTableFailurePolicy.CONTINUE_OTHER_TABLES,
+                        JobMode.STREAMING,
+                        2,
+                        0);
+
+        RuntimeException exception =
+                Assertions.assertThrows(
+                        RuntimeException.class, () -> multiTableSinkWriter.snapshotState(1L));
+
+        Assertions.assertFalse(MultiTableFailureHelper.isIsolatedFailure(exception.getMessage()));
+        Assertions.assertEquals(1, fatalWriter.getSnapshotAttemptCount());
     }
 
     @Test
@@ -564,6 +619,45 @@ public class MultiTableSinkWriterTest {
         Assertions.assertEquals(1, failedFlushCount.get());
         Assertions.assertEquals(0, healthyFlushCount.get());
         Assertions.assertDoesNotThrow(multiTableSinkWriter::close);
+    }
+
+    @Test
+    public void testAggregatedFlushFatalRowErrorHandlingFailureFailsFast() {
+        Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters = new HashMap<>();
+        Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
+        Map<SinkIdentifier, SinkContextProxy> proxyContexts = new HashMap<>();
+        SinkIdentifier sinkIdentifier = SinkIdentifier.of("test.fatal", 0);
+        sinkWriters.put(sinkIdentifier, new TestSinkWriter());
+        sinkWritersContext.put(sinkIdentifier, new TestSinkWriterContext());
+
+        AtomicInteger flushCount = new AtomicInteger();
+        SinkContextProxy fatalProxy = new SinkContextProxy(0, 1, new TestSinkWriterContext());
+        fatalProxy.registerFlushAction(
+                () -> {
+                    flushCount.incrementAndGet();
+                    throw new RowErrorHandlingFatalException(
+                            "fatal collector failure",
+                            new RuntimeException("fatal collector failure"));
+                });
+        proxyContexts.put(sinkIdentifier, fatalProxy);
+
+        MultiTableSinkWriter multiTableSinkWriter =
+                new MultiTableSinkWriter(
+                        sinkWriters,
+                        1,
+                        sinkWritersContext,
+                        MultiTableFailurePolicy.CONTINUE_OTHER_TABLES,
+                        JobMode.STREAMING,
+                        2,
+                        0);
+
+        RuntimeException exception =
+                Assertions.assertThrows(
+                        RuntimeException.class,
+                        () -> multiTableSinkWriter.aggregatedFlush(proxyContexts));
+
+        Assertions.assertFalse(MultiTableFailureHelper.isIsolatedFailure(exception.getMessage()));
+        Assertions.assertEquals(1, flushCount.get());
     }
 
     @Test
@@ -919,6 +1013,25 @@ public class MultiTableSinkWriterTest {
         }
     }
 
+    static class FatalPrepareCommitSinkWriter extends RecordingSinkWriter {
+        private final AtomicInteger prepareCommitCount = new AtomicInteger();
+
+        FatalPrepareCommitSinkWriter() {
+            super(false);
+        }
+
+        @Override
+        public Optional<TestSinkState> prepareCommit(long checkpointId) {
+            prepareCommitCount.incrementAndGet();
+            throw new RowErrorHandlingFatalException(
+                    "fatal collector failure", new RuntimeException("fatal collector failure"));
+        }
+
+        int getPrepareCommitCount() {
+            return prepareCommitCount.get();
+        }
+    }
+
     static class SnapshotRetrySinkWriter extends RecordingSinkWriter {
         private final int failuresBeforeSuccess;
         private final AtomicInteger snapshotAttemptCount = new AtomicInteger();
@@ -945,6 +1058,25 @@ public class MultiTableSinkWriterTest {
 
         int getSnapshotCount() {
             return snapshotCount.get();
+        }
+    }
+
+    static class FatalSnapshotSinkWriter extends RecordingSinkWriter {
+        private final AtomicInteger snapshotAttemptCount = new AtomicInteger();
+
+        FatalSnapshotSinkWriter() {
+            super(false);
+        }
+
+        @Override
+        public List<Object> snapshotState(long checkpointId) {
+            snapshotAttemptCount.incrementAndGet();
+            throw new RowErrorHandlingFatalException(
+                    "fatal collector failure", new RuntimeException("fatal collector failure"));
+        }
+
+        int getSnapshotAttemptCount() {
+            return snapshotAttemptCount.get();
         }
     }
 

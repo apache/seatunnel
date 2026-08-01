@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 import org.apache.seatunnel.shade.com.zaxxer.hikari.HikariDataSource;
 
 import org.apache.seatunnel.api.common.error.RowErrorCollector;
+import org.apache.seatunnel.api.common.error.RowErrorEvent;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TablePath;
@@ -41,6 +42,7 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -65,15 +67,17 @@ class JdbcSinkWriterTest {
     }
 
     @Test
-    void testPendingRowsAreClearedAfterAutoCommitAutoFlush() throws Exception {
-        JdbcSinkWriter writer = createWriterWithRowErrorCollector(true);
+    void testPendingRowsAreReportedAndClearedAfterAutoCommitAutoFlush() throws Exception {
+        AtomicInteger successCount = new AtomicInteger();
+        JdbcSinkWriter writer = createWriterWithRowErrorCollector(true, successCount);
         List<SeaTunnelRow> pendingRows = new ArrayList<>();
         pendingRows.add(new SeaTunnelRow(new Object[] {1}));
         setPendingRows(writer, pendingRows);
 
-        invokeClearPendingRowsIfCommitted(writer, true);
+        invokeReportAndClearPendingRowsIfCommitted(writer, true);
 
         Assertions.assertTrue(getPendingRows(writer).isEmpty());
+        Assertions.assertEquals(1, successCount.get());
     }
 
     @Test
@@ -83,7 +87,7 @@ class JdbcSinkWriterTest {
         pendingRows.add(new SeaTunnelRow(new Object[] {1}));
         setPendingRows(writer, pendingRows);
 
-        invokeClearPendingRowsIfCommitted(writer, true);
+        invokeReportAndClearPendingRowsIfCommitted(writer, true);
 
         Assertions.assertEquals(1, getPendingRows(writer).size());
     }
@@ -123,6 +127,11 @@ class JdbcSinkWriterTest {
     }
 
     private static JdbcSinkWriter createWriterWithRowErrorCollector(boolean autoCommit) {
+        return createWriterWithRowErrorCollector(autoCommit, new AtomicInteger());
+    }
+
+    private static JdbcSinkWriter createWriterWithRowErrorCollector(
+            boolean autoCommit, AtomicInteger successCount) {
         JdbcConnectionConfig connectionConfig =
                 JdbcConnectionConfig.builder().batchSize(100).autoCommit(autoCommit).build();
         JdbcSinkConfig sinkConfig =
@@ -134,7 +143,16 @@ class JdbcSinkWriterTest {
         JdbcDialect dialect = mock(JdbcDialect.class);
         JdbcConnectionProvider connectionProvider = mock(JdbcConnectionProvider.class);
         SinkWriter.Context context = mock(SinkWriter.Context.class);
-        RowErrorCollector rowErrorCollector = event -> {};
+        RowErrorCollector rowErrorCollector =
+                new RowErrorCollector() {
+                    @Override
+                    public void collect(RowErrorEvent event) {}
+
+                    @Override
+                    public void collectWriteSuccess(SeaTunnelRow row) {
+                        successCount.incrementAndGet();
+                    }
+                };
         TableSchema schema =
                 TableSchema.builder()
                         .column(PhysicalColumn.of("id", BasicType.INT_TYPE, 10L, false, null, ""))
@@ -155,11 +173,11 @@ class JdbcSinkWriterTest {
                 null);
     }
 
-    private static void invokeClearPendingRowsIfCommitted(
+    private static void invokeReportAndClearPendingRowsIfCommitted(
             JdbcSinkWriter writer, boolean autoFlushed) throws Exception {
         Method method =
                 JdbcSinkWriter.class.getDeclaredMethod(
-                        "clearPendingRowsIfCommitted", boolean.class);
+                        "reportAndClearPendingRowsIfCommitted", boolean.class);
         method.setAccessible(true);
         method.invoke(writer, autoFlushed);
     }

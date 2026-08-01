@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.api.sink.multitablesink;
 
+import org.apache.seatunnel.api.common.error.RowErrorHandlingFatalException;
 import org.apache.seatunnel.api.common.multitable.MultiTableFailedTable;
 import org.apache.seatunnel.api.common.multitable.MultiTableFailureHelper;
 import org.apache.seatunnel.api.common.multitable.MultiTableFailurePhase;
@@ -830,6 +831,11 @@ public class MultiTableSinkWriter
 
     private synchronized void handleTableFailure(
             String tableId, MultiTableFailurePhase phase, Throwable error) {
+        if (containsFatalRowErrorHandlingFailure(error)) {
+            fatalTableId = tableId;
+            fatalThrowable = error;
+            throw new RuntimeException(error);
+        }
         if (tableId == null || tableId.trim().isEmpty()) {
             fatalTableId = tableId;
             fatalThrowable = error;
@@ -854,7 +860,9 @@ public class MultiTableSinkWriter
                 Thread.currentThread().interrupt();
                 throw error;
             } catch (Throwable error) {
-                if (!failurePolicy.continueOtherTables() || retriedTimes >= tableRetryTimes) {
+                if (containsFatalRowErrorHandlingFailure(error)
+                        || !failurePolicy.continueOtherTables()
+                        || retriedTimes >= tableRetryTimes) {
                     throw error;
                 }
                 retriedTimes++;
@@ -868,6 +876,17 @@ public class MultiTableSinkWriter
                 waitBeforeTableRetry();
             }
         }
+    }
+
+    private boolean containsFatalRowErrorHandlingFailure(Throwable error) {
+        Throwable current = error;
+        while (current != null) {
+            if (current instanceof RowErrorHandlingFatalException) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 
     private void waitBeforeTableRetry() throws InterruptedException {

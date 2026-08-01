@@ -251,6 +251,30 @@ class SinkFlowLifeCycleErrorOutcomeTest {
     }
 
     @Test
+    void collectorReportedSuccessDoesNotRemainDeferredUntilFlush() throws Exception {
+        SeaTunnelMetricsContext metrics = new SeaTunnelMetricsContext();
+        ErrorHandler<SeaTunnelRow> handler =
+                new ErrorHandler<>(
+                        StageErrorConfig.builder().mode(ErrorHandlerMode.ROUTE).build(),
+                        new NoopErrorSinkWriter());
+        EngineRowErrorCollector collector = new EngineRowErrorCollector(handler, "test");
+        SinkFlowLifeCycle<SeaTunnelRow, String, String, String> flow =
+                createFlow(metrics, new SuccessReportingWriter(collector), handler);
+        SinkWriterContext context = sinkWriterContext(metrics, collector);
+        context.enableDeferredTerminalWriteOutcomes();
+        setField(flow, "writerContext", context);
+        setField(flow, "stageRowErrorCollector", collector);
+        setField(flow, "deferTerminalWriteOutcomes", true);
+        SeaTunnelRow row = tracedRow();
+
+        flow.received(new Record<>(row));
+
+        Assertions.assertEquals(1L, metrics.counter(SINK_WRITE_COUNT).getCount());
+        Assertions.assertEquals(0, pendingTerminalWriteRowsSize(flow));
+        Assertions.assertTrue(hasStage(row, StainTraceStage.SINK_WRITE_DONE));
+    }
+
+    @Test
     void multiTableHandlerConsumesPendingCollectorOutcomeBeforeSuccess() {
         ErrorHandler<SeaTunnelRow> handler =
                 new ErrorHandler<>(
@@ -297,6 +321,33 @@ class SinkFlowLifeCycleErrorOutcomeTest {
         Assertions.assertTrue(multiTableHandler.consumeCollectedRowErrorOutcome(row));
         Assertions.assertEquals(0, outcomes.get());
         Assertions.assertFalse(multiTableHandler.consumeCollectedRowErrorOutcome(row));
+    }
+
+    @Test
+    void multiTableHandlerConsumesCollectorReportedSuccess() throws Exception {
+        ErrorHandler<SeaTunnelRow> handler =
+                new ErrorHandler<>(
+                        StageErrorConfig.builder().mode(ErrorHandlerMode.ROUTE).build(),
+                        new NoopErrorSinkWriter());
+        EngineRowErrorCollector collector = new EngineRowErrorCollector(handler, "test");
+        AtomicInteger writtenOutcomes = new AtomicInteger();
+        EngineMultiTableRowErrorHandler multiTableHandler =
+                new EngineMultiTableRowErrorHandler(
+                        handler,
+                        null,
+                        "test",
+                        (row, outcome) -> {
+                            if (outcome == ErrorHandlingSinkWriter.WriteOutcome.WRITTEN) {
+                                writtenOutcomes.incrementAndGet();
+                            }
+                        },
+                        collector);
+        SeaTunnelRow row = tracedRow();
+
+        collector.collectWriteSuccess(row);
+
+        Assertions.assertTrue(multiTableHandler.consumeCollectedRowErrorOutcome(row));
+        Assertions.assertEquals(1, writtenOutcomes.get());
     }
 
     @SuppressWarnings("unchecked")
@@ -357,6 +408,12 @@ class SinkFlowLifeCycleErrorOutcomeTest {
         field.set(target, value);
     }
 
+    private static int pendingTerminalWriteRowsSize(Object target) throws Exception {
+        Field field = target.getClass().getDeclaredField("pendingTerminalWriteRows");
+        field.setAccessible(true);
+        return ((java.util.Collection<?>) field.get(target)).size();
+    }
+
     private static final class TestSinkWriter implements SinkWriter<SeaTunnelRow, String, String> {
         private final boolean fail;
 
@@ -397,6 +454,35 @@ class SinkFlowLifeCycleErrorOutcomeTest {
                 collector.collect(
                         new RowErrorEvent(
                                 RowErrorPhase.WRITE, null, element, new IOException("row error")));
+            } catch (Exception e) {
+                throw new IOException(e);
+            }
+        }
+
+        @Override
+        public Optional<String> prepareCommit() {
+            return Optional.empty();
+        }
+
+        @Override
+        public void abortPrepare() {}
+
+        @Override
+        public void close() {}
+    }
+
+    private static final class SuccessReportingWriter
+            implements SinkWriter<SeaTunnelRow, String, String> {
+        private final EngineRowErrorCollector collector;
+
+        private SuccessReportingWriter(EngineRowErrorCollector collector) {
+            this.collector = collector;
+        }
+
+        @Override
+        public void write(SeaTunnelRow element) throws IOException {
+            try {
+                collector.collectWriteSuccess(element);
             } catch (Exception e) {
                 throw new IOException(e);
             }

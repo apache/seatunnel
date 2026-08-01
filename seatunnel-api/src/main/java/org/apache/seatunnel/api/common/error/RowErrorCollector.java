@@ -17,8 +17,12 @@
 
 package org.apache.seatunnel.api.common.error;
 
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+
 /** Collector for row-level errors that occur outside a single write/map call. */
 @FunctionalInterface
 public interface RowErrorCollector {
     void collect(RowErrorEvent event) throws Exception;
+
+    default void collectWriteSuccess(SeaTunnelRow row) throws Exception {}
 }

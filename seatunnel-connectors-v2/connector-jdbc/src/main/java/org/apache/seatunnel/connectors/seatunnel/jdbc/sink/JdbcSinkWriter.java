@@ -212,7 +212,7 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
                 try {
                     pendingRows.add(element);
                     boolean autoFlushed = outputFormat.writeRecordWithAutoFlush(element);
-                    clearPendingRowsIfCommitted(autoFlushed);
+                    reportAndClearPendingRowsIfCommitted(autoFlushed);
                 } catch (Throwable e) {
                     if (!isRowLevelDataError(e)) {
                         throwAsIoException(e);
@@ -296,6 +296,7 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
                 try {
                     outputFormat.flush();
                     commitIfNeeded();
+                    reportWriteSuccess(batchRows);
                 } catch (Throwable e) {
                     if (!isRowLevelDataError(e)) {
                         throwAsIoException(e);
@@ -333,6 +334,7 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
                 try {
                     outputFormat.flush();
                     commitIfNeeded();
+                    reportWriteSuccess(batchRows);
                 } catch (Throwable e) {
                     if (!isRowLevelDataError(e)) {
                         throwAsIoException(e);
@@ -361,12 +363,26 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
         }
     }
 
-    private void clearPendingRowsIfCommitted(boolean autoFlushed) {
+    private void reportAndClearPendingRowsIfCommitted(boolean autoFlushed) throws IOException {
         if (pendingRows == null) {
             return;
         }
         if (autoFlushed && jdbcSinkConfig.getJdbcConnectionConfig().isAutoCommit()) {
+            reportWriteSuccess(pendingRows);
             pendingRows.clear();
+        }
+    }
+
+    private void reportWriteSuccess(List<SeaTunnelRow> rows) throws IOException {
+        if (!rowErrorCollector.isPresent() || rows == null || rows.isEmpty()) {
+            return;
+        }
+        try {
+            for (SeaTunnelRow row : rows) {
+                rowErrorCollector.get().collectWriteSuccess(row);
+            }
+        } catch (Exception collectorEx) {
+            throw toIOException(collectorEx);
         }
     }
 
@@ -460,6 +476,7 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
                 try {
                     outputFormat.flush();
                     commitIfNeeded();
+                    reportWriteSuccess(batchRows);
                 } catch (Throwable e) {
                     if (!isRowLevelDataError(e)) {
                         throwAsIoException(e);

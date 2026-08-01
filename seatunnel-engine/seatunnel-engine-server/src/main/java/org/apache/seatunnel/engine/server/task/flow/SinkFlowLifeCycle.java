@@ -634,7 +634,11 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                 currentRowAlreadyResolved = true;
             }
             removePendingTerminalWriteRow(outcome.getRow());
-            recordTerminalWriteOutcome(outcome.getRow(), toWriteOutcome(outcome.getResult()));
+            recordTerminalWriteOutcome(
+                    outcome.getRow(),
+                    outcome.isWritten()
+                            ? ErrorHandlingSinkWriter.WriteOutcome.WRITTEN
+                            : toWriteOutcome(outcome.getResult()));
         }
         return currentRowAlreadyResolved;
     }
