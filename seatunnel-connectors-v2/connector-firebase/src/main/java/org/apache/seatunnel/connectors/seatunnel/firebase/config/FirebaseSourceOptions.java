@@ -45,6 +45,11 @@ public class FirebaseSourceOptions {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("Base64-encoded Service Account JSON credentials.");
+    public static final Option<String> DATABASE_SECRET =
+            Options.key("database_secret")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Legacy Firebase database secret key or Web API token.");
     public static final Option<Boolean> SHALLOW =
             Options.key("shallow")
                     .booleanType()

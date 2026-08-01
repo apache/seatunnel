@@ -17,21 +17,30 @@
 
 package org.apache.seatunnel.connectors.seatunnel.firebase.client;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.seatunnel.firebase.config.FirebaseSourceOptions;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.auth.oauth2.AccessToken;
+import com.google.auth.oauth2.GoogleCredentials;
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.ByteArrayInputStream;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -44,6 +53,12 @@ public class FirebaseHttpClient {
     private final String path;
     private final long timeoutMs;
     private final Map<String, String> extraQueryParams;
+    private static final List<String> FIREBASE_SCOPES =
+            Arrays.asList(
+                    "https://www.googleapis.com/auth/firebase.database",
+                    "https://www.googleapis.com/auth/userinfo.email");
+    private final GoogleCredentials credentials;
+    private final String databaseSecret;
 
     public FirebaseHttpClient(ReadonlyConfig config) {
         this.baseUrl = config.get(FirebaseSourceOptions.URL).replaceAll("/+$", "");
@@ -58,6 +73,17 @@ public class FirebaseHttpClient {
                         .connectTimeout(Duration.ofMillis(timeoutMs))
                         .followRedirects(HttpClient.Redirect.NORMAL)
                         .build();
+
+        this.credentials = initGoogleCredentials(config);
+        this.databaseSecret =
+                config.getOptional(FirebaseSourceOptions.DATABASE_SECRET).orElse(null);
+        if (this.credentials != null) {
+            log.info("Initialized FirebaseHttpClient with Google OAuth2 Service Account.");
+        } else if (StringUtils.isNotEmpty(this.databaseSecret)) {
+            log.info("Initialized FirebaseHttpClient with Legacy Database Secret.");
+        } else {
+            log.info("Initialized FirebaseHttpClient without authentication (Public Read).");
+        }
     }
 
     /**
@@ -107,6 +133,11 @@ public class FirebaseHttpClient {
         if (extraQueryParam != null && !extraQueryParam.isEmpty()) {
             queryParts.add(extraQueryParam);
         }
+
+        if (databaseSecret != null && !databaseSecret.isEmpty()) {
+            queryParts.add("auth=" + databaseSecret);
+        }
+
         for (Map.Entry<String, String> entry : extraQueryParams.entrySet()) {
             queryParts.add(entry.getKey() + "=" + entry.getValue());
         }
@@ -121,14 +152,18 @@ public class FirebaseHttpClient {
     /** Sends an HTTP GET request and handles status code verification. */
     private String executeGet(String url) {
         try {
-            HttpRequest request =
+            HttpRequest.Builder requestBuilder =
                     HttpRequest.newBuilder()
                             .uri(URI.create(url))
                             .timeout(Duration.ofMillis(timeoutMs))
                             .header("Accept", "application/json")
-                            .GET()
-                            .build();
-
+                            .GET();
+            if (credentials != null) {
+                String token = getAccessToken();
+                log.info("Client Token : {}", token);
+                requestBuilder.header("Authorization", "Bearer " + token);
+            }
+            HttpRequest request = requestBuilder.build();
             HttpResponse<String> response =
                     httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
@@ -145,5 +180,36 @@ public class FirebaseHttpClient {
             throw new SeaTunnelException(
                     "Failed to execute HTTP request to Firebase endpoint: " + url, e);
         }
+    }
+
+    /** Retrieves or refreshes OAuth 2.0 access token safely. */
+    private synchronized String getAccessToken() throws IOException {
+        AccessToken token = credentials.getAccessToken();
+        if (token == null) {
+            credentials.refresh();
+            token = credentials.getAccessToken();
+        }
+        return token.getTokenValue();
+    }
+
+    private GoogleCredentials initGoogleCredentials(ReadonlyConfig config) {
+        try {
+            if (config.getOptional(FirebaseSourceOptions.CREDENTIALS).isPresent()) {
+                String base64Credentials = config.get(FirebaseSourceOptions.CREDENTIALS);
+                byte[] decodedBytes = Base64.getDecoder().decode(base64Credentials);
+                try (InputStream inputStream = new ByteArrayInputStream(decodedBytes)) {
+                    return GoogleCredentials.fromStream(inputStream).createScoped(FIREBASE_SCOPES);
+                }
+            } else if (config.getOptional(FirebaseSourceOptions.SERVICE_ACCOUNT_PATH).isPresent()) {
+                String path = config.get(FirebaseSourceOptions.SERVICE_ACCOUNT_PATH);
+                try (InputStream inputStream = new FileInputStream(path)) {
+                    return GoogleCredentials.fromStream(inputStream).createScoped(FIREBASE_SCOPES);
+                }
+            }
+        } catch (IOException e) {
+            throw new SeaTunnelException(
+                    "Failed to initialize Google Service Account credentials", e);
+        }
+        return null;
     }
 }

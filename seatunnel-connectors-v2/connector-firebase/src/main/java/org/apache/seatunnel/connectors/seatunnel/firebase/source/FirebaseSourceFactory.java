@@ -48,6 +48,8 @@ public class FirebaseSourceFactory implements TableSourceFactory {
                         FirebaseSourceOptions.SCHEMA)
                 .optional(
                         FirebaseSourceOptions.SERVICE_ACCOUNT_PATH,
+                        FirebaseSourceOptions.CREDENTIALS,
+                        FirebaseSourceOptions.DATABASE_SECRET,
                         FirebaseSourceOptions.SHALLOW,
                         FirebaseSourceOptions.TIMEOUT_MS,
                         FirebaseSourceOptions.QUERY_PARAMS)
