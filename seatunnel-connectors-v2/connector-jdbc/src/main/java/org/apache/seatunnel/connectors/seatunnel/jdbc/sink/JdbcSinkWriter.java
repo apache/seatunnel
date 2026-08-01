@@ -367,9 +367,24 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
         if (pendingRows == null) {
             return;
         }
-        if (autoFlushed && jdbcSinkConfig.getJdbcConnectionConfig().isAutoCommit()) {
+        if (autoFlushed) {
+            commitAutoFlushedRowsIfNeeded();
             reportWriteSuccess(pendingRows);
             pendingRows.clear();
+        }
+    }
+
+    private void commitAutoFlushedRowsIfNeeded() throws IOException {
+        if (jdbcSinkConfig.getJdbcConnectionConfig().isAutoCommit()) {
+            return;
+        }
+        try {
+            commitIfNeeded();
+        } catch (SQLException e) {
+            throw new JdbcConnectorException(
+                    JdbcConnectorErrorCode.TRANSACTION_OPERATION_FAILED,
+                    "commit failed," + e.getMessage(),
+                    e);
         }
     }
 

@@ -39,6 +39,7 @@ import org.junit.jupiter.api.Test;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.sql.Connection;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -81,15 +82,17 @@ class JdbcSinkWriterTest {
     }
 
     @Test
-    void testPendingRowsAreRetainedAfterTransactionalAutoFlush() throws Exception {
-        JdbcSinkWriter writer = createWriterWithRowErrorCollector(false);
+    void testPendingRowsAreReportedAndClearedAfterTransactionalAutoFlush() throws Exception {
+        AtomicInteger successCount = new AtomicInteger();
+        JdbcSinkWriter writer = createWriterWithRowErrorCollector(false, successCount);
         List<SeaTunnelRow> pendingRows = new ArrayList<>();
         pendingRows.add(new SeaTunnelRow(new Object[] {1}));
         setPendingRows(writer, pendingRows);
 
         invokeReportAndClearPendingRowsIfCommitted(writer, true);
 
-        Assertions.assertEquals(1, getPendingRows(writer).size());
+        Assertions.assertTrue(getPendingRows(writer).isEmpty());
+        Assertions.assertEquals(1, successCount.get());
     }
 
     /** Verifies that Xugu pools use a validation query compatible with the driver. */
@@ -142,6 +145,7 @@ class JdbcSinkWriterTest {
                         .build();
         JdbcDialect dialect = mock(JdbcDialect.class);
         JdbcConnectionProvider connectionProvider = mock(JdbcConnectionProvider.class);
+        Connection connection = mock(Connection.class);
         SinkWriter.Context context = mock(SinkWriter.Context.class);
         RowErrorCollector rowErrorCollector =
                 new RowErrorCollector() {
@@ -160,6 +164,12 @@ class JdbcSinkWriterTest {
 
         when(context.getRowErrorCollector()).thenReturn(Optional.of(rowErrorCollector));
         when(dialect.getJdbcConnectionProvider(connectionConfig)).thenReturn(connectionProvider);
+        try {
+            when(connectionProvider.getConnection()).thenReturn(connection);
+            when(connection.getAutoCommit()).thenReturn(autoCommit);
+        } catch (Exception e) {
+            throw new IllegalStateException("Failed to mock JDBC connection", e);
+        }
         when(dialect.getInsertIntoStatement(anyString(), anyString(), any()))
                 .thenReturn("insert into test_table(id) values(?)");
 
