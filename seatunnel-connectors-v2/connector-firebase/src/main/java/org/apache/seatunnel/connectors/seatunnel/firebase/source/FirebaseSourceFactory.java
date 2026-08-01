@@ -58,7 +58,7 @@ public class FirebaseSourceFactory implements TableSourceFactory {
 
     @Override
     public <T, SplitT extends SourceSplit, StateT extends Serializable>
-    TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
+            TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
         CatalogTable catalogTable = CatalogTableUtil.buildWithConfig(context.getOptions());
         return () ->
                 (SeaTunnelSource<T, SplitT, StateT>)
