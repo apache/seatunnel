@@ -479,8 +479,6 @@ jobs:
           java-version: ${{ matrix.java }}
           distribution: 'temurin'
           cache: 'maven'
-      - name: Increase JVM memory for Surefire forks
-        run: echo "JAVA_TOOL_OPTIONS=-Xmx3g -XX:MaxMetaspaceSize=512m" >> $GITHUB_ENV
       - name: run all modules unit test
         run: ./mvnw -B -T 1 clean verify -DskipUT=false -DskipIT=true -D"license.skipAddThirdParty"=true -D"skip.ui"=true "-Dsurefire.jvm.args=$SUREFIRE_JVM_ARGS" --no-snapshot-updates
         env:
