@@ -30,6 +30,7 @@ import com.github.javaparser.ast.ImportDeclaration;
 import com.github.javaparser.ast.NodeList;
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.FileVisitOption;
@@ -55,12 +56,17 @@ public class ImportClassCheckTest {
     public static final boolean isWindows =
             System.getProperty("os.name").toLowerCase().startsWith("win");
     private static final String JAVA_FILE_EXTENSION = ".java";
+    private static final String TARGET_PATH_FRAGMENT = File.separator + "target" + File.separator;
     private static final JavaParser JAVA_PARSER = new JavaParser();
 
     @BeforeAll
     public static void beforeAll() {
         try (Stream<Path> paths = Files.walk(Paths.get(".."), FileVisitOption.FOLLOW_LINKS)) {
             paths.filter(path -> path.toString().endsWith(JAVA_FILE_EXTENSION))
+                    // Full unit-test jobs build many modules before this test runs. Excluding
+                    // target-generated Java sources keeps the import scan focused on checked-in
+                    // sources and avoids parsing build outputs repeatedly.
+                    .filter(path -> !path.toString().contains(TARGET_PATH_FRAGMENT))
                     .forEach(
                             path -> {
                                 try (InputStream inputStream = Files.newInputStream(path, READ)) {
