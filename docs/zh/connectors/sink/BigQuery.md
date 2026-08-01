@@ -40,6 +40,7 @@ import ChangeLog from '../changelog/connector-bigquery.md';
 | sequence_number_column      | string  | 否      | -       | 用于 CDC 去重的序列号列名。仅在 `write_mode` 为 `streaming` 时适用                                                |
 | batch_size                  | int     | 否      | 1000    | 发送到 BigQuery 之前批量处理的行数                                                                               |
 | emulator_host               | string  | 否      | -       | BigQuery emulator 地址，例如 `localhost:9050`。该参数仅用于测试。                                                |
+| universe_domain             | string  | 否      | -       | Google Cloud 宇宙域/环境域名，例如主权云 S3NS 环境配置为 `s3nsapis.fr`。                                          |
 | multi_table_sink_replica    | int     | 否      | -       | Sink 通用参数，用于控制多表运行时每张表的 sink 副本数；但该连接器仍只写入配置中的单个 BigQuery 表。                    |
 | common-options              |         | 否      | -       | Sink 通用参数，详见 [Sink Common Options](../common-options/sink-common-options.md)。                            |
 

@@ -80,4 +80,11 @@ public class BigQuerySinkOptions {
                     .noDefaultValue()
                     .withDescription(
                             "The host of the BigQuery emulator (e.g. localhost:9050). Only for testing purposes.");
+
+    public static final Option<String> UNIVERSE_DOMAIN =
+            Options.key("universe_domain")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "The Google Cloud Universe Domain (e.g. s3nsapis.fr for S3NS sovereign cloud)");
 }

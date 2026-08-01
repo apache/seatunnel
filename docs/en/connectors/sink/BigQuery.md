@@ -41,6 +41,7 @@ Sink connector for Google Cloud BigQuery using the Storage Write API for high-pe
 | sequence_number_column      | string  | No       | -       | Column name used as sequence number for CDC deduplication. Only applicable when `write_mode` is `streaming` |
 | batch_size                  | int     | No       | 1000    | Number of rows to batch before sending to BigQuery                                                          |
 | emulator_host               | string  | No       | -       | BigQuery emulator host, such as `localhost:9050`. This option is intended for tests only.                    |
+| universe_domain             | string  | No       | -       | The Google Cloud Universe Domain, such as `s3nsapis.fr` for S3NS sovereign cloud.                           |
 | multi_table_sink_replica    | int     | No       | -       | Sink common option. It controls sink replica count in multi-table runtime, but this connector still writes to the single configured BigQuery table. |
 | common-options              |         | No       | -       | Sink common options. See [Sink Common Options](../common-options/sink-common-options.md).                    |
 
