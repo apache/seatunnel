@@ -59,7 +59,7 @@ public class JdbcMysqlJsonParamIT extends TestSuiteBase implements TestResource 
     private static final String MYSQL_DATABASE = "json_param_e2e_test";
     private static final String MYSQL_USER = "root";
     private static final String MYSQL_PASSWORD = "Abc!@#135_seatunnel";
-    private static final String TEST_TABLE = "json_param_test_through_tz";
+    private static final String TEST_TABLE = "json_param_test";
 
     private static final String MYSQL_DRIVER_URL =
             "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
@@ -114,58 +114,50 @@ public class JdbcMysqlJsonParamIT extends TestSuiteBase implements TestResource 
     }
 
     /**
-     * Verifies that MySQL {@code DATETIME} (NTZ) columns are read as SeaTunnel {@code TIMESTAMP}
-     * (i.e. {@code LOCAL_DATE_TIME_TYPE}), not {@code TIMESTAMP_TZ}.
+     * 1: Verify MySQL properties take effect via CLI JSON params.
      *
-     * <p>The Assert sink's {@code field_type = timestamp} assertion will fail if the connector
-     * incorrectly maps {@code DATETIME} to {@code TIMESTAMP_TZ}.
+     * <p>Uses timezone parameter as verification mechanism — if properties are parsed correctly,
+     * timezone conversion between server and client will behave as expected.
+     *
+     * <p>2: Verify nested JSON params (array in JSON, JSON in array) can be read from MySQL JSON
+     * column via CLI.
+     *
+     * <p>ATTENTION: NESTED JSON CAN BE READ THROUGH CLI BUT CANNOT BE PARSED BY shaded Typesafe
+     * Config API #resolve() and #resolveWith() in ConfigBuilder. This is a known limitation to be
+     * addressed in future work.
+     *
+     * @param container
+     * @throws IOException
+     * @throws InterruptedException
      */
     @TestTemplate
-    public void testMysqlJsonParam1(TestContainer container)
+    public void testMysqlJsonParam(TestContainer container)
             throws IOException, InterruptedException {
         List<String> variables = new ArrayList<>();
+        variables.add("mysql_host=" + MYSQL_HOST);
+        variables.add("mysql_port=" + mysqlContainer.getFirstMappedPort());
         variables.add("mysql_db=" + MYSQL_DATABASE);
         variables.add(
-                "mysql_pros='\\{"
+                "mysql_props={"
                         + "\"useSSL\":\"false\","
-                        + "\"connectionTimeZone\":\"UTC\","
+                        + "\"connectionTimeZone\":\"Asia/Shanghai\","
                         + "\"serverTimezone\":\"UTC\","
-                        + "\"allowPublicKeyRetrieval\":\"true\"\\}'");
+                        + "\"allowPublicKeyRetrieval\":\"true\"}");
         variables.add("mysql_user=" + MYSQL_USER);
         variables.add("mysql_password=" + MYSQL_PASSWORD);
         variables.add("mysql_table=" + TEST_TABLE);
         // filter UTC+8 timestamp
-        variables.add("ts_col='2026-07-16 20:00:00'");
-        Container.ExecResult result =
-                container.executeJob("/jdbc_mysql_json_param1.conf", variables);
-        Assertions.assertEquals(
-                0,
-                result.getExitCode(),
-                "MySQL timezone convert assertion failed:\n" + result.getStderr());
-    }
-
-    @TestTemplate
-    public void testMysqlJsonParam2(TestContainer container)
-            throws IOException, InterruptedException {
-        List<String> variables = new ArrayList<>();
-        variables.add("mysql_db=" + MYSQL_DATABASE);
+        variables.add("ts='2026-07-16 12:00:00'");
+        // shell: -i
+        // json_data='\{\"a:\"}\",\"b\":\"{xyz}\",\"c\":[{\"k1\":\"v1\"},{\"k2\":\"v2\",\"k3\":\"v3\"}],\"d\":{\"list\":[{\"k1\":\"v1\"},{\"k2\":\"v2\",\"k3\":\"v3\"}]}\}'
         variables.add(
-                "mysql_props='\\{"
-                        + "\"useSSL\":\"false\","
-                        + "\"connectionTimeZone\":\"Asia/Shanghai\","
-                        + "\"serverTimezone\":\"UTC\","
-                        + "\"allowPublicKeyRetrieval\":\"true\"\\}'");
-        variables.add("mysql_user=" + MYSQL_USER);
-        variables.add("mysql_password=" + MYSQL_PASSWORD);
-        variables.add("mysql_table=" + TEST_TABLE);
-        // filter UTC timestamp
-        variables.add("ts='2026-07-17 04:00:00'");
+                "json_data={\"a\":\"}\",\"b\":\"{xyz}\",\"c\":[{\"k1\":\"v1\"},{\"k2\":\"v2\",\"k3\":\"v3\"}],\"d\":{\"list\":[{\"k1\":\"v1\"},{\"k2\":\"v2\",\"k3\":\"v3\"}]}}");
         Container.ExecResult result =
-                container.executeJob("/jdbc_mysql_json_param2.conf", variables);
+                container.executeJob("/jdbc_mysql_json_param.conf", variables);
         Assertions.assertEquals(
                 0,
                 result.getExitCode(),
-                "MySQL timezone convert assertion failed:\n" + result.getStderr());
+                "MySQL properties and json column params assertion failed:\n" + result.getStderr());
     }
 
     // -------------------------------------------------------------------------
@@ -185,20 +177,20 @@ public class JdbcMysqlJsonParamIT extends TestSuiteBase implements TestResource 
                     "CREATE TABLE IF NOT EXISTS "
                             + TEST_TABLE
                             + " ("
-                            + "  id       INT PRIMARY KEY,"
-                            + "  raw_ts    DATETIME,"
-                            + "  ts_col   TIMESTAMP NOT NULL"
-                            + ")");
+                            + "id       INT,"
+                            + "jsondata JSON,"
+                            + "raw_ts    DATETIME,"
+                            + "ts   TIMESTAMP NOT NULL"
+                            + ");");
             // Insert two fixed wall-clock value: 2026-07-16 20:00:00 UTC+8 and UTC
             // DATETIME stores it as-is (NTZ); TIMESTAMP stores UTC and displays in session TZ.
             stmt.execute(
                     "insert into "
                             + TEST_TABLE
-                            + " values(1,'2026-07-16 20:00:00',convert_tz('2026-07-16 20:00:00','+08:00','+00:00'));");
-            stmt.execute(
-                    "insert into "
-                            + TEST_TABLE
-                            + " values(1,'2026-07-16 20:00:00',convert_tz('2026-07-16 20:00:00','+00:00','+00:00'));");
+                            + " values(1,"
+                            + "'{\"a\":\"}\",\"b\":\"{xyz}\",\"c\":[{\"k1\":\"v1\"},{\"k2\":\"v2\",\"k3\":\"v3\"}],\"d\":{\"list\":[{\"k1\":\"v1\"},{\"k2\":\"v2\",\"k3\":\"v3\"}]}}',"
+                            + "'2026-07-16 20:00:00',"
+                            + "convert_tz('2026-07-16 20:00:00','+08:00','+00:00'));");
         }
     }
 }
