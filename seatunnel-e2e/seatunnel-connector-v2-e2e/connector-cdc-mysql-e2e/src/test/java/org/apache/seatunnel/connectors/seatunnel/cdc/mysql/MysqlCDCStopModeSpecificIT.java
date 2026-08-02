@@ -28,7 +28,9 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlConnection
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
+import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
 
@@ -66,6 +68,12 @@ import static org.awaitility.Awaitility.await;
  * of running forever, and that only the rows written before the stop offset are synced.
  */
 @Slf4j
+@DisabledOnContainer(
+        value = {},
+        type = {EngineType.FLINK, EngineType.SPARK},
+        disabledReason =
+                "Currently FLINK and SPARK do not support the bounded incremental split "
+                        + "termination for MySQL CDC stop.mode=specific")
 public class MysqlCDCStopModeSpecificIT extends TestSuiteBase implements TestResource {
 
     private static final String MYSQL_HOST = "mysql_cdc_e2e";
@@ -135,11 +143,6 @@ public class MysqlCDCStopModeSpecificIT extends TestSuiteBase implements TestRes
         // Current binlog position after the rows above: the stop offset.
         BinlogOffset stopOffset = getCurrentBinlogOffset();
 
-        // Rows written after the stop offset: must NOT be synced.
-        executeSql(
-                String.format(
-                        "INSERT INTO %s.%s (id) VALUES (23), (24)", MYSQL_DATABASE, SOURCE_TABLE));
-
         String[] variables = {
             "start_offset_file=" + startOffset.getFilename(),
             "start_offset_pos=" + startOffset.getPosition(),
@@ -157,6 +160,25 @@ public class MysqlCDCStopModeSpecificIT extends TestSuiteBase implements TestRes
                                 throw new RuntimeException(e);
                             }
                         });
+
+        // Wait until the rows before the stop offset are synced, so the snapshot phase
+        // (if any) has completed and only the binlog phase is still running.
+        await().atMost(60000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> {
+                            List<List<Object>> sinkIds = queryIds();
+                            Assertions.assertTrue(
+                                    sinkIds.contains(Collections.singletonList(21))
+                                            && sinkIds.contains(Collections.singletonList(22)),
+                                    "rows before the stop offset must be synced, got: " + sinkIds);
+                        });
+
+        // Rows written after the stop offset: must NOT be synced. They are inserted only
+        // after the snapshot phase has completed, so they can only be picked up by the
+        // binlog phase, which must stop at the configured stop offset.
+        executeSql(
+                String.format(
+                        "INSERT INTO %s.%s (id) VALUES (23), (24)", MYSQL_DATABASE, SOURCE_TABLE));
 
         // The bounded job must terminate on its own at the stop offset.
         Container.ExecResult result = jobFuture.get(120, TimeUnit.SECONDS);
