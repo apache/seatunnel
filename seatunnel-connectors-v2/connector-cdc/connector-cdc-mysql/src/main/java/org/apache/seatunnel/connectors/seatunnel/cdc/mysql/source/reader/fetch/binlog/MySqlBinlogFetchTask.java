@@ -77,20 +77,41 @@ public class MySqlBinlogFetchTask implements FetchTask<SourceSplitBase> {
         boolean isBoundedRead = !NO_STOPPING_OFFSET.equals(split.getStopOffset());
 
         if (shouldFilterByTimestamp(startupMode, split.getStartupOffset())) {
-            log.info(
-                    "Starting MySQL binlog reader,with timestamp filter {}",
-                    startupConfig.getTimestamp());
+            if (isBoundedRead) {
+                // Both timestamp startup and a specific stop offset: apply the timestamp filter
+                // inside the bounded reader so the job still terminates at the stop offset
+                // (instead of running forever).
+                log.info(
+                        "Starting MySQL binlog reader with timestamp filter {} and bounded read, stop offset: {}",
+                        startupConfig.getTimestamp(),
+                        split.getStopOffset());
+                mySqlStreamingChangeEventSource =
+                        new BoundedMySqlStreamingChangeEventSource(
+                                sourceFetchContext.getDbzConnectorConfig(),
+                                sourceFetchContext.getConnection(),
+                                sourceFetchContext.getDispatcher(),
+                                sourceFetchContext.getErrorHandler(),
+                                Clock.SYSTEM,
+                                sourceFetchContext.getTaskContext(),
+                                sourceFetchContext.getStreamingChangeEventSourceMetrics(),
+                                split,
+                                startupConfig.getTimestamp());
+            } else {
+                log.info(
+                        "Starting MySQL binlog reader,with timestamp filter {}",
+                        startupConfig.getTimestamp());
 
-            mySqlStreamingChangeEventSource =
-                    new TimestampFilterMySqlStreamingChangeEventSource(
-                            sourceFetchContext.getDbzConnectorConfig(),
-                            sourceFetchContext.getConnection(),
-                            sourceFetchContext.getDispatcher(),
-                            sourceFetchContext.getErrorHandler(),
-                            Clock.SYSTEM,
-                            sourceFetchContext.getTaskContext(),
-                            sourceFetchContext.getStreamingChangeEventSourceMetrics(),
-                            startupConfig.getTimestamp());
+                mySqlStreamingChangeEventSource =
+                        new TimestampFilterMySqlStreamingChangeEventSource(
+                                sourceFetchContext.getDbzConnectorConfig(),
+                                sourceFetchContext.getConnection(),
+                                sourceFetchContext.getDispatcher(),
+                                sourceFetchContext.getErrorHandler(),
+                                Clock.SYSTEM,
+                                sourceFetchContext.getTaskContext(),
+                                sourceFetchContext.getStreamingChangeEventSourceMetrics(),
+                                startupConfig.getTimestamp());
+            }
         } else if (isBoundedRead) {
             // Bounded read: stop at specific offset
             log.info(
@@ -105,7 +126,8 @@ public class MySqlBinlogFetchTask implements FetchTask<SourceSplitBase> {
                             Clock.SYSTEM,
                             sourceFetchContext.getTaskContext(),
                             sourceFetchContext.getStreamingChangeEventSourceMetrics(),
-                            split);
+                            split,
+                            null);
         } else {
             mySqlStreamingChangeEventSource =
                     new MySqlStreamingChangeEventSource(
@@ -388,11 +410,14 @@ public class MySqlBinlogFetchTask implements FetchTask<SourceSplitBase> {
         private final IncrementalSplit binlogSplit;
         private final JdbcSourceEventDispatcher<MySqlPartition> dispatcher;
         private final ErrorHandler errorHandler;
+        private final Long targetTimestamp;
         private BoundedBinlogChangeEventSourceContext boundedContext;
         private long eventCount = 0;
         private long lastLogTime = System.currentTimeMillis();
         private static final long LOG_INTERVAL_MS = 10000;
         private BinlogOffset lastLoggedOffset = null;
+        private boolean loggedWaitingMessage;
+        private long logTimestamp;
 
         public BoundedMySqlStreamingChangeEventSource(
                 MySqlConnectorConfig connectorConfig,
@@ -402,7 +427,8 @@ public class MySqlBinlogFetchTask implements FetchTask<SourceSplitBase> {
                 Clock clock,
                 MySqlTaskContext taskContext,
                 MySqlStreamingChangeEventSourceMetrics metrics,
-                IncrementalSplit binlogSplit) {
+                IncrementalSplit binlogSplit,
+                Long targetTimestamp) {
             super(
                     connectorConfig,
                     connection,
@@ -414,17 +440,60 @@ public class MySqlBinlogFetchTask implements FetchTask<SourceSplitBase> {
             this.binlogSplit = binlogSplit;
             this.dispatcher = dispatcher;
             this.errorHandler = errorHandler;
+            this.targetTimestamp = targetTimestamp;
         }
 
         @Override
         protected void handleEvent(
                 MySqlPartition partition, MySqlOffsetContext offsetContext, Event event) {
             try {
+                if (shouldSkipByTimestamp(offsetContext, event)) {
+                    return;
+                }
                 super.handleEvent(partition, offsetContext, event);
             } finally {
                 eventCount++;
                 logBinlogProgress(offsetContext);
                 checkStopOffset(partition, offsetContext);
+            }
+        }
+
+        private boolean shouldSkipByTimestamp(MySqlOffsetContext offsetContext, Event event) {
+            if (event == null || targetTimestamp == null || targetTimestamp == 0) {
+                return false;
+            }
+            long eventTs = event.getHeader().getTimestamp();
+            if (eventTs == 0) {
+                return false;
+            }
+            boolean shouldSkip = eventTs < targetTimestamp;
+            if (shouldSkip) {
+                if (!loggedWaitingMessage) {
+                    log.info(
+                            "skip binlog, currentTime:{}, filterTime:{}", eventTs, targetTimestamp);
+                    loggedWaitingMessage = true;
+                    logTimestamp = eventTs;
+                }
+                if (eventTs - logTimestamp >= LOG_INTERVAL_MS) {
+                    loggedWaitingMessage = false;
+                }
+                updateOffsetPosition(offsetContext, event.getHeader());
+            }
+            return shouldSkip;
+        }
+
+        private void updateOffsetPosition(
+                MySqlOffsetContext offsetContext, EventHeader eventHeader) {
+            try {
+                if (eventHeader instanceof EventHeaderV4) {
+                    EventHeaderV4 headerV4 = (EventHeaderV4) eventHeader;
+                    offsetContext.setEventPosition(
+                            headerV4.getPosition(), headerV4.getEventLength());
+                }
+                offsetContext.setBinlogServerId(eventHeader.getServerId());
+                offsetContext.completeEvent();
+            } catch (Exception e) {
+                log.warn("Failed to update offset for skipped event: {}", e.getMessage());
             }
         }
 

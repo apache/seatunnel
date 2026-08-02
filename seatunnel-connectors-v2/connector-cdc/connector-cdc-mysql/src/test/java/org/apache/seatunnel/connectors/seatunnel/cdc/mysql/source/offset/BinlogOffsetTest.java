@@ -118,8 +118,7 @@ public class BinlogOffsetTest {
         Assertions.assertTrue(
                 BinlogOffset.NO_STOPPING_OFFSET.isNeverStop(),
                 "the unbounded sentinel must report itself as never-stop");
-        BinlogOffset regular =
-                new BinlogOffset("mysql-bin.000001", 4L, 1L, 5L, 0L, GTID_SET_A, 1);
+        BinlogOffset regular = new BinlogOffset("mysql-bin.000001", 4L, 1L, 5L, 0L, GTID_SET_A, 1);
         Assertions.assertFalse(regular.isNeverStop());
     }
 }
