@@ -452,8 +452,14 @@ public class SeaTunnelContainer extends AbstractTestContainer implements Reusabl
         log.info("test in container: {}", identifier());
         List<String> beforeThreads = ContainerUtil.getJVMThreadNames(server);
         runningCount.incrementAndGet();
-        Container.ExecResult result = executeJob(server, confFile, jobId, variables);
-        if (runningCount.decrementAndGet() > 0) {
+        Container.ExecResult result;
+        int remainingJobs;
+        try {
+            result = executeJob(server, confFile, jobId, variables);
+        } finally {
+            remainingJobs = runningCount.decrementAndGet();
+        }
+        if (remainingJobs > 0) {
             // only check thread when job all finished.
             return result;
         }
@@ -639,14 +645,12 @@ public class SeaTunnelContainer extends AbstractTestContainer implements Reusabl
     public Container.ExecResult restoreJob(String confFile, String jobId, String... variables)
             throws IOException, InterruptedException {
         runningCount.incrementAndGet();
-        Container.ExecResult result =
-                restoreJob(
-                        server,
-                        confFile,
-                        jobId,
-                        variables != null ? Arrays.asList(variables) : null);
-        runningCount.decrementAndGet();
-        return result;
+        try {
+            return restoreJob(
+                    server, confFile, jobId, variables != null ? Arrays.asList(variables) : null);
+        } finally {
+            runningCount.decrementAndGet();
+        }
     }
 
     @Override
@@ -654,15 +658,16 @@ public class SeaTunnelContainer extends AbstractTestContainer implements Reusabl
             String confFile, String jobId, String... variables)
             throws IOException, InterruptedException {
         runningCount.incrementAndGet();
-        Container.ExecResult result =
-                restoreJob(
-                        server,
-                        confFile,
-                        jobId,
-                        variables != null ? Arrays.asList(variables) : null,
-                        "--restore-with-checkpoint");
-        runningCount.decrementAndGet();
-        return result;
+        try {
+            return restoreJob(
+                    server,
+                    confFile,
+                    jobId,
+                    variables != null ? Arrays.asList(variables) : null,
+                    "--restore-with-checkpoint");
+        } finally {
+            runningCount.decrementAndGet();
+        }
     }
 
     @Override
@@ -670,16 +675,12 @@ public class SeaTunnelContainer extends AbstractTestContainer implements Reusabl
             String confFile, String sourceJobId, String restoreJobId)
             throws IOException, InterruptedException {
         runningCount.incrementAndGet();
-        Container.ExecResult result =
-                restoreJob(
-                        server,
-                        confFile,
-                        sourceJobId,
-                        restoreJobId,
-                        null,
-                        "--restore-with-checkpoint");
-        runningCount.decrementAndGet();
-        return result;
+        try {
+            return restoreJob(
+                    server, confFile, sourceJobId, restoreJobId, null, "--restore-with-checkpoint");
+        } finally {
+            runningCount.decrementAndGet();
+        }
     }
 
     @Override

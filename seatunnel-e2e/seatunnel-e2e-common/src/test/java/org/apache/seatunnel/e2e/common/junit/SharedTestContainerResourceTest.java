@@ -26,10 +26,17 @@ import org.testcontainers.containers.Container;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class SharedTestContainerResourceTest {
 
@@ -66,7 +73,7 @@ class SharedTestContainerResourceTest {
 
         assertEquals(2, container.startCount);
         assertEquals(1, container.cleanupCount);
-        assertEquals(1, container.tearDownCount);
+        assertEquals(2, container.tearDownCount);
     }
 
     @Test
@@ -125,6 +132,56 @@ class SharedTestContainerResourceTest {
         assertEquals(2, container.prepareCount);
         assertEquals(2, container.cleanupCount);
         assertEquals(2, container.tearDownCount);
+    }
+
+    @Test
+    void shouldSerializeClassLeases() throws Exception {
+        CountingTestContainer container = new CountingTestContainer();
+        SharedTestContainerResource resource = new SharedTestContainerResource(container);
+        CountDownLatch firstLeaseAcquired = new CountDownLatch(1);
+        CountDownLatch releaseFirstLease = new CountDownLatch(1);
+        CountDownLatch secondAcquireStarted = new CountDownLatch(1);
+        CountDownLatch secondLeaseAcquired = new CountDownLatch(1);
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+
+        try {
+            Future<?> firstLease =
+                    executor.submit(
+                            () -> {
+                                resource.acquire(NO_EXTENSION);
+                                firstLeaseAcquired.countDown();
+                                releaseFirstLease.await();
+                                resource.release();
+                                return null;
+                            });
+            assertTrue(firstLeaseAcquired.await(10, TimeUnit.SECONDS));
+
+            Future<?> secondLease =
+                    executor.submit(
+                            () -> {
+                                secondAcquireStarted.countDown();
+                                resource.acquire(NO_EXTENSION);
+                                secondLeaseAcquired.countDown();
+                                resource.release();
+                                return null;
+                            });
+
+            assertTrue(secondAcquireStarted.await(10, TimeUnit.SECONDS));
+            assertFalse(secondLeaseAcquired.await(200, TimeUnit.MILLISECONDS));
+            releaseFirstLease.countDown();
+            firstLease.get(10, TimeUnit.SECONDS);
+            secondLease.get(10, TimeUnit.SECONDS);
+            resource.close();
+
+            assertEquals(1, container.startCount);
+            assertEquals(2, container.prepareCount);
+            assertEquals(2, container.cleanupCount);
+            assertEquals(1, container.tearDownCount);
+        } finally {
+            releaseFirstLease.countDown();
+            executor.shutdownNow();
+            assertTrue(executor.awaitTermination(10, TimeUnit.SECONDS));
+        }
     }
 
     private static final class CountingTestContainer implements ReusableTestContainer {

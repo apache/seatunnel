@@ -25,7 +25,13 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-/** Opts a test class into sharing selected containers with other opted-in classes in the JVM. */
+/**
+ * Opts a test class into sharing selected containers with other opted-in classes in the JVM.
+ *
+ * <p>Only use this for test classes whose container supports class-level cleanup. Opted-in tests
+ * must not depend on another test class's files, connector artifacts, active jobs, or finished-job
+ * history.
+ */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
 @Inherited

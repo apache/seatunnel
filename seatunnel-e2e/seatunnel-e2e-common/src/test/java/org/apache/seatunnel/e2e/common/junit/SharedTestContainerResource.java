@@ -39,8 +39,8 @@ final class SharedTestContainerResource implements ExtensionContext.Store.Closea
         boolean acquired = false;
         try {
             if (!started) {
-                container.startUp();
                 started = true;
+                container.startUp();
             }
             container.prepareForTestClass();
             container.executeExtraCommands(extendedFactory);
