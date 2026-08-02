@@ -150,21 +150,11 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
             throws InterruptedException, SeaTunnelException {
         checkReadException();
 
-        // If the fetch task is finished and this is a bounded read (stop.mode = "specific"),
-        // return null to signal split completion. This is important for bounded reads
-        // to properly terminate the task. For unbounded reads (stop.mode = "never"),
-        // we should never return null even if the task is not running due to errors,
-        // because that would incorrectly mark the job as FINISHED.
-        if (isFinished()
-                && currentIncrementalSplit != null
-                && currentIncrementalSplit.getStopOffset() != null
-                && !currentIncrementalSplit.getStopOffset().isNeverStop()) {
-            log.info("Bounded read completed, returning null to signal split completion");
-            return null;
-        }
-
+        // Always drain the queue first, so the last batch produced before the bounded
+        // reader stopped is not dropped. Only after the queue is drained AND the split
+        // is finished do we signal split completion by returning null.
         Iterator<SourceRecords> sourceRecordsIterator = Collections.emptyIterator();
-        if (streamFetchTask.isRunning()) {
+        if (streamFetchTask.isRunning() || isBoundedReadFinished()) {
             List<DataChangeEvent> batch = queue.poll();
             if (!batch.isEmpty()) {
                 if (schemaChangeResolver != null) {
@@ -174,12 +164,29 @@ public class IncrementalSourceStreamFetcher implements Fetcher<SourceRecords, So
                 }
             }
         }
+
+        // If the fetch task is finished and this is a bounded read (stop.mode = "specific"),
+        // return null to signal split completion. This is important for bounded reads
+        // to properly terminate the task. For unbounded reads (stop.mode = "never"),
+        // we should never return null even if the task is not running due to errors,
+        // because that would incorrectly mark the job as FINISHED.
+        if (isBoundedReadFinished() && !sourceRecordsIterator.hasNext()) {
+            log.info("Bounded read completed, returning null to signal split completion");
+            return null;
+        }
         return sourceRecordsIterator;
+    }
+
+    private boolean isBoundedReadFinished() {
+        return isFinished()
+                && currentIncrementalSplit != null
+                && currentIncrementalSplit.getStopOffset() != null
+                && !currentIncrementalSplit.getStopOffset().isNeverStop();
     }
 
     private Iterator<SourceRecords> splitNormalStream(List<DataChangeEvent> batchEvents) {
         List<SourceRecord> sourceRecords = new ArrayList<>();
-        if (streamFetchTask.isRunning()) {
+        if (streamFetchTask.isRunning() || isBoundedReadFinished()) {
             for (DataChangeEvent event : batchEvents) {
                 if (shouldEmit(event.getRecord())) {
                     sourceRecords.add(event.getRecord());
