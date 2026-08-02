@@ -230,7 +230,8 @@ public class ImportClassCheckTest {
                                 imports.stream()
                                         .filter(
                                                 importMetadata -> {
-                                                    String importClz = importMetadata.getClassName();
+                                                    String importClz =
+                                                            importMetadata.getClassName();
                                                     return prefixList.stream()
                                                             .anyMatch(importClz::startsWith);
                                                 })
@@ -264,15 +265,12 @@ public class ImportClassCheckTest {
     }
 
     private String getImportClassLineNum(ImportMetadata importMetadata) {
-        return String.format("%s  [%s]", importMetadata.getClassName(), importMetadata.getLineNum());
+        return String.format(
+                "%s  [%s]", importMetadata.getClassName(), importMetadata.getLineNum());
     }
 
     private static ImportMetadata toImportMetadata(ImportDeclaration importDeclaration) {
-        int lineNum =
-                importDeclaration
-                        .getRange()
-                        .map(range -> range.end.line)
-                        .orElse(-1);
+        int lineNum = importDeclaration.getRange().map(range -> range.end.line).orElse(-1);
         return new ImportMetadata(importDeclaration.getName().asString(), lineNum);
     }
 
