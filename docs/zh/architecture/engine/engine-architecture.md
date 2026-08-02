@@ -111,7 +111,18 @@ SeaTunnel 引擎（Zeta）设计为原生执行引擎，具有：
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### 2.2 核心组件
+### 2.2 作业提交、类加载与任务下发流程
+
+![Zeta 作业提交、类加载与任务执行流程](../../../images/zeta_job_submission_classloader_task_execution_flow.png)
+
+这张图更适合放在引擎架构章节，因为它把控制面与运行时执行面串成了一条完整链路：
+
+1. 客户端先在本地解析插件目录，把 `pluginJarsUrls` 与 `LogicalDag` 一起封装进 `JobImmutableInformation`。
+2. `CoordinatorService` 接收提交请求后，会为这个作业创建一个 `JobMaster`，并通过 Master 侧的类加载服务先加载插件 jar，再反序列化提交上来的作业不可变信息。
+3. `JobMaster` 把逻辑计划展开成执行图和物理任务组，随后申请资源，并向 Worker 下发 `TaskGroupImmutableInformation`。
+4. 每个 Worker 再用自己的 child-first 类加载器加载同一批插件 jar，反序列化任务组载荷，并在 `TaskExecutionService` 中执行对应的 `TaskGroup`。
+
+### 2.3 核心组件
 
 #### CoordinatorService
 

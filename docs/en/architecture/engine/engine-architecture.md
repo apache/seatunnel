@@ -110,7 +110,18 @@ SeaTunnel Engine (Zeta) is designed as a native execution engine with:
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### 2.2 Core Components
+### 2.2 Job Submission, ClassLoader, and Task Dispatch Flow
+
+![Zeta job submission, classloader, and task execution flow](../../../images/zeta_job_submission_classloader_task_execution_flow.png)
+
+This flow fits the engine architecture section because it connects the control plane and runtime plane in one view:
+
+1. The client resolves plugin jars locally and packages `pluginJarsUrls` together with the `LogicalDag` into `JobImmutableInformation`.
+2. `CoordinatorService` accepts the submission, creates one `JobMaster` for the job, and uses the master-side classloader service to load plugin jars before deserializing the submitted immutable job information.
+3. `JobMaster` turns the logical plan into an execution graph and physical task groups, requests resources, and dispatches `TaskGroupImmutableInformation` to workers.
+4. Each worker uses its own child-first classloader to load the same plugin jars, deserialize the task-group payload, and execute the `TaskGroup` inside `TaskExecutionService`.
+
+### 2.3 Core Components
 
 #### CoordinatorService
 
