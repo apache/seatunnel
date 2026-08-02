@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.common.metrics.JobMetrics;
 import org.apache.seatunnel.api.common.metrics.RawJobMetrics;
 import org.apache.seatunnel.api.event.EventHandler;
 import org.apache.seatunnel.api.event.EventProcessor;
+import org.apache.seatunnel.api.options.EnvCommonOptions;
 import org.apache.seatunnel.api.tracing.MDCExecutorService;
 import org.apache.seatunnel.api.tracing.MDCTracer;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
@@ -1271,6 +1272,10 @@ public class CoordinatorService {
                     JobMaster jobMaster = null;
                     JobInfo submittedJobInfo = null;
                     try {
+                        JobImmutableInformation submittedJobImmutableInformation =
+                                deserializeJobImmutableInformation(jobImmutableInformation);
+                        validateCheckpointRestoreSourceJobIsTerminal(
+                                submittedJobImmutableInformation, jobId);
                         if (isStartWithSavePoint) {
                             cleanupPendingPipelineCleanupForRestore(jobId);
                         }
@@ -1346,6 +1351,30 @@ public class CoordinatorService {
                     }
                 });
         return new PassiveCompletableFuture<>(jobSubmitFuture);
+    }
+
+    private void validateCheckpointRestoreSourceJobIsTerminal(
+            JobImmutableInformation jobImmutableInformation, long destinationJobId) {
+        CheckpointRestoreValidator.validate(
+                jobImmutableInformation, destinationJobId, this::resolveSourceJobStatusForRestore);
+    }
+
+    private JobImmutableInformation deserializeJobImmutableInformation(
+            Data jobImmutableInformation) {
+        return nodeEngine.getSerializationService().toObject(jobImmutableInformation);
+    }
+
+    private JobStatus resolveSourceJobStatusForRestore(long sourceJobId) {
+        if (pendingJobQueue.contains(sourceJobId)) {
+            return JobStatus.PENDING;
+        }
+        JobMaster runningSourceJobMaster = runningJobMasterMap.get(sourceJobId);
+        if (runningSourceJobMaster != null) {
+            JobStatus runningStatus = runningSourceJobMaster.getJobStatus();
+            return runningStatus == null ? JobStatus.RUNNING : runningStatus;
+        }
+        Object state = runningJobStateIMap.get(sourceJobId);
+        return state instanceof JobStatus ? (JobStatus) state : null;
     }
 
     public PassiveCompletableFuture<Void> savePoint(long jobId) {
@@ -1785,14 +1814,38 @@ public class CoordinatorService {
         }
         if (isCheckpointEnabled(jobImmutableInformation.getJobConfig())
                 && seaTunnelServer.getCheckpointService() != null) {
-            seaTunnelServer
-                    .getCheckpointService()
-                    .getCheckpointStorage()
-                    .deleteCheckpoint(jobId + "");
+            if (finalStatus == JobStatus.CANCELED
+                    && shouldRetainCheckpointAfterJobCancelled(jobImmutableInformation)) {
+                logger.info(
+                        String.format(
+                                "Job %d has retain-after-job-cancelled enabled, retaining checkpoint data",
+                                jobId));
+            } else {
+                seaTunnelServer
+                        .getCheckpointService()
+                        .getCheckpointStorage()
+                        .deleteCheckpoint(jobId + "");
+            }
         }
         if (seaTunnelServer.getCheckpointMonitorService() != null) {
             seaTunnelServer.getCheckpointMonitorService().cleanupJob(jobId);
         }
+    }
+
+    private boolean shouldRetainCheckpointAfterJobCancelled(
+            JobImmutableInformation jobImmutableInformation) {
+        if (jobImmutableInformation == null || jobImmutableInformation.getJobConfig() == null) {
+            return engineConfig.getCheckpointConfig().isRetainAfterJobCancelled();
+        }
+        Map<String, Object> jobEnv = jobImmutableInformation.getJobConfig().getEnvOptions();
+        if (jobEnv != null
+                && jobEnv.containsKey(
+                        EnvCommonOptions.CHECKPOINT_RETAIN_AFTER_JOB_CANCELLED.key())) {
+            return Boolean.parseBoolean(
+                    jobEnv.get(EnvCommonOptions.CHECKPOINT_RETAIN_AFTER_JOB_CANCELLED.key())
+                            .toString());
+        }
+        return engineConfig.getCheckpointConfig().isRetainAfterJobCancelled();
     }
 
     private boolean isCheckpointEnabled(JobConfig jobConfig) {

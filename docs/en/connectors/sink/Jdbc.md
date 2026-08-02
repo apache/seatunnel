@@ -131,6 +131,19 @@ Expected rows:
 
 If the job fails before writing, check [Troubleshooting](#troubleshooting) first.
 
+:::note
+
+When connecting to MariaDB, use MariaDB Connector/J with the matching URL and driver:
+
+```hocon
+url = "jdbc:mariadb://localhost:3306/database"
+driver = "org.mariadb.jdbc.Driver"
+```
+
+Do not use MySQL Connector/J with a `jdbc:mysql:` URL for MariaDB. That configuration selects the MySQL dialect, which can reject a MariaDB server version as an unsupported MySQL version.
+
+:::
+
 ## Key Features
 
 - [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
