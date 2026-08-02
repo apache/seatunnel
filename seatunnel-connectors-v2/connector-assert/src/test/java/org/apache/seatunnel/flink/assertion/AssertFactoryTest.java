@@ -17,11 +17,17 @@
 
 package org.apache.seatunnel.flink.assertion;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertSinkFactory;
+import org.apache.seatunnel.connectors.seatunnel.assertion.sink.AssertSinkOptions;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import java.util.Collections;
 
 public class AssertFactoryTest {
 
@@ -30,5 +36,20 @@ public class AssertFactoryTest {
         AssertSinkFactory factory = new AssertSinkFactory();
         OptionRule optionRule = factory.optionRule();
         Assertions.assertNotNull(optionRule);
+    }
+
+    @Test
+    public void testMissingRulesFailsValidation() {
+        AssertSinkFactory factory = new AssertSinkFactory();
+        OptionRule optionRule = factory.optionRule();
+
+        ReadonlyConfig readonlyConfig = ReadonlyConfig.fromMap(Collections.emptyMap());
+
+        OptionValidationException optionValidationException =
+                Assertions.assertThrows(
+                        OptionValidationException.class,
+                        () -> ConfigValidator.of(readonlyConfig).validate(optionRule));
+        Assertions.assertTrue(
+                optionValidationException.getMessage().contains(AssertSinkOptions.RULES.key()));
     }
 }
