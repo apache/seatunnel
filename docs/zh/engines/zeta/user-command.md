@@ -47,7 +47,8 @@ Usage: seatunnel.sh [options]
     -l, --list                                list job status (default: false)
     --metrics                                 Get job metrics by JobId
     -n, --name                                SeaTunnel job name (default: SeaTunnel)
-    -r, --restore, --restore-job              restore with savepoint by jobId
+    -r, --restore, --restore-job              按 jobId 从最新 Savepoint 恢复
+    --restore-with-checkpoint                 按 jobId 从最新成功完成的 Checkpoint 恢复
     -s, --savepoint, --savepoint-job          savepoint job by jobId
     -i, --variable                            Variable substitution, such as -i
                                               city=beijing, or -i date=20190318.We use
