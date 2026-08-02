@@ -33,6 +33,9 @@ import org.apache.commons.compress.utils.Lists;
 import org.apache.http.HttpStatus;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.entity.ContentType;
+import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
@@ -76,6 +79,8 @@ import static org.apache.seatunnel.e2e.common.util.ContainerUtil.copyAllConnecto
 @AutoService(TestContainer.class)
 public class SeaTunnelContainer extends AbstractTestContainer {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private static final String REST_STOP_JOB_PATH = "/stop-job";
+    private static final String REST_CHECKPOINT_OVERVIEW_PATH = "/jobs/checkpoints";
     protected static final String JDK_DOCKER_IMAGE = "seatunnelhub/openjdk:8u342";
     private static final String CLIENT_SHELL = "seatunnel.sh";
     protected static final String SERVER_SHELL = "seatunnel-cluster.sh";
@@ -534,8 +539,64 @@ public class SeaTunnelContainer extends AbstractTestContainer {
     }
 
     @Override
+    public Container.ExecResult restoreJobWithCheckpoint(
+            String confFile, String jobId, String... variables)
+            throws IOException, InterruptedException {
+        runningCount.incrementAndGet();
+        Container.ExecResult result =
+                restoreJob(
+                        server,
+                        confFile,
+                        jobId,
+                        variables != null ? Arrays.asList(variables) : null,
+                        "--restore-with-checkpoint");
+        runningCount.decrementAndGet();
+        return result;
+    }
+
+    @Override
+    public Container.ExecResult restoreJobWithCheckpoint(
+            String confFile, String sourceJobId, String restoreJobId)
+            throws IOException, InterruptedException {
+        runningCount.incrementAndGet();
+        Container.ExecResult result =
+                restoreJob(
+                        server,
+                        confFile,
+                        sourceJobId,
+                        restoreJobId,
+                        null,
+                        "--restore-with-checkpoint");
+        runningCount.decrementAndGet();
+        return result;
+    }
+
+    @Override
     public Container.ExecResult cancelJob(String jobId) throws IOException, InterruptedException {
         return cancelJob(server, jobId);
+    }
+
+    @Override
+    public void stopJob(String jobId) throws IOException, InterruptedException {
+        HttpPost post =
+                new HttpPost(
+                        String.format(
+                                "http://%s:%d%s",
+                                server.getHost(), server.getMappedPort(8080), REST_STOP_JOB_PATH));
+        ObjectNode requestBody = OBJECT_MAPPER.createObjectNode();
+        requestBody.put("jobId", jobId);
+        requestBody.put("force", true);
+        post.setEntity(new StringEntity(requestBody.toString(), ContentType.APPLICATION_JSON));
+
+        try (CloseableHttpClient client = HttpClients.createDefault()) {
+            CloseableHttpResponse response = client.execute(post);
+            String responseBody = EntityUtils.toString(response.getEntity());
+            int statusCode = response.getStatusLine().getStatusCode();
+            if (statusCode != HttpStatus.SC_OK) {
+                throw new IOException(
+                        String.format("Failed to stop job %s, response: %s", jobId, responseBody));
+            }
+        }
     }
 
     @Override
@@ -558,6 +619,49 @@ public class SeaTunnelContainer extends AbstractTestContainer {
             throw new RuntimeException(e);
         }
         return null;
+    }
+
+    @Override
+    public long getCompletedCheckpointCount(String jobId) {
+        HttpGet get =
+                new HttpGet(
+                        String.format(
+                                "http://%s:%d%s/%s",
+                                server.getHost(),
+                                server.getMappedPort(8080),
+                                REST_CHECKPOINT_OVERVIEW_PATH,
+                                jobId));
+        try (CloseableHttpClient client = HttpClients.createDefault()) {
+            CloseableHttpResponse response = client.execute(get);
+            if (response.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
+                return 0L;
+            }
+            String checkpointOverview = EntityUtils.toString(response.getEntity());
+            Map<String, Object> overview =
+                    OBJECT_MAPPER.readValue(
+                            checkpointOverview, new TypeReference<Map<String, Object>>() {});
+            return extractCheckpointCounter(overview, "completed");
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private long extractCheckpointCounter(Map<String, Object> overview, String counterKey) {
+        Object pipelinesValue = overview.get("pipelines");
+        if (!(pipelinesValue instanceof List) || ((List<?>) pipelinesValue).isEmpty()) {
+            return 0L;
+        }
+        Object pipelineValue = ((List<?>) pipelinesValue).get(0);
+        if (!(pipelineValue instanceof Map)) {
+            return 0L;
+        }
+        Object countsValue = ((Map<String, Object>) pipelineValue).get("counts");
+        if (!(countsValue instanceof Map)) {
+            return 0L;
+        }
+        Object counter = ((Map<String, Object>) countsValue).get(counterKey);
+        return counter instanceof Number ? ((Number) counter).longValue() : 0L;
     }
 
     @Override
