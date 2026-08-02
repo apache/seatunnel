@@ -27,6 +27,7 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
@@ -64,6 +65,8 @@ public class MultiTableWriterRunnable implements Runnable {
     private volatile boolean processingRow;
     /** Marks that this worker is still inside the failure-handler callback. */
     private volatile boolean handlingTableFailure;
+    /** Counts queued or dequeued row requests until their write path has fully finished. */
+    private final AtomicInteger pendingRowRequests = new AtomicInteger();
 
     public MultiTableWriterRunnable(
             Map<String, SinkWriter<SeaTunnelRow, ?, ?>> tableIdWriterMap,
@@ -151,6 +154,10 @@ public class MultiTableWriterRunnable implements Runnable {
                 }
                 processingRow = false;
                 break;
+            } finally {
+                if (queueElement != null && queueElement.isCountedRowRequest()) {
+                    pendingRowRequests.decrementAndGet();
+                }
             }
         }
     }
@@ -346,13 +353,28 @@ public class MultiTableWriterRunnable implements Runnable {
         return handlingTableFailure;
     }
 
+    public boolean hasPendingRowRequests() {
+        return pendingRowRequests.get() > 0;
+    }
+
+    QueueElement countedRowRequest(SeaTunnelRow row) {
+        pendingRowRequests.incrementAndGet();
+        return new RowWriteRequest(row, true);
+    }
+
+    void cancelCountedRowRequest(QueueElement queueElement) {
+        if (queueElement.isCountedRowRequest()) {
+            pendingRowRequests.decrementAndGet();
+        }
+    }
+
     public synchronized void removeTableWriter(String tableId) {
         tableIdWriterMap.remove(tableId);
     }
 
     /** Creates one ordered queue element that writes a data row. */
     static QueueElement rowRequest(SeaTunnelRow row) {
-        return new RowWriteRequest(row);
+        return new RowWriteRequest(row, false);
     }
 
     /** Creates one ordered queue element that blocks on the shared schema-change barrier. */
@@ -372,14 +394,21 @@ public class MultiTableWriterRunnable implements Runnable {
         default boolean isRowRequest() {
             return false;
         }
+
+        /** Whether this row request was counted by {@link #pendingRowRequests}. */
+        default boolean isCountedRowRequest() {
+            return false;
+        }
     }
 
     private static class RowWriteRequest implements QueueElement {
 
         private final SeaTunnelRow row;
+        private final boolean counted;
 
-        private RowWriteRequest(SeaTunnelRow row) {
+        private RowWriteRequest(SeaTunnelRow row, boolean counted) {
             this.row = row;
+            this.counted = counted;
         }
 
         @Override
@@ -390,6 +419,11 @@ public class MultiTableWriterRunnable implements Runnable {
         @Override
         public boolean isRowRequest() {
             return true;
+        }
+
+        @Override
+        public boolean isCountedRowRequest() {
+            return counted;
         }
 
         @Override

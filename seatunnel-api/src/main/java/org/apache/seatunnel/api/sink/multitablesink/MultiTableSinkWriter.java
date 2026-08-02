@@ -601,8 +601,7 @@ public class MultiTableSinkWriter
         if ((primaryKey == null && sinkPrimaryKeys.size() == 1)
                 || (primaryKey != null && !primaryKey.isPresent())) {
             int index = random.nextInt(blockingQueues.size());
-            BlockingQueue<MultiTableWriterRunnable.QueueElement> queue = blockingQueues.get(index);
-            offerQueueElement(queue, MultiTableWriterRunnable.rowRequest(element));
+            offerRowElement(index, element);
         } else if (primaryKey == null) {
             if (failurePolicy.continueOtherTables()) {
                 handleTableFailure(
@@ -619,8 +618,7 @@ public class MultiTableSinkWriter
             if (object != null) {
                 index = Math.abs(object.hashCode()) % blockingQueues.size();
             }
-            BlockingQueue<MultiTableWriterRunnable.QueueElement> queue = blockingQueues.get(index);
-            offerQueueElement(queue, MultiTableWriterRunnable.rowRequest(element));
+            offerRowElement(index, element);
         }
     }
 
@@ -649,6 +647,18 @@ public class MultiTableSinkWriter
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new IOException(e);
+        }
+    }
+
+    private void offerRowElement(int index, SeaTunnelRow element) throws IOException {
+        MultiTableWriterRunnable writerRunnable = runnable.get(index);
+        MultiTableWriterRunnable.QueueElement queueElement =
+                writerRunnable.countedRowRequest(element);
+        try {
+            offerQueueElement(blockingQueues.get(index), queueElement);
+        } catch (IOException | RuntimeException error) {
+            writerRunnable.cancelCountedRowRequest(queueElement);
+            throw error;
         }
     }
 
@@ -997,7 +1007,9 @@ public class MultiTableSinkWriter
             }
         }
         for (MultiTableWriterRunnable writerRunnable : runnable) {
-            if (writerRunnable.isProcessingRow() || writerRunnable.isHandlingTableFailure()) {
+            if (writerRunnable.hasPendingRowRequests()
+                    || writerRunnable.isProcessingRow()
+                    || writerRunnable.isHandlingTableFailure()) {
                 return true;
             }
         }
