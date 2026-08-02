@@ -1,0 +1,36 @@
+Apache SeaTunnel CLI Subcomponents:
+
+The Apache SeaTunnel CLI module contains subcomponents with separate copyright
+notices and license terms. Your use of the source code for these
+subcomponents is subject to the terms and conditions of the following
+licenses.
+
+========================================================================
+Apache 2.0 License
+========================================================================
+
+The following components are provided under the Apache License. See project link for details.
+The text of each license is the standard Apache 2.0 license.
+
+     (Apache License 2.0) pyhocon (chimpler:pyhocon:0.3.60 - https://github.com/chimpler/pyhocon)
+     (Apache License 2.0) boto3 (boto:boto3:1.34.0 - https://github.com/boto/boto3)
+     (Apache License 2.0) openai (openai:openai:1.0.0 - https://github.com/openai/openai-python)
+
+========================================================================
+MIT License
+========================================================================
+
+The following components are provided under the MIT License. See project link for details.
+The text of each license is also included at licenses/LICENSE-[project].txt.
+
+     (MIT License) rich (Textualize:rich:13.0.0 - https://github.com/Textualize/rich)
+     (MIT License) anthropic (Anthropic:anthropic:0.42.0 - https://github.com/anthropics/anthropic-sdk-python)
+
+========================================================================
+BSD License
+========================================================================
+
+The following components are provided under a BSD license. See project link for details.
+The text of each license is also included at licenses/LICENSE-[project].txt.
+
+     (BSD 3-Clause) prompt-toolkit (prompt-toolkit:prompt-toolkit:3.0.0 - https://github.com/prompt-toolkit/python-prompt-toolkit)

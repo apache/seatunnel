@@ -18,6 +18,9 @@
 package org.apache.seatunnel.transform.filter;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConfigValidator;
+import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
@@ -98,37 +101,52 @@ class FilterFieldTransformTest {
 
     @Test
     void testConfig() {
-        // test both not set
-        try {
-            new FilterFieldTransform(ReadonlyConfig.fromMap(new HashMap<>()), catalogTable);
-        } catch (Exception e) {
-            Assertions.assertEquals(
-                    "ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - There are unconfigured options, these options('include_fields', 'exclude_fields') are mutually exclusive, allowing only one set(\"[] for a set\") of options to be configured.",
-                    e.getMessage());
-        }
+        OptionRule rule = new FilterFieldTransformFactory().optionRule();
+
+        // test both not set — validated via Factory optionRule
+        OptionValidationException noneSetEx =
+                Assertions.assertThrows(
+                        OptionValidationException.class,
+                        () ->
+                                ConfigValidator.of(ReadonlyConfig.fromMap(new HashMap<>()))
+                                        .validate(rule));
+        Assertions.assertTrue(
+                noneSetEx.getMessage().contains("'include_fields'"),
+                "Should mention include_fields: " + noneSetEx.getMessage());
+        Assertions.assertTrue(
+                noneSetEx.getMessage().contains("'exclude_fields'"),
+                "Should mention exclude_fields: " + noneSetEx.getMessage());
+        Assertions.assertTrue(
+                noneSetEx.getMessage().contains("exclusive"),
+                "Should mention exclusive: " + noneSetEx.getMessage());
 
         // test both include and exclude set
-        try {
-            new FilterFieldTransform(
-                    ReadonlyConfig.fromMap(
-                            new HashMap<String, Object>() {
-                                {
-                                    put(
-                                            FilterFieldTransformConfig.INCLUDE_FIELDS.key(),
-                                            filterKeys);
-                                    put(
-                                            FilterFieldTransformConfig.EXCLUDE_FIELDS.key(),
-                                            filterKeys);
-                                }
-                            }),
-                    catalogTable);
-        } catch (Exception e) {
-            Assertions.assertEquals(
-                    "ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - These options('include_fields', 'exclude_fields') are mutually exclusive, allowing only one set(\"[] for a set\") of options to be configured.",
-                    e.getMessage());
-        }
+        OptionValidationException bothSetEx =
+                Assertions.assertThrows(
+                        OptionValidationException.class,
+                        () ->
+                                ConfigValidator.of(
+                                                ReadonlyConfig.fromMap(
+                                                        new HashMap<String, Object>() {
+                                                            {
+                                                                put(
+                                                                        FilterFieldTransformConfig
+                                                                                .INCLUDE_FIELDS
+                                                                                .key(),
+                                                                        filterKeys);
+                                                                put(
+                                                                        FilterFieldTransformConfig
+                                                                                .EXCLUDE_FIELDS
+                                                                                .key(),
+                                                                        filterKeys);
+                                                            }
+                                                        }))
+                                        .validate(rule));
+        Assertions.assertTrue(
+                bothSetEx.getMessage().contains("mutually exclusive"),
+                "Should mention mutually exclusive: " + bothSetEx.getMessage());
 
-        // not exception should be thrown now
+        // no exception should be thrown now
         new FilterFieldTransform(
                 ReadonlyConfig.fromMap(
                         new HashMap<String, Object>() {

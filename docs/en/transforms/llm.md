@@ -90,13 +90,12 @@ transform {
 ### model
 
 The model to use. Different model providers have different models. For example, the OpenAI model can be `gpt-4o-mini`.
-If you use OpenAI model, please refer https://platform.openai.com/docs/models/model-endpoint-compatibility
-of `/v1/chat/completions` endpoint.
+If you use an OpenAI model, please refer to https://developers.openai.com/api/docs/models for supported models and endpoints, including `/v1/chat/completions` where available.
 
 ### api_key
 
 The API key to use for the model provider.
-If you use OpenAI model, please refer https://platform.openai.com/docs/api-reference/api-keys of how to get the API key.
+If you use OpenAI model, please refer https://help.openai.com/en/articles/4936850-how-to-create-and-use-an-api-key for how to get the API key.
 
 ### api_path
 

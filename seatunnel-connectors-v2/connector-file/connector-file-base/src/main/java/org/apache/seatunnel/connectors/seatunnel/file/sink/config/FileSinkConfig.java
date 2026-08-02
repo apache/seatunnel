@@ -26,6 +26,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.BaseFileSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.PartitionConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.format.csv.constant.CsvStringQuoteMode;
 
@@ -87,6 +88,9 @@ public class FileSinkConfig extends BaseFileSinkConfig implements PartitionConfi
     private CsvStringQuoteMode csvStringQuoteMode;
 
     private Boolean mergeUpdateEvent;
+
+    private boolean schemaEvolutionEnabled =
+            FileBaseSinkOptions.SCHEMA_EVOLUTION_ENABLED.defaultValue();
 
     public FileSinkConfig(
             @NonNull ReadonlyConfig pluginConfig, @NonNull SeaTunnelRowType seaTunnelRowTypeInfo) {
@@ -217,5 +221,18 @@ public class FileSinkConfig extends BaseFileSinkConfig implements PartitionConfi
                 || FileFormat.MAXWELL_JSON.equals(this.fileFormat)) {
             this.mergeUpdateEvent = pluginConfig.get(FileBaseSinkOptions.MERGE_UPDATE_EVENT);
         }
+
+        this.schemaEvolutionEnabled =
+                pluginConfig.get(FileBaseSinkOptions.SCHEMA_EVOLUTION_ENABLED);
+        if (this.schemaEvolutionEnabled && FileFormat.BINARY.equals(this.fileFormat)) {
+            throw new FileConnectorException(
+                    FileConnectorErrorCode.FORMAT_NOT_SUPPORT,
+                    "schema_evolution_enabled=true is not supported for file_format_type=binary."
+                            + " Binary format has a fixed schema and cannot apply schema changes.");
+        }
+        // schema_evolution + partition_by is supported: AbstractWriteStrategy.applySchemaChange
+        // rebuilds both sinkColumnsIndexInRow and partitionFieldsIndexInRow from column NAMES
+        // against the post-ALTER row type. Dropping a partition column itself is rejected at
+        // rebuild time (throws IllegalStateException) so the partition tree never corrupts.
     }
 }

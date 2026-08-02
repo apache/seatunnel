@@ -22,6 +22,7 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 - [x] [列投影](../../introduction/concepts/connector-v2-features.md)
 - [x] [并行度](../../introduction/concepts/connector-v2-features.md)
 - [ ] [支持用户自定义分片](../../introduction/concepts/connector-v2-features.md)
+- [x] [支持多表读取](../../introduction/concepts/connector-v2-features.md)
 - [x] 文件格式类型
   - [x] 文本
   - [x] CSV
@@ -29,6 +30,8 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
   - [x] Excel
   - [x] XML
   - [x] 二进制
+  - [x] markdown
+  - [x] pdf
 
 ## 描述
 
@@ -50,10 +53,13 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 | user                        | string  | 是    | -                   |
 | password                    | string  | 是    | -                   |
 | path                        | string  | 是    | -                   |
+| tables_configs              | list    | 否    | -                   |
 | file_format_type            | string  | 是    | -                   |
 | connection_mode             | string  | 否    | active_local        |
-| remote_verification_enabled | boolean | no   | true                |
+| remote_verification_enabled | boolean | 否    | true                |
+| control_encoding            | string  | 否    | UTF-8               |
 | delimiter/field_delimiter   | string  | 否    | \001                |
+| row_delimiter               | string  | 否    | \n                  | 读取 `text` 文件时使用的行分隔符。默认值为 `\n`。 |
 | read_columns                | list    | 否    | -                   |
 | parse_partition_from_path   | boolean | 否    | true                |
 | date_format                 | string  | 否    | yyyy-MM-dd          |
@@ -66,6 +72,7 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 | xml_use_attr_format         | boolean | 否    | -                   |
 | csv_use_header_line         | boolean | 否    | false               |
 | file_filter_pattern         | string  | 否    | -                   |
+| filename_extension          | string  | 否    | -                   | 使用指定的文件扩展名筛选文件，例如 `csv`、`.txt`、`json` 或 `.xml`。 |
 | compress_codec              | string  | 否    | none                |
 | archive_compress_codec      | string  | 否    | none                |
 | encoding                    | string  | 否    | UTF-8               |
@@ -80,12 +87,20 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 | target_hadoop_conf          | map     | 否    | -                   |
 | update_strategy             | string  | 否    | distcp              |
 | compare_mode                | string  | 否    | len_mtime           |
+| update_compare_parallelism  | int     | 否    | 8                   |
+| update_compare_bulk_threshold | int   | 否    | 0                   |
+| post_sync_action            | string  | 否    | none                |
+| backup_path                 | string  | 否    | -                   |
+| retention_max_age           | string  | 否    | -                   |
+| retention_check_interval    | string  | 否    | 1H                  |
 | common-options              |         | 否    | -                   |
 | file_filter_modified_start  | string  | 否    | -                   | 
 | file_filter_modified_end    | string  | 否    | -                   | 
 | quote_char                  | string  | 否    | "                   | 
 | escape_char                 | string  | 否    | -                   |
 | metalake_type               | string  | 否    | gravitino           |
+| recursive_file_scan         | boolean | 否    | true                |
+| sort_files_by_modification_time | boolean | 否 | false               | 是否按修改时间降序排序文件。启用此选项后，在读取不断演化的 schema 时可确保 schema 推断使用最新的文件。                                                                                                                      |
 
 ### host [string]
 
@@ -106,6 +121,12 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 ### path [string]
 
 源文件路径。
+
+### tables_configs [list]
+
+在一个 Source 块中配置多张 FTP 源表。`tables_configs` 中每一项都使用与单表 `FtpFile` Source 相同的参数，
+例如 `host`、`port`、`user`、`password`、`path`、`file_format_type` 和 `schema`。可通过 `schema.table`
+指定传递给下游的表名。
 
 ### remote_verification_enabled [boolean]
 
@@ -170,7 +191,7 @@ abc.*
 
 文件类型，支持以下文件类型：
 
-`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown`
+`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf`
 
 如果您将文件类型指定为 `json`，您还需要指定 schema 选项以告诉连接器如何将数据解析为您所需的行。
 
@@ -250,7 +271,7 @@ schema {
 
 如果您将文件类型指定为 `markdown`，SeaTunnel 可以解析 markdown 文件并提取结构化数据。
 markdown 解析器提取各种元素，包括标题、段落、列表、代码块、表格等。
-每个元素都转换为具有以下架构的行：
+每个提取出的元素都会转换为一条文档元素结构化记录，schema 如下：
 - `element_id`：元素的唯一标识符
 - `element_type`：元素类型（Heading、Paragraph、ListItem 等）
 - `heading_level`：标题级别（1-6，非标题元素为 null）
@@ -260,7 +281,29 @@ markdown 解析器提取各种元素，包括标题、段落、列表、代码�
 - `parent_id`：父元素的 ID
 - `child_ids`：子元素 ID 的逗号分隔列表
 
+当 `markdown_rag_metadata_enabled` 设置为 `true` 时，SeaTunnel 会在 `child_ids` 之后追加以下 RAG 元数据字段：
+- `source_uri`：源文件路径或 URI
+- `document_id`：由 `source_uri` 派生的稳定文档标识符
+- `chunk_id`：由文档标识、chunk 顺序和内容哈希派生的稳定 chunk 标识符
+- `chunk_index`：解析后文档中的一基 chunk 顺序
+- `content_hash`：已输出 `text` 值的 SHA-256 哈希
+
+启用该选项并读取有界 Markdown 文件时，source enumerator 会使用相同的 `document_id` 哈希分配整文件 split，使同一文档派生的所有行留在同一个 source 路由 bucket 中。禁用该选项时，默认的轮询 split 分配行为保持不变。
+
+该选项默认值为 `false`，因此只有显式启用后才会改变原始 Markdown schema。
+
 注意：Markdown 格式仅支持读取，不支持写入。
+
+如果您将文件类型指定为 `pdf`，SeaTunnel 可以解析 PDF 文件并提取结构化的文档元素。
+PDF 使用与上文相同的文档元素 schema。
+
+PDF 特有的解析行为如下：
+
+- **有大纲**：提取 `heading`（标题）、`paragraph`（段落）、`image`（图片）和 `link`（链接）元素。标题从大纲结构中派生，元素按照文档的逻辑结构组织为父子层级关系。
+- **无大纲**：仅提取 `paragraph`（段落）和 `image`（图片）元素，以扁平结构呈现，不包含层级关系。
+- `element_type` 在 PDF 场景下可能为 `heading`、`paragraph`、`image` 或 `link`。
+
+注意：仅支持单栏（从上到下）PDF 布局。不支持多栏布局（例如并排的双栏文档），可能会产生不正确的文本顺序。
 
 ### connection_mode [string]
 
@@ -340,17 +383,15 @@ SeaTunnel 将从源文件中跳过前 2 行。
 
 上游数据的 schema 信息。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。
 
-#### schema_url [string]
+#### metadata_table_id [string]
 
-通过 restApi 获取元数据信息的 http url，例如：`http://localhost:8090/api/metalakes/laowang_test/catalogs/221-pgsql/schemas/ykw/tables/all_type`
+元数据服务中的表标识符，用于获取表结构。对于 Gravitino，格式应为 `{catalog}.{database}.{table}`，例如 `mysql-catalog.test_db.users`。
+
+当指定此参数时，连接器将从外部元数据服务获取表结构，而不是使用手动定义的 `columns`。
 
 > 当使用 Gravitino 作为元数据源时，Gravitino 的列类型会自动转换为 SeaTunnel 数据类型。详细的类型映射信息请参考 [Gravitino 类型映射](../../introduction/concepts/gravitino-type-mapping.md)。
 
-### metalake_type [string]
-
-Metalake 服务类型，目前仅支持 `gravitino`。当使用 `schema_url` 从 Gravitino 获取元数据时，可以指定此参数（默认为 `gravitino`）。
-
-有关 Metalake 的更多信息，请参考 [Metalake](../../introduction/configuration/metalake.md)。
+更多信息请参考 [元数据 SPI](../../introduction/concepts/metadata-spi.md)。
 
 ### read_columns [list]
 
@@ -485,6 +526,49 @@ compare_mode = "len_mtime"
 
 仅在 `sync_mode=update` 时使用。支持：`len_mtime`（默认）、`checksum`（仅在 `update_strategy=strict` 时可用）。
 
+### update_compare_parallelism [int]
+
+`sync_mode=update` 对稀疏目标文件执行元数据点查时的最大并发数。默认值为 `8`，有效范围为 `1` 到 `64`；范围外的值会在配置校验阶段被拒绝；已提交但未完成的任务上限为该值的 8 倍。
+
+### update_compare_bulk_threshold [int]
+
+设置正数后，同一目标父目录的候选文件达到该阈值时，SeaTunnel 改为只枚举一次目标目录。默认值 `0` 表示关闭自动批量枚举，使用有界并发点查，避免意外扫描庞大的目标目录。该行为适用于所有目标文件系统。源端会边枚举边过滤，以降低元数据峰值内存。
+
+### post_sync_action [string]
+
+仅在 `discovery_mode=continuous` 时使用。支持：`none`（默认）、`delete`、`backup`。当 `discovery_mode=once` 时，若配置 `post_sync_action=delete` 或 `post_sync_action=backup`，会在配置校验阶段被显式拒绝。
+
+- `none`：默认行为，不对源文件执行运维动作。
+- `delete`：在 `notifyCheckpointComplete` 后删除已处理源文件；失败动作会在后续 checkpoint 回调中重试。
+- `backup`：在 `notifyCheckpointComplete` 后将已处理源文件移动到 `backup_path`；失败动作会在后续 checkpoint 回调中重试。
+
+执行 `delete` 或 `backup` 前，SeaTunnel 会先将源文件重命名到 staging/trash 路径，然后重新检查文件长度和修改时间。如果重命名后版本不一致，文件会被恢复到原路径，以便后续扫描重新发现变更后的文件。
+
+**mtime 粒度限制**：FTP MDTM 分辨率通常为 1 秒（有时为 1 分钟）。act-then-verify 方式缩小了但不能完全消除同秒同长度修改的竞态窗口。为了最大安全性，请确保 post-sync 处理期间没有并发写入，或使用 `backup` 而非 `delete` 以便文件可恢复。
+
+**安全提示**：在 FTP 上使用 `post_sync_action=delete` 或 `backup` 时，建议使用专用最小权限账户，仅对监控目录有 DELETE/RENAME 权限。FTP 凭证以明文传输，此功能需要写/删权限，会增加凭证泄露后的影响范围。
+
+### backup_path [string]
+
+仅在 `post_sync_action=backup` 时使用。在 checkpoint 完成提交后，已处理文件会移动到该基础路径，目标文件名会附带源文件版本后缀以避免覆盖冲突。phase-1 仅支持与 `path` 同文件系统（scheme + authority 相同）的 backup，跨文件系统 backup 会被显式拒绝。
+
+`backup_path` 不能与 `path` 相同，不能位于 `path` 之下，`path` 也不能位于 `backup_path` 之下。建议使用专用备份目录，因为保留清理只会管理带 SeaTunnel 版本后缀的备份文件。
+
+### retention_max_age [string]
+
+`backup_path` 的可选保留策略。超过该时长的 SeaTunnel 备份文件会在 checkpoint 完成后的保留扫描中被清理。
+仅在 `post_sync_action=backup` 时有效。
+
+支持的时长格式包括带 `MS`、`S`、`M`、`H`、`D` 后缀的简写格式，例如 `500MS`、`30S`、`10M`、`12H`、`7D`，也支持 ISO-8601 时长，例如 `PT1H30M`。
+
+时长后缀不区分大小写：`MS`（毫秒）、`S`（秒）、`M`（分钟）、`H`（小时）、`D`（天）。`M` 始终表示分钟，不是月份。非法值（如 `PT7D`、`P1M`）会导致配置校验失败并报错。
+
+### retention_check_interval [string]
+
+保留清理扫描间隔，默认 `1H`。仅在 `post_sync_action=backup` 且配置 `retention_max_age` 后生效，清理任务最多按该间隔执行一次。单独设置 `retention_check_interval` 不会产生效果。
+
+时长后缀不区分大小写：`MS`、`S`、`M`、`H`、`D`。`M` 始终表示分钟，不是月份。非法值会导致配置校验失败并报错。
+
 ### file_filter_modified_start
 
 按照最后修改时间过滤文件。 要过滤的开始时间(包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`。
@@ -500,6 +584,18 @@ compare_mode = "len_mtime"
 ### escape_char [string]
 
 用于在 CSV 字段内转义引号或其他特殊字符，使其不会结束字段。
+
+### recursive_file_scan [boolean]
+
+是否递归扫描子目录。
+如果设置为 `false`，将忽略子目录，仅扫描指定路径下的文件。
+
+### sort_files_by_modification_time [boolean]
+
+是否按修改时间降序排序文件。默认值为 `false`。
+启用后，文件将按修改时间排序（最新的在前）。适用于以下场景：
+- 读取具有不断演化的 schema 的文件，且希望 schema 推断使用最新的文件
+- 需要按时间顺序处理文件
 
 ### 通用选项
 
@@ -526,6 +622,8 @@ compare_mode = "len_mtime"
 ```
 
 ### 多表配置
+
+`tables_configs` 中的每一项都会作为一张独立表读取。除非通过外层共享配置复用相同参数，否则建议在每一项中明确写出连接和格式参数。
 
 ```hocon
 
@@ -692,6 +790,11 @@ source {
     target_path = "/seatunnel/watch/dst/"
     update_strategy = "distcp"
     compare_mode = "len_mtime"
+
+    post_sync_action = "backup"
+    backup_path = "/seatunnel/watch/backup/"
+    retention_max_age = "7D"
+    retention_check_interval = "1H"
   }
 }
 sink {

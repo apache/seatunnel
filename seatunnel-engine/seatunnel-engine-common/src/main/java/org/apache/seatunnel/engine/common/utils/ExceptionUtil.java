@@ -24,6 +24,7 @@ import org.apache.seatunnel.common.utils.function.RunnableWithException;
 import org.apache.seatunnel.common.utils.function.SupplierWithException;
 import org.apache.seatunnel.engine.common.exception.JobDefineCheckException;
 import org.apache.seatunnel.engine.common.exception.JobNotFoundException;
+import org.apache.seatunnel.engine.common.exception.JobRestoreInProgressException;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 
 import com.hazelcast.client.impl.protocol.ClientExceptionFactory;
@@ -60,7 +61,11 @@ public final class ExceptionUtil {
                             new ImmutableTriple<>(
                                     ClientProtocolErrorCodes.USER_EXCEPTIONS_RANGE_START + 2,
                                     JobDefineCheckException.class,
-                                    JobDefineCheckException::new));
+                                    JobDefineCheckException::new),
+                            new ImmutableTriple<>(
+                                    ClientProtocolErrorCodes.USER_EXCEPTIONS_RANGE_START + 3,
+                                    JobRestoreInProgressException.class,
+                                    JobRestoreInProgressException::new));
 
     private ExceptionUtil() {}
 

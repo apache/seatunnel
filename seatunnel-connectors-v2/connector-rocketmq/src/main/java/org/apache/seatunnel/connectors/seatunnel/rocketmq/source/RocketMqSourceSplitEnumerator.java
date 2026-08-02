@@ -65,6 +65,26 @@ public class RocketMqSourceSplitEnumerator
     // ms
     private long discoveryIntervalMillis;
 
+    /**
+     * Tracks message queues whose splits were restored from a checkpoint. These splits already have
+     * the correct startOffset and should not have their offset overwritten by
+     * setPartitionStartOffset().
+     */
+    private final Set<MessageQueue> restoredSplits = new HashSet<>();
+
+    /**
+     * Indicates whether this enumerator was created to restore from a checkpoint state. When true,
+     * addSplitsBack() will preserve the checkpoint offsets instead of resetting them.
+     */
+    private boolean isRestored = false;
+
+    /**
+     * Set to true after the first run() completes. Used to distinguish the initial startup phase
+     * (where addSplitsBack may be called with checkpoint splits) from later reader
+     * re-registrations.
+     */
+    private volatile boolean initialized = false;
+
     public RocketMqSourceSplitEnumerator(
             ConsumerMetadata metadata,
             Map<String, TopicTableConfig> topicConfigs,
@@ -86,6 +106,32 @@ public class RocketMqSourceSplitEnumerator
             long discoveryIntervalMillis) {
         this(metadata, topicConfigs, context);
         this.discoveryIntervalMillis = discoveryIntervalMillis;
+    }
+
+    /**
+     * Creates an enumerator that restores state from a checkpoint.
+     *
+     * <p>The {@code sourceState} parameter is intentionally unused. The actual split restoration
+     * happens via {@link #addSplitsBack(List, int)}, which the engine calls before {@link #run()}
+     * with the splits carrying the correct startOffset from the reader-side checkpoint. Using
+     * {@code sourceState} to pre-populate {@code assignedSplit} would cause {@link #assignSplit()}
+     * to skip those splits (since they would already appear in {@code assignedSplit}), preventing
+     * them from being dispatched to any reader.
+     *
+     * @param metadata consumer metadata
+     * @param topicConfigs per-topic configuration map
+     * @param context enumerator context
+     * @param discoveryIntervalMillis interval for dynamic queue discovery, in milliseconds
+     * @param sourceState the checkpoint state (unused; retained for API contract compatibility)
+     */
+    public RocketMqSourceSplitEnumerator(
+            ConsumerMetadata metadata,
+            Map<String, TopicTableConfig> topicConfigs,
+            SourceSplitEnumerator.Context<RocketMqSourceSplit> context,
+            long discoveryIntervalMillis,
+            RocketMqSourceState sourceState) {
+        this(metadata, topicConfigs, context, discoveryIntervalMillis);
+        this.isRestored = true;
     }
 
     private static int getSplitOwner(MessageQueue messageQueue, int numReaders) {
@@ -113,7 +159,9 @@ public class RocketMqSourceSplitEnumerator
                     executor.scheduleWithFixedDelay(
                             () -> {
                                 try {
-                                    discoverySplits();
+                                    if (initialized) {
+                                        discoverySplits();
+                                    }
                                 } catch (Exception e) {
                                     log.error("Dynamic discovery failure:", e);
                                 }
@@ -129,10 +177,15 @@ public class RocketMqSourceSplitEnumerator
         synchronized (lock) {
             fetchPendingPartitionSplit();
             setPartitionStartOffset();
+            restoredSplits.clear();
         }
 
         synchronized (lock) {
             assignSplit();
+        }
+
+        if (!initialized) {
+            initialized = true;
         }
     }
 
@@ -149,6 +202,20 @@ public class RocketMqSourceSplitEnumerator
     @Override
     public void addSplitsBack(List<RocketMqSourceSplit> splits, int subtaskId) {
         if (!splits.isEmpty()) {
+            synchronized (lock) {
+                if (isRestored && !initialized) {
+                    // During checkpoint recovery the engine returns previously assigned splits
+                    // to the enumerator before run() is called. These splits already have the
+                    // correct startOffset from the checkpoint snapshot, so we must NOT call
+                    // convertToNextSplit() (which resets offset to the broker's latest value).
+                    splits.forEach(
+                            split -> {
+                                restoredSplits.add(split.getMessageQueue());
+                                pendingSplit.put(split.getMessageQueue(), split.copy());
+                            });
+                    return;
+                }
+            }
             pendingSplit.putAll(convertToNextSplit(splits));
             assignSplit();
         }
@@ -192,7 +259,7 @@ public class RocketMqSourceSplitEnumerator
 
     @Override
     public void registerReader(int subtaskId) {
-        if (!pendingSplit.isEmpty()) {
+        if (!pendingSplit.isEmpty() && initialized) {
             assignSplit();
         }
     }
@@ -259,8 +326,18 @@ public class RocketMqSourceSplitEnumerator
 
     private void setPartitionStartOffset() throws MQClientException {
         // Group pending partitions by their effective start mode (per-topic override or global).
+        // Restored splits already carry the correct checkpoint offset; skip them entirely so we
+        // do not overwrite the persisted position with a broker-derived offset.
         Map<StartMode, List<MessageQueue>> partitionsByMode = new LinkedHashMap<>();
         for (MessageQueue mq : pendingSplit.keySet()) {
+            if (restoredSplits.contains(mq)) {
+                log.debug(
+                        "Skipping offset reset for restored split: topic={}, broker={}, queueId={}",
+                        mq.getTopic(),
+                        mq.getBrokerName(),
+                        mq.getQueueId());
+                continue;
+            }
             StartMode effectiveMode = getEffectiveStartMode(mq.getTopic());
             partitionsByMode.computeIfAbsent(effectiveMode, k -> new ArrayList<>()).add(mq);
         }

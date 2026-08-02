@@ -17,11 +17,18 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.file.source.FileSourceDocumentRouting;
+
+import org.apache.commons.io.IOUtils;
 
 import com.vladsch.flexmark.ast.BlockQuote;
 import com.vladsch.flexmark.ast.BulletList;
@@ -42,8 +49,8 @@ import com.vladsch.flexmark.util.ast.Node;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
@@ -55,6 +62,41 @@ public class MarkdownReadStrategy extends AbstractReadStrategy {
 
     private static final int DEFAULT_PAGE_NUMBER = 1;
     private static final int DEFAULT_POSITION = 1;
+    private static final String[] DEFAULT_FIELD_NAMES = {
+        "element_id",
+        "element_type",
+        "heading_level",
+        "text",
+        "page_number",
+        "position_index",
+        "parent_id",
+        "child_ids"
+    };
+    private static final SeaTunnelDataType[] DEFAULT_FIELD_TYPES = {
+        BasicType.STRING_TYPE,
+        BasicType.STRING_TYPE,
+        BasicType.INT_TYPE,
+        BasicType.STRING_TYPE,
+        BasicType.INT_TYPE,
+        BasicType.INT_TYPE,
+        BasicType.STRING_TYPE,
+        BasicType.STRING_TYPE
+    };
+    /** Stable metadata fields appended for downstream RAG/document indexing pipelines. */
+    private static final String[] RAG_METADATA_FIELD_NAMES = {
+        "source_uri", "document_id", "chunk_id", "chunk_index", "content_hash"
+    };
+
+    private static final SeaTunnelDataType[] RAG_METADATA_FIELD_TYPES = {
+        BasicType.STRING_TYPE,
+        BasicType.STRING_TYPE,
+        BasicType.STRING_TYPE,
+        BasicType.INT_TYPE,
+        BasicType.STRING_TYPE
+    };
+
+    private boolean markdownRagMetadataEnabled =
+            FileBaseSourceOptions.MARKDOWN_RAG_METADATA_ENABLED.defaultValue();
 
     private static class NodeInfo {
         String elementId;
@@ -72,16 +114,26 @@ public class MarkdownReadStrategy extends AbstractReadStrategy {
     @Override
     public void read(String path, String tableId, Collector<SeaTunnelRow> output)
             throws IOException, FileConnectorException {
-        String markdown = new String(Files.readAllBytes(Paths.get(path)));
+        String markdown;
+        try (InputStream inputStream = hadoopFileSystemProxy.getInputStream(path)) {
+            markdown = IOUtils.toString(inputStream, StandardCharsets.UTF_8);
+        }
         Parser parser = Parser.builder().build();
         Node document = parser.parse(markdown);
+        String sourceUri = FileSourceDocumentRouting.normalizeSourceUri(path);
 
         Map<Node, NodeInfo> nodeInfoMap = new IdentityHashMap<>();
         Map<String, Integer> typeCounters = new HashMap<>();
         List<SeaTunnelRow> rows = new ArrayList<>();
 
         assignIdsAndCollectTree(document, null, nodeInfoMap, DEFAULT_POSITION, typeCounters);
-        generateRows(document, rows, nodeInfoMap, DEFAULT_PAGE_NUMBER);
+        generateRows(
+                document,
+                rows,
+                nodeInfoMap,
+                DEFAULT_PAGE_NUMBER,
+                sourceUri,
+                FileSourceDocumentRouting.buildDocumentId(sourceUri));
 
         for (SeaTunnelRow row : rows) {
             output.collect(row);
@@ -118,7 +170,12 @@ public class MarkdownReadStrategy extends AbstractReadStrategy {
     }
 
     private void generateRows(
-            Node node, List<SeaTunnelRow> rows, Map<Node, NodeInfo> nodeInfoMap, int pageNumber) {
+            Node node,
+            List<SeaTunnelRow> rows,
+            Map<Node, NodeInfo> nodeInfoMap,
+            int pageNumber,
+            String sourceUri,
+            String documentId) {
         if (isEligibleForRow(node)) {
             NodeInfo nodeInfo = nodeInfoMap.get(node);
             String elementType = node.getClass().getSimpleName();
@@ -129,20 +186,22 @@ public class MarkdownReadStrategy extends AbstractReadStrategy {
                 headingLevel = ((Heading) node).getLevel();
             }
 
-            rows.add(
-                    new SeaTunnelRow(
-                            new Object[] {
-                                nodeInfo.elementId,
-                                elementType,
-                                headingLevel,
-                                text,
-                                pageNumber,
-                                nodeInfo.positionIndex,
-                                nodeInfo.parentId,
-                                nodeInfo.childIds.isEmpty()
-                                        ? null
-                                        : String.join(",", nodeInfo.childIds)
-                            }));
+            Object[] fields =
+                    new Object[] {
+                        nodeInfo.elementId,
+                        elementType,
+                        headingLevel,
+                        text,
+                        pageNumber,
+                        nodeInfo.positionIndex,
+                        nodeInfo.parentId,
+                        nodeInfo.childIds.isEmpty() ? null : String.join(",", nodeInfo.childIds)
+                    };
+            if (markdownRagMetadataEnabled) {
+                fields = appendRagMetadata(fields, sourceUri, documentId, rows.size() + 1, text);
+            }
+
+            rows.add(new SeaTunnelRow(fields));
             log.debug(
                     "Added row: element_id={} type={} heading_level={} text={} parent_id={} child_ids={}",
                     nodeInfo.elementId,
@@ -154,7 +213,7 @@ public class MarkdownReadStrategy extends AbstractReadStrategy {
         }
 
         for (Node child = node.getFirstChild(); child != null; child = child.getNext()) {
-            generateRows(child, rows, nodeInfoMap, pageNumber);
+            generateRows(child, rows, nodeInfoMap, pageNumber, sourceUri, documentId);
         }
     }
 
@@ -254,26 +313,54 @@ public class MarkdownReadStrategy extends AbstractReadStrategy {
 
     @Override
     public SeaTunnelRowType getSeaTunnelRowTypeInfo(String path) throws FileConnectorException {
-        return new SeaTunnelRowType(
-                new String[] {
-                    "element_id",
-                    "element_type",
-                    "heading_level",
-                    "text",
-                    "page_number",
-                    "position_index",
-                    "parent_id",
-                    "child_ids"
-                },
-                new org.apache.seatunnel.api.table.type.SeaTunnelDataType[] {
-                    BasicType.STRING_TYPE,
-                    BasicType.STRING_TYPE,
-                    BasicType.INT_TYPE,
-                    BasicType.STRING_TYPE,
-                    BasicType.INT_TYPE,
-                    BasicType.INT_TYPE,
-                    BasicType.STRING_TYPE,
-                    BasicType.STRING_TYPE
-                });
+        if (markdownRagMetadataEnabled) {
+            return new SeaTunnelRowType(
+                    concat(DEFAULT_FIELD_NAMES, RAG_METADATA_FIELD_NAMES),
+                    concat(DEFAULT_FIELD_TYPES, RAG_METADATA_FIELD_TYPES));
+        }
+        return new SeaTunnelRowType(DEFAULT_FIELD_NAMES, DEFAULT_FIELD_TYPES);
+    }
+
+    @Override
+    public void setPluginConfig(Config pluginConfig) {
+        super.setPluginConfig(pluginConfig);
+        if (pluginConfig.hasPath(FileBaseSourceOptions.MARKDOWN_RAG_METADATA_ENABLED.key())) {
+            markdownRagMetadataEnabled =
+                    pluginConfig.getBoolean(
+                            FileBaseSourceOptions.MARKDOWN_RAG_METADATA_ENABLED.key());
+        }
+    }
+
+    private Object[] appendRagMetadata(
+            Object[] fields, String sourceUri, String documentId, int chunkIndex, String text) {
+        String contentHash = FileSourceDocumentRouting.sha256Hex(text == null ? "" : text);
+        // Keep chunk ids stable across re-reads of the same logical document while still changing
+        // when the chunk content changes.
+        String chunkId =
+                "chunk_"
+                        + FileSourceDocumentRouting.sha256Hex(
+                                documentId + ":" + chunkIndex + ":" + contentHash);
+        Object[] enriched = new Object[fields.length + RAG_METADATA_FIELD_NAMES.length];
+        System.arraycopy(fields, 0, enriched, 0, fields.length);
+        enriched[fields.length] = sourceUri;
+        enriched[fields.length + 1] = documentId;
+        enriched[fields.length + 2] = chunkId;
+        enriched[fields.length + 3] = chunkIndex;
+        enriched[fields.length + 4] = contentHash;
+        return enriched;
+    }
+
+    private static String[] concat(String[] left, String[] right) {
+        String[] result = new String[left.length + right.length];
+        System.arraycopy(left, 0, result, 0, left.length);
+        System.arraycopy(right, 0, result, left.length, right.length);
+        return result;
+    }
+
+    private static SeaTunnelDataType[] concat(SeaTunnelDataType[] left, SeaTunnelDataType[] right) {
+        SeaTunnelDataType[] result = new SeaTunnelDataType[left.length + right.length];
+        System.arraycopy(left, 0, result, 0, left.length);
+        System.arraycopy(right, 0, result, left.length, right.length);
+        return result;
     }
 }

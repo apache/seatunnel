@@ -351,6 +351,14 @@ public class PhysicalVertex {
     public synchronized void updateTaskState(@NonNull ExecutionState targetState) {
         try {
             ExecutionState current = (ExecutionState) runningJobStateIMap.get(taskGroupLocation);
+            if (current == null) {
+                log.warn(
+                        "{} current state is null, skip transition to {}. Task execution location: {}",
+                        taskFullName,
+                        targetState,
+                        taskGroupLocation);
+                return;
+            }
             log.debug(
                     String.format(
                             "Try to update the task %s state from %s to %s",
@@ -375,7 +383,9 @@ public class PhysicalVertex {
             RetryUtils.retryWithException(
                     () -> {
                         updateStateTimestamps(targetState);
-                        runningJobStateIMap.set(taskGroupLocation, targetState);
+                        if (runningJobStateIMap.get(taskGroupLocation) != null) {
+                            runningJobStateIMap.set(taskGroupLocation, targetState);
+                        }
                         return null;
                     },
                     new RetryUtils.RetryMaterial(
@@ -412,12 +422,10 @@ public class PhysicalVertex {
         int i = 0;
         // In order not to generate uncontrolled tasks, We will try again until the taskFuture is
         // completed
-        Address executionAddress;
+        Address executionAddress = getCurrentExecutionAddress();
         while (!taskFuture.isDone()
-                && nodeEngine
-                                .getClusterService()
-                                .getMember(executionAddress = getCurrentExecutionAddress())
-                        != null) {
+                && executionAddress != null
+                && nodeEngine.getClusterService().getMember(executionAddress) != null) {
             try {
                 i++;
                 log.info(
@@ -444,6 +452,15 @@ public class PhysicalVertex {
                     throw new RuntimeException(ex);
                 }
             }
+            executionAddress = getCurrentExecutionAddress();
+        }
+
+        if (!taskFuture.isDone() && ExecutionState.CANCELING.equals(getExecutionState())) {
+            log.warn(
+                    "{} cancel did not receive a terminal callback before member {} became unavailable, mark task as CANCELED locally.",
+                    taskFullName,
+                    executionAddress);
+            updateTaskState(ExecutionState.CANCELED);
         }
     }
 
@@ -451,6 +468,13 @@ public class PhysicalVertex {
         // we must update runningJobStateTimestampsIMap first and then can update
         // runningJobStateIMap
         Long[] stateTimestamps = runningJobStateTimestampsIMap.get(taskGroupLocation);
+        if (stateTimestamps == null) {
+            log.warn(
+                    "{} state timestamps have already been cleaned, skip persisting transition to {}",
+                    taskFullName,
+                    targetState);
+            return;
+        }
         stateTimestamps[targetState.ordinal()] = System.currentTimeMillis();
         runningJobStateTimestampsIMap.set(taskGroupLocation, stateTimestamps);
     }

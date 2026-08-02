@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.JedisWrapper;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisDataType;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisParameters;
+import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisTableConfig;
 
 import org.apache.commons.collections4.CollectionUtils;
 
@@ -82,14 +83,15 @@ public class RedisClusterClient extends RedisClient {
     }
 
     @Override
-    public List<Map<String, String>> batchGetHash(List<String> keys) {
+    public List<Map<String, String>> batchGetHash(List<String> keys, RedisTableConfig tableConfig) {
         if (CollectionUtils.isEmpty(keys)) {
             return new ArrayList<>();
         }
         List<Map<String, String>> result = new ArrayList<>(keys.size());
+        String keyFieldName = tableConfig.getKeyFieldName();
         for (String key : keys) {
             Map<String, String> map = jedis.hgetAll(key);
-            map.put(redisParameters.getKeyFieldName(), key);
+            map.put(keyFieldName, key);
             result.add(map);
         }
         return result;

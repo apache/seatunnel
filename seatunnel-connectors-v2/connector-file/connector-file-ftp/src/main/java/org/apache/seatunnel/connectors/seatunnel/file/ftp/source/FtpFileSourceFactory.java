@@ -27,6 +27,7 @@ import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FilePostSyncAction;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSyncMode;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.ftp.config.FtpFileSourceOptions;
@@ -100,6 +101,10 @@ public class FtpFileSourceFactory implements TableSourceFactory {
                 .optional(FileBaseSourceOptions.NULL_FORMAT)
                 .optional(FileBaseSourceOptions.FILENAME_EXTENSION)
                 .optional(FileBaseSourceOptions.READ_COLUMNS)
+                .conditional(
+                        FileBaseSourceOptions.FILE_FORMAT_TYPE,
+                        FileFormat.MARKDOWN,
+                        FileBaseSourceOptions.MARKDOWN_RAG_METADATA_ENABLED)
                 .optional(FtpFileSourceOptions.FTP_REMOTE_VERIFICATION_ENABLED)
                 .optional(FtpFileSourceOptions.FTP_CONTROL_ENCODING)
                 .optional(FileBaseSourceOptions.QUOTE_CHAR)
@@ -113,11 +118,23 @@ public class FtpFileSourceFactory implements TableSourceFactory {
                         FileBaseSourceOptions.SYNC_MODE,
                         FileBaseSourceOptions.TARGET_HADOOP_CONF,
                         FileBaseSourceOptions.UPDATE_STRATEGY,
-                        FileBaseSourceOptions.COMPARE_MODE)
+                        FileBaseSourceOptions.COMPARE_MODE,
+                        FileBaseSourceOptions.UPDATE_COMPARE_PARALLELISM,
+                        FileBaseSourceOptions.UPDATE_COMPARE_BULK_THRESHOLD)
+                .optional(
+                        FileBaseSourceOptions.POST_SYNC_ACTION,
+                        FileBaseSourceOptions.BACKUP_PATH,
+                        FileBaseSourceOptions.RETENTION_MAX_AGE,
+                        FileBaseSourceOptions.RETENTION_CHECK_INTERVAL)
                 .conditional(
                         FileBaseSourceOptions.SYNC_MODE,
                         FileSyncMode.UPDATE,
                         FileBaseSourceOptions.TARGET_PATH)
+                .conditional(
+                        FileBaseSourceOptions.POST_SYNC_ACTION,
+                        FilePostSyncAction.BACKUP,
+                        FileBaseSourceOptions.BACKUP_PATH)
+                .optional(FileBaseSourceOptions.RECURSIVE_FILE_SCAN)
                 .build();
     }
 

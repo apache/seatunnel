@@ -38,6 +38,7 @@ import org.apache.paimon.catalog.Identifier;
 import org.apache.paimon.schema.SchemaChange;
 import org.apache.paimon.types.DataField;
 import org.apache.paimon.types.DataType;
+import org.apache.paimon.utils.BranchManager;
 import org.apache.paimon.utils.Preconditions;
 
 import lombok.extern.slf4j.Slf4j;
@@ -61,15 +62,19 @@ public class AlterPaimonTableSchemaEventHandler {
 
     private final TablePath paimonTablePath;
 
+    private final String branch;
+
     public AlterPaimonTableSchemaEventHandler(
             TableSchema sourceTableSchema,
             PaimonCatalog paimonCatalog,
             org.apache.paimon.schema.TableSchema sinkPaimonTableSchema,
-            TablePath paimonTablePath) {
+            TablePath paimonTablePath,
+            String branch) {
         this.sourceTableSchema = sourceTableSchema;
         this.paimonCatalog = paimonCatalog;
         this.sinkPaimonTableSchema = sinkPaimonTableSchema;
         this.paimonTablePath = paimonTablePath;
+        this.branch = branch;
     }
 
     public TableSchema apply(SchemaChangeEvent event) {
@@ -87,9 +92,7 @@ public class AlterPaimonTableSchemaEventHandler {
     }
 
     private void applySingleSchemaChangeEvent(SchemaChangeEvent event) {
-        Identifier identifier =
-                Identifier.create(
-                        paimonTablePath.getDatabaseName(), paimonTablePath.getTableName());
+        Identifier identifier = toIdentifier();
         if (event instanceof AlterTableAddColumnEvent) {
             AlterTableAddColumnEvent alterTableAddColumnEvent = (AlterTableAddColumnEvent) event;
             Column column = alterTableAddColumnEvent.getColumn();
@@ -128,6 +131,15 @@ public class AlterPaimonTableSchemaEventHandler {
         } else {
             throw new UnsupportedOperationException("Unsupported alter table event: " + event);
         }
+    }
+
+    private Identifier toIdentifier() {
+        if (StringUtils.isNotEmpty(branch)
+                && !BranchManager.DEFAULT_MAIN_BRANCH.equalsIgnoreCase(branch)) {
+            return new Identifier(
+                    paimonTablePath.getDatabaseName(), paimonTablePath.getTableName(), branch);
+        }
+        return Identifier.create(paimonTablePath.getDatabaseName(), paimonTablePath.getTableName());
     }
 
     private void updateColumn(

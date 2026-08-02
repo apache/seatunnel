@@ -32,6 +32,11 @@ public class RabbitmqSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void> {
 
     public RabbitmqSinkWriter(RabbitmqConfig config, SeaTunnelRowType seaTunnelRowType) {
         this.rabbitMQClient = new RabbitmqClient(config);
+        try {
+            this.rabbitMQClient.setupQueue();
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to setup RabbitMQ queue", e);
+        }
         this.jsonSerializationSchema = new JsonSerializationSchema(seaTunnelRowType);
     }
 

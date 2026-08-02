@@ -20,18 +20,26 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc;
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Pair;
 
+import org.apache.seatunnel.api.options.MultiTableFailurePolicy;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceTableConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceTable;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.JdbcCatalogUtils;
 
+import org.junit.jupiter.api.Assertions;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
+import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerLoggerFactory;
 
 import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Statement;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -45,6 +53,7 @@ public class JdbcHiveIT extends AbstractJdbcIT {
     private static final String HIVE_DATABASE = "default";
 
     private static final String HIVE_SOURCE = "hive_e2e_source_table";
+    private static final String HIVE_PARTITION_TABLE = "hive_e2e_partition_table";
     private static final String HIVE_USERNAME = "root";
     private static final String HIVE_PASSWORD = null;
     private static final int HIVE_PORT = 10000;
@@ -53,7 +62,9 @@ public class JdbcHiveIT extends AbstractJdbcIT {
     private static final String DRIVER_CLASS = "org.apache.hive.jdbc.HiveDriver";
 
     private static final List<String> CONFIG_FILE =
-            Lists.newArrayList("/jdbc_hive_source_and_assert.conf");
+            Lists.newArrayList(
+                    "/jdbc_hive_source_and_assert.conf",
+                    "/jdbc_hive_partition_source_and_assert.conf");
     private static final String CREATE_SQL =
             "CREATE TABLE hive_e2e_source_table"
                     + "("
@@ -74,6 +85,18 @@ public class JdbcHiveIT extends AbstractJdbcIT {
                     + "    decimal_column          DECIMAL(10, 2),"
                     + "    numeric_column          NUMERIC(10, 2)"
                     + ")";
+
+    private static final String PARTITION_TABLE_CREATE_SQL =
+            "CREATE TABLE IF NOT EXISTS "
+                    + HIVE_DATABASE
+                    + "."
+                    + HIVE_PARTITION_TABLE
+                    + "("
+                    + "    id                      INT,"
+                    + "    name                    STRING,"
+                    + "    amount                  DOUBLE"
+                    + ")"
+                    + " PARTITIONED BY (dt STRING, hr STRING)";
 
     @Override
     JdbcCase getJdbcCase() {
@@ -108,6 +131,7 @@ public class JdbcHiveIT extends AbstractJdbcIT {
                             buildTableInfoWithSchema(
                                     jdbcCase.getDatabase(), jdbcCase.getSourceTable()));
             statement.execute(createSource);
+            statement.execute(PARTITION_TABLE_CREATE_SQL);
         } catch (Exception exception) {
             log.error(ExceptionUtils.getMessage(exception));
             throw new SeaTunnelRuntimeException(JdbcITErrorCode.CREATE_TABLE_FAILED, exception);
@@ -136,6 +160,26 @@ public class JdbcHiveIT extends AbstractJdbcIT {
                                 + "        42.10,"
                                 + "        42.12)");
             }
+            // Insert data into partitioned table across 3 dates and 2 hours
+            String[] dates = {"2023-09-01", "2023-09-02", "2023-09-03"};
+            String[] hours = {"00", "01"};
+            int id = 1;
+            for (String dt : dates) {
+                for (String hr : hours) {
+                    statement.execute(
+                            String.format(
+                                    "INSERT INTO %s.%s PARTITION(dt='%s', hr='%s') "
+                                            + "VALUES(%d, 'name_%d', %.2f)",
+                                    HIVE_DATABASE,
+                                    HIVE_PARTITION_TABLE,
+                                    dt,
+                                    hr,
+                                    id,
+                                    id,
+                                    id * 10.5));
+                    id++;
+                }
+            }
         } catch (Exception exception) {
             log.error(ExceptionUtils.getMessage(exception));
             throw new SeaTunnelRuntimeException(JdbcITErrorCode.INSERT_DATA_FAILED, exception);
@@ -160,6 +204,8 @@ public class JdbcHiveIT extends AbstractJdbcIT {
                         .withNetwork(NETWORK)
                         .withNetworkAliases(HIVE_CONTAINER_HOST)
                         .withEnv("SERVICE_NAME", "hiveserver2")
+                        .waitingFor(
+                                Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(5)))
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(HIVE_IMAGE)));
         container.setPortBindings(Lists.newArrayList(String.format("%s:%s", HIVE_PORT, HIVE_PORT)));
@@ -168,5 +214,47 @@ public class JdbcHiveIT extends AbstractJdbcIT {
 
     public void clearTable(String schema, String table) {
         // do nothing.
+    }
+
+    @Override
+    void checkResult(
+            String executeKey,
+            org.apache.seatunnel.e2e.common.container.TestContainer container,
+            org.testcontainers.containers.Container.ExecResult execResult) {
+        try {
+            TablePath partitionTablePath = TablePath.of(HIVE_DATABASE + "." + HIVE_PARTITION_TABLE);
+            JdbcSourceTableConfig tableConfig =
+                    JdbcSourceTableConfig.builder()
+                            .tablePath(partitionTablePath.getFullName())
+                            .useSelectCount(false)
+                            .build();
+            Map<TablePath, JdbcSourceTable> tables =
+                    JdbcCatalogUtils.getTables(
+                            JdbcConnectionConfig.builder()
+                                    .url(jdbcCase.getJdbcUrl().replace(HOST, dbServer.getHost()))
+                                    .driverName(jdbcCase.getDriverClass())
+                                    .username(jdbcCase.getUserName())
+                                    .password(jdbcCase.getPassword())
+                                    .build(),
+                            Lists.newArrayList(tableConfig),
+                            MultiTableFailurePolicy.FAIL_FAST);
+            JdbcSourceTable partitionSourceTable = tables.get(partitionTablePath);
+            Assertions.assertNotNull(
+                    partitionSourceTable,
+                    String.format(
+                            "JdbcCatalogUtils should load partitioned table %s",
+                            partitionTablePath.getFullName()));
+            List<String> partitionKeys = partitionSourceTable.getCatalogTable().getPartitionKeys();
+            log.info(
+                    "Detected catalog partition keys for {}: {}",
+                    partitionTablePath.getFullName(),
+                    partitionKeys);
+            Assertions.assertEquals(
+                    Lists.newArrayList("dt", "hr"),
+                    partitionKeys,
+                    "JdbcCatalogUtils should carry Hive partition keys into CatalogTable");
+        } catch (Exception e) {
+            Assertions.fail("Failed to load Hive partition keys from JdbcCatalogUtils", e);
+        }
     }
 }

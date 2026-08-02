@@ -16,7 +16,7 @@ import ChangeLog from '../changelog/connector-socket.md';
 
 ## Description
 
-Used to send data to Socket Server. Both support streaming and batch mode.
+Used to send data to a socket server in streaming or batch mode. Each SeaTunnel row is serialized as one JSON line.
 
 > For example, if the data from upstream is [`age: 12, name: jared`], the content send to socket server is the following: `{"name":"jared","age":17}`
 
@@ -27,7 +27,13 @@ Used to send data to Socket Server. Both support streaming and batch mode.
 | host           | String  | Yes      |         | socket server host                                                                                              |
 | port           | Integer | Yes      |         | socket server port                                                                                              |
 | max_retries    | Integer | No       | 3       | The number of retries to send record failed                                                                     |
-| common-options |         | No       | -       | Source plugin common parameters, please refer to [Source Common Options](../common-options/sink-common-options.md) for details |
+| common-options |         | No       | -       | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details |
+
+:::tip
+
+Socket sink is mainly used for local debugging and simple integrations. It reconnects and retries failed writes according to `max_retries`, but it does not provide exactly-once delivery.
+
+:::
 
 ## Task Example
 
@@ -76,4 +82,3 @@ nc -l -v 9999
 ## Changelog
 
 <ChangeLog />
-

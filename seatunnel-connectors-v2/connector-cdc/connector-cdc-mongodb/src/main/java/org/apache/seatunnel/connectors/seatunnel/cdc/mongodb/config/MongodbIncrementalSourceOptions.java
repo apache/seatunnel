@@ -39,7 +39,9 @@ public class MongodbIncrementalSourceOptions extends SourceOptions implements Ta
                     .noDefaultValue()
                     .withDescription(
                             "The comma-separated list of hostname and port pairs of the MongoDB servers. "
-                                    + "eg. localhost:27017,localhost:27018");
+                                    + "A standard MongoDB connection URI with mongodb:// or mongodb+srv:// "
+                                    + "scheme is also supported. "
+                                    + "eg. localhost:27017,localhost:27018 or mongodb+srv://cluster.example.net");
 
     public static final Option<String> USERNAME =
             Options.key("username")
@@ -136,11 +138,15 @@ public class MongodbIncrementalSourceOptions extends SourceOptions implements Ta
             Options.key(SourceOptions.STARTUP_MODE_KEY)
                     .singleChoice(
                             StartupMode.class,
-                            Arrays.asList(StartupMode.INITIAL, StartupMode.TIMESTAMP))
+                            Arrays.asList(
+                                    StartupMode.INITIAL, StartupMode.LATEST, StartupMode.TIMESTAMP))
                     .defaultValue(StartupMode.INITIAL)
                     .withDescription(
-                            "Optional startup mode for CDC source, valid enumerations are "
-                                    + "\"initial\", \"earliest\", \"latest\", \"timestamp\"\n or \"specific\"");
+                            "Optional startup mode for MongoDB CDC source, valid enumerations are "
+                                    + "\"initial\", \"latest\" or \"timestamp\". "
+                                    + "\"initial\": reads a snapshot of the monitored collections first and then switches to the change stream. "
+                                    + "\"latest\": skips the snapshot entirely and starts from the latest change-stream position, so only changes made after the job starts are captured. "
+                                    + "\"timestamp\": skips the snapshot and starts reading the change stream from the position given by \"startup.timestamp\".");
 
     public static final SingleChoiceOption<StopMode> STOP_MODE =
             Options.key(SourceOptions.STOP_MODE_KEY)

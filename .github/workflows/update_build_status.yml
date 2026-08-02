@@ -38,7 +38,6 @@ jobs:
           script: |
             const SEARCH_WINDOW_DAYS = 7;
             const BATCH_SIZE = 10;
-            const maybeReady = ['behind', 'clean', 'draft', 'has_hooks', 'unknown', 'unstable'];
 
             function getSearchSince() {
               const windowStart = new Date(Date.now() - SEARCH_WINDOW_DAYS * 24 * 60 * 60 * 1000);
@@ -98,10 +97,6 @@ jobs:
 
                 console.log(`PR #${pr.number} SHA: ${pr.head.sha}`);
                 console.log(`  Mergeable status: ${pr.mergeable_state}`);
-                if (pr.mergeable_state != null && !maybeReady.includes(pr.mergeable_state)) {
-                  console.log(`  Skip PR #${pr.number}: mergeable state ${pr.mergeable_state}`);
-                  return;
-                }
 
                 const checkRuns = await github.request(
                   'GET /repos/{owner}/{repo}/commits/{ref}/check-runs',
