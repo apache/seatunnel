@@ -81,7 +81,6 @@ class CiScopeTest(unittest.TestCase):
                 ["tools/benchmarks/save_jmh_result.py"],
             )
         )
-
     def test_skip_full_api_check_for_dist_only_fork_change(self) -> None:
         self.assertFalse(
             should_run_full_api_check(
