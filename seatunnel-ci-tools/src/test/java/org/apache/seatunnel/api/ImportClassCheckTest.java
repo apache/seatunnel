@@ -24,10 +24,7 @@ import org.junit.jupiter.api.Test;
 
 import com.github.javaparser.JavaParser;
 import com.github.javaparser.ParseResult;
-import com.github.javaparser.Range;
 import com.github.javaparser.ast.CompilationUnit;
-import com.github.javaparser.ast.ImportDeclaration;
-import com.github.javaparser.ast.NodeList;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -50,7 +47,7 @@ import static java.nio.file.StandardOpenOption.READ;
 @Slf4j
 public class ImportClassCheckTest {
 
-    private static Map<String, NodeList<ImportDeclaration>> importsMap = new HashMap<>();
+    private static Map<String, List<ImportClassEntry>> importsMap = new HashMap<>();
     private final String SEATUNNEL_SHADE_PREFIX = "org.apache.seatunnel.shade.";
     public static final boolean isWindows =
             System.getProperty("os.name").toLowerCase().startsWith("win");
@@ -68,7 +65,9 @@ public class ImportClassCheckTest {
                                             JAVA_PARSER.parse(inputStream);
                                     Optional<CompilationUnit> result = parseResult.getResult();
                                     if (result.isPresent()) {
-                                        importsMap.put(path.toString(), result.get().getImports());
+                                        importsMap.put(
+                                                path.toString(),
+                                                extractImportEntries(result.get()));
                                     } else {
                                         log.error("Failed to parse Java file: " + path);
                                     }
@@ -181,6 +180,29 @@ public class ImportClassCheckTest {
         log.info("check java concurrent CompletableFuture successfully");
     }
 
+    @Test
+    public void shouldKeepImportNameAndLineWhenPrecomputingImportEntries() {
+        ParseResult<CompilationUnit> parseResult =
+                JAVA_PARSER.parse(
+                        "package org.apache.seatunnel.api;\n"
+                                + "import java.util.List;\n"
+                                + "import org.apache.commons.lang3.StringUtils;\n"
+                                + "class Sample {}");
+        CompilationUnit compilationUnit = parseResult.getResult().orElseThrow(AssertionError::new);
+
+        List<ImportClassEntry> importEntries = extractImportEntries(compilationUnit);
+
+        Assertions.assertEquals(2, importEntries.size());
+        Assertions.assertEquals("java.util.List", importEntries.get(0).getImportClassName());
+        Assertions.assertEquals(2, importEntries.get(0).getLineNumber());
+        Assertions.assertEquals(
+                "org.apache.commons.lang3.StringUtils", importEntries.get(1).getImportClassName());
+        Assertions.assertEquals(3, importEntries.get(1).getLineNumber());
+        Assertions.assertEquals(
+                "org.apache.commons.lang3.StringUtils  [3]",
+                formatImportClassLine(importEntries.get(1)));
+    }
+
     private Map<String, List<String>> checkImportClassPrefixWithAll(List<String> prefixList) {
         return checkImportClassPrefix(prefixList, Collections.emptyList(), Collections.emptyList());
     }
@@ -221,13 +243,15 @@ public class ImportClassCheckTest {
                         List<String> collect =
                                 imports.stream()
                                         .filter(
-                                                importDeclaration -> {
-                                                    String importClz =
-                                                            importDeclaration.getName().asString();
-                                                    return prefixList.stream()
-                                                            .anyMatch(importClz::startsWith);
-                                                })
-                                        .map(this::getImportClassLineNum)
+                                                importEntry ->
+                                                        prefixList.stream()
+                                                                .anyMatch(
+                                                                        prefix ->
+                                                                                importEntry
+                                                                                        .getImportClassName()
+                                                                                        .startsWith(
+                                                                                                prefix)))
+                                        .map(this::formatImportClassLine)
                                         .collect(Collectors.toList());
                         if (!collect.isEmpty()) {
                             errorMap.put(clazzPath, collect);
@@ -256,13 +280,45 @@ public class ImportClassCheckTest {
         return msg.toString();
     }
 
-    private String getImportClassLineNum(ImportDeclaration importDeclaration) {
-        Range range = importDeclaration.getRange().get();
-        return String.format("%s  [%s]", importDeclaration.getName().asString(), range.end.line);
+    private static List<ImportClassEntry> extractImportEntries(CompilationUnit compilationUnit) {
+        return compilationUnit.getImports().stream()
+                .map(
+                        importDeclaration ->
+                                new ImportClassEntry(
+                                        importDeclaration.getNameAsString(),
+                                        importDeclaration
+                                                .getRange()
+                                                .map(range -> range.end.line)
+                                                .orElse(-1)))
+                .collect(Collectors.toList());
+    }
+
+    private String formatImportClassLine(ImportClassEntry importClassEntry) {
+        return String.format(
+                "%s  [%s]",
+                importClassEntry.getImportClassName(), importClassEntry.getLineNumber());
     }
 
     @AfterAll
     public static void cleanup() {
         importsMap.clear();
+    }
+
+    private static final class ImportClassEntry {
+        private final String importClassName;
+        private final int lineNumber;
+
+        private ImportClassEntry(String importClassName, int lineNumber) {
+            this.importClassName = importClassName;
+            this.lineNumber = lineNumber;
+        }
+
+        private String getImportClassName() {
+            return importClassName;
+        }
+
+        private int getLineNumber() {
+            return lineNumber;
+        }
     }
 }
