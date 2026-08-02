@@ -199,6 +199,18 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                                     jobConfig,
                                     seaTunnelConfig,
                                     Long.parseLong(clientCommandArgs.getRestoreJobId()));
+                } else if (null != clientCommandArgs.getRestoreWithCheckpointJobId()) {
+                    jobExecutionEnv =
+                            engineClient.restoreFromCheckpointExecutionContext(
+                                    configFile.toString(),
+                                    clientCommandArgs.getVariables(),
+                                    jobConfig,
+                                    seaTunnelConfig,
+                                    Long.parseLong(
+                                            clientCommandArgs.getRestoreWithCheckpointJobId()),
+                                    clientCommandArgs.getCustomJobId() != null
+                                            ? Long.parseLong(clientCommandArgs.getCustomJobId())
+                                            : null);
                 } else {
                     jobExecutionEnv =
                             engineClient.createExecutionContext(

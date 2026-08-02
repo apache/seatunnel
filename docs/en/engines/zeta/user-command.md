@@ -35,7 +35,8 @@ Usage: seatunnel.sh [options]
     -l, --list                                  List the job status (default: false).
     --metrics                                   Get the job metrics by JobId.
     -n, --name                                  The SeaTunnel job name (default: SeaTunnel).
-    -r, --restore, --restore-job                Restore with savepoint by jobId.
+    -r, --restore, --restore-job                Restore from the latest savepoint by jobId.
+    --restore-with-checkpoint                   Restore from the latest completed checkpoint by jobId.
     -s, --savepoint, --savepoint-job            Savepoint the job by jobId.
     --sample-limit                              Maximum rows read from each source by sample dry-run mode (default: 10, max: 10000).
     --sample-print-data                         Print sampled row values to persistent logs (default: false).

@@ -76,6 +76,11 @@ public class ClientCommandArgs extends AbstractCommandArgs {
     private String restoreJobId;
 
     @Parameter(
+            names = {"--restore-with-checkpoint"},
+            description = "restore from latest successful completed checkpoint by historical jobId")
+    private String restoreWithCheckpointJobId;
+
+    @Parameter(
             names = {"-s", "--savepoint", "--savepoint-job"},
             description = "savepoint job by jobId")
     private String savePointJobId;
@@ -161,6 +166,28 @@ public class ClientCommandArgs extends AbstractCommandArgs {
     @Override
     public Command<?> buildCommand() {
         validateSampleOptions();
+        if (restoreJobId != null && restoreWithCheckpointJobId != null) {
+            throw new IllegalArgumentException(
+                    "--restore and --restore-with-checkpoint are mutually exclusive");
+        }
+        if (savePointJobId != null && restoreWithCheckpointJobId != null) {
+            throw new IllegalArgumentException(
+                    "--savepoint and --restore-with-checkpoint are mutually exclusive");
+        }
+        if (restoreWithCheckpointJobId != null) {
+            restoreWithCheckpointJobId =
+                    normalizeNumericJobId(
+                            restoreWithCheckpointJobId,
+                            "restoreSourceJobId is required when using --restore-with-checkpoint",
+                            "--restore-with-checkpoint requires a numeric jobId, got: ");
+        }
+        if (customJobId != null) {
+            customJobId =
+                    normalizeNumericJobId(
+                            customJobId,
+                            "--set-job-id requires a non-blank jobId",
+                            "--set-job-id requires a numeric jobId, got: ");
+        }
         Common.setDeployMode(getDeployMode());
         if (dryRun == DryRun.SAMPLE) {
             validateSampleMode();
@@ -176,6 +203,20 @@ public class ClientCommandArgs extends AbstractCommandArgs {
             return new ConfDecryptCommand(this);
         }
         return new ClientExecuteCommand(this);
+    }
+
+    private String normalizeNumericJobId(
+            String value, String blankMessage, String invalidMessagePrefix) {
+        String trimmed = value.trim();
+        if (trimmed.isEmpty()) {
+            throw new IllegalArgumentException(blankMessage);
+        }
+        try {
+            Long.parseLong(trimmed);
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException(invalidMessagePrefix + value, e);
+        }
+        return trimmed;
     }
 
     public DeployMode getDeployMode() {
