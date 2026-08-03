@@ -19,15 +19,9 @@ package org.apache.seatunnel.core.starter.command;
 import com.beust.jcommander.converters.IParameterSplitter;
 
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 public class ParameterSplitter implements IParameterSplitter {
-
-    private static final Set<Character> UNESCAPED_TOKENS =
-            new HashSet<>(Arrays.asList('"', '{', '}', '[', ']', ',', '\\'));
 
     @Override
     public List<String> split(String value) {
@@ -43,7 +37,7 @@ public class ParameterSplitter implements IParameterSplitter {
 
             if (c == '\\' && i + 1 < value.length()) {
                 char next = value.charAt(i + 1);
-                if (UNESCAPED_TOKENS.contains(next)) {
+                if (next == '"') {
                     currentToken.append(next);
                 } else {
                     currentToken.append('\\');
@@ -53,6 +47,7 @@ public class ParameterSplitter implements IParameterSplitter {
 
                 continue;
             }
+
             if (c == '"') {
                 insideQuotes = !insideQuotes;
             } else if (!insideQuotes) {
