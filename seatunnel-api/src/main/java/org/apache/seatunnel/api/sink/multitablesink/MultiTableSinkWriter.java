@@ -490,9 +490,12 @@ public class MultiTableSinkWriter
      * Collects every sub-writer that must observe this schema change event. We first route by the
      * source table identifier carried by the event, then fan the same event out to sibling
      * sub-writers that report the same physical sink table identifier.
+     *
+     * @throws IOException when registering a newly created table fails and the configured failure
+     *     policy does not allow the job to continue with the remaining tables
      */
     private List<SchemaChangeDispatchTarget> collectSchemaChangeDispatchTargets(
-            SchemaChangeEvent event) {
+            SchemaChangeEvent event) throws IOException {
         String tableId = event.tablePath().getFullName();
         if (isTableFailed(tableId)) {
             log.warn("Skip schema change for failed table {}", tableId);
