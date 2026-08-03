@@ -53,6 +53,7 @@ import org.apache.seatunnel.connectors.seatunnel.pulsar.source.format.PulsarCana
 import org.apache.seatunnel.connectors.seatunnel.pulsar.source.reader.PulsarSourceReader;
 import org.apache.seatunnel.connectors.seatunnel.pulsar.source.split.PulsarPartitionSplit;
 import org.apache.seatunnel.format.avro.AvroDeserializationSchema;
+import org.apache.seatunnel.format.text.TextDeserializationSchema;
 import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 import org.apache.seatunnel.format.json.canal.CanalJsonDeserializationSchema;
 import org.apache.seatunnel.format.json.exception.SeaTunnelJsonFormatException;
@@ -199,7 +200,7 @@ public class PulsarSource
                     new PulsarConsumerMetadata(
                             tablePath,
                             catalogTable,
-                            createDeserialization(tableConfig.getFormat(), catalogTable),
+                            createDeserialization(tableConfig.getFormat(), catalogTable, tableConfig.getSchemaConfig()),
                             createDiscoverer(tableConfig),
                             createStartCursor(tableConfig),
                             createStopCursor(tableConfig),
@@ -262,7 +263,7 @@ public class PulsarSource
     }
 
     private DeserializationSchema<SeaTunnelRow> createDeserialization(
-            String format, CatalogTable catalogTable) {
+            String format, CatalogTable catalogTable, ReadonlyConfig schemaConfig) {
         switch (format.toUpperCase()) {
             case "JSON":
                 return new JsonDeserializationSchema(
@@ -274,6 +275,12 @@ public class PulsarSource
                                 .build());
             case "AVRO":
                 return new AvroDeserializationSchema(catalogTable);
+            case "TEXT":
+                return TextDeserializationSchema.builder()
+                        .seaTunnelRowType(catalogTable.getSeaTunnelRowType())
+                        .delimiter(
+                                schemaConfig.get(PulsarSourceOptions.FIELD_DELIMITER))
+                        .build();
             default:
                 throw new SeaTunnelJsonFormatException(
                         CommonErrorCode.UNSUPPORTED_DATA_TYPE, "Unsupported format: " + format);
