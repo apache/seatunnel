@@ -432,7 +432,7 @@ public class JdbcSinkFactory implements TableSinkFactory, SupportSinkDryRunValid
             return null;
         }
         TablePath tablePath =
-                resolveSinkTablePath(config, getCatalogOptions(context), context.getCatalogTable());
+                resolveSinkTablePath(config, getCatalogOptions(config), context.getCatalogTable());
         if (StringUtils.isBlank(tablePath.getDatabaseName())
                 || StringUtils.isBlank(tablePath.getTableName())) {
             return null;
