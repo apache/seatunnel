@@ -62,5 +62,10 @@ Change Data Capture connectors read real-time change events (INSERT / UPDATE / D
 ## Tips for Finding Answers
 
 1. **Connector-specific issues** → go directly to the connector's page and scroll to its **FAQ** section.
-2. **Cross-connector topics** (e.g., "does SeaTunnel support CDC?", "what is `schema_save_mode`?") → see the [General FAQ](../faq.md).
-3. **Still stuck?** → search the [GitHub Issues](https://github.com/apache/seatunnel/issues) or reach out via the [mailing list](https://lists.apache.org/list.html?dev@seatunnel.apache.org).
+2. **Type and schema questions** (e.g., JSON schema, Debezium schema, Oracle CLOB, MySQL TINYINT, ORC/Parquet mapping) → see [Type and Schema FAQ](./type-schema-faq.md).
+3. **File and object storage questions** (e.g., MinIO/S3, small files, save modes, multi-table file paths) → see [File and Object Storage FAQ](./file-object-storage-faq.md).
+4. **Cross-connector topics** (e.g., "does SeaTunnel support CDC?", "what is `schema_save_mode`?") → see the [General FAQ](../faq.md).
+5. **Still stuck?** → search the [GitHub Issues](https://github.com/apache/seatunnel/issues) or reach out via the [mailing list](https://lists.apache.org/list.html?dev@seatunnel.apache.org).
+2. **Cross-connector sink write topics** (e.g., "`generate_sink_sql` vs `query`", "`schema_save_mode`", "`data_save_mode`", or `enable_upsert`) → see [Sink Write Modes and Save Modes](./common-options/sink-write-modes.md).
+3. **Other cross-connector topics** (e.g., "does SeaTunnel support CDC?") → see the [General FAQ](../faq.md).
+4. **Still stuck?** → search the [GitHub Issues](https://github.com/apache/seatunnel/issues) or reach out via the [mailing list](https://lists.apache.org/list.html?dev@seatunnel.apache.org).
