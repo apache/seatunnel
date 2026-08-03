@@ -19,9 +19,15 @@ package org.apache.seatunnel.core.starter.command;
 import com.beust.jcommander.converters.IParameterSplitter;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public class ParameterSplitter implements IParameterSplitter {
+
+    private static final Set<Character> UNESCAPED_TOKENS =
+            new HashSet<>(Arrays.asList('"', '{', '}', '[', ']', ',', '\\'));
 
     @Override
     public List<String> split(String value) {
@@ -37,8 +43,14 @@ public class ParameterSplitter implements IParameterSplitter {
 
             if (c == '\\' && i + 1 < value.length()) {
                 char next = value.charAt(i + 1);
-                currentToken.append(next);
+                if (UNESCAPED_TOKENS.contains(next)) {
+                    currentToken.append(next);
+                } else {
+                    currentToken.append('\\');
+                    currentToken.append(next);
+                }
                 i++;
+
                 continue;
             }
             if (c == '"') {
@@ -46,12 +58,16 @@ public class ParameterSplitter implements IParameterSplitter {
             } else if (!insideQuotes) {
                 if (c == '{') {
                     braceDepth++;
-                } else if (c == '}') {
+                } else if (c == '}' && braceDepth > 0) {
                     braceDepth--;
+                } else if (c == '}' && braceDepth == 0) {
+                    throw new IllegalArgumentException("Unexpected closing brace '}': " + value);
                 } else if (c == '[') {
                     bracketDepth++;
-                } else if (c == ']') {
+                } else if (c == ']' && bracketDepth > 0) {
                     bracketDepth--;
+                } else if (c == ']' && braceDepth == 0) {
+                    throw new IllegalArgumentException("Unexpected closing bracket ']': " + value);
                 }
             }
 
@@ -69,7 +85,9 @@ public class ParameterSplitter implements IParameterSplitter {
 
         if (braceDepth != 0 || bracketDepth != 0 || insideQuotes) {
             throw new IllegalArgumentException(
-                    "Invalid parameter string: unmatched braces/brackets or unclosed quotes");
+                    "Invalid variable value '"
+                            + value
+                            + "': unmatched braces/brackets or unclosed quotes");
         }
 
         return result;
