@@ -35,6 +35,7 @@ import org.apache.seatunnel.api.table.catalog.schema.ReadonlyConfigParser;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
@@ -172,11 +173,30 @@ public class KafkaSourceConfig implements Serializable {
         consumerMetadata.setTopic(readonlyConfig.get(TOPIC));
         consumerMetadata.setPattern(readonlyConfig.get(PATTERN));
         consumerMetadata.setProperties(new Properties());
-        // Create a catalog
-        CatalogTable catalogTable = createCatalogTable(readonlyConfig);
-        consumerMetadata.setCatalogTable(catalogTable);
-        consumerMetadata.setDeserializationSchema(
-                createDeserializationSchema(catalogTable, readonlyConfig));
+
+        CatalogTable baseCatalogTable = createCatalogTable(readonlyConfig);
+        List<String> headerFields =
+                readonlyConfig
+                        .getOptional(KafkaSourceOptions.KAFKA_HEADERS_FIELDS)
+                        .orElse(Collections.emptyList());
+        MessageFormat format = readonlyConfig.get(FORMAT);
+
+        boolean applyHeaderFields = !headerFields.isEmpty() && format != MessageFormat.NATIVE;
+
+        DeserializationSchema<SeaTunnelRow> schema =
+                createDeserializationSchema(baseCatalogTable, readonlyConfig, headerFields);
+
+        CatalogTable outputCatalogTable =
+                applyHeaderFields
+                        ? extendCatalogTableWithHeaderFields(baseCatalogTable, headerFields)
+                        : baseCatalogTable;
+
+        if (!headerFields.isEmpty() && format == MessageFormat.COMPATIBLE_KAFKA_CONNECT_JSON) {
+            consumerMetadata.setKafkaHeaderFields(headerFields);
+        }
+
+        consumerMetadata.setCatalogTable(outputCatalogTable);
+        consumerMetadata.setDeserializationSchema(schema);
 
         // parse start mode
         readonlyConfig
@@ -313,7 +333,7 @@ public class KafkaSourceConfig implements Serializable {
     }
 
     private DeserializationSchema<SeaTunnelRow> createDeserializationSchema(
-            CatalogTable catalogTable, ReadonlyConfig readonlyConfig) {
+            CatalogTable catalogTable, ReadonlyConfig readonlyConfig, List<String> headerFields) {
         SeaTunnelRowType seaTunnelRowType = catalogTable.getSeaTunnelRowType();
         MessageFormat format = readonlyConfig.get(FORMAT);
 
@@ -433,7 +453,55 @@ public class KafkaSourceConfig implements Serializable {
             return schema;
         }
 
+        if (!headerFields.isEmpty() && format != MessageFormat.NATIVE) {
+            SeaTunnelRowType baseRowType = (SeaTunnelRowType) schema.getProducedType();
+            SeaTunnelRowType extendedRowType = buildExtendedRowType(baseRowType, headerFields);
+            schema = new KafkaHeadersDeserializationSchema(schema, headerFields, extendedRowType);
+        }
+
         return new KafkaEventTimeDeserializationSchema(schema);
+    }
+
+    private SeaTunnelRowType buildExtendedRowType(
+            SeaTunnelRowType baseRowType, List<String> headerFieldNames) {
+        int baseCount = baseRowType.getTotalFields();
+        String[] fieldNames = new String[baseCount + headerFieldNames.size()];
+        SeaTunnelDataType<?>[] fieldTypes =
+                new SeaTunnelDataType[baseCount + headerFieldNames.size()];
+
+        System.arraycopy(baseRowType.getFieldNames(), 0, fieldNames, 0, baseCount);
+        System.arraycopy(baseRowType.getFieldTypes(), 0, fieldTypes, 0, baseCount);
+
+        for (int i = 0; i < headerFieldNames.size(); i++) {
+            fieldNames[baseCount + i] = headerFieldNames.get(i);
+            fieldTypes[baseCount + i] = BasicType.STRING_TYPE;
+        }
+
+        return new SeaTunnelRowType(fieldNames, fieldTypes);
+    }
+
+    private CatalogTable extendCatalogTableWithHeaderFields(
+            CatalogTable catalogTable, List<String> headerFieldNames) {
+        TableSchema baseSchema = catalogTable.getTableSchema();
+        TableSchema.Builder builder =
+                TableSchema.builder()
+                        .columns(baseSchema.getColumns())
+                        .primaryKey(baseSchema.getPrimaryKey())
+                        .constraintKey(baseSchema.getConstraintKeys());
+
+        for (String headerField : headerFieldNames) {
+            builder.column(
+                    PhysicalColumn.of(headerField, BasicType.STRING_TYPE, 0, true, null, null));
+        }
+
+        return CatalogTable.of(
+                catalogTable.getTableId(),
+                builder.build(),
+                catalogTable.getOptions(),
+                catalogTable.getPartitionKeys(),
+                catalogTable.getComment(),
+                catalogTable.getCatalogName(),
+                catalogTable.getMetadataSchema());
     }
 
     private TableSchema nativeTableSchema() {
