@@ -29,6 +29,7 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.NullNode;
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.CompositeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -99,8 +100,13 @@ public class JsonDeserializationSchema implements DeserializationSchema<SeaTunne
         this.rowType = checkNotNull(catalogTable.getSeaTunnelRowType());
         this.failOnMissingField = failOnMissingField;
         this.ignoreParseErrors = ignoreParseErrors;
+        Column[] columns = null;
+        if (catalogTable.getTableSchema() != null
+                && catalogTable.getTableSchema().getColumns() != null) {
+            columns = catalogTable.getTableSchema().getColumns().toArray(new Column[0]);
+        }
         this.runtimeConverter =
-                new JsonToRowConverters(failOnMissingField, ignoreParseErrors)
+                new JsonToRowConverters(failOnMissingField, ignoreParseErrors, columns)
                         .createRowConverter(checkNotNull(rowType));
 
         if (hasDecimalType(rowType)) {

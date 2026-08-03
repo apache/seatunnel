@@ -21,6 +21,7 @@ package org.apache.seatunnel.format.json;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
+import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -78,11 +79,21 @@ public class JsonToRowConverters implements Serializable {
     /** Flag indicating whether to ignore invalid fields/rows (default: throw an exception). */
     private final boolean ignoreParseErrors;
 
+    /** Optional column metadata used to apply defaultValue when a field is missing or null. */
+    private Column[] columns;
+
     public Map<String, DateTimeFormatter> fieldFormatterMap = new HashMap<>();
 
     public JsonToRowConverters(boolean failOnMissingField, boolean ignoreParseErrors) {
         this.failOnMissingField = failOnMissingField;
         this.ignoreParseErrors = ignoreParseErrors;
+    }
+
+    public JsonToRowConverters(
+            boolean failOnMissingField, boolean ignoreParseErrors, Column[] columns) {
+        this.failOnMissingField = failOnMissingField;
+        this.ignoreParseErrors = ignoreParseErrors;
+        this.columns = columns;
     }
 
     /** Creates a runtime converter which is null safe. */
@@ -410,7 +421,8 @@ public class JsonToRowConverters implements Serializable {
                         if (StringUtils.isNotBlank(rowFieldName)) {
                             fieldName = rowFieldName + "." + fieldName;
                         }
-                        Object convertedField = convertField(fieldConverters[i], fieldName, field);
+                        Object convertedField =
+                                convertField(fieldConverters[i], fieldName, field, i);
                         row.setField(i, convertedField);
                     } catch (Throwable t) {
                         throw CommonError.jsonOperationError(
@@ -472,8 +484,18 @@ public class JsonToRowConverters implements Serializable {
     }
 
     private Object convertField(
-            JsonToObjectConverter fieldConverter, String fieldName, JsonNode field) {
-        if (field == null) {
+            JsonToObjectConverter fieldConverter,
+            String fieldName,
+            JsonNode field,
+            int fieldIndex) {
+        if (field == null || field.isNull()) {
+            // Apply defaultValue if available
+            if (columns != null && fieldIndex < columns.length) {
+                Object defaultValue = columns[fieldIndex].getDefaultValue();
+                if (defaultValue != null) {
+                    return defaultValue;
+                }
+            }
             if (failOnMissingField) {
                 throw new IllegalArgumentException(
                         String.format("Could not find field with name %s .", fieldName));
