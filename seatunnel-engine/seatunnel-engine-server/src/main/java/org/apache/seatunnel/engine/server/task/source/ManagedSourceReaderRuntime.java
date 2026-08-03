@@ -58,7 +58,7 @@ import java.util.Set;
 import java.util.SortedSet;
 import java.util.TreeSet;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -639,7 +639,10 @@ public final class ManagedSourceReaderRuntime<T, SplitT extends SourceSplit>
     }
 
     private void subscribeToAvailability() {
-        CompletableFuture<Void> available;
+        // Declared as CompletionStage rather than CompletableFuture: the runtime only observes the
+        // future the connector returns, and engine code must not import
+        // java.util.concurrent.CompletableFuture (enforced by ImportClassCheckTest).
+        CompletionStage<Void> available;
         try {
             available = reader.isAvailable();
         } catch (Throwable t) {
