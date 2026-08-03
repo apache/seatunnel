@@ -409,7 +409,20 @@ public class MultiTableSinkWriterSchemaChangeBroadcastTest {
                                         new TestSchemaChangeEvent(
                                                 TablePath.of("dbA", null, "users"))));
         assertEquals("boom-before-schema-entry", schemaChangeFailure.getMessage());
-        coordinator.close();
+
+        // The worker failure asserted above stays recorded, so close() drains the queue and
+        // surfaces it a second time whenever the failing row has not been consumed yet. Whether
+        // that happens is pure scheduling luck: on Linux runners the queue is normally already
+        // empty, while Windows runners still hold the row and hit the rethrow. Tolerate either
+        // outcome here, but pin any close() failure to the same root cause so a genuinely new
+        // shutdown failure still breaks this test.
+        try {
+            coordinator.close();
+        } catch (IOException | RuntimeException closeFailure) {
+            Throwable rootCause =
+                    closeFailure instanceof IOException ? closeFailure : closeFailure.getCause();
+            assertEquals("boom-before-schema-entry", rootCause.getMessage());
+        }
     }
 
     /**
