@@ -17,13 +17,16 @@
 
 package org.apache.seatunnel.core.starter.utils;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigParseOptions;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigResolveOptions;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigSyntax;
-import org.apache.seatunnel.shade.com.typesafe.config.impl.Parseable;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;
 
 import org.apache.seatunnel.api.configuration.ConfigAdapter;
 import org.apache.seatunnel.api.sink.TablePlaceholder;
@@ -52,6 +55,8 @@ import static org.apache.seatunnel.common.utils.PlaceholderUtils.replacePlacehol
 /** Used to build the {@link Config} from config file. */
 @Slf4j
 public class ConfigBuilder {
+
+    private static final ObjectMapper JACKSON_MAPPER = new ObjectMapper();
 
     public static final ConfigRenderOptions CONFIG_RENDER_OPTIONS =
             ConfigRenderOptions.concise().setFormatted(true);
@@ -264,14 +269,16 @@ public class ConfigBuilder {
                                 }
                             })
                     .forEach(pair -> System.setProperty(pair[0], pair[1]));
-            Config systemConfig =
-                    Parseable.newProperties(
-                                    System.getProperties(),
-                                    ConfigParseOptions.defaults()
-                                            .setOriginDescription("system properties"))
-                            .parse()
-                            .toConfig();
 
+            Config systemConfig = ConfigFactory.empty();
+            for (Map.Entry<Object, Object> entry : System.getProperties().entrySet()) {
+                String key = entry.getKey().toString();
+                String value = entry.getValue().toString();
+                ConfigValue configValue = parseRawValue(value);
+                systemConfig = systemConfig.withValue(key, configValue);
+            }
+
+            // TODO: replace resolveWith method to support array-in-json format value
             Config resolvedConfig =
                     config.resolveWith(
                             systemConfig, ConfigResolveOptions.defaults().setAllowUnresolved(true));
@@ -294,6 +301,33 @@ public class ConfigBuilder {
                     .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true));
         }
         return config;
+    }
+
+    private static ConfigValue parseRawValue(String value) {
+        if (value == null) {
+            return ConfigValueFactory.fromAnyRef(null);
+        }
+
+        String trimmed = value.trim();
+        try {
+            if (trimmed.startsWith("{") && trimmed.endsWith("}")) {
+                Map<String, Object> map =
+                        JACKSON_MAPPER.readValue(
+                                trimmed, new TypeReference<Map<String, Object>>() {});
+                return ConfigValueFactory.fromAnyRef(map);
+            }
+
+            if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+                List<Object> list =
+                        JACKSON_MAPPER.readValue(trimmed, new TypeReference<List<Object>>() {});
+                return ConfigValueFactory.fromAnyRef(list);
+            }
+
+        } catch (Exception e) {
+
+        }
+
+        return ConfigValueFactory.fromAnyRef(value);
     }
 
     private static void processVariablesMap(Map<String, Object> mapValue) {
