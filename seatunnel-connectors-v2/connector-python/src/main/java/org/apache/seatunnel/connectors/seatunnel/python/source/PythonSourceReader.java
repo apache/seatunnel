@@ -244,33 +244,37 @@ public class PythonSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> 
         IOException closeException = null;
         try {
             boolean inheritedStdoutClose = stdoutCloseDeadlineNanos != 0L;
-            if (process != null) {
-                long processDestroyTimeoutMillis =
-                        inheritedStdoutClose
-                                ? PROCESS_EXIT_CHECK_TIMEOUT_MILLIS
-                                : TimeUnit.SECONDS.toMillis(PROCESS_DESTROY_TIMEOUT_SECONDS);
-                destroyProcess(process, processDestroyTimeoutMillis);
-                closeProcessStreams(process);
-            }
-
-            closeException = joinThread(stdinWriterThread, "stdin writer", closeException);
-            long stdoutJoinTimeoutMillis =
+            long closeJoinTimeoutMillis =
                     inheritedStdoutClose
                             ? PROCESS_EXIT_CHECK_TIMEOUT_MILLIS
                             : TimeUnit.SECONDS.toMillis(PROCESS_DESTROY_TIMEOUT_SECONDS);
+            if (process != null) {
+                destroyProcess(process, closeJoinTimeoutMillis);
+                closeProcessStreams(process);
+            }
+
+            // Child processes can inherit stdin on Windows as well, so the bounded close path
+            // must not wait the full default timeout for the writer thread after cancellation.
+            closeException =
+                    joinThread(
+                            stdinWriterThread,
+                            "stdin writer",
+                            closeException,
+                            closeJoinTimeoutMillis,
+                            !inheritedStdoutClose);
             closeException =
                     joinThread(
                             stdoutPumpThread,
                             "stdout pump",
                             closeException,
-                            stdoutJoinTimeoutMillis,
+                            closeJoinTimeoutMillis,
                             !inheritedStdoutClose);
             closeException =
                     joinThread(
                             stderrPumpThread,
                             "stderr pump",
                             closeException,
-                            stdoutJoinTimeoutMillis,
+                            closeJoinTimeoutMillis,
                             !inheritedStdoutClose);
         } finally {
             synchronized (lifecycleLock) {
