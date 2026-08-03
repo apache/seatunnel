@@ -25,12 +25,17 @@ import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.DecimalType;
+import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -204,5 +209,221 @@ public class JsonDefaultValueTest {
 
         SeaTunnelRow row = deserializationSchema.deserialize("{}".getBytes());
         assertEquals(0.0, row.getField(0)); // Integer 0 normalized to Double 0.0
+    }
+
+    @Test
+    public void testDefaultValueWithMoreNumericAndPrimitiveTypes() throws IOException {
+        // Cover boolean / long / float / decimal defaultValue, applied when the field is
+        // missing or explicitly null, and kept as-is when a real value is present.
+        Column[] columns =
+                new Column[] {
+                    PhysicalColumn.of(
+                            "flag", BasicType.BOOLEAN_TYPE, (Long) null, false, true, null),
+                    PhysicalColumn.of("count", BasicType.LONG_TYPE, (Long) null, false, 100L, null),
+                    PhysicalColumn.of(
+                            "ratio", BasicType.FLOAT_TYPE, (Long) null, false, 1.5f, null),
+                    PhysicalColumn.of(
+                            "amount",
+                            new DecimalType(10, 2),
+                            (Long) null,
+                            false,
+                            new BigDecimal("10.50"),
+                            null)
+                };
+
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"flag", "count", "ratio", "amount"},
+                        new org.apache.seatunnel.api.table.type.SeaTunnelDataType[] {
+                            BasicType.BOOLEAN_TYPE,
+                            BasicType.LONG_TYPE,
+                            BasicType.FLOAT_TYPE,
+                            new DecimalType(10, 2)
+                        });
+
+        TableSchema tableSchema = TableSchema.builder().columns(Arrays.asList(columns)).build();
+        TableIdentifier tableId = TableIdentifier.of("test", TablePath.of("test.test_table"));
+        CatalogTable catalogTable =
+                CatalogTable.of(
+                        tableId, tableSchema, new HashMap<>(), new ArrayList<>(), "test table");
+
+        JsonDeserializationSchema deserializationSchema =
+                new JsonDeserializationSchema(catalogTable, false, false);
+
+        // Field missing -> defaultValue applied
+        SeaTunnelRow rowMissing = deserializationSchema.deserialize("{}".getBytes());
+        assertEquals(true, rowMissing.getField(0));
+        assertEquals(100L, rowMissing.getField(1));
+        assertEquals(1.5f, rowMissing.getField(2));
+        // Compare numerically: the JSON round-trip may normalize the scale (10.50 -> 10.5)
+        assertEquals(0, new BigDecimal("10.50").compareTo((BigDecimal) rowMissing.getField(3)));
+
+        // Explicit null -> defaultValue applied
+        SeaTunnelRow rowNull =
+                deserializationSchema.deserialize(
+                        "{\"flag\":null,\"count\":null,\"ratio\":null,\"amount\":null}".getBytes());
+        assertEquals(true, rowNull.getField(0));
+        assertEquals(100L, rowNull.getField(1));
+        assertEquals(1.5f, rowNull.getField(2));
+        assertEquals(0, new BigDecimal("10.50").compareTo((BigDecimal) rowNull.getField(3)));
+
+        // Real values -> kept as-is
+        SeaTunnelRow rowWithValue =
+                deserializationSchema.deserialize(
+                        "{\"flag\":false,\"count\":200,\"ratio\":2.5,\"amount\":99.99}".getBytes());
+        assertEquals(false, rowWithValue.getField(0));
+        assertEquals(200L, rowWithValue.getField(1));
+        assertEquals(2.5f, rowWithValue.getField(2));
+        assertEquals(0, new BigDecimal("99.99").compareTo((BigDecimal) rowWithValue.getField(3)));
+    }
+
+    @Test
+    public void testDefaultValueWithDateAndTimestampTypes() throws IOException {
+        // Cover date / timestamp defaultValue (configured as strings, matching HOCON config).
+        Column[] columns =
+                new Column[] {
+                    PhysicalColumn.of(
+                            "birthday",
+                            LocalTimeType.LOCAL_DATE_TYPE,
+                            (Long) null,
+                            false,
+                            "2024-01-01",
+                            null),
+                    PhysicalColumn.of(
+                            "created_at",
+                            LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                            (Long) null,
+                            false,
+                            "2024-01-01 12:30:45",
+                            null)
+                };
+
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"birthday", "created_at"},
+                        new org.apache.seatunnel.api.table.type.SeaTunnelDataType[] {
+                            LocalTimeType.LOCAL_DATE_TYPE, LocalTimeType.LOCAL_DATE_TIME_TYPE
+                        });
+
+        TableSchema tableSchema = TableSchema.builder().columns(Arrays.asList(columns)).build();
+        TableIdentifier tableId = TableIdentifier.of("test", TablePath.of("test.test_table"));
+        CatalogTable catalogTable =
+                CatalogTable.of(
+                        tableId, tableSchema, new HashMap<>(), new ArrayList<>(), "test table");
+
+        JsonDeserializationSchema deserializationSchema =
+                new JsonDeserializationSchema(catalogTable, false, false);
+
+        // Field missing -> defaultValue applied
+        SeaTunnelRow rowMissing = deserializationSchema.deserialize("{}".getBytes());
+        assertEquals(LocalDate.of(2024, 1, 1), rowMissing.getField(0));
+        assertEquals(LocalDateTime.of(2024, 1, 1, 12, 30, 45), rowMissing.getField(1));
+
+        // Explicit null -> defaultValue applied
+        SeaTunnelRow rowNull =
+                deserializationSchema.deserialize(
+                        "{\"birthday\":null,\"created_at\":null}".getBytes());
+        assertEquals(LocalDate.of(2024, 1, 1), rowNull.getField(0));
+        assertEquals(LocalDateTime.of(2024, 1, 1, 12, 30, 45), rowNull.getField(1));
+
+        // Real values -> kept as-is
+        SeaTunnelRow rowWithValue =
+                deserializationSchema.deserialize(
+                        "{\"birthday\":\"2024-06-15\",\"created_at\":\"2024-06-15 08:00:00\"}"
+                                .getBytes());
+        assertEquals(LocalDate.of(2024, 6, 15), rowWithValue.getField(0));
+        assertEquals(LocalDateTime.of(2024, 6, 15, 8, 0, 0), rowWithValue.getField(1));
+    }
+
+    @Test
+    public void testDefaultValueWithDoubleNumberFormats() throws IOException {
+        // Cover various numeric representations of a double defaultValue:
+        // scientific notation, negative values, non-zero decimals, integer-valued doubles.
+        Column[] columns =
+                new Column[] {
+                    PhysicalColumn.of(
+                            "scientific", BasicType.DOUBLE_TYPE, (Long) null, false, 1.5e3, null),
+                    PhysicalColumn.of(
+                            "negative", BasicType.DOUBLE_TYPE, (Long) null, false, -3.14, null),
+                    PhysicalColumn.of(
+                            "fraction", BasicType.DOUBLE_TYPE, (Long) null, false, 0.5, null),
+                    PhysicalColumn.of("whole", BasicType.DOUBLE_TYPE, (Long) null, false, 5, null)
+                };
+
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"scientific", "negative", "fraction", "whole"},
+                        new org.apache.seatunnel.api.table.type.SeaTunnelDataType[] {
+                            BasicType.DOUBLE_TYPE,
+                            BasicType.DOUBLE_TYPE,
+                            BasicType.DOUBLE_TYPE,
+                            BasicType.DOUBLE_TYPE
+                        });
+
+        TableSchema tableSchema = TableSchema.builder().columns(Arrays.asList(columns)).build();
+        TableIdentifier tableId = TableIdentifier.of("test", TablePath.of("test.test_table"));
+        CatalogTable catalogTable =
+                CatalogTable.of(
+                        tableId, tableSchema, new HashMap<>(), new ArrayList<>(), "test table");
+
+        JsonDeserializationSchema deserializationSchema =
+                new JsonDeserializationSchema(catalogTable, false, false);
+
+        // Field missing -> defaultValue applied, normalized to the field type
+        SeaTunnelRow rowMissing = deserializationSchema.deserialize("{}".getBytes());
+        assertEquals(1500.0, rowMissing.getField(0)); // 1.5e3
+        assertEquals(-3.14, rowMissing.getField(1));
+        assertEquals(0.5, rowMissing.getField(2));
+        assertEquals(5.0, rowMissing.getField(3)); // Integer 5 normalized to Double
+
+        // Explicit null -> defaultValue applied
+        SeaTunnelRow rowNull =
+                deserializationSchema.deserialize(
+                        "{\"scientific\":null,\"negative\":null,\"fraction\":null,\"whole\":null}"
+                                .getBytes());
+        assertEquals(1500.0, rowNull.getField(0));
+        assertEquals(-3.14, rowNull.getField(1));
+        assertEquals(0.5, rowNull.getField(2));
+        assertEquals(5.0, rowNull.getField(3));
+
+        // Real values in various JSON number formats (incl. scientific notation) -> kept as-is
+        SeaTunnelRow rowWithValue =
+                deserializationSchema.deserialize(
+                        "{\"scientific\":2e3,\"negative\":-1.25,\"fraction\":0.75,\"whole\":42}"
+                                .getBytes());
+        assertEquals(2000.0, rowWithValue.getField(0)); // JSON 2e3
+        assertEquals(-1.25, rowWithValue.getField(1));
+        assertEquals(0.75, rowWithValue.getField(2));
+        assertEquals(42.0, rowWithValue.getField(3)); // JSON integer 42 -> Double
+    }
+
+    @Test
+    public void testDefaultValueWithStringNumericValue() throws IOException {
+        // HOCON config may carry a numeric defaultValue as a string (e.g. quoted "1.5e3").
+        // The deserializer must still convert it to the double field type.
+        Column[] columns =
+                new Column[] {
+                    PhysicalColumn.of(
+                            "score", BasicType.DOUBLE_TYPE, (Long) null, false, "1.5e3", null)
+                };
+
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"score"},
+                        new org.apache.seatunnel.api.table.type.SeaTunnelDataType[] {
+                            BasicType.DOUBLE_TYPE
+                        });
+
+        TableSchema tableSchema = TableSchema.builder().columns(Arrays.asList(columns)).build();
+        TableIdentifier tableId = TableIdentifier.of("test", TablePath.of("test.test_table"));
+        CatalogTable catalogTable =
+                CatalogTable.of(
+                        tableId, tableSchema, new HashMap<>(), new ArrayList<>(), "test table");
+
+        JsonDeserializationSchema deserializationSchema =
+                new JsonDeserializationSchema(catalogTable, false, false);
+
+        SeaTunnelRow row = deserializationSchema.deserialize("{}".getBytes());
+        assertEquals(1500.0, row.getField(0)); // "1.5e3" parsed to double
     }
 }

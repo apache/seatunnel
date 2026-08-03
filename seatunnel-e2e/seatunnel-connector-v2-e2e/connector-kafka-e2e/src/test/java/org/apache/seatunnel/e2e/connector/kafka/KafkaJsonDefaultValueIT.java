@@ -205,21 +205,26 @@ public class KafkaJsonDefaultValueIT extends TestSuiteBase implements TestResour
         props.put("value.serializer", "org.apache.kafka.common.serialization.StringSerializer");
 
         try (KafkaProducer<String, String> producer = new KafkaProducer<>(props)) {
-            // 1. Field missing entirely -> defaultValue should be applied
+            // 1. Field missing entirely -> defaultValue should be applied for every column
             producer.send(new ProducerRecord<>(SOURCE_TOPIC, null, "{\"name\":\"Alice\"}")).get();
-            // 2. Explicit null -> defaultValue should be applied
+            // 2. Explicit null -> defaultValue should be applied for every column
             producer.send(
                             new ProducerRecord<>(
                                     SOURCE_TOPIC,
                                     null,
-                                    "{\"name\":\"Bob\",\"age\":null,\"score\":null,\"status\":null}"))
+                                    "{\"name\":\"Bob\",\"age\":null,\"score\":null,\"status\":null,"
+                                            + "\"flag\":null,\"count\":null,\"ratio\":null,"
+                                            + "\"amount\":null,\"birthday\":null,\"created_at\":null}"))
                     .get();
-            // 3. Real values -> should be kept as-is
+            // 3. Real values (incl. scientific notation) -> should be kept as-is
             producer.send(
                             new ProducerRecord<>(
                                     SOURCE_TOPIC,
                                     null,
-                                    "{\"name\":\"Charlie\",\"age\":25,\"score\":95.5,\"status\":\"OK\"}"))
+                                    "{\"name\":\"Charlie\",\"age\":25,\"score\":2e3,\"status\":\"OK\","
+                                            + "\"flag\":false,\"count\":200,\"ratio\":2.5,"
+                                            + "\"amount\":99.99,\"birthday\":\"2024-06-15\","
+                                            + "\"created_at\":\"2024-06-15 08:00:00\"}"))
                     .get();
         }
     }
@@ -250,23 +255,44 @@ public class KafkaJsonDefaultValueIT extends TestSuiteBase implements TestResour
             rows.add(OBJECT_MAPPER.readTree(value));
         }
 
-        // Field missing -> defaultValue applied
+        // Field missing -> defaultValue applied for every column
         JsonNode alice = rows.get(0);
         Assertions.assertEquals("Alice", alice.get("name").asText());
         Assertions.assertEquals(18, alice.get("age").asInt());
+        Assertions.assertEquals(0.0, alice.get("score").asDouble());
         Assertions.assertEquals("PENDING", alice.get("status").asText());
+        Assertions.assertEquals(true, alice.get("flag").asBoolean());
+        Assertions.assertEquals(100L, alice.get("count").asLong());
+        Assertions.assertEquals(1.5, alice.get("ratio").asDouble());
+        Assertions.assertEquals(10.5, alice.get("amount").asDouble());
+        Assertions.assertEquals("2024-01-01", alice.get("birthday").asText());
+        Assertions.assertEquals("2024-01-01T12:30:45", alice.get("created_at").asText());
 
-        // Explicit null -> defaultValue applied
+        // Explicit null -> defaultValue applied for every column
         JsonNode bob = rows.get(1);
         Assertions.assertEquals("Bob", bob.get("name").asText());
         Assertions.assertEquals(18, bob.get("age").asInt());
+        Assertions.assertEquals(0.0, bob.get("score").asDouble());
         Assertions.assertEquals("PENDING", bob.get("status").asText());
+        Assertions.assertEquals(true, bob.get("flag").asBoolean());
+        Assertions.assertEquals(100L, bob.get("count").asLong());
+        Assertions.assertEquals(1.5, bob.get("ratio").asDouble());
+        Assertions.assertEquals(10.5, bob.get("amount").asDouble());
+        Assertions.assertEquals("2024-01-01", bob.get("birthday").asText());
+        Assertions.assertEquals("2024-01-01T12:30:45", bob.get("created_at").asText());
 
-        // Real values -> kept as-is
+        // Real values (incl. scientific notation) -> kept as-is
         JsonNode charlie = rows.get(2);
         Assertions.assertEquals("Charlie", charlie.get("name").asText());
         Assertions.assertEquals(25, charlie.get("age").asInt());
+        Assertions.assertEquals(2000.0, charlie.get("score").asDouble()); // JSON 2e3
         Assertions.assertEquals("OK", charlie.get("status").asText());
+        Assertions.assertEquals(false, charlie.get("flag").asBoolean());
+        Assertions.assertEquals(200L, charlie.get("count").asLong());
+        Assertions.assertEquals(2.5, charlie.get("ratio").asDouble());
+        Assertions.assertEquals(99.99, charlie.get("amount").asDouble());
+        Assertions.assertEquals("2024-06-15", charlie.get("birthday").asText());
+        Assertions.assertEquals("2024-06-15T08:00:00", charlie.get("created_at").asText());
     }
 
     @AfterAll
