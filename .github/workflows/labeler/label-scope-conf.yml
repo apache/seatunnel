@@ -375,3 +375,8 @@ nats-jetstream:
           - all-globs-to-all-files:
               - '!seatunnel-connectors-v2/connector-!(nats-jetstream)/**'
               - '!seatunnel-e2e/seatunnel-connector-v2-e2e/connector-!(nats-jetstream)-e2e/**'
+firebase:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-firebase/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(firebase)/**'
