@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.core.starter.utils;
 
+import org.apache.seatunnel.core.starter.command.ParameterSplitter;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
