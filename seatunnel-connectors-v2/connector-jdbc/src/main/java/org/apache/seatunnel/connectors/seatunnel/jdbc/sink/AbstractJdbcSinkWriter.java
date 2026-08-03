@@ -82,8 +82,8 @@ public abstract class AbstractJdbcSinkWriter<ResourceT>
     }
 
     /**
-     * Creates the physical table for a runtime-discovered CDC table and refreshes the output
-     * format so subsequent rows can be written immediately.
+     * Creates the physical table for a runtime-discovered CDC table and refreshes the output format
+     * so subsequent rows can be written immediately.
      */
     protected void applyCreateTableEvent(CreateTableEvent event) throws IOException {
         if (event.getChangeAfter() == null) {
