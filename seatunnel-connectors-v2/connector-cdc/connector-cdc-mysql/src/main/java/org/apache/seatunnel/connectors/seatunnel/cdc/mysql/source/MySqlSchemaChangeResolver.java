@@ -37,8 +37,7 @@ public class MySqlSchemaChangeResolver extends AbstractSchemaChangeResolver {
 
     @Override
     protected DdlParser createDdlParser(TablePath tablePath) {
-        return new CustomMySqlAntlrDdlParser(
-                tablePath, this.jdbcSourceConfig.getDbzConnectorConfig());
+        return new CustomMySqlAntlrDdlParser(this.jdbcSourceConfig.getDbzConnectorConfig());
     }
 
     @Override

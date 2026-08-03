@@ -15,7 +15,7 @@ import ChangeLog from '../changelog/connector-starrocks.md';
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
-- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
+- [x] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Description
 
@@ -166,6 +166,37 @@ sink {
       replication_num = "3"
       storage_format = "V2"
     }
+  }
+}
+```
+
+### Zeta Timer Flush
+
+This engine-level capability is available only in Zeta. Configure `sink.flush.interval` in `env` to periodically write buffered rows through StarRocks Stream Load even when `batch_max_rows` and `batch_max_bytes` have not been reached. Spark and Flink do not trigger this scheduled flush.
+
+:::tip
+
+StarRocks timer flush does not provide 2PC exactly-once semantics. The StarRocks Sink remains at-least-once, and a task restart may submit rows again. When appropriate for the workload, a Primary Key table with deterministic keys can absorb duplicate writes.
+
+:::
+
+```hocon
+env {
+  job.mode = "STREAMING"
+  checkpoint.interval = 300000
+  sink.flush.interval = 5000
+}
+
+sink {
+  StarRocks {
+    nodeUrls = ["starrocks-fe:8030"]
+    base-url = "jdbc:mysql://starrocks-fe:9030/mydb"
+    username = root
+    password = ""
+    database = "mydb"
+    table = "mytable"
+    batch_max_rows = 10000
+    batch_max_bytes = 104857600
   }
 }
 ```

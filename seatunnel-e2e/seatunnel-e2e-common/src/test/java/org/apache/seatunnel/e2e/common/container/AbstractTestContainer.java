@@ -204,6 +204,55 @@ public abstract class AbstractTestContainer implements TestContainer {
     protected Container.ExecResult restoreJob(
             GenericContainer<?> container, String confFile, String jobId, List<String> variables)
             throws IOException, InterruptedException {
+        return restoreJob(container, confFile, jobId, variables, getRestoreCommand());
+    }
+
+    protected Container.ExecResult restoreJob(
+            GenericContainer<?> container,
+            String confFile,
+            String sourceJobId,
+            String restoreJobId,
+            List<String> variables,
+            String restoreCommand)
+            throws IOException, InterruptedException {
+        final String confInContainerPath = copyConfigFileToContainer(container, confFile);
+        copyConnectorJarToContainer(
+                container,
+                confFile,
+                getConnectorModulePath(),
+                getConnectorNamePrefix(),
+                getConnectorType(),
+                SEATUNNEL_HOME);
+        final List<String> command = new ArrayList<>();
+        String binPath = Paths.get(SEATUNNEL_HOME, "bin", getStartShellName()).toString();
+        command.add(adaptPathForWin(binPath));
+        command.add("--config");
+        command.add(adaptPathForWin(confInContainerPath));
+        command.add(restoreCommand);
+        command.add(sourceJobId);
+        if (StringUtils.isNoneEmpty(restoreJobId)) {
+            command.add("--set-job-id");
+            command.add(restoreJobId);
+        }
+        List<String> extraStartShellCommands = new ArrayList<>(getExtraStartShellCommands());
+        if (variables != null && !variables.isEmpty()) {
+            variables.forEach(
+                    v -> {
+                        extraStartShellCommands.add("-i");
+                        extraStartShellCommands.add(v);
+                    });
+        }
+        command.addAll(extraStartShellCommands);
+        return executeCommand(container, command);
+    }
+
+    protected Container.ExecResult restoreJob(
+            GenericContainer<?> container,
+            String confFile,
+            String jobId,
+            List<String> variables,
+            String restoreCommand)
+            throws IOException, InterruptedException {
         final String confInContainerPath = copyConfigFileToContainer(container, confFile);
         // copy connectors
         copyConnectorJarToContainer(
@@ -219,7 +268,7 @@ public abstract class AbstractTestContainer implements TestContainer {
         command.add(adaptPathForWin(binPath));
         command.add("--config");
         command.add(adaptPathForWin(confInContainerPath));
-        command.add(getRestoreCommand());
+        command.add(restoreCommand);
         command.add(jobId);
         List<String> extraStartShellCommands = new ArrayList<>(getExtraStartShellCommands());
         if (variables != null && !variables.isEmpty()) {

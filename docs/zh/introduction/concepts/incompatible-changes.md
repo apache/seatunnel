@@ -83,6 +83,12 @@
 
 ### 配置变更
 
+- **破坏性变更：正式发布版本的连接器默认改为通过 HTTPS 直接下载**
+  - **影响范围**：Linux 和 macOS 上的 `bin/install-plugin.sh`
+  - **变更说明**：对于固定的正式发布版本，脚本现在默认从 Maven Central 通过 HTTPS 直接下载连接器，并使用仓库发布的 SHA-512 或 SHA-1 校验文件验证完整性。此前所有连接器都通过发行包内置的 Maven Wrapper 解析。
+  - **影响**：如果现有环境依赖 Maven `settings.xml` 中配置的镜像、认证仓库、代理或自定义 TLS 策略，升级后使用默认命令安装正式版本连接器可能失败。
+  - **迁移指南**：运行 `install-plugin.sh` 时设置 `SEATUNNEL_PLUGIN_DOWNLOAD_METHOD=maven`，即可保留原有的 Maven 解析行为。也可以通过 `SEATUNNEL_MAVEN_REPOSITORY` 指定一个发布连接器校验文件的 HTTPS Maven 兼容镜像。
+
 - **破坏性变更：CatalogFactory 创建路径现在会校验 `optionRule()`**
   - **影响范围**：`seatunnel-api` — `FactoryUtil.createOptionalCatalog()`
   - **变更说明**：`FactoryUtil.createOptionalCatalog()` 方法现在在创建 catalog 实例之前会调用 `ConfigValidator.validate(catalogFactory.optionRule())` 进行校验。此前，catalog 创建路径不会对 catalog factory 的 option rules 执行任何校验。
