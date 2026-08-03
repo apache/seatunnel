@@ -78,11 +78,20 @@ public class JsonToRowConverters implements Serializable {
     /** Flag indicating whether to ignore invalid fields/rows (default: throw an exception). */
     private final boolean ignoreParseErrors;
 
+    /** Default values for each column, indexed by physical column position. */
+    private final Object[] defaultValues;
+
     public Map<String, DateTimeFormatter> fieldFormatterMap = new HashMap<>();
 
     public JsonToRowConverters(boolean failOnMissingField, boolean ignoreParseErrors) {
+        this(failOnMissingField, ignoreParseErrors, null);
+    }
+
+    public JsonToRowConverters(
+            boolean failOnMissingField, boolean ignoreParseErrors, Object[] defaultValues) {
         this.failOnMissingField = failOnMissingField;
         this.ignoreParseErrors = ignoreParseErrors;
+        this.defaultValues = defaultValues;
     }
 
     /** Creates a runtime converter which is null safe. */
@@ -411,6 +420,12 @@ public class JsonToRowConverters implements Serializable {
                             fieldName = rowFieldName + "." + fieldName;
                         }
                         Object convertedField = convertField(fieldConverters[i], fieldName, field);
+                        if (convertedField == null
+                                && defaultValues != null
+                                && i < defaultValues.length
+                                && defaultValues[i] != null) {
+                            convertedField = defaultValues[i];
+                        }
                         row.setField(i, convertedField);
                     } catch (Throwable t) {
                         throw CommonError.jsonOperationError(
