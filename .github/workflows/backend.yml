@@ -31,6 +31,9 @@ concurrency:
 
 env:
   TEST_IN_PR: ${{ inputs.TEST_IN_PR }}
+  # GitHub-hosted runners are ephemeral, so CI does not need Ryuk to reap containers after tests.
+  # Disabling it avoids transient Docker Hub pulls for testcontainers/ryuk that can fail unrelated PRs.
+  TESTCONTAINERS_RYUK_DISABLED: 'true'
 
 jobs:
   license-header:
