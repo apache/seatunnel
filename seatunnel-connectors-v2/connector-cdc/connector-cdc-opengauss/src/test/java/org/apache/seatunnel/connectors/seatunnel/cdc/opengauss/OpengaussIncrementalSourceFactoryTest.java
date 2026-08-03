@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.cdc.opengauss;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.BasicType;
@@ -26,14 +27,20 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
+import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.OffsetFactory;
 import org.apache.seatunnel.connectors.cdc.debezium.DebeziumDeserializationSchema;
+import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.config.PostgresIncrementalSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import io.debezium.config.Configuration;
+
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -59,6 +66,51 @@ public class OpengaussIncrementalSourceFactoryTest {
                         ReadonlyConfig.fromMap(Collections.emptyMap()), createCatalogTables());
 
         Assertions.assertEquals("Opengauss-CDC", source.getPluginName());
+    }
+
+    /**
+     * OpenGauss reuses the PostgreSQL config factory through the PG base. This pins the Debezium
+     * properties that assembly produces, which is what the refactor actually moved.
+     */
+    @Test
+    public void testSourceKeepsOpengaussDebeziumPropertyAssembly() {
+        JdbcSourceConfig sourceConfig =
+                new TestingOpengaussConfigSource(opengaussConfig(), createCatalogTables())
+                        .buildSourceConfig();
+        Configuration dbzConfiguration = sourceConfig.getDbzConfiguration();
+
+        Assertions.assertEquals(
+                "io.debezium.connector.postgresql.PostgresConnector",
+                dbzConfiguration.getString("connector.class"));
+        Assertions.assertEquals(
+                "postgres_cdc_source", dbzConfiguration.getString("database.server.name"));
+        Assertions.assertEquals("opengauss-host", dbzConfiguration.getString("database.hostname"));
+        Assertions.assertEquals("5432", dbzConfiguration.getString("database.port"));
+        Assertions.assertEquals("inventory", dbzConfiguration.getString("database.dbname"));
+        Assertions.assertEquals("pgoutput", dbzConfiguration.getString("plugin.name"));
+        Assertions.assertEquals("opengauss_slot", dbzConfiguration.getString("slot.name"));
+        Assertions.assertEquals("public", dbzConfiguration.getString("schema.include.list"));
+        // db.schema.table must still collapse to schema.table for the PG-compatible connector.
+        Assertions.assertEquals("public.orders", dbzConfiguration.getString("table.include.list"));
+        Assertions.assertEquals("false", dbzConfiguration.getString("include.schema.changes"));
+        Assertions.assertEquals("org.postgresql.Driver", sourceConfig.getDriverClassName());
+    }
+
+    /** Config mirroring a minimal OpenGauss CDC job so the real config factory can run. */
+    private static ReadonlyConfig opengaussConfig() {
+        Map<String, Object> options = new HashMap<>();
+        options.put(JdbcCommonOptions.URL.key(), "jdbc:postgresql://opengauss-host:5432/inventory");
+        options.put(JdbcSourceOptions.USERNAME.key(), "og_user");
+        options.put(JdbcSourceOptions.PASSWORD.key(), "og_pwd");
+        options.put(JdbcSourceOptions.DATABASE_NAMES.key(), Collections.singletonList("inventory"));
+        options.put(
+                ConnectorCommonOptions.TABLE_NAMES.key(),
+                Collections.singletonList("inventory.public.orders"));
+        options.put(
+                PostgresIncrementalSourceOptions.SCHEMA_NAME.key(),
+                Collections.singletonList("public"));
+        options.put(PostgresIncrementalSourceOptions.SLOT_NAME.key(), "opengauss_slot");
+        return ReadonlyConfig.fromMap(options);
     }
 
     /** Builds a minimal catalog table list so the source constructor can initialize metadata. */
@@ -126,6 +178,45 @@ public class OpengaussIncrementalSourceFactoryTest {
         private static DebeziumDeserializationSchema<Object> mockDebeziumDeserializationSchema() {
             return (DebeziumDeserializationSchema<Object>)
                     mock(DebeziumDeserializationSchema.class);
+        }
+    }
+
+    /**
+     * Test source that keeps the real inherited config factory so the Debezium property assembly is
+     * exercised, and mocks only the parts the superclass constructor builds afterwards.
+     */
+    private static final class TestingOpengaussConfigSource
+            extends OpengaussIncrementalSource<Object> {
+
+        private TestingOpengaussConfigSource(
+                ReadonlyConfig options, List<CatalogTable> catalogTables) {
+            super(options, catalogTables);
+        }
+
+        /**
+         * Returns a mock dialect because the constructor should not hit an external database here.
+         */
+        @Override
+        public DataSourceDialect<JdbcSourceConfig> createDataSourceDialect(ReadonlyConfig config) {
+            return TestingOpengaussIncrementalSource.mockDataSourceDialect();
+        }
+
+        /** Returns a mock deserializer because schema loading is outside this regression scope. */
+        @Override
+        public DebeziumDeserializationSchema<Object> createDebeziumDeserializationSchema(
+                ReadonlyConfig config) {
+            return TestingOpengaussIncrementalSource.mockDebeziumDeserializationSchema();
+        }
+
+        /** Returns a no-op offset factory so the constructor can finish without connector state. */
+        @Override
+        public OffsetFactory createOffsetFactory(ReadonlyConfig config) {
+            return new TestingOffsetFactory();
+        }
+
+        /** Builds the source config the inherited PostgreSQL factory assembles for OpenGauss. */
+        private JdbcSourceConfig buildSourceConfig() {
+            return configFactory.create(0);
         }
     }
 

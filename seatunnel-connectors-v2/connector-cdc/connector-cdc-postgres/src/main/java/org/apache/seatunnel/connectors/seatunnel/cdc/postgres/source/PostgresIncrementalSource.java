@@ -29,7 +29,6 @@ import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.OffsetFactory;
-import org.apache.seatunnel.connectors.cdc.debezium.DebeziumDeserializationConverterFactory;
 import org.apache.seatunnel.connectors.seatunnel.cdc.pgbase.source.PgBaseIncrementalSource;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.config.PostgresIncrementalSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.config.PostgresSourceConfigFactory;
@@ -81,11 +80,6 @@ public class PostgresIncrementalSource<T> extends PgBaseIncrementalSource<T, Jdb
         configFactory.startupOptions(startupConfig);
         configFactory.stopOptions(stopConfig);
         return configFactory;
-    }
-
-    @Override
-    protected DebeziumDeserializationConverterFactory getUserDefinedConverterFactory() {
-        return DebeziumDeserializationConverterFactory.DEFAULT;
     }
 
     @Override

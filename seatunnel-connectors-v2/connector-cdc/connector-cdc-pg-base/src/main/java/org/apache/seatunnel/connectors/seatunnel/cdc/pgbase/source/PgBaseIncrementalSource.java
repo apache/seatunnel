@@ -82,12 +82,22 @@ public abstract class PgBaseIncrementalSource<T, C extends JdbcSourceConfig>
                         .build();
     }
 
-    /** Returns the Debezium converter factory used by the concrete PG-base connector. */
-    protected abstract DebeziumDeserializationConverterFactory getUserDefinedConverterFactory();
+    /**
+     * Returns the Debezium converter factory used by the concrete PG-base connector.
+     *
+     * <p>Defaults to the same factory {@link SeaTunnelRowDebeziumDeserializeSchema.Builder} already
+     * applies, so a dialect only overrides this when it genuinely needs custom conversion.
+     */
+    protected DebeziumDeserializationConverterFactory getUserDefinedConverterFactory() {
+        return DebeziumDeserializationConverterFactory.DEFAULT;
+    }
 
     /**
      * Discovers the captured tables and serializes their schemas into the Debezium table-change
      * payload used by the row deserializer.
+     *
+     * <p>Reuses the dialect built by the constructor instead of instantiating a second one, so the
+     * discovery here shares the connector's existing connection configuration.
      */
     protected Map<TableId, Struct> loadTableChanges() {
         C sourceConfig = configFactory.create(0);
@@ -102,18 +112,21 @@ public abstract class PgBaseIncrementalSource<T, C extends JdbcSourceConfig>
                                     Function.identity(),
                                     tableId ->
                                             serializeTableChange(
-                                                    jdbcConnection, tableId, serializer)));
+                                                    jdbcDataSourceDialect,
+                                                    jdbcConnection,
+                                                    tableId,
+                                                    serializer)));
         } catch (Exception e) {
             throw new SeaTunnelException(e);
         }
     }
 
     private Struct serializeTableChange(
+            JdbcDataSourceDialect jdbcDataSourceDialect,
             JdbcConnection jdbcConnection,
             TableId tableId,
             ConnectTableChangeSerializer serializer) {
         TableChanges tableChanges = new TableChanges();
-        JdbcDataSourceDialect jdbcDataSourceDialect = (JdbcDataSourceDialect) dataSourceDialect;
         tableChanges.create(
                 jdbcDataSourceDialect.queryTableSchema(jdbcConnection, tableId).getTable());
         return serializer.serialize(tableChanges).get(0);

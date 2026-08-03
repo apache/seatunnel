@@ -37,6 +37,11 @@ import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.ch
 public abstract class PgBaseSourceConfigFactory<C extends JdbcSourceConfig>
         extends JdbcSourceConfigFactory {
 
+    // Pinned because this class sits in the serialization hierarchy of the concrete factories,
+    // which are shipped inside the job DAG. A computed UID would drift on every edit here and
+    // break rolling upgrades (jobs submitted on the prior version fail to deserialize).
+    private static final long serialVersionUID = 1L;
+
     @Override
     public C create(int subtask) {
         Properties props = new Properties();
@@ -102,6 +107,10 @@ public abstract class PgBaseSourceConfigFactory<C extends JdbcSourceConfig>
     /**
      * Normalizes table identifiers to the schema.table form expected by PostgreSQL-compatible
      * Debezium connectors.
+     *
+     * <p>The rejection message keeps the pre-refactor wording verbatim: both Postgres-CDC and
+     * Opengauss-CDC already surfaced it to users, and the internal module name would mean nothing
+     * to someone reading the failure.
      */
     protected String formatTableIdentifier(String tableIdentifier) {
         String[] splits = tableIdentifier.split("\\.");
@@ -114,7 +123,7 @@ public abstract class PgBaseSourceConfigFactory<C extends JdbcSourceConfig>
         throw new IllegalArgumentException(
                 "Invalid table name: "
                         + tableIdentifier
-                        + " ,PG base identifier is of the form schemaName.tableName");
+                        + " ,Postgres identifier is of the form schemaName.tableName");
     }
 
     /** Creates the concrete JDBC source config after the common Debezium properties are built. */

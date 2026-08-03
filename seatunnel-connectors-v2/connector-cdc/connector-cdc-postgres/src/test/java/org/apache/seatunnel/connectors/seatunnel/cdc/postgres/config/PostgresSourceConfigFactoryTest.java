@@ -25,6 +25,8 @@ import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.util.Properties;
+
 /** Tests the PG-base-backed PostgreSQL source config factory behavior that must stay compatible. */
 public class PostgresSourceConfigFactoryTest {
 
@@ -45,7 +47,13 @@ public class PostgresSourceConfigFactoryTest {
         PostgresSourceConfigFactory factory = baseFactory();
         factory.tableList("orders");
 
-        Assertions.assertThrows(IllegalArgumentException.class, () -> factory.create(0));
+        IllegalArgumentException exception =
+                Assertions.assertThrows(IllegalArgumentException.class, () -> factory.create(0));
+
+        // Pin the wording: this message is user-facing and predates the PG-base extraction.
+        Assertions.assertEquals(
+                "Invalid table name: orders ,Postgres identifier is of the form schemaName.tableName",
+                exception.getMessage());
     }
 
     @Test
@@ -55,6 +63,54 @@ public class PostgresSourceConfigFactoryTest {
 
         Assertions.assertEquals(
                 "never", factory.create(0).getDbzConfiguration().getString("snapshot.mode"));
+    }
+
+    @Test
+    public void shouldRunDebeziumSnapshotOnlyForSnapshotOnlyStartup() {
+        PostgresSourceConfigFactory factory = baseFactory();
+        factory.startupOptions(new StartupConfig(StartupMode.SNAPSHOT_ONLY, null, null, null));
+
+        Assertions.assertEquals(
+                "initial_only", factory.create(0).getDbzConfiguration().getString("snapshot.mode"));
+    }
+
+    @Test
+    public void shouldLeaveSnapshotModeUnsetForInitialStartup() {
+        PostgresSourceConfigFactory factory = baseFactory();
+
+        Assertions.assertNull(
+                factory.create(0).getDbzConfiguration().getString("snapshot.mode"),
+                "initial startup must keep the Debezium default snapshot mode");
+    }
+
+    @Test
+    public void shouldKeepPostgresSpecificDebeziumProperties() {
+        PostgresSourceConfigFactory factory = baseFactory();
+        factory.tableList("inventory.orders");
+
+        PostgresSourceConfig sourceConfig = factory.create(0);
+
+        Assertions.assertEquals(
+                "postgres_cdc_source",
+                sourceConfig.getDbzConfiguration().getString("database.server.name"));
+        Assertions.assertEquals(
+                PostgresIncrementalSourceOptions.DECODING_PLUGIN_NAME.defaultValue(),
+                sourceConfig.getDbzConfiguration().getString("plugin.name"));
+        Assertions.assertEquals(
+                PostgresIncrementalSourceOptions.SLOT_NAME.defaultValue(),
+                sourceConfig.getDbzConfiguration().getString("slot.name"));
+        Assertions.assertEquals("org.postgresql.Driver", sourceConfig.getDriverClassName());
+    }
+
+    @Test
+    public void shouldLetUserDebeziumPropertiesOverrideDefaults() {
+        PostgresSourceConfigFactory factory = baseFactory();
+        Properties dbzProperties = new Properties();
+        dbzProperties.setProperty("slot.name", "custom_slot");
+        factory.debeziumProperties(dbzProperties);
+
+        Assertions.assertEquals(
+                "custom_slot", factory.create(0).getDbzConfiguration().getString("slot.name"));
     }
 
     private PostgresSourceConfigFactory baseFactory() {

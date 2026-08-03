@@ -29,21 +29,19 @@
     <artifactId>connector-cdc-pg-base</artifactId>
     <name>SeaTunnel : Connectors V2 : CDC : PG Base</name>
 
-    <dependencyManagement>
-        <dependencies>
-            <dependency>
-                <groupId>org.apache.seatunnel</groupId>
-                <artifactId>connector-cdc-base</artifactId>
-                <version>${project.version}</version>
-                <scope>compile</scope>
-            </dependency>
-        </dependencies>
-    </dependencyManagement>
-
     <dependencies>
+        <!--
+            Must stay 'provided', like every other connector-cdc-* module. connector-cdc-base is
+            shipped as its own connectors/connector-cdc-base jar; a compile scope here would make
+            the shade plugin bundle it (and the Debezium embedded runtime) into this jar, and then
+            into connector-cdc-postgres and connector-cdc-opengauss, giving the plugin classloader
+            a second copy of IncrementalSource/SourceSplitBase/EmbeddedDatabaseHistory.
+        -->
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>connector-cdc-base</artifactId>
+            <version>${project.version}</version>
+            <scope>provided</scope>
         </dependency>
     </dependencies>
 </project>
