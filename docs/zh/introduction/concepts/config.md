@@ -324,9 +324,9 @@ sink {
 一些注意事项:
 
 - 如果值包含特殊字符，如`(`，请使用`'`引号将其括起来。
-- 如果值包含逗号，需要用`\"`包裹起来，如 `-i read_cols=\"id,name\"`，但数组类型不需要用`\“`包裹，如`-i include_fileds=[id,name]`。
-- 如果值是map类型，可以使用json传参，如 `-i mysql_properties=\'{\"connectTimeout\":\"5000\",\"connectionTimeZone\":\"UTC\",\"serverTimezone\":\"UTC\","\"useSSL\":\"false\","\"allowPublicKeyRetrieval\":\"true\"\}'`, 
-其中key和value无论何种类型都要用`\“`包裹，花括号前后因为shell解释器变量解析必须加单引号包裹,暂不支持嵌套json传参
+- 如果值包含逗号，需要用`\"`包裹起来，如 `-i read_cols=\"id,name\"`，但数组类型不需要用`\"`包裹，如`-i include_fileds=[id,name]`。
+- 如果值是map类型，可以使用json传参，如 `-i mysql_properties='\{\"connectTimeout\":\"5000\",\"connectionTimeZone\":\"UTC\",\"serverTimezone\":\"UTC\","\"useSSL\":\"false\","\"allowPublicKeyRetrieval\":\"true\"\}'`, 
+其中key和value无论何种类型都要用`\"`包裹，花括号前后因为shell解释器变量解析必须加单引号(`'`)包裹并使用反斜杠(`\`)转义。注意：暂不支持值为数组的json格式（如 {"key":[1,2,3]}）传参，会导致配置解析失败。
 - 如果替换变量包含`"`或`'`(如`"resName"`和`"nameVal"`)，需要添加`"`。
 - 值不能包含空格`' '`。例如, `-i jobName='this is a job name'`将被替换为`job.name = "this"`。 你可以使用环境变量传递带有空格的值。 
 - 如果要使用动态参数,可以使用以下格式: `-i date=$(date +"%Y%m%d")`。
