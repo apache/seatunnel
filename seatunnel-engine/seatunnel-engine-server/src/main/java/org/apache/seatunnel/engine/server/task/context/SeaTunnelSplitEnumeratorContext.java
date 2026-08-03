@@ -123,6 +123,11 @@ public class SeaTunnelSplitEnumeratorContext<SplitT extends SourceSplit>
     }
 
     @Override
+    public boolean isManagedCoordinatorRuntime() {
+        return task.isManagedCoordinatorRuntime();
+    }
+
+    @Override
     public boolean isAssignmentCapacityAvailable() {
         return !task.isManagedCoordinatorRuntime() || task.isManagedAssignmentCapacityAvailable();
     }

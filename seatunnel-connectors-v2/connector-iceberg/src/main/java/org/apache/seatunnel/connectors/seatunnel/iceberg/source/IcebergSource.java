@@ -166,6 +166,7 @@ public class IcebergSource
     public ManagedSourceCapability getManagedSourceCapability() {
         return ManagedSourceCapability.builder()
                 .supportsManagedCoordinator(true)
+                .usesSourceEvents(false)
                 .supportsAsyncEnumerator(true)
                 .stableSplitIdentifiers(true)
                 .build();

@@ -50,6 +50,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -124,7 +125,7 @@ public final class ManagedSourceReaderRuntime<T, SplitT extends SourceSplit>
     private int normalOutboundCommands;
     private long normalOutboundBytes;
     private int normalOrderedEvents;
-    private Thread ownerThread;
+    private volatile Thread ownerThread;
     private ScheduledFuture<?> pollWatchdogFuture;
     private long nextPollGeneration;
     private long activePollGeneration;
@@ -415,7 +416,7 @@ public final class ManagedSourceReaderRuntime<T, SplitT extends SourceSplit>
 
         ControlEvent event;
         synchronized (admissionLock) {
-            event = orderedEvents.poll();
+            event = pollNextReadyEvent();
             if (event != null && !event.reserved) {
                 normalOrderedEvents--;
             }
@@ -769,35 +770,47 @@ public final class ManagedSourceReaderRuntime<T, SplitT extends SourceSplit>
             return;
         }
 
-        List<SplitT> splitStates = reader.snapshotState(barrier.getId());
-        List<byte[]> connectorStates = new ArrayList<>(splitStates.size());
-        List<String> splitIds = new ArrayList<>(splitStates.size());
-        for (SplitT split : splitStates) {
-            connectorStates.add(splitSerializer.serialize(split));
-            splitIds.add(split.splitId());
+        lifecycle.beginCheckpointBarrier(barrier.getId());
+        try {
+            List<SplitT> splitStates = reader.snapshotState(barrier.getId());
+            List<byte[]> connectorStates = new ArrayList<>(splitStates.size());
+            List<String> splitIds = new ArrayList<>(splitStates.size());
+            for (SplitT split : splitStates) {
+                connectorStates.add(splitSerializer.serialize(split));
+                splitIds.add(split.splitId());
+            }
+            Set<String> checkpointOwnedSplitIds =
+                    new LinkedHashSet<>(uncheckpointedAssignmentSplitIds);
+            checkpointOwnedSplitIds.addAll(splitIds);
+            checkpointAssignmentProofs.put(
+                    barrier.getId(), new LinkedHashSet<>(checkpointOwnedSplitIds));
+            ManagedReaderCheckpointState checkpointState =
+                    new ManagedReaderCheckpointState(
+                            selection.getMode(),
+                            selection.getRuntimeProtocolVersion(),
+                            selection.getConnectorStateVersion(),
+                            selection.getCapabilityDigest(),
+                            readerAttemptId,
+                            coordinatorEpoch,
+                            appliedCommandWatermark,
+                            appliedCommandGaps,
+                            noMoreSplitsGeneration,
+                            lifecycle.snapshot(),
+                            new ArrayList<>(checkpointOwnedSplitIds),
+                            connectorStates);
+            byte[] serialized = ManagedReaderCheckpointStateSerializer.serialize(checkpointState);
+            task.addState(
+                    barrier,
+                    ActionStateKey.of(sourceAction),
+                    Collections.singletonList(serialized));
+            sendCheckpointReports(barrier, new ArrayList<>(checkpointOwnedSplitIds));
+        } catch (Exception exception) {
+            lifecycle.finishCheckpointBarrier();
+            throw exception;
+        } catch (Error error) {
+            lifecycle.finishCheckpointBarrier();
+            throw error;
         }
-        Set<String> checkpointOwnedSplitIds = new LinkedHashSet<>(uncheckpointedAssignmentSplitIds);
-        checkpointOwnedSplitIds.addAll(splitIds);
-        checkpointAssignmentProofs.put(
-                barrier.getId(), new LinkedHashSet<>(checkpointOwnedSplitIds));
-        ManagedReaderCheckpointState checkpointState =
-                new ManagedReaderCheckpointState(
-                        selection.getMode(),
-                        selection.getRuntimeProtocolVersion(),
-                        selection.getConnectorStateVersion(),
-                        selection.getCapabilityDigest(),
-                        readerAttemptId,
-                        coordinatorEpoch,
-                        appliedCommandWatermark,
-                        appliedCommandGaps,
-                        noMoreSplitsGeneration,
-                        lifecycle.snapshot(),
-                        new ArrayList<>(checkpointOwnedSplitIds),
-                        connectorStates);
-        byte[] serialized = ManagedReaderCheckpointStateSerializer.serialize(checkpointState);
-        task.addState(
-                barrier, ActionStateKey.of(sourceAction), Collections.singletonList(serialized));
-        sendCheckpointReports(barrier, new ArrayList<>(checkpointOwnedSplitIds));
     }
 
     private void sendCheckpointReports(Barrier barrier, List<String> splitIds) {
@@ -860,6 +873,7 @@ public final class ManagedSourceReaderRuntime<T, SplitT extends SourceSplit>
     private void finishBarrier(Barrier barrier) throws IOException {
         task.ack(barrier);
         collector.sendRecordToNext(new Record<>(barrier));
+        lifecycle.finishCheckpointBarrier();
     }
 
     private void applyCheckpointComplete(long checkpointId) throws Exception {
@@ -917,7 +931,7 @@ public final class ManagedSourceReaderRuntime<T, SplitT extends SourceSplit>
         String requestedPhase = phase;
         future.whenComplete(
                 (ignored, failure) ->
-                        requireLocalAdmission(
+                        requireInternalAdmission(
                                 () -> {
                                     if (failure != null
                                             && lifecycle.getSchemaRequestEpoch() == requestEpoch
@@ -925,8 +939,7 @@ public final class ManagedSourceReaderRuntime<T, SplitT extends SourceSplit>
                                         lifecycle.fail(failure);
                                     }
                                 },
-                                "schema-trigger-result-" + requestEpoch,
-                                true));
+                                "schema-trigger-result-" + requestEpoch));
     }
 
     private void bindSchemaCheckpointIfNeeded(Barrier barrier) {
@@ -1104,7 +1117,7 @@ public final class ManagedSourceReaderRuntime<T, SplitT extends SourceSplit>
                                 coordinatorAddress);
         future.whenComplete(
                 (result, failure) ->
-                        requireLocalAdmission(
+                        requireInternalAdmission(
                                 () ->
                                         handleOutboundResult(
                                                 outbound,
@@ -1112,8 +1125,7 @@ public final class ManagedSourceReaderRuntime<T, SplitT extends SourceSplit>
                                                         ? (SourceCommandAdmissionAck) result
                                                         : null,
                                                 failure),
-                                "reader-transport-result-" + outbound.command.getCommandId(),
-                                true));
+                                "reader-transport-result-" + outbound.command.getCommandId()));
     }
 
     private void handleOutboundResult(
@@ -1190,7 +1202,7 @@ public final class ManagedSourceReaderRuntime<T, SplitT extends SourceSplit>
                 .getTaskExecutionService()
                 .scheduleManagedSourceCoordinatorTimer(
                         () ->
-                                requireLocalAdmission(
+                                requireInternalAdmission(
                                         () -> {
                                             if (inFlightOutbound == outbound && !closed) {
                                                 invokeOutbound(outbound);
@@ -1277,10 +1289,9 @@ public final class ManagedSourceReaderRuntime<T, SplitT extends SourceSplit>
                                 coordinatorAddress);
         future.whenComplete(
                 (result, failure) ->
-                        requireLocalAdmission(
+                        requireInternalAdmission(
                                 () -> handleRegistrationResult(result, failure),
-                                "managed-reader-registration-result",
-                                true));
+                                "managed-reader-registration-result"));
     }
 
     private void handleRegistrationResult(Object result, Throwable failure) {
@@ -1320,10 +1331,9 @@ public final class ManagedSourceReaderRuntime<T, SplitT extends SourceSplit>
                 .getTaskExecutionService()
                 .scheduleManagedSourceCoordinatorTimer(
                         () ->
-                                requireLocalAdmission(
+                                requireInternalAdmission(
                                         this::invokeRegistration,
-                                        "managed-reader-registration-retry",
-                                        true),
+                                        "managed-reader-registration-retry"),
                         backoff);
     }
 
@@ -1398,16 +1408,31 @@ public final class ManagedSourceReaderRuntime<T, SplitT extends SourceSplit>
     }
 
     private boolean admitLocal(CheckedRunnable action, String description, boolean reserved) {
-        return admitLocal(action, description, reserved, () -> {});
+        return admitLocal(action, description, reserved, false, () -> {});
     }
 
     private boolean admitLocal(
             CheckedRunnable action, String description, boolean reserved, Runnable discardAction) {
+        return admitLocal(action, description, reserved, false, discardAction);
+    }
+
+    private boolean admitLocal(
+            CheckedRunnable action,
+            String description,
+            boolean reserved,
+            boolean runnableWhileBarrierPending,
+            Runnable discardAction) {
         synchronized (admissionLock) {
             if (closed || !hasLocalCapacity(reserved)) {
                 return false;
             }
-            orderedEvents.add(new ControlEvent(action, description, reserved, discardAction));
+            orderedEvents.add(
+                    new ControlEvent(
+                            action,
+                            description,
+                            reserved,
+                            runnableWhileBarrierPending,
+                            discardAction));
             if (!reserved) {
                 normalOrderedEvents++;
             }
@@ -1444,6 +1469,31 @@ public final class ManagedSourceReaderRuntime<T, SplitT extends SourceSplit>
                             "Managed Source reader reserved control mailbox exhausted: "
                                     + description));
         }
+    }
+
+    private void requireInternalAdmission(CheckedRunnable action, String description) {
+        if (!admitLocal(action, description, true, true, () -> {})) {
+            asynchronousFailure.compareAndSet(
+                    null,
+                    new IllegalStateException(
+                            "Managed Source reader reserved control mailbox exhausted: "
+                                    + description));
+        }
+    }
+
+    private ControlEvent pollNextReadyEvent() {
+        if (!lifecycle.isCheckpointBarrierPending()) {
+            return orderedEvents.poll();
+        }
+        Iterator<ControlEvent> iterator = orderedEvents.iterator();
+        while (iterator.hasNext()) {
+            ControlEvent candidate = iterator.next();
+            if (candidate.runnableWhileBarrierPending) {
+                iterator.remove();
+                return candidate;
+            }
+        }
+        return null;
     }
 
     private void checkOwner() {
@@ -1487,20 +1537,23 @@ public final class ManagedSourceReaderRuntime<T, SplitT extends SourceSplit>
         private final String description;
 
         private final boolean reserved;
+        private final boolean runnableWhileBarrierPending;
         private final Runnable discardAction;
 
         private ControlEvent(CheckedRunnable action, String description, boolean reserved) {
-            this(action, description, reserved, () -> {});
+            this(action, description, reserved, false, () -> {});
         }
 
         private ControlEvent(
                 CheckedRunnable action,
                 String description,
                 boolean reserved,
+                boolean runnableWhileBarrierPending,
                 Runnable discardAction) {
             this.action = action;
             this.description = description;
             this.reserved = reserved;
+            this.runnableWhileBarrierPending = runnableWhileBarrierPending;
             this.discardAction = discardAction;
         }
 

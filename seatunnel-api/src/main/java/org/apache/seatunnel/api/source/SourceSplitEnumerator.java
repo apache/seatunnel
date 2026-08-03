@@ -51,7 +51,9 @@ public interface SourceSplitEnumerator<SplitT extends SourceSplit, StateT>
      * </ol>
      *
      * <p>{@implNote The engine guarantees this invocation order and ensures there are no
-     * concurrency issues between these calls.}
+     * concurrency issues between these calls. When {@link Context#isManagedCoordinatorRuntime()}
+     * returns {@code true}, this method must return promptly and move any blocking discovery to the
+     * engine-owned {@link CoordinatorScheduler}.}
      */
     void run() throws Exception;
 
@@ -158,6 +160,16 @@ public interface SourceSplitEnumerator<SplitT extends SourceSplit, StateT>
         default CoordinatorScheduler getCoordinatorScheduler() {
             throw new UnsupportedOperationException(
                     "CoordinatorScheduler is only available in the managed Source runtime");
+        }
+
+        /**
+         * Returns whether the current enumerator is running inside the managed coordinator lane.
+         *
+         * <p>Connectors should use this capability probe instead of catching {@link
+         * UnsupportedOperationException} from {@link #getCoordinatorScheduler()}.
+         */
+        default boolean isManagedCoordinatorRuntime() {
+            return false;
         }
 
         /**

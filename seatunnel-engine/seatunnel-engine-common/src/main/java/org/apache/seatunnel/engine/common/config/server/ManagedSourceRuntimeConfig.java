@@ -34,6 +34,7 @@ import java.util.stream.Collectors;
  */
 @Data
 public class ManagedSourceRuntimeConfig implements Serializable {
+    private static final long serialVersionUID = 1L;
 
     public static final int MEBIBYTE = 1024 * 1024;
     public static final int KIBIBYTE = 1024;

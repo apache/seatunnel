@@ -33,6 +33,7 @@ import java.security.NoSuchAlgorithmException;
  */
 @Experimental
 public final class ManagedSourceCapability implements Serializable {
+    private static final long serialVersionUID = 1L;
 
     public static final int CURRENT_RUNTIME_PROTOCOL_VERSION = 1;
 
@@ -47,6 +48,8 @@ public final class ManagedSourceCapability implements Serializable {
     private final boolean supportsWakeup;
     private final boolean supportsAttemptFencing;
     private final boolean supportsVersionedSourceEvents;
+    private final boolean sourceEventsDeclared;
+    private final boolean usesSourceEvents;
     private final boolean supportsAsyncEnumerator;
     private final boolean stableSplitIdentifiers;
     private final String capabilityDigest;
@@ -60,6 +63,8 @@ public final class ManagedSourceCapability implements Serializable {
         this.supportsWakeup = builder.supportsWakeup;
         this.supportsAttemptFencing = builder.supportsAttemptFencing;
         this.supportsVersionedSourceEvents = builder.supportsVersionedSourceEvents;
+        this.sourceEventsDeclared = builder.usesSourceEvents != null;
+        this.usesSourceEvents = Boolean.TRUE.equals(builder.usesSourceEvents);
         this.supportsAsyncEnumerator = builder.supportsAsyncEnumerator;
         this.stableSplitIdentifiers = builder.stableSplitIdentifiers;
         validate();
@@ -106,6 +111,10 @@ public final class ManagedSourceCapability implements Serializable {
         return supportsVersionedSourceEvents;
     }
 
+    public boolean usesSourceEvents() {
+        return usesSourceEvents;
+    }
+
     public boolean supportsAsyncEnumerator() {
         return supportsAsyncEnumerator;
     }
@@ -128,6 +137,10 @@ public final class ManagedSourceCapability implements Serializable {
         }
         if (connectorStateVersion <= 0) {
             throw new IllegalArgumentException("connectorStateVersion must be positive");
+        }
+        if ((supportsManagedReader || supportsManagedCoordinator) && !sourceEventsDeclared) {
+            throw new IllegalArgumentException(
+                    "Managed Source capability must declare whether the connector uses SourceEvents");
         }
         if (supportsManagedReader
                 && (!supportsBoundedPoll
@@ -168,6 +181,8 @@ public final class ManagedSourceCapability implements Serializable {
                 + "|"
                 + supportsVersionedSourceEvents
                 + "|"
+                + usesSourceEvents
+                + "|"
                 + supportsAsyncEnumerator
                 + "|"
                 + stableSplitIdentifiers;
@@ -196,6 +211,7 @@ public final class ManagedSourceCapability implements Serializable {
         private boolean supportsWakeup;
         private boolean supportsAttemptFencing;
         private boolean supportsVersionedSourceEvents;
+        private Boolean usesSourceEvents;
         private boolean supportsAsyncEnumerator;
         private boolean stableSplitIdentifiers;
 
@@ -236,6 +252,11 @@ public final class ManagedSourceCapability implements Serializable {
 
         public Builder supportsVersionedSourceEvents(boolean supportsVersionedSourceEvents) {
             this.supportsVersionedSourceEvents = supportsVersionedSourceEvents;
+            return this;
+        }
+
+        public Builder usesSourceEvents(boolean usesSourceEvents) {
+            this.usesSourceEvents = usesSourceEvents;
             return this;
         }
 

@@ -21,6 +21,8 @@ import java.io.Serializable;
 
 /** Immutable lane and capability identity written into the physical deployment descriptor. */
 public final class ManagedSourceRuntimeSelection implements Serializable {
+    private static final long serialVersionUID = 1L;
+
     private final ManagedSourceRuntimeMode mode;
     private final int runtimeProtocolVersion;
     private final int connectorStateVersion;

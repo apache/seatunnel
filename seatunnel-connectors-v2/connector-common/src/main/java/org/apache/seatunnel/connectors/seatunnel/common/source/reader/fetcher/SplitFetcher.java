@@ -57,6 +57,23 @@ public class SplitFetcher<E, SplitT extends SourceSplit> implements Runnable {
             @NonNull SplitReader<E, SplitT> splitReader,
             @NonNull Consumer<Throwable> errorHandler,
             @NonNull Runnable shutdownHook,
+            @NonNull Consumer<Collection<String>> splitFinishedHook) {
+        this(
+                fetcherId,
+                elementsQueue,
+                splitReader,
+                errorHandler,
+                shutdownHook,
+                splitFinishedHook,
+                () -> {});
+    }
+
+    SplitFetcher(
+            int fetcherId,
+            @NonNull BlockingQueue<RecordsWithSplitIds<E>> elementsQueue,
+            @NonNull SplitReader<E, SplitT> splitReader,
+            @NonNull Consumer<Throwable> errorHandler,
+            @NonNull Runnable shutdownHook,
             @NonNull Consumer<Collection<String>> splitFinishedHook,
             @NonNull Runnable availabilityNotifier) {
         this.fetcherId = fetcherId;

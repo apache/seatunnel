@@ -157,13 +157,9 @@ public class KafkaSourceSplitEnumerator
 
     @Override
     public void open() {
-        try {
-            coordinatorScheduler = context.getCoordinatorScheduler();
-            managedCoordinator = true;
-        } catch (UnsupportedOperationException ignored) {
-            managedCoordinator = false;
-        }
+        managedCoordinator = context.isManagedCoordinatorRuntime();
         if (managedCoordinator) {
+            coordinatorScheduler = context.getCoordinatorScheduler();
             return;
         }
         if (discoveryIntervalMillis > 0) {
@@ -638,48 +634,11 @@ public class KafkaSourceSplitEnumerator
 
     private ManagedDiscoveryResult discoverManagedSplits(
             Set<TopicPartition> knownPartitions, boolean dynamicDiscovery) throws Exception {
-        Map<String, TablePath> topicMapping = new HashMap<>();
-        Set<String> topics = new HashSet<>();
-        for (Map.Entry<TablePath, ConsumerMetadata> entry : tablePathMetadataMap.entrySet()) {
-            ConsumerMetadata metadata = entry.getValue();
-            Set<String> currentTopics = new HashSet<>();
-            if (metadata.isPattern()) {
-                Pattern pattern = Pattern.compile(metadata.getTopic());
-                currentTopics.addAll(
-                        adminClient.listTopics().names().get().stream()
-                                .filter(topic -> pattern.matcher(topic).matches())
-                                .collect(Collectors.toSet()));
-            } else {
-                currentTopics.addAll(Arrays.asList(metadata.getTopic().split(",")));
-            }
-            currentTopics.forEach(topic -> topicMapping.put(topic, entry.getKey()));
-            topics.addAll(currentTopics);
-        }
-
+        Set<KafkaSourceSplit> discoveredTopicSplits = getTopicInfo();
+        Map<String, TablePath> topicMapping = new HashMap<>(topicMappingTablePathMap);
         Set<TopicPartition> partitions =
-                adminClient.describeTopics(topics).allTopicNames().get().values().stream()
-                        .flatMap(
-                                description ->
-                                        description.partitions().stream()
-                                                .filter(
-                                                        partitionInfo -> {
-                                                            if (kafkaSourceConfig
-                                                                            .isIgnoreNoLeaderPartition()
-                                                                    && partitionInfo.leader()
-                                                                            == null) {
-                                                                log.warn(
-                                                                        "Partition {} of topic {} has no leader and is skipped.",
-                                                                        partitionInfo.partition(),
-                                                                        description.name());
-                                                                return false;
-                                                            }
-                                                            return true;
-                                                        })
-                                                .map(
-                                                        partitionInfo ->
-                                                                new TopicPartition(
-                                                                        description.name(),
-                                                                        partitionInfo.partition())))
+                discoveredTopicSplits.stream()
+                        .map(KafkaSourceSplit::getTopicPartition)
                         .filter(partition -> !knownPartitions.contains(partition))
                         .collect(Collectors.toSet());
         if (partitions.isEmpty()) {

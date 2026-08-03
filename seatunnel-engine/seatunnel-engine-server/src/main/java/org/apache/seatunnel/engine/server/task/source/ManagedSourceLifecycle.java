@@ -32,6 +32,7 @@ public final class ManagedSourceLifecycle {
     private long schemaCheckpointId = -1L;
     private long schemaRequestEpoch;
     private long schemaRequestStartedNanos;
+    private boolean checkpointBarrierPending;
     private boolean closeLatched;
     private boolean restoreDraining;
     private Throwable failure;
@@ -47,6 +48,7 @@ public final class ManagedSourceLifecycle {
         schemaPhase = "";
         schemaCheckpointId = -1L;
         schemaRequestStartedNanos = 0L;
+        checkpointBarrierPending = false;
         mainState =
                 restoreDraining
                         ? ManagedSourceLifecycleState.DRAINING
@@ -125,6 +127,21 @@ public final class ManagedSourceLifecycle {
         }
     }
 
+    public void beginCheckpointBarrier(long checkpointId) {
+        if (checkpointId < 0L) {
+            throw new IllegalArgumentException("Managed Source checkpoint barrier id is invalid");
+        }
+        if (checkpointBarrierPending) {
+            fail(new IllegalStateException("Managed Source checkpoint barrier already pending"));
+            throw failureAsRuntime();
+        }
+        checkpointBarrierPending = true;
+    }
+
+    public void finishCheckpointBarrier() {
+        checkpointBarrierPending = false;
+    }
+
     public void gracefulClose() {
         if (isTerminal()) {
             return;
@@ -144,18 +161,21 @@ public final class ManagedSourceLifecycle {
 
     public void cancel() {
         if (!isTerminal()) {
+            checkpointBarrierPending = false;
             mainState = ManagedSourceLifecycleState.CANCELLING;
         }
     }
 
     public void fail(Throwable throwable) {
         if (mainState != ManagedSourceLifecycleState.CLOSED) {
+            checkpointBarrierPending = false;
             failure = throwable;
             mainState = ManagedSourceLifecycleState.FAILED;
         }
     }
 
     public void closed() {
+        checkpointBarrierPending = false;
         mainState = ManagedSourceLifecycleState.CLOSED;
     }
 
@@ -170,6 +190,7 @@ public final class ManagedSourceLifecycle {
         schemaCheckpointId = -1L;
         schemaRequestEpoch = Math.max(schemaRequestEpoch, snapshot.schemaRequestEpoch);
         schemaRequestStartedNanos = 0L;
+        checkpointBarrierPending = false;
         closeLatched = snapshot.closeLatched;
         restoreDraining =
                 snapshot.mainState == ManagedSourceLifecycleState.DRAINING || snapshot.closeLatched;
@@ -188,7 +209,8 @@ public final class ManagedSourceLifecycle {
 
     public boolean canPoll() {
         return mainState == ManagedSourceLifecycleState.RUNNING
-                && schemaState == SchemaChangeSubState.IDLE;
+                && schemaState == SchemaChangeSubState.IDLE
+                && !checkpointBarrierPending;
     }
 
     public boolean isDraining() {
@@ -225,6 +247,10 @@ public final class ManagedSourceLifecycle {
         return schemaPhase;
     }
 
+    public boolean isCheckpointBarrierPending() {
+        return checkpointBarrierPending;
+    }
+
     private void requireMain(ManagedSourceLifecycleState expected) {
         if (mainState != expected) {
             throw new IllegalStateException(
@@ -252,6 +278,8 @@ public final class ManagedSourceLifecycle {
 
     /** Serializable state-machine diagnostics persisted without in-flight futures. */
     public static final class Snapshot implements Serializable {
+        private static final long serialVersionUID = 1L;
+
         private final ManagedSourceLifecycleState mainState;
         private final SchemaChangeSubState schemaState;
         private final String schemaPhase;

@@ -133,6 +133,7 @@ public class KafkaSource
                 .supportsBoundedPoll(true)
                 .supportsWakeup(true)
                 .supportsAttemptFencing(true)
+                .usesSourceEvents(false)
                 .supportsAsyncEnumerator(true)
                 .stableSplitIdentifiers(true)
                 .build();

@@ -95,11 +95,9 @@ public class IcebergStreamSplitEnumerator extends AbstractSplitEnumerator {
     @Override
     public void open() {
         super.open();
-        try {
+        managedCoordinator = context.isManagedCoordinatorRuntime();
+        if (managedCoordinator) {
             coordinatorScheduler = context.getCoordinatorScheduler();
-            managedCoordinator = true;
-        } catch (UnsupportedOperationException ignored) {
-            managedCoordinator = false;
         }
     }
 

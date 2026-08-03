@@ -57,6 +57,8 @@ class ManagedSourceRuntimeSelectorTest {
                                 .supportsBoundedPoll(true)
                                 .supportsWakeup(true)
                                 .supportsAttemptFencing(true)
+                                .usesSourceEvents(false)
+                                .supportsAsyncEnumerator(true)
                                 .stableSplitIdentifiers(true)
                                 .build());
         ManagedSourceRuntimeConfig config = new ManagedSourceRuntimeConfig();
@@ -84,6 +86,56 @@ class ManagedSourceRuntimeSelectorTest {
         Assertions.assertThrows(
                 IllegalStateException.class,
                 () -> ManagedSourceRuntimeSelector.select(source, config));
+    }
+
+    @Test
+    void shouldRejectManagedConnectorsThatUseSourceEvents() {
+        SeaTunnelSource<?, ?, ?> source = Mockito.mock(SeaTunnelSource.class);
+        Mockito.when(source.getPluginName()).thenReturn("FakeSource");
+        Mockito.when(source.getManagedSourceCapability())
+                .thenReturn(
+                        ManagedSourceCapability.builder()
+                                .supportsManagedCoordinator(true)
+                                .usesSourceEvents(true)
+                                .supportsAsyncEnumerator(true)
+                                .build());
+        ManagedSourceRuntimeConfig config = new ManagedSourceRuntimeConfig();
+        config.setEnabled(true);
+        config.setConnectorAllowlist(Arrays.asList("fakesource"));
+
+        Assertions.assertThrows(
+                IllegalStateException.class,
+                () -> ManagedSourceRuntimeSelector.select(source, config));
+    }
+
+    @Test
+    void shouldRejectManagedCoordinatorsWithoutEventLoopSafeRunContract() {
+        SeaTunnelSource<?, ?, ?> source = Mockito.mock(SeaTunnelSource.class);
+        Mockito.when(source.getPluginName()).thenReturn("FakeSource");
+        Mockito.when(source.getManagedSourceCapability())
+                .thenReturn(
+                        ManagedSourceCapability.builder()
+                                .supportsManagedCoordinator(true)
+                                .usesSourceEvents(false)
+                                .build());
+        ManagedSourceRuntimeConfig config = new ManagedSourceRuntimeConfig();
+        config.setEnabled(true);
+        config.setConnectorAllowlist(Arrays.asList("fakesource"));
+
+        Assertions.assertThrows(
+                IllegalStateException.class,
+                () -> ManagedSourceRuntimeSelector.select(source, config));
+    }
+
+    @Test
+    void shouldRequireManagedCapabilitiesToDeclareSourceEventUsage() {
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        ManagedSourceCapability.builder()
+                                .supportsManagedCoordinator(true)
+                                .supportsAsyncEnumerator(true)
+                                .build());
     }
 
     @Test

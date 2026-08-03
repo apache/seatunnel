@@ -92,7 +92,7 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
     private SeaTunnelSplitEnumeratorContext<SplitT> enumeratorContext;
 
     private Serializer<Serializable> enumeratorStateSerializer;
-    private Serializer<SplitT> splitSerializer;
+    private volatile Serializer<SplitT> splitSerializer;
 
     private int maxReaderSize;
     private Set<Long> unfinishedReaders;

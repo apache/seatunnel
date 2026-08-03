@@ -64,6 +64,27 @@ class ManagedSourceCheckpointStateTest {
     }
 
     @Test
+    void shouldBlockPollingUntilCheckpointBarrierFinishes() {
+        ManagedSourceLifecycle lifecycle = runningLifecycle();
+
+        Assertions.assertTrue(lifecycle.canPoll());
+        lifecycle.beginCheckpointBarrier(9L);
+        Assertions.assertTrue(lifecycle.isCheckpointBarrierPending());
+        Assertions.assertFalse(lifecycle.canPoll());
+
+        ManagedSourceLifecycle.Snapshot snapshot = lifecycle.snapshot();
+        lifecycle.finishCheckpointBarrier();
+        Assertions.assertFalse(lifecycle.isCheckpointBarrierPending());
+        Assertions.assertTrue(lifecycle.canPoll());
+
+        ManagedSourceLifecycle restored = new ManagedSourceLifecycle();
+        restored.restoreSnapshot(snapshot);
+        restored.finishRestore();
+        Assertions.assertFalse(restored.isCheckpointBarrierPending());
+        Assertions.assertTrue(restored.canPoll());
+    }
+
+    @Test
     void shouldRoundTripAndChecksumReaderCheckpointState() throws Exception {
         ManagedReaderCheckpointState state =
                 new ManagedReaderCheckpointState(

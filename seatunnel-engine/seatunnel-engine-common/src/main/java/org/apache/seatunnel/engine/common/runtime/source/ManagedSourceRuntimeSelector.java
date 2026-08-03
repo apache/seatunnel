@@ -62,6 +62,18 @@ public final class ManagedSourceRuntimeSelector {
                             + ", connector="
                             + capability.getRuntimeProtocolVersion());
         }
+        if (capability.usesSourceEvents()) {
+            throw new IllegalStateException(
+                    "Connector "
+                            + source.getPluginName()
+                            + " uses SourceEvents, which are not supported by managed Source protocol version 1");
+        }
+        if (capability.supportsManagedCoordinator() && !capability.supportsAsyncEnumerator()) {
+            throw new IllegalStateException(
+                    "Connector "
+                            + source.getPluginName()
+                            + " declares a managed coordinator but does not opt into the event-loop-safe enumerator contract");
+        }
 
         ManagedSourceRuntimeMode mode;
         if (capability.supportsManagedReader() && capability.supportsManagedCoordinator()) {
