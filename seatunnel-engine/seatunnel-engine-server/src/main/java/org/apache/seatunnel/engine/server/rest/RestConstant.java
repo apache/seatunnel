@@ -26,6 +26,10 @@ public class RestConstant {
 
     public static final String IS_START_WITH_SAVE_POINT = "isStartWithSavePoint";
 
+    public static final String RESTORE_MODE = "restoreMode";
+
+    public static final String RESTORE_SOURCE_JOB_ID = "restoreSourceJobId";
+
     public static final String IS_STOP_WITH_SAVE_POINT = "isStopWithSavePoint";
 
     public static final String DRY_RUN = "dryRun";
