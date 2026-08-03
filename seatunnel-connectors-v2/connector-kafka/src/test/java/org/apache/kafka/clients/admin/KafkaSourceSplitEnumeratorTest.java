@@ -308,6 +308,41 @@ class KafkaSourceSplitEnumeratorTest {
         Assertions.assertNotNull(pendingSplit.get(partition2));
     }
 
+    /**
+     * The managed coordinator lane runs topic discovery on an engine async worker thread, so the
+     * shared discovery step must not write enumerator state. Only the legacy lane, which runs on
+     * its own owner thread, may publish the topic-to-table mapping directly.
+     */
+    @Test
+    void managedTopicDiscoveryShouldNotMutateCoordinatorOwnedState() throws Exception {
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put("group.id", "test");
+        configMap.put("topic", "test");
+        KafkaSourceConfig sourceConfig = new KafkaSourceConfig(ReadonlyConfig.fromMap(configMap));
+        KafkaSourceSplitEnumerator enumerator =
+                new KafkaSourceSplitEnumerator(
+                        adminClient, sourceConfig, new HashMap<>(), new HashMap<>());
+
+        Method discoverTopicPartitions =
+                KafkaSourceSplitEnumerator.class.getDeclaredMethod("discoverTopicPartitions");
+        discoverTopicPartitions.setAccessible(true);
+        Assertions.assertNotNull(discoverTopicPartitions.invoke(enumerator));
+        Assertions.assertTrue(topicMappingTablePathMap(enumerator).isEmpty());
+
+        Method getTopicInfo = KafkaSourceSplitEnumerator.class.getDeclaredMethod("getTopicInfo");
+        getTopicInfo.setAccessible(true);
+        getTopicInfo.invoke(enumerator);
+        Assertions.assertTrue(topicMappingTablePathMap(enumerator).containsKey(partition0.topic()));
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, TablePath> topicMappingTablePathMap(
+            KafkaSourceSplitEnumerator enumerator) throws Exception {
+        Field field = KafkaSourceSplitEnumerator.class.getDeclaredField("topicMappingTablePathMap");
+        field.setAccessible(true);
+        return (Map<String, TablePath>) field.get(enumerator);
+    }
+
     private void setInitialized(KafkaSourceSplitEnumerator enumerator, boolean initialized)
             throws Exception {
         Field initializedField = KafkaSourceSplitEnumerator.class.getDeclaredField("initialized");

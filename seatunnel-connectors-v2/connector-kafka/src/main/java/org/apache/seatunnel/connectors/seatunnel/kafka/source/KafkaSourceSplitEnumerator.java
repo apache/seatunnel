@@ -408,7 +408,19 @@ public class KafkaSourceSplitEnumerator
         return AdminClient.create(props);
     }
 
-    private Set<KafkaSourceSplit> getTopicInfo() throws ExecutionException, InterruptedException {
+    /**
+     * Resolves the configured topics and their partitions without touching enumerator state.
+     *
+     * <p>Both lanes share this step, so it must stay free of side effects: the managed lane runs it
+     * on an engine async worker thread, while {@code topicMappingTablePathMap} and every other
+     * enumerator field are owned exclusively by the coordinator event loop. Callers apply the
+     * returned mapping on their own owner thread.
+     *
+     * @return the discovered topic-to-table mapping together with its partitions
+     */
+    private DiscoveredTopicPartitions discoverTopicPartitions()
+            throws ExecutionException, InterruptedException {
+        Map<String, TablePath> topicMapping = new HashMap<>();
         Collection<String> topics = new HashSet<>();
         for (TablePath tablePath : tablePathMetadataMap.keySet()) {
             ConsumerMetadata metadata = tablePathMetadataMap.get(tablePath);
@@ -422,11 +434,11 @@ public class KafkaSourceSplitEnumerator
             } else {
                 currentPathTopics.addAll(Arrays.asList(metadata.getTopic().split(",")));
             }
-            currentPathTopics.forEach(topic -> topicMappingTablePathMap.put(topic, tablePath));
+            currentPathTopics.forEach(topic -> topicMapping.put(topic, tablePath));
             topics.addAll(currentPathTopics);
         }
         log.info("Discovered topics: {}", topics);
-        Collection<TopicPartition> partitions =
+        Set<TopicPartition> partitions =
                 adminClient.describeTopics(topics).allTopicNames().get().values().stream()
                         .flatMap(
                                 t ->
@@ -451,6 +463,13 @@ public class KafkaSourceSplitEnumerator
                                                                 new TopicPartition(
                                                                         t.name(), p.partition())))
                         .collect(Collectors.toSet());
+        return new DiscoveredTopicPartitions(topicMapping, partitions);
+    }
+
+    private Set<KafkaSourceSplit> getTopicInfo() throws ExecutionException, InterruptedException {
+        DiscoveredTopicPartitions discovered = discoverTopicPartitions();
+        topicMappingTablePathMap.putAll(discovered.topicMapping);
+        Collection<TopicPartition> partitions = discovered.partitions;
         Map<TopicPartition, Long> latestOffsets = listOffsets(partitions, OffsetSpec.latest());
         return partitions.stream()
                 .map(
@@ -634,11 +653,13 @@ public class KafkaSourceSplitEnumerator
 
     private ManagedDiscoveryResult discoverManagedSplits(
             Set<TopicPartition> knownPartitions, boolean dynamicDiscovery) throws Exception {
-        Set<KafkaSourceSplit> discoveredTopicSplits = getTopicInfo();
-        Map<String, TablePath> topicMapping = new HashMap<>(topicMappingTablePathMap);
+        // Runs on an engine async worker, so it must not mutate enumerator state and must not
+        // resolve offsets for partitions it is going to discard. The coordinator event loop
+        // applies the returned mapping when this result is handed back.
+        DiscoveredTopicPartitions discovered = discoverTopicPartitions();
+        Map<String, TablePath> topicMapping = discovered.topicMapping;
         Set<TopicPartition> partitions =
-                discoveredTopicSplits.stream()
-                        .map(KafkaSourceSplit::getTopicPartition)
+                discovered.partitions.stream()
                         .filter(partition -> !knownPartitions.contains(partition))
                         .collect(Collectors.toSet());
         if (partitions.isEmpty()) {
@@ -785,6 +806,24 @@ public class KafkaSourceSplitEnumerator
                                 }
                             }
                         });
+    }
+
+    /**
+     * Side-effect-free result of one topic and partition discovery round.
+     *
+     * <p>Carrying the topic-to-table mapping as a return value instead of writing it straight into
+     * {@code topicMappingTablePathMap} is what lets the managed lane run discovery on an engine
+     * async worker while the coordinator event loop stays the only writer of enumerator state.
+     */
+    private static final class DiscoveredTopicPartitions {
+        private final Map<String, TablePath> topicMapping;
+        private final Set<TopicPartition> partitions;
+
+        private DiscoveredTopicPartitions(
+                Map<String, TablePath> topicMapping, Set<TopicPartition> partitions) {
+            this.topicMapping = topicMapping;
+            this.partitions = partitions;
+        }
     }
 
     private static final class ManagedDiscoveryResult {
