@@ -57,10 +57,10 @@ public class S3FileSourceFactory implements TableSourceFactory {
                 .required(S3FileSourceOptions.FILE_FORMAT_TYPE)
                 .required(S3FileSourceOptions.S3_BUCKET)
                 .required(S3FileSourceOptions.FS_S3A_ENDPOINT)
-                .required(S3FileSourceOptions.S3A_AWS_CREDENTIALS_PROVIDER)
+                .required(S3FileSourceOptions.S3A_AWS_CREDENTIALS_PROVIDER_CLASS)
                 .conditional(
-                        S3FileSourceOptions.S3A_AWS_CREDENTIALS_PROVIDER,
-                        S3FileSourceOptions.S3aAwsCredentialsProvider.SimpleAWSCredentialsProvider,
+                        S3FileSourceOptions.S3A_AWS_CREDENTIALS_PROVIDER_CLASS,
+                        S3FileSourceOptions.SIMPLE_AWS_CREDENTIALS_PROVIDER,
                         S3FileSourceOptions.S3_ACCESS_KEY,
                         S3FileSourceOptions.S3_SECRET_KEY)
                 .optional(S3FileSourceOptions.S3_PROPERTIES)
@@ -93,6 +93,18 @@ public class S3FileSourceFactory implements TableSourceFactory {
                         Arrays.asList(
                                 FileFormat.TEXT, FileFormat.JSON, FileFormat.CSV, FileFormat.XML),
                         FileBaseSourceOptions.ENCODING)
+                .conditional(
+                        FileBaseSourceOptions.FILE_FORMAT_TYPE,
+                        Arrays.asList(
+                                FileFormat.TEXT,
+                                FileFormat.JSON,
+                                FileFormat.CSV,
+                                FileFormat.PARQUET),
+                        FileBaseSourceOptions.ENABLE_FILE_SPLIT)
+                .conditional(
+                        FileBaseSourceOptions.ENABLE_FILE_SPLIT,
+                        Boolean.TRUE,
+                        FileBaseSourceOptions.FILE_SPLIT_SIZE)
                 .optional(FileBaseSourceOptions.PARSE_PARTITION_FROM_PATH)
                 .optional(FileBaseSourceOptions.DATE_FORMAT_LEGACY)
                 .optional(FileBaseSourceOptions.DATETIME_FORMAT_LEGACY)
@@ -103,9 +115,14 @@ public class S3FileSourceFactory implements TableSourceFactory {
                 .optional(FileBaseSourceOptions.NULL_FORMAT)
                 .optional(FileBaseSourceOptions.FILENAME_EXTENSION)
                 .optional(FileBaseSourceOptions.READ_COLUMNS)
+                .conditional(
+                        FileBaseSourceOptions.FILE_FORMAT_TYPE,
+                        FileFormat.MARKDOWN,
+                        FileBaseSourceOptions.MARKDOWN_RAG_METADATA_ENABLED)
                 .optional(FileBaseSourceOptions.QUOTE_CHAR)
                 .optional(FileBaseSourceOptions.ESCAPE_CHAR)
                 .optional(ConnectorCommonOptions.METALAKE_TYPE)
+                .optional(FileBaseSourceOptions.RECURSIVE_FILE_SCAN)
                 .build();
     }
 

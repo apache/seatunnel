@@ -1,0 +1,276 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package org.apache.seatunnel.connectors.seatunnel.milvus.catalog;
+
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.catalog.ConstraintKey;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.VectorIndex;
+import org.apache.seatunnel.connectors.seatunnel.milvus.exception.MilvusConnectorException;
+
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+
+import io.milvus.client.MilvusServiceClient;
+import io.milvus.grpc.ListDatabasesResponse;
+import io.milvus.grpc.ShowPartitionsResponse;
+import io.milvus.param.R;
+import io.milvus.param.RpcStatus;
+import io.milvus.param.index.CreateIndexParam;
+import io.milvus.param.partition.CreatePartitionParam;
+
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.util.Collections;
+import java.util.List;
+
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+class MilvusCatalogTest {
+
+    @Test
+    void tableExistsReturnsFalseWhenDatabaseDoesNotExist() throws Exception {
+        MilvusServiceClient client = mock(MilvusServiceClient.class);
+        @SuppressWarnings("unchecked")
+        R<ListDatabasesResponse> listDatabasesR = mock(R.class);
+        when(listDatabasesR.getData())
+                .thenReturn(ListDatabasesResponse.newBuilder().addDbNames("default").build());
+        when(client.listDatabases()).thenReturn(listDatabasesR);
+
+        MilvusCatalog catalog = createCatalogWithClient(client);
+        Assertions.assertFalse(catalog.tableExists(TablePath.of("missing_db", null, "coll")));
+
+        verify(client, never()).hasCollection(any());
+    }
+
+    @Test
+    void createPartitionInternalSkipsEmptyString() throws Exception {
+        MilvusCatalog catalog = createCatalogWithClient(mockClientWithDefaultPartitions());
+        invokeCreatePartitionInternal(catalog, "", TablePath.of("db", null, "coll"));
+        verify(getClient(catalog), never()).createPartition(any());
+    }
+
+    @Test
+    void createPartitionInternalSkipsOnlyCommas() throws Exception {
+        MilvusCatalog catalog = createCatalogWithClient(mockClientWithDefaultPartitions());
+        invokeCreatePartitionInternal(catalog, ",,,", TablePath.of("db", null, "coll"));
+        verify(getClient(catalog), never()).createPartition(any());
+    }
+
+    @Test
+    void createPartitionInternalSkipsSpaces() throws Exception {
+        MilvusCatalog catalog = createCatalogWithClient(mockClientWithDefaultPartitions());
+        invokeCreatePartitionInternal(catalog, "   ", TablePath.of("db", null, "coll"));
+        verify(getClient(catalog), never()).createPartition(any());
+    }
+
+    @Test
+    void createPartitionInternalSkipsDefaultPartitionName() throws Exception {
+        MilvusServiceClient client = mockClientWithDefaultPartitions();
+        R<RpcStatus> successRpcStatusR = mock(R.class);
+        when(successRpcStatusR.getStatus()).thenReturn(R.Status.Success.getCode());
+        when(successRpcStatusR.getMessage()).thenReturn("OK");
+        when(client.createPartition(any()))
+                .thenAnswer(
+                        invocation -> {
+                            CreatePartitionParam param = invocation.getArgument(0);
+                            String partitionName = extractPartitionName(param);
+                            if (partitionName == null
+                                    || partitionName.trim().isEmpty()
+                                    || "_default".equals(partitionName)) {
+                                throw new RuntimeException(
+                                        "invalid partitionName: " + partitionName);
+                            }
+                            return successRpcStatusR;
+                        });
+
+        MilvusCatalog catalog = createCatalogWithClient(client);
+        invokeCreatePartitionInternal(catalog, "_default, p1", TablePath.of("db", null, "coll"));
+
+        verify(client, times(1)).createPartition(any());
+    }
+
+    @Test
+    void createIndexInternalThrowsWhenIndexTypeIsNull() throws Exception {
+        MilvusServiceClient client = mock(MilvusServiceClient.class);
+        MilvusCatalog catalog = createCatalogWithClient(client);
+        VectorIndex vectorIndex =
+                new VectorIndex(
+                        "idx",
+                        "vec_col",
+                        (VectorIndex.IndexType) null,
+                        (VectorIndex.MetricType) null);
+        List<ConstraintKey.ConstraintKeyColumn> columns = Collections.singletonList(vectorIndex);
+        TablePath tablePath = TablePath.of("db", null, "coll");
+
+        MilvusConnectorException exception =
+                Assertions.assertThrows(
+                        MilvusConnectorException.class,
+                        () -> invokeCreateIndexInternal(catalog, tablePath, columns));
+        Assertions.assertTrue(exception.getMessage().contains("indexType is required"));
+        Assertions.assertTrue(exception.getMessage().contains("vec_col"));
+        verify(client, never()).createIndex(any(CreateIndexParam.class));
+    }
+
+    @Test
+    void createIndexInternalThrowsWhenMetricTypeIsNull() throws Exception {
+        MilvusServiceClient client = mock(MilvusServiceClient.class);
+        MilvusCatalog catalog = createCatalogWithClient(client);
+        VectorIndex vectorIndex =
+                new VectorIndex(
+                        "idx",
+                        "vec_col",
+                        VectorIndex.IndexType.HNSW,
+                        (VectorIndex.MetricType) null);
+        List<ConstraintKey.ConstraintKeyColumn> columns = Collections.singletonList(vectorIndex);
+        TablePath tablePath = TablePath.of("db", null, "coll");
+
+        MilvusConnectorException exception =
+                Assertions.assertThrows(
+                        MilvusConnectorException.class,
+                        () -> invokeCreateIndexInternal(catalog, tablePath, columns));
+        Assertions.assertTrue(exception.getMessage().contains("metricType is required"));
+        Assertions.assertTrue(exception.getMessage().contains("vec_col"));
+        verify(client, never()).createIndex(any(CreateIndexParam.class));
+    }
+
+    @Test
+    void createIndexInternalDefaultsIndexNameToFieldName() throws Exception {
+        MilvusServiceClient client = mock(MilvusServiceClient.class);
+        @SuppressWarnings("unchecked")
+        R<RpcStatus> successR = mock(R.class);
+        when(successR.getStatus()).thenReturn(R.Status.Success.getCode());
+        when(client.createIndex(any(CreateIndexParam.class))).thenReturn(successR);
+
+        MilvusCatalog catalog = createCatalogWithClient(client);
+        VectorIndex vectorIndex =
+                new VectorIndex(
+                        null, "vec_col", VectorIndex.IndexType.HNSW, VectorIndex.MetricType.L2);
+        List<ConstraintKey.ConstraintKeyColumn> columns = Collections.singletonList(vectorIndex);
+        TablePath tablePath = TablePath.of("db", null, "coll");
+
+        invokeCreateIndexInternal(catalog, tablePath, columns);
+        verify(client, times(1)).createIndex(any(CreateIndexParam.class));
+    }
+
+    @Test
+    void createIndexInternalUsesProvidedIndexName() throws Exception {
+        MilvusServiceClient client = mock(MilvusServiceClient.class);
+        @SuppressWarnings("unchecked")
+        R<RpcStatus> successR = mock(R.class);
+        when(successR.getStatus()).thenReturn(R.Status.Success.getCode());
+        when(client.createIndex(any(CreateIndexParam.class))).thenReturn(successR);
+
+        MilvusCatalog catalog = createCatalogWithClient(client);
+        VectorIndex vectorIndex =
+                new VectorIndex(
+                        "my_index",
+                        "vec_col",
+                        VectorIndex.IndexType.HNSW,
+                        VectorIndex.MetricType.COSINE);
+        List<ConstraintKey.ConstraintKeyColumn> columns = Collections.singletonList(vectorIndex);
+        TablePath tablePath = TablePath.of("db", null, "coll");
+
+        invokeCreateIndexInternal(catalog, tablePath, columns);
+        verify(client, times(1)).createIndex(any(CreateIndexParam.class));
+    }
+
+    private void invokeCreateIndexInternal(
+            MilvusCatalog catalog,
+            TablePath tablePath,
+            List<ConstraintKey.ConstraintKeyColumn> vectorIndexes)
+            throws Exception {
+        Method method =
+                MilvusCatalog.class.getDeclaredMethod(
+                        "createIndexInternal", TablePath.class, List.class);
+        method.setAccessible(true);
+        try {
+            method.invoke(catalog, tablePath, vectorIndexes);
+        } catch (InvocationTargetException e) {
+            if (e.getCause() instanceof RuntimeException) {
+                throw (RuntimeException) e.getCause();
+            }
+            throw e;
+        }
+    }
+
+    private MilvusCatalog createCatalogWithClient(MilvusServiceClient client) throws Exception {
+        MilvusCatalog catalog =
+                new MilvusCatalog("milvus", ReadonlyConfig.fromMap(Collections.emptyMap()));
+        Field clientField = MilvusCatalog.class.getDeclaredField("client");
+        clientField.setAccessible(true);
+        clientField.set(catalog, client);
+        return catalog;
+    }
+
+    private MilvusServiceClient mockClientWithDefaultPartitions() {
+        MilvusServiceClient client = mock(MilvusServiceClient.class);
+        @SuppressWarnings("unchecked")
+        R<ShowPartitionsResponse> showPartitionsR = mock(R.class);
+        when(showPartitionsR.getStatus()).thenReturn(R.Status.Success.getCode());
+        when(showPartitionsR.getData())
+                .thenReturn(
+                        ShowPartitionsResponse.newBuilder().addPartitionNames("_default").build());
+        when(showPartitionsR.getMessage()).thenReturn("OK");
+        when(client.showPartitions(any())).thenReturn(showPartitionsR);
+
+        @SuppressWarnings("unchecked")
+        R<RpcStatus> createPartitionR = mock(R.class);
+        when(createPartitionR.getStatus()).thenReturn(R.Status.Success.getCode());
+        when(createPartitionR.getMessage()).thenReturn("OK");
+        when(client.createPartition(any())).thenReturn(createPartitionR);
+        return client;
+    }
+
+    private void invokeCreatePartitionInternal(
+            MilvusCatalog catalog, String partitionNames, TablePath tablePath) throws Exception {
+        Method method =
+                MilvusCatalog.class.getDeclaredMethod(
+                        "createPartitionInternal", String.class, TablePath.class);
+        method.setAccessible(true);
+        Assertions.assertDoesNotThrow(() -> method.invoke(catalog, partitionNames, tablePath));
+    }
+
+    private MilvusServiceClient getClient(MilvusCatalog catalog) throws Exception {
+        Field clientField = MilvusCatalog.class.getDeclaredField("client");
+        clientField.setAccessible(true);
+        return (MilvusServiceClient) clientField.get(catalog);
+    }
+
+    private String extractPartitionName(CreatePartitionParam param) {
+        try {
+            Method getter = param.getClass().getMethod("getPartitionName");
+            Object v = getter.invoke(param);
+            return v == null ? null : v.toString();
+        } catch (Exception ignored) {
+        }
+        try {
+            Field f = param.getClass().getDeclaredField("partitionName");
+            f.setAccessible(true);
+            Object v = f.get(param);
+            return v == null ? null : v.toString();
+        } catch (Exception ignored) {
+        }
+        return null;
+    }
+}

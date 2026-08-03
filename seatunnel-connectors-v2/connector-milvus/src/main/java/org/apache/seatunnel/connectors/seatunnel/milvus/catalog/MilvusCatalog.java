@@ -160,6 +160,10 @@ public class MilvusCatalog implements Catalog {
 
     @Override
     public boolean tableExists(TablePath tablePath) throws CatalogException {
+        if (!databaseExists(tablePath.getDatabaseName())) {
+            return false;
+        }
+
         R<Boolean> response =
                 this.client.hasCollection(
                         HasCollectionParam.newBuilder()
@@ -198,6 +202,10 @@ public class MilvusCatalog implements Catalog {
         checkNotNull(catalogTable, "catalogTable must not be null");
         TableSchema tableSchema = catalogTable.getTableSchema();
         checkNotNull(tableSchema, "tableSchema must not be null");
+        log.info(
+                "Start creating Milvus collection. database={}, collection={}",
+                tablePath.getDatabaseName(),
+                tablePath.getTableName());
         createTableInternal(tablePath, catalogTable);
 
         if (CollectionUtils.isNotEmpty(tableSchema.getConstraintKeys())
@@ -206,22 +214,58 @@ public class MilvusCatalog implements Catalog {
                 if (constraintKey
                         .getConstraintType()
                         .equals(ConstraintKey.ConstraintType.VECTOR_INDEX_KEY)) {
+                    log.info(
+                            "Creating Milvus vector indexes. database={}, collection={}, constraintName={}",
+                            tablePath.getDatabaseName(),
+                            tablePath.getTableName(),
+                            constraintKey.getConstraintName());
                     createIndexInternal(tablePath, constraintKey.getColumnNames());
                 }
             }
         }
+        log.info(
+                "Finished creating Milvus collection. database={}, collection={}",
+                tablePath.getDatabaseName(),
+                tablePath.getTableName());
     }
 
     private void createIndexInternal(
             TablePath tablePath, List<ConstraintKey.ConstraintKeyColumn> vectorIndexes) {
         for (ConstraintKey.ConstraintKeyColumn column : vectorIndexes) {
             VectorIndex index = (VectorIndex) column;
+            String fieldName = index.getColumnName();
+            String indexName =
+                    StringUtils.isNotBlank(index.getIndexName()) ? index.getIndexName() : fieldName;
+            if (index.getIndexType() == null) {
+                throw new MilvusConnectorException(
+                        MilvusConnectionErrorCode.CREATE_INDEX_ERROR,
+                        String.format(
+                                "indexType is required for vector index on column '%s'. "
+                                        + "Please specify it in schema constraintKeys configuration",
+                                fieldName));
+            }
+            if (index.getMetricType() == null) {
+                throw new MilvusConnectorException(
+                        MilvusConnectionErrorCode.CREATE_INDEX_ERROR,
+                        String.format(
+                                "metricType is required for vector index on column '%s'. "
+                                        + "Please specify it in schema constraintKeys configuration",
+                                fieldName));
+            }
+            log.info(
+                    "Creating Milvus vector index. database={}, collection={}, field={}, indexName={}, indexType={}, metricType={}",
+                    tablePath.getDatabaseName(),
+                    tablePath.getTableName(),
+                    fieldName,
+                    indexName,
+                    index.getIndexType(),
+                    index.getMetricType());
             CreateIndexParam createIndexParam =
                     CreateIndexParam.newBuilder()
                             .withDatabaseName(tablePath.getDatabaseName())
                             .withCollectionName(tablePath.getTableName())
-                            .withFieldName(index.getColumnName())
-                            .withIndexName(index.getIndexName())
+                            .withFieldName(fieldName)
+                            .withIndexName(indexName)
                             .withIndexType(IndexType.valueOf(index.getIndexType().name()))
                             .withMetricType(MetricType.valueOf(index.getMetricType().name()))
                             .build();
@@ -262,7 +306,8 @@ public class MilvusCatalog implements Catalog {
                                 column,
                                 tableSchema.getPrimaryKey(),
                                 partitionKeyField,
-                                config.get(MilvusSinkOptions.ENABLE_AUTO_ID));
+                                config.get(MilvusSinkOptions.ENABLE_AUTO_ID),
+                                config.get(MilvusSinkOptions.ENABLE_NULLABLE_FIELD));
                 fieldTypes.add(fieldType);
             }
 
@@ -294,15 +339,26 @@ public class MilvusCatalog implements Catalog {
             }
 
             CreateCollectionParam createCollectionParam = builder.build();
+            log.info(
+                    "Creating Milvus collection metadata. database={}, collection={}",
+                    tablePath.getDatabaseName(),
+                    tablePath.getTableName());
             R<RpcStatus> response = this.client.createCollection(createCollectionParam);
             if (!Objects.equals(response.getStatus(), R.success().getStatus())) {
                 throw new MilvusConnectorException(
                         MilvusConnectionErrorCode.CREATE_COLLECTION_ERROR, response.getMessage());
             }
 
-            // not exist partition key field, will read show partitions to create
-            if (!existPartitionKeyField && options.containsKey(MilvusOptions.PARTITION_KEY_FIELD)) {
-                createPartitionInternal(options.get(MilvusOptions.PARTITION_KEY_FIELD), tablePath);
+            // When collection does not have a partition key field,
+            // create partitions from the 'partitionNames' option
+            String partitionNames = options.get(MilvusOptions.PARTITION_NAMES);
+            if (!existPartitionKeyField && StringUtils.isNotBlank(partitionNames)) {
+                log.info(
+                        "Creating Milvus partitions. database={}, collection={}, partitionNames={}",
+                        tablePath.getDatabaseName(),
+                        tablePath.getTableName(),
+                        partitionNames);
+                createPartitionInternal(partitionNames, tablePath);
             }
 
         } catch (Exception e) {
@@ -329,9 +385,28 @@ public class MilvusCatalog implements Catalog {
         // start to loop create partition
         String[] partitionNameArray = partitionNames.split(",");
         for (String partitionName : partitionNameArray) {
-            if (existPartitionNames.contains(partitionName)) {
+            partitionName = partitionName.trim();
+            if (StringUtils.isBlank(partitionName) || "_default".equals(partitionName)) {
+                log.info(
+                        "Skip Milvus partition creation. database={}, collection={}, partitionName={}",
+                        tablePath.getDatabaseName(),
+                        tablePath.getTableName(),
+                        partitionName);
                 continue;
             }
+            if (existPartitionNames.contains(partitionName)) {
+                log.info(
+                        "Milvus partition already exists. database={}, collection={}, partitionName={}",
+                        tablePath.getDatabaseName(),
+                        tablePath.getTableName(),
+                        partitionName);
+                continue;
+            }
+            log.info(
+                    "Creating Milvus partition. database={}, collection={}, partitionName={}",
+                    tablePath.getDatabaseName(),
+                    tablePath.getTableName(),
+                    partitionName);
             R<RpcStatus> response =
                     this.client.createPartition(
                             CreatePartitionParam.newBuilder()

@@ -50,7 +50,7 @@ if [ ! -f "${APP_DIR}/runtime.tar.gz" ];then
   existing_dirs=()
 
   for dir in "${directories[@]}"; do
-      if [ -d "$dir" ]; then
+      if [ -d "${APP_DIR}/${dir}" ]; then
           existing_dirs+=("$dir")
       fi
   done
@@ -58,7 +58,7 @@ if [ ! -f "${APP_DIR}/runtime.tar.gz" ];then
   if [ ${#existing_dirs[@]} -eq 0 ]; then
       echo "[connectors,lib,plugins] not existed, skip generate runtime.tar.gz"
   else
-      tar -zcvf runtime.tar.gz "${existing_dirs[@]}"
+      tar -zcvf "${APP_DIR}/runtime.tar.gz" -C "${APP_DIR}" "${existing_dirs[@]}"
   fi
 fi
 

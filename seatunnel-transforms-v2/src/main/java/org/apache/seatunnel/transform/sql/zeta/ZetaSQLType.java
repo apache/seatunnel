@@ -327,6 +327,8 @@ public class ZetaSQLType {
             case ZetaSQLFunction.CONCAT_WS:
             case ZetaSQLFunction.HEXTORAW:
             case ZetaSQLFunction.RAWTOHEX:
+            case ZetaSQLFunction.TO_BASE64:
+            case ZetaSQLFunction.FROM_BASE64:
             case ZetaSQLFunction.INSERT:
             case ZetaSQLFunction.LOWER:
             case ZetaSQLFunction.LCASE:

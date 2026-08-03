@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.milvus.sink;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
@@ -44,15 +45,29 @@ public class MilvusSinkFactory implements TableSinkFactory {
         return OptionRule.builder()
                 .required(MilvusSinkOptions.URL, MilvusSinkOptions.TOKEN)
                 .optional(
+                        MilvusSinkOptions.DATABASE,
+                        MilvusSinkOptions.COLLECTION,
+                        MilvusSinkOptions.COLLECTION_DESCRIPTION,
+                        MilvusSinkOptions.PARTITION_KEY,
                         MilvusSinkOptions.ENABLE_UPSERT,
                         MilvusSinkOptions.ENABLE_DYNAMIC_FIELD,
+                        MilvusSinkOptions.ENABLE_NULLABLE_FIELD,
                         MilvusSinkOptions.ENABLE_AUTO_ID,
+                        MilvusSinkOptions.RATE_LIMIT,
+                        MilvusSinkOptions.LOAD_COLLECTION,
+                        MilvusSinkOptions.CREATE_INDEX,
                         MilvusSinkOptions.SCHEMA_SAVE_MODE,
                         MilvusSinkOptions.DATA_SAVE_MODE)
+                .optional(
+                        MilvusSinkOptions.BATCH_SIZE,
+                        Conditions.greaterOrEqual(MilvusSinkOptions.BATCH_SIZE, 0))
                 .build();
     }
 
     public TableSink createSink(TableSinkFactoryContext context) {
+        if (context == null) {
+            return () -> new MilvusSink(null, null);
+        }
         ReadonlyConfig config = context.getOptions();
         CatalogTable catalogTable = renameCatalogTable(config, context.getCatalogTable());
         return () -> new MilvusSink(config, catalogTable);

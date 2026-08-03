@@ -15,19 +15,19 @@ Schema Evolution means that the schema of a data table can be changed and the da
 ## Supported connectors
 
 ### Source
-[Mysql-CDC](https://github.com/apache/seatunnel/blob/dev/docs/en/connector-v2/source/MySQL-CDC.md)
-[Oracle-CDC](https://github.com/apache/seatunnel/blob/dev/docs/en/connector-v2/source/Oracle-CDC.md)
+[Mysql-CDC](../../connectors/source/MySQL-CDC.md)
+[Oracle-CDC](../../connectors/source/Oracle-CDC.md)
 
 ### Sink
-[Jdbc-Mysql](https://github.com/apache/seatunnel/blob/dev/docs/en/connector-v2/sink/Jdbc.md)
-[Jdbc-Oracle](https://github.com/apache/seatunnel/blob/dev/docs/en/connector-v2/sink/Jdbc.md)
-[Jdbc-Postgres](https://github.com/apache/seatunnel/blob/dev/docs/en/connector-v2/sink/Jdbc.md)
-[Jdbc-Dameng](https://github.com/apache/seatunnel/blob/dev/docs/en/connector-v2/sink/Jdbc.md)
-[Jdbc-SqlServer](https://github.com/apache/seatunnel/blob/dev/docs/en/connector-v2/sink/Jdbc.md)
-[StarRocks](https://github.com/apache/seatunnel/blob/dev/docs/en/connector-v2/sink/StarRocks.md)
-[Doris](https://github.com/apache/seatunnel/blob/dev/docs/en/connector-v2/sink/Doris.md)
-[Paimon](https://github.com/apache/seatunnel/blob/dev/docs/en/connector-v2/sink/Paimon.md#Schema-Evolution)
-[Elasticsearch](https://github.com/apache/seatunnel/blob/dev/docs/en/connector-v2/sink/Elasticsearch.md#Schema-Evolution)
+[Jdbc-Mysql](../../connectors/sink/Jdbc.md)
+[Jdbc-Oracle](../../connectors/sink/Jdbc.md)
+[Jdbc-Postgres](../../connectors/sink/Jdbc.md)
+[Jdbc-Dameng](../../connectors/sink/Jdbc.md)
+[Jdbc-SqlServer](../../connectors/sink/Jdbc.md)
+[StarRocks](../../connectors/sink/StarRocks.md)
+[Doris](../../connectors/sink/Doris.md)
+[Paimon](../../connectors/sink/Paimon.md#schema-evolution)
+[Elasticsearch](../../connectors/sink/Elasticsearch.md#schema-evolution)
 
 Note:  
 * The schema evolution is not support the transform at now. The schema evolution of different types of databases（Oracle-CDC -> Jdbc-Mysql）is currently not supported the default value of the column in ddl.
@@ -39,6 +39,102 @@ Otherwise, If your table name start with `ORA_TEMP_` will also has the same prob
 
 ## Enable schema evolution
 Schema evolution is disabled by default in CDC source. You need configure `schema-changes.enabled = true` which is only supported in CDC to enable it.
+
+## Multi-database and multi-table routing
+
+Schema evolution can work with multi-table jobs as long as each upstream table can be mapped to a
+stable physical sink table. SeaTunnel resolves sink placeholders before the connector starts, so
+you can route by `${database_name}`, `${schema_name}`, and `${table_name}` as documented in [Sink
+Options Placeholders](./sink-options-placeholders.md).
+
+Recommended practices:
+
+- Route tables from different upstream databases to different physical sink tables when you want to
+  keep schemas isolated.
+- Keep `multi_table_sink_replica` enabled if you need parallel sink writers; schema changes are
+  coordinated per rendered physical sink table.
+- If you intentionally route multiple upstream tables to the same physical sink table, make sure
+  those tables stay schema-compatible and that their keys do not conflict.
+
+### Example: same table name in different source databases -> same table name in different sink databases
+
+```hocon
+source {
+  MySQL-CDC {
+    database-names = ["shop_a", "shop_b"]
+    table-names = ["shop_a.products", "shop_b.products"]
+    url = "jdbc:mysql://mysql-host:3306"
+    schema-changes.enabled = true
+  }
+}
+
+sink {
+  jdbc {
+    url = "jdbc:mysql://mysql-host:3306"
+    driver = "com.mysql.cj.jdbc.Driver"
+    user = "root"
+    password = "123456"
+    generate_sink_sql = true
+    database = "${database_name}_sink"
+    table = "${table_name}"
+    primary_keys = ["id"]
+    multi_table_sink_replica = 2
+  }
+}
+```
+
+In this example, `shop_a.products` is written to `shop_a_sink.products`, and `shop_b.products` is
+written to `shop_b_sink.products`.
+
+If both source tables later execute DDL such as `ALTER TABLE products ADD COLUMN add_column1
+VARCHAR(64), ADD COLUMN add_column2 INT`, SeaTunnel applies the schema change independently to
+`shop_a_sink.products` and `shop_b_sink.products`, and each sink table continues to receive only
+its own database's data.
+
+### Example: same sink database, different sink tables
+
+```hocon
+sink {
+  jdbc {
+    url = "jdbc:mysql://mysql-host:3306"
+    driver = "com.mysql.cj.jdbc.Driver"
+    user = "root"
+    password = "123456"
+    generate_sink_sql = true
+    database = "ods"
+    table = "${database_name}_${table_name}"
+    primary_keys = ["id"]
+  }
+}
+```
+
+In this example, `shop_a.products` is written to `ods.shop_a_products`, and `shop_b.products` is
+written to `ods.shop_b_products`.
+
+### Example: wildcard capture for multiple databases and tables
+
+```hocon
+source {
+  MySQL-CDC {
+    table-pattern = "sales_.*\\..*"
+    url = "jdbc:mysql://mysql-host:3306"
+    schema-changes.enabled = true
+  }
+}
+
+sink {
+  jdbc {
+    url = "jdbc:mysql://mysql-host:3306"
+    driver = "com.mysql.cj.jdbc.Driver"
+    user = "root"
+    password = "123456"
+    generate_sink_sql = true
+    database = "ods"
+    table = "${database_name}_${table_name}"
+    primary_keys = ["${primary_key}"]
+  }
+}
+```
 
 ## Examples
 
@@ -253,6 +349,8 @@ sink {
   }
 }
 ```
+
+> **Note (schema evolution + 2PC):** With `sink.enable-2pc = "true"`, Doris schema evolution only supports `format = "json"` because JSON loads match columns by name. Positional formats such as CSV are rejected at runtime for schema evolution with 2PC enabled. Use `format = "json"` or set `sink.enable-2pc = "false"` so the sink can flush buffered rows before applying the DDL.
 
 ### Mysql-CDC -> Jdbc-Postgres
 ```hocon

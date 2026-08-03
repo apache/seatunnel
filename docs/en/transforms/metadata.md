@@ -26,13 +26,19 @@ The Metadata transform plugin is used to extract metadata information from data 
 |  RowKind  |  string  |  Row change type, values: +I (insert), -U (update before), +U (update after), -D (delete)  | All connectors |
 | EventTime |   long   |  Event timestamp of data change (milliseconds)  | CDC connectors; Kafka source (ConsumerRecord.timestamp) |
 |   Delay   |   long   |  Data collection delay time (milliseconds), i.e., the difference between data extraction time and database change time  | CDC connectors |
+| SourceTimestamp | long | Time (epoch ms) at which the change was committed in the source database (`source.ts_ms`). | CDC connectors |
+| BinlogFile | string | Binlog filename (e.g. `mysql-bin-changelog.000123`). `null` for snapshot rows. | MySQL-CDC only |
+| BinlogPos  | long   | Binlog byte offset. `null` for snapshot rows. | MySQL-CDC only |
+| BinlogRow  | int    | Row index (0-based) within the binlog event. `null` for snapshot rows. | MySQL-CDC only |
+| Gtid       | string | Global Transaction ID (`server_uuid:transaction_id`). `null` when GTID is disabled or for snapshot rows. | MySQL-CDC only |
 | Partition |  string  |  Partition information of the data, multiple partition fields separated by commas  | Connectors supporting partitions |
 
 ### Important Notes
 
 1. **Metadata field names are case-sensitive**: Configuration must strictly follow the Key names in the table above (e.g., `Database`, `Table`, `RowKind`, etc.)
-2. **Time fields**: `Delay` is only valid when using CDC connectors (except TiDB-CDC). `EventTime` is provided by CDC connectors and also by the Kafka source via `ConsumerRecord.timestamp` when available.
+2. **Time fields**: `Delay` and `SourceTimestamp` are only available for CDC connectors. `EventTime` is also provided by the Kafka source via `ConsumerRecord.timestamp` when available.
 3. **Kafka event time**: The Kafka source writes `ConsumerRecord.timestamp` (milliseconds) into `EventTime` when it is non-negative, so you can surface it with the `Metadata` transform.
+4. **Binlog/GTID fields**: `BinlogFile`, `BinlogPos`, `BinlogRow`, and `Gtid` are MySQL-CDC specific. For `startup.mode = initial`, snapshot rows return `null` for all four fields.
 
 ## Options
 
@@ -240,3 +246,57 @@ sink {
 ```
 
 Here `pt` is derived from the Kafka event time and can be used as a Hive partition column.
+
+### Example 4: Combine Metadata and Sql to extract table suffixes and add a load date
+
+When the upstream CDC source uses sharded tables such as monthly or daily tables, a common pattern
+is to expose the `Table` metadata as a regular field first, then use `Sql` to derive the shard
+suffix and a formatted load date.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+}
+
+source {
+  MySQL-CDC {
+    plugin_output = "orders_cdc"
+    server-id = 5652
+    username = "root"
+    password = "your_password"
+    table-names = ["app.orders_202401", "app.orders_202402"]
+    url = "jdbc:mysql://localhost:3306/app"
+  }
+}
+
+transform {
+  Metadata {
+    plugin_input = "orders_cdc"
+    plugin_output = "orders_with_meta"
+    metadata_fields {
+      Table = source_table
+      EventTime = event_ts
+    }
+  }
+
+  Sql {
+    plugin_input = "orders_with_meta"
+    plugin_output = "orders_normalized"
+    query = "select id, amount, source_table, REGEXP_SUBSTR(source_table, '[0-9]+$') as table_suffix, FROM_UNIXTIME(event_ts / 1000, 'yyyy-MM-dd HH:mm:ss', 'Asia/Shanghai') as event_time_str, FORMATDATETIME(CURRENT_TIMESTAMP, 'yyyyMMdd') as load_date from orders_with_meta"
+  }
+}
+
+sink {
+  Console {
+    plugin_input = "orders_normalized"
+  }
+}
+```
+
+If the current record comes from `orders_202402`, then:
+
+- `source_table = "orders_202402"`
+- `table_suffix = "202402"`
+- `event_time_str` comes from the CDC event time
+- `load_date` is the formatted runtime date string

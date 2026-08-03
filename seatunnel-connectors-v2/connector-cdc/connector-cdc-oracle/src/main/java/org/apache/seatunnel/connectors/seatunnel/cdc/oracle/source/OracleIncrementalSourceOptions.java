@@ -34,11 +34,14 @@ public class OracleIncrementalSourceOptions extends JdbcSourceOptions {
                     Options.key(SourceOptions.STARTUP_MODE_KEY)
                             .singleChoice(
                                     StartupMode.class,
-                                    Arrays.asList(StartupMode.INITIAL, StartupMode.LATEST))
+                                    Arrays.asList(
+                                            StartupMode.INITIAL,
+                                            StartupMode.LATEST,
+                                            StartupMode.TIMESTAMP))
                             .defaultValue(StartupMode.INITIAL)
                             .withDescription(
                                     "Optional startup mode for CDC source, valid enumerations are "
-                                            + "\"initial\", \"earliest\", \"latest\", \"timestamp\"\n or \"specific\"");
+                                            + "\"initial\", \"latest\" or \"timestamp\"");
 
     public static final SingleChoiceOption<StopMode> STOP_MODE =
             (SingleChoiceOption)
@@ -47,7 +50,7 @@ public class OracleIncrementalSourceOptions extends JdbcSourceOptions {
                             .defaultValue(StopMode.NEVER)
                             .withDescription(
                                     "Optional stop mode for CDC source, valid enumerations are "
-                                            + "\"never\", \"latest\", \"timestamp\"\n or \"specific\"");
+                                            + "\"never\"");
 
     public static final Option<List<String>> SCHEMA_NAMES =
             Options.key("schema-names")

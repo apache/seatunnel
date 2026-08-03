@@ -34,6 +34,7 @@ import org.apache.seatunnel.engine.core.checkpoint.CheckpointStatus;
 import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobPipelineCheckpointData;
+import org.apache.seatunnel.engine.core.job.RestoreMode;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelCancelJobCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetCheckpointHistoryCodec;
 import org.apache.seatunnel.engine.core.protocol.codec.SeaTunnelGetCheckpointOverviewCodec;
@@ -141,9 +142,13 @@ public class JobClient {
     }
 
     public void cancelJob(Long jobId) {
+        this.cancelJob(jobId, false);
+    }
+
+    public void cancelJob(Long jobId, boolean force) {
         PassiveCompletableFuture<Void> cancelFuture =
                 hazelcastClient.requestOnMasterAndGetCompletableFuture(
-                        SeaTunnelCancelJobCodec.encodeRequest(jobId));
+                        SeaTunnelCancelJobCodec.encodeRequest(jobId, force));
 
         cancelFuture.join();
     }
@@ -204,11 +209,16 @@ public class JobClient {
     }
 
     public List<JobPipelineCheckpointData> getCheckpointData(Long jobId) {
+        return getCheckpointData(jobId, RestoreMode.SAVEPOINT);
+    }
+
+    public List<JobPipelineCheckpointData> getCheckpointData(Long jobId, RestoreMode restoreMode) {
         return hazelcastClient
                 .getSerializationService()
                 .toObject(
                         hazelcastClient.requestOnMasterAndDecodeResponse(
-                                SeaTunnelGetJobCheckpointCodec.encodeRequest(jobId),
+                                SeaTunnelGetJobCheckpointCodec.encodeRequest(
+                                        jobId, restoreMode.getCode()),
                                 SeaTunnelGetJobCheckpointCodec::decodeResponse));
     }
 

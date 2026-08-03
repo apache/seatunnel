@@ -54,8 +54,9 @@ public class RestApiHttpsForTruststoreTest extends AbstractSeaTunnelServerTest {
     private static final String CLIENT_KEYSTORE_PASSWORD = "client_keystore_password";
     private static final String CLIENT_TRUSTSTORE_PASSWORD = "client_truststore_password";
 
+    @Override
     @BeforeAll
-    public void setUp() {
+    public void before() {
         String name = this.getClass().getName();
         Config hazelcastConfig = Config.loadFromString(getHazelcastConfig());
         hazelcastConfig.setClusterName(

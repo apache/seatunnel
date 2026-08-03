@@ -36,31 +36,62 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 
 | Name                                | Type                                                                       | Required | Default                  | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 |-------------------------------------|----------------------------------------------------------------------------|----------|--------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| topic                               | String                                                                     | Yes      | -                        | Topic name(s) to read data from when the table is used as source. It also supports topic list for source by separating topic by comma like 'topic-1,topic-2'.                                                                                                                                                                                                                                                                                                                                                                                |
-| table_list                          | Map                                                                        | No       | -                        | Topic list config You can configure only one `table_list` and one `topic` at the same time                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| topic                               | String                                                                     | No       | -                        | Topic name(s) to read data from when the table is used as source. Required unless `tables_configs` or `table_list` is used. It also supports a comma-separated topic list like `topic-1,topic-2`.                                                                                                                                                                                                                                                                                 |
+| tables_configs                      | List                                                                       | No       | -                        | Preferred multi-topic table configuration. Only one of `topic`, `tables_configs`, and `table_list` can be configured.                                                                                                                                                                                                                                                                                                                                                           |
+| table_list                          | List                                                                       | No       | -                        | Deprecated compatibility option for multi-topic table configuration. Only one of `topic`, `tables_configs`, and `table_list` can be configured.                                                                                                                                                                                                                                                                                                                                  |
 | bootstrap.servers                   | String                                                                     | Yes      | -                        | Comma separated list of Kafka brokers.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | pattern                             | Boolean                                                                    | No       | false                    | If `pattern` is set to `true`,the regular expression for a pattern of topic names to read from. All topics in clients with names that match the specified regular expression will be subscribed by the consumer.                                                                                                                                                                                                                                                                                                                             |
 | consumer.group                      | String                                                                     | No       | SeaTunnel-Consumer-Group | `Kafka consumer group id`, used to distinguish different consumer groups.                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| commit_on_checkpoint                | Boolean                                                                    | No       | true                     | If true the consumer's offset will be periodically committed in the background.                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| commit_on_checkpoint                | Boolean                                                                    | No       | true                     | If true, consumer offsets are committed only after a SeaTunnel checkpoint completes, and Kafka auto commit is disabled. If false, checkpoint commits are disabled and Kafka auto commit is enabled.                                                                                                                                                                                                                                                                                                                                           |
 | poll.timeout                        | Long                                                                       | No       | 10000                    | The interval(millis) for poll messages.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | kafka.config                        | Map                                                                        | No       | -                        | In addition to the above necessary parameters that must be specified by the `Kafka consumer` client, users can also specify multiple `consumer` client non-mandatory parameters, covering [all consumer parameters specified in the official Kafka document](https://kafka.apache.org/documentation.html#consumerconfigs).                                                                                                                                                                                                                   |
 | schema                              | Config                                                                     | No       | -                        | The structure of the data, including field names and field types. For more details, please refer to [Schema Feature](../../introduction/concepts/schema-feature.md).                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | format                              | String                                                                     | No       | json                     | Data format. The default format is json. Optional text format, canal_json, debezium_json, maxwell_json, ogg_json, avro , protobuf and native. If you use json or text format. The default field separator is ", ". If you customize the delimiter, add the "field_delimiter" option.If you use canal format, please refer to [canal-json](../formats/canal-json.md) for details.If you use debezium format, please refer to [debezium-json](../formats/debezium-json.md) for details. Some format details please refer [formats](../formats) |
+| avro_schema                         | String                                                                     | No       | -                        | Effective when `format` is `avro`. Provides the writer Avro schema used to deserialize binary Avro messages whose record name, namespace, or union layout differs from the SeaTunnel schema.                                                                                                                                                                                                                                                                                                                                                                                       |
 | format_error_handle_way             | String                                                                     | No       | fail                     | The processing method of data format error. The default value is fail, and the optional value is (fail, skip). When fail is selected, data format error will block and an exception will be thrown. When skip is selected, data format error will skip this line data.                                                                                                                                                                                                                                                                       |
+| debezium_record_include_schema      | Boolean                                                                    | No       | true                     | Effective when `format` is `debezium_json`. Set whether Debezium records include schema information.                                                                                                                                                                                                                                                                                                                                                                            |
 | debezium_record_table_filter        | Config                                                                     | No       | -                        | Used for filtering data in debezium format, only when the format is set to `debezium_json`. Please refer `debezium_record_table_filter` below                                                                                                                                                                                                                                                                                                                                                                                                |
 | field_delimiter                     | String                                                                     | No       | ,                        | Customize the field delimiter for data format.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | start_mode                          | StartMode[earliest],[group_offsets],[latest],[specific_offsets],[timestamp] | No       | group_offsets            | The initial consumption pattern of consumers.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | start_mode.offsets                  | Config                                                                     | No       | -                        | The offset required for consumption mode to be specific_offsets.                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | start_mode.timestamp                | Long                                                                       | No       | -                        | The time required for consumption mode to be "timestamp".                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| start_mode.end_timestamp             | Long                                                                       | No       | -                        | The end time required for consumption mode to be "timestamp" in batch mode
+| start_mode.end_timestamp             | Long                                                                       | No       | -                        | The end time required for consumption mode to be "timestamp" in batch mode |
 | partition-discovery.interval-millis | Long                                                                       | No       | -1                       | The interval for dynamically discovering topics and partitions.                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | ignore_no_leader_partition          | Boolean                                                                    | No       | false                    | Whether to ignore partitions that have no leader. If set to true, partitions without a leader will be skipped during partition discovery. If set to false (default), the connector will include all partitions regardless of leader status. This is useful when dealing with Kafka clusters that may have temporary leadership issues.                                                                                                                                                                                                      |
 | common-options                      |                                                                            | No       | -                        | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | protobuf_message_name               | String                                                                     | No       | -                        | Effective when the format is set to protobuf, specifies the Message name                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | protobuf_schema                     | String                                                                     | No       | -                        | Effective when the format is set to protobuf, specifies the Schema definition                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | strip_schema_registry_header        | Boolean                                                                    | No       | false                    | Effective when the format is set to protobuf. Whether to strip the Confluent Schema Registry wire format header (magic byte, schema id and message indexes) before protobuf deserialization. This option is useful when consuming Protobuf messages that were encoded using Confluent Schema Registry. When enabled, the connector will try to detect and remove the Schema Registry header before parsing the Protobuf message. If the header is not detected, it will fall back to standard Protobuf deserialization.                                                                                                                                                                                                                                                                    |
-| reader_cache_queue_size             | Integer                                                                     | No       | 1024                     | The reader shard cache queue is used to cache the data corresponding to the shards. The size of the shard cache depends on the number of shards obtained by each reader, rather than the amount of data in each shard.                                                                                                                                                                                                                                                                                            |
-| is_native                           | Boolean                                                                     | No       | false                    | Supports retaining the source information of the record.
+| reader_cache_queue_size             | Integer                                                                     | No       | 2                        | The capacity of the fetcher-to-reader element queue. Each element is one `consumer.poll()` batch, not a single message. See [reader_cache_queue_size](#reader_cache_queue_size) for details. |
+| is_native                           | Boolean                                                                     | No       | false                    | Supports retaining the source information of the record.                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| kafka_headers_fields                | Array                                                                       | No       | -                        | Specify which Kafka message header keys to extract as row fields. Each header value is read as a STRING type and appended to the output row after the regular schema fields. Cannot be used with NATIVE format.                                                                                                                                                                                                    |
+
+> On restore from checkpoint or savepoint, Kafka Source resumes from the checkpointed split offsets.
+> `start_mode` and consumer-group offsets are only used for the first startup or for newly
+> discovered partitions that do not have checkpointed state yet.
+
+:::tip
+
+Use `topic` for one topic or a comma-separated topic list. Use `tables_configs` when different topics need different schemas or formats. `topic`, `tables_configs`, and `table_list` are mutually exclusive.
+
+:::
+
+### reader_cache_queue_size
+
+The maximum number of poll-result batches that the connector buffers between the fetcher thread and the reader thread.
+
+:::tip
+
+Each element in the queue is one complete `consumer.poll()` result, which may contain up to `max.poll.records` (default 500) messages.
+When back-pressure occurs downstream, the queue may fill up, and the upper bound of messages held in memory is `reader_cache_queue_size × max.poll.records`.
+
+:::
+
+:::caution
+
+When consuming large messages, a high value can lead to excessive heap usage. If you observe memory pressure, reduce this value or lower `kafka.max.poll.records`.
+
+:::
 
 ### debezium_record_table_filter
 
@@ -78,7 +109,7 @@ Only the data of the `test.public.products` table will be consumed.
 
 ## Metadata Support
 
-The Kafka source automatically injects `ConsumerRecord.timestamp` into the SeaTunnel `EventTime` metadata when the value is non-negative. You can expose it as a normal field through the [Metadata transform](../../transform-v2/metadata.md) for downstream SQL or partitioning.
+The Kafka source automatically injects `ConsumerRecord.timestamp` into the SeaTunnel `EventTime` metadata when the value is non-negative. You can expose it as a normal field through the [Metadata transform](../../transforms/metadata.md) for downstream SQL or partitioning.
 
 ```hocon
 source {
@@ -110,7 +141,7 @@ transform {
 
 ### Simple
 
-> This example reads the data of kafka's topic_1, topic_2, topic_3 and prints it to the client.And if you have not yet installed and deployed SeaTunnel, you need to follow the instructions in Install SeaTunnel to install and deploy SeaTunnel. And if you have not yet installed and deployed SeaTunnel, you need to follow the instructions in [Install SeaTunnel](../../getting-started/locally/deployment.md) to install and deploy SeaTunnel. And then follow the instructions in [Quick Start With SeaTunnel Engine](../../getting-started/locally/quick-start-seatunnel-engine.md) to run this job.
+> This example reads data from Kafka topics topic_1, topic_2, and topic_3 and prints it to the client. If you have not installed and deployed SeaTunnel yet, follow [Install SeaTunnel](../../getting-started/locally/deployment.md) first. Then follow [Quick Start With SeaTunnel Engine](../../getting-started/locally/quick-start-seatunnel-engine.md) to run this job.
 > In batch mode, during the enumerator sharding process, it will fetch the latest offset for each partition and use it as the stopping point.
 
 ```hocon
@@ -150,10 +181,32 @@ sink {
 source {
     Kafka {
           topic = ".*seatunnel*."
-          pattern = "true" 
+          pattern = true
           bootstrap.servers = "localhost:9092"
           consumer.group = "seatunnel_group"
     }
+}
+```
+
+### Dynamic Partition Discovery
+
+For long-running streaming jobs, set `partition-discovery.interval-millis` to discover newly added partitions. New partitions start from `start_mode` unless the job already has checkpointed offsets for them.
+
+```hocon
+env {
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  Kafka {
+    topic = "seatunnel_topic"
+    bootstrap.servers = "localhost:9092"
+    consumer.group = "seatunnel_group"
+    start_mode = latest
+    partition-discovery.interval-millis = 5000
+    format = json
+  }
 }
 ```
 
@@ -257,7 +310,7 @@ source {
     tables_configs = [
       {
         topic = "^test-ogg-sou.*"
-        pattern = "true"
+        pattern = true
         consumer.group = "ogg_multi_group"
         start_mode = earliest
         schema = {
@@ -314,7 +367,7 @@ source {
     table_list = [
       {
         topic = "^test-ogg-sou.*"
-        pattern = "true"
+        pattern = true
         consumer.group = "ogg_multi_group"
         start_mode = earliest
         schema = {
@@ -458,7 +511,34 @@ source {
 ```
 
 **Note**: When `strip_schema_registry_header` is enabled, the connector can safely handle both Schema Registry encoded messages and plain Protobuf messages. If the Schema Registry header is not detected, it will automatically fall back to standard Protobuf deserialization.
+
+### Reading Kafka Headers
+
+Use `kafka_headers_fields` to extract specific Kafka message headers as row fields. The header values are appended as STRING type fields after all regular schema fields.
+
+> Note: Cannot be used with `NATIVE` format, which already exposes headers as a `Map<String, String>` field.
+
+```hocon
+source {
+  Kafka {
+    topic = "my-topic"
+    bootstrap.servers = "localhost:9092"
+    kafka_headers_fields = ["correlation-id", "x-trace-id"]
+    schema = {
+      fields {
+        user_id = "int"
+        name = "string"
+      }
+    }
+    format = json
+  }
+}
 ```
+
+The output row will contain: `user_id` (int), `name` (string), `correlation-id` (string), `x-trace-id` (string).  
+If a header key is absent in a record, the corresponding field value will be `null`.
+
+This is the counterpart of `kafka_headers_fields` in the Kafka sink connector, allowing round-trip header propagation between topics.
 
 ### Ignore No Leader Partition
 
@@ -511,6 +591,73 @@ The returned data is as follows:
 }
 ```
 Note：key/value is of type byte[].
+
+## FAQ
+
+### What `start_mode` values are available and how do they differ?
+
+| `start_mode` | Behavior |
+|---|---|
+| `earliest` | Consume from the earliest available offset in each partition |
+| `latest` | Consume only new messages produced after the job starts |
+| `group_offsets` | Resume from the committed offsets for the consumer group |
+| `specific_offsets` | Start from explicitly specified offsets per partition |
+| `timestamp` | Start from the first message at or after a given timestamp |
+
+Use `group_offsets` to resume an interrupted job. Use `earliest` for a full replay from the beginning of the topic.
+
+### How can I filter messages from the same topic by Kafka message key?
+
+Use `format = "NATIVE"` to expose the raw Kafka metadata — including the `key` field — as part of each record. Then apply a SQL Transform to keep only messages matching the desired key value:
+
+```hocon
+source {
+  Kafka {
+    topic = "events"
+    bootstrap.servers = "localhost:9092"
+    format = "NATIVE"
+    consumer.group = "my-group"
+  }
+}
+transform {
+  Sql {
+    plugin_input = "kafka_source"
+    plugin_output = "filtered"
+    query = "SELECT * FROM kafka_source WHERE key = 'expected_key_base64'"
+  }
+}
+```
+
+Note: the `key` field in NATIVE format is base64-encoded bytes.
+
+### What message formats does Kafka Source support?
+
+Kafka Source supports: `json`, `text`, `canal_json`, `debezium_json`, `ogg_json`, `avro`, `protobuf`, and `NATIVE`. Use `NATIVE` when you need access to Kafka-level metadata (headers, key, partition, timestamp) as part of the record.
+
+### How do I configure SASL/Kerberos authentication?
+
+Pass authentication settings via `kafka.*` properties in the connector configuration:
+
+```hocon
+source {
+  Kafka {
+    bootstrap.servers = "broker:9092"
+    topic = "secure-topic"
+    consumer.group = "my-group"
+    kafka.security.protocol = "SASL_PLAINTEXT"
+    kafka.sasl.mechanism = "GSSAPI"
+    kafka.sasl.kerberos.service.name = "kafka"
+    kafka.sasl.jaas.config = """com.sun.security.auth.module.Krb5LoginModule required
+      useKeyTab=true
+      keyTab="/etc/kafka/kafka.keytab"
+      principal="user@REALM.COM";"""
+  }
+}
+```
+
+### How are consumer group offsets committed?
+
+Offsets are committed to Kafka when a SeaTunnel checkpoint completes. Ensure checkpointing is enabled via `checkpoint.interval` in the `env` block. If the job restarts with `start_mode = "group_offsets"`, it resumes from the last committed checkpoint offset.
 
 ## Changelog
 

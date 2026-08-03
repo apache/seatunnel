@@ -25,6 +25,7 @@ import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
+import org.apache.seatunnel.connectors.cdc.base.config.StartupConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
@@ -35,6 +36,7 @@ import org.apache.seatunnel.connectors.cdc.debezium.DebeziumDeserializationSchem
 import org.apache.seatunnel.connectors.cdc.debezium.DeserializeFormat;
 import org.apache.seatunnel.connectors.cdc.debezium.row.DebeziumJsonDeserializeSchema;
 import org.apache.seatunnel.connectors.cdc.debezium.row.SeaTunnelRowDebeziumDeserializeSchema;
+import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.config.PostgresIncrementalSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.config.PostgresSourceConfigFactory;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.offset.LsnOffsetFactory;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
@@ -59,8 +61,12 @@ public class PostgresIncrementalSource<T> extends IncrementalSource<T, JdbcSourc
 
     static final String IDENTIFIER = "Postgres-CDC";
 
+    private final boolean requireReplicaIdentityFull;
+
     public PostgresIncrementalSource(ReadonlyConfig options, List<CatalogTable> catalogTables) {
         super(options, catalogTables);
+        this.requireReplicaIdentityFull =
+                options.get(PostgresIncrementalSourceOptions.REQUIRE_REPLICA_IDENTITY_FULL);
     }
 
     @Override
@@ -76,6 +82,13 @@ public class PostgresIncrementalSource<T> extends IncrementalSource<T, JdbcSourc
     @Override
     public Option<StopMode> getStopModeOption() {
         return PostgresSourceOptions.STOP_MODE;
+    }
+
+    @Override
+    protected StartupConfig getStartupConfig(ReadonlyConfig config) {
+        StartupConfig startupConfig = super.getStartupConfig(config);
+        validateStartupOptions(config, startupConfig);
+        return startupConfig;
     }
 
     @Override
@@ -115,7 +128,10 @@ public class PostgresIncrementalSource<T> extends IncrementalSource<T, JdbcSourc
 
     @Override
     public DataSourceDialect<JdbcSourceConfig> createDataSourceDialect(ReadonlyConfig config) {
-        return new PostgresDialect((PostgresSourceConfigFactory) configFactory, catalogTables);
+        return new PostgresDialect(
+                (PostgresSourceConfigFactory) configFactory,
+                catalogTables,
+                requireReplicaIdentityFull);
     }
 
     @Override
@@ -129,10 +145,30 @@ public class PostgresIncrementalSource<T> extends IncrementalSource<T, JdbcSourc
         return Optional.of("org.postgresql.Driver");
     }
 
+    private void validateStartupOptions(ReadonlyConfig options, StartupConfig startupConfig) {
+        if (startupConfig.getStartupMode() != StartupMode.COMMITTED_OFFSET) {
+            return;
+        }
+        Optional<String> slotName =
+                options.getOptional(PostgresIncrementalSourceOptions.SLOT_NAME)
+                        .map(String::trim)
+                        .filter(name -> !name.isEmpty());
+        if (!slotName.isPresent()) {
+            throw new SeaTunnelException(
+                    String.format(
+                            "PostgreSQL-CDC startup.mode '%s' requires an explicit '%s' option.",
+                            StartupMode.COMMITTED_OFFSET,
+                            PostgresIncrementalSourceOptions.SLOT_NAME.key()));
+        }
+    }
+
     private Map<TableId, Struct> tableChanges() {
         JdbcSourceConfig jdbcSourceConfig = configFactory.create(0);
         PostgresDialect dialect =
-                new PostgresDialect((PostgresSourceConfigFactory) configFactory, catalogTables);
+                new PostgresDialect(
+                        (PostgresSourceConfigFactory) configFactory,
+                        catalogTables,
+                        requireReplicaIdentityFull);
         List<TableId> discoverTables = dialect.discoverDataCollections(jdbcSourceConfig);
         SchemaNameAdjuster adjuster = SchemaNameAdjuster.create();
         ConnectTableChangeSerializer connectTableChangeSerializer =

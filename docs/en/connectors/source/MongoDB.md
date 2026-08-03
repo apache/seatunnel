@@ -72,7 +72,7 @@ For specific types in MongoDB, we use Extended JSON format to map them to SeaTun
 | uri                  | String  | Yes      | -                | The MongoDB standard connection uri. eg. mongodb://user:password@hosts:27017/database?readPreference=secondary&slaveOk=true.                                                                                                                                                                                   |
 | database             | String  | Yes      | -                | The name of MongoDB database to read or write.                                                                                                                                                                                                                                                                 |
 | collection           | String  | Yes      | -                | The name of MongoDB collection to read or write.                                                                                                                                                                                                                                                               |
-| schema               | String  | Yes      | -                | MongoDB's BSON and seatunnel data structure mapping. For more details, please refer to [Schema Feature](../../introduction/concepts/schema-feature.md).                                                                                                                                                                                                                                                           |
+| schema               | Config  | Yes      | -                | MongoDB's BSON and SeaTunnel data structure mapping. For more details, please refer to [Schema Feature](../../introduction/concepts/schema-feature.md).                                                                                                                                                                                                                                                           |
 | match.query          | String  | No       | -                | In MongoDB, filters are used to filter documents for query operations.                                                                                                                                                                                                                                         |
 | match.projection     | String  | No       | -                | In MongoDB, Projection is used to control the fields contained in the query results.                                                                                                                                                                                                                           |
 | partition.split-key  | String  | No       | _id              | The key of Mongodb fragmentation.                                                                                                                                                                                                                                                                              |
@@ -80,7 +80,7 @@ For specific types in MongoDB, we use Extended JSON format to map them to SeaTun
 | cursor.no-timeout    | Boolean | No       | true             | MongoDB server normally times out idle cursors after an inactivity period (10 minutes) to prevent excess memory use. Set this option to true to prevent that. However, if the application takes longer than 30 minutes to process the current batch of documents, the session is marked as expired and closed. |
 | fetch.size           | Int     | No       | 2048             | Set the number of documents obtained from the server for each batch. Setting the appropriate batch size can improve query performance and avoid the memory pressure caused by obtaining a large amount of data at one time.                                                                                    |
 | max.time-min         | Long    | No       | 10               | This parameter is a MongoDB query option that limits the maximum execution time for query operations. The value of maxTimeMin is in minutes. If the execution time of the query exceeds the specified time limit, MongoDB will terminate the operation and return an error.                                     |
-| flat.sync-string     | Boolean | No       | true             | By utilizing flatSyncString, only one field attribute value can be set, and the field type must be a String. This operation will perform a string mapping on a single MongoDB data entry.                                                                                                                      |
+| flat.sync-string     | Boolean | No       | false            | When enabled, the connector maps the whole MongoDB document to one SeaTunnel `STRING` field. The schema must contain exactly one field and that field must be `STRING`.                                                                                                                |
 | common-options       |         | No       | -                | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details                                                                                                                                                                                              |
 
 ### Tips
@@ -115,7 +115,7 @@ source {
         c_double = double
         c_bytes = bytes
         c_date = date
-        c_decimal = "decimal(38, 18)"
+        c_decimal = "decimal(34, 18)"
         c_timestamp = timestamp
         c_row = {
           c_map = "map<string, string>"
@@ -127,7 +127,7 @@ source {
           c_double = double
           c_bytes = bytes
           c_date = date
-          c_decimal = "decimal(38, 18)"
+          c_decimal = "decimal(34, 18)"
           c_timestamp = timestamp
         }
       }
@@ -451,4 +451,3 @@ Use the data samples synchronized with modified parameters, such as the followin
 ## Changelog
 
 <ChangeLog />
-

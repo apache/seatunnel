@@ -21,16 +21,18 @@ import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
+import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
+import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.common.Constants;
 import org.apache.seatunnel.common.exception.CommonError;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy;
-import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileAggregatedCommitInfo;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileCommitInfo;
-import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileSinkAggregatedCommitter;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.state.FileSinkState;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.AbstractWriteStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.WriteStrategy;
@@ -39,9 +41,9 @@ import org.apache.hadoop.fs.Path;
 
 import java.io.IOException;
 import java.util.Collections;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -50,7 +52,8 @@ import static org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSink
 
 public class BaseFileSinkWriter
         implements SinkWriter<SeaTunnelRow, FileCommitInfo, FileSinkState>,
-                SupportMultiTableSinkWriter<WriteStrategy> {
+                SupportMultiTableSinkWriter<WriteStrategy>,
+                SupportSchemaEvolutionSinkWriter {
 
     protected final WriteStrategy writeStrategy;
 
@@ -75,28 +78,14 @@ public class BaseFileSinkWriter
             try {
                 List<String> transactions =
                         findTransactionList(jobId, uuidPrefix, hadoopFileSystemProxy);
-                FileSinkAggregatedCommitter fileSinkAggregatedCommitter =
-                        new FileSinkAggregatedCommitter(hadoopConf);
-                fileSinkAggregatedCommitter.init();
-                LinkedHashMap<String, FileSinkState> fileStatesMap = new LinkedHashMap<>();
-                fileSinkStates.forEach(
-                        fileSinkState ->
-                                fileStatesMap.put(fileSinkState.getTransactionId(), fileSinkState));
+                Set<String> restoredTransactionIds =
+                        fileSinkStates.stream()
+                                .map(FileSinkState::getTransactionId)
+                                .collect(Collectors.toSet());
                 for (String transaction : transactions) {
-                    if (fileStatesMap.containsKey(transaction)) {
-                        // need commit
-                        FileSinkState fileSinkState = fileStatesMap.get(transaction);
-                        FileAggregatedCommitInfo fileCommitInfo =
-                                fileSinkAggregatedCommitter.combine(
-                                        Collections.singletonList(
-                                                new FileCommitInfo(
-                                                        fileSinkState.getNeedMoveFiles(),
-                                                        fileSinkState.getPartitionDirAndValuesMap(),
-                                                        fileSinkState.getTransactionDir())));
-                        fileSinkAggregatedCommitter.commit(
-                                Collections.singletonList(fileCommitInfo));
-                    } else {
-                        // need abort
+                    if (!restoredTransactionIds.contains(transaction)) {
+                        // Checkpointed transactions are replayed exclusively by the aggregated
+                        // committer. Only transactions absent from restored state are abandoned.
                         writeStrategy.abortPrepare(transaction);
                     }
                 }
@@ -114,6 +103,21 @@ public class BaseFileSinkWriter
     }
 
     private void preCheckConfig(SinkWriter.Context context) {
+        if (writeStrategy.getFileSinkConfig().getFileFormat() == FileFormat.BINARY
+                && writeStrategy.getFileSinkConfig().isCustomFilename()
+                && context.getNumberOfParallelSubtasks() > 1
+                && !hasParallelUniqueFilenameExpression(
+                        writeStrategy.getFileSinkConfig().getFileNameExpression())) {
+            throw new IllegalArgumentException(
+                    "Binary custom filename requires a unique filename expression when parallel "
+                            + "subtasks are used. Please include "
+                            + DEFAULT_FILE_NAME_EXPRESSION
+                            + " or ${"
+                            + Constants.UUID
+                            + "} in "
+                            + FILE_NAME_EXPRESSION.key()
+                            + ".");
+        }
         if (writeStrategy.getFileSinkConfig().isSingleFileMode()
                 && context.getNumberOfParallelSubtasks() > 1) {
             if (StringUtils.isNotEmpty(writeStrategy.getFileSinkConfig().getFileNameExpression())
@@ -129,6 +133,12 @@ public class BaseFileSinkWriter
                                 + " but has parallel subtasks.");
             }
         }
+    }
+
+    private boolean hasParallelUniqueFilenameExpression(String fileNameExpression) {
+        return StringUtils.isBlank(fileNameExpression)
+                || fileNameExpression.contains(DEFAULT_FILE_NAME_EXPRESSION)
+                || fileNameExpression.contains("${" + Constants.UUID + "}");
     }
 
     private List<String> findTransactionList(
@@ -174,6 +184,11 @@ public class BaseFileSinkWriter
     @Override
     public List<FileSinkState> snapshotState(long checkpointId) throws IOException {
         return writeStrategy.snapshotState(checkpointId);
+    }
+
+    @Override
+    public void applySchemaChange(SchemaChangeEvent event) throws IOException {
+        writeStrategy.applySchemaChange(event);
     }
 
     @Override

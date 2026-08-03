@@ -19,10 +19,11 @@ package org.apache.seatunnel.connectors.seatunnel.redis.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 
 import java.util.List;
 
-public class RedisBaseOptions {
+public class RedisBaseOptions extends ConnectorCommonOptions {
 
     public static final String CONNECTOR_IDENTITY = "Redis";
 
@@ -39,6 +40,10 @@ public class RedisBaseOptions {
 
     public static final Option<Integer> PORT =
             Options.key("port").intType().defaultValue(6379).withDescription("redis port");
+
+    public static final int MIN_PORT = 1;
+
+    public static final int MAX_PORT = 65535;
 
     public static final Option<String> AUTH =
             Options.key("auth")

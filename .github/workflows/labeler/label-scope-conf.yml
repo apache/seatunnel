@@ -83,6 +83,11 @@ cassandra:
       - changed-files:
           - any-glob-to-any-file: seatunnel-connectors-v2/connector-cassandra/**
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(cassandra)/**'
+salesforce:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-salesforce/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(salesforce)/**'
 cdc:
   - all:
       - changed-files:
@@ -138,6 +143,11 @@ file:
       - changed-files:
           - any-glob-to-any-file: seatunnel-connectors-v2/connector-file/**
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(file)/**'
+fluss:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-fluss/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(fluss)/**'
 google-firestore:
   - all:
       - changed-files:
@@ -213,6 +223,11 @@ mongodb:
       - changed-files:
           - any-glob-to-any-file: seatunnel-connectors-v2/connector-mongodb/**
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(mongodb)/**'
+mqtt:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-mqtt/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(mqtt)/**'
 neo4j:
   - all:
       - changed-files:
@@ -333,3 +348,9 @@ hugegraph:
       - changed-files:
           - any-glob-to-any-file: seatunnel-connectors-v2/connector-hugegraph/**
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(hugegraph)/**'
+
+bigquery:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-bigquery/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(bigquery)/**'

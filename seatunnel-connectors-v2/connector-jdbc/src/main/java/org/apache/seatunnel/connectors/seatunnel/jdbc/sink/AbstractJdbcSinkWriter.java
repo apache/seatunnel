@@ -40,6 +40,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.sql.Connection;
+import java.util.Optional;
 
 @Slf4j
 public abstract class AbstractJdbcSinkWriter<ResourceT>
@@ -64,6 +65,15 @@ public abstract class AbstractJdbcSinkWriter<ResourceT>
         reOpenOutputFormat(event);
     }
 
+    /**
+     * Exposes the resolved physical JDBC sink table so the multi-table coordinator can fan schema
+     * changes out to every sibling writer that shares the same destination table.
+     */
+    @Override
+    public Optional<String> getPhysicalSinkTableIdentifier() {
+        return sinkTablePath == null ? Optional.empty() : Optional.of(sinkTablePath.getFullName());
+    }
+
     protected void reOpenOutputFormat(SchemaChangeEvent event) throws IOException {
         this.prepareCommit();
         JdbcConnectionProvider refreshTableSchemaConnectionProvider =
@@ -75,6 +85,7 @@ public abstract class AbstractJdbcSinkWriter<ResourceT>
             throw new JdbcConnectorException(
                     JdbcConnectorErrorCode.REFRESH_PHYSICAL_TABLESCHEMA_BY_SCHEMA_CHANGE_EVENT, e);
         }
+
         this.outputFormat =
                 new JdbcOutputFormatBuilder(
                                 dialect,

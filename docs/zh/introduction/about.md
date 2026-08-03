@@ -5,67 +5,107 @@
 [![Slack](../../images/seatunnel-slack.svg)](https://s.apache.org/seatunnel-slack)
 [![Twitter Follow](../../images/ASFSeaTunnel.svg)](https://x.com/ASFSeaTunnel)
 
-SeaTunnel是一个非常易用、多模态、超高性能的分布式数据集成平台，支持实时海量数据同步。 每天可稳定高效同步数百亿数据，已被近百家企业应用于生产。
+SeaTunnel 是一个多模态、高性能、分布式的数据集成平台。
+它用统一的作业模型帮助团队在数据库、文件系统、数据湖、消息系统之间完成数据读取、转换与同步。
 
-## 为什么需要 SeaTunnel
+## 从这里开始
 
-SeaTunnel专注于数据集成和数据同步，主要旨在解决数据集成领域的常见问题：
+如果您是第一次接触 SeaTunnel，建议按下面的顺序阅读：
 
-* **数据源多样**：常用数据源有数百种，版本不兼容。 随着新技术的出现，更多的数据源不断出现。 用户很难找到一个能够全面、快速支持这些数据源的工具。
-* **多模态数据集成**：除了结构化数据外，用户还需要集成视频、图像、二进制文件、结构化和非结构化文本数据。 但是，现有的数据集成工具主要集中在结构化数据上。
-* **同步场景复杂**：数据同步需要支持离线全量同步、离线增量同步、CDC、实时同步、全库同步等多种同步场景。
-* **资源需求高**：现有的数据集成和数据同步工具往往需要大量的计算资源或JDBC连接资源来完成海量小表的实时同步。 这增加了企业的负担。
-* **缺乏质量和监控**：数据集成和同步过程经常会出现数据丢失或重复的情况。 同步过程缺乏监控，无法直观了解任务过程中数据的真实情况。
-* **技术栈复杂**：企业使用的技术组件不同，用户需要针对不同组件开发相应的同步程序来完成数据集成。
-* **管理和维护困难**：受限于底层技术组件（Flink/Spark）不同，离线同步和实时同步往往需要分开开发和管理，增加了管理和维护的难度。
+<div
+  style={{
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+    gap: "16px",
+    margin: "16px 0 24px",
+  }}>
+  <a
+    href="../getting-started/locally/run-your-first-job"
+    style={{
+      display: "block",
+      padding: "18px",
+      border: "1px solid var(--ifm-color-emphasis-300)",
+      borderRadius: "12px",
+      textDecoration: "none",
+      color: "inherit",
+      background: "var(--ifm-background-surface-color)",
+      boxShadow: "var(--ifm-global-shadow-lw)",
+    }}>
+    <strong>跑第一个任务</strong><br/>
+    <span>先用本地 FakeSource -&gt; FieldMapper -&gt; Console 链路把 SeaTunnel 跑通，再继续看真实源端到目标端的场景教程。</span>
+  </a>
+</div>
 
-## SeaTunnel 相关特性
+- [快速入门总览](../getting-started/overview.md)：先建立整体路径
+- [SeaTunnel 引擎快速开始](../getting-started/locally/quick-start-seatunnel-engine.md)：先跑通第一个任务
+- [作业配置指南](../getting-started/job-configuration-guide.md)：开始编写真实作业
+- [工作原理](how-it-works.md)：先理解运行模型，再进入更深层架构
 
-* **丰富且可扩展的Connector**：SeaTunnel提供了不依赖于特定执行引擎的Connector API。 基于该API开发的Connector（Source、Transform、Sink）可以运行在很多不同的引擎上，例如目前支持的SeaTunnel引擎（Zeta）、Flink、Spark等。
-* **Connector插件**：插件式设计让用户可以轻松开发自己的Connector并将其集成到SeaTunnel项目中。 目前，SeaTunnel 支持超过 100 个连接器，并且数量正在激增。
-* **批流集成**：基于SeaTunnel Connector API开发的Connector完美兼容离线同步、实时同步、全量同步、增量同步等场景。 它们大大降低了管理数据集成任务的难度。
-* **分布式快照**：支持分布式快照算法，保证数据一致性。
-* **多引擎支持**：SeaTunnel默认使用SeaTunnel引擎（Zeta）进行数据同步。 SeaTunnel还支持使用Flink或Spark作为Connector的执行引擎，以适应企业现有的技术组件。 SeaTunnel 支持 Spark 和 Flink 的多个版本。
-* **JDBC复用、数据库日志多表解析**：SeaTunnel支持多表或全库同步，解决了过度JDBC连接的问题； 支持多表或全库日志读取解析，解决了CDC多表同步场景下需要处理日志重复读取解析的问题。
-* **高吞吐量、低延迟**：SeaTunnel支持并行读写，提供稳定可靠、高吞吐量、低延迟的数据同步能力。
-* **完善的实时监控**：SeaTunnel支持数据同步过程中每一步的详细监控信息，让用户轻松了解同步任务读写的数据数量、数据大小、QPS等信息。
-* **支持两种作业开发方法**：编码和画布设计。 SeaTunnel Web 项目 https://github.com/apache/seatunnel-web 提供作业、调度、运行和监控功能的可视化管理。
+如果您已经有 Flink 或 Spark 运行环境，也可以直接跳到
+[Flink 引擎快速开始](../getting-started/locally/quick-start-flink.md) 或
+[Spark 引擎快速开始](../getting-started/locally/quick-start-spark.md)。
 
-## SeaTunnel 工作流图
+## SeaTunnel 能帮您做什么
 
-![SeaTunnel Work Flowchart](../../images/architecture_diagram.png)
+SeaTunnel 面向的是数据团队最常见、也最先要交付的几类任务：
 
-SeaTunnel的运行流程如上图所示。
+- **在多种系统之间搬运数据**：包括数据库、消息队列、文件系统、对象存储、数据湖和 SaaS 系统
+- **同时支持批处理和流处理**：同一套连接器模型可以覆盖全量、增量、CDC 和实时同步
+- **让作业定义保持清晰**：一个 SeaTunnel 作业仍然主要由 `env`、`source`、`transform`、`sink` 四部分组成
+- **降低运行复杂度**：SeaTunnel 关注高吞吐、较低依赖成本和实用的运行可观测性
 
-用户配置作业信息并选择提交作业的执行引擎。
+## 团队为什么会选择 SeaTunnel
 
-Source Connector负责并行读取数据并将数据发送到下游Transform或直接发送到Sink，Sink将数据写入目的地。 值得注意的是，Source、Transform 和 Sink 可以很容易地自行开发和扩展。
+- **连接器优先的设计**：SeaTunnel 提供统一的连接器接口（Connector API），Source、Transform、Sink 可以跨引擎复用
+- **引擎选择灵活**：可以直接从 SeaTunnel 引擎（Zeta）起步，也可以运行在 Flink 或 Spark 上
+- **面向真实同步场景**：多表同步、CDC、大规模作业执行都是第一类使用场景
+- **运行态可观察**：作业能够暴露运行指标和任务信息，方便理解吞吐、延迟和稳定性
+- **适合从小到大演进**：既可以本地先跑一个简单任务，也可以逐步扩展到更复杂的集群部署
 
-SeaTunnel 是一个 EL(T) 数据集成平台。 因此，在SeaTunnel中，Transform只能用于对数据进行一些简单的转换，例如将一列的数据转换为大写或小写，更改列名，或者将一列拆分为多列。
+## 用一张图理解 SeaTunnel
 
-SeaTunnel 使用的默认引擎是 [SeaTunnel Engine](../engines/zeta/about.md)。 如果您选择使用Flink或Spark引擎，SeaTunnel会将Connector打包成Flink或Spark程序并提交给Flink或Spark运行。
+![SeaTunnel 工作流程图](../../images/architecture_diagram.png)
 
-## 连接器
+您可以先抓住三个最重要的理解点：
 
-- **源连接器** SeaTunnel 支持从各种关系、图形、NoSQL、文档和内存数据库读取数据； 分布式文件系统，例如HDFS； 以及各种云存储解决方案，例如S3和OSS。 我们还支持很多常见SaaS服务的数据读取。 您可以在[此处] 访问详细列表。 如果您愿意，您可以开发自己的源连接器并将其轻松集成到 SeaTunnel 中。
+### 1. SeaTunnel 作业本质上是一条数据管道
 
-- **转换连接器** 如果源和接收器之间的架构不同，您可以使用转换连接器更改从源读取的架构，使其与接收器架构相同。
+您用配置文件描述作业，SeaTunnel 再把它执行成一条从 **Source（读取）** 到 **Transform（转换）** 再到 **Sink（写入）** 的数据处理链路。
 
-- **Sink Connector** SeaTunnel 支持将数据写入各种关系型、图形、NoSQL、文档和内存数据库； 分布式文件系统，例如HDFS； 以及各种云存储解决方案，例如S3和OSS。 我们还支持将数据写入许多常见的 SaaS 服务。 您可以在[此处]访问详细列表。 如果您愿意，您可以开发自己的 Sink 连接器并轻松将其集成到 SeaTunnel 中。
+### 2. 连接器决定读什么、写到哪里
+
+SeaTunnel 提供了丰富的 [源连接器](../connectors/source-overview.md)、
+[目标连接器](../connectors/sink-overview.md) 和 [数据转换](../transforms)。
+如果有特殊需求，您也可以自行扩展这些插件类型。
+
+### 3. 引擎决定这条作业跑在哪儿
+
+[SeaTunnel 引擎（Zeta）](../engines/zeta/about.md) 是默认选择，也是大多数新用户最推荐的起点。
+如果您已经在使用 Flink 或 Spark，SeaTunnel 也可以把同一套连接器作业模型运行在这些平台上。
+
+## 如何选择运行引擎
+
+| 引擎 | 推荐起点 | 适用场景 |
+| --- | --- | --- |
+| [SeaTunnel 引擎（Zeta）](../engines/zeta/about.md) | 推荐大多数新用户先从这里开始 | 希望以最短路径跑通 SeaTunnel 作业 |
+| [Apache Flink](../engines/flink.md) | 适合已有 Flink 环境的团队 | 已经维护 Flink 集群，希望让 SeaTunnel 接入现有平台 |
+| [Apache Spark](../engines/spark.md) | 适合已有 Spark 环境的团队 | 主要是批处理任务，希望复用现有 Spark 技术栈 |
+
+## 继续阅读
+
+- [工作原理](how-it-works.md)：以新手能接受的层次理解运行模型
+- [配置文件简介](concepts/config.md)：开始写真实作业
+- [数据连接器总览](../connectors)：先确认读写方向，再进入具体连接器参数页
+- [系统架构概览](../architecture/overview.md)：当您需要深入内部设计时再继续往下读
+- [常见问题](../faq.md)：快速处理常见使用、CDC 与配置问题
+
+## 获取帮助与加入社区
+
+- [开发环境搭建](../developer/setup.md)：如果您要本地构建或调试 SeaTunnel
+- [贡献路径](../developer/contribution-path.md)：如果您想从最小、最稳妥的范围开始参与贡献
+- [贡献插件](../developer/contribute-plugin.md)：如果您准备贡献连接器或 transform 插件
+- [GitHub Issues](https://github.com/apache/seatunnel/issues)、[Slack](https://s.apache.org/seatunnel-slack) 和 [dev 邮件列表](https://lists.apache.org/list.html?dev@seatunnel.apache.org)：如果您需要社区帮助
 
 ## 谁在使用 SeaTunnel
 
-SeaTunnel 拥有大量用户。 您可以在[用户](https://seatunnel.apache.org/user)中找到有关他们的更多信息.  
-
-## 展望
-
-<p align="center">
-<br/><br/>
-<img src="https://landscape.cncf.io/images/left-logo.svg" width="150" alt=""/>&nbsp;&nbsp;<img src="https://landscape.cncf.io/images/right-logo.svg" width="200" alt=""/>
-<br/><br/>
-SeaTunnel 丰富了<a href="https://landscape.cncf.io/?item=app-definition-and-development--streaming-messaging--seatunnel">CNCF 云原生景观</a >。
-</p >
-
-## 了解更多
-
-您可以参阅[快速入门](../getting-started/locally/deployment.md) 了解后续相关步骤。
+SeaTunnel 拥有大量用户。您可以在[用户](https://seatunnel.apache.org/zh-CN/user)中找到有关他们的更多信息。

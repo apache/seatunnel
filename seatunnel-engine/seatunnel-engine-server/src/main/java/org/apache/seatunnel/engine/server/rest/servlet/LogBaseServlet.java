@@ -36,7 +36,17 @@ public class LogBaseServlet extends BaseServlet {
     public LogBaseServlet(NodeEngineImpl nodeEngine) {
         super(nodeEngine);
     }
-    /** Prepare Log Response */
+
+    /**
+     * Prepares the servlet log response after enforcing the configured log directory boundary.
+     *
+     * <p>The requested log file is resolved to its canonical path before reading so that relative
+     * segments and symbolic links cannot escape the canonical log directory.
+     *
+     * @param resp response used to return status and log content
+     * @param logPath configured log directory
+     * @param logName requested log file name from the request URI
+     */
     protected void prepareLogResponse(HttpServletResponse resp, String logPath, String logName) {
         if (StringUtils.isBlank(logPath)) {
             resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
@@ -44,12 +54,26 @@ public class LogBaseServlet extends BaseServlet {
                     "Log file path is empty, no log file path configured in the current configuration file");
             return;
         }
-        String logFilePath = logPath + "/" + logName;
+        String logFilePath = new File(logPath, logName).getPath();
         try {
-            String logContent = FileUtils.readFileToStr(new File(logFilePath).toPath());
+            String canonicalLogDir = new File(logPath).getCanonicalPath();
+            String canonicalFilePath = new File(logFilePath).getCanonicalPath();
+            if (!canonicalFilePath.startsWith(canonicalLogDir + File.separator)
+                    && !canonicalFilePath.equals(canonicalLogDir)) {
+                resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+                log.warn(
+                        "Path traversal attempt blocked - Requested: {}, Resolved: {}, LogDir: {}",
+                        logName,
+                        canonicalFilePath,
+                        canonicalLogDir);
+                return;
+            }
+            String logContent = FileUtils.readFileToStr(new File(canonicalFilePath).toPath());
             write(resp, logContent);
-        } catch (SeaTunnelRuntimeException | IOException e) {
-            // If the log file does not exist, return 400
+        } catch (IOException e) {
+            resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
+            log.warn("Failed to resolve log file path: {}, error: {}", logFilePath, e.getMessage());
+        } catch (SeaTunnelRuntimeException e) {
             resp.setStatus(HttpServletResponse.SC_BAD_REQUEST);
             log.warn(String.format("Log file content is empty, get log path : %s", logFilePath));
         }

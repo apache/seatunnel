@@ -61,6 +61,7 @@
         <module>connector-tdengine-e2e</module>
         <module>connector-datahub-e2e</module>
         <module>connector-mongodb-e2e</module>
+        <module>connector-mqtt-e2e</module>
         <module>connector-hbase-e2e</module>
         <module>connector-web3j-e2e</module>
         <module>connector-maxcompute-e2e</module>
@@ -82,8 +83,10 @@
         <module>connector-prometheus-e2e</module>
         <module>connector-qdrant-e2e</module>
         <module>connector-sls-e2e</module>
+        <module>connector-socket-e2e</module>
         <module>connector-typesense-e2e</module>
         <module>connector-email-e2e</module>
+        <module>connector-edge-socket-e2e</module>
         <module>connector-cdc-opengauss-e2e</module>
         <module>connector-cdc-tidb-e2e</module>
         <module>connector-graphql-e2e</module>
@@ -92,6 +95,7 @@
         <module>connector-hugegraph-e2e</module>
         <module>connector-fluss-e2e</module>
         <module>connector-lance-e2e</module>
+        <module>connector-bigquery-e2e</module>
     </modules>
 
     <dependencies>
