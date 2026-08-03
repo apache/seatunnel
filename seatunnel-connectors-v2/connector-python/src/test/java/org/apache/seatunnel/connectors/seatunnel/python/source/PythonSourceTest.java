@@ -616,7 +616,7 @@ class PythonSourceTest {
         try {
             IOException exception =
                     Assertions.assertTimeoutPreemptively(
-                            Duration.ofSeconds(8), () -> pollUntilIOException(reader, collector));
+                            Duration.ofSeconds(25), () -> pollUntilIOException(reader, collector));
             Assertions.assertTrue(exception.getMessage().contains("child processes"));
         } finally {
             reader.close();
@@ -643,7 +643,7 @@ class PythonSourceTest {
         try {
             IOException exception =
                     Assertions.assertTimeoutPreemptively(
-                            Duration.ofSeconds(8), () -> pollUntilIOException(reader, collector));
+                            Duration.ofSeconds(25), () -> pollUntilIOException(reader, collector));
             Assertions.assertTrue(exception.getMessage().contains("child processes"));
             Assertions.assertFalse(collector.rows.isEmpty());
         } finally {
@@ -756,9 +756,31 @@ class PythonSourceTest {
         return null;
     }
 
-    /** Polls until inherited stdout is reported as a bounded-source protocol violation. */
+    /**
+     * Polls until inherited stdout is reported as a bounded-source protocol violation.
+     *
+     * <p>The reader can only arm its inherited-stdout grace period once the Python parent has
+     * started, spawned its child and exited. That startup cost is unbounded on a loaded CI runner,
+     * so it is drained in a separate phase first. The failure budget then measures only the grace
+     * period itself, which keeps the assertion strict while removing interpreter startup jitter
+     * from the measurement.
+     */
     private IOException pollUntilIOException(
             PythonSourceReader reader, RecordingCollector collector) throws Exception {
+        long startupDeadlineNanos = System.nanoTime() + TimeUnit.SECONDS.toNanos(15);
+        while (getStdoutCloseDeadline(reader) == 0L && System.nanoTime() < startupDeadlineNanos) {
+            try {
+                reader.pollNext(collector);
+            } catch (IOException e) {
+                return e;
+            }
+        }
+        Assertions.assertNotEquals(
+                0L, getStdoutCloseDeadline(reader), "poll did not enter inherited stdout wait");
+
+        // The grace period is PROCESS_DESTROY_TIMEOUT_SECONDS (5s) from the moment it is armed.
+        // 7s leaves room for poll granularity while staying far below the 20s of continuous child
+        // output, so a deadline that is wrongly renewed by that output still fails this helper.
         long deadlineNanos = System.nanoTime() + TimeUnit.SECONDS.toNanos(7);
         while (System.nanoTime() < deadlineNanos) {
             try {
