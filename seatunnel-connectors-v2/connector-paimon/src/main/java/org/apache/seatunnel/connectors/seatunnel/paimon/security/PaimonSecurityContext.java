@@ -34,8 +34,6 @@ import org.apache.paimon.security.SecurityConfiguration;
 import org.apache.paimon.security.SecurityContext;
 
 import lombok.extern.slf4j.Slf4j;
-import sun.security.krb5.Config;
-import sun.security.krb5.KrbException;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -141,11 +139,23 @@ public class PaimonSecurityContext extends SecurityContext {
     private static void reloadKrb5conf(String krb5conf) {
         System.setProperty(KRB5_CONF_KEY, krb5conf);
         try {
-            Config.refresh();
+            refreshJdkKerberosConfig();
             KerberosName.resetDefaultRealm();
-        } catch (KrbException e) {
+        } catch (ReflectiveOperationException e) {
             log.warn(
                     "resetting default realm failed, current default realm will still be used.", e);
         }
+    }
+
+    /**
+     * Refreshes the JDK Kerberos configuration so that the krb5.conf just set takes effect.
+     *
+     * <p>Invoked reflectively because sun.security.krb5.Config lives in the java.security.jgss
+     * module, which does not export it to the unnamed module, so importing it directly fails to
+     * compile on Java 17. A failure here leaves the default realm untouched, which matches the
+     * previous behaviour when Config.refresh() threw.
+     */
+    private static void refreshJdkKerberosConfig() throws ReflectiveOperationException {
+        Class.forName("sun.security.krb5.Config").getMethod("refresh").invoke(null);
     }
 }
