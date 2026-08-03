@@ -324,7 +324,10 @@ public class ConfigBuilder {
             }
 
         } catch (Exception e) {
-
+            log.warn(
+                    "Variable '{}' looks like JSON but parse failed, fallback to string",
+                    trimmed,
+                    e);
         }
 
         return ConfigValueFactory.fromAnyRef(value);
