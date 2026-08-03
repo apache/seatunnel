@@ -52,6 +52,17 @@ import static org.awaitility.Awaitility.given;
         type = {EngineType.SPARK, EngineType.FLINK})
 @Slf4j
 public class HiveIT extends TestSuiteBase implements TestResource {
+
+    /**
+     * Shell fragment used for every plugin jar download inside the Hive container.
+     *
+     * <p>A bare {@code wget} makes the whole E2E job fail on a single transient TLS or DNS hiccup
+     * against Maven Central, which has nothing to do with the behaviour under test. Retry a few
+     * times with a backoff and a per-attempt timeout so only a sustained outage fails the job.
+     */
+    private static final String WGET =
+            " && wget --tries=5 --waitretry=5 --retry-connrefused --timeout=30 ";
+
     private static final String CREATE_SQL =
             "CREATE TABLE test_hive_sink_on_hdfs"
                     + "("
@@ -186,7 +197,7 @@ public class HiveIT extends TestSuiteBase implements TestResource {
                                         + pluginHiveDir
                                         + " && cd "
                                         + pluginHiveDir
-                                        + " && wget "
+                                        + WGET
                                         + hiveExeUrl());
                 Assertions.assertEquals(
                         0,
@@ -194,7 +205,7 @@ public class HiveIT extends TestSuiteBase implements TestResource {
                         downloadHiveExeCommands.getStderr());
                 Container.ExecResult downloadLibFb303Commands =
                         container.execInContainer(
-                                "sh", "-c", "cd " + pluginHiveDir + " && wget " + libFb303Url());
+                                "sh", "-c", "cd " + pluginHiveDir + WGET + libFb303Url());
                 Assertions.assertEquals(
                         0,
                         downloadLibFb303Commands.getExitCode(),
@@ -202,7 +213,7 @@ public class HiveIT extends TestSuiteBase implements TestResource {
                 // The jar of s3
                 Container.ExecResult downloadS3Commands =
                         container.execInContainer(
-                                "sh", "-c", "cd " + pluginHiveDir + " && wget " + hadoopAwsUrl());
+                                "sh", "-c", "cd " + pluginHiveDir + WGET + hadoopAwsUrl());
                 Assertions.assertEquals(
                         0, downloadS3Commands.getExitCode(), downloadS3Commands.getStderr());
                 // The jar of oss
@@ -212,18 +223,18 @@ public class HiveIT extends TestSuiteBase implements TestResource {
                                 "-c",
                                 "cd "
                                         + pluginHiveDir
-                                        + " && wget "
+                                        + WGET
                                         + aliyunSdkOssUrl()
-                                        + " && wget "
+                                        + WGET
                                         + jdomUrl()
-                                        + " && wget "
+                                        + WGET
                                         + hadoopAliyunUrl());
                 Assertions.assertEquals(
                         0, downloadOssCommands.getExitCode(), downloadOssCommands.getStderr());
                 // The jar of cos
                 Container.ExecResult downloadCosCommands =
                         container.execInContainer(
-                                "sh", "-c", "cd " + pluginHiveDir + " && wget " + hadoopCosUrl());
+                                "sh", "-c", "cd " + pluginHiveDir + WGET + hadoopCosUrl());
                 Assertions.assertEquals(
                         0, downloadCosCommands.getExitCode(), downloadCosCommands.getStderr());
             };
