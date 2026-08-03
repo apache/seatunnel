@@ -217,3 +217,9 @@ You need to check this document before you upgrade to related version.
 ### Engine Behavior Changes
 
 ### Dependency Upgrades
+
+- **Breaking Change: Debezium is no longer packaged inside `connector-cdc-base`**
+  - **Affected component**: `seatunnel-connectors-v2/connector-cdc/*`
+  - **Description**: `connector-cdc-base` now declares `debezium-api`, `debezium-embedded` and `zstd-jni` as `provided`, and each CDC connector declares the Debezium version it ships through its own `debezium.version` property. Previously every CDC connector inherited Debezium transitively from `connector-cdc-base`, so the shared `connector-cdc-base` jar was the single Debezium version for the whole project. Because `connector-cdc-base` is loaded into the class loader of every CDC connector, no connector could override it. Debezium classes now live in each connector's own jar instead.
+  - **Impact**: No change for CDC job configuration, runtime behavior or checkpoint compatibility — every in-tree connector still resolves Debezium `1.9.8.Final`, so the set of classes on a CDC job's class loader is unchanged. Third-party CDC connectors built against `connector-cdc-base` and relying on it to supply Debezium transitively must now declare `debezium-api` and `debezium-embedded` themselves. `connectors/connector-cdc-base-*.jar` no longer contains `io.debezium` classes.
+  - **Packaging note**: The Debezium runtime (Debezium plus its Kafka Connect, compression and Jetty dependencies) is now duplicated into each Debezium-based connector jar rather than shared, which increases the size of the binary distribution.
