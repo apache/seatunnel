@@ -120,6 +120,19 @@ cd "${SEATUNNEL_HOME}"
 
 如果任务在读取数据前失败，请先检查[故障排查](#故障排查)。
 
+:::note
+
+连接 MariaDB 时，请使用 MariaDB Connector/J 以及匹配的 URL 和驱动：
+
+```hocon
+url = "jdbc:mariadb://localhost:3306/database"
+driver = "org.mariadb.jdbc.Driver"
+```
+
+不要使用 MySQL Connector/J 和 `jdbc:mysql:` URL 连接 MariaDB。该配置会选择 MySQL 方言，可能将 MariaDB 服务端版本判定为不支持的 MySQL 版本。
+
+:::
+
 ## 关键特性
 
 - [x] [批](../../introduction/concepts/connector-v2-features.md)

@@ -1,0 +1,205 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+# Benchmark data environment for the SeaTunnel AI CLI accuracy benchmark.
+# Image versions follow the ones used by the official seatunnel-e2e suite.
+#
+#   docker compose up -d --wait              # core services
+#   docker compose --profile olap up -d      # + Doris & StarRocks (heavy)
+#
+# Standard credentials (also see ../execution.py CREDENTIALS):
+#   MySQL       root / Test@123        localhost:3306  db: shop
+#   PostgreSQL  bench / Test@123       localhost:5432  db: analytics
+#   ClickHouse  default / Test@123     localhost:8123  db: bench
+#   Elasticsearch  (security disabled) localhost:9200
+#   Kafka       (PLAINTEXT)            localhost:9092
+#   MinIO       minioadmin / minioadmin  localhost:9000  bucket: bench
+#   Doris       root / (empty)         FE localhost:8030, query 9030
+#   StarRocks   root / (empty)         FE localhost:8031, query 9031
+
+services:
+  mysql:
+    image: mysql:8.0.43
+    container_name: st-bench-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: "Test@123"
+      MYSQL_DATABASE: shop
+    command:
+      - --server-id=1
+      - --log-bin=mysql-bin
+      - --binlog-format=ROW
+      - --binlog-row-image=FULL
+      - --gtid-mode=ON
+      - --enforce-gtid-consistency=ON
+      - --default-authentication-plugin=mysql_native_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./init/mysql:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-pTest@123"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  postgres:
+    image: postgres:14-alpine
+    container_name: st-bench-postgres
+    environment:
+      POSTGRES_USER: bench
+      POSTGRES_PASSWORD: "Test@123"
+      POSTGRES_DB: analytics
+    command: ["postgres", "-c", "wal_level=logical", "-c", "max_replication_slots=8", "-c", "max_wal_senders=8"]
+    ports:
+      - "15432:5432"   # host port remapped to avoid clashes; in-network stays 5432
+    volumes:
+      - ./init/postgres:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bench -d analytics"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  kafka:
+    image: apache/kafka:3.7.0
+    container_name: st-bench-kafka
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:19092,CONTROLLER://0.0.0.0:9093,EXTERNAL://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:19092,EXTERNAL://localhost:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    ports:
+      - "9092:9092"
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/kafka/bin/kafka-broker-api-versions.sh --bootstrap-server localhost:19092 >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+
+  kafka-init:
+    image: apache/kafka:3.7.0
+    container_name: st-bench-kafka-init
+    depends_on:
+      kafka:
+        condition: service_healthy
+    volumes:
+      - ./init/kafka:/init:ro
+    entrypoint: ["/bin/bash", "/init/seed_topics.sh"]
+    restart: "no"
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:23.3.13.6
+    container_name: st-bench-clickhouse
+    environment:
+      CLICKHOUSE_USER: default
+      CLICKHOUSE_PASSWORD: "Test@123"
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1
+    ports:
+      - "8123:8123"
+      - "19001:9000"   # host remapped; in-network stays 9000
+    volumes:
+      - ./init/clickhouse:/docker-entrypoint-initdb.d:ro
+    ulimits:
+      nofile:
+        soft: 262144
+        hard: 262144
+    healthcheck:
+      test: ["CMD-SHELL", "clickhouse-client --password Test@123 -q 'SELECT 1'"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+
+  elasticsearch:
+    image: elasticsearch:8.9.0
+    container_name: st-bench-elasticsearch
+    environment:
+      discovery.type: single-node
+      xpack.security.enabled: "false"
+      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:9200/_cluster/health >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
+  minio:
+    image: minio/minio:RELEASE.2024-06-13T22-53-53Z
+    container_name: st-bench-minio
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    command: ["server", "/data", "--console-address", ":9090"]
+    ports:
+      - "19000:9000"   # host remapped; in-network stays 9000
+      - "19090:9090"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
+  minio-init:
+    image: minio/mc:RELEASE.2024-06-12T14-34-03Z
+    container_name: st-bench-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 minioadmin minioadmin &&
+      mc mb -p local/bench || true"
+    restart: "no"
+
+  # ── OLAP profile (heavy images; enable with --profile olap) ──
+
+  doris:
+    image: apache/doris:doris-all-in-one-2.1.0
+    container_name: st-bench-doris
+    profiles: ["olap"]
+    ports:
+      - "8030:8030"
+      - "9030:9030"
+      - "8040:8040"
+    volumes:
+      - ./init/doris:/init:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysql -h127.0.0.1 -P9030 -uroot -e 'SELECT 1' >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 10s
+      retries: 60
+
+  starrocks:
+    image: starrocks/allin1-ubuntu:3.3.4
+    container_name: st-bench-starrocks
+    profiles: ["olap"]
+    ports:
+      - "8031:8030"
+      - "9031:9030"
+      - "8041:8040"
+    healthcheck:
+      test: ["CMD-SHELL", "mysql -h127.0.0.1 -P9030 -uroot -e 'SELECT 1' >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 10s
+      retries: 60
