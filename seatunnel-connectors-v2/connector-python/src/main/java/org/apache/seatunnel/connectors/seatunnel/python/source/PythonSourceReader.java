@@ -250,7 +250,7 @@ public class PythonSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> 
                             : TimeUnit.SECONDS.toMillis(PROCESS_DESTROY_TIMEOUT_SECONDS);
             if (process != null) {
                 destroyProcess(process, closeJoinTimeoutMillis);
-                closeProcessStreams(process);
+                closeProcessStreams(process, closeJoinTimeoutMillis);
             }
 
             // Child processes can inherit stdin on Windows as well, so the bounded close path
@@ -745,11 +745,32 @@ public class PythonSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> 
         }
     }
 
-    /** Closes all Java pipe endpoints so blocked reader and writer threads can terminate. */
-    private static void closeProcessStreams(Process runningProcess) {
-        closeQuietly(runningProcess.getOutputStream());
-        closeQuietly(runningProcess.getInputStream());
-        closeQuietly(runningProcess.getErrorStream());
+    /**
+     * Closes all Java pipe endpoints so blocked reader and writer threads can terminate.
+     *
+     * <p>Bounded on purpose. When a child process inherited stdout, the pipe stays open on the
+     * child's side and closing the read end blocks behind the pump thread's pending read until that
+     * child exits. On Windows that wait is not interruptible by the close itself, so performing it
+     * inline would let cancellation exceed the reader's bounded shutdown window. The close is
+     * handed to a daemon thread instead: the process has already been destroyed by this point, so
+     * the remaining handles are released either by that thread or by JVM exit.
+     */
+    private static void closeProcessStreams(Process runningProcess, long timeoutMillis) {
+        Thread streamCloser =
+                new Thread(
+                        () -> {
+                            closeQuietly(runningProcess.getOutputStream());
+                            closeQuietly(runningProcess.getInputStream());
+                            closeQuietly(runningProcess.getErrorStream());
+                        },
+                        "python-source-stream-closer");
+        streamCloser.setDaemon(true);
+        streamCloser.start();
+        try {
+            streamCloser.join(timeoutMillis);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     /** Stream cleanup is best effort because process termination is the authoritative boundary. */
