@@ -457,6 +457,44 @@ public class IncrementalSourceStreamFetcherTest {
         Assertions.assertNull(fetcher.pollSplitRecords());
     }
 
+    @Test
+    public void testNeverStopSentinelIsNotSignaledAsBoundedCompletion() throws Exception {
+        IncrementalSourceStreamFetcher fetcher = createFetcher();
+
+        // A real never-stop sentinel offset (e.g. LsnOffset.NO_STOPPING_OFFSET or
+        // RedoLogOffset.NO_STOPPING_OFFSET) reports isNeverStop() == true. The fetch task
+        // has finished without an error, but the split must NOT be marked completed: an
+        // unbounded connector must never be turned into a bounded one by the shared reader.
+        Offset stopOffset = mock(Offset.class);
+        when(stopOffset.isNeverStop()).thenReturn(true);
+        IncrementalSplit incrementalSplit =
+                new IncrementalSplit(
+                        "incremental-0",
+                        Collections.emptyList(),
+                        null,
+                        stopOffset,
+                        Collections.emptyList());
+
+        FetchTask<SourceSplitBase> fetchTask = mock(FetchTask.class);
+        when(fetchTask.isRunning()).thenReturn(false);
+        when(fetchTask.getSplit()).thenReturn(incrementalSplit);
+
+        ChangeEventQueue<DataChangeEvent> queue = mock(ChangeEventQueue.class);
+        when(queue.poll()).thenReturn(Collections.emptyList());
+
+        setField(fetcher, "queue", queue);
+        setField(fetcher, "streamFetchTask", fetchTask);
+        setField(fetcher, "currentIncrementalSplit", incrementalSplit);
+        setField(fetcher, "taskStarted", true);
+        setField(fetcher, "executing", false);
+
+        // Even though the task is finished, an unbounded sentinel must not cause a
+        // bounded-completion signal (null); an empty iterator is returned instead.
+        Iterator<SourceRecords> result = fetcher.pollSplitRecords();
+        Assertions.assertNotNull(result);
+        Assertions.assertFalse(result.hasNext());
+    }
+
     private static void setField(Object target, String fieldName, Object value) throws Exception {
         Field field = IncrementalSourceStreamFetcher.class.getDeclaredField(fieldName);
         field.setAccessible(true);
