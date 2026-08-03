@@ -367,9 +367,9 @@ public final class DynamicLookupFlowLifeCycle extends ActionFlowLifeCycle
     /**
      * Releases barrier alignment state for an aborted checkpoint.
      *
-     * <p>Checkpoint aborts are a normal recovery path. Leaving one input port blocked after an abort
-     * would permanently stop the lookup task when the peer port never receives that checkpoint
-     * barrier.
+     * <p>Checkpoint aborts are a normal recovery path. Leaving one input port blocked after an
+     * abort would permanently stop the lookup task when the peer port never receives that
+     * checkpoint barrier.
      */
     private void releaseAbortedBarrier(long checkpointId) {
         barrierAlignments.remove(checkpointId);
