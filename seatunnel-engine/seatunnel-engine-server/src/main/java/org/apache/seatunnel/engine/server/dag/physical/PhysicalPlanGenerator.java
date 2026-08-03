@@ -64,6 +64,7 @@ import org.apache.seatunnel.engine.server.task.SourceSplitEnumeratorTask;
 import org.apache.seatunnel.engine.server.task.TransformSeaTunnelTask;
 import org.apache.seatunnel.engine.server.task.group.TaskGroupWithIntermediateBlockingQueue;
 import org.apache.seatunnel.engine.server.task.group.TaskGroupWithIntermediateDisruptor;
+import org.apache.seatunnel.engine.server.utils.JobCheckpointUtils;
 
 import com.hazelcast.flakeidgen.FlakeIdGenerator;
 import com.hazelcast.jet.datamodel.Tuple2;
@@ -88,7 +89,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-import static org.apache.seatunnel.common.constants.JobMode.BATCH;
 import static org.apache.seatunnel.engine.common.config.server.QueueType.BLOCKINGQUEUE;
 
 public class PhysicalPlanGenerator {
@@ -613,16 +613,9 @@ public class PhysicalPlanGenerator {
                 action ->
                         ManagedSourceRuntimeSelector.select(
                                         action.getSource(), managedSourceRuntimeConfig)
-                                .withCheckpointEnabled(isCheckpointEnabled()));
-    }
-
-    private boolean isCheckpointEnabled() {
-        return jobImmutableInformation.getJobConfig() == null
-                || jobImmutableInformation.getJobConfig().getJobContext().getJobMode() != BATCH
-                || jobImmutableInformation
-                        .getJobConfig()
-                        .getEnvOptions()
-                        .containsKey(EnvCommonOptions.CHECKPOINT_INTERVAL.key());
+                                .withCheckpointEnabled(
+                                        JobCheckpointUtils.isCheckpointEnabled(
+                                                jobImmutableInformation.getJobConfig())));
     }
 
     /**

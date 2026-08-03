@@ -65,6 +65,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
@@ -801,7 +802,7 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
                 throw new IllegalStateException(
                         "Cannot restore a managed Source Reader from legacy checkpoint state");
             }
-            List<ManagedReaderCheckpointState> restoredStates = new java.util.ArrayList<>();
+            List<ManagedReaderCheckpointState> restoredStates = new ArrayList<>();
             for (byte[] state : splits) {
                 ManagedReaderCheckpointState restored =
                         ManagedReaderCheckpointStateSerializer.deserialize(state);

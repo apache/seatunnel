@@ -33,7 +33,6 @@ import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.common.utils.StringFormatUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
-import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageConfig;
 import org.apache.seatunnel.engine.common.config.server.ScheduleStrategy;
 import org.apache.seatunnel.engine.common.exception.JobException;
@@ -85,6 +84,7 @@ import org.apache.seatunnel.engine.server.task.operation.CleanTaskGroupContextOp
 import org.apache.seatunnel.engine.server.task.operation.GetMetricsOperation;
 import org.apache.seatunnel.engine.server.telemetry.metrics.entity.JobCounter;
 import org.apache.seatunnel.engine.server.telemetry.metrics.entity.ThreadPoolStatus;
+import org.apache.seatunnel.engine.server.utils.JobCheckpointUtils;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 import org.apache.seatunnel.engine.server.utils.PeekBlockingQueue;
 
@@ -124,8 +124,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
-import static org.apache.seatunnel.api.options.EnvCommonOptions.CHECKPOINT_INTERVAL;
-import static org.apache.seatunnel.common.constants.JobMode.BATCH;
 import static org.apache.seatunnel.engine.server.metrics.JobMetricsUtil.toJobMetricsMap;
 
 /** Coordinates job submission, scheduling, recovery, and event reporting on the master node. */
@@ -1810,7 +1808,7 @@ public class CoordinatorService {
         if (finalStatus != JobStatus.FINISHED && finalStatus != JobStatus.CANCELED) {
             return;
         }
-        if (isCheckpointEnabled(jobImmutableInformation.getJobConfig())
+        if (JobCheckpointUtils.isCheckpointEnabled(jobImmutableInformation.getJobConfig())
                 && seaTunnelServer.getCheckpointService() != null) {
             if (finalStatus == JobStatus.CANCELED
                     && shouldRetainCheckpointAfterJobCancelled(jobImmutableInformation)) {
@@ -1844,14 +1842,6 @@ public class CoordinatorService {
                             .toString());
         }
         return engineConfig.getCheckpointConfig().isRetainAfterJobCancelled();
-    }
-
-    private boolean isCheckpointEnabled(JobConfig jobConfig) {
-        if (jobConfig == null) {
-            return true;
-        }
-        return jobConfig.getJobContext().getJobMode() != BATCH
-                || jobConfig.getEnvOptions().containsKey(CHECKPOINT_INTERVAL.key());
     }
 
     private void persistTerminalZombieHistoryIfNecessary(

@@ -47,8 +47,15 @@ public final class ManagedSourceCapability implements Serializable {
     private final boolean supportsBoundedPoll;
     private final boolean supportsWakeup;
     private final boolean supportsAttemptFencing;
-    private final boolean supportsVersionedSourceEvents;
+
+    /**
+     * Whether the connector answered the {@code usesSourceEvents} question at all.
+     *
+     * <p>A managed capability must answer it explicitly, so that a connector relying on {@code
+     * SourceEvent} delivery is rejected during lane selection instead of failing mid-job.
+     */
     private final boolean sourceEventsDeclared;
+
     private final boolean usesSourceEvents;
     private final boolean supportsAsyncEnumerator;
     private final boolean stableSplitIdentifiers;
@@ -62,7 +69,6 @@ public final class ManagedSourceCapability implements Serializable {
         this.supportsBoundedPoll = builder.supportsBoundedPoll;
         this.supportsWakeup = builder.supportsWakeup;
         this.supportsAttemptFencing = builder.supportsAttemptFencing;
-        this.supportsVersionedSourceEvents = builder.supportsVersionedSourceEvents;
         this.sourceEventsDeclared = builder.usesSourceEvents != null;
         this.usesSourceEvents = Boolean.TRUE.equals(builder.usesSourceEvents);
         this.supportsAsyncEnumerator = builder.supportsAsyncEnumerator;
@@ -105,10 +111,6 @@ public final class ManagedSourceCapability implements Serializable {
 
     public boolean supportsAttemptFencing() {
         return supportsAttemptFencing;
-    }
-
-    public boolean supportsVersionedSourceEvents() {
-        return supportsVersionedSourceEvents;
     }
 
     public boolean usesSourceEvents() {
@@ -158,10 +160,6 @@ public final class ManagedSourceCapability implements Serializable {
             throw new IllegalArgumentException(
                     "An async enumerator requires managed coordinator support");
         }
-        if (supportsVersionedSourceEvents) {
-            throw new IllegalArgumentException(
-                    "Managed Source protocol version 1 does not expose a versioned SourceEvent codec");
-        }
     }
 
     private String canonicalForm() {
@@ -178,8 +176,6 @@ public final class ManagedSourceCapability implements Serializable {
                 + supportsWakeup
                 + "|"
                 + supportsAttemptFencing
-                + "|"
-                + supportsVersionedSourceEvents
                 + "|"
                 + usesSourceEvents
                 + "|"
@@ -210,7 +206,6 @@ public final class ManagedSourceCapability implements Serializable {
         private boolean supportsBoundedPoll;
         private boolean supportsWakeup;
         private boolean supportsAttemptFencing;
-        private boolean supportsVersionedSourceEvents;
         private Boolean usesSourceEvents;
         private boolean supportsAsyncEnumerator;
         private boolean stableSplitIdentifiers;
@@ -250,11 +245,13 @@ public final class ManagedSourceCapability implements Serializable {
             return this;
         }
 
-        public Builder supportsVersionedSourceEvents(boolean supportsVersionedSourceEvents) {
-            this.supportsVersionedSourceEvents = supportsVersionedSourceEvents;
-            return this;
-        }
-
+        /**
+         * Declares whether the connector exchanges {@code SourceEvent}s with its enumerator.
+         *
+         * <p>Managed capabilities must call this method. Protocol version 1 has no versioned {@code
+         * SourceEvent} codec, so declaring {@code true} keeps the connector on the legacy lane by
+         * failing selection instead of throwing from the first event at runtime.
+         */
         public Builder usesSourceEvents(boolean usesSourceEvents) {
             this.usesSourceEvents = usesSourceEvents;
             return this;

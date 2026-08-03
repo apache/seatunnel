@@ -88,6 +88,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.Callable;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -1118,7 +1119,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
      * <p>Queue rejection is intentional backpressure and is reconciled by the coordinator owner.
      */
     public <T> Future<T> submitManagedSourceAsync(
-            AsyncWorkerClass workerClass, java.util.concurrent.Callable<T> callable) {
+            AsyncWorkerClass workerClass, Callable<T> callable) {
         if (workerClass == AsyncWorkerClass.CPU_BOUND) {
             return managedSourceCpuExecutor.submit(callable);
         }

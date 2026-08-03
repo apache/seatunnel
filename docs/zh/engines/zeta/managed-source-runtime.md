@@ -201,4 +201,6 @@ assignment 不出现无界增长。Reader 与 coordinator 全量认证时必须�
 运行中作业及其持久化 physical plan 的 failover，不会因为集群白名单变化而自动切换通道。
 
 协议版本 1 明确拒绝任意自定义 `SourceEvent` payload。依赖该能力的连接器必须继续留在 Legacy
-通道，直到引擎提供版本化 event codec。
+通道，直到引擎提供版本化 event codec。因此每个受管 capability 都必须显式声明
+`usesSourceEvents(...)`：声明为 `true` 的连接器会在部署期的通道选择阶段直接失败，而不是等到运行
+期发出第一个 event 时才抛异常。

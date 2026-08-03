@@ -215,4 +215,7 @@ checkpoint or fresh source position. Running jobs and failover from their persis
 do not switch lanes merely because the cluster allowlist changes.
 
 Protocol version 1 intentionally rejects arbitrary custom `SourceEvent` payloads. Such connectors
-must remain on the legacy lane until a versioned event codec is introduced.
+must remain on the legacy lane until a versioned event codec is introduced. Every managed
+capability must therefore answer `usesSourceEvents(...)` explicitly; a connector that declares
+`true` fails lane selection at deployment time instead of throwing from its first event at
+runtime.
