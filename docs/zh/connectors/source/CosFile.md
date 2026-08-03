@@ -75,6 +75,7 @@ import ChangeLog from '../changelog/connector-file-cos.md';
 | xml_use_attr_format        | boolean | 否  | -                   |
 | csv_use_header_line        | boolean | 否  | false               |
 | file_filter_pattern        | string  | 否  |                     |
+| filename_extension         | string  | 否  | -                   | 使用指定的文件扩展名筛选文件，例如 `csv`、`.txt`、`json` 或 `.xml`。 |
 | compress_codec             | string  | 否  | none                |
 | archive_compress_codec     | string  | 否  | none                |
 | encoding                   | string  | 否  | UTF-8               |
@@ -201,6 +202,8 @@ markdown 解析器提取各种元素，包括标题、段落、列表、代码�
 - `chunk_id`：由文档标识、chunk 顺序和内容哈希派生的稳定 chunk 标识符
 - `chunk_index`：解析后文档中的一基 chunk 顺序
 - `content_hash`：已输出 `text` 值的 SHA-256 哈希
+
+启用该选项并读取有界 Markdown 文件时，source enumerator 会使用相同的 `document_id` 哈希分配整文件 split，使同一文档派生的所有行留在同一个 source 路由 bucket 中。禁用该选项时，默认的轮询 split 分配行为保持不变。
 
 该选项默认值为 `false`，因此只有显式启用后才会改变原始 Markdown schema。
 
