@@ -123,5 +123,58 @@
                 </plugin>
             </plugins>
         </pluginManagement>
+
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <configuration>
+                    <!--
+                        connector-cdc-base recompiles a small set of Debezium classes under
+                        src/main/java/io/debezium and ships its patched copies. While Debezium was
+                        packaged inside connector-cdc-base, the shade plugin resolved that overlap at
+                        build time and the patched copies were the only ones that existed.
+
+                        Now that each connector packages its own Debezium, the stock copies would
+                        arrive in the connector jar while the patched ones stay in
+                        connector-cdc-base, and both jars are on the same class loader. Which copy
+                        wins would come down to the order File#listFiles returns them in
+                        AbstractPluginDiscovery, so the patches could silently stop applying.
+                        Dropping the stock copies keeps connector-cdc-base's patched classes the
+                        single definition, exactly as before.
+
+                        These class names are pinned to connector-cdc-base/src/main/java/io/debezium
+                        and must be kept in step with it.
+                    -->
+                    <filters combine.children="append">
+                        <filter>
+                            <artifact>io.debezium:debezium-core</artifact>
+                            <excludes>
+                                <exclude>io/debezium/connector/base/ChangeEventQueue.class</exclude>
+                                <exclude>io/debezium/connector/base/ChangeEventQueue$*.class</exclude>
+                                <exclude>io/debezium/relational/TableId.class</exclude>
+                                <exclude>io/debezium/relational/TableId$*.class</exclude>
+                                <exclude>io/debezium/relational/HistorizedRelationalDatabaseConnectorConfig.class</exclude>
+                                <exclude>io/debezium/relational/HistorizedRelationalDatabaseConnectorConfig$*.class</exclude>
+                                <exclude>io/debezium/heartbeat/HeartbeatFactory.class</exclude>
+                                <exclude>io/debezium/heartbeat/HeartbeatFactory$*.class</exclude>
+                            </excludes>
+                        </filter>
+                        <!--
+                            Restated from the root pom so the signature files stay excluded whether
+                            or not the inherited filter list is merged into this one.
+                        -->
+                        <filter>
+                            <artifact>*:*</artifact>
+                            <excludes>
+                                <exclude>META-INF/*.SF</exclude>
+                                <exclude>META-INF/*.DSA</exclude>
+                                <exclude>META-INF/*.RSA</exclude>
+                            </excludes>
+                        </filter>
+                    </filters>
+                </configuration>
+            </plugin>
+        </plugins>
     </build>
 </project>

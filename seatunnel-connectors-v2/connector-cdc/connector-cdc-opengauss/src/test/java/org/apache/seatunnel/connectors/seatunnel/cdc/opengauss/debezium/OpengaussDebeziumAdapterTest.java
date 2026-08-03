@@ -24,18 +24,31 @@ import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.debezium.PostgresD
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
 import java.io.InputStream;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 
 /**
  * Covers Debezium version ownership for connector-cdc-opengauss.
  *
- * <p>openGauss CDC runs Debezium's PostgreSQL connector and shades connector-cdc-postgres into its
- * own jar, so it deliberately registers no adapter of its own and reuses {@link
- * PostgresDebeziumAdapter}. The regression this guards against is a future openGauss-specific
- * adapter registered for the same {@code connector.class}: the shade plugin merges
- * META-INF/services entries, so both providers would land in one jar and every openGauss CDC job
- * would fail the exactly-one-match rule in {@link DebeziumAdapterFactory}.
+ * <p>This module is the one place where two modules' Debezium versions actually meet.
+ * connector-cdc-opengauss declares its own {@code debezium.version} for debezium-embedded, but
+ * reaches debezium-connector-postgres transitively through connector-cdc-postgres, and it
+ * recompiles Debezium's PostgreSQL connection internals (see
+ * src/main/java/io/debezium/connector/postgresql). A Debezium bump applied to one module and not
+ * the other therefore puts two Debezium versions on a single class path, with openGauss's patched
+ * copies of Debezium internals compiled against the wrong one.
+ *
+ * <p>openGauss also deliberately registers no adapter of its own and reuses {@link
+ * PostgresDebeziumAdapter}. The shade plugin merges META-INF/services entries, so an
+ * openGauss-specific provider for the same {@code connector.class} would land in the same jar and
+ * make every openGauss CDC job fail the exactly-one-match rule in {@link DebeziumAdapterFactory}.
  */
 class OpengaussDebeziumAdapterTest {
 
@@ -44,16 +57,20 @@ class OpengaussDebeziumAdapterTest {
             "io.debezium.connector.postgresql.PostgresConnector";
 
     /**
-     * Resource published by the debezium-core artifact itself. Reading the version from here means
-     * the assertion reflects the dependency Maven really resolved, not a value restated in test
-     * code.
+     * Every Debezium artifact this connector packages. debezium-connector-postgres is contributed
+     * by connector-cdc-postgres while the rest come from this module, which is exactly the split
+     * that can drift.
      */
-    private static final String DEBEZIUM_CORE_POM_PROPERTIES =
-            "META-INF/maven/io.debezium/debezium-core/pom.properties";
+    private static final List<String> PACKAGED_DEBEZIUM_ARTIFACTS =
+            Arrays.asList(
+                    "debezium-api",
+                    "debezium-core",
+                    "debezium-embedded",
+                    "debezium-connector-postgres");
 
     /**
      * Verifies exactly one adapter is visible for the PostgreSQL connector class on the openGauss
-     * classpath, and that it is the inherited connector-cdc-postgres one.
+     * class path, and that it is the inherited connector-cdc-postgres one.
      */
     @Test
     void exactlyOneAdapterIsVisibleForPostgresConnector() {
@@ -66,29 +83,45 @@ class OpengaussDebeziumAdapterTest {
     }
 
     /**
-     * Verifies this module's declared debezium.version stays in step with the Debezium it actually
-     * resolves, which for openGauss also means staying in step with connector-cdc-postgres because
-     * it recompiles Debezium PostgreSQL internals.
+     * Verifies this module's Debezium runtime and the Debezium PostgreSQL connector it inherits
+     * resolve to the same version, and that the version matches what the reused adapter declares.
+     * This is what keeps connector-cdc-opengauss and connector-cdc-postgres from being bumped
+     * independently.
      */
     @Test
-    void inheritedAdapterVersionMatchesPackagedDebezium() throws Exception {
-        DebeziumAdapter adapter =
-                DebeziumAdapterFactory.getAdapter(
-                        POSTGRES_CONNECTOR_CLASS,
-                        OpengaussDebeziumAdapterTest.class.getClassLoader());
+    void packagedDebeziumArtifactsAllMatchInheritedAdapterVersion() {
+        String declaredVersion = new PostgresDebeziumAdapter().getDebeziumVersion();
+        Map<String, String> resolvedVersions = resolveDebeziumVersions();
 
-        Assertions.assertEquals(resolvedDebeziumCoreVersion(), adapter.getDebeziumVersion());
+        Assertions.assertEquals(
+                Collections.singleton(declaredVersion),
+                new HashSet<>(resolvedVersions.values()),
+                "connector-cdc-opengauss and connector-cdc-postgres must ship the same Debezium"
+                        + " version, but the class path resolved: "
+                        + resolvedVersions);
     }
 
-    private static String resolvedDebeziumCoreVersion() throws Exception {
-        try (InputStream in =
-                OpengaussDebeziumAdapterTest.class
-                        .getClassLoader()
-                        .getResourceAsStream(DEBEZIUM_CORE_POM_PROPERTIES)) {
-            Assertions.assertNotNull(in, "debezium-core is not on the classpath of this module");
-            Properties properties = new Properties();
-            properties.load(in);
-            return properties.getProperty("version");
+    /**
+     * Reads the version each Debezium artifact publishes about itself, so the assertion reflects
+     * what Maven really resolved rather than a value restated in test code.
+     */
+    private static Map<String, String> resolveDebeziumVersions() {
+        Map<String, String> versions = new LinkedHashMap<>();
+        for (String artifactId : PACKAGED_DEBEZIUM_ARTIFACTS) {
+            String resource = "META-INF/maven/io.debezium/" + artifactId + "/pom.properties";
+            try (InputStream in =
+                    OpengaussDebeziumAdapterTest.class
+                            .getClassLoader()
+                            .getResourceAsStream(resource)) {
+                Assertions.assertNotNull(
+                        in, artifactId + " is not on the class path of this module");
+                Properties properties = new Properties();
+                properties.load(in);
+                versions.put(artifactId, properties.getProperty("version"));
+            } catch (IOException e) {
+                throw new IllegalStateException("Failed to read " + resource, e);
+            }
         }
+        return versions;
     }
 }

@@ -112,6 +112,25 @@
                                         <exclude>META-INF/*.RSA</exclude>
                                     </excludes>
                                 </filter>
+                                <!--
+                                    Restated here because this execution declares its own filter
+                                    list, which takes precedence over the one inherited from the
+                                    connector-cdc parent. See that pom for why the stock copies of
+                                    connector-cdc-base's patched Debezium classes must be dropped.
+                                -->
+                                <filter>
+                                    <artifact>io.debezium:debezium-core</artifact>
+                                    <excludes>
+                                        <exclude>io/debezium/connector/base/ChangeEventQueue.class</exclude>
+                                        <exclude>io/debezium/connector/base/ChangeEventQueue$*.class</exclude>
+                                        <exclude>io/debezium/relational/TableId.class</exclude>
+                                        <exclude>io/debezium/relational/TableId$*.class</exclude>
+                                        <exclude>io/debezium/relational/HistorizedRelationalDatabaseConnectorConfig.class</exclude>
+                                        <exclude>io/debezium/relational/HistorizedRelationalDatabaseConnectorConfig$*.class</exclude>
+                                        <exclude>io/debezium/heartbeat/HeartbeatFactory.class</exclude>
+                                        <exclude>io/debezium/heartbeat/HeartbeatFactory$*.class</exclude>
+                                    </excludes>
+                                </filter>
                             </filters>
                             <relocations>
                                 <relocation>
