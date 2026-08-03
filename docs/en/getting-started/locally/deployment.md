@@ -27,12 +27,36 @@ wget "https://archive.apache.org/dist/seatunnel/${version}/apache-seatunnel-${ve
 tar -xzvf "apache-seatunnel-${version}-bin.tar.gz"
 ```
 
+On Windows, download the `.zip` archive from the [SeaTunnel Download Page](https://seatunnel.apache.org/download), then extract it with File Explorer or PowerShell:
+
+```powershell
+$version = "3.0.0"
+Invoke-WebRequest `
+  "https://archive.apache.org/dist/seatunnel/$version/apache-seatunnel-$version-bin.zip" `
+  -OutFile "apache-seatunnel-$version-bin.zip"
+Expand-Archive "apache-seatunnel-$version-bin.zip" -DestinationPath .
+Set-Location "apache-seatunnel-$version"
+```
+
 ### Download The Connector Plugins
 
 Starting from version 2.2.0-beta, the binary package no longer provides connector dependencies by default. Therefore, the first time you use it, you need to run the following command to install the connectors (Alternatively, you can manually download the connectors from the [Apache Maven Repository](https://repo.maven.apache.org/maven2/org/apache/seatunnel/) and move them to the `connectors/` directory. For versions before 2.3.5, place them in the `connectors/seatunnel` directory)：
 
 ```bash
 sh bin/install-plugin.sh
+```
+
+On Windows, run the bundled batch script from the extracted directory. It uses the Maven Wrapper, so a separate Maven installation is not required:
+
+```bat
+cd apache-seatunnel-3.0.0
+bin\install-plugin.cmd
+```
+
+To install connectors for a specific release, pass the version to the same script:
+
+```bat
+bin\install-plugin.cmd 3.0.0
 ```
 
 If you need a specific connector version, taking 3.0.0 as an example, you need to execute the following command:
