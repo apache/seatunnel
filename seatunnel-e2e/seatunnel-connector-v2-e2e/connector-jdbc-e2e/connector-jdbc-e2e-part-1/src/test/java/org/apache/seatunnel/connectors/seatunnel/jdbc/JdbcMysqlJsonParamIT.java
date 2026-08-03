@@ -39,8 +39,10 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
@@ -56,10 +58,41 @@ public class JdbcMysqlJsonParamIT extends TestSuiteBase implements TestResource 
 
     private static final String MYSQL_IMAGE = "mysql:8.0";
     private static final String MYSQL_HOST = "mysql_json_param_e2e";
-    private static final String MYSQL_DATABASE = "json_param_e2e_test";
+    private static final String MYSQL_DATABASE = "json_test";
     private static final String MYSQL_USER = "root";
     private static final String MYSQL_PASSWORD = "Abc!@#135_seatunnel";
-    private static final String TEST_TABLE = "json_param_test";
+    private static final String JSON_COL_TEST_TABLE = "json_col_test";
+
+    private static final List<String> MULTI_TABLE_DDL =
+            Arrays.asList(
+                    "create table ml_movies("
+                            + "movie_id long,"
+                            + "title varchar(200),"
+                            + "genres varchar(500)"
+                            + ");\n"
+                            + "INSERT INTO ml_movies(movie_id, title, genres) VALUES\n"
+                            + "('1', 'Toy Story (1995)', 'Adventure|Animation|Children|Comedy|Fantasy'),\n"
+                            + "('2', 'Jumanji (1995)', 'Adventure|Children|Fantasy'),\n"
+                            + "('3', 'Grumpier Old Men (1995)', 'Comedy|Romance');",
+                    "create table ml_tags("
+                            + "user_id long,"
+                            + "movie_id long,"
+                            + "tag varchar(400),"
+                            + "unix_time long"
+                            + ");\n"
+                            + "INSERT INTO ml_tags(user_id, movie_id, tag, unix_time) VALUES\n"
+                            + "('336', '1', 'pixar', '1139045764'),\n"
+                            + "('62', '2', 'fantasy', '1528843929'),\n"
+                            + "('289', '3', 'moldy', '1143424860');",
+                    "create table ratings("
+                            + "user_id long,"
+                            + "movie_id long,"
+                            + "rating float,"
+                            + "unix_time long"
+                            + ");\n"
+                            + "INSERT INTO ratings(user_id, movie_id, rating, unix_time) VALUES"
+                            + "('1', '1', 4.0, '964982703'),\n"
+                            + "('1', '3', 4.0, '964981247');");
 
     private static final String MYSQL_DRIVER_URL =
             "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
@@ -122,10 +155,6 @@ public class JdbcMysqlJsonParamIT extends TestSuiteBase implements TestResource 
      * <p>2: Verify nested JSON params (array in JSON, JSON in array) can be read from MySQL JSON
      * column via CLI.
      *
-     * <p>ATTENTION: NESTED JSON CAN BE READ THROUGH CLI BUT CANNOT BE PARSED BY shaded Typesafe
-     * Config API #resolve() and #resolveWith() in ConfigBuilder. This is a known limitation to be
-     * addressed in future work.
-     *
      * @param container
      * @throws IOException
      * @throws InterruptedException
@@ -135,7 +164,7 @@ public class JdbcMysqlJsonParamIT extends TestSuiteBase implements TestResource 
             throws IOException, InterruptedException {
         List<String> variables = new ArrayList<>();
         variables.add("mysql_host=" + MYSQL_HOST);
-        variables.add("mysql_port=" + mysqlContainer.getFirstMappedPort());
+        variables.add("mysql_port=3306");
         variables.add("mysql_db=" + MYSQL_DATABASE);
         variables.add(
                 "mysql_props={"
@@ -145,7 +174,7 @@ public class JdbcMysqlJsonParamIT extends TestSuiteBase implements TestResource 
                         + "\"allowPublicKeyRetrieval\":\"true\"}");
         variables.add("mysql_user=" + MYSQL_USER);
         variables.add("mysql_password=" + MYSQL_PASSWORD);
-        variables.add("mysql_table=" + TEST_TABLE);
+        variables.add("mysql_table=" + JSON_COL_TEST_TABLE);
         // filter UTC+8 timestamp
         variables.add("ts='2026-07-16 12:00:00'");
         // shell: -i
@@ -158,6 +187,30 @@ public class JdbcMysqlJsonParamIT extends TestSuiteBase implements TestResource 
                 0,
                 result.getExitCode(),
                 "MySQL properties and json column params assertion failed:\n" + result.getStderr());
+    }
+
+    @TestTemplate
+    public void testMysqlArrayWithNestedJsonParam(TestContainer container)
+            throws IOException, InterruptedException {
+        List<String> variables = new ArrayList<>();
+        variables.add("mysql_host=" + MYSQL_HOST);
+        variables.add("mysql_port=3306");
+        variables.add("mysql_db=" + MYSQL_DATABASE);
+        variables.add(
+                "mysql_props={"
+                        + "\"useSSL\":\"false\","
+                        + "\"allowPublicKeyRetrieval\":\"true\"}");
+        variables.add("mysql_user=" + MYSQL_USER);
+        variables.add("mysql_password=" + MYSQL_PASSWORD);
+        variables.add(
+                "table_list=[{\"table_path\":\"json_test.ml_*\",\"use_regex\":\"true\"},{\"table_path\":\"json_test.ratings\"}]");
+        Container.ExecResult result =
+                container.executeJob("/jdbc_mysql_json_in_array_param.conf", variables);
+        Assertions.assertEquals(
+                0,
+                result.getExitCode(),
+                "json in array format params for table_list option assertion failed:\n"
+                        + result.getStderr());
     }
 
     // -------------------------------------------------------------------------
@@ -175,7 +228,7 @@ public class JdbcMysqlJsonParamIT extends TestSuiteBase implements TestResource 
                 Statement stmt = conn.createStatement()) {
             stmt.execute(
                     "CREATE TABLE IF NOT EXISTS "
-                            + TEST_TABLE
+                            + JSON_COL_TEST_TABLE
                             + " ("
                             + "id       INT,"
                             + "jsondata JSON,"
@@ -186,11 +239,20 @@ public class JdbcMysqlJsonParamIT extends TestSuiteBase implements TestResource 
             // DATETIME stores it as-is (NTZ); TIMESTAMP stores UTC and displays in session TZ.
             stmt.execute(
                     "insert into "
-                            + TEST_TABLE
+                            + JSON_COL_TEST_TABLE
                             + " values(1,"
                             + "'{\"a\":\"}\",\"b\":\"{xyz}\",\"c\":[{\"k1\":\"v1\"},{\"k2\":\"v2\",\"k3\":\"v3\"}],\"d\":{\"list\":[{\"k1\":\"v1\"},{\"k2\":\"v2\",\"k3\":\"v3\"}]}}',"
                             + "'2026-07-16 20:00:00',"
                             + "convert_tz('2026-07-16 20:00:00','+08:00','+00:00'));");
+
+            MULTI_TABLE_DDL.forEach(
+                    sql -> {
+                        try {
+                            stmt.execute(sql);
+                        } catch (SQLException e) {
+                            throw new RuntimeException(e);
+                        }
+                    });
         }
     }
 }
