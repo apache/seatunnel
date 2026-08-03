@@ -168,4 +168,41 @@ public class JsonDefaultValueTest {
         assertEquals(123, row.getField(0));
         assertEquals("PENDING", row.getField(1)); // defaultValue
     }
+
+    @Test
+    public void testDefaultValueTypeConvertedToFieldType() throws IOException {
+        // HOCON config parses "0.0" as Integer 0 (Typesafe Config renders it as 0), so the raw
+        // defaultValue on the Column may be Integer even for a double field. The deserializer
+        // must normalize it to the field type, otherwise downstream (de)serialization fails
+        // with ClassCastException.
+        Column[] columns =
+                new Column[] {
+                    PhysicalColumn.of(
+                            "score",
+                            BasicType.DOUBLE_TYPE,
+                            (Long) null,
+                            false,
+                            0,
+                            "double field with Integer 0 default")
+                };
+
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"score"},
+                        new org.apache.seatunnel.api.table.type.SeaTunnelDataType[] {
+                            BasicType.DOUBLE_TYPE
+                        });
+
+        TableSchema tableSchema = TableSchema.builder().columns(Arrays.asList(columns)).build();
+        TableIdentifier tableId = TableIdentifier.of("test", TablePath.of("test.test_table"));
+        CatalogTable catalogTable =
+                CatalogTable.of(
+                        tableId, tableSchema, new HashMap<>(), new ArrayList<>(), "test table");
+
+        JsonDeserializationSchema deserializationSchema =
+                new JsonDeserializationSchema(catalogTable, false, false);
+
+        SeaTunnelRow row = deserializationSchema.deserialize("{}".getBytes());
+        assertEquals(0.0, row.getField(0)); // Integer 0 normalized to Double 0.0
+    }
 }

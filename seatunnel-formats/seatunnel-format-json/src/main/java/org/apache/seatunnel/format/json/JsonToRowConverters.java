@@ -493,7 +493,9 @@ public class JsonToRowConverters implements Serializable {
             if (columns != null && fieldIndex < columns.length) {
                 Object defaultValue = columns[fieldIndex].getDefaultValue();
                 if (defaultValue != null) {
-                    return defaultValue;
+                    // Convert the defaultValue to the field type (e.g. HOCON "0.0" may be parsed
+                    // as Integer 0, which must be normalized for a double field)
+                    return fieldConverter.convert(JsonUtils.toJsonNode(defaultValue), fieldName);
                 }
             }
             if (failOnMissingField) {
