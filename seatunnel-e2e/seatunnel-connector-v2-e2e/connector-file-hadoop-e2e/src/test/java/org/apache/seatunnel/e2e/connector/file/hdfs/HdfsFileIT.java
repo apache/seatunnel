@@ -23,6 +23,7 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
 
 import org.awaitility.Awaitility;
@@ -171,6 +172,24 @@ public class HdfsFileIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    public void testHdfsReadRecursiveTextDirectory(TestContainer container)
+            throws IOException, InterruptedException {
+        resetRecursiveTestPath();
+        putHdfsClasspathFile("/text/e2e.txt", "/recursive/e2e.txt");
+        putHdfsClasspathFile("/text/e2e.txt", "/recursive/subdir/e2e.txt");
+        putHdfsClasspathFile("/text/e2e.txt", "/recursive/subdir/deeper/e2e.txt");
+        putHdfsClasspathFile("/text/e2e.txt", "/recursive/subdir/deeper/final/e2e.txt");
+
+        org.testcontainers.containers.Container.ExecResult recursiveResult =
+                container.executeJob("/hdfs_text_recursive_to_assert.conf");
+        Assertions.assertEquals(0, recursiveResult.getExitCode());
+
+        org.testcontainers.containers.Container.ExecResult nonRecursiveResult =
+                container.executeJob("/hdfs_text_non_recursive_to_assert.conf");
+        Assertions.assertEquals(0, nonRecursiveResult.getExitCode());
+    }
+
+    @TestTemplate
     public void testHdfsBinaryUpdateModeDistcp(TestContainer container)
             throws IOException, InterruptedException {
         resetUpdateTestPath();
@@ -275,6 +294,211 @@ public class HdfsFileIT extends TestSuiteBase implements TestResource {
         nameNode.execInContainer("bash", "-c", "hdfs dfs -rm -r -f /continuous || true");
     }
 
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.FLINK, EngineType.SPARK},
+            disabledReason = "Continuous discovery is a long-running job; only run in zeta engine.")
+    public void testHdfsBinaryUpdateModeContinuousDiscoveryWithNonRecursiveScan(
+            TestContainer container) throws IOException, InterruptedException {
+        resetContinuousTestPath();
+
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
+        CompletableFuture<org.testcontainers.containers.Container.ExecResult> jobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.executeJob(
+                                        "/hdfs_binary_update_distcp_continuous_non_recursive.conf",
+                                        jobId);
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+
+        createHdfsDirectories("/continuous/src/subdir");
+        putHdfsFile("/continuous/src/root.bin", "root");
+        putHdfsFile("/continuous/src/subdir/nested.bin", "nested");
+
+        Awaitility.await()
+                .atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        "root", readHdfsFile("/continuous/dst/root.bin")));
+
+        Thread.sleep(3000);
+        Assertions.assertFalse(isHdfsFileExists("/continuous/dst/subdir/nested.bin"));
+
+        cancelContinuousJob(container, jobId, jobFuture);
+        nameNode.execInContainer("bash", "-c", "hdfs dfs -rm -r -f /continuous || true");
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.FLINK, EngineType.SPARK},
+            disabledReason = "Continuous discovery is a long-running job; only run in zeta engine.")
+    public void testHdfsBinaryUpdateModeContinuousDiscoveryPostSyncDelete(TestContainer container)
+            throws IOException, InterruptedException {
+        resetContinuousTestPath();
+        putHdfsFile("/continuous/src/delete-test.bin", "abc");
+
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
+        CompletableFuture<org.testcontainers.containers.Container.ExecResult> jobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.executeJob(
+                                        "/hdfs_binary_update_distcp_continuous_post_sync_delete.conf",
+                                        jobId);
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+
+        Awaitility.await()
+                .atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        "abc", readHdfsFile("/continuous/dst/delete-test.bin")));
+
+        Awaitility.await()
+                .atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertFalse(
+                                        hdfsFileExists("/continuous/src/delete-test.bin"),
+                                        "source file should be deleted after checkpoint-gated post-sync commit"));
+
+        cancelContinuousJob(container, jobId, jobFuture);
+        nameNode.execInContainer("bash", "-c", "hdfs dfs -rm -r -f /continuous || true");
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.FLINK, EngineType.SPARK},
+            disabledReason = "Continuous discovery is a long-running job; only run in zeta engine.")
+    public void testHdfsBinaryUpdateModeContinuousDiscoveryPostSyncBackup(TestContainer container)
+            throws IOException, InterruptedException {
+        resetContinuousTestPath();
+        putHdfsFile("/continuous/src/backup-test.bin", "abc");
+
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
+        CompletableFuture<org.testcontainers.containers.Container.ExecResult> jobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.executeJob(
+                                        "/hdfs_binary_update_distcp_continuous_post_sync_backup.conf",
+                                        jobId);
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+
+        Awaitility.await()
+                .atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        "abc", readHdfsFile("/continuous/dst/backup-test.bin")));
+
+        Awaitility.await()
+                .atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertFalse(
+                                        hdfsFileExists("/continuous/src/backup-test.bin"),
+                                        "source file should be moved from source path after backup commit"));
+
+        Awaitility.await()
+                .atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertTrue(
+                                        countHdfsFilesByRegex(
+                                                        "/continuous/backup",
+                                                        "/backup-test\\.bin\\.v")
+                                                > 0,
+                                        "backup target should contain version-suffixed file"));
+
+        cancelContinuousJob(container, jobId, jobFuture);
+        nameNode.execInContainer("bash", "-c", "hdfs dfs -rm -r -f /continuous || true");
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.FLINK, EngineType.SPARK},
+            disabledReason = "Continuous discovery is a long-running job; only run in zeta engine.")
+    public void testHdfsContinuousBackupRetentionCleanup(TestContainer container)
+            throws IOException, InterruptedException {
+        resetContinuousTestPath();
+        putHdfsFile("/continuous/backup/retention-old.bin.v3_123456", "abc");
+
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
+        CompletableFuture<org.testcontainers.containers.Container.ExecResult> jobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.executeJob(
+                                        "/hdfs_binary_update_distcp_continuous_post_sync_backup_retention.conf",
+                                        jobId);
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+
+        Awaitility.await()
+                .atMost(90, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertFalse(
+                                        hdfsFileExists(
+                                                "/continuous/backup/retention-old.bin.v3_123456"),
+                                        "retention should remove expired backup files"));
+
+        cancelContinuousJob(container, jobId, jobFuture);
+        nameNode.execInContainer("bash", "-c", "hdfs dfs -rm -r -f /continuous || true");
+    }
+
+    @TestTemplate
+    public void testHdfsBinaryUpdateModeDistcpWithNonRecursiveScan(TestContainer container)
+            throws IOException, InterruptedException {
+        resetUpdateTestPath();
+        createHdfsDirectories("/update/src/subdir", "/update/dst/subdir");
+        putHdfsFile("/update/src/root.bin", "root-updated-v2");
+        putHdfsFile("/update/src/subdir/nested.bin", "nest-updated-v2");
+        putHdfsFile("/update/dst/root.bin", "root-stale-v1");
+        putHdfsFile("/update/dst/subdir/nested.bin", "nest-stale-v1");
+
+        org.testcontainers.containers.Container.ExecResult execResult =
+                container.executeJob("/hdfs_binary_update_non_recursive_distcp.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals("root-updated-v2", readHdfsFile("/update/dst/root.bin"));
+        Assertions.assertEquals("nest-stale-v1", readHdfsFile("/update/dst/subdir/nested.bin"));
+    }
+
+    @TestTemplate
+    public void testHdfsBinaryUpdateModeStrictChecksumSkipsNestedChangesWithNonRecursiveScan(
+            TestContainer container) throws IOException, InterruptedException {
+        resetUpdateTestPath();
+        createHdfsDirectories("/update/src/subdir", "/update/dst/subdir");
+        putHdfsFile("/update/src/root.bin", "root-same-v1");
+        putHdfsFile("/update/src/subdir/nested.bin", "nest-new-v1");
+        putHdfsFile("/update/dst/root.bin", "root-same-v1");
+        putHdfsFile("/update/dst/subdir/nested.bin", "nest-old-v1");
+
+        org.testcontainers.containers.Container.ExecResult execResult =
+                container.executeJob("/hdfs_binary_update_non_recursive_strict_checksum.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals("root-same-v1", readHdfsFile("/update/dst/root.bin"));
+        Assertions.assertEquals("nest-old-v1", readHdfsFile("/update/dst/subdir/nested.bin"));
+    }
+
     private void resetUpdateTestPath() throws IOException, InterruptedException {
         nameNode.execInContainer("bash", "-c", "hdfs dfs -rm -r -f /update || true");
         org.testcontainers.containers.Container.ExecResult mkdirResult =
@@ -293,7 +517,8 @@ public class HdfsFileIT extends TestSuiteBase implements TestResource {
                         "-p",
                         "/continuous/src",
                         "/continuous/dst",
-                        "/continuous/tmp");
+                        "/continuous/tmp",
+                        "/continuous/backup");
         Assertions.assertEquals(0, mkdirResult.getExitCode());
     }
 
@@ -304,11 +529,40 @@ public class HdfsFileIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(0, mkdirResult.getExitCode());
     }
 
+    private void resetRecursiveTestPath() throws IOException, InterruptedException {
+        nameNode.execInContainer("bash", "-c", "hdfs dfs -rm -r -f /recursive || true");
+        org.testcontainers.containers.Container.ExecResult mkdirResult =
+                nameNode.execInContainer(
+                        "hdfs", "dfs", "-mkdir", "-p", "/recursive/subdir/deeper/final");
+        Assertions.assertEquals(0, mkdirResult.getExitCode());
+    }
+
     private void putHdfsFile(String hdfsPath, String content)
             throws IOException, InterruptedException {
         String command = "printf '" + content + "' | hdfs dfs -put -f - " + hdfsPath;
         org.testcontainers.containers.Container.ExecResult putResult =
                 nameNode.execInContainer("bash", "-c", command);
+        Assertions.assertEquals(0, putResult.getExitCode());
+    }
+
+    private void createHdfsDirectories(String... hdfsPaths)
+            throws IOException, InterruptedException {
+        String command = "hdfs dfs -mkdir -p " + String.join(" ", hdfsPaths);
+        org.testcontainers.containers.Container.ExecResult mkdirResult =
+                nameNode.execInContainer("bash", "-c", command);
+        Assertions.assertEquals(0, mkdirResult.getExitCode());
+    }
+
+    private void putHdfsClasspathFile(String resourcePath, String hdfsPath)
+            throws IOException, InterruptedException {
+        String tempFileName =
+                "/tmp/"
+                        + java.util.UUID.randomUUID()
+                        + "-"
+                        + java.nio.file.Paths.get(resourcePath).getFileName();
+        ContainerUtil.copyFileIntoContainers(resourcePath, tempFileName, nameNode);
+        org.testcontainers.containers.Container.ExecResult putResult =
+                nameNode.execInContainer("hdfs", "dfs", "-put", "-f", tempFileName, hdfsPath);
         Assertions.assertEquals(0, putResult.getExitCode());
     }
 
@@ -331,10 +585,71 @@ public class HdfsFileIT extends TestSuiteBase implements TestResource {
         return catResult.getStdout() == null ? "" : catResult.getStdout().trim();
     }
 
+    private boolean isHdfsFileExists(String hdfsPath) throws IOException, InterruptedException {
+        org.testcontainers.containers.Container.ExecResult result =
+                nameNode.execInContainer("hdfs", "dfs", "-test", "-f", hdfsPath);
+        return result.getExitCode() == 0;
+    }
+
     private long getHdfsFileMtimeSeconds(String hdfsPath) throws IOException, InterruptedException {
         org.testcontainers.containers.Container.ExecResult statResult =
                 nameNode.execInContainer("bash", "-c", "hdfs dfs -stat %Y " + hdfsPath);
         Assertions.assertEquals(0, statResult.getExitCode());
         return Long.parseLong(statResult.getStdout().trim());
+    }
+
+    private boolean hdfsFileExists(String hdfsPath) throws IOException, InterruptedException {
+        org.testcontainers.containers.Container.ExecResult result =
+                nameNode.execInContainer(
+                        "bash", "-c", "hdfs dfs -test -e " + hdfsPath + "; echo $?");
+        Assertions.assertEquals(0, result.getExitCode());
+        return "0".equals(result.getStdout().trim());
+    }
+
+    private long countHdfsFilesByRegex(String directoryPath, String pathRegex)
+            throws IOException, InterruptedException {
+        String command =
+                "if hdfs dfs -test -d "
+                        + directoryPath
+                        + "; then hdfs dfs -ls -R "
+                        + directoryPath
+                        + " 2>/dev/null | awk '{print $8}' | grep -E '"
+                        + pathRegex
+                        + "' | wc -l; else echo 0; fi";
+        org.testcontainers.containers.Container.ExecResult result =
+                nameNode.execInContainer("bash", "-c", command);
+        Assertions.assertEquals(0, result.getExitCode());
+        return Long.parseLong(result.getStdout().trim());
+    }
+
+    private long countHdfsAllFiles(String directoryPath) throws IOException, InterruptedException {
+        String command =
+                "if hdfs dfs -test -d "
+                        + directoryPath
+                        + "; then hdfs dfs -ls -R "
+                        + directoryPath
+                        + " 2>/dev/null | grep -c '^-'; else echo 0; fi";
+        org.testcontainers.containers.Container.ExecResult result =
+                nameNode.execInContainer("bash", "-c", command);
+        Assertions.assertEquals(0, result.getExitCode());
+        return Long.parseLong(result.getStdout().trim());
+    }
+
+    private void cancelContinuousJob(
+            TestContainer container,
+            String jobId,
+            CompletableFuture<org.testcontainers.containers.Container.ExecResult> jobFuture)
+            throws IOException, InterruptedException {
+        org.testcontainers.containers.Container.ExecResult cancelResult =
+                container.cancelJob(jobId);
+        Assertions.assertEquals(0, cancelResult.getExitCode(), cancelResult.getStderr());
+
+        org.testcontainers.containers.Container.ExecResult execResult;
+        try {
+            execResult = jobFuture.get(120, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            throw new RuntimeException("Wait continuous job exit failed.", e);
+        }
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
 }

@@ -68,6 +68,70 @@ PromQL 示例：
 sum by (cluster, store, backend) (engine_state_store_local_owned_entries)
 ```
 
+### 引擎状态存储逻辑指标
+
+这些指标暴露特定引擎状态存储的业务语义计数。它们仅由当前 active master 输出。指标名保持 backend-neutral，
+但当前实现仍会带上 `backend="hazelcast"` 标签。
+
+| MetricName                                               | Type    | Labels                                      | 描述 |
+|----------------------------------------------------------|---------|---------------------------------------------|------|
+| engine_state_store_running_job_metrics_task_contexts     | Gauge   | **backend**，状态存储后端。                  | `engine_runningJobMetrics` 中当前保存的 task metric context 总数。 |
+| engine_state_store_running_job_metrics_active_partition_keys | Gauge | **backend**，状态存储后端。                | `engine_runningJobMetrics` 中当前非空的顶层分桶 key 数。 |
+| engine_state_store_checkpoint_monitor_jobs               | Gauge   | **backend**，状态存储后端。                  | `engine_checkpoint_monitor` 中当前跟踪的 job 数。 |
+| engine_state_store_checkpoint_monitor_in_progress_checkpoints | Gauge | **backend**，状态存储后端。              | `engine_checkpoint_monitor` 中当前 in-progress checkpoint 数。 |
+| engine_state_store_checkpoint_monitor_retained_history_entries | Gauge | **backend**，状态存储后端。            | `engine_checkpoint_monitor` 中当前保留的 checkpoint history 条目数。 |
+| engine_state_store_finished_job_records                  | Gauge   | **store**，finished job store 名称。**backend**，状态存储后端。 | finished job 相关状态存储中的当前记录数。 |
+| engine_state_store_finished_job_cleanup_total            | Counter | **store**，finished job store 名称。**backend**，状态存储后端。 | finished job 状态存储因过期而发生的清理总次数。 |
+| engine_state_store_connector_jar_tracked_jars            | Gauge   | **backend**，状态存储后端。                  | `engine_connectorJarRefCounters` 中当前被跟踪的 connector jar 数。 |
+| engine_state_store_connector_jar_total_references        | Gauge   | **backend**，状态存储后端。                  | `engine_connectorJarRefCounters` 中当前所有 connector jar 引用计数之和。 |
+
+这些逻辑指标与上面的本地 Hazelcast store 指标互为补充：
+
+- 当你想看每个节点上的数据分布和内存占用时，使用 `engine_state_store_local_*` 指标。
+- 当你想看 checkpoint 积压、finished job 保留、connector jar 复用等引擎语义时，使用 `engine_state_store_*` 逻辑指标。
+
+PromQL 示例：
+
+```promql
+# 按 store 聚合后的状态存储总 entry 数
+sum by (cluster, store, backend) (engine_state_store_local_owned_entries)
+
+# 当前 checkpoint 积压
+engine_state_store_checkpoint_monitor_in_progress_checkpoints{backend="hazelcast"}
+
+# 最近 15 分钟 finished job cleanup 增长量
+increase(engine_state_store_finished_job_cleanup_total{backend="hazelcast"}[15m])
+
+# connector jar 引用压力
+engine_state_store_connector_jar_total_references{backend="hazelcast"}
+```
+
+Grafana 面板示例：
+
+- `State Store Total Entries`
+
+```promql
+sum by (store) (engine_state_store_local_owned_entries{backend="hazelcast"})
+```
+
+- `Checkpoint In-Progress Count`
+
+```promql
+engine_state_store_checkpoint_monitor_in_progress_checkpoints{backend="hazelcast"}
+```
+
+- `Finished Job Cleanup Rate`
+
+```promql
+sum by (store) (rate(engine_state_store_finished_job_cleanup_total{backend="hazelcast"}[5m]))
+```
+
+- `Connector Jar Reference Count`
+
+```promql
+engine_state_store_connector_jar_total_references{backend="hazelcast"}
+```
+
 ### 线程池状态
 
 | MetricName                          | Type    | Labels                                  | 描述                             |
@@ -80,6 +144,35 @@ sum by (cluster, store, backend) (engine_state_store_local_owned_entries)
 | job_thread_pool_completedTask_total | Counter | **address**，服务器实例地址，例如："127.0.0.1:5801" | seatunnel 协调器作业执行器缓存线程池的完成任务数  |
 | job_thread_pool_task_total          | Counter | **address**，服务器实例地址，例如："127.0.0.1:5801" | seatunnel 协调器作业执行器缓存线程池的总任务数   |
 | job_thread_pool_rejection_total     | Counter | **address**，服务器实例地址，例如："127.0.0.1:5801" | seatunnel 协调器作业执行器缓存线程池的拒绝任务总数 |
+
+### ReportMetricsOperation 指标
+
+| MetricName                                        | Type    | Labels                                                                                     | 描述                                                                                   |
+|---------------------------------------------------|---------|--------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------|
+| report_metrics_operation_total                    | Counter | **address**，worker 实例地址，例如："127.0.0.1:5801"。**result**，取值包括："success" "failure" "interrupted" | worker 发送的 `ReportMetricsOperation` 调用总次数                                       |
+| report_metrics_operation_last_payload_task_count  | Gauge   | **address**，worker 实例地址，例如："127.0.0.1:5801"                                        | 最近一次 `ReportMetricsOperation` payload 中包含的 task metrics 数量                    |
+| report_metrics_operation_last_invocation_latency_ms | Gauge | **address**，worker 实例地址，例如："127.0.0.1:5801"                                        | worker 侧最近一次 `ReportMetricsOperation` 上报耗时，单位为毫秒，包含本地 metrics 收集和 worker 到 master 的调用时间 |
+| report_metrics_operation_max_invocation_latency_ms  | Gauge | **address**，worker 实例地址，例如："127.0.0.1:5801"                                        | worker 启动以来观测到的 `ReportMetricsOperation` 最大上报耗时，单位为毫秒，包含本地 metrics 收集和 worker 到 master 的调用时间 |
+
+### RequestSlotOperation 指标
+
+这些指标暴露 master 侧的 slot 分配 RPC 路径。当作业需要执行资源时，active master 会选择候选 worker，并向这些
+worker 发送 `RequestSlotOperation` 请求以预留 slot。这些指标用于帮助运维人员区分 slot 分配 RPC 变慢/失败与整体资源不足。
+
+这些指标仅由 active master 输出。它们是聚合信号，不包含 job、worker、slot 或 resource profile 级别的标签。
+
+| MetricName                                        | Type    | Labels                                                                                     | 描述                                                                                   |
+|---------------------------------------------------|---------|--------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------|
+| request_slot_operation_total                      | Counter | **address**，master 实例地址，例如："127.0.0.1:5801"。**result**，取值包括："success" "no_slot" "failure" | master 发送到 worker 的 `RequestSlotOperation` 调用总次数                               |
+| request_slot_operation_last_invocation_latency_ms | Gauge   | **address**，master 实例地址，例如："127.0.0.1:5801"                                        | master 侧最近一次 `RequestSlotOperation` 调用耗时，单位为毫秒，包含 master 到 worker 的调用时间 |
+| request_slot_operation_max_invocation_latency_ms  | Gauge   | **address**，master 实例地址，例如："127.0.0.1:5801"                                        | master 启动以来观测到的 `RequestSlotOperation` 最大调用耗时，单位为毫秒，包含 master 到 worker 的调用时间 |
+
+`result` 标签含义如下：
+
+- `success`：worker 返回了已分配的 slot。
+- `no_slot`：请求到达 worker 并正常完成，但 worker 未返回合适的 slot。若该结果持续增加，可能表示 master 侧的
+  worker 资源视图与 worker 当前 slot 状态存在偏差，或者在 pre-check 与请求执行之间并发分配消耗了 slot。
+- `failure`：master 到 worker 的调用失败，或 operation 异常完成。
 
 ### 作业信息详细
 

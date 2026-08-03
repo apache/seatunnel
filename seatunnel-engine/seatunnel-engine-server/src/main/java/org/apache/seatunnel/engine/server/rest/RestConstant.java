@@ -26,6 +26,10 @@ public class RestConstant {
 
     public static final String IS_START_WITH_SAVE_POINT = "isStartWithSavePoint";
 
+    public static final String RESTORE_MODE = "restoreMode";
+
+    public static final String RESTORE_SOURCE_JOB_ID = "restoreSourceJobId";
+
     public static final String IS_STOP_WITH_SAVE_POINT = "isStopWithSavePoint";
 
     public static final String DRY_RUN = "dryRun";
@@ -77,6 +81,9 @@ public class RestConstant {
     // api path start
     public static final String REST_URL_OVERVIEW = "/overview";
     public static final String REST_URL_RUNNING_JOBS = "/running-jobs";
+
+    public static final String REST_URL_RUNNING_JOBS_SUMMARY = "/running-jobs/summary";
+
     @Deprecated public static final String REST_URL_RUNNING_JOB = "/running-job";
     public static final String REST_URL_JOB_INFO = "/job-info";
     public static final String REST_URL_FINISHED_JOBS = "/finished-jobs";
@@ -107,6 +114,7 @@ public class RestConstant {
     public static final String REST_URL_OPTION_RULES = "/option-rules";
     public static final String REST_URL_CHECKPOINT_OVERVIEW = "/jobs/checkpoints";
     public static final String REST_URL_CHECKPOINT_HISTORY = "/jobs/checkpoints/history";
+    public static final String REST_URL_REALTIME_METRICS = "/metrics/realtime";
     // api path end
 
 }

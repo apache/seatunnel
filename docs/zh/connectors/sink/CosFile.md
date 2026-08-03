@@ -6,15 +6,15 @@ import ChangeLog from '../changelog/connector-file-cos.md';
 
 ## 描述
 
-将数据输出到cos文件系统.
+将数据输出到腾讯云 COS 文件系统。
 
 :::提示
 
-如果你使用spark/flink，为了使用这个连接器，你必须确保你的spark/flilk集群已经集成了hadoop。测试的hadoop版本是2.x
+如果你使用 Spark/Flink，为了使用这个连接器，你必须确保 Spark/Flink 集群已经集成了 Hadoop。测试的 Hadoop 版本是 2.x。
 
-如果你使用SeaTunnel Engine，当你下载并安装SeaTunnel引擎时，它会自动集成hadoop jar。您可以在${SEATUNNEL_HOME}/lib下检查jar包以确认这一点.
+如果你使用 SeaTunnel Engine，当你下载并安装 SeaTunnel Engine 时，它会自动集成 Hadoop jar。你可以在 `${SEATUNNEL_HOME}/lib` 下检查 jar 包以确认这一点。
 
-要使用此连接器，您需要将hadoop cos-{hadoop.version}-{version}.jar和cos_api-bundle-{version}.jar位于${SEATUNNEL_HOME}/lib目录中，下载：[Hoop cos发布](https://github.com/tencentyun/hadoop-cos/releases). 它只支持hadoop 2.6.5+和8.0.2版本+.
+要使用此连接器，你需要将 `hadoop-cos-{hadoop.version}-{version}.jar` 和 `cos_api-bundle-{version}.jar` 放在 `${SEATUNNEL_HOME}/lib` 目录中，下载地址：[Hadoop COS release](https://github.com/tencentyun/hadoop-cos/releases)。它仅支持 Hadoop 2.6.5+ 和 hadoop-cos 8.0.2+。
 
 :::
 
@@ -68,6 +68,7 @@ import ChangeLog from '../changelog/connector-file-cos.md';
 | compress_codec                        | string  | 否  | none                                       |                                                                 |
 | common-options                        | object  | 否  | -                                          |                                                                 |
 | max_rows_in_memory                    | int     | 否  | -                                          | 仅在file_format为excel时使用.                                         |
+| sheet_max_rows                         | int     | 否  | 1048576                                    | 仅在 `file_format_type` 为 `excel` 时使用；每个工作表允许写入的最大行数。 |
 | sheet_name                            | string  | 否  | Sheet${Random number}                      | 仅在file_format为excel时使用.                                         |
 | csv_string_quote_mode                 | enum    | 否  | MINIMAL                                    | 仅在file_format为csv时使用.                                           |
 | xml_root_tag                          | string  | 否  | RECORDS                                    | 仅在file_format为xml时使用.                                           |
@@ -206,6 +207,10 @@ Tips: excel 类型不支持任何压缩格式
 ### max_rows_in_memory [int]
 
 当文件格式为Excel时，内存中可以缓存的最大数据项数.
+
+### sheet_max_rows [int]
+
+仅在 `file_format_type` 为 `excel` 时使用。该选项限制每个工作表可以写入的最大行数，默认值为 `1048576`。
 
 ### sheet_name [string]
 

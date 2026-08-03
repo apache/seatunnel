@@ -10,6 +10,12 @@ Used to read messages from an MQTT broker. Supports MQTT 3.1.1 protocol via the 
 
 This connector subscribes to a configured MQTT topic, deserializes message payloads as JSON or text, and converts them into SeaTunnel rows.
 
+## Supported Engines
+
+> SeaTunnel Zeta<br/>
+> Flink<br/>
+> Spark<br/>
+
 ## Key features
 
 - [ ] [batch](../../introduction/concepts/connector-v2-features.md)
@@ -167,6 +173,11 @@ sink {
 ### Persistent session source
 
 ```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+}
+
 source {
   MQTT {
     url = "tcp://broker.example.com:1883"
@@ -182,6 +193,10 @@ source {
       }
     }
   }
+}
+
+sink {
+  Console {}
 }
 ```
 

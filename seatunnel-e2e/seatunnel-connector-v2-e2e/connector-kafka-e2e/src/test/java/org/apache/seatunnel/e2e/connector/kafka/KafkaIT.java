@@ -105,12 +105,18 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -121,6 +127,10 @@ import static org.testcontainers.shaded.org.awaitility.Awaitility.given;
 
 @Slf4j
 public class KafkaIT extends TestSuiteBase implements TestResource {
+    private static final String EXACTLY_ONCE_SOURCE_TOPIC_VARIABLE = "sourceTopic";
+    private static final String EXACTLY_ONCE_SINK_TOPIC_VARIABLE = "sinkTopic";
+    private static final String EXACTLY_ONCE_CONSUMER_GROUP_VARIABLE = "consumerGroup";
+
     private static final String KAFKA_IMAGE_NAME = "confluentinc/cp-kafka:7.0.9";
 
     private static final String KAFKA_HOST = "kafkaCluster";
@@ -134,6 +144,11 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
     private KafkaContainer kafkaContainer;
 
     private List<ConsumerRecord<String, String>> nativeData;
+
+    /** Topics created dynamically during tests; cleaned up in {@link #tearDown()}. */
+    private final List<String> dynamicTopics = new CopyOnWriteArrayList<>();
+
+    private final AtomicInteger startModeTestSequence = new AtomicInteger();
 
     @BeforeAll
     @Override
@@ -266,6 +281,14 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
     @AfterAll
     @Override
     public void tearDown() throws Exception {
+        if (!dynamicTopics.isEmpty()) {
+            try (AdminClient adminClient = createKafkaAdmin()) {
+                adminClient.deleteTopics(dynamicTopics).all().get();
+                log.info("Deleted {} dynamic test topics", dynamicTopics.size());
+            } catch (Exception e) {
+                log.warn("Failed to delete dynamic test topics: {}", e.getMessage());
+            }
+        }
         if (producer != null) {
             producer.close();
         }
@@ -371,6 +394,64 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
             Assertions.assertTrue(payloadNode.has("email"), "Payload should contain 'email' field");
             Assertions.assertTrue(
                     payloadNode.has("description"), "Payload should contain 'description' field");
+        }
+    }
+
+    @TestTemplate
+    public void testSourceKafkaWithHeaders(TestContainer container)
+            throws IOException, InterruptedException {
+        String topicName = "test_topic_source_headers";
+
+        // Produce 10 records with JSON value and Kafka headers
+        try {
+            for (int i = 0; i < 10; i++) {
+                byte[] value =
+                        ("{\"user_id\":" + i + ",\"name\":\"user_" + i + "\"}")
+                                .getBytes(StandardCharsets.UTF_8);
+                Header corrHeader =
+                        new RecordHeader(
+                                "correlation_id", ("corr-" + i).getBytes(StandardCharsets.UTF_8));
+                Header traceHeader =
+                        new RecordHeader(
+                                "trace_id", ("trace-" + i).getBytes(StandardCharsets.UTF_8));
+                ProducerRecord<byte[], byte[]> record =
+                        new ProducerRecord<>(
+                                topicName,
+                                null,
+                                null,
+                                null,
+                                value,
+                                Arrays.asList(corrHeader, traceHeader));
+                producer.send(record).get();
+            }
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+        producer.flush();
+
+        Container.ExecResult execResult =
+                container.executeJob("/kafka/kafka_source_with_headers.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+
+        // Additional verification: read records back and check header fields are accessible
+        List<ConsumerRecord<String, String>> records = getKafkaRecordData(topicName);
+        Assertions.assertEquals(10, records.size());
+
+        for (int i = 0; i < records.size(); i++) {
+            ConsumerRecord<String, String> record = records.get(i);
+            Map<String, String> headers = convertHeadersToMap(record.headers());
+
+            Assertions.assertTrue(
+                    headers.containsKey("correlation_id"),
+                    "Record should contain 'correlation_id' header");
+            Assertions.assertTrue(
+                    headers.containsKey("trace_id"), "Record should contain 'trace_id' header");
+            Assertions.assertTrue(
+                    headers.get("correlation_id").startsWith("corr-"),
+                    "correlation_id header value should start with 'corr-'");
+            Assertions.assertTrue(
+                    headers.get("trace_id").startsWith("trace-"),
+                    "trace_id header value should start with 'trace-'");
         }
     }
 
@@ -660,6 +741,30 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                             }
                         });
 
+        AtomicInteger partitionProbeId = new AtomicInteger();
+        Awaitility.await()
+                .pollInterval(2, SECONDS)
+                .atMost(2, MINUTES)
+                .untilAsserted(
+                        () -> {
+                            int currentProbeId = partitionProbeId.getAndIncrement();
+                            String probeMessage =
+                                    String.format(
+                                            "{\"id\":%d,\"message\":\"partition_probe_%d\",\"timestamp\":%d}",
+                                            10000 + currentProbeId,
+                                            currentProbeId,
+                                            System.currentTimeMillis());
+                            producer.send(
+                                    new ProducerRecord<>(
+                                            sourceTopic, 1, null, probeMessage.getBytes()));
+                            producer.flush();
+
+                            Assertions.assertTrue(
+                                    countKafkaMessagesContaining(outputTopic, "partition_probe_")
+                                            > 0,
+                                    "SeaTunnel should discover and consume the new Kafka partition");
+                        });
+
         for (int i = 0; i < 15; i++) {
             String message =
                     String.format(
@@ -672,17 +777,17 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         Awaitility.await()
                 .pollInterval(2, SECONDS)
                 .atMost(2, MINUTES)
-                .until(
+                .untilAsserted(
                         () -> {
-                            try {
-                                // Check the output topic data count
-                                List<String> outputData = getKafkaConsumerListData(outputTopic);
-                                log.info("Output topic data count: {}", outputData.size());
-                                return outputData.size() >= 15 && outputData.size() < 25;
-                            } catch (Exception e) {
-                                log.error("Error checking output topic data", e);
-                                return false;
-                            }
+                            long newPartitionMessageCount =
+                                    countKafkaMessagesContaining(
+                                            outputTopic, "new_partition_message_");
+                            log.info(
+                                    "New partition output message count: {}",
+                                    newPartitionMessageCount);
+                            Assertions.assertTrue(
+                                    newPartitionMessageCount >= 15,
+                                    "All messages from the discovered Kafka partition should be consumed");
                         });
 
         try (AdminClient adminClient = createKafkaAdmin()) {
@@ -706,10 +811,19 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
     public void testSourceKafkaRestoreWithEarliestMode(TestContainer container)
             throws IOException, InterruptedException {
 
-        final String sourceTopic = "test_topic_restore_earliest";
-        final String sinkTopic = "test_topic_restore_earliest_output";
+        String resourceSuffix = startModeTopic(container, "restore-earliest");
+        final String sourceTopic = resourceSuffix + "_source";
+        final String sinkTopic = resourceSuffix + "_sink";
+        final String consumerGroup = resourceSuffix + "_group";
         final String payload = "Seatunnel Restore Test Data";
         final String jobId = "18696753645408";
+        List<String> restoreVariables =
+                buildKafkaRestoreVariables(sourceTopic, sinkTopic, consumerGroup);
+
+        // The Kafka broker is shared across all engine variants in this class, so restore tests
+        // need dedicated topics and groups to avoid inheriting offsets from earlier template runs.
+        createKafkaTopic(sourceTopic);
+        createKafkaTopic(sinkTopic);
 
         // Write 20 initial records with unique keys (avoid any potential dedup logic
         // elsewhere).
@@ -723,18 +837,22 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         long srcEndBeforeStart = endOffsetOnP0(sourceTopic);
 
         // Start the first streaming job asynchronously.
-        CompletableFuture.runAsync(
-                () -> {
-                    try {
-                        container.executeJob(
-                                "/kafka/kafkasource_restore_with_earliest_mode.conf", jobId);
-                    } catch (Exception e) {
-                        log.error("First job execution exception", e);
-                        throw new RuntimeException(e);
-                    }
-                });
+        CompletableFuture<Container.ExecResult> firstJobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.executeJob(
+                                        "/kafka/kafkasource_restore_with_earliest_mode.conf",
+                                        jobId,
+                                        restoreVariables.toArray(new String[0]));
+                            } catch (Exception e) {
+                                log.error("First job execution exception", e);
+                                throw new RuntimeException(e);
+                            }
+                        });
 
         awaitJobRunning(container, jobId);
+        waitForStreamingJobStartup(firstJobFuture);
 
         // Produce 10 additional records after the job starts.
         for (int i = 0; i < 10; i++) {
@@ -755,7 +873,8 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                 .until(() -> visibleCountOnP0(sinkTopic) == expectedSinkAfterFirstRun);
 
         // Savepoint the running job (so restore should continue from this position).
-        container.savepointJob(jobId);
+        assertCommandSucceeded("Savepoint", container.savepointJob(jobId));
+        assertCommandSucceeded("Initial job", waitForJobResult(firstJobFuture));
 
         // Append 15 records after savepoint, used to validate restore progress.
         for (int i = 0; i < 15; i++) {
@@ -777,18 +896,24 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         // Deliberately move the consumer-group offset past the savepoint position.
         // Restore must still use the checkpointed split offsets instead of the external group
         // offset, otherwise the 15 post-savepoint records will be skipped.
-        commitOffset(sourceTopic, "test_restore_group", srcEndAfterAll);
+        commitOffset(sourceTopic, consumerGroup, srcEndAfterAll);
 
         // Restore the job from the savepoint asynchronously.
-        CompletableFuture.runAsync(
-                () -> {
-                    try {
-                        container.restoreJob(
-                                "/kafka/kafkasource_restore_with_earliest_mode.conf", jobId);
-                    } catch (Exception e) {
-                        throw new RuntimeException(e);
-                    }
-                });
+        CompletableFuture<Container.ExecResult> restoredJobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.restoreJob(
+                                        "/kafka/kafkasource_restore_with_earliest_mode.conf",
+                                        jobId,
+                                        restoreVariables.toArray(new String[0]));
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+
+        awaitJobRunning(container, jobId);
+        waitForStreamingJobStartup(restoredJobFuture);
 
         // After restore, sink should advance by the 15 newly produced records at
         // minimum.
@@ -796,6 +921,8 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                 .pollInterval(2, SECONDS)
                 .atMost(5, MINUTES)
                 .until(() -> visibleCountOnP0(sinkTopic) == expectedSinkAfterFirstRun + 15);
+        assertCommandSucceeded("Restored job cancellation", container.cancelJob(jobId));
+        assertCommandSucceeded("Restored job", waitForJobResult(restoredJobFuture));
     }
 
     // ------------------------------ LATEST MODE ------------------------------
@@ -807,10 +934,19 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
     public void testSourceKafkaRestoreWithLatestMode(TestContainer container)
             throws IOException, InterruptedException {
 
-        final String sourceTopic = "test_topic_restore_latest";
-        final String sinkTopic = "test_topic_restore_latest_output";
+        String resourceSuffix = startModeTopic(container, "restore-latest");
+        final String sourceTopic = resourceSuffix + "_source";
+        final String sinkTopic = resourceSuffix + "_sink";
+        final String consumerGroup = resourceSuffix + "_group";
         final String payload = "Seatunnel Restore Test Data Latest";
+        final String firstRunPayload = payload + "_additional";
+        final String restorePayload = payload + "_restore";
         final String jobId = "18696753645410";
+        List<String> restoreVariables =
+                buildKafkaRestoreVariables(sourceTopic, sinkTopic, consumerGroup);
+
+        createKafkaTopic(sourceTopic);
+        createKafkaTopic(sinkTopic);
 
         // Write 20 initial records before starting the job.
         for (int i = 0; i < 20; i++) {
@@ -821,18 +957,43 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
 
         long srcEndBeforeStart = endOffsetOnP0(sourceTopic);
 
-        CompletableFuture.runAsync(
-                () -> {
-                    try {
-                        container.executeJob(
-                                "/kafka/kafkasource_restore_with_latest_mode.conf", jobId);
-                    } catch (Exception e) {
-                        log.error("First job execution exception", e);
-                        throw new RuntimeException(e);
-                    }
-                });
+        CompletableFuture<Container.ExecResult> firstJobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.executeJob(
+                                        "/kafka/kafkasource_restore_with_latest_mode.conf",
+                                        jobId,
+                                        restoreVariables.toArray(new String[0]));
+                            } catch (Exception e) {
+                                log.error("First job execution exception", e);
+                                throw new RuntimeException(e);
+                            }
+                        });
 
         awaitJobRunning(container, jobId);
+        waitForStreamingJobStartup(firstJobFuture);
+
+        AtomicInteger latestModeProbeId = new AtomicInteger();
+        Awaitility.await()
+                .pollInterval(2, SECONDS)
+                .atMost(2, MINUTES)
+                .untilAsserted(
+                        () -> {
+                            int currentProbeId = latestModeProbeId.getAndIncrement();
+                            String probePayload = payload + "_probe_" + currentProbeId;
+                            producer.send(
+                                    new ProducerRecord<>(
+                                            sourceTopic,
+                                            ("key_probe_" + currentProbeId).getBytes(),
+                                            probePayload.getBytes()));
+                            producer.flush();
+
+                            Assertions.assertTrue(
+                                    countKafkaMessagesContaining(sinkTopic, payload + "_probe_")
+                                            > 0,
+                                    "Latest mode source should consume records produced after startup");
+                        });
 
         // Produce 10 records after job start; latest mode should consume only these 10
         // initially.
@@ -841,17 +1002,20 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                     new ProducerRecord<>(
                             sourceTopic,
                             ("key_additional_" + i).getBytes(),
-                            (payload + "_additional").getBytes()));
+                            firstRunPayload.getBytes()));
         }
         producer.flush();
 
-        final long expectedSinkAfterFirstRun = 10;
         Awaitility.await()
                 .pollInterval(2, SECONDS)
                 .atMost(2, MINUTES)
-                .until(() -> visibleCountOnP0(sinkTopic) == expectedSinkAfterFirstRun);
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        10, countKafkaMessages(sinkTopic, firstRunPayload)));
 
-        container.savepointJob(jobId);
+        assertCommandSucceeded("Savepoint", container.savepointJob(jobId));
+        assertCommandSucceeded("Initial job", waitForJobResult(firstJobFuture));
 
         // Append 15 more records after savepoint.
         for (int i = 0; i < 15; i++) {
@@ -859,29 +1023,39 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                     new ProducerRecord<>(
                             sourceTopic,
                             ("key_restore_" + i).getBytes(),
-                            (payload + "_restore").getBytes()));
+                            restorePayload.getBytes()));
         }
         producer.flush();
 
         long srcEndAfterAll = endOffsetOnP0(sourceTopic);
         Assertions.assertTrue(
-                srcEndAfterAll == srcEndBeforeStart + 25,
+                srcEndAfterAll >= srcEndBeforeStart + 25,
                 "Final end offset should advance by at least 25");
 
-        CompletableFuture.runAsync(
-                () -> {
-                    try {
-                        container.restoreJob(
-                                "/kafka/kafkasource_restore_with_latest_mode.conf", jobId);
-                    } catch (Exception e) {
-                        throw new RuntimeException(e);
-                    }
-                });
+        CompletableFuture<Container.ExecResult> restoredJobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.restoreJob(
+                                        "/kafka/kafkasource_restore_with_latest_mode.conf",
+                                        jobId,
+                                        restoreVariables.toArray(new String[0]));
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+
+        awaitJobRunning(container, jobId);
 
         Awaitility.await()
                 .pollInterval(2, SECONDS)
                 .atMost(5, MINUTES)
-                .until(() -> visibleCountOnP0(sinkTopic) == expectedSinkAfterFirstRun + 15);
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        15, countKafkaMessages(sinkTopic, restorePayload)));
+        assertCommandSucceeded("Restored job cancellation", container.cancelJob(jobId));
+        assertCommandSucceeded("Restored job", waitForJobResult(restoredJobFuture));
     }
 
     // ---------------------------- TIMESTAMP MODE -----------------------------
@@ -893,10 +1067,17 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
     public void testSourceKafkaRestoreWithTimestampMode(TestContainer container)
             throws IOException, InterruptedException {
 
-        final String sourceTopic = "test_topic_restore_timestamp";
-        final String sinkTopic = "test_topic_restore_timestamp_output";
+        String resourceSuffix = startModeTopic(container, "restore-timestamp");
+        final String sourceTopic = resourceSuffix + "_source";
+        final String sinkTopic = resourceSuffix + "_sink";
+        final String consumerGroup = resourceSuffix + "_group";
         final String payload = "Seatunnel Restore Test Data Timestamp";
         final String jobId = "18696753645411";
+        List<String> restoreVariables =
+                buildKafkaRestoreVariables(sourceTopic, sinkTopic, consumerGroup);
+
+        createKafkaTopic(sourceTopic);
+        createKafkaTopic(sinkTopic);
 
         for (int i = 0; i < 20; i++) {
             producer.send(
@@ -906,16 +1087,19 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
 
         long srcEndBeforeStart = endOffsetOnP0(sourceTopic);
 
-        CompletableFuture.runAsync(
-                () -> {
-                    try {
-                        container.executeJob(
-                                "/kafka/kafkasource_restore_with_timestamp_mode.conf", jobId);
-                    } catch (Exception e) {
-                        log.error("First job execution exception", e);
-                        throw new RuntimeException(e);
-                    }
-                });
+        CompletableFuture<Container.ExecResult> firstJobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.executeJob(
+                                        "/kafka/kafkasource_restore_with_timestamp_mode.conf",
+                                        jobId,
+                                        restoreVariables.toArray(new String[0]));
+                            } catch (Exception e) {
+                                log.error("First job execution exception", e);
+                                throw new RuntimeException(e);
+                            }
+                        });
 
         awaitJobRunning(container, jobId);
 
@@ -937,7 +1121,8 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                 .atMost(2, MINUTES)
                 .until(() -> visibleCountOnP0(sinkTopic) == expectedSinkAfterFirstRun);
 
-        container.savepointJob(jobId);
+        assertCommandSucceeded("Savepoint", container.savepointJob(jobId));
+        assertCommandSucceeded("Initial job", waitForJobResult(firstJobFuture));
 
         // Append 15 more records after savepoint.
         for (int i = 0; i < 15; i++) {
@@ -954,20 +1139,27 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                 srcEndAfterAll == srcEndBeforeStart + 25,
                 "Final end offset should advance by at least 25");
 
-        CompletableFuture.runAsync(
-                () -> {
-                    try {
-                        container.restoreJob(
-                                "/kafka/kafkasource_restore_with_timestamp_mode.conf", jobId);
-                    } catch (Exception e) {
-                        throw new RuntimeException(e);
-                    }
-                });
+        CompletableFuture<Container.ExecResult> restoredJobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.restoreJob(
+                                        "/kafka/kafkasource_restore_with_timestamp_mode.conf",
+                                        jobId,
+                                        restoreVariables.toArray(new String[0]));
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+
+        awaitJobRunning(container, jobId);
 
         Awaitility.await()
                 .pollInterval(2, SECONDS)
                 .atMost(5, MINUTES)
                 .until(() -> visibleCountOnP0(sinkTopic) == expectedSinkAfterFirstRun + 15);
+        assertCommandSucceeded("Restored job cancellation", container.cancelJob(jobId));
+        assertCommandSucceeded("Restored job", waitForJobResult(restoredJobFuture));
     }
 
     // ------------------------- SPECIFIC OFFSETS MODE -------------------------
@@ -980,9 +1172,19 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
             throws IOException, InterruptedException {
 
         final String sourceTopic = "test_topic_restore_specific_offsets";
-        final String sinkTopic = "test_topic_restore_specific_offsets_output";
+        String resourceSuffix = startModeTopic(container, "restore-specific-offsets");
+        final String sinkTopic = resourceSuffix + "_sink";
+        final String consumerGroup = resourceSuffix + "_group";
         final String payload = "Seatunnel Restore Test Data Specific Offsets";
         final String jobId = "18696753645412";
+        List<String> restoreVariables =
+                buildKafkaRestoreVariables(sourceTopic, sinkTopic, consumerGroup);
+
+        // The specific_offsets config stores the source topic inside a map key, and current
+        // variable replacement does not rewrite config keys. Recreate the fixed source topic
+        // before each run so the test still gets isolated offsets without changing parser rules.
+        recreateKafkaTopic(sourceTopic);
+        createKafkaTopic(sinkTopic);
 
         for (int i = 0; i < 20; i++) {
             producer.send(
@@ -992,17 +1194,19 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
 
         long srcEndBeforeStart = endOffsetOnP0(sourceTopic);
 
-        CompletableFuture.runAsync(
-                () -> {
-                    try {
-                        container.executeJob(
-                                "/kafka/kafkasource_restore_with_specific_offsets_mode.conf",
-                                jobId);
-                    } catch (Exception e) {
-                        log.error("First job execution exception", e);
-                        throw new RuntimeException(e);
-                    }
-                });
+        CompletableFuture<Container.ExecResult> firstJobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.executeJob(
+                                        "/kafka/kafkasource_restore_with_specific_offsets_mode.conf",
+                                        jobId,
+                                        restoreVariables.toArray(new String[0]));
+                            } catch (Exception e) {
+                                log.error("First job execution exception", e);
+                                throw new RuntimeException(e);
+                            }
+                        });
 
         awaitJobRunning(container, jobId);
 
@@ -1024,7 +1228,8 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                 .atMost(2, MINUTES)
                 .until(() -> visibleCountOnP0(sinkTopic) == expectedSinkAfterFirstRun - 11);
 
-        container.savepointJob(jobId);
+        assertCommandSucceeded("Savepoint", container.savepointJob(jobId));
+        assertCommandSucceeded("Initial job", waitForJobResult(firstJobFuture));
 
         // Append 15 more records after savepoint.
         for (int i = 0; i < 15; i++) {
@@ -1041,21 +1246,27 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                 srcEndAfterAll == srcEndBeforeStart + 25,
                 "Final end offset should advance by at least 25");
 
-        CompletableFuture.runAsync(
-                () -> {
-                    try {
-                        container.restoreJob(
-                                "/kafka/kafkasource_restore_with_specific_offsets_mode.conf",
-                                jobId);
-                    } catch (Exception e) {
-                        throw new RuntimeException(e);
-                    }
-                });
+        CompletableFuture<Container.ExecResult> restoredJobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.restoreJob(
+                                        "/kafka/kafkasource_restore_with_specific_offsets_mode.conf",
+                                        jobId,
+                                        restoreVariables.toArray(new String[0]));
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+
+        awaitJobRunning(container, jobId);
 
         Awaitility.await()
                 .pollInterval(2, SECONDS)
                 .atMost(5, MINUTES)
                 .until(() -> visibleCountOnP0(sinkTopic) == expectedSinkAfterFirstRun + 15 - 11);
+        assertCommandSucceeded("Restored job cancellation", container.cancelJob(jobId));
+        assertCommandSucceeded("Restored job", waitForJobResult(restoredJobFuture));
     }
 
     private void awaitJobRunning(TestContainer container, String jobId) {
@@ -1064,6 +1275,69 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                 .atMost(1, MINUTES)
                 .untilAsserted(
                         () -> Assertions.assertEquals("RUNNING", container.getJobStatus(jobId)));
+    }
+
+    /**
+     * Wait for a streaming submit command to exit after savepoint or cancellation.
+     *
+     * <p>A bounded wait prevents a failed lifecycle transition from leaving the test thread blocked
+     * indefinitely.
+     */
+    private Container.ExecResult waitForJobResult(
+            CompletableFuture<Container.ExecResult> jobFuture) {
+        try {
+            return jobFuture.get(2, MINUTES);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new AssertionError("Interrupted while waiting for streaming job completion", e);
+        } catch (ExecutionException | TimeoutException e) {
+            throw new AssertionError("Streaming job command did not complete successfully", e);
+        }
+    }
+
+    /**
+     * Give a streaming submit command a short startup window before the test publishes data that
+     * must only be observed after initialization.
+     */
+    private void waitForStreamingJobStartup(CompletableFuture<Container.ExecResult> jobFuture) {
+        try {
+            jobFuture.get(15, SECONDS);
+            throw new AssertionError("Streaming job finished before startup grace window elapsed");
+        } catch (TimeoutException expected) {
+            // Expected path: the job is still running and had time to initialize.
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new AssertionError("Interrupted while waiting for streaming job startup", e);
+        } catch (ExecutionException e) {
+            throw new AssertionError("Streaming job failed before startup grace window elapsed", e);
+        }
+    }
+
+    /**
+     * Publish a probe record and wait until it becomes visible on the sink topic so later
+     * assertions only count business records emitted after the Kafka source is actively consuming.
+     */
+    private long awaitStreamingPipelineReady(
+            String producerTopic, String consumerTopic, long sinkStartOffset, String probeData) {
+        sendTextRecordAndWait(producerTopic, probeData);
+        given().pollDelay(5, SECONDS)
+                .pollInterval(5, SECONDS)
+                .await()
+                .atMost(2, MINUTES)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertTrue(
+                                        checkData(consumerTopic, sinkStartOffset, 1, probeData)));
+        return endOffsetOnP0(consumerTopic);
+    }
+
+    /**
+     * Assert that a lifecycle command completed successfully.
+     *
+     * <p>The command stderr is included so CI failures retain the container-side error context.
+     */
+    private void assertCommandSucceeded(String action, Container.ExecResult result) {
+        Assertions.assertEquals(0, result.getExitCode(), action + " failed: " + result.getStderr());
     }
 
     /**
@@ -1077,6 +1351,16 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
             long end = c.endOffsets(Collections.singletonList(tp0)).get(tp0);
             return end - begin;
         }
+    }
+
+    private long countKafkaMessages(String topic, String expectedValue) {
+        return getKafkaConsumerListData(topic, 0).stream().filter(expectedValue::equals).count();
+    }
+
+    private long countKafkaMessagesContaining(String topic, String expectedValue) {
+        return getKafkaConsumerListData(topic, 0).stream()
+                .filter(value -> value.contains(expectedValue))
+                .count();
     }
 
     /** Get the current end offset (LEO) on partition-0. */
@@ -1104,6 +1388,96 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
     }
 
     @TestTemplate
+    public void testSourceKafkaTablesConfigsEarliestStartMode(TestContainer container)
+            throws IOException, InterruptedException {
+        String topic = startModeTopic(container, "earliest");
+        createKafkaTopic(topic);
+        generateSimpleJsonRecords(topic, 0, 10);
+
+        Container.ExecResult execResult =
+                container.executeJob(
+                        "/kafka/kafkasource_tables_configs_start_mode_earliest_to_assert.conf",
+                        Collections.singletonList("topic=" + topic));
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
+
+    @TestTemplate
+    public void testSourceKafkaTablesConfigsLatestStartMode(TestContainer container)
+            throws IOException, InterruptedException {
+        String topic = startModeTopic(container, "latest");
+        createKafkaTopic(topic);
+        generateSimpleJsonRecords(topic, 0, 10);
+
+        Container.ExecResult execResult =
+                container.executeJob(
+                        "/kafka/kafkasource_tables_configs_start_mode_latest_to_assert.conf",
+                        Collections.singletonList("topic=" + topic));
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
+
+    @TestTemplate
+    public void testSourceKafkaTablesConfigsGroupOffsetsStartMode(TestContainer container)
+            throws IOException, InterruptedException {
+        String topic = startModeTopic(container, "group_offsets");
+        String consumerGroup = "SeaTunnel-Start-Mode-Tables-Group-Offsets";
+        createKafkaTopic(topic);
+        generateSimpleJsonRecords(topic, 0, 5);
+        commitOffset(topic, consumerGroup);
+        generateSimpleJsonRecords(topic, 5, 10);
+
+        Container.ExecResult execResult =
+                container.executeJob(
+                        "/kafka/kafkasource_tables_configs_start_mode_group_offsets_to_assert.conf",
+                        Collections.singletonList("topic=" + topic));
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
+
+    @TestTemplate
+    public void testSourceKafkaTablesConfigsTimestampStartMode(TestContainer container)
+            throws IOException, InterruptedException {
+        String topic = startModeTopic(container, "timestamp");
+        createKafkaTopic(topic);
+        generateSimpleJsonRecordsWithTimestamp(topic, 0, 4, 1738395839000L);
+        generateSimpleJsonRecordsWithTimestamp(topic, 4, 10, 1738395840000L);
+
+        Container.ExecResult execResult =
+                container.executeJob(
+                        "/kafka/kafkasource_tables_configs_start_mode_timestamp_to_assert.conf",
+                        Collections.singletonList("topic=" + topic));
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
+
+    @TestTemplate
+    public void testSourceKafkaTablesConfigsSpecificOffsetsStartMode(TestContainer container)
+            throws IOException, InterruptedException {
+        String topic = fixedStartModeTopic(container, "specific_offsets");
+        createKafkaTopic(topic);
+        generateSimpleJsonRecords(topic, 0, 10);
+
+        Container.ExecResult execResult =
+                container.executeJob(
+                        "/kafka/kafkasource_tables_configs_start_mode_specific_offsets_to_assert.conf",
+                        Collections.singletonList("topic=" + topic));
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    }
+
+    private String fixedStartModeTopic(TestContainer container, String startMode) {
+        return "test_topic_start_mode_"
+                + container.identifier().name().toLowerCase(Locale.ROOT)
+                + "_"
+                + startMode;
+    }
+
+    private String startModeTopic(TestContainer container, String startMode) {
+        return "test_topic_start_mode_"
+                + container.identifier().name().toLowerCase(Locale.ROOT)
+                + "_"
+                + startMode
+                + "_"
+                + startModeTestSequence.incrementAndGet();
+    }
+
+    @TestTemplate
     public void testSourceKafkaStartConfig(TestContainer container)
             throws IOException, InterruptedException {
         DefaultSeaTunnelRowSerializer serializer =
@@ -1117,6 +1491,31 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         commitOffset("test_topic_group", "SeaTunnel-Consumer-Group-Offset");
         generateTestData(row -> serializer.serializeRow(row), 100, 150);
         testKafkaGroupOffsetsToConsole(container);
+    }
+
+    private void generateSimpleJsonRecords(String topic, int startInclusive, int endExclusive) {
+        generateSimpleJsonRecordsWithTimestamp(topic, startInclusive, endExclusive, null);
+    }
+
+    private void generateSimpleJsonRecordsWithTimestamp(
+            String topic, int startInclusive, int endExclusive, Long timestamp) {
+        try {
+            for (int i = startInclusive; i < endExclusive; i++) {
+                byte[] value = ("{\"id\":" + i + "}").getBytes(StandardCharsets.UTF_8);
+                ProducerRecord<byte[], byte[]> record =
+                        timestamp == null
+                                ? new ProducerRecord<>(topic, null, value)
+                                : new ProducerRecord<>(topic, null, timestamp, null, value);
+                producer.send(record).get();
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Interrupted while writing Kafka records to " + topic, e);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to write Kafka start mode records to " + topic, e);
+        } finally {
+            producer.flush();
+        }
     }
 
     public void commitOffset(String topic, String groupId) {
@@ -1579,11 +1978,16 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
             value = {})
     public void testRestoreKafkaToKafkaExactlyOnceOnStreaming(TestContainer container)
             throws InterruptedException, IOException {
-
-        String producerTopic = "kafka_topic_exactly_once_1";
-        String consumerTopic = "kafka_topic_exactly_once_2";
+        String resourceSuffix = Long.toUnsignedString(System.nanoTime());
+        String producerTopic = "kafka_topic_exactly_once_source_" + resourceSuffix;
+        String consumerTopic = "kafka_topic_exactly_once_sink_" + resourceSuffix;
+        String consumerGroup = "test_exactly_once_" + resourceSuffix;
+        List<String> exactlyOnceVariables =
+                buildExactlyOnceStreamingVariables(producerTopic, consumerTopic, consumerGroup);
+        createKafkaTopic(producerTopic);
+        createKafkaTopic(consumerTopic);
         String sourceData = "Seatunnel Exactly Once Example";
-        final String jobId = "18696753645413";
+        final String jobId = Long.toUnsignedString(System.nanoTime());
         long sinkStartOffset = endOffsetOnP0(consumerTopic);
         for (int i = 0; i < 10; i++) {
             ProducerRecord<byte[], byte[]> record =
@@ -1596,7 +2000,9 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                 () -> {
                     try {
                         container.executeJob(
-                                "/kafka/kafka_to_kafka_exactly_once_streaming.conf", jobId);
+                                "/kafka/kafka_to_kafka_exactly_once_streaming.conf",
+                                jobId,
+                                exactlyOnceVariables.toArray(new String[0]));
                     } catch (Exception e) {
                         log.error("Commit task exception :" + e.getMessage());
                         throw new RuntimeException(e);
@@ -1604,8 +2010,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                     return null;
                 });
         // wait for data written to kafka
-        given().pollDelay(60, SECONDS)
-                .pollInterval(5, SECONDS)
+        given().pollInterval(5, SECONDS)
                 .await()
                 .atMost(5, MINUTES)
                 .untilAsserted(
@@ -1630,14 +2035,15 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                 () -> {
                     try {
                         container.restoreJob(
-                                "/kafka/kafka_to_kafka_exactly_once_streaming.conf", jobId);
+                                "/kafka/kafka_to_kafka_exactly_once_streaming.conf",
+                                jobId,
+                                exactlyOnceVariables.toArray(new String[0]));
                     } catch (Exception e) {
                         throw new RuntimeException(e);
                     }
                 });
 
-        given().pollDelay(60, SECONDS)
-                .pollInterval(5, SECONDS)
+        given().pollInterval(5, SECONDS)
                 .await()
                 .atMost(10, MINUTES)
                 .untilAsserted(
@@ -1655,38 +2061,48 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
             type = EngineType.SPARK,
             value = {})
     public void testKafkaToKafkaExactlyOnceOnStreaming(TestContainer container) {
-
-        String producerTopic = "kafka_topic_exactly_once_1";
-        String consumerTopic = "kafka_topic_exactly_once_2";
+        String resourceSuffix = Long.toUnsignedString(System.nanoTime());
+        String producerTopic = "kafka_topic_exactly_once_source_" + resourceSuffix;
+        String consumerTopic = "kafka_topic_exactly_once_sink_" + resourceSuffix;
+        String consumerGroup = "test_exactly_once_" + resourceSuffix;
+        List<String> exactlyOnceVariables =
+                buildExactlyOnceStreamingVariables(producerTopic, consumerTopic, consumerGroup);
+        createKafkaTopic(producerTopic);
+        createKafkaTopic(consumerTopic);
         String sourceData = "Seatunnel Exactly Once Example";
+        String readinessProbeData = sourceData + "-probe-" + resourceSuffix;
         long sinkStartOffset = endOffsetOnP0(consumerTopic);
-        for (int i = 0; i < 10; i++) {
-            ProducerRecord<byte[], byte[]> record =
-                    new ProducerRecord<>(producerTopic, null, sourceData.getBytes());
-            producer.send(record);
-            producer.flush();
-        }
 
         // async execute
-        CompletableFuture.supplyAsync(
-                () -> {
-                    try {
-                        container.executeJob("/kafka/kafka_to_kafka_exactly_once_streaming.conf");
-                    } catch (Exception e) {
-                        log.error("Commit task exception :" + e.getMessage());
-                        throw new RuntimeException(e);
-                    }
-                    return null;
-                });
+        CompletableFuture<Container.ExecResult> jobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.executeJob(
+                                        "/kafka/kafka_to_kafka_exactly_once_streaming.conf",
+                                        exactlyOnceVariables);
+                            } catch (Exception e) {
+                                log.error("Commit task exception :" + e.getMessage());
+                                throw new RuntimeException(e);
+                            }
+                        });
+        waitForStreamingJobStartup(jobFuture);
+        long sinkDataStartOffset =
+                awaitStreamingPipelineReady(
+                        producerTopic, consumerTopic, sinkStartOffset, readinessProbeData);
+        for (int i = 0; i < 10; i++) {
+            sendTextRecordAndWait(producerTopic, sourceData);
+        }
         // wait for data written to kafka
-        given().pollDelay(60, SECONDS)
+        given().pollDelay(10, SECONDS)
                 .pollInterval(5, SECONDS)
                 .await()
                 .atMost(5, MINUTES)
                 .untilAsserted(
-                        () ->
-                                Assertions.assertTrue(
-                                        checkData(consumerTopic, sinkStartOffset, 10, sourceData)));
+                        () -> {
+                            Assertions.assertTrue(
+                                    checkData(consumerTopic, sinkDataStartOffset, 10, sourceData));
+                        });
     }
 
     @TestTemplate
@@ -1722,20 +2138,56 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
 
     // Compare the values of data fields obtained from consumers
     private boolean checkData(String topicName, long startOffset, long expectedCount, String data) {
-        List<String> listData = getKafkaConsumerListData(topicName, startOffset, expectedCount);
-        if (listData.isEmpty() || listData.size() != expectedCount) {
+        return checkData(topicName, startOffset, expectedCount, data, Collections.emptyList());
+    }
+
+    /**
+     * Sends one text record and waits for the broker acknowledgement so producer-side delivery
+     * issues surface immediately instead of appearing later as assertion flakes.
+     */
+    private void sendTextRecordAndWait(String topicName, String data) {
+        ProducerRecord<byte[], byte[]> record =
+                new ProducerRecord<>(topicName, null, data.getBytes(StandardCharsets.UTF_8));
+        try {
+            producer.send(record).get();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Interrupted while sending Kafka test record", e);
+        } catch (ExecutionException e) {
+            throw new RuntimeException("Failed to send Kafka test record to topic " + topicName, e);
+        }
+    }
+
+    private boolean checkData(
+            String topicName,
+            long startOffset,
+            long expectedCount,
+            String data,
+            List<String> ignoredValues) {
+        List<String> listData = getKafkaConsumerListData(topicName, startOffset);
+        List<String> matchedData = new ArrayList<>();
+        for (String value : listData) {
+            if (data.equals(value)) {
+                matchedData.add(value);
+                continue;
+            }
+            if (ignoredValues.contains(value)) {
+                continue;
+            }
             log.error(
-                    "testKafkaToKafkaExactlyOnce get data size is not expect,get consumer data size {},start offset {},expected count {}",
+                    "testKafkaToKafkaExactlyOnce get unexpected data value {}, start offset {}",
+                    value,
+                    startOffset);
+            return false;
+        }
+        if (matchedData.isEmpty() || matchedData.size() != expectedCount) {
+            log.error(
+                    "testKafkaToKafkaExactlyOnce get data size is not expect,get matched data size {},visible data size {},start offset {},expected count {}",
+                    matchedData.size(),
                     listData.size(),
                     startOffset,
                     expectedCount);
             return false;
-        }
-        for (String value : listData) {
-            if (!data.equals(value)) {
-                log.error("testKafkaToKafkaExactlyOnce get data value is not expect");
-                return false;
-            }
         }
         return true;
     }
@@ -2013,6 +2465,80 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         return AdminClient.create(props);
     }
 
+    /**
+     * Create a dedicated Kafka topic for streaming tests that require isolated records and offsets.
+     *
+     * <p>Each registered topic is removed during class cleanup.
+     */
+    private void createKafkaTopic(String topicName) {
+        NewTopic topic = new NewTopic(topicName, 1, (short) 1);
+        topic.configs(Collections.singletonMap("retention.ms", "-1"));
+        try (AdminClient adminClient = createKafkaAdmin()) {
+            adminClient.createTopics(Collections.singletonList(topic)).all().get();
+            if (!dynamicTopics.contains(topicName)) {
+                dynamicTopics.add(topicName);
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException(
+                    "Interrupted while creating Kafka topic " + topicName, e);
+        } catch (ExecutionException e) {
+            throw new IllegalStateException("Failed to create Kafka topic " + topicName, e);
+        }
+    }
+
+    /**
+     * Recreate a fixed topic so restore tests can start from a clean partition state without
+     * inheriting offsets or retained records from earlier runs.
+     */
+    private void recreateKafkaTopic(String topicName) {
+        try (AdminClient adminClient = createKafkaAdmin()) {
+            adminClient.deleteTopics(Collections.singletonList(topicName)).all().get();
+            Awaitility.await()
+                    .atMost(Duration.ofSeconds(30))
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertFalse(
+                                            adminClient
+                                                    .listTopics()
+                                                    .names()
+                                                    .get()
+                                                    .contains(topicName)));
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException(
+                    "Interrupted while recreating Kafka topic " + topicName, e);
+        } catch (ExecutionException e) {
+            log.info(
+                    "Kafka topic {} did not exist before recreation or could not be deleted cleanly: {}",
+                    topicName,
+                    e.getMessage());
+        }
+        createKafkaTopic(topicName);
+    }
+
+    /** Build the dynamic `-i key=value` variables for the exactly-once streaming template. */
+    private List<String> buildExactlyOnceStreamingVariables(
+            String sourceTopic, String sinkTopic, String consumerGroup) {
+        return Arrays.asList(
+                EXACTLY_ONCE_SOURCE_TOPIC_VARIABLE + "=" + sourceTopic,
+                EXACTLY_ONCE_SINK_TOPIC_VARIABLE + "=" + sinkTopic,
+                EXACTLY_ONCE_CONSUMER_GROUP_VARIABLE + "=" + consumerGroup);
+    }
+
+    /**
+     * Build the dynamic {@code -i key=value} variables for Kafka restore-mode templates.
+     *
+     * <p>Each test invocation uses isolated Kafka topics and a consumer group.
+     */
+    private List<String> buildKafkaRestoreVariables(
+            String sourceTopic, String sinkTopic, String consumerGroup) {
+        return Arrays.asList(
+                "sourceTopic=" + sourceTopic,
+                "sinkTopic=" + sinkTopic,
+                "consumerGroup=" + consumerGroup);
+    }
+
     private void initKafkaProducer() {
         Properties props = new Properties();
         String bootstrapServers = kafkaContainer.getBootstrapServers();
@@ -2245,26 +2771,37 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         }
     }
 
-    private List<String> getKafkaConsumerListData(
-            String topicName, long startOffset, long expectedCount) {
+    private List<String> getKafkaConsumerListData(String topicName, long startOffset) {
         KafkaConsumer<String, String> consumer = null;
         try {
             List<String> data = new ArrayList<>();
+            Set<Long> seenOffsets = new HashSet<>();
             consumer = new KafkaConsumer<>(kafkaManualConsumerConfig());
             TopicPartition topicPartition = new TopicPartition(topicName, 0);
             consumer.assign(Collections.singletonList(topicPartition));
             consumer.seek(topicPartition, startOffset);
-            long targetOffsetExclusive = startOffset + expectedCount;
-            Long lastProcessedOffset = startOffset - 1;
+            // READ_COMMITTED consumers may skip aborted transactional offsets, so N committed
+            // records are not guaranteed to occupy N contiguous offsets after startOffset.
+            long visibleEndOffsetExclusive =
+                    consumer.endOffsets(Collections.singletonList(topicPartition))
+                            .get(topicPartition);
+            long lastObservedOffset = startOffset - 1;
+            int consecutiveEmptyPolls = 0;
             do {
                 ConsumerRecords<String, String> records = consumer.poll(Duration.ofMillis(100));
-                for (ConsumerRecord<String, String> record : records) {
-                    if (record.offset() >= startOffset && record.offset() < targetOffsetExclusive) {
+                if (records.isEmpty()) {
+                    consecutiveEmptyPolls++;
+                    continue;
+                }
+                consecutiveEmptyPolls = 0;
+                for (ConsumerRecord<String, String> record : records.records(topicPartition)) {
+                    if (record.offset() >= startOffset && seenOffsets.add(record.offset())) {
                         data.add(record.value());
                     }
-                    lastProcessedOffset = record.offset();
+                    lastObservedOffset = Math.max(lastObservedOffset, record.offset());
                 }
-            } while (lastProcessedOffset < targetOffsetExclusive - 1);
+            } while (lastObservedOffset < visibleEndOffsetExclusive - 1
+                    && consecutiveEmptyPolls < 20);
             return data;
         } finally {
             closeKafkaConsumer(consumer);

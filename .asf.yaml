@@ -39,7 +39,7 @@ github:
     - CosmosNi
     - fcb-xiaobo
     - LeonYoah
-    - silenceland
+    - heye1005
     - SEZ9
     - boy-xiaozhang
     - nzw921rx
@@ -48,10 +48,15 @@ github:
     squash: true
     merge: false
     rebase: false
+  pull_requests:
+    allow_update_branch: true
   protected_branches:
     dev:
       required_status_checks:
-        strict: true
+        strict: false
+        checks:
+          - context: Build
+            app_id: 15368
       required_pull_request_reviews:
         dismiss_stale_reviews: true
         required_approving_review_count: 1

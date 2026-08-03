@@ -65,9 +65,9 @@ import java.time.temporal.JulianFields;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
-import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
@@ -99,12 +99,15 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy<ParquetWriter<Ge
     public void init(HadoopConf conf, String jobId, String uuidPrefix, int subTaskIndex) {
         super.init(conf, jobId, uuidPrefix, subTaskIndex);
         Configuration configuration = getConfiguration(hadoopConf);
-        writePathsAsInt96 = new HashSet<>(fileSinkConfig.getParquetAvroWriteFixedAsInt96());
+        writePathsAsInt96 =
+                fileSinkConfig.getParquetAvroWriteFixedAsInt96().stream()
+                        .map(this::normalizeFieldName)
+                        .collect(Collectors.toSet());
         if (fileSinkConfig.getParquetWriteTimestampAsInt96()) {
             List<String> timestampFields = new ArrayList<>();
             for (int i = 0; i < seaTunnelRowType.getTotalFields(); i++) {
                 if (SqlType.TIMESTAMP.equals(seaTunnelRowType.getFieldType(i).getSqlType())) {
-                    timestampFields.add(seaTunnelRowType.getFieldName(i));
+                    timestampFields.add(normalizeFieldName(seaTunnelRowType.getFieldName(i)));
                 }
             }
             writePathsAsInt96.addAll(timestampFields);
@@ -244,7 +247,7 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy<ParquetWriter<Ge
             case DATE:
                 return data;
             case TIMESTAMP:
-                if (writePathsAsInt96.contains(name)) {
+                if (writePathsAsInt96.contains(normalizeFieldName(name))) {
                     LocalDateTime localDateTime = (LocalDateTime) data;
                     Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
                     calendar.setTime(
@@ -264,7 +267,7 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy<ParquetWriter<Ge
                                             calendar.get(Calendar.MILLISECOND));
                     NanoTime nanoTime = new NanoTime(julianDays, timeOfDayNanos);
                     return new GenericData.Fixed(
-                            schema.getField(name.toLowerCase()).schema(),
+                            schema.getField(normalizeFieldName(name)).schema(),
                             nanoTime.toBinary().getBytes());
                 }
                 return ((LocalDateTime) data)
@@ -272,9 +275,9 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy<ParquetWriter<Ge
                         .toInstant()
                         .toEpochMilli();
             case BYTES:
-                if (writePathsAsInt96.contains(name)) {
+                if (writePathsAsInt96.contains(normalizeFieldName(name))) {
                     return new GenericData.Fixed(
-                            schema.getField(name.toLowerCase()).schema(), (byte[]) data);
+                            schema.getField(normalizeFieldName(name)).schema(), (byte[]) data);
                 }
                 return ByteBuffer.wrap((byte[]) data);
             case ROW:
@@ -365,7 +368,7 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy<ParquetWriter<Ge
                                 PrimitiveType.PrimitiveTypeName.INT64, Type.Repetition.OPTIONAL)
                         .named(fieldName);
             case TIMESTAMP:
-                if (writePathsAsInt96.contains(fieldName)) {
+                if (writePathsAsInt96.contains(normalizeFieldName(fieldName))) {
                     return Types.primitive(
                                     PrimitiveType.PrimitiveTypeName.INT96, Type.Repetition.OPTIONAL)
                             .named(fieldName);
@@ -392,7 +395,7 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy<ParquetWriter<Ge
                         .scale(scale)
                         .named(fieldName);
             case BYTES:
-                if (writePathsAsInt96.contains(fieldName)) {
+                if (writePathsAsInt96.contains(normalizeFieldName(fieldName))) {
                     return Types.primitive(
                                     PrimitiveType.PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY,
                                     Type.Repetition.OPTIONAL)
@@ -430,10 +433,13 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy<ParquetWriter<Ge
         // are included. Without this, new TIMESTAMP columns get INT64 encoding instead of INT96
         // when parquetWriteTimestampAsInt96=true — silent data corruption.
         if (fileSinkConfig.getParquetWriteTimestampAsInt96()) {
-            writePathsAsInt96 = new HashSet<>(fileSinkConfig.getParquetAvroWriteFixedAsInt96());
+            writePathsAsInt96 =
+                    fileSinkConfig.getParquetAvroWriteFixedAsInt96().stream()
+                            .map(this::normalizeFieldName)
+                            .collect(Collectors.toSet());
             for (int i = 0; i < seaTunnelRowType.getTotalFields(); i++) {
                 if (SqlType.TIMESTAMP.equals(seaTunnelRowType.getFieldType(i).getSqlType())) {
-                    writePathsAsInt96.add(seaTunnelRowType.getFieldName(i));
+                    writePathsAsInt96.add(normalizeFieldName(seaTunnelRowType.getFieldName(i)));
                 }
             }
         }
@@ -456,5 +462,9 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy<ParquetWriter<Ge
         MessageType seaTunnelRow =
                 Types.buildMessage().addFields(types.toArray(new Type[0])).named("SeaTunnelRecord");
         return schemaConverter.convert(seaTunnelRow);
+    }
+
+    private String normalizeFieldName(String fieldName) {
+        return fieldName.toLowerCase(Locale.ROOT);
     }
 }

@@ -38,6 +38,12 @@ import static org.awaitility.Awaitility.await;
 
 class JobStateEventTest extends AbstractSeaTunnelServerTest {
 
+    /**
+     * The commit-error batch job may restore several times before reaching the final FAILED state,
+     * so this event test needs the same longer timeout as the checkpoint restore regression test.
+     */
+    private static final long FAILED_JOB_EVENT_TIMEOUT_SECONDS = 240L;
+
     @Test
     void testJobStateEvent() {
 
@@ -90,7 +96,7 @@ class JobStateEventTest extends AbstractSeaTunnelServerTest {
 
         long jobIdFailed = System.currentTimeMillis();
         startJob(jobIdFailed, STREAM_CONF_WITH_ERROR_PATH, false);
-        await().atMost(60, TimeUnit.SECONDS)
+        await().atMost(FAILED_JOB_EVENT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertEquals(

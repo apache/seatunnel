@@ -38,6 +38,7 @@ import ChangeLog from '../changelog/connector-file-local.md';
   - [x] canal_json
   - [x] debezium_json
   - [x] maxwell_json
+- [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
   
 ## 选项
 
@@ -64,6 +65,7 @@ import ChangeLog from '../changelog/connector-file-local.md';
 | compress_codec                        | string  | 否    | none                                       | 压缩编码                                                            |
 | common-options                        | object  | 否    | -                                          | 常见选项                                                            |
 | max_rows_in_memory                    | int     | 否    | -                                          | 仅在 file_format_type 为 excel 时使用                                 |
+| sheet_max_rows                         | int     | 否    | 1048576                                    | 仅在 `file_format_type` 为 `excel` 时使用；每个工作表允许写入的最大行数。 |
 | sheet_name                            | string  | 否    | Sheet${随机数}                                | 仅在 file_format_type 为 excel 时使用                                 |
 | csv_string_quote_mode                 | enum    | 否    | MINIMAL                                    | 仅在文件格式为 CSV 时使用。                                                |
 | xml_root_tag                          | string  | 否    | RECORDS                                    | 仅在 file_format 为 xml 时使用                                        |
@@ -188,6 +190,10 @@ Sink 插件的常见参数，请参阅 [Sink 常见选项](../common-options/sin
 ### max_rows_in_memory [int]
 
 当文件格式为 Excel 时，内存中可以缓存的数据项最大数量。
+
+### sheet_max_rows [int]
+
+仅在 `file_format_type` 为 `excel` 时使用。该选项限制每个工作表可以写入的最大行数，默认值为 `1048576`。
 
 ### sheet_name [string]
 

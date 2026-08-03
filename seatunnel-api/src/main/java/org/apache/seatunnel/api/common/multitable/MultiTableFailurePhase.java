@@ -24,6 +24,7 @@ public enum MultiTableFailurePhase {
     SINK_INIT("sink_init"),
     SAVE_MODE("save_mode"),
     RUNTIME_WRITE("runtime_write"),
+    TIMER_FLUSH("timer_flush"),
     CHECKPOINT("checkpoint"),
     CLOSE("close");
 

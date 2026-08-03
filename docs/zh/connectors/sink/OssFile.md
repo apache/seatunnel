@@ -19,7 +19,7 @@ import ChangeLog from '../changelog/connector-file-oss.md';
 
 ### 适用于SeaTunnel Zeta引擎
 
-1. 您必须确保在`${seatunnel_HOME}/lib/`目录中有`seatunnel-hadopp3-3.1.4-uber.jar `、`aliyun-sdk-oss-3.4.1.jar `、` hadoop-aliyun-3.1.4.jar`和`jdom-1.1.jar `。
+1. 您必须确保在`${SEATUNNEL_HOME}/lib/`目录中有`seatunnel-hadoop3-3.1.4-uber.jar`、`aliyun-sdk-oss-3.4.1.jar`、`hadoop-aliyun-3.1.4.jar`和`jdom-1.1.jar`。
 
 ## 关键特性
 
@@ -99,7 +99,7 @@ import ChangeLog from '../changelog/connector-file-oss.md';
 
 | 名称                                    | 类型      | 必需 | 默认值                                        | 描述                                                                |
 |---------------------------------------|---------|----|--------------------------------------------|-------------------------------------------------------------------|
-| path                                  | string  | 是  | 写入文件的oss路径。                                |                                                                   |
+| path                                  | string  | 是  | -                                          | 写入文件的 OSS 路径。                                                   |
 | tmp_path                              | string  | 否  | /tmp/seatunnel                             | 结果文件将首先写入tmp路径，然后使用`mv`将tmp-dir提交到目标dir。因此需要一个OSS目录。              |
 | bucket                                | string  | 是  | -                                          |                                                                   |
 | access_key                            | string  | 是  | -                                          |                                                                   |
@@ -121,6 +121,7 @@ import ChangeLog from '../changelog/connector-file-oss.md';
 | compress_codec                        | string  | 否  | none                                       |                                                                   |
 | common-options                        | object  | 否  | -                                          |                                                                   |
 | max_rows_in_memory                    | int     | 否  | -                                          | 仅当file_format_type为excel时使用。                                      |
+| sheet_max_rows                         | int     | 否  | 1048576                                    | 仅当 `file_format_type` 为 `excel` 时使用；每个工作表允许写入的最大行数。 |
 | sheet_name                            | string  | 否  | Sheet${Random number}                      | 仅当file_format_type为excel时使用。                                      |
 | csv_string_quote_mode                 | enum    | 否  | MINIMAL                                    | 仅在file_format为csv时使用。                                             |
 | xml_root_tag                          | string  | 否  | RECORDS                                    | 仅在file_format为xml时使用。                                             |
@@ -140,6 +141,8 @@ import ChangeLog from '../changelog/connector-file-oss.md';
 ### path [string]
 
 目标目录路径是必需的。
+
+例如，配置 `bucket = "oss://seatunnel-test"` 且 `path = "/warehouse/events"` 时，文件会写入 `oss://seatunnel-test/warehouse/events`。
 
 ### bucket [string]
 
@@ -257,11 +260,15 @@ oss文件系统的endpoint端点。
 
 ### 通用选项
 
-Sink插件常用参数，请参考[Sink common Options]（../Sink common Options.md）了解详细信息。
+Sink插件常用参数，请参考[Sink common Options](../common-options/sink-common-options.md)了解详细信息。
 
 ### max_rows_in_memory [int]
 
 当文件格式为Excel时，内存中可以缓存的最大数据项数。
+
+### sheet_max_rows [int]
+
+仅当 `file_format_type` 为 `excel` 时使用。该选项限制每个工作表可以写入的最大行数，默认值为 `1048576`。
 
 ### sheet_name [string]
 

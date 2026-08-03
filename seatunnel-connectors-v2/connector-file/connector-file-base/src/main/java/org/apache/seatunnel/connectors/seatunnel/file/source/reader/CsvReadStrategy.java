@@ -45,7 +45,6 @@ import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVFormat.Builder;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
-import org.apache.commons.io.input.BOMInputStream;
 
 import io.airlift.compress.lzo.LzopCodec;
 import lombok.extern.slf4j.Slf4j;
@@ -53,8 +52,6 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -107,9 +104,9 @@ public class CsvReadStrategy extends AbstractReadStrategy {
                 split.getStart(),
                 split.getLength());
         final boolean useSplitRead = isSplitReadEnabled(split);
-        try (BOMInputStream bomIn = new BOMInputStream(wrapInputStream(inputStream, split));
-                BufferedReader reader =
-                        new BufferedReader(new InputStreamReader(bomIn, getCharset(bomIn)));
+        try (BufferedReader reader =
+                        createBomAwareBufferedReader(
+                                wrapInputStream(inputStream, split), encoding);
                 CSVParser csvParser = new CSVParser(reader, getCSVFormat(split))) {
             // skip lines
             // if split range is used, no need to skip
@@ -202,12 +199,6 @@ public class CsvReadStrategy extends AbstractReadStrategy {
             resultStream = safeSlice(resultStream, split.getStart(), split.getLength());
         }
         return resultStream;
-    }
-
-    private Charset getCharset(BOMInputStream bomIn) throws IOException {
-        return bomIn.getBOM() == null
-                ? Charset.forName(encoding)
-                : Charset.forName(bomIn.getBOM().getCharsetName());
     }
 
     private boolean isSplitReadEnabled(FileSourceSplit split) {

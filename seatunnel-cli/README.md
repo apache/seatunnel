@@ -10,6 +10,7 @@ Describe your data synchronization task in English or Chinese, and the CLI gener
 - **Multi-Provider LLM** -- AWS Bedrock, Anthropic API, OpenAI (and compatible APIs like Azure OpenAI)
 - **Multi-Agent Pipeline** -- Planner -> Generator -> Validator -> Auto-fix, up to 3 correction rounds
 - **100+ Connectors** -- Full coverage of SeaTunnel's connector ecosystem with runtime metadata reflection
+- **Transform Metadata** -- Source, sink, and transform plugins use full option rules and value constraints during generation
 - **Skill Framework** -- Three-layer generation: Skill SOP -> Golden Example -> Connector Metadata
 - **Auto-Save** -- Generated configs automatically saved to `.data/last_job.conf` (co-located with CLI)
 - **Auto-Fix** -- `/check` and `/run` failures trigger automatic LLM-powered diagnosis and config repair
@@ -104,6 +105,35 @@ export ANTHROPIC_SMALL_FAST_MODEL='us.anthropic.claude-haiku-4-5-20251001-v1:0'
 The Bedrock provider preserves Claude `reasoningContent` blocks in streamed
 Converse responses when Bedrock returns them.
 
+> **Note:** Some newer Claude models on Bedrock reject the `temperature`
+> inference parameter. When a model returns this rejection, the provider
+> automatically retries the request without `temperature` and remembers the
+> model for the rest of the session, so subsequent calls skip the parameter.
+> For these models any configured temperature value is not applied.
+
+#### Option A2: AWS Bedrock — OpenAI-family models (bedrock-mantle)
+
+Some OpenAI models on Bedrock (e.g. `openai.gpt-5.6-terra`) are not in the
+foundation-model catalog and only support the OpenAI Responses API on the
+dedicated `bedrock-mantle` endpoint. Use the `bedrock-mantle` provider for
+these:
+
+```bash
+export AI_PROVIDER=bedrock-mantle
+export AWS_REGION=us-east-1
+export OPENAI_MODEL='openai.gpt-5.6-terra'
+
+# Requires: pip install -e ".[bedrock-mantle]"
+# Auth: a short-term bearer token is derived automatically from your AWS
+# credentials (aws-bedrock-token-generator) and refreshed every 30 minutes.
+```
+
+These models do not accept the `temperature` parameter; the provider omits it.
+
+All requests are sent with `store=false`, so Bedrock does not retain your
+prompts or responses server-side (the service default would otherwise keep
+them for 30 days).
+
 #### Option B: Anthropic API
 
 ```bash
@@ -177,7 +207,7 @@ When the engine is running, the CLI operates in **cluster mode** with live conne
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `AI_PROVIDER` | No | `bedrock` | LLM provider: `bedrock`, `anthropic`, or `openai` |
+| `AI_PROVIDER` | No | `bedrock` | LLM provider: `bedrock`, `bedrock-mantle`, `anthropic`, or `openai` |
 | `AWS_REGION` | Bedrock | `us-east-1` | AWS region for Bedrock |
 | `ANTHROPIC_API_KEY` | Anthropic | -- | Anthropic API key |
 | `OPENAI_API_KEY` | OpenAI | -- | OpenAI API key |
@@ -241,7 +271,7 @@ Options:
 | `/save <path>` | Save config to custom path (auto-saved to `.data/last_job.conf` on generation) |
 | `/check` | Dry-run validate last config; auto-diagnoses and fixes on failure |
 | `/run` | Execute last config via REST API or `seatunnel.sh`; auto-diagnoses on failure |
-| `/connectors` | List all available sources, sinks, and transforms |
+| `/connectors` | List all available sources, sinks, and transforms; transform option rules and constraints are supported during generation |
 | `/sessions` | List recent conversation sessions |
 | `/resume [id]` | Resume a previous session |
 | `/new` | Start a fresh session |
@@ -371,7 +401,9 @@ User Input (natural language)
 Two-tier resolution with intelligent fallback:
 
 1. **Runtime API** -- Live metadata from running SeaTunnel engine (`/option-rules` endpoint). Always accurate, zero maintenance.
-2. **Bundled Metadata** -- `connector_metadata.json` ships with the CLI package. 150 connectors with full option rules, exported from SeaTunnel engine via reflection. Zero LLM token cost.
+2. **Bundled Metadata** -- `connector_metadata.json` ships with the CLI package. Source, sink, and transform plugins include full option rules and value constraints exported from SeaTunnel engine via reflection. Zero LLM token cost.
+
+Transform metadata is resolved through the same path as source and sink metadata, so prompts can include transform-specific required options and constraints such as non-blank SQL queries.
 
 ### Memory System
 
@@ -392,9 +424,22 @@ Memory is stored locally at `.data/memory.json` (co-located with the CLI package
 | **Auto-fix** | LLM-powered | Up to 3 rounds of automatic error correction during generation |
 | **Auto-repair** | LLM-powered | Automatic diagnosis and config patching on `/check` or `/run` failure |
 
+Local validation flags unresolved `${VAR}` placeholders as missing environment
+variables, with a field-aware exemption for SeaTunnel's engine-resolved file
+sink template placeholders (see the
+[LocalFile sink docs](https://seatunnel.apache.org/docs/connectors/sink/LocalFile)):
+
+| Field | Engine placeholders allowed |
+|-------|-----------------------------|
+| `file_name_expression` | `${now}`, `${uuid}`, `${transactionId}` |
+| `partition_dir_expression` | `${k0}`, `${v0}`, `${k1}`, `${v1}`, ... |
+
+The same names used in any other field (URLs, credentials, paths) are treated
+as regular environment variables and reported if unset.
+
 ## Connector Metadata
 
-The CLI ships with `connector_metadata.json` (150 connectors), exported from the SeaTunnel engine via runtime reflection. No extra steps needed.
+The CLI ships with `connector_metadata.json`, exported from the SeaTunnel engine via runtime reflection. It includes source, sink, and transform plugin option rules, conditional options, and value constraints. No extra steps needed.
 
 To re-export for a different SeaTunnel version (requires a running engine):
 

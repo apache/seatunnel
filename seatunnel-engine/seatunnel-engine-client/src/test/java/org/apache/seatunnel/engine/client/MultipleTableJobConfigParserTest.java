@@ -183,6 +183,23 @@ public class MultipleTableJobConfigParserTest {
     }
 
     @Test
+    public void testTransformNameOverride() throws IOException {
+        Common.setDeployMode(DeployMode.CLIENT);
+        String filePath =
+                ContentFormatUtilTest.getResource(
+                        "/batch_fake_to_console_with_transform_name.conf");
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setJobContext(new JobContext());
+        Config config = ConfigBuilder.of(Paths.get(filePath));
+        MultipleTableJobConfigParser jobConfigParser =
+                new MultipleTableJobConfigParser(config, new IdGenerator(), jobConfig);
+        ImmutablePair<List<Action>, Set<URL>> parse = jobConfigParser.parse(null);
+        List<Action> actions = parse.getLeft();
+        Assertions.assertEquals(1, actions.size());
+        Assertions.assertEquals("t_sql_named", actions.get(0).getUpstream().get(0).getName());
+    }
+
+    @Test
     public void testCreateDifferentClassLoader() {
         Common.setDeployMode(DeployMode.CLIENT);
         String filePath = ContentFormatUtilTest.getResource("/batch_fakesource_to_file.conf");

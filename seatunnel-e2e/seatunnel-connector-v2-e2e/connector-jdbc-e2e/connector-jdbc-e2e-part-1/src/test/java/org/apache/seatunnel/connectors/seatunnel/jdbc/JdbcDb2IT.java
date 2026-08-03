@@ -27,7 +27,7 @@ import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.testcontainers.containers.Db2Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
-import org.testcontainers.containers.wait.strategy.Wait;
+import org.testcontainers.containers.wait.strategy.LogMessageWaitStrategy;
 import org.testcontainers.utility.DockerLoggerFactory;
 
 import java.math.BigDecimal;
@@ -56,8 +56,11 @@ public class JdbcDb2IT extends AbstractJdbcIT {
     private static final List<String> CONFIG_FILE =
             Lists.newArrayList("/jdbc_db2_source_and_sink.conf");
 
-    /** <a href="https://hub.docker.com/r/ibmcom/db2">db2 in dockerhub</a> */
-    private static final String DB2_IMAGE = "ibmcom/db2";
+    /**
+     * Keep the tag aligned with Testcontainers' validated default instead of relying on {@code
+     * latest}, whose startup behavior is not stable enough for CI.
+     */
+    private static final String DB2_IMAGE = "ibmcom/db2:11.5.0.0a";
 
     private static final int PORT = 50000;
     private static final int LOCAL_PORT = 50000;
@@ -181,6 +184,8 @@ public class JdbcDb2IT extends AbstractJdbcIT {
 
     @Override
     protected GenericContainer<?> initContainer() {
+        // The DB2 port becomes reachable before the instance can accept JDBC logins, and the
+        // first-time initialization regularly exceeds the default 10 minute wait on slow runners.
         GenericContainer<?> container =
                 new Db2Container(DB2_IMAGE)
                         .withExposedPorts(PORT)
@@ -190,7 +195,9 @@ public class JdbcDb2IT extends AbstractJdbcIT {
                         .withUsername(DB2_USER)
                         .withPassword(DB2_PASSWORD)
                         .waitingFor(
-                                Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(5)))
+                                new LogMessageWaitStrategy()
+                                        .withRegEx(".*Setup has completed\\..*")
+                                        .withStartupTimeout(Duration.ofMinutes(20)))
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(DB2_IMAGE)))
                         .acceptLicense();

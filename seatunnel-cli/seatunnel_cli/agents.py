@@ -68,8 +68,10 @@ TOOLS = [
         "toolSpec": {
             "name": "get_connector_info",
             "description": "Get detailed info about a specific connector including parameters and examples. "
-                           "IMPORTANT: Always specify connector_type ('source' or 'sink') to get the correct "
-                           "type-specific options. Source and sink connectors have different required/optional parameters.",
+                           "IMPORTANT: Always specify connector_type "
+                           "('source', 'sink', or 'transform') to get the correct "
+                           "type-specific options. Source, sink, and transform plugins can "
+                           "have different required/optional parameters.",
             "inputSchema": {
                 "json": {
                     "type": "object",
@@ -80,9 +82,10 @@ TOOLS = [
                         },
                         "connector_type": {
                             "type": "string",
-                            "enum": ["source", "sink"],
-                            "description": "Whether this connector is used as 'source' or 'sink'. "
-                                           "Source and sink have different options — always specify this.",
+                            "enum": ["source", "sink", "transform"],
+                            "description": "Whether this plugin is used as 'source', 'sink', "
+                                           "or 'transform'. These plugin types have different "
+                                           "options — always specify this.",
                         },
                     },
                     "required": ["connector_name"],
@@ -523,12 +526,31 @@ def validate_hocon(config_str: str) -> str:
 
     # Check for unresolved ${ENV_VAR} placeholders — these will be passed as literal
     # strings to connectors at runtime, causing authentication/connection failures.
+    # SeaTunnel's engine resolves certain placeholders itself, but only in
+    # specific file sink fields (see docs/en/connectors/sink/LocalFile.md):
+    #   file_name_expression     -> ${now}, ${uuid}, ${transactionId}
+    #   partition_dir_expression -> ${k0}=${v0}/... (kN = partition field,
+    #                               vN = partition value)
+    # The exemption is field-aware so that the same names used in unrelated
+    # fields (URLs, credentials, ...) are still diagnosed as env vars.
+    engine_template_fields = {
+        "file_name_expression": re.compile(r"now|uuid|transactionId"),
+        "partition_dir_expression": re.compile(r"[kv]\d+"),
+    }
     env_var_pattern = re.compile(r'\$\{([A-Za-z_][A-Za-z0-9_]*)\}')
+    # HOCON accepts both `key = value` and `key : value` separators
+    field_pattern = re.compile(r'^\s*"?([\w.]+)"?\s*[=:]')
     unresolved_vars = set()
-    for m in env_var_pattern.finditer(config_str):
-        var_name = m.group(1)
-        if not os.environ.get(var_name):
-            unresolved_vars.add(var_name)
+    for line in config_str.splitlines():
+        field_match = field_pattern.match(line)
+        allowed = engine_template_fields.get(
+            field_match.group(1)) if field_match else None
+        for m in env_var_pattern.finditer(line):
+            var_name = m.group(1)
+            if allowed and allowed.fullmatch(var_name):
+                continue
+            if not os.environ.get(var_name):
+                unresolved_vars.add(var_name)
     if unresolved_vars:
         var_list = ", ".join(sorted(unresolved_vars))
         errors.append(

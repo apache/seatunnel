@@ -70,6 +70,7 @@ import ChangeLog from '../changelog/connector-file-oss-jindo.md';
 | compress_codec                        | string  | 否  | none                                       |                                                           |
 | common-options                        | object  | 否  | -                                          |                                                           |
 | max_rows_in_memory                    | int     | 否  | -                                          | 仅当file_format_type为excel时使用。                              |
+| sheet_max_rows                         | int     | 否  | 1048576                                    | 仅当 `file_format_type` 为 `excel` 时使用；每个工作表允许写入的最大行数。 |
 | sheet_name                            | string  | 否  | Sheet${Random number}                      | 仅当file_format_type为excel时使用。                              |
 | csv_string_quote_mode                 | enum    | 否  | MINIMAL                                    | 仅在file_format为csv时使用。                                     |
 | xml_root_tag                          | string  | 否  | RECORDS                                    | 仅在file_format为xml时使用。                                     |
@@ -203,11 +204,15 @@ oss文件系统的端点。
 
 ### common options
 
-Sink插件常用参数，请参考[Sink common Options]（../common-options/sink-common-options.md）了解详细信息。
+Sink插件常用参数，请参考[Sink common Options](../common-options/sink-common-options.md)了解详细信息。
 
 ### max_rows_in_memory [int]
 
 当文件格式为Excel时，内存中可以缓存的最大数据项数。
+
+### sheet_max_rows [int]
+
+仅当 `file_format_type` 为 `excel` 时使用。该选项限制每个工作表可以写入的最大行数，默认值为 `1048576`。
 
 ### sheet_name [string]
 

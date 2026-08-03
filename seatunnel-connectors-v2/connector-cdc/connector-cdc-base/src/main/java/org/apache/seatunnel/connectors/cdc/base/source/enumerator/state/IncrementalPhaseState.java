@@ -17,8 +17,24 @@
 
 package org.apache.seatunnel.connectors.cdc.base.source.enumerator.state;
 
+import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
+
 import lombok.Data;
 
 /** A {@link PendingSplitsState} for pending incremental splits. */
 @Data
-public class IncrementalPhaseState implements PendingSplitsState {}
+public class IncrementalPhaseState implements PendingSplitsState {
+
+    // Preserve compatibility with checkpoints written when this state had no fields.
+    private static final long serialVersionUID = -6809026812298443356L;
+
+    private final Offset startupOffset;
+
+    public IncrementalPhaseState() {
+        this(null);
+    }
+
+    public IncrementalPhaseState(Offset startupOffset) {
+        this.startupOffset = startupOffset;
+    }
+}
