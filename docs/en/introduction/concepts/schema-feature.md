@@ -134,6 +134,21 @@ columns = [
 | defaultValue | No       | null          | The default value of the column                                                  |
 | comment      | No       | null          | The comment of the column                                                        |
 
+> **How `defaultValue` is applied when deserializing JSON-formatted data**
+>
+> For connectors that deserialize payloads with the **JSON format** (for example the Kafka source with `format = json`), a configured `defaultValue` is applied **when the field is missing from the JSON message or is explicitly `null`**, and the value is normalized to the column type by the deserializer. A field that is present with a real value keeps that value. If no `defaultValue` is configured, missing or `null` fields stay `null` (backward compatible).
+>
+> ```hocon
+> schema {
+>   columns = [
+>     { name = "GROUPID", type = "int", nullable = false, defaultValue = 0 }
+>     { name = "status", type = "string", nullable = false, defaultValue = "PENDING" }
+>   ]
+> }
+> ```
+>
+> With the schema above, the JSON message `{"GROUPID": 5}` produces `GROUPID = 5, status = "PENDING"`, and `{}` produces `GROUPID = 0, status = "PENDING"`.
+
 #### What type supported at now
 
 | Data type    | Value type in Java                                 | Description                                                                                                                                                                                                                                                                                                                                                 |
