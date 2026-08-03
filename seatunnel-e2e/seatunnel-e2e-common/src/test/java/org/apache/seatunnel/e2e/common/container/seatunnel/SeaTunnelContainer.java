@@ -82,7 +82,9 @@ public class SeaTunnelContainer extends AbstractTestContainer {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final String REST_STOP_JOB_PATH = "/stop-job";
     private static final String REST_CHECKPOINT_OVERVIEW_PATH = "/jobs/checkpoints";
-    protected static final String JDK_DOCKER_IMAGE = "eclipse-temurin:11-jre";
+    // Must stay a full JDK image: ContainerUtil inspects the running server with jps/jstack/jmap
+    // for the post-job thread-leak checks, and those tools are absent from JRE-only images.
+    protected static final String JDK_DOCKER_IMAGE = "eclipse-temurin:11-jdk";
     private static final String CLIENT_SHELL = "seatunnel.sh";
     protected static final String SERVER_SHELL = "seatunnel-cluster.sh";
     protected static final String CONNECTOR_CHECK_SHELL = "seatunnel-connector.sh";
