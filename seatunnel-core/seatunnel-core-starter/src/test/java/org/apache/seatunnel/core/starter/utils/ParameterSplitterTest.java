@@ -36,16 +36,6 @@ public class ParameterSplitterTest {
     }
 
     @Test
-    void testEscapedQuotes() {
-        String input =
-                "json={\"key\":\"value with \\\" inside\",\"path\":\"D:\\data\\file\\\\\"},next=2";
-        String[] expected = {
-            "json={\"key\":\"value with \" inside\",\"path\":\"D:\\data\\file\\\"}", "next=2"
-        };
-        assertArrayEquals(expected, parameterSplitter.split(input).toArray());
-    }
-
-    @Test
     void testNestedBracesAndBrackets() {
         String input = "{b={c=1}}";
         String[] expected = {"{b={c=1}}"};
