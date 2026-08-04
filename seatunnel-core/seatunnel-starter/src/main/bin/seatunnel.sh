@@ -149,7 +149,14 @@ fi
 # log4j-api writes this notice to stdout on every JVM newer than Java 8, because
 # sun.reflect.Reflection.getCallerClass no longer exists there. It corrupts the machine readable
 # output of commands that emit JSON, such as `-j <jobId>`, so drop just that line.
-# PIPESTATUS[0] keeps java's own exit code, which the pipeline would otherwise replace with grep's.
+#
+# set -e is active from the top of the script, and grep exits 1 when it emits no lines at all, so
+# the pipeline has to run with errexit off or a command with empty stdout would abort the script
+# before the exit below. PIPESTATUS[0] then reports java's own status rather than grep's.
+# --line-buffered keeps job output streaming when stdout is redirected to a file.
+set +e
 java ${JAVA_OPTS} -cp ${CLASS_PATH} ${APP_MAIN} "${args[@]}" \
-  | grep -v '^WARNING: sun\.reflect\.Reflection\.getCallerClass is not supported'
-exit ${PIPESTATUS[0]}
+  | grep -v --line-buffered '^WARNING: sun\.reflect\.Reflection\.getCallerClass is not supported'
+JAVA_EXIT_CODE=${PIPESTATUS[0]}
+set -e
+exit ${JAVA_EXIT_CODE}
