@@ -468,6 +468,13 @@ public class MultiTableSinkWriter
     private boolean hasSourceMatchedWriter(SchemaChangeEvent event) {
         String tableId = event.tablePath().getFullName();
         if (event instanceof CreateTableEvent) {
+            // Runtime table creation is driven by the configured factory and the writer templates,
+            // not by the startup writer map. A job that starts with no tables at all has an empty
+            // startup map, so gating only on it would drop the CreateTableEvent for the very first
+            // runtime table and leave it permanently unregistered.
+            if (runtimeSinkWriterFactory != null) {
+                return true;
+            }
             return sinkWriters.values().stream()
                     .anyMatch(
                             writer ->
