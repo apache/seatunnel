@@ -67,7 +67,7 @@ public class JobLogIT extends SeaTunnelEngineContainer {
     private static final Path BIN_PATH = Paths.get(SEATUNNEL_HOME, "bin", SERVER_SHELL);
     private static final Path CONFIG_PATH = Paths.get(SEATUNNEL_HOME, "config");
     private static final Path HADOOP_JAR_PATH =
-            Paths.get(SEATUNNEL_HOME, "lib/seatunnel-hadoop3-3.1.4-uber.jar");
+            Paths.get(SEATUNNEL_HOME, "lib/seatunnel-hadoop3-3.4.3-uber.jar");
 
     private GenericContainer<?> secondServer;
     private final Network NETWORK = Network.newNetwork();
@@ -373,7 +373,7 @@ public class JobLogIT extends SeaTunnelEngineContainer {
         server.withCopyFileToContainer(
                 MountableFile.forHostPath(
                         PROJECT_ROOT_PATH
-                                + "/seatunnel-shade/seatunnel-hadoop3-3.1.4-uber/target/seatunnel-hadoop3-3.1.4-uber.jar"),
+                                + "/seatunnel-shade/seatunnel-hadoop3-3.4.3-uber/target/seatunnel-hadoop3-3.4.3-uber.jar"),
                 HADOOP_JAR_PATH.toString());
         server.withCopyFileToContainer(
                 MountableFile.forHostPath(

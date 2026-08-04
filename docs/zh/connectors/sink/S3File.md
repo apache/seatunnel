@@ -109,7 +109,7 @@ import ChangeLog from '../changelog/connector-file-s3.md';
 | tmp_path                              | string  | 否    | /tmp/seatunnel                                        | 结果文件将首先写入临时路径，然后使用 `mv` 将临时目录提交到目标目录。需要一个 S3 目录。                                                                                    |
 | bucket                                | string  | 是    | -                                                     |                                                                                                                                     |
 | fs.s3a.endpoint                       | string  | 是    | -                                                     |                                                                                                                                     |
-| fs.s3a.aws.credentials.provider       | string  | 是    | com.amazonaws.auth.InstanceProfileCredentialsProvider | 透传给 Hadoop 的 S3A 凭据提供程序的全限定类名。除了两个常用值 `org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider`（使用静态 `access_key`/`secret_key`）和 `com.amazonaws.auth.InstanceProfileCredentialsProvider`（默认值）之外，任何 classpath 上可用的 S3A 凭据提供程序类都可以使用，例如基于容器的 `com.amazonaws.auth.ContainerCredentialsProvider` 或自定义提供程序。该类必须实现 `com.amazonaws.auth.AWSCredentialsProvider` 接口，并提供 Hadoop 3.1.4 支持的任一创建方式：公共 `(java.net.URI, org.apache.hadoop.conf.Configuration)` 构造器、公共 `(org.apache.hadoop.conf.Configuration)` 构造器、返回 `AWSCredentialsProvider` 的公共静态无参 `getInstance()` 工厂方法，或公共无参构造器。支持 Hadoop 风格的逗号或换行分隔的提供程序链，且每个类都会被独立校验。该提供程序 jar 必须存在于**每个**集群节点的运行时 classpath 中（例如放在 `${SEATUNNEL_HOME}/lib` 下），而不仅仅是提交作业的节点。共享/多租户集群的运维者请注意：此选项允许作业编写者按类名加载类，因此请相应地限制作业提交权限。 |
+| fs.s3a.aws.credentials.provider       | string  | 是    | org.apache.hadoop.fs.s3a.auth.IAMInstanceCredentialsProvider | 透传给 Hadoop 的 S3A 凭据提供程序的全限定类名。除了两个常用值 `org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider`（使用静态 `access_key`/`secret_key`）和 `org.apache.hadoop.fs.s3a.auth.IAMInstanceCredentialsProvider`（默认值）之外，任何 classpath 上可用的 S3A 凭据提供程序类都可以使用，例如基于容器的 `software.amazon.awssdk.auth.credentials.ContainerCredentialsProvider` 或自定义提供程序。该类必须实现 `software.amazon.awssdk.auth.credentials.AwsCredentialsProvider` 接口，并提供 Hadoop 3.4.3 支持的任一创建方式：公共 `(java.net.URI, org.apache.hadoop.conf.Configuration)` 构造器、公共 `(org.apache.hadoop.conf.Configuration)` 构造器、返回 `AWSCredentialsProvider` 的公共静态无参 `getInstance()` 工厂方法，或公共无参构造器。支持 Hadoop 风格的逗号或换行分隔的提供程序链，且每个类都会被独立校验。该提供程序 jar 必须存在于**每个**集群节点的运行时 classpath 中（例如放在 `${SEATUNNEL_HOME}/lib` 下），而不仅仅是提交作业的节点。共享/多租户集群的运维者请注意：此选项允许作业编写者按类名加载类，因此请相应地限制作业提交权限。 |
 | access_key                            | string  | 否    | -                                                     | 仅当 fs.s3a.aws.credentials.provider = org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider 时使用                                      |
 | secret_key                            | string  | 否    | -                                                     | 仅当 fs.s3a.aws.credentials.provider = org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider 时使用                                      |
 | custom_filename                       | boolean | 否    | false                                                 | 是否需要自定义文件名                                                                                                                          |
@@ -384,7 +384,7 @@ sink {
       tmp_path = "/tmp/seatunnel"
       path="/seatunnel/text"
       fs.s3a.endpoint="s3.cn-north-1.amazonaws.com.cn"
-      fs.s3a.aws.credentials.provider="com.amazonaws.auth.InstanceProfileCredentialsProvider"
+      fs.s3a.aws.credentials.provider="org.apache.hadoop.fs.s3a.auth.IAMInstanceCredentialsProvider"
       file_format_type = "text"
       field_delimiter = "\t"
       row_delimiter = "\n"
@@ -407,7 +407,7 @@ sink {
 }
 ```
 
-对于文本文件格式，包含 `have_partition`、`custom_filename`、`sink_columns` 和 `com.amazonaws.auth.InstanceProfileCredentialsProvider`
+对于文本文件格式，包含 `have_partition`、`custom_filename`、`sink_columns` 和 `org.apache.hadoop.fs.s3a.auth.IAMInstanceCredentialsProvider`
 
 ```hocon
 S3File {
@@ -415,7 +415,7 @@ S3File {
   tmp_path = "/tmp/seatunnel"
   path="/seatunnel/text"
   fs.s3a.endpoint="s3.cn-north-1.amazonaws.com.cn"
-  fs.s3a.aws.credentials.provider="com.amazonaws.auth.InstanceProfileCredentialsProvider"
+  fs.s3a.aws.credentials.provider="org.apache.hadoop.fs.s3a.auth.IAMInstanceCredentialsProvider"
   file_format_type = "text"
   field_delimiter = "\t"
   row_delimiter = "\n"
@@ -546,7 +546,7 @@ S3File {
 }
 ```
 
-生产作业中不建议把长期有效的密钥直接写入任务文件。优先使用 IAM 类认证方式，例如 `fs.s3a.aws.credentials.provider = com.amazonaws.auth.InstanceProfileCredentialsProvider`，或通过 SeaTunnel 变量替换注入 `access_key` 和 `secret_key`。
+生产作业中不建议把长期有效的密钥直接写入任务文件。优先使用 IAM 类认证方式，例如 `fs.s3a.aws.credentials.provider = org.apache.hadoop.fs.s3a.auth.IAMInstanceCredentialsProvider`，或通过 SeaTunnel 变量替换注入 `access_key` 和 `secret_key`。
 
 ## 变更日志
 

@@ -4,6 +4,25 @@
 
 ## dev
 
+### Hadoop Shade Uber Jar 与 S3A
+
+- **破坏性变更：Shade 的 Hadoop 从 3.1.4 升级到 3.4.3，S3A 从 AWS SDK v1 迁移到 v2**
+  - **影响范围**：`seatunnel-shade/seatunnel-hadoop3-3.4.3-uber`（由 `seatunnel-hadoop3-3.1.4-uber` 重命名）、`seatunnel-shade/seatunnel-hadoop-aws`、`seatunnel-connectors-v2/connector-file/connector-file-s3`、`checkpoint-storage-hdfs`、`seatunnel-dist`
+  - **说明**：Shade 的 Hadoop uber jar 从 3.1.4（2019 年发布）升级到 3.4.3。`hadoop-aws` 必须同步升级：`hadoop-aws` 将 `hadoop-common` 声明为 `provided`，运行时链接到 uber jar 实际提供的那个 `hadoop-common`，因此两者无法独立升级。Hadoop 3.4 的 S3A 基于 AWS SDK **v2**（`software.amazon.awssdk:bundle`）构建，而非 v1（`com.amazonaws:aws-java-sdk-bundle`）——v1 已于 2025-12-31 结束支持。
+  - **影响 1 —— 模块 artifactId 变更。** `org.apache.seatunnel:seatunnel-hadoop3-3.1.4-uber` 不再存在，请改用 `org.apache.seatunnel:seatunnel-hadoop3-3.4.3-uber`。仅影响直接引用该构件的自定义构建和下游 pom；发布包的目录结构不变。
+  - **影响 2 —— AWS SDK v1 的类不再位于 classpath。** 任何在作业配置、自定义凭据提供程序或扩展中指定 `com.amazonaws.*` 类的地方都会加载失败。`fs.s3a.aws.credentials.provider` 的取值需要迁移：
+
+    | 变更前（SDK v1） | 变更后 |
+    |---|---|
+    | `com.amazonaws.auth.InstanceProfileCredentialsProvider` | `org.apache.hadoop.fs.s3a.auth.IAMInstanceCredentialsProvider` |
+    | `com.amazonaws.auth.EnvironmentVariableCredentialsProvider` | `software.amazon.awssdk.auth.credentials.EnvironmentVariableCredentialsProvider` |
+    | `com.amazonaws.auth.ContainerCredentialsProvider` | `software.amazon.awssdk.auth.credentials.ContainerCredentialsProvider` |
+    | 实现 `com.amazonaws.auth.AWSCredentialsProvider` | 实现 `software.amazon.awssdk.auth.credentials.AwsCredentialsProvider` |
+
+    S3A 自带 v1 到 v2 的适配器，但它依赖 `com.amazonaws:aws-java-sdk-core`，而 `hadoop-aws` 将其声明为 `provided`、不会被打包，因此无法用它兼容 v1 的类名。
+  - **迁移方式**：通过枚举方式（`SimpleAWSCredentialsProvider` / `InstanceProfileCredentialsProvider`）指定 `fs.s3a.aws.credentials.provider` 的作业**无需修改**——枚举常量名未变，只是其映射的类名发生了变化。在 `fs.s3a.aws.credentials.provider` 或 `hadoop_s3_properties` 中硬编码 `com.amazonaws.*` 类名的作业，请按上表更新。
+  - **关于发布包体积**：`hadoop-aws` 3.4.x 依赖 `software.amazon.awssdk:bundle`，其中包含所有 AWS 服务的客户端，因此 shade 后的 `seatunnel-hadoop-aws.jar` 体积明显增大。将其收窄为 S3A 实际需要的模块已列为后续工作。
+
 ### JDBC Connector
 
 - **破坏性变更：带时区的时间戳列映射为 `TIMESTAMP_TZ` 类型**

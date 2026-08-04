@@ -114,7 +114,7 @@ seatunnel:
 S3基于hdfs-file，所以你可以参考[Hadoop s3文档](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html)来配置s3。
 
 除了与公共S3 buckets交互之外，S3A客户端需要与buckets交互所需的凭据。
-客户端支持多种身份验证机制，并且可以配置使用哪种机制及其使用顺序。也可以使用com.amazonaws.auth.AWSCredentialsProvider的自定义实现。
+客户端支持多种身份验证机制，并且可以配置使用哪种机制及其使用顺序。也可以使用software.amazon.awssdk.auth.credentials.AwsCredentialsProvider的自定义实现。
 如果您使用SimpleAWSCredentialsProvider(可以从Amazon Security Token服务中获得)，它们包括一个access key和一个secret key。
 您可以这样配置:
 

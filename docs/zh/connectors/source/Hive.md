@@ -24,7 +24,7 @@ import ChangeLog from '../changelog/connector-hive.md';
 
 为了使用此连接器，您必须确保您的 Spark/Flink 集群已经集成了 Hive。测试过的 Hive 版本是 2.3.9 和 3.1.3。
 
-如果您使用 SeaTunnel 引擎，您需要将 `seatunnel-hadoop3-3.1.4-uber.jar`、`hive-exec-3.1.3.jar` 和 `libfb303-0.9.3.jar` 放在 `$SEATUNNEL_HOME/lib/` 目录中。
+如果您使用 SeaTunnel 引擎，您需要将 `seatunnel-hadoop3-3.4.3-uber.jar`、`hive-exec-3.1.3.jar` 和 `libfb303-0.9.3.jar` 放在 `$SEATUNNEL_HOME/lib/` 目录中。
 :::
 
 ## 关键特性
@@ -375,7 +375,7 @@ source {
     hive.hadoop.conf-path = "/home/ec2-user/hadoop-conf"
     hive.hadoop.conf = {
        bucket="s3://ws-package"
-       fs.s3a.aws.credentials.provider="com.amazonaws.auth.InstanceProfileCredentialsProvider"
+       fs.s3a.aws.credentials.provider="org.apache.hadoop.fs.s3a.auth.IAMInstanceCredentialsProvider"
     }
     read_columns = ["pk_id", "name", "score"]
   }
@@ -388,7 +388,7 @@ sink {
     hive.hadoop.conf-path = "/home/ec2-user/hadoop-conf"
     hive.hadoop.conf = {
        bucket="s3://ws-package"
-       fs.s3a.aws.credentials.provider="com.amazonaws.auth.InstanceProfileCredentialsProvider"
+       fs.s3a.aws.credentials.provider="org.apache.hadoop.fs.s3a.auth.IAMInstanceCredentialsProvider"
     }
   }
 }

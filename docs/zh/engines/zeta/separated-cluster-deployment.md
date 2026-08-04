@@ -321,7 +321,7 @@ hadoop-aliyun-3.3.6.jar
 jdom2-2.0.6.jar
 netty-buffer-4.1.89.Final.jar 
 netty-common-4.1.89.Final.jar
-seatunnel-hadoop3-3.1.4-uber.jar
+seatunnel-hadoop3-3.4.3-uber.jar
 ```
 
 ### 4.7 作业调度策略

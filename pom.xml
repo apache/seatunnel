@@ -74,6 +74,8 @@
         <log4j2.version>2.17.1</log4j2.version>
         <log4j2-disruptor.version>3.4.4</log4j2-disruptor.version>
         <log4j.version>1.2.17</log4j.version>
+        <!-- log4j 1.x implementation under its post-2022 GAV, pulled in by hadoop-common 3.3.3+ -->
+        <reload4j.version>1.2.22</reload4j.version>
         <logback.version>1.2.3</logback.version>
         <commons-logging.version>1.2</commons-logging.version>
         <flink.1.13.6.version>1.13.6</flink.1.13.6.version>
@@ -167,8 +169,27 @@
         <prometheus.simpleclient.version>0.16.0</prometheus.simpleclient.version>
         <enableSourceJarCreation>true</enableSourceJarCreation>
 
-        <hadoop-aws.version>3.1.4</hadoop-aws.version>
-        <software.amazon.awssdk.version>2.31.30</software.amazon.awssdk.version>
+        <!--
+            Kept in lockstep with hadoop3.version in seatunnel-shade/seatunnel-hadoop3-3.4.3-uber.
+            hadoop-aws declares hadoop-common as provided, so at runtime it links against whatever
+            hadoop-common the uber jar ships. The two are therefore not independently upgradable:
+            hadoop-aws 3.1.4 against a 3.4.x uber jar fails with NoClassDefFoundError
+            org/apache/commons/lang/StringUtils in S3AFileSystem.initialize() (hadoop-common dropped
+            commons-lang 2.x after 3.1.4) and with NoSuchMethodError on
+            SemaphoredDelegatingExecutor.<init> in S3AFileSystem.create() (the guava-typed
+            constructor was removed).
+        -->
+        <hadoop-aws.version>3.4.3</hadoop-aws.version>
+        <!--
+            Must match the aws-java-sdk-v2.version that hadoop-project ${hadoop3.version} pins.
+            hadoop-aws 3.4.x depends on software.amazon.awssdk:bundle, so the resulting
+            seatunnel-hadoop-aws.jar sits on the same lib/* classpath as seatunnel-transforms-v2.jar,
+            which bundles bedrockruntime + apache-client. Both carry
+            software/amazon/awssdk/{core,http,regions,auth,awscore,utils}/**; if the two versions
+            differ, classpath order decides which copy of that shared infrastructure wins. Keeping
+            them equal makes the duplicated classes byte-identical, so order stops mattering.
+        -->
+        <software.amazon.awssdk.version>2.35.4</software.amazon.awssdk.version>
         <arrow.version>15.0.1</arrow.version>
         <okhttp.version>4.12.0</okhttp.version>
 
@@ -303,6 +324,25 @@
                 <groupId>log4j</groupId>
                 <artifactId>log4j</artifactId>
                 <version>${log4j.version}</version>
+                <scope>provided</scope>
+            </dependency>
+            <!--
+                Same intent as log4j:log4j above, but for reload4j - the log4j 1.2.17 fork that
+                hadoop-common 3.3.3+ depends on under a new GAV (ch.qos.reload4j:reload4j). The
+                log4j:log4j entry does not match that GAV, so without this entry reload4j resolves at
+                compile scope and ships org/apache/log4j/** into the shaded Hadoop uber jar. That is
+                not harmless: lib/* precedes seatunnel-starter.jar on the runtime classpath
+                (bin/seatunnel-cluster.sh), so reload4j's real org.apache.log4j.Category shadows the
+                no-op one that log4j-1.2-api contributes to seatunnel-starter.jar. Code using the
+                org.apache.log4j API then gets an unconfigured log4j 1.x - default root level DEBUG -
+                whose Category.callAppenders takes a monitor on every Category up to the shared root.
+                With this entry the org.apache.log4j API is still available at runtime through
+                log4j-1.2-api, correctly routed to log4j2 and governed by log4j2.properties.
+            -->
+            <dependency>
+                <groupId>ch.qos.reload4j</groupId>
+                <artifactId>reload4j</artifactId>
+                <version>${reload4j.version}</version>
                 <scope>provided</scope>
             </dependency>
             <dependency>
@@ -518,7 +558,7 @@
 
             <dependency>
                 <groupId>org.apache.seatunnel</groupId>
-                <artifactId>seatunnel-hadoop3-3.1.4-uber</artifactId>
+                <artifactId>seatunnel-hadoop3-3.4.3-uber</artifactId>
                 <version>${project.version}</version>
                 <classifier>optional</classifier>
                 <scope>provided</scope>
@@ -734,6 +774,8 @@
                                 <exclude>org.slf4j:*</exclude>
                                 <exclude>ch.qos.logback:*</exclude>
                                 <exclude>log4j:*</exclude>
+                                <!-- log4j 1.x under its post-2022 GAV; log4j:* does not match it -->
+                                <exclude>ch.qos.reload4j:*</exclude>
                                 <exclude>org.apache.logging.log4j:*</exclude>
                                 <exclude>commons-logging:*</exclude>
                             </excludes>

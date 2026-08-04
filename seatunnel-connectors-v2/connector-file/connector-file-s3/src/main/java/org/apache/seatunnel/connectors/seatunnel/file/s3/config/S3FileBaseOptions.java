@@ -50,11 +50,23 @@ public class S3FileBaseOptions extends FileBaseSourceOptions {
             "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider";
 
     /**
-     * The class name of the {@code InstanceProfileCredentialsProvider}, which resolves credentials
-     * from the runtime environment (for example an EC2 instance profile).
+     * The class name of the provider that resolves credentials from the runtime environment (for
+     * example an EC2 instance profile).
+     *
+     * <p>This is Hadoop's own provider, not an AWS SDK class. hadoop-aws 3.4.x is built against AWS
+     * SDK v2, where {@code com.amazonaws.auth.InstanceProfileCredentialsProvider} no longer exists,
+     * so S3A would fail to instantiate a provider named that way. S3A does ship a v1-to-v2 adapter,
+     * but it requires {@code com.amazonaws:aws-java-sdk-core} on the classpath and hadoop-aws
+     * declares that as provided, so it is never packaged and cannot help. {@code
+     * IAMInstanceCredentialsProvider} has been present since hadoop-aws 3.3.x and is
+     * SDK-version-agnostic.
+     *
+     * <p>Only the class name changes. Job configs are unaffected: users select the {@link
+     * S3aAwsCredentialsProvider} constant by name, and {@code S3HadoopConf} writes {@code
+     * getProvider()} into {@code fs.s3a.aws.credentials.provider}.
      */
     public static final String INSTANCE_PROFILE_CREDENTIALS_PROVIDER =
-            "com.amazonaws.auth.InstanceProfileCredentialsProvider";
+            "org.apache.hadoop.fs.s3a.auth.IAMInstanceCredentialsProvider";
 
     /**
      * The legacy typed S3A credentials provider option.
@@ -73,8 +85,10 @@ public class S3FileBaseOptions extends FileBaseSourceOptions {
     /**
      * The S3A credentials provider class name passed through to Hadoop. Any fully-qualified S3A
      * credentials provider class available on the classpath is accepted, so container-oriented
-     * providers (for example {@code com.amazonaws.auth.ContainerCredentialsProvider}) and custom
-     * providers can be used in addition to the two well-known values {@link
+     * providers (for example {@code
+     * org.apache.hadoop.fs.s3a.auth.IAMInstanceCredentialsProvider} or, under AWS SDK v2, {@code
+     * software.amazon.awssdk.auth.credentials.ContainerCredentialsProvider}) and custom providers
+     * can be used in addition to the two well-known values {@link
      * #SIMPLE_AWS_CREDENTIALS_PROVIDER} and {@link #INSTANCE_PROFILE_CREDENTIALS_PROVIDER}. Hadoop
      * also accepts a comma- or newline-separated chain of provider classes. The class must be
      * present on the runtime classpath of every node running the S3A filesystem (for example under

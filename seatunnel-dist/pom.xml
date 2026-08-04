@@ -132,7 +132,6 @@
                 <!-- Imap storage dependency package  -->
                 <hadoop-aliyun.version>3.1.4</hadoop-aliyun.version>
                 <json-smart.version>2.4.7</json-smart.version>
-                <aws-java-sdk.version>1.11.271</aws-java-sdk.version>
                 <netty-buffer.version>4.1.89.Final</netty-buffer.version>
                 <hive.exec.version>3.1.3</hive.exec.version>
                 <hive.jdbc.version>3.1.3</hive.jdbc.version>
@@ -921,10 +920,14 @@
                     <classifier>optional</classifier>
                     <scope>provided</scope>
                 </dependency>
+                <!--
+                    hadoop-aws 3.4.x is built against AWS SDK v2, so the v1 bundle is replaced by
+                    software.amazon.awssdk:bundle at the version managed in the root pom.
+                -->
                 <dependency>
-                    <groupId>com.amazonaws</groupId>
-                    <artifactId>aws-java-sdk-bundle</artifactId>
-                    <version>${aws-java-sdk.version}</version>
+                    <groupId>software.amazon.awssdk</groupId>
+                    <artifactId>bundle</artifactId>
+                    <version>${software.amazon.awssdk.version}</version>
                     <scope>provided</scope>
                 </dependency>
                 <dependency>
@@ -947,7 +950,7 @@
                 </dependency>
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
-                    <artifactId>seatunnel-hadoop3-3.1.4-uber</artifactId>
+                    <artifactId>seatunnel-hadoop3-3.4.3-uber</artifactId>
                     <version>${project.version}</version>
                     <classifier>optional</classifier>
                     <scope>provided</scope>
@@ -1196,7 +1199,7 @@
 
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
-                    <artifactId>seatunnel-hadoop3-3.1.4-uber</artifactId>
+                    <artifactId>seatunnel-hadoop3-3.4.3-uber</artifactId>
                     <version>${project.version}</version>
                     <classifier>optional</classifier>
                     <scope>provided</scope>

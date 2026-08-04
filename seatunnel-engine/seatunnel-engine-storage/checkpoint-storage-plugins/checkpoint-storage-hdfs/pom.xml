@@ -37,7 +37,7 @@
     <dependencies>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-hadoop3-3.1.4-uber</artifactId>
+            <artifactId>seatunnel-hadoop3-3.4.3-uber</artifactId>
             <version>${project.version}</version>
             <classifier>optional</classifier>
             <scope>provided</scope>
@@ -48,17 +48,25 @@
             <version>${hadoop-aliyun.version}</version>
             <scope>provided</scope>
         </dependency>
-        <!-- hadoop jar -->
+        <!--
+            hadoop jar. These used to hardcode hadoop-aws 3.1.4 and the AWS SDK v1 bundle, which
+            silently drifted from the versions the shaded seatunnel-hadoop-aws.jar actually ships.
+            Use the shared properties so the two cannot diverge again. hadoop-aws 3.4.x is built
+            against AWS SDK v2, so the v1 aws-java-sdk-bundle coordinate is replaced by
+            software.amazon.awssdk:bundle. Nothing in this module's main source references an AWS
+            class directly - S3AFileSystem is named as a string in S3Configuration - so these only
+            need to resolve, not to be on the runtime classpath.
+        -->
         <dependency>
             <groupId>org.apache.hadoop</groupId>
             <artifactId>hadoop-aws</artifactId>
-            <version>3.1.4</version>
+            <version>${hadoop-aws.version}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
-            <groupId>com.amazonaws</groupId>
-            <artifactId>aws-java-sdk-bundle</artifactId>
-            <version>1.11.271</version>
+            <groupId>software.amazon.awssdk</groupId>
+            <artifactId>bundle</artifactId>
+            <version>${software.amazon.awssdk.version}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>

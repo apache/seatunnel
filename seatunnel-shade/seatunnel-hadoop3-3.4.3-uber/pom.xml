@@ -22,12 +22,20 @@
         <version>${revision}</version>
     </parent>
 
-    <artifactId>seatunnel-hadoop3-3.1.4-uber</artifactId>
+    <artifactId>seatunnel-hadoop3-3.4.3-uber</artifactId>
     <name>SeaTunnel : Shade : Hadoop3</name>
 
     <properties>
-        <hadoop3.version>3.1.4</hadoop3.version>
+        <hadoop3.version>3.4.3</hadoop3.version>
         <guava.version>27.0-jre</guava.version>
+        <!--
+            Overrides the version managed in the root pom, for this module only.
+            hadoop-client 3.4.3 pulls org.bouncycastle:bcprov-jdk18on, a multi-release jar carrying
+            META-INF/versions/21 classes at class file major version 65. The ASM bundled with older
+            shade releases cannot read those and fails the build with "Unsupported class file major
+            version 65".
+        -->
+        <maven-shade-plugin.version>3.6.2</maven-shade-plugin.version>
     </properties>
 
     <dependencyManagement>
@@ -46,6 +54,26 @@
             <groupId>org.apache.hadoop</groupId>
             <artifactId>hadoop-client</artifactId>
             <version>${hadoop3.version}</version>
+            <exclusions>
+                <!--
+                    Defence in depth. The root pom already manages org.slf4j:slf4j-reload4j to
+                    provided scope, which is what actually keeps the binding out of this jar today.
+                    These exclusions make the intent local and survive a build that does not inherit
+                    the parent's dependencyManagement.
+
+                    Hadoop's own "No slf4j backends for downstream clients" exclusion list in
+                    hadoop-client still names only slf4j-log4j12; it was never updated after
+                    HADOOP-18088 switched the backend to slf4j-reload4j in 3.3.3+.
+                -->
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-reload4j</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.slf4j</groupId>
+                    <artifactId>slf4j-log4j12</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>org.xerial.snappy</groupId>
@@ -66,7 +94,7 @@
                         </goals>
                         <phase>package</phase>
                         <configuration>
-                            <finalName>seatunnel-hadoop3-3.1.4-uber</finalName>
+                            <finalName>seatunnel-hadoop3-${hadoop3.version}-uber</finalName>
                             <createSourcesJar>${enableSourceJarCreation}</createSourcesJar>
                             <shadeSourcesContent>true</shadeSourcesContent>
                             <shadedArtifactAttached>false</shadedArtifactAttached>
@@ -78,6 +106,30 @@
                                         <exclude>META-INF/*.SF</exclude>
                                         <exclude>META-INF/*.DSA</exclude>
                                         <exclude>META-INF/*.RSA</exclude>
+                                        <!--
+                                            DO NOT REMOVE. Keeps this jar free of any SLF4J binding,
+                                            so seatunnel-starter.jar's log4j2 binding stays the only
+                                            one on the runtime classpath.
+
+                                            Hadoop 3.3.3+ pulls org.slf4j:slf4j-reload4j
+                                            (org/slf4j/impl/**) through hadoop-common. Were that
+                                            packaged here, SLF4J would bind to log4j 1.x instead of
+                                            log4j2. Nothing configures log4j 1.x, so its root logger
+                                            stays at the default DEBUG level; Parquet then wraps its
+                                            record consumer in RecordConsumerLoggingWrapper - it does
+                                            that only when isDebugEnabled() - and logs once per field
+                                            per row through Category.callAppenders, which takes a
+                                            monitor on every Category up to the shared root. Every
+                                            Parquet writer thread in the JVM serialises on it, even
+                                            with no appender attached.
+
+                                            Only the binding is excluded, never the SLF4J API: this
+                                            pattern must stay org/slf4j/impl/**, not org/slf4j/**.
+                                            Filtered by class path rather than by coordinates so it
+                                            holds even for a build that does not inherit the parent's
+                                            dependencyManagement.
+                                        -->
+                                        <exclude>org/slf4j/impl/**</exclude>
                                     </excludes>
                                 </filter>
                             </filters>
@@ -121,7 +173,7 @@
                         <configuration>
                             <artifacts>
                                 <artifact>
-                                    <file>${basedir}/target/seatunnel-hadoop3-3.1.4-uber.jar</file>
+                                    <file>${basedir}/target/seatunnel-hadoop3-${hadoop3.version}-uber.jar</file>
                                     <type>jar</type>
                                     <classifier>optional</classifier>
                                 </artifact>
