@@ -143,6 +143,11 @@ public class ExecutionPlanGenerator {
                             lookupAction.getInputPortBindings(),
                             lookupAction.getDescriptor(),
                             lookupAction.getProducedCatalogTable(),
+                            // Carry the per-subtask state budgets across ID regeneration, otherwise
+                            // the rebuilt action would lose the limits the runtime enforces before
+                            // snapshotting.
+                            lookupAction.getMaxLogicalStateBytesPerSubtask(),
+                            lookupAction.getMaxResidentStateBytesPerSubtask(),
                             action.getJarUrls(),
                             action.getConnectorJarIdentifiers());
         } else if (action instanceof DynamicLookupCoordinatorAction) {
