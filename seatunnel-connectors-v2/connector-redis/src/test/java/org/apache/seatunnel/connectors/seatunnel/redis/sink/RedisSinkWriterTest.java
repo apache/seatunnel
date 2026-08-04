@@ -17,11 +17,20 @@
 
 package org.apache.seatunnel.connectors.seatunnel.redis.sink;
 
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
+
+import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableDropColumnEvent;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.redis.client.RedisClient;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisDataType;
@@ -32,11 +41,17 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 import static org.mockito.Mockito.when;
 
 public class RedisSinkWriterTest {
+
+    private static final TableIdentifier TABLE_IDENTIFIER =
+            TableIdentifier.of("catalog", "shop", null, "schema_events");
 
     private RedisClient mockRedisClient;
 
@@ -156,5 +171,142 @@ public class RedisSinkWriterTest {
                         mockRedisParameters.getKeyField());
 
         Assertions.assertEquals("user:{1}:profile", customKey);
+    }
+
+    @Test
+    void testAddColumnUsesLatestSchemaForJsonSerialization() throws IOException {
+        List<List<String>> writtenValues = captureStringWrites();
+        configureJsonKeySink(1);
+        redisSinkWriter =
+                new RedisSinkWriter(initialSchema().toPhysicalRowDataType(), mockRedisParameters);
+
+        schemaEvolutionWriter().applySchemaChange(addEmailEvent());
+        redisSinkWriter.write(insertRow(1L, "Alice", "alice@example.test", "legacy-value"));
+
+        Assertions.assertEquals(1, writtenValues.size());
+        ObjectNode json = JsonUtils.parseObject(writtenValues.get(0).get(0));
+        Assertions.assertEquals(4, json.size());
+        Assertions.assertEquals(1L, json.get("id").asLong());
+        Assertions.assertEquals("Alice", json.get("name").asText());
+        Assertions.assertEquals("alice@example.test", json.get("email").asText());
+        Assertions.assertEquals("legacy-value", json.get("legacy_note").asText());
+    }
+
+    @Test
+    void testDropColumnRemovesFieldFromJsonSerialization() throws IOException {
+        List<List<String>> writtenValues = captureStringWrites();
+        configureJsonKeySink(1);
+        redisSinkWriter =
+                new RedisSinkWriter(initialSchema().toPhysicalRowDataType(), mockRedisParameters);
+
+        SupportSchemaEvolutionSinkWriter schemaEvolutionWriter = schemaEvolutionWriter();
+        schemaEvolutionWriter.applySchemaChange(addEmailEvent());
+        schemaEvolutionWriter.applySchemaChange(
+                new AlterTableDropColumnEvent(TABLE_IDENTIFIER, "legacy_note"));
+        redisSinkWriter.write(insertRow(1L, "Alice", "alice@example.test"));
+
+        Assertions.assertEquals(1, writtenValues.size());
+        ObjectNode json = JsonUtils.parseObject(writtenValues.get(0).get(0));
+        Assertions.assertEquals(3, json.size());
+        Assertions.assertEquals(1L, json.get("id").asLong());
+        Assertions.assertEquals("Alice", json.get("name").asText());
+        Assertions.assertTrue(json.has("email"));
+        Assertions.assertEquals("alice@example.test", json.get("email").asText());
+        Assertions.assertFalse(json.has("legacy_note"));
+    }
+
+    @Test
+    void testSchemaChangeFlushesOldRowsBeforeSerializerRefresh() throws IOException {
+        List<List<String>> writtenValues = captureStringWrites();
+        configureJsonKeySink(2);
+        redisSinkWriter =
+                new RedisSinkWriter(initialSchema().toPhysicalRowDataType(), mockRedisParameters);
+
+        redisSinkWriter.write(insertRow(1L, "Before", "old-schema-value"));
+        schemaEvolutionWriter().applySchemaChange(addEmailEvent());
+
+        Assertions.assertEquals(1, writtenValues.size());
+        ObjectNode oldSchemaJson = JsonUtils.parseObject(writtenValues.get(0).get(0));
+        Assertions.assertEquals(3, oldSchemaJson.size());
+        Assertions.assertEquals("old-schema-value", oldSchemaJson.get("legacy_note").asText());
+
+        redisSinkWriter.write(insertRow(2L, "After", "after@example.test", "new-schema-value"));
+        redisSinkWriter.prepareCommit();
+
+        Assertions.assertEquals(2, writtenValues.size());
+        ObjectNode newSchemaJson = JsonUtils.parseObject(writtenValues.get(1).get(0));
+        Assertions.assertEquals(4, newSchemaJson.size());
+        Assertions.assertEquals("after@example.test", newSchemaJson.get("email").asText());
+        Assertions.assertEquals("new-schema-value", newSchemaJson.get("legacy_note").asText());
+    }
+
+    @Test
+    void testSnapshotStateRestoresLatestSchema() throws IOException {
+        List<List<String>> writtenValues = captureStringWrites();
+        configureJsonKeySink(1);
+        redisSinkWriter = new RedisSinkWriter(initialSchema(), mockRedisParameters);
+
+        schemaEvolutionWriter().applySchemaChange(addEmailEvent());
+        List<?> states = redisSinkWriter.snapshotState(1L);
+
+        Assertions.assertEquals(1, states.size());
+        redisSinkWriter = new RedisSinkWriter((TableSchema) states.get(0), mockRedisParameters);
+        redisSinkWriter.write(insertRow(1L, "Recovered", "restored@example.test", "legacy"));
+
+        Assertions.assertEquals(1, writtenValues.size());
+        ObjectNode json = JsonUtils.parseObject(writtenValues.get(0).get(0));
+        Assertions.assertEquals(4, json.size());
+        Assertions.assertEquals("restored@example.test", json.get("email").asText());
+        Assertions.assertEquals("legacy", json.get("legacy_note").asText());
+    }
+
+    private SupportSchemaEvolutionSinkWriter schemaEvolutionWriter() {
+        Assertions.assertInstanceOf(SupportSchemaEvolutionSinkWriter.class, redisSinkWriter);
+        return (SupportSchemaEvolutionSinkWriter) redisSinkWriter;
+    }
+
+    private List<List<String>> captureStringWrites() {
+        List<List<String>> writtenValues = new ArrayList<>();
+        Mockito.doAnswer(
+                        invocation -> {
+                            List<String> values = invocation.getArgument(2);
+                            writtenValues.add(new ArrayList<>(values));
+                            return null;
+                        })
+                .when(mockRedisClient)
+                .batchWriteString(
+                        Mockito.anyList(), Mockito.anyList(), Mockito.anyList(), Mockito.anyLong());
+        return writtenValues;
+    }
+
+    private void configureJsonKeySink(int batchSize) {
+        when(mockRedisParameters.getBatchSize()).thenReturn(batchSize);
+        when(mockRedisParameters.getKeyField()).thenReturn("schema-change:${id}");
+        when(mockRedisParameters.getSupportCustomKey()).thenReturn(true);
+        when(mockRedisParameters.getRedisDataType()).thenReturn(RedisDataType.KEY);
+        when(mockRedisParameters.getExpire()).thenReturn(0L);
+    }
+
+    private static SeaTunnelRow insertRow(Object... fields) {
+        SeaTunnelRow row = new SeaTunnelRow(fields);
+        row.setRowKind(RowKind.INSERT);
+        return row;
+    }
+
+    private static AlterTableAddColumnEvent addEmailEvent() {
+        return AlterTableAddColumnEvent.addAfter(
+                TABLE_IDENTIFIER,
+                PhysicalColumn.of("email", BasicType.STRING_TYPE, 128L, true, null, null),
+                "name");
+    }
+
+    private static TableSchema initialSchema() {
+        return TableSchema.builder()
+                .column(PhysicalColumn.of("id", BasicType.LONG_TYPE, 0L, false, null, null))
+                .column(PhysicalColumn.of("name", BasicType.STRING_TYPE, 64L, true, null, null))
+                .column(
+                        PhysicalColumn.of(
+                                "legacy_note", BasicType.STRING_TYPE, 128L, true, null, null))
+                .build();
     }
 }

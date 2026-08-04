@@ -18,22 +18,25 @@
 package org.apache.seatunnel.connectors.seatunnel.redis.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.serialization.DefaultSerializer;
+import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSink;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisParameters;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Optional;
 
-public class RedisSink extends AbstractSimpleSink<SeaTunnelRow, Void>
+public class RedisSink extends AbstractSimpleSink<SeaTunnelRow, TableSchema>
         implements SupportMultiTableSink {
     private final RedisParameters redisParameters = new RedisParameters();
-    private final SeaTunnelRowType seaTunnelRowType;
+    private final TableSchema tableSchema;
     private final ReadonlyConfig readonlyConfig;
     private final CatalogTable catalogTable;
 
@@ -41,7 +44,7 @@ public class RedisSink extends AbstractSimpleSink<SeaTunnelRow, Void>
         this.readonlyConfig = config;
         this.catalogTable = table;
         this.redisParameters.buildWithConfig(config);
-        this.seaTunnelRowType = catalogTable.getSeaTunnelRowType();
+        this.tableSchema = catalogTable.getTableSchema();
     }
 
     @Override
@@ -51,7 +54,27 @@ public class RedisSink extends AbstractSimpleSink<SeaTunnelRow, Void>
 
     @Override
     public RedisSinkWriter createWriter(SinkWriter.Context context) throws IOException {
-        return new RedisSinkWriter(seaTunnelRowType, redisParameters);
+        return new RedisSinkWriter(tableSchema, redisParameters);
+    }
+
+    @Override
+    public RedisSinkWriter restoreWriter(SinkWriter.Context context, List<TableSchema> states)
+            throws IOException {
+        if (states == null || states.isEmpty()) {
+            return createWriter(context);
+        }
+        TableSchema restoredSchema = states.get(0);
+        for (TableSchema state : states) {
+            if (!restoredSchema.equals(state)) {
+                throw new IOException("Redis sink restored inconsistent table schema states");
+            }
+        }
+        return new RedisSinkWriter(restoredSchema, redisParameters);
+    }
+
+    @Override
+    public Optional<Serializer<TableSchema>> getWriterStateSerializer() {
+        return Optional.of(new DefaultSerializer<>());
     }
 
     @Override
