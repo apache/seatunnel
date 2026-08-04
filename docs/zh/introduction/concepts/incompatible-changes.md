@@ -12,7 +12,7 @@
   - **影响**：
     - Java 8 JVM 无法再加载 SeaTunnel 的类，启动时会抛出 `java.lang.UnsupportedClassVersionError: ... has been compiled by a more recent version of the Java Runtime (class file version 55.0)`。客户端、Zeta master 与 worker 节点，以及任何会加载连接器 jar 的进程都受此影响。
     - **Flink**：JobManager 和 TaskManager 的 JVM 会加载 SeaTunnel 连接器类，因此整个 Flink 集群都必须运行 Java 11 及以上，而不只是提交作业的客户端。Flink 从 1.13 起支持 Java 11，官方 Flink 镜像提供 `-java11` 标签。
-    - **Spark**：Driver 和 Executor 的 JVM 会加载 SeaTunnel 连接器类，因此整个 Spark 集群都必须运行 Java 11 及以上。Spark 从 3.0 起才支持 Java 11（SPARK-24417），因此 SeaTunnel 不能再运行在 Spark 2.4 部署上。
+    - **Spark**：Driver 和 Executor 的 JVM 会加载 SeaTunnel 连接器类，因此整个 Spark 集群都必须运行 Java 11 及以上。Spark 从 3.0 起才正式支持 Java 11（SPARK-24417）。Spark 2.4 在 Java 11 上仍可启动，但会打印非法反射访问告警，并且会把较老的 commons-lang3 放进 classpath，部分连接器会因此初始化失败，因此强烈建议使用 Spark 3.x。
     - 已按 Java 8 编译的第三方连接器仍可正常使用。Java 11 JVM 可以直接加载更低版本的 class 文件，所以只有 JVM 版本有要求，对您自己 jar 的字节码级别没有要求。
   - **迁移指南**：
     1. 将所有运行 SeaTunnel 代码的节点的 JVM 升级到 Java 11 或 Java 17：客户端、Zeta master 与 worker，以及作业提交到的 Flink 或 Spark 集群。

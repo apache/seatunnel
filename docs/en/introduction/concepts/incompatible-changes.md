@@ -13,7 +13,7 @@ You need to check this document before you upgrade to related version.
   - **Impact**:
     - A Java 8 JVM can no longer load SeaTunnel classes. Startup fails with `java.lang.UnsupportedClassVersionError: ... has been compiled by a more recent version of the Java Runtime (class file version 55.0)`. This applies to the client, to the Zeta master and worker nodes, and to any process that loads connector jars.
     - **Flink**: the JobManager and TaskManager JVMs load SeaTunnel connector classes, so the whole Flink cluster must run Java 11 or later, not just the submitting client. Flink supports Java 11 from 1.13 onward, and the official Flink images publish `-java11` tags.
-    - **Spark**: the driver and executor JVMs load SeaTunnel connector classes, so the whole Spark cluster must run Java 11 or later. Spark gained Java 11 support in Spark 3.0 (SPARK-24417), so SeaTunnel can no longer run on a Spark 2.4 deployment.
+    - **Spark**: the driver and executor JVMs load SeaTunnel connector classes, so the whole Spark cluster must run Java 11 or later. Spark only gained official Java 11 support in Spark 3.0 (SPARK-24417). Spark 2.4 does still start under Java 11, but it logs illegal reflective access warnings and puts an old commons-lang3 on the classpath that some connectors trip over, so Spark 3.x is strongly recommended.
     - Third-party connectors that are themselves compiled for Java 8 keep working. A Java 11 JVM loads older class files without changes, so only the JVM version matters, not the bytecode level of your own jars.
   - **Migration Guide**:
     1. Upgrade the JVM to Java 11 or Java 17 on every node that runs SeaTunnel code: the client, the Zeta master and workers, and the Flink or Spark cluster you submit to.

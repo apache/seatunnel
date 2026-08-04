@@ -48,4 +48,10 @@ fi
 set +u
 CLASS_PATH=${APP_DIR}/connectors/*:${APP_JAR}:${APP_DIR}/lib/seatunnel-transforms-v2.jar
 
-java -cp ${CLASS_PATH} ${LOAD_CLASS} ${args} | grep -v 'org\.apache\.seatunnel\.plugin\.discovery\.AbstractPluginDiscovery'
+# The second pattern drops the notice log4j-api writes to stdout on every JVM newer than Java 8,
+# which would otherwise be parsed as extra connector identifiers by the connector check output.
+# PIPESTATUS[0] keeps java's own exit code, which the pipeline would otherwise replace with grep's.
+java -cp ${CLASS_PATH} ${LOAD_CLASS} ${args} \
+  | grep -v -e 'org\.apache\.seatunnel\.plugin\.discovery\.AbstractPluginDiscovery' \
+            -e '^WARNING: sun\.reflect\.Reflection\.getCallerClass is not supported'
+exit ${PIPESTATUS[0]}

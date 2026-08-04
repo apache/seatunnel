@@ -146,4 +146,10 @@ if [[ -n "$GC_LOG_PATH" ]]; then
   fi
 fi
 
-java ${JAVA_OPTS} -cp ${CLASS_PATH} ${APP_MAIN} "${args[@]}"
+# log4j-api writes this notice to stdout on every JVM newer than Java 8, because
+# sun.reflect.Reflection.getCallerClass no longer exists there. It corrupts the machine readable
+# output of commands that emit JSON, such as `-j <jobId>`, so drop just that line.
+# PIPESTATUS[0] keeps java's own exit code, which the pipeline would otherwise replace with grep's.
+java ${JAVA_OPTS} -cp ${CLASS_PATH} ${APP_MAIN} "${args[@]}" \
+  | grep -v '^WARNING: sun\.reflect\.Reflection\.getCallerClass is not supported'
+exit ${PIPESTATUS[0]}
