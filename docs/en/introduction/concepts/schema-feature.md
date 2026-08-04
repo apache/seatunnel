@@ -148,6 +148,8 @@ columns = [
 > ```
 >
 > With the schema above, the JSON message `{"GROUPID": 5}` produces `GROUPID = 5, status = "PENDING"`, and `{}` produces `GROUPID = 0, status = "PENDING"`.
+>
+> Note: `defaultValue` takes precedence over `failOnMissingField` — when a default is configured, it is applied before the missing-field check, while an explicit JSON `null` is never treated as a missing field.
 
 #### What type supported at now
 

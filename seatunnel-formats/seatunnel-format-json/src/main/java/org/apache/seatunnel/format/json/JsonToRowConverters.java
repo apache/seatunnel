@@ -222,7 +222,7 @@ public class JsonToRowConverters implements Serializable {
             case MAP:
                 return createMapConverter((MapType<?, ?>) type);
             case ROW:
-                return createRowConverter((SeaTunnelRowType) type);
+                return createRowConverter((SeaTunnelRowType) type, null);
             default:
                 throw new SeaTunnelJsonFormatException(
                         CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE,
@@ -383,6 +383,10 @@ public class JsonToRowConverters implements Serializable {
     }
 
     public JsonToObjectConverter createRowConverter(SeaTunnelRowType rowType) {
+        return createRowConverter(rowType, this.columns);
+    }
+
+    private JsonToObjectConverter createRowConverter(SeaTunnelRowType rowType, Column[] columns) {
         final JsonToObjectConverter[] fieldConverters =
                 Arrays.stream(rowType.getFieldTypes())
                         .map(
@@ -400,6 +404,21 @@ public class JsonToRowConverters implements Serializable {
                                     }
                                 });
         final String[] fieldNames = rowType.getFieldNames();
+
+        // Pre-convert each column default once at converter construction so the hot path
+        // does not repeat toJsonNode/conversion per record, and misconfigured defaults
+        // fail fast at job start instead of at first record.
+        final Object[] defaultValues = new Object[fieldNames.length];
+        if (columns != null) {
+            for (int i = 0; i < fieldNames.length && i < columns.length; i++) {
+                Object defaultValue = columns[i].getDefaultValue();
+                if (defaultValue != null) {
+                    defaultValues[i] =
+                            fieldConverters[i].convert(
+                                    JsonUtils.toJsonNode(defaultValue), fieldNames[i]);
+                }
+            }
+        }
 
         return new JsonToObjectConverter() {
             @Override
@@ -422,7 +441,8 @@ public class JsonToRowConverters implements Serializable {
                             fieldName = rowFieldName + "." + fieldName;
                         }
                         Object convertedField =
-                                convertField(fieldConverters[i], fieldName, field, i);
+                                convertField(
+                                        fieldConverters[i], fieldName, field, i, defaultValues);
                         row.setField(i, convertedField);
                     } catch (Throwable t) {
                         throw CommonError.jsonOperationError(
@@ -487,18 +507,18 @@ public class JsonToRowConverters implements Serializable {
             JsonToObjectConverter fieldConverter,
             String fieldName,
             JsonNode field,
-            int fieldIndex) {
+            int fieldIndex,
+            Object[] defaultValues) {
         if (field == null || field.isNull()) {
-            // Apply defaultValue if available
-            if (columns != null && fieldIndex < columns.length) {
-                Object defaultValue = columns[fieldIndex].getDefaultValue();
-                if (defaultValue != null) {
-                    // Convert the defaultValue to the field type (e.g. HOCON "0.0" may be parsed
-                    // as Integer 0, which must be normalized for a double field)
-                    return fieldConverter.convert(JsonUtils.toJsonNode(defaultValue), fieldName);
-                }
+            // Apply defaultValue if available (for both missing fields and explicit nulls)
+            if (defaultValues != null
+                    && fieldIndex < defaultValues.length
+                    && defaultValues[fieldIndex] != null) {
+                return defaultValues[fieldIndex];
             }
-            if (failOnMissingField) {
+            // failOnMissingField only throws for a genuinely missing field (field == null);
+            // an explicit JSON null without a default keeps returning null as before
+            if (field == null && failOnMissingField) {
                 throw new IllegalArgumentException(
                         String.format("Could not find field with name %s .", fieldName));
             } else {

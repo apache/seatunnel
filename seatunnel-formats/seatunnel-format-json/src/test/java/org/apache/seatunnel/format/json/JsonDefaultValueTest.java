@@ -30,6 +30,7 @@ import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -425,5 +426,89 @@ public class JsonDefaultValueTest {
 
         SeaTunnelRow row = deserializationSchema.deserialize("{}".getBytes());
         assertEquals(1500.0, row.getField(0)); // "1.5e3" parsed to double
+    }
+
+    @Test
+    public void testDefaultValueNotAppliedToNestedRowFields() throws IOException {
+        // Top-level defaults must never leak into nested ROW fields: the nested row
+        // converter resolves its own field indexes, so without scoping it would consult
+        // the top-level columns array by position and write a wrong default (e.g. "18"
+        // into address.city because both are index 0).
+        SeaTunnelRowType addressType =
+                new SeaTunnelRowType(
+                        new String[] {"city", "zip"},
+                        new org.apache.seatunnel.api.table.type.SeaTunnelDataType[] {
+                            BasicType.STRING_TYPE, BasicType.INT_TYPE
+                        });
+
+        Column[] columns =
+                new Column[] {
+                    PhysicalColumn.of("id", BasicType.INT_TYPE, (Long) null, false, 18, null),
+                    PhysicalColumn.of("address", addressType, (Long) null, true, null, null)
+                };
+
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"id", "address"},
+                        new org.apache.seatunnel.api.table.type.SeaTunnelDataType[] {
+                            BasicType.INT_TYPE, addressType
+                        });
+
+        TableSchema tableSchema = TableSchema.builder().columns(Arrays.asList(columns)).build();
+        TableIdentifier tableId = TableIdentifier.of("test", TablePath.of("test.test_table"));
+        CatalogTable catalogTable =
+                CatalogTable.of(
+                        tableId, tableSchema, new HashMap<>(), new ArrayList<>(), "test table");
+
+        JsonDeserializationSchema deserializationSchema =
+                new JsonDeserializationSchema(catalogTable, false, false);
+
+        // Nested missing field must stay null, not pick up the top-level default at index 0
+        SeaTunnelRow row =
+                deserializationSchema.deserialize(
+                        "{\"id\":1,\"address\":{\"zip\":100}}".getBytes());
+        assertEquals(1, row.getField(0));
+        SeaTunnelRow address = (SeaTunnelRow) row.getField(1);
+        assertNull(address.getField(0)); // address.city stays null (top-level default NOT applied)
+        assertEquals(100, address.getField(1));
+    }
+
+    @Test
+    public void testExplicitNullWithFailOnMissingField() throws IOException {
+        // With failOnMissingField = true, an explicit JSON null must NOT be treated as
+        // missing: without a default it keeps returning null (previous behavior), with a
+        // default it applies the default; only a genuinely absent field throws.
+        Column[] columns =
+                new Column[] {
+                    PhysicalColumn.of("age", BasicType.INT_TYPE, (Long) null, false, null, null),
+                    PhysicalColumn.of("score", BasicType.DOUBLE_TYPE, (Long) null, false, 0.0, null)
+                };
+
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"age", "score"},
+                        new org.apache.seatunnel.api.table.type.SeaTunnelDataType[] {
+                            BasicType.INT_TYPE, BasicType.DOUBLE_TYPE
+                        });
+
+        TableSchema tableSchema = TableSchema.builder().columns(Arrays.asList(columns)).build();
+        TableIdentifier tableId = TableIdentifier.of("test", TablePath.of("test.test_table"));
+        CatalogTable catalogTable =
+                CatalogTable.of(
+                        tableId, tableSchema, new HashMap<>(), new ArrayList<>(), "test table");
+
+        JsonDeserializationSchema deserializationSchema =
+                new JsonDeserializationSchema(catalogTable, true, false);
+
+        // Explicit null without default -> null (not an error)
+        SeaTunnelRow nullRow =
+                deserializationSchema.deserialize("{\"age\":null,\"score\":null}".getBytes());
+        assertNull(nullRow.getField(0));
+        assertEquals(0.0, nullRow.getField(1)); // explicit null with default -> default
+
+        // Genuinely missing field with failOnMissingField = true -> still throws
+        Assertions.assertThrows(
+                RuntimeException.class,
+                () -> deserializationSchema.deserialize("{\"score\":1.0}".getBytes()));
     }
 }

@@ -242,6 +242,7 @@ public class KafkaJsonDefaultValueIT extends TestSuiteBase implements TestResour
         await().atMost(60000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
+                            result.clear();
                             ConsumerRecords<String, String> consumerRecords =
                                     kafkaConsumer.poll(Duration.ofMillis(1000));
                             for (ConsumerRecord<String, String> record : consumerRecords) {
@@ -298,6 +299,9 @@ public class KafkaJsonDefaultValueIT extends TestSuiteBase implements TestResour
     @AfterAll
     @Override
     public void tearDown() {
+        if (kafkaConsumer != null) {
+            kafkaConsumer.close();
+        }
         if (kafkaContainer != null) {
             kafkaContainer.close();
         }

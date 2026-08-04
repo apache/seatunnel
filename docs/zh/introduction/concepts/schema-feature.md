@@ -148,6 +148,8 @@ columns = [
 > ```
 >
 > 使用上述 schema 时，JSON 消息 `{"GROUPID": 5}` 会得到 `GROUPID = 5, status = "PENDING"`，而 `{}` 会得到 `GROUPID = 0, status = "PENDING"`。
+>
+> 注意：`defaultValue` 优先于 `failOnMissingField`——配置了默认值时，会先应用默认值再执行缺失字段检查；同时显式的 JSON `null` 不会被当作缺失字段处理。
 
 #### 目前支持哪些类型
 

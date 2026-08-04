@@ -103,7 +103,13 @@ public class JsonDeserializationSchema implements DeserializationSchema<SeaTunne
         Column[] columns = null;
         if (catalogTable.getTableSchema() != null
                 && catalogTable.getTableSchema().getColumns() != null) {
-            columns = catalogTable.getTableSchema().getColumns().toArray(new Column[0]);
+            // Only physical columns participate in the row type (see AbstractSchema
+            // toPhysicalRowDataType), so defaults must be indexed against the same set
+            // to avoid positional misalignment with metadata/computed columns.
+            columns =
+                    catalogTable.getTableSchema().getColumns().stream()
+                            .filter(Column::isPhysical)
+                            .toArray(Column[]::new);
         }
         this.runtimeConverter =
                 new JsonToRowConverters(failOnMissingField, ignoreParseErrors, columns)
