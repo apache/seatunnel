@@ -670,6 +670,7 @@
                     <artifactId>maven-surefire-plugin</artifactId>
                     <version>${maven-surefire-plugin.version}</version>
                     <configuration>
+                        <argLine>${argLine}</argLine>
                         <skip>${skipUT}</skip>
                         <systemPropertyVariables>
                             <jacoco-agent.destfile>${project.build.directory}/jacoco.exec</jacoco-agent.destfile>
@@ -701,6 +702,7 @@
                     <artifactId>maven-failsafe-plugin</artifactId>
                     <version>${maven-failsafe-plugin.version}</version>
                     <configuration>
+                        <argLine>${argLine}</argLine>
                         <skip>${skipIT}</skip>
                     </configuration>
                     <executions>
