@@ -438,7 +438,14 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                 || s.startsWith("seatunnel-error-sink-")
                 // Jetty QueuedThreadPool NIO selector thread from the embedded REST server;
                 // it may outlive the job and cause the E2E thread-leak check to fail.
-                || s.startsWith("qtp");
+                || s.startsWith("qtp")
+                // java.lang.ref.Cleaner's worker thread (JDK 9+ replacement for the old
+                // sun.misc.Cleaner/finalizer based native resource cleanup). Some JDBC drivers
+                // call Cleaner.create() to manage native buffers, and the resulting thread runs
+                // for the life of the JVM by design, so it only shows up as a false leak on the
+                // first job that lazily triggers it. Now that the e2e engine container runs on a
+                // Java 11 JDK image instead of Java 8, this thread is a normal presence.
+                || s.startsWith("Cleaner-");
     }
 
     private void classLoaderObjectCheck(Integer maxSize) throws IOException, InterruptedException {
