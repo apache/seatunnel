@@ -407,15 +407,31 @@ public class JsonToRowConverters implements Serializable {
 
         // Pre-convert each column default once at converter construction so the hot path
         // does not repeat toJsonNode/conversion per record, and misconfigured defaults
-        // fail fast at job start instead of at first record.
+        // fail fast at job start instead of at first record. The unwrapped converter is
+        // used so a bad default always fails at construction, regardless of
+        // ignoreParseErrors. Mutable types (ARRAY/MAP/BYTES) keep their JsonNode and are
+        // converted per record so no single instance is shared across rows.
         final Object[] defaultValues = new Object[fieldNames.length];
+        final JsonNode[] defaultNodes = new JsonNode[fieldNames.length];
         if (columns != null) {
             for (int i = 0; i < fieldNames.length && i < columns.length; i++) {
                 Object defaultValue = columns[i].getDefaultValue();
                 if (defaultValue != null) {
-                    defaultValues[i] =
-                            fieldConverters[i].convert(
-                                    JsonUtils.toJsonNode(defaultValue), fieldNames[i]);
+                    JsonNode defaultNode = JsonUtils.toJsonNode(defaultValue);
+                    SqlType sqlType = rowType.getFieldType(i).getSqlType();
+                    if (sqlType == SqlType.ARRAY
+                            || sqlType == SqlType.MAP
+                            || sqlType == SqlType.BYTES) {
+                        // Validate at construction but convert per record to avoid
+                        // sharing one mutable instance across rows
+                        createNotNullConverter(rowType.getFieldType(i))
+                                .convert(defaultNode, fieldNames[i]);
+                        defaultNodes[i] = defaultNode;
+                    } else {
+                        defaultValues[i] =
+                                createNotNullConverter(rowType.getFieldType(i))
+                                        .convert(defaultNode, fieldNames[i]);
+                    }
                 }
             }
         }
@@ -442,7 +458,12 @@ public class JsonToRowConverters implements Serializable {
                         }
                         Object convertedField =
                                 convertField(
-                                        fieldConverters[i], fieldName, field, i, defaultValues);
+                                        fieldConverters[i],
+                                        fieldName,
+                                        field,
+                                        i,
+                                        defaultValues,
+                                        defaultNodes);
                         row.setField(i, convertedField);
                     } catch (Throwable t) {
                         throw CommonError.jsonOperationError(
@@ -508,9 +529,17 @@ public class JsonToRowConverters implements Serializable {
             String fieldName,
             JsonNode field,
             int fieldIndex,
-            Object[] defaultValues) {
+            Object[] defaultValues,
+            JsonNode[] defaultNodes) {
         if (field == null || field.isNull()) {
-            // Apply defaultValue if available (for both missing fields and explicit nulls)
+            // Apply defaultValue if available (for both missing fields and explicit nulls).
+            // Mutable types (ARRAY/MAP/BYTES) are converted per record so no single
+            // instance is shared across rows; immutable scalars use the pre-converted value.
+            if (defaultNodes != null
+                    && fieldIndex < defaultNodes.length
+                    && defaultNodes[fieldIndex] != null) {
+                return fieldConverter.convert(defaultNodes[fieldIndex], fieldName);
+            }
             if (defaultValues != null
                     && fieldIndex < defaultValues.length
                     && defaultValues[fieldIndex] != null) {

@@ -54,6 +54,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -237,12 +238,14 @@ public class KafkaJsonDefaultValueIT extends TestSuiteBase implements TestResour
                         "/jsonDefaultValueIT/kafka_source_json_default_value_to_kafka.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
 
+        // Accumulate across retries (KafkaConsumer is not replayable across polls:
+        // its position advances with each poll, so resetting the list inside the
+        // retry could never converge if the broker splits the records across polls)
         List<String> result = new ArrayList<>();
         kafkaConsumer.subscribe(Collections.singletonList(SINK_TOPIC));
         await().atMost(60000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
-                            result.clear();
                             ConsumerRecords<String, String> consumerRecords =
                                     kafkaConsumer.poll(Duration.ofMillis(1000));
                             for (ConsumerRecord<String, String> record : consumerRecords) {
@@ -251,14 +254,16 @@ public class KafkaJsonDefaultValueIT extends TestSuiteBase implements TestResour
                             Assertions.assertEquals(3, result.size());
                         });
 
-        List<JsonNode> rows = new ArrayList<>();
+        // Key assertions off the name field rather than list position so the test
+        // does not depend on sink-topic record ordering
+        Map<String, JsonNode> rowsByName = new HashMap<>();
         for (String value : result) {
-            rows.add(OBJECT_MAPPER.readTree(value));
+            JsonNode node = OBJECT_MAPPER.readTree(value);
+            rowsByName.put(node.get("name").asText(), node);
         }
 
         // Field missing -> defaultValue applied for every column
-        JsonNode alice = rows.get(0);
-        Assertions.assertEquals("Alice", alice.get("name").asText());
+        JsonNode alice = rowsByName.get("Alice");
         Assertions.assertEquals(18, alice.get("age").asInt());
         Assertions.assertEquals(0.0, alice.get("score").asDouble());
         Assertions.assertEquals("PENDING", alice.get("status").asText());
@@ -270,8 +275,7 @@ public class KafkaJsonDefaultValueIT extends TestSuiteBase implements TestResour
         Assertions.assertEquals("2024-01-01T12:30:45", alice.get("created_at").asText());
 
         // Explicit null -> defaultValue applied for every column
-        JsonNode bob = rows.get(1);
-        Assertions.assertEquals("Bob", bob.get("name").asText());
+        JsonNode bob = rowsByName.get("Bob");
         Assertions.assertEquals(18, bob.get("age").asInt());
         Assertions.assertEquals(0.0, bob.get("score").asDouble());
         Assertions.assertEquals("PENDING", bob.get("status").asText());
@@ -283,8 +287,7 @@ public class KafkaJsonDefaultValueIT extends TestSuiteBase implements TestResour
         Assertions.assertEquals("2024-01-01T12:30:45", bob.get("created_at").asText());
 
         // Real values (incl. scientific notation) -> kept as-is
-        JsonNode charlie = rows.get(2);
-        Assertions.assertEquals("Charlie", charlie.get("name").asText());
+        JsonNode charlie = rowsByName.get("Charlie");
         Assertions.assertEquals(25, charlie.get("age").asInt());
         Assertions.assertEquals(2000.0, charlie.get("score").asDouble()); // JSON 2e3
         Assertions.assertEquals("OK", charlie.get("status").asText());

@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
@@ -510,5 +511,72 @@ public class JsonDefaultValueTest {
         Assertions.assertThrows(
                 RuntimeException.class,
                 () -> deserializationSchema.deserialize("{\"score\":1.0}".getBytes()));
+    }
+
+    @Test
+    public void testMutableDefaultValueNotSharedAcrossRows() throws IOException {
+        // ARRAY/MAP/BYTES defaults are converted per record so no single mutable
+        // instance is shared between rows (in-place mutation by downstream stages
+        // would otherwise corrupt every row that took the default).
+        ArrayType<Integer[], Integer> tagsType = ArrayType.INT_ARRAY_TYPE;
+        Column[] columns =
+                new Column[] {
+                    PhysicalColumn.of(
+                            "tags", tagsType, (Long) null, false, Arrays.asList(1, 2), null)
+                };
+
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"tags"},
+                        new org.apache.seatunnel.api.table.type.SeaTunnelDataType[] {tagsType});
+
+        TableSchema tableSchema = TableSchema.builder().columns(Arrays.asList(columns)).build();
+        TableIdentifier tableId = TableIdentifier.of("test", TablePath.of("test.test_table"));
+        CatalogTable catalogTable =
+                CatalogTable.of(
+                        tableId, tableSchema, new HashMap<>(), new ArrayList<>(), "test table");
+
+        JsonDeserializationSchema deserializationSchema =
+                new JsonDeserializationSchema(catalogTable, false, false);
+
+        SeaTunnelRow row1 = deserializationSchema.deserialize("{}".getBytes());
+        SeaTunnelRow row2 = deserializationSchema.deserialize("{}".getBytes());
+        Integer[] tags1 = (Integer[]) row1.getField(0);
+        Integer[] tags2 = (Integer[]) row2.getField(0);
+        Assertions.assertNotSame(tags1, tags2); // distinct instances per row
+        Assertions.assertArrayEquals(new Integer[] {1, 2}, tags1);
+        Assertions.assertArrayEquals(new Integer[] {1, 2}, tags2);
+    }
+
+    @Test
+    public void testUnconvertibleDefaultFailsAtConstruction() {
+        // A defaultValue that cannot be converted to the column type must fail at
+        // converter construction (job start), regardless of ignoreParseErrors —
+        // silently dropping it would reproduce the very nulls this fix removes.
+        Column[] columns =
+                new Column[] {
+                    PhysicalColumn.of(
+                            "score", BasicType.DOUBLE_TYPE, (Long) null, false, "abc", null)
+                };
+
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"score"},
+                        new org.apache.seatunnel.api.table.type.SeaTunnelDataType[] {
+                            BasicType.DOUBLE_TYPE
+                        });
+
+        TableSchema tableSchema = TableSchema.builder().columns(Arrays.asList(columns)).build();
+        TableIdentifier tableId = TableIdentifier.of("test", TablePath.of("test.test_table"));
+        CatalogTable catalogTable =
+                CatalogTable.of(
+                        tableId, tableSchema, new HashMap<>(), new ArrayList<>(), "test table");
+
+        Assertions.assertThrows(
+                RuntimeException.class,
+                () -> new JsonDeserializationSchema(catalogTable, false, false));
+        Assertions.assertThrows(
+                RuntimeException.class,
+                () -> new JsonDeserializationSchema(catalogTable, false, true));
     }
 }
