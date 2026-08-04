@@ -125,7 +125,7 @@ class BigQuerySinkBatchWriterTest {
 
     private static BigQuerySinkBatchWriter createSinkWriter(BigQueryWriter streamWriter) {
         return new BigQuerySinkBatchWriter(
-                ReadonlyConfig.fromMap(Collections.emptyMap()), streamWriter, null, null);
+                ReadonlyConfig.fromMap(Collections.emptyMap()), streamWriter, null);
     }
 
     private static AppendRowsResponse errorResponse(Code code) {
