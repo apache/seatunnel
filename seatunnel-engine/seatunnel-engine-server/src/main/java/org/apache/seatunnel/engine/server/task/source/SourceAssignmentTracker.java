@@ -66,6 +66,24 @@ public final class SourceAssignmentTracker {
         this.checkpointEnabled = checkpointEnabled;
     }
 
+    /**
+     * Opens ownership for one dispatched assignment chunk in state {@code DISPATCHED}.
+     *
+     * <p>From here until the entry is released, the engine, not the connector, owns these splits:
+     * if the target Reader attempt dies the entry is what allows them to be replayed instead of
+     * silently lost. The payloads are retained for exactly that reason, which is why the tracker
+     * enforces entry-count and byte limits.
+     *
+     * @param commandId identity of the assignment command, also the ledger key
+     * @param assignmentGroupId groups the chunks of one logical assignment
+     * @param senderSequence coordinator-to-Reader channel sequence used for replay fencing
+     * @param targetSubtask Reader subtask index the chunk was addressed to
+     * @param targetAttemptId Reader attempt the chunk was addressed to
+     * @param chunkIndex index of this chunk within its group
+     * @param chunkCount total chunks in the group
+     * @param splitIds split identifiers carried by this chunk
+     * @param splitPayloads serialized splits retained so the assignment can be replayed
+     */
     public void recordDispatched(
             String commandId,
             String assignmentGroupId,
@@ -120,6 +138,17 @@ public final class SourceAssignmentTracker {
         incrementState(entry.state);
     }
 
+    /**
+     * Advances an entry to {@code ADMITTED} once the Reader has accepted the command into its
+     * mailbox.
+     *
+     * <p>Admission proves delivery only, not application: the Reader has not yet handed the splits
+     * to the connector, so ownership stays with the engine. Transitions are monotonic, so a
+     * duplicate or out-of-order admission is ignored rather than moving the entry backwards.
+     *
+     * @param commandId ledger key of the assignment
+     * @param targetAttemptId Reader attempt that admitted it, recorded for replay fencing
+     */
     public void markAdmitted(String commandId, String targetAttemptId) {
         checkOwner();
         Entry entry = requireEntry(commandId);
@@ -129,6 +158,22 @@ public final class SourceAssignmentTracker {
         entry.targetAttemptId = targetAttemptId;
     }
 
+    /**
+     * Advances an entry to {@code APPLIED} once the Reader reports it handed the splits to the
+     * connector.
+     *
+     * <p>The reported split identifiers must match what was dispatched; a mismatch means the two
+     * sides disagree about what was assigned and is fatal rather than reconciled. Ownership is
+     * still held, because an applied-but-not-yet-checkpointed split must be replayed if the Reader
+     * dies.
+     *
+     * <p>When the job runs without checkpoints there is no later checkpoint to prove inclusion, so
+     * the entry is released here instead of accumulating for the lifetime of the job.
+     *
+     * @param commandId ledger key of the assignment
+     * @param targetAttemptId Reader attempt reporting application; a stale attempt is ignored
+     * @param appliedSplitIds split identifiers the Reader claims it applied
+     */
     public void markApplied(
             String commandId, String targetAttemptId, List<String> appliedSplitIds) {
         checkOwner();
@@ -170,6 +215,20 @@ public final class SourceAssignmentTracker {
         return entries.containsKey(commandId);
     }
 
+    /**
+     * Advances entries to {@code CHECKPOINT_INCLUDED} using a Reader checkpoint ownership proof.
+     *
+     * <p>This is the transfer point of the whole protocol: once a split is durably part of the
+     * Reader's checkpoint state, restoring that checkpoint restores the split, so the engine no
+     * longer has to replay it. Entries are only advanced when the proof comes from the attempt that
+     * currently owns them and covers the identifiers they hold.
+     *
+     * @param subtask Reader subtask the proof came from
+     * @param readerAttemptId Reader attempt the proof came from; stale attempts are ignored
+     * @param checkpointId checkpoint the splits were included in
+     * @param appliedWatermark contiguous command watermark the Reader had applied
+     * @param checkpointSplitIds split identifiers the Reader recorded in that checkpoint
+     */
     public void markReaderCheckpointIncluded(
             int subtask,
             String readerAttemptId,
@@ -207,6 +266,17 @@ public final class SourceAssignmentTracker {
         }
     }
 
+    /**
+     * Releases ownership of every entry proven to be in a checkpoint at or below {@code
+     * checkpointId}.
+     *
+     * <p>Releasing before the checkpoint completes would lose splits if that checkpoint were later
+     * aborted; never releasing would grow the ledger for the lifetime of the job. Completion is the
+     * first point where both risks are gone, so it is where the retained split payloads are
+     * dropped.
+     *
+     * @param checkpointId checkpoint the master reported complete
+     */
     public void checkpointCompleted(long checkpointId) {
         checkOwner();
         Iterator<Map.Entry<String, Entry>> iterator = entries.entrySet().iterator();
@@ -261,6 +331,17 @@ public final class SourceAssignmentTracker {
                 entries.values().stream().map(Entry::copy).collect(Collectors.toList()));
     }
 
+    /**
+     * Rebuilds the ledger from checkpointed entries during coordinator restore.
+     *
+     * <p>Replaces the current contents outright rather than merging: after a restore the checkpoint
+     * is the only trustworthy record of who owned what, and merging live entries into it would
+     * resurrect assignments the checkpoint deliberately does not contain. Entries are copied so the
+     * caller cannot mutate ledger state afterwards, and the configured limits are re-applied to the
+     * restored set.
+     *
+     * @param restoredEntries entries decoded from the coordinator checkpoint
+     */
     public void restore(Collection<Entry> restoredEntries) {
         checkOwner();
         entries.clear();

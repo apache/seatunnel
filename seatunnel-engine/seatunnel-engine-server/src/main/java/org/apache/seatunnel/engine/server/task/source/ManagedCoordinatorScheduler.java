@@ -95,6 +95,31 @@ public final class ManagedCoordinatorScheduler implements CoordinatorScheduler, 
         this.wakeup = wakeup;
     }
 
+    /**
+     * Runs blocking connector work off the coordinator event loop and applies its result back on
+     * that loop.
+     *
+     * <p><b>Thread contract, and the reason this method exists:</b> {@code callable} executes on a
+     * shared engine worker thread, so it must be free of side effects on enumerator state. It may
+     * only read immutable configuration and call thread-safe clients. Anything it discovers must be
+     * returned as a value. {@code resultHandler} then runs on the coordinator event loop, which is
+     * the only thread permitted to mutate enumerator state, the assignment ledger, or anything else
+     * that a checkpoint can observe. Writing connector fields directly from {@code callable}
+     * defeats the single-owner guarantee the managed lane exists to provide.
+     *
+     * <p>Submissions are keyed. A second submission for a key that is already running or queued is
+     * resolved by {@link AsyncTaskOptions#getOverlapPolicy()}, and results whose coordinator epoch
+     * is stale are discarded rather than applied.
+     *
+     * <p>Must be called from the coordinator event loop.
+     *
+     * @param key identity used for overlap, coalescing and cancellation
+     * @param callable blocking work; runs on an engine worker thread, must not touch coordinator
+     *     state
+     * @param resultHandler applied on the coordinator event loop with the result or the failure
+     * @param options worker class, timeout, overlap and failure policy
+     * @return handle that cancels the submission and its pending callback
+     */
     @Override
     public <T> Cancellable callAsync(
             AsyncTaskKey key,
@@ -140,6 +165,21 @@ public final class ManagedCoordinatorScheduler implements CoordinatorScheduler, 
         return submission;
     }
 
+    /**
+     * Schedules a delayed callback that runs on the coordinator event loop.
+     *
+     * <p>Unlike {@link #callAsync}, {@code task} is allowed to touch enumerator state because it
+     * executes on the owner thread. The engine timer only enqueues it; it never runs connector code
+     * itself. Use this for retry and interval ticks, and {@link #callAsync} for anything that
+     * blocks.
+     *
+     * <p>Must be called from the coordinator event loop.
+     *
+     * @param key identity used for cancellation and overlap accounting
+     * @param delay delay before the callback is enqueued
+     * @param task callback executed on the coordinator event loop
+     * @return handle that cancels the pending callback
+     */
     @Override
     public Cancellable scheduleInCoordinatorThread(
             AsyncTaskKey key, Duration delay, Runnable task) {

@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.server.ManagedSourceRuntimeConfig;
 import org.apache.seatunnel.engine.common.config.server.QueueType;
+import org.apache.seatunnel.engine.common.runtime.source.ManagedSourceRuntimeMode;
 import org.apache.seatunnel.engine.common.runtime.source.ManagedSourceRuntimeSelection;
 import org.apache.seatunnel.engine.common.runtime.source.ManagedSourceRuntimeSelector;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
@@ -71,6 +72,7 @@ import com.hazelcast.jet.datamodel.Tuple2;
 import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngine;
 import lombok.NonNull;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.net.URL;
@@ -91,6 +93,7 @@ import java.util.stream.Stream;
 
 import static org.apache.seatunnel.engine.common.config.server.QueueType.BLOCKINGQUEUE;
 
+@Slf4j
 public class PhysicalPlanGenerator {
 
     private final List<Pipeline> pipelines;
@@ -610,12 +613,26 @@ public class PhysicalPlanGenerator {
             SourceAction<?, ?, ?> sourceAction) {
         return managedSourceSelections.computeIfAbsent(
                 sourceAction,
-                action ->
-                        ManagedSourceRuntimeSelector.select(
-                                        action.getSource(), managedSourceRuntimeConfig)
-                                .withCheckpointEnabled(
-                                        JobCheckpointUtils.isCheckpointEnabled(
-                                                jobImmutableInformation.getJobConfig())));
+                action -> {
+                    ManagedSourceRuntimeSelection selection =
+                            ManagedSourceRuntimeSelector.select(
+                                            action.getSource(), managedSourceRuntimeConfig)
+                                    .withCheckpointEnabled(
+                                            JobCheckpointUtils.isCheckpointEnabled(
+                                                    jobImmutableInformation.getJobConfig()));
+                    // The execution lane is decided once, here, and then persisted with the
+                    // physical plan. Log it so operators can tell from the job log which lane a
+                    // Source actually entered instead of inferring it from the cluster config.
+                    if (selection.getMode() != ManagedSourceRuntimeMode.LEGACY) {
+                        log.info(
+                                "Source {} selected the managed Source runtime lane {}, protocol={}, capabilityDigest={}",
+                                action.getName(),
+                                selection.getMode(),
+                                selection.getRuntimeProtocolVersion(),
+                                selection.getCapabilityDigest());
+                    }
+                    return selection;
+                });
     }
 
     /**

@@ -36,6 +36,13 @@ public interface CoordinatorScheduler {
     /**
      * Executes blocking or CPU-heavy work outside the coordinator event loop.
      *
+     * <p>{@code callable} runs on a shared engine worker thread. It must not read or write
+     * enumerator state: no connector fields, no collections the coordinator owns, nothing a
+     * checkpoint can observe. Snapshot whatever it needs on the coordinator event loop before
+     * submitting, and return everything it discovers as a value. {@code resultHandler} then runs on
+     * the coordinator event loop and is the only place that may apply the result to enumerator
+     * state.
+     *
      * <p>Results from an obsolete coordinator epoch are discarded by the engine.
      */
     <T> Cancellable callAsync(
