@@ -113,20 +113,20 @@ public class AirtableSourceReaderTest {
     }
 
     @Test
-    public void testBackoffStaysWithinEqualJitterBounds() {
+    public void testBackoffNeverShorterThanConfigured() {
         int base = 1000;
         AirtableSourceReader reader =
                 new AirtableSourceReader(parameter, context, schema, null, null, null, 0, base, 5);
 
         for (int retry = 1; retry <= 5; retry++) {
-            long expected = (long) base * (1L << (retry - 1));
-            long floor = expected / 2;
+            long base_ = (long) base * (1L << (retry - 1));
+            long ceiling = Math.min(2 * base_, 300000L);
             for (int i = 0; i < 200; i++) {
                 long actual = reader.calculateBackoffMillis(retry);
                 Assertions.assertTrue(
-                        actual >= floor && actual <= expected,
-                        "retry " + retry + " produced " + actual + ", expected [" + floor + ", "
-                                + expected + "]");
+                        actual >= base_ && actual <= ceiling,
+                        "retry " + retry + " produced " + actual + ", expected [" + base_ + ", "
+                                + ceiling + "]");
             }
         }
     }
