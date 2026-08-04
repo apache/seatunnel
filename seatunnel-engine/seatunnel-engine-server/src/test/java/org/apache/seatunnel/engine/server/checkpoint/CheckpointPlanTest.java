@@ -169,6 +169,8 @@ public class CheckpointPlanTest extends AbstractSeaTunnelServerTest {
                         "customer_dimension",
                         lookupDescriptor("enriched_orders"),
                         lookupCatalogTable("enriched_orders"),
+                        512L * 1024L * 1024L,
+                        512L * 1024L * 1024L,
                         Collections.emptySet(),
                         Collections.emptySet());
         lookup.setParallelism(2);
