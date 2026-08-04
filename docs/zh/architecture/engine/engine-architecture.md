@@ -85,7 +85,7 @@ flowchart TB
 这张图更适合放在引擎架构章节，因为它把控制面与运行时执行面串成了一条完整链路：
 
 1. 客户端先在本地解析插件目录，把 `pluginJarsUrls` 与 `LogicalDag` 一起封装进 `JobImmutableInformation`。
-2. `CoordinatorService` 接收提交请求后，会为这个作业创建一个 `JobMaster`，并通过 Master 侧的类加载服务先加载插件 jar，再反序列化提交上来的作业不可变信息。
+2. `CoordinatorService` 接收提交请求后，会为这个作业创建一个 `JobMaster`；`JobMaster` 会先反序列化提交上来的作业不可变信息，再通过 Master 侧的类加载服务为每个逻辑节点加载插件 jar，并据此还原逻辑执行图（LogicalDag）。
 3. `JobMaster` 把逻辑计划展开成执行图和物理任务组，随后申请资源，并向 Worker 下发 `TaskGroupImmutableInformation`。
 4. 每个 Worker 再用自己的 child-first 类加载器加载同一批插件 jar，反序列化任务组载荷，并在 `TaskExecutionService` 中执行对应的 `TaskGroup`。
 
