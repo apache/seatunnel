@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.source.SupportSchemaEvolution;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.schema.SchemaChangeType;
+import org.apache.seatunnel.api.table.type.CommonOptions;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
@@ -51,6 +52,7 @@ import io.debezium.relational.history.TableChanges;
 
 import java.time.ZoneId;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -69,6 +71,11 @@ public class OracleIncrementalSource<T> extends IncrementalSource<T, JdbcSourceC
     @Override
     public String getPluginName() {
         return IDENTIFIER;
+    }
+
+    @Override
+    protected List<CommonOptions> getSourceIdentifierMetadataOptions() {
+        return Collections.singletonList(CommonOptions.SCHEMA);
     }
 
     @Override

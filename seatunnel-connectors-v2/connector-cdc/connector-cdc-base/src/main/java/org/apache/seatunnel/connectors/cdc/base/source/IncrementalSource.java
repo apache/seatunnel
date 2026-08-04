@@ -153,6 +153,8 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
 
     private MetadataSchema getMetadataColumns() {
         List<Column> metadata = new ArrayList<>();
+        getSourceIdentifierMetadataOptions()
+                .forEach(option -> metadata.add(stringMetadataColumn(option)));
         metadata.add(
                 MetadataColumn.of(
                         CommonOptions.EVENT_TIME.getName(),
@@ -210,6 +212,15 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
                         null,
                         null));
         return MetadataSchema.builder().columns(metadata).build();
+    }
+
+    protected List<CommonOptions> getSourceIdentifierMetadataOptions() {
+        return Collections.emptyList();
+    }
+
+    private Column stringMetadataColumn(CommonOptions option) {
+        return MetadataColumn.of(
+                option.getName(), BasicType.STRING_TYPE, (Long) null, true, null, null);
     }
 
     private StopConfig getStopConfig(ReadonlyConfig config) {

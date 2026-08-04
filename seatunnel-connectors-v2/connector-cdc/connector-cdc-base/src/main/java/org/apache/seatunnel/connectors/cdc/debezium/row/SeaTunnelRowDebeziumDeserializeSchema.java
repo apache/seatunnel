@@ -249,6 +249,7 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
             SeaTunnelRow insert = extractAfterRow(converters, record, messageStruct, valueSchema);
             insert.setRowKind(RowKind.INSERT);
             insert.setTableId(tableId);
+            MetadataUtil.setSchema(insert, tablePath.getSchemaName());
             MetadataUtil.setDelay(insert, delay);
             MetadataUtil.setEventTime(insert, fetchTimestamp);
             MetadataUtil.setSourceTimestamp(insert, messageTimestamp);
@@ -261,6 +262,7 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
             SeaTunnelRow delete = extractBeforeRow(converters, record, messageStruct, valueSchema);
             delete.setRowKind(RowKind.DELETE);
             delete.setTableId(tableId);
+            MetadataUtil.setSchema(delete, tablePath.getSchemaName());
             MetadataUtil.setDelay(delete, delay);
             MetadataUtil.setEventTime(delete, fetchTimestamp);
             MetadataUtil.setSourceTimestamp(delete, messageTimestamp);
@@ -273,6 +275,7 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
             SeaTunnelRow before = extractBeforeRow(converters, record, messageStruct, valueSchema);
             before.setRowKind(RowKind.UPDATE_BEFORE);
             before.setTableId(tableId);
+            MetadataUtil.setSchema(before, tablePath.getSchemaName());
             MetadataUtil.setDelay(before, delay);
             MetadataUtil.setEventTime(before, fetchTimestamp);
             MetadataUtil.setSourceTimestamp(before, messageTimestamp);
@@ -285,6 +288,7 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
             SeaTunnelRow after = extractAfterRow(converters, record, messageStruct, valueSchema);
             after.setRowKind(RowKind.UPDATE_AFTER);
             after.setTableId(tableId);
+            MetadataUtil.setSchema(after, tablePath.getSchemaName());
             MetadataUtil.setDelay(after, delay);
             MetadataUtil.setEventTime(after, fetchTimestamp);
             MetadataUtil.setSourceTimestamp(after, messageTimestamp);

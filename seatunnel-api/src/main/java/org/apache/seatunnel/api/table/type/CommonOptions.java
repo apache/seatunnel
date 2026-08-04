@@ -41,8 +41,23 @@ public enum CommonOptions {
      * The key of {@link SeaTunnelRow#getOptions()} to store the DATABASE value of the row value.
      */
     DATABASE("Database", true),
+    /**
+     * The key of {@link SeaTunnelRow#getOptions()} to store the relational schema/owner of the
+     * source row.
+     */
+    SCHEMA("Schema", true),
     /** The key of {@link SeaTunnelRow#getOptions()} to store the TABLE value of the row value. */
     TABLE("Table", true),
+    /**
+     * The key of {@link SeaTunnelRow#getOptions()} to store the document collection of the source
+     * row.
+     */
+    COLLECTION("Collection", true),
+    /**
+     * The key of {@link SeaTunnelRow#getOptions()} to store the source-native namespace of the
+     * source row.
+     */
+    NAMESPACE("Namespace", true),
     /**
      * The key of {@link SeaTunnelRow#getOptions()} to store the ROW_KIND value of the row value.
      */

@@ -26,12 +26,15 @@ import java.util.stream.Stream;
 import static org.apache.seatunnel.api.table.type.CommonOptions.BINLOG_FILE;
 import static org.apache.seatunnel.api.table.type.CommonOptions.BINLOG_POS;
 import static org.apache.seatunnel.api.table.type.CommonOptions.BINLOG_ROW;
+import static org.apache.seatunnel.api.table.type.CommonOptions.COLLECTION;
 import static org.apache.seatunnel.api.table.type.CommonOptions.DELAY;
 import static org.apache.seatunnel.api.table.type.CommonOptions.EVENT_TIME;
 import static org.apache.seatunnel.api.table.type.CommonOptions.GTID;
 import static org.apache.seatunnel.api.table.type.CommonOptions.IS_BINARY_FORMAT;
 import static org.apache.seatunnel.api.table.type.CommonOptions.IS_COMPLETE;
+import static org.apache.seatunnel.api.table.type.CommonOptions.NAMESPACE;
 import static org.apache.seatunnel.api.table.type.CommonOptions.PARTITION;
+import static org.apache.seatunnel.api.table.type.CommonOptions.SCHEMA;
 import static org.apache.seatunnel.api.table.type.CommonOptions.SOURCE_TIMESTAMP;
 
 public class MetadataUtil {
@@ -52,6 +55,18 @@ public class MetadataUtil {
 
     public static void setPartition(SeaTunnelRow row, String[] partition) {
         row.getOptions().put(PARTITION.getName(), partition);
+    }
+
+    public static void setSchema(SeaTunnelRow row, String schema) {
+        setStringOptionIfPresent(row, SCHEMA.getName(), schema);
+    }
+
+    public static void setCollection(SeaTunnelRow row, String collection) {
+        setStringOptionIfPresent(row, COLLECTION.getName(), collection);
+    }
+
+    public static void setNamespace(SeaTunnelRow row, String namespace) {
+        setStringOptionIfPresent(row, NAMESPACE.getName(), namespace);
     }
 
     public static void setEventTime(SeaTunnelRow row, Long delay) {
@@ -108,6 +123,18 @@ public class MetadataUtil {
         return TablePath.of(row.getTableId()).getTableName();
     }
 
+    public static String getSchema(SeaTunnelRowAccessor row) {
+        return (String) row.getOptions().get(SCHEMA.getName());
+    }
+
+    public static String getCollection(SeaTunnelRowAccessor row) {
+        return (String) row.getOptions().get(COLLECTION.getName());
+    }
+
+    public static String getNamespace(SeaTunnelRowAccessor row) {
+        return (String) row.getOptions().get(NAMESPACE.getName());
+    }
+
     public static String getRowKind(SeaTunnelRowAccessor row) {
         return row.getRowKind().shortString();
     }
@@ -133,5 +160,11 @@ public class MetadataUtil {
                     .equals(true);
         }
         throw new IllegalArgumentException("Unsupported row type: " + row.getClass().getName());
+    }
+
+    private static void setStringOptionIfPresent(SeaTunnelRow row, String optionKey, String value) {
+        if (value != null && !value.isEmpty()) {
+            row.getOptions().put(optionKey, value);
+        }
     }
 }
