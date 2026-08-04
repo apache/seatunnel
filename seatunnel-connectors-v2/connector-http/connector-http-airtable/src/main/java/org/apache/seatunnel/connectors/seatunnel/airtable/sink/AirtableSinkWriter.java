@@ -197,10 +197,22 @@ public class AirtableSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
         // sooner than configured would work against the setting's purpose. The
         // result stays capped at MAX_BACKOFF_MILLIS.
         long extra = Math.min(waitMillis, MAX_BACKOFF_MILLIS - waitMillis);
-        if (extra <= 0) {
+        if (extra > 0) {
+            return waitMillis + ThreadLocalRandom.current().nextLong(extra + 1);
+        }
+
+        // Once the wait reaches MAX_BACKOFF_MILLIS there is no headroom left to
+        // add into, so every retry past that point would come back unjittered
+        // and the callers would be back in lockstep exactly when the rate limit
+        // is at its most persistent. Spread the wait downwards instead, floored
+        // at rateLimitBackoffMs: the cap is an upper bound rather than a target,
+        // so drawing below it breaks nothing, whereas dropping below the
+        // configured backoff would break the guarantee described above.
+        long floor = Math.max(waitMillis / 2, rateLimitBackoffMs);
+        if (floor >= waitMillis) {
             return waitMillis;
         }
-        return waitMillis + ThreadLocalRandom.current().nextLong(extra + 1);
+        return waitMillis - ThreadLocalRandom.current().nextLong(waitMillis - floor + 1);
     }
 
     @Override

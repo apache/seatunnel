@@ -161,4 +161,41 @@ public class AirtableSourceReaderTest {
                     "jittered backoff must never exceed MAX_BACKOFF_MILLIS");
         }
     }
+
+    @Test
+    public void testBackoffStillVariesAtTheMaximum() {
+        int base = 60000;
+        AirtableSourceReader reader =
+                new AirtableSourceReader(parameter, context, schema, null, null, null, 0, base, 30);
+
+        Set<Long> observed = new HashSet<>();
+        for (int i = 0; i < 200; i++) {
+            observed.add(reader.calculateBackoffMillis(20));
+        }
+
+        // There is no headroom to add into once the wait reaches the maximum, so
+        // the spread has to go downwards. Leaving it flat would put every caller
+        // back in lockstep for exactly the retries that matter most.
+        Assertions.assertTrue(
+                observed.size() > 1,
+                "backoff must still vary once it reaches MAX_BACKOFF_MILLIS, but "
+                        + "observed only " + observed);
+    }
+
+    @Test
+    public void testBackoffAtTheMaximumNeverDropsBelowConfiguredBase() {
+        // A base above half the maximum makes the downward spread collide with
+        // the configured backoff, which Airtable's 429 handling depends on.
+        int base = 200000;
+        AirtableSourceReader reader =
+                new AirtableSourceReader(parameter, context, schema, null, null, null, 0, base, 30);
+
+        for (int i = 0; i < 200; i++) {
+            long actual = reader.calculateBackoffMillis(20);
+            Assertions.assertTrue(
+                    actual >= base && actual <= 300000L,
+                    "backoff at the maximum produced " + actual + ", expected [" + base
+                            + ", 300000]");
+        }
+    }
 }
