@@ -115,7 +115,7 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                         .withEnv("TZ", "UTC")
                         .withCommand(buildStartCommand())
                         .withNetworkAliases("server")
-                        .withExposedPorts()
+                        .withExposedPorts(5801, 8080)
                         .withFileSystemBind("/tmp", "/opt/hive")
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
@@ -127,7 +127,6 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                                 BindMode.READ_WRITE)
                         .waitingFor(Wait.forLogMessage(".*received new worker register:.*", 1));
         copySeaTunnelStarterToContainer(server);
-        server.setPortBindings(Arrays.asList("5801:5801", "8080:8080"));
         server.withCopyFileToContainer(
                 MountableFile.forHostPath(
                         PROJECT_ROOT_PATH
@@ -163,15 +162,13 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                                 ContainerUtil.adaptPathForWin(
                                         Paths.get(SEATUNNEL_HOME, "bin", SERVER_SHELL).toString()))
                         .withNetworkAliases("server")
-                        .withExposedPorts()
+                        .withExposedPorts(5801, 8080)
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(
                                                 "seatunnel-engine:" + JDK_DOCKER_IMAGE)))
                         .waitingFor(Wait.forLogMessage(".*received new worker register:.*", 1));
         copySeaTunnelStarterToContainer(server);
-        server.setPortBindings(Arrays.asList("5801:5801", "8080:8080"));
-        server.setExposedPorts(Arrays.asList(5801, 8080));
 
         server.withCopyFileToContainer(
                 MountableFile.forHostPath(
@@ -462,7 +459,13 @@ public class SeaTunnelContainer extends AbstractTestContainer {
     }
 
     private Map<String, String> getThreadClassLoader() throws IOException {
-        HttpGet get = new HttpGet("http://localhost:5801/hazelcast/rest/maps/running-threads");
+        // Resolve the mapped REST port at runtime so local standalone clusters do not collide with
+        // E2E.
+        HttpGet get =
+                new HttpGet(
+                        String.format(
+                                "http://localhost:%s/hazelcast/rest/maps/running-threads",
+                                server.getMappedPort(5801)));
         try (CloseableHttpClient client = HttpClients.createDefault()) {
             CloseableHttpResponse response = client.execute(get);
             String threads = EntityUtils.toString(response.getEntity());

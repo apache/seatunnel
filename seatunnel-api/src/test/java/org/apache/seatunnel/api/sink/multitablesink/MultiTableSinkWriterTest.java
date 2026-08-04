@@ -252,9 +252,9 @@ public class MultiTableSinkWriterTest {
 
         multiTableSinkWriter.write(buildRow("test.failed", 0));
 
-        RuntimeException prepareCommitException =
+        IOException prepareCommitException =
                 Assertions.assertThrows(
-                        RuntimeException.class, () -> multiTableSinkWriter.prepareCommit(1L));
+                        IOException.class, () -> multiTableSinkWriter.prepareCommit(1L));
         Assertions.assertTrue(
                 MultiTableFailureHelper.isIsolatedFailure(prepareCommitException.getMessage()));
         Assertions.assertEquals(1, failedWriter.getWriteCount());
@@ -285,8 +285,7 @@ public class MultiTableSinkWriterTest {
 
         multiTableSinkWriter.write(buildRow("test.failed", 0));
 
-        Assertions.assertThrows(
-                RuntimeException.class, () -> multiTableSinkWriter.prepareCommit(1L));
+        Assertions.assertThrows(IOException.class, () -> multiTableSinkWriter.prepareCommit(1L));
         Assertions.assertEquals(1, failedWriter.getWriteCount());
         multiTableSinkWriter.close();
     }
@@ -450,14 +449,14 @@ public class MultiTableSinkWriterTest {
     public void testSingleWriterFallbackAcceptsExplicitTableId() {
         Map<String, SinkWriter<SeaTunnelRow, ?, ?>> tableIdWriterMap = new HashMap<>();
         RecordingSinkWriter onlyWriter = new RecordingSinkWriter(false, true);
-        BlockingQueue<SeaTunnelRow> queue = new LinkedBlockingQueue<>(1);
+        BlockingQueue<MultiTableWriterRunnable.QueueElement> queue = new LinkedBlockingQueue<>(1);
         tableIdWriterMap.put("http", onlyWriter);
-        queue.add(buildRow("Optional[http]", 1));
+        queue.add(MultiTableWriterRunnable.rowRequest(buildRow("Optional[http]", 1)));
 
         MultiTableWriterRunnable runnable = new MultiTableWriterRunnable(tableIdWriterMap, queue);
         runnable.run();
 
-        Assertions.assertNull(runnable.getThrowable());
+        Assertions.assertTrue(runnable.getThrowable() instanceof InterruptedException);
         Assertions.assertEquals(1, onlyWriter.getWriteCount());
         Assertions.assertEquals("http", runnable.getCurrentTableId());
     }
@@ -466,15 +465,15 @@ public class MultiTableSinkWriterTest {
     public void testRunnableSelectsWriterUnderLock() {
         GuardedWriterMap tableIdWriterMap = new GuardedWriterMap();
         RecordingSinkWriter writer = new RecordingSinkWriter(false, true);
-        BlockingQueue<SeaTunnelRow> queue = new LinkedBlockingQueue<>(1);
+        BlockingQueue<MultiTableWriterRunnable.QueueElement> queue = new LinkedBlockingQueue<>(1);
         tableIdWriterMap.put("test.table", writer);
-        queue.add(buildRow("test.table", 1));
+        queue.add(MultiTableWriterRunnable.rowRequest(buildRow("test.table", 1)));
 
         MultiTableWriterRunnable runnable = new MultiTableWriterRunnable(tableIdWriterMap, queue);
         tableIdWriterMap.setRequiredLock(runnable);
         runnable.run();
 
-        Assertions.assertNull(runnable.getThrowable());
+        Assertions.assertTrue(runnable.getThrowable() instanceof InterruptedException);
         Assertions.assertEquals(1, writer.getWriteCount());
     }
 
@@ -704,14 +703,16 @@ public class MultiTableSinkWriterTest {
         }
     }
 
-    static class BlockingPollQueue extends LinkedBlockingQueue<SeaTunnelRow> {
+    static class BlockingPollQueue
+            extends LinkedBlockingQueue<MultiTableWriterRunnable.QueueElement> {
         private static final long serialVersionUID = 1L;
 
         private final CountDownLatch pollStarted = new CountDownLatch(1);
         private final CountDownLatch releasePoll = new CountDownLatch(1);
 
         @Override
-        public SeaTunnelRow poll(long timeout, TimeUnit unit) throws InterruptedException {
+        public MultiTableWriterRunnable.QueueElement poll(long timeout, TimeUnit unit)
+                throws InterruptedException {
             pollStarted.countDown();
             releasePoll.await();
             return null;

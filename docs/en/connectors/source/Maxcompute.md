@@ -32,6 +32,7 @@ Used to read data from Maxcompute.
 | read_columns   | Array  | no       | -             |
 | table_list     | Array  | No       | -             |
 | tunnel_endpoint | string | no       | -             |
+| tunnel_name     | string | no       | -             |
 | common-options | string | no       |               |
 | schema         | config | no       |               |
 
@@ -111,6 +112,22 @@ Example values:
 - `http://maxcompute:8080`
 
 Default: Not set (auto-inferred from region)
+
+### tunnel_name [String]
+
+`tunnel_name` Specifies the Tunnel Quota name for exclusive resource groups.
+
+Tunnel Quota allows you to use dedicated computing resources for MaxCompute Tunnel data transfer, providing better performance and resource isolation.
+
+**Important**: Tunnel Quota only works with **VPC (Virtual Private Cloud) endpoints**. It is not supported for public network access. You must configure both `endpoint` and `tunnel_endpoint` to use VPC endpoints when using `tunnel_name`.
+
+If not specified, the default Tunnel quota will be used.
+
+Example values:
+
+- `your_tunnel_quota_name`
+
+Default: Not set (use default quota)
 
 ### common options
 
