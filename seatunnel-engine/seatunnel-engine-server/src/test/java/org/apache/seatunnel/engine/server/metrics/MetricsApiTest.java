@@ -71,9 +71,17 @@ public class MetricsApiTest {
         // before its backing service was available. Poll until the endpoint answers, so a slow
         // start costs a few extra seconds instead of failing the whole unit-test job, while an
         // endpoint that never recovers still fails the test.
+        //
+        // pollDelay is set explicitly to zero: Awaitility otherwise defaults a fixed poll delay to
+        // the poll interval, which would silently push the first request out by a second.
+        // ignoreExceptions covers a transient connection failure from the HTTP call itself, not
+        // just an assertion failure on its response, so a one-off socket error is retried under
+        // the same bound instead of aborting the poll on the first occurrence.
         Awaitility.await()
-                .atMost(READY_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                .pollDelay(0, TimeUnit.SECONDS)
                 .pollInterval(1, TimeUnit.SECONDS)
+                .atMost(READY_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                .ignoreExceptions()
                 .untilAsserted(MetricsApiTest::assertMetricsExposed);
     }
 
