@@ -445,6 +445,99 @@ public class CoordinatorServiceTest {
     }
 
     @Test
+    void testPendingJobSchedulerIgnoresJobReservedByPreviousScheduler() throws Exception {
+        SeaTunnelServer server = Mockito.mock(SeaTunnelServer.class);
+        CoordinatorService coordinatorService = newMockCoordinatorService(server);
+        CountDownLatch firstScheduleStarted = new CountDownLatch(1);
+        CountDownLatch allowFirstScheduleToFinish = new CountDownLatch(1);
+        try {
+            CountDownLatch runLatch = new CountDownLatch(1);
+            JobMaster jobMaster = enqueueMockPendingJob(coordinatorService, 70001L, runLatch);
+            AtomicBoolean firstSchedule = new AtomicBoolean(true);
+            Mockito.when(jobMaster.preApplyResources())
+                    .thenAnswer(
+                            invocation -> {
+                                if (firstSchedule.compareAndSet(true, false)) {
+                                    firstScheduleStarted.countDown();
+                                    allowFirstScheduleToFinish.await();
+                                }
+                                return true;
+                            });
+
+            ReflectionUtils.setField(coordinatorService, "isActive", true);
+            invokePendingJobScheduler(coordinatorService);
+            Assertions.assertTrue(firstScheduleStarted.await(5, TimeUnit.SECONDS));
+
+            ReflectionUtils.setField(coordinatorService, "isActive", false);
+            ReflectionUtils.setField(coordinatorService, "isActive", true);
+            invokePendingJobScheduler(coordinatorService);
+
+            await().during(500, TimeUnit.MILLISECONDS)
+                    .atMost(1, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> Mockito.verify(jobMaster, Mockito.times(1)).preApplyResources());
+
+            allowFirstScheduleToFinish.countDown();
+            await().atMost(5, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertFalse(
+                                            coordinatorService
+                                                    .getPendingJobQueue()
+                                                    .contains(70001L)));
+            Mockito.verify(jobMaster, Mockito.atMostOnce()).run();
+        } finally {
+            allowFirstScheduleToFinish.countDown();
+            shutdownCoordinatorIfRunning(coordinatorService);
+        }
+    }
+
+    @Test
+    void testPendingJobSchedulerCanAdvanceNextJobWhenPreviousResourceCheckBlocks()
+            throws Exception {
+        SeaTunnelServer server = Mockito.mock(SeaTunnelServer.class);
+        CoordinatorService coordinatorService = newMockCoordinatorService(server);
+        CountDownLatch firstScheduleStarted = new CountDownLatch(1);
+        CountDownLatch allowFirstScheduleToFinish = new CountDownLatch(1);
+        try {
+            JobMaster blockedJobMaster =
+                    enqueueMockPendingJob(coordinatorService, 80001L, new CountDownLatch(1));
+            Mockito.when(blockedJobMaster.preApplyResources())
+                    .thenAnswer(
+                            invocation -> {
+                                firstScheduleStarted.countDown();
+                                while (!allowFirstScheduleToFinish.await(
+                                        100, TimeUnit.MILLISECONDS)) {
+                                    // Simulate a resource request that does not react immediately
+                                    // to master demotion or scheduler replacement.
+                                }
+                                return true;
+                            });
+
+            ReflectionUtils.setField(coordinatorService, "isActive", true);
+            invokePendingJobScheduler(coordinatorService);
+            Assertions.assertTrue(firstScheduleStarted.await(5, TimeUnit.SECONDS));
+
+            JobMaster secondJobMaster =
+                    enqueueMockPendingJob(coordinatorService, 80002L, new CountDownLatch(1));
+            invokePendingJobScheduler(coordinatorService);
+
+            await().atMost(5, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Mockito.verify(secondJobMaster, Mockito.times(1))
+                                        .preApplyResources();
+                                Assertions.assertFalse(
+                                        coordinatorService.getPendingJobQueue().contains(80002L));
+                            });
+            Mockito.verify(blockedJobMaster, Mockito.times(1)).preApplyResources();
+        } finally {
+            allowFirstScheduleToFinish.countDown();
+            shutdownCoordinatorIfRunning(coordinatorService);
+        }
+    }
+
+    @Test
     void testPendingJobWithInsufficientResourceRespectsWaitStrategy() throws Exception {
         AtomicBoolean masterFlag = new AtomicBoolean(true);
         SeaTunnelServer server = Mockito.mock(SeaTunnelServer.class);
@@ -548,6 +641,12 @@ public class CoordinatorServiceTest {
                 .ifPresent(ScheduledExecutorService::shutdownNow);
     }
 
+    private void invokePendingJobScheduler(CoordinatorService coordinatorService) throws Exception {
+        Method method = CoordinatorService.class.getDeclaredMethod("startPendingJobScheduleThread");
+        method.setAccessible(true);
+        method.invoke(coordinatorService);
+    }
+
     private JobMaster enqueueMockPendingJob(
             CoordinatorService coordinatorService, long jobId, CountDownLatch runLatch) {
         return enqueueMockPendingJob(coordinatorService, jobId, runLatch, true);
@@ -592,6 +691,12 @@ public class CoordinatorServiceTest {
                         () ->
                                 new AssertionError(
                                         "Failed to get coordinator executorService by reflection"));
+    }
+
+    private void shutdownCoordinatorIfRunning(CoordinatorService coordinatorService) {
+        if (!getCoordinatorExecutor(coordinatorService).isShutdown()) {
+            coordinatorService.shutdown();
+        }
     }
 
     @Test

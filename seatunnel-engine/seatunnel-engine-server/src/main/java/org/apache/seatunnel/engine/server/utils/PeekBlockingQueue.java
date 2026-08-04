@@ -29,6 +29,7 @@ import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Function;
+import java.util.function.Predicate;
 
 /**
  * PeekBlockingQueue implements blocking when peeking. Queues like BlockingQueue only support
@@ -76,16 +77,42 @@ public class PeekBlockingQueue<E> {
         return element;
     }
 
-    public E peekBlocking() throws InterruptedException {
+    public void release() {
         lock.lock();
         try {
-            while (queue.peek() == null) {
-                notEmpty.await();
+            if (!queue.isEmpty()) {
+                notEmpty.signalAll();
             }
-            return queue.peek();
         } finally {
             lock.unlock();
         }
+    }
+
+    public E peekBlocking() throws InterruptedException {
+        return peekBlocking(element -> true);
+    }
+
+    public E peekBlocking(Predicate<E> predicate) throws InterruptedException {
+        lock.lock();
+        try {
+            E element = findFirst(predicate);
+            while (element == null) {
+                notEmpty.await();
+                element = findFirst(predicate);
+            }
+            return element;
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    private E findFirst(Predicate<E> predicate) {
+        for (E element : queue) {
+            if (predicate.test(element)) {
+                return element;
+            }
+        }
+        return null;
     }
 
     public Integer size() {
@@ -119,6 +146,19 @@ public class PeekBlockingQueue<E> {
                 return queue.remove(element);
             }
             return false;
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    public boolean remove(E element) {
+        lock.lock();
+        try {
+            boolean removed = queue.remove(element);
+            if (removed) {
+                jobIdMap.remove(idExtractor.apply(element), element);
+            }
+            return removed;
         } finally {
             lock.unlock();
         }

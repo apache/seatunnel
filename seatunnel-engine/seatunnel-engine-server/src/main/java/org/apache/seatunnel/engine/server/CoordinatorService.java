@@ -122,6 +122,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.api.options.EnvCommonOptions.CHECKPOINT_INTERVAL;
@@ -184,6 +185,11 @@ public class CoordinatorService {
 
     private final PeekBlockingQueue<PendingJobInfo> pendingJobQueue =
             new PeekBlockingQueue<>(PendingJobInfo::getJobId);
+
+    private final ReentrantLock pendingJobScheduleLock = new ReentrantLock(true);
+    private final AtomicLong pendingJobScheduleEpoch = new AtomicLong();
+    private final Set<JobMaster> schedulingJobMasters = ConcurrentHashMap.newKeySet();
+    private final Set<Long> schedulingPendingJobIds = ConcurrentHashMap.newKeySet();
 
     /**
      * IMap key is {@link PipelineLocation}
@@ -286,26 +292,59 @@ public class CoordinatorService {
      */
     private void startPendingJobScheduleThread() {
         logger.info("Start pending job schedule thread");
+        long scheduleEpoch = pendingJobScheduleEpoch.get();
         Runnable pendingJobScheduleTask =
                 () -> {
                     Thread.currentThread().setName("pending-job-schedule-runner");
-                    while (isActive) {
+                    while (isPendingJobSchedulerCurrent(scheduleEpoch)) {
                         try {
-                            pendingJobSchedule();
-                        } catch (InterruptedException interrupted) {
-                            throw new RuntimeException(interrupted);
+                            pendingJobSchedule(scheduleEpoch);
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                            return;
                         } catch (Throwable e) {
+                            if (!isPendingJobSchedulerCurrent(scheduleEpoch)) {
+                                return;
+                            }
                             logger.severe("Error in pending job schedule thread", e);
                             try {
                                 Thread.sleep(3000L);
                             } catch (InterruptedException ex) {
                                 logger.severe("Pending job schedule thread interrupted", ex);
                                 Thread.currentThread().interrupt();
+                                return;
                             }
                         }
                     }
                 };
         executorService.submit(pendingJobScheduleTask);
+    }
+
+    private boolean isPendingJobSchedulerCurrent(long scheduleEpoch) {
+        return isActive && pendingJobScheduleEpoch.get() == scheduleEpoch;
+    }
+
+    private PendingJobInfo reservePendingJobInfo() throws InterruptedException {
+        pendingJobScheduleLock.lockInterruptibly();
+        try {
+            PendingJobInfo pendingJobInfo =
+                    pendingJobQueue.peekBlocking(
+                            jobInfo -> !schedulingPendingJobIds.contains(jobInfo.getJobId()));
+            if (Objects.isNull(pendingJobInfo)) {
+                return null;
+            }
+            schedulingPendingJobIds.add(pendingJobInfo.getJobId());
+            return pendingJobInfo;
+        } finally {
+            pendingJobScheduleLock.unlock();
+        }
+    }
+
+    private void releasePendingJobInfo(PendingJobInfo pendingJobInfo) {
+        if (Objects.nonNull(pendingJobInfo)
+                && schedulingPendingJobIds.remove(pendingJobInfo.getJobId())) {
+            pendingJobQueue.release();
+        }
     }
 
     /**
@@ -319,8 +358,8 @@ public class CoordinatorService {
      *
      * @throws InterruptedException if queue waiting or retry sleep is interrupted
      */
-    private void pendingJobSchedule() throws InterruptedException {
-        PendingJobInfo pendingJobInfo = pendingJobQueue.peekBlocking();
+    private void pendingJobSchedule(long scheduleEpoch) throws Throwable {
+        PendingJobInfo pendingJobInfo = reservePendingJobInfo();
         if (Objects.isNull(pendingJobInfo)) {
             // This situation almost never happens because pendingJobSchedule is single-threaded
             logger.warning("The peek job info is null");
@@ -337,71 +376,83 @@ public class CoordinatorService {
                 String.format(
                         "Start calculating whether pending task resources are enough: %s", jobId));
 
-        boolean preApplyResources = jobMaster.preApplyResources();
-        if (!preApplyResources) {
-            try {
-                PendingJobDiagnostic diagnostic =
-                        PendingDiagnosticsCollector.collectJobDiagnostic(
-                                pendingJobInfo, Collections.emptyMap(), getResourceManager());
-                pendingJobInfo.recordSnapshot(diagnostic);
-            } catch (Exception e) {
-                logger.warning(
-                        String.format(
-                                "Collect pending diagnostic for job %s failed: %s",
-                                jobId, ExceptionUtils.getMessage(e)));
-            }
-            logger.info(
-                    String.format(
-                            "Current strategy is %s, and resources is not enough, skipping this schedule, JobID: %s",
-                            scheduleStrategy, jobId));
-            if (isWaitStrategy) {
-                try {
-                    Thread.sleep(3000);
-                } catch (InterruptedException e) {
-                    logger.severe(ExceptionUtils.getMessage(e));
-                }
-                return;
-            } else {
-                completeFailJob(jobMaster);
-                queueRemove(jobMaster);
-                return;
-            }
+        boolean preApplyResources;
+        schedulingJobMasters.add(jobMaster);
+        try {
+            preApplyResources = jobMaster.preApplyResources();
+        } catch (Throwable e) {
+            releasePendingJobInfo(pendingJobInfo);
+            throw e;
+        } finally {
+            schedulingJobMasters.remove(jobMaster);
         }
-        logger.info(String.format("Resources enough, start running: %s", jobId));
-        // When deleting jobmaster from pendingJobQueue, make sure that there is a corresponding
-        // jobMaster in the runningJobMasterMap
-        runningJobMasterMap.put(jobId, jobMaster);
-        final PendingJobInfo finalPendingJobInfo = pendingJobQueue.take();
-        final JobMaster finalJobMaster = finalPendingJobInfo.getJobMaster();
-        PendingSourceState pendingSourceState = finalPendingJobInfo.getPendingSourceState();
-        MDCExecutorService mdcExecutorService = MDCTracer.tracing(jobId, executorService);
-        mdcExecutorService.submit(
-                () -> {
+        try {
+            if (!isPendingJobSchedulerCurrent(scheduleEpoch)) {
+                jobMaster.interrupt();
+                return;
+            }
+            if (!preApplyResources) {
+                try {
+                    PendingJobDiagnostic diagnostic =
+                            PendingDiagnosticsCollector.collectJobDiagnostic(
+                                    pendingJobInfo, Collections.emptyMap(), getResourceManager());
+                    pendingJobInfo.recordSnapshot(diagnostic);
+                } catch (Exception e) {
+                    logger.warning(
+                            String.format(
+                                    "Collect pending diagnostic for job %s failed: %s",
+                                    jobId, ExceptionUtils.getMessage(e)));
+                }
+                logger.info(
+                        String.format(
+                                "Current strategy is %s, and resources is not enough, skipping this schedule, JobID: %s",
+                                scheduleStrategy, jobId));
+                if (isWaitStrategy) {
                     try {
-                        String jobFullName = finalJobMaster.getPhysicalPlan().getJobFullName();
-                        JobStatus jobStatus = (JobStatus) runningJobStateIMap.get(jobId);
-                        if (pendingSourceState == PendingSourceState.RESTORE
-                                && !jobStatus.isEndState()) {
-                            finalJobMaster
-                                    .getPhysicalPlan()
-                                    .getPipelineList()
-                                    .forEach(SubPlan::restorePipelineState);
-                        }
-                        logger.info(
-                                String.format(
-                                        "The %s %s is in %s state, restore pipeline and take over this job running",
-                                        pendingSourceState, jobFullName, jobStatus));
-                        finalJobMaster.run();
-                    } finally {
-                        if (jobMasterCompletedSuccessfully(finalJobMaster, pendingSourceState)) {
-                            runningJobMasterMap.remove(jobId);
-                        }
+                        Thread.sleep(3000);
+                    } catch (InterruptedException e) {
+                        logger.severe(ExceptionUtils.getMessage(e));
                     }
-                });
-    }
-
-    private void queueRemove(JobMaster jobMaster) {
-        pendingJobQueue.removeById(jobMaster.getJobId());
+                    return;
+                } else {
+                    completeFailJob(jobMaster);
+                    pendingJobQueue.remove(pendingJobInfo);
+                    return;
+                }
+            }
+            logger.info(String.format("Resources enough, start running: %s", jobId));
+            // When deleting jobmaster from pendingJobQueue, make sure that there is a corresponding
+            // jobMaster in the runningJobMasterMap
+            runningJobMasterMap.put(jobId, jobMaster);
+            pendingJobQueue.remove(pendingJobInfo);
+            PendingSourceState pendingSourceState = pendingJobInfo.getPendingSourceState();
+            MDCExecutorService mdcExecutorService = MDCTracer.tracing(jobId, executorService);
+            mdcExecutorService.submit(
+                    () -> {
+                        try {
+                            String jobFullName = jobMaster.getPhysicalPlan().getJobFullName();
+                            JobStatus jobStatus = (JobStatus) runningJobStateIMap.get(jobId);
+                            if (pendingSourceState == PendingSourceState.RESTORE
+                                    && !jobStatus.isEndState()) {
+                                jobMaster
+                                        .getPhysicalPlan()
+                                        .getPipelineList()
+                                        .forEach(SubPlan::restorePipelineState);
+                            }
+                            logger.info(
+                                    String.format(
+                                            "The %s %s is in %s state, restore pipeline and take over this job running",
+                                            pendingSourceState, jobFullName, jobStatus));
+                            jobMaster.run();
+                        } finally {
+                            if (jobMasterCompletedSuccessfully(jobMaster, pendingSourceState)) {
+                                runningJobMasterMap.remove(jobId);
+                            }
+                        }
+                    });
+        } finally {
+            releasePendingJobInfo(pendingJobInfo);
+        }
     }
 
     /**
@@ -1139,6 +1190,7 @@ public class CoordinatorService {
                     this.executorService = createCoordinatorExecutor();
                 }
                 initCoordinatorService();
+                pendingJobScheduleEpoch.incrementAndGet();
                 isActive = true;
                 startPendingJobScheduleThread();
                 seaTunnelServer.startRealtimeMetricsService(this);
@@ -1174,6 +1226,11 @@ public class CoordinatorService {
         if (!coordinatorServiceCleared.compareAndSet(false, true)) {
             return;
         }
+        pendingJobScheduleEpoch.incrementAndGet();
+        schedulingJobMasters.forEach(JobMaster::interrupt);
+        schedulingJobMasters.clear();
+        schedulingPendingJobIds.clear();
+        pendingJobQueue.release();
         // interrupt all JobMaster
         runningJobMasterMap.values().forEach(JobMaster::interrupt);
         if (isWaitStrategy) {
