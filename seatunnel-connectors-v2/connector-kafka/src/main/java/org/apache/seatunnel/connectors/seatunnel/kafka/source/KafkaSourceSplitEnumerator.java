@@ -673,7 +673,7 @@ public class KafkaSourceSplitEnumerator
                         : resolveManagedStartOffsets(partitions, topicMapping, latestOffsets);
         Map<TopicPartition, Long> timestampEndOffsets =
                 resolveManagedTimestampEndOffsets(partitions, topicMapping);
-        List<KafkaSourceSplit> discovered = new ArrayList<>(partitions.size());
+        List<KafkaSourceSplit> discoveredSplits = new ArrayList<>(partitions.size());
         for (TopicPartition partition : partitions) {
             TablePath tablePath = topicMapping.get(partition.topic());
             KafkaSourceSplit split = new KafkaSourceSplit(tablePath, partition);
@@ -687,10 +687,10 @@ public class KafkaSourceSplitEnumerator
                             : timestampEndOffsets.getOrDefault(
                                     partition, latestOffsets.getOrDefault(partition, -1L)));
             if (shouldIncludeManagedSplit(resolvedStartOffset)) {
-                discovered.add(split);
+                discoveredSplits.add(split);
             }
         }
-        return new ManagedDiscoveryResult(topicMapping, discovered);
+        return new ManagedDiscoveryResult(topicMapping, discoveredSplits);
     }
 
     private boolean shouldIncludeManagedSplit(Long resolvedStartOffset) {
