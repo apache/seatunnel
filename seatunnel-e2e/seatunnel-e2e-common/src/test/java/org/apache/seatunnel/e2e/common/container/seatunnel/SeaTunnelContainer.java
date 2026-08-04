@@ -327,7 +327,11 @@ public class SeaTunnelContainer extends AbstractTestContainer implements Reusabl
     }
 
     private void assertNoRunningJobs() throws IOException {
-        HttpGet get = new HttpGet("http://localhost:5801/hazelcast/rest/maps/running-jobs");
+        HttpGet get =
+                new HttpGet(
+                        String.format(
+                                "http://%s:%d/hazelcast/rest/maps/running-jobs",
+                                server.getHost(), server.getMappedPort(5801)));
         try (CloseableHttpClient client = HttpClients.createDefault();
                 CloseableHttpResponse response = client.execute(get)) {
             String runningJobs = EntityUtils.toString(response.getEntity());
@@ -581,8 +585,8 @@ public class SeaTunnelContainer extends AbstractTestContainer implements Reusabl
         HttpGet get =
                 new HttpGet(
                         String.format(
-                                "http://localhost:%s/hazelcast/rest/maps/running-threads",
-                                server.getMappedPort(5801)));
+                                "http://%s:%d/hazelcast/rest/maps/running-threads",
+                                server.getHost(), server.getMappedPort(5801)));
         try (CloseableHttpClient client = HttpClients.createDefault()) {
             CloseableHttpResponse response = client.execute(get);
             String threads = EntityUtils.toString(response.getEntity());
