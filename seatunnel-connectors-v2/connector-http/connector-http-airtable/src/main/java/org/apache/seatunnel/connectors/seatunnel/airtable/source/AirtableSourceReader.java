@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.airtable.source;
 
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
+
 import org.apache.seatunnel.api.serialization.DeserializationSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
@@ -27,6 +29,8 @@ import org.apache.seatunnel.connectors.seatunnel.http.config.PageInfo;
 import org.apache.seatunnel.connectors.seatunnel.http.source.HttpSourceReader;
 
 import lombok.extern.slf4j.Slf4j;
+
+import java.util.concurrent.ThreadLocalRandom;
 
 @Slf4j
 public class AirtableSourceReader extends HttpSourceReader {
@@ -109,12 +113,22 @@ public class AirtableSourceReader extends HttpSourceReader {
         lastRequestTimeMillis = System.currentTimeMillis();
     }
 
-    private long calculateBackoffMillis(int retryCount) {
+    @VisibleForTesting
+    long calculateBackoffMillis(int retryCount) {
         if (rateLimitBackoffMs <= 0) {
             return 0L;
         }
         long exponential = 1L << Math.min(20, Math.max(0, retryCount - 1));
-        long waitMillis = rateLimitBackoffMs * exponential;
-        return Math.min(waitMillis, MAX_BACKOFF_MILLIS);
+        long waitMillis = Math.min(rateLimitBackoffMs * exponential, MAX_BACKOFF_MILLIS);
+
+        // Equal jitter: retain half the computed delay as a floor and randomise
+        // the remainder. Without this the delay is a pure function of the retry
+        // count, so every reader and writer that hits the rate limit at the same
+        // moment retries at the same instants and the burst that caused the 429
+        // reforms on each attempt. Half is kept rather than using full jitter so
+        // that a retry is never issued immediately against an API that has just
+        // asked us to slow down.
+        long half = waitMillis / 2;
+        return half + ThreadLocalRandom.current().nextLong(waitMillis - half + 1);
     }
 }

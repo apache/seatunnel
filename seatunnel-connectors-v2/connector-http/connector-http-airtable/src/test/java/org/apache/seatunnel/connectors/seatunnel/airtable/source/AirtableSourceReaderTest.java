@@ -40,6 +40,9 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.util.HashSet;
+import java.util.Set;
+
 public class AirtableSourceReaderTest {
 
     @Mock private SingleSplitReaderContext context;
@@ -98,5 +101,64 @@ public class AirtableSourceReaderTest {
         // 1 initial + 1 retry = 2 calls
         verify(httpClient, times(2))
                 .execute(anyString(), anyString(), any(), any(), any(), anyBoolean());
+    }
+
+    @Test
+    public void testBackoffIsZeroWhenDisabled() {
+        AirtableSourceReader reader =
+                new AirtableSourceReader(parameter, context, schema, null, null, null, 0, 0, 3);
+
+        Assertions.assertEquals(0L, reader.calculateBackoffMillis(1));
+        Assertions.assertEquals(0L, reader.calculateBackoffMillis(5));
+    }
+
+    @Test
+    public void testBackoffStaysWithinEqualJitterBounds() {
+        int base = 1000;
+        AirtableSourceReader reader =
+                new AirtableSourceReader(parameter, context, schema, null, null, null, 0, base, 5);
+
+        for (int retry = 1; retry <= 5; retry++) {
+            long expected = (long) base * (1L << (retry - 1));
+            long floor = expected / 2;
+            for (int i = 0; i < 200; i++) {
+                long actual = reader.calculateBackoffMillis(retry);
+                Assertions.assertTrue(
+                        actual >= floor && actual <= expected,
+                        "retry " + retry + " produced " + actual + ", expected [" + floor + ", "
+                                + expected + "]");
+            }
+        }
+    }
+
+    @Test
+    public void testBackoffIsNotDeterministic() {
+        AirtableSourceReader reader =
+                new AirtableSourceReader(parameter, context, schema, null, null, null, 0, 1000, 3);
+
+        Set<Long> observed = new HashSet<>();
+        for (int i = 0; i < 200; i++) {
+            observed.add(reader.calculateBackoffMillis(3));
+        }
+
+        // Without jitter every call returns the same value. The range here is
+        // 2000ms wide, so seeing a single value across 200 draws is not chance.
+        Assertions.assertTrue(
+                observed.size() > 1,
+                "backoff must vary between calls so that concurrent clients do not "
+                        + "retry in lockstep, but observed only " + observed);
+    }
+
+    @Test
+    public void testBackoffRespectsMaximum() {
+        int base = 60000;
+        AirtableSourceReader reader =
+                new AirtableSourceReader(parameter, context, schema, null, null, null, 0, base, 30);
+
+        for (int i = 0; i < 100; i++) {
+            Assertions.assertTrue(
+                    reader.calculateBackoffMillis(20) <= 300000L,
+                    "jittered backoff must never exceed MAX_BACKOFF_MILLIS");
+        }
     }
 }
