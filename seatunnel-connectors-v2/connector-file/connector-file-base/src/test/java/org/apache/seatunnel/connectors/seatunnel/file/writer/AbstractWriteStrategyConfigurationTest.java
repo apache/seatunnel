@@ -32,6 +32,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -117,5 +118,74 @@ public class AbstractWriteStrategyConfigurationTest {
         Assertions.assertEquals(
                 "file:///tmp/seatunnel/other",
                 strategy.getConfiguration(other).get("fs.defaultFS"));
+    }
+
+    /**
+     * The point of the cache is that the resource parse happens once. The assertions above prove
+     * the returned Configuration is correct, which would hold just as well if nothing were cached
+     * at all - so count the expensive builds directly.
+     */
+    @Test
+    public void testTheExpensiveBuildHappensOncePerHadoopConf() {
+        CountingConf hadoopConf = new CountingConf(FS_DEFAULT_NAME_DEFAULT);
+        ParquetWriteStrategy strategy = strategy(hadoopConf);
+
+        // Deliberately not asserting an absolute number here. Two independent builds happen during
+        // init - HadoopFileSystemProxy's constructor eagerly builds its own Configuration, and
+        // ParquetWriteStrategy#init calls getConfiguration - and that split is init's business, not
+        // this cache's. What this cache promises is that the count stops growing afterwards.
+        int afterInit = hadoopConf.toConfigurationCalls;
+        Assertions.assertTrue(afterInit >= 1, "init should have built at least one Configuration");
+
+        for (int i = 0; i < 5; i++) {
+            Assertions.assertNotNull(strategy.getConfiguration(hadoopConf));
+        }
+        Assertions.assertEquals(
+                afterInit,
+                hadoopConf.toConfigurationCalls,
+                "5 further calls must all be served from the cache");
+
+        // A foreign conf is built from itself and must not disturb the cached template.
+        CountingConf other = new CountingConf("file:///tmp/seatunnel/other");
+        strategy.getConfiguration(other);
+        Assertions.assertEquals(1, other.toConfigurationCalls);
+        Assertions.assertEquals(afterInit, hadoopConf.toConfigurationCalls);
+    }
+
+    /**
+     * A foreign HadoopConf must be configured entirely from itself, never from the strategy's own
+     * conf. This is easy to get wrong in a way that is hard to notice: the keys
+     * setExtraOptionsForConfiguration protects against an hdfs-site.xml overwrite are derived from
+     * getSchema(), and every filesystem subclass overrides that - so mixing the two confs would let
+     * that resource overwrite the properties the protection exists for.
+     */
+    @Test
+    public void testForeignHadoopConfGetsItsOwnExtraOptions() {
+        LocalFileSystemConf.LocalConf hadoopConf =
+                new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        hadoopConf.setExtraOptions(Collections.singletonMap("seatunnel.test.owner", "strategy"));
+        ParquetWriteStrategy strategy = strategy(hadoopConf);
+
+        LocalFileSystemConf.LocalConf other =
+                new LocalFileSystemConf.LocalConf("file:///tmp/seatunnel/other");
+        other.setExtraOptions(Collections.singletonMap("seatunnel.test.owner", "foreign"));
+
+        Configuration configuration = strategy.getConfiguration(other);
+        Assertions.assertEquals("foreign", configuration.get("seatunnel.test.owner"));
+    }
+
+    /** Counts how many times the expensive build path actually ran. */
+    private static class CountingConf extends LocalFileSystemConf.LocalConf {
+        private int toConfigurationCalls;
+
+        private CountingConf(String hdfsNameKey) {
+            super(hdfsNameKey);
+        }
+
+        @Override
+        public Configuration toConfiguration() {
+            toConfigurationCalls++;
+            return super.toConfiguration();
+        }
     }
 }

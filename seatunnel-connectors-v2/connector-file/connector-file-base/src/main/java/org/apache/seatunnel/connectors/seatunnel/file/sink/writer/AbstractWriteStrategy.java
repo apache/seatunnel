@@ -193,9 +193,21 @@ public abstract class AbstractWriteStrategy<T> implements WriteStrategy<T> {
         return new Configuration(parsedConfiguration);
     }
 
+    /**
+     * Does the full, expensive work — the resource parse plus the extra options — for one
+     * HadoopConf. This is the thing {@link #getConfiguration(HadoopConf)} caches, so it must stay
+     * free of any per-output-file state.
+     *
+     * <p>Both steps read the same {@code hadoopConf}. That matters because {@link
+     * HadoopConf#setExtraOptionsForConfiguration} does not only copy {@code extraOptions} in: it
+     * also decides which keys an {@code hdfs-site.xml} resource may not overwrite, and those keys
+     * are derived from the conf's own {@code getSchema()}, which every filesystem subclass
+     * overrides. Taking them from a different conf would let that resource overwrite the very
+     * properties {@code unsetUnwantedOverwritingProps} exists to protect.
+     */
     private Configuration buildConfiguration(HadoopConf hadoopConf) {
         Configuration configuration = hadoopConf.toConfiguration();
-        this.hadoopConf.setExtraOptionsForConfiguration(configuration);
+        hadoopConf.setExtraOptionsForConfiguration(configuration);
         return configuration;
     }
 
