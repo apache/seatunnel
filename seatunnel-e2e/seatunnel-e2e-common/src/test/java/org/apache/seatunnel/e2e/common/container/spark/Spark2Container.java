@@ -46,7 +46,7 @@ public class Spark2Container extends AbstractTestSparkContainer {
 
     @Override
     protected String getDockerImage() {
-        return "tyrantlucifer/spark:2.4.6";
+        return "apache/seatunnel:e2e-spark-2.4.6";
     }
 
     @Override
