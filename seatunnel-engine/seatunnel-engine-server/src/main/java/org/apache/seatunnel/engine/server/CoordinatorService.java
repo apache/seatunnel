@@ -186,9 +186,23 @@ public class CoordinatorService {
     private final PeekBlockingQueue<PendingJobInfo> pendingJobQueue =
             new PeekBlockingQueue<>(PendingJobInfo::getJobId);
 
+    // Fair lock that serializes "peek the head job and reserve it for evaluation" across all
+    // scheduler generations. Holding this lock around peek+reserve guarantees that at most one
+    // thread holds a given job id in schedulingPendingJobIds at any time, so two overlapping
+    // scheduler threads (e.g. a stale one still inside preApplyResources and a fresh one started
+    // after a master flap) cannot independently reserve the same job.
     private final ReentrantLock pendingJobScheduleLock = new ReentrantLock(true);
+    // Monotonically increasing generation counter for scheduler runs. Each scheduler thread
+    // snapshots this value at submission time and exits when it is bumped. Bumped inside
+    // checkNewActiveMaster and clearCoordinatorService to invalidate any in-flight scheduler.
     private final AtomicLong pendingJobScheduleEpoch = new AtomicLong();
+    // JobMasters currently inside jobMaster.preApplyResources(). Interrupted en masse by
+    // clearCoordinatorService so they release any pending RPC and stop touching shared state.
     private final Set<JobMaster> schedulingJobMasters = ConcurrentHashMap.newKeySet();
+    // Job ids currently reserved by a scheduler thread for evaluation under
+    // pendingJobScheduleLock. reservePendingJobInfo adds; releasePendingJobInfo removes. Cleared
+    // by clearCoordinatorService so a freshly-restored scheduler can re-reserve jobs after a
+    // master flap.
     private final Set<Long> schedulingPendingJobIds = ConcurrentHashMap.newKeySet();
 
     /**
@@ -324,6 +338,12 @@ public class CoordinatorService {
         return isActive && pendingJobScheduleEpoch.get() == scheduleEpoch;
     }
 
+    /**
+     * Reserves the next pending job for evaluation under pendingJobScheduleLock. The returned
+     * PendingJobInfo has its job id added to schedulingPendingJobIds, blocking any other scheduler
+     * thread from reserving the same job until {@link #releasePendingJobInfo} is called. Returns
+     * null only if the queue is empty.
+     */
     private PendingJobInfo reservePendingJobInfo() throws InterruptedException {
         pendingJobScheduleLock.lockInterruptibly();
         try {
@@ -340,6 +360,11 @@ public class CoordinatorService {
         }
     }
 
+    /**
+     * Releases a previously reserved pending job and wakes any other scheduler thread that may be
+     * blocked inside reservePendingJobInfo waiting for a non-empty queue. Idempotent: safe to call
+     * when the job was never reserved.
+     */
     private void releasePendingJobInfo(PendingJobInfo pendingJobInfo) {
         if (Objects.nonNull(pendingJobInfo)
                 && schedulingPendingJobIds.remove(pendingJobInfo.getJobId())) {
@@ -356,7 +381,16 @@ public class CoordinatorService {
      * {@link JobMaster#run()}. Restored jobs rehydrate pipeline execution state before the new
      * master takes over execution.
      *
+     * <p>If {@code scheduleEpoch} no longer matches {@link #pendingJobScheduleEpoch} when this
+     * method finishes evaluating resources (because the node stepped down or master ownership
+     * transferred), the job's {@link JobMaster} is interrupted, its entry is removed from the
+     * pending queue, and the method returns without invoking {@code run()}. A new scheduler thread
+     * started for the current epoch will pick up (or rebuild) the job from {@code
+     * runningJobInfoIMap} instead of re-running the poisoned instance.
+     *
      * @throws InterruptedException if queue waiting or retry sleep is interrupted
+     * @throws Throwable any unchecked failure from {@code preApplyResources}; the reservation is
+     *     released before propagation so a future scheduler iteration can retry.
      */
     private void pendingJobSchedule(long scheduleEpoch) throws Throwable {
         PendingJobInfo pendingJobInfo = reservePendingJobInfo();
@@ -389,6 +423,11 @@ public class CoordinatorService {
         try {
             if (!isPendingJobSchedulerCurrent(scheduleEpoch)) {
                 jobMaster.interrupt();
+                // Drop the poisoned PendingJobInfo from the queue: its JobMaster has been
+                // interrupted (which permanently completes jobMasterCompleteFuture exceptionally),
+                // so the next-epoch scheduler must not re-dispatch it. Restore on the next
+                // activation will rebuild a fresh PendingJobInfo from runningJobInfoIMap.
+                pendingJobQueue.remove(pendingJobInfo);
                 return;
             }
             if (!preApplyResources) {
@@ -1233,17 +1272,25 @@ public class CoordinatorService {
         pendingJobQueue.release();
         // interrupt all JobMaster
         runningJobMasterMap.values().forEach(JobMaster::interrupt);
-        if (isWaitStrategy) {
-            pendingJobQueue
-                    .getJobIdMap()
-                    .values()
-                    .forEach(
-                            pendingJobInfo -> {
-                                JobMaster jobMaster = pendingJobInfo.getJobMaster();
-                                jobMaster.interrupt();
-                            });
-            pendingJobQueue.clear();
-        }
+        // Interrupt and discard every JobMaster currently sitting in pendingJobQueue. This is
+        // intentionally unconditional (not gated on isWaitStrategy): every entry in
+        // pendingJobQueue corresponds to a JobInfo already persisted in runningJobInfoIMap, so
+        // clearCoordinatorService can safely drop the local queue copy. Restore on the next
+        // activation will rebuild PendingJobInfo entries from runningJobInfoIMap via
+        // restoreAllRunningJobFromMasterNodeSwitch, producing a single fresh JobMaster per job
+        // id. Leaving the stale PendingJobInfo in the queue (the pre-fix behavior for
+        // REJECT strategy) caused an interrupted JobMaster's permanently-poisoned
+        // jobMasterCompleteFuture to be picked by the next-epoch scheduler and led to duplicate
+        // physicalPlan.startJob() invocations for the same job id.
+        pendingJobQueue
+                .getJobIdMap()
+                .values()
+                .forEach(
+                        pendingJobInfo -> {
+                            JobMaster jobMaster = pendingJobInfo.getJobMaster();
+                            jobMaster.interrupt();
+                        });
+        pendingJobQueue.clear();
         executorService.shutdownNow();
         runningJobMasterMap.clear();
 

@@ -538,6 +538,56 @@ public class CoordinatorServiceTest {
     }
 
     @Test
+    void testClearCoordinatorServiceDropsPendingJobsUnderRejectStrategy() throws Exception {
+        // Regression test for the duplicate-dispatch gap on the default REJECT schedule strategy:
+        // when the coordinator is cleared while a scheduler is blocked inside preApplyResources,
+        // the interrupted PendingJobInfo must NOT survive in pendingJobQueue, otherwise a
+        // restored scheduler (post same-node master flap-back) could re-dispatch the poisoned
+        // JobMaster after a fresh PendingJobInfo under the same job id has been enqueued.
+        SeaTunnelServer server = Mockito.mock(SeaTunnelServer.class);
+        EngineConfig engineConfig = new EngineConfig();
+        engineConfig.setScheduleStrategy(ScheduleStrategy.REJECT);
+        CoordinatorService coordinatorService = newMockCoordinatorService(server, engineConfig);
+        CountDownLatch allowFirstScheduleToFinish = new CountDownLatch(1);
+        try {
+            JobMaster blockedJobMaster =
+                    enqueueMockPendingJob(coordinatorService, 90001L, new CountDownLatch(1));
+            Mockito.when(blockedJobMaster.preApplyResources())
+                    .thenAnswer(
+                            invocation -> {
+                                allowFirstScheduleToFinish.await();
+                                return true;
+                            });
+
+            ReflectionUtils.setField(coordinatorService, "isActive", true);
+            invokePendingJobScheduler(coordinatorService);
+
+            // Wait until the scheduler thread is parked inside preApplyResources().
+            await().atMost(5, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Mockito.verify(blockedJobMaster, Mockito.atLeastOnce())
+                                            .preApplyResources());
+
+            // Simulate a master step-down. The blocked JobMaster is interrupted; the
+            // PendingJobInfo must be dropped from the queue so a later restore cannot
+            // re-dispatch the poisoned instance.
+            invokeClearCoordinatorService(coordinatorService);
+
+            await().atMost(5, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertFalse(
+                                        coordinatorService.getPendingJobQueue().contains(90001L));
+                                Mockito.verify(blockedJobMaster, Mockito.atLeastOnce()).interrupt();
+                            });
+        } finally {
+            allowFirstScheduleToFinish.countDown();
+            shutdownCoordinatorIfRunning(coordinatorService);
+        }
+    }
+
+    @Test
     void testPendingJobWithInsufficientResourceRespectsWaitStrategy() throws Exception {
         AtomicBoolean masterFlag = new AtomicBoolean(true);
         SeaTunnelServer server = Mockito.mock(SeaTunnelServer.class);
@@ -1328,6 +1378,13 @@ public class CoordinatorServiceTest {
     private void invokeCheckNewActiveMaster(CoordinatorService coordinatorService)
             throws Exception {
         Method method = CoordinatorService.class.getDeclaredMethod("checkNewActiveMaster");
+        method.setAccessible(true);
+        method.invoke(coordinatorService);
+    }
+
+    private void invokeClearCoordinatorService(CoordinatorService coordinatorService)
+            throws Exception {
+        Method method = CoordinatorService.class.getDeclaredMethod("clearCoordinatorService");
         method.setAccessible(true);
         method.invoke(coordinatorService);
     }

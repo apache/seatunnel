@@ -77,6 +77,13 @@ public class PeekBlockingQueue<E> {
         return element;
     }
 
+    /**
+     * Wakes up any thread currently blocked inside {@link #peekBlocking(Predicate)} waiting for the
+     * queue to become non-empty. No-op when the queue is empty; a thread waiting on an
+     * actually-empty queue still relies on the caller's {@code shutdownNow}/{@code interrupt} to
+     * unblock, so do not remove the {@code shutdownNow} call in {@code
+     * CoordinatorService.clearCoordinatorService} assuming this method is sufficient on its own.
+     */
     public void release() {
         lock.lock();
         try {
@@ -92,6 +99,12 @@ public class PeekBlockingQueue<E> {
         return peekBlocking(element -> true);
     }
 
+    /**
+     * Blocks until the queue contains an element satisfying {@code predicate} (in FIFO order) and
+     * returns it without removing. The caller is responsible for removing the element via {@link
+     * #remove(Object)} (or {@link #take()}) once the element is no longer needed so the next waiter
+     * can make progress on a different element.
+     */
     public E peekBlocking(Predicate<E> predicate) throws InterruptedException {
         lock.lock();
         try {
@@ -151,6 +164,12 @@ public class PeekBlockingQueue<E> {
         }
     }
 
+    /**
+     * Removes a specific element by identity from both the underlying queue and the id-to-element
+     * map. Uses {@link Map#remove(Object, Object)} on the id map so a newer entry that happens to
+     * share the same id (e.g. a freshly restored {@code PendingJobInfo} that has overwritten the id
+     * pointer) is not accidentally evicted alongside the intended removal.
+     */
     public boolean remove(E element) {
         lock.lock();
         try {
