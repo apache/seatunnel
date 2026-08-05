@@ -45,7 +45,13 @@ public final class JobCheckpointUtils {
      * @return {@code true} when checkpoints are enabled for this job
      */
     public static boolean isCheckpointEnabled(JobConfig jobConfig) {
-        if (jobConfig == null) {
+        // A JobConfig without a JobContext never occurs for a real submitted job — the engine
+        // always attaches one before physical plan generation runs. Minimal test fixtures built
+        // directly around a LogicalDag/JobConfig throughout the engine test suite do leave it
+        // unset, though, and this predicate now runs unconditionally during plan generation for
+        // every job. Treat an absent JobContext the same as an absent JobConfig: the job mode is
+        // unknown, so assume checkpoints are enabled rather than throwing.
+        if (jobConfig == null || jobConfig.getJobContext() == null) {
             return true;
         }
         return jobConfig.getJobContext().getJobMode() != JobMode.BATCH

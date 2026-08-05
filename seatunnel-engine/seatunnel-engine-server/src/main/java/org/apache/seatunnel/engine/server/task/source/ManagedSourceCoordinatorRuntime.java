@@ -168,8 +168,20 @@ public final class ManagedSourceCoordinatorRuntime<SplitT extends SourceSplit>
         return !assignmentTracker.isNearCapacity();
     }
 
+    /**
+     * Binds the connector enumerator constructed during restore.
+     *
+     * <p>Called exactly once, synchronously within {@code SourceSplitEnumeratorTask.restoreState},
+     * which always executes on a Hazelcast operation thread servicing {@code
+     * NotifyTaskRestoreOperation} — never on the task's own execution thread. Deliberately does not
+     * call {@link #checkOwner()}: {@code restoreState} completes {@code restoreComplete} only after
+     * this method returns, and {@link #runOneTurn()} is never invoked before {@code
+     * restoreComplete.isDone()} is true, so the {@code CompletableFuture} completion already
+     * establishes happens-before ordering with the first real owner-thread access. Asserting thread
+     * identity here would instead bind ownership to the transient restore-operation thread and
+     * reject every subsequent call from the task's actual execution thread.
+     */
     public void setEnumerator(SourceSplitEnumerator<SplitT, Serializable> enumerator) {
-        checkOwner();
         this.enumerator = enumerator;
     }
 
@@ -560,9 +572,17 @@ public final class ManagedSourceCoordinatorRuntime<SplitT extends SourceSplit>
                 "Managed Source custom events require a versioned event codec, which protocol version 1 does not expose");
     }
 
+    /**
+     * Restores coordinator runtime state from a checkpointed byte payload.
+     *
+     * <p>Called exactly once, synchronously within {@code SourceSplitEnumeratorTask.restoreState},
+     * under the same Hazelcast-operation-thread-before-{@code restoreComplete} sequencing described
+     * on {@link #setEnumerator}. Deliberately does not call {@link #checkOwner()} for the same
+     * reason: the caller's restore-operation thread is never the task's own execution thread, and
+     * asserting ownership here would poison it before the first legitimate owner-thread call.
+     */
     public ManagedCoordinatorCheckpointState restoreRuntimeState(byte[] serialized)
             throws IOException {
-        checkOwner();
         ManagedCoordinatorCheckpointState restored =
                 ManagedCoordinatorCheckpointStateSerializer.deserialize(serialized);
         validateRestoredSelection(

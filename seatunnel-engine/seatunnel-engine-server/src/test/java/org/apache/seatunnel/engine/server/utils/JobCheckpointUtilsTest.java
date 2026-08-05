@@ -41,6 +41,13 @@ class JobCheckpointUtilsTest {
     }
 
     @Test
+    void shouldTreatMissingJobContextAsCheckpointed() {
+        // Many engine test fixtures build a JobConfig directly for a LogicalDag without ever
+        // calling setJobContext(...); a real submitted job always has one. This must not throw.
+        Assertions.assertTrue(JobCheckpointUtils.isCheckpointEnabled(new JobConfig()));
+    }
+
+    @Test
     void shouldAlwaysCheckpointStreamingJobs() {
         Assertions.assertTrue(
                 JobCheckpointUtils.isCheckpointEnabled(jobConfig(JobMode.STREAMING, false)));

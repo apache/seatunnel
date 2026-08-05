@@ -87,6 +87,9 @@ class ReaderCommandMailboxTest {
         config.setReaderReservedControlCommands(1);
         config.setReaderReservedControlBytes(512L);
         config.setMaxCommandPayloadBytes(512);
+        // The reserved control band must cover coordinator async concurrency; this fixture models
+        // a single-slot reserved band, so pin concurrency to 1 instead of the default of 4.
+        config.setCoordinatorAsyncMaxConcurrency(1);
         config.validate();
         return config;
     }
