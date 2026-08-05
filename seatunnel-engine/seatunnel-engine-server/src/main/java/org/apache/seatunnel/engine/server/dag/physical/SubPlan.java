@@ -22,7 +22,6 @@ import org.apache.seatunnel.api.options.EnvCommonOptions;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.engine.common.Constant;
-import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.utils.ExceptionUtil;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
@@ -35,6 +34,7 @@ import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.master.JobMaster;
+import org.apache.seatunnel.engine.server.master.JobMaster.FinalMetricsCollectionException;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 
 import com.hazelcast.map.IMap;
@@ -331,7 +331,7 @@ public class SubPlan {
                             true,
                             exception ->
                                     ExceptionUtil.isOperationNeedRetryException(exception)
-                                            || exception instanceof SeaTunnelEngineException,
+                                            || exception instanceof FinalMetricsCollectionException,
                             Constant.OPERATION_RETRY_SLEEP));
         } catch (Exception e) {
             log.warn(
