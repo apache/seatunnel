@@ -89,13 +89,27 @@ public class LsnOffset extends Offset {
         }
         // A commit-only offset carries no in-commit position. It can represent the latest
         // startup boundary, a timestamp-derived boundary, a legacy coarse checkpoint or a
-        // snapshot watermark, all of which address a whole commit. Comparing its missing
-        // detail fields against a complete event position would order in-commit events after
-        // that boundary, so startup.mode=latest would replay records already committed before
-        // startup. Only compare change LSN and event serial number when both operands carry
-        // complete event positions.
-        if (!hasCompletePosition() || !that.hasCompletePosition()) {
+        // snapshot watermark, all of which address a whole commit (everything in that commit
+        // is treated as already processed before the boundary takes effect).
+        //
+        // Comparing a commit-only boundary against a same-commit complete event position must
+        // therefore order the complete event BEFORE the boundary, otherwise:
+        //   * the non-exactly-once path would skip same-commit rows (acceptable, but stricter
+        //     than needed),
+        //   * the exactly-once pure-binlog transition (`isAtOrAfter`) would flip a table into
+        //     "emit everything" mode on the very first record of the boundary commit and
+        //     replay rows already committed before startup. That is a data-correctness
+        //     regression on the normal streaming path for `startup.mode=latest`.
+        final boolean thisComplete = hasCompletePosition();
+        final boolean thatComplete = that.hasCompletePosition();
+        if (!thisComplete && !thatComplete) {
             return 0;
+        }
+        if (!thisComplete) {
+            return 1;
+        }
+        if (!thatComplete) {
+            return -1;
         }
         final int changeLsnComparison = getChangeLsn().compareTo(that.getChangeLsn());
         if (changeLsnComparison != 0) {

@@ -274,6 +274,11 @@ public class SqlServerSourceFetchTaskContext extends JdbcSourceFetchTaskContext 
                         : split.asIncrementalSplit().getStartupOffset();
 
         Map<String, Object> restoredOffset = new HashMap<>(offset.getOffset());
+        // Debezium's SqlServerOffsetContext.Loader expects `event_serial_no` to be a Number;
+        // SeaTunnel's checkpoint/offset map only stores String values, so the previously
+        // serialized String must be converted back to Long here. Without this coercion the
+        // loader silently rejects the offset and the original `#10571` resume-precision bug
+        // reappears on the restore path.
         String eventSerialNo = offset.getOffset().get(SourceInfo.EVENT_SERIAL_NO_KEY);
         if (eventSerialNo != null) {
             restoredOffset.put(SourceInfo.EVENT_SERIAL_NO_KEY, Long.valueOf(eventSerialNo));

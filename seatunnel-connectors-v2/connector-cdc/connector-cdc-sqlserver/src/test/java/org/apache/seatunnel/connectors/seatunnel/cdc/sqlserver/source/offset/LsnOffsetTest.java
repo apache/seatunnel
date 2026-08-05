@@ -73,15 +73,19 @@ class LsnOffsetTest {
     void testCommitOnlyBoundaryDoesNotReplayInCommitEvents() {
         // startup.mode=latest records the current max commit as a commit-only boundary; the
         // streaming query then re-reads that commit with an inclusive lower bound. Events of
-        // the boundary commit must not be ordered after the boundary, otherwise records that
-        // already existed before startup would be replayed.
+        // the boundary commit must be ordered BEFORE the boundary, otherwise records that
+        // already existed before startup would be replayed. This applies to both the
+        // non-exactly-once (`isAfter`) and the exactly-once (`isAtOrAfter` via
+        // IncrementalSourceStreamFetcher.hasEnterPureBinlogPhase) streaming paths.
         LsnOffset latestBoundary = LsnOffset.valueOf(COMMIT_LSN);
         LsnOffset inCommitEvent = completeOffset(COMMIT_LSN, CHANGE_LSN, 1L);
 
         Assertions.assertFalse(inCommitEvent.isAfter(latestBoundary));
-        Assertions.assertFalse(latestBoundary.isAfter(inCommitEvent));
-        Assertions.assertTrue(inCommitEvent.isAtOrAfter(latestBoundary));
+        Assertions.assertTrue(latestBoundary.isAfter(inCommitEvent));
+        Assertions.assertFalse(inCommitEvent.isAtOrAfter(latestBoundary));
         Assertions.assertTrue(inCommitEvent.isAtOrBefore(latestBoundary));
+        Assertions.assertTrue(latestBoundary.isAtOrAfter(inCommitEvent));
+        Assertions.assertFalse(latestBoundary.isAtOrBefore(inCommitEvent));
     }
 
     @Test
