@@ -440,6 +440,9 @@ Use `stop.mode = "specific"` to make the job a bounded read: it reads the binlog
 startup offset (or startup timestamp) and the configured stop offset, then terminates
 (`FINISHED`) instead of running forever.
 
+> **Note**: bounded-read termination is currently supported on the **Zeta** engine only.
+> Flink and Spark engines do not support bounded incremental-split termination yet.
+
 ```hocon
 source {
   MySQL-CDC {

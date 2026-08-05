@@ -436,6 +436,9 @@ source {
 使用 `stop.mode = "specific"` 可以将作业变为有界读取：作业读取启动偏移量（或启动时间戳）
 与配置的停止偏移量之间的 binlog，然后自行终止（`FINISHED`），而不是一直运行下去。
 
+> **注意**：有界读取的终止行为目前仅在 **Zeta** 引擎上支持。
+> Flink 和 Spark 引擎暂不支持有界增量分片的终止。
+
 ```hocon
 source {
   MySQL-CDC {
