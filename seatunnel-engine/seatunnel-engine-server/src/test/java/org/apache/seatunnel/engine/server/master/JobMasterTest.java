@@ -17,11 +17,13 @@
 
 package org.apache.seatunnel.engine.server.master;
 
+import org.apache.seatunnel.api.common.metrics.RawJobMetrics;
 import org.apache.seatunnel.api.options.EnvCommonOptions;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
+import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.job.JobResult;
 import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
@@ -41,6 +43,7 @@ import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.master.cleanup.PipelineCleanupRecord;
 import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
+import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.service.slot.SlotService;
 import org.apache.seatunnel.engine.server.task.CoordinatorTask;
@@ -53,18 +56,33 @@ import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 
+import com.hazelcast.cluster.Address;
+import com.hazelcast.cluster.Member;
+import com.hazelcast.core.HazelcastInstance;
+import com.hazelcast.flakeidgen.FlakeIdGenerator;
+import com.hazelcast.internal.cluster.impl.ClusterServiceImpl;
 import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.map.IMap;
+import com.hazelcast.spi.impl.NodeEngine;
 
+import java.lang.reflect.Field;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.function.BiConsumer;
 
 import static org.awaitility.Awaitility.await;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 /** JobMaster Tester. */
 @DisabledOnOs(OS.WINDOWS)
@@ -304,6 +322,78 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
             server.getCoordinatorService().cancelJob(jobId).join();
             testIMapRemovedAfterJobComplete(jobId, jobMaster);
         }
+    }
+
+    @Test
+    void testFinalMetricsFailureDoesNotPersistPartialHistory() throws Exception {
+        long jobId = 10001L;
+        PipelineLocation pipelineLocation = new PipelineLocation(jobId, 1);
+        TaskGroupLocation taskGroupLocation = new TaskGroupLocation(jobId, 1, 1L);
+        Address workerAddress = new Address("127.0.0.2", 5801);
+
+        NodeEngine nodeEngine = mock(NodeEngine.class);
+        HazelcastInstance hazelcastInstance = mock(HazelcastInstance.class);
+        ClusterServiceImpl clusterService = mock(ClusterServiceImpl.class);
+        Member workerMember = mock(Member.class);
+        FlakeIdGenerator flakeIdGenerator = mock(FlakeIdGenerator.class);
+        ResourceManager resourceManager = mock(ResourceManager.class);
+        JobHistoryService jobHistoryService = mock(JobHistoryService.class);
+        IMap<Object, Object> runningJobStateIMap = mock(IMap.class);
+        IMap<Object, Object> runningJobStateTimestampsIMap = mock(IMap.class);
+        IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfilesIMap =
+                mock(IMap.class);
+        IMap<Long, JobInfo> runningJobInfoIMap = mock(IMap.class);
+        SlotProfile slotProfile = mock(SlotProfile.class);
+        JobImmutableInformation jobInformation = mock(JobImmutableInformation.class);
+
+        when(nodeEngine.getHazelcastInstance()).thenReturn(hazelcastInstance);
+        when(hazelcastInstance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME))
+                .thenReturn(flakeIdGenerator);
+        when(nodeEngine.getClusterService()).thenReturn(clusterService);
+        when(clusterService.getMember(workerAddress)).thenReturn(workerMember);
+        when(slotProfile.getWorker()).thenReturn(workerAddress);
+        when(jobInformation.getJobId()).thenReturn(jobId);
+        doAnswer(
+                        invocation -> {
+                            BiConsumer<PipelineLocation, Map<TaskGroupLocation, SlotProfile>>
+                                    consumer = invocation.getArgument(0);
+                            consumer.accept(
+                                    pipelineLocation,
+                                    Collections.singletonMap(taskGroupLocation, slotProfile));
+                            return null;
+                        })
+                .when(ownedSlotProfilesIMap)
+                .forEach(any());
+
+        JobMaster jobMaster =
+                new JobMaster(
+                        jobId,
+                        mock(Data.class),
+                        nodeEngine,
+                        jobMasterTestExecutor,
+                        resourceManager,
+                        jobHistoryService,
+                        runningJobStateIMap,
+                        runningJobStateTimestampsIMap,
+                        ownedSlotProfilesIMap,
+                        runningJobInfoIMap,
+                        null,
+                        null) {
+                    @Override
+                    protected RawJobMetrics fetchTaskGroupMetrics(
+                            Address address, List<TaskGroupLocation> taskGroupLocations)
+                            throws Exception {
+                        throw new TimeoutException("worker metrics timed out");
+                    }
+                };
+        Field jobInformationField = JobMaster.class.getDeclaredField("jobImmutableInformation");
+        jobInformationField.setAccessible(true);
+        jobInformationField.set(jobMaster, jobInformation);
+
+        Assertions.assertThrows(
+                SeaTunnelEngineException.class,
+                () -> jobMaster.savePipelineMetricsToHistory(pipelineLocation));
+        verifyNoInteractions(jobHistoryService);
     }
 
     @Test

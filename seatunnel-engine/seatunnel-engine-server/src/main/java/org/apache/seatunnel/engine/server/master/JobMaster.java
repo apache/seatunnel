@@ -1047,6 +1047,11 @@ public class JobMaster {
     }
 
     public List<RawJobMetrics> getCurrJobMetrics(List<PipelineLocation> pipelineLocations) {
+        return getCurrJobMetrics(getTaskGroupLocationSlotProfileMap(pipelineLocations));
+    }
+
+    private Map<TaskGroupLocation, Address> getTaskGroupLocationSlotProfileMap(
+            List<PipelineLocation> pipelineLocations) {
         Map<TaskGroupLocation, Address> taskGroupLocationSlotProfileMap = new HashMap<>();
 
         ownedSlotProfilesIMap.forEach(
@@ -1062,11 +1067,27 @@ public class JobMaster {
                                 });
                     }
                 });
-        return getCurrJobMetrics(taskGroupLocationSlotProfileMap);
+        return taskGroupLocationSlotProfileMap;
     }
 
     public List<RawJobMetrics> getCurrJobMetrics(
             Map<TaskGroupLocation, Address> taskGroupLocationSlotProfileMap) {
+        return getCurrJobMetrics(taskGroupLocationSlotProfileMap, false);
+    }
+
+    /**
+     * Collect metrics for terminal pipeline history without accepting a partial result. A
+     * terminal snapshot is stored only after every worker responds successfully; callers can then
+     * retry the operation without losing the task-group context needed for a later collection.
+     */
+    private List<RawJobMetrics> getFinalJobMetrics(
+            Map<TaskGroupLocation, Address> taskGroupLocationSlotProfileMap) {
+        return getCurrJobMetrics(taskGroupLocationSlotProfileMap, true);
+    }
+
+    private List<RawJobMetrics> getCurrJobMetrics(
+            Map<TaskGroupLocation, Address> taskGroupLocationSlotProfileMap,
+            boolean failOnIncompleteResult) {
         Map<Address, List<TaskGroupLocation>> taskGroupLocationMap = new HashMap<>();
 
         for (Map.Entry<TaskGroupLocation, Address> entry :
@@ -1079,29 +1100,42 @@ public class JobMaster {
         taskGroupLocationMap.forEach(
                 (address, taskGroupLocations) -> {
                     try {
-                        if (nodeEngine.getClusterService().getMember(address) != null) {
-                            RawJobMetrics rawJobMetrics =
-                                    (RawJobMetrics)
-                                            NodeEngineUtil.sendOperationToMemberNode(
-                                                            nodeEngine,
-                                                            new GetTaskGroupMetricsOperation(
-                                                                    taskGroupLocations),
-                                                            address)
-                                                    .get(
-                                                            METRICS_FETCH_TIMEOUT_MS,
-                                                            TimeUnit.MILLISECONDS);
-                            metrics.add(rawJobMetrics);
+                        if (nodeEngine.getClusterService().getMember(address) == null) {
+                            if (failOnIncompleteResult) {
+                                throw new SeaTunnelEngineException(
+                                        String.format(
+                                                "%s is no longer an active worker.", address));
+                            }
+                            return;
                         }
+                        RawJobMetrics rawJobMetrics =
+                                fetchTaskGroupMetrics(address, taskGroupLocations);
+                        metrics.add(rawJobMetrics);
                     }
                     // HazelcastInstanceNotActiveException. It means that the node is
                     // offline, so waiting for the taskGroup to restore can be successful
                     catch (HazelcastInstanceNotActiveException e) {
+                        if (failOnIncompleteResult) {
+                            throw new SeaTunnelEngineException(
+                                    String.format(
+                                            "%s get final job metrics failed because the cluster is inactive.",
+                                            Arrays.toString(taskGroupLocations.toArray())),
+                                    e);
+                        }
                         LOGGER.warning(
                                 String.format(
                                         "%s get current job metrics with exception: %s.",
                                         Arrays.toString(taskGroupLocations.toArray()),
                                         ExceptionUtils.getMessage(e)));
                     } catch (TimeoutException e) {
+                        if (failOnIncompleteResult) {
+                            throw new SeaTunnelEngineException(
+                                    String.format(
+                                            "%s get final job metrics timed out after %d ms.",
+                                            Arrays.toString(taskGroupLocations.toArray()),
+                                            METRICS_FETCH_TIMEOUT_MS),
+                                    e);
+                        }
                         LOGGER.warning(
                                 String.format(
                                         "%s get current job metrics timed out after %d ms.",
@@ -1109,11 +1143,26 @@ public class JobMaster {
                                         METRICS_FETCH_TIMEOUT_MS));
                     } catch (InterruptedException e) {
                         Thread.currentThread().interrupt();
+                        if (failOnIncompleteResult) {
+                            throw new SeaTunnelEngineException(
+                                    String.format(
+                                            "%s get final job metrics was interrupted.",
+                                            Arrays.toString(taskGroupLocations.toArray())),
+                                    e);
+                        }
                         LOGGER.warning(
                                 String.format(
                                         "%s get current job metrics was interrupted.",
                                         Arrays.toString(taskGroupLocations.toArray())));
                     } catch (Exception e) {
+                        if (failOnIncompleteResult) {
+                            throw new SeaTunnelEngineException(
+                                    String.format(
+                                            "%s get final job metrics failed: %s.",
+                                            Arrays.toString(taskGroupLocations.toArray()),
+                                            ExceptionUtils.getMessage(e)),
+                                    e);
+                        }
                         LOGGER.warning(
                                 String.format(
                                         "%s get current job metrics failed: %s.",
@@ -1124,9 +1173,21 @@ public class JobMaster {
         return metrics;
     }
 
+    protected RawJobMetrics fetchTaskGroupMetrics(
+            Address address, List<TaskGroupLocation> taskGroupLocations) throws Exception {
+        return (RawJobMetrics)
+                NodeEngineUtil.sendOperationToMemberNode(
+                                nodeEngine,
+                                new GetTaskGroupMetricsOperation(taskGroupLocations),
+                                address)
+                        .get(METRICS_FETCH_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+    }
+
     public void savePipelineMetricsToHistory(PipelineLocation pipelineLocation) {
         List<RawJobMetrics> currJobMetrics =
-                this.getCurrJobMetrics(Collections.singletonList(pipelineLocation));
+                this.getFinalJobMetrics(
+                        getTaskGroupLocationSlotProfileMap(
+                                Collections.singletonList(pipelineLocation)));
         JobMetrics jobMetrics = JobMetricsUtil.toJobMetrics(currJobMetrics);
         long jobId = this.getJobImmutableInformation().getJobId();
         synchronized (metricsLock) {
