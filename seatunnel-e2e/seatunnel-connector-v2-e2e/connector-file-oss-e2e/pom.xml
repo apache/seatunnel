@@ -25,7 +25,7 @@
     <artifactId>connector-file-oss-e2e</artifactId>
     <name>SeaTunnel : E2E : Connector V2 : File Oss</name>
     <properties>
-        <aliyun.sdk.oss.version>3.4.1</aliyun.sdk.oss.version>
+        <aliyun.sdk.oss.version>3.13.2</aliyun.sdk.oss.version>
     </properties>
 
     <dependencies>

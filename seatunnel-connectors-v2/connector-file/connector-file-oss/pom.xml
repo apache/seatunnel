@@ -30,13 +30,27 @@
     <name>SeaTunnel : Connectors V2 : File : Oss</name>
 
     <properties>
-        <aliyun.sdk.oss.version>3.4.1</aliyun.sdk.oss.version>
         <!--
+            All three OSS versions move together, and none of them may drift:
+
             hadoop-aliyun.version is inherited from the root pom so it stays in lockstep with
             hadoop3.version. It used to be pinned here at 3.1.4, whose AliyunOSSFileSystem does not
             resolve against hadoop-common 3.4.3.
+
+            aliyun-sdk-oss must then match hadoop-aliyun, not merely be "new enough": hadoop-aliyun
+            3.4.3 is compiled against the version hadoop-project 3.4.3 manages, 3.13.2. Against the
+            3.4.1 that used to be pinned here, AliyunOSSFileSystemStore, OSSListRequest and
+            OSSListResult reference com.aliyun.oss.model.ListObjectsV2Request / ListObjectsV2Result,
+            which do not exist in 3.4.1, and four OSSClient methods (listObjectsV2, deleteObject,
+            abortMultipartUpload, setBucketAcl) return VoidResult at 3.13.2 but void at 3.4.1. Every
+            OSS listing would therefore fail at runtime with nothing failing at build time.
+
+            aliyun-sdk-oss 3.13.2 in turn parses XML with jdom2 rather than jdom 1.x: it references
+            org/jdom2/ at 23 sites and org/jdom/ at none, and hadoop-project 3.4.3 manages
+            org.jdom:jdom2 accordingly.
         -->
-        <jdom.version>1.1</jdom.version>
+        <aliyun.sdk.oss.version>3.13.2</aliyun.sdk.oss.version>
+        <jdom2.version>2.0.6.1</jdom2.version>
     </properties>
 
     <dependencies>
@@ -67,8 +81,8 @@
         </dependency>
         <dependency>
             <groupId>org.jdom</groupId>
-            <artifactId>jdom</artifactId>
-            <version>${jdom.version}</version>
+            <artifactId>jdom2</artifactId>
+            <version>${jdom2.version}</version>
             <scope>provided</scope>
         </dependency>
         <dependency>

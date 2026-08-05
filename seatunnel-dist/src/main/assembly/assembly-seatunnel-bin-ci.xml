@@ -227,7 +227,7 @@
                 <!--Add hadoop aliyun jar -->
                 <include>org.apache.hadoop:hadoop-aliyun:jar</include>
                 <include>com.aliyun.oss:aliyun-sdk-oss:jar</include>
-                <include>org.jdom:jdom:jar</include>
+                <include>org.jdom:jdom2:jar</include>
                 <!--Add netty buffer jar -->
                 <include>io.netty:netty-buffer:jar</include>
                 <include>io.netty:netty-common:jar</include>
