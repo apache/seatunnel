@@ -171,11 +171,12 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy<ParquetWriter<Ge
             schema = buildAvroSchemaWithRowType(seaTunnelRowType, sinkColumnsIndexInRow);
         }
         ParquetWriter<GenericRecord> writer = this.beingWrittenWriter.get(filePath);
-        GenericData dataModel = new GenericData();
-        dataModel.addLogicalTypeConversion(new Conversions.DecimalConversion());
-        dataModel.addLogicalTypeConversion(new TimeConversions.DateConversion());
-        dataModel.addLogicalTypeConversion(new TimeConversions.LocalTimestampMillisConversion());
         if (writer == null) {
+            GenericData dataModel = new GenericData();
+            dataModel.addLogicalTypeConversion(new Conversions.DecimalConversion());
+            dataModel.addLogicalTypeConversion(new TimeConversions.DateConversion());
+            dataModel.addLogicalTypeConversion(
+                    new TimeConversions.LocalTimestampMillisConversion());
             Path path = new Path(filePath);
             // initialize the kerberos login
             return hadoopFileSystemProxy.doWithHadoopAuth(
