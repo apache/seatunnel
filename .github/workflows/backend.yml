@@ -486,15 +486,15 @@ jobs:
           MAVEN_OPTS: -Xmx4096m -Dfile.encoding=UTF-8
 
   benchmark-test:
-    name: benchmark-test (${{ matrix.java }}, ubuntu-24.04)
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.benchmarks == 'true'
-    runs-on: ubuntu-24.04
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
         java: [ '8', '11' ]
+        os: [ 'ubuntu-latest' ]
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
