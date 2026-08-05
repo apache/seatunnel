@@ -69,9 +69,18 @@ public class IcebergSinkIT extends TestSuiteBase {
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
             container -> {
-                // Iceberg creates the namespace, table, metadata, and data directories during the
-                // write. The test only prepares a writable catalog root for the container user.
-                container.execInContainer("sh", "-c", "mkdir -p " + CATALOG_DIR);
+                // Iceberg's Hadoop catalog cannot reliably create the mounted warehouse's
+                // metadata and data directories from the job containers.
+                container.execInContainer(
+                        "sh",
+                        "-c",
+                        "mkdir -p " + CATALOG_DIR + "seatunnel_namespace/iceberg_sink_table/data");
+                container.execInContainer(
+                        "sh",
+                        "-c",
+                        "mkdir -p "
+                                + CATALOG_DIR
+                                + "seatunnel_namespace/iceberg_sink_table/metadata");
                 container.execInContainer("sh", "-c", "chmod -R 777  " + CATALOG_DIR);
 
                 container.execInContainer(
