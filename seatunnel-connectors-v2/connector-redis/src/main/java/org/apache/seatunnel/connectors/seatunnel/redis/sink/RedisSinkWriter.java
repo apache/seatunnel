@@ -63,10 +63,18 @@ public class RedisSinkWriter extends AbstractSinkWriter<SeaTunnelRow, TableSchem
     private static final Pattern LEGACY_PLACEHOLDER_PATTERN =
             Pattern.compile("(?<!\\$)\\{([^{}]+)\\}");
     private static final Pattern PLACEHOLDER_PATTERN = Pattern.compile("\\$\\{([^}]+)\\}");
+
+    /** Authoritative schema saved in checkpoints and updated by ordered schema-change events. */
     private TableSchema tableSchema;
+
+    /** Physical row type derived from {@link #tableSchema} for key and value field lookup. */
     private SeaTunnelRowType seaTunnelRowType;
+
     private final RedisParameters redisParameters;
+
+    /** Serializer derived from {@link #tableSchema} and refreshed together with the row type. */
     private SerializationSchema serializationSchema;
+
     private final RedisClient redisClient;
     private final TableSchemaChangeEventDispatcher schemaChangeEventDispatcher;
 
@@ -76,10 +84,18 @@ public class RedisSinkWriter extends AbstractSinkWriter<SeaTunnelRow, TableSchem
     private final List<String> keyBuffer;
     private final List<String> valueBuffer;
 
+    /**
+     * Creates a writer from a physical row type.
+     *
+     * @deprecated Use {@link #RedisSinkWriter(TableSchema, RedisParameters)} so schema evolution
+     *     and checkpoint recovery retain the complete table schema.
+     */
+    @Deprecated
     public RedisSinkWriter(SeaTunnelRowType seaTunnelRowType, RedisParameters redisParameters) {
         this(toTableSchema(seaTunnelRowType), redisParameters);
     }
 
+    /** Creates a writer whose schema can be updated and restored from checkpoint state. */
     public RedisSinkWriter(TableSchema tableSchema, RedisParameters redisParameters) {
         this.tableSchema = tableSchema;
         this.seaTunnelRowType = tableSchema.toPhysicalRowDataType();
@@ -108,6 +124,11 @@ public class RedisSinkWriter extends AbstractSinkWriter<SeaTunnelRow, TableSchem
         log.debug("write redis key: {}, value: {}， rowKind: {}", key, value, element.getRowKind());
     }
 
+    /**
+     * Flushes all rows serialized with the previous schema before refreshing the writer's
+     * schema-derived views. The engine orders this callback with row processing, so all three views
+     * are updated before any subsequent row is processed.
+     */
     @Override
     public void applySchemaChange(SchemaChangeEvent event) {
         flush();
@@ -325,6 +346,7 @@ public class RedisSinkWriter extends AbstractSinkWriter<SeaTunnelRow, TableSchem
         return Optional.empty();
     }
 
+    /** Returns an isolated copy of the latest schema for checkpoint and rescale recovery. */
     @Override
     public List<TableSchema> snapshotState(long checkpointId) {
         return Collections.singletonList(tableSchema.copy());

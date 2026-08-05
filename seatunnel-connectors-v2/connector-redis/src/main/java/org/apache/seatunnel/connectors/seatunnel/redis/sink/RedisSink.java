@@ -22,19 +22,22 @@ import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.serialization.Serializer;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSink;
+import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSink;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.schema.SchemaChangeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.common.sink.AbstractSimpleSink;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisParameters;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 
 public class RedisSink extends AbstractSimpleSink<SeaTunnelRow, TableSchema>
-        implements SupportMultiTableSink {
+        implements SupportMultiTableSink, SupportSchemaEvolutionSink {
     private final RedisParameters redisParameters = new RedisParameters();
     private final TableSchema tableSchema;
     private final ReadonlyConfig readonlyConfig;
@@ -57,6 +60,11 @@ public class RedisSink extends AbstractSimpleSink<SeaTunnelRow, TableSchema>
         return new RedisSinkWriter(tableSchema, redisParameters);
     }
 
+    /**
+     * Restores the latest writer schema. Rescaling can provide state from multiple writers, and
+     * every state must contain the same schema because selecting the widest schema would restore a
+     * stale definition after a drop-column event.
+     */
     @Override
     public RedisSinkWriter restoreWriter(SinkWriter.Context context, List<TableSchema> states)
             throws IOException {
@@ -64,9 +72,16 @@ public class RedisSink extends AbstractSimpleSink<SeaTunnelRow, TableSchema>
             return createWriter(context);
         }
         TableSchema restoredSchema = states.get(0);
-        for (TableSchema state : states) {
+        for (int stateIndex = 1; stateIndex < states.size(); stateIndex++) {
+            TableSchema state = states.get(stateIndex);
             if (!restoredSchema.equals(state)) {
-                throw new IOException("Redis sink restored inconsistent table schema states");
+                throw new IOException(
+                        String.format(
+                                "Redis sink cannot restore writer for table %s because state 0 fields %s differ from state %d fields %s",
+                                catalogTable.getTablePath().getFullName(),
+                                schemaFields(restoredSchema),
+                                stateIndex,
+                                schemaFields(state)));
             }
         }
         return new RedisSinkWriter(restoredSchema, redisParameters);
@@ -80,5 +95,18 @@ public class RedisSink extends AbstractSimpleSink<SeaTunnelRow, TableSchema>
     @Override
     public Optional<CatalogTable> getWriteCatalogTable() {
         return Optional.ofNullable(catalogTable);
+    }
+
+    @Override
+    public List<SchemaChangeType> supports() {
+        return Arrays.asList(
+                SchemaChangeType.ADD_COLUMN,
+                SchemaChangeType.DROP_COLUMN,
+                SchemaChangeType.RENAME_COLUMN,
+                SchemaChangeType.UPDATE_COLUMN);
+    }
+
+    private static String schemaFields(TableSchema schema) {
+        return Arrays.toString(schema.toPhysicalRowDataType().getFieldNames());
     }
 }

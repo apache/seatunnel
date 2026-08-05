@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.redis.sink;
 
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
-
 import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
@@ -30,7 +28,6 @@ import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
-import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.connectors.seatunnel.redis.client.RedisClient;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisDataType;
@@ -177,27 +174,23 @@ public class RedisSinkWriterTest {
     void testAddColumnUsesLatestSchemaForJsonSerialization() throws IOException {
         List<List<String>> writtenValues = captureStringWrites();
         configureJsonKeySink(1);
-        redisSinkWriter =
-                new RedisSinkWriter(initialSchema().toPhysicalRowDataType(), mockRedisParameters);
+        redisSinkWriter = new RedisSinkWriter(initialSchema(), mockRedisParameters);
 
         schemaEvolutionWriter().applySchemaChange(addEmailEvent());
         redisSinkWriter.write(insertRow(1L, "Alice", "alice@example.test", "legacy-value"));
 
         Assertions.assertEquals(1, writtenValues.size());
-        ObjectNode json = JsonUtils.parseObject(writtenValues.get(0).get(0));
-        Assertions.assertEquals(4, json.size());
-        Assertions.assertEquals(1L, json.get("id").asLong());
-        Assertions.assertEquals("Alice", json.get("name").asText());
-        Assertions.assertEquals("alice@example.test", json.get("email").asText());
-        Assertions.assertEquals("legacy-value", json.get("legacy_note").asText());
+        Assertions.assertEquals(
+                "{\"id\":1,\"name\":\"Alice\",\"email\":\"alice@example.test\","
+                        + "\"legacy_note\":\"legacy-value\"}",
+                writtenValues.get(0).get(0));
     }
 
     @Test
     void testDropColumnRemovesFieldFromJsonSerialization() throws IOException {
         List<List<String>> writtenValues = captureStringWrites();
         configureJsonKeySink(1);
-        redisSinkWriter =
-                new RedisSinkWriter(initialSchema().toPhysicalRowDataType(), mockRedisParameters);
+        redisSinkWriter = new RedisSinkWriter(initialSchema(), mockRedisParameters);
 
         SupportSchemaEvolutionSinkWriter schemaEvolutionWriter = schemaEvolutionWriter();
         schemaEvolutionWriter.applySchemaChange(addEmailEvent());
@@ -206,38 +199,33 @@ public class RedisSinkWriterTest {
         redisSinkWriter.write(insertRow(1L, "Alice", "alice@example.test"));
 
         Assertions.assertEquals(1, writtenValues.size());
-        ObjectNode json = JsonUtils.parseObject(writtenValues.get(0).get(0));
-        Assertions.assertEquals(3, json.size());
-        Assertions.assertEquals(1L, json.get("id").asLong());
-        Assertions.assertEquals("Alice", json.get("name").asText());
-        Assertions.assertTrue(json.has("email"));
-        Assertions.assertEquals("alice@example.test", json.get("email").asText());
-        Assertions.assertFalse(json.has("legacy_note"));
+        Assertions.assertEquals(
+                "{\"id\":1,\"name\":\"Alice\",\"email\":\"alice@example.test\"}",
+                writtenValues.get(0).get(0));
     }
 
     @Test
     void testSchemaChangeFlushesOldRowsBeforeSerializerRefresh() throws IOException {
         List<List<String>> writtenValues = captureStringWrites();
         configureJsonKeySink(2);
-        redisSinkWriter =
-                new RedisSinkWriter(initialSchema().toPhysicalRowDataType(), mockRedisParameters);
+        redisSinkWriter = new RedisSinkWriter(initialSchema(), mockRedisParameters);
 
         redisSinkWriter.write(insertRow(1L, "Before", "old-schema-value"));
         schemaEvolutionWriter().applySchemaChange(addEmailEvent());
 
         Assertions.assertEquals(1, writtenValues.size());
-        ObjectNode oldSchemaJson = JsonUtils.parseObject(writtenValues.get(0).get(0));
-        Assertions.assertEquals(3, oldSchemaJson.size());
-        Assertions.assertEquals("old-schema-value", oldSchemaJson.get("legacy_note").asText());
+        Assertions.assertEquals(
+                "{\"id\":1,\"name\":\"Before\",\"legacy_note\":\"old-schema-value\"}",
+                writtenValues.get(0).get(0));
 
         redisSinkWriter.write(insertRow(2L, "After", "after@example.test", "new-schema-value"));
         redisSinkWriter.prepareCommit();
 
         Assertions.assertEquals(2, writtenValues.size());
-        ObjectNode newSchemaJson = JsonUtils.parseObject(writtenValues.get(1).get(0));
-        Assertions.assertEquals(4, newSchemaJson.size());
-        Assertions.assertEquals("after@example.test", newSchemaJson.get("email").asText());
-        Assertions.assertEquals("new-schema-value", newSchemaJson.get("legacy_note").asText());
+        Assertions.assertEquals(
+                "{\"id\":2,\"name\":\"After\",\"email\":\"after@example.test\","
+                        + "\"legacy_note\":\"new-schema-value\"}",
+                writtenValues.get(1).get(0));
     }
 
     @Test
@@ -254,10 +242,10 @@ public class RedisSinkWriterTest {
         redisSinkWriter.write(insertRow(1L, "Recovered", "restored@example.test", "legacy"));
 
         Assertions.assertEquals(1, writtenValues.size());
-        ObjectNode json = JsonUtils.parseObject(writtenValues.get(0).get(0));
-        Assertions.assertEquals(4, json.size());
-        Assertions.assertEquals("restored@example.test", json.get("email").asText());
-        Assertions.assertEquals("legacy", json.get("legacy_note").asText());
+        Assertions.assertEquals(
+                "{\"id\":1,\"name\":\"Recovered\",\"email\":\"restored@example.test\","
+                        + "\"legacy_note\":\"legacy\"}",
+                writtenValues.get(0).get(0));
     }
 
     private SupportSchemaEvolutionSinkWriter schemaEvolutionWriter() {
