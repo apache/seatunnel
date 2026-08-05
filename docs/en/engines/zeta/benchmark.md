@@ -1,0 +1,250 @@
+---
+title: Zeta Benchmark
+---
+
+# Zeta Benchmark
+
+This chapter explains how to run repeatable Zeta benchmarks under fixed resources and load, and how
+to interpret throughput, latency, and stability without overstating the result. A comparison is
+meaningful only when the code revision, JDK, machine, JVM limits, workload, and JMH configuration are
+recorded and kept consistent.
+
+The benchmarks run the current in-repository Zeta code and provide a repeatable local baseline. They
+exclude real connectors, external systems, network costs, and multi-node communication, so they do
+not replace a production proof of concept.
+
+## How It Works
+
+The `seatunnel-benchmarks` module provides two types of tests:
+
+- `SeaTunnelRowBenchmark` measures hot paths such as row creation, access, copying, projection, and
+  size calculation.
+- `SeaTunnelPipelineBenchmark` starts an embedded single-node Zeta cluster and runs complete bounded
+  jobs through the normal client and configuration parser APIs.
+
+The MiniCluster starts during JMH Trial setup and is outside the measurement. Job submission,
+scheduling, Source, Transform, Sink, and job completion are inside the JMH measurement.
+
+```mermaid
+%%{init: {"theme": "base", "themeVariables": {"background": "#0f1d33", "primaryColor": "#0c2530", "primaryBorderColor": "#2dd4bf", "primaryTextColor": "#f8fbff", "actorBkg": "#0c2530", "actorBorder": "#2dd4bf", "actorTextColor": "#f8fbff", "activationBkgColor": "#1f1a34", "activationBorderColor": "#8d7cf6", "noteBkgColor": "#1f1a34", "noteBorderColor": "#8d7cf6", "noteTextColor": "#f8fbff", "signalColor": "#5db8e2", "signalTextColor": "#f8fbff", "labelBoxBkgColor": "#0f1d33", "labelBoxBorderColor": "#5db8e2", "labelTextColor": "#f8fbff", "loopTextColor": "#f8fbff"}}}%%
+flowchart LR
+    Setup["Start MiniCluster<br/>outside JMH timing"] -.-> Submit["Submit job<br/>start timing"]
+    Submit --> Source["BenchmarkSource"]
+    Source --> Transform["BenchmarkTransform<br/>optional"]
+    Transform --> Sink["BenchmarkSink"]
+    Sink --> Finish["Job completes<br/>stop timing"]
+    Source -. "scheduled time" .-> Sink
+    Sink -.-> Result["Pipeline JSON<br/>throughput and latency"]
+```
+
+The Source follows an absolute open-loop schedule. Each row carries its planned generation time. If
+Zeta falls behind, planned time continues to advance, so queueing and backlog remain visible in
+event-time latency instead of being hidden while the Source waits for the engine.
+
+### Test Scope
+
+| JMH selector | Data path and purpose |
+|---|---|
+| `sourceSink` | `Source -> Sink`; baseline Zeta data path. |
+| `sourceTransformSink` | `Source -> Transform -> Sink`; adds row copy and deterministic Transform work. |
+| `sourceTransformSinkWithBackpressure` | The same Transform pipeline with backpressure observability enabled. |
+| `sourceTransformSinkWithTrace` | The same Transform pipeline with StainTrace enabled. |
+| `sourceTransformSinkWithBackpressureAndTrace` | Both observability features enabled, isolating their combined overhead. |
+
+These scenarios compare one controlled data path while changing only Transform or observability
+features. The backpressure scenario does not artificially throttle the Sink; to test overload, set
+`offeredRatePerSecond` above engine capacity and inspect throughput, P99, and latency growth.
+
+### Default Resources
+
+| Setting | Default |
+|---|---:|
+| JVM heap | Fixed 4 GiB `-Xms` / `-Xmx` |
+| JVM-visible processors | 4 |
+| Garbage collector | G1 with pre-touch |
+| Zeta slots / pipeline parallelism | 12 / 4 |
+| Records per invocation | 1,000,000 |
+| Offered rate | 600,000 rows/s |
+| Payload size | 256 characters |
+| Transform work | 64 hash operations per row |
+| JMH forks | 3 |
+| Warmup / measurement iterations | 3 / 5 |
+
+The benchmark class passes these JVM limits to each fork. No additional heap configuration is
+required at launch.
+
+## Run the Benchmarks
+
+### Build the Benchmark Runner
+
+```bash
+./mvnw -Pbenchmark -pl seatunnel-benchmarks -am -DskipTests package
+```
+
+List every JMH method:
+
+```bash
+java -jar seatunnel-benchmarks/target/benchmarks.jar -l
+```
+
+### Run a Complete Pipeline
+
+For a steady-load evaluation, fix one pipeline and payload size and save standard JMH JSON. The
+following command checks whether Zeta can sustain 600,000 scheduled rows per second:
+
+```bash
+java -jar seatunnel-benchmarks/target/benchmarks.jar \
+  'sourceTransformSink$' \
+  -p offeredRatePerSecond=600000 \
+  -p parallelism=4 \
+  -p payloadSize=256 \
+  -p transformOperations=64 \
+  -rf json \
+  -rff seatunnel-benchmarks/target/zeta-pipeline-result.json
+```
+
+Change only `offeredRatePerSecond` while finding the capacity boundary. Start above expected
+capacity and lower the rate until output is complete and P99 no longer grows throughout the run.
+For example, use `-p offeredRatePerSecond=1000000` to start a capacity comparison above the default
+load. Use `0` only to measure an unpaced throughput ceiling; without an open-loop schedule, that
+mode cannot expose latency caused by queued input.
+
+Run all five pipeline scenarios with the default workload:
+
+```bash
+java -jar seatunnel-benchmarks/target/benchmarks.jar SeaTunnelPipelineBenchmark
+```
+
+JMH accepts a class name, method name, or regular expression. For example, run all Trace methods:
+
+```bash
+java -jar seatunnel-benchmarks/target/benchmarks.jar \
+  'SeaTunnelPipelineBenchmark.*Trace'
+```
+
+JMH selectors are regular expressions. Append `$` when selecting one exact method; without it,
+`sourceTransformSink` also matches methods whose names start with that text.
+
+### Run the SeaTunnelRow Microbenchmarks
+
+```bash
+java -jar seatunnel-benchmarks/target/benchmarks.jar SeaTunnelRowBenchmark \
+  -rf json \
+  -rff seatunnel-benchmarks/target/seatunnel-row-result.json
+```
+
+For a functional smoke test, add `-f 1 -wi 0 -i 1 -r 1s` to shorten the run. A single un-warmed
+sample is not valid performance evidence.
+
+## Metrics
+
+### Sample Validity
+
+Before interpreting performance, verify that:
+
+- `processed_rows` equals `expected_rows`;
+- `sourceSink` has a zero `checksum`;
+- every Transform scenario has a non-zero `checksum`.
+
+These conditions reject incomplete output and prove that Transform work reached the Sink.
+
+### JMH Metrics
+
+| Field | Description |
+|---|---|
+| `Score` | Processed rows per second for a Pipeline benchmark; higher is better. Row microbenchmarks retain `ops/ms`. |
+| `Error` | Uncertainty calculated from samples inside this JMH run. |
+| `Cnt` | Aggregated measurement samples, not processed rows. |
+| `Units` | Unit of the score. |
+
+`SeaTunnelPipelineBenchmark` declares 1,000,000 logical operations per invocation, so JMH converts
+each completed job into its processed row count and reports `ops/s`. JMH timing includes job
+submission, scheduling, and complete pipeline execution. It has a different measurement boundary
+from the Sink-only `throughput_rows_per_second` value.
+
+JMH `Error` does not include differences between machines. Do not use confidence interval overlap
+from two different machines as a standalone regression decision.
+
+### Pipeline Metrics
+
+Each invocation writes one JSON file under `seatunnel-benchmarks/target/pipeline-results`:
+
+| Field | Description |
+|---|---|
+| `offered_rate_rows_per_second` | Target rate scheduled by the Source; this is load, not achieved throughput. |
+| `throughput_rows_per_second` | Achieved rate during the Sink's first-to-last receive interval. |
+| `event_time_latency_p50_ms` | Median time from planned generation to Sink receipt. |
+| `event_time_latency_p95_ms` / `event_time_latency_p99_ms` | Tail delay, including backlog when the engine cannot keep up. |
+| `event_time_latency_max_ms` | Worst recorded delay; inspect it together with percentiles. |
+| `first_half_p99_ms` / `second_half_p99_ms` | P99 in each half of the run, showing whether backlog keeps growing. |
+| `latency_growth_ratio` | `(second-half P99 + 1) / (first-half P99 + 1)`; values above 1 indicate worsening latency. |
+| `latency_overflow_rows` | Rows whose latency exceeded the histogram's tracked range. |
+| `sustainable` | By default, requires complete output, P99 at most 1,000 ms, and growth ratio at most 1.20. |
+
+`sustainable` is a convenience guardrail, not a universal service-level objective. Use the target
+workload's throughput and latency requirements for the final decision.
+
+## Evaluate the Result
+
+Determine whether the load is stable before locating the source of a difference.
+
+| Observation | Conclusion | Next step |
+|---|---|---|
+| Output is complete, throughput is close to offered rate, and first-half and second-half P99 are similar | The current load is in steady state | Increase offered rate and continue locating the capacity boundary. |
+| Throughput is below offered rate and second-half P99 keeps rising | Backlog is growing and load exceeds sustainable capacity | Lower the rate, or increase resources and parallelism before retesting. |
+| `sourceSink` is stable while `sourceTransformSink` is much slower | Transform work is the main incremental cost | Vary `transformOperations` and inspect Row copy and Transform hot paths. |
+| The base Transform case is stable while a backpressure or Trace case is slower | The corresponding feature has measurable cost | Repeat with identical parameters and compare each feature separately and together. |
+| Every benchmark for the same commit shifts sharply in one run | The execution host may have different CPU performance | Mark the run inconclusive, inspect the CPU fingerprint, and do not update a precise baseline. |
+
+Find capacity with a sweep of fixed offered rates. Repeat each rate in independent JVMs on the same
+otherwise-idle machine and preserve every sample. When comparing scenarios or commits, keep the JDK,
+machine, payload, parallelism, offered rate, and Transform work identical.
+
+## Visualization
+
+Generate JMH JSON with `-rf json -rff <file>`, open
+[JMH Visualizer](https://jmh.morethan.io/), and compare scores, errors, forks, and iterations by
+method name and parameters.
+
+JMH Visualizer combines parameter values into labels. For example,
+`600000:4:256:64` means `offeredRatePerSecond=600000`, `parallelism=4`, `payloadSize=256`, and
+`transformOperations=64`, in the order shown in the chart legend. JMH Score includes job submission,
+scheduling, and complete pipeline execution. Inspect the Pipeline JSON throughput, latency, and
+completeness fields before deciding whether the configured load is sustainable.
+
+Files under `pipeline-results` are custom JSON rather than JMH JSON. Inspect them directly or use
+`tools/benchmarks/save_jmh_result.py` and `tools/benchmarks/regression_report.py` to generate
+normalized JSON and Markdown reports.
+
+## Performance Cost and Limitations
+
+- A pipeline benchmark starts an embedded Zeta cluster and requires at least 4 GiB of available heap.
+- A complete run uses 3 forks, 3 warmup iterations, and 5 measurement iterations. Running all five
+  scenarios takes substantially longer than a smoke test.
+- `ActiveProcessorCount=4` limits processors visible to the JVM; it does not provide operating-system
+  CPU affinity.
+- Precise comparisons require a fixed machine or alternating base and candidate on the same
+  otherwise-idle machine.
+- This benchmark excludes real connectors, external brokers, network, disk, and multi-node costs.
+
+To measure production end-to-end performance, repeat the experiment with the required connectors and
+external systems, and correlate the result with error logs, checkpoint status, and external-system
+monitoring.
+
+## References
+
+1. Andy Georges, Dries Buytaert, and Lieven Eeckhout,
+   [Statistically Rigorous Java Performance Evaluation](https://dri.es/files/oopsla07-georges.pdf),
+   OOPSLA 2007.
+2. Tomas Kalibera and Richard Jones,
+   [Rigorous Benchmarking in Reasonable Time](https://dl.acm.org/doi/10.1145/2491894.2464160),
+   ISMM 2013.
+3. Jeyhun Karimov et al.,
+   [Benchmarking Distributed Stream Data Processing Systems](https://arxiv.org/pdf/1802.08496),
+   ICDE 2018.
+
+## Related Documentation
+
+- [Busyness and Backpressure](./busyness-and-backpressure.md)
+- [Monitoring Metrics](./telemetry.md)
+- [Tuning Guide](./tuning-guide.md)
