@@ -36,7 +36,8 @@
         <parquet-avro.version>1.12.3</parquet-avro.version>
         <poi.version>4.1.2</poi.version>
         <poi-ooxml.version>4.1.2</poi-ooxml.version>
-        <hadoop-minikdc.version>3.1.4</hadoop-minikdc.version>
+        <!-- hadoop-minikdc.version is inherited from the root pom, which keeps it in lockstep
+             with the uber jar's hadoop-common; see the comment on the property there. -->
         <dom4j.version>2.1.4</dom4j.version>
         <jaxen.version>2.0.0</jaxen.version>
         <easyexcel.version>4.0.3</easyexcel.version>

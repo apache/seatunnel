@@ -173,6 +173,21 @@
                 </exclusion>
             </exclusions>
         </dependency>
+        <!--
+            IcebergCatalog and ExpressionUtils use CollectionUtils.isNotEmpty. Nothing here ever
+            declared commons-collections: the 3.x class resolved at compile time from
+            hive-exec:core (provided, so never shaded into this connector jar) and at runtime from
+            org/apache/commons/collections/** bundled inside the hadoop3 uber jar. hadoop-common
+            3.4.3 replaced that dependency with commons-collections4, so the uber jar no longer
+            carries the 3.x package while hive-exec still puts it on the compile classpath - the
+            build stays green and the connector fails at runtime. Declared explicitly here, at the
+            version the root pom manages, so it is shaded into the jar instead of depending on
+            what another artifact happens to bundle.
+        -->
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-collections4</artifactId>
+        </dependency>
 
         <dependency>
             <groupId>org.apache.iceberg</groupId>

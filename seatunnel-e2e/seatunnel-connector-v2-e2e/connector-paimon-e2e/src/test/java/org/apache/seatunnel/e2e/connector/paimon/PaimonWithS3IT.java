@@ -37,12 +37,15 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.testcontainers.containers.Container;
+import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.MinIOContainer;
+import org.testcontainers.utility.MountableFile;
 
 import io.minio.BucketExistsArgs;
 import io.minio.MakeBucketArgs;
 import io.minio.MinioClient;
 
+import java.io.IOException;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
@@ -71,11 +74,6 @@ public class PaimonWithS3IT extends SeaTunnelContainer {
     private PrivilegedCatalog privilegedCatalog;
     private final String DATABASE_NAME = "seatunnel_namespace11";
     private final String TABLE_NAME = "st_test";
-
-    protected static final String AWS_SDK_DOWNLOAD =
-            "https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/1.11.271/aws-java-sdk-bundle-1.11.271.jar";
-    protected static final String HADOOP_AWS_DOWNLOAD =
-            "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/3.1.4/hadoop-aws-3.1.4.jar";
 
     @Override
     @BeforeAll
@@ -122,24 +120,27 @@ public class PaimonWithS3IT extends SeaTunnelContainer {
         }
     }
 
+    /**
+     * Put S3A on the container's classpath the same way the distribution does, with the shaded
+     * {@code seatunnel-hadoop-aws} jar in {@code lib/}.
+     *
+     * <p>This used to {@code wget} {@code hadoop-aws} 3.1.4 and the AWS SDK v1 bundle from Maven
+     * Central. Against the {@code hadoop-common} the uber jar now ships, 3.1.4's {@code
+     * S3AFileSystem.create} fails with {@code NoSuchMethodError} on {@code
+     * SemaphoredDelegatingExecutor.<init>(ListeningExecutorService,int,boolean)}, whose guava-typed
+     * constructor was removed - so every write through {@code org.apache.paimon.s3
+     * .HadoopCompliantFileIO} failed. The shaded jar carries {@code hadoop-aws} with its own SDK,
+     * which is what {@code lib/seatunnel-hadoop-aws.jar} is in a real distribution.
+     */
     @Override
-    protected String[] buildStartCommand() {
-        return new String[] {
-            "bash",
-            "-c",
-            "wget -P "
-                    + SEATUNNEL_HOME
-                    + "lib "
-                    + AWS_SDK_DOWNLOAD
-                    + " &&"
-                    + "wget -P "
-                    + SEATUNNEL_HOME
-                    + "lib "
-                    + HADOOP_AWS_DOWNLOAD
-                    + " &&"
-                    + ContainerUtil.adaptPathForWin(
-                            Paths.get(SEATUNNEL_HOME, "bin", SERVER_SHELL).toString())
-        };
+    protected void executeExtraCommands(GenericContainer<?> container)
+            throws IOException, InterruptedException {
+        container.withCopyFileToContainer(
+                MountableFile.forHostPath(
+                        ContainerUtil.PROJECT_ROOT_PATH
+                                + "/seatunnel-shade/seatunnel-hadoop-aws/target/seatunnel-hadoop-aws.jar"),
+                Paths.get(SEATUNNEL_HOME, "lib/seatunnel-hadoop-aws.jar").toString());
+        super.executeExtraCommands(container);
     }
 
     @Override

@@ -34,7 +34,9 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.testcontainers.containers.Container;
+import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.MinIOContainer;
+import org.testcontainers.utility.MountableFile;
 
 import io.minio.BucketExistsArgs;
 import io.minio.MakeBucketArgs;
@@ -67,11 +69,6 @@ public class HudiSeatunnelS3MultiTableIT extends SeaTunnelContainer {
     private static final String TABLE_NAME_2 = "st_test_2";
     private static final String DOWNLOAD_PATH = "/tmp/seatunnel/";
 
-    protected static final String AWS_SDK_DOWNLOAD =
-            "https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/1.11.271/aws-java-sdk-bundle-1.11.271.jar";
-    protected static final String HADOOP_AWS_DOWNLOAD =
-            "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/3.1.4/hadoop-aws-3.1.4.jar";
-
     @Override
     @BeforeAll
     public void startUp() throws Exception {
@@ -100,26 +97,27 @@ public class HudiSeatunnelS3MultiTableIT extends SeaTunnelContainer {
         super.startUp();
     }
 
+    /**
+     * Put S3A on the container's classpath the same way the distribution does, with the shaded
+     * {@code seatunnel-hadoop-aws} jar in {@code lib/}.
+     *
+     * <p>This used to {@code wget} {@code hadoop-aws} 3.1.4 and the AWS SDK v1 bundle from Maven
+     * Central. Against the {@code hadoop-common} the uber jar now ships, 3.1.4's {@code
+     * S3AFileSystem.create} fails with {@code NoSuchMethodError} on {@code
+     * SemaphoredDelegatingExecutor.<init>(ListeningExecutorService,int,boolean)}, whose guava-typed
+     * constructor was removed. The shaded jar carries {@code hadoop-aws} with its own SDK, which is
+     * what {@code lib/seatunnel-hadoop-aws.jar} is in a real distribution, and it removes two
+     * network downloads from the test.
+     */
     @Override
-    protected String[] buildStartCommand() {
-        return new String[] {
-            "bash",
-            "-c",
-            "wget -P "
-                    + SEATUNNEL_HOME
-                    + "lib "
-                    + " --timeout=180 "
-                    + AWS_SDK_DOWNLOAD
-                    + " &&"
-                    + "wget -P "
-                    + SEATUNNEL_HOME
-                    + "lib "
-                    + " --timeout=180 "
-                    + HADOOP_AWS_DOWNLOAD
-                    + " &&"
-                    + ContainerUtil.adaptPathForWin(
-                            Paths.get(SEATUNNEL_HOME, "bin", SERVER_SHELL).toString())
-        };
+    protected void executeExtraCommands(GenericContainer<?> container)
+            throws IOException, InterruptedException {
+        container.withCopyFileToContainer(
+                MountableFile.forHostPath(
+                        ContainerUtil.PROJECT_ROOT_PATH
+                                + "/seatunnel-shade/seatunnel-hadoop-aws/target/seatunnel-hadoop-aws.jar"),
+                Paths.get(SEATUNNEL_HOME, "lib/seatunnel-hadoop-aws.jar").toString());
+        super.executeExtraCommands(container);
     }
 
     @Override

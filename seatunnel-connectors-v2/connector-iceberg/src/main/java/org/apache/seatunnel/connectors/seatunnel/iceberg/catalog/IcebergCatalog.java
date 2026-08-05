@@ -39,7 +39,7 @@ import org.apache.seatunnel.connectors.seatunnel.iceberg.config.SourceTableConfi
 import org.apache.seatunnel.connectors.seatunnel.iceberg.utils.ExpressionUtils;
 import org.apache.seatunnel.connectors.seatunnel.iceberg.utils.SchemaUtils;
 
-import org.apache.commons.collections.CollectionUtils;
+import org.apache.commons.collections4.CollectionUtils;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Snapshot;

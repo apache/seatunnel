@@ -199,6 +199,17 @@
         -->
         <hadoop-aliyun.version>3.4.3</hadoop-aliyun.version>
         <!--
+            hadoop-minikdc is coupled to hadoop-common through Apache Kerby rather than through a
+            class reference. MiniKdc issues tickets using the kerb-simplekdc its own release pins -
+            1.0.1 at hadoop-minikdc 3.1.4, 2.0.3 at 3.4.3 - while the client half of the handshake is
+            UserGroupInformation from hadoop-common. Pinned at 3.1.4 against hadoop-common 3.4.3, the
+            two Kerby generations disagree on the KDC-REQ encoding and every keytab login fails with
+            KerberosAuthException -> Asn1Exception: Identifier doesn't match expected value, which is
+            what HadoopLoginFactoryTest hit. It is only used by connector-file-base, but it belongs
+            in this group because it has to move whenever the uber jar's hadoop-common does.
+        -->
+        <hadoop-minikdc.version>3.4.3</hadoop-minikdc.version>
+        <!--
             Must match the aws-java-sdk-v2.version that hadoop-project ${hadoop3.version} pins.
             hadoop-aws 3.4.x depends on software.amazon.awssdk:bundle, so the resulting
             seatunnel-hadoop-aws.jar sits on the same lib/* classpath as seatunnel-transforms-v2.jar,
