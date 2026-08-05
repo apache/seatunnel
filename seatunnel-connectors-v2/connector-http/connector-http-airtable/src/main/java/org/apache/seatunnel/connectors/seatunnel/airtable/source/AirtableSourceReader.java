@@ -138,13 +138,19 @@ public class AirtableSourceReader extends HttpSourceReader {
         // Once the wait reaches MAX_BACKOFF_MILLIS there is no headroom left to
         // add into, so every retry past that point would come back unjittered
         // and the callers would be back in lockstep exactly when the rate limit
-        // is at its most persistent. Spread the wait downwards instead, floored
-        // at rateLimitBackoffMs: the cap is an upper bound rather than a target,
-        // so drawing below it breaks nothing, whereas dropping below the
-        // configured backoff would break the guarantee described above.
-        long floor = Math.max(waitMillis / 2, rateLimitBackoffMs);
-        if (floor >= waitMillis) {
-            return waitMillis;
+        // is at its most persistent. Spread the wait downwards instead. The cap
+        // is an upper bound rather than a target, so drawing below it breaks
+        // nothing, whereas dropping below the configured backoff would break the
+        // guarantee described above.
+        //
+        // The floor is half the wait, raised to rateLimitBackoffMs when that is
+        // the tighter of the two. It is deliberately not raised when the
+        // configured backoff is at or above the wait itself: the cap has already
+        // put the wait below what was configured, so the guarantee is moot, and
+        // flooring there would leave no room to jitter at all.
+        long floor = waitMillis / 2;
+        if (rateLimitBackoffMs > floor && rateLimitBackoffMs < waitMillis) {
+            floor = rateLimitBackoffMs;
         }
         return waitMillis - ThreadLocalRandom.current().nextLong(waitMillis - floor + 1);
     }

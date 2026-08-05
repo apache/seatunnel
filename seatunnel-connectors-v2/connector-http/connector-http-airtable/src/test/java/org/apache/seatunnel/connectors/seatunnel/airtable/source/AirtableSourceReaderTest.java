@@ -33,15 +33,15 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 
+import java.util.HashSet;
+import java.util.Set;
+
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
-
-import java.util.HashSet;
-import java.util.Set;
 
 public class AirtableSourceReaderTest {
 
@@ -125,8 +125,15 @@ public class AirtableSourceReaderTest {
                 long actual = reader.calculateBackoffMillis(retry);
                 Assertions.assertTrue(
                         actual >= base_ && actual <= ceiling,
-                        "retry " + retry + " produced " + actual + ", expected [" + base_ + ", "
-                                + ceiling + "]");
+                        "retry "
+                                + retry
+                                + " produced "
+                                + actual
+                                + ", expected ["
+                                + base_
+                                + ", "
+                                + ceiling
+                                + "]");
             }
         }
     }
@@ -141,12 +148,14 @@ public class AirtableSourceReaderTest {
             observed.add(reader.calculateBackoffMillis(3));
         }
 
-        // Without jitter every call returns the same value. The range here is
-        // 2000ms wide, so seeing a single value across 200 draws is not chance.
+        // Without jitter every call returns the same value. At retry 3 with a
+        // 1000ms base the range is [4000, 8000], so seeing a single value across
+        // 200 draws is not chance.
         Assertions.assertTrue(
                 observed.size() > 1,
                 "backoff must vary between calls so that concurrent clients do not "
-                        + "retry in lockstep, but observed only " + observed);
+                        + "retry in lockstep, but observed only "
+                        + observed);
     }
 
     @Test
@@ -179,7 +188,34 @@ public class AirtableSourceReaderTest {
         Assertions.assertTrue(
                 observed.size() > 1,
                 "backoff must still vary once it reaches MAX_BACKOFF_MILLIS, but "
-                        + "observed only " + observed);
+                        + "observed only "
+                        + observed);
+    }
+
+    @Test
+    public void testBackoffStillVariesWhenBaseExceedsTheMaximum() {
+        // A base at or above MAX_BACKOFF_MILLIS pins waitMillis to the cap from
+        // the first retry. Flooring at the base would then leave no room to
+        // jitter, which is the lockstep this change exists to remove, and it
+        // would bite the operators running the most conservative backoff.
+        int base = 300000;
+        AirtableSourceReader reader =
+                new AirtableSourceReader(parameter, context, schema, null, null, null, 0, base, 30);
+
+        Set<Long> observed = new HashSet<>();
+        for (int i = 0; i < 200; i++) {
+            long actual = reader.calculateBackoffMillis(1);
+            Assertions.assertTrue(
+                    actual >= 150000L && actual <= 300000L,
+                    "backoff produced " + actual + ", expected [150000, 300000]");
+            observed.add(actual);
+        }
+
+        Assertions.assertTrue(
+                observed.size() > 1,
+                "backoff must still vary when the configured base is at or above the maximum, "
+                        + "but observed only "
+                        + observed);
     }
 
     @Test
@@ -194,7 +230,10 @@ public class AirtableSourceReaderTest {
             long actual = reader.calculateBackoffMillis(20);
             Assertions.assertTrue(
                     actual >= base && actual <= 300000L,
-                    "backoff at the maximum produced " + actual + ", expected [" + base
+                    "backoff at the maximum produced "
+                            + actual
+                            + ", expected ["
+                            + base
                             + ", 300000]");
         }
     }
