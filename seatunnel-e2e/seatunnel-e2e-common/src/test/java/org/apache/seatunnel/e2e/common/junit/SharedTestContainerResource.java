@@ -28,7 +28,7 @@ final class SharedTestContainerResource implements ExtensionContext.Store.Closea
 
     private final ReusableTestContainer container;
     private final Semaphore classLease = new Semaphore(1, true);
-    private boolean started;
+    private volatile boolean started;
 
     SharedTestContainerResource(ReusableTestContainer container) {
         this.container = container;

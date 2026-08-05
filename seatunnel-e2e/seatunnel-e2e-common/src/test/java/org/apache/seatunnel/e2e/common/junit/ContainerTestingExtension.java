@@ -76,6 +76,8 @@ public class ContainerTestingExtension implements BeforeAllCallback, AfterAllCal
         Set<TestContainerId> sharedContainerIds = getSharedContainerIds(context);
         List<SharedTestContainerResource> sharedResources = new ArrayList<>();
         try {
+            // Keep the factory-defined order so classes sharing multiple containers acquire their
+            // leases consistently and cannot create a lock-ordering cycle.
             for (int i = 0; i < testContainers.size(); i++) {
                 TestContainer testContainer = testContainers.get(i);
                 if (!sharedContainerIds.contains(testContainer.identifier())) {

@@ -17,7 +17,14 @@
 
 package org.apache.seatunnel.e2e.common.container;
 
-/** A test container that can remove test-class state without stopping the underlying service. */
+/**
+ * A test container that can remove test-class state without stopping the underlying service.
+ *
+ * <p>Implementations must be configuration-independent across test classes because the first
+ * instance is shared with subsequent classes. Per-class setup must be performed in {@link
+ * #prepareForTestClass()} or through {@link TestContainer#executeExtraCommands} rather than during
+ * construction or startup.
+ */
 public interface ReusableTestContainer extends TestContainer {
 
     /** Records or verifies the clean baseline before a test class uses this container. */

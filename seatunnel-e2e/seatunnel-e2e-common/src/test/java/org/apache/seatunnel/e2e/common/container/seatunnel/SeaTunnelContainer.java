@@ -289,8 +289,9 @@ public class SeaTunnelContainer extends AbstractTestContainer implements Reusabl
     private void deleteAddedArtifacts(
             String directory, Set<String> baseline, Set<String> currentArtifacts)
             throws IOException, InterruptedException {
-        currentArtifacts.removeAll(baseline);
-        for (String artifact : currentArtifacts) {
+        Set<String> artifactsToDelete = new TreeSet<>(currentArtifacts);
+        artifactsToDelete.removeAll(baseline);
+        for (String artifact : artifactsToDelete) {
             Container.ExecResult result =
                     server.execInContainer("rm", "-f", directory + "/" + artifact);
             if (result.getExitCode() != 0) {

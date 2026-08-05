@@ -30,7 +30,8 @@ import java.lang.annotation.Target;
  *
  * <p>Only use this for test classes whose container supports class-level cleanup. Opted-in tests
  * must not depend on another test class's files, connector artifacts, active jobs, or finished-job
- * history.
+ * history. Cleanup runs once per test class, not per test method. Test methods in the same class
+ * share container state, so classes whose methods require a pristine container must not opt in.
  */
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
