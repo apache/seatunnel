@@ -511,13 +511,13 @@ jobs:
         run: |
           ./mvnw -B -Pbenchmark -pl seatunnel-benchmarks test \
             -D"license.skipAddThirdParty"=true --no-snapshot-updates
-      - name: Run pipeline benchmark smoke test
+      - name: Run benchmark smoke tests
         run: |
           result_dir="${RUNNER_TEMP}/seatunnel-benchmark-results"
           mkdir -p "${result_dir}"
           java -Dseatunnel.benchmark.result.dir="${result_dir}" \
             -jar seatunnel-benchmarks/target/benchmarks.jar \
-            'SeaTunnelPipelineBenchmark.sourceSink$' \
+            '.*' \
             -f 1 -wi 0 -i 1 -r 1s -foe true
           find "${result_dir}" -name '*.json' -print -quit | grep -q .
 
