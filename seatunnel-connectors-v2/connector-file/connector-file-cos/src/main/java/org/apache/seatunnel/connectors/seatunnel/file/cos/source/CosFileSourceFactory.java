@@ -99,6 +99,10 @@ public class CosFileSourceFactory implements TableSourceFactory {
                         FileBaseSourceOptions.FILE_FORMAT_TYPE,
                         FileFormat.MARKDOWN,
                         FileBaseSourceOptions.MARKDOWN_RAG_METADATA_ENABLED)
+                .conditional(
+                        FileBaseSourceOptions.FILE_FORMAT_TYPE,
+                        FileFormat.PDF,
+                        FileBaseSourceOptions.PDF_RAG_METADATA_ENABLED)
                 .optional(FileBaseSourceOptions.QUOTE_CHAR)
                 .optional(FileBaseSourceOptions.ESCAPE_CHAR)
                 .optional(FileBaseSourceOptions.RECURSIVE_FILE_SCAN)
