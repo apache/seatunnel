@@ -29,7 +29,7 @@
 
     <properties>
         <maven-jar-plugin.version>2.4</maven-jar-plugin.version>
-        <hadoop-aliyun.version>3.0.0</hadoop-aliyun.version>
+        <!-- hadoop-aliyun.version is inherited from the root pom, in lockstep with hadoop3.version -->
         <netty-buffer.version>4.1.89.Final</netty-buffer.version>
     </properties>
 

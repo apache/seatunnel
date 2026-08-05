@@ -265,8 +265,12 @@ public class S3HadoopConfTest {
 
     /**
      * An abstract class that implements the AWS credentials provider contract. Used to verify the
-     * eager validation rejects abstract classes, matching Hadoop {@code S3AUtils} behavior.
+     * eager validation rejects abstract classes, matching Hadoop {@code
+     * CredentialProviderListFactory} behavior.
+     *
+     * <p>This is the SDK v2 interface, because that is the one Hadoop S3A checks against from 3.4.0
+     * onwards (HADOOP-18073) and the only one on the classpath.
      */
     abstract static class AbstractTestCredentialsProvider
-            implements com.amazonaws.auth.AWSCredentialsProvider {}
+            implements software.amazon.awssdk.auth.credentials.AwsCredentialsProvider {}
 }

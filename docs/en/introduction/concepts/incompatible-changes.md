@@ -11,18 +11,30 @@ You need to check this document before you upgrade to related version.
   - **Affected component**: `seatunnel-shade/seatunnel-hadoop3-3.4.3-uber` (renamed from `seatunnel-hadoop3-3.1.4-uber`), `seatunnel-shade/seatunnel-hadoop-aws`, `seatunnel-connectors-v2/connector-file/connector-file-s3`, `checkpoint-storage-hdfs`, `seatunnel-dist`
   - **Description**: The shaded Hadoop uber jar moves from 3.1.4 (2019) to 3.4.3. `hadoop-aws` moves with it, because `hadoop-aws` declares `hadoop-common` as `provided` and therefore links at runtime against whatever `hadoop-common` the uber jar ships — the two versions cannot be upgraded independently. Hadoop 3.4's S3A is built against AWS SDK **v2** (`software.amazon.awssdk:bundle`) rather than v1 (`com.amazonaws:aws-java-sdk-bundle`), whose end-of-support was 2025-12-31.
   - **Impact 1 — the module artifactId changed.** `org.apache.seatunnel:seatunnel-hadoop3-3.1.4-uber` no longer exists; use `org.apache.seatunnel:seatunnel-hadoop3-3.4.3-uber`. Only custom builds and downstream poms that reference the artifact directly are affected; the packaged distribution layout is unchanged.
-  - **Impact 2 — AWS SDK v1 classes are no longer on the classpath.** Any job config, custom credentials provider, or extension naming a `com.amazonaws.*` class will fail to load. `fs.s3a.aws.credentials.provider` values must be migrated:
+  - **Impact 2 — AWS SDK v1 classes are no longer on the classpath.** Custom credentials providers and extensions that reference a `com.amazonaws.*` class will fail to load. For `fs.s3a.aws.credentials.provider` the picture is more forgiving than that, and worth stating precisely, because S3A 3.4.x remaps a fixed set of well-known v1 names for you.
+
+    **Five v1 provider names keep working**, remapped automatically by `org.apache.hadoop.fs.s3a.auth.CredentialProviderListFactory` before the class is ever resolved. Each remap emits a log-once warning, `Credentials option {} contains AWS v1 SDK entry {}; mapping to {}`:
+
+    | Configured v1 name | Silently remapped to |
+    |---|---|
+    | `com.amazonaws.auth.InstanceProfileCredentialsProvider` | `org.apache.hadoop.fs.s3a.auth.IAMInstanceCredentialsProvider` |
+    | `com.amazonaws.auth.EC2ContainerCredentialsProviderWrapper` | `org.apache.hadoop.fs.s3a.auth.IAMInstanceCredentialsProvider` |
+    | `com.amazonaws.auth.EnvironmentVariableCredentialsProvider` | `software.amazon.awssdk.auth.credentials.EnvironmentVariableCredentialsProvider` |
+    | `com.amazonaws.auth.profile.ProfileCredentialsProvider` | `software.amazon.awssdk.auth.credentials.ProfileCredentialsProvider` |
+    | `com.amazonaws.auth.AnonymousAWSCredentials` | `org.apache.hadoop.fs.s3a.AnonymousAWSCredentialsProvider` |
+
+    **Any other `com.amazonaws.*` provider name fails**, including `com.amazonaws.auth.ContainerCredentialsProvider`, which earlier revisions of the S3File connector documentation offered as an example value. Rewrite those:
 
     | Before (SDK v1) | After |
     |---|---|
-    | `com.amazonaws.auth.InstanceProfileCredentialsProvider` | `org.apache.hadoop.fs.s3a.auth.IAMInstanceCredentialsProvider` |
-    | `com.amazonaws.auth.EnvironmentVariableCredentialsProvider` | `software.amazon.awssdk.auth.credentials.EnvironmentVariableCredentialsProvider` |
     | `com.amazonaws.auth.ContainerCredentialsProvider` | `software.amazon.awssdk.auth.credentials.ContainerCredentialsProvider` |
     | implements `com.amazonaws.auth.AWSCredentialsProvider` | implements `software.amazon.awssdk.auth.credentials.AwsCredentialsProvider` |
 
-    S3A does ship a v1-to-v2 adapter, but it requires `com.amazonaws:aws-java-sdk-core`, which `hadoop-aws` declares as `provided` and is therefore never packaged — so it cannot rescue v1 class names here.
-  - **Migration**: Jobs that select the provider through the typed `fs.s3a.aws.credentials.provider` enum (`SimpleAWSCredentialsProvider` / `InstanceProfileCredentialsProvider`) need **no change** — the enum constant names are unchanged, only the class name they map to changed. Jobs that hardcode a `com.amazonaws.*` class name in `fs.s3a.aws.credentials.provider` or `hadoop_s3_properties` must be updated per the table above.
-  - **Note on distribution size**: `hadoop-aws` 3.4.x depends on `software.amazon.awssdk:bundle`, which contains every AWS service client, so the shaded `seatunnel-hadoop-aws.jar` grows substantially. Narrowing it to the modules S3A actually needs is tracked as follow-up work.
+    **How a non-remapped name fails.** `fs.s3a.aws.credentials.provider` is a plain string S3A resolves reflectively, so the value passes SeaTunnel's config validation unchanged and fails later, while the filesystem is being initialized. S3A first tries to instantiate it as a v2 provider, then logs `Failed to create {} as v2 credentials, trying to instantiate as v1` and falls back to its v1-to-v2 adapter. That adapter needs `com.amazonaws:aws-java-sdk-core`, which `hadoop-aws` declares as `provided` and is therefore never packaged, so the fallback cannot succeed either and the job fails with `Failed to instantiate {} as AWS v2 SDK credential provider; AWS V1 SDK is not on the classpath so unable to attempt to instantiate as a v1 provider`.
+
+    **Escape hatch for arbitrary v1 names.** Hadoop 3.4.x adds `fs.s3a.aws.credentials.provider.mapping`, which takes `v1ClassName=v2ClassName` pairs and is consulted alongside the built-in table above. It lets a v1 provider name be redirected without editing every job config.
+  - **Migration**: Jobs that select the provider through the typed `fs.s3a.aws.credentials.provider` enum (`SimpleAWSCredentialsProvider` / `InstanceProfileCredentialsProvider`) need **no change** — the enum constant names are unchanged, only the class name they map to changed. Jobs that hardcode a `com.amazonaws.*` class name in `fs.s3a.aws.credentials.provider` or `hadoop_s3_properties` should be checked against the two tables above: the five remapped names still work but will log a warning, and everything else must be rewritten.
+  - **Note on distribution size**: `hadoop-aws` 3.4.x depends on `software.amazon.awssdk:bundle`, which carries all 411 AWS service clients. `hadoop-aws` itself references only three of them (`s3`, `sts`, `kms`), so the shade step keeps those and drops the rest; see the `<filter>` comment in `seatunnel-shade/seatunnel-hadoop-aws/pom.xml`. No user action is required, and no S3A feature is affected.
 
 ### JDBC Connector
 

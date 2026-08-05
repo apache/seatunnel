@@ -181,6 +181,24 @@
         -->
         <hadoop-aws.version>3.4.3</hadoop-aws.version>
         <!--
+            hadoop-aliyun is coupled to the uber jar's hadoop-common in the same way, and for the
+            same practical reason: SeaTunnel declares hadoop-aliyun provided and then ships only the
+            hadoop-aliyun jar into the distribution, so AliyunOSSFileSystem links at runtime against
+            whichever hadoop-common the uber jar carries. It used to be pinned per module at 3.1.4
+            (connector-file-oss, seatunnel-dist) and 3.0.0 (checkpoint-storage-hdfs,
+            imap-storage-file, connector-seatunnel-e2e-base); resolving every external reference of
+            those jars against hadoop-common 3.4.3 shows 3.1.4 breaking in exactly the two ways
+            hadoop-aws did - NoSuchMethodError on
+            SemaphoredDelegatingExecutor.<init>(ListeningExecutorService,int,boolean) from
+            AliyunOSSFileSystem, whose guava-typed constructor 3.4.3 replaced with an
+            ExecutorService-typed one, plus commons-lang 2.x and commons-collections 3.x class
+            references that Hadoop's closure dropped after 3.1.4. hadoop-aliyun 3.4.3 resolves
+            cleanly against it (it moved to commons-lang3, commons-collections4 and the
+            org.apache.hadoop.thirdparty shaded guava). One property for all five call sites so they
+            cannot drift apart again.
+        -->
+        <hadoop-aliyun.version>3.4.3</hadoop-aliyun.version>
+        <!--
             Must match the aws-java-sdk-v2.version that hadoop-project ${hadoop3.version} pins.
             hadoop-aws 3.4.x depends on software.amazon.awssdk:bundle, so the resulting
             seatunnel-hadoop-aws.jar sits on the same lib/* classpath as seatunnel-transforms-v2.jar,

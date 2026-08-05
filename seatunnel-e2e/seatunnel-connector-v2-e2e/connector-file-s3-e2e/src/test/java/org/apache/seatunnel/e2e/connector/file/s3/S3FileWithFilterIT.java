@@ -30,6 +30,7 @@ import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerImageName;
+import org.testcontainers.utility.MountableFile;
 
 import com.github.dockerjava.api.model.ExposedPort;
 import com.github.dockerjava.api.model.PortBinding;
@@ -57,11 +58,6 @@ public class S3FileWithFilterIT extends SeaTunnelContainer {
     private static final int S3_PORT = 9000;
 
     private static final String S3_CONTAINER_HOST = "s3";
-
-    protected static final String AWS_SDK_DOWNLOAD =
-            "https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/1.11.271/aws-java-sdk-bundle-1.11.271.jar";
-    protected static final String HADOOP_AWS_DOWNLOAD =
-            "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/3.1.4/hadoop-aws-3.1.4.jar";
 
     @BeforeAll
     @Override
@@ -96,24 +92,26 @@ public class S3FileWithFilterIT extends SeaTunnelContainer {
         }
     }
 
+    /**
+     * Put S3A on the container's classpath the same way the distribution does, with the shaded
+     * {@code seatunnel-hadoop-aws} jar in {@code lib/}.
+     *
+     * <p>This used to {@code wget} {@code hadoop-aws} 3.1.4 and the AWS SDK v1 bundle from Maven
+     * Central into {@code lib/}. Both are incompatible with the {@code hadoop-common} the uber jar
+     * now ships: 3.1.4's {@code SimpleAWSCredentialsProvider} implements the SDK v1 {@code
+     * AWSCredentialsProvider}, so the job failed at source creation. The shaded jar carries {@code
+     * hadoop-aws} together with its own SDK, which is what {@code lib/seatunnel-hadoop-aws.jar} is
+     * in a real distribution, and it removes two network downloads from the test.
+     */
     @Override
-    protected String[] buildStartCommand() {
-        return new String[] {
-            "bash",
-            "-c",
-            "wget -P "
-                    + SEATUNNEL_HOME
-                    + "lib "
-                    + AWS_SDK_DOWNLOAD
-                    + " &&"
-                    + "wget -P "
-                    + SEATUNNEL_HOME
-                    + "lib "
-                    + HADOOP_AWS_DOWNLOAD
-                    + " &&"
-                    + ContainerUtil.adaptPathForWin(
-                            Paths.get(SEATUNNEL_HOME, "bin", SERVER_SHELL).toString())
-        };
+    protected void executeExtraCommands(GenericContainer<?> container)
+            throws IOException, InterruptedException {
+        container.withCopyFileToContainer(
+                MountableFile.forHostPath(
+                        ContainerUtil.PROJECT_ROOT_PATH
+                                + "/seatunnel-shade/seatunnel-hadoop-aws/target/seatunnel-hadoop-aws.jar"),
+                Paths.get(SEATUNNEL_HOME, "lib/seatunnel-hadoop-aws.jar").toString());
+        super.executeExtraCommands(container);
     }
 
     @Test

@@ -28,6 +28,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
+import org.testcontainers.utility.MountableFile;
 
 import io.airlift.compress.lzo.LzopCodec;
 
@@ -41,29 +42,30 @@ import java.nio.file.Paths;
 @Disabled("have no s3 environment to run this test")
 public class S3FileIT extends TestSuiteBase {
 
-    public static final String S3_SDK_DOWNLOAD =
-            "https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/1.11.271/aws-java-sdk-bundle-1.11.271.jar";
-    public static final String HADOOP_S3_DOWNLOAD =
-            "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/3.1.4/hadoop-aws-3.1.4.jar";
+    private static final String SHADED_HADOOP_AWS_JAR =
+            "/seatunnel-shade/seatunnel-hadoop-aws/target/seatunnel-hadoop-aws.jar";
 
+    /**
+     * Put S3A on the container's classpath the same way the distribution does, with the shaded
+     * {@code seatunnel-hadoop-aws} jar.
+     *
+     * <p>This used to {@code curl} {@code hadoop-aws} 3.1.4 and the AWS SDK v1 bundle from Maven
+     * Central. Both are incompatible with the {@code hadoop-common} the uber jar now ships. The
+     * shaded jar carries {@code hadoop-aws} together with its own SDK, which is what {@code
+     * lib/seatunnel-hadoop-aws.jar} is in a real distribution.
+     */
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
             container -> {
-                Container.ExecResult extraCommands =
+                Container.ExecResult mkdir =
                         container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/s3/lib && cd /tmp/seatunnel/plugins/s3/lib && curl -O "
-                                        + S3_SDK_DOWNLOAD);
-                Assertions.assertEquals(0, extraCommands.getExitCode());
+                                "bash", "-c", "mkdir -p /tmp/seatunnel/plugins/s3/lib");
+                Assertions.assertEquals(0, mkdir.getExitCode());
 
-                extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "cd /tmp/seatunnel/plugins/s3/lib && curl -O "
-                                        + HADOOP_S3_DOWNLOAD);
-                Assertions.assertEquals(0, extraCommands.getExitCode());
+                container.copyFileToContainer(
+                        MountableFile.forHostPath(
+                                ContainerUtil.PROJECT_ROOT_PATH + SHADED_HADOOP_AWS_JAR),
+                        "/tmp/seatunnel/plugins/s3/lib/seatunnel-hadoop-aws.jar");
             };
 
     /** Copy data files to s3 */

@@ -10,18 +10,30 @@
   - **影响范围**：`seatunnel-shade/seatunnel-hadoop3-3.4.3-uber`（由 `seatunnel-hadoop3-3.1.4-uber` 重命名）、`seatunnel-shade/seatunnel-hadoop-aws`、`seatunnel-connectors-v2/connector-file/connector-file-s3`、`checkpoint-storage-hdfs`、`seatunnel-dist`
   - **说明**：Shade 的 Hadoop uber jar 从 3.1.4（2019 年发布）升级到 3.4.3。`hadoop-aws` 必须同步升级：`hadoop-aws` 将 `hadoop-common` 声明为 `provided`，运行时链接到 uber jar 实际提供的那个 `hadoop-common`，因此两者无法独立升级。Hadoop 3.4 的 S3A 基于 AWS SDK **v2**（`software.amazon.awssdk:bundle`）构建，而非 v1（`com.amazonaws:aws-java-sdk-bundle`）——v1 已于 2025-12-31 结束支持。
   - **影响 1 —— 模块 artifactId 变更。** `org.apache.seatunnel:seatunnel-hadoop3-3.1.4-uber` 不再存在，请改用 `org.apache.seatunnel:seatunnel-hadoop3-3.4.3-uber`。仅影响直接引用该构件的自定义构建和下游 pom；发布包的目录结构不变。
-  - **影响 2 —— AWS SDK v1 的类不再位于 classpath。** 任何在作业配置、自定义凭据提供程序或扩展中指定 `com.amazonaws.*` 类的地方都会加载失败。`fs.s3a.aws.credentials.provider` 的取值需要迁移：
+  - **影响 2 —— AWS SDK v1 的类不再位于 classpath。** 引用 `com.amazonaws.*` 类的自定义凭据提供程序和扩展会加载失败。但对 `fs.s3a.aws.credentials.provider` 而言情况比这宽松，值得准确说明：S3A 3.4.x 会自动重映射一组固定的常见 v1 类名。
+
+    **以下五个 v1 类名仍然可用**，由 `org.apache.hadoop.fs.s3a.auth.CredentialProviderListFactory` 在解析类之前自动重映射。每次重映射会输出一次性警告日志 `Credentials option {} contains AWS v1 SDK entry {}; mapping to {}`：
+
+    | 配置的 v1 类名 | 自动重映射为 |
+    |---|---|
+    | `com.amazonaws.auth.InstanceProfileCredentialsProvider` | `org.apache.hadoop.fs.s3a.auth.IAMInstanceCredentialsProvider` |
+    | `com.amazonaws.auth.EC2ContainerCredentialsProviderWrapper` | `org.apache.hadoop.fs.s3a.auth.IAMInstanceCredentialsProvider` |
+    | `com.amazonaws.auth.EnvironmentVariableCredentialsProvider` | `software.amazon.awssdk.auth.credentials.EnvironmentVariableCredentialsProvider` |
+    | `com.amazonaws.auth.profile.ProfileCredentialsProvider` | `software.amazon.awssdk.auth.credentials.ProfileCredentialsProvider` |
+    | `com.amazonaws.auth.AnonymousAWSCredentials` | `org.apache.hadoop.fs.s3a.AnonymousAWSCredentialsProvider` |
+
+    **其他任何 `com.amazonaws.*` 类名都会失败**，包括早期版本 S3File 连接器文档曾作为示例给出的 `com.amazonaws.auth.ContainerCredentialsProvider`。这些必须改写：
 
     | 变更前（SDK v1） | 变更后 |
     |---|---|
-    | `com.amazonaws.auth.InstanceProfileCredentialsProvider` | `org.apache.hadoop.fs.s3a.auth.IAMInstanceCredentialsProvider` |
-    | `com.amazonaws.auth.EnvironmentVariableCredentialsProvider` | `software.amazon.awssdk.auth.credentials.EnvironmentVariableCredentialsProvider` |
     | `com.amazonaws.auth.ContainerCredentialsProvider` | `software.amazon.awssdk.auth.credentials.ContainerCredentialsProvider` |
     | 实现 `com.amazonaws.auth.AWSCredentialsProvider` | 实现 `software.amazon.awssdk.auth.credentials.AwsCredentialsProvider` |
 
-    S3A 自带 v1 到 v2 的适配器，但它依赖 `com.amazonaws:aws-java-sdk-core`，而 `hadoop-aws` 将其声明为 `provided`、不会被打包，因此无法用它兼容 v1 的类名。
-  - **迁移方式**：通过枚举方式（`SimpleAWSCredentialsProvider` / `InstanceProfileCredentialsProvider`）指定 `fs.s3a.aws.credentials.provider` 的作业**无需修改**——枚举常量名未变，只是其映射的类名发生了变化。在 `fs.s3a.aws.credentials.provider` 或 `hadoop_s3_properties` 中硬编码 `com.amazonaws.*` 类名的作业，请按上表更新。
-  - **关于发布包体积**：`hadoop-aws` 3.4.x 依赖 `software.amazon.awssdk:bundle`，其中包含所有 AWS 服务的客户端，因此 shade 后的 `seatunnel-hadoop-aws.jar` 体积明显增大。将其收窄为 S3A 实际需要的模块已列为后续工作。
+    **未被重映射的类名如何失败。** `fs.s3a.aws.credentials.provider` 是一个普通字符串，S3A 通过反射解析它，因此该取值会原样通过 SeaTunnel 的配置校验，直到文件系统初始化阶段才失败。S3A 先尝试将其实例化为 v2 提供程序，失败后输出 `Failed to create {} as v2 credentials, trying to instantiate as v1` 并回退到 v1 到 v2 的适配器。该适配器依赖 `com.amazonaws:aws-java-sdk-core`，而 `hadoop-aws` 将其声明为 `provided`、不会被打包，因此回退同样无法成功，作业最终以 `Failed to instantiate {} as AWS v2 SDK credential provider; AWS V1 SDK is not on the classpath so unable to attempt to instantiate as a v1 provider` 失败。
+
+    **任意 v1 类名的兜底方案。** Hadoop 3.4.x 新增了 `fs.s3a.aws.credentials.provider.mapping`，接受 `v1类名=v2类名` 形式的键值对，并与上面的内置映射表一并生效。它可以在不修改每个作业配置的情况下重定向某个 v1 提供程序类名。
+  - **迁移方式**：通过枚举方式（`SimpleAWSCredentialsProvider` / `InstanceProfileCredentialsProvider`）指定 `fs.s3a.aws.credentials.provider` 的作业**无需修改**——枚举常量名未变，只是其映射的类名发生了变化。在 `fs.s3a.aws.credentials.provider` 或 `hadoop_s3_properties` 中硬编码 `com.amazonaws.*` 类名的作业，请对照上面两张表检查：五个被重映射的类名仍可用但会输出警告，其余必须改写。
+  - **关于发布包体积**：`hadoop-aws` 3.4.x 依赖 `software.amazon.awssdk:bundle`，其中包含全部 411 个 AWS 服务的客户端。`hadoop-aws` 自身只引用其中三个（`s3`、`sts`、`kms`），因此 shade 阶段只保留这三个、丢弃其余部分，详见 `seatunnel-shade/seatunnel-hadoop-aws/pom.xml` 中 `<filter>` 的注释。用户无需做任何调整，也不会影响任何 S3A 功能。
 
 ### JDBC Connector
 

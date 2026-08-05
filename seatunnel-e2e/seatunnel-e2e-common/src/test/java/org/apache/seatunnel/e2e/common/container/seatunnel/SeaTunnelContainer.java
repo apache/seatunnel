@@ -431,6 +431,14 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                 // The read of hdfs which has the thread that is all in running status
                 || s.startsWith("org.apache.hadoop.hdfs.PeerCache")
                 || s.startsWith("java-sdk-progress-listener-callback-thread")
+                // AWS SDK v2 daemon schedulers. Both are created lazily and are not owned by an
+                // SdkClient, so closing the filesystem does not shut them down; they park idle on
+                // a ScheduledThreadPoolExecutor delay queue and do not hold the JVM open.
+                // software/amazon/awssdk/core/ResponseInputStream$TimeoutScheduler
+                || s.startsWith("response-input-stream-timeout-scheduler")
+                // the Failsafe delayer that the shaded S3 Access Grants plugin creates,
+                // software/amazon/s3/shaded/dev/failsafe/internal/util/DelegatingScheduler
+                || s.startsWith("FailsafeDelayScheduler")
                 // redis pool evictor daemon thread
                 || s.startsWith("commons-pool-evictor")
                 // Jetty QueuedThreadPool NIO selector thread from the embedded REST server;

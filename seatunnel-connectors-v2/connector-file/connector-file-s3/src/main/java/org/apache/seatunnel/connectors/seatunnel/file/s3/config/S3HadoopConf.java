@@ -109,14 +109,21 @@ public class S3HadoopConf extends HadoopConf {
 
     /**
      * The AWS credentials provider contract every configured provider class must implement. Hadoop
-     * S3A's {@code S3AUtils.createAWSCredentialProvider} performs the exact same {@code
-     * AWSCredentialsProvider.isAssignableFrom(clazz)} check (and rejects abstract classes) before
-     * it reflectively instantiates the class, so validating it here only moves that failure
+     * S3A's {@code CredentialProviderListFactory.buildAWSProviderList} performs the exact same
+     * {@code AwsCredentialsProvider.isAssignableFrom(clazz)} check (and rejects abstract classes)
+     * before it reflectively instantiates the class, so validating it here only moves that failure
      * earlier, from an opaque worker-side {@code IOException} to an actionable config-parse-time
      * error. It never rejects anything Hadoop itself would have accepted.
+     *
+     * <p>This is the AWS SDK v2 interface. Up to Hadoop 3.3.x S3A checked against the v1 {@code
+     * com.amazonaws.auth.AWSCredentialsProvider}; HADOOP-18073 moved S3A to SDK v2 in 3.4.0, and
+     * the v1 interface is no longer on the runtime classpath. Naming the v1 interface here would
+     * make the whole check silently degrade to the warning at the end of {@link
+     * #checkCredentialsProviderClass(String)} for every provider, including correct ones, because
+     * the interface itself would never resolve.
      */
     private static final String AWS_CREDENTIALS_PROVIDER_INTERFACE =
-            "com.amazonaws.auth.AWSCredentialsProvider";
+            "software.amazon.awssdk.auth.credentials.AwsCredentialsProvider";
 
     /**
      * Best-effort eager validation of the configured S3A credentials provider value on the node
@@ -199,8 +206,8 @@ public class S3HadoopConf extends HadoopConf {
     /**
      * Asserts the resolved provider class can actually be used by Hadoop S3A: it must implement
      * {@link #AWS_CREDENTIALS_PROVIDER_INTERFACE} and must not be abstract. These are exactly the
-     * two conditions {@code S3AUtils.createAWSCredentialProvider} enforces before instantiation, so
-     * this check never rejects a class Hadoop would have accepted — it only surfaces the failure at
+     * two conditions {@code CredentialProviderListFactory} enforces before instantiation, so this
+     * check never rejects a class Hadoop would have accepted — it only surfaces the failure at
      * config-parse time with an actionable message instead of an opaque worker-side error.
      *
      * <p>The caller resolves both classes through the same candidate classloader. If either class

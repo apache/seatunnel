@@ -130,7 +130,12 @@
                 <snowflake.version>3.13.29</snowflake.version>
 
                 <!-- Imap storage dependency package  -->
-                <hadoop-aliyun.version>3.1.4</hadoop-aliyun.version>
+                <!--
+                    hadoop-aliyun.version is inherited from the root pom so it stays in lockstep with
+                    hadoop3.version. This profile pinned 3.1.4, which is the version actually shipped
+                    into the distribution and the one that does not resolve against hadoop-common
+                    3.4.3.
+                -->
                 <json-smart.version>2.4.7</json-smart.version>
                 <netty-buffer.version>4.1.89.Final</netty-buffer.version>
                 <hive.exec.version>3.1.3</hive.exec.version>
@@ -921,15 +926,12 @@
                     <scope>provided</scope>
                 </dependency>
                 <!--
-                    hadoop-aws 3.4.x is built against AWS SDK v2, so the v1 bundle is replaced by
-                    software.amazon.awssdk:bundle at the version managed in the root pom.
+                    com.amazonaws:aws-java-sdk-bundle was declared here only so that
+                    assembly-seatunnel-bin-ci.xml could include it into lib/. That include is gone
+                    (see the comment there), so the declaration goes with it rather than being
+                    swapped for the v2 bundle: seatunnel-hadoop-aws above already carries the SDK
+                    classes S3A needs.
                 -->
-                <dependency>
-                    <groupId>software.amazon.awssdk</groupId>
-                    <artifactId>bundle</artifactId>
-                    <version>${software.amazon.awssdk.version}</version>
-                    <scope>provided</scope>
-                </dependency>
                 <dependency>
                     <groupId>org.apache.hadoop</groupId>
                     <artifactId>hadoop-aliyun</artifactId>

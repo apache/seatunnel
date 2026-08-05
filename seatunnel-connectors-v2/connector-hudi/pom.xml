@@ -35,7 +35,6 @@
         <parquet.version>1.12.2</parquet.version>
         <snappy.version>1.1.10.4</snappy.version>
         <kryo.shaded.version>4.0.2</kryo.shaded.version>
-        <hadoop-aws.version>3.1.4</hadoop-aws.version>
         <connector.name>connector-hudi</connector.name>
     </properties>
 

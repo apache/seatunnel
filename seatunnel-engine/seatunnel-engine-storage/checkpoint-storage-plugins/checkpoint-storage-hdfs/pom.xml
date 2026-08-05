@@ -31,7 +31,11 @@
     <name>SeaTunnel : Engine : Storage : Checkpoint Storage Plugins : HDFS</name>
 
     <properties>
-        <hadoop-aliyun.version>3.0.0</hadoop-aliyun.version>
+        <!--
+            hadoop-aliyun.version is inherited from the root pom so it stays in lockstep with
+            hadoop3.version, the same way hadoop-aws.version already is below. It used to be pinned
+            here at 3.0.0.
+        -->
     </properties>
 
     <dependencies>
