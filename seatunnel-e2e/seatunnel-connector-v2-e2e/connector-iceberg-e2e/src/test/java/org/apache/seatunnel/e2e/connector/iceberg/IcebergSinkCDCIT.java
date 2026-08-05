@@ -115,19 +115,9 @@ public class IcebergSinkCDCIT extends TestSuiteBase implements TestResource {
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
             container -> {
-                // TODO: remove this after fix the issue of encountering a failure to create the
-                // metadata and data directories under the /tmp/seatunnel_mnt path in the container
-                // Manually create iceberg metadata and data directory in container
-                container.execInContainer(
-                        "sh",
-                        "-c",
-                        "mkdir -p " + CATALOG_DIR + "seatunnel_namespace/iceberg_sink_table/data");
-                container.execInContainer(
-                        "sh",
-                        "-c",
-                        "mkdir -p "
-                                + CATALOG_DIR
-                                + "seatunnel_namespace/iceberg_sink_table/metadata");
+                // Iceberg creates the namespace, table, metadata, and data directories during the
+                // write. The test only prepares a writable catalog root for the container user.
+                container.execInContainer("sh", "-c", "mkdir -p " + CATALOG_DIR);
                 container.execInContainer("sh", "-c", "chmod -R 777 " + CATALOG_DIR);
 
                 Container.ExecResult extraCommandsZSTD =
