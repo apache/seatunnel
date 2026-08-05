@@ -120,4 +120,28 @@ class LsnOffsetTest {
         Assertions.assertFalse(replayedEvent.isAfter(restoredStartupOffset));
         Assertions.assertTrue(nextEvent.isAfter(restoredStartupOffset));
     }
+
+    @Test
+    void testTimestampBoundaryEmitsSameCommitEvents() {
+        // startup.mode=timestamp resolves the boundary via fn_cdc_map_time_to_lsn('smallest
+        // greater than or equal', ts); the returned LSN is the COMMIT log record of the
+        // matching transaction. Rows belonging to that transaction must be emitted, so every
+        // real in-commit event must compare as isAfter(timestampBoundary).
+        LsnOffset boundary = LsnOffset.timestampBoundary(COMMIT_LSN);
+        LsnOffset firstInCommitEvent = completeOffset(COMMIT_LSN, CHANGE_LSN, 1L);
+        LsnOffset laterInCommitEvent = completeOffset(COMMIT_LSN, NEXT_CHANGE_LSN, 1L);
+        LsnOffset earlierCommitEvent =
+                completeOffset("00000027:00000a80:0002", "00000027:00000a80:0002", 1L);
+        LsnOffset laterCommitEvent = completeOffset(NEXT_COMMIT_LSN, CHANGE_LSN, 1L);
+
+        Assertions.assertTrue(firstInCommitEvent.isAfter(boundary));
+        Assertions.assertTrue(laterInCommitEvent.isAfter(boundary));
+        Assertions.assertFalse(earlierCommitEvent.isAfter(boundary));
+        Assertions.assertTrue(laterCommitEvent.isAfter(boundary));
+        // The boundary itself carries a complete (commit, change, serial) position so that
+        // #10571 resume-precision semantic still applies once a checkpoint with a real
+        // change-LSN position is loaded.
+        Assertions.assertTrue(boundary.getChangeLsn().isAvailable());
+        Assertions.assertNotNull(boundary.getEventSerialNo());
+    }
 }

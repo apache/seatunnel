@@ -330,7 +330,7 @@ public class SqlServerUtils {
                                 timestampMs,
                                 new Timestamp(timestampMs),
                                 lsn);
-                        return LsnOffset.valueOf(lsn.toString());
+                        return LsnOffset.timestampBoundary(lsn.toString());
                     });
         } catch (SQLException e) {
             throw new SeaTunnelException(

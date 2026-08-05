@@ -53,6 +53,26 @@ public class LsnOffset extends Offset {
                 eventSerialNo == null ? null : Long.valueOf(eventSerialNo.toString()));
     }
 
+    /**
+     * Creates a boundary offset suitable for {@code startup.mode=timestamp}.
+     *
+     * <p>{@code sys.fn_cdc_map_time_to_lsn('smallest greater than or equal', ts)} returns the
+     * COMMIT lsn of the first transaction whose commit time is at or after the requested timestamp.
+     * Rows belonging to that transaction must be emitted, so the boundary must order itself BEFORE
+     * any real change event at the same commit. This is achieved by leaving the commit LSN intact
+     * while using the smallest available change LSN and event serial number as the in-commit
+     * position. With {@link #compareTo(Offset)}, every real in-commit event then compares as {@code
+     * isAfter(this)}.
+     *
+     * <p>Compare with {@link #valueOf(String)} (commit-only), which is used for {@code
+     * startup.mode=latest} and intentionally orders AFTER same-commit events to avoid replaying
+     * rows that already existed before startup.
+     */
+    public static LsnOffset timestampBoundary(String commitLsn) {
+        return new LsnOffset(
+                Lsn.valueOf(commitLsn), Lsn.valueOf(new byte[] {0, 0, 0, 0, 0, 0, 0, 0, 0, 1}), 0L);
+    }
+
     private LsnOffset(Lsn commitLsn, Lsn changeLsn, Long eventSerialNo) {
         Map<String, String> offsetMap = new HashMap<>();
 
