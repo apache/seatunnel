@@ -486,7 +486,7 @@ jobs:
           MAVEN_OPTS: -Xmx4096m -Dfile.encoding=UTF-8
 
   benchmark-test:
-    name: Benchmark UT and smoke (Java ${{ matrix.java }})
+    name: benchmark-test (${{ matrix.java }}, ubuntu-24.04)
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.benchmarks == 'true'
     runs-on: ubuntu-24.04
