@@ -321,7 +321,7 @@ jobs:
           fi
           if [[ "zz"$connector_modules == "zz" && "zz"$engine_modules != "zz" ]];then
             # Engine changes already route the full downstream engine test set through engine=true.
-            # Keep the fixed validation modules as the output without resolving the Maven dependency tree.
+            # Keep the fixed smoke modules as the output without resolving the Maven dependency tree.
             echo $pl_modules
             echo "modules=$pl_modules" >> $GITHUB_OUTPUT
             exit 0
