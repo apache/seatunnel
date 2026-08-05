@@ -125,6 +125,7 @@ import static org.apache.seatunnel.common.constants.JobMode.BATCH;
 
 public class JobMaster {
     private static final ILogger LOGGER = Logger.getLogger(JobMaster.class);
+    /** Maximum time to wait for one worker's task-group metrics response. */
     private static final long METRICS_FETCH_TIMEOUT_MS = 3000L;
 
     private final Object metricsLock = new Object();
@@ -1070,6 +1071,10 @@ public class JobMaster {
         return taskGroupLocationSlotProfileMap;
     }
 
+    /**
+     * Collect a best-effort realtime snapshot. Missing or failed workers are omitted, so callers
+     * must not treat the returned list as a complete terminal history.
+     */
     public List<RawJobMetrics> getCurrJobMetrics(
             Map<TaskGroupLocation, Address> taskGroupLocationSlotProfileMap) {
         return getCurrJobMetrics(taskGroupLocationSlotProfileMap, false);
@@ -1097,82 +1102,84 @@ public class JobMaster {
                     .add(entry.getKey());
         }
         List<RawJobMetrics> metrics = new ArrayList<>();
-        taskGroupLocationMap.forEach(
-                (address, taskGroupLocations) -> {
-                    try {
-                        if (nodeEngine.getClusterService().getMember(address) == null) {
-                            if (failOnIncompleteResult) {
-                                throw new SeaTunnelEngineException(
-                                        String.format(
-                                                "%s is no longer an active worker.", address));
-                            }
-                            return;
-                        }
-                        RawJobMetrics rawJobMetrics =
-                                fetchTaskGroupMetrics(address, taskGroupLocations);
-                        metrics.add(rawJobMetrics);
+        for (Map.Entry<Address, List<TaskGroupLocation>> entry : taskGroupLocationMap.entrySet()) {
+            Address address = entry.getKey();
+            List<TaskGroupLocation> taskGroupLocations = entry.getValue();
+            try {
+                if (nodeEngine.getClusterService().getMember(address) == null) {
+                    if (failOnIncompleteResult) {
+                        throw new FinalMetricsCollectionException(
+                                String.format("%s is no longer an active worker.", address));
                     }
-                    // HazelcastInstanceNotActiveException. It means that the node is
-                    // offline, so waiting for the taskGroup to restore can be successful
-                    catch (HazelcastInstanceNotActiveException e) {
-                        if (failOnIncompleteResult) {
-                            throw new SeaTunnelEngineException(
-                                    String.format(
-                                            "%s get final job metrics failed because the cluster is inactive.",
-                                            Arrays.toString(taskGroupLocations.toArray())),
-                                    e);
-                        }
-                        LOGGER.warning(
-                                String.format(
-                                        "%s get current job metrics with exception: %s.",
-                                        Arrays.toString(taskGroupLocations.toArray()),
-                                        ExceptionUtils.getMessage(e)));
-                    } catch (TimeoutException e) {
-                        if (failOnIncompleteResult) {
-                            throw new SeaTunnelEngineException(
-                                    String.format(
-                                            "%s get final job metrics timed out after %d ms.",
-                                            Arrays.toString(taskGroupLocations.toArray()),
-                                            METRICS_FETCH_TIMEOUT_MS),
-                                    e);
-                        }
-                        LOGGER.warning(
-                                String.format(
-                                        "%s get current job metrics timed out after %d ms.",
-                                        Arrays.toString(taskGroupLocations.toArray()),
-                                        METRICS_FETCH_TIMEOUT_MS));
-                    } catch (InterruptedException e) {
-                        Thread.currentThread().interrupt();
-                        if (failOnIncompleteResult) {
-                            throw new SeaTunnelEngineException(
-                                    String.format(
-                                            "%s get final job metrics was interrupted.",
-                                            Arrays.toString(taskGroupLocations.toArray())),
-                                    e);
-                        }
-                        LOGGER.warning(
-                                String.format(
-                                        "%s get current job metrics was interrupted.",
-                                        Arrays.toString(taskGroupLocations.toArray())));
-                    } catch (Exception e) {
-                        if (failOnIncompleteResult) {
-                            throw new SeaTunnelEngineException(
-                                    String.format(
-                                            "%s get final job metrics failed: %s.",
-                                            Arrays.toString(taskGroupLocations.toArray()),
-                                            ExceptionUtils.getMessage(e)),
-                                    e);
-                        }
-                        LOGGER.warning(
-                                String.format(
-                                        "%s get current job metrics failed: %s.",
-                                        Arrays.toString(taskGroupLocations.toArray()),
-                                        ExceptionUtils.getMessage(e)));
-                    }
-                });
+                    continue;
+                }
+                RawJobMetrics rawJobMetrics = fetchTaskGroupMetrics(address, taskGroupLocations);
+                metrics.add(rawJobMetrics);
+            }
+            // HazelcastInstanceNotActiveException. It means that the node is
+            // offline, so waiting for the taskGroup to restore can be successful
+            catch (HazelcastInstanceNotActiveException e) {
+                if (failOnIncompleteResult) {
+                    throw new FinalMetricsCollectionException(
+                            String.format(
+                                    "%s get final job metrics failed because the cluster is inactive.",
+                                    Arrays.toString(taskGroupLocations.toArray())),
+                            e);
+                }
+                LOGGER.warning(
+                        String.format(
+                                "%s get current job metrics with exception: %s.",
+                                Arrays.toString(taskGroupLocations.toArray()),
+                                ExceptionUtils.getMessage(e)));
+            } catch (TimeoutException e) {
+                if (failOnIncompleteResult) {
+                    throw new FinalMetricsCollectionException(
+                            String.format(
+                                    "%s get final job metrics timed out after %d ms.",
+                                    Arrays.toString(taskGroupLocations.toArray()),
+                                    METRICS_FETCH_TIMEOUT_MS),
+                            e);
+                }
+                LOGGER.warning(
+                        String.format(
+                                "%s get current job metrics timed out after %d ms.",
+                                Arrays.toString(taskGroupLocations.toArray()),
+                                METRICS_FETCH_TIMEOUT_MS));
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                if (failOnIncompleteResult) {
+                    throw new FinalMetricsCollectionException(
+                            String.format(
+                                    "%s get final job metrics was interrupted.",
+                                    Arrays.toString(taskGroupLocations.toArray())),
+                            e);
+                }
+                LOGGER.warning(
+                        String.format(
+                                "%s get current job metrics was interrupted.",
+                                Arrays.toString(taskGroupLocations.toArray())));
+                return metrics;
+            } catch (Exception e) {
+                if (failOnIncompleteResult) {
+                    throw new FinalMetricsCollectionException(
+                            String.format(
+                                    "%s get final job metrics failed: %s.",
+                                    Arrays.toString(taskGroupLocations.toArray()),
+                                    ExceptionUtils.getMessage(e)),
+                            e);
+                }
+                LOGGER.warning(
+                        String.format(
+                                "%s get current job metrics failed: %s.",
+                                Arrays.toString(taskGroupLocations.toArray()),
+                                ExceptionUtils.getMessage(e)));
+            }
+        }
         return metrics;
     }
 
+    /** Fetch worker metrics with the bounded wait used by realtime and final collection paths. */
+    @VisibleForTesting
     protected RawJobMetrics fetchTaskGroupMetrics(
             Address address, List<TaskGroupLocation> taskGroupLocations) throws Exception {
         return (RawJobMetrics)
@@ -1181,6 +1188,17 @@ public class JobMaster {
                                 new GetTaskGroupMetricsOperation(taskGroupLocations),
                                 address)
                         .get(METRICS_FETCH_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+    }
+
+    /** Failure while collecting the complete terminal metrics snapshot. */
+    public static class FinalMetricsCollectionException extends SeaTunnelEngineException {
+        public FinalMetricsCollectionException(String message) {
+            super(message);
+        }
+
+        public FinalMetricsCollectionException(String message, Throwable cause) {
+            super(message, cause);
+        }
     }
 
     public void savePipelineMetricsToHistory(PipelineLocation pipelineLocation) {
