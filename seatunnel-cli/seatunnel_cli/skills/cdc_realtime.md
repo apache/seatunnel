@@ -54,6 +54,34 @@ Data flows as a never-ending stream of insert/update/delete events.
 - For multi-table CDC, use `table-name` regex or create multiple CDC source blocks.
 - CDC sources need database permissions: REPLICATION SLAVE, REPLICATION CLIENT for MySQL.
 
+### PostgreSQL-CDC specifics (differs from MySQL-CDC)
+
+- PostgreSQL-CDC reads the logical replication stream (WAL), which requires
+  server-side prerequisites: `wal_level = logical` on the server, and a user
+  with the REPLICATION attribute.
+- **`slot.name` should be set explicitly** — a stable replication slot name
+  (e.g. `"seatunnel_slot"`). Each concurrent CDC job needs its own slot.
+- **`decoding.plugin.name`** selects the logical decoding plugin. Use
+  `"pgoutput"` for PostgreSQL 10+ (built-in, no server install needed);
+  `"decoderbufs"` only when that plugin is installed on the server.
+- PostgreSQL table identifiers are fully qualified with THREE parts:
+  `table-names` (plural, list-typed) takes `"database.schema.table"`
+  entries (e.g. `["postgres_cdc.inventory.orders"]`) — not `schema.table`
+  and not just the table name. `database-names` (plural, list-typed) lists
+  the databases to monitor. Always confirm exact keys with
+  `get_connector_info`.
+- Debezium engine properties (e.g. a custom publication name) are passed
+  through the nested `debezium { }` map option, such as
+  `debezium { publication.name = "my_pub" }` — never as top-level options.
+
+| Option | MySQL-CDC | PostgreSQL-CDC |
+|---|---|---|
+| stream source | binlog | logical replication (WAL) |
+| `slot.name` | n/a | recommended, one per job |
+| `decoding.plugin.name` | n/a | `pgoutput` (PG 10+) |
+| `table-names` entry format | `database.table` | `database.schema.table` |
+| server prerequisite | binlog ROW mode | `wal_level = logical` |
+
 ## SOP
 
 1. **Identify CDC source connector** (MySQL-CDC, PostgreSQL-CDC, etc.) from the plan.
