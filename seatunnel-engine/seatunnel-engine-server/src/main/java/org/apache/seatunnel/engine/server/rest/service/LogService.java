@@ -82,7 +82,12 @@ public class LogService extends BaseLogService {
                 continue;
             }
 
-            String url = "http://" + host + ":" + nodeHttpPort + contextPath;
+                        String url;
+            if (StringUtils.isNotBlank(httpConfig.getPublicUrl())) {
+                url = httpConfig.getPublicUrl();
+            } else {
+                url = "http://" + host + ":" + nodeHttpPort + contextPath;
+            }
             String logUrl = url + REST_URL_GET_ALL_LOG_NAME;
 
             String allName =
