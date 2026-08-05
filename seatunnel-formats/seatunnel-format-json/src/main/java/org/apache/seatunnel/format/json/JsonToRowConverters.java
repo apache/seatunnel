@@ -82,7 +82,13 @@ public class JsonToRowConverters implements Serializable {
     /** Optional column metadata used to apply defaultValue when a field is missing or null. */
     private Column[] columns;
 
-    public Map<String, DateTimeFormatter> fieldFormatterMap = new HashMap<>();
+    /**
+     * Cached date/timestamp formatters per field name. Transient because it may be populated at
+     * converter construction time (default value pre-computation) with non-serializable {@link
+     * DateTimeFormatter} instances, before the object graph is serialized to workers;
+     * re-initialized lazily on the worker side.
+     */
+    public transient Map<String, DateTimeFormatter> fieldFormatterMap = new HashMap<>();
 
     public JsonToRowConverters(boolean failOnMissingField, boolean ignoreParseErrors) {
         this.failOnMissingField = failOnMissingField;
@@ -281,6 +287,11 @@ public class JsonToRowConverters implements Serializable {
         DateTimeFormatter dateFormatter = null;
 
         if (fieldName != null) {
+            // Lazily re-initialize: fieldFormatterMap is transient, so it is null
+            // after the object is deserialized on a worker
+            if (fieldFormatterMap == null) {
+                fieldFormatterMap = new HashMap<>();
+            }
             dateFormatter = fieldFormatterMap.get(fieldName);
         }
 
@@ -309,6 +320,11 @@ public class JsonToRowConverters implements Serializable {
         DateTimeFormatter dateTimeFormatter = null;
 
         if (fieldName != null) {
+            // Lazily re-initialize: fieldFormatterMap is transient, so it is null
+            // after the object is deserialized on a worker
+            if (fieldFormatterMap == null) {
+                fieldFormatterMap = new HashMap<>();
+            }
             dateTimeFormatter = fieldFormatterMap.get(fieldName);
         }
 

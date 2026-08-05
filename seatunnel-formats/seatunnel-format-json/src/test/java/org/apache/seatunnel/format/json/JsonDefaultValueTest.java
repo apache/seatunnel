@@ -34,7 +34,11 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -578,5 +582,100 @@ public class JsonDefaultValueTest {
         Assertions.assertThrows(
                 RuntimeException.class,
                 () -> new JsonDeserializationSchema(catalogTable, false, true));
+    }
+
+    @Test
+    public void testSerializableAfterDateDefaultValuePreComputation() throws Exception {
+        // Construction-time default pre-computation for DATE/TIMESTAMP columns populates
+        // fieldFormatterMap with DateTimeFormatter (not Serializable). The converter must
+        // stay serializable (fieldFormatterMap is transient) so the job graph can be
+        // shipped to workers, and must lazily rebuild the formatter cache after
+        // deserialization.
+        Column[] columns =
+                new Column[] {
+                    PhysicalColumn.of(
+                            "birthday",
+                            LocalTimeType.LOCAL_DATE_TYPE,
+                            (Long) null,
+                            false,
+                            "2024-01-01",
+                            null),
+                    PhysicalColumn.of(
+                            "created_at",
+                            LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                            (Long) null,
+                            false,
+                            "2024-01-01 12:30:45",
+                            null)
+                };
+
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"birthday", "created_at"},
+                        new org.apache.seatunnel.api.table.type.SeaTunnelDataType[] {
+                            LocalTimeType.LOCAL_DATE_TYPE, LocalTimeType.LOCAL_DATE_TIME_TYPE
+                        });
+
+        TableSchema tableSchema = TableSchema.builder().columns(Arrays.asList(columns)).build();
+        TableIdentifier tableId = TableIdentifier.of("test", TablePath.of("test.test_table"));
+        CatalogTable catalogTable =
+                CatalogTable.of(
+                        tableId, tableSchema, new HashMap<>(), new ArrayList<>(), "test table");
+
+        JsonDeserializationSchema deserializationSchema =
+                new JsonDeserializationSchema(catalogTable, false, false);
+
+        // Round-trip through ObjectOutputStream: must not throw NotSerializableException
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        try (ObjectOutputStream oos = new ObjectOutputStream(baos)) {
+            oos.writeObject(deserializationSchema);
+        }
+        JsonDeserializationSchema deserialized;
+        try (ObjectInputStream ois =
+                new ObjectInputStream(new ByteArrayInputStream(baos.toByteArray()))) {
+            deserialized = (JsonDeserializationSchema) ois.readObject();
+        }
+
+        // After deserialization the transient formatter cache is null; the deserializer
+        // must lazily rebuild it and still apply the defaults correctly
+        SeaTunnelRow row = deserialized.deserialize("{}".getBytes());
+        assertEquals(LocalDate.of(2024, 1, 1), row.getField(0));
+        assertEquals(LocalDateTime.of(2024, 1, 1, 12, 30, 45), row.getField(1));
+    }
+
+    @Test
+    public void testPresentEmptyStringNotOverwrittenByDefault() throws IOException {
+        // A field that is present with an empty string ("") is neither missing nor JSON
+        // null, so it must keep the empty string instead of being replaced by the
+        // configured default value.
+        Column[] columns =
+                new Column[] {
+                    PhysicalColumn.of(
+                            "status", BasicType.STRING_TYPE, (Long) null, false, "PENDING", null)
+                };
+
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"status"},
+                        new org.apache.seatunnel.api.table.type.SeaTunnelDataType[] {
+                            BasicType.STRING_TYPE
+                        });
+
+        TableSchema tableSchema = TableSchema.builder().columns(Arrays.asList(columns)).build();
+        TableIdentifier tableId = TableIdentifier.of("test", TablePath.of("test.test_table"));
+        CatalogTable catalogTable =
+                CatalogTable.of(
+                        tableId, tableSchema, new HashMap<>(), new ArrayList<>(), "test table");
+
+        JsonDeserializationSchema deserializationSchema =
+                new JsonDeserializationSchema(catalogTable, false, false);
+
+        // Present with empty string -> kept as-is (not the default)
+        SeaTunnelRow row = deserializationSchema.deserialize("{\"status\":\"\"}".getBytes());
+        assertEquals("", row.getField(0));
+
+        // Missing field -> default still applies
+        SeaTunnelRow missingRow = deserializationSchema.deserialize("{}".getBytes());
+        assertEquals("PENDING", missingRow.getField(0));
     }
 }
