@@ -133,7 +133,7 @@ java -jar seatunnel-benchmarks/target/benchmarks.jar SeaTunnelRowBenchmark \
   -rff seatunnel-benchmarks/target/seatunnel-row-result.json
 ```
 
-For a functional smoke test, add `-f 1 -wi 0 -i 1 -r 1s` to shorten the run. A single un-warmed
+For a quick functional validation, add `-f 1 -wi 0 -i 1 -r 1s` to shorten the run. A single un-warmed
 sample is not valid performance evidence.
 
 ## Metrics
@@ -220,7 +220,7 @@ normalized JSON and Markdown reports.
 
 - A pipeline benchmark starts an embedded Zeta cluster and requires at least 4 GiB of available heap.
 - A complete run uses 3 forks, 3 warmup iterations, and 5 measurement iterations. Running all five
-  scenarios takes substantially longer than a smoke test.
+  scenarios takes substantially longer than a shortened validation run.
 - `ActiveProcessorCount=4` limits processors visible to the JVM; it does not provide operating-system
   CPU affinity.
 - Precise comparisons require a fixed machine or alternating base and candidate on the same

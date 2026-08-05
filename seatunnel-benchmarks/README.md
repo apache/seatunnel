@@ -76,9 +76,9 @@ JMH treats selectors as regular expressions. Append `$` to an exact method selec
 method names share the same prefix.
 
 GitHub-hosted runners can execute the workflow reliably while still having materially different
-host CPU performance. Treat these artifacts as trend and smoke-test data, not as a regression gate
-based on one run or on JMH's within-run `scoreError`. A future regression gate should compare the
-base and change on the same worker or use a fixed self-hosted runner.
+host CPU performance. Treat these artifacts as trend and functional-check data, not as a regression
+gate based on one run or on JMH's within-run `scoreError`. A future regression gate should compare
+the base and change on the same worker or use a fixed self-hosted runner.
 
 ## IntelliJ IDEA
 
