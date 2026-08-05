@@ -397,6 +397,49 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
     }
 
     @Test
+    void testRealtimeMetricsStopsAfterInterrupt() throws Exception {
+        long jobId = 10002L;
+        TaskGroupLocation taskGroupLocation = new TaskGroupLocation(jobId, 1, 1L);
+        Address workerAddress = new Address("127.0.0.2", 5801);
+        NodeEngine nodeEngine = mock(NodeEngine.class);
+        ClusterServiceImpl clusterService = mock(ClusterServiceImpl.class);
+        when(nodeEngine.getClusterService()).thenReturn(clusterService);
+        when(clusterService.getMember(workerAddress)).thenReturn(mock(Member.class));
+
+        JobMaster jobMaster =
+                new JobMaster(
+                        jobId,
+                        mock(Data.class),
+                        nodeEngine,
+                        jobMasterTestExecutor,
+                        mock(ResourceManager.class),
+                        mock(JobHistoryService.class),
+                        mock(IMap.class),
+                        mock(IMap.class),
+                        mock(IMap.class),
+                        mock(IMap.class),
+                        null,
+                        null) {
+                    @Override
+                    protected RawJobMetrics fetchTaskGroupMetrics(
+                            Address address, List<TaskGroupLocation> taskGroupLocations)
+                            throws Exception {
+                        throw new InterruptedException("test interrupt");
+                    }
+                };
+
+        try {
+            Assertions.assertTrue(
+                    jobMaster
+                            .getCurrJobMetrics(Collections.singletonMap(taskGroupLocation, workerAddress))
+                            .isEmpty());
+            Assertions.assertTrue(Thread.currentThread().isInterrupted());
+        } finally {
+            Thread.interrupted();
+        }
+    }
+
+    @Test
     void testRestoreStartWithSavePointKeepsFinishedPipelines() throws Exception {
         long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
         JobMaster jobMaster =
