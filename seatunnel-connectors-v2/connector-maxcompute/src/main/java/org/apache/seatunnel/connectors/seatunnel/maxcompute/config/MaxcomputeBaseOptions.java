@@ -87,4 +87,10 @@ public class MaxcomputeBaseOptions implements Serializable {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("Tunnel endpoint, e.g. http://maxcompute:8080");
+
+    public static final Option<String> TUNNEL_NAME =
+            Options.key("tunnel_name")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("Tunnel quota name for exclusive resource groups");
 }
