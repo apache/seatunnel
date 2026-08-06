@@ -1,3 +1,5 @@
+import ChangeLog from '../changelog/connector-firebase.md';
+
 # Firebase
 
 > Firebase Source Connector
@@ -93,3 +95,8 @@ sink {
     plugin_input = "firebase_users"
   }
 }
+```
+
+## Changelog
+
+<ChangeLog />
