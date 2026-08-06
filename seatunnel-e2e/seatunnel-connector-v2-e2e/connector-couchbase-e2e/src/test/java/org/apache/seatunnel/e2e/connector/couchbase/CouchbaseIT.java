@@ -39,6 +39,7 @@ import com.couchbase.client.java.query.QueryResult;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -89,7 +90,14 @@ public class CouchbaseIT extends TestSuiteBase implements TestResource {
                         .withEnabledServices(
                                 CouchbaseService.KV,
                                 CouchbaseService.QUERY,
-                                CouchbaseService.INDEX);
+                                CouchbaseService.INDEX)
+                        // Testcontainers 1.17.6 calls the Couchbase REST API (renameNode) during
+                        // containerIsStarting, immediately after the HTTP port responds. On loaded
+                        // CI runners with newer Docker the REST daemon is not yet fully ready at
+                        // that point, causing a Connection reset / unexpected end of stream error.
+                        // A 3-minute startup timeout gives the HttpWaitStrategy enough retry
+                        // budget to ride out the transient unavailability window.
+                        .withStartupTimeout(Duration.ofMinutes(3));
         couchbaseContainer.start();
 
         cluster =
