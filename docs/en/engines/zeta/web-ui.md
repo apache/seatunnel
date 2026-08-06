@@ -73,6 +73,7 @@ On the Job Detail page, the DAG view can display realtime metrics for the recent
 - **Vertex busyness**: busy and idle ratios for Source, Transform, and Sink vertices.
 - **Edge downstream wait ratio**: when the job inserts queues at async boundaries or before Sink IO, edges are colored and thickened by downstream wait ratio and queue fill ratio.
 - **Interaction**: click a vertex or edge to open the detail drawer and view realtime curves and key fields.
+- **Pinned live chart**: pin one or more numeric metrics from the drawer so a live line chart remains visible on Overview after the drawer closes. Multiple vertices or edges can be compared on the same chart. See [Live Metrics Chart](live-metrics-chart.md) for the design contract, pin lifecycle, and cost bounds.
 
 This capability requires the job to enable `env.engine.observability` or configure an option that auto-enables it, such as `async_boundaries` or `split_sink_io`. See [Realtime Observability](realtime-observability.md) for configuration and metric semantics.
 
