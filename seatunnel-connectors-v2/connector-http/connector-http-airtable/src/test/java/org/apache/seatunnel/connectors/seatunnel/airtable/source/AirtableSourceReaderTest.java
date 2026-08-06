@@ -193,6 +193,29 @@ public class AirtableSourceReaderTest {
     }
 
     @Test
+    public void testBackoffMinimumNeverDropsAtTheCapBoundary() {
+        // The scheduled wait doubles until it hits the cap. Half the cap can be
+        // less than the wait the previous retry already guaranteed, so without a
+        // floor the first capped retry could sleep for less than the one before
+        // it, which is not what anyone expects from exponential backoff.
+        int base = 100000;
+        AirtableSourceReader reader =
+                new AirtableSourceReader(parameter, context, schema, null, null, null, 0, base, 30);
+
+        // With a 100000ms base the schedule is 100000, 200000, then capped at
+        // 300000. The last wait that fitted under the cap was 200000, so no
+        // capped retry should ever draw below that. Half the cap, 150000, would.
+        for (int retry = 3; retry <= 8; retry++) {
+            for (int i = 0; i < 200; i++) {
+                long actual = reader.calculateBackoffMillis(retry);
+                Assertions.assertTrue(
+                        actual >= 200000L && actual <= 300000L,
+                        "retry " + retry + " produced " + actual + ", expected [200000, 300000]");
+            }
+        }
+    }
+
+    @Test
     public void testBackoffStillVariesWhenBaseExceedsTheMaximum() {
         // A base at or above MAX_BACKOFF_MILLIS pins waitMillis to the cap from
         // the first retry. Flooring at the base would then leave no room to
