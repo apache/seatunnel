@@ -32,6 +32,7 @@ import ChangeLog from '../changelog/connector-maxcompute.md';
 | read_columns   | Array  | 否 | -             |
 | table_list     | Array  | 否 | -             |
 | tunnel_endpoint | string | 否 | -             |
+| tunnel_name     | string | 否 | -             |
 | common-options | string | 否 |               |
 | schema         | config | 否 |               |
 
@@ -98,6 +99,41 @@ import ChangeLog from '../changelog/connector-maxcompute.md';
 
 MaxCompute Tunnel 服务的自定义端点。未配置时，连接器会根据区域自动推断默认 Tunnel 端点。
 一般只有自定义网络、调试或本地开发时才需要配置，例如 `http://maxcompute:8080`。
+
+### tunnel_endpoint [String]
+
+指定 MaxCompute Tunnel 服务的自定义端点 URL。
+
+默认情况下，端点是从配置的区域自动推断的。
+
+此选项允许您覆盖默认行为并使用自定义 Tunnel 端点。
+如果未指定，连接器将使用基于区域的默认 Tunnel 端点。
+
+通常，您**不需要**设置 tunnel_endpoint。仅在自定义网络、调试或本地开发时才需要。
+
+示例值：
+
+- `https://dt.cn-hangzhou.maxcompute.aliyun.com`
+- `https://dt.ap-southeast-1.maxcompute.aliyun.com`
+- `http://maxcompute:8080`
+
+默认值：未设置（从区域自动推断）
+
+### tunnel_name [String]
+
+`tunnel_name` 指定 Tunnel Quota 名称，用于独占资源组。
+
+Tunnel Quota 允许您使用专用的计算资源进行 MaxCompute Tunnel 数据传输，从而提供更好的性能和资源隔离。
+
+**重要提示**：Tunnel Quota 仅在 **VPC（虚拟私有云）端点**下生效，暂不支持公共网络访问。使用 `tunnel_name` 时，必须同时配置 `endpoint` 和 `tunnel_endpoint` 为 VPC 端点。
+
+如果未指定，将使用默认的 Tunnel quota。
+
+示例值：
+
+- `your_tunnel_quota_name`
+
+默认值：未设置（使用默认 quota）
 
 ### common options
 

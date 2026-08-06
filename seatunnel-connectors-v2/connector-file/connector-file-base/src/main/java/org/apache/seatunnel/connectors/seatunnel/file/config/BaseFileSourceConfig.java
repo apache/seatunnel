@@ -137,7 +137,9 @@ public abstract class BaseFileSourceConfig implements Serializable {
         if (CollectionUtils.isEmpty(filePaths)) {
             // When there are no files (including sync_mode=update filtered all files), choose a
             // compatible schema so that downstream can initialize correctly.
-            if (fileFormat == FileFormat.BINARY || fileFormat == FileFormat.MARKDOWN) {
+            if (fileFormat == FileFormat.BINARY
+                    || fileFormat == FileFormat.MARKDOWN
+                    || fileFormat == FileFormat.PDF) {
                 return newCatalogTable(catalogTable, getSchemaForEmptyFilePath(readonlyConfig));
             }
             return catalogTable;
@@ -159,6 +161,7 @@ public abstract class BaseFileSourceConfig implements Serializable {
                                 filePaths.get(0),
                                 configSchema ? catalogTable.getSeaTunnelRowType() : null));
             case MARKDOWN:
+            case PDF:
                 return newCatalogTable(
                         catalogTable, readStrategy.getSeaTunnelRowTypeInfo(filePaths.get(0)));
             default:
