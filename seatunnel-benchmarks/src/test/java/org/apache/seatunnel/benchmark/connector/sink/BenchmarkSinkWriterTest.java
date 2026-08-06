@@ -74,9 +74,10 @@ class BenchmarkSinkWriterTest {
         BenchmarkSinkWriter first = writer(0, "small-overflow", 200L, 1_000);
         BenchmarkSinkWriter second = writer(1, "small-overflow", 200L, 1_000);
         long scheduledAt = System.currentTimeMillis();
+        long onTimeScheduledAt = scheduledAt + 60_000L;
 
         for (long sequence = 0; sequence < 200L; sequence++) {
-            long rowScheduledAt = sequence == 199L ? scheduledAt - 2_000L : scheduledAt;
+            long rowScheduledAt = sequence == 199L ? scheduledAt - 2_000L : onTimeScheduledAt;
             (sequence % 2L == 0L ? first : second).write(row(sequence, rowScheduledAt, sequence));
         }
 
