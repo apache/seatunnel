@@ -47,6 +47,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.sql.SQLException;
+import java.sql.Savepoint;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.IdentityHashMap;
@@ -62,6 +63,7 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
     private final int batchSize;
     private final Object batchLock = new Object();
     private List<SeaTunnelRow> pendingRows;
+    private Savepoint lastSuccessfulBatchSavepoint;
 
     public JdbcSinkWriter(
             TablePath sinkTablePath,
@@ -368,23 +370,36 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
             return;
         }
         if (autoFlushed) {
-            commitAutoFlushedRowsIfNeeded();
+            markSuccessfulAutoFlushBoundaryIfNeeded();
             reportWriteSuccess(pendingRows);
             pendingRows.clear();
         }
     }
 
-    private void commitAutoFlushedRowsIfNeeded() throws IOException {
+    private void markSuccessfulAutoFlushBoundaryIfNeeded() throws IOException {
         if (jdbcSinkConfig.getJdbcConnectionConfig().isAutoCommit()) {
             return;
         }
         try {
-            commitIfNeeded();
+            Savepoint previousSavepoint = lastSuccessfulBatchSavepoint;
+            lastSuccessfulBatchSavepoint = connectionProvider.getConnection().setSavepoint();
+            releaseSavepointSilently(previousSavepoint);
         } catch (SQLException e) {
             throw new JdbcConnectorException(
                     JdbcConnectorErrorCode.TRANSACTION_OPERATION_FAILED,
-                    "commit failed," + e.getMessage(),
+                    "set savepoint failed," + e.getMessage(),
                     e);
+        }
+    }
+
+    private void releaseSavepointSilently(Savepoint savepoint) {
+        if (savepoint == null) {
+            return;
+        }
+        try {
+            connectionProvider.getConnection().releaseSavepoint(savepoint);
+        } catch (SQLException e) {
+            log.debug("Failed to release JDBC savepoint after moving row-error batch boundary.", e);
         }
     }
 
@@ -439,7 +454,12 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
 
     private void rollbackIfNeeded() throws SQLException {
         try {
-            if (!connectionProvider.getConnection().getAutoCommit()) {
+            if (connectionProvider.getConnection().getAutoCommit()) {
+                return;
+            }
+            if (lastSuccessfulBatchSavepoint != null) {
+                connectionProvider.getConnection().rollback(lastSuccessfulBatchSavepoint);
+            } else {
                 connectionProvider.getConnection().rollback();
             }
         } catch (SQLException rollbackEx) {
@@ -450,6 +470,7 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
     private void commitIfNeeded() throws SQLException {
         if (!connectionProvider.getConnection().getAutoCommit()) {
             connectionProvider.getConnection().commit();
+            lastSuccessfulBatchSavepoint = null;
         }
     }
 

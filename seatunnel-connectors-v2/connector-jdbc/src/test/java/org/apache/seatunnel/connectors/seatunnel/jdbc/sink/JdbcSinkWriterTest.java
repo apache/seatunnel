@@ -40,6 +40,7 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.sql.Connection;
+import java.sql.Savepoint;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -48,6 +49,9 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /** Tests JDBC sink writer helper behavior. */
@@ -82,9 +86,10 @@ class JdbcSinkWriterTest {
     }
 
     @Test
-    void testPendingRowsAreReportedAndClearedAfterTransactionalAutoFlush() throws Exception {
+    void testTransactionalAutoFlushUsesSavepointWithoutCommit() throws Exception {
         AtomicInteger successCount = new AtomicInteger();
-        JdbcSinkWriter writer = createWriterWithRowErrorCollector(false, successCount);
+        WriterFixture fixture = createWriterFixture(false, successCount);
+        JdbcSinkWriter writer = fixture.writer;
         List<SeaTunnelRow> pendingRows = new ArrayList<>();
         pendingRows.add(new SeaTunnelRow(new Object[] {1}));
         setPendingRows(writer, pendingRows);
@@ -93,6 +98,8 @@ class JdbcSinkWriterTest {
 
         Assertions.assertTrue(getPendingRows(writer).isEmpty());
         Assertions.assertEquals(1, successCount.get());
+        verify(fixture.connection, times(1)).setSavepoint();
+        verify(fixture.connection, never()).commit();
     }
 
     /** Verifies that Xugu pools use a validation query compatible with the driver. */
@@ -135,6 +142,11 @@ class JdbcSinkWriterTest {
 
     private static JdbcSinkWriter createWriterWithRowErrorCollector(
             boolean autoCommit, AtomicInteger successCount) {
+        return createWriterFixture(autoCommit, successCount).writer;
+    }
+
+    private static WriterFixture createWriterFixture(
+            boolean autoCommit, AtomicInteger successCount) {
         JdbcConnectionConfig connectionConfig =
                 JdbcConnectionConfig.builder().batchSize(100).autoCommit(autoCommit).build();
         JdbcSinkConfig sinkConfig =
@@ -146,6 +158,7 @@ class JdbcSinkWriterTest {
         JdbcDialect dialect = mock(JdbcDialect.class);
         JdbcConnectionProvider connectionProvider = mock(JdbcConnectionProvider.class);
         Connection connection = mock(Connection.class);
+        Savepoint savepoint = mock(Savepoint.class);
         SinkWriter.Context context = mock(SinkWriter.Context.class);
         RowErrorCollector rowErrorCollector =
                 new RowErrorCollector() {
@@ -167,20 +180,33 @@ class JdbcSinkWriterTest {
         try {
             when(connectionProvider.getConnection()).thenReturn(connection);
             when(connection.getAutoCommit()).thenReturn(autoCommit);
+            when(connection.setSavepoint()).thenReturn(savepoint);
         } catch (Exception e) {
             throw new IllegalStateException("Failed to mock JDBC connection", e);
         }
         when(dialect.getInsertIntoStatement(anyString(), anyString(), any()))
                 .thenReturn("insert into test_table(id) values(?)");
 
-        return new JdbcSinkWriter(
-                TablePath.of("test_db", "test_table"),
-                context,
-                dialect,
-                sinkConfig,
-                schema,
-                schema,
-                null);
+        JdbcSinkWriter writer =
+                new JdbcSinkWriter(
+                        TablePath.of("test_db", "test_table"),
+                        context,
+                        dialect,
+                        sinkConfig,
+                        schema,
+                        schema,
+                        null);
+        return new WriterFixture(writer, connection);
+    }
+
+    private static final class WriterFixture {
+        private final JdbcSinkWriter writer;
+        private final Connection connection;
+
+        private WriterFixture(JdbcSinkWriter writer, Connection connection) {
+            this.writer = writer;
+            this.connection = connection;
+        }
     }
 
     private static void invokeReportAndClearPendingRowsIfCommitted(
