@@ -46,6 +46,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.state.XidInfo;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.sql.DatabaseMetaData;
 import java.sql.SQLException;
 import java.sql.Savepoint;
 import java.util.ArrayList;
@@ -63,7 +64,11 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
     private final int batchSize;
     private final Object batchLock = new Object();
     private List<SeaTunnelRow> pendingRows;
+    // Marks the last auto-flushed batch inside the open JDBC transaction so a later row-level
+    // failure can roll back only the failed batch without moving the durable commit boundary.
     private Savepoint lastSuccessfulBatchSavepoint;
+    private Boolean supportsSavepoints;
+    private boolean savepointUnsupportedLogged;
 
     public JdbcSinkWriter(
             TablePath sinkTablePath,
@@ -228,16 +233,7 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
         }
 
         tryOpen();
-        try {
-            outputFormat.writeRecord(element);
-        } catch (JdbcConnectorException e) {
-            // Clear batch for row-level errors to avoid retrying failed records.
-            if (isRowLevelDataError(e)) {
-                // TODO achieves precise error data filtering
-                outputFormat.clearBatchSilently();
-            }
-            throw e;
-        }
+        outputFormat.writeRecord(element);
     }
 
     @Override
@@ -370,20 +366,26 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
             return;
         }
         if (autoFlushed) {
-            markSuccessfulAutoFlushBoundaryIfNeeded();
-            reportWriteSuccess(pendingRows);
-            pendingRows.clear();
+            if (markSuccessfulAutoFlushBoundaryIfNeeded()) {
+                reportWriteSuccess(pendingRows);
+                pendingRows.clear();
+            }
         }
     }
 
-    private void markSuccessfulAutoFlushBoundaryIfNeeded() throws IOException {
+    private boolean markSuccessfulAutoFlushBoundaryIfNeeded() throws IOException {
         if (jdbcSinkConfig.getJdbcConnectionConfig().isAutoCommit()) {
-            return;
+            return true;
+        }
+        if (!supportsSavepoints()) {
+            logSavepointUnsupported();
+            return false;
         }
         try {
             Savepoint previousSavepoint = lastSuccessfulBatchSavepoint;
             lastSuccessfulBatchSavepoint = connectionProvider.getConnection().setSavepoint();
             releaseSavepointSilently(previousSavepoint);
+            return true;
         } catch (SQLException e) {
             throw new JdbcConnectorException(
                     JdbcConnectorErrorCode.TRANSACTION_OPERATION_FAILED,
@@ -392,6 +394,36 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
         }
     }
 
+    private boolean supportsSavepoints() {
+        if (supportsSavepoints != null) {
+            return supportsSavepoints;
+        }
+        try {
+            DatabaseMetaData metaData = connectionProvider.getConnection().getMetaData();
+            supportsSavepoints = metaData != null && metaData.supportsSavepoints();
+        } catch (SQLException e) {
+            supportsSavepoints = false;
+            log.warn(
+                    "Failed to check JDBC savepoint support; fallback to full transaction rollback.",
+                    e);
+        }
+        return supportsSavepoints;
+    }
+
+    private void logSavepointUnsupported() {
+        if (savepointUnsupportedLogged) {
+            return;
+        }
+        savepointUnsupportedLogged = true;
+        log.warn(
+                "JDBC driver does not support savepoints. Row-error handling will keep "
+                        + "auto-flushed rows pending until checkpoint commit and fall back to full "
+                        + "transaction rollback on row-level write failure. table={}",
+                sinkTablePath);
+    }
+
+    // Releasing an old savepoint is a best-effort cleanup. Some drivers invalidate savepoints after
+    // rollback/commit and should not fail the writer just because cleanup is no longer possible.
     private void releaseSavepointSilently(Savepoint savepoint) {
         if (savepoint == null) {
             return;
@@ -462,6 +494,7 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
             } else {
                 connectionProvider.getConnection().rollback();
             }
+            lastSuccessfulBatchSavepoint = null;
         } catch (SQLException rollbackEx) {
             throw rollbackEx;
         }

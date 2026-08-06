@@ -40,6 +40,7 @@ import java.lang.reflect.Constructor;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.sql.Connection;
+import java.sql.DatabaseMetaData;
 import java.sql.Savepoint;
 import java.util.ArrayList;
 import java.util.List;
@@ -102,6 +103,56 @@ class JdbcSinkWriterTest {
         verify(fixture.connection, never()).commit();
     }
 
+    @Test
+    void testTransactionalAutoFlushKeepsPendingRowsWhenSavepointsUnsupported() throws Exception {
+        AtomicInteger successCount = new AtomicInteger();
+        WriterFixture fixture = createWriterFixture(false, false, successCount);
+        JdbcSinkWriter writer = fixture.writer;
+        List<SeaTunnelRow> pendingRows = new ArrayList<>();
+        pendingRows.add(new SeaTunnelRow(new Object[] {1}));
+        setPendingRows(writer, pendingRows);
+
+        invokeReportAndClearPendingRowsIfCommitted(writer, true);
+
+        Assertions.assertEquals(1, getPendingRows(writer).size());
+        Assertions.assertEquals(0, successCount.get());
+        verify(fixture.connection, never()).setSavepoint();
+        verify(fixture.connection, never()).commit();
+    }
+
+    @Test
+    void testTransactionalRollbackUsesLastSuccessfulSavepoint() throws Exception {
+        AtomicInteger successCount = new AtomicInteger();
+        WriterFixture fixture = createWriterFixture(false, successCount);
+        JdbcSinkWriter writer = fixture.writer;
+        List<SeaTunnelRow> pendingRows = new ArrayList<>();
+        pendingRows.add(new SeaTunnelRow(new Object[] {1}));
+        setPendingRows(writer, pendingRows);
+
+        invokeReportAndClearPendingRowsIfCommitted(writer, true);
+        invokeRollbackIfNeeded(writer);
+
+        verify(fixture.connection, times(1)).rollback(fixture.savepoint);
+        verify(fixture.connection, never()).rollback();
+        Assertions.assertNull(getLastSuccessfulBatchSavepoint(writer));
+    }
+
+    @Test
+    void testTransactionalCommitClearsSavepointBoundary() throws Exception {
+        AtomicInteger successCount = new AtomicInteger();
+        WriterFixture fixture = createWriterFixture(false, successCount);
+        JdbcSinkWriter writer = fixture.writer;
+        List<SeaTunnelRow> pendingRows = new ArrayList<>();
+        pendingRows.add(new SeaTunnelRow(new Object[] {1}));
+        setPendingRows(writer, pendingRows);
+
+        invokeReportAndClearPendingRowsIfCommitted(writer, true);
+        invokeCommitIfNeeded(writer);
+
+        verify(fixture.connection, times(1)).commit();
+        Assertions.assertNull(getLastSuccessfulBatchSavepoint(writer));
+    }
+
     /** Verifies that Xugu pools use a validation query compatible with the driver. */
     @Test
     void testApplyConnectionValidationSetsXuguValidationQuery() {
@@ -147,6 +198,11 @@ class JdbcSinkWriterTest {
 
     private static WriterFixture createWriterFixture(
             boolean autoCommit, AtomicInteger successCount) {
+        return createWriterFixture(autoCommit, true, successCount);
+    }
+
+    private static WriterFixture createWriterFixture(
+            boolean autoCommit, boolean supportsSavepoints, AtomicInteger successCount) {
         JdbcConnectionConfig connectionConfig =
                 JdbcConnectionConfig.builder().batchSize(100).autoCommit(autoCommit).build();
         JdbcSinkConfig sinkConfig =
@@ -158,6 +214,7 @@ class JdbcSinkWriterTest {
         JdbcDialect dialect = mock(JdbcDialect.class);
         JdbcConnectionProvider connectionProvider = mock(JdbcConnectionProvider.class);
         Connection connection = mock(Connection.class);
+        DatabaseMetaData metaData = mock(DatabaseMetaData.class);
         Savepoint savepoint = mock(Savepoint.class);
         SinkWriter.Context context = mock(SinkWriter.Context.class);
         RowErrorCollector rowErrorCollector =
@@ -180,6 +237,8 @@ class JdbcSinkWriterTest {
         try {
             when(connectionProvider.getConnection()).thenReturn(connection);
             when(connection.getAutoCommit()).thenReturn(autoCommit);
+            when(connection.getMetaData()).thenReturn(metaData);
+            when(metaData.supportsSavepoints()).thenReturn(supportsSavepoints);
             when(connection.setSavepoint()).thenReturn(savepoint);
         } catch (Exception e) {
             throw new IllegalStateException("Failed to mock JDBC connection", e);
@@ -196,16 +255,18 @@ class JdbcSinkWriterTest {
                         schema,
                         schema,
                         null);
-        return new WriterFixture(writer, connection);
+        return new WriterFixture(writer, connection, savepoint);
     }
 
     private static final class WriterFixture {
         private final JdbcSinkWriter writer;
         private final Connection connection;
+        private final Savepoint savepoint;
 
-        private WriterFixture(JdbcSinkWriter writer, Connection connection) {
+        private WriterFixture(JdbcSinkWriter writer, Connection connection, Savepoint savepoint) {
             this.writer = writer;
             this.connection = connection;
+            this.savepoint = savepoint;
         }
     }
 
@@ -216,6 +277,18 @@ class JdbcSinkWriterTest {
                         "reportAndClearPendingRowsIfCommitted", boolean.class);
         method.setAccessible(true);
         method.invoke(writer, autoFlushed);
+    }
+
+    private static void invokeRollbackIfNeeded(JdbcSinkWriter writer) throws Exception {
+        Method method = JdbcSinkWriter.class.getDeclaredMethod("rollbackIfNeeded");
+        method.setAccessible(true);
+        method.invoke(writer);
+    }
+
+    private static void invokeCommitIfNeeded(JdbcSinkWriter writer) throws Exception {
+        Method method = JdbcSinkWriter.class.getDeclaredMethod("commitIfNeeded");
+        method.setAccessible(true);
+        method.invoke(writer);
     }
 
     private static void setPendingRows(JdbcSinkWriter writer, List<SeaTunnelRow> pendingRows)
@@ -230,5 +303,12 @@ class JdbcSinkWriterTest {
         Field field = JdbcSinkWriter.class.getDeclaredField("pendingRows");
         field.setAccessible(true);
         return (List<SeaTunnelRow>) field.get(writer);
+    }
+
+    private static Savepoint getLastSuccessfulBatchSavepoint(JdbcSinkWriter writer)
+            throws Exception {
+        Field field = JdbcSinkWriter.class.getDeclaredField("lastSuccessfulBatchSavepoint");
+        field.setAccessible(true);
+        return (Savepoint) field.get(writer);
     }
 }

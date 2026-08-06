@@ -30,6 +30,7 @@ import java.util.Map;
 @Getter
 @AllArgsConstructor
 public class MultiTableState implements Serializable {
+    // Keep the generated UID from the pre-failedTables class shape so old checkpoints restore.
     private static final long serialVersionUID = 5992121739651030596L;
 
     private Map<SinkIdentifier, List<?>> states;

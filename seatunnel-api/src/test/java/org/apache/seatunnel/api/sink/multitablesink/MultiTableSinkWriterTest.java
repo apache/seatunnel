@@ -47,6 +47,7 @@ import lombok.Data;
 import java.io.IOException;
 import java.io.Serializable;
 import java.lang.reflect.Field;
+import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -236,6 +237,44 @@ public class MultiTableSinkWriterTest {
         Assertions.assertEquals(3, failedWriter.getWriteCount());
         Assertions.assertEquals(1, healthyWriter.getWriteCount());
 
+        IOException closeException =
+                Assertions.assertThrows(IOException.class, multiTableSinkWriter::close);
+        Assertions.assertTrue(closeException.getMessage().contains("test.failed"));
+        Assertions.assertTrue(
+                MultiTableFailureHelper.isIsolatedFailure(closeException.getMessage()));
+    }
+
+    @Test
+    public void testRuntimeWriteIsolationIgnoresQuarantinedWriterCloseFailure() throws IOException {
+        Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters = new HashMap<>();
+        Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
+        CloseFailingSinkWriter failedWriter = new CloseFailingSinkWriter(true);
+        RecordingSinkWriter healthyWriter = new RecordingSinkWriter(false);
+        SinkIdentifier failedIdentifier = SinkIdentifier.of("test.failed", 0);
+        SinkIdentifier healthyIdentifier = SinkIdentifier.of("test.healthy", 1);
+        sinkWriters.put(failedIdentifier, failedWriter);
+        sinkWriters.put(healthyIdentifier, healthyWriter);
+        sinkWritersContext.put(failedIdentifier, new TestSinkWriterContext());
+        sinkWritersContext.put(healthyIdentifier, new TestSinkWriterContext());
+
+        MultiTableSinkWriter multiTableSinkWriter =
+                new MultiTableSinkWriter(
+                        sinkWriters,
+                        2,
+                        sinkWritersContext,
+                        MultiTableFailurePolicy.CONTINUE_OTHER_TABLES,
+                        JobMode.BATCH,
+                        0,
+                        0);
+
+        multiTableSinkWriter.write(buildRow("test.failed", 0));
+        multiTableSinkWriter.write(buildRow("test.healthy", 1));
+
+        Optional<MultiTableCommitInfo> commitInfo = multiTableSinkWriter.prepareCommit(1L);
+
+        Assertions.assertTrue(commitInfo.isPresent());
+        Assertions.assertEquals(1, commitInfo.get().getCommitInfo().size());
+        Assertions.assertEquals(1, healthyWriter.getWriteCount());
         IOException closeException =
                 Assertions.assertThrows(IOException.class, multiTableSinkWriter::close);
         Assertions.assertTrue(closeException.getMessage().contains("test.failed"));
@@ -872,6 +911,20 @@ public class MultiTableSinkWriterTest {
         Assertions.assertNull(restored.getCause());
     }
 
+    @Test
+    public void testMultiTableStateDeserializesPreFailedTablesCheckpoint() throws IOException {
+        String preFailedTablesState =
+                "rO0ABXNyADxvcmcuYXBhY2hlLnNlYXR1bm5lbC5hcGkuc2luay5tdWx0aXRhYmxlc2luay5NdWx0aVRhYmxlU3RhdGVTKEr5fsueRAIAAUwABnN0YXRlc3QAD0xqYXZhL3V0aWwvTWFwO3hwc3IAEWphdmEudXRpbC5IYXNoTWFwBQfawcMWYNEDAAJGAApsb2FkRmFjdG9ySQAJdGhyZXNob2xkeHA/QAAAAAAAAHcIAAAAEAAAAAB4";
+        DefaultSerializer<MultiTableState> serializer = new DefaultSerializer<>();
+
+        MultiTableState restored =
+                serializer.deserialize(Base64.getDecoder().decode(preFailedTablesState));
+
+        Assertions.assertNotNull(restored.getStates());
+        Assertions.assertTrue(restored.getStates().isEmpty());
+        Assertions.assertTrue(restored.getFailedTables().isEmpty());
+    }
+
     private SeaTunnelRow buildRow(String tableId, int value) {
         SeaTunnelRow row = new SeaTunnelRow(new Object[] {value});
         row.setTableId(tableId);
@@ -940,6 +993,17 @@ public class MultiTableSinkWriterTest {
 
         int getWriteCount() {
             return writeCount.get();
+        }
+    }
+
+    static class CloseFailingSinkWriter extends RecordingSinkWriter {
+        CloseFailingSinkWriter(boolean failOnWrite) {
+            super(failOnWrite);
+        }
+
+        @Override
+        public void close() throws IOException {
+            throw new IOException("intentional close failure");
         }
     }
 

@@ -1191,9 +1191,7 @@ public class MultiTableSinkWriter
     private void removeTableWriters(String tableId) {
         List<SinkIdentifier> sinkIdentifiers =
                 sinkIdentifiersByTable.getOrDefault(tableId, Collections.emptyList());
-        Throwable firstCloseError = null;
         for (SinkIdentifier sinkIdentifier : sinkIdentifiers) {
-            boolean allSubWritersClosed = true;
             for (int i = 0; i < sinkWritersWithIndex.size(); i++) {
                 synchronized (runnable.get(i)) {
                     SinkWriter<SeaTunnelRow, ?, ?> writer =
@@ -1202,28 +1200,17 @@ public class MultiTableSinkWriter
                         try {
                             writer.close();
                         } catch (Throwable closeError) {
-                            allSubWritersClosed = false;
-                            if (firstCloseError == null) {
-                                firstCloseError = closeError;
-                            }
-                            log.error(
-                                    "Close quarantined writer failed for table {}",
+                            log.warn(
+                                    "Close quarantined writer failed for table {}, remove it anyway.",
                                     tableId,
                                     closeError);
-                            continue;
                         }
                     }
                     sinkWritersWithIndex.get(i).remove(sinkIdentifier);
                     runnable.get(i).removeTableWriter(tableId);
                 }
             }
-            if (allSubWritersClosed) {
-                sinkWriters.remove(sinkIdentifier);
-            }
-        }
-        if (firstCloseError != null) {
-            throw new RuntimeException(
-                    "Close quarantined writer failed for table " + tableId, firstCloseError);
+            sinkWriters.remove(sinkIdentifier);
         }
         sinkPrimaryKeys.remove(tableId);
     }

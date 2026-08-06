@@ -53,6 +53,7 @@ import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -324,6 +325,22 @@ class SinkFlowLifeCycleErrorOutcomeTest {
     }
 
     @Test
+    void recordedCollectorOutcomesAreBoundedWhenLateConsumerNeverComes() throws Exception {
+        ErrorHandler<SeaTunnelRow> handler =
+                new ErrorHandler<>(
+                        StageErrorConfig.builder().mode(ErrorHandlerMode.ROUTE).build(),
+                        new NoopErrorSinkWriter());
+        EngineRowErrorCollector collector = new EngineRowErrorCollector(handler, "test");
+
+        for (int i = 0; i < 10_001; i++) {
+            collector.collectWriteSuccess(new SeaTunnelRow(new Object[] {i}));
+            collector.drainTerminalOutcomes(true);
+        }
+
+        Assertions.assertTrue(recordedTerminalRowsSize(collector) <= 10_000);
+    }
+
+    @Test
     void multiTableHandlerConsumesCollectorReportedSuccess() throws Exception {
         ErrorHandler<SeaTunnelRow> handler =
                 new ErrorHandler<>(
@@ -412,6 +429,14 @@ class SinkFlowLifeCycleErrorOutcomeTest {
         Field field = target.getClass().getDeclaredField("pendingTerminalWriteRows");
         field.setAccessible(true);
         return ((java.util.Collection<?>) field.get(target)).size();
+    }
+
+    @SuppressWarnings("unchecked")
+    private static int recordedTerminalRowsSize(EngineRowErrorCollector collector)
+            throws Exception {
+        Field field = EngineRowErrorCollector.class.getDeclaredField("recordedTerminalRows");
+        field.setAccessible(true);
+        return ((Map<SeaTunnelRow, Boolean>) field.get(collector)).size();
     }
 
     private static final class TestSinkWriter implements SinkWriter<SeaTunnelRow, String, String> {

@@ -32,6 +32,8 @@ import java.util.concurrent.atomic.AtomicLong;
 /** Routes connector-reported row errors to the shared ErrorHandler. */
 public final class EngineRowErrorCollector implements RowErrorCollector {
 
+    private static final int MAX_RECORDED_TERMINAL_ROWS = 10_000;
+
     private final ErrorHandler<SeaTunnelRow> errorHandler;
     private final String pluginName;
     private final AtomicLong collectedErrors = new AtomicLong();
@@ -95,6 +97,12 @@ public final class EngineRowErrorCollector implements RowErrorCollector {
                     if (outcome.isTerminalWriteOutcome()) {
                         recordedTerminalRows.put(outcome.getRow(), Boolean.TRUE);
                     }
+                }
+                // These entries only bridge a late multi-table callback after the flow has already
+                // drained outcomes. Bound them so streaming jobs cannot accumulate row identities
+                // forever when the callback never comes.
+                if (recordedTerminalRows.size() > MAX_RECORDED_TERMINAL_ROWS) {
+                    recordedTerminalRows.clear();
                 }
             }
             return drained;
