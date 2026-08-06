@@ -72,6 +72,9 @@ import ChangeLog from '../changelog/connector-file-obs.md';
 | access_secret             | string  | 是  | -                   | OBS 文件系统的访问密钥                           |
 | endpoint                  | string  | 是  | -                   | OBS 文件系统的端点                             |
 | read_columns              | list    | 否  | -                   | 数据源的读取列列表                               |
+| sheet_name                | string  | 否  | -                   | 读取工作簿的工作表，仅在 file_format 为 excel 时使用。                                                                                                                                            |
+| excel_engine              | string  | 否  | POI                | 仅在 `file_format` 为 excel 时使用。支持的引擎包括 `POI` 和 `EasyExcel`。                                                                                                                                            |
+| poi_excel_max_file_size   | long    | 否  | 52428800           | 仅在 `file_format` 为 excel 且 `excel_engine` 为 POI 时使用。POI 引擎允许读取的最大 Excel 文件大小（默认 50 MB）。                                                                                                                                            |
 | delimiter                 | string  | 否  | \001                | 字段分隔符                                   |
 | row_delimiter             | string  | 否  | \n                  | 行分隔符                                    |
 | parse_partition_from_path | boolean | 否  | true                | 控制是否从文件路径解析分区键和值                        |

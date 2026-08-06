@@ -69,6 +69,8 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | skip_header_row_number      | long    | no       | 0                           |
 | schema                      | config  | no       | -                           |
 | sheet_name                  | string  | no       | -                           |
+| excel_engine                | string  | no       | POI                         |
+| poi_excel_max_file_size     | long    | no       | 52428800                    |
 | xml_row_tag                 | string  | no       | -                           |
 | xml_use_attr_format         | boolean | no       | -                           |
 | csv_use_header_line         | boolean | no       | -                           |
@@ -429,6 +431,22 @@ The read column list of the data source, user can use it to implement field proj
 ### sheet_name [string]
 
 Reader the sheet of the workbook,Only used when file_format_type is excel.
+
+### excel_engine [string]
+
+Only used when `file_format` is excel.
+
+Supported engines are `POI` and `EasyExcel`. The default value is `POI`.
+
+The default Excel reading engine is POI. POI keeps the historical read behavior, including POI-specific formula and formatting handling, but it may use a lot of memory for large Excel files.
+
+You can set `excel_engine = EasyExcel` to use streaming reads for large Excel files.
+
+### poi_excel_max_file_size [long]
+
+Only used when `file_format` is excel and `excel_engine` is POI.
+
+The maximum Excel file size in bytes that the POI engine can read. The default value is `52428800` bytes (50 MB). When the file is larger than this limit, the connector fails fast and suggests using EasyExcel.
 
 ### xml_row_tag [string]
 

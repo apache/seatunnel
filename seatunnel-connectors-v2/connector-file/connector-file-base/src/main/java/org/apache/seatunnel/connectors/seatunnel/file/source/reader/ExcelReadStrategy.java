@@ -78,8 +78,13 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
     @Override
     public void read(String path, String tableId, Collector<SeaTunnelRow> output) {
         Map<String, String> partitionsMap = parsePartitionsByPath(path);
+        long maxBytesForEntry = getPoiExcelMaxFileSize();
         resolveArchiveCompressedInputStream(
-                new FileSourceSplit(tableId, path), output, partitionsMap, FileFormat.EXCEL);
+                new FileSourceSplit(tableId, path),
+                output,
+                partitionsMap,
+                FileFormat.EXCEL,
+                maxBytesForEntry);
     }
 
     @Override
