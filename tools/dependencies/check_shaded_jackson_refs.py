@@ -71,6 +71,7 @@ here would make the check permanently red for a reason nobody can act on.
 
 Exit 0 if clean, 1 if any original-package reference remains.
 """
+import os
 import re
 import sys
 import zipfile
@@ -106,8 +107,23 @@ def check(path):
 def main(paths):
     failed = False
     for path in paths:
-        scanned, bad = check(path)
         print(f"{path}")
+        if not os.path.isfile(path):
+            # Most likely the jar was never built, or something cleaned it away between
+            # the build and this check - note that tools/dependencies/checkLicense.sh
+            # runs `mvnw clean`, so this check has to come before it in CI.
+            failed = True
+            print("  FAIL: no such file. The shaded jar must exist before this runs;")
+            print("  build it with `./mvnw -pl seatunnel-shade/seatunnel-hadoop-aws -am")
+            print("  -DskipTests package`, and make sure nothing has run `mvn clean` in")
+            print("  between (tools/dependencies/checkLicense.sh does).")
+            continue
+        try:
+            scanned, bad = check(path)
+        except zipfile.BadZipFile as e:
+            failed = True
+            print(f"  FAIL: not a readable jar/zip ({e}).")
+            continue
         if scanned == 0:
             # Without this the check would pass vacuously on a jar whose layout changed,
             # which is exactly when it most needs to speak up.
