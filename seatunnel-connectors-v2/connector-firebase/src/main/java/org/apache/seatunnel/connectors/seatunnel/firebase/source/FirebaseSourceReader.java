@@ -34,6 +34,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
@@ -83,10 +84,8 @@ public class FirebaseSourceReader implements SourceReader<SeaTunnelRow, Firebase
 
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
-        log.info("Polling next split...");
         synchronized (splits) {
             if (splits.isEmpty()) {
-                log.info("splits are empty...");
                 if (noMoreSplits) {
                     log.info("notify engine , no more splits");
                     context.signalNoMoreElement();
@@ -112,40 +111,111 @@ public class FirebaseSourceReader implements SourceReader<SeaTunnelRow, Firebase
         List<String> keys = split.getKeys();
 
         if (keys != null && !keys.isEmpty()) {
-            // Processing Strategy A: Read records by explicit keys in batch
+            // Processing Strategy A: Read keys and evaluate whether they represent fields of one
+            // row or child record IDs
+            Map<String, Object> reconstructedMap = new LinkedHashMap<>();
+            Map<String, String> rawPayloadsPerKey = new LinkedHashMap<>();
+
             for (String key : keys) {
                 String jsonPayload = httpClient.fetchNodeData(key);
-                emitJsonRecord(jsonPayload, output);
+
+                if (jsonPayload != null && !jsonPayload.trim().equals("null")) {
+                    String trimmedPayload = jsonPayload.trim();
+                    rawPayloadsPerKey.put(key, trimmedPayload);
+                    try {
+                        Object parsedVal = OBJECT_MAPPER.readValue(trimmedPayload, Object.class);
+                        reconstructedMap.put(key, parsedVal);
+                    } catch (Exception e) {
+                        reconstructedMap.put(key, trimmedPayload);
+                    }
+                }
+            }
+
+            if (isSingleRecordObject(reconstructedMap)) {
+                String singleRowJson = OBJECT_MAPPER.writeValueAsString(reconstructedMap);
+                emitJsonRecord(singleRowJson, output);
+            } else {
+                log.info(
+                        "Keys represent distinct child record nodes for split [{}]",
+                        split.splitId());
+                for (String rawPayload : rawPayloadsPerKey.values()) {
+                    processJsonPayload(rawPayload, output);
+                }
             }
         } else {
             // Processing Strategy B: Read entire single path directly
             String jsonPayload = httpClient.fetchNodeData(null);
-            if (jsonPayload == null || jsonPayload.trim().equals("null")) {
-                return;
-            }
-            jsonPayload = jsonPayload.trim();
-            if (jsonPayload.startsWith("{")) {
-                Map<String, Object> recordMap =
-                        OBJECT_MAPPER.readValue(
-                                jsonPayload, new TypeReference<Map<String, Object>>() {});
+            processJsonPayload(jsonPayload, output);
+        }
+    }
 
-                for (Object value : recordMap.values()) {
-                    String recordJson = OBJECT_MAPPER.writeValueAsString(value);
-                    emitJsonRecord(recordJson, output);
-                }
-            } else if (jsonPayload.startsWith("[")) {
-                List<Object> recordList =
-                        OBJECT_MAPPER.readValue(jsonPayload, new TypeReference<List<Object>>() {});
-
-                for (Object value : recordList) {
-                    String recordJson = OBJECT_MAPPER.writeValueAsString(value);
-                    emitJsonRecord(recordJson, output);
-                }
+    /** Helper method that consistently handles single records, record maps, and JSON arrays. */
+    private void processJsonPayload(String jsonPayload, Collector<SeaTunnelRow> output)
+            throws Exception {
+        if (jsonPayload == null || jsonPayload.trim().equals("null")) {
+            return;
+        }
+        String trimmed = jsonPayload.trim();
+        if (trimmed.startsWith("{")) {
+            Map<String, Object> recordMap =
+                    OBJECT_MAPPER.readValue(trimmed, new TypeReference<Map<String, Object>>() {});
+            if (isSingleRecordObject(recordMap)) {
+                emitJsonRecord(trimmed, output);
             } else {
-                throw new SeaTunnelException(
-                        "Unexpected JSON payload format from Firebase: " + jsonPayload);
+                for (Object value : recordMap.values()) {
+                    if (value != null) {
+                        String recordJson = OBJECT_MAPPER.writeValueAsString(value);
+                        emitJsonRecord(recordJson, output);
+                    }
+                }
+            }
+        } else if (trimmed.startsWith("[")) {
+            List<Object> recordList =
+                    OBJECT_MAPPER.readValue(trimmed, new TypeReference<List<Object>>() {});
+            for (Object value : recordList) {
+                if (value != null) {
+                    String recordJson = OBJECT_MAPPER.writeValueAsString(value);
+                    emitJsonRecord(recordJson, output);
+                }
+            }
+        } else {
+            throw new SeaTunnelException(
+                    "Unexpected JSON payload format from Firebase: " + jsonPayload);
+        }
+    }
+
+    /**
+     * Checks if a JSON map represents a single row record matching the catalog schema rather than a
+     * dictionary of child records.
+     */
+    private boolean isSingleRecordObject(Map<String, Object> map) {
+        if (map == null
+                || map.isEmpty()
+                || catalogTable == null
+                || catalogTable.getTableSchema() == null) {
+            log.info("isSingleRecordObject map input is null or empty");
+            return false;
+        }
+
+        SeaTunnelRowType rowType = catalogTable.getTableSchema().toPhysicalRowDataType();
+        if (rowType == null) {
+            log.info("isSingleRecordObject row Type is null");
+            return false;
+        }
+
+        String[] fieldNames = rowType.getFieldNames();
+        if (fieldNames == null || fieldNames.length == 0) {
+            log.info("isSingleRecordObject fieldNames are null or empty");
+            return false;
+        }
+
+        for (String fieldName : fieldNames) {
+            if (map.containsKey(fieldName)) {
+                return true;
             }
         }
+        log.info("isSingleRecordObject did not find any matching field name");
+        return false;
     }
 
     private void emitJsonRecord(String jsonRecord, Collector<SeaTunnelRow> output)

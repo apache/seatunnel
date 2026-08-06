@@ -24,15 +24,18 @@ import org.apache.seatunnel.connectors.seatunnel.firebase.config.FirebaseSourceO
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
@@ -79,9 +82,10 @@ class FirebaseSourceSplitEnumeratorTest {
         enumerator.run();
         enumerator.registerReader(0);
 
-        // 6. Assert interactions on mockContext
-        verify(mockContext, atLeastOnce()).assignSplit(eq(0), eq(split));
+        // 6. Assert interactions on mockContext (using batch assignSplits)
+        verify(mockContext, atLeastOnce()).assignSplit(eq(0), Collections.singletonList(any()));
         verify(mockContext, atLeastOnce()).signalNoMoreSplits(0);
+        assertEquals(0, enumerator.currentUnassignedSplitSize());
     }
 
     @Test
@@ -112,8 +116,9 @@ class FirebaseSourceSplitEnumeratorTest {
         enumerator.run();
 
         // 7. Verify splits were assigned to reader 0 and NO_MORE_SPLITS was signaled
-        verify(mockContext, atLeastOnce()).assignSplit(eq(0), any(FirebaseSourceSplit.class));
+        verify(mockContext, atLeastOnce()).assignSplit(eq(0), Collections.singletonList(any()));
         verify(mockContext, atLeastOnce()).signalNoMoreSplits(0);
+        assertEquals(0, enumerator.currentUnassignedSplitSize());
     }
 
     @Test
@@ -137,7 +142,39 @@ class FirebaseSourceSplitEnumeratorTest {
         enumerator.run();
 
         // Verify single path fallback split assignment
-        verify(mockContext, atLeastOnce()).assignSplit(eq(0), any(FirebaseSourceSplit.class));
+        verify(mockContext, atLeastOnce()).assignSplit(eq(0), Collections.singletonList(any()));
         verify(mockContext, atLeastOnce()).signalNoMoreSplits(0);
+        assertEquals(0, enumerator.currentUnassignedSplitSize());
+    }
+
+    @Test
+    void testAddSplitsBackReQueuesAndReAssigns() throws Exception {
+        Set<Integer> readers = new HashSet<>();
+        readers.add(0);
+        when(mockContext.registeredReaders()).thenReturn(readers);
+
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put(FirebaseSourceOptions.PATH.key(), "users");
+        ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
+
+        FirebaseSourceSplitEnumerator enumerator =
+                new FirebaseSourceSplitEnumerator(mockContext, config, mockHttpClient);
+
+        FirebaseSourceSplit split =
+                new FirebaseSourceSplit(
+                        "split_failed_1", "users", Collections.singletonList("user_101"));
+
+        // Simulate subtask failover returning split back
+        enumerator.addSplitsBack(Collections.singletonList(split), 0);
+
+        // Verify returned split gets re-assigned immediately to available reader subtask 0
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<FirebaseSourceSplit>> captor = ArgumentCaptor.forClass(List.class);
+        verify(mockContext, atLeastOnce()).assignSplit(eq(0), captor.capture());
+
+        List<FirebaseSourceSplit> assignedSplits = captor.getValue();
+        assertEquals(1, assignedSplits.size());
+        assertEquals("split_failed_1", assignedSplits.get(0).splitId());
+        assertEquals(0, enumerator.currentUnassignedSplitSize());
     }
 }

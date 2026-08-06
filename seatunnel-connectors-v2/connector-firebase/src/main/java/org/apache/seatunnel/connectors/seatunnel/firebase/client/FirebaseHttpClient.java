@@ -29,26 +29,27 @@ import com.google.auth.oauth2.AccessToken;
 import com.google.auth.oauth2.GoogleCredentials;
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.net.HttpURLConnection;
 import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.time.Duration;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.locks.ReentrantLock;
 
 @Slf4j
 public class FirebaseHttpClient {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-    private final HttpClient httpClient;
     private final String baseUrl;
     private final String path;
     private final long timeoutMs;
@@ -59,6 +60,7 @@ public class FirebaseHttpClient {
                     "https://www.googleapis.com/auth/userinfo.email");
     private final GoogleCredentials credentials;
     private final String databaseSecret;
+    private final ReentrantLock tokenLock = new ReentrantLock();
 
     public FirebaseHttpClient(ReadonlyConfig config) {
         this.baseUrl = config.get(FirebaseSourceOptions.URL).replaceAll("/+$", "");
@@ -67,12 +69,6 @@ public class FirebaseHttpClient {
         this.extraQueryParams =
                 config.getOptional(FirebaseSourceOptions.QUERY_PARAMS)
                         .orElse(Collections.emptyMap());
-
-        this.httpClient =
-                HttpClient.newBuilder()
-                        .connectTimeout(Duration.ofMillis(timeoutMs))
-                        .followRedirects(HttpClient.Redirect.NORMAL)
-                        .build();
 
         this.credentials = initGoogleCredentials(config);
         this.databaseSecret =
@@ -92,9 +88,7 @@ public class FirebaseHttpClient {
      */
     public List<String> fetchShallowKeys() {
         String endpointUrl = buildUrl(this.path, "shallow=true");
-        log.info("Firebase HTTP GET {}", endpointUrl);
         String jsonResponse = executeGet(endpointUrl);
-        log.info("response : {}", jsonResponse);
         if (jsonResponse == null || jsonResponse.trim().equals("null")) {
             return Collections.emptyList();
         }
@@ -150,46 +144,65 @@ public class FirebaseHttpClient {
     }
 
     /** Sends an HTTP GET request and handles status code verification. */
-    private String executeGet(String url) {
+    private String executeGet(String urlStr) {
+        HttpURLConnection connection = null;
         try {
-            HttpRequest.Builder requestBuilder =
-                    HttpRequest.newBuilder()
-                            .uri(URI.create(url))
-                            .timeout(Duration.ofMillis(timeoutMs))
-                            .header("Accept", "application/json")
-                            .GET();
+            URL url = URI.create(urlStr).toURL();
+            connection = (HttpURLConnection) url.openConnection();
+            connection.setRequestMethod("GET");
+            connection.setConnectTimeout((int) timeoutMs);
+            connection.setReadTimeout((int) timeoutMs);
+            connection.setRequestProperty("Accept", "application/json");
+            connection.setInstanceFollowRedirects(true);
+
             if (credentials != null) {
                 String token = getAccessToken();
-                log.info("Client Token : {}", token);
-                requestBuilder.header("Authorization", "Bearer " + token);
+                connection.setRequestProperty("Authorization", "Bearer " + token);
             }
-            HttpRequest request = requestBuilder.build();
-            HttpResponse<String> response =
-                    httpClient.send(request, HttpResponse.BodyHandlers.ofString());
 
-            if (response.statusCode() >= 200 && response.statusCode() < 300) {
-                return response.body();
+            int responseCode = connection.getResponseCode();
+            if (responseCode >= 200 && responseCode < 300) {
+                try (InputStream inputStream = connection.getInputStream();
+                        BufferedReader reader =
+                                new BufferedReader(
+                                        new InputStreamReader(
+                                                inputStream, StandardCharsets.UTF_8))) {
+                    StringBuilder responseBuilder = new StringBuilder();
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        responseBuilder.append(line);
+                    }
+                    return responseBuilder.toString();
+                }
             } else {
                 throw new SeaTunnelException(
                         String.format(
-                                "Firebase HTTP request failed with status code %d for URL: %s. Response: %s",
-                                response.statusCode(), url, response.body()));
+                                "Firebase HTTP request failed with status code %d", responseCode));
             }
-        } catch (IOException | InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new SeaTunnelException(
-                    "Failed to execute HTTP request to Firebase endpoint: " + url, e);
+        } catch (IOException e) {
+            throw new SeaTunnelException("Failed to execute HTTP request to Firebase endpoint", e);
+        } finally {
+            if (connection != null) {
+                connection.disconnect();
+            }
         }
     }
 
     /** Retrieves or refreshes OAuth 2.0 access token safely. */
     private synchronized String getAccessToken() throws IOException {
-        AccessToken token = credentials.getAccessToken();
-        if (token == null) {
-            credentials.refresh();
-            token = credentials.getAccessToken();
+        tokenLock.lock();
+        try {
+            AccessToken token = credentials.getAccessToken();
+            if (token == null
+                    || token.getExpirationTime() == null
+                    || token.getExpirationTime().getTime() <= System.currentTimeMillis() + 60000) {
+                credentials.refresh();
+                token = credentials.getAccessToken();
+            }
+            return token.getTokenValue();
+        } finally {
+            tokenLock.unlock();
         }
-        return token.getTokenValue();
     }
 
     private GoogleCredentials initGoogleCredentials(ReadonlyConfig config) {

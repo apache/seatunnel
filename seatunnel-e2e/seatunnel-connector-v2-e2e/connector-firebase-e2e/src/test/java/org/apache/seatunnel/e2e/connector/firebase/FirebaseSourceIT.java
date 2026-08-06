@@ -36,16 +36,16 @@ import java.net.InetSocketAddress;
 
 public class FirebaseSourceIT extends TestSuiteBase {
 
-    private static final int PORT = 9000;
     private static HttpServer server;
+    private static int serverPort;
 
     @BeforeAll
     public static void startBuiltInHttpServer() throws IOException {
-        // Expose localhost port 9000 to Testcontainers
-        org.testcontainers.Testcontainers.exposeHostPorts(PORT);
-
         // Create lightweight Java HTTP server
-        server = HttpServer.create(new InetSocketAddress(PORT), 0);
+        server = HttpServer.create(new InetSocketAddress(0), 0);
+        serverPort = server.getAddress().getPort();
+        // Expose localhost port to Testcontainers
+        org.testcontainers.Testcontainers.exposeHostPorts(serverPort);
         server.createContext(
                 "/users.json",
                 new HttpHandler() {
@@ -80,6 +80,8 @@ public class FirebaseSourceIT extends TestSuiteBase {
     @TestTemplate
     public void testFirebaseSourceToAssert(TestContainer container)
             throws IOException, InterruptedException {
+
+        System.setProperty("FIREBASE_MOCK_PORT", String.valueOf(serverPort));
         Container.ExecResult execResult = container.executeJob("/firebase_source_to_assert.conf");
 
         if (execResult.getExitCode() != 0) {
@@ -88,5 +90,9 @@ public class FirebaseSourceIT extends TestSuiteBase {
         }
 
         Assertions.assertEquals(0, execResult.getExitCode());
+    }
+
+    public static int getServerPort() {
+        return serverPort;
     }
 }

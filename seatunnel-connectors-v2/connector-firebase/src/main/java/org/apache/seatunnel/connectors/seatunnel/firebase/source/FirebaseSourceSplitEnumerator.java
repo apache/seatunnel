@@ -26,8 +26,10 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 @Slf4j
@@ -125,11 +127,24 @@ public class FirebaseSourceSplitEnumerator
     }
 
     @Override
-    public void addSplitsBack(List<FirebaseSourceSplit> splits, int subtaskId) {}
+    public void addSplitsBack(List<FirebaseSourceSplit> splits, int subtaskId) {
+        if (splits == null || splits.isEmpty()) {
+            return;
+        }
+        log.info(
+                "Adding {} splits back from failed/restarted subtask [{}]",
+                splits.size(),
+                subtaskId);
+        for (FirebaseSourceSplit split : splits) {
+            pendingSplits.add(split);
+            assignedSplitIds.remove(split.splitId());
+        }
+        assignSplits();
+    }
 
     @Override
     public int currentUnassignedSplitSize() {
-        return 0;
+        return pendingSplits.size();
     }
 
     @Override
@@ -165,27 +180,33 @@ public class FirebaseSourceSplitEnumerator
         if (pendingSplits.isEmpty()) {
             return;
         }
-        Set<Integer> readers = context.registeredReaders();
-        if (readers.isEmpty()) {
+        Set<Integer> registeredReaders = context.registeredReaders();
+        if (registeredReaders.isEmpty()) {
             return;
         }
+        List<Integer> readersList = new ArrayList<>(registeredReaders);
+        Map<Integer, List<FirebaseSourceSplit>> assignmentMap = new HashMap<>();
+        int readerIndex = 0;
         Set<FirebaseSourceSplit> assignedInThisBatch = new HashSet<>();
         for (FirebaseSourceSplit split : pendingSplits) {
-            // Distribute splits across registered reader subtasks using round-robin indexing
-            int targetReader = Math.abs(split.splitId().hashCode()) % readers.size();
-            Integer readerId = new ArrayList<>(readers).get(targetReader);
-
-            context.assignSplit(readerId, split);
-            context.signalNoMoreSplits(readerId);
-
+            int targetReader = readersList.get(readerIndex % readersList.size());
+            assignmentMap.computeIfAbsent(targetReader, k -> new ArrayList<>()).add(split);
             assignedSplitIds.add(split.splitId());
             assignedInThisBatch.add(split);
-            log.info("Assigned split [{}] to reader subtask [{}]", split.splitId(), readerId);
+            readerIndex++;
+        }
+        for (Map.Entry<Integer, List<FirebaseSourceSplit>> entry : assignmentMap.entrySet()) {
+            int readerId = entry.getKey();
+            List<FirebaseSourceSplit> splitsForReader = entry.getValue();
+            context.assignSplit(readerId, splitsForReader);
+            log.info("Assigned {} splits to reader subtask [{}]", splitsForReader.size(), readerId);
         }
         pendingSplits.removeAll(assignedInThisBatch);
-        for (Integer readerId : readers) {
-            context.signalNoMoreSplits(readerId);
-            log.info("Signaled NO_MORE_SPLITS to reader subtask [{}]", readerId);
+        if (pendingSplits.isEmpty()) {
+            for (Integer readerId : readersList) {
+                context.signalNoMoreSplits(readerId);
+                log.info("Signaled NO_MORE_SPLITS to reader subtask [{}]", readerId);
+            }
         }
     }
 }
