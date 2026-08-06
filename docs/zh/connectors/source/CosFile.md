@@ -71,6 +71,8 @@ import ChangeLog from '../changelog/connector-file-cos.md';
 | time_format                | string  | 否  | HH:mm:ss            |
 | schema                     | config  | 否  | -                   |
 | sheet_name                 | string  | 否  | -                   |
+| excel_engine               | string  | 否  | POI                |
+| poi_excel_max_file_size    | long    | 否  | 52428800           |
 | xml_row_tag                | string  | 否  | -                   |
 | xml_use_attr_format        | boolean | 否  | -                   |
 | csv_use_header_line        | boolean | 否  | false               |
@@ -318,6 +320,22 @@ default `HH:mm:ss`
 仅当file_format为excel时才需要配置。
 
 阅读工作簿的纸张。
+
+### excel_engine [string]
+
+仅在 `file_format` 为 excel 时使用。
+
+支持的引擎包括 `POI` 和 `EasyExcel`。默认值为 `POI`。
+
+默认的 Excel 读取引擎是 POI。POI 会保留历史读取行为，包括 POI 特有的公式和格式处理能力，但读取大 Excel 文件时可能占用大量内存。
+
+如果需要读取大 Excel 文件，可以设置 `excel_engine = EasyExcel` 使用流式读取。
+
+### poi_excel_max_file_size [long]
+
+仅在 `file_format` 为 excel 且 `excel_engine` 为 POI 时使用。
+
+POI 引擎允许读取的最大 Excel 文件大小，单位为字节。默认值为 `52428800` 字节（50 MB）。当文件超过该限制时，连接器会提前失败，并提示使用 EasyExcel。
 
 ### xml_row_tag [string]
 

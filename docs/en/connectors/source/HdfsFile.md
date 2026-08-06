@@ -71,6 +71,8 @@ Read data from hdfs file system.
 | skip_header_row_number     | long    | no       | 0                           | Skip the first few lines, but only for the txt and csv.For example, set like following:`skip_header_row_number = 2`.then Seatunnel will skip the first 2 lines from source files                                                                                                                                                              |
 | schema                     | config  | no       | -                           | the schema fields of upstream data. For more details, please refer to [Schema Feature](../../introduction/concepts/schema-feature.md). **metadata_table_id**: The table identifier in the metadata service to fetch table schema. For Gravitino, the format should be `{catalog}.{database}.{table}`, such as `mysql-catalog.test_db.users`. When using Gravitino as the metadata source, the column types from Gravitino will be automatically converted to SeaTunnel data types. For detailed type mapping information, please refer to [Gravitino Type Mapping](../../introduction/concepts/gravitino-type-mapping.md). |
 | sheet_name                 | string  | no       | -                           | Reader the sheet of the workbook,Only used when file_format is excel.                                                                                                                                                                                                                                                                         |
+| excel_engine               | string  | no       | POI                         | Only used when `file_format` is excel. Supported engines are `POI` and `EasyExcel`.                                                                                                                                                                                                                                                          |
+| poi_excel_max_file_size    | long    | no       | 52428800                    | Only used when `file_format` is excel and `excel_engine` is POI. The maximum Excel file size in bytes that the POI engine can read (default 50 MB).                                                                                                                                                                                          |
 | xml_row_tag                | string  | no       | -                           | Specifies the tag name of the data rows within the XML file, only used when file_format is xml.                                                                                                                                                                                                                                               |
 | xml_use_attr_format        | boolean | no       | -                           | Specifies whether to process data using the tag attribute format, only used when file_format is xml.                                                                                                                                                                                                                                          |
 | csv_use_header_line        | boolean | no       | false                       | Whether to use the header line to parse the file, only used when the file_format is `csv` and the file contains the header line that match RFC 4180                                                                                                                                                                                           |
@@ -213,6 +215,22 @@ The result of this example matching is:
 /data/seatunnel/20241002/abcg202410.csv
 /data/seatunnel/20241005/old_data.csv
 ```
+
+### excel_engine [string]
+
+Only used when `file_format` is excel.
+
+Supported engines are `POI` and `EasyExcel`. The default value is `POI`.
+
+The default Excel reading engine is POI. POI keeps the historical read behavior, including POI-specific formula and formatting handling, but it may use a lot of memory for large Excel files.
+
+You can set `excel_engine = EasyExcel` to use streaming reads for large Excel files.
+
+### poi_excel_max_file_size [long]
+
+Only used when `file_format` is excel and `excel_engine` is POI.
+
+The maximum Excel file size in bytes that the POI engine can read. The default value is `52428800` bytes (50 MB). When the file is larger than this limit, the connector fails fast and suggests using EasyExcel.
 
 ### compress_codec [string]
 
