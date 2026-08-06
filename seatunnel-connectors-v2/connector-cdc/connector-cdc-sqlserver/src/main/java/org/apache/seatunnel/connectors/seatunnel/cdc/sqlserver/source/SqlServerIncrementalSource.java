@@ -122,12 +122,18 @@ public class SqlServerIncrementalSource<T> extends IncrementalSource<T, JdbcSour
     }
 
     private static boolean isConnectionAddressProperty(String key) {
+        // Exclude URL properties that are identity-related: the SQL Server JDBC driver accepts
+        // these inside the connection-string but SeaTunnel sources them from dedicated options
+        // (URL/host/port/username/password). Forwarding them here would silently override the
+        // operator-configured values and create a credential-handling surprise.
         return "database".equalsIgnoreCase(key)
                 || "databaseName".equalsIgnoreCase(key)
                 || "serverName".equalsIgnoreCase(key)
                 || "port".equalsIgnoreCase(key)
                 || "portNumber".equalsIgnoreCase(key)
-                || "instanceName".equalsIgnoreCase(key);
+                || "instanceName".equalsIgnoreCase(key)
+                || "user".equalsIgnoreCase(key)
+                || "password".equalsIgnoreCase(key);
     }
 
     @SuppressWarnings("unchecked")
