@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.rabbitmq.config;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.RabbitmqConnectorException;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -27,6 +28,8 @@ import lombok.Setter;
 import java.io.Serializable;
 import java.util.HashMap;
 import java.util.Map;
+
+import static org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.RabbitmqConnectorErrorCode.ILLEGAL_CONFIG;
 
 @Setter
 @Getter
@@ -131,9 +134,16 @@ public class RabbitmqConfig implements Serializable {
         if (config.getOptional(RabbitmqSinkOptions.RABBITMQ_CONFIG).isPresent()) {
             this.sinkOptionProps = config.get(RabbitmqSinkOptions.RABBITMQ_CONFIG);
         }
-        if (config.getOptional(RabbitmqBaseOptions.URL).isPresent()) {
+        boolean hasUrl = config.getOptional(RabbitmqBaseOptions.URL).isPresent();
+        boolean hasUri = config.getOptional(RabbitmqBaseOptions.URI).isPresent();
+        if (hasUrl && hasUri) {
+            throw new RabbitmqConnectorException(
+                    ILLEGAL_CONFIG,
+                    "RabbitMQ connector options 'url' and 'uri' are mutually exclusive; please configure only one of them. 'uri' is a legacy alias kept for backward compatibility, prefer 'url' for new configurations.");
+        }
+        if (hasUrl) {
             this.uri = config.get(RabbitmqBaseOptions.URL);
-        } else if (config.getOptional(RabbitmqBaseOptions.URI).isPresent()) {
+        } else if (hasUri) {
             this.uri = config.get(RabbitmqBaseOptions.URI);
         }
     }

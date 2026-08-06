@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
+import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqSourceOptions;
 
@@ -44,9 +45,10 @@ public class RabbitmqSourceFactory implements TableSourceFactory {
                 .required(RabbitmqSourceOptions.HOST, RabbitmqSourceOptions.PORT)
                 .bundled(RabbitmqSourceOptions.USERNAME, RabbitmqSourceOptions.PASSWORD)
                 .exclusive(RabbitmqSourceOptions.TABLE_CONFIGS, RabbitmqSourceOptions.QUEUE_NAME)
-                .exclusive(RabbitmqSourceOptions.URL, RabbitmqSourceOptions.URI)
                 .optional(
                         RabbitmqSourceOptions.VIRTUAL_HOST,
+                        RabbitmqSourceOptions.URL,
+                        RabbitmqBaseOptions.URI,
                         RabbitmqSourceOptions.SSL,
                         RabbitmqSourceOptions.ROUTING_KEY,
                         RabbitmqSourceOptions.EXCHANGE,

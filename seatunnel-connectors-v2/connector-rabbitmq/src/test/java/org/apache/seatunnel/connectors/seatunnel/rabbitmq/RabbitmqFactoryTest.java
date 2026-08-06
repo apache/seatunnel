@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.rabbitmq;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqBaseOptions;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.config.RabbitmqConfig;
+import org.apache.seatunnel.connectors.seatunnel.rabbitmq.exception.RabbitmqConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.sink.RabbitmqSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.rabbitmq.source.RabbitmqSourceFactory;
 
@@ -59,5 +60,16 @@ class RabbitmqFactoryTest {
 
         Assertions.assertTrue(config.isSsl());
         Assertions.assertTrue(config.isPassive());
+    }
+
+    @Test
+    void rejectsUrlAndUriSetTogether() {
+        Map<String, Object> options = new HashMap<>();
+        options.put(RabbitmqBaseOptions.URL.key(), "amqp://host-a:5672/%2F");
+        options.put(RabbitmqBaseOptions.URI.key(), "amqps://host-b:5671/%2F");
+
+        Assertions.assertThrows(
+                RabbitmqConnectorException.class,
+                () -> new RabbitmqConfig(ReadonlyConfig.fromMap(options)));
     }
 }
