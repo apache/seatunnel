@@ -46,8 +46,6 @@ public class RabbitmqSinkFactory implements TableSinkFactory {
                 .bundled(RabbitmqSinkOptions.USERNAME, RabbitmqSinkOptions.PASSWORD)
                 .exclusive(RabbitmqSinkOptions.URL, RabbitmqSinkOptions.URI)
                 .optional(
-                        RabbitmqSinkOptions.URL,
-                        RabbitmqSinkOptions.URI,
                         RabbitmqSinkOptions.SSL,
                         RabbitmqSinkOptions.ROUTING_KEY,
                         RabbitmqSinkOptions.EXCHANGE,

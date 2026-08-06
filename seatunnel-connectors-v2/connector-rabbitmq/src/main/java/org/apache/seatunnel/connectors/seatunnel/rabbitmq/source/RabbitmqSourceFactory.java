@@ -47,8 +47,6 @@ public class RabbitmqSourceFactory implements TableSourceFactory {
                 .exclusive(RabbitmqSourceOptions.URL, RabbitmqSourceOptions.URI)
                 .optional(
                         RabbitmqSourceOptions.VIRTUAL_HOST,
-                        RabbitmqSourceOptions.URL,
-                        RabbitmqSourceOptions.URI,
                         RabbitmqSourceOptions.SSL,
                         RabbitmqSourceOptions.ROUTING_KEY,
                         RabbitmqSourceOptions.EXCHANGE,
