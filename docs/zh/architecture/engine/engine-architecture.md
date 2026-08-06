@@ -82,12 +82,13 @@ flowchart TB
 
 ![Zeta 作业提交、类加载与任务执行流程](../../../images/zeta_job_submission_classloader_task_execution_flow.png)
 
-这张图更适合放在引擎架构章节，因为它把控制面与运行时执行面串成了一条完整链路：
+这张图更适合放在引擎架构章节，因为它把客户端装配、Coordinator 侧调度、Worker 执行与状态回报串成了一条完整链路：
 
-1. 客户端先在本地解析插件目录，把 `pluginJarsUrls` 与 `LogicalDag` 一起封装进 `JobImmutableInformation`。
-2. `CoordinatorService` 接收提交请求后，会为这个作业创建一个 `JobMaster`；`JobMaster` 会先反序列化提交上来的作业不可变信息，再通过 Master 侧的类加载服务为每个逻辑节点加载插件 jar，并据此还原逻辑执行图（LogicalDag）。
-3. `JobMaster` 把逻辑计划展开成执行图和物理任务组，随后申请资源，并向 Worker 下发 `TaskGroupImmutableInformation`。
-4. 每个 Worker 再用自己的 child-first 类加载器加载同一批插件 jar，反序列化任务组载荷，并在 `TaskExecutionService` 中执行对应的 `TaskGroup`。
+1. 客户端先在本地解析插件目录，然后提交 `JobImmutableInformation`，其中同时包含逻辑 DAG、插件 jar URL 和连接器 jar 标识。
+2. `CoordinatorService` 接收提交请求后，会记录待调度作业，并在 `JobMaster.init()` 完成且作业入队后返回提交确认。
+3. Coordinator 持有的 `Scheduler` 会轮询 `PendingJobQueue`，通过 `preApplyResources()` 申请资源，并在 `ResourceFuture` 就绪后触发 `JobMaster.run()`。
+4. `JobMaster` 把逻辑作业展开为面向流水线的 `ExecutionPlan` 和 `PhysicalPlan`，构造 `TaskGroupImmutableInformation`，再通过 `PhysicalVertex.deploy()` 和 `DeployTaskOperation` 把任务下发到 Worker。
+5. 每个 Worker 会补齐缺失 jar、为每个任务创建 child-first 类加载器，在 `TaskExecutionService` 中反序列化并初始化任务组，执行任务，并把部署状态与最终状态回报给 `JobMaster` 和 `CoordinatorService`。
 
 ### 2.3 核心组件
 
