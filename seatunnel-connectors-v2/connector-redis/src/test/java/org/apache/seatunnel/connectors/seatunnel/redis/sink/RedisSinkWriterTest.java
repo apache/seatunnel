@@ -248,6 +248,20 @@ public class RedisSinkWriterTest {
                 writtenValues.get(0).get(0));
     }
 
+    @Test
+    void testSnapshotStateNormalizesMissingConstraintKeys() {
+        configureJsonKeySink(1);
+        TableSchema schema = new TableSchema(initialSchema().getColumns(), null, null);
+        redisSinkWriter = new RedisSinkWriter(schema, mockRedisParameters);
+
+        List<TableSchema> states = redisSinkWriter.snapshotState(1L);
+
+        Assertions.assertEquals(1, states.size());
+        Assertions.assertNotSame(schema, states.get(0));
+        Assertions.assertNotNull(states.get(0).getConstraintKeys());
+        Assertions.assertTrue(states.get(0).getConstraintKeys().isEmpty());
+    }
+
     private SupportSchemaEvolutionSinkWriter schemaEvolutionWriter() {
         Assertions.assertInstanceOf(SupportSchemaEvolutionSinkWriter.class, redisSinkWriter);
         return (SupportSchemaEvolutionSinkWriter) redisSinkWriter;

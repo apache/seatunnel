@@ -97,8 +97,8 @@ public class RedisSinkWriter extends AbstractSinkWriter<SeaTunnelRow, TableSchem
 
     /** Creates a writer whose schema can be updated and restored from checkpoint state. */
     public RedisSinkWriter(TableSchema tableSchema, RedisParameters redisParameters) {
-        this.tableSchema = tableSchema;
-        this.seaTunnelRowType = tableSchema.toPhysicalRowDataType();
+        this.tableSchema = normalizeTableSchema(tableSchema);
+        this.seaTunnelRowType = this.tableSchema.toPhysicalRowDataType();
         this.redisParameters = redisParameters;
         this.serializationSchema = createSerializationSchema(redisParameters, seaTunnelRowType);
         this.redisClient = redisParameters.buildRedisClient();
@@ -135,6 +135,16 @@ public class RedisSinkWriter extends AbstractSinkWriter<SeaTunnelRow, TableSchem
         tableSchema = schemaChangeEventDispatcher.reset(tableSchema).apply(event);
         seaTunnelRowType = tableSchema.toPhysicalRowDataType();
         serializationSchema = createSerializationSchema(redisParameters, seaTunnelRowType);
+    }
+
+    private static TableSchema normalizeTableSchema(TableSchema tableSchema) {
+        if (tableSchema.getConstraintKeys() != null) {
+            return tableSchema;
+        }
+        return TableSchema.builder()
+                .columns(tableSchema.getColumns())
+                .primaryKey(tableSchema.getPrimaryKey())
+                .build();
     }
 
     private static TableSchema toTableSchema(SeaTunnelRowType seaTunnelRowType) {
