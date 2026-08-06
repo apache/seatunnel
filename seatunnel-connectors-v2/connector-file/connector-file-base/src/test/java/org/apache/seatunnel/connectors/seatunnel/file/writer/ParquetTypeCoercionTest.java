@@ -176,6 +176,68 @@ public class ParquetTypeCoercionTest {
     }
 
     /**
+     * The multi-row counterpart to {@link #testCanonicalTypesRoundTripFaithfully}, which writes a
+     * single row per file and therefore only ever takes the {@code writer == null} branch of {@code
+     * ParquetWriteStrategy#getOrCreateOutputStream}. Every row here goes to the same file, so rows
+     * 2 and 3 are served by the reuse branch: they are written through the writer built for row 1,
+     * along with the Avro data model that carries the DECIMAL/DATE/TIMESTAMP logical-type
+     * conversions.
+     *
+     * <p>That is the property worth pinning. The data model is now constructed only where it is
+     * actually consumed — at writer creation — rather than on every call; this asserts that a model
+     * built once still decodes each subsequent row faithfully, and not merely the row that happened
+     * to create it. Values are deliberately distinct per row so a stale or shared conversion would
+     * show up as a wrong value rather than an accidental match.
+     */
+    @DisabledOnOs(OS.WINDOWS)
+    @Test
+    public void testLogicalTypesRoundTripAcrossReusedWriter() throws Exception {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"id", "c_decimal", "c_date", "c_timestamp"},
+                        new SeaTunnelDataType[] {
+                            BasicType.INT_TYPE,
+                            new DecimalType(20, 6),
+                            LocalTimeType.LOCAL_DATE_TYPE,
+                            LocalTimeType.LOCAL_DATE_TIME_TYPE
+                        });
+
+        BigDecimal[] decimals = {
+            new BigDecimal("12345678901234.567890"),
+            new BigDecimal("-0.000001"),
+            new BigDecimal("99999999999999.999999")
+        };
+        LocalDate[] dates = {
+            LocalDate.of(2026, 4, 26), LocalDate.of(1970, 1, 1), LocalDate.of(2038, 12, 31)
+        };
+        LocalDateTime[] timestamps = {
+            LocalDateTime.of(2026, 4, 26, 14, 30, 15),
+            LocalDateTime.of(1970, 1, 1, 0, 0, 0),
+            LocalDateTime.of(2038, 12, 31, 23, 59, 59)
+        };
+
+        List<SeaTunnelRow> rows = new ArrayList<>();
+        for (int i = 0; i < decimals.length; i++) {
+            rows.add(new SeaTunnelRow(new Object[] {i, decimals[i], dates[i], timestamps[i]}));
+        }
+
+        List<Object[]> readBack = writeAndReadBack("reused-writer-logical-types", rowType, rows);
+
+        Assertions.assertEquals(
+                rows.size(), readBack.size(), "every row must land in the same single file");
+        for (int i = 0; i < rows.size(); i++) {
+            Object[] r = readBack.get(i);
+            Assertions.assertEquals(i, ((Number) r[0]).intValue(), "row order changed at " + i);
+            Assertions.assertEquals(
+                    0,
+                    decimals[i].compareTo((BigDecimal) r[1]),
+                    "DECIMAL mismatch on row " + i + ": expected " + decimals[i] + ", got " + r[1]);
+            Assertions.assertEquals(dates[i], r[2], "DATE mismatch on row " + i);
+            Assertions.assertEquals(timestamps[i], r[3], "TIMESTAMP mismatch on row " + i);
+        }
+    }
+
+    /**
      * Null values must round-trip as null for every nullable column type — otherwise downstream
      * consumers see surprising defaults or NPE.
      */
