@@ -204,13 +204,16 @@ public class MultiTableWriterRunnable implements Runnable {
             currentTableId = row.getTableId();
         }
         try {
+            beginCollectedRowErrorOutcomeProbe(row);
             writeWithRetry(writer, row, currentTableId);
             if (!consumeCollectedRowErrorOutcome(row)) {
                 writeSuccessHandler.accept(row);
             }
         } catch (InterruptedException interruptedException) {
+            clearCollectedRowErrorOutcomeProbe(row);
             throw interruptedException;
         } catch (Throwable error) {
+            clearCollectedRowErrorOutcomeProbe(row);
             try {
                 if (tryHandleRowError(writer, row, error)) {
                     return;
@@ -275,6 +278,18 @@ public class MultiTableWriterRunnable implements Runnable {
 
     private boolean consumeCollectedRowErrorOutcome(SeaTunnelRow row) {
         return rowErrorHandler != null && rowErrorHandler.consumeCollectedRowErrorOutcome(row);
+    }
+
+    private void beginCollectedRowErrorOutcomeProbe(SeaTunnelRow row) {
+        if (rowErrorHandler != null) {
+            rowErrorHandler.beginCollectedRowErrorOutcomeProbe(row);
+        }
+    }
+
+    private void clearCollectedRowErrorOutcomeProbe(SeaTunnelRow row) {
+        if (rowErrorHandler != null) {
+            rowErrorHandler.clearCollectedRowErrorOutcomeProbe(row);
+        }
     }
 
     private boolean containsFatalRowErrorHandlingFailure(Throwable error) {

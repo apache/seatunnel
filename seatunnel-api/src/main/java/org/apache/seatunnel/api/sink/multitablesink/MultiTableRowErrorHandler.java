@@ -37,6 +37,12 @@ public interface MultiTableRowErrorHandler {
             SinkWriter<SeaTunnelRow, ?, ?> writer, String tableId, SeaTunnelRow row, Throwable t);
 
     /**
+     * Marks the beginning of a row write whose terminal outcome may be reported by the writer's row
+     * error collector instead of the direct write callback.
+     */
+    default void beginCollectedRowErrorOutcomeProbe(SeaTunnelRow row) {}
+
+    /**
      * Consumes a terminal row-error outcome that a sub-writer reported internally while returning
      * normally from write.
      *
@@ -46,4 +52,7 @@ public interface MultiTableRowErrorHandler {
     default boolean consumeCollectedRowErrorOutcome(SeaTunnelRow row) {
         return false;
     }
+
+    /** Clears a pending terminal-outcome probe when the direct write path throws before consume. */
+    default void clearCollectedRowErrorOutcomeProbe(SeaTunnelRow row) {}
 }

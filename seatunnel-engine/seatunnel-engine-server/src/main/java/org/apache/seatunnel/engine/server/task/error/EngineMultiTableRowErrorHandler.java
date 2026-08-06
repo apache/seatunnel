@@ -96,6 +96,13 @@ public class EngineMultiTableRowErrorHandler implements MultiTableRowErrorHandle
     }
 
     @Override
+    public void beginCollectedRowErrorOutcomeProbe(SeaTunnelRow row) {
+        if (rowErrorCollector != null && row != null) {
+            rowErrorCollector.beginTerminalOutcomeProbe(row);
+        }
+    }
+
+    @Override
     public boolean consumeCollectedRowErrorOutcome(SeaTunnelRow row) {
         if (rowErrorCollector == null) {
             return false;
@@ -108,6 +115,11 @@ public class EngineMultiTableRowErrorHandler implements MultiTableRowErrorHandle
                                 outcomeConsumer.accept(
                                         outcome.getRow(),
                                         ErrorHandlingSinkWriter.WriteOutcome.WRITTEN);
+                            } else if (outcome.isEvicted()) {
+                                log.warn(
+                                        "Skip write-success accounting for row [{}] in plugin [{}] because its collected terminal outcome marker was evicted before the late multi-table callback arrived",
+                                        row,
+                                        pluginName);
                             } else if (!outcome.isRecorded()) {
                                 outcomeConsumer.accept(
                                         outcome.getRow(),
@@ -117,6 +129,13 @@ public class EngineMultiTableRowErrorHandler implements MultiTableRowErrorHandle
                             return true;
                         })
                 .orElse(false);
+    }
+
+    @Override
+    public void clearCollectedRowErrorOutcomeProbe(SeaTunnelRow row) {
+        if (rowErrorCollector != null && row != null) {
+            rowErrorCollector.clearTerminalOutcomeProbe(row);
+        }
     }
 
     private boolean isRowError(

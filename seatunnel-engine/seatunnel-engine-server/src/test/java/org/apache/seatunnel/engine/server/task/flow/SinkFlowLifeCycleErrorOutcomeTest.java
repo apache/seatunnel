@@ -331,22 +331,41 @@ class SinkFlowLifeCycleErrorOutcomeTest {
                         StageErrorConfig.builder().mode(ErrorHandlerMode.ROUTE).build(),
                         new NoopErrorSinkWriter());
         EngineRowErrorCollector collector = new EngineRowErrorCollector(handler, "test");
+        AtomicInteger outcomes = new AtomicInteger();
         EngineMultiTableRowErrorHandler multiTableHandler =
                 new EngineMultiTableRowErrorHandler(
-                        handler, null, "test", (row, outcome) -> {}, collector);
-        SeaTunnelRow inFlightRow = null;
+                        handler,
+                        null,
+                        "test",
+                        (row, outcome) -> outcomes.incrementAndGet(),
+                        collector);
+        SeaTunnelRow evictedInFlightRow = new SeaTunnelRow(new Object[] {0});
+        SeaTunnelRow survivingInFlightRow = null;
 
-        for (int i = 0; i < 10_001; i++) {
+        multiTableHandler.beginCollectedRowErrorOutcomeProbe(evictedInFlightRow);
+        collector.collectWriteSuccess(evictedInFlightRow);
+        collector.drainTerminalOutcomes(true);
+
+        for (int i = 1; i <= 10_000; i++) {
             SeaTunnelRow row = new SeaTunnelRow(new Object[] {i});
             if (i == 9_999) {
-                inFlightRow = row;
+                survivingInFlightRow = row;
             }
             collector.collectWriteSuccess(row);
             collector.drainTerminalOutcomes(true);
         }
 
         Assertions.assertTrue(recordedTerminalRowsSize(collector) <= 10_000);
-        Assertions.assertTrue(multiTableHandler.consumeCollectedRowErrorOutcome(inFlightRow));
+        Assertions.assertTrue(
+                multiTableHandler.consumeCollectedRowErrorOutcome(evictedInFlightRow));
+        Assertions.assertTrue(
+                multiTableHandler.consumeCollectedRowErrorOutcome(survivingInFlightRow));
+        Assertions.assertEquals(0, outcomes.get());
+
+        SeaTunnelRow freshRowAfterEviction = new SeaTunnelRow(new Object[] {10_001});
+        multiTableHandler.beginCollectedRowErrorOutcomeProbe(freshRowAfterEviction);
+        Assertions.assertFalse(
+                multiTableHandler.consumeCollectedRowErrorOutcome(freshRowAfterEviction));
     }
 
     @Test

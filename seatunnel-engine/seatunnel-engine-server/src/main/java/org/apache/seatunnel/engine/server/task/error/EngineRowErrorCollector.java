@@ -42,7 +42,10 @@ public final class EngineRowErrorCollector implements RowErrorCollector {
     private final AtomicLong routedErrors = new AtomicLong();
     private final AtomicLong droppedErrors = new AtomicLong();
     private final List<CollectedRowErrorOutcome> terminalOutcomes = new ArrayList<>();
-    private final Map<IdentityRowKey, Boolean> recordedTerminalRows = new LinkedHashMap<>();
+    private final Map<IdentityRowKey, Long> recordedTerminalRows = new LinkedHashMap<>();
+    private final Map<IdentityRowKey, Long> pendingTerminalOutcomeProbes = new LinkedHashMap<>();
+    private long recordedTerminalRowSequence;
+    private long highestEvictedTerminalRowSequence;
 
     public EngineRowErrorCollector(ErrorHandler<SeaTunnelRow> errorHandler, String pluginName) {
         this.errorHandler = Objects.requireNonNull(errorHandler, "errorHandler must not be null");
@@ -98,7 +101,8 @@ public final class EngineRowErrorCollector implements RowErrorCollector {
                 for (CollectedRowErrorOutcome outcome : drained) {
                     if (outcome.isTerminalWriteOutcome()) {
                         recordedTerminalRows.put(
-                                new IdentityRowKey(outcome.getRow()), Boolean.TRUE);
+                                new IdentityRowKey(outcome.getRow()),
+                                ++recordedTerminalRowSequence);
                     }
                 }
                 // These entries only bridge a late multi-table callback after the flow has already
@@ -110,30 +114,51 @@ public final class EngineRowErrorCollector implements RowErrorCollector {
         }
     }
 
+    public void beginTerminalOutcomeProbe(SeaTunnelRow row) {
+        synchronized (terminalOutcomes) {
+            pendingTerminalOutcomeProbes.put(new IdentityRowKey(row), recordedTerminalRowSequence);
+        }
+    }
+
     public Optional<CollectedRowErrorOutcome> consumeTerminalOutcome(SeaTunnelRow row) {
+        IdentityRowKey rowKey = new IdentityRowKey(row);
         synchronized (terminalOutcomes) {
             for (int i = 0; i < terminalOutcomes.size(); i++) {
                 CollectedRowErrorOutcome outcome = terminalOutcomes.get(i);
                 if (outcome.getRow() == row) {
                     terminalOutcomes.remove(i);
+                    pendingTerminalOutcomeProbes.remove(rowKey);
                     return Optional.of(outcome);
                 }
             }
-            if (recordedTerminalRows.remove(new IdentityRowKey(row)) != null) {
+            if (recordedTerminalRows.remove(rowKey) != null) {
+                pendingTerminalOutcomeProbes.remove(rowKey);
                 return Optional.of(CollectedRowErrorOutcome.recorded(row));
+            }
+            Long probeSequence = pendingTerminalOutcomeProbes.remove(rowKey);
+            if (probeSequence != null && probeSequence <= highestEvictedTerminalRowSequence) {
+                return Optional.of(CollectedRowErrorOutcome.evicted(row));
             }
         }
         return Optional.empty();
+    }
+
+    public void clearTerminalOutcomeProbe(SeaTunnelRow row) {
+        synchronized (terminalOutcomes) {
+            pendingTerminalOutcomeProbes.remove(new IdentityRowKey(row));
+        }
     }
 
     private void trimRecordedTerminalRows() {
         if (recordedTerminalRows.size() <= MAX_RECORDED_TERMINAL_ROWS) {
             return;
         }
-        Iterator<IdentityRowKey> iterator = recordedTerminalRows.keySet().iterator();
+        Iterator<Map.Entry<IdentityRowKey, Long>> iterator =
+                recordedTerminalRows.entrySet().iterator();
         while (recordedTerminalRows.size() > RECORDED_TERMINAL_ROWS_LOW_WATERMARK
                 && iterator.hasNext()) {
-            iterator.next();
+            highestEvictedTerminalRowSequence =
+                    Math.max(highestEvictedTerminalRowSequence, iterator.next().getValue());
             iterator.remove();
         }
     }
@@ -161,28 +186,35 @@ public final class EngineRowErrorCollector implements RowErrorCollector {
         private final ErrorHandler.ErrorHandleResult result;
         private final boolean recorded;
         private final boolean written;
+        private final boolean evicted;
 
         private CollectedRowErrorOutcome(SeaTunnelRow row, ErrorHandler.ErrorHandleResult result) {
-            this(row, result, false, false);
+            this(row, result, false, false, false);
         }
 
         private CollectedRowErrorOutcome(
                 SeaTunnelRow row,
                 ErrorHandler.ErrorHandleResult result,
                 boolean recorded,
-                boolean written) {
+                boolean written,
+                boolean evicted) {
             this.row = row;
             this.result = result;
             this.recorded = recorded;
             this.written = written;
+            this.evicted = evicted;
         }
 
         private static CollectedRowErrorOutcome recorded(SeaTunnelRow row) {
-            return new CollectedRowErrorOutcome(row, null, true, false);
+            return new CollectedRowErrorOutcome(row, null, true, false, false);
         }
 
         private static CollectedRowErrorOutcome written(SeaTunnelRow row) {
-            return new CollectedRowErrorOutcome(row, null, false, true);
+            return new CollectedRowErrorOutcome(row, null, false, true, false);
+        }
+
+        private static CollectedRowErrorOutcome evicted(SeaTunnelRow row) {
+            return new CollectedRowErrorOutcome(row, null, false, false, true);
         }
 
         public SeaTunnelRow getRow() {
@@ -201,8 +233,12 @@ public final class EngineRowErrorCollector implements RowErrorCollector {
             return written;
         }
 
+        public boolean isEvicted() {
+            return evicted;
+        }
+
         private boolean isTerminalWriteOutcome() {
-            return !recorded;
+            return !recorded && !evicted;
         }
     }
 }
