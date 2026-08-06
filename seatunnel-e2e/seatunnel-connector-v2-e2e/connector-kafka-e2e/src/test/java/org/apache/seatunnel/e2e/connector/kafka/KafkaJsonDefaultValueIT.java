@@ -180,6 +180,23 @@ public class KafkaJsonDefaultValueIT extends TestSuiteBase implements TestResour
                     new java.util.HashSet<>(KAFKA_TOPICS).size(),
                     topicDescriptions.size(),
                     "Kafka topics are not ready yet");
+            // Topic existence in the admin metadata view does not guarantee the broker the
+            // job's own Kafka client connects to has finished assigning/propagating the
+            // partition leader (UnknownTopicOrPartitionException). Wait until every
+            // partition of every topic has a non-null leader before submitting the job.
+            for (org.apache.kafka.clients.admin.TopicDescription description :
+                    topicDescriptions.values()) {
+                for (org.apache.kafka.common.TopicPartitionInfo partition :
+                        description.partitions()) {
+                    Assertions.assertNotNull(
+                            partition.leader(),
+                            "Kafka topic "
+                                    + description.name()
+                                    + " partition "
+                                    + partition.partition()
+                                    + " has no leader yet");
+                }
+            }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new RuntimeException("Interrupted while waiting for Kafka topics", e);
