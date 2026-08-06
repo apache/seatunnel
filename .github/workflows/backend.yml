@@ -396,6 +396,13 @@ jobs:
             ./mvnw -B install -DskipTests -D"maven.test.skip"=true -D"maven.javadoc.skip"=true -D"license.skipAddThirdParty" -D"skip.ui"=true
       - name: Check Dependencies Licenses
         run: tools/dependencies/checkLicense.sh
+      # seatunnel-hadoop-aws bundles no Jackson of its own - it resolves those
+      # references against the seatunnel-hadoop3-*-uber jar, which relocates Jackson.
+      # When the two disagree, S3A dies at runtime with NoSuchMethodError on the
+      # assumed-role path and nothing at build time notices. The jar is already built
+      # by the Install step above, so this costs seconds.
+      - name: Check shaded Jackson references
+        run: python3 tools/dependencies/check_shaded_jackson_refs.py seatunnel-shade/seatunnel-hadoop-aws/target/seatunnel-hadoop-aws.jar
 
   document:
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.docs == 'true'
