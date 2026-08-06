@@ -7,6 +7,12 @@ You need to check this document before you upgrade to related version.
 
 ### JDBC Connector
 
+- **Breaking Change: JDBC sink no longer retries SQL data and constraint row errors**
+  - **Affected component**: `seatunnel-connectors-v2/connector-jdbc`
+  - **Description**: JDBC Sink now treats SQLState `22XXX` data exceptions and `23XXX` integrity-constraint violations as row-level data errors. These failures are not retried by `max_retries`; the write fails immediately unless sink row-error handling is enabled to route or drop the bad batch.
+  - **Impact**: Jobs that previously depended on repeated JDBC retries for data truncation, invalid values, duplicate keys, or other deterministic row errors will fail faster, or can continue only when the new sink error-handler configuration is enabled.
+  - **Migration Guide**: Clean or deduplicate the affected records before the JDBC Sink, adjust the target schema or constraints, or enable sink row-error handling and configure an error sink when those bad records should be quarantined instead of failing the job.
+
 - **Breaking Change: Mapping of timezone-aware timestamp columns to `TIMESTAMP_TZ` type**
   - **Affected component**: `seatunnel-connectors-v2/connector-jdbc`, `seatunnel-connectors-v2/connector-iceberg`, `seatunnel-connectors-v2/connector-cdc-base`, `seatunnel-connectors-v2/connector-cdc-tidb`, `seatunnel-connectors-v2/connector-starrocks`, `seatunnel-connectors-v2/connector-hudi`, `seatunnel-connectors-v2/connector-snowflake` (via JDBC dialect)
   - **Description**: Previously, JDBC sources mapped both timezone-naive (e.g., MySQL `DATETIME`) and timezone-aware (e.g., MySQL `TIMESTAMP`) timestamp columns to SeaTunnel's internal `TIMESTAMP` type. Now, timezone-aware columns like MySQL `TIMESTAMP`, PostgreSQL `timestamptz`, Oracle `TIMESTAMP WITH LOCAL TIME ZONE`, SQL Server `datetimeoffset`, Snowflake `TIMESTAMP_LTZ/TZ`, and others are explicitly mapped to `TIMESTAMP_TZ`. This ensures that timezone semantics are accurately preserved when writing to formats like Iceberg, where `TIMESTAMP` is saved as `timestamp` (without timezone) and `TIMESTAMP_TZ` is saved as `timestamptz` (with timezone).

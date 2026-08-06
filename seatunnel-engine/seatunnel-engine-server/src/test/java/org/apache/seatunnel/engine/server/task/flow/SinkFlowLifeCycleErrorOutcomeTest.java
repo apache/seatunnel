@@ -369,6 +369,29 @@ class SinkFlowLifeCycleErrorOutcomeTest {
     }
 
     @Test
+    void unrelatedEvictionsDoNotMarkNeverCollectedRowAsEvicted() throws Exception {
+        ErrorHandler<SeaTunnelRow> handler =
+                new ErrorHandler<>(
+                        StageErrorConfig.builder().mode(ErrorHandlerMode.ROUTE).build(),
+                        new NoopErrorSinkWriter());
+        EngineRowErrorCollector collector = new EngineRowErrorCollector(handler, "test");
+        EngineMultiTableRowErrorHandler multiTableHandler =
+                new EngineMultiTableRowErrorHandler(
+                        handler, null, "test", (row, outcome) -> {}, collector);
+        SeaTunnelRow ordinaryInFlightRow = new SeaTunnelRow(new Object[] {"ordinary"});
+
+        multiTableHandler.beginCollectedRowErrorOutcomeProbe(ordinaryInFlightRow);
+        for (int i = 0; i <= 10_000; i++) {
+            collector.collectWriteSuccess(new SeaTunnelRow(new Object[] {i}));
+            collector.drainTerminalOutcomes(true);
+        }
+
+        Assertions.assertTrue(recordedTerminalRowsSize(collector) <= 10_000);
+        Assertions.assertFalse(
+                multiTableHandler.consumeCollectedRowErrorOutcome(ordinaryInFlightRow));
+    }
+
+    @Test
     void multiTableHandlerConsumesCollectorReportedSuccess() throws Exception {
         ErrorHandler<SeaTunnelRow> handler =
                 new ErrorHandler<>(

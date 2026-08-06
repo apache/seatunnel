@@ -42,10 +42,14 @@ public final class EngineRowErrorCollector implements RowErrorCollector {
     private final AtomicLong routedErrors = new AtomicLong();
     private final AtomicLong droppedErrors = new AtomicLong();
     private final List<CollectedRowErrorOutcome> terminalOutcomes = new ArrayList<>();
+    // Recently drained terminal outcomes let late multi-table success callbacks avoid counting a
+    // row twice after the flow has already recorded its final write result.
     private final Map<IdentityRowKey, Long> recordedTerminalRows = new LinkedHashMap<>();
-    private final Map<IdentityRowKey, Long> pendingTerminalOutcomeProbes = new LinkedHashMap<>();
+    // Pending probes are scoped to rows currently inside a direct multi-table write call. A row is
+    // treated as evicted only when its own recorded marker is trimmed while this probe is pending.
+    private final Map<IdentityRowKey, TerminalOutcomeProbe> pendingTerminalOutcomeProbes =
+            new LinkedHashMap<>();
     private long recordedTerminalRowSequence;
-    private long highestEvictedTerminalRowSequence;
 
     public EngineRowErrorCollector(ErrorHandler<SeaTunnelRow> errorHandler, String pluginName) {
         this.errorHandler = Objects.requireNonNull(errorHandler, "errorHandler must not be null");
@@ -114,12 +118,17 @@ public final class EngineRowErrorCollector implements RowErrorCollector {
         }
     }
 
+    /** Starts tracking whether this row's already-recorded terminal marker is evicted. */
     public void beginTerminalOutcomeProbe(SeaTunnelRow row) {
         synchronized (terminalOutcomes) {
-            pendingTerminalOutcomeProbes.put(new IdentityRowKey(row), recordedTerminalRowSequence);
+            pendingTerminalOutcomeProbes.put(new IdentityRowKey(row), new TerminalOutcomeProbe());
         }
     }
 
+    /**
+     * Consumes an exact terminal outcome for the row, or reports eviction only if this row's own
+     * recorded marker was trimmed while its probe was active.
+     */
     public Optional<CollectedRowErrorOutcome> consumeTerminalOutcome(SeaTunnelRow row) {
         IdentityRowKey rowKey = new IdentityRowKey(row);
         synchronized (terminalOutcomes) {
@@ -135,14 +144,17 @@ public final class EngineRowErrorCollector implements RowErrorCollector {
                 pendingTerminalOutcomeProbes.remove(rowKey);
                 return Optional.of(CollectedRowErrorOutcome.recorded(row));
             }
-            Long probeSequence = pendingTerminalOutcomeProbes.remove(rowKey);
-            if (probeSequence != null && probeSequence <= highestEvictedTerminalRowSequence) {
+            TerminalOutcomeProbe probe = pendingTerminalOutcomeProbes.remove(rowKey);
+            if (probe != null && probe.isRecordedMarkerEvicted()) {
                 return Optional.of(CollectedRowErrorOutcome.evicted(row));
             }
         }
         return Optional.empty();
     }
 
+    /**
+     * Clears the pending probe when a direct write throws before the late callback can consume it.
+     */
     public void clearTerminalOutcomeProbe(SeaTunnelRow row) {
         synchronized (terminalOutcomes) {
             pendingTerminalOutcomeProbes.remove(new IdentityRowKey(row));
@@ -157,8 +169,11 @@ public final class EngineRowErrorCollector implements RowErrorCollector {
                 recordedTerminalRows.entrySet().iterator();
         while (recordedTerminalRows.size() > RECORDED_TERMINAL_ROWS_LOW_WATERMARK
                 && iterator.hasNext()) {
-            highestEvictedTerminalRowSequence =
-                    Math.max(highestEvictedTerminalRowSequence, iterator.next().getValue());
+            Map.Entry<IdentityRowKey, Long> evictedEntry = iterator.next();
+            TerminalOutcomeProbe probe = pendingTerminalOutcomeProbes.get(evictedEntry.getKey());
+            if (probe != null) {
+                probe.markRecordedMarkerEvicted();
+            }
             iterator.remove();
         }
     }
@@ -178,6 +193,18 @@ public final class EngineRowErrorCollector implements RowErrorCollector {
         @Override
         public int hashCode() {
             return System.identityHashCode(row);
+        }
+    }
+
+    private static final class TerminalOutcomeProbe {
+        private boolean recordedMarkerEvicted;
+
+        private void markRecordedMarkerEvicted() {
+            recordedMarkerEvicted = true;
+        }
+
+        private boolean isRecordedMarkerEvicted() {
+            return recordedMarkerEvicted;
         }
     }
 

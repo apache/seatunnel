@@ -6,6 +6,12 @@
 
 ### JDBC Connector
 
+- **破坏性变更：JDBC Sink 不再重试 SQL 数据错误和约束类行错误**
+  - **影响范围**：`seatunnel-connectors-v2/connector-jdbc`
+  - **变更说明**：JDBC Sink 现在会把 SQLState `22XXX` 数据异常和 `23XXX` 完整性约束异常识别为行级数据错误。这类失败不会再按 `max_retries` 重试；如果未启用 Sink 行错误处理，写入会立即失败；如果已启用，则会按配置将坏数据批次路由或丢弃。
+  - **影响**：如果作业以前依赖 JDBC 对数据截断、非法值、重复键或其他确定性行错误做多次重试，升级后会更快失败；只有启用新的 Sink 错误处理配置时，作业才可以绕过这些坏数据继续运行。
+  - **迁移指南**：在写入 JDBC Sink 前清洗或去重相关记录，调整目标表结构或约束；如果业务希望隔离坏数据而不是让作业失败，请启用 Sink 行错误处理并配置错误数据输出。
+
 - **破坏性变更：带时区的时间戳列映射为 `TIMESTAMP_TZ` 类型**
   - **影响范围**：`seatunnel-connectors-v2/connector-jdbc`、`seatunnel-connectors-v2/connector-iceberg`、`seatunnel-connectors-v2/connector-cdc-base`、`seatunnel-connectors-v2/connector-cdc-tidb`、`seatunnel-connectors-v2/connector-starrocks`、`seatunnel-connectors-v2/connector-hudi`、`seatunnel-connectors-v2/connector-snowflake`（通过 JDBC 方言）
   - **变更说明**：以前，JDBC Source 将无时区（如 MySQL `DATETIME`）和带时区（如 MySQL `TIMESTAMP`）的时间戳列都映射为 SeaTunnel 内部的 `TIMESTAMP` 类型。现在，带时区的列（如 MySQL `TIMESTAMP`、PostgreSQL `timestamptz`、Oracle `TIMESTAMP WITH LOCAL TIME ZONE`、SQL Server `datetimeoffset`、Snowflake `TIMESTAMP_LTZ/TZ` 等）被显式映射为 `TIMESTAMP_TZ`。这确保了在写入 Iceberg 等格式时，时区语义得到准确保留（在 Iceberg 中 `TIMESTAMP` 存为无时区的 `timestamp`，`TIMESTAMP_TZ` 存为带时区的 `timestamptz`）。
