@@ -210,6 +210,9 @@ public class CouchbaseIT extends TestSuiteBase implements TestResource {
                         COUCHBASE_BUCKET, COUCHBASE_SCOPE, COUCHBASE_COLLECTION);
         // FakeSource now uses auto.increment.enabled=true starting at 1, so ids are 1..100
         // and there are no collisions.  Pick id=1 for the content-level check.
+        // Note: the document key for id=1 is "1:1" (length-prefixed encoding: "<len>:<value>"),
+        // not "1". The content check queries by field value (WHERE id = 1) via N1QL rather than
+        // by document key, so the encoding does not affect correctness here.
         String contentQuery =
                 String.format(
                         "SELECT id, name, score, `active` FROM `%s`.`%s`.`%s` WHERE id = 1",

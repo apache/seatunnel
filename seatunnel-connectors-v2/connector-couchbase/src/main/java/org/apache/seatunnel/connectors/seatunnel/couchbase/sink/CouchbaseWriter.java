@@ -73,6 +73,14 @@ import java.util.concurrent.atomic.AtomicReference;
  * skipped. {@code DELETE} is explicitly rejected with an exception — CDC delete support is out of
  * scope for this initial implementation.
  *
+ * <p><b>Document-id assignment:</b> each row's document id is assigned at {@link #write} time and
+ * stored together with the converted JSON body in the buffer as a {@link WriteUnit}. This means
+ * that if {@link #doFlush} is invoked more than once on the same not-yet-cleared buffer (e.g. when
+ * a periodic-flush retry is interrupted by {@link #close}), every invocation uses the same
+ * pre-assigned ids — no new UUIDs are generated on a second pass, so silent duplicate documents and
+ * spurious {@link com.couchbase.client.core.error.DocumentExistsException} collisions on
+ * already-committed rows are both eliminated.
+ *
  * <p><b>Async-error propagation:</b> when the background timer flush fails the first exception is
  * latched in {@link #asyncFlushError}. Subsequent calls to {@link #write}, {@link #prepareCommit},
  * and {@link #close} check the latch and rethrow the failure so the task cannot continue silently
@@ -86,7 +94,7 @@ public class CouchbaseWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
     private final CouchbaseWriterOptions options;
     private final SeaTunnelRowType rowType;
 
-    private final List<SeaTunnelRow> buffer;
+    private final List<WriteUnit> buffer;
     private final long bulkActions;
     private final int maxRetries;
     private final long retryIntervalMs;
@@ -195,6 +203,13 @@ public class CouchbaseWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
      * only the final value matters for document stores. {@code DELETE} rows are explicitly rejected
      * because CDC delete support is out of scope for this initial implementation.
      *
+     * <p>The row's document id is assigned here, at buffer-add time, so that every subsequent flush
+     * attempt (including a {@link #close}-triggered re-flush of a buffer that a prior interrupted
+     * periodic flush left un-cleared) uses the same stable id. This prevents silent duplicate
+     * documents when no primary key is configured (UUID path) and prevents spurious {@link
+     * com.couchbase.client.core.error.DocumentExistsException} collisions on already-committed rows
+     * when a primary key is configured and insert mode is active.
+     *
      * <p>Checks {@link #asyncFlushError} before buffering and rethrows any latched background
      * failure so the task cannot continue after a broken periodic flush.
      *
@@ -214,8 +229,12 @@ public class CouchbaseWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
                     "RowKind.DELETE is not supported by the Couchbase sink. "
                             + "CDC delete handling is out of scope for the initial implementation.");
         }
+        // Assign the document id at buffer-add time (not inside doFlush) so that if close()
+        // triggers a second doFlush() on a not-yet-cleared buffer the same ids are reused.
+        JsonObject doc = toJsonObject(row);
+        WriteUnit unit = new WriteUnit(buildDocumentKey(doc), doc);
         synchronized (this) {
-            buffer.add(row);
+            buffer.add(unit);
             if (isOverMaxBatchSizeLimit()) {
                 doFlush();
             }
@@ -239,26 +258,59 @@ public class CouchbaseWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
             flushFuture.cancel(false);
         }
         if (flushScheduler != null) {
-            // shutdownNow() prevents any queued-but-not-yet-started timer tasks from running
-            // after we have already performed the final doFlush() and disconnected the cluster.
-            // In-flight tasks that are blocked on the doFlush() monitor are handled by the
-            // synchronized guard on doFlush() itself.
+            // shutdownNow() interrupts any in-flight periodic doFlush() that is sleeping in its
+            // retry backoff. We then awaitTermination() to ensure the interrupted timer thread
+            // has fully unwound — in particular that its catch/finally has set asyncFlushError
+            // if the flush failed — before we read the latch or attempt our own doFlush().
+            // Without awaitTermination() there is a window where checkAsyncFlushError() sees null
+            // even though the interrupted task's error handler has not yet executed.
             flushScheduler.shutdownNow();
+            try {
+                if (!flushScheduler.awaitTermination(30, TimeUnit.SECONDS)) {
+                    log.warn(
+                            "Couchbase flush scheduler did not terminate within 30 s; "
+                                    + "proceeding with close anyway.");
+                }
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+                log.warn("Interrupted while waiting for Couchbase flush scheduler to terminate.");
+            }
         }
         // checkAsyncFlushError() and doFlush() are both inside the try so that the finally
         // block always disconnects the cluster even when a latched background failure exists.
+        // If doFlush() throws and cluster.disconnect() also throws, attach the disconnect failure
+        // as a suppressed exception so the data-relevant flush error is not masked.
+        Throwable primaryThrowable = null;
         try {
             checkAsyncFlushError();
             doFlush();
+        } catch (Throwable t) {
+            primaryThrowable = t;
         } finally {
             try {
                 cluster.disconnect();
-            } catch (Exception e) {
-                throw new CouchbaseConnectorException(
-                        CouchbaseConnectorErrorCode.CLOSE_CLIENT_FAILED,
-                        "Failed to disconnect Couchbase cluster",
-                        e);
+            } catch (Exception disconnectEx) {
+                if (primaryThrowable != null) {
+                    // Issue 2: preserve the flush error as the primary cause; attach the
+                    // disconnect failure so it is visible but does not mask the root cause.
+                    primaryThrowable.addSuppressed(disconnectEx);
+                } else {
+                    primaryThrowable =
+                            new CouchbaseConnectorException(
+                                    CouchbaseConnectorErrorCode.CLOSE_CLIENT_FAILED,
+                                    "Failed to disconnect Couchbase cluster",
+                                    disconnectEx);
+                }
             }
+        }
+        if (primaryThrowable != null) {
+            if (primaryThrowable instanceof CouchbaseConnectorException) {
+                throw (CouchbaseConnectorException) primaryThrowable;
+            }
+            throw new CouchbaseConnectorException(
+                    CouchbaseConnectorErrorCode.WRITE_RECORDS_FAILED,
+                    "Flush failed during close",
+                    primaryThrowable);
         }
     }
 
@@ -571,11 +623,12 @@ public class CouchbaseWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
     }
 
     /**
-     * Writes all buffered documents to Couchbase with retry logic, then clears the buffer.
+     * Writes all buffered {@link WriteUnit}s to Couchbase with retry logic, then clears the buffer.
      *
-     * <p>Document ids are assigned <em>once</em> before the retry loop starts so that every retry
-     * attempt reuses the same key — no new UUIDs are generated on re-attempts, so partial-success
-     * retries cannot produce duplicate documents.
+     * <p>Document ids were assigned at {@link #write} time (not here), so every retry attempt and
+     * every cross-invocation re-flush of a not-yet-cleared buffer uses the same stable ids — no new
+     * UUIDs are generated, and no spurious key-collision exceptions arise for rows that were
+     * already committed by an earlier interrupted attempt.
      *
      * <p>A {@code startFrom} cursor advances past rows that were already durably written in a
      * previous (partial) attempt, which prevents silent duplicate documents in the random-UUID
@@ -606,15 +659,8 @@ public class CouchbaseWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
             return;
         }
 
-        // Materialise stable (docId, doc) pairs before entering the retry loop.
-        // Assigning the document id here means every retry attempt reuses the same key —
-        // no new UUIDs are generated on re-attempts, so partial-success retries cannot
-        // produce duplicate documents.
-        final List<WriteUnit> units = new ArrayList<>(buffer.size());
-        for (SeaTunnelRow row : buffer) {
-            JsonObject doc = toJsonObject(row);
-            units.add(new WriteUnit(buildDocumentKey(doc), doc));
-        }
+        // Document ids were assigned at write() time; use the buffer directly as the units list.
+        final List<WriteUnit> units = buffer;
 
         // startFrom tracks the first unit that has NOT yet been durably written.
         // When a batch attempt fails mid-way at index k, the next attempt resumes
