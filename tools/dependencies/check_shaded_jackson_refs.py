@@ -78,10 +78,15 @@ import zipfile
 
 ORIGINAL = (b"com/fasterxml/jackson", b"com.fasterxml.jackson")
 SCOPE = "org/apache/hadoop/"
+# Mirrors ${seatunnel.shade.package} in the root pom. Kept as the full prefix rather
+# than the bare word "shade": matching one common word would stop recognising correct
+# relocations the moment that property is renamed, and the check would then fail every
+# build for a reason with no obvious hint in the code.
+SHADED_PREFIX = rb"org[/.]apache[/.]seatunnel[/.]shade"
 # The relocated form legitimately contains the original substring as a suffix
 # (org/apache/seatunnel/shade/hadoop/com/fasterxml/jackson/...), so a naive search
 # would report every correctly-relocated reference as a violation.
-RELOCATED = re.compile(rb"[A-Za-z0-9_$/.]+(?:shade)[A-Za-z0-9_$/.]*?(?:com[/.]fasterxml[/.]jackson)")
+RELOCATED = re.compile(SHADED_PREFIX + rb"[A-Za-z0-9_$/.]*?(?:com[/.]fasterxml[/.]jackson)")
 
 
 def offending_refs(class_bytes):
