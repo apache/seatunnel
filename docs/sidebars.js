@@ -278,6 +278,7 @@ const sidebars = {
                         },
                         "engines/zeta/user-command",
                         "engines/zeta/logging",
+                        "engines/zeta/log-analysis-with-ai",
                         "engines/zeta/telemetry",
                         "engines/zeta/busyness-and-backpressure",
                         "engines/zeta/slot-allocation-strategy",
