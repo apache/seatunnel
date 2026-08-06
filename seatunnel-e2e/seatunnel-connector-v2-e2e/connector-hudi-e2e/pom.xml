@@ -97,5 +97,29 @@
             <artifactId>mysql-connector-java</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <!--
+            HudiSeatunnelS3MultiTableIT copies seatunnel-hadoop-aws.jar into the container's lib/,
+            which is where a real distribution carries S3A. This dependency is what makes
+            `-pl :connector-hudi-e2e -am` build that jar; without it the file is missing and
+            Testcontainers copies a zero-byte placeholder without failing, so the container dies on
+            ClassNotFoundException: org.apache.hadoop.fs.s3a.S3AFileSystem instead. The jar happens
+            to be present today only because this IT runs in a job whose module list is wide enough
+            to build it for another reason. The jar is only ever read from the filesystem, never
+            linked against here, so its transitive hadoop-aws and AWS SDK are excluded.
+        -->
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-hadoop-aws</artifactId>
+            <version>${project.version}</version>
+            <classifier>optional</classifier>
+            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>*</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
     </dependencies>
 </project>

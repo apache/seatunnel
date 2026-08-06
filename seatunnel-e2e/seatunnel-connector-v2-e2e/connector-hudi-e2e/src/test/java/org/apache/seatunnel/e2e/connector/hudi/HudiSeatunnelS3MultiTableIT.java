@@ -19,7 +19,6 @@ package org.apache.seatunnel.e2e.connector.hudi;
 
 import org.apache.seatunnel.common.utils.FileUtils;
 import org.apache.seatunnel.e2e.common.container.seatunnel.SeaTunnelContainer;
-import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.LocalFileSystem;
@@ -36,7 +35,6 @@ import org.junit.jupiter.api.TestInstance;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.MinIOContainer;
-import org.testcontainers.utility.MountableFile;
 
 import io.minio.BucketExistsArgs;
 import io.minio.MakeBucketArgs;
@@ -44,7 +42,6 @@ import io.minio.MinioClient;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
-import java.nio.file.Paths;
 import java.util.concurrent.TimeUnit;
 
 import static org.awaitility.Awaitility.given;
@@ -112,11 +109,7 @@ public class HudiSeatunnelS3MultiTableIT extends SeaTunnelContainer {
     @Override
     protected void executeExtraCommands(GenericContainer<?> container)
             throws IOException, InterruptedException {
-        container.withCopyFileToContainer(
-                MountableFile.forHostPath(
-                        ContainerUtil.PROJECT_ROOT_PATH
-                                + "/seatunnel-shade/seatunnel-hadoop-aws/target/seatunnel-hadoop-aws.jar"),
-                Paths.get(SEATUNNEL_HOME, "lib/seatunnel-hadoop-aws.jar").toString());
+        copyHadoopAwsToContainerLib(container);
         super.executeExtraCommands(container);
     }
 

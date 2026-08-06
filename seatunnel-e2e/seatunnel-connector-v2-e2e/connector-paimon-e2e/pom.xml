@@ -111,6 +111,30 @@
             <scope>test</scope>
         </dependency>
 
+        <!--
+            PaimonWithS3IT copies seatunnel-hadoop-aws.jar into the container's lib/, which is where
+            a real distribution carries S3A. This dependency is what makes `-pl :connector-paimon-e2e
+            -am` build that jar; without it the file is missing and Testcontainers copies a zero-byte
+            placeholder without failing, so the container dies on ClassNotFoundException:
+            org.apache.hadoop.fs.s3a.S3AFileSystem instead. The jar is only ever read from the
+            filesystem, never linked against here, so its transitive hadoop-aws and AWS SDK are
+            excluded and it is declared last: the S3A this module runs in its own JVM has to stay
+            the one paimon-s3-impl bundles, per the ordering note above.
+        -->
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-hadoop-aws</artifactId>
+            <version>${project.version}</version>
+            <classifier>optional</classifier>
+            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>*</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+
     </dependencies>
 
 </project>

@@ -439,6 +439,16 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                 // the Failsafe delayer that the shaded S3 Access Grants plugin creates,
                 // software/amazon/s3/shaded/dev/failsafe/internal/util/DelegatingScheduler
                 || s.startsWith("FailsafeDelayScheduler")
+                // The remaining AWS SDK v2 pools behind S3A, all daemon threads left parked on an
+                // empty work queue after the job ends. hadoop-aws builds one client per
+                // S3AFileSystem instance, so a multi-table job leaves a batch of them rather than
+                // one: HudiSeatunnelS3MultiTableIT ends with 187 sdk-ScheduledExecutor-* and 33
+                // s3-analytics-accelerator-* threads. The Apache connection reaper identifies
+                // itself in its stack as
+                // software/amazon/awssdk/http/apache/internal/conn/IdleConnectionReaper$ReaperTask.
+                || s.startsWith("sdk-ScheduledExecutor-")
+                || s.startsWith("s3-analytics-accelerator-")
+                || s.startsWith("idle-connection-reaper")
                 // redis pool evictor daemon thread
                 || s.startsWith("commons-pool-evictor")
                 // Jetty QueuedThreadPool NIO selector thread from the embedded REST server;

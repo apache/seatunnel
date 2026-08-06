@@ -18,7 +18,6 @@
 package org.apache.seatunnel.e2e.connector.file.s3;
 
 import org.apache.seatunnel.e2e.common.container.seatunnel.SeaTunnelContainer;
-import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -30,7 +29,6 @@ import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerImageName;
-import org.testcontainers.utility.MountableFile;
 
 import com.github.dockerjava.api.model.ExposedPort;
 import com.github.dockerjava.api.model.PortBinding;
@@ -38,7 +36,6 @@ import com.github.dockerjava.api.model.Ports;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
-import java.nio.file.Paths;
 
 /**
  * MinIO-based S3 E2E test suite for connector-file-s3, covering:
@@ -106,11 +103,7 @@ public class S3FileWithFilterIT extends SeaTunnelContainer {
     @Override
     protected void executeExtraCommands(GenericContainer<?> container)
             throws IOException, InterruptedException {
-        container.withCopyFileToContainer(
-                MountableFile.forHostPath(
-                        ContainerUtil.PROJECT_ROOT_PATH
-                                + "/seatunnel-shade/seatunnel-hadoop-aws/target/seatunnel-hadoop-aws.jar"),
-                Paths.get(SEATUNNEL_HOME, "lib/seatunnel-hadoop-aws.jar").toString());
+        copyHadoopAwsToContainerLib(container);
         super.executeExtraCommands(container);
     }
 

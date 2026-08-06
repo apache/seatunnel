@@ -19,7 +19,6 @@ package org.apache.seatunnel.e2e.connector.paimon;
 
 import org.apache.seatunnel.connectors.seatunnel.paimon.config.PaimonBaseOptions;
 import org.apache.seatunnel.e2e.common.container.seatunnel.SeaTunnelContainer;
-import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
 import org.apache.commons.collections.CollectionUtils;
 import org.apache.paimon.catalog.CatalogContext;
@@ -39,14 +38,12 @@ import org.junit.jupiter.api.TestInstance;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.MinIOContainer;
-import org.testcontainers.utility.MountableFile;
 
 import io.minio.BucketExistsArgs;
 import io.minio.MakeBucketArgs;
 import io.minio.MinioClient;
 
 import java.io.IOException;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -135,11 +132,7 @@ public class PaimonWithS3IT extends SeaTunnelContainer {
     @Override
     protected void executeExtraCommands(GenericContainer<?> container)
             throws IOException, InterruptedException {
-        container.withCopyFileToContainer(
-                MountableFile.forHostPath(
-                        ContainerUtil.PROJECT_ROOT_PATH
-                                + "/seatunnel-shade/seatunnel-hadoop-aws/target/seatunnel-hadoop-aws.jar"),
-                Paths.get(SEATUNNEL_HOME, "lib/seatunnel-hadoop-aws.jar").toString());
+        copyHadoopAwsToContainerLib(container);
         super.executeExtraCommands(container);
     }
 
