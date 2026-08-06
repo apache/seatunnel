@@ -28,6 +28,8 @@ import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
+import org.apache.seatunnel.api.table.type.MapType;
+import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 
@@ -44,7 +46,9 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
@@ -523,16 +527,34 @@ public class JsonDefaultValueTest {
         // instance is shared between rows (in-place mutation by downstream stages
         // would otherwise corrupt every row that took the default).
         ArrayType<Integer[], Integer> tagsType = ArrayType.INT_ARRAY_TYPE;
+        MapType<String, String> attrsType =
+                new MapType<>(BasicType.STRING_TYPE, BasicType.STRING_TYPE);
         Column[] columns =
                 new Column[] {
                     PhysicalColumn.of(
-                            "tags", tagsType, (Long) null, false, Arrays.asList(1, 2), null)
+                            "tags", tagsType, (Long) null, false, Arrays.asList(1, 2), null),
+                    PhysicalColumn.of(
+                            "attrs",
+                            attrsType,
+                            (Long) null,
+                            false,
+                            Collections.singletonMap("k", "v"),
+                            null),
+                    PhysicalColumn.of(
+                            "blob",
+                            PrimitiveByteArrayType.INSTANCE,
+                            (Long) null,
+                            false,
+                            new byte[] {1, 2},
+                            null)
                 };
 
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(
-                        new String[] {"tags"},
-                        new org.apache.seatunnel.api.table.type.SeaTunnelDataType[] {tagsType});
+                        new String[] {"tags", "attrs", "blob"},
+                        new org.apache.seatunnel.api.table.type.SeaTunnelDataType[] {
+                            tagsType, attrsType, PrimitiveByteArrayType.INSTANCE
+                        });
 
         TableSchema tableSchema = TableSchema.builder().columns(Arrays.asList(columns)).build();
         TableIdentifier tableId = TableIdentifier.of("test", TablePath.of("test.test_table"));
@@ -550,6 +572,18 @@ public class JsonDefaultValueTest {
         Assertions.assertNotSame(tags1, tags2); // distinct instances per row
         Assertions.assertArrayEquals(new Integer[] {1, 2}, tags1);
         Assertions.assertArrayEquals(new Integer[] {1, 2}, tags2);
+
+        Map<String, String> attrs1 = (Map<String, String>) row1.getField(1);
+        Map<String, String> attrs2 = (Map<String, String>) row2.getField(1);
+        Assertions.assertNotSame(attrs1, attrs2); // distinct instances per row
+        Assertions.assertEquals("v", attrs1.get("k"));
+        Assertions.assertEquals("v", attrs2.get("k"));
+
+        byte[] blob1 = (byte[]) row1.getField(2);
+        byte[] blob2 = (byte[]) row2.getField(2);
+        Assertions.assertNotSame(blob1, blob2); // distinct instances per row
+        Assertions.assertArrayEquals(new byte[] {1, 2}, blob1);
+        Assertions.assertArrayEquals(new byte[] {1, 2}, blob2);
     }
 
     @Test
