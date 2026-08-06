@@ -331,13 +331,22 @@ class SinkFlowLifeCycleErrorOutcomeTest {
                         StageErrorConfig.builder().mode(ErrorHandlerMode.ROUTE).build(),
                         new NoopErrorSinkWriter());
         EngineRowErrorCollector collector = new EngineRowErrorCollector(handler, "test");
+        EngineMultiTableRowErrorHandler multiTableHandler =
+                new EngineMultiTableRowErrorHandler(
+                        handler, null, "test", (row, outcome) -> {}, collector);
+        SeaTunnelRow inFlightRow = null;
 
         for (int i = 0; i < 10_001; i++) {
-            collector.collectWriteSuccess(new SeaTunnelRow(new Object[] {i}));
+            SeaTunnelRow row = new SeaTunnelRow(new Object[] {i});
+            if (i == 9_999) {
+                inFlightRow = row;
+            }
+            collector.collectWriteSuccess(row);
             collector.drainTerminalOutcomes(true);
         }
 
         Assertions.assertTrue(recordedTerminalRowsSize(collector) <= 10_000);
+        Assertions.assertTrue(multiTableHandler.consumeCollectedRowErrorOutcome(inFlightRow));
     }
 
     @Test
@@ -436,7 +445,7 @@ class SinkFlowLifeCycleErrorOutcomeTest {
             throws Exception {
         Field field = EngineRowErrorCollector.class.getDeclaredField("recordedTerminalRows");
         field.setAccessible(true);
-        return ((Map<SeaTunnelRow, Boolean>) field.get(collector)).size();
+        return ((Map<?, Boolean>) field.get(collector)).size();
     }
 
     private static final class TestSinkWriter implements SinkWriter<SeaTunnelRow, String, String> {

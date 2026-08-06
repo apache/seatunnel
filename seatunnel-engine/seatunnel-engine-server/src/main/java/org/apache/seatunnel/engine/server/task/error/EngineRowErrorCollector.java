@@ -22,7 +22,8 @@ import org.apache.seatunnel.api.common.error.RowErrorEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import java.util.ArrayList;
-import java.util.IdentityHashMap;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -33,6 +34,7 @@ import java.util.concurrent.atomic.AtomicLong;
 public final class EngineRowErrorCollector implements RowErrorCollector {
 
     private static final int MAX_RECORDED_TERMINAL_ROWS = 10_000;
+    private static final int RECORDED_TERMINAL_ROWS_LOW_WATERMARK = 9_000;
 
     private final ErrorHandler<SeaTunnelRow> errorHandler;
     private final String pluginName;
@@ -40,7 +42,7 @@ public final class EngineRowErrorCollector implements RowErrorCollector {
     private final AtomicLong routedErrors = new AtomicLong();
     private final AtomicLong droppedErrors = new AtomicLong();
     private final List<CollectedRowErrorOutcome> terminalOutcomes = new ArrayList<>();
-    private final Map<SeaTunnelRow, Boolean> recordedTerminalRows = new IdentityHashMap<>();
+    private final Map<IdentityRowKey, Boolean> recordedTerminalRows = new LinkedHashMap<>();
 
     public EngineRowErrorCollector(ErrorHandler<SeaTunnelRow> errorHandler, String pluginName) {
         this.errorHandler = Objects.requireNonNull(errorHandler, "errorHandler must not be null");
@@ -95,15 +97,14 @@ public final class EngineRowErrorCollector implements RowErrorCollector {
             if (rememberRecordedRows) {
                 for (CollectedRowErrorOutcome outcome : drained) {
                     if (outcome.isTerminalWriteOutcome()) {
-                        recordedTerminalRows.put(outcome.getRow(), Boolean.TRUE);
+                        recordedTerminalRows.put(
+                                new IdentityRowKey(outcome.getRow()), Boolean.TRUE);
                     }
                 }
                 // These entries only bridge a late multi-table callback after the flow has already
-                // drained outcomes. Bound them so streaming jobs cannot accumulate row identities
-                // forever when the callback never comes.
-                if (recordedTerminalRows.size() > MAX_RECORDED_TERMINAL_ROWS) {
-                    recordedTerminalRows.clear();
-                }
+                // drained outcomes. Evict only the oldest markers so newly recorded in-flight rows
+                // keep suppressing duplicate success callbacks when the bound is crossed.
+                trimRecordedTerminalRows();
             }
             return drained;
         }
@@ -118,11 +119,41 @@ public final class EngineRowErrorCollector implements RowErrorCollector {
                     return Optional.of(outcome);
                 }
             }
-            if (recordedTerminalRows.remove(row) != null) {
+            if (recordedTerminalRows.remove(new IdentityRowKey(row)) != null) {
                 return Optional.of(CollectedRowErrorOutcome.recorded(row));
             }
         }
         return Optional.empty();
+    }
+
+    private void trimRecordedTerminalRows() {
+        if (recordedTerminalRows.size() <= MAX_RECORDED_TERMINAL_ROWS) {
+            return;
+        }
+        Iterator<IdentityRowKey> iterator = recordedTerminalRows.keySet().iterator();
+        while (recordedTerminalRows.size() > RECORDED_TERMINAL_ROWS_LOW_WATERMARK
+                && iterator.hasNext()) {
+            iterator.next();
+            iterator.remove();
+        }
+    }
+
+    private static final class IdentityRowKey {
+        private final SeaTunnelRow row;
+
+        private IdentityRowKey(SeaTunnelRow row) {
+            this.row = row;
+        }
+
+        @Override
+        public boolean equals(Object obj) {
+            return obj instanceof IdentityRowKey && row == ((IdentityRowKey) obj).row;
+        }
+
+        @Override
+        public int hashCode() {
+            return System.identityHashCode(row);
+        }
     }
 
     public static final class CollectedRowErrorOutcome {

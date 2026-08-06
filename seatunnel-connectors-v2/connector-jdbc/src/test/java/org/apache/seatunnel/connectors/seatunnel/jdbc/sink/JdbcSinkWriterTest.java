@@ -27,8 +27,11 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.JdbcOutputFormat;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionValidationUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
@@ -41,6 +44,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
+import java.sql.SQLException;
 import java.sql.Savepoint;
 import java.util.ArrayList;
 import java.util.List;
@@ -49,6 +53,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -151,6 +156,28 @@ class JdbcSinkWriterTest {
 
         verify(fixture.connection, times(1)).commit();
         Assertions.assertNull(getLastSuccessfulBatchSavepoint(writer));
+    }
+
+    @Test
+    void testNonCollectorWriteDoesNotClearBatchOnRowLevelError() throws Exception {
+        JdbcSinkWriter writer = createWriterWithoutRowErrorCollector();
+        JdbcOutputFormat outputFormat = mock(JdbcOutputFormat.class);
+        setOutputFormat(writer, outputFormat);
+        setIsOpen(writer, true);
+        JdbcConnectorException rowLevelError =
+                new JdbcConnectorException(
+                        CommonErrorCodeDeprecated.SQL_OPERATION_FAILED,
+                        "Writing records to JDBC failed.",
+                        new SQLException("data too long", "22001"));
+        doThrow(rowLevelError).when(outputFormat).writeRecord(any());
+
+        JdbcConnectorException thrown =
+                Assertions.assertThrows(
+                        JdbcConnectorException.class,
+                        () -> writer.write(new SeaTunnelRow(new Object[] {1})));
+
+        Assertions.assertSame(rowLevelError, thrown);
+        verify(outputFormat, never()).clearBatchSilently();
     }
 
     /** Verifies that Xugu pools use a validation query compatible with the driver. */
@@ -258,6 +285,36 @@ class JdbcSinkWriterTest {
         return new WriterFixture(writer, connection, savepoint);
     }
 
+    private static JdbcSinkWriter createWriterWithoutRowErrorCollector() {
+        JdbcConnectionConfig connectionConfig =
+                JdbcConnectionConfig.builder().batchSize(100).autoCommit(false).build();
+        JdbcSinkConfig sinkConfig =
+                JdbcSinkConfig.builder()
+                        .jdbcConnectionConfig(connectionConfig)
+                        .database("test_db")
+                        .table("test_table")
+                        .build();
+        JdbcDialect dialect = mock(JdbcDialect.class);
+        JdbcConnectionProvider connectionProvider = mock(JdbcConnectionProvider.class);
+        TableSchema schema =
+                TableSchema.builder()
+                        .column(PhysicalColumn.of("id", BasicType.INT_TYPE, 10L, false, null, ""))
+                        .build();
+
+        when(dialect.getJdbcConnectionProvider(connectionConfig)).thenReturn(connectionProvider);
+        when(dialect.getInsertIntoStatement(anyString(), anyString(), any()))
+                .thenReturn("insert into test_table(id) values(?)");
+
+        return new JdbcSinkWriter(
+                TablePath.of("test_db", "test_table"),
+                null,
+                dialect,
+                sinkConfig,
+                schema,
+                schema,
+                null);
+    }
+
     private static final class WriterFixture {
         private final JdbcSinkWriter writer;
         private final Connection connection;
@@ -296,6 +353,19 @@ class JdbcSinkWriterTest {
         Field field = JdbcSinkWriter.class.getDeclaredField("pendingRows");
         field.setAccessible(true);
         field.set(writer, pendingRows);
+    }
+
+    private static void setOutputFormat(JdbcSinkWriter writer, JdbcOutputFormat outputFormat)
+            throws Exception {
+        Field field = AbstractJdbcSinkWriter.class.getDeclaredField("outputFormat");
+        field.setAccessible(true);
+        field.set(writer, outputFormat);
+    }
+
+    private static void setIsOpen(JdbcSinkWriter writer, boolean isOpen) throws Exception {
+        Field field = AbstractJdbcSinkWriter.class.getDeclaredField("isOpen");
+        field.setAccessible(true);
+        field.set(writer, isOpen);
     }
 
     @SuppressWarnings("unchecked")
