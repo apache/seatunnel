@@ -334,6 +334,12 @@ public class CoordinatorService {
         executorService.submit(pendingJobScheduleTask);
     }
 
+    /**
+     * A scheduler generation is "current" only when this node is still the active master AND no
+     * newer generation has been started since this thread was submitted. Every scheduler-loop
+     * iteration and every stale-branch decision hinges on this predicate: once it turns false the
+     * thread must stop touching shared scheduling state, because a newer generation now owns it.
+     */
     private boolean isPendingJobSchedulerCurrent(long scheduleEpoch) {
         return isActive && pendingJobScheduleEpoch.get() == scheduleEpoch;
     }
@@ -1219,8 +1225,20 @@ public class CoordinatorService {
      * <p>When this node becomes the active master, the coordinator initializes distributed services
      * and triggers job restore. When it loses master ownership, local coordinator state is torn
      * down. Initialization failures are cleaned up locally and retried by later polling cycles.
+     *
+     * <p>Synchronized on the same monitor as {@link #clearCoordinatorService()} so that the "check
+     * ownership then flip {@code isActive}" sequence is atomic. Two threads running this method
+     * concurrently could otherwise both observe {@code isActive == false} and both perform the
+     * activation block, bumping {@link #pendingJobScheduleEpoch} twice without any step-down in
+     * between. The scheduler thread started by the first activation would then see its own epoch as
+     * stale once {@code preApplyResources} returns and discard the pending job it had already
+     * reserved (interrupt its JobMaster and drop it from {@code pendingJobQueue}) even though this
+     * node never actually lost master ownership. Because no {@code clearCoordinatorService()} ran,
+     * {@code restoreAllRunningJobFromMasterNodeSwitch} is never triggered to rebuild that entry, so
+     * the job would be silently lost. Epoch changes must therefore only ever come from a real
+     * activation or a real step-down.
      */
-    private void checkNewActiveMaster() {
+    private synchronized void checkNewActiveMaster() {
         try {
             if (!isActive && this.seaTunnelServer.isMasterNode()) {
                 logger.info(

@@ -87,6 +87,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -95,6 +96,7 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static org.apache.seatunnel.engine.core.classloader.DefaultClassLoaderService.SKIP_CHECK_JAR;
 import static org.awaitility.Awaitility.await;
@@ -416,6 +418,79 @@ public class CoordinatorServiceTest {
                 oldCoordinator.shutdown();
             }
         }
+    }
+
+    /**
+     * Concurrent {@code checkNewActiveMaster()} calls must activate the coordinator exactly once.
+     *
+     * <p>Regression test for a race in which two threads both observed {@code isActive == false}
+     * and both ran the activation block, bumping the pending-job schedule epoch twice without any
+     * step-down in between. The scheduler thread started by the first activation then saw its own
+     * epoch as stale after {@code preApplyResources()} returned and discarded the job it had
+     * already reserved — interrupting its JobMaster and dropping it from {@code pendingJobQueue} —
+     * even though the node never lost master ownership. Because no {@code
+     * clearCoordinatorService()} ran, nothing rebuilt that entry, so the job was silently lost and
+     * never ran. This surfaced as a 30s {@code ConditionTimeoutException} in {@link
+     * #testFailoverStopsOldPendingQueueAndNewCoordinatorCanSchedule()}, whose reflective {@code
+     * checkNewActiveMaster()} call could interleave with the constructor-scheduled
+     * masterActiveListener tick.
+     */
+    @Test
+    void testConcurrentMasterActivationActivatesOnceAndKeepsPendingJob() throws Exception {
+        // Start as non-master so the constructor-scheduled masterActiveListener cannot activate
+        // before we stop it; that keeps this test's two threads the only activation drivers.
+        AtomicBoolean masterFlag = new AtomicBoolean(false);
+        SeaTunnelServer server = Mockito.mock(SeaTunnelServer.class);
+        Mockito.when(server.isMasterNode()).thenAnswer(invocation -> masterFlag.get());
+        CoordinatorService coordinatorService = newMockCoordinatorService(server);
+        int activationThreads = 4;
+        ExecutorService activationPool = Executors.newFixedThreadPool(activationThreads);
+        try {
+            CountDownLatch runLatch = new CountDownLatch(1);
+            JobMaster pendingJob = enqueueMockPendingJob(coordinatorService, 80001L, runLatch);
+            long epochBefore = getPendingJobScheduleEpoch(coordinatorService).get();
+
+            masterFlag.set(true);
+            CyclicBarrier startTogether = new CyclicBarrier(activationThreads);
+            List<Future<?>> activations = new ArrayList<>();
+            for (int i = 0; i < activationThreads; i++) {
+                activations.add(
+                        activationPool.submit(
+                                () -> {
+                                    startTogether.await(30, TimeUnit.SECONDS);
+                                    invokeCheckNewActiveMaster(coordinatorService);
+                                    return null;
+                                }));
+            }
+            for (Future<?> activation : activations) {
+                activation.get(60, TimeUnit.SECONDS);
+            }
+
+            await().atMost(30, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> Assertions.assertTrue(coordinatorService.isCoordinatorActive()));
+            Assertions.assertEquals(
+                    epochBefore + 1,
+                    getPendingJobScheduleEpoch(coordinatorService).get(),
+                    "concurrent checkNewActiveMaster calls must bump the schedule epoch only once");
+            await().atMost(30, TimeUnit.SECONDS)
+                    .untilAsserted(() -> Assertions.assertEquals(0L, runLatch.getCount()));
+            Mockito.verify(pendingJob, Mockito.times(1)).run();
+            Mockito.verify(pendingJob, Mockito.never()).interrupt();
+            Assertions.assertFalse(coordinatorService.getPendingJobQueue().contains(80001L));
+        } finally {
+            activationPool.shutdownNow();
+            shutdownCoordinatorIfRunning(coordinatorService);
+        }
+    }
+
+    private AtomicLong getPendingJobScheduleEpoch(CoordinatorService coordinatorService) {
+        return ReflectionUtils.getField(coordinatorService, "pendingJobScheduleEpoch")
+                .map(AtomicLong.class::cast)
+                .orElseThrow(
+                        () ->
+                                new AssertionError(
+                                        "Failed to get pendingJobScheduleEpoch by reflection"));
     }
 
     @Test
