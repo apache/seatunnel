@@ -21,9 +21,9 @@ package org.apache.seatunnel.benchmark;
 public enum BenchmarkPipeline {
     SOURCE_SINK("source-sink", false),
     SOURCE_TRANSFORM_SINK("source-transform-sink", true),
-    SOURCE_TRANSFORM_SINK_BACKPRESSURE("source-transform-sink-backpressure", true),
+    SOURCE_TRANSFORM_SINK_OBSERVABILITY("source-transform-sink-observability", true),
     SOURCE_TRANSFORM_SINK_TRACE("source-transform-sink-trace", true),
-    SOURCE_TRANSFORM_SINK_BACKPRESSURE_TRACE("source-transform-sink-backpressure-trace", true);
+    SOURCE_TRANSFORM_SINK_OBSERVABILITY_TRACE("source-transform-sink-observability-trace", true);
 
     private final String id;
     private final boolean transformEnabled;

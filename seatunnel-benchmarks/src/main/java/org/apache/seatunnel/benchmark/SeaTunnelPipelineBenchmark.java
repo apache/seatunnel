@@ -81,10 +81,10 @@ public class SeaTunnelPipelineBenchmark extends BenchmarkBase {
     }
 
     @Benchmark
-    public BenchmarkRunResult sourceTransformSinkWithBackpressure(
-            SeaTunnelBackpressureEnvironmentContext context) throws Exception {
+    public BenchmarkRunResult sourceTransformSinkWithObservability(
+            SeaTunnelObservabilityEnvironmentContext context) throws Exception {
         return context.execute(
-                BenchmarkPipeline.SOURCE_TRANSFORM_SINK_BACKPRESSURE, benchmarkOptions());
+                BenchmarkPipeline.SOURCE_TRANSFORM_SINK_OBSERVABILITY, benchmarkOptions());
     }
 
     @Benchmark
@@ -94,10 +94,10 @@ public class SeaTunnelPipelineBenchmark extends BenchmarkBase {
     }
 
     @Benchmark
-    public BenchmarkRunResult sourceTransformSinkWithBackpressureAndTrace(
-            SeaTunnelBackpressureTraceEnvironmentContext context) throws Exception {
+    public BenchmarkRunResult sourceTransformSinkWithObservabilityAndTrace(
+            SeaTunnelObservabilityTraceEnvironmentContext context) throws Exception {
         return context.execute(
-                BenchmarkPipeline.SOURCE_TRANSFORM_SINK_BACKPRESSURE_TRACE, benchmarkOptions());
+                BenchmarkPipeline.SOURCE_TRANSFORM_SINK_OBSERVABILITY_TRACE, benchmarkOptions());
     }
 
     private PipelineBenchmarkOptions benchmarkOptions() {

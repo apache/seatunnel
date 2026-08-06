@@ -42,7 +42,10 @@ import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.config.JoinConfig;
 import com.hazelcast.core.HazelcastInstance;
 
+import java.io.BufferedReader;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -50,7 +53,6 @@ import java.nio.file.Paths;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Locale;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
@@ -69,9 +71,15 @@ public class SeaTunnelEnvironmentContext {
 
     public static final String RESULT_DIRECTORY_PROPERTY = "seatunnel.benchmark.result.dir";
 
-    private static final int SLOT_COUNT = 12;
+    protected static final int SLOT_COUNT = 12;
     private static final long SOURCE_START_DELAY_MILLIS = 250L;
     private static final int SOURCE_EMIT_BATCH_SIZE = 1_024;
+    private static final String SOURCE_SINK_JOB_TEMPLATE =
+            loadTemplate("/benchmark/source-sink.conf.template");
+    private static final String SOURCE_TRANSFORM_SINK_JOB_TEMPLATE =
+            loadTemplate("/benchmark/source-transform-sink.conf.template");
+    private static final String ENGINE_CONFIG_TEMPLATE =
+            loadTemplate("/benchmark/engine.yaml.template");
     protected static final String BENCHMARK_TRANSFORM_NAME = "benchmark_transform";
 
     private final AtomicLong invocationSequence = new AtomicLong();
@@ -241,7 +249,7 @@ public class SeaTunnelEnvironmentContext {
         return result;
     }
 
-    SeaTunnelConfig createSeaTunnelConfig(String name) {
+    protected SeaTunnelConfig createSeaTunnelConfig(String name) {
         SeaTunnelConfig config = new SeaTunnelConfig();
         config.getHazelcastConfig().setClusterName(name);
         config.getHazelcastConfig().setProperty("hazelcast.phone.home.enabled", "false");
@@ -269,81 +277,42 @@ public class SeaTunnelEnvironmentContext {
 
     String createJobConfig(
             BenchmarkPipeline pipeline, PipelineBenchmarkOptions options, String runId) {
-        String transform =
-                pipeline.isTransformEnabled()
-                        ? String.format(
-                                Locale.ROOT,
-                                "transform {\n"
-                                        + "  BenchmarkTransform {\n"
-                                        + "    name = \"%s\"\n"
-                                        + "    plugin_input = \"benchmark_rows\"\n"
-                                        + "    plugin_output = \"transformed_rows\"\n"
-                                        + "    parallelism = %d\n"
-                                        + "    operations_per_row = %d\n"
-                                        + "    copy_row = true\n"
-                                        + "  }\n"
-                                        + "}\n\n",
-                                BENCHMARK_TRANSFORM_NAME,
-                                options.getParallelism(),
-                                options.getTransformOperations())
-                        : "";
-        String sinkInput = pipeline.isTransformEnabled() ? "transformed_rows" : "benchmark_rows";
-
-        return String.format(
-                Locale.ROOT,
-                "env {\n"
-                        + "  job.name = \"%s\"\n"
-                        + "  job.mode = \"BATCH\"\n"
-                        + "  parallelism = %d\n"
-                        + "%s"
-                        + "}\n\n"
-                        + "source {\n"
-                        + "  BenchmarkSource {\n"
-                        + "    plugin_output = \"benchmark_rows\"\n"
-                        + "    parallelism = %d\n"
-                        + "    total_rows = %d\n"
-                        + "    rate_per_second = %d\n"
-                        + "    payload_size = %d\n"
-                        + "    start_delay_millis = %d\n"
-                        + "    emit_batch_size = %d\n"
-                        + "  }\n"
-                        + "}\n\n"
-                        + "%s"
-                        + "sink {\n"
-                        + "  BenchmarkSink {\n"
-                        + "    plugin_input = \"%s\"\n"
-                        + "    parallelism = %d\n"
-                        + "    result_path = \"%s\"\n"
-                        + "    run_id = \"%s\"\n"
-                        + "    expected_rows = %d\n"
-                        + "    rate_per_second = %d\n"
-                        + "    payload_size = %d\n"
-                        + "    transform_operations = %d\n"
-                        + "  }\n"
-                        + "}\n",
-                runId,
+        return renderTemplate(
+                jobConfigTemplate(pipeline),
+                "job_name",
+                escapeConfigString(runId),
+                "parallelism",
                 options.getParallelism(),
-                environmentConfiguration(),
-                options.getParallelism(),
+                "total_rows",
                 options.getTotalRows(),
+                "rate_per_second",
                 options.getOfferedRatePerSecond(),
+                "payload_size",
                 options.getPayloadSize(),
+                "start_delay_millis",
                 SOURCE_START_DELAY_MILLIS,
+                "emit_batch_size",
                 SOURCE_EMIT_BATCH_SIZE,
-                transform,
-                sinkInput,
-                options.getParallelism(),
+                "result_path",
                 escapeConfigString(resultDirectory.toString()),
-                runId,
-                options.getTotalRows(),
-                options.getOfferedRatePerSecond(),
-                options.getPayloadSize(),
+                "run_id",
+                escapeConfigString(runId),
+                "transform_name",
+                BENCHMARK_TRANSFORM_NAME,
+                "transform_operations",
                 options.getTransformOperations());
     }
 
-    /** Adds optional engine or job features to the generated {@code env} block. */
-    protected String environmentConfiguration() {
-        return "";
+    /** Selects the complete job configuration template for this benchmark environment. */
+    protected String jobConfigTemplate(BenchmarkPipeline pipeline) {
+        return pipeline.isTransformEnabled()
+                ? SOURCE_TRANSFORM_SINK_JOB_TEMPLATE
+                : SOURCE_SINK_JOB_TEMPLATE;
+    }
+
+    /** Renders the complete engine configuration for this benchmark environment. */
+    protected String embeddedEngineConfiguration() {
+        return renderTemplate(ENGINE_CONFIG_TEMPLATE, "slot_count", SLOT_COUNT);
     }
 
     private static void validateResult(
@@ -384,31 +353,43 @@ public class SeaTunnelEnvironmentContext {
         return value.replace("\\", "\\\\").replace("\"", "\\\"");
     }
 
-    private static String embeddedEngineConfiguration() {
-        return "seatunnel:\n"
-                + "  engine:\n"
-                + "    backup-count: 0\n"
-                + "    classloader-cache-mode: true\n"
-                + "    slot-service:\n"
-                + "      dynamic-slot: false\n"
-                + "      slot-num: "
-                + SLOT_COUNT
-                + "\n"
-                + "    telemetry:\n"
-                + "      metric:\n"
-                + "        enabled: false\n"
-                + "      logs:\n"
-                + "        scheduled-deletion-enable: false\n"
-                + "    http:\n"
-                + "      enable-http: false\n"
-                + "      enable-https: false\n";
-    }
-
     protected final Path getMiniClusterHome() {
         if (miniClusterHome == null) {
             throw new IllegalStateException("SeaTunnel mini cluster home has not been created");
         }
         return miniClusterHome;
+    }
+
+    protected static String loadTemplate(String resourceName) {
+        InputStream input = SeaTunnelEnvironmentContext.class.getResourceAsStream(resourceName);
+        if (input == null) {
+            throw new IllegalStateException("Benchmark template was not found: " + resourceName);
+        }
+        try (BufferedReader reader =
+                new BufferedReader(new InputStreamReader(input, StandardCharsets.UTF_8))) {
+            return reader.lines().collect(Collectors.joining("\n", "", "\n"));
+        } catch (IOException e) {
+            throw new IllegalStateException("Could not read benchmark template " + resourceName, e);
+        }
+    }
+
+    protected static String renderTemplate(String template, Object... replacements) {
+        if (replacements.length % 2 != 0) {
+            throw new IllegalArgumentException("Template replacements must be key-value pairs");
+        }
+        String rendered = template;
+        for (int index = 0; index < replacements.length; index += 2) {
+            String placeholder = "{{" + replacements[index] + "}}";
+            if (!rendered.contains(placeholder)) {
+                continue;
+            }
+            rendered = rendered.replace(placeholder, String.valueOf(replacements[index + 1]));
+        }
+        if (rendered.contains("{{")) {
+            throw new IllegalStateException(
+                    "Benchmark template contains an unresolved placeholder");
+        }
+        return rendered;
     }
 
     private static void restoreSystemProperty(String key, String value) {

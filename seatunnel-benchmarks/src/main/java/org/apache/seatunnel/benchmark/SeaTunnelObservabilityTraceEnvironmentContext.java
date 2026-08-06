@@ -23,14 +23,14 @@ import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.State;
 
-/** Embedded Zeta environment with the StainTrace engine and local trace sink enabled. */
+/** Embedded Zeta environment with both realtime observability and StainTrace enabled. */
 @State(Scope.Thread)
-public class SeaTunnelTraceEnvironmentContext extends SeaTunnelEnvironmentContext {
+public class SeaTunnelObservabilityTraceEnvironmentContext extends SeaTunnelEnvironmentContext {
 
     private static final int TRACE_SAMPLE_INTERVAL = 10_000;
     private static final int TRACE_FILE_FLUSH_INTERVAL_SECONDS = 1;
     private static final String JOB_CONFIG_TEMPLATE =
-            loadTemplate("/benchmark/source-transform-sink-trace.conf.template");
+            loadTemplate("/benchmark/source-transform-sink-observability-trace.conf.template");
     private static final String ENGINE_CONFIG_TEMPLATE =
             loadTemplate("/benchmark/engine-trace.yaml.template");
 

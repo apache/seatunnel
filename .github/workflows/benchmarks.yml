@@ -38,16 +38,16 @@ on:
           - 'SeaTunnelPipelineBenchmark'
           - 'sourceSink$'
           - 'sourceTransformSink$'
-          - 'sourceTransformSinkWithBackpressure$'
+          - 'sourceTransformSinkWithObservability$'
           - 'sourceTransformSinkWithTrace$'
-          - 'sourceTransformSinkWithBackpressureAndTrace$'
+          - 'sourceTransformSinkWithObservabilityAndTrace$'
         default: '.*'
       custom_benchmarks:
         description: 'Optional JMH selector that overrides the choice above.'
         required: false
         type: string
       pr_number:
-        description: 'Optional PR number to compare against the selected SeaTunnel ref.'
+        description: 'Optional trusted PR to compare. The workflow executes its code.'
         required: false
         type: string
 

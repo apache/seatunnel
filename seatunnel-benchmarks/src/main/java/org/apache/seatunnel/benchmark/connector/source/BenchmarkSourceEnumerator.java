@@ -74,6 +74,7 @@ public final class BenchmarkSourceEnumerator
     @Override
     public synchronized void addSplitsBack(List<BenchmarkSourceSplit> splits, int subtaskId) {
         if (!splits.isEmpty()) {
+            // Keep the reader-checkpointed nextSequence instead of recreating the split at zero.
             returnedSplits.put(subtaskId, splits.get(0));
             assignedSubtasks.remove(subtaskId);
         }

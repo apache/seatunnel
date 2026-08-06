@@ -20,13 +20,15 @@ package org.apache.seatunnel.benchmark;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.State;
 
-/** Embedded Zeta environment with both backpressure observability and StainTrace enabled. */
+/** Embedded Zeta environment with observability and a bounded async boundary enabled. */
 @State(Scope.Thread)
-public class SeaTunnelBackpressureTraceEnvironmentContext extends SeaTunnelTraceEnvironmentContext {
+public class SeaTunnelObservabilityEnvironmentContext extends SeaTunnelEnvironmentContext {
+
+    private static final String JOB_CONFIG_TEMPLATE =
+            loadTemplate("/benchmark/source-transform-sink-observability.conf.template");
 
     @Override
-    protected String environmentConfiguration() {
-        return SeaTunnelBackpressureEnvironmentContext.backpressureEnvironmentConfiguration()
-                + super.environmentConfiguration();
+    protected String jobConfigTemplate(BenchmarkPipeline pipeline) {
+        return JOB_CONFIG_TEMPLATE;
     }
 }

@@ -44,12 +44,13 @@ Source 使用基于绝对时间的开环调度。每条记录都携带计划生�
 |---|---|
 | `sourceSink` | `Source -> Sink`，作为 Zeta 数据链路基线。 |
 | `sourceTransformSink` | `Source -> Transform -> Sink`，增加 Row 复制和确定性的 Transform 工作。 |
-| `sourceTransformSinkWithBackpressure` | 在相同 Transform 链路上开启背压可观测性。 |
+| `sourceTransformSinkWithObservability` | 在相同 Transform 链路上开启实时忙碌度观测和有界 async boundary。 |
 | `sourceTransformSinkWithTrace` | 在相同 Transform 链路上开启 StainTrace。 |
-| `sourceTransformSinkWithBackpressureAndTrace` | 同时开启两项可观测能力，用于隔离组合开销。 |
+| `sourceTransformSinkWithObservabilityAndTrace` | 同时开启实时可观测性与 StainTrace，用于隔离组合开销。 |
 
-这些场景保持数据链路一致，只改变 Transform 或可观测能力。背压场景不会人为限制 Sink；要
-测试过载，应将 `offeredRatePerSecond` 设置到高于引擎容量，再检查吞吐、P99 和延迟增长。
+这些场景保持数据链路一致，只改变 Transform 或可观测能力。Observability 场景测量指标采集
+与 async boundary 的开销，不会人为限制 Sink 或制造背压。要测试过载，应将
+`offeredRatePerSecond` 设置到高于引擎容量，再检查吞吐、P99 和延迟增长。
 
 ### 默认测试资源
 
@@ -63,10 +64,15 @@ Source 使用基于绝对时间的开环调度。每条记录都携带计划生�
 | 输入速率 | 600,000 行/秒 |
 | Payload 大小 | 256 个字符 |
 | Transform 工作量 | 每行 64 次 hash 操作 |
+| StainTrace 采样间隔 | 10,000 行 |
+| StainTrace 文件刷新间隔 | 1 秒 |
 | JMH fork | 3 |
 | 预热 / 测量 iteration | 3 / 5 |
 
-这些 JVM 限制由 Benchmark 类传给 fork JVM，启动时不需要额外配置堆内存。
+这些 JVM 限制由 Benchmark 类传给 fork JVM，启动时不需要额外配置堆内存。在默认负载和
+并行度下，StainTrace 每次 invocation 约采样 100 行，每个 Worker 每秒约采样 15 行，低于
+默认的每 Worker 每秒 50 条限制。1 秒刷新间隔保证本地 Trace 输出发生在每个测量作业内，
+避免文件写入延后到后续多个 invocation。
 
 ## 运行基准测试
 
@@ -186,7 +192,7 @@ JMH `Error` 不包含不同机器之间的差异，不能只根据两台机器�
 | 输出完整，实际吞吐接近输入速率，前后半段 P99 相近 | 当前负载处于稳态 | 提高输入速率，继续寻找容量边界。 |
 | 实际吞吐低于输入速率，后半段 P99 持续升高 | 正在积累 backlog，超过当前配置的可持续容量 | 降低输入速率，或增加资源与并行度后重测。 |
 | `sourceSink` 稳定，`sourceTransformSink` 明显变慢 | Transform 工作是主要增量 | 调整 `transformOperations`，检查 Row copy 和 Transform 热点。 |
-| 基础 Transform 稳定，背压或 Trace 场景明显变慢 | 对应功能产生可见开销 | 使用相同参数重复运行，比较单独开启与同时开启的结果。 |
+| 基础 Transform 稳定，Observability 或 Trace 场景明显变慢 | 对应功能产生可见开销 | 使用相同参数重复运行，比较单独开启与同时开启的结果。 |
 | 同一 Commit 的全部 Benchmark 在某次运行中同时大幅变化 | 执行机器的 CPU 性能可能不同 | 将本次标记为不确定，检查 CPU 指纹，不更新精细性能基线。 |
 
 容量评估应使用多个固定速率进行扫描，每个速率都在同一台空闲机器上通过独立 JVM 重复运行，

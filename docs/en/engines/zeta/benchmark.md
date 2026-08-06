@@ -47,12 +47,13 @@ event-time latency instead of being hidden while the Source waits for the engine
 |---|---|
 | `sourceSink` | `Source -> Sink`; baseline Zeta data path. |
 | `sourceTransformSink` | `Source -> Transform -> Sink`; adds row copy and deterministic Transform work. |
-| `sourceTransformSinkWithBackpressure` | The same Transform pipeline with backpressure observability enabled. |
+| `sourceTransformSinkWithObservability` | The same Transform pipeline with realtime busyness observability and a bounded async boundary enabled. |
 | `sourceTransformSinkWithTrace` | The same Transform pipeline with StainTrace enabled. |
-| `sourceTransformSinkWithBackpressureAndTrace` | Both observability features enabled, isolating their combined overhead. |
+| `sourceTransformSinkWithObservabilityAndTrace` | Realtime observability and StainTrace enabled together, isolating their combined overhead. |
 
 These scenarios compare one controlled data path while changing only Transform or observability
-features. The backpressure scenario does not artificially throttle the Sink; to test overload, set
+features. The observability scenario measures instrumentation and async-boundary overhead; it does
+not artificially throttle the Sink or create backpressure. To test overload, set
 `offeredRatePerSecond` above engine capacity and inspect throughput, P99, and latency growth.
 
 ### Default Resources
@@ -67,11 +68,16 @@ features. The backpressure scenario does not artificially throttle the Sink; to 
 | Offered rate | 600,000 rows/s |
 | Payload size | 256 characters |
 | Transform work | 64 hash operations per row |
+| StainTrace sampling interval | 10,000 rows |
+| StainTrace file flush interval | 1 second |
 | JMH forks | 3 |
 | Warmup / measurement iterations | 3 / 5 |
 
 The benchmark class passes these JVM limits to each fork. No additional heap configuration is
-required at launch.
+required at launch. With the default load and parallelism, the StainTrace interval produces about
+100 sampled rows per invocation and 15 samples per second per Worker, below the default
+50-sample-per-second Worker budget. The one-second flush interval keeps local trace output active
+during each measured job instead of deferring file writes across several invocations.
 
 ## Run the Benchmarks
 
@@ -193,7 +199,7 @@ Determine whether the load is stable before locating the source of a difference.
 | Output is complete, throughput is close to offered rate, and first-half and second-half P99 are similar | The current load is in steady state | Increase offered rate and continue locating the capacity boundary. |
 | Throughput is below offered rate and second-half P99 keeps rising | Backlog is growing and load exceeds sustainable capacity | Lower the rate, or increase resources and parallelism before retesting. |
 | `sourceSink` is stable while `sourceTransformSink` is much slower | Transform work is the main incremental cost | Vary `transformOperations` and inspect Row copy and Transform hot paths. |
-| The base Transform case is stable while a backpressure or Trace case is slower | The corresponding feature has measurable cost | Repeat with identical parameters and compare each feature separately and together. |
+| The base Transform case is stable while an observability or Trace case is slower | The corresponding feature has measurable cost | Repeat with identical parameters and compare each feature separately and together. |
 | Every benchmark for the same commit shifts sharply in one run | The execution host may have different CPU performance | Mark the run inconclusive, inspect the CPU fingerprint, and do not update a precise baseline. |
 
 Find capacity with a sweep of fixed offered rates. Repeat each rate in independent JVMs on the same

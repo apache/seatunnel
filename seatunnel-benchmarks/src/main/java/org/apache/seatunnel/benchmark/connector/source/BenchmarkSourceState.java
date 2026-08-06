@@ -21,7 +21,13 @@ import java.io.Serializable;
 import java.util.HashSet;
 import java.util.Set;
 
-/** Checkpoint state for the benchmark split enumerator. */
+/**
+ * Checkpoint state for the benchmark split enumerator.
+ *
+ * <p>Record progress is stored in {@link BenchmarkSourceSplit} by the reader checkpoint and is
+ * returned to the enumerator through {@code addSplitsBack}. This state only retains the shared
+ * schedule origin and assignment bookkeeping.
+ */
 public final class BenchmarkSourceState implements Serializable {
 
     private static final long serialVersionUID = 1L;
