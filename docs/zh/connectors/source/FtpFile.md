@@ -59,6 +59,7 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 | remote_verification_enabled | boolean | 否    | true                |
 | control_encoding            | string  | 否    | UTF-8               |
 | delimiter/field_delimiter   | string  | 否    | \001                |
+| row_delimiter               | string  | 否    | \n                  | 读取 `text` 文件时使用的行分隔符。默认值为 `\n`。 |
 | read_columns                | list    | 否    | -                   |
 | parse_partition_from_path   | boolean | 否    | true                |
 | date_format                 | string  | 否    | yyyy-MM-dd          |
@@ -71,6 +72,7 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 | xml_use_attr_format         | boolean | 否    | -                   |
 | csv_use_header_line         | boolean | 否    | false               |
 | file_filter_pattern         | string  | 否    | -                   |
+| filename_extension          | string  | 否    | -                   | 使用指定的文件扩展名筛选文件，例如 `csv`、`.txt`、`json` 或 `.xml`。 |
 | compress_codec              | string  | 否    | none                |
 | archive_compress_codec      | string  | 否    | none                |
 | encoding                    | string  | 否    | UTF-8               |
@@ -279,12 +281,14 @@ markdown 解析器提取各种元素，包括标题、段落、列表、代码�
 - `parent_id`：父元素的 ID
 - `child_ids`：子元素 ID 的逗号分隔列表
 
-当 `markdown_rag_metadata_enabled` 设置为 `true` 时，SeaTunnel 会在 `child_ids` 之后追加以下 RAG 元数据字段：
+当 `markdown_rag_metadata_enabled` 或 `pdf_rag_metadata_enabled` 设置为 `true` 时，SeaTunnel 会针对对应文件类型在 `child_ids` 之后追加以下 RAG 元数据字段：
 - `source_uri`：源文件路径或 URI
 - `document_id`：由 `source_uri` 派生的稳定文档标识符
 - `chunk_id`：由文档标识、chunk 顺序和内容哈希派生的稳定 chunk 标识符
 - `chunk_index`：解析后文档中的一基 chunk 顺序
 - `content_hash`：已输出 `text` 值的 SHA-256 哈希
+
+启用该选项并读取有界 Markdown 文件时，source enumerator 会使用相同的 `document_id` 哈希分配整文件 split，使同一文档派生的所有行留在同一个 source 路由 bucket 中。禁用该选项时，默认的轮询 split 分配行为保持不变。
 
 该选项默认值为 `false`，因此只有显式启用后才会改变原始 Markdown schema。
 
@@ -292,6 +296,7 @@ markdown 解析器提取各种元素，包括标题、段落、列表、代码�
 
 如果您将文件类型指定为 `pdf`，SeaTunnel 可以解析 PDF 文件并提取结构化的文档元素。
 PDF 使用与上文相同的文档元素 schema。
+对于 PDF 输入，启用 `pdf_rag_metadata_enabled` 即可追加上文所述的 RAG 元数据字段。
 
 PDF 特有的解析行为如下：
 

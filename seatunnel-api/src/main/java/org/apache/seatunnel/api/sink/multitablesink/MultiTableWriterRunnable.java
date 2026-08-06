@@ -22,35 +22,52 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiConsumer;
 
+/**
+ * Consumes ordered queue requests for one sink queue. Both row writes and schema-change barriers
+ * flow through this runnable so the worker always drains older rows before it switches any shared
+ * sink schema.
+ */
 @Slf4j
 public class MultiTableWriterRunnable implements Runnable {
 
+    /** Writers that belong to this queue, keyed by logical source-table identifier. */
     private final Map<String, SinkWriter<SeaTunnelRow, ?, ?>> tableIdWriterMap;
-    private final BlockingQueue<SeaTunnelRow> queue;
+    /** Ordered requests for this queue: data rows or schema-change barrier markers. */
+    private final BlockingQueue<QueueElement> queue;
+    /** Preserves the historical sole-writer fallback for single-table jobs. */
     private final boolean allowSingleWriterFallback;
+    /** Whether table failures should quarantine one table and keep other tables running. */
     private final boolean continueOnTableFailure;
+    /** Reports per-table write failures back to the multi-table coordinator. */
     private final BiConsumer<String, Throwable> failureHandler;
+    /** Maximum per-row retry count before this queue gives up on the current table. */
     private final int tableRetryTimes;
+    /** Sleep interval between write retries for continue-other-tables mode. */
     private final int tableRetryIntervalSeconds;
+    /** First fatal worker failure surfaced back to the coordinator. */
     private volatile Throwable throwable;
+    /** Table currently being written, used in fail-fast diagnostics. */
     private volatile String currentTableId;
+    /** Marks that this worker is actively writing a data row. */
     private volatile boolean processingRow;
+    /** Marks that this worker is still inside the failure-handler callback. */
     private volatile boolean handlingTableFailure;
 
     public MultiTableWriterRunnable(
             Map<String, SinkWriter<SeaTunnelRow, ?, ?>> tableIdWriterMap,
-            BlockingQueue<SeaTunnelRow> queue) {
+            BlockingQueue<QueueElement> queue) {
         this(tableIdWriterMap, queue, false, (tableId, error) -> {});
     }
 
     public MultiTableWriterRunnable(
             Map<String, SinkWriter<SeaTunnelRow, ?, ?>> tableIdWriterMap,
-            BlockingQueue<SeaTunnelRow> queue,
+            BlockingQueue<QueueElement> queue,
             boolean continueOnTableFailure,
             BiConsumer<String, Throwable> failureHandler) {
         this(tableIdWriterMap, queue, continueOnTableFailure, failureHandler, 0, 0);
@@ -58,7 +75,7 @@ public class MultiTableWriterRunnable implements Runnable {
 
     public MultiTableWriterRunnable(
             Map<String, SinkWriter<SeaTunnelRow, ?, ?>> tableIdWriterMap,
-            BlockingQueue<SeaTunnelRow> queue,
+            BlockingQueue<QueueElement> queue,
             boolean continueOnTableFailure,
             BiConsumer<String, Throwable> failureHandler,
             int tableRetryTimes,
@@ -75,78 +92,99 @@ public class MultiTableWriterRunnable implements Runnable {
     @Override
     public void run() {
         while (true) {
-            SeaTunnelRow row = null;
+            QueueElement queueElement = null;
             TableFailure tableFailure = null;
             try {
-                row = queue.poll(100, TimeUnit.MILLISECONDS);
-                if (row == null) {
+                queueElement = queue.poll(100, TimeUnit.MILLISECONDS);
+                if (queueElement == null) {
                     continue;
                 }
-                processingRow = true;
-                // control rows used for schema evolution / coordination
-                // are represented as SeaTunnelRow with zero fields (arity == 0)
-                if (row.getArity() == 0) {
-                    log.debug(
-                            "Skip control SeaTunnelRow with zero arity in MultiTableWriterRunnable: {}",
-                            row);
-                    processingRow = false;
-                    continue;
-                }
+                processingRow = queueElement.isRowRequest();
                 synchronized (this) {
-                    SinkWriter<SeaTunnelRow, ?, ?> writer = tableIdWriterMap.get(row.getTableId());
-                    if (writer == null) {
-                        // Single-table jobs may still emit rewritten/non-canonical table ids.
-                        // Keep the historical sole-writer fallback only for runnables that
-                        // started with one writer so quarantined multi-table rows are not rerouted.
-                        if (allowSingleWriterFallback && tableIdWriterMap.size() == 1) {
-                            writer = tableIdWriterMap.values().stream().findFirst().get();
-                            currentTableId = tableIdWriterMap.keySet().stream().findFirst().get();
-                        } else if (continueOnTableFailure) {
-                            log.debug("Skip row for quarantined table {}", row.getTableId());
-                            processingRow = false;
-                            continue;
-                        } else {
-                            throw new RuntimeException(
-                                    "MultiTableWriterRunnable can't find writer for tableId: "
-                                            + row.getTableId());
-                        }
-                    } else {
-                        currentTableId = row.getTableId();
-                    }
-                    try {
-                        writeWithRetry(writer, row, currentTableId);
-                        processingRow = false;
-                    } catch (InterruptedException e) {
-                        processingRow = false;
-                        throw e;
-                    } catch (Throwable e) {
-                        tableFailure = handleWriteFailure(row, e);
-                        if (tableFailure == null) {
-                            processingRow = false;
-                            break;
-                        }
-                    }
+                    queueElement.process(this);
                 }
-                if (tableFailure != null) {
-                    if (notifyTableFailure(tableFailure)) {
-                        continue;
-                    }
-                    break;
-                }
-            } catch (InterruptedException e) {
-                // When the job finished, the thread will be interrupted, so we ignore this
-                // exception.
                 processingRow = false;
+            } catch (InterruptedException interruptedException) {
+                processingRow = false;
+                throwable = interruptedException;
+                failPendingSchemaChangeRequests(queueElement, interruptedException);
                 break;
-            } catch (Throwable e) {
-                tableFailure = handleWriteFailure(row, e);
-                if (tableFailure != null && notifyTableFailure(tableFailure)) {
-                    continue;
+            } catch (Throwable error) {
+                if (queueElement instanceof RowWriteRequest) {
+                    tableFailure = handleWriteFailure(((RowWriteRequest) queueElement).row, error);
+                    if (tableFailure != null) {
+                        if (notifyTableFailure(tableFailure)) {
+                            continue;
+                        }
+                        failPendingSchemaChangeRequests(
+                                queueElement, throwable != null ? throwable : error);
+                    } else {
+                        failPendingSchemaChangeRequests(queueElement, error);
+                    }
+                } else {
+                    log.error(
+                            String.format(
+                                    "MultiTableWriterRunnable error when process queue element %s",
+                                    queueElement),
+                            error);
+                    throwable = error;
+                    failPendingSchemaChangeRequests(queueElement, error);
                 }
                 processingRow = false;
                 break;
             }
         }
+    }
+
+    /**
+     * Releases any queued schema-change barriers when this worker dies before reaching them. That
+     * keeps applySchemaChange on the fail-fast path instead of waiting forever behind a dead queue.
+     */
+    private void failPendingSchemaChangeRequests(QueueElement currentElement, Throwable failure) {
+        if (currentElement != null) {
+            currentElement.fail(failure);
+        }
+        for (QueueElement pendingElement : queue) {
+            pendingElement.fail(failure);
+        }
+    }
+
+    /**
+     * Applies one queued row write while the runnable monitor is already held by the worker.
+     * Schema-change barriers reuse the same monitor, so older rows are always drained first.
+     */
+    void writeRow(SeaTunnelRow row) throws Throwable {
+        if (row.getArity() == 0) {
+            log.debug(
+                    "Skip control SeaTunnelRow with zero arity in MultiTableWriterRunnable: {}",
+                    row);
+            return;
+        }
+        SinkWriter<SeaTunnelRow, ?, ?> writer = tableIdWriterMap.get(row.getTableId());
+        if (writer == null) {
+            if (allowSingleWriterFallback && tableIdWriterMap.size() == 1) {
+                writer = tableIdWriterMap.values().stream().findFirst().get();
+                currentTableId = tableIdWriterMap.keySet().stream().findFirst().get();
+            } else if (continueOnTableFailure) {
+                log.debug("Skip row for quarantined table {}", row.getTableId());
+                return;
+            } else {
+                throw new RuntimeException(
+                        "MultiTableWriterRunnable can't find writer for tableId: "
+                                + row.getTableId());
+            }
+        } else {
+            currentTableId = row.getTableId();
+        }
+        writeWithRetry(writer, row, currentTableId);
+    }
+
+    /**
+     * Parks this queue worker at the shared schema-change barrier. The last arriving worker runs
+     * the actual schema mutation while the others wait behind the same completion latch.
+     */
+    void awaitSchemaChangeBarrier(SchemaChangeBarrier schemaChangeBarrier) throws IOException {
+        schemaChangeBarrier.reachBarrier();
     }
 
     private TableFailure handleWriteFailure(SeaTunnelRow row, Throwable error) {
@@ -230,6 +268,78 @@ public class MultiTableWriterRunnable implements Runnable {
 
     public synchronized void removeTableWriter(String tableId) {
         tableIdWriterMap.remove(tableId);
+    }
+
+    /** Creates one ordered queue element that writes a data row. */
+    static QueueElement rowRequest(SeaTunnelRow row) {
+        return new RowWriteRequest(row);
+    }
+
+    /** Creates one ordered queue element that blocks on the shared schema-change barrier. */
+    static QueueElement schemaChangeRequest(SchemaChangeBarrier schemaChangeBarrier) {
+        return new SchemaChangeRequest(schemaChangeBarrier);
+    }
+
+    /** Represents one ordered queue action: either a row write or a schema-change barrier. */
+    interface QueueElement {
+
+        void process(MultiTableWriterRunnable runnable) throws Throwable;
+
+        /** Allows worker shutdown paths to fail pending queue elements without processing them. */
+        default void fail(Throwable failure) {}
+
+        /** Distinguishes queued row writes from schema-maintenance requests. */
+        default boolean isRowRequest() {
+            return false;
+        }
+    }
+
+    private static class RowWriteRequest implements QueueElement {
+
+        private final SeaTunnelRow row;
+
+        private RowWriteRequest(SeaTunnelRow row) {
+            this.row = row;
+        }
+
+        @Override
+        public void process(MultiTableWriterRunnable runnable) throws Throwable {
+            runnable.writeRow(row);
+        }
+
+        @Override
+        public boolean isRowRequest() {
+            return true;
+        }
+
+        @Override
+        public String toString() {
+            return "row[" + row + "]";
+        }
+    }
+
+    private static class SchemaChangeRequest implements QueueElement {
+
+        private final SchemaChangeBarrier schemaChangeBarrier;
+
+        private SchemaChangeRequest(SchemaChangeBarrier schemaChangeBarrier) {
+            this.schemaChangeBarrier = schemaChangeBarrier;
+        }
+
+        @Override
+        public void process(MultiTableWriterRunnable runnable) throws IOException {
+            runnable.awaitSchemaChangeBarrier(schemaChangeBarrier);
+        }
+
+        @Override
+        public void fail(Throwable failure) {
+            schemaChangeBarrier.fail(failure);
+        }
+
+        @Override
+        public String toString() {
+            return "schema-change[" + schemaChangeBarrier.getTablePath() + "]";
+        }
     }
 
     private static class TableFailure {
