@@ -67,6 +67,18 @@ def format_number(value):
     return "{:.6f}".format(value)
 
 
+def format_pipeline_number(field, value):
+    if value is None:
+        return "n/a"
+    if field.startswith("event_time_latency_"):
+        return "{:,.0f}".format(value)
+    if field == "throughput_rows_per_second":
+        return "{:,.2f}".format(value)
+    if field == "latency_growth_ratio":
+        return "{:.3f}".format(value)
+    return format_number(value)
+
+
 def load_report(path):
     with path.open(encoding="utf-8") as handle:
         report = json.load(handle)
@@ -225,6 +237,15 @@ def jmh_report_lines(metrics):
     lines = [
         "### JMH results",
         "",
+        "- `Score`: JMH's estimate in the displayed unit.",
+        "- `Error`: the confidence-interval half-width as a percentage of Score; the interval is "
+        "approximately `Score × (1 ± Error%)`.",
+        "- `CV`: sample standard deviation divided by the sample mean; lower values indicate "
+        "more stable samples.",
+        "",
+        "> The confidence interval and CV describe measurement samples within this run; they do "
+        "not include performance differences between runners.",
+        "",
         "| Benchmark | Parameters | Score | Error | CV | Unit |",
         "| --- | --- | ---: | ---: | ---: | --- |",
     ]
@@ -249,7 +270,14 @@ def pipeline_report_lines(report, metrics):
     lines = [
         "### Pipeline results",
         "",
-        "Pipeline values are medians. Detailed samples and standard deviations remain in the JSON artifact.",
+        "Pipeline values are medians. Detailed samples and standard deviations remain in the "
+        "JSON artifact.",
+        "",
+        "- `Payload`: characters per row.",
+        "- `Growth`: unitless `(second-half P99 + 1) / (first-half P99 + 1)` ratio.",
+        "- `Valid`: measurement samples only; warmup samples are excluded. `✅ x/y` means all "
+        "samples are complete, sustainable, and have no latency overflow. Otherwise `C/S/O` "
+        "show complete samples, sustainable samples, and overflow rows.",
     ]
     for (pipeline, group_params_tuple), rows in sorted(groups.items()):
         group_params = dict(group_params_tuple)
@@ -260,7 +288,7 @@ def pipeline_report_lines(report, metrics):
                 "",
                 "Parameters: `{}`".format(compact_params(group_params)),
                 "",
-                "| Payload | Throughput (rows/s) | P50 (ms) | P95 (ms) | P99 (ms) | Max (ms) | Growth | Valid |",
+                "| Payload (chars) | Throughput (rows/s) | P50 (ms) | P95 (ms) | P99 (ms) | Max (ms) | Growth (ratio) | Valid (samples) |",
                 "| ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |",
             ]
         )
@@ -268,7 +296,9 @@ def pipeline_report_lines(report, metrics):
             values = []
             for field, _, _ in PIPELINE_COLUMNS:
                 metric = row.get(field)
-                values.append(format_number(metric["value"]) if metric else "n/a")
+                values.append(
+                    format_pipeline_number(field, metric["value"]) if metric else "n/a"
+                )
             validity = validity_text(find_correctness(report, pipeline, row["params"]))
             lines.append(
                 "| {} | {} | {} | {} | {} | {} | {} | {} |".format(
@@ -414,7 +444,7 @@ def aggregate_correctness(reports, pipeline, params):
     return aggregated if found else None
 
 
-def metric_comparison_cell(baseline_metrics, candidate_metrics):
+def metric_comparison_cell(field, baseline_metrics, candidate_metrics):
     if not baseline_metrics and not candidate_metrics:
         return "n/a"
     metric = (candidate_metrics or baseline_metrics)[0]
@@ -423,7 +453,9 @@ def metric_comparison_cell(baseline_metrics, candidate_metrics):
     candidate = median_value(candidate_metrics, target_unit)
     change = adjusted_change(baseline, candidate, metric["direction"])
     return "{} → {} ({})".format(
-        format_number(baseline), format_number(candidate), format_percent(change)
+        format_pipeline_number(field, baseline),
+        format_pipeline_number(field, candidate),
+        format_percent(change),
     )
 
 
@@ -447,6 +479,8 @@ def pipeline_comparison_lines(baselines, candidates):
         "### Pipeline comparison",
         "",
         "Cells show `baseline → candidate (adjusted change)`; positive change is favorable.",
+        "`Payload` is characters per row and `Growth` is a unitless ratio. `Valid` includes "
+        "measurement samples only; warmup samples are excluded.",
     ]
     for (pipeline, group_params_tuple), rows in sorted(groups.items()):
         group_params = dict(group_params_tuple)
@@ -457,7 +491,7 @@ def pipeline_comparison_lines(baselines, candidates):
                 "",
                 "Parameters: `{}`".format(compact_params(group_params)),
                 "",
-                "| Payload | Throughput | P50 | P95 | P99 | Max | Growth | Validity |",
+                "| Payload (chars) | Throughput (rows/s) | P50 (ms) | P95 (ms) | P99 (ms) | Max (ms) | Growth (ratio) | Valid (samples) |",
                 "| ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |",
             ]
         )
@@ -465,7 +499,7 @@ def pipeline_comparison_lines(baselines, candidates):
             cells = []
             for field, _, _ in PIPELINE_COLUMNS:
                 baseline_group, candidate_group = row.get(field, ([], []))
-                cells.append(metric_comparison_cell(baseline_group, candidate_group))
+                cells.append(metric_comparison_cell(field, baseline_group, candidate_group))
             baseline_validity = validity_text(
                 aggregate_correctness(baselines, pipeline, row["params"])
             )
