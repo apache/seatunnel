@@ -243,9 +243,6 @@ def jmh_report_lines(metrics):
         "- `CV`: sample standard deviation divided by the sample mean; lower values indicate "
         "more stable samples.",
         "",
-        "> Error and CV reflect only within-run measurement variability; they do not account "
-        "for performance differences between runners.",
-        "",
         "| Benchmark | Parameters | Score | Error | CV | Unit |",
         "| --- | --- | ---: | ---: | ---: | --- |",
     ]
