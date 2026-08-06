@@ -35,6 +35,13 @@ PIPELINE_METRICS = (
     ("event_time_latency_max_ms", "ms", "lower"),
     ("latency_growth_ratio", "ratio", "lower"),
 )
+PERCENTILE_FIELDS = (
+    "event_time_latency_p50_ms",
+    "event_time_latency_p95_ms",
+    "event_time_latency_p99_ms",
+    "first_half_p99_ms",
+    "second_half_p99_ms",
+)
 
 
 def parse_args():
@@ -132,6 +139,18 @@ def sample_standard_deviation(values):
     return statistics.stdev(values) if len(values) > 1 else 0.0
 
 
+def percentile_is_clamped(sample, field):
+    if not sample.get("latency_percentiles_clamped", False):
+        return False
+    overflow_bucket = max(sample[name] for name in PERCENTILE_FIELDS)
+    return sample[field] == overflow_bucket
+
+
+def median_percentile_is_clamped(samples, field):
+    clamped_samples = sum(percentile_is_clamped(sample, field) for sample in samples)
+    return clamped_samples > len(samples) / 2
+
+
 def pipeline_metrics(pipeline_dir):
     if pipeline_dir is None or not pipeline_dir.is_dir():
         return [], {}
@@ -156,28 +175,32 @@ def pipeline_metrics(pipeline_dir):
             "sample_count": len(samples),
             "complete_samples": sum(complete),
             "sustainable_samples": sum(bool(sample["sustainable"]) for sample in samples),
+            "latency_percentiles_clamped_samples": sum(
+                bool(sample.get("latency_percentiles_clamped", False)) for sample in samples
+            ),
             "latency_overflow_rows": sum(sample["latency_overflow_rows"] for sample in samples),
         }
         for field, unit, direction in PIPELINE_METRICS:
             values = [float(sample[field]) for sample in samples]
-            metrics.append(
-                {
-                    "name": "{}.{}".format(metric_prefix, field),
-                    "pipeline": name,
-                    "metric": field,
-                    "kind": "pipeline",
-                    "value": statistics.median(values),
-                    "score_error": None,
-                    "sample_standard_deviation": sample_standard_deviation(values),
-                    "relative_score_error": None,
-                    "unit": unit,
-                    "direction": direction,
-                    "mode": "median",
-                    "params": params,
-                    "forks": None,
-                    "samples": values,
-                }
-            )
+            metric = {
+                "name": "{}.{}".format(metric_prefix, field),
+                "pipeline": name,
+                "metric": field,
+                "kind": "pipeline",
+                "value": statistics.median(values),
+                "score_error": None,
+                "sample_standard_deviation": sample_standard_deviation(values),
+                "relative_score_error": None,
+                "unit": unit,
+                "direction": direction,
+                "mode": "median",
+                "params": params,
+                "forks": None,
+                "samples": values,
+            }
+            if field in PERCENTILE_FIELDS:
+                metric["clamped"] = median_percentile_is_clamped(samples, field)
+            metrics.append(metric)
     return metrics, correctness
 
 

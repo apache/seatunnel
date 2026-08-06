@@ -52,19 +52,19 @@ final class LatencyHistogram {
         maximum = Math.max(maximum, other.maximum);
     }
 
-    long percentile(double percentile) {
+    PercentileResult percentile(double percentile) {
         if (totalCount == 0) {
-            return 0L;
+            return new PercentileResult(0L, false);
         }
         long rank = Math.max(1L, (long) Math.ceil(percentile * totalCount));
         long seen = 0L;
         for (int index = 0; index < counts.length; index++) {
             seen += counts[index];
             if (seen >= rank) {
-                return index;
+                return new PercentileResult(index, index == counts.length - 1);
             }
         }
-        return maximum;
+        throw new IllegalStateException("Percentile rank exceeds histogram count");
     }
 
     long getTotalCount() {

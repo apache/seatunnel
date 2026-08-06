@@ -84,6 +84,7 @@ public final class BenchmarkSource
     public SourceSplitEnumerator<BenchmarkSourceSplit, BenchmarkSourceState> restoreEnumerator(
             SourceSplitEnumerator.Context<BenchmarkSourceSplit> enumeratorContext,
             BenchmarkSourceState checkpointState) {
+        // Preserve the original schedule and assigned subtasks when restoring the enumerator.
         return new BenchmarkSourceEnumerator(
                 enumeratorContext,
                 totalRows,

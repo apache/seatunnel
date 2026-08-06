@@ -177,8 +177,9 @@ JMH `Error` 不包含不同机器之间的差异，不能只根据两台机器�
 | `event_time_latency_max_ms` | 最大记录延迟，应和百分位一起分析。 |
 | `first_half_p99_ms` / `second_half_p99_ms` | 前半段和后半段 P99，用于判断 backlog 是否持续增长。 |
 | `latency_growth_ratio` | `(后半段 P99 + 1) / (前半段 P99 + 1)`；大于 1 表示延迟在恶化。 |
+| `latency_percentiles_clamped` | 是否有已报告的百分位落入 Histogram overflow bucket，因此只能视为下界。 |
 | `latency_overflow_rows` | 延迟超过 Histogram 统计范围的记录数。 |
-| `sustainable` | 默认要求输出完整、P99 不超过 1,000 ms、增长比例不超过 1.20。 |
+| `sustainable` | 默认要求输出完整、没有被截断的百分位、P99 不超过 1,000 ms、增长比例不超过 1.20。 |
 
 `sustainable` 是便捷保护条件，不是通用 SLA。最终是否满足要求，应由目标业务的吞吐和延迟
 目标决定。

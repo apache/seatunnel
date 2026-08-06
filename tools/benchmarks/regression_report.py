@@ -32,6 +32,11 @@ PIPELINE_COLUMNS = (
     ("event_time_latency_max_ms", "Max", "ms"),
     ("latency_growth_ratio", "Growth", "ratio"),
 )
+PERCENTILE_METRICS = {
+    "event_time_latency_p50_ms",
+    "event_time_latency_p95_ms",
+    "event_time_latency_p99_ms",
+}
 PARAMETER_ORDER = (
     "offeredRatePerSecond",
     "parallelism",
@@ -67,9 +72,11 @@ def format_number(value):
     return "{:.6f}".format(value)
 
 
-def format_pipeline_number(field, value):
+def format_pipeline_number(field, value, clamped=False):
     if value is None:
         return "n/a"
+    if field in PERCENTILE_METRICS and clamped:
+        return ">{:,.0f}".format(value - 1)
     if field.startswith("event_time_latency_"):
         return "{:,.0f}".format(value)
     if field == "throughput_rows_per_second":
@@ -272,6 +279,8 @@ def pipeline_report_lines(report, metrics):
         "",
         "- `Payload`: characters per row.",
         "- `Growth`: unitless `(second-half P99 + 1) / (first-half P99 + 1)` ratio.",
+        "- Percentiles beyond the measurable range are shown as lower bounds, for example "
+        "`>60,000`.",
         "- `Valid`: measurement samples only; warmup samples are excluded. `✅ x/y` means all "
         "samples are complete, sustainable, and have no latency overflow. Otherwise `C/S/O` "
         "show complete samples, sustainable samples, and overflow rows.",
@@ -294,7 +303,11 @@ def pipeline_report_lines(report, metrics):
             for field, _, _ in PIPELINE_COLUMNS:
                 metric = row.get(field)
                 values.append(
-                    format_pipeline_number(field, metric["value"]) if metric else "n/a"
+                    format_pipeline_number(
+                        field, metric["value"], metric.get("clamped", False)
+                    )
+                    if metric
+                    else "n/a"
                 )
             validity = validity_text(find_correctness(report, pipeline, row["params"]))
             lines.append(
@@ -428,6 +441,7 @@ def aggregate_correctness(reports, pipeline, params):
         "sample_count": 0,
         "complete_samples": 0,
         "sustainable_samples": 0,
+        "latency_percentiles_clamped_samples": 0,
         "latency_overflow_rows": 0,
     }
     found = False
@@ -437,8 +451,12 @@ def aggregate_correctness(reports, pipeline, params):
             continue
         found = True
         for field in aggregated:
-            aggregated[field] += values[field]
+            aggregated[field] += values.get(field, 0)
     return aggregated if found else None
+
+
+def median_metric_is_clamped(metrics):
+    return sum(bool(metric.get("clamped", False)) for metric in metrics) > len(metrics) / 2
 
 
 def metric_comparison_cell(field, baseline_metrics, candidate_metrics):
@@ -450,8 +468,12 @@ def metric_comparison_cell(field, baseline_metrics, candidate_metrics):
     candidate = median_value(candidate_metrics, target_unit)
     change = adjusted_change(baseline, candidate, metric["direction"])
     return "{} → {} ({})".format(
-        format_pipeline_number(field, baseline),
-        format_pipeline_number(field, candidate),
+        format_pipeline_number(
+            field, baseline, median_metric_is_clamped(baseline_metrics)
+        ),
+        format_pipeline_number(
+            field, candidate, median_metric_is_clamped(candidate_metrics)
+        ),
         format_percent(change),
     )
 
@@ -478,6 +500,8 @@ def pipeline_comparison_lines(baselines, candidates):
         "Cells show `baseline → candidate (adjusted change)`; positive change is favorable.",
         "`Payload` is characters per row and `Growth` is a unitless ratio. `Valid` includes "
         "measurement samples only; warmup samples are excluded.",
+        "Percentiles beyond the measurable range are shown as lower bounds, for example "
+        "`>60,000`.",
     ]
     for (pipeline, group_params_tuple), rows in sorted(groups.items()):
         group_params = dict(group_params_tuple)

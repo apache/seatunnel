@@ -219,15 +219,23 @@ public final class BenchmarkSinkWriter implements SinkWriter<SeaTunnelRow, Void,
             long durationMillis =
                     rowCount == 0 ? 0L : Math.max(1L, lastReceivedMillis - firstReceivedMillis);
             double throughput = durationMillis == 0 ? 0D : rowCount * 1_000D / durationMillis;
-            long p50 = allLatencies.percentile(0.50D);
-            long p95 = allLatencies.percentile(0.95D);
-            long p99 = allLatencies.percentile(0.99D);
-            long firstHalfP99 = firstHalfLatencies.percentile(0.99D);
-            long secondHalfP99 = secondHalfLatencies.percentile(0.99D);
-            double growthRatio = (secondHalfP99 + 1D) / (firstHalfP99 + 1D);
+            PercentileResult p50 = allLatencies.percentile(0.50D);
+            PercentileResult p95 = allLatencies.percentile(0.95D);
+            PercentileResult p99 = allLatencies.percentile(0.99D);
+            PercentileResult firstHalfP99 = firstHalfLatencies.percentile(0.99D);
+            PercentileResult secondHalfP99 = secondHalfLatencies.percentile(0.99D);
+            boolean percentilesClamped =
+                    p50.isClamped()
+                            || p95.isClamped()
+                            || p99.isClamped()
+                            || firstHalfP99.isClamped()
+                            || secondHalfP99.isClamped();
+            double growthRatio =
+                    (secondHalfP99.getValueMillis() + 1D) / (firstHalfP99.getValueMillis() + 1D);
             boolean sustainable =
                     rowCount == expectedRows
-                            && p99 <= maxP99LatencyMillis
+                            && !percentilesClamped
+                            && p99.getValueMillis() <= maxP99LatencyMillis
                             && growthRatio <= maxLatencyGrowthRatio;
 
             return String.format(
@@ -249,6 +257,7 @@ public final class BenchmarkSinkWriter implements SinkWriter<SeaTunnelRow, Void,
                             + "  \"first_half_p99_ms\": %d,\n"
                             + "  \"second_half_p99_ms\": %d,\n"
                             + "  \"latency_growth_ratio\": %.4f,\n"
+                            + "  \"latency_percentiles_clamped\": %s,\n"
                             + "  \"latency_overflow_rows\": %d,\n"
                             + "  \"checksum\": %d,\n"
                             + "  \"sustainable\": %s\n"
@@ -262,13 +271,14 @@ public final class BenchmarkSinkWriter implements SinkWriter<SeaTunnelRow, Void,
                     rowCount,
                     durationMillis / 1_000D,
                     throughput,
-                    p50,
-                    p95,
-                    p99,
+                    p50.getValueMillis(),
+                    p95.getValueMillis(),
+                    p99.getValueMillis(),
                     allLatencies.getMaximum(),
-                    firstHalfP99,
-                    secondHalfP99,
+                    firstHalfP99.getValueMillis(),
+                    secondHalfP99.getValueMillis(),
                     growthRatio,
+                    percentilesClamped,
                     allLatencies.getOverflowCount(),
                     checksum,
                     sustainable);

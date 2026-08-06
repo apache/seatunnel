@@ -69,17 +69,68 @@ class BenchmarkSinkWriterTest {
         assertTrue(parsed.getThroughputRowsPerSecond() > 0D);
     }
 
+    @Test
+    void shouldRemainSustainableWhenOverflowDoesNotClampPercentiles() throws Exception {
+        BenchmarkSinkWriter first = writer(0, "small-overflow", 200L, 1_000);
+        BenchmarkSinkWriter second = writer(1, "small-overflow", 200L, 1_000);
+        long scheduledAt = System.currentTimeMillis();
+
+        for (long sequence = 0; sequence < 200L; sequence++) {
+            long rowScheduledAt = sequence == 199L ? scheduledAt - 2_000L : scheduledAt;
+            (sequence % 2L == 0L ? first : second).write(row(sequence, rowScheduledAt, sequence));
+        }
+
+        first.close();
+        second.close();
+
+        String result =
+                new String(
+                        Files.readAllBytes(resultDirectory.resolve("small-overflow.json")),
+                        StandardCharsets.UTF_8);
+        assertTrue(result.contains("\"latency_overflow_rows\": 1"));
+        assertTrue(result.contains("\"latency_percentiles_clamped\": false"));
+        assertTrue(result.contains("\"sustainable\": true"));
+    }
+
+    @Test
+    void shouldRejectRunWhenPercentileIsClamped() throws Exception {
+        BenchmarkSinkWriter first = writer(0, "clamped-percentile", 4L, 1_000);
+        BenchmarkSinkWriter second = writer(1, "clamped-percentile", 4L, 1_000);
+        long scheduledAt = System.currentTimeMillis();
+
+        first.write(row(0L, scheduledAt, 10L));
+        first.write(row(2L, scheduledAt, 20L));
+        second.write(row(1L, scheduledAt, 30L));
+        second.write(row(3L, scheduledAt - 2_000L, 40L));
+
+        first.close();
+        second.close();
+
+        String result =
+                new String(
+                        Files.readAllBytes(resultDirectory.resolve("clamped-percentile.json")),
+                        StandardCharsets.UTF_8);
+        assertTrue(result.contains("\"event_time_latency_p99_ms\": 1001"));
+        assertTrue(result.contains("\"latency_percentiles_clamped\": true"));
+        assertTrue(result.contains("\"sustainable\": false"));
+    }
+
     private BenchmarkSinkWriter writer(int subtaskIndex) {
+        return writer(subtaskIndex, "test-run", 4L, 1_000);
+    }
+
+    private BenchmarkSinkWriter writer(
+            int subtaskIndex, String runId, long expectedRows, int maxTrackedLatencyMillis) {
         return new BenchmarkSinkWriter(
                 new TestSinkContext(subtaskIndex),
                 resultDirectory.toString(),
-                "test-run",
-                4L,
+                runId,
+                expectedRows,
                 1_000L,
                 256,
                 64,
-                1_000,
-                100L,
+                maxTrackedLatencyMillis,
+                1_000L,
                 2D);
     }
 

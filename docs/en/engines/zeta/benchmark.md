@@ -184,8 +184,9 @@ Each invocation writes one JSON file under `seatunnel-benchmarks/target/pipeline
 | `event_time_latency_max_ms` | Worst recorded delay; inspect it together with percentiles. |
 | `first_half_p99_ms` / `second_half_p99_ms` | P99 in each half of the run, showing whether backlog keeps growing. |
 | `latency_growth_ratio` | `(second-half P99 + 1) / (first-half P99 + 1)`; values above 1 indicate worsening latency. |
+| `latency_percentiles_clamped` | Whether any reported percentile fell into the histogram's overflow bucket and is therefore only a lower bound. |
 | `latency_overflow_rows` | Rows whose latency exceeded the histogram's tracked range. |
-| `sustainable` | By default, requires complete output, P99 at most 1,000 ms, and growth ratio at most 1.20. |
+| `sustainable` | By default, requires complete output, no clamped percentile, P99 at most 1,000 ms, and growth ratio at most 1.20. |
 
 `sustainable` is a convenience guardrail, not a universal service-level objective. Use the target
 workload's throughput and latency requirements for the final decision.
