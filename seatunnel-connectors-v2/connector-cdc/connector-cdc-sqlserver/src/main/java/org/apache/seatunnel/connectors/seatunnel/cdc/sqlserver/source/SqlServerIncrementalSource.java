@@ -56,6 +56,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Properties;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -93,7 +94,40 @@ public class SqlServerIncrementalSource<T> extends IncrementalSource<T, JdbcSour
         configFactory.originUrl(urlInfo.getOrigin());
         configFactory.hostname(urlInfo.getHost());
         configFactory.port(urlInfo.getPort());
+        configFactory.jdbcUrlProperties(toDebeziumJdbcProperties(urlInfo.getSuffix()));
         return configFactory;
+    }
+
+    /**
+     * Converts SQL Server JDBC URL properties to Debezium connection properties.
+     *
+     * <p>The Debezium SQL Server connector rebuilds its JDBC connection from {@code database.*}
+     * properties. Carrying the URL suffix into that namespace preserves driver options such as
+     * {@code encrypt} and {@code trustServerCertificate}.
+     */
+    static Properties toDebeziumJdbcProperties(String suffix) {
+        Properties properties = new Properties();
+        for (String property : suffix.split(";")) {
+            int separator = property.indexOf('=');
+            if (separator <= 0) {
+                continue;
+            }
+            String key = property.substring(0, separator).trim();
+            if (isConnectionAddressProperty(key)) {
+                continue;
+            }
+            properties.setProperty("database." + key, property.substring(separator + 1).trim());
+        }
+        return properties;
+    }
+
+    private static boolean isConnectionAddressProperty(String key) {
+        return "database".equalsIgnoreCase(key)
+                || "databaseName".equalsIgnoreCase(key)
+                || "serverName".equalsIgnoreCase(key)
+                || "port".equalsIgnoreCase(key)
+                || "portNumber".equalsIgnoreCase(key)
+                || "instanceName".equalsIgnoreCase(key);
     }
 
     @SuppressWarnings("unchecked")
