@@ -87,7 +87,7 @@ Data flows as a never-ending stream of insert/update/delete events.
 1. **Identify CDC source connector** (MySQL-CDC, PostgreSQL-CDC, etc.) from the plan.
 2. **Identify sink connector** — verify it supports upsert semantics for CDC correctness.
 3. **Set env block**: `job.mode = "STREAMING"`, `checkpoint.interval = 10000`.
-4. **Fill CDC source options**: hostname, port, username, password, database-name, table-name. Use `get_connector_info` for exact option keys.
+4. **Fill CDC source options**: hostname, port, username, password, and the database/table selection keys. Use `get_connector_info` for exact option keys — they vary by connector (e.g. PostgreSQL-CDC uses plural `database-names`/`table-names`).
 5. **Fill sink options**: fetch connector metadata, ensure primary key / upsert config is set.
 6. **Set routing**: `plugin_output` on source, `plugin_input` on sink.
 7. **Apply golden example** if available for this (source, sink) pair.
@@ -97,7 +97,7 @@ Data flows as a never-ending stream of insert/update/delete events.
 
 - MUST use `job.mode = "STREAMING"` — never BATCH for CDC.
 - MUST include `checkpoint.interval` in env block.
-- CDC source option keys use hyphens: `database-name`, `table-name` — NOT underscores.
+- CDC source option keys use hyphens (e.g. `database-name`/`database-names`) — NOT underscores.
 - Do NOT add `query` to CDC sources — they capture changelogs, not arbitrary SQL.
 - Credentials always as `${ENV_VAR}`.
 
@@ -116,6 +116,10 @@ source {
     port = <port>
     username = "${DB_USER}"
     password = "${DB_PASSWORD}"
+    # Key names vary by connector — confirm with get_connector_info.
+    # PostgreSQL-CDC uses PLURAL list keys with fully qualified entries:
+    #   database-names = ["<database>"]
+    #   table-names = ["<database>.<schema>.<table>"]
     database-name = "<database>"
     table-name = "<table>"
     plugin_output = "<routing_label>"
