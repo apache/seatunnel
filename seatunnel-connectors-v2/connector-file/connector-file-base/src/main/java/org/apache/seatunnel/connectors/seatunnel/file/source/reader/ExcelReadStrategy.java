@@ -142,6 +142,12 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
         }
     }
 
+    /**
+     * Resolves the configured Excel engine, using the default when no engine is configured.
+     *
+     * @return the configured or default Excel engine
+     * @throws FileConnectorException if the configured engine is unsupported
+     */
     private ExcelEngine getExcelEngine() {
         if (!pluginConfig.hasPath(FileBaseSourceOptions.EXCEL_ENGINE.key())) {
             return FileBaseSourceOptions.EXCEL_ENGINE.defaultValue();
@@ -159,6 +165,14 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
                 "Unsupported excel_engine: " + configuredExcelEngine);
     }
 
+    /**
+     * Reads an Excel stream with EasyExcel without applying the POI file-size limit.
+     *
+     * @param tableId table identifier
+     * @param output row collector
+     * @param inputStream Excel input stream
+     * @param excelCellUtils cell conversion utility
+     */
     private void readByEasyExcel(
             String tableId,
             Collector<SeaTunnelRow> output,
@@ -179,6 +193,19 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
         }
     }
 
+    /**
+     * Reads an Excel stream with Apache POI after guarding direct files against oversized
+     * workbooks. Archived entries are guarded before this method is called.
+     *
+     * @param split source split for the current file
+     * @param tableId table identifier
+     * @param output row collector
+     * @param inputStream Excel input stream
+     * @param partitionsMap partition values inferred from the path
+     * @param currentFileName file name used to select the workbook type
+     * @param excelCellUtils cell conversion utility
+     * @throws IOException if the file size or workbook cannot be read
+     */
     private void readByPoi(
             FileSourceSplit split,
             String tableId,
@@ -271,6 +298,13 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
                         });
     }
 
+    /**
+     * Checks a direct Excel file's size before POI materializes the workbook in memory.
+     *
+     * @param split source split for the current file
+     * @param currentFileName file name used in the error message
+     * @throws IOException if the file status cannot be read
+     */
     private void assertPoiFileSize(FileSourceSplit split, String currentFileName)
             throws IOException {
         long maxFileSize = getPoiExcelMaxFileSize();
@@ -291,6 +325,12 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
         }
     }
 
+    /**
+     * Resolves and validates the maximum file size allowed for POI Excel reads.
+     *
+     * @return the maximum allowed size in bytes
+     * @throws FileConnectorException if the configured limit is not positive
+     */
     private long getPoiExcelMaxFileSize() {
         long maxFileSize =
                 pluginConfig.hasPath(FileBaseSourceOptions.POI_EXCEL_MAX_FILE_SIZE.key())

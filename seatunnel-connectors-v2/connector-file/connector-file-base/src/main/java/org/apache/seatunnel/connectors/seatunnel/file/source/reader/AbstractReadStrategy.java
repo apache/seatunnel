@@ -550,6 +550,13 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
         }
     }
 
+    /**
+     * Rejects an archive entry whose declared size exceeds the configured POI limit.
+     *
+     * @param entryName archive entry name used in the error message
+     * @param entrySize declared uncompressed entry size in bytes
+     * @param maxBytes maximum allowed size in bytes; non-positive values disable the limit
+     */
     private void assertArchiveEntrySize(String entryName, long entrySize, long maxBytes) {
         if (maxBytes <= 0 || entrySize <= 0 || entrySize <= maxBytes) {
             return;
@@ -647,6 +654,15 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
         return copyInputStream(inputStream, -1L);
     }
 
+    /**
+     * Copies an input stream into memory, optionally stopping once it exceeds a byte limit.
+     *
+     * @param inputStream source stream
+     * @param maxBytes maximum number of bytes to copy; non-positive values disable the limit
+     * @return an input stream backed by the copied bytes
+     * @throws IOException if reading from the source stream fails
+     * @throws FileConnectorException if the copied data exceeds {@code maxBytes}
+     */
     protected static InputStream copyInputStream(InputStream inputStream, long maxBytes)
             throws IOException {
         ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
