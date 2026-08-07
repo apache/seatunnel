@@ -55,11 +55,15 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static org.awaitility.Awaitility.await;
@@ -151,20 +155,19 @@ public class KafkaJsonDefaultValueIT extends TestSuiteBase implements TestResour
 
     private void initializeKafkaTopics() {
         try (AdminClient adminClient = createKafkaAdmin()) {
-            java.util.Set<String> existingTopics =
-                    adminClient.listTopics().names().get(30, TimeUnit.SECONDS);
+            Set<String> existingTopics = adminClient.listTopics().names().get(30, TimeUnit.SECONDS);
             List<NewTopic> topicsToCreate =
                     KAFKA_TOPICS.stream()
                             .filter(topic -> !existingTopics.contains(topic))
                             .map(topic -> new NewTopic(topic, 1, (short) 1))
-                            .collect(java.util.stream.Collectors.toList());
+                            .collect(Collectors.toList());
             if (!topicsToCreate.isEmpty()) {
                 adminClient.createTopics(topicsToCreate).all().get(60, TimeUnit.SECONDS);
             }
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new RuntimeException("Interrupted while initializing Kafka topics", e);
-        } catch (ExecutionException | java.util.concurrent.TimeoutException e) {
+        } catch (ExecutionException | TimeoutException e) {
             throw new RuntimeException("Failed to initialize Kafka topics", e);
         }
     }
@@ -177,7 +180,7 @@ public class KafkaJsonDefaultValueIT extends TestSuiteBase implements TestResour
                             .allTopicNames()
                             .get(30, TimeUnit.SECONDS);
             Assertions.assertEquals(
-                    new java.util.HashSet<>(KAFKA_TOPICS).size(),
+                    new HashSet<>(KAFKA_TOPICS).size(),
                     topicDescriptions.size(),
                     "Kafka topics are not ready yet");
             // Topic existence in the admin metadata view does not guarantee the broker the
@@ -200,7 +203,7 @@ public class KafkaJsonDefaultValueIT extends TestSuiteBase implements TestResour
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new RuntimeException("Interrupted while waiting for Kafka topics", e);
-        } catch (ExecutionException | java.util.concurrent.TimeoutException e) {
+        } catch (ExecutionException | TimeoutException e) {
             throw new RuntimeException("Kafka topics are not ready yet", e);
         }
     }

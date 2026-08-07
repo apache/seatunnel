@@ -430,8 +430,10 @@ public class JsonToRowConverters implements Serializable {
         // does not repeat toJsonNode/conversion per record, and misconfigured defaults
         // fail fast at job start instead of at first record. The unwrapped converter is
         // used so a bad default always fails at construction, regardless of
-        // ignoreParseErrors. Mutable types (ARRAY/MAP/BYTES) keep their JsonNode and are
-        // converted per record so no single instance is shared across rows.
+        // ignoreParseErrors. Only known-immutable types are pre-converted and cached;
+        // everything else (ARRAY/MAP/BYTES/FLOAT_VECTOR/ROW, and any future type not
+        // explicitly listed) keeps its JsonNode and is converted per record so no
+        // single mutable instance is ever shared across rows.
         final Object[] defaultValues = new Object[fieldNames.length];
         final JsonNode[] defaultNodes = new JsonNode[fieldNames.length];
         if (columns != null) {
@@ -440,21 +442,27 @@ public class JsonToRowConverters implements Serializable {
                 if (defaultValue != null) {
                     JsonNode defaultNode = JsonUtils.toJsonNode(defaultValue);
                     SqlType sqlType = rowType.getFieldType(i).getSqlType();
-                    if (sqlType == SqlType.ARRAY
-                            || sqlType == SqlType.MAP
-                            || sqlType == SqlType.BYTES
-                            || sqlType == SqlType.FLOAT_VECTOR) {
-                        // Validate at construction but convert per record to avoid
-                        // sharing one mutable instance across rows (ByteBuffer holds
-                        // a mutable read cursor, so a cached FLOAT_VECTOR default
-                        // would throw BufferUnderflowException on the second row)
-                        createNotNullConverter(rowType.getFieldType(i))
-                                .convert(defaultNode, fieldNames[i]);
-                        defaultNodes[i] = defaultNode;
-                    } else {
-                        defaultValues[i] =
-                                createNotNullConverter(rowType.getFieldType(i))
-                                        .convert(defaultNode, fieldNames[i]);
+                    try {
+                        if (isImmutableType(sqlType)) {
+                            defaultValues[i] =
+                                    createNotNullConverter(rowType.getFieldType(i))
+                                            .convert(defaultNode, fieldNames[i]);
+                        } else {
+                            // Validate at construction but convert per record to avoid
+                            // sharing one mutable instance across rows (e.g. a cached
+                            // FLOAT_VECTOR ByteBuffer or ROW object would be corrupted by
+                            // downstream in-place mutation of any other row's default)
+                            createNotNullConverter(rowType.getFieldType(i))
+                                    .convert(defaultNode, fieldNames[i]);
+                            defaultNodes[i] = defaultNode;
+                        }
+                    } catch (RuntimeException e) {
+                        throw CommonError.jsonOperationError(
+                                FORMAT,
+                                String.format(
+                                        "Invalid defaultValue for column '%s' of type %s: %s",
+                                        fieldNames[i], sqlType, defaultValue),
+                                e);
                     }
                 }
             }
@@ -499,6 +507,36 @@ public class JsonToRowConverters implements Serializable {
                 return row;
             }
         };
+    }
+
+    /**
+     * Whether a default value of the given SQL type is safe to pre-convert once and cache.
+     *
+     * <p>Only types whose converted Java representation is genuinely immutable belong here.
+     * Anything not explicitly listed (ARRAY/MAP/BYTES/FLOAT_VECTOR/ROW, or a future type) is
+     * treated as mutable and re-converted per record, so no single instance is ever shared across
+     * rows. An exhaustive switch without a default keeps the compiler/reviewer from silently
+     * missing a new type.
+     */
+    private boolean isImmutableType(SqlType sqlType) {
+        switch (sqlType) {
+            case STRING:
+            case BOOLEAN:
+            case TINYINT:
+            case SMALLINT:
+            case INT:
+            case BIGINT:
+            case FLOAT:
+            case DOUBLE:
+            case DECIMAL:
+            case DATE:
+            case TIME:
+            case TIMESTAMP:
+            case NULL:
+                return true;
+            default:
+                return false;
+        }
     }
 
     private JsonToObjectConverter createArrayConverter(ArrayType<?, ?> type) {

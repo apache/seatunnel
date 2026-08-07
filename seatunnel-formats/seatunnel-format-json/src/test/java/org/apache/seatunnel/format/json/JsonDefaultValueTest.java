@@ -627,6 +627,51 @@ public class JsonDefaultValueTest {
     }
 
     @Test
+    public void testRowDefaultValueNotSharedAcrossRows() throws IOException {
+        // A ROW-typed column default is re-converted per record like the other mutable
+        // types: a single cached row object shared across rows would be corrupted by
+        // downstream in-place mutation of any one row's nested sub-object.
+        SeaTunnelRowType nestedType =
+                new SeaTunnelRowType(
+                        new String[] {"a"},
+                        new org.apache.seatunnel.api.table.type.SeaTunnelDataType[] {
+                            BasicType.INT_TYPE
+                        });
+        Column[] columns =
+                new Column[] {
+                    PhysicalColumn.of(
+                            "nested",
+                            nestedType,
+                            (Long) null,
+                            false,
+                            Collections.singletonMap("a", 1),
+                            null)
+                };
+
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"nested"},
+                        new org.apache.seatunnel.api.table.type.SeaTunnelDataType[] {nestedType});
+
+        TableSchema tableSchema = TableSchema.builder().columns(Arrays.asList(columns)).build();
+        TableIdentifier tableId = TableIdentifier.of("test", TablePath.of("test.test_table"));
+        CatalogTable catalogTable =
+                CatalogTable.of(
+                        tableId, tableSchema, new HashMap<>(), new ArrayList<>(), "test table");
+
+        JsonDeserializationSchema deserializationSchema =
+                new JsonDeserializationSchema(catalogTable, false, false);
+
+        SeaTunnelRow row1 = deserializationSchema.deserialize("{}".getBytes());
+        SeaTunnelRow row2 = deserializationSchema.deserialize("{}".getBytes());
+        SeaTunnelRow nested1 = (SeaTunnelRow) row1.getField(0);
+        SeaTunnelRow nested2 = (SeaTunnelRow) row2.getField(0);
+        Assertions.assertNotSame(nested1, nested2); // distinct instances per row
+        Assertions.assertEquals(1, nested1.getField(0));
+        Assertions.assertEquals(1, nested2.getField(0));
+    }
+
+    @Test
     public void testUnconvertibleDefaultFailsAtConstruction() {
         // A defaultValue that cannot be converted to the column type must fail at
         // converter construction (job start), regardless of ignoreParseErrors —
