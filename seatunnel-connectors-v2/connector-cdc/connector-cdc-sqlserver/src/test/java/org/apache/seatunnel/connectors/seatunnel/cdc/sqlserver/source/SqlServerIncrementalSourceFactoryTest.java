@@ -112,8 +112,7 @@ class SqlServerIncrementalSourceFactoryTest {
         // The configured username/password must win — URL-embedded user/password must be
         // filtered out before they are forwarded into the Debezium Properties bag.
         Assertions.assertEquals(
-                "configured-user",
-                sourceConfig.getDbzConfiguration().getString("database.user"));
+                "configured-user", sourceConfig.getDbzConfiguration().getString("database.user"));
         Assertions.assertEquals(
                 "configured-password",
                 sourceConfig.getDbzConfiguration().getString("database.password"));
