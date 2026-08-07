@@ -17,9 +17,11 @@ import ChangeLog from '../changelog/connector-socket.md';
 
 ## 描述
 
-用于向 Socket Server 发送数据，支持流模式和批模式。每条 SeaTunnel 数据会被序列化为一行 JSON 写入
-配置的 TCP 端口，写入内容默认不带分隔符，所以对端需要能够把字节流按行切分（例如 `nc -l` 或者
-其它按行解析 JSON 的工具）。
+用于向 Socket Server 发送数据，支持流模式和批模式。每条 SeaTunnel 数据会被序列化为一个 JSON 对象并写入
+配置的 TCP 端口。连接器**不会**在记录之间追加换行符或任何其它分隔符，因此多条记录会以连续的 TCP 字节流
+形式发送，即多个 JSON 对象直接拼接在一起（例如 `{"a":1}{"a":2}{"a":3}`）。因此对端需要自行处理分帧：
+使用支持连续读取多个 JSON 值的流式解析器（例如 Jackson 的 `MappingIterator`），而不是按行解析的解析器。
+`nc -l` 这类工具只会原样回显拼接后的字节，适合做单条记录的快速验证，但无法自行切分多条记录。
 
 > 例如，如果来自上游的数据是 [`age: 17, name: jared`]，则发送到 Socket Server 的内容如下：`{"name":"jared","age":17}`
 
@@ -78,10 +80,10 @@ nc -l -v 9999
 
 * 启动 SeaTunnel 任务
 
-* Socket 服务器控制台打印数据
+* Socket 服务器控制台打印数据。由于不会追加分隔符，多条记录在原始字节流中以拼接的 JSON 对象形式到达（下面的换行仅为便于阅读）：
 
 ```text
-{"name":"jared","age":17}
+{"name":"jared","age":17}{"name":"jared","age":18}...
 ```
 
 ## 变更日志
