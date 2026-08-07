@@ -442,9 +442,12 @@ public class JsonToRowConverters implements Serializable {
                     SqlType sqlType = rowType.getFieldType(i).getSqlType();
                     if (sqlType == SqlType.ARRAY
                             || sqlType == SqlType.MAP
-                            || sqlType == SqlType.BYTES) {
+                            || sqlType == SqlType.BYTES
+                            || sqlType == SqlType.FLOAT_VECTOR) {
                         // Validate at construction but convert per record to avoid
-                        // sharing one mutable instance across rows
+                        // sharing one mutable instance across rows (ByteBuffer holds
+                        // a mutable read cursor, so a cached FLOAT_VECTOR default
+                        // would throw BufferUnderflowException on the second row)
                         createNotNullConverter(rowType.getFieldType(i))
                                 .convert(defaultNode, fieldNames[i]);
                         defaultNodes[i] = defaultNode;

@@ -32,6 +32,7 @@ import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.api.table.type.VectorType;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -42,6 +43,7 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.math.BigDecimal;
+import java.nio.ByteBuffer;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -584,6 +586,44 @@ public class JsonDefaultValueTest {
         Assertions.assertNotSame(blob1, blob2); // distinct instances per row
         Assertions.assertArrayEquals(new byte[] {1, 2}, blob1);
         Assertions.assertArrayEquals(new byte[] {1, 2}, blob2);
+    }
+
+    @Test
+    public void testFloatVectorDefaultValueNotSharedAcrossRows() throws IOException {
+        // FLOAT_VECTOR defaults keep their JsonNode and are converted per record:
+        // the converted ByteBuffer holds a mutable read cursor, so a cached instance
+        // would throw BufferUnderflowException on the second consuming row.
+        VectorType<ByteBuffer> vectorType = VectorType.VECTOR_FLOAT_TYPE;
+        Column[] columns =
+                new Column[] {
+                    PhysicalColumn.of(
+                            "vec", vectorType, (Long) null, false, Arrays.asList(1.0f, 2.0f), null)
+                };
+
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"vec"},
+                        new org.apache.seatunnel.api.table.type.SeaTunnelDataType[] {vectorType});
+
+        TableSchema tableSchema = TableSchema.builder().columns(Arrays.asList(columns)).build();
+        TableIdentifier tableId = TableIdentifier.of("test", TablePath.of("test.test_table"));
+        CatalogTable catalogTable =
+                CatalogTable.of(
+                        tableId, tableSchema, new HashMap<>(), new ArrayList<>(), "test table");
+
+        JsonDeserializationSchema deserializationSchema =
+                new JsonDeserializationSchema(catalogTable, false, false);
+
+        SeaTunnelRow row1 = deserializationSchema.deserialize("{}".getBytes());
+        SeaTunnelRow row2 = deserializationSchema.deserialize("{}".getBytes());
+        ByteBuffer vec1 = (ByteBuffer) row1.getField(0);
+        ByteBuffer vec2 = (ByteBuffer) row2.getField(0);
+        Assertions.assertNotSame(vec1, vec2); // distinct instances per row
+        Assertions.assertEquals(1.0f, vec1.getFloat());
+        Assertions.assertEquals(2.0f, vec1.getFloat());
+        // Second row consumes its own buffer with a fresh read cursor
+        Assertions.assertEquals(1.0f, vec2.getFloat());
+        Assertions.assertEquals(2.0f, vec2.getFloat());
     }
 
     @Test
