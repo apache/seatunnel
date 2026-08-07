@@ -28,6 +28,7 @@ import java.sql.Statement;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicLong;
 
 @Slf4j
 @Getter
@@ -35,13 +36,22 @@ public class ConnectionPoolManager {
 
     private static final long DEFAULT_VALIDATION_TIMEOUT_MILLIS = 5000L;
 
+    private static final long REPLACEMENT_WARN_INTERVAL_NANOS = TimeUnit.MINUTES.toNanos(1);
+
     private final HikariDataSource connectionPool;
 
     private final Map<Integer, Connection> connectionMap;
 
+    private final AtomicLong replacementsSinceLastWarn = new AtomicLong();
+
+    private final AtomicLong lastReplacementWarnNanos;
+
     ConnectionPoolManager(HikariDataSource connectionPool) {
         this.connectionPool = connectionPool;
         connectionMap = new ConcurrentHashMap<>();
+        // Backdated so the first replacement warns immediately rather than waiting out an interval.
+        lastReplacementWarnNanos =
+                new AtomicLong(System.nanoTime() - REPLACEMENT_WARN_INTERVAL_NANOS);
     }
 
     /**
@@ -60,6 +70,9 @@ public class ConnectionPoolManager {
                 (i, cached) -> {
                     if (cached != null && isUsable(cached)) {
                         return cached;
+                    }
+                    if (cached != null) {
+                        logReplacement(i);
                     }
                     closeQuietly(cached);
                     try {
@@ -98,6 +111,37 @@ public class ConnectionPoolManager {
             log.debug("Cached connection for index is no longer usable, replacing it", e);
             return false;
         }
+    }
+
+    /**
+     * Reports a replaced connection at WARN, rate limited to one message per minute per manager.
+     *
+     * <p>Replacing an occasionally idle connection is the expected case and is not worth a warning
+     * on every occurrence. A validation that fails systematically is not: a misconfigured {@code
+     * connectionTestQuery}, a persistent network fault or a server-side connection limit makes
+     * every call replace the connection, which silently turns the cache off and churns connections
+     * continuously. Logging only at DEBUG would leave that indistinguishable from healthy operation
+     * in a default deployment, so the first occurrence and a periodic summary are surfaced.
+     */
+    private void logReplacement(int index) {
+        long replacements = replacementsSinceLastWarn.incrementAndGet();
+        long now = System.nanoTime();
+        long last = lastReplacementWarnNanos.get();
+
+        if (now - last >= REPLACEMENT_WARN_INTERVAL_NANOS
+                && lastReplacementWarnNanos.compareAndSet(last, now)) {
+            replacementsSinceLastWarn.addAndGet(-replacements);
+            log.warn(
+                    "Replaced an unusable pooled connection for queue index {}. "
+                            + "{} replacement(s) since the last such message. Repeated messages "
+                            + "indicate the connection is not surviving between writes.",
+                    index,
+                    replacements);
+
+            return;
+        }
+
+        log.debug("Cached connection for queue index {} is no longer usable, replacing it", index);
     }
 
     private long getValidationTimeoutMillis() {

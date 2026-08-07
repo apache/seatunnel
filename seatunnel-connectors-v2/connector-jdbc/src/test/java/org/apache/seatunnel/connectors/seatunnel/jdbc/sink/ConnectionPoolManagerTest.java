@@ -149,6 +149,63 @@ class ConnectionPoolManagerTest {
     }
 
     @Test
+    void passesThePoolsValidationTimeoutToIsValid() throws SQLException {
+        Connection connection = mock(Connection.class);
+        when(connection.isClosed()).thenReturn(false);
+        when(connection.isValid(anyInt())).thenReturn(true);
+
+        HikariDataSource pool = mock(HikariDataSource.class);
+        when(pool.getConnection()).thenReturn(connection);
+        when(pool.getValidationTimeout()).thenReturn(8000L);
+
+        ConnectionPoolManager manager = new ConnectionPoolManager(pool);
+
+        manager.getConnection(0);
+        manager.getConnection(0);
+
+        // Seconds, rounded down from the pool's own millisecond setting.
+        verify(connection, times(1)).isValid(8);
+    }
+
+    @Test
+    void fallsBackToFiveSecondsWhenThePoolHasNoValidationTimeout() throws SQLException {
+        Connection connection = mock(Connection.class);
+        when(connection.isClosed()).thenReturn(false);
+        when(connection.isValid(anyInt())).thenReturn(true);
+
+        HikariDataSource pool = mock(HikariDataSource.class);
+        when(pool.getConnection()).thenReturn(connection);
+        // Hikari reports 0 when the validation timeout has not been configured.
+        when(pool.getValidationTimeout()).thenReturn(0L);
+
+        ConnectionPoolManager manager = new ConnectionPoolManager(pool);
+
+        manager.getConnection(0);
+        manager.getConnection(0);
+
+        verify(connection, times(1)).isValid(5);
+    }
+
+    @Test
+    void neverPassesATimeoutBelowOneSecond() throws SQLException {
+        Connection connection = mock(Connection.class);
+        when(connection.isClosed()).thenReturn(false);
+        when(connection.isValid(anyInt())).thenReturn(true);
+
+        HikariDataSource pool = mock(HikariDataSource.class);
+        when(pool.getConnection()).thenReturn(connection);
+        // Sub-second timeouts truncate to zero seconds, which isValid treats as no timeout at all.
+        when(pool.getValidationTimeout()).thenReturn(250L);
+
+        ConnectionPoolManager manager = new ConnectionPoolManager(pool);
+
+        manager.getConnection(0);
+        manager.getConnection(0);
+
+        verify(connection, times(1)).isValid(1);
+    }
+
+    @Test
     void keepsConnectionsSeparatePerQueueIndex() throws SQLException {
         Connection first = mock(Connection.class);
         when(first.isClosed()).thenReturn(false);
