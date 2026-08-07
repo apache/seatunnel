@@ -26,6 +26,7 @@ import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
+import org.apache.seatunnel.connectors.seatunnel.file.config.ArchiveCompressFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.ExcelEngine;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
@@ -187,7 +188,16 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
             String currentFileName,
             ExcelCellUtils excelCellUtils)
             throws IOException {
-        assertPoiFileSize(split, currentFileName);
+        // For archived reads (ZIP/TAR/TAR_GZ/GZ) the entry-level guard
+        // (assertArchiveEntrySize + bounded copy) already rejected oversized
+        // entries. The split here carries the outer archive path rather than the
+        // individual entry, so re-statting it would measure the archive's on-disk
+        // size and falsely reject a small Excel entry bundled inside a larger
+        // archive. Only enforce the POI-level guard for the non-archived (direct
+        // file) path, where the split path is the Excel file itself.
+        if (archiveCompressFormat == ArchiveCompressFormat.NONE) {
+            assertPoiFileSize(split, currentFileName);
+        }
         log.info("Parsing Excel with POI");
 
         Workbook workbook;
