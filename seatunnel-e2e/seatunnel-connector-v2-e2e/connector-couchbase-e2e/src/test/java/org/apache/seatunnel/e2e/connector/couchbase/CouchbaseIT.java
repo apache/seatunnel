@@ -88,9 +88,7 @@ public class CouchbaseIT extends TestSuiteBase implements TestResource {
                                         .withQuota(256)
                                         .withPrimaryIndex(false))
                         .withEnabledServices(
-                                CouchbaseService.KV,
-                                CouchbaseService.QUERY,
-                                CouchbaseService.INDEX)
+                                CouchbaseService.KV, CouchbaseService.QUERY, CouchbaseService.INDEX)
                         // Testcontainers 1.17.6 calls the Couchbase REST API (renameNode) during
                         // containerIsStarting, immediately after the HTTP port responds. On loaded
                         // CI runners with newer Docker the REST daemon is not yet fully ready at
