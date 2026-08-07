@@ -274,6 +274,7 @@ If one dialect not supported by SeaTunnel, it will use the default dialect `Gene
 | IRIS      | Inceptor     | Highgo   |
 | YashanDB  |              |          |
 
+Dameng `NCHAR` source columns are mapped to SeaTunnel `STRING`.
 
 ## Parallel Reader
 
