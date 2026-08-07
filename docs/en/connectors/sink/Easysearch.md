@@ -21,7 +21,7 @@ A sink plugin used to send data to `INFINI Easysearch`.
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [x] [batch](../../introduction/concepts/connector-v2-features.md)
-- [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
+- [ ] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
 
 :::tip
 
@@ -181,8 +181,11 @@ sink {
 
 ### Multiple Table Sink
 
-When upstream rows carry table identifiers (for example via a multi-table source), use `${table_name}` in the index
-name so rows from different upstream tables are routed to different Easysearch indices.
+> Note: The Easysearch sink does **not** implement `SupportMultiTableSink` / `SupportMultiTableSinkWriter`.
+> A single sink instance writes all rows to the same configured `index`, and there is no built-in per-table
+> routing. The `${table_name}` placeholder below relies on a row-level `table_name` field being added to
+> every upstream row (for example through a SQL transform that exposes the upstream table identifier as a
+> column) — it is not resolved automatically by the sink.
 
 ```hocon
 env {
@@ -218,6 +221,14 @@ source {
         ]
       }
     ]
+  }
+}
+
+transform {
+  # exposes the upstream table identifier as a column so it can be referenced
+  # from the sink's index template.
+  Sql {
+    sql = "SELECT id, name, CAST(NULL AS STRING) AS table_name FROM db_schema_table_a"
   }
 }
 

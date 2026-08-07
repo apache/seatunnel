@@ -21,7 +21,7 @@ import ChangeLog from '../changelog/connector-easysearch.md';
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [x] [变更数据捕获](../../introduction/concepts/connector-v2-features.md)
 - [x] [批处理](../../introduction/concepts/connector-v2-features.md)
-- [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
+- [ ] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
 
 :::提示
 
@@ -181,7 +181,9 @@ sink {
 
 ### 多表写入
 
-当上游数据携带表标识（例如多表 Source）时，可以使用 `${table_name}` 作为索引名占位符，将不同上游表的数据路由到不同的 Easysearch 索引。
+> 注意：Easysearch 接收器**未实现** `SupportMultiTableSink` / `SupportMultiTableSinkWriter`。同一个接收器实例只能把
+> 全部行数据写入配置的 `index`，不会自动按上游表路由。下面的 `${table_name}` 占位符依赖上游行携带名为
+> `table_name` 的字段（例如通过 SQL Transform 把上游表名作为一列输出），它并不会被接收器自动解析。
 
 ```hocon
 env {
