@@ -22,7 +22,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" >/dev/null; pwd)"
 source "${SCRIPT_DIR}/run_upgrade_compatibility.sh"
 
 TEST_ROOT="$(mktemp -d)"
-trap 'rm -rf "${TEST_ROOT}"' EXIT
+trap 'cleanup; rm -rf "${TEST_ROOT}"' EXIT
 
 ROOT_DIR="${TEST_ROOT}"
 DIST_DIR="${ROOT_DIR}/seatunnel-dist/target"
