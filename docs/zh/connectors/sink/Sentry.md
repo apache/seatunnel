@@ -14,7 +14,7 @@ import ChangeLog from '../changelog/connector-sentry.md';
 
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
-- [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
+- [ ] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
 
 ## 描述
 

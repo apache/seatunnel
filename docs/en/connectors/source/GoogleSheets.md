@@ -31,9 +31,11 @@ based on the user-defined schema.
 
 ## Data Type Mapping
 
-The connector reads cell values as strings from Google Sheets and converts them to SeaTunnel types
-according to the `schema` option. Cells with values that cannot be cast to the configured schema field
-will cause the connector to fail the row.
+The Google Sheets API does not expose per-cell types — every cell comes back as an untyped raw value.
+The connector casts each cell according to the user-declared `schema` option, so the resulting
+SeaTunnel type is driven entirely by your schema, not by any type detected from the sheet itself.
+Cells with values that cannot be cast to the configured schema field will cause the connector to fail
+the row.
 
 | Google Sheets Cell | SeaTunnel Data Type (after schema cast) |
 |--------------------|----------------------------------------|

@@ -14,7 +14,7 @@ import ChangeLog from '../changelog/connector-slack.md';
 
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
-- [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
+- [ ] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
 
 ## 描述
 
@@ -23,17 +23,9 @@ import ChangeLog from '../changelog/connector-slack.md';
 
 ## 数据类型映射
 
-所有字段值在发送到 Slack 之前都会通过 `String.valueOf(value)` 转换为字符串，因此连接器可以发布任意
-类型的 SeaTunnel 行。
-
-| SeaTunnel 数据类型 | Slack 消息字段 |
-|--------------------|----------------|
-| string             | String         |
-| tinyint / smallint / int / bigint | Number |
-| float / double     | Number         |
-| boolean            | Boolean        |
-| date / time / timestamp | String    |
-| bytes / array / map / row | String (toString) |
+Slack 连接器会把一行中的每个字段通过 `String.valueOf(value)` 转为字符串，再用逗号拼接成一条纯文本
+消息 —— 线上传输的是单一文本消息，不存在按字段区分的 JSON 结构，因此连接器可以发布任意类型的
+SeaTunnel 行。
 
 ## 选项
 
@@ -46,8 +38,8 @@ import ChangeLog from '../changelog/connector-slack.md';
 
 ### webhooks_url [String]
 
-目标 Slack 工作空间中配置的传入 Webhook URL。与 `oauth_token` 和 `slack_channel` 一起设置时，连接器
-会使用 OAuth 令牌解析频道 ID，并通过 Slack Web API 发布消息。
+目标 Slack 工作空间中配置的传入 Webhook URL。连接器在初始化时会校验该选项；消息发送路径使用
+`oauth_token` 和 `slack_channel` 配合 Slack Web API 来解析频道 ID 并发布消息。
 
 ### oauth_token [String]
 

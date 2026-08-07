@@ -28,8 +28,8 @@ modes are supported.
 ## Data Type Mapping
 
 OpenMLDB types are mapped to SeaTunnel types according to the result schema of the configured `sql`
-statement. Columns whose types are not natively understood by SeaTunnel are converted to their
-`toString()` representation.
+statement. Columns whose types are not natively understood by SeaTunnel will cause the read to fail with
+an `UNSUPPORTED_DATA_TYPE` error.
 
 | OpenMLDB Data Type | SeaTunnel Data Type |
 |--------------------|---------------------|

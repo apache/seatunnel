@@ -26,8 +26,8 @@ import ChangeLog from '../changelog/connector-openmldb.md';
 
 ## 数据类型映射
 
-OpenMLDB 类型会按照所配置 `sql` 语句的结果集映射为 SeaTunnel 类型。SeaTunnel 不原生支持的类型会
-通过 `toString()` 转成字符串。
+OpenMLDB 类型会按照所配置 `sql` 语句的结果集映射为 SeaTunnel 类型。SeaTunnel 不原生支持的类型会直接
+导致读取失败，并抛出 `UNSUPPORTED_DATA_TYPE` 错误。
 
 | OpenMLDB 数据类型 | SeaTunnel 数据类型 |
 |-------------------|--------------------|

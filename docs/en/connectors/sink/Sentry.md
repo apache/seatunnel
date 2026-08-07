@@ -14,7 +14,7 @@ import ChangeLog from '../changelog/connector-sentry.md';
 
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
-- [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
+- [ ] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
 
 ## Description
 

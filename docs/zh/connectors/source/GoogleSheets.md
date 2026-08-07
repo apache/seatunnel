@@ -30,8 +30,9 @@ import ChangeLog from '../changelog/connector-google-sheets.md';
 
 ## 数据类型映射
 
-连接器从 Google Sheets 读取的单元格默认是字符串，会根据 `schema` 配置转换为对应的 SeaTunnel 类型。
-单元格值无法转换为目标 schema 类型时，对应行会失败。
+Google Sheets API 不会返回单元格本身的数据类型 —— 每个单元格读取的都是一个无类型的原始值。连接器
+会按照用户声明的 `schema` 选项对单元格进行类型转换，因此最终输出的 SeaTunnel 类型完全由 schema 决定，
+与表格中单元格的原生类型无关。单元格值无法转换为目标 schema 类型时，对应行会失败。
 
 | Google Sheets 单元格 | SeaTunnel 数据类型（按 schema 转换后） |
 |----------------------|---------------------------------------|

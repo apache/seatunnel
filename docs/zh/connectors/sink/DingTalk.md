@@ -14,7 +14,7 @@ import ChangeLog from '../changelog/connector-dingtalk.md';
 
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
-- [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
+- [ ] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
 
 ## 描述
 
@@ -22,16 +22,9 @@ import ChangeLog from '../changelog/connector-dingtalk.md';
 
 ## 数据类型映射
 
-| SeaTunnel 数据类型 | 钉钉消息字段 |
-|--------------------|--------------|
-| string             | String       |
-| tinyint / smallint / int / bigint | Number |
-| float / double     | Number       |
-| boolean            | Boolean      |
-| date / time / timestamp | String |
-| bytes / array / map / row | String (toString) |
-
-所有行字段值在拼装到钉钉消息体之前都会被转换为字符串。
+钉钉连接器会把每一行通过 `SeaTunnelRow.toString()` 序列化为纯文本，并作为一条消息发送给钉钉机器人。
+线上传输的是单一文本消息，不存在按字段区分的 JSON 结构 —— 不论源字段类型是什么，整行都会被转换为
+一条文本消息。
 
 ## 接收器选项
 
@@ -48,8 +41,8 @@ import ChangeLog from '../changelog/connector-dingtalk.md';
 
 ### secret [String]
 
-钉钉机器人的密钥。连接器会使用该密钥为每次请求计算签名，以便钉钉端校验请求来源。该密钥必须与
-`url` 中机器人的密钥保持一致。
+钉钉机器人密钥，用于对发往 `url` 中机器人的请求进行签名。连接器使用该密钥为消息生成签名，以便
+钉钉端校验请求来源。该密钥必须与 `url` 中机器人绑定的密钥保持一致。
 
 ### common options
 

@@ -14,7 +14,7 @@ import ChangeLog from '../changelog/connector-dingtalk.md';
 
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
-- [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
+- [ ] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
 
 ## Description
 
@@ -24,16 +24,9 @@ signs the request with the configured robot secret and posts a message to the Di
 
 ## Data Type Mapping
 
-| SeaTunnel Data Type | DingTalk Message Field |
-|---------------------|------------------------|
-| string              | String                 |
-| tinyint / smallint / int / bigint | Number     |
-| float / double      | Number                 |
-| boolean             | Boolean                |
-| date / time / timestamp | String             |
-| bytes / array / map / row | String (toString) |
-
-All row values are converted to strings before they are placed into the DingTalk message body.
+The DingTalk connector serializes each row through `SeaTunnelRow.toString()` and posts the resulting
+plain-text message to the DingTalk robot. There is no per-field JSON structure on the wire — the entire
+row becomes a single text payload regardless of the underlying field types.
 
 ## Sink Options
 
@@ -50,9 +43,9 @@ is the robot token created in the DingTalk group settings.
 
 ### secret [String]
 
-DingTalk robot secret used to sign every request. The connector computes the signature with the
-configured secret so DingTalk can verify the request source. The secret must match the one bound to the
-robot defined in `url`.
+DingTalk robot secret used to sign requests sent to the robot defined in `url`. The connector signs
+messages with the configured secret so DingTalk can verify the request source. The secret must match
+the one bound to the robot configured in `url`.
 
 ### common options
 

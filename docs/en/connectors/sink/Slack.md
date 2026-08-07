@@ -14,7 +14,7 @@ import ChangeLog from '../changelog/connector-slack.md';
 
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
-- [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
+- [ ] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
 
 ## Description
 
@@ -24,17 +24,9 @@ comma-separated message to that channel through Slack's Web API.
 
 ## Data Type Mapping
 
-All field values are converted to strings with `String.valueOf(value)` before they are sent to Slack, so the
-connector can post any SeaTunnel row regardless of the underlying type.
-
-| SeaTunnel Data Type | Slack Message Field |
-|---------------------|---------------------|
-| string              | String              |
-| tinyint / smallint / int / bigint | Number |
-| float / double      | Number              |
-| boolean             | Boolean             |
-| date / time / timestamp | String         |
-| bytes / array / map / row | String (toString) |
+The Slack connector converts every field of a row to a string with `String.valueOf(value)` and joins
+them with commas into a single plain-text message — there is no per-field JSON structure on the wire,
+so the connector can post any SeaTunnel row regardless of the underlying type.
 
 ## Sink Options
 
@@ -47,9 +39,9 @@ connector can post any SeaTunnel row regardless of the underlying type.
 
 ### webhooks_url [String]
 
-The Slack incoming webhook URL configured on the target Slack workspace. When this is set together with
-`oauth_token` and `slack_channel`, the connector uses the OAuth token to resolve the channel id before
-posting through the Slack Web API.
+The Slack incoming webhook URL configured on the target Slack workspace. The connector checks for this
+option during initialization; the message write path uses `oauth_token` and `slack_channel` together
+with the Slack Web API to look up the channel id and post the row.
 
 ### oauth_token [String]
 
