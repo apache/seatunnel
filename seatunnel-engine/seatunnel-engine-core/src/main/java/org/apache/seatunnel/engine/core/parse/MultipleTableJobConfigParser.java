@@ -521,7 +521,11 @@ public class MultipleTableJobConfigParser {
         checkProducedTypeEquals(inputActions);
         int spareParallelism = inputs.get(0)._2().getParallelism();
         int parallelism =
-                readonlyConfig.getOptional(EnvCommonOptions.PARALLELISM).orElse(spareParallelism);
+                DryRunSampleConfig.isEnabled(jobConfig.getEnvOptions())
+                        ? 1
+                        : readonlyConfig
+                                .getOptional(EnvCommonOptions.PARALLELISM)
+                                .orElse(spareParallelism);
         SeaTunnelTransform<?> transform =
                 FactoryUtil.createAndPrepareMultiTableTransform(
                         new ArrayList<>(catalogTables), readonlyConfig, classLoader, factoryId);

@@ -38,7 +38,7 @@ Usage: seatunnel.sh [options]
     -r, --restore, --restore-job                Restore from the latest savepoint by jobId.
     --restore-with-checkpoint                   Restore from the latest completed checkpoint by jobId.
     -s, --savepoint, --savepoint-job            Savepoint the job by jobId.
-    --sample-limit                              Maximum rows read from each source by sample dry-run mode (default: 10, max: 10000).
+    --sample-limit                              Maximum rows forwarded from each source by sample dry-run mode (default: 10, max: 10000).
     --sample-print-data                         Print sampled row values to persistent logs (default: false).
     -i, --variable                              Variable substitution, such as -i city=beijing, or -i date=20190318. We use ',' as a separator. When inside "", ',' are treated as normal characters instead of delimiters. (default: []).
 
@@ -99,7 +99,7 @@ The `--dry-run sample` mode has the following behavior:
 - Runs the configured sources and transforms locally and prints their schemas.
 - Prints bounded source and transform row values only when `--sample-print-data` is set. Row values are hidden by default because persistent engine logs may expose sensitive data.
 - Uses parallelism `1` for every action, including sources configured with higher parallelism, so the row limit is source-wide and the preview output is deterministic.
-- Reads `10` rows from each source by default, with a maximum `--sample-limit` of `10000`.
+- Forwards at most `10` rows from each source into the sample pipeline by default, with a maximum `--sample-limit` of `10000`. A source reader may finish its active poll or batch before it stops.
 - Replaces configured sinks with an internal no-op sink, skips sink plugin creation and save-mode actions, and disables checkpoints.
 - May read from external sources, but does not write to configured target systems.
 - Supports local execution only. Cluster mode, asynchronous submission, restore, savepoint, validation, and job-control operations are rejected. Sample options are also rejected when sample mode is not selected.

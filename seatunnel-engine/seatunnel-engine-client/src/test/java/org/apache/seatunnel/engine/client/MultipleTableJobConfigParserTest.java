@@ -122,6 +122,26 @@ public class MultipleTableJobConfigParserTest {
     }
 
     @Test
+    public void testSampleDryRunUsesSingleParallelismForConfiguredTransform() {
+        Common.setDeployMode(DeployMode.CLIENT);
+        String filePath =
+                ContentFormatUtilTest.getResource(
+                        "/batch_fake_to_console_with_transform_name.conf");
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setJobContext(new JobContext());
+        DryRunSampleConfig.configure(jobConfig, 10, false);
+
+        ImmutablePair<List<Action>, Set<URL>> parsed =
+                new MultipleTableJobConfigParser(filePath, new IdGenerator(), jobConfig)
+                        .parse(null);
+
+        Assertions.assertEquals(1, parsed.getLeft().size());
+        Action transformAction = parsed.getLeft().get(0).getUpstream().get(0);
+        Assertions.assertEquals("t_sql_named", transformAction.getName());
+        Assertions.assertEquals(1, transformAction.getParallelism());
+    }
+
+    @Test
     public void testUserEnvCannotEnableSampleDryRun() {
         Common.setDeployMode(DeployMode.CLIENT);
         String filePath =
@@ -274,6 +294,7 @@ public class MultipleTableJobConfigParserTest {
         List<Action> actions = parse.getLeft();
         Assertions.assertEquals(1, actions.size());
         Assertions.assertEquals("t_sql_named", actions.get(0).getUpstream().get(0).getName());
+        Assertions.assertEquals(4, actions.get(0).getUpstream().get(0).getParallelism());
     }
 
     @Test

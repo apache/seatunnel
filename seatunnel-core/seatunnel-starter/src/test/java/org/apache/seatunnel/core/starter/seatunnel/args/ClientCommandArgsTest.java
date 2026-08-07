@@ -160,6 +160,25 @@ public class ClientCommandArgsTest {
     }
 
     @Test
+    public void testSampleDryRunRejectsRestoreWithCheckpoint() {
+        String[] args = {
+            "-c",
+            "app.conf",
+            "--master",
+            "local",
+            "--dry-run",
+            "sample",
+            "--restore-with-checkpoint",
+            "123"
+        };
+        ClientCommandArgs clientCommandArgs =
+                CommandLineUtils.parse(args, new ClientCommandArgs(), "seatunnel-client", true);
+
+        Assertions.assertThrows(
+                com.beust.jcommander.ParameterException.class, clientCommandArgs::buildCommand);
+    }
+
+    @Test
     public void testDryRunConverterWithValidStatic() {
         ClientCommandArgs.DryRunConverter converter = new ClientCommandArgs.DryRunConverter();
         Assertions.assertEquals(DryRun.STATIC, converter.convert("static"));

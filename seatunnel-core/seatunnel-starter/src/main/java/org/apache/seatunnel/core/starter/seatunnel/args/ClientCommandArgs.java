@@ -54,7 +54,7 @@ public class ClientCommandArgs extends AbstractCommandArgs {
     @Parameter(
             names = {"--sample-limit"},
             description =
-                    "Maximum rows read from each source by sample dry-run mode (default: 10, max: 10000)",
+                    "Maximum rows forwarded from each source by sample dry-run mode (default: 10, max: 10000)",
             validateWith = PositiveIntegerValidator.class)
     private Integer sampleLimit;
 
@@ -270,6 +270,7 @@ public class ClientCommandArgs extends AbstractCommandArgs {
             throw new ParameterException("Sample dry-run mode does not support --async.");
         }
         if (restoreJobId != null
+                || restoreWithCheckpointJobId != null
                 || savePointJobId != null
                 || checkConfig
                 || listJob
