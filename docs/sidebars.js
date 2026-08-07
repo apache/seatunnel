@@ -328,7 +328,8 @@ const sidebars = {
                 "tools/overview",
                 "tools/seatunnel-skill",
                 "tools/seatunnel-mcp",
-                "tools/x2seatunnel"
+                "tools/x2seatunnel",
+                "tools/dolphinscheduler-integration"
             ]
         },
         {

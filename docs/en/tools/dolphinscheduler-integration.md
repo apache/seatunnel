@@ -67,9 +67,17 @@ networks:
 Prepare the host-side SeaTunnel installation directory (the official DolphinScheduler image does not bundle SeaTunnel itself — it must be downloaded and extracted manually):
 
 ```bash
+export version="3.0.0"
 mkdir -p seatunnel dolphinscheduler/logs
-wget https://archive.apache.org/dist/seatunnel/2.3.4/apache-seatunnel-2.3.4-bin.tar.gz
-tar -zxvf apache-seatunnel-2.3.4-bin.tar.gz -C seatunnel --strip-components=1
+wget "https://archive.apache.org/dist/seatunnel/${version}/apache-seatunnel-${version}-bin.tar.gz"
+tar -zxvf "apache-seatunnel-${version}-bin.tar.gz" -C seatunnel --strip-components=1
+```
+:::caution Warning
+Since 2.2.0-beta, connector plugins are no longer bundled by default. You must install them **before** mounting the directory read-only and starting the container, otherwise every submitted job will fail with a missing-connector error.
+:::
+
+```bash
+sh seatunnel/bin/install-plugin.sh 3.0.0
 ```
 
 After this, `./seatunnel` should contain `bin/`, `config/`, `lib/`, and similar subdirectories, and the same content will be visible inside the container at `/opt/seatunnel` once it starts.

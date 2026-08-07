@@ -67,9 +67,17 @@ networks:
 准备宿主机上的 SeaTunnel 安装目录（Docker 官方镜像不自带 SeaTunnel 程序本体，需要手动下载解压）：
 
 ```bash
+export version="3.0.0"
 mkdir -p seatunnel dolphinscheduler/logs
-wget https://archive.apache.org/dist/seatunnel/2.3.4/apache-seatunnel-2.3.4-bin.tar.gz
-tar -zxvf apache-seatunnel-2.3.4-bin.tar.gz -C seatunnel --strip-components=1
+wget "https://archive.apache.org/dist/seatunnel/${version}/apache-seatunnel-${version}-bin.tar.gz"
+tar -zxvf "apache-seatunnel-${version}-bin.tar.gz" -C seatunnel --strip-components=1
+```
+:::caution 警告
+从 2.2.0-beta 版本开始，连接器插件默认不再随安装包一起打包。你必须在把目录以只读方式挂载并启动容器**之前**安装好这些插件，否则所有提交的作业都会因为缺少连接器而失败。
+:::
+
+```bash
+sh seatunnel/bin/install-plugin.sh 3.0.0
 ```
 
 完成后，`./seatunnel` 目录下应包含 `bin/`、`config/`、`lib/` 等子目录，容器启动后即可在 `/opt/seatunnel` 下看到同样的内容。
