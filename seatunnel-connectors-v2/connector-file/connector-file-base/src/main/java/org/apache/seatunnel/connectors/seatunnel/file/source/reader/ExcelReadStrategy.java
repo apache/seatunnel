@@ -78,7 +78,11 @@ public class ExcelReadStrategy extends AbstractReadStrategy {
     @Override
     public void read(String path, String tableId, Collector<SeaTunnelRow> output) {
         Map<String, String> partitionsMap = parsePartitionsByPath(path);
-        long maxBytesForEntry = getPoiExcelMaxFileSize();
+        // Only enforce the POI file-size guard when the user explicitly chose the POI
+        // engine. EasyExcel streams rows lazily, so the same bound should not apply —
+        // otherwise the documented escape hatch would silently break for archived files.
+        long maxBytesForEntry =
+                ExcelEngine.EASY_EXCEL.equals(getExcelEngine()) ? -1L : getPoiExcelMaxFileSize();
         resolveArchiveCompressedInputStream(
                 new FileSourceSplit(tableId, path),
                 output,

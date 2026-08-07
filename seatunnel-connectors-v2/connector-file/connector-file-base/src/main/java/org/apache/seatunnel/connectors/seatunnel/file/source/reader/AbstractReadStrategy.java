@@ -451,9 +451,7 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
                     while ((entry = zis.getNextEntry()) != null) {
                         if (!entry.isDirectory() && checkFileType(entry.getName(), fileFormat)) {
                             assertArchiveEntrySize(
-                                    entry.getName(),
-                                    entry.getSize(),
-                                    effectiveMaxBytes);
+                                    entry.getName(), entry.getSize(), effectiveMaxBytes);
                             readProcess(
                                     split,
                                     output,
@@ -472,9 +470,7 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
                     while ((entry = tarInput.getNextTarEntry()) != null) {
                         if (!entry.isDirectory() && checkFileType(entry.getName(), fileFormat)) {
                             assertArchiveEntrySize(
-                                    entry.getName(),
-                                    entry.getSize(),
-                                    effectiveMaxBytes);
+                                    entry.getName(), entry.getSize(), effectiveMaxBytes);
                             readProcess(
                                     split,
                                     output,
@@ -495,9 +491,7 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
                     while ((entry = tarIn.getNextTarEntry()) != null) {
                         if (!entry.isDirectory() && checkFileType(entry.getName(), fileFormat)) {
                             assertArchiveEntrySize(
-                                    entry.getName(),
-                                    entry.getSize(),
-                                    effectiveMaxBytes);
+                                    entry.getName(), entry.getSize(), effectiveMaxBytes);
                             readProcess(
                                     split,
                                     output,
@@ -527,14 +521,13 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
                             fileName = path;
                         }
                     }
-                    readProcess(split, output, copyInputStream(gzipIn), partitionsMap, fileName);
+                    readProcess(
+                            split,
+                            output,
+                            copyInputStream(gzipIn, effectiveMaxBytes),
+                            partitionsMap,
+                            fileName);
                 }
-readProcess(
-                        split,
-                        output,
-                        copyInputStream(gzipIn, effectiveMaxBytes),
-                        partitionsMap,
-                        fileName);
                 break;
             case NONE:
                 readProcess(
