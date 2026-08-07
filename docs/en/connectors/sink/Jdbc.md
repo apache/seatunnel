@@ -229,7 +229,7 @@ The URL of the JDBC connection. Refer to a case: jdbc:postgresql://localhost/tes
 
 The parameterized SQL statement used to write each upstream row, for example `INSERT INTO target(id, name) VALUES (?, ?)`. SeaTunnel binds the `?` parameters in upstream field order. Use this option only in custom SQL mode; do not combine it with `generate_sink_sql = true`.
 
-Current limitation: when sink `query` is configured (custom write SQL), JDBC sink does not apply save mode handling. `schema_save_mode`, `data_save_mode`, and `custom_sql` are not executed in this mode. If you need save mode handling, use `generate_sink_sql = true` with `database` and `table`.
+When sink `query` is configured, catalog-based save mode handling (`schema_save_mode` and data modes such as `DROP_DATA`) is not applied because no catalog table is resolved. However, `data_save_mode = CUSTOM_PROCESSING` with `custom_sql` is still supported: `custom_sql` is executed once over JDBC before writers start. For full schema/data save mode handling, use `generate_sink_sql = true` with `database` and `table`.
 
 ### compatible_mode [string]
 
@@ -381,7 +381,7 @@ Option introduction：
 
 When data_save_mode selects CUSTOM_PROCESSING, you should fill in the CUSTOM_SQL parameter. This parameter usually fills in a SQL that can be executed. SQL will be executed before synchronization tasks.
 
-Note: in sink `query` mode, `custom_sql` is not executed. This behavior is a current limitation of JDBC sink.
+This also works when sink `query` is configured: `custom_sql` is executed once at the save-mode stage before row writing starts.
 
 ### table_options [Map]
 
