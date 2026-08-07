@@ -21,6 +21,7 @@ A sink plugin used to send data to `INFINI Easysearch`.
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [x] [batch](../../introduction/concepts/connector-v2-features.md)
+- [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
 
 :::tip
 
@@ -46,25 +47,25 @@ Engine Supported
 
 ## Sink Options
 
-|          name          |  type   | required | default value |
-|------------------------|---------|----------|---------------|
-| hosts                  | array   | yes      | -             |
-| index                  | string  | yes      | -             |
-| primary_keys           | list    | no       |               |
-| key_delimiter          | string  | no       | `_`           |
-| username               | string  | no       |               |
-| password               | string  | no       |               |
-| max_retry_count        | int     | no       | 3             |
-| max_batch_size         | int     | no       | 10            |
-| tls_verify_certificate | boolean | no       | true          |
-| tls_verify_hostname    | boolean | no       | true          |
-| tls_keystore_path      | string  | no       | -             |
-| tls_keystore_password  | string  | no       | -             |
-| tls_truststore_path    | string  | no       | -             |
-| tls_truststore_password | string  | no       | -             |
-| schema_save_mode       | enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST |
-| data_save_mode         | enum    | no       | APPEND_DATA   |
-| common-options         |         | no       | -             |
+|          name          |  type   | required | default value | description                                                                                                       |
+|------------------------|---------|----------|---------------|-------------------------------------------------------------------------------------------------------------------|
+| hosts                  | array   | yes      | -             | Easysearch HTTP cluster addresses in `host:port` format, for example `["host1:9200", "host2:9200"]`.              |
+| index                  | string  | yes      | -             | Easysearch index name. Supports placeholders such as `seatunnel_${age}`.                                          |
+| primary_keys           | list    | no       | -             | Primary key fields used to build the document `_id`. Configure when writing CDC rows that need upsert/delete.      |
+| key_delimiter          | string  | no       | `_`           | Delimiter used to join composite key fields when building `_id`.                                                 |
+| username               | string  | no       | -             | Username for secured Easysearch clusters.                                                                        |
+| password               | string  | no       | -             | Password for secured Easysearch clusters.                                                                        |
+| max_retry_count        | int     | no       | 3             | Maximum retry count for one bulk request.                                                                        |
+| max_batch_size         | int     | no       | 10            | Maximum number of documents buffered into one bulk request.                                                      |
+| tls_verify_certificate | boolean | no       | true          | Whether to validate HTTPS certificates.                                                                          |
+| tls_verify_hostname    | boolean | no       | true          | Whether to validate HTTPS host names.                                                                            |
+| tls_keystore_path      | string  | no       | -             | Path to the PEM or JKS key store.                                                                                |
+| tls_keystore_password  | string  | no       | -             | Password for the configured key store.                                                                           |
+| tls_truststore_path    | string  | no       | -             | Path to the PEM or JKS trust store.                                                                              |
+| tls_truststore_password | string | no       | -             | Password for the configured trust store.                                                                         |
+| schema_save_mode       | enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST | How to handle the target index before the synchronization task starts. See `schema_save_mode` below. |
+| data_save_mode         | enum    | no       | APPEND_DATA   | How to handle existing target data before the synchronization task starts. See `data_save_mode` below.           |
+| common-options         |         | no       | -             | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md).   |
 
 ### hosts [array]
 
@@ -174,6 +175,57 @@ sink {
     hosts = ["localhost:9200"]
     index = "seatunnel_${age}"
     primary_keys = ["key1", "key2"]
+  }
+}
+```
+
+### Multiple Table Sink
+
+When upstream rows carry table identifiers (for example via a multi-table source), use `${table_name}` in the index
+name so rows from different upstream tables are routed to different Easysearch indices.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    tables_configs = [
+      {
+        schema = {
+          table = "db.schema.table_a"
+          fields {
+            id = int
+            name = string
+          }
+        }
+        rows = [
+          { kind = INSERT, fields = [1, "alice"] }
+        ]
+      },
+      {
+        schema = {
+          table = "db.schema.table_b"
+          fields {
+            id = int
+            amount = double
+          }
+        }
+        rows = [
+          { kind = INSERT, fields = [2, 6.3] }
+        ]
+      }
+    ]
+  }
+}
+
+sink {
+  Easysearch {
+    hosts = ["localhost:9200"]
+    index = "st_${table_name}"
+    primary_keys = ["id"]
   }
 }
 ```

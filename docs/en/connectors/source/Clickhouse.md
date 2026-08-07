@@ -197,26 +197,30 @@ sink {
 ```
 
 ### Multiple table
+
+When `table_list` contains multiple entries, SeaTunnel emits one row stream per upstream table and uses `${table_name}` in
+the downstream connector to route each stream to the matching target. Combine this with the Clickhouse sink's
+`table = "${table_name}_multi_table_sink"` style configuration to land each upstream table in its own target table.
+
 ```hocon
 env {
   job.mode = "BATCH"
-  parallelism = 5
+  parallelism = 3
 }
 
 source {
   Clickhouse {
     host = "localhost:8123"
-    username = "xxx"
-    password = "xxx"
+    username = "default"
+    password = ""
     table_list = [
       {
-        table_path = "default.table1"
-        sql = "select * from default.table1 where id > 2 and type = 1"
+        table_path = "default.source_table"
+        sql = "select * from source_table"
       },
       {
-        table_path = "default.table2"
-        sql = "select * from default.table2 where age > 18"
-        split_size = 1
+        table_path = "default.source_merge_tree_table"
+        filter_query = "id < 47"
       }
     ]
     server_time_zone = "UTC"
@@ -226,13 +230,45 @@ source {
   }
 }
 
-# Console printing of the read Clickhouse data
+# Each upstream table is written to a separate target table.
 sink {
-  Console {
-    parallelism = 1
+  Clickhouse {
+    host = "localhost:8123"
+    database = "default"
+    table = "${table_name}_multi_table_sink"
+    username = "default"
+    password = ""
   }
 }
 ```
+
+## FAQ
+
+### How do I read only some partitions or rows of a ClickHouse table?
+
+Prefer `partition_list` to filter partitions or `filter_query` to apply a server-side predicate. Both avoid full-table
+scans when the upstream table is large. Combine them with `sql` if you also need to project specific columns; in that
+case the connector runs in SQL mode and uses the partition/filter hints alongside the user query.
+
+### When should I use SQL mode vs query table mode?
+
+Use SQL mode (`sql` is set) when you need joins, aggregations, subqueries, or projections on multiple tables. Use
+query table mode (`table_path` only) when you want to read one logical table with parallel `system.parts`-based
+splits and the lowest read latency. The connector falls back to single parallelism for any SQL that needs to run
+on a single shard, even when a higher `parallelism` is configured.
+
+### How do I tune read throughput and memory pressure?
+
+The two main knobs are `split.size` (how many ClickHouse parts are grouped into one SeaTunnel split) and `batch_size`
+(how many rows are pulled per round-trip). Decrease `split.size` to raise parallelism on small part counts, and
+increase `batch_size` to amortise round-trip cost on larger parts. The `clickhouse.config` map exposes every
+`clickhouse-jdbc` option for further tuning, for example `socket_timeout`.
+
+### How are `table_list` and a single `table_path` related?
+
+When the configuration has exactly one logical table, you can flatten the table-list entry to the outer level and
+configure `split.size` (note the dot) instead of `split_size`. With multiple entries in `table_list`, keep each
+table's options inside its own entry and keep `split_size` inside the entry.
 
 ## Changelog
 

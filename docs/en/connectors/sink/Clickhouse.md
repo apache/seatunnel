@@ -284,6 +284,51 @@ sink {
 }
 ```
 
+### CDC Changelog Sink
+
+When the upstream is a changelog source (for example MySQL CDC or Postgres CDC), the rows contain `INSERT`,
+`UPDATE_BEFORE`/`UPDATE_AFTER`, and `DELETE` events. Configure `primary_key` so the sink can map `UPDATE` and
+`DELETE` rows to the right target row, and pair with `support_upsert = true` if the target table does not already
+provide a deduplication engine.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    schema = {
+      fields {
+        pk_id = bigint
+        name = string
+        score = int
+      }
+    }
+    rows = [
+      { kind = INSERT,    fields = [1, "A",   100] }
+      { kind = INSERT,    fields = [2, "B",   100] }
+      { kind = INSERT,    fields = [3, "C",   100] }
+      { kind = UPDATE_BEFORE, fields = [1, "A",   100] }
+      { kind = UPDATE_AFTER,  fields = [1, "A_1", 100] }
+      { kind = DELETE,        fields = [2, "B",   100] }
+    ]
+  }
+}
+
+sink {
+  Clickhouse {
+    host = "localhost:8123"
+    database = "default"
+    table = "sink_table"
+    username = "default"
+    password = ""
+    primary_key = "pk_id"
+  }
+}
+```
+
 ### Multiple table Sink Cases
 
 In ClickHouse, create the following two data tables in advance:
