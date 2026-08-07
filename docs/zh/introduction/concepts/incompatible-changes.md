@@ -23,6 +23,11 @@
 
 ### API 变更
 
+- **行为变更：运行中作业的指标改为有界的尽力收集**
+  - **影响范围**：读取运行中作业指标的 SeaTunnel Engine REST 接口和遥测链路
+  - **变更说明**：默认的运行中作业指标查询最多等待工作节点 3 秒。如果某个工作节点响应缓慢或不可用，查询会返回从其他工作节点已收集到的指标，而不是使整个请求失败。
+  - **影响**：成功响应也可能只包含部分指标。监控系统应将缺失的工作节点指标视为暂时不可用，而不是数值为零。3 秒限制只约束主节点的等待时间，并不会取消已经提交的 Hazelcast 工作节点调用；该调用仍由 Hazelcast 的操作调用超时负责回收。
+
 - **破坏性变更：Engine REST 表级指标 key 格式变化**
   - **影响范围**：SeaTunnel Engine REST API（`/job-info` 返回的 job metrics 中的表级指标）
   - **变更说明**：为支持多个 Source/Sink/Transform 同时处理同一张表，表级指标的 key 格式从 `{tableName}` 变更为 `{VertexIdentifier}.{tableName}`（例如 `Sink[0].fake.user_table`）。

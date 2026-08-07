@@ -75,6 +75,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
 
 import static org.awaitility.Awaitility.await;
@@ -399,12 +400,16 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
     @Test
     void testRealtimeMetricsStopsAfterInterrupt() throws Exception {
         long jobId = 10002L;
-        TaskGroupLocation taskGroupLocation = new TaskGroupLocation(jobId, 1, 1L);
-        Address workerAddress = new Address("127.0.0.2", 5801);
+        TaskGroupLocation firstTaskGroup = new TaskGroupLocation(jobId, 1, 1L);
+        TaskGroupLocation secondTaskGroup = new TaskGroupLocation(jobId, 1, 2L);
+        Address firstWorker = new Address("127.0.0.2", 5801);
+        Address secondWorker = new Address("127.0.0.3", 5801);
+        AtomicInteger fetchCount = new AtomicInteger();
         NodeEngine nodeEngine = mock(NodeEngine.class);
         ClusterServiceImpl clusterService = mock(ClusterServiceImpl.class);
         when(nodeEngine.getClusterService()).thenReturn(clusterService);
-        when(clusterService.getMember(workerAddress)).thenReturn(mock(Member.class));
+        when(clusterService.getMember(firstWorker)).thenReturn(mock(Member.class));
+        when(clusterService.getMember(secondWorker)).thenReturn(mock(Member.class));
 
         JobMaster jobMaster =
                 new JobMaster(
@@ -424,16 +429,18 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
                     protected RawJobMetrics fetchTaskGroupMetrics(
                             Address address, List<TaskGroupLocation> taskGroupLocations)
                             throws Exception {
+                        fetchCount.incrementAndGet();
                         throw new InterruptedException("test interrupt");
                     }
                 };
 
         try {
-            Assertions.assertTrue(
-                    jobMaster
-                            .getCurrJobMetrics(Collections.singletonMap(taskGroupLocation, workerAddress))
-                            .isEmpty());
+            Map<TaskGroupLocation, Address> workers = new HashMap<>();
+            workers.put(firstTaskGroup, firstWorker);
+            workers.put(secondTaskGroup, secondWorker);
+            Assertions.assertTrue(jobMaster.getCurrJobMetrics(workers).isEmpty());
             Assertions.assertTrue(Thread.currentThread().isInterrupted());
+            Assertions.assertEquals(1, fetchCount.get());
         } finally {
             Thread.interrupted();
         }

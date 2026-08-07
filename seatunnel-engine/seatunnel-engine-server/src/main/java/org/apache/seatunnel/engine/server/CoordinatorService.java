@@ -130,7 +130,6 @@ import static org.apache.seatunnel.engine.server.metrics.JobMetricsUtil.toJobMet
 /** Coordinates job submission, scheduling, recovery, and event reporting on the master node. */
 public class CoordinatorService {
 
-    private static final long DEFAULT_METRICS_FETCH_TIMEOUT_MS = 3000L;
     private static final int PIPELINE_CLEANUP_INTERVAL_SECONDS = 60;
     private final NodeEngineImpl nodeEngine;
     private final SeaTunnelEngineContext engineContext;
@@ -1519,9 +1518,16 @@ public class CoordinatorService {
         return jobMetricsImap != JobMetrics.empty() ? jobMetricsImap.merge(jobMetrics) : jobMetrics;
     }
 
+    /**
+     * Get metrics for all running jobs.
+     *
+     * <p>This method is best-effort. It waits up to {@link
+     * Constant#DEFAULT_METRICS_FETCH_TIMEOUT_MS} for the overall fetch and returns a partial map
+     * when workers time out or are unavailable.
+     */
     public Map<Long, JobMetrics> getRunningJobMetrics() {
         return getRunningJobMetrics(
-                runningJobMasterMap.keySet(), DEFAULT_METRICS_FETCH_TIMEOUT_MS, null);
+                runningJobMasterMap.keySet(), Constant.DEFAULT_METRICS_FETCH_TIMEOUT_MS, null);
     }
 
     /**

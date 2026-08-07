@@ -125,9 +125,6 @@ import static org.apache.seatunnel.common.constants.JobMode.BATCH;
 
 public class JobMaster {
     private static final ILogger LOGGER = Logger.getLogger(JobMaster.class);
-    /** Maximum time to wait for one worker's task-group metrics response. */
-    private static final long METRICS_FETCH_TIMEOUT_MS = 3000L;
-
     private final Object metricsLock = new Object();
 
     private PhysicalPlan physicalPlan;
@@ -1073,7 +1070,9 @@ public class JobMaster {
 
     /**
      * Collect a best-effort realtime snapshot. Missing or failed workers are omitted, so callers
-     * must not treat the returned list as a complete terminal history.
+     * must not treat the returned list as a complete terminal history. If collection is
+     * interrupted, the interrupt flag is restored and the partial list is returned immediately;
+     * remaining workers are not queried.
      */
     public List<RawJobMetrics> getCurrJobMetrics(
             Map<TaskGroupLocation, Address> taskGroupLocationSlotProfileMap) {
@@ -1081,9 +1080,9 @@ public class JobMaster {
     }
 
     /**
-     * Collect metrics for terminal pipeline history without accepting a partial result. A
-     * terminal snapshot is stored only after every worker responds successfully; callers can then
-     * retry the operation without losing the task-group context needed for a later collection.
+     * Collect metrics for terminal pipeline history without accepting a partial result. A terminal
+     * snapshot is stored only after every worker responds successfully; callers can then retry the
+     * operation without losing the task-group context needed for a later collection.
      */
     private List<RawJobMetrics> getFinalJobMetrics(
             Map<TaskGroupLocation, Address> taskGroupLocationSlotProfileMap) {
@@ -1137,14 +1136,14 @@ public class JobMaster {
                             String.format(
                                     "%s get final job metrics timed out after %d ms.",
                                     Arrays.toString(taskGroupLocations.toArray()),
-                                    METRICS_FETCH_TIMEOUT_MS),
+                                    Constant.DEFAULT_METRICS_FETCH_TIMEOUT_MS),
                             e);
                 }
                 LOGGER.warning(
                         String.format(
                                 "%s get current job metrics timed out after %d ms.",
                                 Arrays.toString(taskGroupLocations.toArray()),
-                                METRICS_FETCH_TIMEOUT_MS));
+                                Constant.DEFAULT_METRICS_FETCH_TIMEOUT_MS));
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 if (failOnIncompleteResult) {
@@ -1187,7 +1186,7 @@ public class JobMaster {
                                 nodeEngine,
                                 new GetTaskGroupMetricsOperation(taskGroupLocations),
                                 address)
-                        .get(METRICS_FETCH_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+                        .get(Constant.DEFAULT_METRICS_FETCH_TIMEOUT_MS, TimeUnit.MILLISECONDS);
     }
 
     /** Failure while collecting the complete terminal metrics snapshot. */
