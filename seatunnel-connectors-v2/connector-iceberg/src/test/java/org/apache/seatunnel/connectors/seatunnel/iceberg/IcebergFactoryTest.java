@@ -165,6 +165,12 @@ class IcebergFactoryTest {
 
     // helpers
 
+    /**
+     * Returns only the options that ConfigValidator treats as unconditionally required (i.e. {@link
+     * RequiredOption.AbsolutelyRequiredOptions}). Exclusive-group (e.g. table/table_list) and
+     * conditional requirements are intentionally excluded: they are enforced by separate validation
+     * paths and are asserted separately in this test.
+     */
     private static List<Option<?>> absolutelyRequiredOptions(OptionRule rule) {
         return rule.getRequiredOptions().stream()
                 .filter(o -> o instanceof RequiredOption.AbsolutelyRequiredOptions)
