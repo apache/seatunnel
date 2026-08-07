@@ -81,6 +81,7 @@ public class JdbcDmIT extends AbstractJdbcIT {
                     + "\n"
                     + "    DM_CHAR             CHAR,\n"
                     + "    DM_CHARACTER        CHARACTER,\n"
+                    + "    DM_NCHAR            NCHAR(50),\n"
                     + "    DM_VARCHAR          VARCHAR,\n"
                     + "    DM_VARCHAR2         VARCHAR2,\n"
                     + "    DM_TEXT             TEXT,\n"
@@ -159,6 +160,7 @@ public class JdbcDmIT extends AbstractJdbcIT {
                     "DM_DOUBLE",
                     "DM_CHAR",
                     "DM_CHARACTER",
+                    "DM_NCHAR",
                     "DM_VARCHAR",
                     "DM_VARCHAR2",
                     "DM_TEXT",
@@ -199,6 +201,9 @@ public class JdbcDmIT extends AbstractJdbcIT {
                                 Double.parseDouble("1.1"),
                                 'f',
                                 'f',
+                                // DM_NCHAR: multi-byte content exercises the national
+                                // character path
+                                String.format("达梦_%s", i),
                                 String.format("f1_%s", i),
                                 String.format("f1_%s", i),
                                 String.format("f1_%s", i),
