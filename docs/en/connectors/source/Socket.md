@@ -49,7 +49,7 @@ Socket source reads each incoming line as a string record.
 :::tip
 
 Socket source is mainly used for local debugging and simple text streams. It does not checkpoint socket-server offsets, so it should not be used when replayable, exactly-once reads are required. Each line
-is treated as one record; empty lines are skipped.
+is treated as one record. Empty lines produce a row with an empty-string payload; they are not skipped.
 
 :::
 

@@ -91,8 +91,8 @@ Then you will get data similar to the following:
 {"value":"{\"blockNumber\":19525949,\"timestamp\":\"2024-03-27T13:28:45.605Z\"}"}
 ```
 
-In streaming mode, the connector keeps polling the provider and emits a row every time a new
-block number is observed:
+In streaming mode, the connector keeps polling the provider and emits a row on every poll containing
+the latest observed block number:
 
 ```hocon
 env {
