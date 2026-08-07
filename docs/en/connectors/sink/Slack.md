@@ -32,7 +32,7 @@ so the connector can post any SeaTunnel row regardless of the underlying type.
 
 |       name        |  type  | required | default value | description                                                                                                       |
 |-------------------|--------|----------|---------------|-------------------------------------------------------------------------------------------------------------------|
-| webhooks_url      | String | Yes      | -             | Slack incoming webhook URL. Use this together with `oauth_token` and `slack_channel`.                            |
+| webhooks_url      | String | Yes      | -             | Slack incoming webhook URL. The connector checks for this option during initialization; the message write path uses `oauth_token` and `slack_channel` to post via the Slack Web API. |
 | oauth_token       | String | Yes      | -             | Slack OAuth token used to look up channels and post messages through the Slack Web API.                           |
 | slack_channel     | String | Yes      | -             | Slack channel name where rows are posted. The connector resolves this to a channel id via the OAuth token.        |
 | common-options    |        | no       | -             | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details. |

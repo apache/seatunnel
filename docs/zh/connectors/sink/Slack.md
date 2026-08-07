@@ -31,7 +31,7 @@ SeaTunnel 行。
 
 |       名称       |  类型  | 必需 | 默认值 | 描述                                                                                              |
 |------------------|--------|------|--------|---------------------------------------------------------------------------------------------------|
-| webhooks_url     | String | 是   | -      | Slack 传入 Webhook URL，与 `oauth_token`、`slack_channel` 配合使用。                              |
+| webhooks_url     | String | 是   | -      | Slack 传入 Webhook URL，连接器在初始化时会校验该选项；消息发送路径使用 `oauth_token`、`slack_channel` 通过 Slack Web API 发布消息。 |
 | oauth_token      | String | 是   | -      | 用于查询频道和发送消息的 Slack OAuth 令牌。                                                       |
 | slack_channel    | String | 是   | -      | 行数据发送到的 Slack 频道名称，连接器会通过 OAuth 令牌将其解析为频道 ID。                          |
 | common-options   |        | 否   | -      | 接收器插件通用参数，详见 [Sink 常见选项](../common-options/sink-common-options.md)。              |

@@ -43,9 +43,10 @@ is the robot token created in the DingTalk group settings.
 
 ### secret [String]
 
-DingTalk robot secret used to sign requests sent to the robot defined in `url`. The connector signs
+DingTalk robot secret used to sign messages sent to the robot defined in `url`. The connector signs
 messages with the configured secret so DingTalk can verify the request source. The secret must match
-the one bound to the robot configured in `url`.
+the one bound to the robot configured in `url`. The signed client is created lazily once per writer
+and reused for the writer's lifetime; the signature is not recomputed on every individual write.
 
 ### common options
 
