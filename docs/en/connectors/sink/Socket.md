@@ -17,12 +17,14 @@ import ChangeLog from '../changelog/connector-socket.md';
 ## Description
 
 Used to send data to a socket server in streaming or batch mode. Each SeaTunnel row is serialized to a
-JSON object and written to the configured TCP port. The connector does **not** append a newline or any
-other delimiter between records, so multiple records are sent as one continuous TCP byte stream of
-concatenated JSON objects (for example `{"a":1}{"a":2}{"a":3}`). The peer must therefore handle framing
-itself: parse consecutive JSON values with a streaming JSON parser (such as Jackson's `MappingIterator`)
-rather than a line-oriented parser. Tools like `nc -l` only echo the raw concatenated bytes, so they are
-useful for a quick single-row check but cannot split records on their own.
+JSON object via `JsonSerializationSchema` and written to the configured TCP port. **The connector does
+not append any delimiter at all** — neither a newline, nor any other separator between records. Multiple
+records therefore travel as one undelimited, continuous TCP byte stream of concatenated JSON objects
+(for example `{"a":1}{"a":2}{"a":3}`). The output is explicitly *not* line-framed JSON, so the peer
+must handle framing itself: parse consecutive JSON values with a streaming JSON parser (such as
+Jackson's `MappingIterator`) rather than a line-oriented parser. Tools like `nc -l` only echo the raw
+concatenated bytes, so they are useful for a quick single-row check but cannot split records on their
+own.
 
 > For example, if the data from upstream is [`age: 12, name: jared`], the content send to socket server is the following: `{"name":"jared","age":17}`
 
