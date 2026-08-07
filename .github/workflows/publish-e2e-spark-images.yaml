@@ -19,6 +19,10 @@ name: publish-e2e-spark-images
 on:
   workflow_dispatch:
 
+concurrency:
+  group: publish-e2e-spark-images
+  cancel-in-progress: false
+
 jobs:
   build:
     if: github.repository == 'apache/seatunnel'

@@ -18,6 +18,7 @@
 
 set -euo pipefail
 
+# SeaTunnel's current Spark E2E container starts only a Spark master process.
 case "${SPARK_MODE:-master}" in
     master)
         exec "${SPARK_HOME}/bin/spark-class" org.apache.spark.deploy.master.Master \
