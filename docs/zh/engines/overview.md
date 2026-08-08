@@ -42,10 +42,14 @@ SeaTunnel 支持多种执行引擎，您可以根据实际场景选择最合适�
 | **精确一次** | ✅ | ✅ | ✅ |
 | **多表同步** | ✅ | ✅ | ✅ |
 | **Schema 演变** | ✅ | ✅ | ❌ |
-| **REST API** | ✅ | ✅ | ❌ |
+| **REST API** | ✅ | ❌ | ❌ |
 | **Web UI** | ✅ | ✅ | ✅ |
 | **单机模式** | ✅ | ✅ | ✅ |
 | **集群模式** | ✅ | ✅ | ✅ |
+
+:::note
+此处的"REST API"指 SeaTunnel 自身的作业提交/监控接口（[REST API V2](zeta/rest-api-v2.md)）。该接口仅由 SeaTunnel Engine（Zeta）的 server 实现，因此作业运行在 Flink 或 Spark 引擎上时不可用。使用 Flink 或 Spark 引擎时，请通过该引擎自身的工具提交和监控作业（例如 Flink 的 CLI/REST API、Spark 的 `spark-submit`/history server）。
+:::
 
 ### 性能对比
 
