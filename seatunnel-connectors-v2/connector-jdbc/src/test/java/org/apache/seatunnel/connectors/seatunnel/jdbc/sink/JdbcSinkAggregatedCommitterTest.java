@@ -39,6 +39,7 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -67,7 +68,7 @@ class JdbcSinkAggregatedCommitterTest {
         Xid recoveredXid = createXid(1, new byte[] {1}, new byte[] {2});
         Xid unrelatedXid = createXid(2, new byte[] {3}, new byte[] {4});
         when(xaFacade.recover()).thenReturn(Arrays.asList(recoveredXid, unrelatedXid));
-        when(xaGroupOps.commit(anyList(), eq(false), eq(3)))
+        when(xaGroupOps.commit(anyList(), eq(false), eq(3), eq(false)))
                 .thenReturn(new GroupXaOperationResult<>());
         setPrivateField(committer, "xaFacade", xaFacade);
         setPrivateField(committer, "xaGroupOps", xaGroupOps);
@@ -82,7 +83,8 @@ class JdbcSinkAggregatedCommitterTest {
                 .commit(
                         argThat(xids -> xids.size() == 1 && xids.get(0).getXid() == checkpointXid),
                         eq(false),
-                        eq(3));
+                        eq(3),
+                        eq(false));
     }
 
     /**
@@ -96,7 +98,7 @@ class JdbcSinkAggregatedCommitterTest {
         XaGroupOps xaGroupOps = mock(XaGroupOps.class);
         when(xaFacade.isOpen()).thenReturn(true);
         when(xaFacade.recover()).thenReturn(Collections.emptyList());
-        when(xaGroupOps.commit(anyList(), eq(false), eq(3)))
+        when(xaGroupOps.commit(anyList(), eq(false), eq(3), eq(true)))
                 .thenReturn(new GroupXaOperationResult<>());
         setPrivateField(committer, "xaFacade", xaFacade);
         setPrivateField(committer, "xaGroupOps", xaGroupOps);
@@ -108,7 +110,7 @@ class JdbcSinkAggregatedCommitterTest {
         Assertions.assertDoesNotThrow(
                 () -> committer.restoreCommit(Collections.singletonList(commitInfo)));
 
-        verify(xaGroupOps).commit(anyList(), eq(false), eq(3));
+        verify(xaGroupOps).commit(anyList(), eq(false), eq(3), eq(true));
     }
 
     /**
@@ -123,7 +125,8 @@ class JdbcSinkAggregatedCommitterTest {
         RuntimeException unknownTransaction = new RuntimeException("unknown transaction");
         when(xaFacade.isOpen()).thenReturn(true);
         when(xaFacade.recover()).thenReturn(Collections.emptyList());
-        when(xaGroupOps.commit(anyList(), eq(false), eq(3))).thenThrow(unknownTransaction);
+        when(xaGroupOps.commit(anyList(), eq(false), eq(3), eq(true)))
+                .thenThrow(unknownTransaction);
         setPrivateField(committer, "xaFacade", xaFacade);
         setPrivateField(committer, "xaGroupOps", xaGroupOps);
         JdbcAggregatedCommitInfo commitInfo =
@@ -140,6 +143,64 @@ class JdbcSinkAggregatedCommitterTest {
     }
 
     /**
+     * Verifies that restore reaches the still-prepared XID after an earlier XID was already
+     * resolved by a previous failed attempt.
+     */
+    @Test
+    void testRestoreCommitReportsRecoveredFailureBeforeAlreadyResolvedReplay() throws Exception {
+        JdbcSinkAggregatedCommitter committer = createCommitter();
+        XaFacade xaFacade = mock(XaFacade.class);
+        XaGroupOps xaGroupOps = mock(XaGroupOps.class);
+        RuntimeException stillPreparedFailure = new RuntimeException("still prepared failed");
+        Xid alreadyResolvedXid = createXid(1, new byte[] {1}, new byte[] {1});
+        Xid stillPreparedXid = createXid(2, new byte[] {2}, new byte[] {2});
+        Xid recoveredStillPreparedXid = createXid(2, new byte[] {2}, new byte[] {2});
+        when(xaFacade.isOpen()).thenReturn(true);
+        when(xaFacade.recover()).thenReturn(Collections.singletonList(recoveredStillPreparedXid));
+        when(xaGroupOps.commit(
+                        argThat(
+                                xids ->
+                                        xids.size() == 1
+                                                && xids.get(0).getXid() == stillPreparedXid),
+                        eq(false),
+                        eq(3),
+                        eq(false)))
+                .thenThrow(stillPreparedFailure);
+        setPrivateField(committer, "xaFacade", xaFacade);
+        setPrivateField(committer, "xaGroupOps", xaGroupOps);
+        JdbcAggregatedCommitInfo commitInfo =
+                new JdbcAggregatedCommitInfo(
+                        Arrays.asList(
+                                new XidInfo(alreadyResolvedXid, 0),
+                                new XidInfo(stillPreparedXid, 0)));
+
+        RuntimeException exception =
+                Assertions.assertThrows(
+                        RuntimeException.class,
+                        () -> committer.restoreCommit(Collections.singletonList(commitInfo)));
+
+        Assertions.assertSame(stillPreparedFailure, exception);
+        verify(xaGroupOps)
+                .commit(
+                        argThat(
+                                xids ->
+                                        xids.size() == 1
+                                                && xids.get(0).getXid() == stillPreparedXid),
+                        eq(false),
+                        eq(3),
+                        eq(false));
+        verify(xaGroupOps, never())
+                .commit(
+                        argThat(
+                                xids ->
+                                        xids.size() == 1
+                                                && xids.get(0).getXid() == alreadyResolvedXid),
+                        eq(false),
+                        eq(3),
+                        eq(true));
+    }
+
+    /**
      * Verifies that Zeta retries are completed while the incremented attempt state is available.
      */
     @Test
@@ -152,7 +213,7 @@ class JdbcSinkAggregatedCommitterTest {
         XaFacade xaFacade = mock(XaFacade.class);
         XaGroupOps xaGroupOps = mock(XaGroupOps.class);
         when(xaFacade.isOpen()).thenReturn(true);
-        when(xaGroupOps.commit(anyList(), eq(false), eq(3)))
+        when(xaGroupOps.commit(anyList(), eq(false), eq(3), eq(false)))
                 .thenAnswer(
                         invocation -> {
                             XidInfo current = invocation.<List<XidInfo>>getArgument(0).get(0);
@@ -170,7 +231,7 @@ class JdbcSinkAggregatedCommitterTest {
 
         committer.commit(Collections.singletonList(commitInfo));
 
-        verify(xaGroupOps, times(3)).commit(anyList(), eq(false), eq(3));
+        verify(xaGroupOps, times(3)).commit(anyList(), eq(false), eq(3), eq(false));
     }
 
     /**

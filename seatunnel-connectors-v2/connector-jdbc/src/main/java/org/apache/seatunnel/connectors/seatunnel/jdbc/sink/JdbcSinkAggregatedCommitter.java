@@ -37,7 +37,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
 
 @Slf4j
 public class JdbcSinkAggregatedCommitter
@@ -79,25 +82,33 @@ public class JdbcSinkAggregatedCommitter
 
     /**
      * Reconciles checkpoint XIDs with the resource manager and replays only checkpoint-owned
-     * transactions. An XID missing from the recovery scan is committed strictly so XAER_NOTA or
-     * another unknown outcome fails recovery instead of being inferred as success.
+     * transactions. XIDs still present in the recovery scan are committed strictly. XIDs absent
+     * from the recovery scan are replayed with XAER_NOTA tolerance because a previous aborted
+     * restore attempt may have already committed them before failing on a later XID.
      */
     @Override
     public List<JdbcAggregatedCommitInfo> restoreCommit(
             List<JdbcAggregatedCommitInfo> aggregatedCommitInfos) throws IOException {
         tryOpen();
-        Collection<Xid> recoveredXids = xaFacade.recover();
+        Set<XidKey> recoveredXids = normalizeXids(xaFacade.recover());
         for (JdbcAggregatedCommitInfo aggregatedCommitInfo : aggregatedCommitInfos) {
+            List<XidInfo> recovered = new ArrayList<>();
+            List<XidInfo> alreadyResolved = new ArrayList<>();
             for (XidInfo xidInfo : aggregatedCommitInfo.getXidInfoList()) {
-                if (!containsEquivalentXid(recoveredXids, xidInfo.getXid())) {
+                if (containsEquivalentXid(recoveredXids, xidInfo.getXid())) {
+                    recovered.add(xidInfo);
+                } else {
                     log.warn(
                             "Checkpoint transaction {} is absent from the XA recovery scan; "
-                                    + "requiring an explicit resource-manager result",
+                                    + "allowing XAER_NOTA only for this restore replay",
                             xidInfo.getXid());
+                    alreadyResolved.add(xidInfo);
                 }
             }
+            commitXidInfos(recovered, false);
+            commitXidInfos(alreadyResolved, true);
         }
-        return commitPreparedTransactions(aggregatedCommitInfos);
+        return Collections.emptyList();
     }
 
     /**
@@ -112,19 +123,31 @@ public class JdbcSinkAggregatedCommitter
         tryOpen();
         for (JdbcAggregatedCommitInfo aggregatedCommitInfo : aggregatedCommitInfos) {
             log.info("commit xid: " + aggregatedCommitInfo.getXidInfoList());
-            List<XidInfo> pending = new ArrayList<>(aggregatedCommitInfo.getXidInfoList());
-            while (!pending.isEmpty()) {
-                GroupXaOperationResult<XidInfo> result =
-                        xaGroupOps.commit(
-                                pending,
-                                false,
-                                jdbcSinkConfig.getJdbcConnectionConfig().getMaxCommitAttempts());
-                // Zeta does not persist the returned committables before restarting a failed
-                // checkpoint, so complete bounded retries in this invocation.
-                pending = new ArrayList<>(result.getForRetry());
-            }
+            commitXidInfos(aggregatedCommitInfo.getXidInfoList(), false);
         }
         return Collections.emptyList();
+    }
+
+    /**
+     * Commits one XID list and exhausts bounded transient retries while the retry-attempt state is
+     * still available in memory.
+     *
+     * @param xidInfos prepared transactions to commit
+     * @param ignoreUnknown whether XAER_NOTA is accepted as an idempotent restore replay result
+     */
+    private void commitXidInfos(List<XidInfo> xidInfos, boolean ignoreUnknown) {
+        List<XidInfo> pending = new ArrayList<>(xidInfos);
+        while (!pending.isEmpty()) {
+            GroupXaOperationResult<XidInfo> result =
+                    xaGroupOps.commit(
+                            pending,
+                            false,
+                            jdbcSinkConfig.getJdbcConnectionConfig().getMaxCommitAttempts(),
+                            ignoreUnknown);
+            // Zeta does not persist the returned committables before restarting a failed
+            // checkpoint, so complete bounded retries in this invocation.
+            pending = new ArrayList<>(result.getForRetry());
+        }
     }
 
     @Override
@@ -155,23 +178,69 @@ public class JdbcSinkAggregatedCommitter
     }
 
     /**
-     * Compares canonical XID components so driver-specific {@link Xid} implementations do not
-     * affect recovery reconciliation.
+     * Normalizes driver-specific {@link Xid} implementations into canonical values for recovery
+     * reconciliation.
      *
      * @param recoveredXids transactions returned by the resource manager
+     * @return canonical values for transactions returned by the resource manager
+     */
+    private Set<XidKey> normalizeXids(Collection<Xid> recoveredXids) {
+        Set<XidKey> normalized = new HashSet<>();
+        for (Xid xid : recoveredXids) {
+            normalized.add(XidKey.from(xid));
+        }
+        return normalized;
+    }
+
+    /**
+     * Checks whether the recovery scan contains the checkpoint transaction by canonical XID value.
+     *
+     * @param recoveredXids canonical recovery-scan values
      * @param checkpointXid transaction restored from checkpoint state
      * @return whether the recovery scan contains the checkpoint transaction
      */
-    private boolean containsEquivalentXid(Collection<Xid> recoveredXids, Xid checkpointXid) {
-        return recoveredXids.stream()
-                .anyMatch(
-                        recoveredXid ->
-                                recoveredXid.getFormatId() == checkpointXid.getFormatId()
-                                        && Arrays.equals(
-                                                recoveredXid.getGlobalTransactionId(),
-                                                checkpointXid.getGlobalTransactionId())
-                                        && Arrays.equals(
-                                                recoveredXid.getBranchQualifier(),
-                                                checkpointXid.getBranchQualifier()));
+    private boolean containsEquivalentXid(Set<XidKey> recoveredXids, Xid checkpointXid) {
+        return recoveredXids.contains(XidKey.from(checkpointXid));
+    }
+
+    /** Canonical XID value used to compare driver-specific {@link Xid} implementations. */
+    private static final class XidKey {
+        private final int formatId;
+        private final byte[] globalTransactionId;
+        private final byte[] branchQualifier;
+
+        private XidKey(int formatId, byte[] globalTransactionId, byte[] branchQualifier) {
+            this.formatId = formatId;
+            this.globalTransactionId =
+                    Arrays.copyOf(globalTransactionId, globalTransactionId.length);
+            this.branchQualifier = Arrays.copyOf(branchQualifier, branchQualifier.length);
+        }
+
+        private static XidKey from(Xid xid) {
+            return new XidKey(
+                    xid.getFormatId(), xid.getGlobalTransactionId(), xid.getBranchQualifier());
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (!(o instanceof XidKey)) {
+                return false;
+            }
+            XidKey xidKey = (XidKey) o;
+            return formatId == xidKey.formatId
+                    && Arrays.equals(globalTransactionId, xidKey.globalTransactionId)
+                    && Arrays.equals(branchQualifier, xidKey.branchQualifier);
+        }
+
+        @Override
+        public int hashCode() {
+            int result = Objects.hash(formatId);
+            result = 31 * result + Arrays.hashCode(globalTransactionId);
+            result = 31 * result + Arrays.hashCode(branchQualifier);
+            return result;
+        }
     }
 }

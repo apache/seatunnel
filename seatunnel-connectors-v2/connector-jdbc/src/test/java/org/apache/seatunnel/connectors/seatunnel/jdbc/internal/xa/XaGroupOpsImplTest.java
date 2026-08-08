@@ -128,6 +128,19 @@ class XaGroupOpsImplTest {
         verify(xaFacade).commit(xid, false);
     }
 
+    /** Verifies that restore replay can opt into XAER_NOTA tolerance for selected XIDs. */
+    @Test
+    void testCommitCanIgnoreUnknownForRestoreReplay() {
+        XaFacade xaFacade = mock(XaFacade.class);
+        Xid xid = createXid();
+        XaGroupOps xaGroupOps = new XaGroupOpsImpl(xaFacade);
+
+        xaGroupOps.commit(
+                new ArrayList<>(Collections.singletonList(new XidInfo(xid, 0))), false, 3, true);
+
+        verify(xaFacade).commit(xid, true);
+    }
+
     /**
      * Creates a stable transaction identifier whose value is shared across grouped commit tests.
      */

@@ -41,6 +41,25 @@ public interface XaGroupOps extends Serializable {
     GroupXaOperationResult<XidInfo> commit(
             List<XidInfo> xids, boolean allowOutOfOrderCommits, int maxCommitAttempts);
 
+    /**
+     * Commits a batch of prepared transactions.
+     *
+     * @param xids prepared transactions to commit
+     * @param allowOutOfOrderCommits whether transactions after a failed transaction may be
+     *     committed
+     * @param maxCommitAttempts maximum number of transient commit attempts
+     * @param ignoreUnknown whether XAER_NOTA is accepted as an idempotent restore replay result;
+     *     implementations that do not override this method keep the strict commit behavior
+     * @return commit result containing transactions that need another attempt
+     */
+    default GroupXaOperationResult<XidInfo> commit(
+            List<XidInfo> xids,
+            boolean allowOutOfOrderCommits,
+            int maxCommitAttempts,
+            boolean ignoreUnknown) {
+        return commit(xids, allowOutOfOrderCommits, maxCommitAttempts);
+    }
+
     void rollback(List<XidInfo> xids);
 
     GroupXaOperationResult<XidInfo> failAndRollback(Collection<XidInfo> xids);
