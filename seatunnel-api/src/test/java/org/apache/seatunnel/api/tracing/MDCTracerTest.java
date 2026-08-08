@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.api.tracing;
 
+import org.apache.seatunnel.common.constants.JobMode;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.slf4j.MDC;
@@ -409,12 +411,14 @@ public class MDCTracerTest {
         Assertions.assertNull(MDC.get(MDCContext.JOB_ID));
         Assertions.assertNull(MDC.get(MDCContext.PIPELINE_ID));
         Assertions.assertNull(MDC.get(MDCContext.TASK_ID));
+        Assertions.assertNull(MDC.get(MDCContext.JOB_MODE));
 
-        MDCContext mdcContext = MDCContext.of(1, 2, 3);
+        MDCContext mdcContext = MDCContext.of(1, 2, 3, JobMode.STREAMING);
         try (MDCContext ignored = mdcContext.activate()) {
             Assertions.assertEquals("1", MDC.get(MDCContext.JOB_ID));
             Assertions.assertEquals("2", MDC.get(MDCContext.PIPELINE_ID));
             Assertions.assertEquals("3", MDC.get(MDCContext.TASK_ID));
+            Assertions.assertEquals("STREAMING", MDC.get(MDCContext.JOB_MODE));
 
             MDCContext currentMDCCOntext = MDCContext.current();
             Assertions.assertEquals(mdcContext, currentMDCCOntext);
@@ -423,5 +427,38 @@ public class MDCTracerTest {
         Assertions.assertNull(MDC.get(MDCContext.JOB_ID));
         Assertions.assertNull(MDC.get(MDCContext.PIPELINE_ID));
         Assertions.assertNull(MDC.get(MDCContext.TASK_ID));
+        Assertions.assertNull(MDC.get(MDCContext.JOB_MODE));
+    }
+
+    @Test
+    public void testMDCContextValueOfKeepsJobModeAndLegacyFormat() {
+        MDCContext modeAwareContext = MDCContext.of(1, 2, 3, JobMode.STREAMING);
+
+        Assertions.assertEquals("1/2/3/STREAMING", modeAwareContext.toString());
+        Assertions.assertEquals(modeAwareContext, MDCContext.valueOf(modeAwareContext.toString()));
+        Assertions.assertEquals("1/2/3", MDCContext.of(1, 2, 3).toString());
+        Assertions.assertNull(MDCContext.valueOf("1/0/0").getJobMode());
+        Assertions.assertNull(MDCContext.valueOf("1/2/3/UNKNOWN").getJobMode());
+    }
+
+    @Test
+    public void testNestedContextClearsAndRestoresJobMode() {
+        Assertions.assertNull(MDC.get(MDCContext.JOB_MODE));
+
+        try (MDCContext ignored = MDCContext.of(1, JobMode.STREAMING).activate()) {
+            Assertions.assertEquals("STREAMING", MDC.get(MDCContext.JOB_MODE));
+
+            try (MDCContext nested = MDCContext.of(2).activate()) {
+                Assertions.assertEquals("2", MDC.get(MDCContext.JOB_ID));
+                Assertions.assertNull(MDC.get(MDCContext.JOB_MODE));
+                Assertions.assertNull(MDCContext.current().getJobMode());
+            }
+
+            Assertions.assertEquals("1", MDC.get(MDCContext.JOB_ID));
+            Assertions.assertEquals("STREAMING", MDC.get(MDCContext.JOB_MODE));
+        }
+
+        Assertions.assertNull(MDC.get(MDCContext.JOB_ID));
+        Assertions.assertNull(MDC.get(MDCContext.JOB_MODE));
     }
 }

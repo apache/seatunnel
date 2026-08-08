@@ -25,8 +25,10 @@ import org.apache.seatunnel.api.common.metrics.RawJobMetrics;
 import org.apache.seatunnel.api.event.EventHandler;
 import org.apache.seatunnel.api.event.EventProcessor;
 import org.apache.seatunnel.api.options.EnvCommonOptions;
+import org.apache.seatunnel.api.tracing.MDCContext;
 import org.apache.seatunnel.api.tracing.MDCExecutorService;
 import org.apache.seatunnel.api.tracing.MDCTracer;
+import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
@@ -374,7 +376,8 @@ public class CoordinatorService {
         final PendingJobInfo finalPendingJobInfo = pendingJobQueue.take();
         final JobMaster finalJobMaster = finalPendingJobInfo.getJobMaster();
         PendingSourceState pendingSourceState = finalPendingJobInfo.getPendingSourceState();
-        MDCExecutorService mdcExecutorService = MDCTracer.tracing(jobId, executorService);
+        MDCExecutorService mdcExecutorService =
+                createJobMdcExecutorService(jobId, finalJobMaster.getJobImmutableInformation());
         mdcExecutorService.submit(
                 () -> {
                     try {
@@ -983,7 +986,10 @@ public class CoordinatorService {
                                                                     "restore job (%s) from master active switch finished",
                                                                     entry.getKey()));
                                                 },
-                                                MDCTracer.tracing(entry.getKey(), executorService)))
+                                                createJobMdcExecutorService(
+                                                        entry.getKey(),
+                                                        entry.getValue()
+                                                                .getJobImmutableInformation())))
                         .collect(Collectors.toList());
 
         try {
@@ -1042,7 +1048,7 @@ public class CoordinatorService {
                         jobId,
                         jobInfo.getJobImmutableInformation(),
                         nodeEngine,
-                        MDCTracer.tracing(jobId, executorService),
+                        createJobMdcExecutorService(jobId, jobInfo.getJobImmutableInformation()),
                         getResourceManager(),
                         getJobHistoryService(),
                         runningJobStateIMap,
@@ -1264,7 +1270,8 @@ public class CoordinatorService {
             return new PassiveCompletableFuture<>(jobSubmitFuture);
         }
 
-        MDCExecutorService mdcExecutorService = MDCTracer.tracing(jobId, executorService);
+        MDCExecutorService mdcExecutorService =
+                createJobMdcExecutorService(jobId, jobImmutableInformation);
         mdcExecutorService.submit(
                 () -> {
                     JobMaster jobMaster = null;
@@ -2245,6 +2252,90 @@ public class CoordinatorService {
     @VisibleForTesting
     void runPendingPipelineCleanupOnce() {
         cleanupPendingPipelines();
+    }
+
+    /**
+     * Create a job-scoped executor that carries the job mode before any job log appender is opened.
+     *
+     * @param jobId job id used by log routing
+     * @param jobImmutableInformation serialized immutable job information from the running job map
+     * @return an executor service that propagates job id and optional job mode through MDC
+     */
+    private MDCExecutorService createJobMdcExecutorService(
+            long jobId, Data jobImmutableInformation) {
+        return MDCTracer.tracing(
+                MDCContext.of(jobId, extractJobMode(jobId, jobImmutableInformation)),
+                executorService);
+    }
+
+    /**
+     * Create a job-scoped executor from an initialized JobMaster.
+     *
+     * @param jobId job id used by log routing
+     * @param jobImmutableInformation immutable job information already restored by JobMaster
+     * @return an executor service that propagates job id and optional job mode through MDC
+     */
+    private MDCExecutorService createJobMdcExecutorService(
+            long jobId, JobImmutableInformation jobImmutableInformation) {
+        return MDCTracer.tracing(
+                MDCContext.of(jobId, extractJobMode(jobId, jobImmutableInformation)),
+                executorService);
+    }
+
+    /**
+     * Extract the job mode from serialized immutable job information and fail closed when missing.
+     *
+     * @param jobId job id used for warning diagnostics
+     * @param jobImmutableInformation serialized immutable job information
+     * @return the configured job mode, or null when it cannot be trusted
+     */
+    private JobMode extractJobMode(long jobId, Data jobImmutableInformation) {
+        try {
+            JobImmutableInformation immutableInformation =
+                    nodeEngine.getSerializationService().toObject(jobImmutableInformation);
+            return extractJobMode(jobId, immutableInformation);
+        } catch (Exception e) {
+            logger.warning(
+                    String.format(
+                            "Failed to extract job mode for job %s; logs will use unclassified routing",
+                            jobId),
+                    e);
+            return null;
+        }
+    }
+
+    /**
+     * Extract the job mode from immutable job information and fail closed when missing.
+     *
+     * @param jobId job id used for warning diagnostics
+     * @param jobImmutableInformation immutable job information
+     * @return the configured job mode, or null when it cannot be trusted
+     */
+    private JobMode extractJobMode(long jobId, JobImmutableInformation jobImmutableInformation) {
+        JobMode jobMode = extractJobMode(jobImmutableInformation);
+        if (jobMode == null) {
+            logger.warning(
+                    String.format(
+                            "Missing job mode for job %s; logs will use unclassified routing",
+                            jobId));
+        }
+        return jobMode;
+    }
+
+    /**
+     * Extract the job mode from immutable job information without requiring a running coordinator.
+     *
+     * @param jobImmutableInformation immutable job information
+     * @return the configured job mode, or null when the information is incomplete
+     */
+    @VisibleForTesting
+    static JobMode extractJobMode(JobImmutableInformation jobImmutableInformation) {
+        if (jobImmutableInformation == null
+                || jobImmutableInformation.getJobConfig() == null
+                || jobImmutableInformation.getJobConfig().getJobContext() == null) {
+            return null;
+        }
+        return jobImmutableInformation.getJobConfig().getJobContext().getJobMode();
     }
 
     @VisibleForTesting
