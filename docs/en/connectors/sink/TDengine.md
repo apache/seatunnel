@@ -4,75 +4,207 @@ import ChangeLog from '../changelog/connector-tdengine.md';
 
 > TDengine sink connector
 
+## Support Those Engines
+
+> SeaTunnel Zeta<br/>
+
 ## Description
 
-Used to write data to TDengine. You need to create stable before running seatunnel task
+Write data to TDengine.
 
-## Key features
+Create the target database and super table before running the SeaTunnel job. The
+sink can write one input table to one super table, or use placeholders such as
+`${table_name}` in `stable` for multi-table writes.
+
+The input row must follow TDengine's super table write shape: the first field is
+the target sub table name, the middle fields are normal columns, and the last
+fields are TAGS values. The connector reads the number of TAGS fields from the
+target super table metadata.
+
+For example, if the target super table has two TAGS fields, the last two input
+fields are treated as TAGS values, and the first input field is treated as the
+sub table name.
+
+:::tip
+
+By default the sink uses 2PC commit to guarantee `exactly-once`. The Zeta
+engine must have checkpointing enabled for streaming jobs.
+
+:::
+
+## Key Features
 
 - [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
-## Options
+## Sink Options
 
-| name         | type   | required | default value |
-|--------------|--------|----------|---------------|
-| url          | string | yes      | -             |
-| username     | string | yes      | -             |
-| password     | string | yes      | -             |
-| database     | string | yes      |               |
-| stable       | string | yes      | -             |
-| timezone     | string | no       | UTC           |
-| write_columns| list   | no       | -             |
+| Name           | Type   | Required | Default Value | Description                                                                                                                                                                       |
+|----------------|--------|----------|---------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| url            | String | Yes      | -             | The TDengine REST JDBC URL, for example `jdbc:TAOS-RS://localhost:6041/`.                                                                                                          |
+| username       | String | Yes      | -             | The username used to connect to TDengine.                                                                                                                                         |
+| password       | String | Yes      | -             | The password used to connect to TDengine.                                                                                                                                         |
+| database       | String | Yes      | -             | The TDengine database name.                                                                                                                                                       |
+| stable         | String | Yes      | -             | The TDengine super table name. For multi-table writes, this value can contain placeholders, for example `${table_name}`.                                                            |
+| timezone       | String | No       | UTC           | The TDengine server timezone used for timestamp conversion.                                                                                                                       |
+| write_columns  | List   | No       | -             | The normal TDengine column names to insert. If it is not set, TDengine uses the column order of the target super table. Do not include the first input field that contains the sub table name, and do not include TAGS columns; the connector adds TAGS values from the end of the input row automatically. |
+| common-options |        | No       | -             | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details.                                                       |
 
-### url [string]
+### url [String]
 
-the url of the TDengine when you select the TDengine
-
-e.g.
+The TDengine REST JDBC URL.
 
 ```
 jdbc:TAOS-RS://localhost:6041/
 ```
 
-### username [string]
+### username [String]
 
-the username of the TDengine when you select
+The username used to connect to TDengine.
 
-### password [string]
+### password [String]
 
-the password of the TDengine when you select
+The password used to connect to TDengine.
 
-### database [string]
+### database [String]
 
-the database of the TDengine when you select
+The TDengine database name.
 
-### stable [string]
+### stable [String]
 
-the stable of the TDengine when you select
+The TDengine super table name. For multi-table writes, this value can contain
+placeholders, for example `${table_name}`. The placeholder is resolved against
+the upstream `CatalogTable` generated by the source.
 
-### timezone [string]
+### timezone [String]
 
-the timeznoe of the TDengine sever, it's important to the ts field
+The TDengine server timezone used for timestamp conversion. The default value is
+`UTC`. Make sure this matches the timezone configured on the TDengine server so
+timestamp columns are written consistently.
 
-### write_columns [list]
-The field names to be inserted into TDengine. If not set, all fields will be written. The plugin will automatically append TAGS columns, so please do not include TAGS columns in this option.
+### write_columns [List]
 
-## Example
+The normal TDengine column names to insert. If it is not set, TDengine uses the
+column order of the target super table. Do not include the first input field
+that contains the sub table name, and do not include TAGS columns; the connector
+adds TAGS values from the end of the input row automatically.
 
-### sink
+### common options
+
+Sink plugin common parameters, please refer to
+[Sink Common Options](../common-options/sink-common-options.md) for details.
+For multi-table writes, `multi_table_sink_replica` can be used with the common
+sink options.
+
+## Task Example
+
+### Write to one super table
 
 ```hocon
+env {
+  parallelism = 2
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    plugin_output = "fake"
+    schema = {
+      fields {
+        ts = timestamp
+        voltage = float
+        current = float
+        power = float
+      }
+    }
+    rows = [
+      {
+        kind = INSERT
+        fields = ["2023-04-22T14:38:05", 219.0, 0.31, 68.2]
+      }
+    ]
+  }
+}
+
 sink {
-        TDengine {
-          url : "jdbc:TAOS-RS://localhost:6041/"
-          username : "root"
-          password : "taosdata"
-          database : "power2"
-          stable : "meters2"
-          timezone: UTC
-          write_columns: ["ts", "voltage", "current", "power"]
+  TDengine {
+    url = "jdbc:TAOS-RS://localhost:6041/"
+    username = "root"
+    password = "taosdata"
+    database = "power2"
+    stable = "meters2"
+    timezone = "UTC"
+    write_columns = ["ts", "voltage", "current", "power"]
+  }
+}
+```
+
+### Write multiple input tables to matching super tables
+
+```hocon
+source {
+  FakeSource {
+    plugin_output = "fake"
+    tables_configs = [
+      {
+        schema = {
+          table = "meters3"
+          fields {
+            device_id = "string"
+            event_time = "timestamp"
+            metric1 = "float"
+            metric2 = "int"
+            metric3 = "float"
+            status_flag = "boolean"
+            notes = "string"
+            location_tag = "string"
+            group_tag = "int"
+          }
         }
+        rows = [
+          {
+            kind = INSERT
+            fields = ["d2001", "2023-04-22T14:38:05", 10.3, 219, 0.31, true, "nc", "California.SanFrancisco", 2]
+          }
+        ]
+      },
+      {
+        schema = {
+          table = "meters4"
+          fields {
+            device_id = "string"
+            event_time = "timestamp"
+            metric1 = "float"
+            metric2 = "int"
+            metric3 = "float"
+            status_flag = "boolean"
+            notes = "string"
+            location_tag = "string"
+            group_tag = "int"
+          }
+        }
+        rows = [
+          {
+            kind = INSERT
+            fields = ["d1005", "2023-04-22T14:38:05", 110.3, 219, 0.31, true, "nc", "California.SanFrancisco", 2]
+          }
+        ]
+      }
+    ]
+  }
+}
+
+sink {
+  TDengine {
+    url = "jdbc:TAOS-RS://localhost:6041/"
+    username = "root"
+    password = "taosdata"
+    database = "power2"
+    stable = "${table_name}"
+    timezone = "UTC"
+  }
 }
 ```
 

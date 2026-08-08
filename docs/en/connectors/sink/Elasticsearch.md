@@ -2,282 +2,271 @@ import ChangeLog from '../changelog/connector-elasticsearch.md';
 
 # Elasticsearch
 
+> Elasticsearch sink connector
+
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Description
 
 Output data to `Elasticsearch`.
+
+:::tip
+
+Engine Supported: `ElasticSearch version is >= 2.x and <= 8.x`.
+
+:::
 
 ## Key features
 
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
+- [x] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
-:::tip
+## Sink Options
 
-Engine Supported
+| Name                     | Type    | Required | Default Value                     | Description                                                                                                                                                                                                                                       |
+|--------------------------|---------|----------|-----------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| hosts                    | Array   | Yes      | -                                 | Elasticsearch cluster HTTP address, format `host:port`, allowing multiple hosts, for example `["host1:9200", "host2:9200"]`.                                                                                                                       |
+| index                    | String  | Yes      | -                                 | Elasticsearch index name. Supports placeholders that reference upstream field names, for example `seatunnel_${age}` (also requires `schema_save_mode = "IGNORE"`). The referenced field must exist in the upstream row, otherwise the placeholder is left as-is. |
+| index_type               | String  | No       | -                                 | Elasticsearch index type. It is recommended not to specify this on Elasticsearch 6 and above.                                                                                                                                                      |
+| primary_keys             | List    | No       | -                                 | Primary key fields used to generate the document `_id`. Required for CDC sources to produce deterministic document IDs.                                                                                                                            |
+| key_delimiter            | String  | No       | `_`                               | Delimiter used to join `primary_keys` into a composite `_id`, for example `$` produces document IDs like `KEY1$KEY2$KEY3`.                                                                                                                          |
+| schema_save_mode         | Enum    | No       | CREATE_SCHEMA_WHEN_NOT_EXIST      | How to handle the existing index structure on the target before the synchronization task starts. See `schema_save_mode` below.                                                                                                                    |
+| data_save_mode           | Enum    | No       | APPEND_DATA                       | How to handle existing documents on the target before writing new data. See `data_save_mode` below.                                                                                                                                                |
+| auth_type                | String  | No       | basic                             | Authentication method: `basic`, `api_key`, or `api_key_encoded`. Defaults to `basic` for backward compatibility.                                                                                                                                    |
+| username                 | String  | No       | -                                 | Username for HTTP basic authentication (X-Pack username).                                                                                                                                                                                          |
+| password                 | String  | No       | -                                 | Password for HTTP basic authentication (X-Pack password).                                                                                                                                                                                          |
+| auth.api_key_id          | String  | No       | -                                 | API key ID for `auth_type = "api_key"`.                                                                                                                                                                                                            |
+| auth.api_key             | String  | No       | -                                 | API key secret for `auth_type = "api_key"`.                                                                                                                                                                                                        |
+| auth.api_key_encoded     | String  | No       | -                                 | Base64-encoded API key (`base64(id:api_key)`) for `auth_type = "api_key_encoded"`. Either `auth.api_key_id` + `auth.api_key` OR `auth.api_key_encoded` should be set, but not both.                                                                |
+| max_retry_count          | Int     | No       | 3                                 | Maximum retry count for a single bulk request.                                                                                                                                                                                                     |
+| max_batch_size           | Int     | No       | 10                                | Maximum number of documents included in a single bulk request.                                                                                                                                                                                     |
+| tls_verify_certificate   | Boolean | No       | true                              | Enable certificate validation for HTTPS endpoints.                                                                                                                                                                                                 |
+| tls_verify_hostname      | Boolean | No       | true                              | Enable hostname validation for HTTPS endpoints.                                                                                                                                                                                                   |
+| tls_keystore_path        | String  | No       | -                                 | Path to the PEM or JKS key store. Must be readable by the user running SeaTunnel.                                                                                                                                                                  |
+| tls_keystore_password    | String  | No       | -                                 | Key password for `tls_keystore_path`.                                                                                                                                                                                                              |
+| tls_truststore_path      | String  | No       | -                                 | Path to the PEM or JKS trust store. Must be readable by the user running SeaTunnel.                                                                                                                                                                |
+| tls_truststore_password  | String  | No       | -                                 | Key password for `tls_truststore_path`.                                                                                                                                                                                                            |
+| vectorization_fields     | Array   | No       | -                                 | Field names that require vector conversion. Requires Elasticsearch 7.3 or later.                                                                                                                                                                    |
+| vector_dimensions        | Int     | No       | 0                                 | Vector dimension for `vectorization_fields`. Requires Elasticsearch 7.3 or later.                                                                                                                                                                  |
+| multi_table_sink_replica | Int     | No       | 1                                 | Number of sink writer replicas used per table in a multi-table sink job. Keep the default unless one table needs more parallelism.                                                                                                                  |
+| common-options           |         | No       | -                                 | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details.                                                                                                                          |
 
-* supported  `ElasticSearch version is >= 2.x and <= 8.x`
+### hosts [Array]
 
-:::
+Elasticsearch cluster HTTP address, format `host:port`, allowing multiple
+hosts, for example `["host1:9200", "host2:9200"]`.
 
-## Options
+### index [String]
 
-| name                    | type    | required |        default value         |
-|-------------------------|---------|----------|------------------------------|
-| hosts                   | array   | yes      | -                            |
-| index                   | string  | yes      | -                            |
-| schema_save_mode        | string  | yes      | CREATE_SCHEMA_WHEN_NOT_EXIST |
-| data_save_mode          | string  | yes      | APPEND_DATA                  |
-| index_type              | string  | no       |                              |
-| primary_keys            | list    | no       |                              |
-| key_delimiter           | string  | no       | `_`                          |
-| auth_type               | string  | no       | basic                        |
-| username                | string  | no       |                              |
-| password                | string  | no       |                              |
-| auth.api_key_id         | string  | no       | -                            |
-| auth.api_key            | string  | no       | -                            |
-| auth.api_key_encoded    | string  | no       | -                            |
-| max_retry_count         | int     | no       | 3                            |
-| max_batch_size          | int     | no       | 10                           |
-| tls_verify_certificate  | boolean | no       | true                         |
-| tls_verify_hostname    | boolean | no       | true                         |
-| tls_keystore_path       | string  | no       | -                            |
-| tls_keystore_password   | string  | no       | -                            |
-| tls_truststore_path     | string  | no       | -                            |
-| tls_truststore_password | string  | no       | -                            |
-| common-options          |         | no       | -                            |
-| vectorization_fields    | array   | no       | -                            |
-| vector_dimensions       | int     | no       | -                            |
-### hosts [array]
+Elasticsearch index name. The value supports placeholders that reference
+upstream field names, for example `seatunnel_${age}` (also requires
+`schema_save_mode = "IGNORE"`). The referenced field must exist in the
+upstream row, otherwise the placeholder is treated as a literal value.
 
-`Elasticsearch` cluster http address, the format is `host:port` , allowing multiple hosts to be specified. Such as `["host1:9200", "host2:9200"]`.
+### index_type [String]
 
-### index [string]
+Elasticsearch index type. It is recommended not to specify this on
+Elasticsearch 6 and above.
 
-`Elasticsearch`  `index` name.Index support contains variables of field name,such as `seatunnel_${age}`(Need to configure schema_save_mode="IGNORE"),and the field must appear at seatunnel row.
-If not, we will treat it as a normal index.
+### primary_keys [List]
 
-### index_type [string]
+Primary key fields used to generate the document `_id`. Required for CDC sources
+to produce deterministic document IDs.
 
-`Elasticsearch` index type, it is recommended not to specify in elasticsearch 6 and above
+### key_delimiter [String]
 
-### primary_keys [list]
+Delimiter used to join `primary_keys` into a composite `_id`. The default `_`
+produces IDs like `KEY1_KEY2_KEY3`. Use `$` to produce `KEY1$KEY2$KEY3`.
 
-Primary key fields used to generate the document `_id`, this is cdc required options.
+### auth_type [String]
 
-### key_delimiter [string]
+Authentication method used by the connector:
 
-Delimiter for composite keys ("_" by default), e.g., "$" would result in document `_id` "KEY1$KEY2$KEY3".
+- `basic` (default): HTTP Basic authentication using `username` and `password`.
+- `api_key`: API key authentication using `auth.api_key_id` + `auth.api_key`.
+- `api_key_encoded`: API key authentication using `auth.api_key_encoded`.
 
-## Authentication
+### username / password [String]
 
-The Elasticsearch connector supports multiple authentication methods to connect to secured Elasticsearch clusters. You can choose the appropriate authentication method based on your Elasticsearch security configuration.
+X-Pack credentials for HTTP basic authentication. Used when `auth_type =
+"basic"` (default).
 
-### auth_type [enum]
+### auth.api_key_id / auth.api_key / auth.api_key_encoded [String]
 
-Specifies the authentication method to use. Supported values:
-- `basic` (default): HTTP Basic Authentication using username and password
-- `api_key`: Elasticsearch API Key authentication using separate ID and key
-- `api_key_encoded`: Elasticsearch API Key authentication using encoded key
+API key credentials for `auth_type = "api_key"` or `auth_type =
+"api_key_encoded"`. Either `auth.api_key_id` + `auth.api_key` OR
+`auth.api_key_encoded` should be set, but not both.
 
-If not specified, defaults to `basic` for backward compatibility.
+### max_retry_count [Int]
 
-### Basic Authentication
+Maximum retry count for a single bulk request when the upstream cluster is
+unavailable.
 
-Basic authentication uses HTTP Basic Authentication with username and password credentials.
+### max_batch_size [Int]
 
-#### username [string]
+Maximum number of documents included in a single bulk request.
 
-Username for basic authentication (x-pack username).
+### tls_verify_certificate [Boolean]
 
-#### password [string]
+Enable certificate validation for HTTPS endpoints. Set to `false` to disable
+certificate validation (typically only used in development).
 
-Password for basic authentication (x-pack password).
+### tls_verify_hostname [Boolean]
 
-### vectorization_fields [array]
-Field names that require vector conversion, supported by Elasticsearch 7.3 and later versions
+Enable hostname validation for HTTPS endpoints. Set to `false` to disable
+hostname validation (typically only used in development).
 
-### vector_dimensions [int]
-Vector dimension, supported by Elasticsearch 7.3 and later versions
+### tls_keystore_path / tls_keystore_password [String]
 
-**Example:**
-```hocon
-sink {
-    Elasticsearch {
-        hosts = ["https://localhost:9200"]
-        auth_type = "basic"
-        username = "elastic"
-        password = "your_password"
-        index = "my_index"
-    }
-}
-```
+Path to the PEM or JKS key store and its password. The file must be readable by
+the user running SeaTunnel.
 
-### API Key Authentication
+### tls_truststore_path / tls_truststore_password [String]
 
-API Key authentication provides a more secure way to authenticate with Elasticsearch using API keys.
+Path to the PEM or JKS trust store and its password. The file must be readable
+by the user running SeaTunnel.
 
-#### auth.api_key_id [string]
+### vectorization_fields [Array]
 
-The API key ID generated by Elasticsearch.
+Field names that require vector conversion. Requires Elasticsearch 7.3 or later.
 
-#### auth.api_key [string]
+### vector_dimensions [Int]
 
-The API key secret generated by Elasticsearch.
+Vector dimension for `vectorization_fields`. Requires Elasticsearch 7.3 or later.
 
-#### auth.api_key_encoded [string]
+### multi_table_sink_replica [Int]
 
-Base64 encoded API key in the format `base64(id:api_key)`. This is an alternative to specifying `auth.api_key_id` and `auth.api_key` separately.
-
-**Note:** You can use either `auth.api_key_id` + `auth.api_key` OR `auth.api_key_encoded`, but not both.
-
-**Example with separate ID and key:**
-```hocon
-sink {
-    Elasticsearch {
-        hosts = ["https://localhost:9200"]
-        auth_type = "api_key"
-        auth.api_key_id = "your_api_key_id"
-        auth.api_key = "your_api_key_secret"
-        index = "my_index"
-    }
-}
-```
-
-**Example with encoded key:**
-```hocon
-sink {
-    Elasticsearch {
-        hosts = ["https://localhost:9200"]
-        auth_type = "api_key_encoded"
-        auth.api_key_encoded = "eW91cl9hcGlfa2V5X2lkOnlvdXJfYXBpX2tleV9zZWNyZXQ="
-        index = "my_index"
-    }
-}
-```
-
-
-
-### max_retry_count [int]
-
-one bulk request max try size
-
-### max_batch_size [int]
-
-batch bulk doc max size
-
-### tls_verify_certificate [boolean]
-
-Enable certificates validation for HTTPS endpoints
-
-### tls_verify_hostname [boolean]
-
-Enable hostname validation for HTTPS endpoints
-
-### tls_keystore_path [string]
-
-The path to the PEM or JKS key store. This file must be readable by the operating system user running SeaTunnel.
-
-### tls_keystore_password [string]
-
-The key password for the key store specified
-
-### tls_truststore_path [string]
-
-The path to PEM or JKS trust store. This file must be readable by the operating system user running SeaTunnel.
-
-### tls_truststore_password [string]
-
-The key password for the trust store specified
+Number of sink writer replicas used per table in a multi-table sink job. Keep
+the default value unless one table needs more sink writer parallelism.
 
 ### common options
 
-Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details
+Sink plugin common parameters, please refer to
+[Sink Common Options](../common-options/sink-common-options.md) for details.
 
-### schema_save_mode
+### schema_save_mode [Enum]
 
-Before the synchronous task is turned on, different treatment schemes are selected for the existing surface structure of the target side.
-Option introduction：  
-`RECREATE_SCHEMA` ：Will create when the table does not exist, delete and rebuild when the table is saved  
-`CREATE_SCHEMA_WHEN_NOT_EXIST` ：Will Created when the table does not exist, skipped when the table is saved  
-`ERROR_WHEN_SCHEMA_NOT_EXIST` ：Error will be reported when the table does not exist  
-`IGNORE` ：Ignore the treatment of the table
+How to handle the existing index structure on the target before the
+synchronization task starts.
 
-### data_save_mode
+- `RECREATE_SCHEMA`: Drop and recreate the index when it already exists.
+- `CREATE_SCHEMA_WHEN_NOT_EXIST`: Create the index when it does not exist,
+  skip when it already exists.
+- `ERROR_WHEN_SCHEMA_NOT_EXIST`: Report an error when the index does not exist.
+- `IGNORE`: Skip the index handling.
 
-Before the synchronous task is turned on, different processing schemes are selected for data existing data on the target side.
-Option introduction：  
-`DROP_DATA`： Preserve database structure and delete data  
-`APPEND_DATA`：Preserve database structure, preserve data  
-`ERROR_WHEN_DATA_EXISTS`：When there is data, an error is reported
+### data_save_mode [Enum]
 
-## Examples
+How to handle existing documents on the target before writing new data.
 
-Simple
+- `DROP_DATA`: Preserve index structure and delete data.
+- `APPEND_DATA`: Preserve index structure and preserve data.
+- `ERROR_WHEN_DATA_EXISTS`: Report an error when there is existing data.
 
-```conf
+## Timer Flush on Zeta
+
+This engine-level feature is supported only by Zeta. Spark and Flink do not
+inject `FlushSignal` records. On Zeta, configure `sink.flush.interval` in the
+`env` block to flush pending bulk requests before `max_batch_size` is reached.
+
+:::tip
+
+Elasticsearch timer flush does not provide 2PC exactly-once semantics. The
+Elasticsearch Sink currently provides at-least-once delivery, and retries can
+produce duplicate writes when document IDs are not deterministic.
+
+:::
+
+```hocon
+env {
+  job.mode = "STREAMING"
+  checkpoint.interval = 300000
+  sink.flush.interval = 5000
+}
+
+sink {
+  Elasticsearch {
+    hosts = ["localhost:9200"]
+    index = "seatunnel-index"
+    max_batch_size = 10000
+  }
+}
+```
+
+## Task Example
+
+### Simple
+
+```hocon
 sink {
     Elasticsearch {
         hosts = ["localhost:9200"]
         index = "seatunnel-${age}"
-        schema_save_mode="IGNORE"
+        schema_save_mode = "IGNORE"
     }
 }
-
 ```
-Multi-table writing
 
-```conf
+### Multi-table writing
+
+```hocon
 sink {
     Elasticsearch {
         hosts = ["localhost:9200"]
         index = "${table_name}"
-        schema_save_mode="IGNORE"
+        schema_save_mode = "IGNORE"
+        multi_table_sink_replica = 1
     }
 }
 ```
 
-vector-field writing
+### Vector field writing
 
-```conf
+```hocon
 sink {
     Elasticsearch {
         hosts = ["localhost:9200"]
         index = "${table_name}"
-        schema_save_mode="IGNORE"
-        vectorization_fields = ["review_embedding"]  
-        vector_dimensions = 1024 
+        schema_save_mode = "IGNORE"
+        vectorization_fields = ["review_embedding"]
+        vector_dimensions = 1024
     }
 }
 ```
 
-CDC(Change data capture) event
+### CDC (Change Data Capture) event
 
-```conf
+```hocon
 sink {
     Elasticsearch {
         hosts = ["localhost:9200"]
         index = "seatunnel-${age}"
-        schema_save_mode="IGNORE"
-        # cdc required options
-        primary_keys = ["key1", "key2", ...]
+        schema_save_mode = "IGNORE"
+        primary_keys = ["key1", "key2"]
     }
 }
-
 ```
-CDC(Change data capture) event Multi-table writing
 
-```conf
+### CDC multi-table writing
+
+```hocon
 sink {
     Elasticsearch {
         hosts = ["localhost:9200"]
         index = "${table_name}"
-        schema_save_mode="IGNORE"
+        schema_save_mode = "IGNORE"
         primary_keys = ["${primary_key}"]
     }
 }
 ```
 
-SSL (Disable certificates validation)
+### SSL (Disable certificate validation)
 
 ```hocon
 sink {
@@ -285,13 +274,12 @@ sink {
         hosts = ["https://localhost:9200"]
         username = "elastic"
         password = "elasticsearch"
-        
         tls_verify_certificate = false
     }
 }
 ```
 
-SSL (Disable hostname validation)
+### SSL (Disable hostname validation)
 
 ```hocon
 sink {
@@ -299,13 +287,12 @@ sink {
         hosts = ["https://localhost:9200"]
         username = "elastic"
         password = "elasticsearch"
-        
         tls_verify_hostname = false
     }
 }
 ```
 
-SSL (Enable certificates validation)
+### SSL (Enable certificate validation)
 
 ```hocon
 sink {
@@ -313,14 +300,13 @@ sink {
         hosts = ["https://localhost:9200"]
         username = "elastic"
         password = "elasticsearch"
-        
         tls_keystore_path = "${your elasticsearch home}/config/certs/http.p12"
         tls_keystore_password = "${your password}"
     }
 }
 ```
 
-SAVE_MODE
+### Save Mode
 
 ```hocon
 sink {
@@ -328,23 +314,21 @@ sink {
         hosts = ["https://localhost:9200"]
         username = "elastic"
         password = "elasticsearch"
-        
         schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
         data_save_mode = "APPEND_DATA"
     }
 }
 ```
 
-### Schema Evolution
+## Schema Evolution
 
-CDC collection supports a limited number of schema changes. The currently supported schema changes include:
+CDC collection supports a limited number of schema changes. The currently
+supported schema changes include:
 
-* Adding columns.
+- Adding columns.
 
-### Schema Evolution
 ```hocon
 env {
-  # You can set engine configuration here
   parallelism = 5
   job.mode = "STREAMING"
   checkpoint.interval = 5000
@@ -372,8 +356,8 @@ sink {
     tls_verify_hostname = false
     index = "schema_change_index"
     index_type = "_doc"
-    "schema_save_mode" = "CREATE_SCHEMA_WHEN_NOT_EXIST"
-    "data_save_mode" = "APPEND_DATA"
+    schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
+    data_save_mode = "APPEND_DATA"
   }
 }
 ```

@@ -33,25 +33,26 @@ import ChangeLog from '../changelog/connector-hive.md';
 
 ## 选项
 
-| 名称                                    | 类型      | 必需 | 默认值            |
-|---------------------------------------|---------|----|----------------|
-| table_name                            | string  | 是  | -              |
-| metastore_uri                         | string  | 是  | -              |
-| compress_codec                        | string  | 否  | none           |
-| hdfs_site_path                        | string  | 否  | -              |
-| hive_site_path                        | string  | 否  | -              |
-| hive.hadoop.conf                      | Map     | 否  | -              |
-| hive.hadoop.conf-path                 | string  | 否  | -              |
-| krb5_path                             | string  | 否  | /etc/krb5.conf |
-| kerberos_principal                    | string  | 否  | -              |
-| kerberos_keytab_path                  | string  | 否  | -              |
-| abort_drop_partition_metadata         | boolean | 否  | false          |
-| parquet_avro_write_timestamp_as_int96 | boolean | 否  | false          |
-| overwrite                             | boolean | 否  | false          |
-| data_save_mode                        | enum    | 否  | APPEND_DATA    |
-| schema_save_mode                      | enum    | 否  | CREATE_SCHEMA_WHEN_NOT_EXIST |
-| save_mode_create_template             | string  | 否  | -              |
-| common-options                        |         | 否  | -              |
+| 名称                                    | 类型      | 必需 | 默认值            | 说明                                                                                                                                                |
+|---------------------------------------|---------|----|----------------|---------------------------------------------------------------------------------------------------------------------------------------------------|
+| table_name                            | String  | 是  | -              | 目标 Hive 表名，例如 `db1.table1`。源为多表模式时，可使用 `${database_name}.${table_name}` 占位符。                                                                  |
+| metastore_uri                         | String  | 是  | -              | Hive 元存储 URI。支持逗号分隔配置多个 URI 用于高可用/故障切换。                                                                                                       |
+| compress_codec                        | String  | 否  | none           | 文件压缩编解码器。`text`/`csv`/`json` 支持 `lzo`、`none`；`orc`/`parquet` 自动识别压缩类型。                                                                                  |
+| hdfs_site_path                        | String  | 否  | -              | `hdfs-site.xml` 的路径，用于加载 Namenode 的高可用配置。                                                                                                       |
+| hive_site_path                        | String  | 否  | -              | `hive-site.xml` 的路径。                                                                                                                            |
+| hive.hadoop.conf                      | Map     | 否  | -              | Hadoop 配置中的属性（`core-site.xml`、`hdfs-site.xml`、`hive-site.xml`）。                                                                                      |
+| hive.hadoop.conf-path                 | String  | 否  | -              | 指定加载 `core-site.xml`、`hdfs-site.xml`、`hive-site.xml` 文件的路径。                                                                                            |
+| remote_user                           | String  | 否  | -              | 未使用 Kerberos 凭据连接 HDFS/Hive 存储时使用的 Hadoop 远端用户名。                                                                                                |
+| krb5_path                             | String  | 否  | /etc/krb5.conf | `krb5.conf` 的路径，用于 Kerberos 认证。                                                                                                                 |
+| kerberos_principal                    | String  | 否  | -              | Kerberos 认证的主体。                                                                                                                                |
+| kerberos_keytab_path                  | String  | 否  | -              | Kerberos 认证的 keytab 文件路径。                                                                                                                       |
+| abort_drop_partition_metadata         | Boolean | 否  | false          | 中止操作时是否删除 Hive Metastore 中的分区元数据；只影响元数据，分区数据始终会被删除。                                                                                       |
+| parquet_avro_write_timestamp_as_int96 | Boolean | 否  | false          | 支持从时间戳写入 Parquet INT96，仅对 Parquet 文件有效。                                                                                                          |
+| overwrite                             | Boolean | 否  | false          | 是否以覆盖写入方式写入 Hive。批量模式下删除目标目录再写入；流式模式下每个 checkpoint 最多删除一次目标目录。                                                                              |
+| data_save_mode                        | Enum    | 否  | APPEND_DATA    | 写入前对目标已有数据的处理方式。详见 `data_save_mode` 说明。                                                                                                          |
+| schema_save_mode                      | Enum    | 否  | CREATE_SCHEMA_WHEN_NOT_EXIST | 同步开始前对目标表结构的处理方式。详见 `schema_save_mode` 说明。                                                                |
+| save_mode_create_template             | String  | 否  | -              | 自动建表使用的模板。可用变量：`${database}`、`${table}`、`${rowtype_fields}`、`${rowtype_partition_fields}`、`${table_location}`。                              |
+| common-options                        |         | 否  | -              | Sink 插件的通用参数，请参阅 [Sink Common Options](../common-options/sink-common-options.md) 了解详细信息。                                                              |
 
 ### table_name [string]
 
@@ -77,6 +78,10 @@ Hadoop 配置中的属性（`core-site.xml`、`hdfs-site.xml`、`hive-site.xml`�
 
 指定加载 `core-site.xml`、`hdfs-site.xml`、`hive-site.xml` 文件的路径
 
+### remote_user [string]
+
+未使用 Kerberos 凭据连接 HDFS/Hive 存储时使用的 Hadoop 远端用户名。
+
 ### krb5_path [string]
 
 `krb5.conf` 的路径，用于 Kerberos 认证
@@ -94,6 +99,8 @@ Kerberos 的 keytab 文件路径
 ### abort_drop_partition_metadata [boolean]
 
 在中止操作期间是否从 Hive Metastore 中删除分区元数据的标志。注意：这只影响元存储中的元数据，分区中的数据将始终被删除（同步过程中生成的数据）。
+
+默认值为 `false`。
 
 ### parquet_avro_write_timestamp_as_int96 [boolean]
 
@@ -115,6 +122,8 @@ Kerberos 的 keytab 文件路径
 - CUSTOM_PROCESSING / ERROR_WHEN_DATA_EXISTS：如无特殊需求，不建议在 Hive sink 下使用
 
 注意：overwrite=true 与 data_save_mode=DROP_DATA 行为等价，二者择一配置即可，勿同时设置。
+
+批处理作业中，如果希望本次运行替换目标 Hive 表里的已有数据，可以使用 `overwrite = true` 或 `data_save_mode = "DROP_DATA"`。普通追加写入场景保持默认的 `data_save_mode = "APPEND_DATA"` 即可。
 
 ### schema_save_mode [枚举]
 
@@ -578,51 +587,20 @@ sink {
 ```
 ## 常见问题
 
-### Hive Sink 支持哪些文件格式？
-
-Hive Sink 支持 `ORC`、`PARQUET`、`TEXT`、`JSON` 和 `SEQUENCE` 格式。通过 `file_format_type` 参数指定，需确保 Hive 表的 `STORED AS` 子句与配置的格式一致。
-
-### Hive Sink 是否支持分区表？
-
-支持。对于分区表，通过 `partition_by` 指定分区字段，SeaTunnel 会自动将数据写入正确的分区目录：
-
-```hocon
-sink {
-  Hive {
-    table_name = "mydb.sales"
-    metastore_uri = "thrift://hive-metastore:9083"
-    partition_by = ["dt", "region"]
-  }
-}
-```
-
-### 如何连接已启用 Kerberos 的 Hadoop 集群？
-
-在连接器配置中提供 Kerberos keytab 和 principal：
-
-```hocon
-sink {
-  Hive {
-    table_name = "mydb.events"
-    metastore_uri = "thrift://hive-metastore:9083"
-    kerberos_principal = "hive/host@REALM.COM"
-    kerberos_keytab_path = "/etc/security/keytabs/hive.keytab"
-    krb5_path = "/etc/krb5.conf"
-  }
-}
-```
-
 ### 为什么 Hive 表中产生了大量小文件？
 
 当任务并行度较高或批次较小时会产生大量小文件。减少小文件的方法：
 
 - 降低 `env` 块中的 `parallelism`。
-- 增大 `batch_size`，使每个 task 写入更大的文件。
 - 定期运行 `ALTER TABLE ... CONCATENATE` 或使用 Spark merge 任务合并小文件。
 
 ### Hive Sink 是否支持 Schema 演变？
 
 Hive Sink 从 Hive Metastore 读取当前表 schema。若上游新增了列，需先手动执行 `ALTER TABLE` 更新 Hive 表结构，SeaTunnel 不会自动修改 Hive schema。
+
+### `overwrite` 与 `data_save_mode` 有什么区别？
+
+`overwrite = true` 与 `data_save_mode = "DROP_DATA"` 行为一致：先删除目标目录（非分区表删除表目录，分区表删除相关分区目录），再写入新数据。两者择一配置即可，不要同时设置。默认的 `data_save_mode = "APPEND_DATA"` 会保留已有数据并追加新行。
 
 ## 变更日志
 

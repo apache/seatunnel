@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-hive.md';
 
 > Hive sink connector
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Description
 
 Write data to Hive.
@@ -20,7 +26,7 @@ If you use SeaTunnel Engine, You need put seatunnel-hadoop3-3.1.4-uber.jar and h
 - [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
 - [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 
-By default, we use 2PC commit to ensure `exactly-once`
+By default, we use 2PC commit to ensure `exactly-once`.
 
 - [x] file format
   - [x] text
@@ -31,110 +37,159 @@ By default, we use 2PC commit to ensure `exactly-once`
 - [x] compress codec
   - [x] lzo
 
-## Options
+## Sink Options
 
-| name                                  | type    | required | default value  |
-|---------------------------------------|---------|----------|----------------|
-| table_name                            | string  | yes      | -              |
-| metastore_uri                         | string  | yes      | -              |
-| compress_codec                        | string  | no       | none           |
-| hdfs_site_path                        | string  | no       | -              |
-| hive_site_path                        | string  | no       | -              |
-| hive.hadoop.conf                      | Map     | no       | -              |
-| hive.hadoop.conf-path                 | string  | no       | -              |
-| krb5_path                             | string  | no       | /etc/krb5.conf |
-| kerberos_principal                    | string  | no       | -              |
-| kerberos_keytab_path                  | string  | no       | -              |
-| abort_drop_partition_metadata         | boolean | no       | true           |
-| parquet_avro_write_timestamp_as_int96 | boolean | no       | false          |
-| overwrite                             | boolean | no       | false          |
-| data_save_mode                        | enum    | no       | APPEND_DATA    |
-| schema_save_mode                      | enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST |
-| save_mode_create_template             | string  | no       | -              |
-| common-options                        |         | no       | -              |
+| Name                                | Type    | Required | Default Value                     | Description                                                                                                                                                                                                                                                                                                                                       |
+|-------------------------------------|---------|----------|-----------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| table_name                          | String  | Yes      | -                                 | Target Hive table name, for example `db1.table1`. When the source is in multi-table mode, you can use `${database_name}.${table_name}` to generate the table name; `${database_name}` and `${table_name}` are replaced with the values from the upstream `CatalogTable`.                                                                       |
+| metastore_uri                       | String  | Yes      | -                                 | Hive metastore URI. Supports comma-separated multiple URIs for HA/failover (whitespace is ignored). SeaTunnel passes this value to Hive `hive.metastore.uris` and uses `RetryingMetaStoreClient` to retry/failover between URIs.                                                                                                          |
+| compress_codec                      | String  | No       | none                              | The compression codec of files. Supported codecs: `lzo`, `none` for text/csv/json. For orc/parquet the compression type is automatically recognized from the file metadata.                                                                                                                                                                     |
+| hdfs_site_path                      | String  | No       | -                                 | The path of `hdfs-site.xml`, used to load HA configuration of namenodes.                                                                                                                                                                                                                                                                          |
+| hive_site_path                      | String  | No       | -                                 | The path of `hive-site.xml`.                                                                                                                                                                                                                                                                                                                       |
+| hive.hadoop.conf                    | Map     | No       | -                                 | Properties in hadoop conf (`core-site.xml`, `hdfs-site.xml`, `hive-site.xml`).                                                                                                                                                                                                                                                                    |
+| hive.hadoop.conf-path               | String  | No       | -                                 | The specified loading path for `core-site.xml`, `hdfs-site.xml`, `hive-site.xml`.                                                                                                                                                                                                                                                                  |
+| remote_user                         | String  | No       | -                                 | Hadoop remote user name used when connecting to HDFS/Hive storage without Kerberos credentials.                                                                                                                                                                                                                                                   |
+| krb5_path                           | String  | No       | /etc/krb5.conf                     | The path of `krb5.conf`, used for Kerberos authentication.                                                                                                                                                                                                                                                                                        |
+| kerberos_principal                  | String  | No       | -                                 | The principal of Kerberos authentication.                                                                                                                                                                                                                                                                                                         |
+| kerberos_keytab_path                | String  | No       | -                                 | The keytab file path of Kerberos authentication.                                                                                                                                                                                                                                                                                                  |
+| abort_drop_partition_metadata       | Boolean | No       | false                             | Drop partition metadata from the Hive Metastore during an abort operation. Only affects metastore metadata; the data in the partition is always deleted (data generated during the synchronization process).                                                                                                                                   |
+| parquet_avro_write_timestamp_as_int96 | Boolean | No       | false                             | Support writing Parquet INT96 from a timestamp. Only valid for Parquet files.                                                                                                                                                                                                                                                                     |
+| overwrite                           | Boolean | No       | false                             | Use overwrite mode when inserting data into Hive. For non-partitioned tables, the existing data in the table is deleted before inserting new data. For partitioned tables, the data in the relevant partition is deleted before inserting new data.                                                                                            |
+| data_save_mode                      | Enum    | No       | APPEND_DATA                       | How to handle existing data on the target before writing new data. `APPEND_DATA` keeps existing data and appends new records. `DROP_DATA` behaves like `overwrite = true` and is the recommended option when you want to fully replace the table. `CUSTOM_PROCESSING` and `ERROR_WHEN_DATA_EXISTS` are not recommended unless you have specific requirements. |
+| schema_save_mode                    | Enum    | No       | CREATE_SCHEMA_WHEN_NOT_EXIST       | How to handle the existing table structure on the target before the synchronization task starts. See `schema_save_mode` below for valid values.                                                                                                                                                                                                  |
+| save_mode_create_template           | String  | No       | -                                 | Template used to auto-create the Hive table. Available template variables: `${database}`, `${table}`, `${rowtype_fields}`, `${rowtype_partition_fields}`, `${table_location}`.                                                                                                                                                                    |
+| common-options                      |         | No       | -                                 | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details.                                                                                                                                                                                                                       |
 
-### table_name [string]
+### table_name [String]
 
-Target Hive table name eg: db1.table1, and if the source is multiple mode, you can use `${database_name}.${table_name}` to generate the table name, it will replace the `${database_name}` and `${table_name}` with the value of the CatalogTable generate from the source.
+Target Hive table name, for example `db1.table1`. When the source is in
+multi-table mode, you can use `${database_name}.${table_name}` to generate the
+table name; `${database_name}` and `${table_name}` are replaced with the
+values from the upstream `CatalogTable`.
 
-### metastore_uri [string]
+### metastore_uri [String]
 
-Hive metastore uri. Supports comma-separated multiple URIs for HA/failover (whitespace is ignored). SeaTunnel passes this value to Hive `hive.metastore.uris` and uses Hive `RetryingMetaStoreClient` (if available) to retry/failover between URIs. This is client-side endpoint failover; make sure your metastores share/replicate the same backend to keep metadata consistent.
+Hive metastore URI. Supports comma-separated multiple URIs for HA/failover
+(whitespace is ignored). SeaTunnel passes this value to Hive `hive.metastore.uris`
+and uses `RetryingMetaStoreClient` (if available) to retry/failover between
+URIs. This is client-side endpoint failover; make sure your metastores
+share/replicate the same backend to keep metadata consistent.
 
-### hdfs_site_path [string]
+### hdfs_site_path [String]
 
-The path of `hdfs-site.xml`, used to load ha configuration of namenodes
+The path of `hdfs-site.xml`, used to load HA configuration of namenodes.
 
-### hive_site_path [string]
+### hive_site_path [String]
 
-The path of `hive-site.xml`
+The path of `hive-site.xml`.
 
-### hive.hadoop.conf [map]
+### hive.hadoop.conf [Map]
 
-Properties in hadoop conf('core-site.xml', 'hdfs-site.xml', 'hive-site.xml')
+Properties in hadoop conf (`core-site.xml`, `hdfs-site.xml`, `hive-site.xml`).
 
-### hive.hadoop.conf-path [string]
+### hive.hadoop.conf-path [String]
 
-The specified loading path for the 'core-site.xml', 'hdfs-site.xml', 'hive-site.xml' files
+The specified loading path for `core-site.xml`, `hdfs-site.xml`, `hive-site.xml`
+files.
 
-### krb5_path [string]
+### remote_user [String]
 
-The path of `krb5.conf`, used to authentication kerberos
+Hadoop remote user name used when connecting to HDFS/Hive storage without
+Kerberos credentials.
 
-The path of `hive-site.xml`, used to authentication hive metastore
+### krb5_path [String]
 
-### kerberos_principal [string]
+The path of `krb5.conf`, used for Kerberos authentication.
 
-The principal of kerberos
+### kerberos_principal [String]
 
-### kerberos_keytab_path [string]
+The principal of Kerberos authentication.
 
-The keytab path of kerberos
+### kerberos_keytab_path [String]
 
-### abort_drop_partition_metadata [boolean]
+The keytab file path of Kerberos authentication.
 
-Flag to decide whether to drop partition metadata from Hive Metastore during an abort operation. Note: this only affects the metadata in the metastore, the data in the partition will always be deleted(data generated during the synchronization process).
+### abort_drop_partition_metadata [Boolean]
 
-### parquet_avro_write_timestamp_as_int96 [boolean]
+Whether to drop partition metadata from the Hive Metastore during an abort
+operation. Note: this only affects the metadata in the metastore, the data in
+the partition will always be deleted (data generated during the synchronization
+process).
 
-Support writing Parquet INT96 from a timestamp, only valid for parquet files.
+The default value is `false`.
 
-### overwrite [boolean]
+### parquet_avro_write_timestamp_as_int96 [Boolean]
 
-Flag to decide whether to use overwrite mode when inserting data into Hive. If set to true, for non-partitioned tables, the existing data in the table will be deleted before inserting new data. For partitioned tables, the data in the relevant partition will be deleted before inserting new data.
+Support writing Parquet INT96 from a timestamp. Only valid for Parquet files.
 
-- Batch mode (BATCH): Delete existing data in the target path before commit (for non-partitioned tables, delete the table directory; for partitioned tables, delete the related partition directories), then write new data.
-- Streaming mode (STREAMING): In streaming jobs with checkpointing enabled, `commit()` is invoked after each completed checkpoint. To avoid deleting on every checkpoint (which would wipe previously committed files), SeaTunnel deletes each target directory (table directory / partition directory) at most once (empty commits will skip deletion). On recovery, the delete step is best-effort and may be skipped to avoid deleting already committed data, so streaming overwrite is not a strict snapshot overwrite.
+### overwrite [Boolean]
 
-### data_save_mode [enum]
+Whether to use overwrite mode when inserting data into Hive.
 
-Select how to handle existing data on the target before writing new data.
+- For non-partitioned tables, the existing data in the table is deleted before
+  inserting new data.
+- For partitioned tables, the data in the relevant partition is deleted before
+  inserting new data.
 
-- APPEND_DATA (default): Keep existing data and append new records.
-- DROP_DATA: Behaves the same as overwrite=true. Before commit, delete the existing data in the target path (for non-partitioned tables, delete the table directory; for partitioned tables, delete the related partition directories), then write new data.
-- CUSTOM_PROCESSING / ERROR_WHEN_DATA_EXISTS: Currently not recommended for Hive sink unless you have specific requirements.
+Behavior by job mode:
 
-Note: overwrite=true and data_save_mode=DROP_DATA are equivalent. Use either one; do not set both.
+- **Batch mode (`BATCH`)**: Delete existing data in the target path before
+  commit (for non-partitioned tables, delete the table directory; for
+  partitioned tables, delete the related partition directories), then write new
+  data.
+- **Streaming mode (`STREAMING`)**: In streaming jobs with checkpointing
+  enabled, `commit()` is invoked after each completed checkpoint. To avoid
+  deleting on every checkpoint (which would wipe previously committed files),
+  SeaTunnel deletes each target directory (table directory / partition
+  directory) at most once (empty commits will skip deletion). On recovery, the
+  delete step is best-effort and may be skipped to avoid deleting already
+  committed data, so streaming overwrite is not a strict snapshot overwrite.
 
-### schema_save_mode [enum]
+### data_save_mode [Enum]
 
-Before starting the synchronization task, different processing schemes are selected for the existing table structure on the target side.
+How to handle existing data on the target before writing new data.
+
+- `APPEND_DATA` (default): Keep existing data and append new records.
+- `DROP_DATA`: Behaves the same as `overwrite = true`. Before commit, delete
+  the existing data in the target path (for non-partitioned tables, delete the
+  table directory; for partitioned tables, delete the related partition
+  directories), then write new data.
+- `CUSTOM_PROCESSING` / `ERROR_WHEN_DATA_EXISTS`: Currently not recommended for
+  Hive sink unless you have specific requirements.
+
+Note: `overwrite = true` and `data_save_mode = "DROP_DATA"` are equivalent. Use
+either one; do not set both.
+
+For batch jobs, use either `overwrite = true` or `data_save_mode = "DROP_DATA"`
+when the target Hive table should be replaced by the current run. For normal
+append jobs, keep the default `data_save_mode = "APPEND_DATA"`.
+
+### schema_save_mode [Enum]
+
+How to handle the existing table structure on the target before the
+synchronization task starts.
 
 **Default value**: `CREATE_SCHEMA_WHEN_NOT_EXIST`
 
 Option values:
-- `RECREATE_SCHEMA`: Will create when the table does not exist, delete and rebuild when the table exists
-- `CREATE_SCHEMA_WHEN_NOT_EXIST`: Will create when the table does not exist, skip when the table exists
-- `ERROR_WHEN_SCHEMA_NOT_EXIST`: Error will be reported when the table does not exist
-- `IGNORE`: Ignore the treatment of the table
 
+- `RECREATE_SCHEMA`: Create the table when it does not exist, drop and rebuild
+  it when the table exists.
+- `CREATE_SCHEMA_WHEN_NOT_EXIST`: Create the table when it does not exist,
+  skip when the table exists.
+- `ERROR_WHEN_SCHEMA_NOT_EXIST`: Report an error when the table does not exist.
+- `IGNORE`: Skip table handling.
 
+### save_mode_create_template [String]
 
-### save_mode_create_template [string]
+Use templates to automatically create Hive tables; the connector renders the
+upstream row type into the template. Available template variables:
+`${database}`, `${table}`, `${rowtype_fields}`, `${rowtype_partition_fields}`,
+`${table_location}`.
 
-We use templates to automatically create Hive tables, which will create corresponding table creation statements based on the type of upstream data and schema type, and the default template can be modified according to the situation. Available template variables: ${database}, ${table}, ${rowtype_fields}, ${rowtype_partition_fields}, ${table_location}.
+**Default value**: When not specified, the connector uses a default
+non-partitioned PARQUET table template:
 
-**Default value**: When not specified, uses a default PARQUET non-partitioned table template:
 ```sql
 CREATE TABLE IF NOT EXISTS `${database}`.`${table}` (
   ${rowtype_fields}
@@ -145,85 +200,65 @@ LOCATION '${table_location}'
 
 ### common options
 
-Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details
+Sink plugin common parameters, please refer to
+[Sink Common Options](../common-options/sink-common-options.md) for details.
 
-## Example
+## Task Example
 
-```bash
-
-  Hive {
-    table_name = "default.seatunnel_orc"
-    metastore_uri = "thrift://namenode001:9083"
-  }
-
-```
-
-Metastore URI failover example (multiple URIs):
-
-```bash
-  Hive {
-    table_name = "default.seatunnel_orc"
-    metastore_uri = "thrift://metastore-1:9083,thrift://metastore-2:9083"
-  }
-```
-
-### example 1
+### Example 1: Single table read & write
 
 We have a source table like this:
 
-```bash
+```sql
 create table test_hive_source(
-     test_tinyint                          TINYINT,
-     test_smallint                       SMALLINT,
-     test_int                                INT,
-     test_bigint                           BIGINT,
-     test_boolean                       BOOLEAN,
-     test_float                             FLOAT,
-     test_double                         DOUBLE,
-     test_string                           STRING,
-     test_binary                          BINARY,
-     test_timestamp                  TIMESTAMP,
-     test_decimal                       DECIMAL(8,2),
-     test_char                             CHAR(64),
-     test_varchar                        VARCHAR(64),
-     test_date                             DATE,
-     test_array                            ARRAY<INT>,
-     test_map                              MAP<STRING, FLOAT>,
-     test_struct                           STRUCT<street:STRING, city:STRING, state:STRING, zip:INT>
-     )
+     test_tinyint   TINYINT,
+     test_smallint  SMALLINT,
+     test_int       INT,
+     test_bigint    BIGINT,
+     test_boolean   BOOLEAN,
+     test_float     FLOAT,
+     test_double    DOUBLE,
+     test_string    STRING,
+     test_binary    BINARY,
+     test_timestamp TIMESTAMP,
+     test_decimal   DECIMAL(8,2),
+     test_char      CHAR(64),
+     test_varchar   VARCHAR(64),
+     test_date      DATE,
+     test_array     ARRAY<INT>,
+     test_map       MAP<STRING, FLOAT>,
+     test_struct    STRUCT<street:STRING, city:STRING, state:STRING, zip:INT>
+)
 PARTITIONED BY (test_par1 STRING, test_par2 STRING);
-
 ```
 
-We need read data from the source table and write to another table:
+We read from this source table and write to a sink table:
 
-```bash
+```sql
 create table test_hive_sink_text_simple(
-     test_tinyint                          TINYINT,
-     test_smallint                       SMALLINT,
-     test_int                                INT,
-     test_bigint                           BIGINT,
-     test_boolean                       BOOLEAN,
-     test_float                             FLOAT,
-     test_double                         DOUBLE,
-     test_string                           STRING,
-     test_binary                          BINARY,
-     test_timestamp                  TIMESTAMP,
-     test_decimal                       DECIMAL(8,2),
-     test_char                             CHAR(64),
-     test_varchar                        VARCHAR(64),
-     test_date                             DATE
-     )
+     test_tinyint   TINYINT,
+     test_smallint  SMALLINT,
+     test_int       INT,
+     test_bigint    BIGINT,
+     test_boolean   BOOLEAN,
+     test_float     FLOAT,
+     test_double    DOUBLE,
+     test_string    STRING,
+     test_binary    BINARY,
+     test_timestamp TIMESTAMP,
+     test_decimal   DECIMAL(8,2),
+     test_char      CHAR(64),
+     test_varchar   VARCHAR(64),
+     test_date      DATE
+)
 PARTITIONED BY (test_par1 STRING, test_par2 STRING);
-
 ```
 
-The job config file can like this:
-
-```
+```hocon
 env {
   parallelism = 3
-  job.name="test_hive_source_to_hive"
+  job.name = "test_hive_source_to_hive"
+  job.mode = "BATCH"
 }
 
 source {
@@ -234,21 +269,46 @@ source {
 }
 
 sink {
-  # choose stdout output plugin to output data to console
-
   Hive {
     table_name = "test_hive.test_hive_sink_text_simple"
     metastore_uri = "thrift://ctyun7:9083"
     hive.hadoop.conf = {
       bucket = "s3a://mybucket"
-      fs.s3a.aws.credentials.provider="com.amazonaws.auth.InstanceProfileCredentialsProvider"
+      fs.s3a.aws.credentials.provider = "com.amazonaws.auth.InstanceProfileCredentialsProvider"
     }
+  }
 }
 ```
 
-### example2: Kerberos
+### Example 2: Kerberos
 
-```bash
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    schema = {
+      fields {
+        pk_id = bigint
+        name = string
+        score = int
+      }
+      primaryKey {
+        name = "pk_id"
+        columnNames = [pk_id]
+      }
+    }
+    rows = [
+      { kind = INSERT, fields = [1, "A", 100] },
+      { kind = INSERT, fields = [2, "B", 100] },
+      { kind = INSERT, fields = [3, "C", 100] }
+    ]
+  }
+}
+
 sink {
   Hive {
     table_name = "default.test_hive_sink_on_hdfs_with_kerberos"
@@ -268,263 +328,27 @@ Description:
 - `kerberos_keytab_path`: The keytab file path for Kerberos authentication.
 - `krb5_path`: The path to the `krb5.conf` file used for Kerberos authentication.
 
-Run the case:
+### Example 3: Multiple tables (multi-table write)
 
-```bash
+When the source produces multiple tables, use `${database_name}.${table_name}`
+placeholders so each upstream table is written to a matching Hive table.
+
+```hocon
 env {
-  parallelism = 1
-  job.mode = "BATCH"
-}
-
-source {
-  FakeSource {
-    schema = {
-      fields {
-        pk_id = bigint
-        name = string
-        score = int
-      }
-      primaryKey {
-        name = "pk_id"
-        columnNames = [pk_id]
-      }
-    }
-    rows = [
-      {
-        kind = INSERT
-        fields = [1, "A", 100]
-      },
-      {
-        kind = INSERT
-        fields = [2, "B", 100]
-      },
-      {
-        kind = INSERT
-        fields = [3, "C", 100]
-      }
-    ]
-  }
-}
-
-sink {
-  Hive {
-    table_name = "default.test_hive_sink_on_hdfs_with_kerberos"
-    metastore_uri = "thrift://metastore:9083"
-    hive_site_path = "/tmp/hive-site.xml"
-    kerberos_principal = "hive/metastore.seatunnel@EXAMPLE.COM"
-    kerberos_keytab_path = "/tmp/hive.keytab"
-    krb5_path = "/tmp/krb5.conf"
-  }
-}
-```
-
-## Hive on s3
-
-### Step 1
-
-Create the lib dir for hive of emr.
-
-```shell
-mkdir -p ${SEATUNNEL_HOME}/plugins/Hive/lib
-```
-
-### Step 2
-
-Get the jars from maven center to the lib.
-
-```shell
-cd ${SEATUNNEL_HOME}/plugins/Hive/lib
-wget https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/2.6.5/hadoop-aws-2.6.5.jar
-wget https://repo1.maven.org/maven2/org/apache/hive/hive-exec/2.3.9/hive-exec-2.3.9.jar
-```
-
-### Step 3
-
-Copy the jars from your environment on emr to the lib dir.
-
-```shell
-cp /usr/share/aws/emr/emrfs/lib/emrfs-hadoop-assembly-2.60.0.jar ${SEATUNNEL_HOME}/plugins/Hive/lib
-cp /usr/share/aws/emr/hadoop-state-pusher/lib/hadoop-common-3.3.6-amzn-1.jar ${SEATUNNEL_HOME}/plugins/Hive/lib
-cp /usr/share/aws/emr/hadoop-state-pusher/lib/javax.inject-1.jar ${SEATUNNEL_HOME}/plugins/Hive/lib
-cp /usr/share/aws/emr/hadoop-state-pusher/lib/aopalliance-1.0.jar ${SEATUNNEL_HOME}/plugins/Hive/lib
-```
-
-### Step 4
-
-Run the case.
-
-```shell
-env {
-  parallelism = 1
-  job.mode = "BATCH"
-}
-
-source {
-  FakeSource {
-    schema = {
-      fields {
-        pk_id = bigint
-        name = string
-        score = int
-      }
-      primaryKey {
-        name = "pk_id"
-        columnNames = [pk_id]
-      }
-    }
-    rows = [
-      {
-        kind = INSERT
-        fields = [1, "A", 100]
-      },
-      {
-        kind = INSERT
-        fields = [2, "B", 100]
-      },
-      {
-        kind = INSERT
-        fields = [3, "C", 100]
-      }
-    ]
-  }
-}
-
-sink {
-  Hive {
-    table_name = "test_hive.test_hive_sink_on_s3"
-    metastore_uri = "thrift://ip-192-168-0-202.cn-north-1.compute.internal:9083"
-    hive.hadoop.conf-path = "/home/ec2-user/hadoop-conf"
-    hive.hadoop.conf = {
-       bucket="s3://ws-package"
-       fs.s3a.aws.credentials.provider="com.amazonaws.auth.InstanceProfileCredentialsProvider"
-    }
-  }
-}
-```
-
-## Hive on oss
-
-### Step 1
-
-Create the lib dir for hive of emr.
-
-```shell
-mkdir -p ${SEATUNNEL_HOME}/plugins/Hive/lib
-```
-
-### Step 2
-
-Get the jars from maven center to the lib.
-
-```shell
-cd ${SEATUNNEL_HOME}/plugins/Hive/lib
-wget https://repo1.maven.org/maven2/org/apache/hive/hive-exec/2.3.9/hive-exec-2.3.9.jar
-```
-
-### Step 3
-
-Copy the jars from your environment on emr to the lib dir and delete the conflicting jar.
-
-```shell
-cp -r /opt/apps/JINDOSDK/jindosdk-current/lib/jindo-*.jar ${SEATUNNEL_HOME}/plugins/Hive/lib
-rm -f ${SEATUNNEL_HOME}/lib/hadoop-aliyun-*.jar
-```
-
-### Step 4
-
-Run the case.
-
-```shell
-env {
-  parallelism = 1
-  job.mode = "BATCH"
-}
-
-source {
-  FakeSource {
-    schema = {
-      fields {
-        pk_id = bigint
-        name = string
-        score = int
-      }
-      primaryKey {
-        name = "pk_id"
-        columnNames = [pk_id]
-      }
-    }
-    rows = [
-      {
-        kind = INSERT
-        fields = [1, "A", 100]
-      },
-      {
-        kind = INSERT
-        fields = [2, "B", 100]
-      },
-      {
-        kind = INSERT
-        fields = [3, "C", 100]
-      }
-    ]
-  }
-}
-
-sink {
-  Hive {
-    table_name = "test_hive.test_hive_sink_on_oss"
-    metastore_uri = "thrift://master-1-1.c-1009b01725b501f2.cn-wulanchabu.emr.aliyuncs.com:9083"
-    hive.hadoop.conf-path = "/tmp/hadoop"
-    hive.hadoop.conf = {
-        bucket="oss://emr-osshdfs.cn-wulanchabu.oss-dls.aliyuncs.com"
-    }
-  }
-}
-```
-
-### example 2
-
-We have multiple source table like this:
-
-```bash
-create table test_1(
-)
-PARTITIONED BY (xx);
-
-create table test_2(
-)
-PARTITIONED BY (xx);
-...
-```
-
-We need read data from these source tables and write to another tables:
-
-The job config file can like this:
-
-```
-env {
-  # You can set flink configuration here
   parallelism = 3
-  job.name="test_hive_source_to_hive"
+  job.mode = "BATCH"
 }
 
 source {
   Hive {
-    tables_configs = [
-      {
-        table_name = "test_hive.test_1"
-        metastore_uri = "thrift://ctyun6:9083"
-      },
-      {
-        table_name = "test_hive.test_2"
-        metastore_uri = "thrift://ctyun7:9083"
-      }
+    table_list = [
+      { table_name = "test_hive.test_1", metastore_uri = "thrift://ctyun6:9083" },
+      { table_name = "test_hive.test_2", metastore_uri = "thrift://ctyun7:9083" }
     ]
   }
 }
 
 sink {
-  # choose stdout output plugin to output data to console
   Hive {
     table_name = "${database_name}.${table_name}"
     metastore_uri = "thrift://ctyun7:9083"
@@ -532,9 +356,11 @@ sink {
 }
 ```
 
-## Auto Table Creation Examples
+### Example 4: Auto Table Creation
 
-### Example 1: Basic Auto Table Creation
+Use `save_mode_create_template` together with `schema_save_mode =
+"CREATE_SCHEMA_WHEN_NOT_EXIST"` to let the connector create the Hive table on
+the fly:
 
 ```hocon
 env {
@@ -583,53 +409,136 @@ sink {
   }
 }
 ```
+
+## Hive on s3
+
+### Step 1: Create the lib dir for Hive
+
+```shell
+mkdir -p ${SEATUNNEL_HOME}/plugins/Hive/lib
+```
+
+### Step 2: Download jars from Maven Central
+
+```shell
+cd ${SEATUNNEL_HOME}/plugins/Hive/lib
+wget https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/2.6.5/hadoop-aws-2.6.5.jar
+wget https://repo1.maven.org/maven2/org/apache/hive/hive-exec/2.3.9/hive-exec-2.3.9.jar
+```
+
+### Step 3: Copy EMR jars into the lib dir
+
+```shell
+cp /usr/share/aws/emr/emrfs/lib/emrfs-hadoop-assembly-2.60.0.jar ${SEATUNNEL_HOME}/plugins/Hive/lib
+cp /usr/share/aws/emr/hadoop-state-pusher/lib/hadoop-common-3.3.6-amzn-1.jar ${SEATUNNEL_HOME}/plugins/Hive/lib
+cp /usr/share/aws/emr/hadoop-state-pusher/lib/javax.inject-1.jar ${SEATUNNEL_HOME}/plugins/Hive/lib
+cp /usr/share/aws/emr/hadoop-state-pusher/lib/aopalliance-1.0.jar ${SEATUNNEL_HOME}/plugins/Hive/lib
+```
+
+### Step 4: Run the job
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Hive {
+    table_name = "test_hive.test_hive_sink_on_s3"
+    metastore_uri = "thrift://ip-192-168-0-202.cn-north-1.compute.internal:9083"
+    hive.hadoop.conf-path = "/home/ec2-user/hadoop-conf"
+    hive.hadoop.conf = {
+      bucket = "s3://ws-package"
+      fs.s3a.aws.credentials.provider = "com.amazonaws.auth.InstanceProfileCredentialsProvider"
+    }
+  }
+}
+```
+
+## Hive on oss
+
+### Step 1: Create the lib dir for Hive
+
+```shell
+mkdir -p ${SEATUNNEL_HOME}/plugins/Hive/lib
+```
+
+### Step 2: Download jars from Maven Central
+
+```shell
+cd ${SEATUNNEL_HOME}/plugins/Hive/lib
+wget https://repo1.maven.org/maven2/org/apache/hive/hive-exec/2.3.9/hive-exec-2.3.9.jar
+```
+
+### Step 3: Copy JindoSDK jars and remove conflicting Hadoop Aliyun jars
+
+```shell
+cp -r /opt/apps/JINDOSDK/jindosdk-current/lib/jindo-*.jar ${SEATUNNEL_HOME}/plugins/Hive/lib
+rm -f ${SEATUNNEL_HOME}/lib/hadoop-aliyun-*.jar
+```
+
+### Step 4: Run the job
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    schema = {
+      fields {
+        pk_id = bigint
+        name = string
+        score = int
+      }
+    }
+    rows = [
+      { kind = INSERT, fields = [1, "A", 100] },
+      { kind = INSERT, fields = [2, "B", 100] },
+      { kind = INSERT, fields = [3, "C", 100] }
+    ]
+  }
+}
+
+sink {
+  Hive {
+    table_name = "test_hive.test_hive_sink_on_oss"
+    metastore_uri = "thrift://master-1-1.c-1009b01725b501f2.cn-wulanchabu.emr.aliyuncs.com:9083"
+    hive.hadoop.conf-path = "/tmp/hadoop"
+    hive.hadoop.conf = {
+      bucket = "oss://emr-osshdfs.cn-wulanchabu.oss-dls.aliyuncs.com"
+    }
+  }
+}
+```
+
 ## FAQ
-
-### What file formats does Hive Sink support?
-
-Hive Sink supports `ORC`, `PARQUET`, `TEXT`, `JSON`, and `SEQUENCE` file formats. Specify the format with the `file_format_type` parameter. Ensure the Hive table's `STORED AS` clause matches the configured format.
-
-### Does Hive Sink support partitioned tables?
-
-Yes. For partitioned tables, specify the partition fields using `partition_by`. SeaTunnel writes data into the correct partition directories automatically:
-
-```hocon
-sink {
-  Hive {
-    table_name = "mydb.sales"
-    metastore_uri = "thrift://hive-metastore:9083"
-    partition_by = ["dt", "region"]
-  }
-}
-```
-
-### How do I connect to a Kerberized Hadoop cluster?
-
-Provide the Kerberos keytab and principal in the connector configuration:
-
-```hocon
-sink {
-  Hive {
-    table_name = "mydb.events"
-    metastore_uri = "thrift://hive-metastore:9083"
-    kerberos_principal = "hive/host@REALM.COM"
-    kerberos_keytab_path = "/etc/security/keytabs/hive.keytab"
-    krb5_path = "/etc/krb5.conf"
-  }
-}
-```
 
 ### Why do I see many small files in my Hive table?
 
-Small files are created when job parallelism is high or batches are small. To reduce small file counts:
+Small files are created when job parallelism is high or batches are small. To
+reduce small file counts:
 
 - Lower the job `parallelism` setting in the `env` block.
-- Increase `batch_size` so each task writes larger files.
-- Run a periodic compaction using Hive's `ALTER TABLE ... CONCATENATE` or a Spark merge job.
+- Run a periodic compaction using Hive's `ALTER TABLE ... CONCATENATE` or a
+  Spark merge job.
 
 ### Does Hive Sink support schema evolution?
 
-Hive Sink reads the current table schema from the Hive Metastore. If columns are added to the upstream, they will only appear in Hive after the table DDL is updated. SeaTunnel does not automatically `ALTER TABLE` Hive schemas.
+The Hive sink writes the upstream schema into the target table. If columns are
+added to the upstream, they will only appear in Hive after the table DDL is
+updated; SeaTunnel does not automatically run `ALTER TABLE` on Hive schemas.
+
+### What is the difference between `overwrite` and `data_save_mode`?
+
+`overwrite = true` and `data_save_mode = "DROP_DATA"` behave the same way: the
+target directory (table directory for non-partitioned tables, partition
+directories for partitioned tables) is deleted before the new data is written.
+Use either one, but not both. `data_save_mode = "APPEND_DATA"` (the default)
+keeps existing data and appends new rows.
 
 ## Changelog
 

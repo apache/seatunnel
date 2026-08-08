@@ -8,7 +8,7 @@ import ChangeLog from '../changelog/connector-hive.md';
 
 从 Hive 读取数据。
 
-使用 markdown 格式时，SeaTunnel 可以解析存储在 Hive 表中的 markdown 文件并提取结构化数据，包括标题、段落、列表、代码块和表格等元素。每个元素都转换为具有以下架构的行：
+使用 markdown 格式时，SeaTunnel 可以解析存储在 Hive 表中的 markdown 文件并提取结构化数据，包括标题、段落、列表、代码块和表格等元素。每个提取出的元素都会转换为一条文档元素结构化记录，schema 如下：
 - `element_id`：元素的唯一标识符
 - `element_type`：元素类型（Heading、Paragraph、ListItem 等）
 - `heading_level`：标题级别（1-6，非标题元素为 null）
@@ -48,26 +48,39 @@ import ChangeLog from '../changelog/connector-hive.md';
 
 ## 选项
 
-|         名称          |  类型  | 必需 | 默认值  |
-|-----------------------|--------|------|---------|
-| table_name            | string | 是   | -       |
-| use_regex             | boolean| 否   | false   |
-| metastore_uri         | string | 是   | -       |
-| krb5_path             | string | 否   | /etc/krb5.conf |
-| kerberos_principal    | string | 否   | -       |
-| kerberos_keytab_path  | string | 否   | -       |
-| hdfs_site_path        | string | 否   | -       |
-| hive_site_path        | string | 否   | -       |
-| hive.hadoop.conf      | Map    | 否   | -       |
-| hive.hadoop.conf-path | string | 否   | -       |
-| read_partitions       | list   | 否   | -       |
-| read_columns          | list   | 否   | -       |
-| compress_codec        | string | 否   | none    |
-| common-options        |        | 否   | -       |
+|         名称          |  类型  | 必需 | 默认值  | 说明                                                                                                                                                                                                                                  |
+|-----------------------|--------|------|---------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| table_name            | String | 否   | 单表模式必填 | 目标 Hive 表名，格式为 `db.table`。当 `use_regex = true` 时，使用 `数据库正则.表正则`（Hive 没有 schema）来匹配 Hive 元存储中的多张表。                                                                                                |
+| table_list            | Array  | 否   | -       | Hive 多表读取配置列表。每个元素可以包含 `table_name`、`metastore_uri`、`use_regex`、`read_partitions`、`read_columns`，以及与根配置相同的认证和 Hadoop 配置。                                                                          |
+| tables_configs        | Array  | 否   | -       | 已废弃的多表配置列表。新作业请使用 `table_list`。                                                                                                                                                                                       |
+| use_regex             | Boolean| 否   | false   | 是否将 `table_name` 视为正则表达式进行匹配。开启后，可用于整库/多表同步；也支持在 `table_list` / `tables_configs` 的每个表配置里单独开启。                                                                                            |
+| metastore_uri         | String | 否   | 单表模式必填 | Hive 元存储 URI。支持逗号分隔配置多个 URI 用于高可用/故障切换（自动去除空格）。                                                                                                                                                       |
+| krb5_path             | String | 否   | /etc/krb5.conf | `krb5.conf` 的路径，用于 Kerberos 认证。                                                                                                                                                                                          |
+| kerberos_principal    | String | 否   | -       | Kerberos 认证的主体。                                                                                                                                                                                                                  |
+| kerberos_keytab_path  | String | 否   | -       | Kerberos 认证的 keytab 文件路径。                                                                                                                                                                                                    |
+| hdfs_site_path        | String | 否   | -       | `hdfs-site.xml` 的路径，用于加载 Namenode 的高可用配置。                                                                                                                                                                               |
+| hive_site_path        | String | 否   | -       | `hive-site.xml` 的路径。                                                                                                                                                                                                              |
+| hive.hadoop.conf      | Map    | 否   | -       | Hadoop 配置中的属性（`core-site.xml`、`hdfs-site.xml`、`hive-site.xml`）。                                                                                                                                                            |
+| hive.hadoop.conf-path | String | 否   | -       | 指定加载 `core-site.xml`、`hdfs-site.xml`、`hive-site.xml` 文件的路径。                                                                                                                                                              |
+| remote_user           | String | 否   | -       | 未使用 Kerberos 凭据连接 HDFS/Hive 存储时使用的 Hadoop 远端用户名。                                                                                                                                                                    |
+| read_partitions       | List   | 否   | -       | 用户希望从 Hive 表中读取的目标分区；不配置时读取所有分区。分区列表中的每个分区必须具有相同的目录层级。                                                                                                                                |
+| read_columns          | List   | 否   | -       | 数据源的读取列列表，可用于实现字段投影。                                                                                                                                                                                              |
+| compress_codec        | String | 否   | none    | 文件压缩编解码器。`text`/`json`/`csv` 支持 `lzo`、`none`；`orc`/`parquet` 自动识别压缩类型。                                                                                                                                            |
+| common-options        |        | 否   | -       | 源插件的通用参数，请参阅 [Source Common Options](../common-options/source-common-options.md) 了解详细信息。                                                                                                                              |
 
 ### table_name [string]
 
 目标 Hive 表名，例如：`db1.table1`。当 `use_regex = true` 时，该字段支持 `数据库正则.表正则`（Hive 没有 schema）来匹配 Hive 元存储中的多张表。
+
+单表读取时，在根配置中填写 `table_name` 和 `metastore_uri`。多表读取时，建议使用 `table_list`。`tables_configs` 仍兼容旧配置，但新作业建议使用 `table_list`。
+
+### table_list [array]
+
+Hive 多表读取配置列表。每个元素可以包含 `table_name`、`metastore_uri`、`use_regex`、`read_partitions`、`read_columns`，以及与根配置相同的认证和 Hadoop 配置。
+
+### tables_configs [array]
+
+已废弃的多表配置列表。新作业请使用 `table_list`。
 
 ### use_regex [boolean]
 
@@ -84,6 +97,10 @@ import ChangeLog from '../changelog/connector-hive.md';
 ### metastore_uri [string]
 
 Hive 元存储 URI。支持通过逗号分隔配置多个 URI 用于高可用/故障切换（会自动去除空格）。SeaTunnel 会将该值写入 Hive 的 `hive.metastore.uris`，并在运行时优先使用 Hive 的 `RetryingMetaStoreClient` 实现重试/切换。注意：该能力仅做客户端连接端点切换，元数据一致性需要由 metastore 部署保证。
+
+### remote_user [string]
+
+未使用 Kerberos 凭据连接 HDFS/Hive 存储时使用的 Hadoop 远端用户名。
 
 ### hdfs_site_path [string]
 
@@ -188,7 +205,7 @@ Kerberos 认证的 keytab 文件路径
   }
 ```
 
-### 示例 3：正则匹配多表（整库/整库子集）
+### 示例 4：正则匹配多表（整库/整库子集）
 
 ```bash
   Hive {
@@ -221,7 +238,7 @@ Kerberos 认证的 keytab 文件路径
   }
 ```
 
-### 示例 4：Kerberos
+### 示例 5：Kerberos
 
 ```bash
 source {
