@@ -120,6 +120,11 @@ public class SavePointBusySourceTest extends AbstractSeaTunnelServerTest<SavePoi
                                         JobStatus.RUNNING,
                                         server.getCoordinatorService().getJobStatus(jobId)));
 
+        // Let the custom rows source enter its paced split loop before requesting the savepoint.
+        // The config uses many small splits with a read interval, so this settle window avoids
+        // racing the savepoint request against natural job completion.
+        Thread.sleep(2000L);
+
         // This config exercises the user-provided `rows` branch of FakeSourceReader.
         PassiveCompletableFuture<Void> savepointFuture =
                 server.getCoordinatorService().savePoint(jobId);
