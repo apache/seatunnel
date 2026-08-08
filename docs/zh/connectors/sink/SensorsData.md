@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-sensorsdata.md';
 
 > SensorsData Sink 连接器
 
+## 描述
+
+SensorsData Sink 使用 SensorsData SDK 把 SeaTunnel 行数据发送为 SensorsData 记录。它支持用户事件、
+用户明细记录和物品记录。调试时可以设置 `consumer = "console"`，把转换后的记录打印到控制台，而不是发送到
+SensorsData 服务端。
+
 ## 支持的引擎
 
 > Spark<br/>
@@ -14,12 +20,8 @@ import ChangeLog from '../changelog/connector-sensorsdata.md';
 
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [ ] [变更数据捕获](../../introduction/concepts/connector-v2-features.md)
-
-## 描述
-
-SensorsData Sink 使用 SensorsData SDK 把 SeaTunnel 行数据发送为 SensorsData 记录。它支持用户事件、
-用户明细记录和物品记录。调试时可以设置 `consumer = "console"`，把转换后的记录打印到控制台，而不是发送到
-SensorsData 服务端。
+- [ ] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
+- [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 ## Sink 选项
 
