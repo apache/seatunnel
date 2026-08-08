@@ -26,63 +26,63 @@ The source must be non-parallel (parallelism set to 1) in order to achieve exact
 
 ## Options
 
-| name                       | type    | required | default value |
-| -------------------------- | ------- | -------- | ------------- |
-| host                       | string  | yes      | -             |
-| port                       | int     | yes      | -             |
-| virtual_host               | string  | no       | -             |
-| username                   | string  | no       | -             |
-| password                   | string  | no       | -             |
-| queue_name                 | string  | no       | -             |
-| schema                     | config  | no       | -             |
-| tables_configs             | array   | no       | -             |
-| url                        | string  | no       | -             |
-| routing_key                | string  | no       | -             |
-| exchange                   | string  | no       | -             |
-| network_recovery_interval  | int     | no       | -             |
-| topology_recovery_enabled  | boolean | no       | -             |
-| AUTOMATIC_RECOVERY_ENABLED | boolean | no       | -             |
-| connection_timeout         | int     | no       | -             |
-| requested_channel_max      | int     | no       | -             |
-| requested_frame_max        | int     | no       | -             |
-| requested_heartbeat        | int     | no       | -             |
-| prefetch_count             | int     | no       | -             |
-| delivery_timeout           | int     | no       | -             |
-| use_correlation_id         | boolean | no       | -             |
-| common-options             |         | no       | -             |
-| durable                    | boolean | no       | true          |
-| exclusive                  | boolean | no       | false         |
-| auto_delete                | boolean | no       | false         |
+| name                       | type    | required | default value | description                                                                                                                  |
+| -------------------------- | ------- | -------- | ------------- |------------------------------------------------------------------------------------------------------------------------------|
+| host                       | string  | yes      | -             | The default host to use for connections.                                                                                    |
+| port                       | int     | yes      | -             | The default port to use for connections.                                                                                    |
+| virtual_host               | string  | no       | -             | Virtual host to use when connecting to the broker.                                                                          |
+| username                   | string  | no       | -             | The AMQP user name to use when connecting to the broker.                                                                    |
+| password                   | string  | no       | -             | The password to use when connecting to the broker. Must be configured together with `username`.                              |
+| queue_name                 | string  | no       | -             | The queue to consume messages from. Required if `tables_configs` is not configured.                                          |
+| schema                     | config  | no       | -             | The schema of upstream data. Required if `tables_configs` is not configured. See [Schema Feature](../../introduction/concepts/schema-feature.md). |
+| tables_configs             | array   | no       | -             | Multi-queue configuration. Each item must contain `queue_name` and `schema`. Cannot be configured together with root-level `queue_name`. |
+| url                        | string  | no       | -             | Convenience method for setting host, port, username, password and virtual host in an AMQP URI.                              |
+| routing_key                | string  | no       | -             | Optional RabbitMQ routing key inherited from the shared RabbitMQ configuration. Not required for normal queue consumption. |
+| exchange                   | string  | no       | -             | Optional RabbitMQ exchange inherited from the shared RabbitMQ configuration. Not required for normal queue consumption.    |
+| network_recovery_interval  | int     | no       | -             | How long automatic recovery waits before attempting to reconnect, in milliseconds.                                          |
+| topology_recovery_enabled  | boolean | no       | -             | Whether to enable topology recovery.                                                                                        |
+| AUTOMATIC_RECOVERY_ENABLED | boolean | no       | -             | Whether to enable connection recovery. The option key is currently uppercase in the connector configuration.                |
+| connection_timeout         | int     | no       | -             | TCP connection establishment timeout, in milliseconds; `0` means infinite.                                                  |
+| requested_channel_max      | int     | no       | -             | Initially requested maximum channel number; `0` means unlimited. Must be between 0 and 65535.                                |
+| requested_frame_max        | int     | no       | -             | The requested maximum frame size.                                                                                           |
+| requested_heartbeat        | int     | no       | -             | The requested heartbeat timeout. Must be between 0 and 65535.                                                                |
+| prefetch_count             | int     | no       | -             | The maximum number of messages to receive without acknowledgement.                                                          |
+| delivery_timeout           | int     | no       | -             | Maximum wait time, in milliseconds, for the next message delivery.                                                          |
+| use_correlation_id         | boolean | no       | -             | Whether the consumed messages provide a unique correlation id that can be used to deduplicate messages when acknowledgments fail. |
+| common-options             |         | no       | -             | Source plugin common parameters. See [Source Common Options](../common-options/source-common-options.md).                  |
+| durable                    | boolean | no       | true          | Whether the queue survives a server restart.                                                                                |
+| exclusive                  | boolean | no       | false         | Whether the queue is used only by the current connection and is deleted when the connection closes.                        |
+| auto_delete                | boolean | no       | false         | Whether the queue is deleted automatically when the last consumer unsubscribes.                                             |
 
 ### host [string]
 
-the default host to use for connections
+The default host to use for connections.
 
 ### port [int]
 
-the default port to use for connections
+The default port to use for connections.
 
 ### virtual_host [string]
 
-virtual host – the virtual host to use when connecting to the broker
+Virtual host – the virtual host to use when connecting to the broker.
 
 ### username [string]
 
-the AMQP user name to use when connecting to the broker
+The AMQP user name to use when connecting to the broker.
 
 ### password [string]
 
-the password to use when connecting to the broker
+The password to use when connecting to the broker.
 
 `username` and `password` should be configured together.
 
 ### url [string]
 
-convenience method for setting the fields in an AMQP URI: host, port, username, password and virtual host
+Convenience method for setting the fields in an AMQP URI: host, port, username, password and virtual host.
 
 ### queue_name [string]
 
-the queue to consume messages from. *Note: Required if `tables_configs` is not configured.*
+The queue to consume messages from. *Note: Required if `tables_configs` is not configured.*
 
 ### routing_key [string]
 
@@ -96,7 +96,7 @@ Optional RabbitMQ exchange inherited from the shared RabbitMQ configuration. It 
 
 #### fields [Config]
 
-the schema fields of upstream data. For more details, please refer to [Schema Feature](../../introduction/concepts/schema-feature.md). *Note: Required if `tables_configs` is not configured.*
+The schema fields of upstream data. For more details, please refer to [Schema Feature](../../introduction/concepts/schema-feature.md). *Note: Required if `tables_configs` is not configured.*
 
 ### tables_configs [array]
 
@@ -104,43 +104,43 @@ Used to read from multiple queues simultaneously. Each object in the array must 
 
 ### network_recovery_interval [int]
 
-how long will automatic recovery wait before attempting to reconnect, in ms
+How long automatic recovery waits before attempting to reconnect, in milliseconds.
 
 ### topology_recovery_enabled [boolean]
 
-if true, enables topology recovery
+If `true`, enables topology recovery.
 
 ### AUTOMATIC_RECOVERY_ENABLED [boolean]
 
-If true, enables connection recovery.
+If `true`, enables connection recovery.
 
 The option key is currently uppercase in the connector configuration. Use `AUTOMATIC_RECOVERY_ENABLED`, not `automatic_recovery_enabled`.
 
 ### connection_timeout [int]
 
-connection tcp establishment timeout in milliseconds; zero for infinite
+TCP connection establishment timeout in milliseconds; `0` means infinite.
 
 ### requested_channel_max [int]
 
-initially requested maximum channel number; zero for unlimited
+Initially requested maximum channel number; `0` means unlimited.
 **Note:** The value must be between 0 and 65535 (unsigned short in AMQP 0-9-1).
 
 ### requested_frame_max [int]
 
-the requested maximum frame size
+The requested maximum frame size.
 
 ### requested_heartbeat [int]
 
-Set the requested heartbeat timeout
+The requested heartbeat timeout.
 **Note:** The value must be between 0 and 65535 (unsigned short in AMQP 0-9-1).
 
 ### prefetch_count [int]
 
-prefetchCount the max number of messages to receive without acknowledgement
+The maximum number of messages to receive without acknowledgement.
 
 ### delivery_timeout [int]
 
-deliveryTimeout maximum wait time, in milliseconds, for the next message delivery
+Maximum wait time, in milliseconds, for the next message delivery.
 
 ### use_correlation_id [boolean]
 
@@ -148,22 +148,22 @@ Whether the consumed messages provide a unique correlation id that can be used t
 
 ### common options
 
-Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details
+Source plugin common parameters. See [Source Common Options](../common-options/source-common-options.md) for details.
 
 ### durable
 
-- true: The queue will survive on server restart.
-- false: The queue will be deleted on server restart.
+- `true`: The queue will survive on server restart.
+- `false`: The queue will be deleted on server restart.
 
 ### exclusive
 
-- true: The queue is used only by the current connection and will be deleted when the connection closes.
-- false: The queue can be used by multiple connections.
+- `true`: The queue is used only by the current connection and will be deleted when the connection closes.
+- `false`: The queue can be used by multiple connections.
 
 ### auto_delete
 
-- true: The queue will be deleted automatically when the last consumer unsubscribes.
-- false: The queue will not be automatically deleted.
+- `true`: The queue will be deleted automatically when the last consumer unsubscribes.
+- `false`: The queue will not be automatically deleted.
 
 ## Migration Guide & Configuration Rules
 
