@@ -1,12 +1,10 @@
 import ChangeLog from '../changelog/connector-jdbc.md';
 
-# Vertica
+# Vertica Source Connector
 
-> JDBC Vertica Source Connector
+`Source: Vertica` (via the JDBC plugin)
 
-## Description
-
-Read external data source data through JDBC.
+Read data from a Vertica database through the JDBC connector. Vertica is configured by setting the JDBC plugin's `driver` to `com.vertica.jdbc.Driver` and `url` to a `jdbc:vertica://` URL. All generic JDBC source options — `partition_column`, `partition_num`, `query`, `table_list` and so on — are honored, and the column projection / predicate push-down support the same way as for other JDBC sources.
 
 ## Support Those Engines
 

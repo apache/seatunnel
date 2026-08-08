@@ -1,16 +1,12 @@
 import ChangeLog from '../changelog/connector-amazondynamodb.md';
 
-# AmazonDynamoDB
+# AmazonDynamoDB Sink Connector
 
-> Amazon DynamoDB sink connector
+`Sink: AmazonDynamoDB`
 
-## Description
+Write SeaTunnel rows to a DynamoDB table. The target table must already exist; the connector does not create tables or key schemas. Each row is written as a DynamoDB item through a batch write request, so the connector supports single-table writes (by configuring `table`) and multi-table writes (when the upstream row carries a table id, the writer routes each row to that target).
 
-The Amazon DynamoDB sink connector writes SeaTunnel rows to a DynamoDB table.
-
-The target table must already exist. The connector writes each row as a DynamoDB item and uses batch write requests. It supports single-table writes and multi-table writes when the upstream row carries a table id.
-
-## Supported Engines
+## Support Those Engines
 
 > Spark<br/>
 > Flink<br/>
@@ -18,25 +14,27 @@ The target table must already exist. The connector writes each row as a DynamoDB
 
 ## Key Features
 
+- [x] [batch](../../introduction/concepts/connector-v2-features.md)
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
 - [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
-## Options
+## Sink Options
 
-| name                | type   | required | default value | description                                      |
+| Name                | Type   | Required | Default Value | Description                                      |
 |---------------------|--------|----------|---------------|--------------------------------------------------|
-| url                 | string | yes      | -             | DynamoDB endpoint URL.                           |
-| region              | string | yes      | -             | AWS region of the DynamoDB service.              |
-| access_key_id       | string | yes      | -             | AWS access key ID.                               |
-| secret_access_key   | string | yes      | -             | AWS secret access key.                           |
-| table               | string | yes      | -             | DynamoDB table name to write to.                 |
-| batch_size          | int    | no       | 25            | Records buffered for one batch write request.    |
-| multi_table_sink_replica | int | no       | -             | Sink writer replicas for each table.             |
-| max_retries         | int    | no       | 10            | Retries for unprocessed items.                   |
-| retry_base_delay_ms | long   | no       | 100           | Initial retry backoff delay in milliseconds.     |
-| retry_max_delay_ms  | long   | no       | 5000          | Maximum retry backoff delay in milliseconds.     |
-| common-options      | object | no       | -             | Sink plugin common parameters.                   |
+| url                 | String | Yes      | -             | DynamoDB endpoint URL. For local testing, use `http://127.0.0.1:8000`. |
+| region              | String | Yes      | -             | AWS region of the DynamoDB service, for example `us-east-1`. |
+| access_key_id       | String | Yes      | -             | AWS access key ID.                               |
+| secret_access_key   | String | Yes      | -             | AWS secret access key.                           |
+| table               | String | Yes      | -             | DynamoDB table name to write to. Used as the per-row target only when the upstream row does not carry a table id; otherwise the row's table id is preferred. |
+| batch_size          | Int    | No       | 25            | Records buffered for one DynamoDB batch write request. DynamoDB accepts at most 25 write requests in one batch write call, so do not set this above `25`. |
+| multi_table_sink_replica | Int | No       | -             | Optional common sink option used by multi-table sink jobs. For details, see [Sink Common Options](../common-options/sink-common-options.md). |
+| max_retries         | Int    | No       | 10            | Retries for unprocessed items returned by DynamoDB. |
+| retry_base_delay_ms | Long   | No       | 100           | Initial retry backoff delay in milliseconds.     |
+| retry_max_delay_ms  | Long   | No       | 5000          | Maximum retry backoff delay in milliseconds (exponential).    |
+| common-options      | object | No       | -             | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md). |
 
 ### url [string]
 

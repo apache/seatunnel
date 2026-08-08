@@ -1,8 +1,10 @@
 import ChangeLog from '../changelog/connector-jdbc.md';
 
-# Kingbase
+# Kingbase 目标连接器
 
-> JDBC Kingbase Sink 连接器
+`Sink: Kingbase` (via the JDBC plugin)
+
+通过 JDBC 连接器向 KingbaseES 数据库写入数据。Kingbase 只需将 JDBC 插件的 `driver` 设置为 `com.kingbase8.Driver`，`url` 配置为 `jdbc:kingbase8://` 地址。写入侧提供批量刷写，以及基于 XA 事务的可选精确一次模式；但精确一次仅在 Kingbase JDBC 驱动暴露 XA `DataSource` 时才能正常工作；如果不支持，请保持 `is_exactly_once=false`。
 
 ## 支持连接器版本
 
@@ -16,13 +18,12 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## 关键特性
 
+- [x] [批](../../introduction/concepts/connector-v2-features.md)
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [x] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
-## 描述
-
-> 使用 `XA 事务` 来确保 `精确一次`。因此仅支持支持 `XA 事务` 的数据库的 `精确一次`。您可以设置 `is_exactly_once=true` 来启用它。Kingbase 目前不支持
+如果启用 `is_exactly_once = true`，连接器会使用 JDBC XA 事务，因此驱动必须暴露 XA `DataSource`。
 
 ## 支持的数据源信息
 

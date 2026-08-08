@@ -1,8 +1,10 @@
 import ChangeLog from '../changelog/connector-jdbc.md';
 
-# Kingbase
+# Kingbase Sink Connector
 
-> JDBC Kingbase Sink Connector
+`Sink: Kingbase` (via the JDBC plugin)
+
+Write data to a KingbaseES database through the JDBC connector. Kingbase is configured by setting the JDBC plugin's `driver` to `com.kingbase8.Driver` and `url` to a `jdbc:kingbase8://` URL. Writes support batch flushing and the optional XA-based exactly-once mode that the generic JDBC sink provides — but only if the Kingbase JDBC driver exposes an XA `DataSource`; if not, keep `is_exactly_once=false`.
 
 ## Support Connector Version
 
@@ -16,14 +18,12 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## Key Features
 
+- [x] [batch](../../introduction/concepts/connector-v2-features.md)
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [x] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
-## Description
-
-> Use `Xa transactions` to ensure `exactly-once`. So only support `exactly-once` for the database which is
-> support `Xa transactions`. You can set `is_exactly_once=true` to enable it.Kingbase currently does not support
+If you set `is_exactly_once = true`, the connector uses JDBC XA transactions; the driver must therefore expose an XA `DataSource`.
 
 ## Supported DataSource Info
 

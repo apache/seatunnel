@@ -1,14 +1,16 @@
 import ChangeLog from '../changelog/connector-rocketmq.md';
 
-# RocketMQ
+# RocketMQ Source Connector
 
-> RocketMQ source connector
+`Source: RocketMQ`
+
+Reads messages from Apache RocketMQ topics. The connector can read one or more topics with one schema, or use `tables_configs` to read multiple topics with different schemas.
 
 ## Support Apache RocketMQ Version
 
 - 4.9.0 or newer
 
-## Support These Engines
+## Support Those Engines
 
 > Spark<br/>
 > Flink<br/>
@@ -24,35 +26,31 @@ import ChangeLog from '../changelog/connector-rocketmq.md';
 - [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
 - [x] [support multiple table read](../../introduction/concepts/connector-v2-features.md)
 
-## Description
-
-Reads messages from Apache RocketMQ topics. The connector can read one or more topics with one schema, or use `tables_configs` to read multiple topics with different schemas.
-
 ## Source Options
 
 | Name | Type | Required | Default | Description |
 |------|------|----------|---------|-------------|
-| name.srv.addr | String | yes | - | RocketMQ name server address, for example `localhost:9876`. |
-| topics | String | no | - | Topic name list separated by commas, for example `"topic_a,topic_b"`. Configure only one of `topics`, `tables_configs`, and `table_list`. |
-| tables_configs | List | no | - | Multi-table read configuration. Each item must contain `topics` and can contain `format`, `schema`, `tags`, `start.mode`, `start.mode.timestamp`, `start.mode.offsets`, and `ignore_parse_errors`. |
-| table_list | List | no | - | Deprecated. Use `tables_configs` instead. |
-| tags | String | no | - | Tag list separated by commas. Only messages whose RocketMQ tag exactly matches one configured value are consumed. |
-| acl.enabled | Boolean | no | false | Whether to enable RocketMQ ACL authentication. |
-| access.key | String | no | - | Access key. Required when `acl.enabled` is `true`. |
-| secret.key | String | no | - | Secret key. Required when `acl.enabled` is `true`. |
-| batch.size | int | no | 100 | Maximum number of messages pulled each time. |
-| consumer.group | String | no | SeaTunnel-Consumer-Group | RocketMQ consumer group ID. |
-| commit.on.checkpoint | Boolean | no | true | Whether to commit offsets when SeaTunnel checkpoints are completed. |
-| schema | config | no | - | Message schema. See [Schema Feature](../../introduction/concepts/schema-feature.md). If omitted, the connector reads message bodies as text. |
-| format | String | no | json | Message format. Supported values are `json` and `text`. |
-| field.delimiter | String | no | `,` | Field delimiter used when `format = text`. |
-| start.mode | String | no | CONSUME_FROM_GROUP_OFFSETS | Startup position. Supported values: `CONSUME_FROM_LAST_OFFSET`, `CONSUME_FROM_FIRST_OFFSET`, `CONSUME_FROM_GROUP_OFFSETS`, `CONSUME_FROM_TIMESTAMP`, `CONSUME_FROM_SPECIFIC_OFFSETS`. |
-| start.mode.offsets | Map | no | - | Required when `start.mode = CONSUME_FROM_SPECIFIC_OFFSETS`. The key format is `topic-queueId`, for example `test_topic-0`. |
-| start.mode.timestamp | Long | no | - | Required when `start.mode = CONSUME_FROM_TIMESTAMP`. Use a millisecond timestamp. |
-| partition.discovery.interval.millis | long | no | -1 | Topic and partition discovery interval in milliseconds. `-1` disables dynamic discovery. |
-| ignore_parse_errors | Boolean | no | false | Whether to skip JSON messages that cannot be parsed. |
-| consumer.poll.timeout.millis | long | no | 5000 | Pull timeout in milliseconds. |
-| common-options | config | no | - | Source common options. See [Source Common Options](../common-options/source-common-options.md). |
+| name.srv.addr | String | Yes | - | RocketMQ NameServer address, for example `localhost:9876`. |
+| topics | String | No | - | Topic name list separated by commas, for example `"topic_a,topic_b"`. Configure only one of `topics`, `tables_configs`, and `table_list`. |
+| tables_configs | List | No | - | Multi-table read configuration. Each item must contain `topics` and can contain `format`, `schema`, `tags`, `start.mode`, `start.mode.timestamp`, `start.mode.offsets`, and `ignore_parse_errors`. |
+| table_list | List | No | - | Deprecated. Use `tables_configs` instead. |
+| tags | String | No | - | Tag list separated by commas. Only messages whose RocketMQ tag exactly matches one configured value are consumed. |
+| acl.enabled | Boolean | No | false | Whether to enable RocketMQ ACL authentication. |
+| access.key | String | No | - | Access key. Required when `acl.enabled` is `true`. |
+| secret.key | String | No | - | Secret key. Required when `acl.enabled` is `true`. |
+| batch.size | Int | No | 100 | Maximum number of messages pulled each time. |
+| consumer.group | String | No | SeaTunnel-Consumer-Group | RocketMQ consumer group ID. |
+| commit.on.checkpoint | Boolean | No | true | Whether to commit offsets when SeaTunnel checkpoints are completed. |
+| schema | config | No | - | Message schema. See [Schema Feature](../../introduction/concepts/schema-feature.md). If omitted, the connector reads message bodies as text. |
+| format | String | No | json | Message format. Supported values are `json` and `text`. |
+| field.delimiter | String | No | `,` | Field delimiter used when `format = text`. |
+| start.mode | String | No | CONSUME_FROM_GROUP_OFFSETS | Startup position. Supported values: `CONSUME_FROM_LAST_OFFSET`, `CONSUME_FROM_FIRST_OFFSET`, `CONSUME_FROM_GROUP_OFFSETS`, `CONSUME_FROM_TIMESTAMP`, `CONSUME_FROM_SPECIFIC_OFFSETS`. |
+| start.mode.offsets | Map | No | - | Required when `start.mode = CONSUME_FROM_SPECIFIC_OFFSETS`. The key format is `topic-queueId`, for example `test_topic-0`. |
+| start.mode.timestamp | Long | No | - | Required when `start.mode = CONSUME_FROM_TIMESTAMP`. Use a millisecond timestamp. |
+| partition.discovery.interval.millis | long | No | -1 | Topic and partition discovery interval in milliseconds. `-1` disables dynamic discovery. |
+| ignore_parse_errors | Boolean | No | false | Whether to skip JSON messages that cannot be parsed. |
+| consumer.poll.timeout.millis | long | No | 5000 | Pull timeout in milliseconds. |
+| common-options | config | No | - | Source common options. See [Source Common Options](../common-options/source-common-options.md). |
 
 ## Option Notes
 

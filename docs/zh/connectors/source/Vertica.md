@@ -1,12 +1,10 @@
 import ChangeLog from '../changelog/connector-jdbc.md';
 
-# Vertica
+# Vertica 源连接器
 
-> JDBC Vertica 源连接器
+`Source: Vertica` (via the JDBC plugin)
 
-## 描述
-
-通过 JDBC 读取外部数据源数据。
+通过 JDBC 连接器从 Vertica 数据库读取数据。Vertica 只需将 JDBC 插件的 `driver` 设置为 `com.vertica.jdbc.Driver`，`url` 配置为 `jdbc:vertica://` 地址。所有通用 JDBC 源参数（`partition_column`、`partition_num`、`query`、`table_list` 等）都适用，列投影和谓词下推行为也与其他 JDBC 源保持一致。
 
 ## 支持这些引擎
 

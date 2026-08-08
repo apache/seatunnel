@@ -1,32 +1,31 @@
 import ChangeLog from '../changelog/connector-kudu.md';
 
-# Kudu
+# Kudu 源连接器
 
-> Kudu 源连接器
+`Source: Kudu`
 
-## 支持 Kudu 版本
+用于从 Apache Kudu 读取数据。连接器会把表扫描编译成 Kudu 的 scan token，多个 reader 可以并行扫描同一张表的不同 key range，并支持谓词和列裁剪下沉到 Kudu。
+
+## 支持的 Kudu 版本
 
 - 1.11.1/1.12.0/1.13.0/1.14.0/1.15.0
 
-## 支持这些引擎
+## 支持的引擎
 
 > Spark<br/>
 > Flink<br/>
 > SeaTunnel Zeta<br/>
 
-## 关键特性
+## 主要特性
 
-- [x] [批](../../introduction/concepts/connector-v2-features.md)
+- [x] [批处理](../../introduction/concepts/connector-v2-features.md)
+- [ ] [流处理](../../introduction/concepts/connector-v2-features.md)
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
-- [x] [列投影](../../introduction/concepts/connector-v2-features.md)
-- [x] [并行性](../../introduction/concepts/connector-v2-features.md)
-- [ ] [支持用户自定义split](../../introduction/concepts/connector-v2-features.md)
+- [x] [列裁剪](../../introduction/concepts/connector-v2-features.md)
+- [x] [并行度](../../introduction/concepts/connector-v2-features.md)
+- [x] [支持用户自定义分片](../../introduction/concepts/connector-v2-features.md)
 
-## 描述
-
-用于从 Kudu 读取数据。
-
-测试的 kudu 版本是 1.11.1。
+测试通过的 Kudu 版本为 1.11.1。
 
 ## 数据类型映射
 

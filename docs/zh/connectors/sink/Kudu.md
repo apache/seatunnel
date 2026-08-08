@@ -1,14 +1,16 @@
 import ChangeLog from '../changelog/connector-kudu.md';
 
-# Kudu
+# Kudu 目标连接器
 
-> Kudu Sink 连接器
+`Sink: Kudu`
 
-## 支持 Kudu 版本
+将 SeaTunnel 行写入 Apache Kudu 表。连接器按照行的变更类型映射 Kudu 写入操作：`INSERT` 行 append，`UPDATE_AFTER` 行 upsert，`DELETE` 行按主键删除。可以通过 `table_name` 中的占位符将数据路由到多张目标表。
+
+## 支持的 Kudu 版本
 
 - 1.11.1/1.12.0/1.13.0/1.14.0/1.15.0
 
-## 支持引擎
+## 支持的引擎
 
 > Spark<br/>
 > Flink<br/>
@@ -16,6 +18,7 @@ import ChangeLog from '../changelog/connector-kudu.md';
 
 ## 主要特性
 
+- [x] [批处理](../../introduction/concepts/connector-v2-features.md)
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [x] [变更数据捕获](../../introduction/concepts/connector-v2-features.md)
 - [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
