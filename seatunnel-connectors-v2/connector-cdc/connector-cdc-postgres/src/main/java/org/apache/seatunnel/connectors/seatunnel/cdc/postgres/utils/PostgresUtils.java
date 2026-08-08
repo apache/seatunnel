@@ -295,13 +295,15 @@ public class PostgresUtils {
     /** Fetch current largest log sequence number (LSN) of the database. */
     public static LsnOffset currentLsn(PostgresConnection jdbcConnection) {
         Long lsn;
-        Long txId;
         try {
             lsn = jdbcConnection.currentXLogLocation();
-            txId = jdbcConnection.currentTransactionId();
-            log.trace("Read xlogStart at '{}' from transaction '{}'", Lsn.valueOf(lsn), txId);
+            // Do not call txid_current() here. PostgreSQL assigns a new transaction id for that
+            // function, which can advance WAL between low and high watermarks even when the
+            // captured table has no decodable changes. Such artificial gaps make the bounded WAL
+            // backfill wait forever on decoderbufs because there is no message at the stop LSN.
+            log.trace("Read xlogStart at '{}'", Lsn.valueOf(lsn));
         } catch (SQLException e) {
-            throw new SeaTunnelException("Error getting current Lsn/txId " + e.getMessage(), e);
+            throw new SeaTunnelException("Error getting current LSN " + e.getMessage(), e);
         }
 
         try {
@@ -312,9 +314,6 @@ public class PostgresUtils {
 
         Map<String, String> offsetMap = new HashMap<>();
         offsetMap.put(SourceInfo.LSN_KEY, lsn.toString());
-        if (txId != null) {
-            offsetMap.put(SourceInfo.TXID_KEY, txId.toString());
-        }
         offsetMap.put(
                 SourceInfo.TIMESTAMP_USEC_KEY,
                 String.valueOf(Conversions.toEpochMicros(Instant.MIN)));
