@@ -65,8 +65,9 @@ public class SQLNumericFunctionsTest {
 
         Assertions.assertEquals(3, outRow.getField(0));
         Assertions.assertEquals(-1, outRow.getField(1));
-        Assertions.assertEquals(2, outRow.getField(2));
-        Assertions.assertEquals(1, outRow.getField(3));
+        // CEIL/FLOOR of a DOUBLE column preserve the DOUBLE type (fix for #11696)
+        Assertions.assertEquals(2.0d, outRow.getField(2));
+        Assertions.assertEquals(1.0d, outRow.getField(3));
     }
 
     @Test

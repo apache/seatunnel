@@ -161,12 +161,12 @@ public class NumericFunction {
         if (rightValue == null) {
             return null;
         }
-        if (rightValue.doubleValue() == 0) {
+        BigDecimal rightBD = new BigDecimal(rightValue.toString());
+        if (rightBD.compareTo(BigDecimal.ZERO) == 0) {
             throw new TransformException(
                     CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION, "Mod by zero");
         }
-        BigDecimal leftBD = BigDecimal.valueOf(leftValue.doubleValue());
-        BigDecimal rightBD = BigDecimal.valueOf(rightValue.doubleValue());
+        BigDecimal leftBD = new BigDecimal(leftValue.toString());
         BigDecimal[] res = leftBD.divideAndRemainder(rightBD);
         if (rightValue instanceof Integer) {
             return res[1].intValue();
@@ -190,7 +190,7 @@ public class NumericFunction {
                         rightValue.getClass().getName(), ZetaSQLFunction.MOD));
     }
 
-    public static Integer ceil(List<Object> args) {
+    public static Number ceil(List<Object> args) {
         Number v1 = (Number) args.get(0);
         if (v1 == null) {
             return null;
@@ -199,7 +199,7 @@ public class NumericFunction {
         if (args.size() >= 2) {
             v2 = (Number) args.get(1);
         }
-        return round(v1, v2, RoundingMode.CEILING).intValue();
+        return round(v1, v2, RoundingMode.CEILING);
     }
 
     private static Number round(Number v1, Number v2, RoundingMode roundingMode) {
@@ -225,7 +225,7 @@ public class NumericFunction {
                 }
             case "BIGDECIMAL":
                 {
-                    BigDecimal bd = BigDecimal.valueOf(v1.doubleValue());
+                    BigDecimal bd = (BigDecimal) v1;
                     v1 = bd.setScale(scale, roundingMode);
                     break;
                 }
@@ -282,7 +282,7 @@ public class NumericFunction {
         return Math.exp(v1.doubleValue());
     }
 
-    public static Integer floor(List<Object> args) {
+    public static Number floor(List<Object> args) {
         Number v1 = (Number) args.get(0);
         if (v1 == null) {
             return null;
@@ -291,7 +291,7 @@ public class NumericFunction {
         if (args.size() >= 2) {
             v2 = (Number) args.get(1);
         }
-        return round(v1, v2, RoundingMode.FLOOR).intValue();
+        return round(v1, v2, RoundingMode.FLOOR);
     }
 
     public static Double ln(List<Object> args) {
