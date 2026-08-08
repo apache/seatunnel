@@ -112,7 +112,7 @@ sh bin/seatunnel.sh --master local --config $SEATUNNEL_HOME/config/v2.batch.conf
 
 `--dry-run sample` 模式具有以下行为：
 
-- 在本地运行配置的 source 和 transform，并输出它们的 schema。
+- 在本地运行配置的 source 和 transform，并输出表路径和物理行 schema。schema 输出不包含连接器选项或凭据。
 - 仅当设置 `--sample-print-data` 时，才输出限定数量的 source 和 transform 行数据。默认不输出行内容，因为持久化的引擎日志可能暴露敏感数据。
 - 所有 action 都使用并行度 `1`，包括已配置更高并行度的 source，以确保行数限制作用于整个 source，并使预览输出具有确定性。
 - 默认最多从每个 source 向样例管道发送 `10` 行，`--sample-limit` 最大为 `10000`。source reader 停止前可能会完成当前正在执行的 poll 或批次。

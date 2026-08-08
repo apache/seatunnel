@@ -96,7 +96,7 @@ sh bin/seatunnel.sh --master local --config $SEATUNNEL_HOME/config/v2.batch.conf
 
 The `--dry-run sample` mode has the following behavior:
 
-- Runs the configured sources and transforms locally and prints their schemas.
+- Runs the configured sources and transforms locally and prints their table paths and physical row schemas. Connector options and credentials are not included in schema output.
 - Prints bounded source and transform row values only when `--sample-print-data` is set. Row values are hidden by default because persistent engine logs may expose sensitive data.
 - Uses parallelism `1` for every action, including sources configured with higher parallelism, so the row limit is source-wide and the preview output is deterministic.
 - Forwards at most `10` rows from each source into the sample pipeline by default, with a maximum `--sample-limit` of `10000`. A source reader may finish its active poll or batch before it stops.

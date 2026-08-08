@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server.task.flow;
 
 import org.apache.seatunnel.api.common.metrics.Counter;
 import org.apache.seatunnel.api.signal.Signal;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -106,9 +107,9 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
                 t.open();
                 if (dryRunSampleEnabled) {
                     log.info(
-                            "Dry-run sample [transform:{}] schema: {}",
+                            "Dry-run sample [transform:{}] schemas: {}",
                             t.getPluginName(),
-                            t.getProducedCatalogTables());
+                            describeProducedSchemas(t.getProducedCatalogTables()));
                 }
             } catch (Exception e) {
                 log.error(
@@ -118,6 +119,14 @@ public class TransformFlowLifeCycle<T> extends ActionFlowLifeCycle
                         e);
             }
         }
+    }
+
+    static List<String> describeProducedSchemas(List<CatalogTable> catalogTables) {
+        List<String> schemas = new ArrayList<>(catalogTables.size());
+        for (CatalogTable catalogTable : catalogTables) {
+            schemas.add(catalogTable.getTablePath() + ": " + catalogTable.getSeaTunnelRowType());
+        }
+        return schemas;
     }
 
     @Override

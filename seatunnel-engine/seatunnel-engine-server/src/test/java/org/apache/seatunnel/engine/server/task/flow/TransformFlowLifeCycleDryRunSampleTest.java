@@ -17,6 +17,11 @@
 
 package org.apache.seatunnel.engine.server.task.flow;
 
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.transform.Collector;
 import org.apache.seatunnel.api.transform.SeaTunnelMapTransform;
@@ -33,6 +38,8 @@ import java.util.Collections;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.when;
 
 /** Verifies bounded sample reporting across each stage in a transform chain. */
@@ -72,6 +79,31 @@ class TransformFlowLifeCycleDryRunSampleTest {
         assertEquals(Collections.singletonList("row-second"), flow.transform("row"));
 
         assertArrayEquals(new int[] {1, 1}, (int[]) getField(flow, "dryRunSampleCounts"));
+    }
+
+    @Test
+    void shouldExcludeCatalogOptionsFromSampleSchemaLog() {
+        CatalogTable catalogTable =
+                CatalogTable.of(
+                        TableIdentifier.of("catalog", "database", "table"),
+                        TableSchema.builder()
+                                .column(
+                                        PhysicalColumn.of(
+                                                "id", BasicType.INT_TYPE, 10L, 0, false, null, ""))
+                                .build(),
+                        Collections.singletonMap("password", "sample-secret"),
+                        Collections.emptyList(),
+                        "sample table");
+
+        String schemaLog =
+                TransformFlowLifeCycle.describeProducedSchemas(
+                                Collections.singletonList(catalogTable))
+                        .toString();
+
+        assertTrue(schemaLog.contains("database.table"));
+        assertTrue(schemaLog.contains("ROW<id INT>"));
+        assertFalse(schemaLog.contains("password"));
+        assertFalse(schemaLog.contains("sample-secret"));
     }
 
     private static Object getField(Object target, String fieldName) throws Exception {
