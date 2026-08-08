@@ -55,7 +55,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
+
+import static org.awaitility.Awaitility.given;
 
 @Slf4j
 public class JdbcOpenGaussIT extends AbstractJdbcIT {
@@ -351,6 +354,8 @@ public class JdbcOpenGaussIT extends AbstractJdbcIT {
                         .withNetwork(NETWORK)
                         .withNetworkAliases(OPEN_GAUSS_ALIASES)
                         .withEnv("GS_PASSWORD", PASSWORD)
+                        // The official OpenGauss image requires privileged mode for CI startup.
+                        .withPrivilegedMode(true)
                         .waitingFor(
                                 Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(5)))
                         .withLogConsumer(
@@ -360,6 +365,38 @@ public class JdbcOpenGaussIT extends AbstractJdbcIT {
                 Lists.newArrayList(String.format("%s:%s", OPEN_GAUSS_PORT, OPEN_GAUSS_PORT)));
 
         return container;
+    }
+
+    /**
+     * Waits until OpenGauss can authenticate a real SQL session inside the container.
+     *
+     * <p>The first host-port readiness signal can arrive before OpenGauss accepts authenticated
+     * sessions, which makes downstream SeaTunnel JDBC catalog creation fail with EOF.
+     */
+    @Override
+    protected void beforeStartUP() {
+        given().ignoreExceptions()
+                .await()
+                .atMost(120, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            Container.ExecResult result =
+                                    dbServer.execInContainer(
+                                            "gsql",
+                                            "-h",
+                                            "localhost",
+                                            "-p",
+                                            String.valueOf(OPEN_GAUSS_PORT),
+                                            "-d",
+                                            DATABASE,
+                                            "-U",
+                                            USERNAME,
+                                            "-W",
+                                            PASSWORD,
+                                            "-c",
+                                            "select 1");
+                            Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
+                        });
     }
 
     @Override
