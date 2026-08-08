@@ -26,7 +26,6 @@ Firebase Source Connector 支持通过 REST API 从 Google Firebase Realtime Dat
 | `service_account_path` | String | 否 | - | 用于 OAuth2 服务认证的 Google 服务账号 JSON 密钥文件的绝对路径。 |
 | `credentials` | String | 否 | - | Base64 编码后的服务账号 JSON 密钥文件内容。 |
 | `database_secret` | String | 否 | - | 遗留的 Firebase 数据库密钥（Database Secret）或 Web API Token。 |
-| `shallow` | Boolean | 否 | `false` | 是否对数据库路径执行浅读取（Shallow read），仅获取顶级键名（Key）。 |
 | `timeout_ms` | Long | 否 | `10000` | HTTP 请求超时时间（毫秒）。 |
 | `query_params` | Map | 否 | - | 随请求传递的附加 REST API 查询参数。 |
 | `schema` | Config | 是 | - | 目标表 Schema 定义，将 JSON 键映射为 SeaTunnel 数据类型。 |
@@ -75,7 +74,7 @@ env {
 
 source {
   Firebase {
-    url = "[https://my-app-default-rtdb.firebaseio.com](https://my-app-default-rtdb.firebaseio.com)"
+    url = "https://my-app-default-rtdb.firebaseio.com"
     path = "users"
     service_account_path = "/etc/seatunnel/firebase-credentials.json"
     timeout_ms = 5000

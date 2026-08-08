@@ -33,6 +33,8 @@ import com.sun.net.httpserver.HttpServer;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
+import java.util.Collections;
+import java.util.List;
 
 public class FirebaseSourceIT extends TestSuiteBase {
 
@@ -81,8 +83,9 @@ public class FirebaseSourceIT extends TestSuiteBase {
     public void testFirebaseSourceToAssert(TestContainer container)
             throws IOException, InterruptedException {
 
-        System.setProperty("FIREBASE_MOCK_PORT", String.valueOf(serverPort));
-        Container.ExecResult execResult = container.executeJob("/firebase_source_to_assert.conf");
+        List<String> variables = Collections.singletonList("FIREBASE_MOCK_PORT=" + serverPort);
+        Container.ExecResult execResult =
+                container.executeJob("/firebase_source_to_assert.conf", variables);
 
         if (execResult.getExitCode() != 0) {
             System.err.println("Job Stdout: " + execResult.getStdout());

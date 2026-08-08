@@ -112,39 +112,33 @@ public class FirebaseSourceReader implements SourceReader<SeaTunnelRow, Firebase
         List<String> keys = split.getKeys();
 
         if (keys != null && !keys.isEmpty()) {
-            // Processing Strategy A: Read keys and evaluate whether they represent fields of one
-            // row or child record IDs
             Map<String, Object> reconstructedMap = new LinkedHashMap<>();
-            Map<String, String> rawPayloadsPerKey = new LinkedHashMap<>();
+            boolean containsChildRecordObjects = false;
 
             for (String key : keys) {
                 String jsonPayload = httpClient.fetchNodeData(key);
-
                 if (jsonPayload != null && !jsonPayload.trim().equals("null")) {
                     String trimmedPayload = jsonPayload.trim();
-                    rawPayloadsPerKey.put(key, trimmedPayload);
-                    try {
-                        Object parsedVal = OBJECT_MAPPER.readValue(trimmedPayload, Object.class);
-                        reconstructedMap.put(key, parsedVal);
-                    } catch (Exception e) {
-                        reconstructedMap.put(key, trimmedPayload);
+                    if (trimmedPayload.startsWith("{") || trimmedPayload.startsWith("[")) {
+                        containsChildRecordObjects = true;
+                        processJsonPayload(trimmedPayload, output);
+                    } else {
+                        try {
+                            Object parsedVal =
+                                    OBJECT_MAPPER.readValue(trimmedPayload, Object.class);
+                            reconstructedMap.put(key, parsedVal);
+                        } catch (Exception e) {
+                            reconstructedMap.put(key, trimmedPayload);
+                        }
                     }
                 }
             }
 
-            if (isSingleRecordObject(reconstructedMap)) {
+            if (!containsChildRecordObjects && !reconstructedMap.isEmpty()) {
                 String singleRowJson = OBJECT_MAPPER.writeValueAsString(reconstructedMap);
                 emitJsonRecord(singleRowJson, output);
-            } else {
-                log.info(
-                        "Keys represent distinct child record nodes for split [{}]",
-                        split.splitId());
-                for (String rawPayload : rawPayloadsPerKey.values()) {
-                    processJsonPayload(rawPayload, output);
-                }
             }
         } else {
-            // Processing Strategy B: Read entire single path directly
             String jsonPayload = httpClient.fetchNodeData(null);
             processJsonPayload(jsonPayload, output);
         }

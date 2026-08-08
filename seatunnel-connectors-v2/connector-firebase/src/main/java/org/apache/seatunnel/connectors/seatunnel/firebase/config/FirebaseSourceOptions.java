@@ -50,11 +50,6 @@ public class FirebaseSourceOptions {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("Legacy Firebase database secret key or Web API token.");
-    public static final Option<Boolean> SHALLOW =
-            Options.key("shallow")
-                    .booleanType()
-                    .defaultValue(false)
-                    .withDescription("Whether to perform a shallow read on the database path.");
 
     public static final Option<Long> TIMEOUT_MS =
             Options.key("timeout_ms")
