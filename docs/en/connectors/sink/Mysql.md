@@ -106,7 +106,7 @@ semantics (using XA transaction guarantee).
 
 > This example defines a SeaTunnel synchronization task that automatically generates data through FakeSource and sends it to JDBC Sink. FakeSource generates a total of 16 rows of data (row.num=16), with each row having two fields, name (string type) and age (int type). The final target table is test_table will also be 16 rows of data in the table. Before run this job, you need create database test and table test_table in your mysql. And if you have not yet installed and deployed SeaTunnel, you need to follow the instructions in [Install SeaTunnel](../../getting-started/locally/deployment.md) to install and deploy SeaTunnel. And then follow the instructions in [Quick Start With SeaTunnel Engine](../../getting-started/locally/quick-start-seatunnel-engine.md) to run this job.
 
-```
+```hocon
 # Defining the runtime environment
 env {
   parallelism = 1
@@ -146,13 +146,13 @@ sink {
   # If you would like to get more information about how to configure seatunnel and see full list of sink plugins,
   # please go to https://seatunnel.apache.org/docs/connectors/sink
 }
-```
+```hocon
 
 ### Generate Sink SQL
 
 > This example  not need to write complex sql statements, you can configure the database name table name to automatically generate add statements for you
 
-```
+```hocon
 sink {
     jdbc {
         url = "jdbc:mysql://localhost:3306/test?useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true"
@@ -165,13 +165,13 @@ sink {
         table = test_table
     }
 }
-```
+```hocon
 
 ### Exactly-once
 
 > For accurate write scene we guarantee accurate once
 
-```
+```hocon
 sink {
     jdbc {
         url = "jdbc:mysql://localhost:3306/test?useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true"
@@ -184,13 +184,13 @@ sink {
         xa_data_source_class_name = "com.mysql.cj.jdbc.MysqlXADataSource"
     }
 }
-```
+```hocon
 
 ### CDC(Change Data Capture) Event
 
 > CDC change data is also supported by us In this case, you need config database, table and primary_keys.
 
-```
+```hocon
 sink {
     jdbc {
         url = "jdbc:mysql://localhost:3306/test?useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true"
@@ -207,7 +207,7 @@ sink {
         data_save_mode="APPEND_DATA"
     }
 }
-```
+```hocon
 
 ### Multiple Table Sync
 
@@ -215,7 +215,7 @@ sink {
 
 > Sync multiple tables from MySQL CDC to target MySQL database, using placeholders for dynamic table name mapping
 
-```
+```hocon
 env {
   parallelism = 1
   job.mode = "STREAMING"
@@ -246,13 +246,13 @@ sink {
     primary_keys = ["${primary_key}"]
   }
 }
-```
+```hocon
 
 #### Example 2: JDBC Source Multiple Table Sync to MySQL
 
 > Batch sync multiple tables from MySQL using JDBC Source to another MySQL database
 
-```
+```hocon
 env {
   parallelism = 1
   job.mode = "BATCH"
@@ -290,7 +290,7 @@ sink {
     primary_keys = ["${primary_key}"]
   }
 }
-```
+```hocon
 
 ## Changelog
 
