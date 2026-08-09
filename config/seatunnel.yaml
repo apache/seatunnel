@@ -22,7 +22,8 @@ seatunnel:
     backup-count: 1
     queue-type: blockingqueue
     print-execution-info-interval: 60
-    print-job-metrics-info-interval: 60
+      print-job-metrics-info-interval: 60
+      metrics-fetch-timeout-ms: 3000
     slot-service:
       dynamic-slot: true
     checkpoint:
