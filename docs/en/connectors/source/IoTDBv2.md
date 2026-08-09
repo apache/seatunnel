@@ -195,8 +195,8 @@ IoTDB> SELECT temperature, moisture, c_int, c_bigint, c_float, c_double, c_strin
 |                    Time|                  Device|   temperature|   moisture|   c_int|      c_bigint|   c_float| c_double| c_string| c_boolean|
 +------------------------+------------------------+--------------+-----------+--------+--------------+----------+---------+---------+----------+
 |2022-09-25T00:00:00.001Z|root.test_group.device_a|          36.1|        100|       1|   21474836470|      1.0f|     1.0d|      abc|      true|
-|2022-09-25T00:00:00.001Z|root.test_group.device_b|          36.2|        101|       2|   21474836470|      2.0f|     1.0d|      abc|      true|
-|2022-09-25T00:00:00.001Z|root.test_group.device_c|          36.3|        102|       3|   21474836470|      3.0f|     1.0d|      abc|      true|
+|2022-09-25T00:00:00.001Z|root.test_group.device_b|          36.2|        101|       2|   21474836470|      2.0f|     2.0d|      abc|      true|
+|2022-09-25T00:00:00.001Z|root.test_group.device_c|          36.3|        102|       3|   21474836470|      3.0f|     3.0d|      abc|      true|
 +------------------------+------------------------+--------------+-----------+--------+--------------+----------+---------+---------+----------+
 ```
 
@@ -205,7 +205,7 @@ The data format loaded to SeaTunnelRow is as follows:
 |      ts       |       device_name        | temperature | moisture | c_int |  c_bigint   | c_float | c_double | c_string | c_boolean |
 |---------------|--------------------------|-------------|----------|-------|-------------|---------|----------|----------|-----------|
 | 1664035200001 | root.test_group.device_a | 36.1        | 100      | 1     | 21474836470 | 1.0f    | 1.0d     | abc      | true      |
-| 1664035200001 | root.test_group.device_b | 36.2        | 101      | 2     | 21474836470 | 2.0f    | 1.0d     | abc      | true      |
+| 1664035200001 | root.test_group.device_b | 36.2        | 101      | 2     | 21474836470 | 2.0f    | 2.0d     | abc      | true      |
 | 1664035200001 | root.test_group.device_c | 36.3        | 102      | 3     | 21474836470 | 3.0f    | 1.0d     | abc      | true      |
 
 ### Example 2: Read data from IoTDB-table

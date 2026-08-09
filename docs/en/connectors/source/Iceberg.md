@@ -204,7 +204,7 @@ source {
 
 ### Kerberos Authentication
 
-The following example demonstrates how to configure Kerberos authentication for the Iceberg Source when using Hadoop Catalog and HDFS. The three Kerberos options are mandatory in that environment.
+The following example demonstrates how to configure Kerberos authentication for the Iceberg Source when using Hadoop Catalog and HDFS. `kerberos_principal` and `kerberos_keytab_path` must be set together to enable keytab-based Kerberos login; `krb5_path` is optional and defaults to `/etc/krb5.conf`.
 
 ```hocon
 source {

@@ -76,7 +76,7 @@ Base configuration:
 | doris.request.query.timeout.s    | int    | no       | 3600       | Timeout period of Doris scan data, expressed in seconds.                                            |
 | doris.request.tablet.size        | int    | no       | Integer.MAX_VALUE | The number of Doris tablets grouped into each SeaTunnel split. The minimum value is `1`.       |
 | doris.deserialize.arrow.async    | boolean | no      | false      | Whether to deserialize Arrow data asynchronously.                                                    |
-| doris.deserialize.queue.size      | int     | no      | 64         | Queue size used by asynchronous Arrow deserialization.                                               |
+| doris.request.retriesdoris.deserialize.queue.size | int | no | 64 | Queue size used by asynchronous Arrow deserialization. The key name is the literal runtime option key (it is a known typo in the connector source); use this exact key when tuning the queue size. |
 | table_list                       | Array  | no       | -          | List of Doris tables to read.                                                                        |
 
 Table list configuration:

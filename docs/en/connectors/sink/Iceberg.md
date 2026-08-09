@@ -288,7 +288,7 @@ sink {
 
 ### Kerberos Authentication
 
-The following example shows how to configure the Iceberg sink with Kerberos authentication when writing to a Hadoop catalog backed by HDFS. The three Kerberos options are mandatory in that environment.
+The following example shows how to configure the Iceberg sink with Kerberos authentication when writing to a Hadoop catalog backed by HDFS. `kerberos_principal` and `kerberos_keytab_path` must be set together to enable keytab-based Kerberos login; `krb5_path` is optional and defaults to `/etc/krb5.conf`.
 
 ```hocon
 sink {
