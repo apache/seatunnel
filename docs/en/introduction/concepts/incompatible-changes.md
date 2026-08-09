@@ -78,6 +78,12 @@ You need to check this document before you upgrade to related version.
 
 ### Configuration Changes
 
+- **Breaking Change: Released connector installation defaults to direct HTTPS downloads**
+  - **Affected component**: `bin/install-plugin.sh` on Linux and macOS
+  - **Description**: Fixed release versions are now downloaded directly from Maven Central over HTTPS and verified with a published SHA-512 or SHA-1 checksum. Previously, every connector was resolved through the bundled Maven Wrapper.
+  - **Impact**: Existing environments that depend on Maven `settings.xml` for mirrors, authenticated repositories, proxies, or custom TLS policies may no longer install released connectors with the default command.
+  - **Migration Guide**: Set `SEATUNNEL_PLUGIN_DOWNLOAD_METHOD=maven` when running `install-plugin.sh` to preserve the previous Maven resolution behavior. Alternatively, set `SEATUNNEL_MAVEN_REPOSITORY` to an HTTPS Maven-compatible mirror that publishes connector checksum files.
+
 - **Breaking Change: CatalogFactory creation path now validates `optionRule()`**
   - **Affected component**: `seatunnel-api` — `FactoryUtil.createOptionalCatalog()`
   - **Description**: The `FactoryUtil.createOptionalCatalog()` method now calls `ConfigValidator.validate(catalogFactory.optionRule())` before creating a catalog instance. Previously, no validation was performed on the catalog factory's option rules during catalog creation.
