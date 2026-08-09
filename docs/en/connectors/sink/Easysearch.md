@@ -228,7 +228,7 @@ transform {
   # exposes the upstream table identifier as a column so it can be referenced
   # from the sink's index template.
   Sql {
-    sql = "SELECT id, name, CAST(NULL AS STRING) AS table_name FROM db_schema_table_a"
+    sql = "SELECT id, name, 'db.schema.table_a' AS table_name FROM db_schema_table_a UNION ALL SELECT id, CAST(amount AS STRING) AS name, 'db.schema.table_b' AS table_name FROM db_schema_table_b"
   }
 }
 
