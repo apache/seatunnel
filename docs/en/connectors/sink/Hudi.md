@@ -45,7 +45,7 @@ Table list configuration:
 | record_key_fields          | string | no       | -             | Field or fields used to build the Hudi record key; required for `UPSERT`. |
 | partition_fields           | string | no       | -             | Field or fields used to build the partition path. |
 | precombine_field           | string | no       | -             | Field used to resolve multiple updates to the same record. |
-| batch_interval_ms          | Int    | no       | 1000          | Maximum interval between flushes, in milliseconds. |
+| batch_interval_ms          | Int    | no       | 1000          | Currently unused; flushes are triggered only by `batch_size` or a checkpoint. |
 | batch_size                 | Int    | no       | 1000          | Maximum buffered rows before a flush. |
 | insert_shuffle_parallelism | Int    | no       | 2             | Shuffle parallelism for insert operations. |
 | upsert_shuffle_parallelism | Int    | no       | 2             | Shuffle parallelism for upsert operations. |
@@ -58,7 +58,7 @@ Table list configuration:
 
 Note: When this configuration corresponds to a single table, you can flatten the configuration items in `table_list` to the outer layer. For a multi-table job, keep table-specific options inside each `table_list` entry; `table_dfs_path`, `conf_files_path`, `schema_save_mode`, and `data_save_mode` remain at the sink level.
 
-For `UPSERT` or `BULK_INSERT` workloads, configure `record_key_fields` when the connector needs a stable record key. For CDC input, the upstream record must contain the fields used by `record_key_fields`; set `cdc_enabled = true` only when the Hudi CDC change log is required.
+`record_key_fields` is required for `UPSERT` (validated at startup) and for `BULK_INSERT` (currently unvalidated — omitting it causes a `NullPointerException` during writing, not a config-time error). For CDC input, the upstream record must contain the fields used by `record_key_fields`; set `cdc_enabled = true` only when the Hudi CDC change log is required.
 
 ### table_name [string]
 
@@ -267,7 +267,7 @@ sink {
 
 ### S3 Storage
 
-The sink can write to an S3-compatible path. Provide the required Hadoop filesystem settings through `conf_files_path` (or the runtime classpath), then use an `s3a://` table path.
+The sink can write to an S3-compatible path. The `connector-hudi` module does not depend on `hadoop-aws`/`aws-java-sdk`, so resolving the `s3a://` scheme requires placing `hadoop-aws` and the matching AWS SDK bundle (or SeaTunnel's `seatunnel-hadoop-aws` jar) into `$SEATUNNEL_HOME/lib` (or the connector's plugin lib directory) before the example below will work. After that, provide the required Hadoop filesystem settings through `conf_files_path` (or the runtime classpath), then use an `s3a://` table path.
 
 ```hocon
 sink {
