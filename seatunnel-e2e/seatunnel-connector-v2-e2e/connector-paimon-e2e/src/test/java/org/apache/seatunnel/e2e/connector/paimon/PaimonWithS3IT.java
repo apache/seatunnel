@@ -104,9 +104,29 @@ public class PaimonWithS3IT extends SeaTunnelContainer {
      * <p>Overriding rather than wrapping the eight call sites keeps the bound a property of the
      * class: a job submission added later is bounded without anyone having to remember to wrap it.
      *
-     * <p>Note that {@code assertTimeoutPreemptively} abandons the worker thread rather than
-     * interrupting it, so a genuinely stuck exec stays parked until the JVM exits. That is
-     * acceptable here — the point is to free the test run, not the thread.
+     * <p>Three consequences of the timeout path, all confined to the already-abnormal case:
+     *
+     * <ol>
+     *   <li><b>The worker thread stays parked.</b> {@code assertTimeoutPreemptively} does call
+     *       {@code ExecutorService#shutdownNow()}, which interrupts the worker — but the worker is
+     *       blocked in a container exec, i.e. a blocking socket read against the Docker daemon,
+     *       which does not respond to interruption. So the thread survives until the JVM exits.
+     *       That is acceptable: the point is to free the test run and the runner slot, not the
+     *       thread. It also does not hold the JVM open — JUnit's {@code junit-timeout-thread-N} is
+     *       non-daemon, but the Failsafe forked JVM terminates through {@code ForkedBooter}'s
+     *       explicit {@code System.exit}/{@code Runtime.halt}, so a lingering worker cannot stall
+     *       shutdown.
+     *   <li><b>The inherited thread-leak check goes quiet for the rest of the class.</b> {@link
+     *       SeaTunnelContainer} increments a shared {@code runningCount} before the exec and only
+     *       runs its post-job thread-leak assertion when the matching decrement reaches zero. An
+     *       abandoned worker never reaches that decrement, and because this class is {@link
+     *       TestInstance.Lifecycle#PER_CLASS} the counter is shared, so every later submission in
+     *       the run sees a non-zero count and skips the check. This is not a regression — today a
+     *       hang means the later tests never execute at all — but a maintainer chasing a stale
+     *       thread report on this class after a timeout should know the signal was suppressed.
+     *   <li><b>Teardown races the abandoned exec.</b> {@code @AfterAll} closes the same container
+     *       the parked thread is still reading from, which can produce noisy teardown logging.
+     * </ol>
      */
     @Override
     public Container.ExecResult executeJob(String confFile)
