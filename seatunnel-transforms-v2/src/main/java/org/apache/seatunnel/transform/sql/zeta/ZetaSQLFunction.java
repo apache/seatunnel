@@ -761,22 +761,21 @@ public class ZetaSQLFunction {
             }
         }
         if (resultType.getSqlType() == SqlType.DECIMAL) {
-            BigDecimal bigDecimal = BigDecimal.valueOf(leftValue.doubleValue());
+            BigDecimal leftBigDecimal = toBigDecimal(leftValue);
+            BigDecimal rightBigDecimal = toBigDecimal(rightValue);
             if (binaryExpression instanceof Addition) {
-                return bigDecimal.add(BigDecimal.valueOf(rightValue.doubleValue()));
+                return leftBigDecimal.add(rightBigDecimal);
             }
             if (binaryExpression instanceof Subtraction) {
-                return bigDecimal.subtract(BigDecimal.valueOf(rightValue.doubleValue()));
+                return leftBigDecimal.subtract(rightBigDecimal);
             }
             if (binaryExpression instanceof Multiplication) {
-                return bigDecimal.multiply(BigDecimal.valueOf(rightValue.doubleValue()));
+                return leftBigDecimal.multiply(rightBigDecimal);
             }
             if (binaryExpression instanceof Division) {
                 DecimalType decimalType = (DecimalType) resultType;
-                return bigDecimal.divide(
-                        BigDecimal.valueOf(rightValue.doubleValue()),
-                        decimalType.getScale(),
-                        RoundingMode.UP);
+                return leftBigDecimal.divide(
+                        rightBigDecimal, decimalType.getScale(), RoundingMode.HALF_UP);
             }
             if (binaryExpression instanceof Modulo) {
                 List<Object> args = new ArrayList<>();
@@ -822,6 +821,32 @@ public class ZetaSQLFunction {
         throw new TransformException(
                 CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                 String.format("Unsupported SQL Expression: %s ", binaryExpression));
+    }
+
+    /**
+     * Converts a numeric operand of a DECIMAL expression to {@link BigDecimal} without routing it
+     * through {@code double}.
+     *
+     * <p>{@code BigDecimal.valueOf(value.doubleValue())} would collapse the operand to a {@code
+     * double} first, discarding everything beyond ~17 significant digits before the arithmetic even
+     * starts, which defeats the purpose of the DECIMAL type.
+     *
+     * @param value operand of a binary DECIMAL expression
+     * @return the operand as an exact BigDecimal
+     */
+    private static BigDecimal toBigDecimal(Number value) {
+        if (value instanceof BigDecimal) {
+            return (BigDecimal) value;
+        }
+        if (value instanceof Byte
+                || value instanceof Short
+                || value instanceof Integer
+                || value instanceof Long) {
+            return BigDecimal.valueOf(value.longValue());
+        }
+        // Float/Double have no exact decimal form; valueOf uses the canonical shortest
+        // representation, which is the closest thing to the value the user wrote.
+        return BigDecimal.valueOf(value.doubleValue());
     }
 
     public List<SeaTunnelRow> lateralView(
