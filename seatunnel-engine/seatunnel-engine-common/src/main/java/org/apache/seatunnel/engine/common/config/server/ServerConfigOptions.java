@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.engine.common.config.server;
 
+import org.apache.seatunnel.engine.common.Constant;
+
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 
 import org.apache.seatunnel.api.configuration.Option;
@@ -167,6 +169,14 @@ public class ServerConfigOptions {
                         .intType()
                         .defaultValue(1)
                         .withDescription("Number of partitions for storing job metrics in IMap.");
+
+        public static final Option<Long> METRICS_FETCH_TIMEOUT_MS =
+                Options.key("metrics-fetch-timeout-ms")
+                        .longType()
+                        .defaultValue(Constant.DEFAULT_METRICS_FETCH_TIMEOUT_MS)
+                        .withDescription(
+                                "The master-side time budget in milliseconds for collecting worker metrics. "
+                                        + "This bounds the wait but does not cancel the underlying Hazelcast invocation.");
         /////////////////////////////////////////////////
         // The options about Hazelcast IMAP store start
         public static final Option<Integer> BACKUP_COUNT =

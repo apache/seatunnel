@@ -60,6 +60,9 @@ public class EngineConfig {
             ServerConfigOptions.MasterServerConfigOptions.JOB_METRICS_PARTITION_COUNT
                     .defaultValue();
 
+    private long metricsFetchTimeoutMs =
+            ServerConfigOptions.MasterServerConfigOptions.METRICS_FETCH_TIMEOUT_MS.defaultValue();
+
     private ThreadShareMode taskExecutionThreadShareMode =
             ServerConfigOptions.WorkerServerConfigOptions.TASK_EXECUTION_THREAD_SHARE_MODE
                     .defaultValue();
@@ -172,6 +175,15 @@ public class EngineConfig {
                 ServerConfigOptions.MasterServerConfigOptions.JOB_METRICS_PARTITION_COUNT.key()
                         + " must be > 0");
         this.jobMetricsPartitionCount = jobMetricsPartitionCount;
+    }
+
+    public void setMetricsFetchTimeoutMs(long metricsFetchTimeoutMs) {
+        if (metricsFetchTimeoutMs <= 0) {
+            throw new IllegalArgumentException(
+                    ServerConfigOptions.MasterServerConfigOptions.METRICS_FETCH_TIMEOUT_MS.key()
+                            + " must be > 0");
+        }
+        this.metricsFetchTimeoutMs = metricsFetchTimeoutMs;
     }
 
     public void setReportNonTerminalJobState(boolean reportNonTerminalJobState) {
