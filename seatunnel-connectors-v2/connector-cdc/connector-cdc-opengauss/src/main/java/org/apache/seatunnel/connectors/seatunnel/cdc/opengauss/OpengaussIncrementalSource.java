@@ -17,8 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.opengauss;
 
+import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.PostgresIncrementalSource;
 
 import java.util.List;
@@ -38,5 +40,15 @@ public class OpengaussIncrementalSource<T> extends PostgresIncrementalSource<T> 
     @Override
     public String getPluginName() {
         return IDENTIFIER;
+    }
+
+    /**
+     * Resolves startup mode against the OpenGauss option instead of the PostgreSQL one, so this
+     * connector keeps the three modes it has always accepted rather than inheriting PostgreSQL's
+     * WAL-slot-specific additions. See {@link OpengaussSourceOptions#STARTUP_MODE}.
+     */
+    @Override
+    public Option<StartupMode> getStartupModeOption() {
+        return OpengaussSourceOptions.STARTUP_MODE;
     }
 }

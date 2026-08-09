@@ -75,9 +75,11 @@ public class OpengaussIncrementalSourceFactory implements TableSourceFactory {
                         JdbcSourceOptions.INVERSE_SAMPLING_RATE,
                         JdbcSourceOptions.SPLIT_ALLOW_SAMPLING,
                         JdbcSourceOptions.TABLE_NAMES_CONFIG)
-                .optional(PostgresSourceOptions.STARTUP_MODE, PostgresSourceOptions.STOP_MODE)
+                // startup.mode is OpenGauss-owned so PostgreSQL-only modes cannot leak in here;
+                // stop.mode stays shared because "never" is its only legal value.
+                .optional(OpengaussSourceOptions.STARTUP_MODE, PostgresSourceOptions.STOP_MODE)
                 .conditional(
-                        PostgresSourceOptions.STARTUP_MODE,
+                        OpengaussSourceOptions.STARTUP_MODE,
                         StartupMode.INITIAL,
                         JdbcSourceOptions.EXACTLY_ONCE)
                 .build();

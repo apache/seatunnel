@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.cdc.opengauss;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.SingleChoiceOption;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
@@ -28,10 +29,13 @@ import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
+import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
+import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.OffsetFactory;
 import org.apache.seatunnel.connectors.cdc.debezium.DebeziumDeserializationSchema;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.config.PostgresIncrementalSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.PostgresSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
 
 import org.junit.jupiter.api.Assertions;
@@ -39,6 +43,7 @@ import org.junit.jupiter.api.Test;
 
 import io.debezium.config.Configuration;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -57,6 +62,59 @@ public class OpengaussIncrementalSourceFactoryTest {
         OpengaussIncrementalSourceFactory factory = new OpengaussIncrementalSourceFactory();
 
         Assertions.assertEquals(OpengaussIncrementalSource.class, factory.getSourceClass());
+    }
+
+    /**
+     * OpenGauss shares the PostgreSQL runtime but not its startup-mode surface. snapshot-only and
+     * committed-offset are PostgreSQL-specific (committed-offset reads confirmed_flush_lsn and
+     * active_pid from pg_replication_slots), so they must not become selectable here just because
+     * the PostgreSQL option gained them.
+     */
+    @Test
+    public void testOptionRuleExposesOnlyOpengaussStartupModes() {
+        SingleChoiceOption<StartupMode> startupMode =
+                (SingleChoiceOption<StartupMode>)
+                        new OpengaussIncrementalSourceFactory()
+                                .optionRule().getOptionalOptions().stream()
+                                        .filter(
+                                                option ->
+                                                        SourceOptions.STARTUP_MODE_KEY.equals(
+                                                                option.key()))
+                                        .findFirst()
+                                        .orElseThrow(
+                                                () ->
+                                                        new AssertionError(
+                                                                "startup.mode missing from the Opengauss option rule"));
+
+        Assertions.assertEquals(
+                Arrays.asList(StartupMode.INITIAL, StartupMode.EARLIEST, StartupMode.LATEST),
+                startupMode.getOptionValues());
+        Assertions.assertEquals(StartupMode.INITIAL, startupMode.defaultValue());
+    }
+
+    /**
+     * The source must resolve startup mode through the same narrowed option the rule advertises.
+     */
+    @Test
+    public void testSourceResolvesStartupModeFromOpengaussOption() {
+        OpengaussIncrementalSource<Object> source =
+                new TestingOpengaussIncrementalSource(
+                        ReadonlyConfig.fromMap(Collections.emptyMap()), createCatalogTables());
+
+        Assertions.assertSame(OpengaussSourceOptions.STARTUP_MODE, source.getStartupModeOption());
+    }
+
+    /** Guards the other direction: narrowing OpenGauss must not narrow PostgreSQL. */
+    @Test
+    public void testPostgresStartupModesRemainUnchanged() {
+        Assertions.assertEquals(
+                Arrays.asList(
+                        StartupMode.INITIAL,
+                        StartupMode.SNAPSHOT_ONLY,
+                        StartupMode.COMMITTED_OFFSET,
+                        StartupMode.EARLIEST,
+                        StartupMode.LATEST),
+                PostgresSourceOptions.STARTUP_MODE.getOptionValues());
     }
 
     @Test
