@@ -12,9 +12,10 @@ import ChangeLog from '../changelog/connector-maxcompute.md';
 
 ## Description
 
-Used to write data to Maxcompute. The connector supports password / AccessKey authentication,
-STS-token authentication, and the default Aliyun credentials provider chain. It can append to or
-overwrite a target table or partition, create the target table from a template, and uses an upload
+Used to write data to Maxcompute. The connector supports AccessKey (`accessId`/`accesskey`)
+authentication, STS-token authentication, and the default Aliyun credentials provider chain. It can
+append to or overwrite a target table or partition, create the target table from a template, and
+uses an upload
 or upsert session selected by `insert_strategy`.
 
 ## Key features

@@ -12,7 +12,7 @@ import ChangeLog from '../changelog/connector-maxcompute.md';
 
 ## 描述
 
-用于从 Maxcompute 读取数据。连接器支持账号密码认证、STS Token 临时认证，以及阿里云默认凭据链（环境变量、ECS RAM 角色等）免密认证；支持通过 `table_name` 读取单表、通过 `table_list` 读取多表，并支持分区表、自定义列和并行读取所需的 `split_row`。
+用于从 Maxcompute 读取数据。连接器支持 AccessKey（`accessId`/`accesskey`）认证、STS Token 临时认证，以及阿里云默认凭据链（环境变量、ECS RAM 角色等）免密认证；支持通过 `table_name` 读取单表、通过 `table_list` 读取多表，并支持分区表、自定义列和并行读取所需的 `split_row`。
 
 ## 主要特性
 

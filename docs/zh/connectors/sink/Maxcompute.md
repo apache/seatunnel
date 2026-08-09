@@ -12,7 +12,7 @@ import ChangeLog from '../changelog/connector-maxcompute.md';
 
 ## 描述
 
-用于向 Maxcompute 写入数据。连接器支持账号密码认证、STS Token 临时认证以及阿里云默认凭据链免密认证；支持追加写入、覆盖整表或分区、自动创建目标表（基于 DDL 模板）以及通过 `insert_strategy` 选择 upload 或 upsert 会话。
+用于向 Maxcompute 写入数据。连接器支持 AccessKey（`accessId`/`accesskey`）认证、STS Token 临时认证以及阿里云默认凭据链免密认证；支持追加写入、覆盖整表或分区、自动创建目标表（基于 DDL 模板）以及通过 `insert_strategy` 选择 upload 或 upsert 会话。
 
 ## 主要特性
 

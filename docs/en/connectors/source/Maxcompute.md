@@ -12,9 +12,10 @@ import ChangeLog from '../changelog/connector-maxcompute.md';
 
 ## Description
 
-Used to read data from Maxcompute. The connector supports password / AccessKey authentication,
-STS-token authentication, and the default Aliyun credentials provider chain (environment variables,
-ECS RAM roles, and so on). It can read a single table with `table_name`, a list of tables with
+Used to read data from Maxcompute. The connector supports AccessKey (`accessId`/`accesskey`)
+authentication, STS-token authentication, and the default Aliyun credentials provider chain
+(environment variables, ECS RAM roles, and so on). It can read a single table with `table_name`,
+a list of tables with
 `table_list`, and supports partitioned tables, custom column lists, and a configurable `split_row`
 for parallel reads.
 
