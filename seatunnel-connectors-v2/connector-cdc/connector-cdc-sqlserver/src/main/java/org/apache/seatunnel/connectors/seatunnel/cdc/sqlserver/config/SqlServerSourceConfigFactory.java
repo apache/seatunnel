@@ -37,6 +37,8 @@ public class SqlServerSourceConfigFactory extends JdbcSourceConfigFactory {
     private static final String DRIVER_CLASS_NAME = "com.microsoft.sqlserver.jdbc.SQLServerDriver";
     public static final String SCHEMA_CHANGE_KEY = "include.schema.changes";
 
+    // Holds JDBC properties forwarded from the connector URL; applied before dbzProperties in
+    // create() so an explicit debezium.* setting still wins over URL-derived ones.
     private Properties jdbcUrlProperties;
 
     /**
