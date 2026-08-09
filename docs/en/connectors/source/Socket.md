@@ -23,12 +23,14 @@ import ChangeLog from '../changelog/connector-socket.md';
 
 Used to read newline-delimited text data from a socket server. Each line received from the socket
 becomes one SeaTunnel row of type `STRING`. In streaming mode the source stays connected to the
-socket and reads lines as they arrive; in batch mode it reads until the peer closes the connection
-or no new line appears within the read timeout.
+socket and reads lines as they arrive; in batch mode the reader performs a single read of whatever
+data is currently available on the socket, emits any complete newline-terminated lines from that read
+(plus any trailing partial line as a final row), and then finishes — it does not wait for the
+connection to close and there is no read-timeout setting.
 
-The connector opens one TCP connection per parallel subtask. `host` and `port` refer to the *server*
-endpoint that SeaTunnel connects to; configure a sink, transformer, or peer like `nc -l` on the
-other side.
+The connector uses a single split (source parallelism is fixed at 1). `host` and `port` refer to the
+*server* endpoint that SeaTunnel connects to; configure a sink, transformer, or peer like `nc -l`
+on the other side.
 
 ## Data Type Mapping
 

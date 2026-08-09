@@ -22,11 +22,12 @@ import ChangeLog from '../changelog/connector-socket.md';
 ## 描述
 
 用于从 Socket 服务端读取按行分隔的文本数据。Socket 中收到的每一行都会成为一条 `STRING` 类型的
-SeaTunnel 数据。流处理模式下连接器保持连接持续打开并按行处理；批处理模式下它会一直读取，直到对端
-关闭连接或在读取超时内没有新行出现。
+SeaTunnel 数据。流处理模式下连接器保持连接持续打开并按行处理；批处理模式下读取器只执行一次 `read`，
+将这次读取中已按 `\n` 切分得到的完整行（以及最后一行末尾不完整的部分作为一行）发送出去后即结束——
+它既不会等待对端关闭连接，也没有读取超时设置。
 
-每个并行子任务会建立一条 TCP 连接。`host`/`port` 指的是 SeaTunnel 要连接的 *服务端* 地址，
-对端可以是 Sink、Transform，也可以通过 `nc -l` 等工具手动提供。
+该连接器只使用单个 split（Source 并行度固定为 1）。`host`/`port` 指的是 SeaTunnel 要连接的
+*服务端* 地址，对端可以是 Sink、Transform，也可以通过 `nc -l` 等工具手动提供。
 
 ## 数据类型映射
 
