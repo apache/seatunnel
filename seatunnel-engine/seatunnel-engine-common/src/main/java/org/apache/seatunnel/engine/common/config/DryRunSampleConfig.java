@@ -59,15 +59,18 @@ public final class DryRunSampleConfig {
         envOptions.put(PRINT_DATA_KEY, printData);
     }
 
+    /** Returns whether local sample dry-run mode is enabled for the task. */
     public static boolean isEnabled(Map<String, Object> envOptions) {
         return Boolean.TRUE.equals(envOptions.get(ENABLED_KEY));
     }
 
+    /** Returns the configured sample row limit, or the default limit when it is absent. */
     public static int getLimit(Map<String, Object> envOptions) {
         Object limit = envOptions.get(LIMIT_KEY);
         return limit instanceof Number ? ((Number) limit).intValue() : DEFAULT_LIMIT;
     }
 
+    /** Returns whether sampled row values should be written to persistent logs. */
     public static boolean isPrintData(Map<String, Object> envOptions) {
         return Boolean.TRUE.equals(envOptions.get(PRINT_DATA_KEY));
     }

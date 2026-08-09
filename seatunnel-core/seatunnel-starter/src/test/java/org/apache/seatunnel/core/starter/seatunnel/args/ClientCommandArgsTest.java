@@ -32,7 +32,9 @@ import java.io.FileNotFoundException;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 
+import static com.github.stefanbirkner.systemlambda.SystemLambda.catchSystemExit;
 import static org.apache.seatunnel.api.options.ConnectorCommonOptions.PLUGIN_NAME;
+import static org.apache.seatunnel.core.starter.constants.SeaTunnelStarterConstants.USAGE_EXIT_CODE;
 
 public class ClientCommandArgsTest {
     @Test
@@ -147,6 +149,23 @@ public class ClientCommandArgsTest {
 
         Assertions.assertThrows(
                 com.beust.jcommander.ParameterException.class, clientCommandArgs::buildCommand);
+    }
+
+    @Test
+    public void testSampleOptionsUseCommandLineUsagePath() throws Exception {
+        String[] args = {"-c", "app.conf", "--sample-limit", "5"};
+
+        int statusCode =
+                catchSystemExit(
+                        () ->
+                                CommandLineUtils.parse(
+                                        args,
+                                        new ClientCommandArgs(),
+                                        "seatunnel-client",
+                                        true,
+                                        ClientCommandArgs::validateCommandOptions));
+
+        Assertions.assertEquals(USAGE_EXIT_CODE, statusCode);
     }
 
     @Test

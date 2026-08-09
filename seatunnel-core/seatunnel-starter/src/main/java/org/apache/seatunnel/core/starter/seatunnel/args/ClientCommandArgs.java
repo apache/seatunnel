@@ -165,7 +165,7 @@ public class ClientCommandArgs extends AbstractCommandArgs {
 
     @Override
     public Command<?> buildCommand() {
-        validateSampleOptions();
+        validateCommandOptions();
         if (restoreJobId != null && restoreWithCheckpointJobId != null) {
             throw new IllegalArgumentException(
                     "--restore and --restore-with-checkpoint are mutually exclusive");
@@ -190,7 +190,6 @@ public class ClientCommandArgs extends AbstractCommandArgs {
         }
         Common.setDeployMode(getDeployMode());
         if (dryRun == DryRun.SAMPLE) {
-            validateSampleMode();
             return new ClientExecuteCommand(this);
         }
         if (checkConfig || dryRun != null) {
@@ -253,6 +252,14 @@ public class ClientCommandArgs extends AbstractCommandArgs {
     /** Returns the configured sample limit, or the default limit when it was not specified. */
     public int getSampleLimit() {
         return sampleLimit == null ? DryRunSampleConfig.DEFAULT_LIMIT : sampleLimit;
+    }
+
+    /** Validates options that depend on other command-line arguments. */
+    public void validateCommandOptions() {
+        validateSampleOptions();
+        if (dryRun == DryRun.SAMPLE) {
+            validateSampleMode();
+        }
     }
 
     /**
