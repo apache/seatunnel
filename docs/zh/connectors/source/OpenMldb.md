@@ -32,7 +32,9 @@ OpenMLDB 类型会按照所配置 `sql` 语句的结果集映射为 SeaTunnel �
 | OpenMLDB 数据类型 | SeaTunnel 数据类型 |
 |-------------------|--------------------|
 | bool              | boolean            |
-| smallint / int / bigint | int / bigint  |
+| smallint | smallint |
+| int       | int      |
+| bigint    | bigint   |
 | float / double    | float / double     |
 | string / varchar  | string             |
 | date              | date               |

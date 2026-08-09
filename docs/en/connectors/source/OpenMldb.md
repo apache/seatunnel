@@ -34,7 +34,9 @@ an `UNSUPPORTED_DATA_TYPE` error.
 | OpenMLDB Data Type | SeaTunnel Data Type |
 |--------------------|---------------------|
 | bool               | boolean             |
-| smallint / int / bigint | int / bigint    |
+| smallint           | smallint            |
+| int                | int                 |
+| bigint             | bigint              |
 | float / double     | float / double      |
 | string / varchar   | string              |
 | date               | date                |
