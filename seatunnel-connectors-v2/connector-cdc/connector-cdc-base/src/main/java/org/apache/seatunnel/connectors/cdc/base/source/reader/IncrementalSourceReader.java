@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.cdc.base.source.reader;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.source.event.CompletedSnapshotPhaseEvent;
@@ -182,6 +183,8 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
 
     static IncrementalSplit pruneRemovedTables(
             IncrementalSplit incrementalSplit, Set<TableId> capturedTables) {
+        // Keep table-scoped checkpoint state aligned with the restored reader's current table set.
+        // The copy constructor preserves legacy checkpointDataType for old checkpoint state.
         List<TableId> tableIds =
                 incrementalSplit.getTableIds().stream()
                         .filter(capturedTables::contains)
@@ -197,14 +200,29 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
                             .filter(entry -> capturedTables.contains(entry.getKey()))
                             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
         }
+        List<CatalogTable> checkpointTables =
+                pruneCheckpointTables(incrementalSplit.getCheckpointTables(), capturedTables);
         return new IncrementalSplit(
-                incrementalSplit.splitId(),
+                incrementalSplit,
                 tableIds,
-                incrementalSplit.getStartupOffset(),
-                incrementalSplit.getStopOffset(),
                 completedSnapshotSplitInfos,
-                incrementalSplit.getCheckpointTables(),
+                checkpointTables,
                 historyTableChanges);
+    }
+
+    private static List<CatalogTable> pruneCheckpointTables(
+            List<CatalogTable> checkpointTables, Set<TableId> capturedTables) {
+        if (checkpointTables == null) {
+            return null;
+        }
+        return checkpointTables.stream()
+                .filter(table -> capturedTables.contains(toTableId(table.getTablePath())))
+                .collect(Collectors.toList());
+    }
+
+    private static TableId toTableId(TablePath tablePath) {
+        return new TableId(
+                tablePath.getDatabaseName(), tablePath.getSchemaName(), tablePath.getTableName());
     }
 
     @Override

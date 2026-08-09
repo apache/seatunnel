@@ -90,7 +90,8 @@ transform {
 ### model
 
 The model to use. Different model providers have different models. For example, the OpenAI model can be `gpt-4o-mini`.
-If you use an OpenAI model, please refer to https://developers.openai.com/api/docs/models for supported models and endpoints, including `/v1/chat/completions` where available.
+If you use OpenAI model, please refer https://platform.openai.com/docs/models/model-endpoint-compatibility
+of `/v1/chat/completions` endpoint.
 
 ### api_key
 

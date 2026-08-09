@@ -89,13 +89,32 @@ public class IncrementalSplit extends SourceSplitBase {
             List<CatalogTable> tables,
             Map<TableId, byte[]> historyTableChanges) {
         this(
-                split.splitId(),
+                split,
                 split.getTableIds(),
-                split.getStartupOffset(),
-                split.getStopOffset(),
                 split.getCompletedSnapshotSplitInfos(),
                 tables,
                 historyTableChanges);
+    }
+
+    /**
+     * Rebuilds a restored incremental split with filtered table state while preserving legacy
+     * checkpoint metadata that may have been deserialized from older checkpoints.
+     */
+    public IncrementalSplit(
+            IncrementalSplit split,
+            List<TableId> capturedTables,
+            List<CompletedSnapshotSplitInfo> completedSnapshotSplitInfos,
+            List<CatalogTable> tables,
+            Map<TableId, byte[]> historyTableChanges) {
+        this(
+                split.splitId(),
+                capturedTables,
+                split.getStartupOffset(),
+                split.getStopOffset(),
+                completedSnapshotSplitInfos,
+                tables,
+                historyTableChanges);
+        this.checkpointDataType = split.getCheckpointDataType();
     }
 
     @Deprecated
