@@ -57,10 +57,10 @@ import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 
 import com.hazelcast.cluster.Address;
+import com.hazelcast.cluster.ClusterService;
 import com.hazelcast.cluster.Member;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.flakeidgen.FlakeIdGenerator;
-import com.hazelcast.internal.cluster.impl.ClusterServiceImpl;
 import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngine;
@@ -334,7 +334,7 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
 
         NodeEngine nodeEngine = mock(NodeEngine.class);
         HazelcastInstance hazelcastInstance = mock(HazelcastInstance.class);
-        ClusterServiceImpl clusterService = mock(ClusterServiceImpl.class);
+        ClusterService clusterService = mock(ClusterService.class);
         Member workerMember = mock(Member.class);
         FlakeIdGenerator flakeIdGenerator = mock(FlakeIdGenerator.class);
         ResourceManager resourceManager = mock(ResourceManager.class);
@@ -364,7 +364,7 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
                             return null;
                         })
                 .when(ownedSlotProfilesIMap)
-                .forEach(any());
+                .forEach((BiConsumer<PipelineLocation, Map<TaskGroupLocation, SlotProfile>>) any());
 
         JobMaster jobMaster =
                 new JobMaster(
@@ -406,7 +406,7 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
         Address secondWorker = new Address("127.0.0.3", 5801);
         AtomicInteger fetchCount = new AtomicInteger();
         NodeEngine nodeEngine = mock(NodeEngine.class);
-        ClusterServiceImpl clusterService = mock(ClusterServiceImpl.class);
+        ClusterService clusterService = mock(ClusterService.class);
         when(nodeEngine.getClusterService()).thenReturn(clusterService);
         when(clusterService.getMember(firstWorker)).thenReturn(mock(Member.class));
         when(clusterService.getMember(secondWorker)).thenReturn(mock(Member.class));
