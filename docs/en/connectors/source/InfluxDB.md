@@ -140,6 +140,21 @@ Number of query splits. Configure it together with `lower_bound`, `upper_bound`,
 `split_column`. Make sure `upper_bound - lower_bound` is divisible by `partition_num`; otherwise
 the query results overlap.
 
+### where [string]
+
+:::caution Reserved option
+
+The current split logic reads the lowercase `where` keyword directly from the `sql` option.
+Setting `where` has no effect on the generated split queries — put the filter inside `sql`
+instead, for example `select * from test where age > 0`. The split parser is case-sensitive on
+the `where` keyword.
+
+This option is kept in the option list only because the validation rule
+(`InfluxDBSourceFactory.optionRule()`) still references it for backward compatibility; the
+runtime split query generator does not read it.
+
+:::
+
 ### epoch [string]
 
 Time precision returned by InfluxDB. Valid values include `H`, `m`, `s`, `MS`, `u`, and `n`. The
@@ -262,6 +277,57 @@ source {
 
 sink {
     Console {}
+}
+```
+
+### Stream Into A Downstream Sink With Bounded Buffer
+
+The InfluxDB source is bounded by the `sql` result. To chain it to a streaming sink without
+losing rows, set a finite `partition_num` and let SeaTunnel checkpoint the offsets per split.
+
+```hocon
+env {
+    parallelism = 2
+    job.mode = "BATCH"
+    checkpoint.interval = 10000
+}
+
+source {
+    InfluxDB {
+        url = "http://influxdb-host:8086"
+        sql = "select label, c_string, c_double, c_bigint, c_float, c_int, c_smallint, c_boolean from source"
+        database = "test"
+        lower_bound = 0
+        upper_bound = 99
+        partition_num = 4
+        split_column = "c_int"
+        query_timeout_sec = 10
+        connect_timeout_ms = 20000
+        schema {
+            fields {
+                label = STRING
+                c_string = STRING
+                c_double = DOUBLE
+                c_bigint = BIGINT
+                c_float = FLOAT
+                c_int = INT
+                c_smallint = SMALLINT
+                c_boolean = BOOLEAN
+                time = BIGINT
+            }
+        }
+    }
+}
+
+sink {
+    InfluxDB {
+        url = "http://influxdb-host:8086"
+        database = "test"
+        measurement = "sink"
+        key_time = "time"
+        key_tags = ["label"]
+        batch_size = 1024
+    }
 }
 ```
 

@@ -51,14 +51,14 @@ Only Greenplum-specific commonly used options are listed here. Other JDBC sink o
 
 | Name | Type | Required | Default | Description |
 |------|------|----------|---------|-------------|
-| url | String | Yes | - | JDBC connection URL. Use `jdbc:postgresql://host:port/database` with PostgreSQL driver, or `jdbc:pivotal:greenplum://host:port;DatabaseName=database` with Greenplum native driver. |
+| url | String | Yes | - | JDBC connection URL. Use `jdbc:postgresql://host:port/database` with the PostgreSQL driver, or `jdbc:pivotal:greenplum://host:port;DatabaseName=database` with the Greenplum native driver. |
 | driver | String | Yes | - | JDBC driver class name, usually `org.postgresql.Driver` or `com.pivotal.jdbc.GreenplumDriver`. |
 | username | String | No | - | Greenplum username. |
 | password | String | No | - | Greenplum password. |
-| query | String | No | - | SQL used to write upstream rows, for example `insert into sink(age, name) values(?, ?)`. `query` has higher priority than generated sink SQL. |
-| batch_size | Int | No | 1000 | Maximum records buffered before flushing to Greenplum. |
+| query | String | No | - | SQL used to write upstream rows, for example `insert into sink(age, name) values(?, ?)`. `query` has higher priority than generated sink SQL. When unset, the sink expects `generate_sink_sql = true` together with `database` and `table`. |
+| batch_size | Int | No | 1000 | Maximum records buffered before flushing to Greenplum. The buffer is also flushed at each checkpoint. |
 | max_retries | Int | No | 0 | Retry times after `executeBatch` fails. |
-| generate_sink_sql | Boolean | No | false | Generate insert SQL automatically from `database` and `table`. |
+| generate_sink_sql | Boolean | No | false | Generate the insert SQL automatically from `database` and `table`. When `true`, the column order must match the upstream schema. |
 | database | String | No | - | Database name used when `generate_sink_sql = true`. |
 | table | String | No | - | Target table name used when `generate_sink_sql = true`. |
 | common-options | | No | - | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details. |
