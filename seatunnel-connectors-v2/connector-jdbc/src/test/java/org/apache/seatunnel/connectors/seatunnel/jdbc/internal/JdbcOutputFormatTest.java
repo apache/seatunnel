@@ -90,6 +90,48 @@ public class JdbcOutputFormatTest {
         Assertions.assertEquals(1, getBatchCount(outputFormat));
     }
 
+    @Test
+    public void testRowLevelSqlStateStillRetriesByDefault() throws Exception {
+        JdbcConnectionProvider connectionProvider = mock(JdbcConnectionProvider.class);
+        Connection connection = mock(Connection.class);
+        RowLevelSQLExceptionExecutor executor = new RowLevelSQLExceptionExecutor();
+        JdbcConnectionConfig config =
+                JdbcConnectionConfig.builder().batchSize(1).maxRetries(1).build();
+
+        when(connectionProvider.getOrEstablishConnection()).thenReturn(connection);
+        when(connectionProvider.getConnection()).thenReturn(connection);
+        when(connectionProvider.isConnectionValid()).thenReturn(true);
+
+        JdbcOutputFormat<String, RowLevelSQLExceptionExecutor> outputFormat =
+                new JdbcOutputFormat<>(connectionProvider, config, () -> executor);
+        outputFormat.open();
+
+        Assertions.assertThrows(
+                JdbcConnectorException.class, () -> outputFormat.writeRecord("row-1"));
+        Assertions.assertEquals(2, executor.executeBatchCount);
+    }
+
+    @Test
+    public void testRowLevelSqlStateFailsFastWhenEnabled() throws Exception {
+        JdbcConnectionProvider connectionProvider = mock(JdbcConnectionProvider.class);
+        Connection connection = mock(Connection.class);
+        RowLevelSQLExceptionExecutor executor = new RowLevelSQLExceptionExecutor();
+        JdbcConnectionConfig config =
+                JdbcConnectionConfig.builder().batchSize(1).maxRetries(1).build();
+
+        when(connectionProvider.getOrEstablishConnection()).thenReturn(connection);
+        when(connectionProvider.getConnection()).thenReturn(connection);
+
+        JdbcOutputFormat<String, RowLevelSQLExceptionExecutor> outputFormat =
+                new JdbcOutputFormat<>(connectionProvider, config, () -> executor);
+        outputFormat.setFailFastOnRowLevelSqlState(true);
+        outputFormat.open();
+
+        Assertions.assertThrows(
+                JdbcConnectorException.class, () -> outputFormat.writeRecord("row-1"));
+        Assertions.assertEquals(1, executor.executeBatchCount);
+    }
+
     private static void setLastFlushTimeMs(JdbcOutputFormat<?, ?> outputFormat, long value)
             throws Exception {
         Field field = JdbcOutputFormat.class.getDeclaredField("lastFlushTimeMs");
@@ -105,7 +147,7 @@ public class JdbcOutputFormatTest {
 
     private static class CountingExecutor implements JdbcBatchStatementExecutor<String> {
 
-        private int executeBatchCount;
+        protected int executeBatchCount;
 
         @Override
         public void prepareStatements(Connection connection) {}
@@ -114,7 +156,7 @@ public class JdbcOutputFormatTest {
         public void addToBatch(String record) {}
 
         @Override
-        public void executeBatch() {
+        public void executeBatch() throws SQLException {
             executeBatchCount++;
         }
 
@@ -127,6 +169,15 @@ public class JdbcOutputFormatTest {
         @Override
         public void clearBatch() throws SQLException {
             throw new SQLException("clear failed");
+        }
+    }
+
+    private static class RowLevelSQLExceptionExecutor extends CountingExecutor {
+
+        @Override
+        public void executeBatch() throws SQLException {
+            executeBatchCount++;
+            throw new SQLException("data too long", "22001");
         }
     }
 }

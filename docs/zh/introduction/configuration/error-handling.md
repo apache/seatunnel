@@ -226,7 +226,7 @@ env {
 | `original_data_format` | String    | `TEXT`  | **预留参数**。当前版本仅支持 `TEXT`，内部统一按字符串形式写入错误表（`original_data` 为记录的字符串表示，即 `String.valueOf(row)`）。不支持的取值会在解析配置时快速失败。 |
 | `original_data_max_length` | Integer | `8192`  | 原始数据序列化后的最大长度，超过部分将被截断，用于控制单条错误记录大小。                                                |
 
-阈值统计口径：Zeta 会把阈值计数写入引擎状态，计数 key 带有版本号，并按作业 ID、pipeline ID、action ID 和阶段（`TRANSFORM` 或 `SINK`）划分。行处理时先更新本地 task 计数，只在对应 checkpoint 完成后把增量发布到共享引擎状态，因此热路径不会每行写一次共享状态，已中止的 checkpoint 也不会推进已提交阈值。同一个 action、同一个阶段下的所有并行 subtask 共享同一组总记录数/错误记录数计数器，因此 `max_error_records` 和 `max_error_ratio` 按该作业、该 pipeline 的阶段级总量触发，而不是给每个 subtask 单独分配一份预算。Sink 每次 `write(...)` 计 1；Transform 链中每个 `map(...)`/`flatMap(...)` 调用计 1；同一条 Transform 链上的多个算子共享同一个阶段计数器。任务恢复后，新 attempt 会复用同一组引擎状态计数器，不会从 0 重新计数，所以重启或调整并行度不会放大可容忍的错误数量。
+阈值统计口径：Zeta 会把阈值计数写入引擎状态，计数 key 带有版本号，并按作业 ID、pipeline ID、action ID 和阶段（`TRANSFORM` 或 `SINK`）划分。行处理时会立即更新这组共享的引擎状态计数器，所以同一个 action、同一个阶段下的所有并行 subtask 都能看到同一组当前总记录数/错误记录数计数器。因此 `max_error_records` 和 `max_error_ratio` 按该作业、该 pipeline 的阶段级总量触发，而不是给每个 subtask 单独分配一份预算。Sink 每次 `write(...)` 计 1；Transform 链中每个 `map(...)`/`flatMap(...)` 调用计 1；同一条 Transform 链上的多个算子共享同一个阶段计数器。不同 action、不同阶段分别使用不同计数器。任务恢复后，新 attempt 会复用同一组引擎状态计数器，不会从 0 重新计数，所以重启或调整并行度不会放大可容忍的错误数量。
 
 ### 错误 Sink 相关参数一览
 
@@ -269,7 +269,7 @@ JDBC 是当前最主要使用行级错误处理能力的 Connector。
 - `SQLState` 以 `22` 开头——数据异常（比如数据太长、类型不匹配）；
 - `SQLState` 以 `23` 开头——完整性约束异常（比如主键/唯一键冲突）；
 
-则会将其视为 **行级错误**。否则视为 **系统级错误**，直接让作业失败。
+在启用 Sink 行级错误处理时，会将其视为 **行级错误**。在该模式下，`22`/`23` SQLState 失败会立即退出 JDBC 重试循环，并把当前 batch 交给错误处理器。未启用 Sink 行级错误处理时，JDBC 仍保持普通的 `max_retries` 重试行为，写入失败也会继续对作业可见。其他 SQL 失败会被视为 **系统级错误**，直接让作业失败。
 
 对于其他 Sink，如果未实现 `SupportRowLevelErrorClassifier` 接口，引擎会更保守地将异常视为系统级错误：即使配置了 `sink_error_handler`，这类异常也不会被当作行级错误旁路，而是直接失败作业。
 

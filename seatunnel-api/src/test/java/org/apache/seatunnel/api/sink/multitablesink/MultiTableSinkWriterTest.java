@@ -913,6 +913,8 @@ public class MultiTableSinkWriterTest {
 
     @Test
     public void testMultiTableStateDeserializesPreFailedTablesCheckpoint() throws IOException {
+        // Captured from the pre-PR MultiTableState shape that only had the states field.
+        // The class UID for that shape is 5992121739651030596L by serialver.
         String preFailedTablesState =
                 "rO0ABXNyADxvcmcuYXBhY2hlLnNlYXR1bm5lbC5hcGkuc2luay5tdWx0aXRhYmxlc2luay5NdWx0aVRhYmxlU3RhdGVTKEr5fsueRAIAAUwABnN0YXRlc3QAD0xqYXZhL3V0aWwvTWFwO3hwc3IAEWphdmEudXRpbC5IYXNoTWFwBQfawcMWYNEDAAJGAApsb2FkRmFjdG9ySQAJdGhyZXNob2xkeHA/QAAAAAAAAHcIAAAAEAAAAAB4";
         DefaultSerializer<MultiTableState> serializer = new DefaultSerializer<>();

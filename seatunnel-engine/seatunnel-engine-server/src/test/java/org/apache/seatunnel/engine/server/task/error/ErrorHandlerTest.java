@@ -264,6 +264,29 @@ public class ErrorHandlerTest {
     }
 
     @Test
+    public void testStateStoreCounterScopeIsActionAndStageSpecific() {
+        InMemoryCounterStateStore counterStore = new InMemoryCounterStateStore();
+        StateStoreErrorHandlerCounter firstSink =
+                new StateStoreErrorHandlerCounter(counterStore, 1L, 2, 3L, "SINK");
+        StateStoreErrorHandlerCounter secondSinkSameAction =
+                new StateStoreErrorHandlerCounter(counterStore, 1L, 2, 3L, "SINK");
+        StateStoreErrorHandlerCounter otherActionSink =
+                new StateStoreErrorHandlerCounter(counterStore, 1L, 2, 4L, "SINK");
+        StateStoreErrorHandlerCounter sameActionTransform =
+                new StateStoreErrorHandlerCounter(counterStore, 1L, 2, 3L, "TRANSFORM");
+
+        assertEquals(1L, firstSink.incrementTotalRecords());
+        assertEquals(1L, firstSink.incrementErrorRecords());
+
+        assertEquals(1L, secondSinkSameAction.getTotalRecords());
+        assertEquals(1L, secondSinkSameAction.getErrorRecords());
+        assertEquals(0L, otherActionSink.getTotalRecords());
+        assertEquals(0L, otherActionSink.getErrorRecords());
+        assertEquals(0L, sameActionTransform.getTotalRecords());
+        assertEquals(0L, sameActionTransform.getErrorRecords());
+    }
+
+    @Test
     public void testStateStoreCounterSurvivesHandlerRecreationAfterRecovery() {
         StageErrorConfig config =
                 StageErrorConfig.builder()

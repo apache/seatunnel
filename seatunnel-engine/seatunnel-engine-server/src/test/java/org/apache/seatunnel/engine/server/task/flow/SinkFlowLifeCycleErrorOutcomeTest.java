@@ -316,6 +316,7 @@ class SinkFlowLifeCycleErrorOutcomeTest {
                         collector);
         SeaTunnelRow row = tracedRow();
 
+        multiTableHandler.beginCollectedRowErrorOutcomeProbe(row);
         collector.collect(new RowErrorEvent(RowErrorPhase.WRITE, null, row, new IOException()));
         Assertions.assertEquals(1, collector.drainTerminalOutcomes(true).size());
 
@@ -325,7 +326,7 @@ class SinkFlowLifeCycleErrorOutcomeTest {
     }
 
     @Test
-    void recordedCollectorOutcomesAreBoundedWhenLateConsumerNeverComes() throws Exception {
+    void recordedCollectorOutcomesOnlyTrackActiveProbes() throws Exception {
         ErrorHandler<SeaTunnelRow> handler =
                 new ErrorHandler<>(
                         StageErrorConfig.builder().mode(ErrorHandlerMode.ROUTE).build(),
@@ -339,37 +340,30 @@ class SinkFlowLifeCycleErrorOutcomeTest {
                         "test",
                         (row, outcome) -> outcomes.incrementAndGet(),
                         collector);
-        SeaTunnelRow evictedInFlightRow = new SeaTunnelRow(new Object[] {0});
-        SeaTunnelRow survivingInFlightRow = null;
+        SeaTunnelRow probedInFlightRow = new SeaTunnelRow(new Object[] {0});
 
-        multiTableHandler.beginCollectedRowErrorOutcomeProbe(evictedInFlightRow);
-        collector.collectWriteSuccess(evictedInFlightRow);
+        multiTableHandler.beginCollectedRowErrorOutcomeProbe(probedInFlightRow);
+        collector.collectWriteSuccess(probedInFlightRow);
         collector.drainTerminalOutcomes(true);
 
         for (int i = 1; i <= 10_000; i++) {
             SeaTunnelRow row = new SeaTunnelRow(new Object[] {i});
-            if (i == 9_999) {
-                survivingInFlightRow = row;
-            }
             collector.collectWriteSuccess(row);
             collector.drainTerminalOutcomes(true);
         }
 
-        Assertions.assertTrue(recordedTerminalRowsSize(collector) <= 10_000);
-        Assertions.assertTrue(
-                multiTableHandler.consumeCollectedRowErrorOutcome(evictedInFlightRow));
-        Assertions.assertTrue(
-                multiTableHandler.consumeCollectedRowErrorOutcome(survivingInFlightRow));
+        Assertions.assertEquals(1, pendingTerminalOutcomeProbesSize(collector));
+        Assertions.assertTrue(multiTableHandler.consumeCollectedRowErrorOutcome(probedInFlightRow));
         Assertions.assertEquals(0, outcomes.get());
+        Assertions.assertEquals(0, pendingTerminalOutcomeProbesSize(collector));
 
-        SeaTunnelRow freshRowAfterEviction = new SeaTunnelRow(new Object[] {10_001});
-        multiTableHandler.beginCollectedRowErrorOutcomeProbe(freshRowAfterEviction);
-        Assertions.assertFalse(
-                multiTableHandler.consumeCollectedRowErrorOutcome(freshRowAfterEviction));
+        SeaTunnelRow freshRow = new SeaTunnelRow(new Object[] {10_001});
+        multiTableHandler.beginCollectedRowErrorOutcomeProbe(freshRow);
+        Assertions.assertFalse(multiTableHandler.consumeCollectedRowErrorOutcome(freshRow));
     }
 
     @Test
-    void unrelatedEvictionsDoNotMarkNeverCollectedRowAsEvicted() throws Exception {
+    void unrelatedDrainsDoNotRecordNeverCollectedRow() throws Exception {
         ErrorHandler<SeaTunnelRow> handler =
                 new ErrorHandler<>(
                         StageErrorConfig.builder().mode(ErrorHandlerMode.ROUTE).build(),
@@ -386,9 +380,10 @@ class SinkFlowLifeCycleErrorOutcomeTest {
             collector.drainTerminalOutcomes(true);
         }
 
-        Assertions.assertTrue(recordedTerminalRowsSize(collector) <= 10_000);
+        Assertions.assertEquals(1, pendingTerminalOutcomeProbesSize(collector));
         Assertions.assertFalse(
                 multiTableHandler.consumeCollectedRowErrorOutcome(ordinaryInFlightRow));
+        Assertions.assertEquals(0, pendingTerminalOutcomeProbesSize(collector));
     }
 
     @Test
@@ -479,15 +474,15 @@ class SinkFlowLifeCycleErrorOutcomeTest {
     private static int pendingTerminalWriteRowsSize(Object target) throws Exception {
         Field field = target.getClass().getDeclaredField("pendingTerminalWriteRows");
         field.setAccessible(true);
-        return ((java.util.Collection<?>) field.get(target)).size();
+        return ((Map<?, ?>) field.get(target)).size();
     }
 
-    @SuppressWarnings("unchecked")
-    private static int recordedTerminalRowsSize(EngineRowErrorCollector collector)
+    private static int pendingTerminalOutcomeProbesSize(EngineRowErrorCollector collector)
             throws Exception {
-        Field field = EngineRowErrorCollector.class.getDeclaredField("recordedTerminalRows");
+        Field field =
+                EngineRowErrorCollector.class.getDeclaredField("pendingTerminalOutcomeProbes");
         field.setAccessible(true);
-        return ((Map<?, Boolean>) field.get(collector)).size();
+        return ((Map<?, ?>) field.get(collector)).size();
     }
 
     private static final class TestSinkWriter implements SinkWriter<SeaTunnelRow, String, String> {

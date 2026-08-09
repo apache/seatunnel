@@ -22,7 +22,6 @@ import org.apache.seatunnel.api.common.error.RowErrorEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -33,23 +32,17 @@ import java.util.concurrent.atomic.AtomicLong;
 /** Routes connector-reported row errors to the shared ErrorHandler. */
 public final class EngineRowErrorCollector implements RowErrorCollector {
 
-    private static final int MAX_RECORDED_TERMINAL_ROWS = 10_000;
-    private static final int RECORDED_TERMINAL_ROWS_LOW_WATERMARK = 9_000;
-
     private final ErrorHandler<SeaTunnelRow> errorHandler;
     private final String pluginName;
     private final AtomicLong collectedErrors = new AtomicLong();
     private final AtomicLong routedErrors = new AtomicLong();
     private final AtomicLong droppedErrors = new AtomicLong();
-    private final List<CollectedRowErrorOutcome> terminalOutcomes = new ArrayList<>();
-    // Recently drained terminal outcomes let late multi-table success callbacks avoid counting a
-    // row twice after the flow has already recorded its final write result.
-    private final Map<IdentityRowKey, Long> recordedTerminalRows = new LinkedHashMap<>();
+    private final Map<IdentityRowKey, CollectedRowErrorOutcome> terminalOutcomes =
+            new LinkedHashMap<>();
     // Pending probes are scoped to rows currently inside a direct multi-table write call. A row is
-    // treated as evicted only when its own recorded marker is trimmed while this probe is pending.
+    // remembered after drain only when its own probe is active.
     private final Map<IdentityRowKey, TerminalOutcomeProbe> pendingTerminalOutcomeProbes =
             new LinkedHashMap<>();
-    private long recordedTerminalRowSequence;
 
     public EngineRowErrorCollector(ErrorHandler<SeaTunnelRow> errorHandler, String pluginName) {
         this.errorHandler = Objects.requireNonNull(errorHandler, "errorHandler must not be null");
@@ -73,7 +66,8 @@ public final class EngineRowErrorCollector implements RowErrorCollector {
             droppedErrors.incrementAndGet();
         }
         synchronized (terminalOutcomes) {
-            terminalOutcomes.add(new CollectedRowErrorOutcome(row, result));
+            terminalOutcomes.put(
+                    new IdentityRowKey(row), new CollectedRowErrorOutcome(row, result));
         }
     }
 
@@ -81,7 +75,7 @@ public final class EngineRowErrorCollector implements RowErrorCollector {
     public void collectWriteSuccess(SeaTunnelRow row) {
         Objects.requireNonNull(row, "row must not be null");
         synchronized (terminalOutcomes) {
-            terminalOutcomes.add(CollectedRowErrorOutcome.written(row));
+            terminalOutcomes.put(new IdentityRowKey(row), CollectedRowErrorOutcome.written(row));
         }
     }
 
@@ -99,26 +93,22 @@ public final class EngineRowErrorCollector implements RowErrorCollector {
 
     public List<CollectedRowErrorOutcome> drainTerminalOutcomes(boolean rememberRecordedRows) {
         synchronized (terminalOutcomes) {
-            List<CollectedRowErrorOutcome> drained = new ArrayList<>(terminalOutcomes);
+            List<CollectedRowErrorOutcome> drained = new ArrayList<>(terminalOutcomes.values());
             terminalOutcomes.clear();
             if (rememberRecordedRows) {
                 for (CollectedRowErrorOutcome outcome : drained) {
-                    if (outcome.isTerminalWriteOutcome()) {
-                        recordedTerminalRows.put(
-                                new IdentityRowKey(outcome.getRow()),
-                                ++recordedTerminalRowSequence);
+                    TerminalOutcomeProbe probe =
+                            pendingTerminalOutcomeProbes.get(new IdentityRowKey(outcome.getRow()));
+                    if (probe != null && outcome.isTerminalWriteOutcome()) {
+                        probe.markRecorded();
                     }
                 }
-                // These entries only bridge a late multi-table callback after the flow has already
-                // drained outcomes. Evict only the oldest markers so newly recorded in-flight rows
-                // keep suppressing duplicate success callbacks when the bound is crossed.
-                trimRecordedTerminalRows();
             }
             return drained;
         }
     }
 
-    /** Starts tracking whether this row's already-recorded terminal marker is evicted. */
+    /** Starts tracking whether this row's terminal outcome is drained before the late callback. */
     public void beginTerminalOutcomeProbe(SeaTunnelRow row) {
         synchronized (terminalOutcomes) {
             pendingTerminalOutcomeProbes.put(new IdentityRowKey(row), new TerminalOutcomeProbe());
@@ -132,21 +122,14 @@ public final class EngineRowErrorCollector implements RowErrorCollector {
     public Optional<CollectedRowErrorOutcome> consumeTerminalOutcome(SeaTunnelRow row) {
         IdentityRowKey rowKey = new IdentityRowKey(row);
         synchronized (terminalOutcomes) {
-            for (int i = 0; i < terminalOutcomes.size(); i++) {
-                CollectedRowErrorOutcome outcome = terminalOutcomes.get(i);
-                if (outcome.getRow() == row) {
-                    terminalOutcomes.remove(i);
-                    pendingTerminalOutcomeProbes.remove(rowKey);
-                    return Optional.of(outcome);
-                }
-            }
-            if (recordedTerminalRows.remove(rowKey) != null) {
+            CollectedRowErrorOutcome outcome = terminalOutcomes.remove(rowKey);
+            if (outcome != null) {
                 pendingTerminalOutcomeProbes.remove(rowKey);
-                return Optional.of(CollectedRowErrorOutcome.recorded(row));
+                return Optional.of(outcome);
             }
             TerminalOutcomeProbe probe = pendingTerminalOutcomeProbes.remove(rowKey);
-            if (probe != null && probe.isRecordedMarkerEvicted()) {
-                return Optional.of(CollectedRowErrorOutcome.evicted(row));
+            if (probe != null && probe.isRecorded()) {
+                return Optional.of(CollectedRowErrorOutcome.recorded(row));
             }
         }
         return Optional.empty();
@@ -158,23 +141,6 @@ public final class EngineRowErrorCollector implements RowErrorCollector {
     public void clearTerminalOutcomeProbe(SeaTunnelRow row) {
         synchronized (terminalOutcomes) {
             pendingTerminalOutcomeProbes.remove(new IdentityRowKey(row));
-        }
-    }
-
-    private void trimRecordedTerminalRows() {
-        if (recordedTerminalRows.size() <= MAX_RECORDED_TERMINAL_ROWS) {
-            return;
-        }
-        Iterator<Map.Entry<IdentityRowKey, Long>> iterator =
-                recordedTerminalRows.entrySet().iterator();
-        while (recordedTerminalRows.size() > RECORDED_TERMINAL_ROWS_LOW_WATERMARK
-                && iterator.hasNext()) {
-            Map.Entry<IdentityRowKey, Long> evictedEntry = iterator.next();
-            TerminalOutcomeProbe probe = pendingTerminalOutcomeProbes.get(evictedEntry.getKey());
-            if (probe != null) {
-                probe.markRecordedMarkerEvicted();
-            }
-            iterator.remove();
         }
     }
 
@@ -197,14 +163,14 @@ public final class EngineRowErrorCollector implements RowErrorCollector {
     }
 
     private static final class TerminalOutcomeProbe {
-        private boolean recordedMarkerEvicted;
+        private boolean recorded;
 
-        private void markRecordedMarkerEvicted() {
-            recordedMarkerEvicted = true;
+        private void markRecorded() {
+            recorded = true;
         }
 
-        private boolean isRecordedMarkerEvicted() {
-            return recordedMarkerEvicted;
+        private boolean isRecorded() {
+            return recorded;
         }
     }
 
@@ -213,35 +179,28 @@ public final class EngineRowErrorCollector implements RowErrorCollector {
         private final ErrorHandler.ErrorHandleResult result;
         private final boolean recorded;
         private final boolean written;
-        private final boolean evicted;
 
         private CollectedRowErrorOutcome(SeaTunnelRow row, ErrorHandler.ErrorHandleResult result) {
-            this(row, result, false, false, false);
+            this(row, result, false, false);
         }
 
         private CollectedRowErrorOutcome(
                 SeaTunnelRow row,
                 ErrorHandler.ErrorHandleResult result,
                 boolean recorded,
-                boolean written,
-                boolean evicted) {
+                boolean written) {
             this.row = row;
             this.result = result;
             this.recorded = recorded;
             this.written = written;
-            this.evicted = evicted;
         }
 
         private static CollectedRowErrorOutcome recorded(SeaTunnelRow row) {
-            return new CollectedRowErrorOutcome(row, null, true, false, false);
+            return new CollectedRowErrorOutcome(row, null, true, false);
         }
 
         private static CollectedRowErrorOutcome written(SeaTunnelRow row) {
-            return new CollectedRowErrorOutcome(row, null, false, true, false);
-        }
-
-        private static CollectedRowErrorOutcome evicted(SeaTunnelRow row) {
-            return new CollectedRowErrorOutcome(row, null, false, false, true);
+            return new CollectedRowErrorOutcome(row, null, false, true);
         }
 
         public SeaTunnelRow getRow() {
@@ -260,12 +219,8 @@ public final class EngineRowErrorCollector implements RowErrorCollector {
             return written;
         }
 
-        public boolean isEvicted() {
-            return evicted;
-        }
-
         private boolean isTerminalWriteOutcome() {
-            return !recorded && !evicted;
+            return !recorded;
         }
     }
 }

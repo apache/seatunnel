@@ -121,6 +121,7 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
                                 tableSchema,
                                 databaseTableSchema)
                         .build();
+        configureOutputFormatForRowErrorHandling();
         if (context != null) {
             context.registerFlushAction(this::timerFlush);
         }
@@ -188,6 +189,11 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
                                 tableSchema,
                                 databaseTableSchema)
                         .build();
+        configureOutputFormatForRowErrorHandling();
+    }
+
+    private void configureOutputFormatForRowErrorHandling() {
+        outputFormat.setFailFastOnRowLevelSqlState(rowErrorCollector.isPresent());
     }
 
     @Override

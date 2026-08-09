@@ -57,6 +57,7 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
     private transient volatile boolean closed = false;
     private transient volatile Exception flushException;
     private transient long lastFlushTimeMs;
+    private transient boolean failFastOnRowLevelSqlState;
 
     public JdbcOutputFormat(
             JdbcConnectionProvider connectionProvider,
@@ -145,6 +146,10 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
         }
     }
 
+    public synchronized void setFailFastOnRowLevelSqlState(boolean failFastOnRowLevelSqlState) {
+        this.failFastOnRowLevelSqlState = failFastOnRowLevelSqlState;
+    }
+
     public synchronized void flush() throws IOException {
         if (batchCount == 0) {
             LOG.debug("No data to flush.");
@@ -160,8 +165,9 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
                 break;
             } catch (SQLException e) {
                 LOG.error("JDBC executeBatch error, retry times = {}", i, e);
-                // Data/constraint violations (22XXX/23XXX) are not recoverable by retrying.
-                if (isRowLevelSqlState(e)) {
+                // In row-error handling mode, data/constraint violations (22XXX/23XXX) are
+                // handled per row instead of being retried as transient JDBC failures.
+                if (failFastOnRowLevelSqlState && isRowLevelSqlState(e)) {
                     throw new JdbcConnectorException(
                             CommonErrorCodeDeprecated.FLUSH_DATA_FAILED, e);
                 }

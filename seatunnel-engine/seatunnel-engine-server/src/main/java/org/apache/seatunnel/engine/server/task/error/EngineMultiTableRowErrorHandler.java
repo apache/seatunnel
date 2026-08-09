@@ -115,11 +115,6 @@ public class EngineMultiTableRowErrorHandler implements MultiTableRowErrorHandle
                                 outcomeConsumer.accept(
                                         outcome.getRow(),
                                         ErrorHandlingSinkWriter.WriteOutcome.WRITTEN);
-                            } else if (outcome.isEvicted()) {
-                                log.warn(
-                                        "Skip write-success accounting for row [{}] in plugin [{}] because its collected terminal outcome marker was evicted before the late multi-table callback arrived",
-                                        row,
-                                        pluginName);
                             } else if (!outcome.isRecorded()) {
                                 outcomeConsumer.accept(
                                         outcome.getRow(),
