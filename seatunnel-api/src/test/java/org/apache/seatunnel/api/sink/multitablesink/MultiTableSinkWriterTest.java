@@ -548,6 +548,46 @@ public class MultiTableSinkWriterTest {
         Assertions.assertNull(restored.getCause());
     }
 
+    /**
+     * A primary key whose {@code hashCode()} is {@link Integer#MIN_VALUE} must still route to a
+     * valid queue. {@code Math.abs(Integer.MIN_VALUE)} is itself negative, so the old routing
+     * produced a negative index and the write failed with {@link IndexOutOfBoundsException}
+     * whenever the replica count was not a power of two.
+     */
+    @Test
+    public void testMinValuePrimaryKeyHashRoutesToValidQueue() throws IOException {
+        // 3 is not a power of two, so Integer.MIN_VALUE % 3 == -2 under the old routing
+        int replicaNum = 3;
+        Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters = new HashMap<>();
+        Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
+        for (int i = 0; i < replicaNum; i++) {
+            SinkIdentifier identifier = SinkIdentifier.of("test.table", i);
+            sinkWriters.put(identifier, new RecordingSinkWriter(false));
+            sinkWritersContext.put(identifier, new TestSinkWriterContext());
+        }
+
+        MultiTableSinkWriter multiTableSinkWriter =
+                new MultiTableSinkWriter(sinkWriters, replicaNum, sinkWritersContext);
+
+        // Integer.valueOf(Integer.MIN_VALUE).hashCode() and Long.valueOf(Long.MIN_VALUE)
+        // .hashCode() are both Integer.MIN_VALUE
+        SeaTunnelRow longKeyRow = new SeaTunnelRow(new Object[] {Long.MIN_VALUE});
+        longKeyRow.setTableId("test.table");
+
+        Assertions.assertDoesNotThrow(
+                () -> multiTableSinkWriter.write(buildRow("test.table", Integer.MIN_VALUE)));
+        Assertions.assertDoesNotThrow(() -> multiTableSinkWriter.write(longKeyRow));
+
+        Optional<MultiTableCommitInfo> commitInfo = multiTableSinkWriter.prepareCommit(1L);
+        Assertions.assertTrue(commitInfo.isPresent());
+
+        int totalWrites =
+                sinkWriters.values().stream()
+                        .mapToInt(writer -> ((RecordingSinkWriter) writer).getWriteCount())
+                        .sum();
+        Assertions.assertEquals(2, totalWrites);
+    }
+
     private SeaTunnelRow buildRow(String tableId, int value) {
         SeaTunnelRow row = new SeaTunnelRow(new Object[] {value});
         row.setTableId(tableId);
