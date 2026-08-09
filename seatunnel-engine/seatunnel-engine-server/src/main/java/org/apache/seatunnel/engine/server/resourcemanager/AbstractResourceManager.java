@@ -283,8 +283,8 @@ public abstract class AbstractResourceManager implements ResourceManager {
     /**
      * Refreshes the master-side worker profile cache for the given workers.
      *
-     * <p>This is invoked from the resource-release critical path AFTER the slot release future
-     * has already completed on the worker side. We deduplicate by worker so a batch release that
+     * <p>This is invoked from the resource-release critical path AFTER the slot release future has
+     * already completed on the worker side. We deduplicate by worker so a batch release that
      * targets several slots on the same worker only triggers one profile sync, and we apply the
      * refreshed profile to {@code registerWorker} via {@link #heartbeat(WorkerProfile)}.
      *
