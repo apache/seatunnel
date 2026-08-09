@@ -177,10 +177,12 @@ source {
     database = "default"
     table_list = [
       {
+        database = "default"
         table = "table1"
         query = "select * from table1 where id > 100"
       },
       {
+        database = "default"
         table = "table2"
         query = "select * from table2 where id > 100"
       }
