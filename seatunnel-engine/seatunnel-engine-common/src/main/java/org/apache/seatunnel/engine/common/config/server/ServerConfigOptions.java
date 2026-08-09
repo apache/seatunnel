@@ -17,13 +17,12 @@
 
 package org.apache.seatunnel.engine.common.config.server;
 
-import org.apache.seatunnel.engine.common.Constant;
-
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.metadata.MetadataConfig;
+import org.apache.seatunnel.engine.common.Constant;
 
 import java.util.Map;
 
