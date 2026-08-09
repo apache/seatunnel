@@ -85,7 +85,7 @@ public class FirebaseSourceIT extends TestSuiteBase {
 
         List<String> variables = Collections.singletonList("FIREBASE_MOCK_PORT=" + serverPort);
         Container.ExecResult execResult =
-                container.executeJob("/firebase/firebase_source_to_assert.conf", variables);
+                container.executeJob("/firebase_source_to_assert.conf", variables);
 
         if (execResult.getExitCode() != 0) {
             System.err.println("Job Stdout: " + execResult.getStdout());
