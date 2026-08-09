@@ -43,7 +43,9 @@ import io.minio.BucketExistsArgs;
 import io.minio.MakeBucketArgs;
 import io.minio.MinioClient;
 
+import java.io.IOException;
 import java.nio.file.Paths;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -76,6 +78,51 @@ public class PaimonWithS3IT extends SeaTunnelContainer {
             "https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/1.11.271/aws-java-sdk-bundle-1.11.271.jar";
     protected static final String HADOOP_AWS_DOWNLOAD =
             "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/3.1.4/hadoop-aws-3.1.4.jar";
+
+    /**
+     * Upper bound for a single {@link #executeJob(String)} call in this class.
+     *
+     * <p>Sized off measured behaviour, not guessed: a green run of this class completes all four
+     * tests — eight job submissions — in about 120 seconds, so a single submission normally costs
+     * roughly 15 seconds. Five minutes leaves an order of magnitude of headroom for a slow or
+     * contended runner while still bounding a hang.
+     */
+    private static final Duration JOB_EXECUTION_TIMEOUT = Duration.ofMinutes(5);
+
+    /**
+     * Bounds every job submission in this class so a job that never returns fails the test in
+     * minutes instead of stalling until the workflow's 180-minute limit.
+     *
+     * <p>This is containment, not a fix. A job cancelled by Paimon's privilege check can leave the
+     * {@code seatunnel.sh} client blocked forever (#11679); when that happens the JUnit thread
+     * parks inside the container exec and the whole {@code paimon-connector-it} job burns a full
+     * runner slot with no {@code Tests run:} line ever printed, which is both expensive and hard to
+     * read. Bounding it converts that into an ordinary, diagnosable test failure — and makes #11679
+     * tractable, since measuring how often the hang reproduces is only affordable once a recurrence
+     * costs minutes.
+     *
+     * <p>Overriding rather than wrapping the eight call sites keeps the bound a property of the
+     * class: a job submission added later is bounded without anyone having to remember to wrap it.
+     *
+     * <p>Note that {@code assertTimeoutPreemptively} abandons the worker thread rather than
+     * interrupting it, so a genuinely stuck exec stays parked until the JVM exits. That is
+     * acceptable here — the point is to free the test run, not the thread.
+     */
+    @Override
+    public Container.ExecResult executeJob(String confFile)
+            throws IOException, InterruptedException {
+        return Assertions.assertTimeoutPreemptively(
+                JOB_EXECUTION_TIMEOUT,
+                () -> super.executeJob(confFile),
+                () ->
+                        "Job "
+                                + confFile
+                                + " did not return within "
+                                + JOB_EXECUTION_TIMEOUT.toMinutes()
+                                + " minutes. The cluster may have reached a terminal state without"
+                                + " the seatunnel.sh client observing it - see"
+                                + " https://github.com/apache/seatunnel/issues/11679");
+    }
 
     @Override
     @BeforeAll
