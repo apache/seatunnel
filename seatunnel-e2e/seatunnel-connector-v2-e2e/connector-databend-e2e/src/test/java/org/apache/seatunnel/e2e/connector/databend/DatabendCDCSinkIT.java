@@ -20,6 +20,8 @@ package org.apache.seatunnel.e2e.connector.databend;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.container.TestContainerId;
+import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
@@ -71,6 +73,11 @@ public class DatabendCDCSinkIT extends TestSuiteBase implements TestResource {
     private Connection connection;
 
     @TestTemplate
+    @DisabledOnContainer(
+            value = {TestContainerId.FLINK_1_15},
+            disabledReason =
+                    "Flaky on GitHub-hosted Flink 1.15.3: the CDC job can exit successfully"
+                            + " while sink_table remains empty")
     public void testDatabendSinkCDC(TestContainer container) throws Exception {
         // Run the CDC test job
         Container.ExecResult execResult = executeDatabendCdcJob(container);
