@@ -25,7 +25,7 @@ The connector is at-least-once for batch jobs and does not read the Kudu change-
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [x] [column projection](../../introduction/concepts/connector-v2-features.md)
 - [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
-- [x] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
+- [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
 
 The tested Kudu version is 1.11.1.
 

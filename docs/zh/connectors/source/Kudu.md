@@ -23,7 +23,7 @@ import ChangeLog from '../changelog/connector-kudu.md';
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [x] [列裁剪](../../introduction/concepts/connector-v2-features.md)
 - [x] [并行度](../../introduction/concepts/connector-v2-features.md)
-- [x] [支持用户自定义分片](../../introduction/concepts/connector-v2-features.md)
+- [ ] [支持用户自定义分片](../../introduction/concepts/connector-v2-features.md)
 
 测试通过的 Kudu 版本为 1.11.1。
 

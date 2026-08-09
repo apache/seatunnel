@@ -19,12 +19,12 @@ Writes SeaTunnel rows to an Apache RocketMQ topic. The sink supports JSON and te
 ## Key Features
 
 - [x] [batch](../../introduction/concepts/connector-v2-features.md)
-- [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [ ] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
 - [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
-The sink respects the row kind of upstream rows. `INSERT` and `UPDATE_AFTER` rows are sent as new messages, and `DELETE` rows are sent with empty bodies so RocketMQ-side consumers can recognize tombstones.
+Each upstream row is serialized into a single RocketMQ message. The sink does not branch on row kind, so `INSERT`, `UPDATE_AFTER`, and `DELETE` rows are all sent with the configured format and field delimiter; no tombstone/empty-body handling is performed today.
 
 ## Sink Options
 
