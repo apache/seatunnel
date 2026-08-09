@@ -457,12 +457,13 @@ public class ZetaSQLType {
                                     "unsupported datetime format type");
                     }
                 }
+                // These functions all return the type of their first argument. CEIL/FLOOR/TRUNC are
+                // documented that way as well; declaring INT/DOUBLE for them would truncate BIGINT
+                // and DECIMAL results.
             case ZetaSQLFunction.ABS:
             case ZetaSQLFunction.DATEADD:
             case ZetaSQLFunction.TIMESTAMPADD:
             case ZetaSQLFunction.ROUND:
-                // CEIL/FLOOR/TRUNC are documented to return the type of their argument. Declaring
-                // INT/DOUBLE here would truncate BIGINT and DECIMAL results.
             case ZetaSQLFunction.CEIL:
             case ZetaSQLFunction.CEILING:
             case ZetaSQLFunction.FLOOR:
