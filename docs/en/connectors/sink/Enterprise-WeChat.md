@@ -84,8 +84,9 @@ between attempts.
 
 ### retry_backoff_multiplier_ms [int]
 
-Multiplier used to grow the wait between retries, in milliseconds. Each retry waits
-`previous_wait * retry_backoff_multiplier_ms`, capped at `retry_backoff_max_ms`. Default is `100`.
+Base unit (in milliseconds) for the retry backoff. The wait between attempts grows across retries
+up to `retry_backoff_max_ms`. The growth curve is not a fixed multiplier per attempt — see
+`HttpClientProvider` (`connector-http-base`) for the exact Fibonacci-based strategy. Default is `100`.
 
 ### retry_backoff_max_ms [int]
 

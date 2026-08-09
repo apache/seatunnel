@@ -80,8 +80,9 @@ HTTP 请求抛出 `IOException` 时的最大重试次数，默认不重试。重
 
 ### retry_backoff_multiplier_ms [int]
 
-重试退避倍数，单位毫秒。每次重试的等待时间为 `上次等待时间 * retry_backoff_multiplier_ms`，
-上限为 `retry_backoff_max_ms`。默认 `100`。
+重试退避的基础单位，单位毫秒。重试之间的等待时间会在多次重试中逐渐增长，上限为
+`retry_backoff_max_ms`。增长曲线并不是每次固定的倍数关系，具体的斐波那契策略请参考
+`HttpClientProvider`（位于 `connector-http-base`）。默认 `100`。
 
 ### retry_backoff_max_ms [int]
 
