@@ -1522,12 +1522,12 @@ public class CoordinatorService {
      * Get metrics for all running jobs.
      *
      * <p>This method is best-effort. It waits up to {@link
-     * Constant#DEFAULT_METRICS_FETCH_TIMEOUT_MS} for the overall fetch and returns a partial map
+     * {@link EngineConfig#getMetricsFetchTimeoutMs()} for the overall fetch and returns a partial map
      * when workers time out or are unavailable.
      */
     public Map<Long, JobMetrics> getRunningJobMetrics() {
         return getRunningJobMetrics(
-                runningJobMasterMap.keySet(), Constant.DEFAULT_METRICS_FETCH_TIMEOUT_MS, null);
+                runningJobMasterMap.keySet(), engineConfig.getMetricsFetchTimeoutMs(), null);
     }
 
     /**

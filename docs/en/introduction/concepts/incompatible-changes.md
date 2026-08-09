@@ -27,7 +27,7 @@ You need to check this document before you upgrade to related version.
 - **Behavior Change: Running job metrics are now collected on a bounded, best-effort basis**
   - **Affected component**: SeaTunnel Engine REST and telemetry paths that read running job metrics
   - **Description**: The default running-job metrics query now waits up to 3 seconds for worker metrics. If a worker is slow or unavailable, the query returns the metrics collected from the other workers instead of failing the whole request.
-  - **Impact**: A successful response can be partial. Monitoring integrations must treat missing worker metrics as unavailable data, not as zero. The 3-second bound limits how long the master waits; it does not cancel an already submitted Hazelcast worker invocation, which remains subject to Hazelcast's operation call timeout.
+   - **Impact**: A successful response can be partial. Monitoring integrations must treat missing worker metrics as unavailable data, not as zero. The master-side wait defaults to 3 seconds and can be changed with `seatunnel.engine.metrics-fetch-timeout-ms`; it does not cancel an already submitted Hazelcast worker invocation, which remains subject to Hazelcast's operation call timeout.
 
 - **Breaking Change: Engine REST table metrics key format**
   - **Affected component**: SeaTunnel Engine REST API (job metrics in `/job-info`)

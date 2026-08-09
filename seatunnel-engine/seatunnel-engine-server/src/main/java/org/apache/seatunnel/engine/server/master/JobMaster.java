@@ -1136,14 +1136,14 @@ public class JobMaster {
                             String.format(
                                     "%s get final job metrics timed out after %d ms.",
                                     Arrays.toString(taskGroupLocations.toArray()),
-                                    Constant.DEFAULT_METRICS_FETCH_TIMEOUT_MS),
+                                    engineConfig.getMetricsFetchTimeoutMs()),
                             e);
                 }
                 LOGGER.warning(
                         String.format(
                                 "%s get current job metrics timed out after %d ms.",
                                 Arrays.toString(taskGroupLocations.toArray()),
-                                Constant.DEFAULT_METRICS_FETCH_TIMEOUT_MS));
+                                engineConfig.getMetricsFetchTimeoutMs()));
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 if (failOnIncompleteResult) {
@@ -1186,7 +1186,7 @@ public class JobMaster {
                                 nodeEngine,
                                 new GetTaskGroupMetricsOperation(taskGroupLocations),
                                 address)
-                        .get(Constant.DEFAULT_METRICS_FETCH_TIMEOUT_MS, TimeUnit.MILLISECONDS);
+                        .get(engineConfig.getMetricsFetchTimeoutMs(), TimeUnit.MILLISECONDS);
     }
 
     /** Failure while collecting the complete terminal metrics snapshot. */
