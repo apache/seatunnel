@@ -280,6 +280,19 @@ public abstract class AbstractResourceManager implements ResourceManager {
         return completableFuture;
     }
 
+    /**
+     * Refreshes the master-side worker profile cache for the given workers.
+     *
+     * <p>This is invoked from the resource-release critical path AFTER the slot release future
+     * has already completed on the worker side. We deduplicate by worker so a batch release that
+     * targets several slots on the same worker only triggers one profile sync, and we apply the
+     * refreshed profile to {@code registerWorker} via {@link #heartbeat(WorkerProfile)}.
+     *
+     * <p>Note: refresh failures are intentionally propagated to the caller. The slot itself has
+     * already been released, so the master cache will be temporarily stale; surfacing the failure
+     * lets the outer release future fail loudly rather than silently diverging from the worker
+     * state until the next heartbeat corrects it.
+     */
     private CompletableFuture<Void> refreshWorkerProfiles(Collection<Address> workers) {
         CompletableFuture<Void> result = new CompletableFuture<>();
         if (workers.isEmpty()) {
