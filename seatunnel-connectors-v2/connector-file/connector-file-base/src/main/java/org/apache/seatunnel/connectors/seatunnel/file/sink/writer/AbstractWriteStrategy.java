@@ -70,6 +70,15 @@ import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.stream.Collectors;
 
+/**
+ * Concurrency contract: {@code write}/{@code finishAndCloseFile} (declared per-format in
+ * subclasses) and {@code prepareCommit}/{@code snapshotState}/{@code applySchemaChange}/{@code
+ * abortPrepare} (here in the base class) all synchronize on the strategy instance monitor so that a
+ * checkpoint can never close, snapshot, or delete a transaction's files while a row write is still
+ * in flight (see #10523). Java does not require an override to keep a superclass method's {@code
+ * synchronized} modifier, so every subclass that overrides one of these methods MUST also declare
+ * it {@code synchronized}, or it silently drops out of this lock and reopens the race.
+ */
 public abstract class AbstractWriteStrategy<T> implements WriteStrategy<T> {
     protected final Logger log = LoggerFactory.getLogger(this.getClass());
     protected final FileSinkConfig fileSinkConfig;
@@ -536,16 +545,19 @@ public abstract class AbstractWriteStrategy<T> implements WriteStrategy<T> {
 
     /** abort prepare commit operation */
     @Override
-    public void abortPrepare() {
+    public synchronized void abortPrepare() {
         abortPrepare(transactionId);
     }
 
     /**
-     * abort prepare commit operation using transaction directory
+     * Abort prepare commit operation using transaction directory. Synchronized so a checkpoint
+     * abort cannot delete the transaction directory (and clear in-flight file bookkeeping) while a
+     * row write is still in progress on this strategy instance; see the class-level concurrency
+     * contract note.
      *
      * @param transactionId transaction id
      */
-    public void abortPrepare(String transactionId) {
+    public synchronized void abortPrepare(String transactionId) {
         String transactionDir = getTransactionDir(transactionId);
         try {
             hadoopFileSystemProxy.deleteFile(transactionDir);

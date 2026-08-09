@@ -134,6 +134,49 @@ class AbstractWriteStrategyTest {
         Assertions.assertTrue(blockingOutputStream.closed.get());
     }
 
+    @Test
+    void shouldNotAbortPrepareWhileWriteIsInProgress() throws Exception {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"name"}, new SeaTunnelDataType[] {BasicType.STRING_TYPE});
+        BlockingOutputStream blockingOutputStream = new BlockingOutputStream();
+        FSDataOutputStream outputStream = new FSDataOutputStream(blockingOutputStream, null);
+        HadoopFileSystemProxy fs = Mockito.mock(HadoopFileSystemProxy.class);
+        Mockito.when(fs.getOutputStream(Mockito.anyString())).thenReturn(outputStream);
+        CountDownLatch deleteCalled = new CountDownLatch(1);
+        Mockito.doAnswer(
+                        invocation -> {
+                            deleteCalled.countDown();
+                            return null;
+                        })
+                .when(fs)
+                .deleteFile(Mockito.anyString());
+
+        TestTextWriteStrategy writeStrategy =
+                new TestTextWriteStrategy(newTextFileSinkConfig(rowType));
+        writeStrategy.setFileSystemProxy(fs);
+        writeStrategy.setCatalogTable(CatalogTableUtil.getCatalogTable("test", rowType));
+        writeStrategy.setTransactionContext(JOB_ID, UUID_PREFIX);
+        writeStrategy.beginTransaction(1L);
+
+        CompletableFuture<Void> writeFuture =
+                CompletableFuture.runAsync(
+                        () -> writeStrategy.write(new SeaTunnelRow(new Object[] {"alice"})));
+        Assertions.assertTrue(blockingOutputStream.writeStarted.await(5, TimeUnit.SECONDS));
+
+        CompletableFuture<Void> abortFuture =
+                CompletableFuture.runAsync(() -> writeStrategy.abortPrepare(TRANSACTION_ID));
+        Assertions.assertFalse(
+                deleteCalled.await(200, TimeUnit.MILLISECONDS),
+                "abortPrepare must wait for the active write to finish before deleting the"
+                        + " transaction directory");
+
+        blockingOutputStream.releaseWrite.countDown();
+        writeFuture.get(5, TimeUnit.SECONDS);
+        abortFuture.get(5, TimeUnit.SECONDS);
+        Assertions.assertTrue(deleteCalled.await(5, TimeUnit.SECONDS));
+    }
+
     private static TestWriteStrategy newTestWriteStrategy(HadoopFileSystemProxy fs) {
         TestWriteStrategy writeStrategy = new TestWriteStrategy(newFileSinkConfig());
         writeStrategy.setFileSystemProxy(fs);
