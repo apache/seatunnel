@@ -259,6 +259,79 @@ source {
 }
 ```
 
+### Per-Table Query Override
+
+When the tables in `table_list` need different SQL filters or projections, set `query` per item instead of using `table_path`. SeaTunnel will use the per-item `query` verbatim and skip table metadata lookup for those entries.
+
+```hocon
+source {
+  Jdbc {
+    driver = "com.oceanbase.jdbc.Driver"
+    url = "jdbc:oceanbase://localhost:2883/test"
+    username = "root@test"
+    password = ""
+    compatible_mode = "mysql"
+    table_list = [
+      {
+        table_path = "test.orders"
+        query = "select id, amount, status from orders where status = 'PAID'"
+      },
+      {
+        table_path = "test.refunds"
+        query = "select id, order_id, amount from refunds where amount > 0"
+      }
+    ]
+  }
+}
+```
+
+### Regex Table Path
+
+For OceanBase tenants with many similar tables (for example time-partitioned `orders_2024_q1`, `orders_2024_q2`, ...), set `use_regex = true` and pass a regular expression in `table_path`. SeaTunnel enumerates matching tables and reads them in parallel up to `partition_num`.
+
+```hocon
+source {
+  Jdbc {
+    driver = "com.oceanbase.jdbc.Driver"
+    url = "jdbc:oceanbase://localhost:2883/test"
+    username = "root@test"
+    password = ""
+    compatible_mode = "mysql"
+    table_path = "test.orders_2024_q[1-4]"
+    use_regex = true
+    partition_column = "id"
+    partition_num = 8
+  }
+}
+```
+
+### Streaming With `STREAMING` and Incremental Column
+
+OceanBase Source is primarily a batch connector, but you can drive incremental reads in a streaming job by combining a bounded primary-key range with `job.mode = "STREAMING"` and `partition_column` plus `partition_lower_bound` / `partition_upper_bound`. Each checkpoint replays the configured range, so use this pattern only when the range is small and bounded, or when you are replaying historical data on a schedule. For continuous change capture, use OceanBase CDC instead.
+
+```hocon
+env {
+  parallelism = 4
+  job.mode = "STREAMING"
+  checkpoint.interval = 60000
+}
+
+source {
+  Jdbc {
+    driver = "com.oceanbase.jdbc.Driver"
+    url = "jdbc:oceanbase://localhost:2883/test"
+    username = "root@test"
+    password = ""
+    compatible_mode = "mysql"
+    query = "select * from orders where id >= ? and id < ?"
+    partition_column = "id"
+    partition_lower_bound = 1
+    partition_upper_bound = 1000000
+    partition_num = 16
+  }
+}
+```
+
 ## Changelog
 
 <ChangeLog />

@@ -14,9 +14,12 @@ import ChangeLog from '../changelog/connector-kafka.md';
 
 - [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [ ] [batch](../../introduction/concepts/connector-v2-features.md)
+- [x] [stream](../../introduction/concepts/connector-v2-features.md)
+- [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
+- [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
 
 > By default, we will use 2pc to guarantee the message is sent to kafka exactly once.
-- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Description
 
@@ -358,7 +361,7 @@ The input parameter requirements are as follows:
     "header1": "header1",
     "header2": "header2"
   },
-  "key": "dGVzdF9ieXRlc19kYXRh",  
+  "key": "dGVzdF9ieXRlc19kYXRh",
   "partition": 3,
   "timestamp": 1672531200000,
   "timestampType": "CREATE_TIME",
@@ -366,6 +369,74 @@ The input parameter requirements are as follows:
 }
 ```
 Note：key/value is of type byte[].
+
+### Streaming EXACTLY_ONCE With Checkpoints
+
+For long-running streaming jobs that must not lose or duplicate messages on restart, configure `semantics = EXACTLY_ONCE` and enable checkpointing. SeaTunnel coordinates Kafka transactions with checkpoints so each in-flight batch is committed atomically with the corresponding consumer offset.
+
+```hocon
+env {
+  parallelism = 2
+  job.mode = "STREAMING"
+  checkpoint.interval = 10000
+}
+
+source {
+  Kafka {
+    topic = "orders"
+    bootstrap.servers = "localhost:9092"
+    consumer.group = "orders_consumer"
+    start_mode = group_offsets
+    format = json
+    schema = {
+      fields {
+        order_id = bigint
+        user_id = bigint
+        amount = double
+      }
+    }
+  }
+}
+
+sink {
+  Kafka {
+    topic = "orders_sink"
+    bootstrap.servers = "localhost:9092"
+    format = json
+    semantics = EXACTLY_ONCE
+    transaction_prefix = "orders_pipeline"
+    kafka.transaction.timeout.ms = 900000
+    partition_key_fields = ["order_id"]
+  }
+}
+```
+
+Important: pick a unique `transaction_prefix` per job. Kafka distinguishes transactions by the transactional id, and reusing the same prefix across concurrent jobs causes Kafka transaction conflicts.
+
+### Round-Trip Headers With NATIVE Format
+
+When the source reads with `format = "NATIVE"` and writes with `format = "NATIVE"`, the headers, key, partition and timestamp fields round-trip back into Kafka as-is. This is useful when forwarding already-Kafka-encoded records between topics without changing their on-the-wire layout.
+
+```hocon
+source {
+  Kafka {
+    topic = "topic_native_source"
+    bootstrap.servers = "localhost:9092"
+    format = "NATIVE"
+    consumer.group = "native_forwarder"
+  }
+}
+
+sink {
+  Kafka {
+    topic = "topic_native_sink"
+    bootstrap.servers = "localhost:9092"
+    format = "NATIVE"
+  }
+}
+```
+
+Note: when the upstream rows are produced with `format = "NATIVE"`, the `key` and `value` columns are `byte[]`. Configure `kafka_headers_fields` carefully or avoid it for NATIVE inputs, since headers are already encoded in the row.
 
 ## FAQ
 

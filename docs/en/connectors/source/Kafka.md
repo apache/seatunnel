@@ -583,7 +583,7 @@ The returned data is as follows:
     "header1": "header1",
     "header2": "header2"
   },
-  "key": "dGVzdF9ieXRlc19kYXRh",  
+  "key": "dGVzdF9ieXRlc19kYXRh",
   "partition": 3,
   "timestamp": 1672531200000,
   "timestampType": "CREATE_TIME",
@@ -591,6 +591,83 @@ The returned data is as follows:
 }
 ```
 Note：key/value is of type byte[].
+
+### Streaming With Dynamic Partition Discovery and EXACTLY_ONCE Sink
+
+A common long-running pattern is to consume from Kafka with auto-offset commit, enable checkpointing, and pipe the records into a downstream sink. Enable dynamic partition discovery so newly created partitions are picked up without restarting the job, and configure the sink with `semantics = EXACTLY_ONCE` for end-to-end exactly-once delivery.
+
+```hocon
+env {
+  parallelism = 2
+  job.mode = "STREAMING"
+  checkpoint.interval = 10000
+}
+
+source {
+  Kafka {
+    topic = "orders"
+    bootstrap.servers = "localhost:9092"
+    consumer.group = "orders_consumer"
+    start_mode = group_offsets
+    commit_on_checkpoint = true
+    partition-discovery.interval-millis = 30000
+    format = json
+    schema = {
+      fields {
+        order_id = bigint
+        user_id = bigint
+        amount = double
+      }
+    }
+  }
+}
+
+sink {
+  Kafka {
+    topic = "orders_sink"
+    bootstrap.servers = "localhost:9092"
+    format = json
+    semantics = EXACTLY_ONCE
+    transaction_prefix = "orders_sink_job"
+    partition_key_fields = ["order_id"]
+  }
+}
+```
+
+The same pattern works with `format = debezium_json` when you need to consume Debezium-formatted change events from a Kafka Connect sink and forward them downstream.
+
+### Avro Deserialization
+
+Use `format = avro` together with `avro_schema` when the Avro record layout (record name, namespace, or union structure) does not exactly match the SeaTunnel schema. SeaTunnel falls back to the reader schema embedded in each Avro message when `avro_schema` is not provided.
+
+```hocon
+source {
+  Kafka {
+    topic = "users_avro"
+    bootstrap.servers = "localhost:9092"
+    format = avro
+    avro_schema = """
+      {
+        "type": "record",
+        "name": "User",
+        "namespace": "com.example",
+        "fields": [
+          {"name": "id", "type": "long"},
+          {"name": "name", "type": "string"},
+          {"name": "email", "type": ["null", "string"], "default": null}
+        ]
+      }
+      """
+    schema = {
+      fields {
+        id = bigint
+        name = string
+        email = string
+      }
+    }
+  }
+}
+```
 
 ## FAQ
 

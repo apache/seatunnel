@@ -197,7 +197,7 @@ sink {
         driver = "oracle.jdbc.OracleDriver"
         username = root
         password = 123456
-        
+
         generate_sink_sql = true
         # You need to configure both database and table
         database = XE
@@ -206,6 +206,47 @@ sink {
         schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
         data_save_mode="APPEND_DATA"
     }
+}
+```
+
+### Timer Flush + Batch Combined
+
+For streaming jobs that should not wait for the buffer to fill before flushing, set both `batch_size` and `batch_interval_ms`. The writer flushes synchronously whenever the buffered row count reaches `batch_size` or the elapsed time since the last flush reaches `batch_interval_ms`.
+
+```hocon
+sink {
+  Jdbc {
+    url = "jdbc:oracle:thin:@datasource01:1523:xe"
+    driver = "oracle.jdbc.OracleDriver"
+    username = "root"
+    password = "123456"
+    generate_sink_sql = true
+    database = "XE"
+    table = "TEST.TEST_TABLE"
+    primary_keys = ["ID"]
+    batch_size = 2000
+    batch_interval_ms = 5000
+  }
+}
+```
+
+### Multi-Table Write With Placeholder
+
+Use `${schema_name}` and `${table_name}` placeholders in `table` to route each row to the matching target table based on metadata carried by the upstream row. Set `multi_table_sink_replica` to control how many writer replicas the sink uses for multi-table writes.
+
+```hocon
+sink {
+  Jdbc {
+    url = "jdbc:oracle:thin:@datasource01:1523:xe"
+    driver = "oracle.jdbc.OracleDriver"
+    username = "root"
+    password = "123456"
+    generate_sink_sql = true
+    database = "XE"
+    table = "${schema_name}.${table_name}_SINK"
+    primary_keys = ["ID"]
+    multi_table_sink_replica = 2
+  }
 }
 ```
 

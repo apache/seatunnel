@@ -14,9 +14,12 @@ import ChangeLog from '../changelog/connector-kafka.md';
 
 - [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [ ] [批处理](../../introduction/concepts/connector-v2-features.md)
+- [x] [流处理](../../introduction/concepts/connector-v2-features.md)
+- [x] [并行度](../../introduction/concepts/connector-v2-features.md)
+- [ ] [支持用户自定义拆分](../../introduction/concepts/connector-v2-features.md)
 
 > 默认情况下，我们将使用 2pc 来保证消息只发送一次到kafka
-- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## 描述
 
@@ -359,7 +362,7 @@ sink {
     "header1": "header1",
     "header2": "header2"
   },
-  "key": "dGVzdF9ieXRlc19kYXRh",  
+  "key": "dGVzdF9ieXRlc19kYXRh",
   "partition": 3,
   "timestamp": 1672531200000,
   "timestampType": "CREATE_TIME",
@@ -367,6 +370,74 @@ sink {
 }
 ```
 Note：key/value 需要 byte[]类型.
+
+### 流式 EXACTLY_ONCE 与 Checkpoint 协同
+
+长时间运行的流式作业若不能容忍丢失或重复，需要开启 checkpoint 并把 `semantics` 设置为 `EXACTLY_ONCE`。SeaTunnel 会把 Kafka 事务与 checkpoint 协调，保证每个 in-flight 批次和对应的消费 offset 原子提交。
+
+```hocon
+env {
+  parallelism = 2
+  job.mode = "STREAMING"
+  checkpoint.interval = 10000
+}
+
+source {
+  Kafka {
+    topic = "orders"
+    bootstrap.servers = "localhost:9092"
+    consumer.group = "orders_consumer"
+    start_mode = group_offsets
+    format = json
+    schema = {
+      fields {
+        order_id = bigint
+        user_id = bigint
+        amount = double
+      }
+    }
+  }
+}
+
+sink {
+  Kafka {
+    topic = "orders_sink"
+    bootstrap.servers = "localhost:9092"
+    format = json
+    semantics = EXACTLY_ONCE
+    transaction_prefix = "orders_pipeline"
+    kafka.transaction.timeout.ms = 900000
+    partition_key_fields = ["order_id"]
+  }
+}
+```
+
+注意：每个作业都必须使用唯一的 `transaction_prefix`。Kafka 通过 transactional id 区分事务，跨作业复用相同前缀会导致事务冲突。
+
+### NATIVE 格式下的 Header 转发
+
+当 source 端使用 `format = "NATIVE"`、sink 端同样使用 `format = "NATIVE"` 时，Kafka 的 headers、key、partition、timestamp 等字段会原样回写到下游 topic。这种用法适合在不改写线缆布局的前提下，把已是 Kafka 编码的记录转发到另一个 topic。
+
+```hocon
+source {
+  Kafka {
+    topic = "topic_native_source"
+    bootstrap.servers = "localhost:9092"
+    format = "NATIVE"
+    consumer.group = "native_forwarder"
+  }
+}
+
+sink {
+  Kafka {
+    topic = "topic_native_sink"
+    bootstrap.servers = "localhost:9092"
+    format = "NATIVE"
+  }
+}
+```
+
+注意：上游记录使用 `format = "NATIVE"` 时，`key` 和 `value` 是 `byte[]`。这种情况下请谨慎配置 `kafka_headers_fields`，因为 headers 已经编码在行内。
 
 ## 常见问题
 

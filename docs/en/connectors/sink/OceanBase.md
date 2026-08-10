@@ -259,6 +259,58 @@ sink {
 }
 ```
 
+### EXACTLY_ONCE With XA Transactions
+
+Enable XA-backed exactly-once semantics by setting `is_exactly_once = true`, providing `xa_data_source_class_name` from the OceanBase JDBC driver, and keeping `max_retries = 0`. The writer wraps each checkpoint batch in an XA transaction so the write either commits atomically with the source checkpoint or is rolled back on failure.
+
+```hocon
+env {
+  parallelism = 2
+  job.mode = "STREAMING"
+  checkpoint.interval = 10000
+}
+
+sink {
+  Jdbc {
+    url = "jdbc:oceanbase://localhost:2883/test"
+    driver = "com.oceanbase.jdbc.Driver"
+    username = "root"
+    password = "123456"
+    compatible_mode = "mysql"
+    generate_sink_sql = true
+    database = "test"
+    table = "sink_table"
+    primary_keys = ["id"]
+    is_exactly_once = true
+    xa_data_source_class_name = "com.oceanbase.jdbc.OceanBaseXADataSource"
+    max_retries = 0
+    batch_size = 1000
+  }
+}
+```
+
+### Timer Flush + Batch Combined
+
+For streaming jobs, set `batch_interval_ms` to flush buffered rows on a wall-clock interval even when the buffer is not full. Combined with `batch_size`, this gives both throughput and latency guarantees. The flush happens synchronously on the writer thread, so set `batch_interval_ms` to at least a few seconds in production.
+
+```hocon
+sink {
+  Jdbc {
+    url = "jdbc:oceanbase://localhost:2883/test"
+    driver = "com.oceanbase.jdbc.Driver"
+    username = "root"
+    password = "123456"
+    compatible_mode = "mysql"
+    generate_sink_sql = true
+    database = "test"
+    table = "sink_table"
+    primary_keys = ["id"]
+    batch_size = 2000
+    batch_interval_ms = 5000
+  }
+}
+```
+
 ## Changelog
 
 <ChangeLog />

@@ -29,10 +29,14 @@ semantics (using XA transaction guarantee).
 
 - [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
+- [x] [timer flush](../../introduction/concepts/connector-v2-features.md)
+- [x] [batch](../../introduction/concepts/connector-v2-features.md)
+- [x] [stream](../../introduction/concepts/connector-v2-features.md)
+- [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
 
 > Use `Xa transactions` to ensure `exactly-once`. So only support `exactly-once` for the database which is
 > support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
-- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Supported DataSource Info
 
@@ -315,6 +319,53 @@ COPY is not a good fit when:
 - you want PostgreSQL native upsert conflict handling
 - your data contains `MAP`, `ARRAY`, or `ROW` types
 - the current JDBC driver connection does not expose `getCopyAPI()`
+
+### Streaming With Timer Flush
+
+For long-running streaming jobs, set `batch_interval_ms` together with `batch_size` so the writer flushes the buffer either when the row count reaches `batch_size` or the elapsed time reaches `batch_interval_ms`. The flush happens synchronously on the writer thread; pick a value in the seconds range to balance latency and throughput.
+
+```hocon
+env {
+  parallelism = 2
+  job.mode = "STREAMING"
+  checkpoint.interval = 10000
+}
+
+sink {
+  Jdbc {
+    url = "jdbc:postgresql://datasource01:5432/demo"
+    driver = "org.postgresql.Driver"
+    username = "postgres"
+    password = "postgres"
+    generate_sink_sql = true
+    database = "demo"
+    table = "public.orders_sink"
+    primary_keys = ["id"]
+    batch_size = 2000
+    batch_interval_ms = 5000
+  }
+}
+```
+
+### Multi-Table Write With Placeholder
+
+When the upstream rows carry table identity, use `${schema_name}` and `${table_name}` placeholders in `table`. Combined with `multi_table_sink_replica`, SeaTunnel writes each row to the matching target table in parallel.
+
+```hocon
+sink {
+  Jdbc {
+    url = "jdbc:postgresql://datasource01:5432/demo"
+    driver = "org.postgresql.Driver"
+    username = "postgres"
+    password = "postgres"
+    generate_sink_sql = true
+    database = "demo"
+    table = "${schema_name}.${table_name}_SINK"
+    primary_keys = ["id"]
+    multi_table_sink_replica = 2
+  }
+}
+```
 
 ## Changelog
 

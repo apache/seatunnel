@@ -28,9 +28,13 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 - [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [x] [变更数据捕获（CDC）](../../introduction/concepts/connector-v2-features.md)
+- [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
+- [x] [定时刷新](../../introduction/concepts/connector-v2-features.md)
+- [x] [批处理](../../introduction/concepts/connector-v2-features.md)
+- [x] [流处理](../../introduction/concepts/connector-v2-features.md)
+- [x] [并行度](../../introduction/concepts/connector-v2-features.md)
 
 > 使用 `XA 事务` 来确保 `精确一次`。因此，仅对支持 `XA 事务` 的数据库支持 `精确一次`。您可以设置 `is_exactly_once=true` 来启用此功能。
-- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## 支持的数据源信息
 | 数据源       |                     支持的版本                     |        驱动         |                  URL                  |                                  Maven                                   |
@@ -308,6 +312,53 @@ INSERT batching。这时重复键是否报错，完全取决于目标表自身�
 - 你希望通过 PostgreSQL 原生 upsert 语义处理冲突
 - 你的数据包含 `MAP`、`ARRAY`、`ROW` 类型
 - 当前 JDBC 驱动连接对象不提供 `getCopyAPI()`
+
+### 流式定时刷新
+
+对于长时间运行的流式作业，可以同时设置 `batch_size` 与 `batch_interval_ms`，让缓冲行数到达阈值或时间间隔到达时主动刷新。两种触发器都会在写入线程上同步执行，生产环境建议把 `batch_interval_ms` 设为几秒以上。
+
+```hocon
+env {
+  parallelism = 2
+  job.mode = "STREAMING"
+  checkpoint.interval = 10000
+}
+
+sink {
+  Jdbc {
+    url = "jdbc:postgresql://datasource01:5432/demo"
+    driver = "org.postgresql.Driver"
+    username = "postgres"
+    password = "postgres"
+    generate_sink_sql = true
+    database = "demo"
+    table = "public.orders_sink"
+    primary_keys = ["id"]
+    batch_size = 2000
+    batch_interval_ms = 5000
+  }
+}
+```
+
+### 使用占位符的多表写入
+
+当上游行携带表标识时，可以在 `table` 中使用 `${schema_name}` 和 `${table_name}` 占位符，把每行路由到对应的目标表。配合 `multi_table_sink_replica`，SeaTunnel 并行写入多张表。
+
+```hocon
+sink {
+  Jdbc {
+    url = "jdbc:postgresql://datasource01:5432/demo"
+    driver = "org.postgresql.Driver"
+    username = "postgres"
+    password = "postgres"
+    generate_sink_sql = true
+    database = "demo"
+    table = "${schema_name}.${table_name}_SINK"
+    primary_keys = ["id"]
+    multi_table_sink_replica = 2
+  }
+}
+```
 
 ## 变更日志
 

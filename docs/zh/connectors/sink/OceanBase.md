@@ -259,6 +259,58 @@ sink {
 }
 ```
 
+### 基于 XA 事务的精确一次
+
+启用 XA 精确一次语义需要把 `is_exactly_once = true`，并提供 OceanBase JDBC 驱动中的 `xa_data_source_class_name`，同时把 `max_retries = 0`。写入器会把每个 checkpoint 批次包装在 XA 事务里，要么与源 checkpoint 一起提交，要么失败回滚。
+
+```hocon
+env {
+  parallelism = 2
+  job.mode = "STREAMING"
+  checkpoint.interval = 10000
+}
+
+sink {
+  Jdbc {
+    url = "jdbc:oceanbase://localhost:2883/test"
+    driver = "com.oceanbase.jdbc.Driver"
+    username = "root"
+    password = "123456"
+    compatible_mode = "mysql"
+    generate_sink_sql = true
+    database = "test"
+    table = "sink_table"
+    primary_keys = ["id"]
+    is_exactly_once = true
+    xa_data_source_class_name = "com.oceanbase.jdbc.OceanBaseXADataSource"
+    max_retries = 0
+    batch_size = 1000
+  }
+}
+```
+
+### 批量 + 定时刷新组合
+
+流式作业可以同时设置 `batch_size` 与 `batch_interval_ms`，让缓冲行数到达阈值或时间间隔到达时主动刷新。该刷新在写入线程上同步执行，生产环境建议把 `batch_interval_ms` 设为几秒以上。
+
+```hocon
+sink {
+  Jdbc {
+    url = "jdbc:oceanbase://localhost:2883/test"
+    driver = "com.oceanbase.jdbc.Driver"
+    username = "root"
+    password = "123456"
+    compatible_mode = "mysql"
+    generate_sink_sql = true
+    database = "test"
+    table = "sink_table"
+    primary_keys = ["id"]
+    batch_size = 2000
+    batch_interval_ms = 5000
+  }
+}
+```
+
 ## 变更日志
 
 <ChangeLog />

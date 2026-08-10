@@ -331,6 +331,70 @@ sink {
 }
 ```
 
+### Streaming With Incremental ID Range
+
+The Oracle Source connector is batch-oriented, but you can drive incremental reads in a streaming job by combining `partition_column` with `partition_lower_bound` and `partition_upper_bound`. Each checkpoint replays the configured range, so use this pattern only when the range is small and bounded or for scheduled replays of historical data. For continuous change capture, use Oracle-CDC instead.
+
+```hocon
+env {
+  parallelism = 4
+  job.mode = "STREAMING"
+  checkpoint.interval = 60000
+}
+
+source {
+  Jdbc {
+    url = "jdbc:oracle:thin:@datasource01:1523:xe"
+    driver = "oracle.jdbc.OracleDriver"
+    username = "root"
+    password = "123456"
+    query = "SELECT * FROM ORDERS WHERE ORDER_ID >= ? AND ORDER_ID < ?"
+    partition_column = "ORDER_ID"
+    partition_lower_bound = 1
+    partition_upper_bound = 1000000
+    partition_num = 16
+  }
+}
+```
+
+### Use TNS Connection String
+
+For Oracle deployments that expose a TNS alias, point `url` at the TNS entry instead of a host/port combination. The TNS name is resolved by `oracle.net.tns_admin` on the classpath.
+
+```hocon
+source {
+  Jdbc {
+    url = "jdbc:oracle:thin:@tns_alias"
+    driver = "oracle.jdbc.OracleDriver"
+    username = "root"
+    password = "123456"
+    properties {
+      oracle.net.tns_admin = "/etc/oracle"
+    }
+    table_path = "SCHEMA.ORDERS"
+    split.size = 10000
+  }
+}
+```
+
+### Row Filtering With `where_condition`
+
+Apply a global filter that affects every entry in `table_list` or `query` by setting `where_condition`. The string must start with `where` so it can be appended to either a custom query or to the dynamically-built query used for `table_path`.
+
+```hocon
+source {
+  Jdbc {
+    url = "jdbc:oracle:thin:@datasource01:1523:xe"
+    driver = "oracle.jdbc.OracleDriver"
+    username = "root"
+    password = "123456"
+    table_path = "SCHEMA.ORDERS"
+    where_condition = "where status = 'ACTIVE' and created_at >= DATE '2026-01-01'"
+    split.size = 10000
+  }
+}
+```
+
 ## Changelog
 
 <ChangeLog />
