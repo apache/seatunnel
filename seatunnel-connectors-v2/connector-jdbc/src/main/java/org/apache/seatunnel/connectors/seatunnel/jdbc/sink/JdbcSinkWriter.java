@@ -41,6 +41,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.state.XidInfo;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Collections;
 import java.util.List;
@@ -174,8 +175,9 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
         outputFormat.checkFlushException();
         outputFormat.flush();
         try {
-            if (!connectionProvider.getConnection().getAutoCommit()) {
-                connectionProvider.getConnection().commit();
+            Connection connection = connectionProvider.getConnection();
+            if (!connection.getAutoCommit()) {
+                connection.commit();
             }
         } catch (SQLException e) {
             throw new JdbcConnectorException(
@@ -194,8 +196,9 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
         tryOpen();
         outputFormat.flush();
         try {
-            if (!connectionProvider.getConnection().getAutoCommit()) {
-                connectionProvider.getConnection().commit();
+            Connection connection = connectionProvider.getConnection();
+            if (!connection.getAutoCommit()) {
+                connection.commit();
             }
         } catch (SQLException e) {
             throw new JdbcConnectorException(
@@ -218,8 +221,9 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
         outputFormat.checkFlushException();
         outputFormat.flush();
         try {
-            if (!connectionProvider.getConnection().getAutoCommit()) {
-                connectionProvider.getConnection().commit();
+            Connection connection = connectionProvider.getConnection();
+            if (!connection.getAutoCommit()) {
+                connection.commit();
             }
         } catch (SQLException e) {
             throw new JdbcConnectorException(
