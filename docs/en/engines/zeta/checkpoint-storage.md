@@ -204,6 +204,7 @@ seatunnel:
           fs.s3a.aws.credentials.provider: com.amazonaws.auth.WebIdentityTokenCredentialsProvider
 ```
 
+Note: this makes `WebIdentityTokenCredentialsProvider` loadable on the checkpoint-storage classpath (it requires an AWS SDK version this class ships in). The bundled `hadoop-aws` version has not been upgraded to the 3.3.x line, so broader Hadoop/AWS SDK alignment for IRSA across all S3-backed components is tracked separately.
 
 For additional reading on the Hadoop Credential Provider API, you can see: [Credential Provider API](https://hadoop.apache.org/docs/stable/hadoop-project-dist/hadoop-common/CredentialProviderAPI.html).
 

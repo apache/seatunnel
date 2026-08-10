@@ -202,6 +202,7 @@ seatunnel:
           fs.s3a.aws.credentials.provider: com.amazonaws.auth.WebIdentityTokenCredentialsProvider
 ```
 
+注意：此配置使 `WebIdentityTokenCredentialsProvider` 可以在检查点存储的 classpath 中被加载（该类要求特定版本的 AWS SDK）。目前内置的 `hadoop-aws` 版本尚未升级到 3.3.x 系列，因此所有 S3 相关组件更完整的 Hadoop/AWS SDK 版本对齐工作将在后续单独跟踪。
 
 有关Hadoop Credential Provider API的更多信息，请参见: [Credential Provider API](https://hadoop.apache.org/docs/stable/hadoop-project-dist/hadoop-common/CredentialProviderAPI.html).
 
