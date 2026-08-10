@@ -140,8 +140,10 @@ source {
 
 ### Read with a server-side property filter
 
-When `parallelism = 1`, configure `filter` to push a property-equality condition
-to the server. Only elements whose properties match every entry are returned.
+`filter` requires `parallelism = 1` (the job fails fast if `filter` is combined
+with `parallelism > 1`); with that setting, configure `filter` to push a
+property-equality condition to the server. Only elements whose properties match
+every entry are returned.
 
 ```hocon
 source {

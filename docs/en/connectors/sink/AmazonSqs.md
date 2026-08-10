@@ -57,8 +57,9 @@ The connector resolves AWS credentials in the following order:
 
 For local testing against an SQS-compatible service such as LocalStack or ElasticMQ,
 point `url` at the local endpoint (for example `http://sqs-host:4566/...`) and provide any
-non-empty `access_key_id` / `secret_access_key`. AWS signature verification is bypassed for
-non-AWS hosts when static credentials are configured.
+non-empty `access_key_id` / `secret_access_key`. SQS-compatible test services typically
+do not validate the SigV4 signature on incoming requests, so any static credential pair is
+accepted by them.
 
 ## Task Examples
 

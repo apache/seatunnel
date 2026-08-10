@@ -71,9 +71,13 @@ The TDengine database name. The database must already exist on the server.
 
 ### stable [String]
 
-The TDengine super table name. For multi-table writes, this value can contain
-placeholders, for example `${table_name}`. The connector resolves the
-placeholder from `SeaTunnelRow.getTableId()` at runtime.
+The TDengine super table name. The value is used verbatim by the sink writer;
+the TDengine connector itself does not perform placeholder substitution, so
+`${table_name}` and similar tokens are not rewritten at runtime. For multi-table
+writes, SeaTunnel's upstream framework (`TablePlaceholderProcessor`) may
+substitute `stable` once during job setup based on the upstream `CatalogTable`
+identifier, but this depends on the upstream framework wiring and is not a
+TDengine-specific feature.
 
 ### timezone [String]
 
@@ -198,10 +202,11 @@ sink {
 }
 ```
 
-Here `${table_name}` is resolved from each upstream table id (`meters3`,
-`meters4`), so each input table is written to a matching super table of the
-same name. The target super tables must already exist with matching TAGS
-columns.
+Here `${table_name}` is treated as a literal string by the TDengine sink writer
+(the connector does not substitute it per row), so this example only works if
+the upstream framework substitutes `stable` once at job setup with the
+`CatalogTable` identifier from the upstream source. The target super tables
+must already exist with matching TAGS columns.
 
 ## Changelog
 

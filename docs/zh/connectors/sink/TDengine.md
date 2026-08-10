@@ -64,7 +64,7 @@ TDengine 数据库名称，数据库必须已经在服务端存在。
 
 ### stable [String]
 
-TDengine 超级表名称。多表写入时可以使用占位符，例如 `${table_name}`，占位符会在运行时从 `SeaTunnelRow.getTableId()` 解析。
+TDengine 超级表名称。该值会被 Sink Writer 原样使用，TDengine 连接器本身不会执行占位符替换，因此 `${table_name}` 等占位符不会在运行时被替换。在多表写入场景下，上游 SeaTunnel 框架（`TablePlaceholderProcessor`）可能在任务初始化阶段根据上游 `CatalogTable` 的标识替换一次 `stable`，但这取决于上游框架的接线，并不是 TDengine 连接器自身的能力。
 
 ### timezone [String]
 
@@ -179,7 +179,7 @@ sink {
 }
 ```
 
-这里的 `${table_name}` 会按上游每个表的表名（`meters3`、`meters4`）进行解析，因此每个输入表都会写入同名的目标超级表。目标超级表必须已经存在并具有匹配的 TAGS 列。
+这里的 `${table_name}` 会被 TDengine Sink Writer 当作普通字符串原样使用（连接器不会按行替换它），因此本示例只有在任务初始化阶段由上游框架依据 `CatalogTable` 的标识替换 `stable` 时才能生效。目标超级表必须已经存在并具有匹配的 TAGS 列。
 
 ## 变更日志
 
