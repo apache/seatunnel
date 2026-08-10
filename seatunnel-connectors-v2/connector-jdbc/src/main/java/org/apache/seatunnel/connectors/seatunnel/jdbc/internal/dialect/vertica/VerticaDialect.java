@@ -116,7 +116,7 @@ public class VerticaDialect implements JdbcDialect {
         // a syntax error because "UPDATE SET" would have an empty body.
         String matchedClause =
                 StringUtils.isNotBlank(updateSetClause)
-                        ? String.format(" WHEN MATCHED THEN UPDATE SET %s ", updateSetClause)
+                        ? String.format(" WHEN MATCHED THEN UPDATE SET %s", updateSetClause)
                         : "";
 
         String upsertSQL =
