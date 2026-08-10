@@ -96,6 +96,12 @@
             <artifactId>hive-jdbc</artifactId>
             <classifier>standalone</classifier>
             <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>jdk.tools</groupId>
+                    <artifactId>jdk.tools</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
     </dependencies>
 
