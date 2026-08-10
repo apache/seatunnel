@@ -23,8 +23,6 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.ToString;
 
-import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
-
 @Setter
 @Getter
 @ToString
@@ -52,18 +50,12 @@ public class PrometheusSinkConfig extends HttpConfig {
             sinkConfig.setKeyTimestamp(pluginConfig.get(PrometheusSinkOptions.KEY_TIMESTAMP));
         }
         if (pluginConfig.getOptional(PrometheusSinkOptions.BATCH_SIZE).isPresent()) {
-            int batchSize = checkIntArgument(pluginConfig.get(PrometheusSinkOptions.BATCH_SIZE));
-            sinkConfig.setBatchSize(batchSize);
+            sinkConfig.setBatchSize(pluginConfig.get(PrometheusSinkOptions.BATCH_SIZE));
         }
         if (pluginConfig.getOptional(PrometheusSinkOptions.FLUSH_INTERVAL).isPresent()) {
             long flushInterval = pluginConfig.get(PrometheusSinkOptions.FLUSH_INTERVAL);
             sinkConfig.setFlushInterval(flushInterval);
         }
         return sinkConfig;
-    }
-
-    private static int checkIntArgument(int args) {
-        checkArgument(args > 0);
-        return args;
     }
 }
