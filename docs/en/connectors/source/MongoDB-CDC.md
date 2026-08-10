@@ -315,7 +315,7 @@ source {
 
 sink {
   MongoDB {
-    hosts = "mongodb://mongo1:27017"
+    uri = "mongodb://mongo1:27017"
     database = "inventory"
     collection = "products_mirror"
   }
@@ -334,7 +334,7 @@ source {
     collection = ["inventory.products"]
     startup.mode = "timestamp"
     # 2026-08-01 00:00:00 UTC
-    startup.timestamp = 1722470400000
+    startup.timestamp = 1785542400000
     schema = {
       fields {
         "_id" : string,
@@ -397,9 +397,13 @@ source {
 
 ## Reading From Multiple MongoDB Sources
 
-A single job can fan in CDC streams from several MongoDB instances by listing them as separate `MongoDB-CDC` source entries. Each source preserves its own parallelism, schema, and restart tokens, and the events are merged by the sink:
+A SeaTunnel job only accepts one source block per `source { ... }`, so the supported way to
+fan in CDC streams from several MongoDB clusters is to submit one job per source and have them
+write to the same sink table. Each job preserves its own parallelism, schema, and restart
+tokens; the sink table deduplicates by primary key.
 
 ```hocon
+# Job A: CDC from cluster `mongo0` writing to `inventory_a.products_a`
 env {
   parallelism = 1
   job.mode = "STREAMING"
@@ -421,7 +425,31 @@ source {
       }
     }
   }
+}
 
+sink {
+  jdbc {
+    url = "jdbc:mysql://mysql_e2e:3306/mongodb_cdc"
+    driver = "com.mysql.cj.jdbc.Driver"
+    username = "st_user"
+    password = "seatunnel"
+    generate_sink_sql = true
+    database = mongodb_cdc
+    table = "${table_name}"
+    primary_keys = ["_id"]
+  }
+}
+```
+
+```hocon
+# Job B: CDC from cluster `mongo1` writing to `inventory_b.products_b`
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
   MongoDB-CDC {
     hosts = "mongo1:27017"
     database = ["inventory_b"]

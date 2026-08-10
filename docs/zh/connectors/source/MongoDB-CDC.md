@@ -315,7 +315,7 @@ source {
 
 sink {
   MongoDB {
-    hosts = "mongodb://mongo1:27017"
+    uri = "mongodb://mongo1:27017"
     database = "inventory"
     collection = "products_mirror"
   }
@@ -334,7 +334,7 @@ source {
     collection = ["inventory.products"]
     startup.mode = "timestamp"
     # 2026-08-01 00:00:00 UTC
-    startup.timestamp = 1722470400000
+    startup.timestamp = 1785542400000
     schema = {
       fields {
         "_id" : string,
@@ -397,9 +397,10 @@ source {
 
 ## 从多个MongoDB源读取
 
-单个任务可以通过并列多个 `MongoDB-CDC` source项，从多个MongoDB实例同时拉取CDC流。每个source都保持独立的并行度、schema和重启token，事件最终由sink进行合并：
+单个 SeaTunnel 任务在 `source { ... }` 内只支持一个 source 块，因此同时从多个 MongoDB 集群拉取 CDC 流的可行方式是每个源提交一个独立任务，并写入同一个 sink 表。每个任务保留各自的并行度、schema 和重启 token，最终由 sink 表按主键去重。
 
 ```hocon
+# 任务 A：从集群 mongo0 读取 CDC，写入 inventory_a.products_a
 env {
   parallelism = 1
   job.mode = "STREAMING"
@@ -421,7 +422,31 @@ source {
       }
     }
   }
+}
 
+sink {
+  jdbc {
+    url = "jdbc:mysql://mysql_e2e:3306/mongodb_cdc"
+    driver = "com.mysql.cj.jdbc.Driver"
+    username = "st_user"
+    password = "seatunnel"
+    generate_sink_sql = true
+    database = mongodb_cdc
+    table = "${table_name}"
+    primary_keys = ["_id"]
+  }
+}
+```
+
+```hocon
+# 任务 B：从集群 mongo1 读取 CDC，写入 inventory_b.products_b
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
   MongoDB-CDC {
     hosts = "mongo1:27017"
     database = ["inventory_b"]
