@@ -670,9 +670,10 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                                                 }
                                                 return true;
                                             }));
+            TaskGroupContext context = new TaskGroupContext(taskGroup, classLoaders, jars);
             executionContexts.put(
-                    taskGroup.getTaskGroupLocation(),
-                    new TaskGroupContext(taskGroup, classLoaders, jars));
+                    taskGroup.getTaskGroupLocation(), context);
+            executionTracker.ownedContext = context;
             contextPublished = true;
             onContextPublished.run();
             cancellationFutures.put(taskGroup.getTaskGroupLocation(), cancellationFuture);
@@ -1374,6 +1375,13 @@ public class TaskExecutionService implements DynamicMetricsProvider {
 
         private final Map<Long, Future<?>> currRunningTaskFuture = new ConcurrentHashMap<>();
 
+        /**
+         * The TaskGroupContext that this tracker owns. Used to guard against stale
+         * taskDone calls from a previous restore generation removing the execution
+         * context installed by a newer generation for the same TaskGroupLocation.
+         */
+        private volatile TaskGroupContext ownedContext;
+
         TaskGroupExecutionTracker(
                 @NonNull CompletableFuture<Void> cancellationFuture,
                 @NonNull TaskGroup taskGroup,
@@ -1456,8 +1464,10 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             Throwable ex = executionException.get();
             if (completionLatch.decrementAndGet() == 0) {
                 recycleClassLoader(taskGroupLocation);
-                finishedExecutionContexts.put(
-                        taskGroupLocation, executionContexts.remove(taskGroupLocation));
+                // Only remove the execution context if it is still the one this tracker
+                // installed. A stale taskDone belonging to an earlier restore generation must
+                // not evict the context installed by a newer generation for the same location.
+                finishExecutionContext(taskGroupLocation);
                 cancellationFutures.remove(taskGroupLocation);
                 try {
                     cancelAsyncFunction(taskGroupLocation);
@@ -1509,6 +1519,20 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             executionContexts.get(taskGroupLocation).setClassLoaders(null);
             for (Collection<URL> jars : context.getJars().values()) {
                 classLoaderService.releaseClassLoader(taskGroupLocation.getJobId(), jars);
+            }
+        }
+
+        /**
+         * Moves the execution context from the active map to the finished map, but only if
+         * the entry is still the context this tracker installed. TaskGroupLocation is reused
+         * across pipeline restore generations, so a stale {@link #taskDone(Task)} from an
+         * earlier generation must not evict the context installed by a newer generation for
+         * the same location. {@link java.util.concurrent.ConcurrentMap#remove(Object, Object)}
+         * performs the check atomically.
+         */
+        private void finishExecutionContext(TaskGroupLocation taskGroupLocation) {
+            if (executionContexts.remove(taskGroupLocation, ownedContext)) {
+                finishedExecutionContexts.put(taskGroupLocation, ownedContext);
             }
         }
 
