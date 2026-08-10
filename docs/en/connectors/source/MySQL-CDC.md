@@ -415,6 +415,90 @@ sink {
 }
 ```
 
+### Configure Debezium heartbeat
+
+For low-traffic tables, the MySQL binlog only advances when row changes occur. Use a Debezium heartbeat to keep the binlog position moving so downstream checkpoints record fresh offsets and replication lag stays measurable. The heartbeat table must exist on the MySQL server before the job starts.
+
+```hocon
+source {
+  MySQL-CDC {
+    username = "st_user_source"
+    password = "mysqlpw"
+    table-names = ["mysql_cdc.mysql_cdc_e2e_source_table"]
+    url = "jdbc:mysql://mysql_cdc_e2e:3306/mysql_cdc"
+    debezium {
+      heartbeat.interval.ms = 100
+      heartbeat.action.query = "INSERT INTO mysql_cdc.heartbeat (ts) VALUES (NOW())"
+    }
+  }
+}
+```
+
+### Flush on a timer without waiting for `batch_size`
+
+When the source has very low write volume, the JDBC sink can sit idle until a checkpoint fires. Enable timer flush in the sink so buffered rows are written even if `batch_size` is not reached.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 300000
+  sink.flush.interval = 500
+}
+
+source {
+  MySQL-CDC {
+    server-id = 5680-5690
+    username = "st_user_source"
+    password = "mysqlpw"
+    table-names = ["mysql_cdc.timer_flush_src"]
+    url = "jdbc:mysql://mysql_cdc_e2e:3306/mysql_cdc"
+  }
+}
+
+sink {
+  Jdbc {
+    url = "jdbc:mysql://mysql_cdc_e2e:3306/mysql_cdc"
+    driver = "com.mysql.cj.jdbc.Driver"
+    username = "st_user_sink"
+    password = "mysqlpw"
+    generate_sink_sql = true
+    database = mysql_cdc
+    table = timer_flush_sink
+    primary_keys = ["id"]
+    batch_size = 100000000
+    batch_interval_ms = 0
+  }
+}
+```
+
+`sink.flush.interval` is configured in the `env` block and applies to the sink pipeline regardless of `batch_size`.
+
+### Read tables without a primary key
+
+For tables without a physical primary key, set `exactly_once = false` and supply a unique column via `table-names-config.primaryKeys` when you need stable row identity for downstream upserts.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  MySQL-CDC {
+    server-id = 5652
+    username = "st_user_source"
+    password = "mysqlpw"
+    table-names = ["mysql_cdc.mysql_cdc_e2e_source_table_no_primary_key"]
+    url = "jdbc:mysql://mysql_cdc_e2e:3306/mysql_cdc"
+    exactly_once = false
+  }
+}
+```
+
+Without a usable primary key (configured or physical) the connector cannot safely apply UPDATE/DELETE events. Use this mode only for append-only workloads or when downstream sink behavior does not depend on row identity.
+
 ### Start From a Specific Binlog Offset
 
 Use `startup.mode = "specific"` when the first record must be read from a known binlog file and position.
