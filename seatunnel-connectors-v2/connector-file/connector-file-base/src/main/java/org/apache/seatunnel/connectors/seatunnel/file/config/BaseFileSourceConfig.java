@@ -27,6 +27,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.file.source.MarkdownKnowledgeSyncMetadata;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ReadStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ReadStrategyFactory;
 
@@ -69,9 +70,20 @@ public abstract class BaseFileSourceConfig implements Serializable {
         this.fileFormat = readonlyConfig.get(FileBaseSourceOptions.FILE_FORMAT_TYPE);
         this.readStrategy = ReadStrategyFactory.of(readonlyConfig, getHadoopConfig());
         this.fileDiscoveryDeferred = shouldDeferFileDiscovery(readonlyConfig);
+        if (isMarkdownKnowledgeSyncMetadataEnabled(readonlyConfig)) {
+            MarkdownKnowledgeSyncMetadata.canonicalizeSourceUri(
+                    readonlyConfig.get(FileBaseSourceOptions.FILE_PATH));
+        }
         this.filePaths = parseFilePaths(readonlyConfig);
         this.catalogTableFromConfig = catalogTableFromConfig;
-        this.catalogTable = parseCatalogTable(readonlyConfig);
+        CatalogTable parsedCatalogTable = parseCatalogTable(readonlyConfig);
+        this.catalogTable =
+                isMarkdownKnowledgeSyncMetadataEnabled(readonlyConfig)
+                        ? MarkdownKnowledgeSyncMetadata.withMetadata(
+                                CatalogTable.withMetadata(
+                                        parsedCatalogTable,
+                                        catalogTableFromConfig.getMetadataSchema()))
+                        : parsedCatalogTable;
     }
 
     protected boolean shouldDeferFileDiscovery(ReadonlyConfig readonlyConfig) {
@@ -119,12 +131,19 @@ public abstract class BaseFileSourceConfig implements Serializable {
             log.info(
                     "File source discovery finished: plugin={}, path={}, files={}, cost={}ms",
                     getPluginName(),
-                    maskUriUserInfo(rootPath),
+                    safeSourceContext(rootPath),
                     discoveredFilePaths.size(),
                     System.currentTimeMillis() - startTime);
             return discoveredFilePaths;
         } catch (Exception ex) {
-            String errorMsg = String.format("Get file list from this path [%s] failed", rootPath);
+            String errorMsg =
+                    String.format(
+                            "Get file list from this path [%s] failed",
+                            safeSourceContext(rootPath));
+            if (isMarkdownKnowledgeSyncMetadataEnabled(baseFileSourceConfig)) {
+                throw new FileConnectorException(
+                        FileConnectorErrorCode.FILE_LIST_GET_FAILED, errorMsg);
+            }
             throw new FileConnectorException(
                     FileConnectorErrorCode.FILE_LIST_GET_FAILED, errorMsg, ex);
         }
@@ -171,6 +190,11 @@ public abstract class BaseFileSourceConfig implements Serializable {
         }
     }
 
+    private boolean isMarkdownKnowledgeSyncMetadataEnabled(ReadonlyConfig readonlyConfig) {
+        return fileFormat == FileFormat.MARKDOWN
+                && readonlyConfig.get(FileBaseSourceOptions.MARKDOWN_RAG_METADATA_ENABLED);
+    }
+
     private SeaTunnelRowType getSchemaForEmptyFilePath(ReadonlyConfig readonlyConfig) {
         String rootPath = readonlyConfig.get(FileBaseSourceOptions.FILE_PATH);
         return readStrategy.getSeaTunnelRowTypeInfo(rootPath);
@@ -196,6 +220,13 @@ public abstract class BaseFileSourceConfig implements Serializable {
         } catch (Exception e) {
             return rawPath;
         }
+    }
+
+    private String safeSourceContext(String rawPath) {
+        if (isMarkdownKnowledgeSyncMetadataEnabled(baseFileSourceConfig)) {
+            return MarkdownKnowledgeSyncMetadata.safeSourceContext(rawPath);
+        }
+        return maskUriUserInfo(rawPath);
     }
 
     private CatalogTable newCatalogTable(

@@ -76,10 +76,21 @@ public abstract class BaseFileSource
         this.readStrategy.setPluginConfig(pluginConfig.toConfig());
         this.readStrategy.init(hadoopConf);
         String path = pluginConfig.get(FileBaseSourceOptions.FILE_PATH);
+        if (documentRoutingEnabled) {
+            MarkdownKnowledgeSyncMetadata.canonicalizeSourceUri(path);
+        }
         try {
             filePaths = readStrategy.getFileNamesByPath(path);
         } catch (IOException e) {
-            String errorMsg = String.format("Get file list from this path [%s] failed", path);
+            String safePath =
+                    documentRoutingEnabled
+                            ? MarkdownKnowledgeSyncMetadata.safeSourceContext(path)
+                            : path;
+            String errorMsg = String.format("Get file list from this path [%s] failed", safePath);
+            if (documentRoutingEnabled) {
+                throw new FileConnectorException(
+                        FileConnectorErrorCode.FILE_LIST_GET_FAILED, errorMsg);
+            }
             throw new FileConnectorException(
                     FileConnectorErrorCode.FILE_LIST_GET_FAILED, errorMsg, e);
         }
@@ -126,7 +137,10 @@ public abstract class BaseFileSource
                 }
             }
         }
-        this.catalogTable = userDefinedCatalogTable;
+        this.catalogTable =
+                documentRoutingEnabled
+                        ? MarkdownKnowledgeSyncMetadata.withMetadata(userDefinedCatalogTable)
+                        : userDefinedCatalogTable;
     }
 
     private CatalogTable buildCatalogTableForEmptyPath(String path, FileFormat fileFormat) {

@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseFileSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseMultipleTableFileSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.file.source.MarkdownKnowledgeSyncMetadata;
 import org.apache.seatunnel.connectors.seatunnel.file.source.event.FileSplitFinishedEvent;
 import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSplit;
 
@@ -87,7 +88,10 @@ public class MultipleTableFileSourceReader implements SourceReader<SeaTunnelRow,
                     readStrategy.read(split, output);
                 } catch (Exception e) {
                     String errorMsg =
-                            String.format("Read data from this file [%s] failed", split.splitId());
+                            String.format(
+                                    "Read data from this file [%s] failed",
+                                    MarkdownKnowledgeSyncMetadata.safeSourceContext(
+                                            split.getFilePath()));
                     throw new FileConnectorException(FILE_READ_FAILED, errorMsg, e);
                 }
             }

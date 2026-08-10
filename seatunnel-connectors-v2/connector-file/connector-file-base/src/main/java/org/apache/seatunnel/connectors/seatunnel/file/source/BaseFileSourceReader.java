@@ -67,7 +67,11 @@ public class BaseFileSourceReader implements SourceReader<SeaTunnelRow, FileSour
                     // to set this
                     readStrategy.read(split.splitId(), "", output);
                 } catch (Exception e) {
-                    throw CommonError.fileOperationFailed("SeaTunnel", "read", split.splitId(), e);
+                    throw CommonError.fileOperationFailed(
+                            "SeaTunnel",
+                            "read",
+                            MarkdownKnowledgeSyncMetadata.safeSourceContext(split.splitId()),
+                            e);
                 }
             }
         }
