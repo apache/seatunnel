@@ -21,6 +21,7 @@ import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.TestContainerId;
 import org.apache.seatunnel.e2e.common.container.TestContainersFactory;
+import org.apache.seatunnel.e2e.common.container.flink.AbstractTestFlinkContainer;
 import org.apache.seatunnel.e2e.common.container.flink.Flink13Container;
 import org.apache.seatunnel.e2e.common.container.flink.Flink14Container;
 import org.apache.seatunnel.e2e.common.container.flink.Flink15Container;
@@ -68,13 +69,12 @@ public class TestPythonTransformIT {
             "seatunnel.transform.python.enabled";
     private static final String PYTHON_ALLOWED_EXECUTABLES_PROPERTY =
             "seatunnel.transform.python.allowed-executables";
+    private static final String PYTHON_TRANSFORM_ENABLED_JAVA_OPTION =
+            "-D" + PYTHON_TRANSFORM_ENABLED_PROPERTY + "=true";
+    private static final String PYTHON_ALLOWED_EXECUTABLES_JAVA_OPTION =
+            "-D" + PYTHON_ALLOWED_EXECUTABLES_PROPERTY + "=" + PYTHON_EXECUTABLE_ALLOWLIST;
     private static final String PYTHON_POLICY_JAVA_OPTS =
-            "-D"
-                    + PYTHON_TRANSFORM_ENABLED_PROPERTY
-                    + "=true -D"
-                    + PYTHON_ALLOWED_EXECUTABLES_PROPERTY
-                    + "="
-                    + PYTHON_EXECUTABLE_ALLOWLIST;
+            PYTHON_TRANSFORM_ENABLED_JAVA_OPTION + " " + PYTHON_ALLOWED_EXECUTABLES_JAVA_OPTION;
 
     @TestContainers
     private final TestContainersFactory containersFactory =
@@ -110,6 +110,7 @@ public class TestPythonTransformIT {
     @TestTemplate
     public void testInlinePythonTransform(TestContainer container)
             throws IOException, InterruptedException {
+        assertFlinkPythonPolicyVisible(container);
         Container.ExecResult execResult = container.executeJob(BASE_PATH + "python_transform.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
@@ -124,6 +125,7 @@ public class TestPythonTransformIT {
     @TestTemplate
     public void testPathPythonTransform(TestContainer container)
             throws IOException, InterruptedException {
+        assertFlinkPythonPolicyVisible(container);
         Container.ExecResult execResult =
                 container.executeJob(BASE_PATH + "python_transform_path.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
@@ -254,6 +256,11 @@ public class TestPythonTransformIT {
         protected List<String> getFlinkProperties() {
             return withFlinkPolicy(super.getFlinkProperties());
         }
+
+        @Override
+        protected String getJavaToolOptions() {
+            return PYTHON_POLICY_JAVA_OPTS;
+        }
     }
 
     /** Flink 1.14 container with Python transform JVM policy enabled before startup. */
@@ -261,6 +268,11 @@ public class TestPythonTransformIT {
         @Override
         protected List<String> getFlinkProperties() {
             return withFlinkPolicy(super.getFlinkProperties());
+        }
+
+        @Override
+        protected String getJavaToolOptions() {
+            return PYTHON_POLICY_JAVA_OPTS;
         }
     }
 
@@ -270,6 +282,11 @@ public class TestPythonTransformIT {
         protected List<String> getFlinkProperties() {
             return withFlinkPolicy(super.getFlinkProperties());
         }
+
+        @Override
+        protected String getJavaToolOptions() {
+            return PYTHON_POLICY_JAVA_OPTS;
+        }
     }
 
     /** Flink 1.16 container with Python transform JVM policy enabled before startup. */
@@ -277,6 +294,11 @@ public class TestPythonTransformIT {
         @Override
         protected List<String> getFlinkProperties() {
             return withFlinkPolicy(super.getFlinkProperties());
+        }
+
+        @Override
+        protected String getJavaToolOptions() {
+            return PYTHON_POLICY_JAVA_OPTS;
         }
     }
 
@@ -286,6 +308,11 @@ public class TestPythonTransformIT {
         protected List<String> getFlinkProperties() {
             return withFlinkPolicy(super.getFlinkProperties());
         }
+
+        @Override
+        protected String getJavaToolOptions() {
+            return PYTHON_POLICY_JAVA_OPTS;
+        }
     }
 
     /** Flink 1.18 container with Python transform JVM policy enabled before startup. */
@@ -294,6 +321,11 @@ public class TestPythonTransformIT {
         protected List<String> getFlinkProperties() {
             return withFlinkPolicy(super.getFlinkProperties());
         }
+
+        @Override
+        protected String getJavaToolOptions() {
+            return PYTHON_POLICY_JAVA_OPTS;
+        }
     }
 
     /** Flink 1.20 container with Python transform JVM policy enabled before startup. */
@@ -301,6 +333,11 @@ public class TestPythonTransformIT {
         @Override
         protected List<String> getFlinkProperties() {
             return withFlinkPolicy(super.getFlinkProperties());
+        }
+
+        @Override
+        protected String getJavaToolOptions() {
+            return PYTHON_POLICY_JAVA_OPTS;
         }
     }
 
@@ -353,5 +390,52 @@ public class TestPythonTransformIT {
             }
         }
         return properties.size();
+    }
+
+    /**
+     * Verifies that Flink JobManager/client and TaskManager containers both export the JVM policy
+     * hook needed by the already-started runtime processes.
+     *
+     * @param container runtime selected by the shared E2E harness
+     * @throws IOException when docker exec cannot inspect container state
+     * @throws InterruptedException when docker exec is interrupted
+     */
+    private static void assertFlinkPythonPolicyVisible(TestContainer container)
+            throws IOException, InterruptedException {
+        if (!(container instanceof AbstractTestFlinkContainer)) {
+            return;
+        }
+        AbstractTestFlinkContainer flinkContainer = (AbstractTestFlinkContainer) container;
+        assertPythonPolicyJavaOptions(
+                "Flink JobManager/client",
+                flinkContainer.executeJobManagerInnerCommand("printf '%s' \"$JAVA_TOOL_OPTIONS\""));
+        assertPythonPolicyJavaOptions(
+                "Flink TaskManager",
+                flinkContainer.executeTaskManagerInnerCommand(
+                        "printf '%s' \"$JAVA_TOOL_OPTIONS\""));
+    }
+
+    /**
+     * Ensures the standard JVM launcher hook carries both security properties needed by the Python
+     * transform runtime.
+     *
+     * @param runtimeName human-readable runtime side for assertion messages
+     * @param javaToolOptions raw JAVA_TOOL_OPTIONS value observed inside the container
+     */
+    private static void assertPythonPolicyJavaOptions(String runtimeName, String javaToolOptions) {
+        Assertions.assertTrue(
+                javaToolOptions.contains(PYTHON_TRANSFORM_ENABLED_JAVA_OPTION),
+                runtimeName
+                        + " is missing "
+                        + PYTHON_TRANSFORM_ENABLED_JAVA_OPTION
+                        + " in JAVA_TOOL_OPTIONS: "
+                        + javaToolOptions);
+        Assertions.assertTrue(
+                javaToolOptions.contains(PYTHON_ALLOWED_EXECUTABLES_JAVA_OPTION),
+                runtimeName
+                        + " is missing "
+                        + PYTHON_ALLOWED_EXECUTABLES_JAVA_OPTION
+                        + " in JAVA_TOOL_OPTIONS: "
+                        + javaToolOptions);
     }
 }

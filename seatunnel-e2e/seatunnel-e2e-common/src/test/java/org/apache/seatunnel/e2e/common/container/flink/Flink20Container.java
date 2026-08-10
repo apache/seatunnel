@@ -151,6 +151,7 @@ public class Flink20Container extends AbstractTestFlinkContainer {
                                 HOST_VOLUME_MOUNT_PATH,
                                 CONTAINER_VOLUME_MOUNT_PATH,
                                 org.testcontainers.containers.BindMode.READ_WRITE);
+        applyJavaToolOptions(jobManager);
 
         copySeaTunnelStarterToContainer(jobManager);
         copySeaTunnelStarterLoggingToContainer(jobManager);
@@ -178,6 +179,7 @@ public class Flink20Container extends AbstractTestFlinkContainer {
                                 HOST_VOLUME_MOUNT_PATH,
                                 CONTAINER_VOLUME_MOUNT_PATH,
                                 org.testcontainers.containers.BindMode.READ_WRITE);
+        applyJavaToolOptions(taskManager);
 
         org.testcontainers.lifecycle.Startables.deepStart(java.util.stream.Stream.of(jobManager))
                 .join();
