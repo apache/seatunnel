@@ -90,6 +90,12 @@ Read data from hdfs file system.
 | target_hadoop_conf         | map     | no       | -                           | Only used when `sync_mode=update`. Extra Hadoop configuration for target filesystem. You can set `fs.defaultFS` in this map to override target defaultFS.                                                                                                                                                                                   |
 | update_strategy            | string  | no       | distcp                      | Only used when `sync_mode=update`. Supported values: `distcp` (default), `strict`.                                                                                                                                                                                                                                                           |
 | compare_mode               | string  | no       | len_mtime                   | Only used when `sync_mode=update`. Supported values: `len_mtime` (default), `checksum` (only valid when `update_strategy=strict`).                                                                                                                                                                                                          |
+| update_compare_parallelism | int     | no       | 8                           | Maximum parallelism for sparse target metadata lookups. Valid range: `1-64`.                                                                                                                                                                                                                                                              |
+| update_compare_bulk_threshold | int  | no       | 0                           | A positive value switches comparison to one directory listing when the candidate count under one target parent reaches the threshold. `0` disables automatic bulk listing.                                                                                                                                                                |
+| post_sync_action           | string  | no       | none                        | Post-sync action in `discovery_mode=continuous`. Supported values: `none` (default), `delete`, `backup`.                                                                                                                                                                                     |
+| backup_path                | string  | no       | -                           | Backup destination base path when `post_sync_action=backup`. It must not overlap with `path`.                                                                                                                                                                                                 |
+| retention_max_age          | string  | no       | -                           | Optional retention age for SeaTunnel backup files in `backup_path`, only valid when `post_sync_action=backup`.                                                                                                                                                                                |
+| retention_check_interval   | string  | no       | 1H                          | Retention scan interval, only effective when `post_sync_action=backup` and `retention_max_age` is configured.                                                                                                                                                                                |
 | common-options             |         | no       | -                           | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details.                                                                                                                                                                                                                            |
 | file_filter_modified_start | string  | no       | -                           | File modification time filter. The connector will filter some files base on the last modification start time (include start time). The default data format is `yyyy-MM-dd HH:mm:ss`.                                                                                                                                                          |
 | file_filter_modified_end   | string  | no       | -                           | File modification time filter. The connector will filter some files base on the last modification end time (not include end time). The default data format is `yyyy-MM-dd HH:mm:ss`.                                                                                                                                                          |
@@ -119,12 +125,14 @@ Each extracted element is converted to a document-element row with the following
 - `parent_id`: ID of the parent element
 - `child_ids`: Comma-separated list of child element IDs
 
-When `markdown_rag_metadata_enabled` is set to `true`, SeaTunnel appends the following RAG metadata fields after `child_ids`:
+When either `markdown_rag_metadata_enabled` or `pdf_rag_metadata_enabled` is set to `true`, SeaTunnel appends the following RAG metadata fields after `child_ids` for the corresponding file type:
 - `source_uri`: Source file path or URI
 - `document_id`: Stable document identifier derived from `source_uri`
 - `chunk_id`: Stable chunk identifier derived from document identity, chunk order, and content hash
 - `chunk_index`: One-based chunk order in the parsed document
 - `content_hash`: SHA-256 hash of the emitted `text` value
+
+When this option is enabled for bounded Markdown file sources, the source enumerator assigns each whole-file split by the same `document_id` hash so all rows derived from one document stay in the same source route bucket. The default round-robin split assignment is unchanged when the option is disabled.
 
 The option defaults to `false`, so the original Markdown schema is unchanged unless you enable it.
 
@@ -132,6 +140,7 @@ Note: Markdown format only supports reading, not writing.
 
 If you assign file type to `pdf`, SeaTunnel can parse PDF files and extract structured document elements.
 PDF uses the same document-element row schema described above.
+For PDF input, enable `pdf_rag_metadata_enabled` to append the RAG metadata fields described above.
 
 The main PDF-specific behaviors are:
 
@@ -311,6 +320,47 @@ Only used when `sync_mode=update`. Supported values: `len_mtime` (default), `che
 - `len_mtime`: SKIP only when both `len` and `mtime` are equal, otherwise COPY.
 - `checksum`: SKIP only when `len` is equal and Hadoop `getFileChecksum` is equal, otherwise COPY (only valid when `update_strategy=strict`).
 
+### update_compare_parallelism [int]
+
+Maximum parallelism for sparse target metadata lookups in `sync_mode=update`. The default is `8`; valid values are `1` through `64`; values outside this range are rejected during configuration validation. The maximum number of submitted-but-incomplete lookups is eight times this value.
+
+### update_compare_bulk_threshold [int]
+
+A positive value switches comparison to one directory listing when the candidate count under a target parent reaches the threshold. The default `0` disables automatic bulk listing and uses bounded point lookups, avoiding an unexpectedly expensive target directory scan. This behavior applies to all target filesystems. Source filters are applied while entries are listed to reduce peak metadata memory.
+
+### post_sync_action [string]
+
+Only used when `discovery_mode=continuous`. Supported values: `none` (default), `delete`, `backup`. In `discovery_mode=once`, setting `post_sync_action=delete` or `post_sync_action=backup` is rejected during config validation.
+
+- `none`: default behavior, no source-side file operation.
+- `delete`: delete processed source files after `notifyCheckpointComplete`; failed operations are retried on later checkpoints.
+- `backup`: move processed source files to `backup_path` after `notifyCheckpointComplete`; failed operations are retried on later checkpoints.
+
+Before `delete` or `backup`, SeaTunnel renames the source file to a staging/trash path first, then re-checks the file length and modification time. If the version differs after the rename, the file is restored so the next scan can re-discover the changed version.
+
+**mtime granularity limitation**: The act-then-verify approach narrows but cannot fully eliminate the race window on filesystems with coarse mtime granularity (e.g., FTP MDTM ~1s, local FS on some platforms). If a same-second, same-length modification occurs, the version check may not detect it. For maximum safety on FTP/SFTP, ensure no concurrent writers are active during post-sync processing, or use `backup` instead of `delete` so the file is recoverable.
+
+### backup_path [string]
+
+Only used when `post_sync_action=backup`. Processed files are moved to this base path after checkpoint-complete commit, and destination file names include source version suffix to avoid overwrite collision. Phase-1 only supports backup on the same filesystem as `path` (same scheme and authority); cross-filesystem backup is rejected.
+
+`backup_path` must not be the same as `path`, must not be under `path`, and `path` must not be under `backup_path`. Use a dedicated backup directory because retention only manages files created by SeaTunnel with the version suffix.
+
+### retention_max_age [string]
+
+Optional retention policy for `backup_path`. SeaTunnel backup files older than this age are cleaned up during checkpoint-complete retention scans.
+Only valid when `post_sync_action=backup`.
+
+Duration suffixes are case-insensitive: `MS` (milliseconds), `S` (seconds), `M` (minutes), `H` (hours), `D` (days). `M` always means minutes, never months. ISO-8601 durations like `PT1H30M` are also supported. Invalid values (e.g., `PT7D`, `P1M`) fail config validation with an error.
+
+Supported duration formats are shorthand values with `MS`, `S`, `M`, `H`, or `D` suffixes, such as `500MS`, `30S`, `10M`, `12H`, `7D`, and ISO-8601 durations such as `PT1H30M`.
+
+### retention_check_interval [string]
+
+Retention scan interval, default `1H`. Cleanup runs at most once per interval when `post_sync_action=backup` and `retention_max_age` is configured. Setting `retention_check_interval` without `retention_max_age` has no effect.
+
+Duration suffixes are case-insensitive: `MS`, `S`, `M`, `H`, `D`. `M` always means minutes, never months. Invalid values fail config validation with an error.
+
 ### enable_file_split [boolean]
 
 Turn on the file splitting function, the default is false. It can be selected when the file type is csv, text, json, parquet and non-compressed format.
@@ -464,6 +514,89 @@ source {
     target_path = "/seatunnel/watch/dst/"
     update_strategy = "distcp"
     compare_mode = "len_mtime"
+
+    post_sync_action = "backup"
+    backup_path = "/seatunnel/watch/backup/"
+    retention_max_age = "7D"
+    retention_check_interval = "1H"
+  }
+}
+
+sink {
+  HdfsFile {
+    fs.defaultFS = "hdfs://namenode001"
+    path = "/seatunnel/watch/dst/"
+    tmp_path = "/seatunnel/watch/tmp/"
+    file_format_type = "binary"
+  }
+}
+```
+
+### Incremental Sync (sync_mode=update, binary)
+
+`sync_mode=update` compares files between source and `target_path`, then only reads new/changed files (currently only supports `file_format_type=binary`).
+In most cases, `target_path` should be aligned with sink `path` (same filesystem and same relative paths).
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  HdfsFile {
+    path = "/seatunnel/update/src/"
+    file_format_type = "binary"
+    fs.defaultFS = "hdfs://namenode001"
+
+    sync_mode = "update"
+    target_path = "/seatunnel/update/dst/"
+    update_strategy = "distcp"
+    compare_mode = "len_mtime"
+  }
+}
+
+sink {
+  HdfsFile {
+    fs.defaultFS = "hdfs://namenode001"
+    path = "/seatunnel/update/dst/"
+    tmp_path = "/seatunnel/update/tmp/"
+    file_format_type = "binary"
+  }
+}
+```
+
+### Continuous Discovery (discovery_mode=continuous)
+
+`discovery_mode=continuous` keeps the job running and periodically scans the path for new/changed files (long-running job, recommended to run with `job.mode="STREAMING"`).
+
+**Note:** `discovery_mode=continuous` currently requires `sync_mode="update"` (binary-only) to avoid repeated transfers without keeping an unbounded "seen" state. `target_path` should align with the sink `path` on the same filesystem.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+}
+
+source {
+  HdfsFile {
+    path = "/seatunnel/watch/src/"
+    file_format_type = "binary"
+    fs.defaultFS = "hdfs://namenode001"
+
+    discovery_mode = "continuous"
+    scan_interval = "10S"
+    start_mode = "latest"
+
+    sync_mode = "update"
+    target_path = "/seatunnel/watch/dst/"
+    update_strategy = "distcp"
+    compare_mode = "len_mtime"
+
+    post_sync_action = "backup"
+    backup_path = "/seatunnel/watch/backup/"
+    retention_max_age = "7D"
+    retention_check_interval = "1H"
   }
 }
 
