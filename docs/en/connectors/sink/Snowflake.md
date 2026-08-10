@@ -10,141 +10,132 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 > Flink<br/>
 > SeaTunnel Zeta<br/>
 
-## Key Features
-
-- [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
-- [x] [cdc](../../introduction/concepts/connector-v2-features.md)
-- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
-
 ## Description
 
-Write data through jdbc. Support Batch mode and Streaming mode, support concurrent writing.
+Write data to Snowflake through JDBC. The sink supports batch and streaming jobs, concurrent writes, and CDC events. Each batch flushes when `batch_size` rows are buffered, the time-based `batch_interval_ms` elapses, or a checkpoint is triggered.
 
-## Supported DataSource list
-
-| Datasource |                    Supported Versions                    |                  Driver                   |                            Url                             |                                    Maven                                    |
-|------------|----------------------------------------------------------|-------------------------------------------|------------------------------------------------------------|-----------------------------------------------------------------------------|
-| snowflake  | Different dependency version has different driver class. | net.snowflake.client.jdbc.SnowflakeDriver | jdbc&#58;snowflake://<account_name>.snowflakecomputing.com | [Download](https://mvnrepository.com/artifact/net.snowflake/snowflake-jdbc) |
-
-## Database dependency
+## Database Dependency
 
 > Please download the support list corresponding to 'Maven' and copy it to the '$SEATUNNEL_HOME/plugins/jdbc/lib/' working directory<br/>
 > For example Snowflake datasource: cp snowflake-connector-java-xxx.jar $SEATUNNEL_HOME/plugins/jdbc/lib/
+
+## Key Features
+
+- [x] [batch](../../introduction/concepts/connector-v2-features.md)
+- [x] [stream](../../introduction/concepts/connector-v2-features.md)
+- [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [x] [cdc](../../introduction/concepts/connector-v2-features.md) (via primary-key upsert / merge SQL)
+- [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
+- [x] [timer flush](../../introduction/concepts/connector-v2-features.md)
+
+## Supported DataSource Info
+
+| Datasource | Supported versions                                   | Driver                                | Url                                          | Maven                                                          |
+|------------|------------------------------------------------------|---------------------------------------|----------------------------------------------|----------------------------------------------------------------|
+| Snowflake  | Different dependency version has different driver class. | net.snowflake.client.jdbc.SnowflakeDriver | jdbc:snowflake://<account_name>.snowflakecomputing.com | [Download](https://mvnrepository.com/artifact/net.snowflake/snowflake-jdbc) |
 
 ## Data Type Mapping
 
 |                             Snowflake Data Type                             | SeaTunnel Data Type |
 |-----------------------------------------------------------------------------|---------------------|
 | BOOLEAN                                                                     | BOOLEAN             |
-| TINYINT<br/>SMALLINT<br/>BYTEINT<br/>                                       | SHORT_TYPE          |
-| INT<br/>INTEGER<br/>                                                        | INT                 |
+| TINYINT<br/>SMALLINT<br/>BYTEINT                                            | SHORT               |
+| INT<br/>INTEGER                                                             | INT                 |
 | BIGINT                                                                      | LONG                |
-| DECIMAL<br/>NUMERIC<br/>NUMBER<br/>                                         | DECIMAL(x,y)        |
-| DECIMAL(x,y)(Get the designated column's specified column size.>38)         | DECIMAL(38,18)      |
+| DECIMAL<br/>NUMERIC<br/>NUMBER<br/>                                         | DECIMAL(p, s)       |
+| DECIMAL(p, s) (with `p > 38`)                                               | DECIMAL(38, 18)     |
 | REAL<br/>FLOAT4                                                             | FLOAT               |
-| DOUBLE<br/>DOUBLE PRECISION<br/>FLOAT8<br/>FLOAT<br/>                       | DOUBLE              |
+| DOUBLE<br/>DOUBLE PRECISION<br/>FLOAT8<br/>FLOAT                            | DOUBLE              |
 | CHAR<br/>CHARACTER<br/>VARCHAR<br/>STRING<br/>TEXT<br/>VARIANT<br/>OBJECT   | STRING              |
 | DATE                                                                        | DATE                |
 | TIME                                                                        | TIME                |
 | DATETIME<br/>TIMESTAMP<br/>TIMESTAMP_LTZ<br/>TIMESTAMP_NTZ<br/>TIMESTAMP_TZ | TIMESTAMP           |
 | BINARY<br/>VARBINARY<br/>GEOGRAPHY<br/>GEOMETRY                             | BYTES               |
 
-## Options
+## Sink Options
 
-|                   Name                    |  Type   | Required | Default |                                                                                                                  Description                                                                                                                   |
-|-------------------------------------------|---------|----------|---------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| url                                       | String  | Yes      | -       | The URL of the JDBC connection. Refer to a case: jdbc&#58;snowflake://<account_name>.snowflakecomputing.com                                                                                                                                    |
-| driver                                    | String  | Yes      | -       | The jdbc class name used to connect to the remote data source,<br/> if you use Snowflake the value is `net.snowflake.client.jdbc.SnowflakeDriver`.                                                                                             |
-| username                                      | String  | No       | -       | Connection instance user name                                                                                                                                                                                                                  |
-| password                                  | String  | No       | -       | Connection instance password                                                                                                                                                                                                                   |
-| query                                     | String  | No       | -       | Use this sql write upstream input datas to database. e.g `INSERT ...`,`query` have the higher priority                                                                                                                                         |
-| database                                  | String  | No       | -       | Use this `database` and `table-name` auto-generate sql and receive upstream input datas write to database.<br/>This option is mutually exclusive with `query` and has a higher priority.                                                       |
-| table                                     | String  | No       | -       | Use database and this table-name auto-generate sql and receive upstream input datas write to database.<br/>This option is mutually exclusive with `query` and has a higher priority.                                                           |
-| primary_keys                              | Array   | No       | -       | This option is used to support operations such as `insert`, `delete`, and `update` when automatically generate sql.                                                                                                                            |
-| connection_check_timeout_sec              | Int     | No       | 30      | The time in seconds to wait for the database operation used to validate the connection to complete.                                                                                                                                            |
-| max_retries                               | Int     | No       | 0       | The number of retries to submit failed (executeBatch)                                                                                                                                                                                          |
-| batch_size                                | Int     | No       | 1000    | For batch writing, when the number of buffered records reaches the number of `batch_size` or the time reaches `checkpoint.interval`<br/>, the data will be flushed into the database                                                           |
-| max_commit_attempts                       | Int     | No       | 3       | The number of retries for transaction commit failures                                                                                                                                                                                          |
-| transaction_timeout_sec                   | Int     | No       | -1      | The timeout after the transaction is opened, the default is -1 (never timeout). Note that setting the timeout may affect<br/>exactly-once semantics                                                                                            |
-| auto_commit                               | Boolean | No       | true    | Automatic transaction commit is enabled by default                                                                                                                                                                                             |
-| properties                                | Map     | No       | -       | Additional connection configuration parameters,when properties and URL have the same parameters, the priority is determined by the <br/>specific implementation of the driver. For example, in MySQL, properties take precedence over the URL. |
-| common-options                            |         | No       | -       | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details                                                                                                                                    |
-| enable_upsert                             | Boolean | No       | true    | Enable upsert by primary_keys exist, If the task has no key duplicate data, setting this parameter to `false` can speed up data import                                                                                                         |
+|                   Name                    |  Type   | Required | Default | Description                                                                                                                                                                                |
+|-------------------------------------------|---------|----------|---------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| url                                       | String  | Yes      | -       | JDBC connection URL, for example `jdbc:snowflake://<account_name>.snowflakecomputing.com`.                                                                                                  |
+| driver                                    | String  | Yes      | -       | JDBC driver class name. Use `net.snowflake.client.jdbc.SnowflakeDriver` for Snowflake.                                                                                                     |
+| username                                  | String  | No       | -       | Username for the Snowflake account.                                                                                                                                                        |
+| password                                  | String  | No       | -       | Password for the Snowflake account.                                                                                                                                                        |
+| query                                     | String  | No       | -       | SQL used to write upstream rows. Takes precedence over `database`/`table` auto-generated SQL, and disables catalog-based optimizations (no `MERGE` upsert).                                |
+| database                                  | String  | No       | -       | Database name. When `generate_sink_sql = true`, used with `table` to generate `INSERT`/`MERGE` SQL. Mutually exclusive with `query`; when both are set, `query` wins.                       |
+| table                                     | String  | No       | -       | Target table name. Used together with `database` and `generate_sink_sql` to generate writes.                                                                                              |
+| primary_keys                              | Array   | No       | -       | Primary-key columns. Required when `generate_sink_sql = true` together with `enable_upsert = true` to build a `MERGE` upsert statement.                                                    |
+| connection_check_timeout_sec              | Int     | No       | 30      | Seconds to wait for the connection check before failing.                                                                                                                                   |
+| max_retries                               | Int     | No       | 0       | Number of retries on `executeBatch` failures.                                                                                                                                              |
+| batch_size                                | Int     | No       | 1000    | Buffered-row threshold that triggers a flush. Also flushes at `checkpoint.interval`.                                                                                                       |
+| batch_interval_ms                         | Long    | No       | 0       | Maximum time (ms) between two flushes. `0` disables interval-based flushing.                                                                                                              |
+| max_commit_attempts                       | Int     | No       | 3       | Number of retries on transaction-commit failures.                                                                                                                                          |
+| transaction_timeout_sec                   | Int     | No       | -1      | Transaction timeout in seconds. `-1` means no timeout.                                                                                                                                     |
+| auto_commit                               | Boolean | No       | true    | Whether to auto-commit each batch.                                                                                                                                                         |
+| properties                                | Map     | No       | -       | Extra JDBC connection properties. When the same key appears in both `properties` and `url`, the precedence is driver-specific.                                                            |
+| common-options                            |         | No       | -       | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details.                                                              |
+| enable_upsert                             | Boolean | No       | true    | When `primary_keys` is set with `generate_sink_sql = true`, generate `MERGE` upsert SQL. Set to `false` if your input has no duplicate keys and you want the faster insert-only path.       |
 
-## tips
-
-> If partition_column is not set, it will run in single concurrency, and if partition_column is set, it will be executed  in parallel according to the concurrency of tasks.
->
 ## Notes
 
-- Use `query` when you want to fully control the INSERT statement and parameter order.
-- Use `database`, `table`, and `primary_keys` when SeaTunnel should generate sink SQL for insert, update, and delete events.
+- Use `query` when you want to fully control the `INSERT` statement and parameter order.
+- Use `database`, `table`, and `primary_keys` (with `generate_sink_sql = true`) when SeaTunnel should generate sink SQL for insert, update, and delete events.
 - Snowflake sink uses normal JDBC batch writes. The connector does not provide exactly-once guarantees for Snowflake.
 - Keep Snowflake credentials out of shared examples, logs, and screenshots.
 
 ## Task Example
 
-### simple
+### Simple
 
-> This example defines a SeaTunnel synchronization task that automatically generates data through FakeSource and sends it to JDBC Sink. FakeSource generates a total of 16 rows of data (row.num=16), with each row having two fields, name (string type) and age (int type). The final target table is test_table will also be 16 rows of data in the table. Before run this job, you need create database test and table test_table in your snowflake database. And if you have not yet installed and deployed SeaTunnel, you need to follow the instructions in [Install SeaTunnel](../../getting-started/locally/deployment.md) to install and deploy SeaTunnel. And then follow the instructions in [Quick Start With SeaTunnel Engine](../../getting-started/locally/quick-start-seatunnel-engine.md) to run this job.
+This example reads 16 rows from a `FakeSource` and inserts them into `test_table` in Snowflake.
 
-```
-# Defining the runtime environment
+```hocon
 env {
-    parallelism = 1
-    job.mode = "BATCH"
+  parallelism = 1
+  job.mode = "BATCH"
 }
+
 source {
-    # This is a example source plugin **only for test and demonstrate the feature source plugin**
-    FakeSource {
-        parallelism = 1
-        plugin_output = "fake"
-        row.num = 16
-        schema = {
-            fields {
-                name = "string"
-                age = "int"
-            }
-        }
+  FakeSource {
+    parallelism = 1
+    plugin_output = "fake"
+    row.num = 16
+    schema = {
+      fields {
+        name = "string"
+        age = "int"
+      }
     }
-    # If you would like to get more information about how to configure seatunnel and see full list of source plugins,
-    # please go to https://seatunnel.apache.org/docs/connectors/source
+  }
 }
-transform {
-    # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
-    # please go to https://seatunnel.apache.org/docs/transforms
-}
+
 sink {
-    jdbc {
-        url = "jdbc:snowflake://<account_name>.snowflakecomputing.com"
-        driver = "net.snowflake.client.jdbc.SnowflakeDriver"
-        username = "root"
-        password = "123456"
-        query = "insert into test_table(name,age) values(?,?)"
-    }
-    # If you would like to get more information about how to configure seatunnel and see full list of sink plugins,
-    # please go to https://seatunnel.apache.org/docs/connectors/sink
+  Jdbc {
+    url = "jdbc:snowflake://<account_name>.snowflakecomputing.com"
+    driver = "net.snowflake.client.jdbc.SnowflakeDriver"
+    username = "USER"
+    password = "PASSWORD"
+    query = "insert into test_table(name, age) values(?, ?)"
+  }
 }
 ```
 
-### CDC(Change data capture) event
+Before running this job, create the target database and table in your Snowflake account.
 
-> CDC change data is also supported by us In this case, you need config database, table and primary_keys.
+### CDC Event
 
-```
+Configure `database`, `table`, and `primary_keys` so SeaTunnel can generate the right `INSERT`/`UPDATE`/`DELETE` SQL for CDC events.
+
+```hocon
 sink {
-   jdbc {
-   url = "jdbc:snowflake://<account_name>.snowflakecomputing.com"
-   driver = "net.snowflake.client.jdbc.SnowflakeDriver"
-   username = "root"
-   password = "123456"
-   generate_sink_sql = true
-   
-   
-   # You need to configure both database and table
-   database = test
-   table = sink_table
-   primary_keys = ["id","name"]
+  Jdbc {
+    url = "jdbc:snowflake://<account_name>.snowflakecomputing.com"
+    driver = "net.snowflake.client.jdbc.SnowflakeDriver"
+    username = "USER"
+    password = "PASSWORD"
+    generate_sink_sql = true
+    database = "test"
+    table = "sink_table"
+    primary_keys = ["id", "name"]
   }
 }
 ```
