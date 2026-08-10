@@ -21,6 +21,8 @@ import org.apache.seatunnel.api.common.metrics.JobMetrics;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.core.job.JobDAGInfo;
+import org.apache.seatunnel.engine.core.job.JobInfo;
+import org.apache.seatunnel.engine.core.serializable.JobDataSerializerHook;
 import org.apache.seatunnel.engine.server.master.JobHistoryService;
 import org.apache.seatunnel.engine.server.rest.RestConstant;
 
@@ -31,9 +33,15 @@ import org.junit.jupiter.api.Test;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.internal.json.JsonArray;
 import com.hazelcast.internal.json.JsonObject;
+import com.hazelcast.internal.nio.IOUtil;
+import com.hazelcast.internal.serialization.InternalSerializationService;
+import com.hazelcast.internal.serialization.impl.DefaultSerializationServiceBuilder;
 import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 
+import java.io.IOException;
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.Collections;
 
@@ -47,6 +55,7 @@ class JobInfoServiceNullSafetyTest {
     private JobInfoService jobInfoService;
     private NodeEngineImpl nodeEngine;
     private HazelcastInstance hazelcastInstance;
+    private InternalSerializationService serializationService;
 
     private IMap<Object, Object> runningJobInfoMap;
     private IMap<Object, Object> finishedJobStateMap;
@@ -57,6 +66,8 @@ class JobInfoServiceNullSafetyTest {
     void setUp() {
         nodeEngine = mock(NodeEngineImpl.class);
         hazelcastInstance = mock(HazelcastInstance.class);
+        serializationService =
+                (InternalSerializationService) new DefaultSerializationServiceBuilder().build();
 
         runningJobInfoMap = mock(IMap.class);
         finishedJobStateMap = mock(IMap.class);
@@ -64,6 +75,7 @@ class JobInfoServiceNullSafetyTest {
         finishedJobVertexInfoMap = mock(IMap.class);
 
         when(nodeEngine.getHazelcastInstance()).thenReturn(hazelcastInstance);
+        when(nodeEngine.getSerializationService()).thenReturn(serializationService);
         when(hazelcastInstance.getMap(Constant.IMAP_RUNNING_JOB_INFO))
                 .thenReturn(runningJobInfoMap);
         when(hazelcastInstance.getMap(Constant.IMAP_FINISHED_JOB_STATE))
@@ -74,6 +86,22 @@ class JobInfoServiceNullSafetyTest {
                 .thenReturn(finishedJobVertexInfoMap);
 
         jobInfoService = new JobInfoService(nodeEngine);
+    }
+
+    @Test
+    void shouldDecodeLegacyJobImmutableInformationInFastPath() throws Exception {
+        long createTime = 123456L;
+        JobInfo jobInfo =
+                new JobInfo(
+                        1L,
+                        serializationService.toData(
+                                new LegacyJobImmutableInformation(jobId, createTime)));
+
+        Object basicInfo = invokeDecodeJobBasicInfo(jobInfo);
+
+        Assertions.assertNotNull(basicInfo);
+        Assertions.assertEquals("legacy-job", getFieldValue(basicInfo, "jobName"));
+        Assertions.assertEquals(createTime, getFieldValue(basicInfo, "createTime"));
     }
 
     private JobHistoryService.JobState buildJobState(Long jobId, Long startTime, Long finishTime) {
@@ -160,5 +188,57 @@ class JobInfoServiceNullSafetyTest {
                 result.get(0).asObject().getString(RestConstant.JOB_ID, null));
         Assertions.assertEquals(
                 jobId.toString(), result.get(1).asObject().getString(RestConstant.JOB_ID, null));
+    }
+
+    private Object invokeDecodeJobBasicInfo(JobInfo jobInfo) throws Exception {
+        Method method = JobInfoService.class.getDeclaredMethod("decodeJobBasicInfo", JobInfo.class);
+        method.setAccessible(true);
+        return method.invoke(jobInfoService, jobInfo);
+    }
+
+    private Object getFieldValue(Object target, String fieldName) throws Exception {
+        Field field = target.getClass().getDeclaredField(fieldName);
+        field.setAccessible(true);
+        return field.get(target);
+    }
+
+    private static final class LegacyJobImmutableInformation
+            implements com.hazelcast.nio.serialization.IdentifiedDataSerializable {
+
+        private final long jobId;
+        private final long createTime;
+
+        private LegacyJobImmutableInformation(long jobId, long createTime) {
+            this.jobId = jobId;
+            this.createTime = createTime;
+        }
+
+        @Override
+        public int getFactoryId() {
+            return JobDataSerializerHook.FACTORY_ID;
+        }
+
+        @Override
+        public int getClassId() {
+            return JobDataSerializerHook.JOB_IMMUTABLE_INFORMATION;
+        }
+
+        @Override
+        public void writeData(com.hazelcast.nio.ObjectDataOutput out) throws IOException {
+            out.writeLong(jobId);
+            out.writeString("legacy-job");
+            out.writeBoolean(true);
+            out.writeLong(createTime);
+            out.writeInt(0);
+            IOUtil.writeData(out, null);
+            out.writeObject(null);
+            out.writeObject(null);
+            out.writeObject(null);
+        }
+
+        @Override
+        public void readData(com.hazelcast.nio.ObjectDataInput in) {
+            throw new UnsupportedOperationException("write-only test fixture");
+        }
     }
 }

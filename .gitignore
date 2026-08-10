@@ -70,3 +70,7 @@ seatunnel-engine/seatunnel-engine-server/**/ui/*
 
 seatunnel-edge-agent/**/edge-agent.id
 seatunnel-edge-agent/**/tmp/
+
+# seatunnel-cli benchmark runtime artifacts
+seatunnel-cli/benchmark/results/
+seatunnel-cli/benchmark/models.json

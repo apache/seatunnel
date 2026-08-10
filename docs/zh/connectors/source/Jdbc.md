@@ -120,6 +120,19 @@ cd "${SEATUNNEL_HOME}"
 
 如果任务在读取数据前失败，请先检查[故障排查](#故障排查)。
 
+:::note
+
+连接 MariaDB 时，请使用 MariaDB Connector/J 以及匹配的 URL 和驱动：
+
+```hocon
+url = "jdbc:mariadb://localhost:3306/database"
+driver = "org.mariadb.jdbc.Driver"
+```
+
+不要使用 MySQL Connector/J 和 `jdbc:mysql:` URL 连接 MariaDB。该配置会选择 MySQL 方言，可能将 MariaDB 服务端版本判定为不支持的 MySQL 版本。
+
+:::
+
 ## 关键特性
 
 - [x] [批](../../introduction/concepts/connector-v2-features.md)
@@ -174,6 +187,7 @@ cd "${SEATUNNEL_HOME}"
 | split.sample-sharding.threshold            | Int     | 否    | 1000            | 此配置指定触发采样分片策略的预估分片数阈值。当分布因子超出 `split.even-distribution.factor.upper-bound` 和 `split.even-distribution.factor.lower-bound` 指定的范围，且预估分片数（计算方式为近似行数 / 分片大小）超过此阈值时，将使用采样分片策略。这有助于更高效地处理大数据集。默认值为 1000。                                                                                                                 |
 | split.inverse-sampling.rate                | Int     | 否    | 1000            | 采样分片策略中使用的采样率的倒数。例如，如果此值设置为 1000，则表示在采样过程中应用 1/1000 的采样率。此选项提供了控制采样粒度的灵活性，从而影响最终的分片数量。在处理大数据集时尤为有用，此时较低的采样率可能更合适。默认值为 1000。                                                                                                            |
 | split.allow-sampling                       | Boolean | 否    | true            | 是否启用基于采样的分片策略。当设置为 false 时，无论预估分片数是否超过阈值，系统都将回退到非均匀分片方式（迭代查询方式）。默认值为 true。                                                                                                                                                                                              |
+| enable_concurrent_read                     | Boolean | 否    | true            | 是否在快照阶段启用基于分片的并发读取。当设置为 false 时，source 会跳过分片分析，并以单个 split 读取整张表，适合没有索引的表。默认值为 true。                                                                                                                                                                                          |
 | split.string_split_mode                    | String  | 否    | sample          | 支持不同的字符串分割算法。默认使用 `sample`，通过采样字符串值来确定分割。可以切换为 `charset_based` 启用基于字符集的字符串分割算法。设置为 `charset_based` 时，算法假定 partition_column 的字符在 ASCII 32-126 范围内，覆盖了大多数基于字符的分割场景。                                                                                                                                                    |
 | split.string-strategy                      | String  | 否    | -               | 控制 String 分区列的分片方式，可选值为 `none`、`hash`、`range`、`auto`。`range` 和 `auto` 当前要求 MySQL binary collation，且键值为固定长度的可打印 ASCII 字符串。其他 JDBC 方言在显式验证 range 分片支持前会拒绝 `range` 和 `auto`。`auto` 会优先尝试 range 分片，range 不安全时回退为 hash 分片。未设置该参数时，SeaTunnel 保持现有 `split.string_split_mode` 行为。                                                                                                                                                                                                                                                                       |
 | split.string_split_mode_collate            | String  | 否    | -               | 当 string_split_mode 设置为 `charset_based` 且表具有特殊排序规则时，指定要使用的排序规则。如果未指定，将使用数据库的默认排序规则。                                                                                                                                                                                                            |
@@ -285,7 +299,7 @@ SeaTunnel 为 `query` 推断主键时，会继承结果集第一列所属底层�
 下表仅作为起点。部署前应向数据库厂商确认驱动制品、许可证、数据库版本兼容性和 Java 版本兼容性。
 
 | 数据源        | 驱动                                              | URL                                                                    | Maven                                                                                                                         |
-|-------------|---------------------------------------------------|--------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------|
+|-------------|---------------------------------------------------|--------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------|
 | mysql             | com.mysql.cj.jdbc.Driver                            | jdbc:mysql://localhost:3306/test                                       | https://mvnrepository.com/artifact/mysql/mysql-connector-java                                                                 |
 | postgresql        | org.postgresql.Driver                               | jdbc:postgresql://localhost:5432/postgres                              | https://mvnrepository.com/artifact/org.postgresql/postgresql                                                                  |
 | dm                | dm.jdbc.driver.DmDriver                             | jdbc:dm://localhost:5236                                               | https://mvnrepository.com/artifact/com.dameng/DmJdbcDriver18                                                                  |
@@ -296,11 +310,11 @@ SeaTunnel 为 `query` 推断主键时，会继承结果集第一列所属底层�
 | gbase8a           | com.gbase.jdbc.Driver                               | jdbc:gbase://localhost:5258/test                                       | https://cdn.gbase.cn/products/30/p5CiVwXBKQYIUGN8ecHvk/gbase-connector-java-9.5.0.7-build1-bin.jar                            |
 | starrocks         | com.mysql.cj.jdbc.Driver                            | jdbc:mysql://localhost:3306/test                                       | https://mvnrepository.com/artifact/mysql/mysql-connector-java                                                                 |
 | db2               | com.ibm.db2.jcc.DB2Driver                           | jdbc:db2://localhost:50000/testdb                                      | https://mvnrepository.com/artifact/com.ibm.db2.jcc/db2jcc/db2jcc4                                                             |
-| tablestore        | com.alicloud.openservices.tablestore.jdbc.OTSDriver | jdbc:ots:https://myinstance.cn-hangzhou.ots.aliyuncs.com/myinstance     | https://mvnrepository.com/artifact/com.aliyun.openservices/tablestore-jdbc                                                    |
+| tablestore        | com.alicloud.openservices.tablestore.jdbc.OTSDriver | `jdbc:ots:https://<instance_name>.<region_id>.ots.aliyuncs.com/<instance_name>` | https://mvnrepository.com/artifact/com.aliyun.openservices/tablestore-jdbc                                           |
 | saphana           | com.sap.db.jdbc.Driver                              | jdbc:sap://localhost:39015                                             | https://mvnrepository.com/artifact/com.sap.cloud.db.jdbc/ngdbc                                                                |
 | doris             | com.mysql.cj.jdbc.Driver                            | jdbc:mysql://localhost:3306/test                                       | https://mvnrepository.com/artifact/mysql/mysql-connector-java                                                                 |
 | teradata          | com.teradata.jdbc.TeraDriver                        | jdbc:teradata://localhost/DBS_PORT=1025,DATABASE=test                  | https://mvnrepository.com/artifact/com.teradata.jdbc/terajdbc                                                                 |
-| Snowflake         | net.snowflake.client.jdbc.SnowflakeDriver           | jdbc&#58;snowflake://&lt;account_name&gt;.snowflakecomputing.com        | https://mvnrepository.com/artifact/net.snowflake/snowflake-jdbc                                                               |
+| Snowflake         | net.snowflake.client.jdbc.SnowflakeDriver           | jdbc&#58;snowflake://&lt;account_name&gt;.snowflakecomputing.com        | https://mvnrepository.com/artifact/net.snowflake/snowflake-jdbc                                                              |
 | Redshift          | com.amazon.redshift.jdbc42.Driver                   | jdbc:redshift://localhost:5439/testdb?defaultRowFetchSize=1000         | https://mvnrepository.com/artifact/com.amazon.redshift/redshift-jdbc42                                                        |
 | Vertica           | com.vertica.jdbc.Driver                             | jdbc:vertica://localhost:5433                                          | https://repo1.maven.org/maven2/com/vertica/jdbc/vertica-jdbc/12.0.3-0/vertica-jdbc-12.0.3-0.jar                               |
 | kingbase          | com.kingbase8.Driver                                | jdbc:kingbase8://localhost:54321/db_test                               | https://repo1.maven.org/maven2/cn/com/kingbase/kingbase8/8.6.0/kingbase8-8.6.0.jar                                            |
@@ -310,9 +324,9 @@ SeaTunnel 为 `query` 推断主键时，会继承结果集第一列所属底层�
 | InterSystems IRIS | com.intersystems.jdbc.IRISDriver                    | jdbc:IRIS://localhost:1972/%SYS                                        | https://raw.githubusercontent.com/intersystems-community/iris-driver-distribution/main/JDBC/JDK18/intersystems-jdbc-3.8.4.jar |
 | opengauss         | org.opengauss.Driver                                | jdbc:opengauss://localhost:5432/postgres                               | https://repo1.maven.org/maven2/org/opengauss/opengauss-jdbc/5.1.0-og/opengauss-jdbc-5.1.0-og.jar                              |
 | Highgo            | com.highgo.jdbc.Driver                              | jdbc:highgo://localhost:5866/highgo                                    | https://repo1.maven.org/maven2/com/highgo/HgdbJdbc/6.2.3/HgdbJdbc-6.2.3.jar                                                   |
-| Presto            | com.facebook.presto.jdbc.PrestoDriver               | jdbc:presto://localhost:8080/presto                                    | https://repo1.maven.org/maven2/com/facebook/presto/presto-jdbc/0.279/presto-jdbc/0.279.jar                                    |
+| Presto            | com.facebook.presto.jdbc.PrestoDriver               | jdbc:presto://localhost:8080/presto                                    | https://repo1.maven.org/maven2/com/facebook/presto/presto-jdbc/0.279/presto-jdbc-0.279.jar                                    |
 | Trino             | io.trino.jdbc.TrinoDriver                           | jdbc:trino://localhost:8080/trino                                      | https://repo1.maven.org/maven2/io/trino/trino-jdbc/460/trino-jdbc-460.jar                                                     |
-| YashanDB          | com.yashandb.jdbc.Driver                            | jdbc:yasdb://localhost:1688/SYS                                        | https://mvnrepository.com/artifact/com.yashandb/yashandb-jdbc                                                                 |
+| YashanDB          | com.yashandb.jdbc.Driver                            | jdbc:yasdb://localhost:1688/SYS                                        |  https://repo1.maven.org/maven2/com/yashandb/yashandb-jdbc/1.10.7/yashandb-jdbc-1.10.7.jar                                    |
 
 ## 常用模式
 
