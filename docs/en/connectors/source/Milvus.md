@@ -55,14 +55,14 @@ Common use cases:
 | database    | String  | No       | `default`  | Source database.                                                                                                                                                                                                            |
 | collection  | String  | No       | -          | Source collection. If it is set, only this collection is read. If it is not set, all collections under `database` are read. The legacy alias `collection_name` is also accepted.                                          |
 | batch_size  | Integer | No       | 1000       | Number of records to fetch from Milvus in one batch. A larger value improves throughput but uses more memory; set it to a smaller value when records contain large vector payloads.                                          |
-| rate_limit  | Integer | No       | 1000000    | Maximum number of records the reader requests from Milvus per second. Use this to throttle a streaming job against the Milvus quota (QPS) or gRPC message-size limit. Set to `-1` to disable throttling.                    |
+| rate_limit  | Integer | No       | 1000000    | Server-side query rate limit (QPS) applied to the source collection via the Milvus `collection.queryRate.max.qps` property. The reader mutates this collection-wide setting while the job is running, so it affects every client of the collection, not just this SeaTunnel job. Set to `-1` to disable.                                                                                                                                |
 
 ## Notes
 
 - `database` defaults to `default`, so simple local Milvus jobs do not need to set it.
 - `collection` is optional. Set it when the job should read exactly one collection.
 - `batch_size` controls the per-fetch page size, not the parallelism of readers. Tune it together with `parallelism` to balance throughput and memory.
-- `rate_limit` is a server-side hint that protects against Milvus `GRPC limit` errors when reading large volumes of vector data. Leave it at the default unless you see rate-limit or gRPC errors in the logs.
+- `rate_limit` mutates the server-side `collection.queryRate.max.qps` property on every collection the job reads, so the new limit applies to all clients of that collection while the job is running. The reader resets the property to `-1` on close, but a job crash before `close()` will leave the collection throttled until it is restored manually. Leave it at the default unless you observe throttling errors in the logs.
 - When `collection` is not set, the source discovers all collections in `database` and exposes each collection as a separate SeaTunnel table.
 - The source splits work by Milvus partition. Collections with a partition key are read with one split; collections without a partition key are split by partition name and assigned across readers.
 - When the source reads a collection with partitions, downstream Milvus sink can use that metadata to create the same partition names on the target collection.
@@ -205,7 +205,7 @@ sink {
 ### Throttle Reads Against a Shared Cluster
 
 When the Milvus cluster is shared with other jobs, lower `rate_limit` and `batch_size`
-so the source does not exceed the cluster's gRPC message-size limit.
+so the source does not exceed the cluster's per-collection query quota.
 
 ```bash
 env {

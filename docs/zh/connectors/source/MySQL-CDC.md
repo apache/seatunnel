@@ -473,7 +473,10 @@ sink {
 
 ### 读取没有主键的表
 
-对于没有物理主键的表，将 `exactly_once` 设为 `false`，并通过 `table-names-config.primaryKeys` 提供一列作为下游 upsert 所需的稳定行标识。
+根据源表能够提供的保证来选择合适的路径：
+
+- **仅追加（append-only）场景**：源表不会产生 UPDATE/DELETE 事件，保持 `exactly_once = false` 且不声明主键，源端会退回到尽力而为的行标识。在没有可用主键的情况下，connector 无法安全地应用 UPDATE/DELETE 事件。
+- **存在唯一非主键列**：通过 `table-names-config.primaryKeys` 显式声明该列，并设置 `exactly_once = true`，让快照阶段与 binlog 阶段都使用同一配置主键作为稳定的行标识。
 
 ```hocon
 env {
@@ -489,7 +492,13 @@ source {
     password = "mysqlpw"
     table-names = ["mysql_cdc.mysql_cdc_e2e_source_table_no_primary_key"]
     url = "jdbc:mysql://mysql_cdc_e2e:3306/mysql_cdc"
-    exactly_once = false
+    table-names-config = [
+      {
+        table = "mysql_cdc.mysql_cdc_e2e_source_table_no_primary_key"
+        primaryKeys = ["id"]
+      }
+    ]
+    exactly_once = true
   }
 }
 ```
