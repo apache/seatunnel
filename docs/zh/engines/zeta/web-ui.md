@@ -104,4 +104,5 @@ Apache SeaTunnel 的 Web UI 是 SeaTunnel Engine 的可视化巡检控制台。�
 - [REST API 与 Web UI](./rest-api-and-web-ui.md)
 - [REST API V2](./rest-api-v2.md)
 - [作业生命周期 API](./rest-api-job-lifecycle.md)
+- [任务失败历史设计](./task-failure-history.md)
 - [安全](./security.md)

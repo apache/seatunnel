@@ -103,4 +103,5 @@ The "Master" section displays system monitoring information for master nodes. Us
 - [REST API and Web UI](./rest-api-and-web-ui.md)
 - [REST API V2](./rest-api-v2.md)
 - [Job Lifecycle API](./rest-api-job-lifecycle.md)
+- [Task Failure History Design](./task-failure-history.md)
 - [Security](./security.md)
