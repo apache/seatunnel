@@ -623,7 +623,9 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                                 }
                             });
             CompletableFuture<Void> restoredCommittedOffsetJob = committedOffsetJob;
-            await().atMost(60000, TimeUnit.MILLISECONDS)
+            // Restoring the checkpoint and reconnecting the existing replication slot can take
+            // longer on shared GitHub runners than the initial CDC startup.
+            await().atMost(120, TimeUnit.SECONDS)
                     .untilAsserted(
                             () -> {
                                 assertJobHasNoAsyncFailure(restoredCommittedOffsetJob);
