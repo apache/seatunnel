@@ -142,6 +142,20 @@ sink {
 }
 ```
 
+### 写入 Canal JSON 消息
+
+将 `format` 设为 `canal_json`，每行 SeaTunnel 数据会被序列化为 Canal JSON 变更事件。下游是 Canal JSON 消费者（如 Canal → Kafka 桥接或兼容 Canal 的 BigQuery 加载器）时非常有用。
+
+```hocon
+sink {
+  AmazonSqs {
+    url = "https://sqs.us-east-1.amazonaws.com/123456789012/sink_queue"
+    region = "us-east-1"
+    format = canal_json
+  }
+}
+```
+
 ## 变更日志
 
 <ChangeLog />
