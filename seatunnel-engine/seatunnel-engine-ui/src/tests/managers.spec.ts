@@ -21,7 +21,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { createApp } from 'vue'
 import { createPinia, setActivePinia } from 'pinia'
 import i18n from '@/locales'
-import type { Monitor } from '@/service/manager/types'
+import type { Monitor, WorkerOverview } from '@/service/manager/types'
 import { managerService } from '@/service/manager'
 import managers from '@/views/managers'
 
@@ -49,8 +49,21 @@ describe('managers', () => {
         'heap.memory.used': '1002.6M'
       }
     ] as Monitor[]
+    const mockWorkerOverview = [
+      {
+        host: 'localhost',
+        port: 5801,
+        totalSlot: 4,
+        usedSlot: 2,
+        dynamicSlot: false,
+        cpuPercentage: 0.1,
+        memPercentage: 0.2,
+        attributes: {}
+      }
+    ] as WorkerOverview[]
 
     vi.spyOn(managerService, 'getMonitors').mockResolvedValue(mockData)
+    vi.spyOn(managerService, 'getWorkerOverview').mockResolvedValue(mockWorkerOverview)
 
     const wrapper = mount(managers, {
       global: {
@@ -62,5 +75,10 @@ describe('managers', () => {
     expect(managerService.getMonitors).toHaveBeenCalledWith()
     await flushPromises()
     expect(wrapper.text()).toContain('localhost')
+    // Row for port 5801 has a matching WorkerOverview entry: used/total slots should render.
+    expect(wrapper.text()).toContain('2/4')
+    // Row for port 5802 has no matching WorkerOverview entry: falls back to a placeholder
+    // instead of throwing or showing "undefined/undefined".
+    expect(wrapper.text()).toContain('-')
   })
 })

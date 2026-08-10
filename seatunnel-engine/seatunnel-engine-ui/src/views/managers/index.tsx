@@ -14,32 +14,67 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-import { defineComponent, getCurrentInstance, h, ref } from 'vue'
-import { useMessage, NDataTable } from 'naive-ui'
+import { defineComponent, h, ref } from 'vue'
+import { NDataTable, NDrawer, NDrawerContent } from 'naive-ui'
 import { useI18n } from 'vue-i18n'
 import type { DataTableColumns } from 'naive-ui'
 import { NButton } from 'naive-ui'
-import { NSpace, NLayout, NLayoutContent } from 'naive-ui'
+import { NLayout, NLayoutContent } from 'naive-ui'
 import { managerService } from '@/service/manager'
-import type { Monitor } from '@/service/manager/types'
+import type { Monitor, WorkerOverview } from '@/service/manager/types'
 import { useRoute } from 'vue-router'
+import Configuration from '@/components/configuration'
+
+// A Workers/Master table row: the raw system-monitoring-information fields plus, when the
+// resource manager has a matching live WorkerProfile, its slot/attribute projection. The slot
+// fields are optional because a monitored node and a registered resource-manager worker are two
+// independent sources joined client-side by host+port; one can be present without the other
+// (e.g. right after a node joins, or for a non-worker node type in the future).
+type WorkerRow = Monitor & Partial<Pick<WorkerOverview, 'totalSlot' | 'usedSlot' | 'attributes'>>
 
 export default defineComponent({
   setup() {
     const { t } = useI18n()
     const route = useRoute()
-    const monitors = ref([] as Monitor[])
+    const monitors = ref([] as WorkerRow[])
+    const drawerShow = ref(false)
+    const selectedRow = ref({} as WorkerRow)
 
     const fetch = async () => {
-      let res = await managerService.getMonitors()
       const isMaster = route?.path.endsWith('/master') || false
-      res = res.filter((row) => row.isMaster === String(isMaster)) || []
-      monitors.value = res
+      const [monitorRes, workerOverviews] = await Promise.all([
+        managerService.getMonitors(),
+        // The resource manager only knows about workers, and may be briefly unreachable
+        // right after startup; never let that block rendering the monitoring table itself.
+        managerService.getWorkerOverview().catch(() => [] as WorkerOverview[])
+      ])
+      const overviewByAddress = new Map<string, WorkerOverview>()
+      workerOverviews.forEach((worker) => {
+        overviewByAddress.set(`${worker.host}:${worker.port}`, worker)
+      })
+
+      monitors.value = (monitorRes || [])
+        .filter((row) => row.isMaster === String(isMaster))
+        .map((row) => {
+          const worker = overviewByAddress.get(`${row.host}:${row.port}`)
+          return worker
+            ? {
+                ...row,
+                totalSlot: worker.totalSlot,
+                usedSlot: worker.usedSlot,
+                attributes: worker.attributes
+              }
+            : row
+        })
     }
     fetch()
 
-    function createColumns(): DataTableColumns<Monitor> {
-      const view = (row: Monitor) => {}
+    const viewDetail = (row: WorkerRow) => {
+      selectedRow.value = row
+      drawerShow.value = true
+    }
+
+    function createColumns(): DataTableColumns<WorkerRow> {
       return [
         {
           title: 'Host',
@@ -50,28 +85,55 @@ export default defineComponent({
           key: 'port'
         },
         {
-          title: 'Physical MEM',
-          key: 'physical.memory.total'
+          title: 'Role',
+          key: 'isMaster',
+          render: (row) => (row.isMaster === 'true' ? 'Master' : 'Worker')
+        },
+        {
+          title: 'CPU Load',
+          key: 'load.systemAverage'
         },
         {
           title: 'Heap MEM Used',
           key: 'heap.memory.used'
-          // },
-          // {
-          //   title: 'Action',
-          //   key: 'actions',
-          //   render(row) {
-          //     return h(
-          //       NButton,
-          //       {
-          //         strong: true,
-          //         tertiary: true,
-          //         size: 'small',
-          //         onClick: () => view(row)
-          //       },
-          //       { default: () => 'View' }
-          //     )
-          //   }
+        },
+        {
+          title: 'Heap MEM Max',
+          key: 'heap.memory.max'
+        },
+        {
+          title: 'Physical MEM',
+          key: 'physical.memory.total'
+        },
+        {
+          title: 'GC (minor/major)',
+          key: 'gc',
+          render: (row) => `${row['minor.gc.count']}/${row['major.gc.count']}`
+        },
+        {
+          title: 'Threads',
+          key: 'thread.count'
+        },
+        {
+          title: 'Slots (used/total)',
+          key: 'slots',
+          render: (row) => (row.totalSlot === undefined ? '-' : `${row.usedSlot}/${row.totalSlot}`)
+        },
+        {
+          title: 'Action',
+          key: 'actions',
+          render: (row) => {
+            return h(
+              NButton,
+              {
+                strong: true,
+                tertiary: true,
+                size: 'small',
+                onClick: () => viewDetail(row)
+              },
+              { default: () => 'View' }
+            )
+          }
         }
       ]
     }
@@ -89,6 +151,16 @@ export default defineComponent({
               bordered={false}
             />
           </div>
+          <NDrawer
+            show={drawerShow.value}
+            width={'40%'}
+            closeOnEsc
+            onUpdateShow={(show: boolean) => (drawerShow.value = show)}
+          >
+            <NDrawerContent title={`${selectedRow.value.host}:${selectedRow.value.port}`} closable>
+              <Configuration data={selectedRow.value}></Configuration>
+            </NDrawerContent>
+          </NDrawer>
         </NLayoutContent>
       </NLayout>
     )

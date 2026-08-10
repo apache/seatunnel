@@ -43,8 +43,8 @@ The Web UI of Apache SeaTunnel is a visual inspection console for SeaTunnel Engi
 | Overview | View cluster version, slot usage, worker count, and job counts |
 | Jobs | View running and finished jobs, paginate job lists, and open job details |
 | Job Detail | View DAG, job metrics, exception text, job configuration, logs, and realtime observability data |
-| Workers | View worker-node system monitoring information |
-| Master | View master-node system monitoring information |
+| Workers | View worker-node system monitoring information, plus per-worker slot usage |
+| Master | View master-node system monitoring information, plus per-worker slot usage |
 
 ## Jobs
 
@@ -86,7 +86,9 @@ The "Finished Jobs" section displays jobs that have reached a terminal state, su
 
 ### Workers Information
 
-The "Workers" section displays system monitoring information for worker nodes. Use it to inspect worker address, resource status, and runtime health signals exposed by the engine.
+The "Workers" section displays system monitoring information for worker nodes: host, port, role, CPU load, heap usage, physical memory, GC counts, thread count, and per-worker slot usage (used/total, sourced live from the resource manager). Click "View" on a row to open a details drawer with the complete raw monitoring payload for that node.
+
+See [Worker Node Resource View](worker-node-resource-view.md) for the design background.
 
 ![workers.png](../../../images/ui/workers.png)
 
@@ -94,7 +96,7 @@ The "Workers" section displays system monitoring information for worker nodes. U
 
 ### Master Information
 
-The "Master" section displays system monitoring information for master nodes. Use it to inspect the current master-side runtime state and resource signals exposed by the engine.
+The "Master" section displays the same system monitoring and slot-usage columns as Workers, scoped to master nodes. Use it to inspect the current master-side runtime state and resource signals exposed by the engine.
 
 ![master.png](../../../images/ui/master.png)
 
@@ -102,5 +104,6 @@ The "Master" section displays system monitoring information for master nodes. Us
 
 - [REST API and Web UI](./rest-api-and-web-ui.md)
 - [REST API V2](./rest-api-v2.md)
+- [Worker Node Resource View](./worker-node-resource-view.md)
 - [Job Lifecycle API](./rest-api-job-lifecycle.md)
 - [Security](./security.md)

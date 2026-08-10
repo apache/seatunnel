@@ -761,6 +761,40 @@ When we can't get the job info, the response will be:
 
 ------------------------------------------------------------------------------------------
 
+### Returns Per-Worker Resource Overview
+
+<details>
+ <summary><code>GET</code> <code><b>/resource/workers</b></code> <code>(Returns the resource manager's live per-worker slot and load state.)</code></summary>
+
+This is a read-only projection of state the resource manager already tracks for scheduling; it
+adds no new persisted state. `cpuPercentage` and `memPercentage` are best-effort and may be
+`null` for a worker the scheduler has not yet sampled. Join with
+[`/system-monitoring-information`](#returns-system-monitoring-information) by `host`/`port` for a
+full per-node view.
+
+#### Parameters
+
+#### Responses
+
+```json
+[
+  {
+    "host": "192.168.0.1",
+    "port": 5801,
+    "totalSlot": 4,
+    "usedSlot": 2,
+    "dynamicSlot": false,
+    "cpuPercentage": 0.13,
+    "memPercentage": 0.42,
+    "attributes": {}
+  }
+]
+```
+
+</details>
+
+------------------------------------------------------------------------------------------
+
 ### Submit A Job
 
 <details>

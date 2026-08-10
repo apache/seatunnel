@@ -738,6 +738,38 @@ seatunnel:
 
 ------------------------------------------------------------------------------------------
 
+### 返回按 Worker 维度的资源概览
+
+<details>
+ <summary><code>GET</code> <code><b>/resource/workers</b></code> <code>(返回资源管理器当前维护的按 worker 统计的 slot 与负载状态。)</code></summary>
+
+这是对资源管理器已有调度状态的只读投影，不引入任何新的持久化状态。`cpuPercentage` 和 `memPercentage`
+是 best-effort 字段，如果调度器还没有采集到对应 worker 的数据，可能为 `null`。可以按 `host`/`port`
+和 [`/system-monitoring-information`](#返回系统监控信息) 的结果做关联，得到更完整的单节点视图。
+
+#### 参数
+
+#### 返回结果
+
+```json
+[
+  {
+    "host": "192.168.0.1",
+    "port": 5801,
+    "totalSlot": 4,
+    "usedSlot": 2,
+    "dynamicSlot": false,
+    "cpuPercentage": 0.13,
+    "memPercentage": 0.42,
+    "attributes": {}
+  }
+]
+```
+
+</details>
+
+------------------------------------------------------------------------------------------
+
 ### 提交作业
 
 <details>

@@ -43,8 +43,8 @@ Apache SeaTunnel 的 Web UI 是 SeaTunnel Engine 的可视化巡检控制台。�
 | Overview | 查看集群版本、slot 使用、worker 数量和作业数量 |
 | Jobs | 查看运行中和已完成作业、分页浏览作业列表、进入作业详情 |
 | Job Detail | 查看 DAG、作业指标、异常文本、作业配置、日志，以及开启后的实时可观测指标 |
-| Workers | 查看 worker 节点系统监控信息 |
-| Master | 查看 master 节点系统监控信息 |
+| Workers | 查看 worker 节点系统监控信息，以及按 worker 统计的 slot 使用情况 |
+| Master | 查看 master 节点系统监控信息，以及按 worker 统计的 slot 使用情况 |
 
 ## 作业
 
@@ -87,7 +87,9 @@ Apache SeaTunnel 的 Web UI 是 SeaTunnel Engine 的可视化巡检控制台。�
 
 ### 工作节点信息
 
-“工作节点”模块展示 worker 节点的系统监控信息。可以用它查看 worker 地址、资源状态和引擎暴露的运行时健康信号。
+“工作节点”模块展示 worker 节点的系统监控信息：主机、端口、角色、CPU load、堆内存使用、物理内存、GC 次数、线程数，以及按 worker 统计的 slot 使用情况（已用/总数，数据来自资源管理器的实时状态）。点击某一行的“View”可以打开详情抽屉，查看该节点完整的原始监控数据。
+
+设计背景参见 [Worker 节点资源视图](worker-node-resource-view.md)。
 
 ![workers.png](../../../images/ui/workers.png)
 
@@ -95,7 +97,7 @@ Apache SeaTunnel 的 Web UI 是 SeaTunnel Engine 的可视化巡检控制台。�
 
 ### 管理节点信息
 
-“管理节点”模块展示 master 节点的系统监控信息。可以用它查看当前 master 侧运行状态和引擎暴露的资源信号。
+“管理节点”模块展示和工作节点相同的系统监控与 slot 使用情况列，范围限定在 master 节点。可以用它查看当前 master 侧运行状态和引擎暴露的资源信号。
 
 ![master.png](../../../images/ui/master.png)
 
@@ -103,5 +105,6 @@ Apache SeaTunnel 的 Web UI 是 SeaTunnel Engine 的可视化巡检控制台。�
 
 - [REST API 与 Web UI](./rest-api-and-web-ui.md)
 - [REST API V2](./rest-api-v2.md)
+- [Worker 节点资源视图](./worker-node-resource-view.md)
 - [作业生命周期 API](./rest-api-job-lifecycle.md)
 - [安全](./security.md)

@@ -15,12 +15,27 @@
  * limitations under the License.
  */
 
-import { get } from '@/service/service'
-import type { Monitor, WorkerOverview } from './types'
+package org.apache.seatunnel.engine.server.resourcemanager.resource;
 
-export const getMonitors = () => get<Monitor[]>('/system-monitoring-information')
-export const getWorkerOverview = () => get<WorkerOverview[]>('/resource/workers')
-export const managerService = {
-  getMonitors,
-  getWorkerOverview
+import lombok.Data;
+
+import java.io.Serializable;
+import java.util.Map;
+
+/**
+ * Read-only, per-worker projection of the resource manager's live {@link
+ * org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerProfile} state for the Web UI.
+ * Every field is derived from state the resource manager already tracks for scheduling; this class
+ * adds no new persisted or mutable state of its own.
+ */
+@Data
+public class WorkerOverviewInfo implements Serializable {
+    private String host;
+    private int port;
+    private int totalSlot;
+    private int usedSlot;
+    private boolean dynamicSlot;
+    private Double cpuPercentage;
+    private Double memPercentage;
+    private Map<String, String> attributes;
 }

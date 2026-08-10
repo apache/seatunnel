@@ -65,3 +65,16 @@ export interface Monitor {
   'client.connection.count': string
   'connection.count': string
 }
+
+// Read-only per-worker slot/load projection from GET /resource/workers. Every field mirrors
+// the resource manager's own live WorkerProfile state; see WorkerOverviewInfo.java.
+export interface WorkerOverview {
+  host: string
+  port: number
+  totalSlot: number
+  usedSlot: number
+  dynamicSlot: boolean
+  cpuPercentage: number | null
+  memPercentage: number | null
+  attributes: Record<string, string> | null
+}
