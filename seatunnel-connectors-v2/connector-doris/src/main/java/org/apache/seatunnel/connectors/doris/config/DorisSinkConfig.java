@@ -53,6 +53,7 @@ import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.SINK
 import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.SINK_ENABLE_DELETE;
 import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.SINK_LABEL_PREFIX;
 import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.SINK_MAX_RETRIES;
+import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.SINK_VISIBILITY_TIMEOUT_MS;
 
 @Slf4j
 @Setter
@@ -76,6 +77,7 @@ public class DorisSinkConfig implements Serializable {
     private String labelPrefix;
     private Integer checkInterval;
     private Integer maxRetries;
+    private Long visibilityTimeoutMs;
     private Integer bufferSize;
     private Integer bufferCount;
     private Properties streamLoadProps;
@@ -115,6 +117,7 @@ public class DorisSinkConfig implements Serializable {
         dorisSinkConfig.setLabelPrefix(config.get(SINK_LABEL_PREFIX));
         dorisSinkConfig.setCheckInterval(config.get(SINK_CHECK_INTERVAL));
         dorisSinkConfig.setMaxRetries(config.get(SINK_MAX_RETRIES));
+        dorisSinkConfig.setVisibilityTimeoutMs(config.get(SINK_VISIBILITY_TIMEOUT_MS));
         dorisSinkConfig.setBufferSize(config.get(SINK_BUFFER_SIZE));
         dorisSinkConfig.setBufferCount(config.get(SINK_BUFFER_COUNT));
         dorisSinkConfig.setEnableDelete(config.get(SINK_ENABLE_DELETE));
@@ -126,7 +129,17 @@ public class DorisSinkConfig implements Serializable {
         validateDirectWriteOptions(
                 dorisSinkConfig.isDirectToBe(), dorisSinkConfig.getBackends(), true);
 
+        validateVisibilityTimeout(dorisSinkConfig.getVisibilityTimeoutMs());
+
         return dorisSinkConfig;
+    }
+
+    private static void validateVisibilityTimeout(Long visibilityTimeoutMs) {
+        if (visibilityTimeoutMs == null || visibilityTimeoutMs <= 0) {
+            throw new DorisConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    "PluginName: Doris, Message: Option 'sink.visibility-timeout-ms' must be greater than 0.");
+        }
     }
 
     private static Properties parseStreamLoadProperties(ReadonlyConfig config) {

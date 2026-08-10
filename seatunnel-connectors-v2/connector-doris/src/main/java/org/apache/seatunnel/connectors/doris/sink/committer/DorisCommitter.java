@@ -63,6 +63,7 @@ public class DorisCommitter implements SinkCommitter<DorisCommitInfo> {
     private final CloseableHttpClient httpClient;
     private final DorisSinkConfig dorisSinkConfig;
     private final int maxRetry;
+    private final long visibilityTimeoutMs;
     private final RetrySleeper retrySleeper;
 
     public DorisCommitter(DorisSinkConfig dorisSinkConfig) {
@@ -80,6 +81,7 @@ public class DorisCommitter implements SinkCommitter<DorisCommitInfo> {
         this.dorisSinkConfig = dorisSinkConfig;
         this.httpClient = client;
         this.maxRetry = dorisSinkConfig.getMaxRetries();
+        this.visibilityTimeoutMs = dorisSinkConfig.getVisibilityTimeoutMs();
         this.retrySleeper = retrySleeper;
     }
 
@@ -271,7 +273,11 @@ public class DorisCommitter implements SinkCommitter<DorisCommitInfo> {
         }
     }
 
-    /** Waits until the 2PC load is visible before reporting the checkpoint as committed. */
+    /**
+     * Waits until the 2PC load is visible before reporting the checkpoint as committed. Bounded by
+     * {@link DorisSinkConfig#getVisibilityTimeoutMs()} so a stuck or unknown state cannot block the
+     * checkpoint forever; ABORTED / CANCELLED remain terminal failures.
+     */
     private void waitUntilLoadVisible(DorisCommitInfo committable, List<String> retryHosts)
             throws IOException {
         if (committable.getLabel() == null) {
@@ -281,6 +287,7 @@ public class DorisCommitter implements SinkCommitter<DorisCommitInfo> {
             return;
         }
 
+        long deadlineNanos = System.nanoTime() + visibilityTimeoutMs * 1_000_000L;
         int attempt = 0;
         while (true) {
             String hostPort = retryHosts.get(attempt % retryHosts.size());
@@ -296,6 +303,15 @@ public class DorisCommitter implements SinkCommitter<DorisCommitInfo> {
                         committable.getLabel(),
                         hostPort,
                         e);
+            }
+            if (System.nanoTime() >= deadlineNanos) {
+                throw new DorisConnectorException(
+                        DorisConnectorErrorCode.COMMIT_FAILED,
+                        "Timed out after "
+                                + visibilityTimeoutMs
+                                + "ms waiting for Doris load label "
+                                + committable.getLabel()
+                                + " to reach VISIBLE state.");
             }
             retrySleeper.sleep(Math.min(++attempt, 5));
         }
