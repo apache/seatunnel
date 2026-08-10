@@ -509,6 +509,25 @@ public class DebeziumJsonSerDeSchemaTest {
     }
 
     @Test
+    public void testDeserializationForSchemaLessTextualMillisecondTimeRejected() throws Exception {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"time_millis"}, new SeaTunnelDataType[] {LOCAL_TIME_TYPE});
+        DebeziumJsonDeserializationSchema deserializationSchema =
+                new DebeziumJsonDeserializationSchema(
+                        CatalogTableUtil.getCatalogTable("default", rowType), false, false);
+        SimpleCollector collector = new SimpleCollector();
+
+        assertThrows(
+                SeaTunnelRuntimeException.class,
+                () ->
+                        deserializationSchema.deserialize(
+                                "{\"before\":null,\"after\":{\"time_millis\":\"60000\"},\"op\":\"c\"}"
+                                        .getBytes(StandardCharsets.UTF_8),
+                                collector));
+    }
+
+    @Test
     public void testDeserializationForDebeziumTimeUnitsWithSchema() throws Exception {
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(

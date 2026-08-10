@@ -147,7 +147,7 @@ public class DebeziumRowConverter implements Serializable {
                 return dateFormatter.parse(dateStr).query(TemporalQueries.localDate());
             case TIME:
                 String timeStr = value.asText();
-                if (isIntegralValue(value)) {
+                if (value.canConvertToLong()) {
                     long time = Long.parseLong(timeStr);
                     return LocalTime.ofNanoOfDay(
                             convertDebeziumTimeToNanos(
@@ -243,21 +243,6 @@ public class DebeziumRowConverter implements Serializable {
                 return row;
             default:
                 throw new UnsupportedOperationException("Unsupported type: " + sqlType);
-        }
-    }
-
-    private static boolean isIntegralValue(JsonNode value) {
-        if (value.canConvertToLong()) {
-            return true;
-        }
-        if (!value.isTextual()) {
-            return false;
-        }
-        try {
-            Long.parseLong(value.asText());
-            return true;
-        } catch (NumberFormatException e) {
-            return false;
         }
     }
 
