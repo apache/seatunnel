@@ -1,4 +1,4 @@
-FROM eclipse-temurin:11-jre as builder
+FROM eclipse-temurin:11-jdk as builder
 
 ARG VERSION
 
@@ -12,6 +12,6 @@ RUN cd /opt && \
     sed -i 's/rootLogger.appenderRef.file.ref/#rootLogger.appenderRef.file.ref/' seatunnel/config/log4j2.properties && \
     cp seatunnel/config/hazelcast-master.yaml seatunnel/config/hazelcast-worker.yaml
 
-FROM eclipse-temurin:11-jre
+FROM eclipse-temurin:11-jdk
 COPY --from=builder /opt/seatunnel /opt/seatunnel
 WORKDIR /opt/seatunnel

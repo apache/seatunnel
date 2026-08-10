@@ -15,6 +15,19 @@
 # limitations under the License.
 #
 
+# JDK 9+ module system compatibility.
+# Hazelcast (which the Zeta engine is built on) and this project's reflective Kerberos
+# configuration reload helpers (see KuduUtil, PaimonSecurityContext) need reflective access to
+# JDK internals that modules stopped exporting by default starting with JDK 9. Without these
+# flags, that reflective access fails silently instead of raising a startup error, so the loss is
+# easy to miss until a Kerberos-secured cluster with a custom krb5.conf is actually exercised.
+--add-opens=java.base/java.lang=ALL-UNNAMED
+--add-opens=java.base/java.net=ALL-UNNAMED
+--add-opens=java.base/java.nio=ALL-UNNAMED
+--add-opens=java.base/java.util=ALL-UNNAMED
+--add-opens=java.base/sun.nio.ch=ALL-UNNAMED
+--add-exports=java.security.jgss/sun.security.krb5=ALL-UNNAMED
+
 # JVM Heap
 # -Xms2g
 # -Xmx2g
