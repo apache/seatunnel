@@ -17,8 +17,11 @@ Assert is a sink connector used to validate pipeline output. It checks row count
 ## Key Features
 
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
-- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
+- [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [x] [batch](../../introduction/concepts/connector-v2-features.md)
+- [x] [stream](../../introduction/concepts/connector-v2-features.md)
 - [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Options
 
@@ -134,6 +137,16 @@ Sink plugin common parameters, please refer to [Sink Common Options](../common-o
 - `field_rules` checks field values in every received row.
 - `tables_configs` is used for multi-table jobs. The `table_path` value must match the table path carried by the upstream source.
 - `equals_to` compares the actual field value with the configured expected value. For complex values such as array, map, and row, use the same HOCON value shape as the source data.
+
+:::tip
+
+The Assert sink is a terminal sink — it has no external system to write to. Use it to validate intermediate results without needing a downstream database. The connector does not interpret `UPDATE` or `DELETE` row kinds as CDC operations; every received row is asserted against the configured rules. If the configured row range, field value, or catalog metadata check fails, the job fails with the matching error message.
+
+:::
+
+## Streaming Validation
+
+Assert works in both `BATCH` and `STREAMING` job modes. In streaming mode, the row count rules (`MIN_ROW` / `MAX_ROW`) are only checked once per checkpoint window, while field rules are checked on every row.
 
 ## Example
 
@@ -629,6 +642,67 @@ sink {
   }
 }
 
+```
+
+### Stream Validation With Checkpoint Window
+
+In streaming mode, every checkpoint window re-checks the `MIN_ROW` / `MAX_ROW` window against the rows received since the previous checkpoint. The example below asserts that every checkpoint receives at least 50 and at most 5000 rows.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 60000
+}
+
+source {
+  FakeSource {
+    row.num = 1000
+    schema {
+      fields {
+        name = string
+        age = int
+      }
+    }
+    plugin_output = "stream_data"
+  }
+}
+
+sink {
+  Assert {
+    plugin_input = "stream_data"
+    rules =
+      {
+        row_rules = [
+          {
+            rule_type = MIN_ROW
+            rule_value = 50
+          },
+          {
+            rule_type = MAX_ROW
+            rule_value = 5000
+          }
+        ],
+        field_rules = [{
+          field_name = age
+          field_type = int
+          field_value = [
+            {
+              rule_type = NOT_NULL
+            },
+            {
+              rule_type = MIN
+              rule_value = 0
+            },
+            {
+              rule_type = MAX
+              rule_value = 150
+            }
+          ]
+        }]
+      }
+  }
+}
 ```
 
 ## Changelog
