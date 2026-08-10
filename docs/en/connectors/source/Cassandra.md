@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-cassandra.md';
 
 > Cassandra source connector
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Description
 
 Read data from Apache Cassandra in batch mode.
@@ -16,7 +22,13 @@ The Cassandra source supports two read modes:
 The source gets column names and data types from the result set returned by the configured CQL, so
 the CQL should return the columns that downstream steps need.
 
-## Key features
+## Supported DataSource Info
+
+| Datasource | Supported Versions | Dependency |
+|------------|--------------------|------------|
+| Cassandra  | Universal          | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-cassandra) |
+
+## Key Features
 
 - [x] [batch](../../introduction/concepts/connector-v2-features.md)
 - [ ] [stream](../../introduction/concepts/connector-v2-features.md)
@@ -49,7 +61,7 @@ the CQL should return the columns that downstream steps need.
 | set                 | ARRAY               |
 | map                 | MAP                 |
 
-## Options
+## Source Options
 
 | Name              | Type       | Required | Default     | Description |
 |-------------------|------------|----------|-------------|-------------|
@@ -131,7 +143,7 @@ Source plugin common parameters. For details, see [Source Common Options](../com
 - A single CQL query is read as one source split. Increasing job parallelism does not split one
   Cassandra table scan automatically.
 
-## Examples
+## Task Example
 
 ### Single-table read
 
