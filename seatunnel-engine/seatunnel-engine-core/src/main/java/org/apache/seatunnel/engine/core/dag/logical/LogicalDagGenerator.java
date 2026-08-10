@@ -155,7 +155,7 @@ public class LogicalDagGenerator {
             }
             if (action instanceof DynamicLookupAction && !(upstream instanceof SourceAction)) {
                 throw new IllegalArgumentException(
-                        "Dynamic lookup M1 requires direct SourceAction inputs");
+                        "Dynamic lookup M0 requires direct SourceAction inputs");
             }
             createLogicalVertex(upstream);
             PortAwareEdgeSpec candidate =
@@ -223,7 +223,7 @@ public class LogicalDagGenerator {
                                         || sourceVertex.getParallelism()
                                                 != lookupAction.getParallelism()) {
                                     throw new IllegalArgumentException(
-                                            "Dynamic lookup M1 FORWARD input requires equal source "
+                                            "Dynamic lookup M0 FORWARD input requires equal source "
                                                     + "and target parallelism");
                                 }
                                 Long existingOwner =

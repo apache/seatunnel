@@ -697,7 +697,7 @@ public class PhysicalPlanGenerator {
             Pipeline pipeline, int pipelineIndex, int totalPipelineNum) {
         if (!queueType.equals(BLOCKINGQUEUE)) {
             throw new IllegalArgumentException(
-                    "Dynamic lookup M1 requires engine.queue.type=BLOCKINGQUEUE");
+                    "Dynamic lookup M0 requires engine.queue.type=BLOCKINGQUEUE");
         }
         List<ExecutionVertex> lookupVertices =
                 pipeline.getVertexes().values().stream()
@@ -937,7 +937,7 @@ public class PhysicalPlanGenerator {
                                         !portAwareSourceActionIds.contains(sourceActionId));
         if (hasUnownedSourceBranch) {
             throw new IllegalArgumentException(
-                    "Dynamic lookup M1 requires every source in the pipeline to be owned by a "
+                    "Dynamic lookup M0 requires every source in the pipeline to be owned by a "
                             + "DynamicLookupAction input port");
         }
         Set<String> operatorUids = new HashSet<>();
@@ -983,7 +983,7 @@ public class PhysicalPlanGenerator {
                         .allMatch(edge -> edge.getLeftVertex().getAction() instanceof SourceAction);
         if (!allInputsAreSources) {
             throw new IllegalArgumentException(
-                    "Dynamic lookup M1 requires direct SourceAction inputs");
+                    "Dynamic lookup M0 requires direct SourceAction inputs");
         }
         boolean allForwardInputsMatchTargetParallelism =
                 inputEdges.stream()
@@ -993,7 +993,7 @@ public class PhysicalPlanGenerator {
                                                 == edge.getRightVertex().getParallelism());
         if (!allForwardInputsMatchTargetParallelism) {
             throw new IllegalArgumentException(
-                    "Dynamic lookup M1 FORWARD input requires equal source and target parallelism");
+                    "Dynamic lookup M0 FORWARD input requires equal source and target parallelism");
         }
     }
 
@@ -1253,13 +1253,17 @@ public class PhysicalPlanGenerator {
     }
 
     private static long dynamicLookupInputQueueId(long actionId, int inputPort) {
-        // Keep dynamic lookup queues away from the existing negative even/odd queue namespaces.
-        return -((actionId * 100) + 10 + inputPort);
+        return dynamicLookupQueueBase(actionId) - 10 - inputPort;
     }
 
     private static long dynamicLookupGateCommandQueueId(long actionId) {
-        // Keep dynamic lookup control queues away from data input queue namespaces.
-        return -((actionId * 100) + 90);
+        return dynamicLookupQueueBase(actionId) - 90;
+    }
+
+    private static long dynamicLookupQueueBase(long actionId) {
+        // Reserve dynamic lookup queues in a high positive range that is disjoint from the legacy
+        // negative even/odd queue-id encodings used by async boundaries and sink-split queues.
+        return Long.MAX_VALUE - (actionId * 100);
     }
 
     private List<Flow> getNextWrapper(List<ExecutionEdge> edges, Action start) {

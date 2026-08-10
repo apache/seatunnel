@@ -147,11 +147,7 @@ public class PendingCheckpoint implements Checkpoint {
             if (actionState == null) {
                 continue;
             }
-            stateSize +=
-                    state.getState().stream()
-                            .filter(Objects::nonNull)
-                            .mapToLong(bytes -> bytes.length)
-                            .sum();
+            stateSize += state.getState().stream().filter(Objects::nonNull).count();
             actionState.reportState(state.getIndex(), state);
         }
         statistics.reportSubtaskStatistics(
@@ -266,13 +262,13 @@ public class PendingCheckpoint implements Checkpoint {
         digest.update(ByteBuffer.allocate(Integer.BYTES).putInt(value).array());
     }
 
-    public boolean abortCheckpoint(CheckpointCloseReason closedReason, @Nullable Throwable cause) {
+    public void abortCheckpoint(CheckpointCloseReason closedReason, @Nullable Throwable cause) {
         if (!finalizeState.compareAndSet(FinalizeState.ACTIVE, FinalizeState.ABORTED)) {
             LOG.debug(
                     "skip abort checkpoint {} because it is already {}",
                     getInfo(),
                     finalizeState.get());
-            return false;
+            return;
         }
         if (closedReason.equals(CheckpointCloseReason.CHECKPOINT_COORDINATOR_RESET)
                 || closedReason.equals(CheckpointCloseReason.PIPELINE_END)) {
@@ -281,7 +277,6 @@ public class PendingCheckpoint implements Checkpoint {
             this.failureCause = new CheckpointException(closedReason, cause);
             completableFuture.completeExceptionally(failureCause);
         }
-        return true;
     }
 
     // Avoid memory leak in ScheduledThreadPoolExecutor due to overly long timeout settings causing

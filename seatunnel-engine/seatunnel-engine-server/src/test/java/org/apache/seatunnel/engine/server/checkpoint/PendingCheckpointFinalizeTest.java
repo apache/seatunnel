@@ -45,8 +45,8 @@ public class PendingCheckpointFinalizeTest {
         CompletedCheckpoint completedCheckpoint =
                 pendingCheckpoint.getCompletableFuture().get(1, TimeUnit.SECONDS);
         Assertions.assertNotNull(completedCheckpoint);
-        Assertions.assertFalse(
-                pendingCheckpoint.abortCheckpoint(CheckpointCloseReason.CHECKPOINT_EXPIRED, null));
+        pendingCheckpoint.abortCheckpoint(CheckpointCloseReason.CHECKPOINT_EXPIRED, null);
+        Assertions.assertFalse(pendingCheckpoint.getCompletableFuture().isCompletedExceptionally());
     }
 
     @Test
@@ -54,8 +54,7 @@ public class PendingCheckpointFinalizeTest {
         TaskLocation taskLocation = new TaskLocation(new TaskGroupLocation(1L, 1, 1), 1, 0);
         PendingCheckpoint pendingCheckpoint = checkpoint(taskLocation);
 
-        Assertions.assertTrue(
-                pendingCheckpoint.abortCheckpoint(CheckpointCloseReason.CHECKPOINT_EXPIRED, null));
+        pendingCheckpoint.abortCheckpoint(CheckpointCloseReason.CHECKPOINT_EXPIRED, null);
         pendingCheckpoint.acknowledgeTask(
                 taskLocation, Collections.emptyList(), SubtaskStatus.RUNNING);
 

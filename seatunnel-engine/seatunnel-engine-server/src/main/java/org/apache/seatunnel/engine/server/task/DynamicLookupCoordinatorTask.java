@@ -209,6 +209,7 @@ public final class DynamicLookupCoordinatorTask extends CoordinatorTask {
                 }
                 break;
             case CLOSED:
+            case CANCELED:
                 close();
                 break;
             case CANCELLING:

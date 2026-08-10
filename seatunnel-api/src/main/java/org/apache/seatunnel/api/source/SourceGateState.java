@@ -51,7 +51,7 @@ public final class SourceGateState implements Serializable {
             boolean gateOpen,
             boolean noMoreSplits,
             List<PreparedSplit> preparedSplits) {
-        if (version != CURRENT_VERSION) {
+        if (version <= 0 || version > CURRENT_VERSION) {
             throw new IllegalArgumentException("Unsupported source gate state version: " + version);
         }
         this.version = version;

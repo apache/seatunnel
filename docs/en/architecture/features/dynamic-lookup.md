@@ -167,7 +167,6 @@ The first implementation deliberately rejects or limits these cases:
 - different fact and dimension parallelism
 - multiple dynamic lookup consumers for the same fact source
 - non-dedicated dimension bootstrap edges
-- time key types that cannot prove the required precision
 - more than one concurrent snapshot per lookup subtask
 - logical dimension state larger than 512 MiB per subtask
 - disk-backed dimension state and remote staging budgets

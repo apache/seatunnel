@@ -161,7 +161,6 @@ dynamic lookup runtime 会强制 `UPDATE_BEFORE` 与 `UPDATE_AFTER` 是同一个
 - fact 与 dimension 并行度不同
 - 同一个 fact source 被多个 dynamic lookup 消费
 - 非 dedicated dimension bootstrap edge
-- 无法证明所需精度的时间 key 类型
 - 单个 lookup subtask 超过一个并发 snapshot
 - 单个 subtask 的逻辑维表状态超过 512 MiB
 - disk-backed dimension state 与 remote staging 预算

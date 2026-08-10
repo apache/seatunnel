@@ -47,6 +47,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.SortedMap;
@@ -71,9 +72,11 @@ public class KafkaSourceReader
 
     private final ConcurrentMap<TopicPartition, OffsetAndMetadata> offsetsOfFinishedSplits;
     private final Object gateLock = new Object();
-    private final List<KafkaSourceSplit> stagedSplits = new ArrayList<>();
+    private final Map<String, KafkaSourceSplit> stagedSplits = new LinkedHashMap<>();
     private volatile boolean gateOpen = true;
     private volatile boolean stagedNoMoreSplits;
+    private volatile boolean readerOpened;
+    private volatile boolean activateOnOpen;
 
     KafkaSourceReader(
             BlockingQueue<RecordsWithSplitIds<ConsumerRecord<byte[], byte[]>>> elementsQueue,
@@ -98,6 +101,15 @@ public class KafkaSourceReader
             return;
         }
         super.pollNext(output);
+    }
+
+    @Override
+    public void open() {
+        super.open();
+        readerOpened = true;
+        if (activateOnOpen) {
+            activateStagedSplits();
+        }
     }
 
     @Override
@@ -130,7 +142,13 @@ public class KafkaSourceReader
     public List<KafkaSourceSplit> snapshotState(long checkpointId) {
         List<KafkaSourceSplit> sourceSplits;
         synchronized (gateLock) {
-            sourceSplits = gateOpen ? super.snapshotState(checkpointId) : copySplits(stagedSplits);
+            sourceSplits =
+                    gateOpen
+                            ? super.snapshotState(checkpointId)
+                            : copySplits(stagedSplits.values());
+        }
+        if (!gateOpen) {
+            return sourceSplits;
         }
         if (!kafkaSourceConfig.isCommitOnCheckpoint()) {
             return sourceSplits;
@@ -158,7 +176,9 @@ public class KafkaSourceReader
     public void addSplits(List<KafkaSourceSplit> splits) {
         synchronized (gateLock) {
             if (!gateOpen) {
-                splits.stream().map(KafkaSourceSplit::copy).forEach(stagedSplits::add);
+                splits.stream()
+                        .map(KafkaSourceSplit::copy)
+                        .forEach(split -> stagedSplits.put(split.splitId(), split));
                 return;
             }
         }
@@ -182,6 +202,7 @@ public class KafkaSourceReader
             gateOpen = false;
             stagedSplits.clear();
             stagedNoMoreSplits = false;
+            activateOnOpen = false;
         }
     }
 
@@ -214,11 +235,14 @@ public class KafkaSourceReader
         }
         synchronized (gateLock) {
             stagedSplits.clear();
-            stagedSplits.addAll(restoredSplits);
+            for (KafkaSourceSplit restoredSplit : restoredSplits) {
+                stagedSplits.put(restoredSplit.splitId(), restoredSplit);
+            }
             stagedNoMoreSplits = gateState.isNoMoreSplits();
             gateOpen = false;
+            activateOnOpen = gateState.isGateOpen();
         }
-        if (gateState.isGateOpen()) {
+        if (gateState.isGateOpen() && readerOpened) {
             activateStagedSplits();
         }
     }
@@ -242,6 +266,7 @@ public class KafkaSourceReader
                     stagedSplits.clear();
                     stagedNoMoreSplits = false;
                     gateOpen = false;
+                    activateOnOpen = false;
                 }
                 return;
             default:
@@ -303,7 +328,8 @@ public class KafkaSourceReader
                 return;
             }
             gateOpen = true;
-            splitsToActivate = copySplits(stagedSplits);
+            activateOnOpen = false;
+            splitsToActivate = copySplits(stagedSplits.values());
             stagedSplits.clear();
             noMoreSplits = stagedNoMoreSplits;
             stagedNoMoreSplits = false;
@@ -316,9 +342,11 @@ public class KafkaSourceReader
         }
     }
 
-    private static List<KafkaSourceSplit> copySplits(List<KafkaSourceSplit> splits) {
-        List<KafkaSourceSplit> copies = new ArrayList<>(splits.size());
-        splits.stream().map(KafkaSourceSplit::copy).forEach(copies::add);
+    private static List<KafkaSourceSplit> copySplits(Iterable<KafkaSourceSplit> splits) {
+        List<KafkaSourceSplit> copies = new ArrayList<>();
+        for (KafkaSourceSplit split : splits) {
+            copies.add(split.copy());
+        }
         return copies;
     }
 

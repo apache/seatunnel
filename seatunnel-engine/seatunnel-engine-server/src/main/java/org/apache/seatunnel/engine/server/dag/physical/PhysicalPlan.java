@@ -140,7 +140,6 @@ public class PhysicalPlan {
     }
 
     public PassiveCompletableFuture<JobResult> initStateFuture() {
-        validateDeployable();
         jobEndFuture = new CompletableFuture<>();
         pipelineList.forEach(this::addPipelineEndCallback);
         return new PassiveCompletableFuture<>(jobEndFuture);
@@ -348,7 +347,6 @@ public class PhysicalPlan {
     }
 
     public synchronized void startJob() {
-        validateDeployable();
         isRunning = true;
         log.info("{} state process is start", getJobFullName());
         updateJobState(JobStatus.SCHEDULED);
@@ -359,8 +357,6 @@ public class PhysicalPlan {
         isRunning = false;
         log.info("{} state process is stop", getJobFullName());
     }
-
-    private void validateDeployable() {}
 
     private synchronized void stateProcess() {
         if (!isRunning) {

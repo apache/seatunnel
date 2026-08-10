@@ -683,6 +683,12 @@ public class MultipleTableJobConfigParser {
         validateRequiredCapabilities(
                 namedConfig, dimensionConfig, dimensionInput._2(), "dimension");
         validateDimensionTableBinding(namedConfig, dimensionConfig, dimensionInput._1());
+        validateJoinKeyCompatibility(
+                namedConfig,
+                factInput._1(),
+                factConfig.getStringList("key"),
+                dimensionInput._1(),
+                dimensionConfig.getStringList("key"));
         if (factInput._2().getParallelism() != dimensionInput._2().getParallelism()) {
             throw new JobDefineCheckException(
                     "Dynamic lookup requires equal fact and dimension parallelism, but got "
@@ -694,12 +700,13 @@ public class MultipleTableJobConfigParser {
         String operatorUid = config.hasPath("uid") ? config.getString("uid") : namedConfig.name;
         String actionName = namedConfig.name;
         String outputId = getLookupOutputId(config);
+        DynamicLookupDescriptor.JoinType joinType = parseJoinType(config.getString("join.type"));
         List<DynamicLookupProjectionField> projectionFields =
                 parseProjectionFields(
                         config.getStringList("join.fields"), factInput._1(), dimensionInput._1());
         CatalogTable producedCatalogTable =
                 buildDynamicLookupCatalogTable(
-                        outputId, factInput._1(), dimensionInput._1(), projectionFields);
+                        outputId, factInput._1(), dimensionInput._1(), joinType, projectionFields);
         DynamicLookupDescriptor descriptor =
                 new DynamicLookupDescriptor(
                         outputId,
@@ -715,7 +722,7 @@ public class MultipleTableJobConfigParser {
                                 dimensionConfig.getStringList("key"),
                                 resolveFieldIndexes(
                                         dimensionInput._1(), dimensionConfig.getStringList("key"))),
-                        parseJoinType(config.getString("join.type")),
+                        joinType,
                         projectionFields);
         Set<URL> jarUrls = new HashSet<>();
         jarUrls.addAll(factInput._2().getJarUrls());
@@ -826,11 +833,24 @@ public class MultipleTableJobConfigParser {
         if (!sideConfig.hasPath("required-capability")) {
             return Collections.emptyList();
         }
+        List<String> requiredCapabilities;
         ConfigValue capabilityValue = sideConfig.getValue("required-capability");
         if (capabilityValue.valueType() == ConfigValueType.STRING) {
-            return Collections.singletonList(sideConfig.getString("required-capability"));
+            requiredCapabilities =
+                    Collections.singletonList(sideConfig.getString("required-capability"));
+        } else {
+            requiredCapabilities = sideConfig.getStringList("required-capability");
         }
-        return sideConfig.getStringList("required-capability");
+        List<String> normalizedCapabilities =
+                requiredCapabilities.stream()
+                        .map(String::trim)
+                        .filter(StringUtils::isNotBlank)
+                        .collect(Collectors.toList());
+        if (normalizedCapabilities.isEmpty()) {
+            throw new JobDefineCheckException(
+                    "Dynamic lookup required-capability must not be empty when declared");
+        }
+        return normalizedCapabilities;
     }
 
     private static void validateDimensionTableBinding(
@@ -858,6 +878,7 @@ public class MultipleTableJobConfigParser {
             String outputId,
             CatalogTable factCatalogTable,
             CatalogTable dimensionCatalogTable,
+            DynamicLookupDescriptor.JoinType joinType,
             List<DynamicLookupProjectionField> projectionFields) {
         List<Column> columns = new ArrayList<>(projectionFields.size());
         for (DynamicLookupProjectionField projectionField : projectionFields) {
@@ -865,25 +886,13 @@ public class MultipleTableJobConfigParser {
                     projectionField.getInputSide() == DynamicLookupProjectionField.InputSide.FACT
                             ? factCatalogTable
                             : dimensionCatalogTable;
-            Column sourceColumn =
-                    sourceTable.getTableSchema().getColumns().stream()
-                            .filter(
-                                    column ->
-                                            column.getName()
-                                                    .equals(projectionField.getSourceFieldName()))
-                            .findFirst()
-                            .orElseThrow(
-                                    () ->
-                                            new JobDefineCheckException(
-                                                    "Dynamic lookup projection field '"
-                                                            + projectionField.getSourceFieldName()
-                                                            + "' is missing from "
-                                                            + projectionField
-                                                                    .getInputSide()
-                                                                    .name()
-                                                                    .toLowerCase(Locale.ROOT)
-                                                            + " schema"));
-            columns.add(copyColumn(sourceColumn, projectionField.getOutputFieldName()));
+            Column sourceColumn = resolveColumn(sourceTable, projectionField.getSourceFieldName());
+            boolean nullable =
+                    projectionField.getInputSide() == DynamicLookupProjectionField.InputSide.FACT
+                            ? sourceColumn.isNullable()
+                            : joinType == DynamicLookupDescriptor.JoinType.LEFT
+                                    || sourceColumn.isNullable();
+            columns.add(copyColumn(sourceColumn, projectionField.getOutputFieldName(), nullable));
         }
         TableIdentifier factTableId = factCatalogTable.getTableId();
         TableIdentifier outputTableId =
@@ -901,7 +910,8 @@ public class MultipleTableJobConfigParser {
                 factCatalogTable.getCatalogName());
     }
 
-    private static Column copyColumn(Column sourceColumn, String outputFieldName) {
+    private static Column copyColumn(
+            Column sourceColumn, String outputFieldName, boolean nullable) {
         Map<String, Object> columnOptions =
                 sourceColumn.getOptions() == null
                         ? new HashMap<>()
@@ -911,7 +921,7 @@ public class MultipleTableJobConfigParser {
                 .dataType(sourceColumn.getDataType())
                 .columnLength(sourceColumn.getColumnLength())
                 .scale(sourceColumn.getScale())
-                .nullable(sourceColumn.isNullable())
+                .nullable(nullable)
                 .defaultValue(sourceColumn.getDefaultValue())
                 .comment(sourceColumn.getComment())
                 .sourceType(sourceColumn.getSourceType())
@@ -1078,7 +1088,13 @@ public class MultipleTableJobConfigParser {
             multiplier = 1L;
             number = normalized;
         }
-        double parsed = Double.parseDouble(number.trim());
+        final double parsed;
+        try {
+            parsed = Double.parseDouble(number.trim());
+        } catch (NumberFormatException e) {
+            throw new JobDefineCheckException(
+                    "Dynamic lookup byte value for '" + path + "' is invalid: '" + value + "'", e);
+        }
         if (parsed < 0) {
             throw new JobDefineCheckException(
                     "Dynamic lookup byte value must be non-negative: " + path);
@@ -1105,6 +1121,56 @@ public class MultipleTableJobConfigParser {
                         + fieldName
                         + "' is missing from schema "
                         + catalogTable.getTablePath().getFullName());
+    }
+
+    private static Column resolveColumn(CatalogTable catalogTable, String fieldName) {
+        return catalogTable.getTableSchema().getColumns().stream()
+                .filter(column -> column.getName().equals(fieldName))
+                .findFirst()
+                .orElseThrow(
+                        () ->
+                                new JobDefineCheckException(
+                                        "Dynamic lookup field '"
+                                                + fieldName
+                                                + "' is missing from schema "
+                                                + catalogTable.getTablePath().getFullName()));
+    }
+
+    private static void validateJoinKeyCompatibility(
+            NamedDynamicLookupConfig namedConfig,
+            CatalogTable factCatalogTable,
+            List<String> factKeys,
+            CatalogTable dimensionCatalogTable,
+            List<String> dimensionKeys) {
+        if (factKeys.size() != dimensionKeys.size()) {
+            throw new JobDefineCheckException(
+                    "Dynamic lookup '"
+                            + namedConfig.name
+                            + "' requires fact.key and dimension.key to contain the same number"
+                            + " of fields, but got "
+                            + factKeys.size()
+                            + " and "
+                            + dimensionKeys.size());
+        }
+        for (int i = 0; i < factKeys.size(); i++) {
+            String factKey = factKeys.get(i);
+            String dimensionKey = dimensionKeys.get(i);
+            Column factColumn = resolveColumn(factCatalogTable, factKey);
+            Column dimensionColumn = resolveColumn(dimensionCatalogTable, dimensionKey);
+            if (!factColumn.getDataType().equals(dimensionColumn.getDataType())) {
+                throw new JobDefineCheckException(
+                        "Dynamic lookup '"
+                                + namedConfig.name
+                                + "' requires matching join-key types, but fact."
+                                + factKey
+                                + " is "
+                                + factColumn.getDataType()
+                                + " and dimension."
+                                + dimensionKey
+                                + " is "
+                                + dimensionColumn.getDataType());
+            }
+        }
     }
 
     private static final class NamedDynamicLookupConfig {
