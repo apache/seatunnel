@@ -119,7 +119,6 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
 import static com.hazelcast.jet.impl.util.ExceptionUtil.withTryCatch;
-import static java.util.concurrent.CompletableFuture.allOf;
 import static org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode.HANDLE_SAVE_MODE_FAILED;
 import static org.apache.seatunnel.common.constants.JobMode.BATCH;
 
@@ -1311,7 +1310,7 @@ public class JobMaster {
     private boolean waitSavepointCompleted(
             PassiveCompletableFuture<CheckpointCoordinatorState>[] passiveCompletableFutures) {
         try {
-            allOf(passiveCompletableFutures).join();
+            CompletableFuture.allOf(passiveCompletableFutures).join();
         } catch (Exception e) {
             // Inspect every pipeline future below so a fast failure does not short-circuit the
             // stop-with-savepoint decision while another pipeline is still completing.
