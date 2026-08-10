@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dm;
 
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dialectenum.FieldIdeEnum;
@@ -27,7 +29,13 @@ import org.junit.jupiter.api.Test;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
+/**
+ * Unit tests for {@link DmdbDialect}. Tests cover SQL generation (UPSERT, INSERT, UPDATE, DELETE,
+ * EXISTS), identifier quoting, default value handling, and converter/mapper instantiation. No
+ * running database required.
+ */
 public class DmdbDialectTest {
     @Test
     public void testIdentifierCaseSensitive() {
@@ -158,5 +166,292 @@ public class DmdbDialectTest {
                         JdbcConnectorException.class,
                         () -> DmdbDialect.normalizeTablespaceForDdl("MAIN\tTS"));
         Assertions.assertTrue(tabCharacter.getMessage().contains("illegal characters"));
+    }
+
+    @Test
+    public void testDialectName() {
+        DmdbDialect dialect = new DmdbDialect(FieldIdeEnum.ORIGINAL.getValue());
+        Assertions.assertEquals("Dameng", dialect.dialectName());
+    }
+
+    @Test
+    public void testGetUpsertStatement() {
+        DmdbDialect dialect = new DmdbDialect(FieldIdeEnum.ORIGINAL.getValue());
+        String database = "testdb";
+        String tableName = "users";
+        String[] fieldNames = {"id", "name", "age"};
+        String[] uniqueKeyFields = {"id"};
+
+        Optional<String> upsertSQL =
+                dialect.getUpsertStatement(database, tableName, fieldNames, uniqueKeyFields);
+        Assertions.assertTrue(upsertSQL.isPresent());
+
+        String sql = upsertSQL.get();
+        Assertions.assertTrue(sql.contains("MERGE INTO"));
+        Assertions.assertTrue(sql.contains("TARGET"));
+        Assertions.assertTrue(sql.contains("SOURCE"));
+        Assertions.assertTrue(sql.contains("WHEN MATCHED THEN"));
+        Assertions.assertTrue(sql.contains("UPDATE SET"));
+        Assertions.assertTrue(sql.contains("WHEN NOT MATCHED THEN"));
+        Assertions.assertTrue(sql.contains("INSERT"));
+
+        // Note: database name "testdb" is not quoted because DmdbDialect does not override
+        // quoteDatabaseIdentifier(), which returns the identifier as-is by default.
+        Assertions.assertEquals(
+                " MERGE INTO testdb.\"users\" TARGET"
+                        + " USING (SELECT :id \"id\", :name \"name\", :age \"age\") SOURCE"
+                        + " ON (TARGET.\"id\"=SOURCE.\"id\") "
+                        + " WHEN MATCHED THEN"
+                        + " UPDATE SET TARGET.\"name\"=SOURCE.\"name\", TARGET.\"age\"=SOURCE.\"age\""
+                        + " WHEN NOT MATCHED THEN"
+                        + " INSERT (\"id\", \"name\", \"age\") VALUES (SOURCE.\"id\", SOURCE.\"name\", SOURCE.\"age\")",
+                sql);
+    }
+
+    @Test
+    public void testGetInsertIntoStatement() {
+        DmdbDialect dialect = new DmdbDialect(FieldIdeEnum.ORIGINAL.getValue());
+        String database = "testdb";
+        String tableName = "users";
+        String[] fieldNames = {"id", "name", "email", "age"};
+
+        String sql = dialect.getInsertIntoStatement(database, tableName, fieldNames);
+
+        Assertions.assertNotNull(sql);
+        Assertions.assertEquals(
+                "INSERT INTO testdb.\"users\" (\"id\", \"name\", \"email\", \"age\")"
+                        + " VALUES (:id, :name, :email, :age)",
+                sql);
+    }
+
+    @Test
+    public void testGetDeleteStatement() {
+        DmdbDialect dialect = new DmdbDialect(FieldIdeEnum.ORIGINAL.getValue());
+        String database = "testdb";
+        String tableName = "users";
+        String[] conditionFields = {"id"};
+
+        String sql = dialect.getDeleteStatement(database, tableName, conditionFields);
+
+        Assertions.assertNotNull(sql);
+        Assertions.assertEquals("DELETE FROM testdb.\"users\" WHERE \"id\" = :id", sql);
+    }
+
+    @Test
+    public void testGetRowExistsStatement() {
+        DmdbDialect dialect = new DmdbDialect(FieldIdeEnum.ORIGINAL.getValue());
+        String database = "testdb";
+        String tableName = "users";
+        String[] conditionFields = {"id", "email"};
+
+        String sql = dialect.getRowExistsStatement(database, tableName, conditionFields);
+
+        Assertions.assertNotNull(sql);
+        Assertions.assertEquals(
+                "SELECT 1 FROM testdb.\"users\" WHERE \"id\" = :id AND \"email\" = :email", sql);
+    }
+
+    @Test
+    public void testGetUpdateStatement() {
+        DmdbDialect dialect = new DmdbDialect(FieldIdeEnum.ORIGINAL.getValue());
+        String database = "testdb";
+        String tableName = "users";
+        String[] fieldNames = {"name", "email", "age"};
+        String[] conditionFields = {"id"};
+
+        String sql =
+                dialect.getUpdateStatement(database, tableName, fieldNames, conditionFields, false);
+
+        Assertions.assertNotNull(sql);
+        Assertions.assertEquals(
+                "UPDATE testdb.\"users\" SET \"name\" = :name,"
+                        + " \"email\" = :email, \"age\" = :age WHERE \"id\" = :id",
+                sql);
+    }
+
+    @Test
+    public void testTableIdentifierWithTablePath() {
+        DmdbDialect dialect = new DmdbDialect(FieldIdeEnum.ORIGINAL.getValue());
+
+        TablePath tablePath = TablePath.of("mydb", "myschema", "mytable");
+        String identifier = dialect.tableIdentifier(tablePath);
+
+        Assertions.assertEquals("\"myschema\".\"mytable\"", identifier);
+    }
+
+    @Test
+    public void testTableIdentifierWithDatabaseAndTable() {
+        DmdbDialect dialect = new DmdbDialect(FieldIdeEnum.ORIGINAL.getValue());
+
+        // database is null
+        Assertions.assertEquals("\"users\"", dialect.tableIdentifier(null, "users"));
+
+        // tableName contains dot (schema.table)
+        Assertions.assertEquals(
+                "\"myschema\".\"users\"", dialect.tableIdentifier("testdb", "myschema.users"));
+
+        // normal case: database not quoted (quoteDatabaseIdentifier not overridden)
+        Assertions.assertEquals("testdb.\"users\"", dialect.tableIdentifier("testdb", "users"));
+    }
+
+    @Test
+    public void testExtractTableName() {
+        DmdbDialect dialect = new DmdbDialect(FieldIdeEnum.ORIGINAL.getValue());
+
+        TablePath tablePath = TablePath.of("mydb", "myschema", "mytable");
+        String tableName = dialect.extractTableName(tablePath);
+
+        Assertions.assertEquals("myschema.mytable", tableName);
+    }
+
+    @Test
+    public void testParse() {
+        DmdbDialect dialect = new DmdbDialect(FieldIdeEnum.ORIGINAL.getValue());
+
+        TablePath path = dialect.parse("mydb.myschema.mytable");
+        Assertions.assertEquals("mydb", path.getDatabaseName());
+        Assertions.assertEquals("myschema", path.getSchemaName());
+        Assertions.assertEquals("mytable", path.getTableName());
+    }
+
+    @Test
+    public void testNeedsQuotesWithDefaultValue() {
+        DmdbDialect dialect = new DmdbDialect(FieldIdeEnum.ORIGINAL.getValue());
+
+        // String types need quotes
+        BasicTypeDefine<Object> varcharType =
+                BasicTypeDefine.builder().name("col").dataType("VARCHAR").build();
+        Assertions.assertTrue(dialect.needsQuotesWithDefaultValue(varcharType));
+
+        BasicTypeDefine<Object> charType =
+                BasicTypeDefine.builder().name("col").dataType("CHAR").build();
+        Assertions.assertTrue(dialect.needsQuotesWithDefaultValue(charType));
+
+        BasicTypeDefine<Object> clobType =
+                BasicTypeDefine.builder().name("col").dataType("CLOB").build();
+        Assertions.assertTrue(dialect.needsQuotesWithDefaultValue(clobType));
+
+        BasicTypeDefine<Object> textType =
+                BasicTypeDefine.builder().name("col").dataType("TEXT").build();
+        Assertions.assertTrue(dialect.needsQuotesWithDefaultValue(textType));
+
+        BasicTypeDefine<Object> characterType =
+                BasicTypeDefine.builder().name("col").dataType("CHARACTER").build();
+        Assertions.assertTrue(dialect.needsQuotesWithDefaultValue(characterType));
+
+        BasicTypeDefine<Object> varchar2Type =
+                BasicTypeDefine.builder().name("col").dataType("VARCHAR2").build();
+        Assertions.assertTrue(dialect.needsQuotesWithDefaultValue(varchar2Type));
+
+        BasicTypeDefine<Object> nvarcharType =
+                BasicTypeDefine.builder().name("col").dataType("NVARCHAR").build();
+        Assertions.assertTrue(dialect.needsQuotesWithDefaultValue(nvarcharType));
+
+        BasicTypeDefine<Object> longvarcharType =
+                BasicTypeDefine.builder().name("col").dataType("LONGVARCHAR").build();
+        Assertions.assertTrue(dialect.needsQuotesWithDefaultValue(longvarcharType));
+
+        BasicTypeDefine<Object> longType =
+                BasicTypeDefine.builder().name("col").dataType("LONG").build();
+        Assertions.assertTrue(dialect.needsQuotesWithDefaultValue(longType));
+
+        // Numeric types do not need quotes
+        BasicTypeDefine<Object> intType =
+                BasicTypeDefine.builder().name("col").dataType("INTEGER").build();
+        Assertions.assertFalse(dialect.needsQuotesWithDefaultValue(intType));
+
+        BasicTypeDefine<Object> decimalType =
+                BasicTypeDefine.builder().name("col").dataType("DECIMAL").build();
+        Assertions.assertFalse(dialect.needsQuotesWithDefaultValue(decimalType));
+    }
+
+    @Test
+    public void testGetRowConverter() {
+        DmdbDialect dialect = new DmdbDialect(FieldIdeEnum.ORIGINAL.getValue());
+        Assertions.assertNotNull(dialect.getRowConverter());
+        Assertions.assertEquals(
+                "DmdbJdbcRowConverter", dialect.getRowConverter().getClass().getSimpleName());
+    }
+
+    @Test
+    public void testGetTypeConverter() {
+        DmdbDialect dialect = new DmdbDialect(FieldIdeEnum.ORIGINAL.getValue());
+        Assertions.assertNotNull(dialect.getTypeConverter());
+        Assertions.assertEquals(
+                "DmdbTypeConverter", dialect.getTypeConverter().getClass().getSimpleName());
+    }
+
+    @Test
+    public void testGetJdbcDialectTypeMapper() {
+        DmdbDialect dialect = new DmdbDialect(FieldIdeEnum.ORIGINAL.getValue());
+        Assertions.assertNotNull(dialect.getJdbcDialectTypeMapper());
+        Assertions.assertEquals(
+                "DmdbTypeMapper", dialect.getJdbcDialectTypeMapper().getClass().getSimpleName());
+    }
+
+    // ==================== CATALOG RELATED TESTS ====================
+
+    @Test
+    public void testParseCatalog() {
+        DmdbDialect dialect = new DmdbDialect(FieldIdeEnum.ORIGINAL.getValue());
+
+        // schemaFirst=true: "schema.table" -> schema=schema, table=table
+        TablePath path = dialect.parse("SYSDBA.users");
+        Assertions.assertNull(path.getDatabaseName());
+        Assertions.assertEquals("SYSDBA", path.getSchemaName());
+        Assertions.assertEquals("users", path.getTableName());
+
+        // Three-part: "db.schema.table"
+        TablePath fullPath = dialect.parse("DAMENG.SYSDBA.users");
+        Assertions.assertEquals("DAMENG", fullPath.getDatabaseName());
+        Assertions.assertEquals("SYSDBA", fullPath.getSchemaName());
+        Assertions.assertEquals("users", fullPath.getTableName());
+
+        // Single part: just table name
+        TablePath simplePath = dialect.parse("users");
+        Assertions.assertNull(simplePath.getDatabaseName());
+        Assertions.assertNull(simplePath.getSchemaName());
+        Assertions.assertEquals("users", simplePath.getTableName());
+    }
+
+    @Test
+    public void testExtractCatalogTableName() {
+        DmdbDialect dialect = new DmdbDialect(FieldIdeEnum.ORIGINAL.getValue());
+
+        // With schema: returns "schema.table"
+        TablePath pathWithSchema = TablePath.of(null, "SYSDBA", "users");
+        Assertions.assertEquals("SYSDBA.users", dialect.extractTableName(pathWithSchema));
+
+        // Without schema: returns just table name
+        TablePath pathNoSchema = TablePath.of(null, null, "users");
+        Assertions.assertEquals("users", dialect.extractTableName(pathNoSchema));
+    }
+
+    @Test
+    public void testCatalogTableIdentifierWithTablePath() {
+        DmdbDialect dialect = new DmdbDialect(FieldIdeEnum.ORIGINAL.getValue());
+
+        // With schema: returns quoted "schema"."table"
+        TablePath pathWithSchema = TablePath.of(null, "SYSDBA", "users");
+        Assertions.assertEquals("\"SYSDBA\".\"users\"", dialect.tableIdentifier(pathWithSchema));
+
+        // Without schema: returns just quoted table
+        TablePath pathNoSchema = TablePath.of(null, null, "users");
+        Assertions.assertEquals("\"users\"", dialect.tableIdentifier(pathNoSchema));
+    }
+
+    @Test
+    public void testTableIdentifierWithDatabaseAndTableName() {
+        DmdbDialect dialect = new DmdbDialect(FieldIdeEnum.ORIGINAL.getValue());
+
+        // Normal case: database + table -> database."table"
+        Assertions.assertEquals("testdb.\"users\"", dialect.tableIdentifier("testdb", "users"));
+
+        // Null database: returns quoted table only
+        Assertions.assertEquals("\"users\"", dialect.tableIdentifier(null, "users"));
+
+        // Table name contains dot (schema.table): quotes each part, ignores database
+        Assertions.assertEquals(
+                "\"SYSDBA\".\"users\"", dialect.tableIdentifier("testdb", "SYSDBA.users"));
     }
 }

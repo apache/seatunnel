@@ -29,11 +29,13 @@ import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 
@@ -47,10 +49,12 @@ public class DamengCreateTableSqlBuilderTest {
         TablePath tablePath = TablePath.of("test_database", "test_schema", "test_table");
         TableSchema tableSchema =
                 TableSchema.builder()
-                        .column(PhysicalColumn.of("id", BasicType.LONG_TYPE, 22, false, null, "id"))
                         .column(
                                 PhysicalColumn.of(
-                                        "name", BasicType.STRING_TYPE, 128, false, null, "name"))
+                                        "id", BasicType.LONG_TYPE, 22L, false, null, "id"))
+                        .column(
+                                PhysicalColumn.of(
+                                        "name", BasicType.STRING_TYPE, 128L, false, null, "name"))
                         .column(
                                 PhysicalColumn.of(
                                         "age", BasicType.INT_TYPE, (Long) null, true, null, "age"))
@@ -350,5 +354,100 @@ public class DamengCreateTableSqlBuilderTest {
         String result = sqlBuilder.buildColumnSql(column);
 
         Assertions.assertEquals("\"col1\" VARCHAR(10) NOT NULL", result);
+    }
+
+    /**
+     * Tests same-catalog scenario (Dameng to Dameng) where sourceType is preserved directly,
+     * similar to PostgresCreateTableSqlBuilderTest testing otherDB=true/false.
+     */
+    @Test
+    public void testBuildWithSameCatalogSourceType() {
+        TablePath tablePath = TablePath.of("DAMENG", "SYSDBA", "employee");
+        TableSchema tableSchema =
+                TableSchema.builder()
+                        .column(
+                                PhysicalColumn.of(
+                                        "id",
+                                        BasicType.LONG_TYPE,
+                                        22L,
+                                        false,
+                                        null,
+                                        "primary key",
+                                        "BIGINT",
+                                        Collections.emptyMap()))
+                        .column(
+                                PhysicalColumn.of(
+                                        "name",
+                                        BasicType.STRING_TYPE,
+                                        100L,
+                                        false,
+                                        null,
+                                        "employee name",
+                                        "VARCHAR2(100)",
+                                        Collections.emptyMap()))
+                        .column(
+                                PhysicalColumn.of(
+                                        "salary",
+                                        BasicType.DOUBLE_TYPE,
+                                        10L,
+                                        true,
+                                        null,
+                                        "",
+                                        "DECIMAL(10,2)",
+                                        Collections.emptyMap()))
+                        .primaryKey(PrimaryKey.of("pk_id", Lists.newArrayList("id")))
+                        .build();
+
+        // Same catalog: source is Dameng, so sourceType should be used directly
+        CatalogTable sameCatalogTable =
+                CatalogTable.of(
+                        TableIdentifier.of(DatabaseIdentifier.DAMENG, tablePath),
+                        tableSchema,
+                        new HashMap<>(),
+                        new ArrayList<>(),
+                        "");
+
+        String sql = new DamengCreateTableSqlBuilder(sameCatalogTable, true).build(tablePath);
+        // sourceType (BIGINT, VARCHAR2(100), DECIMAL(10,2)) should be preserved
+        Assertions.assertTrue(
+                sql.contains("BIGINT"), "Same catalog should preserve BIGINT sourceType");
+        Assertions.assertTrue(
+                sql.contains("VARCHAR2(100)"), "Same catalog should preserve VARCHAR2 sourceType");
+        Assertions.assertTrue(
+                sql.contains("DECIMAL(10,2)"), "Same catalog should preserve DECIMAL sourceType");
+    }
+
+    /**
+     * Tests cross-catalog scenario (MySQL to Dameng) where types are converted via
+     * DmdbTypeConverter instead of using sourceType.
+     */
+    @Test
+    public void testBuildWithCrossCatalogConversion() {
+        TablePath tablePath = TablePath.of("DAMENG", "SYSDBA", "imported_table");
+        TableSchema tableSchema =
+                TableSchema.builder()
+                        .column(
+                                PhysicalColumn.of(
+                                        "id", BasicType.LONG_TYPE, 22L, false, null, "id"))
+                        .column(
+                                PhysicalColumn.of(
+                                        "name", BasicType.STRING_TYPE, 128L, false, null, "name"))
+                        .build();
+
+        // Cross catalog: source is MySQL, types should be converted by DmdbTypeConverter
+        CatalogTable crossCatalogTable =
+                CatalogTable.of(
+                        TableIdentifier.of(DatabaseIdentifier.MYSQL, tablePath),
+                        tableSchema,
+                        new HashMap<>(),
+                        new ArrayList<>(),
+                        "");
+
+        String sql = new DamengCreateTableSqlBuilder(crossCatalogTable, false).build(tablePath);
+        Assertions.assertTrue(sql.startsWith("CREATE TABLE \"SYSDBA\".\"imported_table\""));
+        // Cross-catalog columns should be converted by DmdbTypeConverter
+        Assertions.assertTrue(sql.contains("BIGINT"), "Cross catalog LONG should map to BIGINT");
+        Assertions.assertTrue(
+                sql.contains("VARCHAR2(128)"), "Cross catalog STRING should map to VARCHAR2");
     }
 }

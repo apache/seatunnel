@@ -365,7 +365,8 @@
             <groupId>com.oceanbase</groupId>
             <artifactId>oceanbase-client</artifactId>
         </dependency>
-        <!-- Notice: The jar in maven is an empty jar. Issue Link:https://community.intersystems.com/comment/260011  -->
+        <!-- Notice: The jar in maven is an empty jar. Issue
+        Link:https://community.intersystems.com/comment/260011  -->
         <dependency>
             <groupId>com.intersystems</groupId>
             <artifactId>intersystems-jdbc</artifactId>
@@ -422,7 +423,6 @@
             <artifactId>sts</artifactId>
             <version>${aws.sdk.version}</version>
         </dependency>
-
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>connector-common</artifactId>
