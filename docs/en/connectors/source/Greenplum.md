@@ -61,10 +61,10 @@ Only Greenplum-specific commonly used options are listed here. Other JDBC source
 | username | String | No | - | Greenplum username. |
 | password | String | No | - | Greenplum password. |
 | query | String | Yes | - | SQL used to read data. Select only the columns you need; the source uses the SELECT column list as the output schema. |
-| partition_column | String | No | - | Column used to split data for parallel reading. Must be a numeric column when `split.string_split_mode` is unset. |
-| partition_lower_bound | Long | No | - | Lower bound of `partition_column`. If not set, SeaTunnel queries the minimum value. |
-| partition_upper_bound | Long | No | - | Upper bound of `partition_column`. If not set, SeaTunnel queries the maximum value. |
-| partition_num | Int | No | job parallelism | Number of source splits. Each split issues a `WHERE partition_column BETWEEN ? AND ?` query. |
+| partition_column | String | No | - | Column used to split data for parallel reading. Can be numeric or string. Numeric columns are split into `partition_num` numeric ranges; string columns are split by hash (`split.string_split_mode = sample`, the default) or by lexicographic range (`split.string_split_mode = charset_based`). |
+| partition_lower_bound | String | No | - | Lower bound of `partition_column`. If not set, SeaTunnel queries the minimum value. |
+| partition_upper_bound | String | No | - | Upper bound of `partition_column`. If not set, SeaTunnel queries the maximum value. |
+| partition_num | Int | No | job parallelism | Number of source splits. Each split issues a range query for numeric (and `charset_based` string) columns, or a hash-modulo predicate for `sample` string columns. |
 | split.string_split_mode | String | No | sample | String split algorithm. `sample` estimates splits from a sampled value list; `charset_based` performs deterministic range-like splitting and is preferred when the split column contains printable ASCII strings. |
 | common-options | | No | - | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details. |
 

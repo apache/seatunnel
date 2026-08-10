@@ -280,7 +280,7 @@ sink {
 }
 ```
 
-### Stream Into A Downstream Sink With Bounded Buffer
+### Bounded Read With Parallel Splits
 
 The InfluxDB source is bounded by the `sql` result. To chain it to a streaming sink without
 losing rows, set a finite `partition_num` and let SeaTunnel checkpoint the offsets per split.
