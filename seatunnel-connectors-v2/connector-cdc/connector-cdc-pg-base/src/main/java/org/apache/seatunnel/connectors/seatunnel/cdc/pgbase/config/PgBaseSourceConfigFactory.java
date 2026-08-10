@@ -26,6 +26,7 @@ import java.util.Properties;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkArgument;
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
 
 /**
@@ -51,6 +52,10 @@ public abstract class PgBaseSourceConfigFactory<C extends JdbcSourceConfig>
         props.setProperty("database.user", checkNotNull(username));
         props.setProperty("database.password", checkNotNull(password));
         props.setProperty("database.port", String.valueOf(port));
+        // Validate before indexing: databaseList.get(0) would otherwise throw a bare NPE or
+        // IndexOutOfBoundsException that gives no hint the 'database-names' option is missing.
+        checkNotNull(databaseList, "The 'database-names' option is required.");
+        checkArgument(!databaseList.isEmpty(), "The 'database-names' option must not be empty.");
         props.setProperty("database.dbname", checkNotNull(databaseList.get(0)));
 
         // Keep the current in-memory history wiring unchanged to avoid restore drift in phase 1.

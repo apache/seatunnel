@@ -31,6 +31,10 @@ import java.util.List;
  */
 public class OpengaussIncrementalSource<T> extends PostgresIncrementalSource<T> {
 
+    // Same reason as PgBaseIncrementalSource: this source is Java-serialized into the job DAG,
+    // so the UID must not drift when this class is edited later.
+    private static final long serialVersionUID = 1L;
+
     private static final String IDENTIFIER = "Opengauss-CDC";
 
     public OpengaussIncrementalSource(ReadonlyConfig options, List<CatalogTable> catalogTables) {

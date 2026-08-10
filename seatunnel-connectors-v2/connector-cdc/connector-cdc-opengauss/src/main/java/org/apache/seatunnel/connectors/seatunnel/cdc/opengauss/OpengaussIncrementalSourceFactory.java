@@ -69,6 +69,9 @@ public class OpengaussIncrementalSourceFactory implements TableSourceFactory {
                         JdbcSourceOptions.CONNECTION_POOL_SIZE,
                         PostgresIncrementalSourceOptions.DECODING_PLUGIN_NAME,
                         PostgresIncrementalSourceOptions.SLOT_NAME,
+                        // OpenGauss inherits the PostgreSQL replica-identity enforcement, so it
+                        // must also advertise the opt-out PostgreSQL already declares.
+                        PostgresIncrementalSourceOptions.REQUIRE_REPLICA_IDENTITY_FULL,
                         JdbcSourceOptions.CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_LOWER_BOUND,
                         JdbcSourceOptions.CHUNK_KEY_EVEN_DISTRIBUTION_FACTOR_UPPER_BOUND,
                         JdbcSourceOptions.SAMPLE_SHARDING_THRESHOLD,

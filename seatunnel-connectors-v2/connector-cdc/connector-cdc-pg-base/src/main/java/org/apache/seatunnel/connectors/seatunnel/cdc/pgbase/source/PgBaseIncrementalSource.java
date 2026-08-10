@@ -55,6 +55,11 @@ import java.util.stream.Collectors;
 public abstract class PgBaseIncrementalSource<T, C extends JdbcSourceConfig>
         extends IncrementalSource<T, C> implements SupportParallelism {
 
+    // The SeaTunnelSource is Java-serialized into the job DAG, and this class sits in that
+    // hierarchy. Pinning the UID keeps a later edit here from breaking source deserialization
+    // between mixed-build client/server submissions.
+    private static final long serialVersionUID = 1L;
+
     protected PgBaseIncrementalSource(ReadonlyConfig options, List<CatalogTable> catalogTables) {
         super(options, catalogTables);
     }
@@ -117,7 +122,11 @@ public abstract class PgBaseIncrementalSource<T, C extends JdbcSourceConfig>
                                                     tableId,
                                                     serializer)));
         } catch (Exception e) {
-            throw new SeaTunnelException(e);
+            // Shared by every PG-family connector now, so name the phase: a bare wrapped
+            // exception here is indistinguishable between discovery, schema query and
+            // serialization failures.
+            throw new SeaTunnelException(
+                    "Failed to load table changes for CDC schema initialization", e);
         }
     }
 
