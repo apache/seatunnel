@@ -281,7 +281,9 @@ public class MultiTableSinkWriter<IN, CommitInfoT, StateT>
         // If primary key is available, route stably by primary key hash.
         Optional<Object> primaryKey = extractPrimaryKeyIfPresent(row);
         if (primaryKey.isPresent()) {
-            return Math.abs(primaryKey.get().hashCode()) % replicaNum;
+            // Clear the sign bit rather than using Math.abs: Math.abs(Integer.MIN_VALUE)
+            // is still Integer.MIN_VALUE, which would yield a negative replica index.
+            return (primaryKey.get().hashCode() & Integer.MAX_VALUE) % replicaNum;
         }
 
         // Otherwise, distribute across replicas (no stable routing guarantee).
@@ -395,8 +397,10 @@ sink {
 
 **Hash-Based (when primary key is available)**:
 ```java
-// Ensures same primary key always goes to same replica (order preservation)
-int replica = Math.abs(primaryKey.hashCode()) % replicaNum;
+// Ensures same primary key always goes to same replica (order preservation).
+// The sign bit is cleared rather than using Math.abs, because
+// Math.abs(Integer.MIN_VALUE) is still negative and would produce an invalid index.
+int replica = (primaryKey.hashCode() & Integer.MAX_VALUE) % replicaNum;
 ```
 
 **Random (when primary key is not available)**:

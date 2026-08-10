@@ -588,6 +588,43 @@ public class MultiTableSinkWriterTest {
         Assertions.assertEquals(2, totalWrites);
     }
 
+    @Test
+    public void testOrdinaryNegativeHashRoutesToMaskedIndex() throws IOException {
+        // The fix is a general bitmask, not a special case for Integer.MIN_VALUE: it changes the
+        // index for every negative hash, since Math.abs(h) is -h while h & Integer.MAX_VALUE is
+        // h + 2^31. An INT primary key hashes to its own value, so this key's hash is -5, and:
+        //   old routing: Math.abs(-5) % 3               == 2
+        //   new routing: (-5 & Integer.MAX_VALUE) % 3   == 0
+        // The resulting index is asserted exactly, not merely checked for being in range.
+        int replicaNum = 3;
+        int primaryKey = -5;
+        int expectedIndex = (primaryKey & Integer.MAX_VALUE) % replicaNum;
+        Assertions.assertEquals(0, expectedIndex);
+
+        Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters = new HashMap<>();
+        Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
+        RecordingSinkWriter[] writersByIndex = new RecordingSinkWriter[replicaNum];
+        for (int i = 0; i < replicaNum; i++) {
+            SinkIdentifier identifier = SinkIdentifier.of("test.table", i);
+            RecordingSinkWriter writer = new RecordingSinkWriter(false);
+            writersByIndex[i] = writer;
+            sinkWriters.put(identifier, writer);
+            sinkWritersContext.put(identifier, new TestSinkWriterContext());
+        }
+
+        MultiTableSinkWriter multiTableSinkWriter =
+                new MultiTableSinkWriter(sinkWriters, replicaNum, sinkWritersContext);
+
+        multiTableSinkWriter.write(buildRow("test.table", primaryKey));
+
+        Optional<MultiTableCommitInfo> commitInfo = multiTableSinkWriter.prepareCommit(1L);
+        Assertions.assertTrue(commitInfo.isPresent());
+
+        Assertions.assertEquals(1, writersByIndex[expectedIndex].getWriteCount());
+        // Index 2 is where the old Math.abs routing would have sent this row.
+        Assertions.assertEquals(0, writersByIndex[2].getWriteCount());
+    }
+
     private SeaTunnelRow buildRow(String tableId, int value) {
         SeaTunnelRow row = new SeaTunnelRow(new Object[] {value});
         row.setTableId(tableId);
