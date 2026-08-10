@@ -30,6 +30,7 @@ import org.apache.seatunnel.engine.core.dag.actions.DynamicLookupDescriptor;
 import org.apache.seatunnel.engine.core.dag.actions.DynamicLookupProjectionField;
 import org.apache.seatunnel.engine.server.checkpoint.ActionStateKey;
 import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
+import org.apache.seatunnel.engine.server.checkpoint.DynamicLookupStateEnvelope;
 import org.apache.seatunnel.engine.server.dag.physical.config.DynamicLookupConfig;
 import org.apache.seatunnel.engine.server.dag.physical.config.IntermediateQueueConfig;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
@@ -37,6 +38,9 @@ import org.apache.seatunnel.engine.server.task.TaskRuntimeException;
 import org.apache.seatunnel.engine.server.task.group.AbstractTaskGroupWithIntermediateQueue;
 import org.apache.seatunnel.engine.server.task.group.queue.AbstractIntermediateQueue;
 import org.apache.seatunnel.engine.server.task.record.Barrier;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -71,9 +75,7 @@ import java.util.concurrent.TimeUnit;
 public final class DynamicLookupFlowLifeCycle extends ActionFlowLifeCycle
         implements OneOutputFlowLifeCycle<Record<?>>, InternalCheckpointListener {
 
-    private static final int DIMENSION_STATE_MAGIC = 0x44594C4B;
-    private static final int DIMENSION_STATE_VERSION = 1;
-    private static final int DIMENSION_STATE_DIGEST_LENGTH = 32;
+    private static final Logger LOG = LoggerFactory.getLogger(DynamicLookupFlowLifeCycle.class);
 
     /** Per-call fairness quota so a hot dimension queue cannot starve fact processing. */
     private static final int MAX_RECORDS_PER_PORT_DRAIN = 1024;
@@ -83,13 +85,19 @@ public final class DynamicLookupFlowLifeCycle extends ActionFlowLifeCycle
     private final Map<LookupKey, SeaTunnelRow> dimensionState = new HashMap<>();
     private final Map<Long, BarrierAlignment> barrierAlignments = new HashMap<>();
     private final Map<Integer, Long> blockedPorts = new HashMap<>();
+    /** Coordinates task-thread barrier alignment with checkpoint callback release/open events. */
+    private final Object checkpointStateLock = new Object();
+
     private LookupKey pendingDimensionUpdateBeforeKey;
 
     private transient BlockingQueue<Record<?>> factQueue;
     private transient BlockingQueue<Record<?>> dimensionQueue;
     private transient BlockingQueue<SourceGateCommand> factGateCommandQueue;
-    private transient volatile long pendingFactGateOpenCheckpointId = -1L;
-    private transient volatile boolean factGateOpened;
+    private transient long pendingFactGateOpenCheckpointId = -1L;
+    private transient boolean factGateOpened;
+    /** Prevents duplicate OPEN commands while open and abort callbacks race on the same gate. */
+    private transient boolean factGateOpening;
+
     private boolean restoredFromDurableLookupState;
 
     public DynamicLookupFlowLifeCycle(
@@ -108,7 +116,7 @@ public final class DynamicLookupFlowLifeCycle extends ActionFlowLifeCycle
         factQueue = openQueue(DynamicLookupAction.FACT_INPUT);
         dimensionQueue = openQueue(DynamicLookupAction.DIMENSION_INPUT);
         factGateCommandQueue = openGateCommandQueue();
-        if (restoredFromDurableLookupState && !factGateOpened) {
+        if (restoredFromDurableLookupState && !isFactGateOpened()) {
             openFactGate();
         }
     }
@@ -126,8 +134,7 @@ public final class DynamicLookupFlowLifeCycle extends ActionFlowLifeCycle
     @Override
     public void restoreState(List<ActionSubtaskState> actionStateList) throws Exception {
         dimensionState.clear();
-        barrierAlignments.clear();
-        blockedPorts.clear();
+        resetCheckpointAlignmentState();
         pendingDimensionUpdateBeforeKey = null;
         restoredFromDurableLookupState = !actionStateList.isEmpty();
         for (ActionSubtaskState actionSubtaskState : actionStateList) {
@@ -136,13 +143,16 @@ public final class DynamicLookupFlowLifeCycle extends ActionFlowLifeCycle
             }
         }
         enforceDimensionStateBudget();
+        LOG.info(
+                "Restored dynamic lookup state for task {} with {} dimension entries",
+                runningTask.getTaskLocation(),
+                dimensionState.size());
     }
 
     @Override
     public void close() throws IOException {
         dimensionState.clear();
-        barrierAlignments.clear();
-        blockedPorts.clear();
+        resetCheckpointAlignmentState();
         pendingDimensionUpdateBeforeKey = null;
         super.close();
     }
@@ -194,14 +204,14 @@ public final class DynamicLookupFlowLifeCycle extends ActionFlowLifeCycle
     private boolean drainPort(
             int inputPort, BlockingQueue<Record<?>> queue, Collector<Record<?>> collector)
             throws Exception {
-        if (blockedPorts.containsKey(inputPort)) {
+        if (isInputPortBlocked(inputPort)) {
             return false;
         }
         boolean processed = false;
         int processedCount = 0;
         Record<?> record;
         while (processedCount < MAX_RECORDS_PER_PORT_DRAIN
-                && !blockedPorts.containsKey(inputPort)
+                && !isInputPortBlocked(inputPort)
                 && (record = queue.poll(10, TimeUnit.MILLISECONDS)) != null) {
             processed = true;
             processedCount++;
@@ -309,24 +319,32 @@ public final class DynamicLookupFlowLifeCycle extends ActionFlowLifeCycle
 
     private void alignBarrier(int inputPort, Barrier barrier, Collector<Record<?>> collector)
             throws IOException {
-        BarrierAlignment alignment =
-                barrierAlignments.computeIfAbsent(
-                        barrier.getId(), ignored -> new BarrierAlignment());
-        Long blockedCheckpointId = blockedPorts.get(inputPort);
-        if (blockedCheckpointId != null && blockedCheckpointId != barrier.getId()) {
-            throw new TaskRuntimeException(
-                    "Dynamic lookup input port "
-                            + inputPort
-                            + " is already aligned to checkpoint "
-                            + blockedCheckpointId);
+        boolean aligned;
+        synchronized (checkpointStateLock) {
+            BarrierAlignment alignment =
+                    barrierAlignments.computeIfAbsent(
+                            barrier.getId(), ignored -> new BarrierAlignment());
+            Long blockedCheckpointId = blockedPorts.get(inputPort);
+            if (blockedCheckpointId != null && blockedCheckpointId != barrier.getId()) {
+                throw new TaskRuntimeException(
+                        "Dynamic lookup input port "
+                                + inputPort
+                                + " is already aligned to checkpoint "
+                                + blockedCheckpointId);
+            }
+            alignment.seenPorts.add(inputPort);
+            blockedPorts.put(inputPort, barrier.getId());
+            aligned =
+                    alignment.seenPorts.contains(DynamicLookupAction.FACT_INPUT)
+                            && alignment.seenPorts.contains(DynamicLookupAction.DIMENSION_INPUT);
+            if (aligned) {
+                barrierAlignments.remove(barrier.getId());
+                alignment.seenPorts.forEach(blockedPorts::remove);
+            }
         }
-        alignment.seenPorts.add(inputPort);
-        blockedPorts.put(inputPort, barrier.getId());
-        if (!alignment.seenPorts.contains(DynamicLookupAction.FACT_INPUT)
-                || !alignment.seenPorts.contains(DynamicLookupAction.DIMENSION_INPUT)) {
+        if (!aligned) {
             return;
         }
-        barrierAlignments.remove(barrier.getId());
         if (pendingDimensionUpdateBeforeKey != null) {
             throw new TaskRuntimeException(
                     "Dynamic lookup M0 requires dimension update pairs before checkpoint barrier");
@@ -339,29 +357,51 @@ public final class DynamicLookupFlowLifeCycle extends ActionFlowLifeCycle
                     barrier,
                     ActionStateKey.of(action),
                     Collections.singletonList(snapshotDimensionState()));
-            if (!factGateOpened && pendingFactGateOpenCheckpointId < 0) {
-                pendingFactGateOpenCheckpointId = barrier.getId();
+            synchronized (checkpointStateLock) {
+                if (!factGateOpened && !factGateOpening && pendingFactGateOpenCheckpointId < 0) {
+                    pendingFactGateOpenCheckpointId = barrier.getId();
+                    LOG.info(
+                            "Dynamic lookup task {} will open the fact gate after checkpoint {} completes",
+                            runningTask.getTaskLocation(),
+                            barrier.getId());
+                }
             }
         }
         runningTask.ack(barrier);
         collector.collect(new Record<>(barrier));
-        alignment.seenPorts.forEach(blockedPorts::remove);
     }
 
     @Override
     public void notifyCheckpointComplete(long checkpointId) throws Exception {
-        if (!factGateOpened && pendingFactGateOpenCheckpointId == checkpointId) {
-            openFactGate();
-            pendingFactGateOpenCheckpointId = -1L;
+        boolean shouldOpen;
+        synchronized (checkpointStateLock) {
+            shouldOpen =
+                    !factGateOpened
+                            && !factGateOpening
+                            && pendingFactGateOpenCheckpointId == checkpointId;
         }
+        if (!shouldOpen) {
+            return;
+        }
+        LOG.info(
+                "Dynamic lookup task {} opens the fact gate after checkpoint {} completed",
+                runningTask.getTaskLocation(),
+                checkpointId);
+        openFactGate();
     }
 
     @Override
     public void notifyCheckpointAborted(long checkpointId) {
-        if (pendingFactGateOpenCheckpointId == checkpointId) {
-            pendingFactGateOpenCheckpointId = -1L;
+        synchronized (checkpointStateLock) {
+            if (pendingFactGateOpenCheckpointId == checkpointId) {
+                pendingFactGateOpenCheckpointId = -1L;
+            }
+            releaseAbortedBarrierLocked(checkpointId);
         }
-        releaseAbortedBarrier(checkpointId);
+        LOG.info(
+                "Dynamic lookup task {} released checkpoint {} after abort",
+                runningTask.getTaskLocation(),
+                checkpointId);
     }
 
     /**
@@ -371,20 +411,64 @@ public final class DynamicLookupFlowLifeCycle extends ActionFlowLifeCycle
      * abort would permanently stop the lookup task when the peer port never receives that
      * checkpoint barrier.
      */
-    private void releaseAbortedBarrier(long checkpointId) {
+    private void releaseAbortedBarrierLocked(long checkpointId) {
         barrierAlignments.remove(checkpointId);
         blockedPorts.entrySet().removeIf(entry -> entry.getValue() == checkpointId);
     }
 
+    /** Sends at most one OPEN command to the fact gate for the current runtime instance. */
     private void openFactGate() throws InterruptedException {
-        if (factGateOpened) {
-            return;
+        BlockingQueue<SourceGateCommand> gateQueue = factGateCommandQueue;
+        if (gateQueue == null) {
+            throw new TaskRuntimeException(
+                    "Dynamic lookup fact gate command queue is not initialized");
         }
-        boolean offered = factGateCommandQueue.offer(SourceGateCommand.OPEN, 10, TimeUnit.SECONDS);
+        synchronized (checkpointStateLock) {
+            if (factGateOpened || factGateOpening) {
+                return;
+            }
+            factGateOpening = true;
+        }
+        boolean offered = false;
+        try {
+            offered = gateQueue.offer(SourceGateCommand.OPEN, 10, TimeUnit.SECONDS);
+        } finally {
+            synchronized (checkpointStateLock) {
+                if (offered) {
+                    factGateOpened = true;
+                    pendingFactGateOpenCheckpointId = -1L;
+                }
+                factGateOpening = false;
+            }
+        }
         if (!offered) {
             throw new TaskRuntimeException("Dynamic lookup fact gate command queue is full");
         }
-        factGateOpened = true;
+    }
+
+    /** Checks whether the given input port is currently blocked by an incomplete barrier. */
+    private boolean isInputPortBlocked(int inputPort) {
+        synchronized (checkpointStateLock) {
+            return blockedPorts.containsKey(inputPort);
+        }
+    }
+
+    /** Returns whether the fact source gate has already accepted its OPEN command. */
+    private boolean isFactGateOpened() {
+        synchronized (checkpointStateLock) {
+            return factGateOpened;
+        }
+    }
+
+    /** Clears checkpoint-alignment bookkeeping when the runtime restores or shuts down. */
+    private void resetCheckpointAlignmentState() {
+        synchronized (checkpointStateLock) {
+            barrierAlignments.clear();
+            blockedPorts.clear();
+            pendingFactGateOpenCheckpointId = -1L;
+            factGateOpened = false;
+            factGateOpening = false;
+        }
     }
 
     private byte[] snapshotDimensionState() throws IOException {
@@ -392,8 +476,8 @@ public final class DynamicLookupFlowLifeCycle extends ActionFlowLifeCycle
         enforceDimensionStateBudget(payload.length);
         byte[] digest = sha256(payload);
         return ByteBuffer.allocate(Integer.BYTES * 3 + payload.length + digest.length)
-                .putInt(DIMENSION_STATE_MAGIC)
-                .putInt(DIMENSION_STATE_VERSION)
+                .putInt(DynamicLookupStateEnvelope.MAGIC)
+                .putInt(DynamicLookupStateEnvelope.VERSION)
                 .putInt(payload.length)
                 .put(payload)
                 .put(digest)
@@ -445,26 +529,27 @@ public final class DynamicLookupFlowLifeCycle extends ActionFlowLifeCycle
         if (stateBytes == null || stateBytes.length == 0) {
             return;
         }
-        if (stateBytes.length < Integer.BYTES * 3 + DIMENSION_STATE_DIGEST_LENGTH) {
+        if (stateBytes.length < Integer.BYTES * 3 + DynamicLookupStateEnvelope.DIGEST_LENGTH) {
             throw new IOException("Dynamic lookup dimension state envelope is truncated");
         }
         ByteBuffer envelope = ByteBuffer.wrap(stateBytes);
         int magic = envelope.getInt();
-        if (magic != DIMENSION_STATE_MAGIC) {
+        if (magic != DynamicLookupStateEnvelope.MAGIC) {
             throw new IOException("Invalid dynamic lookup dimension state magic: " + magic);
         }
         int version = envelope.getInt();
-        if (version != DIMENSION_STATE_VERSION) {
+        if (version != DynamicLookupStateEnvelope.VERSION) {
             throw new IOException("Unsupported dynamic lookup dimension state version: " + version);
         }
         int payloadLength = envelope.getInt();
         if (payloadLength < 0
-                || envelope.remaining() != payloadLength + DIMENSION_STATE_DIGEST_LENGTH) {
+                || envelope.remaining()
+                        != payloadLength + DynamicLookupStateEnvelope.DIGEST_LENGTH) {
             throw new IOException("Invalid dynamic lookup dimension state payload length");
         }
         byte[] payload = new byte[payloadLength];
         envelope.get(payload);
-        byte[] expectedDigest = new byte[DIMENSION_STATE_DIGEST_LENGTH];
+        byte[] expectedDigest = new byte[DynamicLookupStateEnvelope.DIGEST_LENGTH];
         envelope.get(expectedDigest);
         if (!Arrays.equals(expectedDigest, sha256(payload))) {
             throw new IOException("Dynamic lookup dimension state SHA-256 digest mismatch");
@@ -493,10 +578,7 @@ public final class DynamicLookupFlowLifeCycle extends ActionFlowLifeCycle
     }
 
     public static boolean isDimensionStateEnvelope(byte[] stateBytes) {
-        if (stateBytes == null || stateBytes.length < Integer.BYTES) {
-            return false;
-        }
-        return ByteBuffer.wrap(stateBytes).getInt() == DIMENSION_STATE_MAGIC;
+        return DynamicLookupStateEnvelope.hasEnvelopeMagic(stateBytes);
     }
 
     private static final class BarrierAlignment {

@@ -22,7 +22,6 @@ import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.checkpoint.Checkpoint;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
-import org.apache.seatunnel.engine.server.task.flow.DynamicLookupFlowLifeCycle;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -208,7 +207,7 @@ public class PendingCheckpoint implements Checkpoint {
             return false;
         }
         return subtaskState.getState().stream()
-                .anyMatch(DynamicLookupFlowLifeCycle::isDimensionStateEnvelope);
+                .anyMatch(DynamicLookupStateEnvelope::hasEnvelopeMagic);
     }
 
     private byte[] digestActionStates() {
