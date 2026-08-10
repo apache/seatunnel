@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.core.starter.flink;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.constants.EngineType;
 import org.apache.seatunnel.core.starter.Starter;
@@ -57,6 +59,13 @@ public abstract class AbstractFlinkStarter implements Starter {
         command.add("${FLINK_HOME}/bin/flink");
         // set deploy mode, run or run-application
         command.add(flinkCommandArgs.getDeployMode().getDeployMode());
+        // set restore checkpoint
+        String fromSavepoint = flinkCommandArgs.getFromSavepoint();
+        if (Objects.nonNull(fromSavepoint)) {
+            validateCheckpointPath(fromSavepoint);
+            command.add("-s");
+            command.add(fromSavepoint);
+        }
         // set submitted target master
         if (flinkCommandArgs.getMasterType() != null) {
             command.add("--target");
@@ -111,5 +120,11 @@ public abstract class AbstractFlinkStarter implements Starter {
                 .map(String::trim)
                 .forEach(variable -> command.add("-i " + variable));
         return command;
+    }
+
+    private void validateCheckpointPath(String checkpointPath) {
+        if (StringUtils.isBlank(checkpointPath)) {
+            throw new IllegalArgumentException("Checkpoint path must not be blank");
+        }
     }
 }

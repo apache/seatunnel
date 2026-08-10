@@ -91,6 +91,16 @@ sink {
 }
 ```
 
+## Restore From A Savepoint Or Externalized Checkpoint
+
+Use `--fromCheckpoint` (a SeaTunnel wrapper alias) to pass a Flink savepoint or
+externalized-checkpoint path to Flink. The generated Flink command uses its native
+`-s/--fromSavepoint` option.
+
+```shell
+bin/start-seatunnel-flink-13-connector-v2.sh --target local --fromCheckpoint hdfs:///flink/checkpoints/3c298a925d9a2a7837bbf5a8e4966b4f/chk-7902 --deploy-mode run --config ./config/example.conf
+```
+
 If you need more transform options, see [Transforms Catalog](../transforms) and [Transform Common Options](../transforms/common-options/common-options.md).
 
 ## Running From A Source Checkout

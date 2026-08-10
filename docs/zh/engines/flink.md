@@ -91,6 +91,16 @@ sink {
 }
 ```
 
+## 从 Savepoint 或外部化 Checkpoint 恢复
+
+使用 `--fromCheckpoint`（SeaTunnel 包装脚本提供的别名）将 Flink Savepoint
+或外部化 Checkpoint 路径传给 Flink。最终生成的 Flink 命令使用其原生
+`-s/--fromSavepoint` 参数。
+
+```shell
+bin/start-seatunnel-flink-13-connector-v2.sh --target local --fromCheckpoint hdfs:///flink/checkpoints/3c298a925d9a2a7837bbf5a8e4966b4f/chk-7902 --deploy-mode run --config ./config/example.conf
+```
+
 如果你需要更多 transform 能力，继续查看 [Transforms 目录](../transforms) 和 [Transform 通用参数](../transforms/common-options/common-options.md)。
 
 ## 从源码仓库运行示例
