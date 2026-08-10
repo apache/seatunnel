@@ -38,12 +38,21 @@ import org.apache.poi.xwpf.usermodel.XWPFTableRow;
 
 import lombok.extern.slf4j.Slf4j;
 
-import java.io.FileInputStream;
 import java.io.IOException;
-import java.util.Arrays;
+import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.List;
 import java.util.Objects;
 
+/**
+ * Reads Word (.docx, OOXML) documents for RAG/document-ingestion scenarios, emitting one row per
+ * paragraph or table found in document order. Only ".docx" is supported: the legacy binary ".doc"
+ * format is a different container that Apache POI reads through a separate API and is out of scope
+ * here. Formatting metadata (font, color, alignment, hyperlinks) is aggregated at the paragraph
+ * level because Apache POI does not expose finer-grained position information.
+ */
 @Slf4j
 public class WordReadStrategy extends AbstractReadStrategy {
 
@@ -52,18 +61,35 @@ public class WordReadStrategy extends AbstractReadStrategy {
     @Override
     public void read(String path, String tableId, Collector<SeaTunnelRow> output)
             throws IOException, FileConnectorException {
-        try (FileInputStream fis = new FileInputStream(path);
-                XWPFDocument document = new XWPFDocument(fis)) {
+        Path tempDocxPath = null;
+        try {
+            tempDocxPath = createTempDocxPath();
+            try (InputStream inputStream = hadoopFileSystemProxy.getInputStream(path)) {
+                Files.copy(inputStream, tempDocxPath, StandardCopyOption.REPLACE_EXISTING);
+            }
 
-            int elementId = 1;
-
-            processDocumentInOrder(document, output, tableId, elementId);
+            try (XWPFDocument document = new XWPFDocument(Files.newInputStream(tempDocxPath))) {
+                int elementId = 1;
+                processDocumentInOrder(document, output, tableId, elementId);
+            }
         } catch (Exception e) {
             throw new FileConnectorException(
                     FileConnectorErrorCode.FILE_READ_FAILED,
                     "Failed to read Word document: " + path,
                     e);
+        } finally {
+            if (tempDocxPath != null) {
+                deleteTempDocxPath(tempDocxPath);
+            }
         }
+    }
+
+    Path createTempDocxPath() throws IOException {
+        return Files.createTempFile("seatunnel-word-read-", ".docx");
+    }
+
+    void deleteTempDocxPath(Path tempDocxPath) throws IOException {
+        Files.deleteIfExists(tempDocxPath);
     }
 
     private void processDocumentInOrder(
@@ -93,7 +119,7 @@ public class WordReadStrategy extends AbstractReadStrategy {
                 new String[] {
                     "element_id",
                     "element_type",
-                    "text_content",
+                    "text",
                     "font_style",
                     "underline_style",
                     "font_size",
@@ -261,17 +287,12 @@ public class WordReadStrategy extends AbstractReadStrategy {
             org.apache.seatunnel.shade.com.typesafe.config.Config pluginConfig) {}
 
     @Override
-    public List<String> getFileNamesByPath(String path) throws IOException {
-        return Arrays.asList(path);
-    }
-
-    @Override
     public SeaTunnelRowType getActualSeaTunnelRowTypeInfo() {
         return new SeaTunnelRowType(
                 new String[] {
                     "element_id",
                     "element_type",
-                    "text_content",
+                    "text",
                     "font_style",
                     "underline_style",
                     "font_size",
@@ -281,7 +302,7 @@ public class WordReadStrategy extends AbstractReadStrategy {
                     "hyperlink_url"
                 },
                 new SeaTunnelDataType[] {
-                    BasicType.STRING_TYPE,
+                    BasicType.INT_TYPE,
                     BasicType.STRING_TYPE,
                     BasicType.STRING_TYPE,
                     BasicType.STRING_TYPE,

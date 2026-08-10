@@ -203,8 +203,7 @@ public enum FileFormat implements Serializable {
     WORD("docx") {
         @Override
         public WriteStrategy getWriteStrategy(FileSinkConfig fileSinkConfig) {
-            throw new UnsupportedOperationException(
-                    "File format 'word' does not support writing.");
+            throw new UnsupportedOperationException("File format 'word' does not support writing.");
         }
 
         @Override

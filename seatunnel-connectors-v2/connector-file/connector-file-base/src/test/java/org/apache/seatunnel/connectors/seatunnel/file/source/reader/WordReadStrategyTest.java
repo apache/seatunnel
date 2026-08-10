@@ -17,11 +17,15 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
 
+import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.net.URL;
 import java.nio.file.Paths;
+
+import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_DEFAULT;
 
 class WordReadStrategyTest {
 
@@ -30,6 +34,7 @@ class WordReadStrategyTest {
         URL resource = this.getClass().getResource("/test.docx");
         String path = Paths.get(resource.toURI()).toString();
         WordReadStrategy wordReadStrategy = new WordReadStrategy();
+        wordReadStrategy.init(new LocalConf(FS_DEFAULT_NAME_DEFAULT));
         TempCollector tempCollector = new TempCollector();
         wordReadStrategy.read(path, "", tempCollector);
 
@@ -96,5 +101,24 @@ class WordReadStrategyTest {
         Assertions.assertEquals("000000", tempCollector.getRows().get(15).getField(7));
         Assertions.assertEquals("LEFT", tempCollector.getRows().get(15).getField(8));
         Assertions.assertNull(tempCollector.getRows().get(15).getField(9));
+    }
+
+    public static class LocalConf extends HadoopConf {
+        private static final String HDFS_IMPL = "org.apache.hadoop.fs.LocalFileSystem";
+        private static final String SCHEMA = "file";
+
+        public LocalConf(String hdfsNameKey) {
+            super(hdfsNameKey);
+        }
+
+        @Override
+        public String getFsHdfsImpl() {
+            return HDFS_IMPL;
+        }
+
+        @Override
+        public String getSchema() {
+            return SCHEMA;
+        }
     }
 }
