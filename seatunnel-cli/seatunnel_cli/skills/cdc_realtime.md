@@ -64,12 +64,14 @@ Data flows as a never-ending stream of insert/update/delete events.
 - **`decoding.plugin.name`** selects the logical decoding plugin. Use
   `"pgoutput"` for PostgreSQL 10+ (built-in, no server install needed);
   `"decoderbufs"` only when that plugin is installed on the server.
-- PostgreSQL table identifiers are fully qualified with THREE parts:
-  `table-names` (plural, list-typed) takes `"database.schema.table"`
-  entries (e.g. `["postgres_cdc.inventory.orders"]`) — not `schema.table`
-  and not just the table name. `database-names` (plural, list-typed) lists
-  the databases to monitor. Always confirm exact keys with
-  `get_connector_info`.
+- `table-names` (plural, list-typed) takes schema-qualified entries. The
+  canonical form is TWO-part `"schema.table"` (e.g. `["inventory.orders"]`)
+  — the connector's own error message calls it `schemaName.tableName`.
+  A three-part `"database.schema.table"` entry is also accepted, but the
+  leading database segment is ignored (it does NOT filter by database).
+  Database selection comes from `database-names` (plural, list-typed);
+  the connector connects to the first listed database. Always confirm
+  exact keys with `get_connector_info`.
 - Debezium engine properties (e.g. a custom publication name) are passed
   through the nested `debezium { }` map option, such as
   `debezium { publication.name = "my_pub" }` — never as top-level options.
@@ -79,7 +81,7 @@ Data flows as a never-ending stream of insert/update/delete events.
 | stream source | binlog | logical replication (WAL) |
 | `slot.name` | n/a | recommended, one per job |
 | `decoding.plugin.name` | n/a | `pgoutput` (PG 10+) |
-| `table-names` entry format | `database.table` | `database.schema.table` |
+| `table-names` entry format | `database.table` | `schema.table` (canonical) |
 | server prerequisite | binlog ROW mode | `wal_level = logical` |
 
 ## SOP
@@ -116,12 +118,9 @@ source {
     port = <port>
     username = "${DB_USER}"
     password = "${DB_PASSWORD}"
-    # Key names vary by connector — confirm with get_connector_info.
-    # PostgreSQL-CDC uses PLURAL list keys with fully qualified entries:
-    #   database-names = ["<database>"]
-    #   table-names = ["<database>.<schema>.<table>"]
-    database-name = "<database>"
-    table-name = "<table>"
+    database-names = ["<database>"]
+    # MySQL-CDC entries: "<database>.<table>"; PostgreSQL-CDC: "<schema>.<table>"
+    table-names = ["<database-or-schema-qualified-table>"]
     plugin_output = "<routing_label>"
   }
 }

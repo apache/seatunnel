@@ -109,7 +109,7 @@ transform {
     plugin_input = "orders_filtered"
     plugin_output = "orders_final"
     field_mapper = {
-      order_id = id
+      id = order_id
       amount = total
     }
   }
