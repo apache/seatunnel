@@ -503,7 +503,7 @@ source {
 }
 ```
 
-如果没有可用的主键（无论配置的或物理的），connector 就无法安全地应用 UPDATE/DELETE 事件。仅在仅追加（append-only）场景或下游 sink 行为不依赖行标识时使用此模式。
+上述示例演示的是"逻辑主键"场景：源表本身没有物理主键，但通过 `table-names-config.primaryKeys` 显式声明了一列作为稳定行标识，并启用 `exactly_once = true`，让快照阶段与 binlog 阶段都使用同一逻辑主键。只有当被声明的列在源数据中确实保持唯一时，UPDATE/DELETE 才能被正确路由；如果源数据中存在重复值，行为将不再可靠。
 
 ### 从指定 Binlog 位置启动
 
