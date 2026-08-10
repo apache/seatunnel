@@ -729,6 +729,77 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
     }
 
     @Test
+    public void testCompositeKeySplit() throws Exception {
+        String compositeTable = "composite_split_test";
+        String createSql =
+                "CREATE TABLE IF NOT EXISTS "
+                        + MYSQL_DATABASE
+                        + "."
+                        + compositeTable
+                        + " (order_id BIGINT NOT NULL, line_no INT NOT NULL, payload VARCHAR(20), "
+                        + "PRIMARY KEY (order_id, line_no))";
+        try (Connection connection = getJdbcConnection();
+                PreparedStatement ps = connection.prepareStatement(createSql)) {
+            ps.execute();
+        }
+        // First key column repeats heavily (only 0/1/2), second column disambiguates.
+        try (Connection connection = getJdbcConnection();
+                PreparedStatement ps =
+                        connection.prepareStatement(
+                                "INSERT INTO "
+                                        + MYSQL_DATABASE
+                                        + "."
+                                        + compositeTable
+                                        + " (order_id, line_no, payload) VALUES (?, ?, ?)")) {
+            for (int i = 0; i < 300; i++) {
+                ps.setLong(1, i % 3);
+                ps.setInt(2, i / 3);
+                ps.setString(3, "p" + i);
+                ps.addBatch();
+            }
+            ps.executeBatch();
+        }
+
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put("url", mysqlUrlInfo.getUrlWithDatabase().get());
+        configMap.put("driver", "com.mysql.cj.jdbc.Driver");
+        configMap.put("user", MYSQL_USERNAME);
+        configMap.put("password", MYSQL_PASSWORD);
+        configMap.put("table_path", MYSQL_DATABASE + "." + compositeTable);
+        configMap.put("split.size", "10");
+
+        TablePath tablePathMySql = TablePath.of(MYSQL_DATABASE, compositeTable);
+        MySqlCatalog mySqlCatalog =
+                new MySqlCatalog("mysql", MYSQL_USERNAME, MYSQL_PASSWORD, mysqlUrlInfo, null);
+        mySqlCatalog.open();
+        CatalogTable table = mySqlCatalog.getTable(tablePathMySql);
+        JdbcSourceTable jdbcSourceTable =
+                JdbcSourceTable.builder().tablePath(tablePathMySql).catalogTable(table).build();
+
+        Collection<JdbcSourceSplit> jdbcSourceSplits =
+                getDynamicChunkSplitter(configMap).generateSplits(jdbcSourceTable);
+
+        Assertions.assertTrue(
+                jdbcSourceSplits.size() > 1,
+                "Composite key should split into multiple chunks, got " + jdbcSourceSplits.size());
+        JdbcSourceSplit[] splitArray = jdbcSourceSplits.toArray(new JdbcSourceSplit[0]);
+        Assertions.assertEquals("order_id,line_no", splitArray[0].getSplitKeyName());
+        for (JdbcSourceSplit split : splitArray) {
+            if (split.getSplitStart() != null) {
+                Assertions.assertTrue(
+                        split.getSplitStart() instanceof Object[],
+                        "Composite split start should be an Object[] tuple");
+            }
+            if (split.getSplitEnd() != null) {
+                Assertions.assertTrue(
+                        split.getSplitEnd() instanceof Object[],
+                        "Composite split end should be an Object[] tuple");
+            }
+        }
+        mySqlCatalog.close();
+    }
+
+    @Test
     public void testSampleShardingAllowSwitch() throws Exception {
         Map<String, Object> baseConfig = new HashMap<>();
         baseConfig.put("url", mysqlUrlInfo.getUrlWithDatabase().get());

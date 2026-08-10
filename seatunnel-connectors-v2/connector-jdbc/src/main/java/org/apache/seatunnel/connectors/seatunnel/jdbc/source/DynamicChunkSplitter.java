@@ -46,6 +46,7 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -80,6 +81,11 @@ public class DynamicChunkSplitter extends ChunkSplitter {
 
     private Collection<JdbcSourceSplit> createDynamicSplits(
             JdbcSourceTable table, SeaTunnelRowType splitKey) throws Exception {
+        // Composite primary key: split on the full key tuple with tuple-ordered boundaries.
+        if (splitKey.getTotalFields() > 1) {
+            return createCompositeDynamicSplits(table, splitKey);
+        }
+
         String splitKeyName = splitKey.getFieldNames()[0];
         SeaTunnelDataType splitKeyType = splitKey.getFieldType(0);
         if (SqlType.STRING.equals(splitKeyType.getSqlType())
@@ -104,6 +110,289 @@ public class DynamicChunkSplitter extends ChunkSplitter {
             splits.add(split);
         }
         return splits;
+    }
+
+    private static final String COMPOSITE_KEY_SEPARATOR = ",";
+
+    /**
+     * Split a table on the full composite key tuple. Boundaries are tuple-ordered ((start, end] per
+     * chunk, matching {@link #buildCompositeCondition}), so composite-key tables whose first column
+     * repeats heavily still split into balanced chunks via the remaining key columns.
+     */
+    private Collection<JdbcSourceSplit> createCompositeDynamicSplits(
+            JdbcSourceTable table, SeaTunnelRowType splitKey) throws Exception {
+        String[] columns = splitKey.getFieldNames();
+        Object[][] minMax = queryMinMaxComposite(table, columns);
+        Object[] min = minMax[0];
+        Object[] max = minMax[1];
+        if (min == null || max == null) {
+            // empty table, return a single full-table split
+            return Collections.singletonList(createCompositeSplit(table, 0, splitKey, null, null));
+        }
+
+        // first chunk end
+        Object[] firstEnd = queryNextChunkMaxComposite(table, columns, config.getSplitSize(), min);
+        if (firstEnd == null || compareArrays(firstEnd, max) >= 0) {
+            // all data fits in one chunk
+            return Collections.singletonList(createCompositeSplit(table, 0, splitKey, null, null));
+        }
+
+        List<JdbcSourceSplit> splits = new ArrayList<>();
+        Object[] chunkStart = null;
+        Object[] chunkEnd = firstEnd;
+        int index = 0;
+        while (chunkEnd != null && compareArrays(chunkEnd, max) < 0) {
+            splits.add(createCompositeSplit(table, index++, splitKey, chunkStart, chunkEnd));
+            chunkStart = chunkEnd;
+            chunkEnd =
+                    queryNextChunkMaxComposite(table, columns, config.getSplitSize(), chunkStart);
+            if (chunkEnd != null && Arrays.equals(chunkStart, chunkEnd)) {
+                // we don't allow equal chunk start and end,
+                // should query the next one larger than chunkEnd
+                chunkEnd = queryMinComposite(table, columns, chunkEnd);
+            }
+        }
+        // add the ending split
+        splits.add(createCompositeSplit(table, index, splitKey, chunkStart, null));
+        return splits;
+    }
+
+    private JdbcSourceSplit createCompositeSplit(
+            JdbcSourceTable table,
+            int index,
+            SeaTunnelRowType splitKey,
+            Object[] start,
+            Object[] end) {
+        String joinedNames = String.join(COMPOSITE_KEY_SEPARATOR, splitKey.getFieldNames());
+        return new JdbcSourceSplit(
+                table.getTablePath(),
+                createSplitId(table.getTablePath(), index),
+                table.getQuery(),
+                joinedNames,
+                splitKey,
+                start,
+                end);
+    }
+
+    private Object[][] queryMinMaxComposite(JdbcSourceTable table, String[] columns)
+            throws Exception {
+        StringBuilder selectCols = new StringBuilder();
+        StringBuilder orderAsc = new StringBuilder();
+        StringBuilder orderDesc = new StringBuilder();
+        for (int i = 0; i < columns.length; i++) {
+            if (i > 0) {
+                selectCols.append(", ");
+                orderAsc.append(", ");
+                orderDesc.append(", ");
+            }
+            String quoted = jdbcDialect.quoteIdentifier(columns[i]);
+            selectCols.append(quoted);
+            orderAsc.append(quoted).append(" ASC");
+            orderDesc.append(quoted).append(" DESC");
+        }
+
+        String fromClause;
+        if (StringUtils.isNotBlank(table.getQuery())) {
+            fromClause = "(" + normalizeQuery(table.getQuery()) + ") AS _st_tmp";
+        } else {
+            fromClause = jdbcDialect.tableIdentifier(table.getTablePath());
+        }
+
+        String minQuery =
+                "SELECT "
+                        + selectCols
+                        + " FROM "
+                        + fromClause
+                        + " ORDER BY "
+                        + orderAsc
+                        + " LIMIT 1";
+        String maxQuery =
+                "SELECT "
+                        + selectCols
+                        + " FROM "
+                        + fromClause
+                        + " ORDER BY "
+                        + orderDesc
+                        + " LIMIT 1";
+
+        java.sql.Connection conn = getOrEstablishConnection();
+        Object[] minRow = executeRowQuery(conn, minQuery, columns.length);
+        Object[] maxRow = executeRowQuery(conn, maxQuery, columns.length);
+        return new Object[][] {minRow, maxRow};
+    }
+
+    private Object[] queryNextChunkMaxComposite(
+            JdbcSourceTable table, String[] columns, int chunkSize, Object[] includedLowerBound)
+            throws Exception {
+        StringBuilder columnList = new StringBuilder();
+        StringBuilder orderBy = new StringBuilder();
+        for (int i = 0; i < columns.length; i++) {
+            if (i > 0) {
+                columnList.append(", ");
+                orderBy.append(", ");
+            }
+            String quoted = jdbcDialect.quoteIdentifier(columns[i]);
+            columnList.append(quoted);
+            orderBy.append(quoted);
+        }
+
+        // Expanded OR condition for index usage:
+        // (a > ?) OR (a = ? AND b > ?) OR (a = ? AND b = ? AND c >= ?)
+        StringBuilder where = new StringBuilder("(");
+        for (int i = 0; i < columns.length; i++) {
+            if (i > 0) {
+                where.append(" OR ");
+            }
+            where.append("(");
+            for (int j = 0; j <= i; j++) {
+                if (j > 0) {
+                    where.append(" AND ");
+                }
+                String quoted = jdbcDialect.quoteIdentifier(columns[j]);
+                if (j < i) {
+                    where.append(quoted).append(" = ?");
+                } else {
+                    String op = (i == columns.length - 1) ? ">=" : ">";
+                    where.append(quoted).append(" ").append(op).append(" ?");
+                }
+            }
+            where.append(")");
+        }
+        where.append(")");
+
+        String fromClause;
+        if (StringUtils.isNotBlank(table.getQuery())) {
+            fromClause = "(" + normalizeQuery(table.getQuery()) + ") AS _st_tmp";
+        } else {
+            fromClause = jdbcDialect.tableIdentifier(table.getTablePath());
+        }
+
+        String sql =
+                "SELECT "
+                        + columnList
+                        + " FROM "
+                        + fromClause
+                        + " WHERE "
+                        + where
+                        + " ORDER BY "
+                        + orderBy
+                        + " ASC LIMIT "
+                        + chunkSize;
+
+        java.sql.Connection conn = getOrEstablishConnection();
+        try (java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
+            // Bind: v1, v1,v2, v1,v2,v3 ... (cumulative per OR branch)
+            int paramIndex = 1;
+            for (int i = 0; i < columns.length; i++) {
+                for (int j = 0; j <= i; j++) {
+                    ps.setObject(paramIndex++, includedLowerBound[j]);
+                }
+            }
+            try (java.sql.ResultSet rs = ps.executeQuery()) {
+                Object[] lastRow = null;
+                while (rs.next()) {
+                    lastRow = new Object[columns.length];
+                    for (int i = 0; i < columns.length; i++) {
+                        lastRow[i] = rs.getObject(i + 1);
+                    }
+                }
+                return lastRow;
+            }
+        }
+    }
+
+    private Object[] queryMinComposite(
+            JdbcSourceTable table, String[] columns, Object[] excludedLowerBound) throws Exception {
+        StringBuilder columnList = new StringBuilder();
+        StringBuilder orderBy = new StringBuilder();
+        StringBuilder tupleLeft = new StringBuilder("(");
+        StringBuilder tupleRight = new StringBuilder("(");
+        for (int i = 0; i < columns.length; i++) {
+            if (i > 0) {
+                columnList.append(", ");
+                orderBy.append(", ");
+                tupleLeft.append(", ");
+                tupleRight.append(", ");
+            }
+            String quoted = jdbcDialect.quoteIdentifier(columns[i]);
+            columnList.append(quoted);
+            orderBy.append(quoted);
+            tupleLeft.append(quoted);
+            tupleRight.append("?");
+        }
+        tupleLeft.append(")");
+        tupleRight.append(")");
+
+        String fromClause;
+        if (StringUtils.isNotBlank(table.getQuery())) {
+            fromClause = "(" + normalizeQuery(table.getQuery()) + ") AS _st_tmp";
+        } else {
+            fromClause = jdbcDialect.tableIdentifier(table.getTablePath());
+        }
+
+        String sql =
+                "SELECT "
+                        + columnList
+                        + " FROM "
+                        + fromClause
+                        + " WHERE "
+                        + tupleLeft
+                        + " > "
+                        + tupleRight
+                        + " ORDER BY "
+                        + orderBy
+                        + " ASC LIMIT 1";
+
+        java.sql.Connection conn = getOrEstablishConnection();
+        try (java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
+            for (int i = 0; i < columns.length; i++) {
+                ps.setObject(i + 1, excludedLowerBound[i]);
+            }
+            try (java.sql.ResultSet rs = ps.executeQuery()) {
+                if (rs.next()) {
+                    Object[] result = new Object[columns.length];
+                    for (int i = 0; i < columns.length; i++) {
+                        result[i] = rs.getObject(i + 1);
+                    }
+                    return result;
+                }
+                return null;
+            }
+        }
+    }
+
+    private Object[] executeRowQuery(java.sql.Connection conn, String sql, int columnCount)
+            throws Exception {
+        try (java.sql.Statement stmt = conn.createStatement();
+                java.sql.ResultSet rs = stmt.executeQuery(sql)) {
+            if (rs.next()) {
+                Object[] row = new Object[columnCount];
+                for (int i = 0; i < columnCount; i++) {
+                    row[i] = rs.getObject(i + 1);
+                }
+                return row;
+            }
+            return null;
+        }
+    }
+
+    private String normalizeQuery(String query) {
+        if (StringUtils.isEmpty(query)) {
+            return query;
+        }
+        // Avoid trailing semicolons/whitespace breaking wrapped subqueries
+        return StringUtils.stripEnd(query, " \t\r\n;");
+    }
+
+    private int compareArrays(Object[] a, Object[] b) {
+        int len = Math.min(a.length, b.length);
+        for (int i = 0; i < len; i++) {
+            int cmp = ObjectUtils.compare(a[i], b[i]);
+            if (cmp != 0) {
+                return cmp;
+            }
+        }
+        return Integer.compare(a.length, b.length);
     }
 
     private PreparedStatement createDynamicSplitStatement(JdbcSourceSplit split, TableSchema schema)
@@ -811,36 +1100,15 @@ public class DynamicChunkSplitter extends ChunkSplitter {
 
     @VisibleForTesting
     String createDynamicSplitQuerySQL(JdbcSourceSplit split, TableSchema schema) {
-        SeaTunnelRowType rowType =
-                new SeaTunnelRowType(
-                        new String[] {split.getSplitKeyName()},
-                        new SeaTunnelDataType[] {split.getSplitKeyType()});
-        boolean isFirstSplit = split.getSplitStart() == null;
-        boolean isLastSplit = split.getSplitEnd() == null;
+        boolean isComposite =
+                split.getSplitStart() instanceof Object[]
+                        || split.getSplitEnd() instanceof Object[];
 
         final String condition;
-        if (isFirstSplit && isLastSplit) {
-            condition = null;
-        } else if (isFirstSplit) {
-            StringBuilder sql = new StringBuilder();
-            addKeyColumnsToCondition(schema, rowType, sql, " <= ?");
-            sql.append(" AND NOT (");
-            addKeyColumnsToCondition(schema, rowType, sql, " = ?");
-            sql.append(")");
-            condition = sql.toString();
-        } else if (isLastSplit) {
-            StringBuilder sql = new StringBuilder();
-            addKeyColumnsToCondition(schema, rowType, sql, " >= ?");
-            condition = sql.toString();
+        if (isComposite) {
+            condition = buildCompositeCondition(split);
         } else {
-            StringBuilder sql = new StringBuilder();
-            addKeyColumnsToCondition(schema, rowType, sql, " >= ?");
-            sql.append(" AND NOT (");
-            addKeyColumnsToCondition(schema, rowType, sql, " = ?");
-            sql.append(")");
-            sql.append(" AND ");
-            addKeyColumnsToCondition(schema, rowType, sql, " <= ?");
-            condition = sql.toString();
+            condition = buildSingleColumnCondition(split, schema);
         }
 
         String splitQuery = split.getSplitQuery();
@@ -871,6 +1139,95 @@ public class DynamicChunkSplitter extends ChunkSplitter {
         return sql.toString();
     }
 
+    private String buildSingleColumnCondition(JdbcSourceSplit split, TableSchema schema) {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {split.getSplitKeyName()},
+                        new SeaTunnelDataType[] {split.getSplitKeyType()});
+        boolean isFirstSplit = split.getSplitStart() == null;
+        boolean isLastSplit = split.getSplitEnd() == null;
+
+        if (isFirstSplit && isLastSplit) {
+            return null;
+        } else if (isFirstSplit) {
+            StringBuilder sql = new StringBuilder();
+            addKeyColumnsToCondition(schema, rowType, sql, " <= ?");
+            sql.append(" AND NOT (");
+            addKeyColumnsToCondition(schema, rowType, sql, " = ?");
+            sql.append(")");
+            return sql.toString();
+        } else if (isLastSplit) {
+            StringBuilder sql = new StringBuilder();
+            addKeyColumnsToCondition(schema, rowType, sql, " >= ?");
+            return sql.toString();
+        } else {
+            StringBuilder sql = new StringBuilder();
+            addKeyColumnsToCondition(schema, rowType, sql, " >= ?");
+            sql.append(" AND NOT (");
+            addKeyColumnsToCondition(schema, rowType, sql, " = ?");
+            sql.append(")");
+            sql.append(" AND ");
+            addKeyColumnsToCondition(schema, rowType, sql, " <= ?");
+            return sql.toString();
+        }
+    }
+
+    private String buildCompositeCondition(JdbcSourceSplit split) {
+        Object[] startArr = (Object[]) split.getSplitStart();
+        Object[] endArr = (Object[]) split.getSplitEnd();
+        boolean isFirstSplit = startArr == null;
+        boolean isLastSplit = endArr == null;
+
+        if (isFirstSplit && isLastSplit) {
+            return null;
+        }
+
+        String[] columnNames = split.getSplitKeyName().split(COMPOSITE_KEY_SEPARATOR);
+        int keyCount = columnNames.length;
+        String tuple = buildTupleExpr(columnNames);
+
+        if (isFirstSplit) {
+            // (col1, col2, ...) <= (?, ?, ...)
+            return tuple + " <= " + buildPlaceholderTuple(keyCount);
+        } else if (isLastSplit) {
+            // (col1, col2, ...) > (?, ?, ...)
+            return tuple + " > " + buildPlaceholderTuple(keyCount);
+        } else {
+            // (col1, col2, ...) > (?, ...) AND (col1, col2, ...) <= (?, ...)
+            return tuple
+                    + " > "
+                    + buildPlaceholderTuple(keyCount)
+                    + " AND "
+                    + tuple
+                    + " <= "
+                    + buildPlaceholderTuple(keyCount);
+        }
+    }
+
+    private String buildTupleExpr(String[] columns) {
+        StringBuilder sb = new StringBuilder("(");
+        for (int i = 0; i < columns.length; i++) {
+            if (i > 0) {
+                sb.append(", ");
+            }
+            sb.append(jdbcDialect.quoteIdentifier(columns[i]));
+        }
+        sb.append(")");
+        return sb.toString();
+    }
+
+    private String buildPlaceholderTuple(int count) {
+        StringBuilder sb = new StringBuilder("(");
+        for (int i = 0; i < count; i++) {
+            if (i > 0) {
+                sb.append(", ");
+            }
+            sb.append("?");
+        }
+        sb.append(")");
+        return sb.toString();
+    }
+
     private void addKeyColumnsToCondition(
             TableSchema schema, SeaTunnelRowType rowType, StringBuilder sql, String predicate) {
         Map<String, Column> columns =
@@ -894,6 +1251,51 @@ public class DynamicChunkSplitter extends ChunkSplitter {
         if (isFirstSplit && isLastSplit) {
             return;
         }
+
+        boolean isComposite =
+                split.getSplitStart() instanceof Object[]
+                        || split.getSplitEnd() instanceof Object[];
+
+        if (isComposite) {
+            prepareCompositeStatement(statement, split);
+        } else {
+            prepareSingleColumnStatement(statement, split);
+        }
+    }
+
+    private static void prepareCompositeStatement(
+            PreparedStatement statement, JdbcSourceSplit split) throws SQLException {
+        Object[] startArr = (Object[]) split.getSplitStart();
+        Object[] endArr = (Object[]) split.getSplitEnd();
+        boolean isFirstSplit = startArr == null;
+        boolean isLastSplit = endArr == null;
+
+        int paramIndex = 1;
+        if (isFirstSplit) {
+            // WHERE (col1, col2, ...) <= (?, ?, ...)
+            for (Object val : endArr) {
+                statement.setObject(paramIndex++, val);
+            }
+        } else if (isLastSplit) {
+            // WHERE (col1, col2, ...) > (?, ?, ...)
+            for (Object val : startArr) {
+                statement.setObject(paramIndex++, val);
+            }
+        } else {
+            // WHERE (col1, col2, ...) > (?, ...) AND (col1, col2, ...) <= (?, ...)
+            for (Object val : startArr) {
+                statement.setObject(paramIndex++, val);
+            }
+            for (Object val : endArr) {
+                statement.setObject(paramIndex++, val);
+            }
+        }
+    }
+
+    private static void prepareSingleColumnStatement(
+            PreparedStatement statement, JdbcSourceSplit split) throws SQLException {
+        boolean isFirstSplit = split.getSplitStart() == null;
+        boolean isLastSplit = split.getSplitEnd() == null;
 
         Object[] splitStart = new Object[] {split.getSplitStart()};
         Object[] splitEnd = new Object[] {split.getSplitEnd()};
