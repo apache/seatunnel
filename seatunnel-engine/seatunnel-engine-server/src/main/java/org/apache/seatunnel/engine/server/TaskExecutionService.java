@@ -1055,11 +1055,13 @@ public class TaskExecutionService implements DynamicMetricsProvider {
          * <p>Execution flow:
          *
          * <ol>
-         *   <li>Set up the class loader for the task
+         *   <li>Resolve the task group's execution context and set up the class loader
          *   <li>Signal that the worker has started via CountDownLatch
          *   <li>Initialize the task via {@link Task#init()}
          *   <li>Execute the task repeatedly via {@link Task#call()} until done
          *   <li>Handle interrupts and exceptions, notifying the execution tracker
+         *   <li>Release the start latch anyway if the worker failed before signalling, so the
+         *       deployer waiting in {@code submitBlockingTask()} is never left blocked
          *   <li>Clean up by calling {@link Task#close()} if not completed
          * </ol>
          */
@@ -1469,7 +1471,20 @@ public class TaskExecutionService implements DynamicMetricsProvider {
 
         private void recycleClassLoader(TaskGroupLocation taskGroupLocation) {
             TaskGroupContext context = executionContexts.get(taskGroupLocation);
-            executionContexts.get(taskGroupLocation).setClassLoaders(null);
+            if (context == null) {
+                // The same cross-generation race that motivates this fix can remove the
+                // context before the last task of the group finishes. taskDone() is now
+                // reached on every exit from BlockingWorker.run(), so this path is more
+                // likely than it was; without the guard it would throw from a finally
+                // block and skip the caller's context class loader restore.
+                logger.warning(
+                        String.format(
+                                "Execution context for %s is no longer registered; skipping class"
+                                        + " loader release",
+                                taskGroupLocation));
+                return;
+            }
+            context.setClassLoaders(null);
             for (Collection<URL> jars : context.getJars().values()) {
                 classLoaderService.releaseClassLoader(taskGroupLocation.getJobId(), jars);
             }
