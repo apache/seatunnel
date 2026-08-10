@@ -20,12 +20,14 @@ package org.apache.seatunnel.connectors.cdc.base.source.reader;
 import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.source.event.CompletedSnapshotPhaseEvent;
 import org.apache.seatunnel.connectors.cdc.base.source.event.CompletedSnapshotSplitsReportEvent;
 import org.apache.seatunnel.connectors.cdc.base.source.event.SnapshotSplitWatermark;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
+import org.apache.seatunnel.connectors.cdc.base.source.split.CompletedSnapshotSplitInfo;
 import org.apache.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SnapshotSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceRecords;
@@ -40,13 +42,16 @@ import org.apache.seatunnel.connectors.seatunnel.common.source.reader.SingleThre
 import org.apache.seatunnel.connectors.seatunnel.common.source.reader.SourceReaderOptions;
 import org.apache.seatunnel.connectors.seatunnel.common.source.reader.fetcher.SingleThreadFetcherManager;
 
+import io.debezium.relational.TableId;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
@@ -76,6 +81,12 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
     private transient volatile Offset snapshotChangeLogOffset;
 
     private final AtomicBoolean needSendSplitRequest = new AtomicBoolean(false);
+
+    // Cached captured tables for the reader lifetime. Captured tables for a single reader are
+    // tied to its sourceConfig, so we discover them once and reuse them across addSplits() calls
+    // to avoid a blocking DB round trip on every incremental-split handoff (fresh and restored
+    // alike). See PR review note: discoverDataCollections() should not be re-run on the reader.
+    private volatile Set<TableId> capturedTablesCache;
 
     public IncrementalSourceReader(
             DataSourceDialect<C> dataSourceDialect,
@@ -146,7 +157,21 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
                     unfinishedSplits.add(split);
                 }
             } else {
-                unfinishedSplits.add(split.asIncrementalSplit());
+                Set<TableId> capturedTables = capturedTablesCache;
+                if (capturedTables == null) {
+                    capturedTables =
+                            new HashSet<>(dataSourceDialect.discoverDataCollections(sourceConfig));
+                    capturedTablesCache = capturedTables;
+                }
+                IncrementalSplit incrementalSplit =
+                        pruneRemovedTables(split.asIncrementalSplit(), capturedTables);
+                if (incrementalSplit.getTableIds().isEmpty()) {
+                    log.info(
+                            "Skip restored incremental split {} because none of its tables are configured.",
+                            incrementalSplit.splitId());
+                } else {
+                    unfinishedSplits.add(incrementalSplit);
+                }
             }
         }
         // notify split enumerator again about the finished unacked snapshot splits
@@ -161,6 +186,50 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
             // call and can lead to a deadlock.
             needSendSplitRequest.set(true);
         }
+    }
+
+    static IncrementalSplit pruneRemovedTables(
+            IncrementalSplit incrementalSplit, Set<TableId> capturedTables) {
+        // Keep table-scoped checkpoint state aligned with the restored reader's current table set.
+        // The copy constructor preserves legacy checkpointDataType for old checkpoint state.
+        List<TableId> tableIds =
+                incrementalSplit.getTableIds().stream()
+                        .filter(capturedTables::contains)
+                        .collect(Collectors.toList());
+        List<CompletedSnapshotSplitInfo> completedSnapshotSplitInfos =
+                incrementalSplit.getCompletedSnapshotSplitInfos().stream()
+                        .filter(info -> capturedTables.contains(info.getTableId()))
+                        .collect(Collectors.toList());
+        Map<TableId, byte[]> historyTableChanges = new HashMap<>();
+        if (incrementalSplit.getHistoryTableChanges() != null) {
+            historyTableChanges.putAll(
+                    incrementalSplit.getHistoryTableChanges().entrySet().stream()
+                            .filter(entry -> capturedTables.contains(entry.getKey()))
+                            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
+        }
+        List<CatalogTable> checkpointTables =
+                pruneCheckpointTables(incrementalSplit.getCheckpointTables(), capturedTables);
+        return new IncrementalSplit(
+                incrementalSplit,
+                tableIds,
+                completedSnapshotSplitInfos,
+                checkpointTables,
+                historyTableChanges);
+    }
+
+    private static List<CatalogTable> pruneCheckpointTables(
+            List<CatalogTable> checkpointTables, Set<TableId> capturedTables) {
+        if (checkpointTables == null) {
+            return null;
+        }
+        return checkpointTables.stream()
+                .filter(table -> capturedTables.contains(toTableId(table.getTablePath())))
+                .collect(Collectors.toList());
+    }
+
+    private static TableId toTableId(TablePath tablePath) {
+        return new TableId(
+                tablePath.getDatabaseName(), tablePath.getSchemaName(), tablePath.getTableName());
     }
 
     @Override
