@@ -88,6 +88,8 @@ The "Finished Jobs" section displays jobs that have reached a terminal state, su
 
 The "Workers" section displays system monitoring information for worker nodes. Use it to inspect worker address, resource status, and runtime health signals exposed by the engine.
 
+For the proposed design to add per-worker slot accounting and a fuller monitoring detail view, see [Worker Node Resource View](worker-node-resource-view.md).
+
 ![workers.png](../../../images/ui/workers.png)
 
 ## Master
@@ -102,5 +104,6 @@ The "Master" section displays system monitoring information for master nodes. Us
 
 - [REST API and Web UI](./rest-api-and-web-ui.md)
 - [REST API V2](./rest-api-v2.md)
+- [Worker Node Resource View](./worker-node-resource-view.md)
 - [Job Lifecycle API](./rest-api-job-lifecycle.md)
 - [Security](./security.md)

@@ -271,6 +271,7 @@ const sidebars = {
                                     ]
                                 },
                                 "engines/zeta/web-ui",
+                                "engines/zeta/worker-node-resource-view",
                                 "engines/zeta/security",
                                 "engines/zeta/python-sdk"
                             ]

@@ -89,6 +89,8 @@ Apache SeaTunnel 的 Web UI 是 SeaTunnel Engine 的可视化巡检控制台。�
 
 “工作节点”模块展示 worker 节点的系统监控信息。可以用它查看 worker 地址、资源状态和引擎暴露的运行时健康信号。
 
+关于新增按 worker 统计 slot 以及更完整监控详情视图的设计草案，参见 [Worker 节点资源视图](worker-node-resource-view.md)。
+
 ![workers.png](../../../images/ui/workers.png)
 
 ## 管理节点
@@ -103,5 +105,6 @@ Apache SeaTunnel 的 Web UI 是 SeaTunnel Engine 的可视化巡检控制台。�
 
 - [REST API 与 Web UI](./rest-api-and-web-ui.md)
 - [REST API V2](./rest-api-v2.md)
+- [Worker 节点资源视图](./worker-node-resource-view.md)
 - [作业生命周期 API](./rest-api-job-lifecycle.md)
 - [安全](./security.md)
