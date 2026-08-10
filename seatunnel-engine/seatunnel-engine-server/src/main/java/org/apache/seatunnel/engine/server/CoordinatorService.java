@@ -1522,8 +1522,7 @@ public class CoordinatorService {
      * Get metrics for all running jobs.
      *
      * <p>This method is best-effort. It waits up to {@link EngineConfig#getMetricsFetchTimeoutMs()}
-     * for the overall fetch and returns a partial map
-     * when workers time out or are unavailable.
+     * for the overall fetch and returns a partial map when workers time out or are unavailable.
      */
     public Map<Long, JobMetrics> getRunningJobMetrics() {
         return getRunningJobMetrics(
