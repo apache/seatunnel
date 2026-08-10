@@ -146,7 +146,7 @@ sink {
   # If you would like to get more information about how to configure seatunnel and see full list of sink plugins,
   # please go to https://seatunnel.apache.org/docs/connectors/sink
 }
-```hocon
+```
 
 ### Generate Sink SQL
 
@@ -165,7 +165,7 @@ sink {
         table = test_table
     }
 }
-```hocon
+```
 
 ### Exactly-once
 
@@ -184,7 +184,7 @@ sink {
         xa_data_source_class_name = "com.mysql.cj.jdbc.MysqlXADataSource"
     }
 }
-```hocon
+```
 
 ### CDC(Change Data Capture) Event
 
@@ -207,7 +207,7 @@ sink {
         data_save_mode="APPEND_DATA"
     }
 }
-```hocon
+```
 
 ### Multiple Table Sync
 
@@ -246,7 +246,7 @@ sink {
     primary_keys = ["${primary_key}"]
   }
 }
-```hocon
+```
 
 #### Example 2: JDBC Source Multiple Table Sync to MySQL
 
@@ -290,7 +290,7 @@ sink {
     primary_keys = ["${primary_key}"]
   }
 }
-```hocon
+```
 
 ## Changelog
 
