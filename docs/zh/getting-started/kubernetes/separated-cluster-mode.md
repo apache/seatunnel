@@ -298,6 +298,8 @@ spec:
 
 ## 创建 Master StatefulSet
 
+以下 StatefulSet 示例使用 16 GB JVM 堆内存，CPU request 设置为 4、limit 设置为 8，容器内存 request 设置为 20 GiB、limit 设置为 24 GiB。内存余量用于 Metaspace、直接内存、线程栈和其他本地内存，CPU 配额用于任务执行、垃圾回收和引擎协调。对于大规模数据处理场景，建议使用 32 GB JVM 堆内存，可将 CPU request 和 limit 分别提高到 8 和 16，并将内存 request 和 limit 分别提高到 36 GiB 和 40 GiB，作为初始配置。请根据 Connector 特性、任务并行度以及实际 CPU、GC 和内存利用率继续调整。
+
 ```yaml
 apiVersion: apps/v1
 kind: StatefulSet
@@ -328,6 +330,7 @@ spec:
             - /opt/seatunnel/bin/seatunnel-cluster.sh
             - -r
             - master
+            - '-DJvmOption=-Xms16g -Xmx16g'
           env:
             - name: SEATUNNEL_HOME
               value: /opt/seatunnel
@@ -340,11 +343,11 @@ spec:
               name: hazelcast
           resources:
             requests:
-              cpu: 500m
-              memory: 3Gi
+              cpu: "4"
+              memory: 20Gi
             limits:
-              cpu: "1"
-              memory: 4Gi
+              cpu: "8"
+              memory: 24Gi
           volumeMounts:
             - name: hazelcast-master-config
               mountPath: /opt/seatunnel/config/hazelcast-master.yaml
@@ -400,6 +403,7 @@ spec:
             - /opt/seatunnel/bin/seatunnel-cluster.sh
             - -r
             - worker
+            - '-DJvmOption=-Xms16g -Xmx16g'
           env:
             - name: SEATUNNEL_HOME
               value: /opt/seatunnel
@@ -412,11 +416,11 @@ spec:
               name: hazelcast
           resources:
             requests:
-              cpu: "1"
-              memory: 2Gi
+              cpu: "4"
+              memory: 20Gi
             limits:
-              cpu: "2"
-              memory: 5Gi
+              cpu: "8"
+              memory: 24Gi
           volumeMounts:
             - name: hazelcast-worker-config
               mountPath: /opt/seatunnel/config/hazelcast-worker.yaml

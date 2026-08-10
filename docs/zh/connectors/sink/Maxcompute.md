@@ -34,6 +34,7 @@ import ChangeLog from '../changelog/connector-maxcompute.md';
 | save_mode_create_template | string  | 否   | 见下文 |
 | datetime_format           | string  | 否   | yyyy-MM-dd HH:mm:ss |
 | tunnel_endpoint           | string  | 否   | -      |
+| tunnel_name               | string  | 否   | -      |
 | insert_strategy           | string  | 否   | upload |
 | multi_table_sink_replica  | int     | 否   | 1      |
 | common-options            | string  | 否   |        |
@@ -176,6 +177,22 @@ CREATE TABLE IF NOT EXISTS `${table}`
 - `http://maxcompute:8080`
 
 默认值：未设置（从区域自动推断）
+
+### tunnel_name [String]
+
+`tunnel_name` 指定 Tunnel Quota 名称，用于独占资源组。
+
+Tunnel Quota 允许您使用专用的计算资源进行 MaxCompute Tunnel 数据传输，从而提供更好的性能和资源隔离。
+
+**重要提示**：Tunnel Quota 仅在 **VPC（虚拟私有云）端点**下生效，暂不支持公共网络访问。使用 `tunnel_name` 时，必须同时配置 `endpoint` 和 `tunnel_endpoint` 为 VPC 端点。
+
+如果未指定，将使用默认的 Tunnel quota。
+
+示例值：
+
+- `your_tunnel_quota_name`
+
+默认值：未设置（使用默认 quota）
 
 ### insert_strategy [string]
 
