@@ -141,6 +141,7 @@ public class JsonPathTransform extends MultipleFieldOutputTransform {
                     jsonString = value.toString();
                     break;
                 case BYTES:
+                case VARBINARY:
                     jsonString = new String((byte[]) value);
                     break;
                 case ARRAY:
