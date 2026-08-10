@@ -47,6 +47,7 @@ import ChangeLog from '../changelog/connector-file-oss.md';
   - [x] binary
   - [x] markdown
   - [x] pdf
+  - [x] word
 
 ## 数据类型映射
 
@@ -187,7 +188,7 @@ schema {
 | 名称                         | 类型      | 是否必需 | 默认值                | 描述                                                                                                                                                   |
 |----------------------------|---------|------|--------------------|------------------------------------------------------------------------------------------------------------------------------------------------------|
 | path                       | string  | 是    | -                  | 需要读取的Oss路径，可以有子路径，但子路径需要满足一定的格式要求。具体要求可以参考"parse_partition_from_path"选项                                                                              |
-| file_format_type           | string  | 是    | -                  | 文件类型，支持以下文件类型：`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf`                                                                  |
+| file_format_type           | string  | 是    | -                  | 文件类型，支持以下文件类型：`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf` `word`                                                                  |
 | bucket                     | string  | 是    | -                  | oss文件系统的bucket地址，例如：`oss://seatunnel-test`。                                                                                                          |
 | endpoint                   | string  | 是    | -                  | fs oss端点                                                                                                                                             |
 | read_columns               | list    | 否    | -                  | 数据源的读取列列表，用户可以使用它来实现字段投影。支持列投影的文件类型如下所示：`text` `csv` `parquet` `orc` `json` `excel` `xml`。如果用户想在读取`text` `json` `csv`文件时使用此功能，必须配置"schema"选项。        |
@@ -252,7 +253,7 @@ schema {
 
 文件类型，支持以下文件类型：
 
-`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf`
+`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf` `word`
 
 如果您将文件类型指定为 `markdown`，SeaTunnel 可以解析 markdown 文件并提取结构化数据。
 markdown 解析器提取各种元素，包括标题、段落、列表、代码块、表格等。
@@ -290,6 +291,21 @@ PDF 特有的解析行为如下：
 - `element_type` 在 PDF 场景下可能为 `heading`、`paragraph`、`image` 或 `link`。
 
 注意：仅支持单栏（从上到下）PDF 布局。不支持多栏布局（例如并排的双栏文档），可能会产生不正确的文本顺序。
+
+如果您将文件类型指定为 `word`，SeaTunnel 可以解析 Word（.docx）文档并提取段落和表格。
+每个提取出的元素都会转换为一行数据，schema 如下：
+- `element_id`：元素的顺序标识符，从 1 开始
+- `element_type`：`paragraph` 或 `table`
+- `text`：段落的文本内容，或表格的单元格数据（单元格以 ` | ` 连接，行之间以换行符连接）
+- `font_style`：`NORMAL`、`BOLD`、`ITALIC` 或 `BOLD_ITALIC`（仅段落）
+- `underline_style`：下划线样式名称（如果存在），否则为 null（仅段落）
+- `font_size`：字体大小（如果指定），否则为 null（仅段落）
+- `font_family`：字体族（如果指定），否则为 null（仅段落）
+- `text_color`：十六进制颜色值（如果指定），默认值为 `000000`（仅段落）
+- `alignment`：段落对齐方式，例如 `LEFT`、`CENTER`、`RIGHT`（仅段落）
+- `hyperlink_url`：段落中的超链接 URL，多个时以逗号连接，否则为 null（仅段落）
+
+注意：仅支持 `.docx`（OOXML）文件。不支持旧版二进制 `.doc` 格式。
 
 ### quote_char [string]
 

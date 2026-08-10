@@ -47,6 +47,7 @@ import ChangeLog from '../changelog/connector-file-oss.md';
   - [x] binary
   - [x] markdown
   - [x] pdf
+  - [x] word
 
 ## Data Type Mapping
 
@@ -187,7 +188,7 @@ If you assign file type to `parquet` `orc`, schema option not required, connecto
 | name                       | type    | required | default value       | Description                                                                                                                                                                                                                                                                                                                         |
 |----------------------------|---------|----------|---------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | path                       | string  | yes      | -                   | The Oss path that needs to be read can have sub paths, but the sub paths need to meet certain format requirements. Specific requirements can be referred to "parse_partition_from_path" option                                                                                                                                      |
-| file_format_type           | string  | yes      | -                   | File type, supported as the following file types: `text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf`                                                                                                                                                                                                             |
+| file_format_type           | string  | yes      | -                   | File type, supported as the following file types: `text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf` `word`                                                                                                                                                                                                             |
 | bucket                     | string  | yes      | -                   | The bucket address of oss file system, for example: `oss://seatunnel-test`.                                                                                                                                                                                                                                                         |
 | endpoint                   | string  | yes      | -                   | fs oss endpoint                                                                                                                                                                                                                                                                                                                     |
 | read_columns               | list    | no       | -                   | The read column list of the data source, user can use it to implement field projection. The file type supported column projection as the following shown: `text` `csv` `parquet` `orc` `json` `excel` `xml` . If the user wants to use this feature when reading `text` `json` `csv` files, the "schema" option must be configured. |
@@ -225,7 +226,7 @@ If you assign file type to `parquet` `orc`, schema option not required, connecto
 
 File type, supported as the following file types:
 
-`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf`
+`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf` `word`
 
 If you assign file type to `markdown`, SeaTunnel can parse markdown files and extract structured data.
 The markdown parser extracts various elements including headings, paragraphs, lists, code blocks, tables, and more.
@@ -263,6 +264,21 @@ The main PDF-specific behaviors are:
 - `element_type` values for PDF are `heading`, `paragraph`, `image`, and `link`.
 
 Note: Only single-column (top-to-bottom) PDF layouts are supported. Multi-column layouts (e.g., side-by-side two-column documents) are not supported and may produce incorrect text ordering.
+
+If you assign file type to `word`, SeaTunnel can parse Word (.docx) documents and extract paragraphs and tables.
+Each extracted element is converted to a row with the following schema:
+- `element_id`: Sequential identifier for the element, starting at 1
+- `element_type`: `paragraph` or `table`
+- `text`: Text content of the paragraph, or the table's cell data (cells joined by ` | `, rows joined by newlines)
+- `font_style`: `NORMAL`, `BOLD`, `ITALIC`, or `BOLD_ITALIC` (paragraphs only)
+- `underline_style`: Underline style name if present, otherwise null (paragraphs only)
+- `font_size`: Font size if specified, otherwise null (paragraphs only)
+- `font_family`: Font family if specified, otherwise null (paragraphs only)
+- `text_color`: Hex color if specified, defaults to `000000` (paragraphs only)
+- `alignment`: Paragraph alignment, e.g. `LEFT`, `CENTER`, `RIGHT` (paragraphs only)
+- `hyperlink_url`: Hyperlink URL(s) in the paragraph, comma-joined if multiple, otherwise null (paragraphs only)
+
+Note: Only `.docx` (OOXML) files are supported. The legacy binary `.doc` format is not supported.
 
 ### compress_codec [string]
 

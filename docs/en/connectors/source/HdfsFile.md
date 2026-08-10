@@ -37,6 +37,7 @@ import ChangeLog from '../changelog/connector-file-hadoop.md';
   - [x] binary
   - [x] markdown
   - [x] pdf
+  - [x] word
 
 ## Description
 
@@ -54,7 +55,7 @@ Read data from hdfs file system.
 |----------------------------|---------|----------|-----------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | path                       | string  | yes      | -                           | The source file path.                                                                                                                                                                                                                                                                                                                         |
 | tables_configs             | list    | no       | -                           | Configure multiple HDFS source tables in one source block. Each item has the same options as a single-table `HdfsFile` source, and can set its downstream table name through `schema.table`.                                                                                                                                                 |
-| file_format_type           | string  | yes      | -                           | We supported as the following file types:`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf`.Please note that, The final file name will end with the file_format's suffix, the suffix of the text file is `txt`.                                                                                                            |
+| file_format_type           | string  | yes      | -                           | We supported as the following file types:`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf` `word`.Please note that, The final file name will end with the file_format's suffix, the suffix of the text file is `txt`.                                                                                                            |
 | fs.defaultFS               | string  | yes      | -                           | The hadoop cluster address that start with `hdfs://`, for example: `hdfs://hadoopcluster`                                                                                                                                                                                                                                                     |
 | read_columns               | list    | no       | -                           | The read column list of the data source, user can use it to implement field projection.The file type supported column projection as the following shown:[text,json,csv,orc,parquet,excel,xml].Tips: If the user wants to use this feature when reading `text` `json` `csv` files, the schema option must be configured.                       |
 | hdfs_site_path             | string  | no       | -                           | The path of `hdfs-site.xml`, used to load ha configuration of namenodes                                                                                                                                                                                                                                                                       |
@@ -111,7 +112,7 @@ Read data from hdfs file system.
 
 File type, supported as the following file types:
 
-`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf`
+`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf` `word`
 
 If you assign file type to `markdown`, SeaTunnel can parse markdown files and extract structured data.
 The markdown parser extracts various elements including headings, paragraphs, lists, code blocks, tables, and more.
@@ -149,6 +150,21 @@ The main PDF-specific behaviors are:
 - `element_type` values for PDF are `heading`, `paragraph`, `image`, and `link`.
 
 Note: Only single-column (top-to-bottom) PDF layouts are supported. Multi-column layouts (e.g., side-by-side two-column documents) are not supported and may produce incorrect text ordering.
+
+If you assign file type to `word`, SeaTunnel can parse Word (.docx) documents and extract paragraphs and tables.
+Each extracted element is converted to a row with the following schema:
+- `element_id`: Sequential identifier for the element, starting at 1
+- `element_type`: `paragraph` or `table`
+- `text`: Text content of the paragraph, or the table's cell data (cells joined by ` | `, rows joined by newlines)
+- `font_style`: `NORMAL`, `BOLD`, `ITALIC`, or `BOLD_ITALIC` (paragraphs only)
+- `underline_style`: Underline style name if present, otherwise null (paragraphs only)
+- `font_size`: Font size if specified, otherwise null (paragraphs only)
+- `font_family`: Font family if specified, otherwise null (paragraphs only)
+- `text_color`: Hex color if specified, defaults to `000000` (paragraphs only)
+- `alignment`: Paragraph alignment, e.g. `LEFT`, `CENTER`, `RIGHT` (paragraphs only)
+- `hyperlink_url`: Hyperlink URL(s) in the paragraph, comma-joined if multiple, otherwise null (paragraphs only)
+
+Note: Only `.docx` (OOXML) files are supported. The legacy binary `.doc` format is not supported.
 
 ### tables_configs [list]
 

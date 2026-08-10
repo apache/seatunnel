@@ -36,6 +36,7 @@ import ChangeLog from '../changelog/connector-file-local.md';
   - [x] binary
   - [x] markdown
   - [x] pdf
+  - [x] word
 
 ## Description
 
@@ -111,7 +112,7 @@ The source file path.
 
 File type, supported as the following file types:
 
-`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf`
+`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf` `word`
 
 If you assign file type to `json`, you should also assign schema option to tell connector how to parse data to the row you want.
 
@@ -236,6 +237,21 @@ The main PDF-specific behaviors are:
 - `element_type` values for PDF are `heading`, `paragraph`, `image`, and `link`.
 
 Note: Only single-column (top-to-bottom) PDF layouts are supported. Multi-column layouts (e.g., side-by-side two-column documents) are not supported and may produce incorrect text ordering.
+
+If you assign file type to `word`, SeaTunnel can parse Word (.docx) documents and extract paragraphs and tables.
+Each extracted element is converted to a row with the following schema:
+- `element_id`: Sequential identifier for the element, starting at 1
+- `element_type`: `paragraph` or `table`
+- `text`: Text content of the paragraph, or the table's cell data (cells joined by ` | `, rows joined by newlines)
+- `font_style`: `NORMAL`, `BOLD`, `ITALIC`, or `BOLD_ITALIC` (paragraphs only)
+- `underline_style`: Underline style name if present, otherwise null (paragraphs only)
+- `font_size`: Font size if specified, otherwise null (paragraphs only)
+- `font_family`: Font family if specified, otherwise null (paragraphs only)
+- `text_color`: Hex color if specified, defaults to `000000` (paragraphs only)
+- `alignment`: Paragraph alignment, e.g. `LEFT`, `CENTER`, `RIGHT` (paragraphs only)
+- `hyperlink_url`: Hyperlink URL(s) in the paragraph, comma-joined if multiple, otherwise null (paragraphs only)
+
+Note: Only `.docx` (OOXML) files are supported. The legacy binary `.doc` format is not supported.
 
 ### read_columns [list]
 
@@ -738,6 +754,29 @@ sink {
 ```
 
 For best results, use PDF files that contain an outline (bookmarks/table of contents). This enables the parser to extract headings with hierarchy information.
+
+### Read Word File
+
+```hocon
+
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  LocalFile {
+    path = "/data/documents/"
+    file_format_type = "word"
+  }
+}
+
+sink {
+  Console {
+  }
+}
+
+```
 
 ### Transfer Binary File
 

@@ -31,6 +31,7 @@ import ChangeLog from '../changelog/connector-file-sftp.md';
   - [x] binary
   - [x] markdown
   - [x] pdf
+  - [x] word
 
 ## Description
 
@@ -87,7 +88,7 @@ The File does not have a specific type list, and we can indicate which SeaTunnel
 | password                   | String  | No       | -                             | The target sftp password. Required when `keyfile` is not set.                                                                                                                                                                                                                                                                                                                   |
 | keyfile                    | String  | No       | -                             | The private key file path used for SFTP public key authentication.                                                                                                                                                                                                                                                                                                              |
 | path                       | String  | Yes      | -                             | The source file path.                                                                                                                                                                                                                                                                                                                                                           |
-| file_format_type           | String  | Yes      | -                             | Please check #file_format_type below. Supported file types: `text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf`                                                                                                                                                                                                                                                                                                                                            |
+| file_format_type           | String  | Yes      | -                             | Please check #file_format_type below. Supported file types: `text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf` `word`                                                                                                                                                                                                                                                                                                                                            |
 | file_filter_pattern        | String  | No       | -                             | Filter pattern, which used for filtering files.                                                                                                                                                                                                                                                                                                                                 |
 | filename_extension         | string  | no       | -                             | Filter filename extension, which used for filtering files with specific extension. Example: `csv` `.txt` `json` `.xml`.                                                                                                                                                                                                                                                         |
 | delimiter/field_delimiter  | String  | No       | \001 for text and ',' for csv | **delimiter** parameter will deprecate after version 2.3.5, please use **field_delimiter** instead. <br/> Field delimiter, used to tell connector how to slice and dice fields when reading text files. <br/> Default `\001`, the same as hive's default delimiter                                                                                                              |
@@ -188,7 +189,7 @@ The result of this example matching is:
 ### file_format_type [string]
 
 File type, supported as the following file types:
-`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf`
+`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf` `word`
 If you assign file type to `json`, you should also assign schema option to tell connector how to parse data to the row you want.
 For example:
 upstream data is the following:
@@ -292,6 +293,21 @@ The main PDF-specific behaviors are:
 - `element_type` values for PDF are `heading`, `paragraph`, `image`, and `link`.
 
 Note: Only single-column (top-to-bottom) PDF layouts are supported. Multi-column layouts (e.g., side-by-side two-column documents) are not supported and may produce incorrect text ordering.
+
+If you assign file type to `word`, SeaTunnel can parse Word (.docx) documents and extract paragraphs and tables.
+Each extracted element is converted to a row with the following schema:
+- `element_id`: Sequential identifier for the element, starting at 1
+- `element_type`: `paragraph` or `table`
+- `text`: Text content of the paragraph, or the table's cell data (cells joined by ` | `, rows joined by newlines)
+- `font_style`: `NORMAL`, `BOLD`, `ITALIC`, or `BOLD_ITALIC` (paragraphs only)
+- `underline_style`: Underline style name if present, otherwise null (paragraphs only)
+- `font_size`: Font size if specified, otherwise null (paragraphs only)
+- `font_family`: Font family if specified, otherwise null (paragraphs only)
+- `text_color`: Hex color if specified, defaults to `000000` (paragraphs only)
+- `alignment`: Paragraph alignment, e.g. `LEFT`, `CENTER`, `RIGHT` (paragraphs only)
+- `hyperlink_url`: Hyperlink URL(s) in the paragraph, comma-joined if multiple, otherwise null (paragraphs only)
+
+Note: Only `.docx` (OOXML) files are supported. The legacy binary `.doc` format is not supported.
 
 ### compress_codec [string]
 
