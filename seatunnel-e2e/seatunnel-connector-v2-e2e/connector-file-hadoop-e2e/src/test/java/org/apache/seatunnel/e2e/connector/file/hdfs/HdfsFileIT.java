@@ -330,18 +330,138 @@ public class HdfsFileIT extends TestSuiteBase implements TestResource {
         Thread.sleep(3000);
         Assertions.assertFalse(isHdfsFileExists("/continuous/dst/subdir/nested.bin"));
 
-        org.testcontainers.containers.Container.ExecResult cancelResult =
-                container.cancelJob(jobId);
-        Assertions.assertEquals(0, cancelResult.getExitCode(), cancelResult.getStderr());
+        cancelContinuousJob(container, jobId, jobFuture);
+        nameNode.execInContainer("bash", "-c", "hdfs dfs -rm -r -f /continuous || true");
+    }
 
-        org.testcontainers.containers.Container.ExecResult execResult;
-        try {
-            execResult = jobFuture.get(120, TimeUnit.SECONDS);
-        } catch (Exception e) {
-            throw new RuntimeException("Wait continuous job exit failed.", e);
-        }
-        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.FLINK, EngineType.SPARK},
+            disabledReason = "Continuous discovery is a long-running job; only run in zeta engine.")
+    public void testHdfsBinaryUpdateModeContinuousDiscoveryPostSyncDelete(TestContainer container)
+            throws IOException, InterruptedException {
+        resetContinuousTestPath();
+        putHdfsFile("/continuous/src/delete-test.bin", "abc");
 
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
+        CompletableFuture<org.testcontainers.containers.Container.ExecResult> jobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.executeJob(
+                                        "/hdfs_binary_update_distcp_continuous_post_sync_delete.conf",
+                                        jobId);
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+
+        Awaitility.await()
+                .atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        "abc", readHdfsFile("/continuous/dst/delete-test.bin")));
+
+        Awaitility.await()
+                .atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertFalse(
+                                        hdfsFileExists("/continuous/src/delete-test.bin"),
+                                        "source file should be deleted after checkpoint-gated post-sync commit"));
+
+        cancelContinuousJob(container, jobId, jobFuture);
+        nameNode.execInContainer("bash", "-c", "hdfs dfs -rm -r -f /continuous || true");
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.FLINK, EngineType.SPARK},
+            disabledReason = "Continuous discovery is a long-running job; only run in zeta engine.")
+    public void testHdfsBinaryUpdateModeContinuousDiscoveryPostSyncBackup(TestContainer container)
+            throws IOException, InterruptedException {
+        resetContinuousTestPath();
+        putHdfsFile("/continuous/src/backup-test.bin", "abc");
+
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
+        CompletableFuture<org.testcontainers.containers.Container.ExecResult> jobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.executeJob(
+                                        "/hdfs_binary_update_distcp_continuous_post_sync_backup.conf",
+                                        jobId);
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+
+        Awaitility.await()
+                .atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        "abc", readHdfsFile("/continuous/dst/backup-test.bin")));
+
+        Awaitility.await()
+                .atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertFalse(
+                                        hdfsFileExists("/continuous/src/backup-test.bin"),
+                                        "source file should be moved from source path after backup commit"));
+
+        Awaitility.await()
+                .atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertTrue(
+                                        countHdfsFilesByRegex(
+                                                        "/continuous/backup",
+                                                        "/backup-test\\.bin\\.v")
+                                                > 0,
+                                        "backup target should contain version-suffixed file"));
+
+        cancelContinuousJob(container, jobId, jobFuture);
+        nameNode.execInContainer("bash", "-c", "hdfs dfs -rm -r -f /continuous || true");
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.FLINK, EngineType.SPARK},
+            disabledReason = "Continuous discovery is a long-running job; only run in zeta engine.")
+    public void testHdfsContinuousBackupRetentionCleanup(TestContainer container)
+            throws IOException, InterruptedException {
+        resetContinuousTestPath();
+        putHdfsFile("/continuous/backup/retention-old.bin.v3_123456", "abc");
+
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
+        CompletableFuture<org.testcontainers.containers.Container.ExecResult> jobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.executeJob(
+                                        "/hdfs_binary_update_distcp_continuous_post_sync_backup_retention.conf",
+                                        jobId);
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+
+        Awaitility.await()
+                .atMost(90, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertFalse(
+                                        hdfsFileExists(
+                                                "/continuous/backup/retention-old.bin.v3_123456"),
+                                        "retention should remove expired backup files"));
+
+        cancelContinuousJob(container, jobId, jobFuture);
         nameNode.execInContainer("bash", "-c", "hdfs dfs -rm -r -f /continuous || true");
     }
 
@@ -397,7 +517,8 @@ public class HdfsFileIT extends TestSuiteBase implements TestResource {
                         "-p",
                         "/continuous/src",
                         "/continuous/dst",
-                        "/continuous/tmp");
+                        "/continuous/tmp",
+                        "/continuous/backup");
         Assertions.assertEquals(0, mkdirResult.getExitCode());
     }
 
@@ -475,5 +596,60 @@ public class HdfsFileIT extends TestSuiteBase implements TestResource {
                 nameNode.execInContainer("bash", "-c", "hdfs dfs -stat %Y " + hdfsPath);
         Assertions.assertEquals(0, statResult.getExitCode());
         return Long.parseLong(statResult.getStdout().trim());
+    }
+
+    private boolean hdfsFileExists(String hdfsPath) throws IOException, InterruptedException {
+        org.testcontainers.containers.Container.ExecResult result =
+                nameNode.execInContainer(
+                        "bash", "-c", "hdfs dfs -test -e " + hdfsPath + "; echo $?");
+        Assertions.assertEquals(0, result.getExitCode());
+        return "0".equals(result.getStdout().trim());
+    }
+
+    private long countHdfsFilesByRegex(String directoryPath, String pathRegex)
+            throws IOException, InterruptedException {
+        String command =
+                "if hdfs dfs -test -d "
+                        + directoryPath
+                        + "; then hdfs dfs -ls -R "
+                        + directoryPath
+                        + " 2>/dev/null | awk '{print $8}' | grep -E '"
+                        + pathRegex
+                        + "' | wc -l; else echo 0; fi";
+        org.testcontainers.containers.Container.ExecResult result =
+                nameNode.execInContainer("bash", "-c", command);
+        Assertions.assertEquals(0, result.getExitCode());
+        return Long.parseLong(result.getStdout().trim());
+    }
+
+    private long countHdfsAllFiles(String directoryPath) throws IOException, InterruptedException {
+        String command =
+                "if hdfs dfs -test -d "
+                        + directoryPath
+                        + "; then hdfs dfs -ls -R "
+                        + directoryPath
+                        + " 2>/dev/null | grep -c '^-'; else echo 0; fi";
+        org.testcontainers.containers.Container.ExecResult result =
+                nameNode.execInContainer("bash", "-c", command);
+        Assertions.assertEquals(0, result.getExitCode());
+        return Long.parseLong(result.getStdout().trim());
+    }
+
+    private void cancelContinuousJob(
+            TestContainer container,
+            String jobId,
+            CompletableFuture<org.testcontainers.containers.Container.ExecResult> jobFuture)
+            throws IOException, InterruptedException {
+        org.testcontainers.containers.Container.ExecResult cancelResult =
+                container.cancelJob(jobId);
+        Assertions.assertEquals(0, cancelResult.getExitCode(), cancelResult.getStderr());
+
+        org.testcontainers.containers.Container.ExecResult execResult;
+        try {
+            execResult = jobFuture.get(120, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            throw new RuntimeException("Wait continuous job exit failed.", e);
+        }
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
     }
 }

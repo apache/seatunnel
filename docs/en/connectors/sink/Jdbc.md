@@ -131,6 +131,19 @@ Expected rows:
 
 If the job fails before writing, check [Troubleshooting](#troubleshooting) first.
 
+:::note
+
+When connecting to MariaDB, use MariaDB Connector/J with the matching URL and driver:
+
+```hocon
+url = "jdbc:mariadb://localhost:3306/database"
+driver = "org.mariadb.jdbc.Driver"
+```
+
+Do not use MySQL Connector/J with a `jdbc:mysql:` URL for MariaDB. That configuration selects the MySQL dialect, which can reject a MariaDB server version as an unsupported MySQL version.
+
+:::
+
 ## Key Features
 
 - [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
@@ -382,6 +395,7 @@ Current support:
 | TiDB | Yes | `engine`, `charset`, `collate` (via MySQL JDBC protocol and `jdbc:mysql://`) |
 | OceanBase (MySQL mode) | Yes | `engine`, `charset`, `collate` |
 | PostgreSQL | Yes | `tablespace`, `fillfactor` |
+| Dameng | Yes | `tablespace`, `fillfactor` |
 | Oracle | Yes | `tablespace`, `pctfree` |
 | OceanBase (Oracle mode) | Yes | `tablespace`, `pctfree` (via `compatible_mode=oracle` → Oracle dialect / DDL path) |
 | Kingbase | Yes | `tablespace`, `fillfactor` |
@@ -395,10 +409,11 @@ Invalid or unsupported keys are validated early via `JdbcSinkFactory` option rul
 - **TiDB**: When connected via `jdbc:mysql://` with a MySQL JDBC driver, TiDB shares the same key whitelist and DDL merge path as MySQL. `charset` and `collate` take effect; `engine` is accepted for MySQL syntax compatibility but is **ignored** by TiDB (storage engine is not configurable).
 - **OceanBase (MySQL mode)**: Supported for `jdbc:oceanbase://` when not using Oracle-compatible mode. `charset` and `collate` must be values supported by your OceanBase version (typically a MySQL-compatible subset; use `SHOW CHARSET` / `SHOW COLLATION` on the target). Unsupported values fail when `CREATE TABLE` runs, not at job submission.
 - **PostgreSQL**: `fillfactor` is emitted as `WITH (fillfactor=<n>)` and must be an integer in `[10, 100]`; `tablespace` is emitted as `TABLESPACE "..."` using the configured name literally (not rewritten by `fieldIde`). Blank values and illegal characters in `tablespace` (for example `"`) are rejected at job submission. Only these curated keys are accepted (arbitrary `WITH` parameters are not supported). OpenGauss and HighGo inherit the same validation and DDL path via Postgres catalog/dialect.
+- **Dameng**: `fillfactor` and `tablespace` are emitted as a Dameng `STORAGE (...)` clause (`FILLFACTOR <n>`, `ON "<tablespace>"`). `fillfactor` must be an integer in `[0, 100]`; `tablespace` uses the configured name literally (not rewritten by `fieldIde`). Blank values and illegal characters in `tablespace` (for example `"`) are rejected at job submission. Only these curated keys are accepted (arbitrary nested `STORAGE` parameters such as `INITIAL` / `NEXT` are not supported). The tablespace must already exist on the target.
 - **Oracle / OceanBase (Oracle mode)**: `pctfree` is emitted as `PCTFREE <n>` and must be an integer in `[0, 99]`; `tablespace` is emitted as `TABLESPACE "..."` using the configured name literally (not rewritten by `fieldIde`). Blank values and illegal characters in `tablespace` (for example `"`) are rejected at job submission. Only these curated keys are accepted (nested `STORAGE (...)` and LOB/partition clauses are not supported). The tablespace must already exist on the target.
 - **Kingbase**: `fillfactor` is emitted as `WITH (fillfactor=<n>)` and must be an integer in `[10, 100]` (PostgreSQL-compatible); `tablespace` is emitted as `TABLESPACE "..."` using the configured name literally (not rewritten by `fieldIde`). Blank values and illegal characters in `tablespace` (for example `"`) are rejected at job submission. Only these curated keys are accepted (arbitrary `WITH (...)` parameters are not supported). The tablespace must already exist on the target.
 
-SeaTunnel validates the **key whitelist** at submission time for all dialects that support `table_options`. For PostgreSQL (and OpenGauss / HighGo via the same path), and Kingbase, it also validates blank values and the `fillfactor` numeric range. For Oracle / OceanBase (Oracle mode), it also validates blank values and the `pctfree` numeric range. Other dialects (for example MySQL) do not verify whether each value is supported by the target database beyond the key whitelist.
+SeaTunnel validates the **key whitelist** at submission time for all dialects that support `table_options`. For PostgreSQL (and OpenGauss / HighGo via the same path), Dameng, and Kingbase, it also validates blank values and the `fillfactor` numeric range. For Oracle / OceanBase (Oracle mode), it also validates blank values and the `pctfree` numeric range. Other dialects (for example MySQL) do not verify whether each value is supported by the target database beyond the key whitelist.
 
 Example (MySQL auto-create with engine and charset):
 
@@ -446,6 +461,30 @@ sink {
   }
 }
 ```
+
+Example (Dameng auto-create with tablespace and fillfactor):
+
+```hocon
+sink {
+  Jdbc {
+    url = "jdbc:dm://localhost:5236"
+    driver = "dm.jdbc.driver.DmDriver"
+    username = "SYSDBA"
+    password = "SYSDBA"
+    database = "DAMENG"
+    table = "orders"
+    generate_sink_sql = true
+    schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
+    primary_keys = ["id"]
+    table_options = {
+      "tablespace" = "MAIN"
+      "fillfactor" = "80"
+    }
+  }
+}
+```
+
+The generated `CREATE TABLE` statement appends `STORAGE (FILLFACTOR 80, ON "MAIN")`.
 
 Example (Oracle auto-create with tablespace and pctfree):
 

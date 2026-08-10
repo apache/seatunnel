@@ -148,6 +148,11 @@ file:
       - changed-files:
           - any-glob-to-any-file: seatunnel-connectors-v2/connector-file/**
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(file)/**'
+fluss:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-fluss/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(fluss)/**'
 google-firestore:
   - all:
       - changed-files:

@@ -47,6 +47,7 @@ Before starting an integration task, you can select different handling schemes f
 - **`ERROR_WHEN_SCHEMA_NOT_EXIST`**: Throws an error if the table does not exist.
 - **`IGNORE`**: Ignores table handling.
   Many connectors currently support automatic table creation. Refer to the specific connector documentation, such as [Jdbc sink](./connectors/sink/Jdbc.md#schema_save_mode-enum), for more information.
+  For cross-sink behavior and the relationship with `generate_sink_sql`, see [Sink Write Modes and Save Modes](./connectors/common-options/sink-write-modes.md).
 
 ## Does SeaTunnel support handling existing data before starting a data integration task?
 Yes, you can specify different processing schemes for existing data on the target side before starting an integration task, controlled via the `data_save_mode` parameter. Available options include:
@@ -57,6 +58,10 @@ Yes, you can specify different processing schemes for existing data on the targe
 
   Many connectors support handling existing data; please refer to the respective connector documentation, such as [Jdbc sink](https://seatunnel.apache.org/docs/connectors/sink/Jdbc#data_save_mode-enum).
   Note: for JDBC sink, when sink `query` is configured (custom write SQL), save mode handling is currently not applied, so `CUSTOM_PROCESSING`/`custom_sql` will not be executed.
+  For connector support boundaries and file/object-storage sink behavior, see [Sink Write Modes and Save Modes](./connectors/common-options/sink-write-modes.md).
+
+## Should I use `generate_sink_sql` or `query` in JDBC Sink?
+Use `generate_sink_sql = true` with `database`, `table`, and usually `primary_keys` when you want SeaTunnel to generate INSERT, UPSERT, UPDATE, and DELETE statements and apply save mode handling. Use `query` only when you must fully control the per-row SQL statement. Do not configure both modes. For the complete decision table, see [Sink Write Modes and Save Modes](./connectors/common-options/sink-write-modes.md).
 
 ## Does SeaTunnel support exactly-once consistency?
 SeaTunnel supports exactly-once consistency for some data sources, such as MySQL and PostgreSQL, ensuring data consistency during integration. Note that exactly-once consistency depends on the capabilities of the underlying database.

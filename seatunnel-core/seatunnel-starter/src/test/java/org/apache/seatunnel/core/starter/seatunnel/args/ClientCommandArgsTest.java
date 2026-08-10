@@ -113,6 +113,97 @@ public class ClientCommandArgsTest {
                 "Actual: " + ex.getMessage());
     }
 
+    @Test
+    public void testParseRestoreFromCheckpointJobArg() {
+        String[] args = {"-c", "app.conf", "--restore-with-checkpoint", "123"};
+        ClientCommandArgs clientCommandArgs =
+                CommandLineUtils.parse(args, new ClientCommandArgs(), "seatunnel-client", true);
+        Assertions.assertEquals("123", clientCommandArgs.getRestoreWithCheckpointJobId());
+        Assertions.assertNull(clientCommandArgs.getRestoreJobId());
+    }
+
+    @Test
+    public void testRejectRestoreAndRestoreFromCheckpointTogether() {
+        String[] args = {"-c", "app.conf", "--restore", "100", "--restore-with-checkpoint", "200"};
+        ClientCommandArgs clientCommandArgs =
+                CommandLineUtils.parse(args, new ClientCommandArgs(), "seatunnel-client", true);
+        IllegalArgumentException ex =
+                Assertions.assertThrows(
+                        IllegalArgumentException.class, clientCommandArgs::buildCommand);
+        Assertions.assertTrue(
+                ex.getMessage()
+                        .contains("--restore and --restore-with-checkpoint are mutually exclusive"),
+                "Actual: " + ex.getMessage());
+    }
+
+    @Test
+    public void testRejectBlankRestoreWithCheckpointJobId() {
+        ClientCommandArgs clientCommandArgs = new ClientCommandArgs();
+        clientCommandArgs.setRestoreWithCheckpointJobId("   ");
+
+        IllegalArgumentException ex =
+                Assertions.assertThrows(
+                        IllegalArgumentException.class, clientCommandArgs::buildCommand);
+        Assertions.assertTrue(
+                ex.getMessage()
+                        .contains(
+                                "restoreSourceJobId is required when using --restore-with-checkpoint"),
+                "Actual: " + ex.getMessage());
+    }
+
+    @Test
+    public void testRejectNonNumericRestoreWithCheckpointJobId() {
+        ClientCommandArgs clientCommandArgs = new ClientCommandArgs();
+        clientCommandArgs.setRestoreWithCheckpointJobId("abc");
+
+        IllegalArgumentException ex =
+                Assertions.assertThrows(
+                        IllegalArgumentException.class, clientCommandArgs::buildCommand);
+        Assertions.assertTrue(
+                ex.getMessage()
+                        .contains("--restore-with-checkpoint requires a numeric jobId, got: abc"),
+                "Actual: " + ex.getMessage());
+    }
+
+    @Test
+    public void testTrimRestoreWithCheckpointJobId() {
+        ClientCommandArgs clientCommandArgs = new ClientCommandArgs();
+        clientCommandArgs.setRestoreWithCheckpointJobId(" 123 ");
+
+        Assertions.assertDoesNotThrow(clientCommandArgs::buildCommand);
+        Assertions.assertEquals("123", clientCommandArgs.getRestoreWithCheckpointJobId());
+    }
+
+    @Test
+    public void testRejectSavepointAndRestoreFromCheckpointTogether() {
+        ClientCommandArgs clientCommandArgs = new ClientCommandArgs();
+        clientCommandArgs.setSavePointJobId("100");
+        clientCommandArgs.setRestoreWithCheckpointJobId("200");
+
+        IllegalArgumentException ex =
+                Assertions.assertThrows(
+                        IllegalArgumentException.class, clientCommandArgs::buildCommand);
+        Assertions.assertTrue(
+                ex.getMessage()
+                        .contains(
+                                "--savepoint and --restore-with-checkpoint are mutually exclusive"),
+                "Actual: " + ex.getMessage());
+    }
+
+    @Test
+    public void testRejectNonNumericCustomJobId() {
+        ClientCommandArgs clientCommandArgs = new ClientCommandArgs();
+        clientCommandArgs.setCustomJobId("not-a-number");
+
+        IllegalArgumentException ex =
+                Assertions.assertThrows(
+                        IllegalArgumentException.class, clientCommandArgs::buildCommand);
+        Assertions.assertTrue(
+                ex.getMessage()
+                        .contains("--set-job-id requires a numeric jobId, got: not-a-number"),
+                "Actual: " + ex.getMessage());
+    }
+
     private static ClientCommandArgs buildClientCommandArgs(String configFile, Long jobId) {
         ClientCommandArgs clientCommandArgs = new ClientCommandArgs();
         clientCommandArgs.setVariables(new ArrayList<>());
