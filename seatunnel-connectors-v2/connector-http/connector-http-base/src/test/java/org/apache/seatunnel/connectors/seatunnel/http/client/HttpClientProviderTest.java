@@ -33,8 +33,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -114,12 +116,15 @@ class HttpClientProviderTest {
     void executePreservesNestedJsonBody() throws Exception {
         AtomicReference<String> receivedBody = new AtomicReference<>();
         AtomicReference<String> receivedQuery = new AtomicReference<>();
+        List<String> receivedContentTypes = Collections.synchronizedList(new ArrayList<>());
         server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
         server.createContext(
                 "/request",
                 exchange -> {
                     receivedBody.set(readRequestBody(exchange.getRequestBody()));
                     receivedQuery.set(exchange.getRequestURI().getQuery());
+                    receivedContentTypes.clear();
+                    receivedContentTypes.addAll(exchange.getRequestHeaders().get("Content-Type"));
                     exchange.sendResponseHeaders(200, -1);
                     exchange.close();
                 });
@@ -143,6 +148,11 @@ class HttpClientProviderTest {
         Assertions.assertEquals(200, response.getCode());
         Assertions.assertEquals(body, receivedBody.get());
         Assertions.assertEquals("traceId=123", receivedQuery.get());
+        // The caller-supplied Content-Type must not be duplicated. Otherwise the request
+        // would carry two Content-Type headers, which RFC 7230 §3.2.2 forbids for
+        // non-list headers and yields implementation-defined behaviour on the receiver.
+        Assertions.assertEquals(
+                Collections.singletonList("application/json"), receivedContentTypes);
     }
 
     @Test

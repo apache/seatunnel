@@ -43,7 +43,6 @@ import org.apache.http.entity.ContentType;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
-import org.apache.http.message.BasicHeader;
 import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.protocol.HTTP;
 import org.apache.http.util.EntityUtils;
@@ -740,25 +739,20 @@ public class HttpClientProvider implements AutoCloseable {
         }
     }
 
-    private boolean checkAlreadyHaveContentType(HttpEntityEnclosingRequestBase request) {
-        if (request.getEntity() != null && request.getEntity().getContentType() != null) {
-            return HTTP.CONTENT_TYPE.equals(request.getEntity().getContentType().getName());
-        }
-        return false;
-    }
-
     private void addBody(HttpEntityEnclosingRequestBase request, String body) {
-        if (checkAlreadyHaveContentType(request)) {
-            return;
-        }
-        request.addHeader(HTTP.CONTENT_TYPE, APPLICATION_JSON);
-
+        // The caller may have already supplied a Content-Type header via the headers map.
+        // We must not append a second Content-Type, otherwise the outgoing request carries
+        // duplicate Content-Type headers and the behaviour becomes implementation-defined
+        // (RFC 7230 §3.2.2 forbids duplicate non-list headers). Mirror the correct pattern
+        // already used by addBody(Map).
         if (StringUtils.isBlank(body)) {
             body = "";
         }
 
         StringEntity entity = new StringEntity(body, ContentType.APPLICATION_JSON);
-        entity.setContentEncoding(new BasicHeader(HTTP.CONTENT_TYPE, APPLICATION_JSON));
+        if (!request.containsHeader(HTTP.CONTENT_TYPE)) {
+            request.addHeader(HTTP.CONTENT_TYPE, APPLICATION_JSON);
+        }
         request.setEntity(entity);
     }
 
