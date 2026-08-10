@@ -19,6 +19,12 @@ CI&CD:
   - changed-files:
       - any-glob-to-any-file:
           - .github/**
+benchmarks:
+  - changed-files:
+      - any-glob-to-any-file:
+          - seatunnel-benchmarks/**
+          - tools/benchmarks/**
+          - .github/workflows/benchmarks.yml
 Zeta:
   - changed-files:
       - any-glob-to-any-file: seatunnel-engine/**
