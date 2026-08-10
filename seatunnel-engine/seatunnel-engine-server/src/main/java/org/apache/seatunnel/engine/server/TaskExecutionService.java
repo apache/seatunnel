@@ -1417,8 +1417,16 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             Throwable ex = executionException.get();
             if (completionLatch.decrementAndGet() == 0) {
                 recycleClassLoader(taskGroupLocation);
-                finishedExecutionContexts.put(
-                        taskGroupLocation, executionContexts.remove(taskGroupLocation));
+                // Same race as the guard in recycleClassLoader above: a stale taskDone()
+                // from an earlier restore generation may already have removed this entry,
+                // in which case remove() returns null. finishedExecutionContexts is a
+                // ConcurrentHashMap, which rejects null values, so an unguarded put would
+                // throw out of this finally block and skip future.complete() below -
+                // leaving the task group's completion future pending forever.
+                TaskGroupContext finishedContext = executionContexts.remove(taskGroupLocation);
+                if (finishedContext != null) {
+                    finishedExecutionContexts.put(taskGroupLocation, finishedContext);
+                }
                 cancellationFutures.remove(taskGroupLocation);
                 try {
                     cancelAsyncFunction(taskGroupLocation);
