@@ -124,11 +124,15 @@ public class TaskDeployStaleContextRaceTest extends AbstractSeaTunnelServerTest 
                 Future<TaskDeployState> deployment =
                         deployer.submit(() -> taskExecutionService.deployTask(data));
                 try {
-                    // Returning normally and throwing both satisfy the contract. Only a
-                    // deployment that never returns is the defect under test.
+                    // Returning at all is what matters. Only a deployment that never
+                    // returns is the defect under test.
                     deployment.get(DEPLOY_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-                } catch (ExecutionException expectedWhenContextIsGone) {
-                    // deployTask surfaced the missing context as an error - acceptable.
+                } catch (ExecutionException defensiveOnly) {
+                    // Not an expected path: deployTask() wraps its whole body in a
+                    // catch-all and returns TaskDeployState.failed(t) rather than
+                    // throwing, and a BlockingWorker's own failure is recorded on the
+                    // execution tracker from another thread. Caught only so an
+                    // unforeseen wrapper exception cannot be mistaken for a hang.
                 } catch (TimeoutException e) {
                     deployment.cancel(true);
                     Assertions.fail(
