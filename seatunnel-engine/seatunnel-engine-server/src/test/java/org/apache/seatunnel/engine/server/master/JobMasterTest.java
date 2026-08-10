@@ -57,7 +57,7 @@ import org.junit.jupiter.api.condition.DisabledOnOs;
 import org.junit.jupiter.api.condition.OS;
 
 import com.hazelcast.cluster.Address;
-import com.hazelcast.cluster.Member;
+import com.hazelcast.cluster.impl.MemberImpl;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.flakeidgen.FlakeIdGenerator;
 import com.hazelcast.internal.cluster.ClusterService;
@@ -335,7 +335,7 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
         NodeEngine nodeEngine = mock(NodeEngine.class);
         HazelcastInstance hazelcastInstance = mock(HazelcastInstance.class);
         ClusterService clusterService = mock(ClusterService.class);
-        Member workerMember = mock(Member.class);
+        MemberImpl workerMember = mock(MemberImpl.class);
         FlakeIdGenerator flakeIdGenerator = mock(FlakeIdGenerator.class);
         ResourceManager resourceManager = mock(ResourceManager.class);
         JobHistoryService jobHistoryService = mock(JobHistoryService.class);
@@ -408,8 +408,8 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
         NodeEngine nodeEngine = mock(NodeEngine.class);
         ClusterService clusterService = mock(ClusterService.class);
         when(nodeEngine.getClusterService()).thenReturn(clusterService);
-        when(clusterService.getMember(firstWorker)).thenReturn(mock(Member.class));
-        when(clusterService.getMember(secondWorker)).thenReturn(mock(Member.class));
+        when(clusterService.getMember(firstWorker)).thenReturn(mock(MemberImpl.class));
+        when(clusterService.getMember(secondWorker)).thenReturn(mock(MemberImpl.class));
 
         JobMaster jobMaster =
                 new JobMaster(
