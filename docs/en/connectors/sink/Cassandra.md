@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-cassandra.md';
 
 > Cassandra sink connector
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Description
 
 Write data to Apache Cassandra in batch mode.
@@ -15,11 +21,17 @@ columns are written, and every configured field must exist in the target table.
 The connector does not create keyspaces, tables, or missing columns. Prepare the target Cassandra
 schema before starting the job.
 
-## Key features
+## Supported DataSource Info
+
+| Datasource | Supported Versions | Dependency |
+|------------|--------------------|------------|
+| Cassandra  | Universal          | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-cassandra) |
+
+## Key Features
 
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 
-## Options
+## Sink Options
 
 | Name              | Type    | Required | Default     | Description |
 |-------------------|---------|----------|-------------|-------------|
@@ -99,7 +111,7 @@ Sink plugin common parameters. For details, see [Sink Common Options](../common-
 - `async_write = true` improves throughput, while `batch_size` controls how many rows are grouped
   before a flush.
 
-## Examples
+## Task Example
 
 ### Write to Cassandra
 

@@ -27,6 +27,7 @@ RELEASE_BRANCH_PATTERN = re.compile(r"\d+\.\d+(?:\.\d+)?-release")
 LIGHTWEIGHT_API_FILE_PREFIXES = (
     ".github/workflows/",
     "seatunnel-dist/",
+    "tools/benchmarks/",
     "tools/update_modules_check/",
 )
 LIGHTWEIGHT_API_FILES = {"bin/install-plugin.sh"}
