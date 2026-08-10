@@ -141,6 +141,7 @@ jobs:
       engine-e2e: ${{ steps.filter.outputs.engine-e2e }}
       edge-agent: ${{ steps.filter.outputs.edge-agent }}
       edge-agent-e2e: ${{ steps.filter.outputs.edge-agent-e2e }}
+      benchmarks: ${{ steps.filter.outputs.benchmarks }}
       docs: ${{ steps.filter.outputs.docs }}
       ut-modules: ${{ steps.ut-modules.outputs.modules }}
       it-modules: ${{ steps.it-modules.outputs.modules }}
@@ -195,6 +196,12 @@ jobs:
           file_list=${doc_files#*$'\n'}
           echo "docs=$true_or_false" >> $GITHUB_OUTPUT
           echo "docs_files=$file_list" >> $GITHUB_OUTPUT
+
+          benchmark_files=`python tools/update_modules_check/check_file_updates.py ua $workspace apache/dev origin/$current_branch "seatunnel-benchmarks/**" "tools/benchmarks/**" ".github/workflows/benchmarks.yml"`
+          true_or_false=${benchmark_files%%$'\n'*}
+          file_list=${benchmark_files#*$'\n'}
+          echo "benchmarks=$true_or_false" >> $GITHUB_OUTPUT
+          echo "benchmarks_files=$file_list" >> $GITHUB_OUTPUT
           
           engine_e2e_files=`python tools/update_modules_check/check_file_updates.py ua $workspace apache/dev origin/$current_branch "seatunnel-e2e/seatunnel-engine-e2e/**"`
           true_or_false=${engine_e2e_files%%$'\n'*}
@@ -473,10 +480,53 @@ jobs:
           distribution: 'temurin'
           cache: 'maven'
       - name: run all modules unit test
-        run: |
-          ./mvnw -B -T 1 clean verify -DskipUT=false -DskipIT=true -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates
+        run: ./mvnw -B -T 1 clean verify -DskipUT=false -DskipIT=true -D"license.skipAddThirdParty"=true -D"skip.ui"=true "-Dsurefire.jvm.args=$SUREFIRE_JVM_ARGS" --no-snapshot-updates
         env:
-          MAVEN_OPTS: -Xmx4096m -Dfile.encoding=UTF-8
+          MAVEN_OPTS: -Xmx1536m -Dfile.encoding=UTF-8
+          SUREFIRE_JVM_ARGS: -Xmx3072m -XX:MaxMetaspaceSize=512m -Dfile.encoding=UTF-8
+        if: runner.os != 'Windows'
+      - name: run all modules unit test (Windows)
+        run: ./mvnw -B -T 1 clean verify -DskipUT=false -DskipIT=true -D"license.skipAddThirdParty"=true -D"skip.ui"=true "-Dsurefire.jvm.args=$env:SUREFIRE_JVM_ARGS" --no-snapshot-updates
+        env:
+          MAVEN_OPTS: -Xmx1536m -Dfile.encoding=UTF-8
+          SUREFIRE_JVM_ARGS: -Xmx3072m -XX:MaxMetaspaceSize=512m -Dfile.encoding=UTF-8
+        if: runner.os == 'Windows'
+
+  benchmark-test:
+    needs: [ changes, sanity-check ]
+    if: needs.changes.outputs.benchmarks == 'true'
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        java: [ '8', '11' ]
+        os: [ 'ubuntu-latest' ]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up JDK ${{ matrix.java }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ matrix.java }}
+          distribution: 'temurin'
+          cache: 'maven'
+      - name: Build benchmark dependencies
+        run: |
+          ./mvnw -B -Pbenchmark -pl seatunnel-benchmarks -am -DskipTests install \
+            -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates
+      - name: Run benchmark unit tests
+        run: |
+          ./mvnw -B -Pbenchmark -pl seatunnel-benchmarks test \
+            -D"license.skipAddThirdParty"=true --no-snapshot-updates
+      - name: Run benchmark validation
+        run: |
+          result_dir="${RUNNER_TEMP}/seatunnel-benchmark-results"
+          mkdir -p "${result_dir}"
+          java -Dseatunnel.benchmark.result.dir="${result_dir}" \
+            -jar seatunnel-benchmarks/target/benchmarks.jar \
+            '.*' \
+            -f 1 -wi 0 -i 1 -r 1s -foe true
+          find "${result_dir}" -name '*.json' -print -quit | grep -q .
 
   updated-modules-integration-test-part-1:
     needs: [ changes, sanity-check ]
@@ -943,7 +993,7 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    timeout-minutes: 210
+    timeout-minutes: 240
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
