@@ -322,11 +322,12 @@ public class PulsarMultiTableConfig implements Serializable {
         String normalized = format.toUpperCase();
         if (!Objects.equals("JSON", normalized)
                 && !Objects.equals("CANAL_JSON", normalized)
-                && !Objects.equals("AVRO", normalized)) {
+                && !Objects.equals("AVRO", normalized)
+                && !Objects.equals("TEXT", normalized)) {
             throw new PulsarConnectorException(
                     SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
                     String.format(
-                            "%s uses unsupported format '%s', only JSON, CANAL_JSON and AVRO are supported",
+                            "%s uses unsupported format '%s', only JSON, CANAL_JSON, AVRO and TEXT are supported",
                             configPrefix, format));
         }
     }
