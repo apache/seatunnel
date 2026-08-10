@@ -71,8 +71,11 @@ public class Neo4jSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
 
     @Override
     public void close() throws IOException {
-        session.close();
-        driver.close();
+        try {
+            session.close();
+        } finally {
+            driver.close();
+        }
     }
 
     @Override

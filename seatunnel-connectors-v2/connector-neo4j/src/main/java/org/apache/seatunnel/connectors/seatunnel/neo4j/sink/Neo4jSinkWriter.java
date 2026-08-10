@@ -142,9 +142,18 @@ public class Neo4jSinkWriter implements SinkWriter<SeaTunnelRow, Void, Void> {
 
     @Override
     public void close() throws IOException {
-        flushWriteBuffer();
-        session.close();
-        driver.close();
+        // writeByQuery rethrows as Neo4jConnectorException, so a failing final flush must not be
+        // allowed to skip the session and the driver, or the driver's connection pool and event
+        // loop are leaked for the lifetime of the task.
+        try {
+            flushWriteBuffer();
+        } finally {
+            try {
+                session.close();
+            } finally {
+                driver.close();
+            }
+        }
     }
 
     private void flushWriteBuffer() {
