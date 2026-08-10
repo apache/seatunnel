@@ -44,6 +44,11 @@ public class PrometheusFactoryTest {
     }
 
     @Test
+    void testBatchSizeIsOptional() {
+        Assertions.assertDoesNotThrow(() -> validate(sinkConfig()));
+    }
+
+    @Test
     void testNonPositiveBatchSizeFails() {
         assertInvalidBatchSize(0);
         assertInvalidBatchSize(-1);
@@ -58,11 +63,20 @@ public class PrometheusFactoryTest {
     }
 
     private void validateBatchSize(int batchSize) {
+        Map<String, Object> config = sinkConfig();
+        config.put(PrometheusSinkOptions.BATCH_SIZE.key(), batchSize);
+        validate(config);
+    }
+
+    private Map<String, Object> sinkConfig() {
         Map<String, Object> config = new HashMap<>();
         config.put(PrometheusSinkOptions.URL.key(), "http://localhost:9090");
         config.put(PrometheusSinkOptions.KEY_LABEL.key(), "label");
         config.put(PrometheusSinkOptions.KEY_VALUE.key(), "value");
-        config.put(PrometheusSinkOptions.BATCH_SIZE.key(), batchSize);
+        return config;
+    }
+
+    private void validate(Map<String, Object> config) {
         ConfigValidator.of(ReadonlyConfig.fromMap(config))
                 .validate(new PrometheusSinkFactory().optionRule());
     }
