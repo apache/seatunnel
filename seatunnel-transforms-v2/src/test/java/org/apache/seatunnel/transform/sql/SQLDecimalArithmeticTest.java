@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.transform.exception.TransformException;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -133,5 +134,72 @@ public class SQLDecimalArithmeticTest {
 
         // RoundingMode.UP gave 0.01, manufacturing value out of a quotient that rounds to zero.
         Assertions.assertEquals("0.00", plain(outRow.getField(0)));
+    }
+
+    /**
+     * Negative quotients must round to nearest as well. RoundingMode.UP rounds away from zero in
+     * both directions, so it made negative results more negative rather than closer to zero.
+     */
+    @Test
+    public void testNegativeDivisionRoundsHalfUp() {
+        SeaTunnelRow inexact =
+                runSql(
+                        "select a / b as div_val from dual",
+                        twoDecimals(38, 2),
+                        new BigDecimal("-10.00"),
+                        new BigDecimal("3.00"));
+        // RoundingMode.UP gave -3.34.
+        Assertions.assertEquals("-3.33", plain(inexact.getField(0)));
+
+        SeaTunnelRow towardsZero =
+                runSql(
+                        "select a / b as div_val from dual",
+                        twoDecimals(38, 2),
+                        new BigDecimal("-1.00"),
+                        new BigDecimal("1000.00"));
+        // RoundingMode.UP gave -0.01, inventing a debit out of a quotient that rounds to zero.
+        Assertions.assertEquals("0.00", plain(towardsZero.getField(0)));
+    }
+
+    /**
+     * HALF_UP breaks an exact tie by rounding away from zero, so -0.005 at scale 2 is -0.01 rather
+     * than 0.00. Pinned here because it is the one case where HALF_UP and the old UP agree, and a
+     * future switch to HALF_EVEN would silently change it.
+     */
+    @Test
+    public void testNegativeDivisionTieRoundsAwayFromZero() {
+        SeaTunnelRow outRow =
+                runSql(
+                        "select a / b as div_val from dual",
+                        twoDecimals(38, 2),
+                        new BigDecimal("-5.00"),
+                        new BigDecimal("1000.00"));
+
+        Assertions.assertEquals("-0.01", plain(outRow.getField(0)));
+    }
+
+    /**
+     * Dividing by a zero DECIMAL surfaces BigDecimal's bare ArithmeticException("/ by zero") as the
+     * cause. It is now reported the same way MOD by zero already is, naming the operation.
+     */
+    @Test
+    public void testDivisionByZeroReportsExpression() {
+        TransformException exception =
+                Assertions.assertThrows(
+                        TransformException.class,
+                        () ->
+                                runSql(
+                                        "select a / b as div_val from dual",
+                                        twoDecimals(38, 2),
+                                        new BigDecimal("1.00"),
+                                        new BigDecimal("0.00")));
+
+        // ZetaSQLEngine already wraps any failure with the expression that produced it.
+        Assertions.assertTrue(exception.getMessage().contains("a / b"), exception.getMessage());
+
+        // The cause is what changes here: previously ArithmeticException("/ by zero").
+        Throwable cause = exception.getCause();
+        Assertions.assertInstanceOf(TransformException.class, cause);
+        Assertions.assertTrue(cause.getMessage().contains("Division by zero"), cause.getMessage());
     }
 }

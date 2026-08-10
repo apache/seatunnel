@@ -773,6 +773,14 @@ public class ZetaSQLFunction {
                 return leftBigDecimal.multiply(rightBigDecimal);
             }
             if (binaryExpression instanceof Division) {
+                if (rightBigDecimal.signum() == 0) {
+                    // BigDecimal.divide would throw a bare ArithmeticException("/ by zero") with
+                    // no indication of which expression produced it. MOD already reports this as
+                    // a TransformException; do the same here, and name the expression.
+                    throw new TransformException(
+                            CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                            String.format("Division by zero in expression: %s", binaryExpression));
+                }
                 DecimalType decimalType = (DecimalType) resultType;
                 return leftBigDecimal.divide(
                         rightBigDecimal, decimalType.getScale(), RoundingMode.HALF_UP);
