@@ -130,10 +130,15 @@ public class HttpClientProvider implements AutoCloseable {
 
         // Preserve a configured POST body verbatim. Parsing it as HOCON and serializing the
         // resulting map again flattens nested JSON keys (for example, data.type becomes
-        // data->type) before the request is sent.
+        // data->type) before the request is sent. This only applies when the caller did not
+        // explicitly request a form-encoded body via Content-Type, in which case the legacy
+        // HOCON-to-form-parameter conversion below must still run to keep existing jobs
+        // (which configure a JSON-shaped body together with Content-Type
+        // application/x-www-form-urlencoded) working.
         if (HttpPost.METHOD_NAME.equals(method)
                 && !keepParamsAsForm
-                && !Strings.isNullOrEmpty(body)) {
+                && !Strings.isNullOrEmpty(body)
+                && !isFormContentType(headers)) {
             return doPost(url, headers, params, body);
         }
 
@@ -687,6 +692,17 @@ public class HttpClientProvider implements AutoCloseable {
             return;
         }
         headers.forEach(request::addHeader);
+    }
+
+    private static boolean isFormContentType(Map<String, String> headers) {
+        if (MapUtils.isEmpty(headers)) {
+            return false;
+        }
+        return headers.entrySet().stream()
+                .filter(entry -> HTTP.CONTENT_TYPE.equalsIgnoreCase(entry.getKey()))
+                .map(Map.Entry::getValue)
+                .filter(Objects::nonNull)
+                .anyMatch(value -> APPLICATION_FORM.equalsIgnoreCase(value.trim()));
     }
 
     static void addBody(HttpEntityEnclosingRequestBase request, Map<String, Object> body)

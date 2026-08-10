@@ -145,6 +145,43 @@ class HttpClientProviderTest {
         Assertions.assertEquals("traceId=123", receivedQuery.get());
     }
 
+    @Test
+    void executeConvertsBodyToFormWhenContentTypeIsFormUrlencoded() throws Exception {
+        AtomicReference<String> receivedBody = new AtomicReference<>();
+        AtomicReference<String> receivedContentType = new AtomicReference<>();
+        server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
+        server.createContext(
+                "/formBody",
+                exchange -> {
+                    receivedBody.set(readRequestBody(exchange.getRequestBody()));
+                    receivedContentType.set(exchange.getRequestHeaders().getFirst("Content-Type"));
+                    exchange.sendResponseHeaders(200, -1);
+                    exchange.close();
+                });
+        server.start();
+
+        HttpParameter parameter = new HttpParameter();
+        parameter.setConnectTimeoutMs(1_000);
+        parameter.setSocketTimeoutMs(1_000);
+        httpClientProvider = new HttpClientProvider(parameter);
+        String body = "{id=1}";
+
+        HttpResponse response =
+                httpClientProvider.execute(
+                        "http://127.0.0.1:" + server.getAddress().getPort() + "/formBody",
+                        "POST",
+                        Collections.singletonMap(
+                                "Content-Type", "application/x-www-form-urlencoded"),
+                        Collections.emptyMap(),
+                        body,
+                        false);
+
+        Assertions.assertEquals(200, response.getCode());
+        // Body must be form-encoded (legacy behaviour for keepParamsAsForm=false + form CT)
+        Assertions.assertEquals("id=1", receivedBody.get());
+        Assertions.assertEquals("application/x-www-form-urlencoded", receivedContentType.get());
+    }
+
     private String readRequestBody(InputStream inputStream) throws IOException {
         ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
         byte[] buffer = new byte[256];
