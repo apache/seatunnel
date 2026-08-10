@@ -281,6 +281,7 @@ const sidebars = {
                         "engines/zeta/telemetry",
                         "engines/zeta/busyness-and-backpressure",
                         "engines/zeta/slot-allocation-strategy",
+                        "engines/zeta/benchmark",
                         "engines/zeta/tuning-guide"
                     ]
                 },
