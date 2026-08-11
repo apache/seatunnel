@@ -90,6 +90,27 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
             SourceReaderOptions options,
             SourceReader.Context context,
             C sourceConfig,
+            DebeziumDeserializationSchema<T> debeziumDeserializationSchema) {
+        this(
+                dataSourceDialect,
+                elementsQueue,
+                splitReaderSupplier,
+                recordEmitter,
+                options,
+                context,
+                sourceConfig,
+                debeziumDeserializationSchema,
+                createLegacyProgressTracker(recordEmitter));
+    }
+
+    public IncrementalSourceReader(
+            DataSourceDialect<C> dataSourceDialect,
+            BlockingQueue<RecordsWithSplitIds<SourceRecords>> elementsQueue,
+            Supplier<IncrementalSourceSplitReader<C>> splitReaderSupplier,
+            RecordEmitter<SourceRecords, T, SourceSplitStateBase> recordEmitter,
+            SourceReaderOptions options,
+            SourceReader.Context context,
+            C sourceConfig,
             DebeziumDeserializationSchema<T> debeziumDeserializationSchema,
             CdcReaderProgressTracker cdcProgressTracker) {
         super(
@@ -104,6 +125,17 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
         this.subtaskId = context.getIndexOfSubtask();
         this.debeziumDeserializationSchema = debeziumDeserializationSchema;
         this.cdcProgressTracker = cdcProgressTracker;
+    }
+
+    private static <T> CdcReaderProgressTracker createLegacyProgressTracker(
+            RecordEmitter<SourceRecords, T, SourceSplitStateBase> recordEmitter) {
+        CdcReaderProgressTracker progressTracker =
+                new CdcReaderProgressTracker("UNKNOWN", "UNKNOWN");
+        if (recordEmitter instanceof IncrementalSourceRecordEmitter) {
+            ((IncrementalSourceRecordEmitter<?>) recordEmitter)
+                    .setCdcProgressTracker(progressTracker);
+        }
+        return progressTracker;
     }
 
     @Override
