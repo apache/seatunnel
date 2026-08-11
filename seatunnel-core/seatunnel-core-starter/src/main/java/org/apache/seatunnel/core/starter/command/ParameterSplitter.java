@@ -19,13 +19,19 @@ package org.apache.seatunnel.core.starter.command;
 import com.beust.jcommander.converters.IParameterSplitter;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public class ParameterSplitter implements IParameterSplitter {
 
-    @Override
-    public List<String> split(String value) {
+    private static final Set<Character> START_DELIMITERS =
+            new HashSet<>(Arrays.asList('=', ':', '{', '[', ','));
+    private static final Set<Character> END_DELIMITERS =
+            new HashSet<>(Arrays.asList(',', '}', ']', ':'));
 
+    public List<String> split(String value) {
         List<String> result = new ArrayList<>();
         StringBuilder currentToken = new StringBuilder();
         boolean insideQuotes = false;
@@ -35,34 +41,54 @@ public class ParameterSplitter implements IParameterSplitter {
         for (int i = 0; i < value.length(); i++) {
             char c = value.charAt(i);
 
-            if (c == '\\' && i + 1 < value.length()) {
-                char next = value.charAt(i + 1);
-                if (next == '"') {
-                    currentToken.append(next);
-                } else {
-                    currentToken.append('\\');
-                    currentToken.append(next);
-                }
-                i++;
+            if (c == '"') {
+                char prev = (i > 0) ? value.charAt(i - 1) : 0;
+                char beforePrev = (i > 1) ? value.charAt(i - 2) : 0;
+                char next = (i + 1 < value.length()) ? value.charAt(i + 1) : 0;
+                char afterNext = (i + 2 < value.length()) ? value.charAt(i + 2) : 0;
 
+                // 起始包裹符：左侧是起始分隔符，或位于行首
+                boolean isStartWrapper =
+                        !insideQuotes
+                                && (i == 0
+                                        || START_DELIMITERS.contains(prev)
+                                        || (prev == ' '
+                                                && START_DELIMITERS.contains(beforePrev)) // 防御性
+                                );
+
+                // 结束包裹符：右侧是结束分隔符，或位于行尾
+                boolean isEndWrapper =
+                        insideQuotes
+                                && (i == value.length() - 1
+                                        || END_DELIMITERS.contains(next)
+                                        || (next == ' '
+                                                && END_DELIMITERS.contains(afterNext)) // 防御性
+                                );
+
+                if (isStartWrapper) {
+                    insideQuotes = true;
+                } else if (isEndWrapper) {
+                    insideQuotes = false;
+                }
+                // 其他情况（内容中的双引号）不切换状态
+
+                currentToken.append(c);
                 continue;
             }
 
-            if (c == '"') {
-                insideQuotes = !insideQuotes;
-            } else if (!insideQuotes) {
+            if (!insideQuotes) {
                 if (c == '{') {
                     braceDepth++;
                 } else if (c == '}' && braceDepth > 0) {
                     braceDepth--;
                 } else if (c == '}' && braceDepth == 0) {
-                    throw new IllegalArgumentException("Unexpected closing brace '}': " + value);
+                    throw new IllegalArgumentException("Unexpected closing brace '}'");
                 } else if (c == '[') {
                     bracketDepth++;
                 } else if (c == ']' && bracketDepth > 0) {
                     bracketDepth--;
                 } else if (c == ']' && braceDepth == 0) {
-                    throw new IllegalArgumentException("Unexpected closing bracket ']': " + value);
+                    throw new IllegalArgumentException("Unexpected closing bracket ']'");
                 }
             }
 
@@ -78,7 +104,7 @@ public class ParameterSplitter implements IParameterSplitter {
             result.add(currentToken.toString().trim());
         }
 
-        if (braceDepth != 0 || bracketDepth != 0 || insideQuotes) {
+        if (insideQuotes) {
             throw new IllegalArgumentException(
                     "Invalid variable value '"
                             + value
