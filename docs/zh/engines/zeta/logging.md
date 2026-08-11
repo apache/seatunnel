@@ -92,6 +92,8 @@ SeaTunnel 提供了一个 API，用于查询日志。
 
 有关详细信息，请参阅 [REST-API](rest-api-v2.md)。
 
+有关收集、脱敏和分析运行日志的流程，请参阅[使用 AI 辅助诊断运行日志](log-analysis-with-ai.md)。
+
 ## SeaTunnel 日志配置
 
 ### 定时删除旧日志

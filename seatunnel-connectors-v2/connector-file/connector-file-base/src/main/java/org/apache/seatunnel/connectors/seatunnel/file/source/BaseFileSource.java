@@ -130,7 +130,9 @@ public abstract class BaseFileSource
     }
 
     private CatalogTable buildCatalogTableForEmptyPath(String path, FileFormat fileFormat) {
-        if (fileFormat != FileFormat.BINARY && fileFormat != FileFormat.MARKDOWN) {
+        if (fileFormat != FileFormat.BINARY
+                && fileFormat != FileFormat.MARKDOWN
+                && fileFormat != FileFormat.PDF) {
             // Preserve the legacy simple-text fallback for formats that still infer schema from
             // the first concrete file.
             return CatalogTableUtil.buildSimpleTextTable();
