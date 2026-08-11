@@ -24,7 +24,7 @@
 - 以结构化方式保留时间、消息、堆栈和异常类型，不解析展示文本；
 - 在 master 切换和 pipeline 恢复后继续保留；
 - 随现有 finished job 历史策略过期；
-- 为兼容性保留现有单一 `errorMessage` 字段。
+- 为兼容性保留现有单一 `errorMsg` 字段。
 
 第一阶段不增加日志聚合、分布式追踪或无界异常归档。Web UI 应在后端契约确定后单独实现。
 
@@ -36,6 +36,8 @@ Attempt 属于 pipeline，而不是单个 task。
 - 在调度恢复前递增 attempt；
 - 同一次执行中捕获的所有失败使用相同的 attempt；
 - 当前 attempt 必须写入 HA 状态，避免新的 active master 从 `0` 重新编号。
+
+`SubPlan.pipelineRestoreNum` 是当前对应这一边界的内存计数器。实现必须将该计数器改为 HA 持久化，并将其作为唯一权威的 attempt 值，不能再引入第二个计数器。新的 active master 必须在调度或记录下一次 attempt 前恢复该值，恢复次数限制、失败记录和 REST 响应都读取同一个值。
 
 该模型与现有 pipeline 恢复边界一致，也不会引入引擎当前没有提供的 task 级重试语义。
 
@@ -57,7 +59,9 @@ Attempt 属于 pipeline，而不是单个 task。
   "worker": "10.0.0.12:5801",
   "exceptionType": "java.sql.SQLException",
   "message": "Connection reset",
-  "stackTrace": "java.sql.SQLException: Connection reset\n..."
+  "messageTruncated": false,
+  "stackTrace": "java.sql.SQLException: Connection reset\n...",
+  "stackTraceTruncated": false
 }
 ```
 
@@ -66,20 +70,22 @@ Attempt 属于 pipeline，而不是单个 task。
 - `sequence` 在单个作业内单调递增，在时间戳相同时提供确定顺序；
 - `timestamp`、`jobId`、`pipelineId`、`attempt` 和 `taskGroupId` 为必填；
 - `taskId`、`taskName`、`worker`、`exceptionType`、`message` 和 `stackTrace` 为可选，因为旧路径或合成失败路径可能无法提供；
+- `messageTruncated` 和 `stackTraceTruncated` 为必填布尔值，用于说明对应内容是否在存储前被截断；
 - `exceptionType` 必须来自结构化失败传输，不能通过解析格式化堆栈推断；
 - `stackTrace` 保留诊断细节，`message` 用于简短展示。
+- 存储的 UTF-8 内容中，`message` 上限为 4 KiB，`stackTrace` 上限为 64 KiB。截断必须保持 UTF-8 有效。截断消息保留开头，截断堆栈同时保留开头和结尾，以便保留异常信息和最深层 cause。
 
 ## 捕获与去重
 
 `TaskExecutionState` 是 task 到 master 的自然传输边界。实现应扩展这条传输路径，增加结构化失败字段，并在释放 task 资源之前由 JobMaster 捕获记录。
 
-重复收到同一个 task group 的终态不应生成重复记录。第一版可以使用 `(pipelineId, attempt, taskGroupId)` 去重，因为一个 task group 在一次 pipeline attempt 中只上报一个终态失败。后续重试使用不同 attempt，因此仍然可见。
+重复收到同一个 task group 的终态不应生成重复记录。第一版使用 `(pipelineId, attempt, taskGroupId)` 去重，因为一个 task group 在一次 pipeline attempt 中只有一个终态失败。写入 HA 存储必须是原子的：第一次终态上报创建记录并分配 sequence，相同 key 的后续上报直接忽略且不消耗新的 sequence。同一 attempt 中不同 task group 的失败分别保留，恢复后的失败使用新的 attempt，因此仍然可见。
 
 历史记录属于尽力而为的诊断能力。存储失败需要记录日志，但不能阻塞原始失败处理或恢复决策。
 
 ## 存储与保留
 
-失败历史应使用以 `jobId` 为 key 的独立分布式 map。这样运行中和已完成作业可以使用同一个数据源，并在 active master 切换后保留数据。
+失败历史应使用以 `jobId` 为 key 的独立 HA 状态存储条目。这样运行中作业使用一个权威数据源，并在 active master 切换后保留数据，同时避免公共契约直接依赖 Hazelcast `IMap`。
 
 第一版使用以下边界：
 
@@ -89,6 +95,10 @@ Attempt 属于 pipeline，而不是单个 task。
 - 作业进入终态后，使用 `JobHistoryService` 现有的 `history-job-expire-minutes` 策略。
 
 初始上限应使用常量，不新增用户配置。如果实际运行数据证明 100 条不足，可以后续增加可配置项。
+
+作业进入终态时，历史层通过 `JobHistoryService` 使用的同一历史存储抽象写入一个有界快照。该快照包含保留的失败记录和权威 pipeline attempt 值，并沿用 finished job 记录的 `history-job-expire-minutes` 生命周期，在对应记录过期时一并删除。外部历史后端同样保存一个有界快照，而不是为每个失败创建一个对象。
+
+终态快照写入采用尽力而为语义。写入或清理失败必须记录日志，但不能改变作业终态、恢复行为或现有 finished job 记录。运行中和已完成作业虽然存储生命周期不同，但读取时使用同一个响应模型。
 
 ## REST 契约
 
@@ -105,9 +115,9 @@ GET /job-info/{jobId}/failures?limit=100
 - 请求值不能超过保留上限；
 - 已知但没有失败记录的作业返回空列表；
 - 未知或已过期作业沿用现有 job-not-found 行为；
-- 运行中和已完成作业读取同一个存储。
+- 运行中和已完成作业通过同一个历史存储抽象读取。
 
-现有 job detail 响应和 `errorMessage` 字段保持不变，在 Web UI 单独接入历史端点前继续兼容现有客户端。
+现有 job detail 响应和 `errorMsg` 字段保持不变，在 Web UI 单独接入历史端点前继续兼容现有客户端。
 
 ## Web UI 后续工作
 
@@ -133,8 +143,10 @@ Exception tab 可以在单独变更中接入 REST 端点。第一版 UI 应按 a
 5. master 切换后记录和下一个 attempt 编号保持不变；
 6. 已完成作业在配置的历史过期时间内可以查询相同记录；
 7. 超过 100 条记录后按确定顺序删除最旧记录；
-8. 写入失败历史时发生错误，不改变作业失败或恢复流程；
-9. 现有 job detail 客户端继续收到当前 `errorMessage` 字段。
+8. 超过 4 KiB 的消息和超过 64 KiB 的堆栈在有效 UTF-8 边界截断，并提供对应的截断标记；
+9. 作业进入终态时写入一个有界历史快照，该快照随对应的 `JobHistoryService` 记录过期；
+10. 写入或清理失败历史时发生错误，不改变作业失败、恢复或终态流程；
+11. 现有 job detail 客户端继续收到当前 `errorMsg` 字段。
 
 ## 交付计划
 

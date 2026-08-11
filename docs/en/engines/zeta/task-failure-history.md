@@ -24,7 +24,7 @@ It should:
 - preserve timestamp, message, stack trace, and exception type without parsing display text;
 - survive master failover and pipeline restore;
 - expire with the existing finished-job history policy; and
-- keep the existing single `errorMessage` field for compatibility.
+- keep the existing single `errorMsg` field for compatibility.
 
 The first implementation should not add log aggregation, distributed tracing, or an unbounded exception archive. The Web UI is a follow-up after the backend contract is agreed.
 
@@ -36,6 +36,8 @@ An attempt belongs to a pipeline, not to an individual task.
 - The attempt increments before a restore is scheduled.
 - Every failure captured during that execution carries the same attempt number.
 - The current attempt must be stored in HA state so a new active master does not restart numbering at `0`.
+
+`SubPlan.pipelineRestoreNum` is the existing in-memory counter for this boundary. The implementation must make that counter HA-durable and use it as the single authoritative attempt value. It must not introduce a second counter. A new active master restores the value before scheduling or recording another attempt, and all restore-limit checks, failure records, and REST responses read the same value.
 
 This matches the existing pipeline restore boundary and avoids inventing task-level retry semantics that the engine does not currently expose.
 
@@ -57,7 +59,9 @@ The proposed REST representation is:
   "worker": "10.0.0.12:5801",
   "exceptionType": "java.sql.SQLException",
   "message": "Connection reset",
-  "stackTrace": "java.sql.SQLException: Connection reset\n..."
+  "messageTruncated": false,
+  "stackTrace": "java.sql.SQLException: Connection reset\n...",
+  "stackTraceTruncated": false
 }
 ```
 
@@ -66,20 +70,22 @@ Field rules:
 - `sequence` is monotonically increasing within one job and provides deterministic ordering when timestamps are equal.
 - `timestamp`, `jobId`, `pipelineId`, `attempt`, and `taskGroupId` are required.
 - `taskId`, `taskName`, `worker`, `exceptionType`, `message`, and `stackTrace` are optional because older or synthetic failure paths may not provide them.
+- `messageTruncated` and `stackTraceTruncated` are required booleans. They indicate whether the corresponding value was shortened before storage.
 - `exceptionType` must come from structured failure transport. It must not be inferred by parsing the formatted stack trace.
 - `stackTrace` remains the diagnostic detail; `message` is the concise display value.
+- The stored UTF-8 representation is limited to 4 KiB for `message` and 64 KiB for `stackTrace`. Truncation must preserve valid UTF-8. A truncated message keeps its prefix. A truncated stack trace keeps both its beginning and end so the exception and the deepest cause remain available.
 
 ## Capture and Deduplication
 
 `TaskExecutionState` is the natural task-to-master transport boundary. The implementation should extend that transport with structured failure fields and capture the record in the JobMaster before task resources are released.
 
-Repeated delivery of the same terminal task-group state must not create duplicate rows. The first implementation can deduplicate on `(pipelineId, attempt, taskGroupId)`, because a task group reports one terminal failure for one pipeline attempt. A later retry has a different attempt number and remains visible.
+Repeated delivery of the same terminal task-group state must not create duplicate rows. The first implementation deduplicates on `(pipelineId, attempt, taskGroupId)`, because a task group has one terminal failure for one pipeline attempt. Insertion into the HA-backed store must be atomic: the first terminal delivery creates the record and receives a sequence number, while later deliveries with the same key are ignored without consuming another sequence number. A different task group in the same attempt remains separate, and a failure after restore has a different attempt number and remains visible.
 
 Recording history is diagnostic and best effort. A history-store failure must be logged, but it must not block the original task failure or restore decision.
 
 ## Storage and Retention
 
-Failure history should use a dedicated distributed map keyed by `jobId`. This gives the running and finished job paths one source of truth and preserves data during active-master changes.
+Failure history should use a dedicated HA-backed state-store entry keyed by `jobId`. This gives the running job path one source of truth and preserves data during active-master changes without making the public contract depend on Hazelcast `IMap`.
 
 The first version uses these bounds:
 
@@ -89,6 +95,10 @@ The first version uses these bounds:
 - after the job reaches a terminal state, apply the existing `history-job-expire-minutes` policy used by `JobHistoryService`.
 
 The initial limit should be a constant rather than a new user option. A configurable limit can be added later if operational evidence shows that 100 records is insufficient.
+
+When a job reaches a terminal state, the history layer writes one bounded snapshot containing the retained records and authoritative pipeline attempt values through the same history-store abstraction used by `JobHistoryService`. The snapshot follows the finished job record's `history-job-expire-minutes` lifecycle and is removed when that record expires. External history backends persist the same single bounded snapshot rather than one object per failure.
+
+The terminal snapshot write is best effort. A write or cleanup failure must be logged, but must not change the job terminal state, restore behavior, or existing finished-job record. Running and finished reads use the same response model even though their storage lifecycle differs.
 
 ## REST Contract
 
@@ -105,9 +115,9 @@ Behavior:
 - cap requested limits at the retained maximum;
 - return an empty list for a known job with no failures;
 - use the existing job-not-found behavior for an unknown or expired job; and
-- read from the same store for running and finished jobs.
+- read through the same history-store abstraction for running and finished jobs.
 
-The current job-detail response and its `errorMessage` field remain unchanged. This keeps existing clients compatible while the UI adopts the history endpoint separately.
+The current job-detail response and its `errorMsg` field remain unchanged. This keeps existing clients compatible while the UI adopts the history endpoint separately.
 
 ## Web UI Follow-up
 
@@ -133,8 +143,10 @@ The feature is additive:
 5. A master failover preserves records and the next attempt number.
 6. A finished job exposes the same records until the configured history expiration.
 7. More than 100 failures evicts the oldest records deterministically.
-8. Failure-history write errors do not change the job failure or restore path.
-9. Existing job-detail clients continue to receive the current `errorMessage` field.
+8. Messages larger than 4 KiB and stack traces larger than 64 KiB are truncated at valid UTF-8 boundaries and expose the corresponding truncation flag.
+9. A terminal job writes one bounded history snapshot that expires with its `JobHistoryService` record.
+10. Failure-history write or cleanup errors do not change the job failure, restore, or terminal-state path.
+11. Existing job-detail clients continue to receive the current `errorMsg` field.
 
 ## Delivery Plan
 
