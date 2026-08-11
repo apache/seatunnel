@@ -16,8 +16,6 @@
  */
 package org.apache.seatunnel.connectors.seatunnel.cdc.oracle;
 
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
-
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.EngineType;
@@ -68,8 +66,6 @@ public class OracleCDCIT extends AbstractOracleCDCIT implements TestResource {
     @BeforeAll
     @Override
     public void startUp() throws Exception {
-        ORACLE_CONTAINER.setPortBindings(
-                Lists.newArrayList(String.format("%s:%s", ORACLE_PORT, ORACLE_PORT)));
         log.info("Starting Oracle containers...");
         Startables.deepStart(Stream.of(ORACLE_CONTAINER)).join();
         log.info("Oracle containers are started.");
