@@ -147,7 +147,7 @@ Assert 是一个终端 sink —— 没有外部存储系统可以写入。它适
 
 ## 流式校验
 
-Assert 同时支持 `BATCH` 与 `STREAMING` 两种作业模式。在流式模式下，行数规则（`MIN_ROW` / `MAX_ROW`）只在每个 checkpoint 窗口结束时检查一次，字段规则则会对每一条记录进行检查。
+Assert 同时支持 `BATCH` 与 `STREAMING` 两种作业模式。字段规则（如 `NOT_NULL`、`MIN_LENGTH`、`MAX_LENGTH` 等）会在每一条记录到达 Sink Writer 时进行检查；行数规则（`MIN_ROW` / `MAX_ROW`）只在 Sink Writer 关闭时（作业关闭、savepoint 或失败时）执行一次，对比的是该 Writer 实例自创建以来累计接收的总行数，既不会按 checkpoint 窗口重复校验，也不会在 checkpoint 之间重置。如果需要真正按 checkpoint 窗口的行数校验，这超出了文档更新范围，需要改动源代码。
 
 ## 示例
 
@@ -647,7 +647,7 @@ sink {
 
 ### 流式校验并按 Checkpoint 窗口断言行数
 
-在流式模式下，每个 checkpoint 窗口会重新对 `MIN_ROW` / `MAX_ROW` 进行一次检查，对比自上一个 checkpoint 以来收到的记录数。下面的示例要求每个 checkpoint 收到的记录数在 50 到 5000 之间。
+下面的示例演示一个流式作业：作业结束时累计行数满足 `MIN_ROW` / `MAX_ROW` 区间（`50 ≤ 总行数 ≤ 5000`）。该校验只在 Writer 关闭时执行一次，对比累计行数，并不是按 checkpoint 窗口重复执行。
 
 ```hocon
 env {

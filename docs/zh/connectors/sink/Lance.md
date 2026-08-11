@@ -88,7 +88,7 @@ Lance namespace 的根目录。SeaTunnel 运行用户需要有权限在该目录
 
 ### lance.write.enable.stable.row.ids
 
-控制 Lance 是否为写入的行分配稳定的 row ID。稳定的 row ID 可以让后续查询和 join 在数据集的不同版本上识别到同一行；如果不需要稳定的行标识、希望略微提升写入速度，可以关闭它。
+写入 Lance 时是否启用稳定的 row ID。连接器会把这个选项读入 `LanceSinkConfig.enableStableRowIds`，并通过 `getEnableStableRowIds()` 暴露，但**当前实现中该值仅被解析，还未真正传入底层的 Lance `WriteParams`**（`LanceSinkWriter.initializeDataset()` 构造的 `WriteParams` 不包含这个开关），目前切换它对写入路径没有可见效果。这是一项已知的缺口，需要后续连接器提交来补齐。
 
 ### lance.write.storage.options
 

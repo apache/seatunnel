@@ -105,7 +105,7 @@ Sink plugin common parameters, please refer to [Sink Common Options](../common-o
 - The sink does not interpret `UPDATE` or `DELETE` row kinds as CDC operations — every row triggers a Firestore `add` call that produces a new document.
 - Do not put raw service account JSON directly in `credentials`; encode it with Base64 first.
 - Field names in the upstream SeaTunnel schema become Firestore document field names.
-- The connector works in both `BATCH` and `STREAMING` job modes. In streaming mode every checkpoint flushes the in-memory write buffer before the commit returns.
+- The connector works in both `BATCH` and `STREAMING` job modes. In the current implementation `FirestoreSinkWriter.write()` calls the Firestore client's `add(...)` once per row and does not buffer or batch rows, so there is no in-memory write buffer to flush at checkpoint boundaries; checkpoint completion does not imply that all previously written rows have reached Firestore.
 
 ## Task Example
 
@@ -156,7 +156,7 @@ sink {
 }
 ```
 
-### Streaming write with checkpoint flush
+### Streaming write with checkpoint interval
 
 ```hocon
 env {

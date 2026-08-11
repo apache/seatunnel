@@ -146,7 +146,7 @@ The Assert sink is a terminal sink — it has no external system to write to. Us
 
 ## Streaming Validation
 
-Assert works in both `BATCH` and `STREAMING` job modes. In streaming mode, the row count rules (`MIN_ROW` / `MAX_ROW`) are only checked once per checkpoint window, while field rules are checked on every row.
+Assert works in both `BATCH` and `STREAMING` job modes. Field rules (`NOT_NULL`, `MIN_LENGTH`, `MAX_LENGTH`, etc.) are checked on every row as it arrives at the sink writer. Row count rules (`MIN_ROW` / `MAX_ROW`) are evaluated **exactly once** when the sink writer closes (at job shutdown, savepoint, or failure), against the cumulative row count observed by that writer instance since it was created — not per checkpoint window, and not reset between checkpoints. If you need per-checkpoint-window row-count validation, that requires a source code change (out of scope for a docs update).
 
 ## Example
 
@@ -646,7 +646,7 @@ sink {
 
 ### Stream Validation With Checkpoint Window
 
-In streaming mode, every checkpoint window re-checks the `MIN_ROW` / `MAX_ROW` window against the rows received since the previous checkpoint. The example below asserts that every checkpoint receives at least 50 and at most 5000 rows.
+The example below shows a streaming job that ends with the row count satisfying the cumulative `MIN_ROW` / `MAX_ROW` window (`50 ≤ total rows ≤ 5000`). The check runs once at writer close against the cumulative count, not per checkpoint window.
 
 ```hocon
 env {

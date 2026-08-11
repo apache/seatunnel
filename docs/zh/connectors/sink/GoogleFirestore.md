@@ -103,7 +103,7 @@ Sink 插件通用参数，请参考 [Sink 通用选项](../common-options/sink-c
 - sink 不会按 `UPDATE` 或 `DELETE` 行类型执行 CDC 语义 —— 每条记录都会触发一次 Firestore `add` 调用生成新文档。
 - `credentials` 不能直接填写服务账号 JSON 原文，需要先做 Base64 编码。
 - 上游 SeaTunnel schema 中的字段名会作为 Firestore 文档字段名。
-- 连接器同时支持 `BATCH` 与 `STREAMING` 两种作业模式。在流式模式下，每个 checkpoint 在 commit 前都会先把内存中的写缓冲写入 Firestore。
+- 连接器同时支持 `BATCH` 与 `STREAMING` 两种作业模式。在当前实现中，`FirestoreSinkWriter.write()` 对每一条记录直接调用一次 Firestore 客户端的 `add(...)`，并不会缓冲或批量写入，因此并没有“checkpoint 前把内存写缓冲刷到 Firestore”这一行为；checkpoint 完成并不意味着之前调用过的所有写入都已真正到达 Firestore。
 
 ## 任务示例
 
@@ -154,7 +154,7 @@ sink {
 }
 ```
 
-### 流式写入并按 Checkpoint 刷新
+### 流式写入并启用 Checkpoint 间隔
 
 ```hocon
 env {

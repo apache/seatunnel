@@ -55,7 +55,7 @@ The Bigtable table name to write to. Example: `"my-table"`. The connector does n
 
 Column names used to compose the Bigtable row key. Example: `["id"]` or `["tenant", "id"]`.
 
-When multiple columns are specified they are joined with `rowkey_delimiter`. Each row-key column must not be `null`; rows with a missing or empty row key fail the job with `WRITE_FAILED`.
+When multiple columns are specified they are joined with `rowkey_delimiter`. With a single row-key column, a null or empty value fails the job with `WRITE_FAILED`. With multiple row-key columns, a null value in any non-last column silently becomes an empty segment in the composed row key (joined by `rowkey_delimiter`); only when the entire composed key is empty does the job fail.
 
 ### column_family [config]
 
@@ -117,7 +117,7 @@ Data save mode. Only `APPEND_DATA` is supported now.
 
 ### multi_table_sink_replica [int]
 
-The number of sink replicas used for multi-table writing. For details, see [Sink Common Options](../common-options/sink-common-options.md). The Bigtable sink writer supports dynamic table routing, so this option takes effect in multi-table jobs.
+The number of sink replicas used for multi-table writing. For details, see [Sink Common Options](../common-options/sink-common-options.md). `multi_table_sink_replica` increases the number of parallel writer replicas within a single sink instance; the target Bigtable table is fixed by the `table` option and is not derived per upstream table.
 
 ### common options
 

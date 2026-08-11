@@ -64,7 +64,7 @@ Path to the Google Cloud service account JSON key file. If omitted, Application 
 
 Optional list of field names that should receive the row key value. If this option is not set, the connector uses a schema field named `rowkey` as the row-key field.
 
-Each listed field must be declared in the source `schema.fields` block as either `BYTES` (raw row key bytes) or `STRING` (UTF-8 decoded row key). Mixing types in the same scan is not supported; the chosen type applies to every row-key field.
+Each listed field is decoded independently according to its own declared type in `schema.fields`: `BYTES` receives the raw row-key bytes; `STRING` receives a UTF-8 decoded view. Different row-key fields can therefore use different types in the same scan (for example one field exposing the raw key bytes for downstream binary processing, another exposing a UTF-8 view).
 
 ### start_rowkey [string]
 

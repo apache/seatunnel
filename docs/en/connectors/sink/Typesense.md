@@ -62,7 +62,7 @@ The `api_key` for secure access to Typesense. Treat this value as a secret and p
 
 ### max_retry_count [int]
 
-The maximum number of retry attempts for one batch request. The connector retries only on transient bulk-request failures (network errors and 5xx responses).
+The maximum number of retry attempts for one batch request. The retry predicate is `exception -> true`, so the connector retries on every exception thrown by `typesenseClient.insert(...)` (network errors, timeouts, and Typesense error responses alike) up to `max_retry_count` times with a fixed 200 ms backoff; it does not currently distinguish transient from permanent failures.
 
 ### max_batch_size [int]
 

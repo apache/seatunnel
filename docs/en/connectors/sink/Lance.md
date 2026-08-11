@@ -94,10 +94,7 @@ supported by Lance `WriteParams.WriteMode`: `CREATE`, `APPEND`, or `OVERWRITE`.
 
 ### lance.write.enable.stable.row.ids
 
-Controls whether Lance assigns stable row IDs to the written rows. Stable row
-IDs let later queries and joins identify the same row across versions of the
-dataset; disable this only when you do not need stable row identity and want
-slightly faster writes.
+Whether to enable stable row IDs when writing Lance data. The connector reads this option into `LanceSinkConfig.enableStableRowIds` and exposes it via `getEnableStableRowIds()`, but **the value is currently parsed but not yet applied to the underlying Lance `WriteParams`** in `LanceSinkWriter.initializeDataset()` — toggling it has no observable effect on the write path today. This is a known gap pending a follow-up connector change.
 
 ### lance.write.storage.options
 

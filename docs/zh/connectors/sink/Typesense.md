@@ -60,7 +60,7 @@ Typesense 安全认证的 `api_key`。请把它当作敏感凭据处理；在共
 
 ### max_retry_count [int]
 
-单个批量请求的最大重试次数。连接器只对瞬时失败（网络错误和 5xx 响应）做重试。
+单个批量请求的最大重试次数。重试谓词为 `exception -> true`，也就是说 `typesenseClient.insert(...)` 抛出的任何异常（网络错误、超时以及 Typesense 业务错误响应）都会被同样重试，最多执行 `max_retry_count` 次，每次间隔固定的 200 ms；当前实现并不会区分瞬时错误和永久错误。
 
 ### max_batch_size [int]
 

@@ -53,7 +53,7 @@ Bigtable 实例 ID，例如 `"my-bigtable-instance"`。
 
 ### rowkey_column [list]
 
-用于构造行键的列名列表，例如 `["id"]` 或 `["tenant_id", "event_id"]`。多列时用 `rowkey_delimiter` 拼接。每个行键列都不能为 `null`，如果某一行缺少或得到空行键，作业会直接以 `WRITE_FAILED` 失败。
+用于构造行键的列名列表，例如 `["id"]` 或 `["tenant_id", "event_id"]`。多列时用 `rowkey_delimiter` 拼接。当只有一个行键列时，值为 `null` 或空字符串会让作业直接以 `WRITE_FAILED` 失败；当配置了多个行键列时，非末尾列为 `null` 会被静默转成空串并通过 `rowkey_delimiter` 拼接到组合行键中，只有当整条组合行键最终为空时作业才会失败。
 
 ### column_family [config]
 
@@ -110,7 +110,7 @@ Schema 保存模式。当前只支持 `RECREATE_SCHEMA`。
 
 ### multi_table_sink_replica [int]
 
-多表写入时使用的 Sink 副本数。Bigtable Sink Writer 支持按表路由，所以该选项在多表作业中会真正生效。更多说明请参考 [Sink Common Options](../common-options/sink-common-options.md)。
+多表写入时使用的 Sink 副本数。`multi_table_sink_replica` 用于在单个 Sink 实例中增加并行写入副本数；目标 Bigtable 表由 `table` 选项固定，不会根据上游表名动态切换。更多说明请参考 [Sink Common Options](../common-options/sink-common-options.md)。
 
 ### common options
 
