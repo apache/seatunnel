@@ -69,6 +69,7 @@ Field rules:
 
 - `sequence` is monotonically increasing within one job and provides deterministic ordering when timestamps are equal.
 - `timestamp`, `jobId`, `pipelineId`, `attempt`, and `taskGroupId` are required.
+- `attemptStartedAt` is optional because a failure can occur before the pipeline reaches `RUNNING`. When available, it is the persisted start time for that pipeline attempt and has the same value for every record with the same `pipelineId` and `attempt`. It is distinct from `timestamp`, which records when the individual failure was captured.
 - `taskId`, `taskName`, `worker`, `exceptionType`, `message`, and `stackTrace` are optional because older or synthetic failure paths may not provide them.
 - `messageTruncated` and `stackTraceTruncated` are required booleans. They indicate whether the corresponding value was shortened before storage.
 - `exceptionType` must come from structured failure transport. It must not be inferred by parsing the formatted stack trace.
@@ -85,7 +86,7 @@ Recording history is diagnostic and best effort. A history-store failure must be
 
 ## Storage and Retention
 
-Failure history should use a dedicated HA-backed state-store entry keyed by `jobId`. This gives the running job path one source of truth and preserves data during active-master changes without making the public contract depend on Hazelcast `IMap`.
+Failure history should use a dedicated HA-backed engine state entry keyed by `jobId`. The first implementation can use a dedicated Hazelcast `IMap`, consistent with the engine's existing running-job state. The REST representation remains independent of that storage choice.
 
 The first version uses these bounds:
 
@@ -96,7 +97,7 @@ The first version uses these bounds:
 
 The initial limit should be a constant rather than a new user option. A configurable limit can be added later if operational evidence shows that 100 records is insufficient.
 
-When a job reaches a terminal state, the history layer writes one bounded snapshot containing the retained records and authoritative pipeline attempt values through the same history-store abstraction used by `JobHistoryService`. The snapshot follows the finished job record's `history-job-expire-minutes` lifecycle and is removed when that record expires. External history backends persist the same single bounded snapshot rather than one object per failure.
+When a job reaches a terminal state, `JobHistoryService` writes the retained records and authoritative pipeline attempt values to a dedicated finished-history entry. This reuses the existing finished-job lifecycle and `history-job-expire-minutes` semantics; it does not assume a separate or pluggable history-store abstraction. The failure-history entry is removed when the corresponding finished-job record expires.
 
 The terminal snapshot write is best effort. A write or cleanup failure must be logged, but must not change the job terminal state, restore behavior, or existing finished-job record. Running and finished reads use the same response model even though their storage lifecycle differs.
 
@@ -115,7 +116,9 @@ Behavior:
 - cap requested limits at the retained maximum;
 - return an empty list for a known job with no failures;
 - use the existing job-not-found behavior for an unknown or expired job; and
-- read through the same history-store abstraction for running and finished jobs.
+- return the same response model for running and finished jobs, regardless of which dedicated state entry supplies the records.
+
+`JobInfoServlet` currently treats all path information after `/job-info/` as one numeric job ID. The REST implementation must extend that routing, or add an equivalent dedicated handler, so `/job-info/{jobId}` keeps its current behavior while `/job-info/{jobId}/failures` is routed to failure history.
 
 The current job-detail response and its `errorMsg` field remain unchanged. This keeps existing clients compatible while the UI adopts the history endpoint separately.
 
@@ -144,14 +147,14 @@ The feature is additive:
 6. A finished job exposes the same records until the configured history expiration.
 7. More than 100 failures evicts the oldest records deterministically.
 8. Messages larger than 4 KiB and stack traces larger than 64 KiB are truncated at valid UTF-8 boundaries and expose the corresponding truncation flag.
-9. A terminal job writes one bounded history snapshot that expires with its `JobHistoryService` record.
+9. A terminal job writes one bounded failure-history entry that expires with its corresponding finished-job record.
 10. Failure-history write or cleanup errors do not change the job failure, restore, or terminal-state path.
 11. Existing job-detail clients continue to receive the current `errorMsg` field.
 
 ## Delivery Plan
 
 1. Agree on the record, attempt, storage, retention, and REST contracts.
-2. Add the HA-backed model and structured task failure transport with unit tests.
+2. Add the dedicated HA-backed running and finished history entries and structured task failure transport with unit tests.
 3. Add capture, deduplication, retention, and restore tests.
-4. Add the REST endpoint and running/finished job API tests.
+4. Add the REST routing and endpoint with backward-compatibility and running/finished job API tests.
 5. Add the Web UI history view in a separate pull request.

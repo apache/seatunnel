@@ -69,6 +69,7 @@ Attempt 属于 pipeline，而不是单个 task。
 
 - `sequence` 在单个作业内单调递增，在时间戳相同时提供确定顺序；
 - `timestamp`、`jobId`、`pipelineId`、`attempt` 和 `taskGroupId` 为必填；
+- `attemptStartedAt` 为可选，因为失败可能发生在 pipeline 进入 `RUNNING` 之前。该字段存在时，表示该 pipeline attempt 的持久化开始时间，并且相同 `pipelineId` 和 `attempt` 的所有记录使用同一个值。它不同于 `timestamp`，后者表示单条失败被捕获的时间；
 - `taskId`、`taskName`、`worker`、`exceptionType`、`message` 和 `stackTrace` 为可选，因为旧路径或合成失败路径可能无法提供；
 - `messageTruncated` 和 `stackTraceTruncated` 为必填布尔值，用于说明对应内容是否在存储前被截断；
 - `exceptionType` 必须来自结构化失败传输，不能通过解析格式化堆栈推断；
@@ -85,7 +86,7 @@ Attempt 属于 pipeline，而不是单个 task。
 
 ## 存储与保留
 
-失败历史应使用以 `jobId` 为 key 的独立 HA 状态存储条目。这样运行中作业使用一个权威数据源，并在 active master 切换后保留数据，同时避免公共契约直接依赖 Hazelcast `IMap`。
+失败历史应使用以 `jobId` 为 key 的独立 HA 引擎状态条目。第一版可以使用独立的 Hazelcast `IMap`，与引擎现有的运行中作业状态保持一致。REST 表示不依赖具体的存储选择。
 
 第一版使用以下边界：
 
@@ -96,7 +97,7 @@ Attempt 属于 pipeline，而不是单个 task。
 
 初始上限应使用常量，不新增用户配置。如果实际运行数据证明 100 条不足，可以后续增加可配置项。
 
-作业进入终态时，历史层通过 `JobHistoryService` 使用的同一历史存储抽象写入一个有界快照。该快照包含保留的失败记录和权威 pipeline attempt 值，并沿用 finished job 记录的 `history-job-expire-minutes` 生命周期，在对应记录过期时一并删除。外部历史后端同样保存一个有界快照，而不是为每个失败创建一个对象。
+作业进入终态时，`JobHistoryService` 将保留的失败记录和权威 pipeline attempt 值写入独立的 finished history 条目。该方案复用现有 finished job 的生命周期和 `history-job-expire-minutes` 语义，不假设已经存在独立或可插拔的历史存储抽象。对应的 finished job 记录过期时，失败历史条目也会被删除。
 
 终态快照写入采用尽力而为语义。写入或清理失败必须记录日志，但不能改变作业终态、恢复行为或现有 finished job 记录。运行中和已完成作业虽然存储生命周期不同，但读取时使用同一个响应模型。
 
@@ -115,7 +116,9 @@ GET /job-info/{jobId}/failures?limit=100
 - 请求值不能超过保留上限；
 - 已知但没有失败记录的作业返回空列表；
 - 未知或已过期作业沿用现有 job-not-found 行为；
-- 运行中和已完成作业通过同一个历史存储抽象读取。
+- 无论记录来自哪个独立状态条目，运行中和已完成作业都返回同一个响应模型。
+
+`JobInfoServlet` 当前将 `/job-info/` 之后的全部路径信息作为一个数字 job ID 解析。REST 实现必须扩展该路由，或增加等效的独立处理器，确保 `/job-info/{jobId}` 保持现有行为，同时将 `/job-info/{jobId}/failures` 路由到失败历史。
 
 现有 job detail 响应和 `errorMsg` 字段保持不变，在 Web UI 单独接入历史端点前继续兼容现有客户端。
 
@@ -144,14 +147,14 @@ Exception tab 可以在单独变更中接入 REST 端点。第一版 UI 应按 a
 6. 已完成作业在配置的历史过期时间内可以查询相同记录；
 7. 超过 100 条记录后按确定顺序删除最旧记录；
 8. 超过 4 KiB 的消息和超过 64 KiB 的堆栈在有效 UTF-8 边界截断，并提供对应的截断标记；
-9. 作业进入终态时写入一个有界历史快照，该快照随对应的 `JobHistoryService` 记录过期；
+9. 作业进入终态时写入一个有界失败历史条目，该条目随对应的 finished job 记录过期；
 10. 写入或清理失败历史时发生错误，不改变作业失败、恢复或终态流程；
 11. 现有 job detail 客户端继续收到当前 `errorMsg` 字段。
 
 ## 交付计划
 
 1. 确认记录、attempt、存储、保留和 REST 契约；
-2. 增加 HA 存储模型和结构化 task 失败传输，并补充单元测试；
+2. 增加独立的 HA 运行中和已完成作业历史条目，以及结构化 task 失败传输，并补充单元测试；
 3. 增加捕获、去重、保留和恢复测试；
-4. 增加 REST 端点以及运行中和已完成作业的 API 测试；
+4. 增加 REST 路由和端点，以及向后兼容、运行中和已完成作业的 API 测试；
 5. 在单独的 pull request 中增加 Web UI 历史视图。
