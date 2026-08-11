@@ -1,6 +1,10 @@
 Apache SeaTunnel
 Copyright 2021-2024 The Apache Software Foundation
 
+This product includes Bouncy Castle Provider (LTS Distribution), developed by
+The Legion of the Bouncy Castle Inc. and distributed under the Bouncy Castle
+License. The license text is provided in licenses/LICENSE-bcprov-lts8on.txt.
+
 This product includes software developed at
 The Apache Software Foundation (http://www.apache.org/).
 
