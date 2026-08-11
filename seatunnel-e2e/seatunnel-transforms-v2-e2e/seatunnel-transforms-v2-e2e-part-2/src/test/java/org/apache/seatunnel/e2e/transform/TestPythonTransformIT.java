@@ -332,7 +332,10 @@ public class TestPythonTransformIT {
     private static class PythonPolicyFlink20Container extends Flink20Container {
         @Override
         protected List<String> getFlinkProperties() {
-            return withFlinkPolicy(super.getFlinkProperties());
+            // Flink 1.20 reads env.java.opts from YAML and collapses duplicated space-delimited
+            // -D entries into a single malformed value. Keep the Python policy only in the
+            // standard launcher hook so the runtime sees one clean copy of each property.
+            return super.getFlinkProperties();
         }
 
         @Override
