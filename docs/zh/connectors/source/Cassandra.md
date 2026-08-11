@@ -135,6 +135,8 @@ Source 插件通用参数，详情请参考 [Source 常用选项](../common-opti
   `tables_configs`。
 - 这是批处理 source。它读取当前查询结果后就会结束。
 - 一个 CQL 查询会作为一个 source split 读取。调大任务并行度不会自动把单张 Cassandra 表拆成多个扫描任务。
+- 连接器底层使用 Cassandra Java Driver，本文档列出的连接选项是连接器实际读取的全部设置；其他
+  DataStax Driver 选项沿用其内置默认值。
 
 ## 任务示例
 
