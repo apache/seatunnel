@@ -229,15 +229,15 @@ The bucket address of COS file system, for example: `cosn://seatunnel-test`
 
 ### secret_id [string]
 
-The secret id of Cos file system.
+The secret id of Cos file system. Issue this from the [Tencent Cloud CAM console](https://console.cloud.tencent.com/cam/capi) (SecretId field). For production jobs, prefer a CAM role with a scoped policy (e.g. `QcloudCOSReadOnlyAccess`) and use role-based temporary keys via STS instead of long-lived keys.
 
 ### secret_key [string]
 
-The secret key of Cos file system.
+The secret key of Cos file system. The SecretKey that pairs with `secret_id`. See `secret_id` for the recommended STS-based replacement.
 
 ### region [string]
 
-The region of cos file system.
+The region of cos file system. Use a region that matches your bucket's actual location (for example `ap-guangzhou`, `ap-shanghai`, `ap-chengdu`). Bucket access from a different region still works but incurs cross-region transfer cost and latency.
 
 ### read_columns [list]
 

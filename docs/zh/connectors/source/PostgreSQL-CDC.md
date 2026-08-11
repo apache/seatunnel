@@ -286,6 +286,8 @@ source {
 }
 ```
 
+没有可用的主键时，connector 无法安全地应用 UPDATE/DELETE 事件。仅在仅追加（append-only）场景下使用此模式。
+
 ## CDC 元数据字段
 
 PostgreSQL CDC 会提供以下元数据字段，可配合 `Metadata` 转换使用：

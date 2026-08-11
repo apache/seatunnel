@@ -474,6 +474,8 @@ source {
 }
 ```
 
+Without a usable primary key, the connector cannot safely apply UPDATE/DELETE events. Use this mode only for append-only workloads.
+
 ### Schema change event filtering
 
 When `schema-changes.enabled = true`, you can further control which schema change event types are

@@ -292,6 +292,8 @@ source {
 }
 ```
 
+Without a usable primary key, the connector cannot safely apply UPDATE/DELETE events. Use this mode only for append-only workloads.
+
 ## CDC Metadata Fields
 
 PostgreSQL CDC exposes metadata fields that can be used by the `Metadata` transform:

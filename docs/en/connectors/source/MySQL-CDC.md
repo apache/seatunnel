@@ -510,6 +510,8 @@ source {
 }
 ```
 
+Without a usable primary key (configured or physical) the connector cannot safely apply UPDATE/DELETE events. Use this mode only for append-only workloads or when downstream sink behavior does not depend on row identity.
+
 ### Start From a Specific Binlog Offset
 
 Use `startup.mode = "specific"` when the first record must be read from a known binlog file and position.

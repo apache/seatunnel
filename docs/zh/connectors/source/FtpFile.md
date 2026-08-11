@@ -839,6 +839,31 @@ sink {
 }
 ```
 
+### 通过 SFTP 读取（SSH 文件传输）
+
+`FtpFile` 通过统一的 Hadoop FileSystem URI 同时支持 FTP 和 SFTP；将 URI 协议改为 `sftp://` 即切换到 SSH 通道。SFTP 需要 SSH 密钥（或密码）认证，且 host key 必须被运行中的 JVM 信任（通过 `~/.ssh/known_hosts` 或通过 `ftp_properties` 显式指定的 `known_hosts` 文件）。
+
+```hocon
+source {
+  FtpFile {
+    fs.defaultFS = "sftp://sftp.example.example.com:22"
+    path = "/upload/landing/"
+    user = "seatunnel"
+    file_format_type = "csv"
+    delimiter = ","
+    ftp_properties = {
+      "fs.sftp.user." = "seatunnel"
+      "fs.sftp.keyfile" = "/etc/seatunnel/id_rsa"
+      "fs.sftp.host"   = "sftp.example.example.com"
+      "fs.sftp.port"   = "22"
+      "fs.sftp.knownHosts" = "/etc/seatunnel/known_hosts"
+    }
+  }
+}
+```
+
+如果 SFTP 服务器使用的是自签 host key，请提前把它加进 `known_hosts`——否则第一次读取会抛出 `SftpException` 并提示 host 校验未通过。连接器本身不缓存或刷新 `known_hosts`，更新文件后重启作业即可生效。
+
 ## 变更日志
 
 <ChangeLog />

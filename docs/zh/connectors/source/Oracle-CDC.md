@@ -469,6 +469,8 @@ source {
 }
 ```
 
+没有可用的主键时，connector 无法安全地应用 UPDATE/DELETE 事件。仅在仅追加（append-only）场景下使用此模式。
+
 ### Schema change 事件过滤
 
 当 `schema-changes.enabled = true` 时，可通过 `schema-changes.include` / `schema-changes.exclude` 进一步
