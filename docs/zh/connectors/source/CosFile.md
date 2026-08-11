@@ -229,15 +229,15 @@ Cos文件系统的bucket地址，例如: `cos://tyrantlucifer-image-bed`
 
 ### secret_id [string]
 
-Cos文件系统的秘密id。
+Cos 文件系统的 SecretId。在 [腾讯云 CAM 控制台](https://console.cloud.tencent.com/cam/capi) 创建。生产环境建议为作业分配一个绑定细粒度策略（如 `QcloudCOSReadOnlyAccess`）的 CAM 角色，并通过 STS 颁发临时密钥，避免长期密钥出现在作业配置里。
 
 ### secret_key [string]
 
-Cos文件系统的密钥。
+Cos 文件系统的 SecretKey，与 `secret_id` 成对使用。生产建议参考 `secret_id`，改用 STS 临时密钥。
 
 ### region [string]
 
-cos文件系统的region。
+Cos 文件系统所在 region。请填入与 bucket 实际所在地域一致的 region（如 `ap-guangzhou`、`ap-shanghai`、`ap-chengdu`）。跨 region 访问虽然可行，但会产生跨地域传输费用和时延。
 
 ### read_columns [list]
 

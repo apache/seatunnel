@@ -694,6 +694,23 @@ sink {
 
 ```
 
+### 从 HA HDFS 集群（Nameservice）读取
+
+当 HDFS namenode 以 HA 模式部署（多个 namenode 共享一个 nameservice）时，把 `fs.defaultFS` 指向 nameservice URI（而不是单个 namenode），以便客户端在 namenode 故障时自动切换。nameservice ID 必须与 `hdfs-site.xml` 中的 `dfs.nameservices` 一致。
+
+```hocon
+source {
+  HdfsFile {
+    fs.defaultFS = "hdfs://mycluster"
+    path = "/data/orders/dt=2026-08-11"
+    file_format_type = "parquet"
+    hdfs_site_path = "/etc/hadoop/conf/hdfs-site.xml"
+  }
+}
+```
+
+如果集群使用 ViewFS（联邦 HDFS），则 `fs.defaultFS` 应使用 `viewfs://<nameservice-path>` URI——连接器会把 URI 直接交给 Hadoop FileSystem 客户端处理。`hdfs_site_path` 选项用于加载外部 `hdfs-site.xml`（如 `/etc/hadoop/conf/`），这样集群的 HA / 联邦配置无需在作业里重复声明即可生效。
+
 ## 变更日志
 
 <ChangeLog />
