@@ -113,6 +113,10 @@ public class HudiSinkWriter
                 new HudiRecordWriter(tableConfig, writeClientProvider, seaTunnelRowType);
     }
 
+    /**
+     * Flushes buffered records when Zeta delivers a timer-generated FlushSignal. The signal is
+     * handled on the sink task thread, serializing timer flushes with writes and checkpoints.
+     */
     private void timerFlush() {
         hudiRecordWriter.flush();
     }

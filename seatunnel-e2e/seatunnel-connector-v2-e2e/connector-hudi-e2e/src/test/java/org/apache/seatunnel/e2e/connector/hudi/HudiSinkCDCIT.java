@@ -46,17 +46,13 @@ import org.testcontainers.containers.Container;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
-import org.testcontainers.utility.MountableFile;
 
-import com.mysql.cj.jdbc.Driver;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -87,7 +83,8 @@ public class HudiSinkCDCIT extends TestSuiteBase implements TestResource {
     private static final MySqlContainer MYSQL_CONTAINER = createMySqlContainer(MySqlVersion.V8_0);
     private static final String SOURCE_TABLE = "mysql_cdc_e2e_source_table";
 
-    private static final String MYSQL_CDC_PLUGIN_LIB = "/tmp/seatunnel/plugins/MySQL-CDC/lib";
+    private static final String MYSQL_DRIVER =
+            "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
 
     private static final String DATABASE = "st";
     private static final String TABLE_NAME = "st_test";
@@ -121,28 +118,14 @@ public class HudiSinkCDCIT extends TestSuiteBase implements TestResource {
             container -> {
                 container.execInContainer("sh", "-c", "mkdir -p " + TABLE_PATH);
                 container.execInContainer("sh", "-c", "chmod -R 777  " + TABLE_PATH);
-                java.nio.file.Path driverJarPath = driverJarPath();
-                Assertions.assertTrue(
-                        Files.isRegularFile(driverJarPath),
-                        "MySQL JDBC driver should be resolved from the test classpath before E2E runs: "
-                                + driverJarPath);
                 Container.ExecResult extraCommands =
-                        container.execInContainer("sh", "-c", "mkdir -p " + MYSQL_CDC_PLUGIN_LIB);
+                        container.execInContainer(
+                                "sh",
+                                "-c",
+                                "mkdir -p /tmp/seatunnel/plugins/MySQL-CDC/lib && cd /tmp/seatunnel/plugins/MySQL-CDC/lib && wget "
+                                        + MYSQL_DRIVER);
                 Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
-                container.copyFileToContainer(
-                        MountableFile.forHostPath(driverJarPath),
-                        MYSQL_CDC_PLUGIN_LIB + "/" + driverJarPath.getFileName());
             };
-
-    private java.nio.file.Path driverJarPath() {
-        try {
-            return Paths.get(
-                    Driver.class.getProtectionDomain().getCodeSource().getLocation().toURI());
-        } catch (Exception e) {
-            throw new RuntimeException(
-                    "Failed to resolve MySQL JDBC driver jar from the test classpath", e);
-        }
-    }
 
     @BeforeAll
     @Override
