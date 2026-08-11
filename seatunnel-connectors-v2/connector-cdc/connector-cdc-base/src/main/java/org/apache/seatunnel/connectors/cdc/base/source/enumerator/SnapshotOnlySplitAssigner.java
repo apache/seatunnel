@@ -56,7 +56,27 @@ public class SnapshotOnlySplitAssigner<C extends SourceConfig> implements SplitA
             SnapshotPhaseState checkpoint,
             DataSourceDialect<C> dialect) {
         this.snapshotSplitAssigner =
-                new SnapshotSplitAssigner<>(context, currentParallelism, checkpoint, dialect);
+                new SnapshotSplitAssigner<>(
+                        context,
+                        currentParallelism,
+                        markRemainingTablesCheckpointed(checkpoint),
+                        dialect);
+    }
+
+    private static SnapshotPhaseState markRemainingTablesCheckpointed(
+            SnapshotPhaseState checkpoint) {
+        if (checkpoint.isRemainingTablesCheckpointed()) {
+            return checkpoint;
+        }
+        return new SnapshotPhaseState(
+                checkpoint.getAlreadyProcessedTables(),
+                checkpoint.getRemainingSplits(),
+                checkpoint.getAssignedSplits(),
+                checkpoint.getSplitCompletedOffsets(),
+                checkpoint.isAssignerCompleted(),
+                checkpoint.getRemainingTables(),
+                checkpoint.isTableIdCaseSensitive(),
+                true);
     }
 
     @Override
@@ -81,6 +101,15 @@ public class SnapshotOnlySplitAssigner<C extends SourceConfig> implements SplitA
 
     @Override
     public void addSplits(Collection<SourceSplitBase> splits) {
+        for (SourceSplitBase split : splits) {
+            if (!split.isSnapshotSplit()) {
+                throw new IllegalStateException(
+                        String.format(
+                                "Snapshot-only startup mode received incremental split '%s'. "
+                                        + "Changing startup.mode across a restore is not supported.",
+                                split.splitId()));
+            }
+        }
         snapshotSplitAssigner.addSplits(splits);
     }
 
