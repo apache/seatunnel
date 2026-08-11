@@ -64,7 +64,7 @@ public class KafkaTransactionSender<K, V> implements KafkaProduceSender<K, V> {
     @Override
     public void beginTransaction(String transactionId) {
         this.transactionId = transactionId;
-        this.kafkaProducer = getTransactionProducer(kafkaProperties, transactionId);
+        this.kafkaProducer = getTransactionProducer(transactionId);
         kafkaProducer.beginTransaction();
         recordNumInTransaction = 0;
     }
@@ -88,26 +88,21 @@ public class KafkaTransactionSender<K, V> implements KafkaProduceSender<K, V> {
 
     @Override
     public void abortTransaction(long checkpointId) {
-
-        KafkaInternalProducer<K, V> producer;
-        if (this.kafkaProducer != null) {
-            producer = this.kafkaProducer;
-        } else {
-            producer =
-                    getTransactionProducer(
-                            this.kafkaProperties,
-                            generateTransactionId(this.transactionPrefix, checkpointId));
-        }
-
         for (long i = checkpointId; ; i++) {
             String transactionId = generateTransactionId(this.transactionPrefix, i);
-            producer.initTransactionId(transactionId);
-            if (log.isDebugEnabled()) {
-                log.debug("Abort kafka transaction: {}", transactionId);
-            }
-            producer.flush();
-            if (producer.getEpoch() == 0) {
-                break;
+            KafkaInternalProducer<K, V> producer = createTransactionProducer(transactionId);
+            try {
+                if (log.isDebugEnabled()) {
+                    log.debug("Abort kafka transaction: {}", transactionId);
+                }
+                // Initializing a producer with the same transactional ID fences and aborts any
+                // transaction left by a previous attempt. Each ID needs its own producer: changing
+                // the ID on a reused producer can retain a non-zero epoch indefinitely.
+                if (producer.getEpoch() == 0) {
+                    return;
+                }
+            } finally {
+                closeTemporaryProducer(producer);
             }
         }
     }
@@ -137,14 +132,22 @@ public class KafkaTransactionSender<K, V> implements KafkaProduceSender<K, V> {
         }
     }
 
-    private KafkaInternalProducer<K, V> getTransactionProducer(
-            Properties properties, String transactionId) {
+    private KafkaInternalProducer<K, V> getTransactionProducer(String transactionId) {
         close();
-        Properties transactionProperties = (Properties) properties.clone();
+        return createTransactionProducer(transactionId);
+    }
+
+    /** Creates and initializes a producer used for one transactional ID. */
+    protected KafkaInternalProducer<K, V> createTransactionProducer(String transactionId) {
+        Properties transactionProperties = (Properties) kafkaProperties.clone();
         transactionProperties.put(ProducerConfig.TRANSACTIONAL_ID_CONFIG, transactionId);
         KafkaInternalProducer<K, V> transactionProducer =
                 new KafkaInternalProducer<>(transactionProperties, transactionId);
         transactionProducer.initTransactions();
         return transactionProducer;
+    }
+
+    private void closeTemporaryProducer(KafkaInternalProducer<K, V> producer) {
+        KafkaClientUtils.runWithConnectorClassLoader(() -> producer.close(Duration.ZERO));
     }
 }

@@ -288,7 +288,7 @@ def _extract_connector_blocks_raw(
     (inclusive), e.g. ``'url = "..." driver = "..."'``.
     """
     results: list[tuple[str, str, str]] = []
-    for section in ("source", "sink"):
+    for section in ("source", "transform", "sink"):
         # Find the section's opening brace
         pattern = re.compile(
             rf"(?:^|\n)\s*{section}\s*\{{", re.IGNORECASE,
@@ -345,8 +345,13 @@ def _validate_routing_pairs(
     errors: list[str],
     warnings: list[str],
 ) -> None:
-    """Validate plugin_output / plugin_input pairing across connector blocks."""
-    outputs: dict[str, str] = {}  # label → connector_name
+    """Validate plugin_output / plugin_input pairing across connector blocks.
+
+    Blocks may come from the source, transform, or sink sections; messages
+    carry the real ``section.connector`` location so diagnostics point at
+    the right block (transforms both emit and consume labels).
+    """
+    outputs: dict[str, str] = {}  # label → "section.connector_name"
     inputs: dict[str, str] = {}
 
     label_re = re.compile(
@@ -354,18 +359,19 @@ def _validate_routing_pairs(
     )
 
     for section, connector_name, block_content in blocks:
+        location = f"{section}.{connector_name}"
         for m in label_re.finditer(block_content):
             label = m.group(1)
             if "plugin_output" in m.group(0):
                 if label in outputs:
                     errors.append(
                         f"Duplicate plugin_output label \"{label}\" "
-                        f"in source.{connector_name} "
-                        f"(already used by source.{outputs[label]})"
+                        f"in {location} "
+                        f"(already used by {outputs[label]})"
                     )
-                outputs[label] = connector_name
+                outputs[label] = location
             else:
-                inputs[label] = connector_name
+                inputs[label] = location
 
     # Only validate pairing when routing labels are actually used
     if not outputs and not inputs:
@@ -375,16 +381,16 @@ def _validate_routing_pairs(
     if unmatched_inputs:
         for label in unmatched_inputs:
             errors.append(
-                f"sink.{inputs[label]}: plugin_input \"{label}\" "
-                f"has no matching plugin_output in any source"
+                f"{inputs[label]}: plugin_input \"{label}\" "
+                f"has no matching plugin_output in any source or transform"
             )
 
     orphan_outputs = set(outputs) - set(inputs)
     if orphan_outputs:
         for label in orphan_outputs:
             warnings.append(
-                f"source.{outputs[label]}: plugin_output \"{label}\" "
-                f"has no matching plugin_input in any sink"
+                f"{outputs[label]}: plugin_output \"{label}\" "
+                f"has no matching plugin_input in any transform or sink"
             )
 
 
@@ -463,9 +469,6 @@ def validate_hocon(config_str: str) -> str:
             except Exception:
                 pass
 
-        # Validate routing labels
-        _validate_routing_pairs(raw_blocks, errors, warnings)
-
     elif parsed is not None:
         # Standard single-connector-per-type path (pyhocon is accurate here)
         for section in ["source", "sink"]:
@@ -496,9 +499,10 @@ def validate_hocon(config_str: str) -> str:
             except Exception:
                 pass
 
-        # Also validate routing for single-connector configs if labels present
-        if raw_blocks:
-            _validate_routing_pairs(raw_blocks, errors, warnings)
+    # Routing validation is independent of option metadata and pyhocon —
+    # always run it when connector blocks were extracted.
+    if raw_blocks:
+        _validate_routing_pairs(raw_blocks, errors, warnings)
 
     # Check STREAMING mode needs checkpoint.interval
     if parsed is not None:
@@ -526,12 +530,31 @@ def validate_hocon(config_str: str) -> str:
 
     # Check for unresolved ${ENV_VAR} placeholders — these will be passed as literal
     # strings to connectors at runtime, causing authentication/connection failures.
+    # SeaTunnel's engine resolves certain placeholders itself, but only in
+    # specific file sink fields (see docs/en/connectors/sink/LocalFile.md):
+    #   file_name_expression     -> ${now}, ${uuid}, ${transactionId}
+    #   partition_dir_expression -> ${k0}=${v0}/... (kN = partition field,
+    #                               vN = partition value)
+    # The exemption is field-aware so that the same names used in unrelated
+    # fields (URLs, credentials, ...) are still diagnosed as env vars.
+    engine_template_fields = {
+        "file_name_expression": re.compile(r"now|uuid|transactionId"),
+        "partition_dir_expression": re.compile(r"[kv]\d+"),
+    }
     env_var_pattern = re.compile(r'\$\{([A-Za-z_][A-Za-z0-9_]*)\}')
+    # HOCON accepts both `key = value` and `key : value` separators
+    field_pattern = re.compile(r'^\s*"?([\w.]+)"?\s*[=:]')
     unresolved_vars = set()
-    for m in env_var_pattern.finditer(config_str):
-        var_name = m.group(1)
-        if not os.environ.get(var_name):
-            unresolved_vars.add(var_name)
+    for line in config_str.splitlines():
+        field_match = field_pattern.match(line)
+        allowed = engine_template_fields.get(
+            field_match.group(1)) if field_match else None
+        for m in env_var_pattern.finditer(line):
+            var_name = m.group(1)
+            if allowed and allowed.fullmatch(var_name):
+                continue
+            if not os.environ.get(var_name):
+                unresolved_vars.add(var_name)
     if unresolved_vars:
         var_list = ", ".join(sorted(unresolved_vars))
         errors.append(

@@ -27,6 +27,7 @@ import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.common.utils.FactoryUtil;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
+import org.apache.seatunnel.engine.core.job.RestoreMode;
 import org.apache.seatunnel.engine.serializer.protobuf.ProtoStuffSerializer;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
 import org.apache.seatunnel.engine.server.common.statestore.counter.CounterStateStore;
@@ -71,10 +72,53 @@ public class CheckpointManagerTest extends AbstractSeaTunnelServerTest {
         long jobId = (long) (Math.random() * 1000000L);
         long restoredCheckpointId = 7L;
         CheckpointStorage checkpointStorage = createCheckpointStorage();
-        storeCompletedCheckpoint(checkpointStorage, jobId, restoredCheckpointId);
+        storeCompletedCheckpoint(
+                checkpointStorage, jobId, restoredCheckpointId, CheckpointType.SAVEPOINT_TYPE);
 
         CheckpointManager checkpointManager =
-                createCheckpointManager(jobId, true, checkpointStorage, new CheckpointConfig());
+                createCheckpointManager(
+                        jobId,
+                        true,
+                        RestoreMode.SAVEPOINT,
+                        jobId,
+                        checkpointStorage,
+                        new CheckpointConfig());
+
+        long nextCheckpointId =
+                checkpointManager.getCheckpointCoordinator(1).getCheckpointIdCounter().get();
+
+        Assertions.assertEquals(restoredCheckpointId + 1L, nextCheckpointId);
+        Assertions.assertEquals(
+                restoredCheckpointId + 1L,
+                checkpointManager
+                        .getCheckpointCoordinator(1)
+                        .getCheckpointIdCounter()
+                        .getAndIncrement());
+        Assertions.assertEquals(
+                restoredCheckpointId + 2L,
+                checkpointManager.getCheckpointCoordinator(1).getCheckpointIdCounter().get());
+    }
+
+    @Test
+    public void testStartWithCheckpointShouldResumeNextCheckpointIdFromStoredCheckpoint()
+            throws Exception {
+        long jobId = (long) (Math.random() * 1000000L);
+        long restoredCheckpointId = 7L;
+        CheckpointStorage checkpointStorage = createCheckpointStorage();
+        storeCompletedCheckpoint(
+                checkpointStorage,
+                jobId,
+                restoredCheckpointId,
+                CheckpointType.COMPLETED_POINT_TYPE);
+
+        CheckpointManager checkpointManager =
+                createCheckpointManager(
+                        jobId,
+                        true,
+                        RestoreMode.CHECKPOINT,
+                        jobId,
+                        checkpointStorage,
+                        new CheckpointConfig());
 
         long nextCheckpointId =
                 checkpointManager.getCheckpointCoordinator(1).getCheckpointIdCounter().get();
@@ -102,13 +146,23 @@ public class CheckpointManagerTest extends AbstractSeaTunnelServerTest {
     private void storeCompletedCheckpoint(
             CheckpointStorage checkpointStorage, long jobId, long checkpointId)
             throws CheckpointStorageException {
+        storeCompletedCheckpoint(
+                checkpointStorage, jobId, checkpointId, CheckpointType.COMPLETED_POINT_TYPE);
+    }
+
+    private void storeCompletedCheckpoint(
+            CheckpointStorage checkpointStorage,
+            long jobId,
+            long checkpointId,
+            CheckpointType checkpointType)
+            throws CheckpointStorageException {
         CompletedCheckpoint completedCheckpoint =
                 new CompletedCheckpoint(
                         jobId,
                         1,
                         checkpointId,
                         Instant.now().toEpochMilli(),
-                        CheckpointType.COMPLETED_POINT_TYPE,
+                        checkpointType,
                         Instant.now().toEpochMilli(),
                         new HashMap<>(),
                         new HashMap<>());
@@ -126,11 +180,29 @@ public class CheckpointManagerTest extends AbstractSeaTunnelServerTest {
             boolean isStartWithSavePoint,
             CheckpointStorage checkpointStorage,
             CheckpointConfig checkpointConfig) {
+        return createCheckpointManager(
+                jobId,
+                isStartWithSavePoint,
+                isStartWithSavePoint ? RestoreMode.SAVEPOINT : RestoreMode.NONE,
+                isStartWithSavePoint ? jobId : null,
+                checkpointStorage,
+                checkpointConfig);
+    }
+
+    private CheckpointManager createCheckpointManager(
+            long jobId,
+            boolean isRestoreJob,
+            RestoreMode restoreMode,
+            Long restoreSourceJobId,
+            CheckpointStorage checkpointStorage,
+            CheckpointConfig checkpointConfig) {
         Map<Integer, CheckpointPlan> planMap = new HashMap<>();
         planMap.put(1, CheckpointPlan.builder().pipelineId(1).build());
         return new CheckpointManager(
                 jobId,
-                isStartWithSavePoint,
+                isRestoreJob,
+                restoreMode,
+                restoreSourceJobId,
                 nodeEngine,
                 null,
                 planMap,
@@ -140,5 +212,61 @@ public class CheckpointManagerTest extends AbstractSeaTunnelServerTest {
                 nodeEngine.getHazelcastInstance().getMap(IMAP_RUNNING_JOB_STATE),
                 server.getEngineContext(),
                 null);
+    }
+
+    @Test
+    public void testRetainCheckpointAfterCancelledWhenEnabled() throws CheckpointStorageException {
+        long jobId = (long) (Math.random() * 1000000L);
+        CheckpointStorage checkpointStorage = createCheckpointStorage();
+        storeCompletedCheckpoint(checkpointStorage, jobId, 1L);
+
+        CheckpointConfig config = new CheckpointConfig();
+        config.setRetainAfterJobCancelled(true);
+        CheckpointManager checkpointManager =
+                createCheckpointManager(jobId, false, checkpointStorage, config);
+
+        // Checkpoint should be retained on CANCELED when retainAfterJobCancelled=true
+        checkpointManager.clearCheckpointIfNeed(JobStatus.CANCELED);
+        Assertions.assertFalse(
+                checkpointStorage.getAllCheckpoints(jobId + "").isEmpty(),
+                "Checkpoint should be retained after cancel when retain-after-job-cancelled is enabled");
+    }
+
+    @Test
+    public void testDeleteCheckpointAfterFinishedEvenWhenRetainEnabled()
+            throws CheckpointStorageException {
+        long jobId = (long) (Math.random() * 1000000L);
+        CheckpointStorage checkpointStorage = createCheckpointStorage();
+        storeCompletedCheckpoint(checkpointStorage, jobId, 1L);
+
+        CheckpointConfig config = new CheckpointConfig();
+        config.setRetainAfterJobCancelled(true);
+        CheckpointManager checkpointManager =
+                createCheckpointManager(jobId, false, checkpointStorage, config);
+
+        // Checkpoint should still be deleted on FINISHED even when retainAfterJobCancelled=true
+        checkpointManager.clearCheckpointIfNeed(JobStatus.FINISHED);
+        Assertions.assertTrue(
+                checkpointStorage.getAllCheckpoints(jobId + "").isEmpty(),
+                "Checkpoint should be cleaned up after FINISHED regardless of retain setting");
+    }
+
+    @Test
+    public void testDeleteCheckpointAfterCancelledWhenRetainDisabled()
+            throws CheckpointStorageException {
+        long jobId = (long) (Math.random() * 1000000L);
+        CheckpointStorage checkpointStorage = createCheckpointStorage();
+        storeCompletedCheckpoint(checkpointStorage, jobId, 1L);
+
+        CheckpointConfig config = new CheckpointConfig();
+        // retainAfterJobCancelled defaults to false
+        CheckpointManager checkpointManager =
+                createCheckpointManager(jobId, false, checkpointStorage, config);
+
+        // Default behavior: checkpoint should be deleted on CANCELED
+        checkpointManager.clearCheckpointIfNeed(JobStatus.CANCELED);
+        Assertions.assertTrue(
+                checkpointStorage.getAllCheckpoints(jobId + "").isEmpty(),
+                "Checkpoint should be cleaned up after cancel when retain is disabled (default)");
     }
 }

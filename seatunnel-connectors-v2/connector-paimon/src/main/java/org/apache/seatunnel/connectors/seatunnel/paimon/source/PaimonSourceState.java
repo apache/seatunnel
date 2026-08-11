@@ -23,6 +23,7 @@ import java.io.Serializable;
 import java.util.Collections;
 import java.util.Deque;
 import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.Map;
 
 /** Paimon connector source state, saves the splits has assigned to readers. */
@@ -38,14 +39,14 @@ public class PaimonSourceState implements Serializable {
 
     public PaimonSourceState(
             Deque<PaimonSourceSplit> assignedSplits, @Nullable Long currentSnapshotId) {
-        this.assignedSplits = assignedSplits;
+        this.assignedSplits = new LinkedList<>(assignedSplits);
         this.currentSnapshotId = currentSnapshotId;
         this.currentSnapshotIds = Collections.emptyMap();
     }
 
     public PaimonSourceState(
             Deque<PaimonSourceSplit> assignedSplits, Map<String, Long> currentSnapshotIds) {
-        this.assignedSplits = assignedSplits;
+        this.assignedSplits = new LinkedList<>(assignedSplits);
         this.currentSnapshotIds = new HashMap<>(currentSnapshotIds);
         this.currentSnapshotId = getSingleSnapshotId(this.currentSnapshotIds);
     }

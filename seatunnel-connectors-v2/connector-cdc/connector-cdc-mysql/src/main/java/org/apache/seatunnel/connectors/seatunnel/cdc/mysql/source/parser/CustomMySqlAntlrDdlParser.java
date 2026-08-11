@@ -41,20 +41,29 @@ public class CustomMySqlAntlrDdlParser extends MySqlAntlrDdlParser {
 
     private RelationalDatabaseConnectorConfig dbzConnectorConfig;
 
-    private final TablePath tablePath;
-
-    public CustomMySqlAntlrDdlParser(
-            TablePath tablePath, RelationalDatabaseConnectorConfig dbzConnectorConfig) {
+    public CustomMySqlAntlrDdlParser(RelationalDatabaseConnectorConfig dbzConnectorConfig) {
         super();
-        this.tablePath = tablePath;
         this.parsedEvents = new LinkedList<>();
         this.dbzConnectorConfig = dbzConnectorConfig;
     }
 
+    /**
+     * Retains the original constructor for binary and source compatibility.
+     *
+     * @deprecated the parser now resolves table identifiers from each DDL statement
+     */
+    @Deprecated
+    public CustomMySqlAntlrDdlParser(
+            TablePath ignoredTablePath, RelationalDatabaseConnectorConfig dbzConnectorConfig) {
+        this(dbzConnectorConfig);
+    }
+
     @Override
     public TableId parseQualifiedTableId(MySqlParser.FullIdContext fullIdContext) {
-        return new TableId(
-                tablePath.getDatabaseName(), tablePath.getSchemaName(), tablePath.getTableName());
+        // Always resolve the real table identifier from the current DDL text. Multi-database CDC
+        // jobs can reuse one resolver instance across different source tables, so binding the
+        // parser to the first table path would mis-route later DDL events from sibling databases.
+        return super.parseQualifiedTableId(fullIdContext);
     }
 
     // Overriding this method because the BIT type requires default length dimension of 1.
