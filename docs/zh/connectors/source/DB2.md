@@ -28,7 +28,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 - [x] [批处理](../../introduction/concepts/connector-v2-features.md)
 - [ ] [流处理](../../introduction/concepts/connector-v2-features.md)
-- [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [x] [列投影](../../introduction/concepts/connector-v2-features.md)
 - [x] [并行度](../../introduction/concepts/connector-v2-features.md)
 - [x] [支持用户自定义拆分](../../introduction/concepts/connector-v2-features.md)
@@ -84,7 +84,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ### 小贴士
 
-> 不配置 `partition_column` 时，源端按单拆分读取；配置后，SeaTunnel 会按 `partition_num`（默认 10）和作业并行度两者中较大的值并行读取。
+> 不配置 `partition_column` 时，源端按单拆分读取；配置后，SeaTunnel 会把表固定切分为 `partition_num`（默认 10）个 split，与 `env.parallelism` 无关；同时并发读取的 split 数上限为 `min(partition_num, env.parallelism)`——当 `parallelism > partition_num` 时多余的 reader 槽位会闲置，当 `parallelism < partition_num` 时部分 reader 会顺序消费多个 split。两者互相独立，并不是"取较大值"。
 
 ## 任务示例
 

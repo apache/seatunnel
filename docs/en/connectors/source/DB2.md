@@ -28,7 +28,7 @@ Read data from DB2 through JDBC. DB2 requires the IBM `db2jcc` driver; SeaTunnel
 
 - [x] [batch](../../introduction/concepts/connector-v2-features.md)
 - [ ] [stream](../../introduction/concepts/connector-v2-features.md)
-- [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [x] [column projection](../../introduction/concepts/connector-v2-features.md)
 - [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
 - [x] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
@@ -84,7 +84,7 @@ Read data from DB2 through JDBC. DB2 requires the IBM `db2jcc` driver; SeaTunnel
 
 ### Tips
 
-> If `partition_column` is not set, the source reads with one split. If it is set, SeaTunnel reads data in parallel according to `partition_num` (default 10) or the job's parallelism, whichever is greater.
+> If `partition_column` is not set, the source reads with one split. If it is set, SeaTunnel splits the table into exactly `partition_num` (default 10) splits regardless of `env.parallelism`; the number of splits that read concurrently is then bounded by `min(partition_num, env.parallelism)` — extra reader slots either sit idle (when `parallelism > partition_num`) or pick up more than one split sequentially (when `parallelism < partition_num`). The two are independent, not "the greater of the two."
 
 ## Task Example
 

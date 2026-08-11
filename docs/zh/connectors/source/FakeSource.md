@@ -23,7 +23,7 @@ FakeSource 是一个虚拟数据源，它根据用户定义的 schema 数据结�
 - [ ] [并行度](../../introduction/concepts/connector-v2-features.md)
 - [ ] [支持用户自定义分片](../../introduction/concepts/connector-v2-features.md)
 
-> FakeSource 在每个并行子任务内部枚举分片（由 `split.num`/`split.read-interval` 驱动）；不存在跨子任务的拆分分配，每个 reader 独立生成自己的行。
+> FakeSource 的 `FakeSourceSplitEnumerator` 枚举器会一次性计算出全部 split，并通过 `assignSplit(splitId % currentParallelism, ...)` 把它们确定性地分配给各个 reader 子任务。在生成行时 reader 之间并不互相协作——虚拟数据生成不需要跨 reader 状态——但 split → reader 的路由是集中在枚举器中完成的，并不是由每个子任务自行枚举的。
 
 ## 数据源选项
 
