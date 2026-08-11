@@ -4,7 +4,7 @@ import ChangeLog from '../changelog/connector-fake.md';
 
 > FakeSource 连接器
 
-## 支持的引擎
+## 支持以下引擎
 
 > Spark<br/>
 > Flink<br/>
@@ -12,7 +12,7 @@ import ChangeLog from '../changelog/connector-fake.md';
 
 ## 描述
 
-FakeSource 是一个虚拟数据源，它根据用户定义的 schema 数据结构随机生成指定数量的行数据，主要用于类型转换或连接器新功能测试等测试场景。
+FakeSource 是一个虚拟数据源，它根据用户定义的 schema 数据结构随机生成指定数量的行数据，主要用于类型转换、连接器新功能测试和本地管道验证等场景。
 
 ## 主要特性
 
@@ -23,53 +23,55 @@ FakeSource 是一个虚拟数据源，它根据用户定义的 schema 数据结�
 - [ ] [并行度](../../introduction/concepts/connector-v2-features.md)
 - [ ] [支持用户自定义分片](../../introduction/concepts/connector-v2-features.md)
 
+> FakeSource 的 `FakeSourceSplitEnumerator` 枚举器会一次性计算出全部 split，并通过 `assignSplit(splitId % currentParallelism, ...)` 把它们确定性地分配给各个 reader 子任务。在生成行时 reader 之间并不互相协作——虚拟数据生成不需要跨 reader 状态——但 split → reader 的路由是集中在枚举器中完成的，并不是由每个子任务自行枚举的。
+
 ## 数据源选项
 
 | 名称                        | 类型       | 必填 | 默认值                    | 描述                                                                                                                                                                                              |
 |---------------------------|---------|------|---------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| tables_configs            | list     | 否   | -                      | 定义多个 FakeSource 表，每个项都可以包含单个 FakeSource 支持的完整配置，例如独立的 schema 和 rows。`tables_configs` 与顶层 `schema` 二选一配置。 |
+| tables_configs            | list     | 否       | -                      | 定义多个 FakeSource 表，每个项都可以包含单个 FakeSource 支持的完整配置，例如独立的 schema 和 rows。`tables_configs` 与顶层 `schema` 二选一配置。 |
 | schema                    | config   | 条件必填 | -                    | 定义 Schema 信息。未配置 `tables_configs` 时必填。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。 |
-| auto.increment.enabled    | boolean  | 否   | false                  | 启用自动递增ID                                                                                                                                                                            |
-| auto.increment.start      | long     | 否   | 1                      | 自动递增 ID 的起始值，仅在 `auto.increment.enabled` 为 `true` 时生效。 |
-| rows                      | config   | 否   | -                      | 自定义输出行列表，每个并行度都会输出这组数据。详情见下文 `rows` 示例。 |
-| row.num                   | int      | 否   | 5                      | 每个并行度生成的数据总行数                                                                                                                                                                        |
-| split.num                 | int      | 否   | 1                      | 枚举器为每个并行度生成的分片数量                                                                                                                                                                    |
-| split.read-interval       | int      | 否   | 1                      | 读取器在两个分片读取之间的间隔时间（毫秒）。 |
-| map.size                  | int      | 否   | 5                      | 连接器生成的 `map` 类型的大小                                                                                                                                                                     |
-| array.size                | int      | 否   | 5                      | 连接器生成的 `array` 类型的大小                                                                                                                                                                   |
-| bytes.length              | int      | 否   | 5                      | 连接器生成的 `bytes` 类型的长度                                                                                                                                                                   |
-| string.length             | int      | 否   | 5                      | 连接器生成的 `string` 类型的长度                                                                                                                                                                  |
-| string.fake.mode          | string   | 否   | range                  | 生成字符串数据的伪数据模式，支持 `range` 和 `template`，默认为 `range`，如果配置为 `template`，用户还需配置 `string.template` 选项                                                                   |
-| string.template           | list     | 否   | -                      | 连接器生成的字符串类型的模板列表，如果用户配置了此选项，连接器将从模板列表中随机选择一个项                                                                                                             |
-| tinyint.fake.mode         | string   | 否   | range                  | 生成 tinyint 数据的伪数据模式，支持 `range` 和 `template`，默认为 `range`，如果配置为 `template`，用户还需配置 `tinyint.template` 选项                                                               |
-| tinyint.min               | tinyint  | 否   | 0                      | 连接器生成的 tinyint 数据的最小值                                                                                                                                                                 |
-| tinyint.max               | tinyint  | 否   | 127                    | 连接器生成的 tinyint 数据的最大值                                                                                                                                                                 |
-| tinyint.template          | list     | 否   | -                      | 连接器生成的 tinyint 类型的模板列表，如果用户配置了此选项，连接器将从模板列表中随机选择一个项                                                                                                         |
-| smallint.fake.mode        | string   | 否   | range                  | 生成 smallint 数据的伪数据模式，支持 `range` 和 `template`，默认为 `range`，如果配置为 `template`，用户还需配置 `smallint.template` 选项                                                             |
-| smallint.min              | smallint | 否   | 0                      | 连接器生成的 smallint 数据的最小值                                                                                                                                                                |
-| smallint.max              | smallint | 否   | 32767                  | 连接器生成的 smallint 数据的最大值                                                                                                                                                                |
-| smallint.template         | list     | 否   | -                      | 连接器生成的 smallint 类型的模板列表，如果用户配置了此选项，连接器将从模板列表中随机选择一个项                                                                                                       |
-| int.fake.mode             | string   | 否   | range                  | 生成 int 数据的模式，支持 `range` 和 `template`，默认为 `range`。如果配置为 `template`，还需要配置 `int.template`。 |
-| int.min                   | int      | 否   | 0                      | 连接器生成的 int 数据的最小值 |
-| int.max                   | int      | 否   | 0x7fffffff             | 连接器生成的 int 数据的最大值 |
-| int.template              | list     | 否   | -                      | 连接器生成的 int 类型的模板列表，如果用户配置了此选项，连接器将从模板列表中随机选择一个项                                                                                                             |
-| bigint.fake.mode          | string   | 否   | range                  | 生成 bigint 数据的伪数据模式，支持 `range` 和 `template`，默认为 `range`，如果配置为 `template`，用户还需配置 `bigint.template` 选项                                                                 |
-| bigint.min                | bigint   | 否   | 0                      | 连接器生成的 bigint 数据的最小值                                                                                                                                                                  |
-| bigint.max                | bigint   | 否   | 0x7fffffffffffffff     | 连接器生成的 bigint 数据的最大值                                                                                                                                                                  |
-| bigint.template           | list     | 否   | -                      | 连接器生成的 bigint 类型的模板列表，如果用户配置了此选项，连接器将从模板列表中随机选择一个项                                                                                                         |
-| float.fake.mode           | string   | 否   | range                  | 生成 float 数据的伪数据模式，支持 `range` 和 `template`，默认为 `range`，如果配置为 `template`，用户还需配置 `float.template` 选项                                                                   |
-| float.min                 | float    | 否   | 0                      | 连接器生成的 float 数据的最小值                                                                                                                                                                   |
-| float.max                 | float    | 否   | 0x1.fffffeP+127        | 连接器生成的 float 数据的最大值                                                                                                                                                                   |
-| float.template            | list     | 否   | -                      | 连接器生成的 float 类型的模板列表，如果用户配置了此选项，连接器将从模板列表中随机选择一个项                                                                                                           |
-| double.fake.mode          | string   | 否   | range                  | 生成 double 数据的伪数据模式，支持 `range` 和 `template`，默认为 `range`，如果配置为 `template`，用户还需配置 `double.template` 选项                                                                 |
-| double.min                | double   | 否   | 0                      | 连接器生成的 double 数据的最小值                                                                                                                                                                  |
-| double.max                | double   | 否   | 0x1.fffffffffffffP+1023 | 连接器生成的 double 数据的最大值                                                                                                                                                                  |
-| double.template           | list     | 否   | -                      | 连接器生成的 double 类型的模板列表，如果用户配置了此选项，连接器将从模板列表中随机选择一个项                                                                                                         |
-| vector.dimension          | int      | 否   | 4                      | 生成的向量的维度，不包括二进制向量                                                                                                                                                                   |
-| binary.vector.dimension   | int      | 否   | 8                      | 生成的二进制向量的维度                                                                                                                                                                            |
-| vector.float.min          | float    | 否   | 0                      | 连接器生成的向量中 float 数据的最小值                                                                                                                                                              |
-| vector.float.max          | float    | 否   | 0x1.fffffeP+127        | 连接器生成的向量中 float 数据的最大值                                                                                                                                                              |
-| common-options            |          | 否   | -                      | 数据源插件通用参数，详情请参考 [Source Common Options](../common-options/source-common-options.md)                                                                                                                |
+| auto.increment.enabled    | boolean  | 否       | false                  | 启用自动递增ID                                                                                                                                                                            |
+| auto.increment.start      | long     | 否       | 1                      | 自动递增 ID 的起始值，仅在 `auto.increment.enabled` 为 `true` 时生效。 |
+| rows                      | config   | 否       | -                      | 自定义输出行列表，每个并行度都会输出这组数据。详情见下文 `rows` 示例。 |
+| row.num                   | int      | 否       | 5                      | 每个并行度生成的数据总行数                                                                                                                                                                        |
+| split.num                 | int      | 否       | 1                      | 枚举器为每个并行度生成的分片数量                                                                                                                                                                    |
+| split.read-interval       | int      | 否       | 1                      | 读取器在两个分片读取之间的间隔时间（毫秒）。 |
+| map.size                  | int      | 否       | 5                      | 连接器生成的 `map` 类型的大小                                                                                                                                                                     |
+| array.size                | int      | 否       | 5                      | 连接器生成的 `array` 类型的大小                                                                                                                                                                   |
+| bytes.length              | int      | 否       | 5                      | 连接器生成的 `bytes` 类型的长度                                                                                                                                                                   |
+| string.length             | int      | 否       | 5                      | 连接器生成的 `string` 类型的长度                                                                                                                                                                  |
+| string.fake.mode          | string   | 否       | range                  | 生成字符串数据的伪数据模式，支持 `range` 和 `template`，默认为 `range`，如果配置为 `template`，用户还需配置 `string.template` 选项                                                                   |
+| string.template           | list     | 否       | -                      | 连接器生成的字符串类型的模板列表，如果用户配置了此选项，连接器将从模板列表中随机选择一个项                                                                                                             |
+| tinyint.fake.mode         | string   | 否       | range                  | 生成 tinyint 数据的伪数据模式，支持 `range` 和 `template`，默认为 `range`，如果配置为 `template`，用户还需配置 `tinyint.template` 选项                                                               |
+| tinyint.min               | tinyint  | 否       | 0                      | 连接器生成的 tinyint 数据的最小值                                                                                                                                                                 |
+| tinyint.max               | tinyint  | 否       | 127                    | 连接器生成的 tinyint 数据的最大值                                                                                                                                                                 |
+| tinyint.template          | list     | 否       | -                      | 连接器生成的 tinyint 类型的模板列表，如果用户配置了此选项，连接器将从模板列表中随机选择一个项                                                                                                         |
+| smallint.fake.mode        | string   | 否       | range                  | 生成 smallint 数据的伪数据模式，支持 `range` 和 `template`，默认为 `range`，如果配置为 `template`，用户还需配置 `smallint.template` 选项                                                             |
+| smallint.min              | smallint | 否       | 0                      | 连接器生成的 smallint 数据的最小值                                                                                                                                                                |
+| smallint.max              | smallint | 否       | 32767                  | 连接器生成的 smallint 数据的最大值                                                                                                                                                                |
+| smallint.template         | list     | 否       | -                      | 连接器生成的 smallint 类型的模板列表，如果用户配置了此选项，连接器将从模板列表中随机选择一个项                                                                                                       |
+| int.fake.mode             | string   | 否       | range                  | 生成 int 数据的模式，支持 `range` 和 `template`，默认为 `range`。如果配置为 `template`，还需要配置 `int.template`。 |
+| int.min                   | int      | 否       | 0                      | 连接器生成的 int 数据的最小值 |
+| int.max                   | int      | 否       | 0x7fffffff             | 连接器生成的 int 数据的最大值 |
+| int.template              | list     | 否       | -                      | 连接器生成的 int 类型的模板列表，如果用户配置了此选项，连接器将从模板列表中随机选择一个项                                                                                                             |
+| bigint.fake.mode          | string   | 否       | range                  | 生成 bigint 数据的伪数据模式，支持 `range` 和 `template`，默认为 `range`，如果配置为 `template`，用户还需配置 `bigint.template` 选项                                                                 |
+| bigint.min                | bigint   | 否       | 0                      | 连接器生成的 bigint 数据的最小值                                                                                                                                                                  |
+| bigint.max                | bigint   | 否       | 0x7fffffffffffffff     | 连接器生成的 bigint 数据的最大值                                                                                                                                                                  |
+| bigint.template           | list     | 否       | -                      | 连接器生成的 bigint 类型的模板列表，如果用户配置了此选项，连接器将从模板列表中随机选择一个项                                                                                                         |
+| float.fake.mode           | string   | 否       | range                  | 生成 float 数据的伪数据模式，支持 `range` 和 `template`，默认为 `range`，如果配置为 `template`，用户还需配置 `float.template` 选项                                                                   |
+| float.min                 | float    | 否       | 0                      | 连接器生成的 float 数据的最小值                                                                                                                                                                   |
+| float.max                 | float    | 否       | 0x1.fffffeP+127        | 连接器生成的 float 数据的最大值                                                                                                                                                                   |
+| float.template            | list     | 否       | -                      | 连接器生成的 float 类型的模板列表，如果用户配置了此选项，连接器将从模板列表中随机选择一个项                                                                                                           |
+| double.fake.mode          | string   | 否       | range                  | 生成 double 数据的伪数据模式，支持 `range` 和 `template`，默认为 `range`，如果配置为 `template`，用户还需配置 `double.template` 选项                                                                 |
+| double.min                | double   | 否       | 0                      | 连接器生成的 double 数据的最小值                                                                                                                                                                  |
+| double.max                | double   | 否       | 0x1.fffffffffffffP+1023 | 连接器生成的 double 数据的最大值                                                                                                                                                                  |
+| double.template           | list     | 否       | -                      | 连接器生成的 double 类型的模板列表，如果用户配置了此选项，连接器将从模板列表中随机选择一个项                                                                                                         |
+| vector.dimension          | int      | 否       | 4                      | 生成的向量的维度，不包括二进制向量                                                                                                                                                                   |
+| binary.vector.dimension   | int      | 否       | 8                      | 生成的二进制向量的维度                                                                                                                                                                            |
+| vector.float.min          | float    | 否       | 0                      | 连接器生成的向量中 float 数据的最小值                                                                                                                                                              |
+| vector.float.max          | float    | 否       | 0x1.fffffeP+127        | 连接器生成的向量中 float 数据的最大值                                                                                                                                                              |
+| common-options            |          | 否       | -                      | 数据源插件通用参数，详情请参考 [Source Common Options](../common-options/source-common-options.md)                                                                                                                |
 
 ## 任务示例
 
