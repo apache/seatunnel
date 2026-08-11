@@ -21,8 +21,6 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
-import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.transform.common.FilterRowTransform;
 
 import lombok.NonNull;
@@ -56,15 +54,6 @@ public class FilterRowKindTransform extends FilterRowTransform {
         } else {
             includeKinds = new HashSet<>(config.get(FilterRowKinkTransformConfig.INCLUDE_KINDS));
         }
-        if ((includeKinds.isEmpty() && excludeKinds.isEmpty())
-                || (!includeKinds.isEmpty() && !excludeKinds.isEmpty())) {
-            throw new SeaTunnelRuntimeException(
-                    CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
-                    String.format(
-                            "These options(%s,%s) are mutually exclusive, allowing only one set of options to be configured.",
-                            FilterRowKinkTransformConfig.INCLUDE_KINDS.key(),
-                            FilterRowKinkTransformConfig.EXCLUDE_KINDS.key()));
-        }
     }
 
     @Override
@@ -72,12 +61,6 @@ public class FilterRowKindTransform extends FilterRowTransform {
         if (!this.excludeKinds.isEmpty()) {
             return this.excludeKinds.contains(inputRow.getRowKind()) ? null : inputRow;
         }
-        if (!this.includeKinds.isEmpty()) {
-            Set<RowKind> includeKinds = this.includeKinds;
-            return includeKinds.contains(inputRow.getRowKind()) ? inputRow : null;
-        }
-        throw new SeaTunnelRuntimeException(
-                CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
-                "Transform config error! Either excludeKinds or includeKinds must be configured");
+        return this.includeKinds.contains(inputRow.getRowKind()) ? inputRow : null;
     }
 }
