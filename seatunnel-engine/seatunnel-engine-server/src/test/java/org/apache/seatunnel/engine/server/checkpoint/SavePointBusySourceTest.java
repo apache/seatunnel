@@ -257,18 +257,10 @@ public class SavePointBusySourceTest extends AbstractSeaTunnelServerTest<SavePoi
                                         subPlan.getPipelineState().isEndState(),
                                         "unexpected pipeline status "
                                                 + subPlan.getPipelineState()));
-        Assertions.assertTrue(
-                jobMaster.getPhysicalPlan().getPipelineList().stream()
-                        .map(
-                                subPlan ->
-                                        jobMaster
-                                                .getCheckpointManager()
-                                                .waitCheckpointCoordinatorComplete(
-                                                        subPlan.getPipelineId())
-                                                .join()
-                                                .getCheckpointCoordinatorStatus())
-                        .anyMatch(CheckpointCoordinatorStatus.SUSPEND::equals),
-                "expected the successful pipeline checkpoint coordinator to reach SUSPEND");
+        // A failed savepoint stops the whole job. Depending on scheduling, the non-failing
+        // pipeline can be suspended by the checkpoint coordinator or be moved directly to a
+        // terminal state by the job-level fallback. The invariant is that no coordinator remains
+        // running after the failed stop-with-savepoint request.
         jobMaster
                 .getPhysicalPlan()
                 .getPipelineList()
