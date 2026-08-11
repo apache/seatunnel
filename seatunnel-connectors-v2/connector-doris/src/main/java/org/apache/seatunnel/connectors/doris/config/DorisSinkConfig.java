@@ -30,6 +30,8 @@ import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
+import java.time.DateTimeException;
+import java.time.ZoneId;
 import java.util.Map;
 import java.util.Properties;
 
@@ -49,6 +51,7 @@ import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.SAVE
 import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.SINK_BUFFER_COUNT;
 import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.SINK_BUFFER_SIZE;
 import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.SINK_CHECK_INTERVAL;
+import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.SINK_DATETIME_TIMEZONE;
 import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.SINK_ENABLE_2PC;
 import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.SINK_ENABLE_DELETE;
 import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.SINK_LABEL_PREFIX;
@@ -82,6 +85,11 @@ public class DorisSinkConfig implements Serializable {
     private boolean directToBe;
     private boolean needsUnsupportedTypeCasting;
     private boolean caseSensitive;
+    /**
+     * Session zone used to convert {@code TIMESTAMP_TZ} values into wall-clock strings for Doris
+     * DATETIME columns. When {@code null}, the JVM default timezone is used (legacy behavior).
+     */
+    private ZoneId datetimeTimezone;
 
     // create table option
     private String createTableTemplate;
@@ -121,6 +129,7 @@ public class DorisSinkConfig implements Serializable {
         dorisSinkConfig.setDirectToBe(config.get(DIRECT_TO_BE));
         dorisSinkConfig.setNeedsUnsupportedTypeCasting(config.get(NEEDS_UNSUPPORTED_TYPE_CASTING));
         dorisSinkConfig.setCaseSensitive(config.get(CASE_SENSITIVE));
+        dorisSinkConfig.setDatetimeTimezone(parseDatetimeTimezone(config));
         // create table option
         dorisSinkConfig.setCreateTableTemplate(config.get(SAVE_MODE_CREATE_TEMPLATE));
         validateDirectWriteOptions(
@@ -139,6 +148,26 @@ public class DorisSinkConfig implements Serializable {
                     });
         }
         return streamLoadProps;
+    }
+
+    private static ZoneId parseDatetimeTimezone(ReadonlyConfig config) {
+        if (!config.getOptional(SINK_DATETIME_TIMEZONE).isPresent()) {
+            return null;
+        }
+        String zoneId = config.get(SINK_DATETIME_TIMEZONE).trim();
+        if (zoneId.isEmpty()) {
+            return null;
+        }
+        try {
+            return ZoneId.of(zoneId);
+        } catch (DateTimeException e) {
+            throw new DorisConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    "PluginName: Doris, Message: Option 'sink.datetime-timezone' is not a "
+                            + "valid ZoneId ID: "
+                            + zoneId,
+                    e);
+        }
     }
 
     private static void validateDirectWriteOptions(

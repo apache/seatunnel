@@ -113,6 +113,35 @@ public class JsonRowDataSerDeSchemaTest {
     }
 
     @Test
+    public void testTimestampTzSerializedWithExplicitZoneId() {
+        // When an explicit target zone is supplied, the JVM default must not affect the output
+        // (issue #10795 follow-up). Run the assertion under a JVM default that does NOT match the
+        // target zone to prove the explicit zone is the only thing that matters.
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"ts_tz"},
+                        new SeaTunnelDataType<?>[] {LocalTimeType.OFFSET_DATE_TIME_TYPE});
+        JsonSerializationSchema serializationSchema =
+                new JsonSerializationSchema(rowType, true, java.time.ZoneId.of("Asia/Shanghai"));
+
+        TimeZone original = TimeZone.getDefault();
+        try {
+            TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
+            // 2024-01-01T10:00:00Z == 2024-01-01T18:00:00 in Asia/Shanghai, regardless of JVM
+            // default being UTC.
+            SeaTunnelRow utcRow =
+                    new SeaTunnelRow(
+                            new Object[] {
+                                OffsetDateTime.of(2024, 1, 1, 10, 0, 0, 0, ZoneOffset.UTC)
+                            });
+            String json = new String(serializationSchema.serialize(utcRow), StandardCharsets.UTF_8);
+            Assertions.assertTrue(json.contains("2024-01-01T18:00:00"), json);
+        } finally {
+            TimeZone.setDefault(original);
+        }
+    }
+
+    @Test
     public void testSerDe() throws Exception {
         int intValue = 45536;
         float floatValue = 33.333F;

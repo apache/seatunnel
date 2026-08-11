@@ -23,6 +23,7 @@ import org.apache.seatunnel.connectors.doris.exception.DorisConnectorException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.time.ZoneId;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
@@ -75,6 +76,38 @@ public class DorisSinkConfigTest {
 
         Assertions.assertEquals("be1:8040,be2:8040", sinkConfig.getBackends());
         Assertions.assertFalse(sinkConfig.isDirectToBe());
+    }
+
+    @Test
+    void testDatetimeTimezoneDefaultsToNull() {
+        DorisSinkConfig sinkConfig = DorisSinkConfig.of(createConfig(Collections.emptyMap()));
+        Assertions.assertNull(sinkConfig.getDatetimeTimezone());
+    }
+
+    @Test
+    void testDatetimeTimezoneAcceptsRegionId() {
+        ReadonlyConfig config =
+                createConfig(Collections.singletonMap("sink.datetime-timezone", "Asia/Shanghai"));
+        DorisSinkConfig sinkConfig = DorisSinkConfig.of(config);
+        Assertions.assertEquals(ZoneId.of("Asia/Shanghai"), sinkConfig.getDatetimeTimezone());
+    }
+
+    @Test
+    void testDatetimeTimezoneAcceptsOffsetId() {
+        ReadonlyConfig config =
+                createConfig(Collections.singletonMap("sink.datetime-timezone", "+08:00"));
+        DorisSinkConfig sinkConfig = DorisSinkConfig.of(config);
+        Assertions.assertEquals(ZoneId.of("+08:00"), sinkConfig.getDatetimeTimezone());
+    }
+
+    @Test
+    void testDatetimeTimezoneRejectsInvalidId() {
+        ReadonlyConfig config =
+                createConfig(Collections.singletonMap("sink.datetime-timezone", "Not/A_Zone"));
+        DorisConnectorException exception =
+                Assertions.assertThrows(
+                        DorisConnectorException.class, () -> DorisSinkConfig.of(config));
+        Assertions.assertTrue(exception.getMessage().contains("sink.datetime-timezone"));
     }
 
     private ReadonlyConfig createConfig(Map<String, Object> extraOptions) {

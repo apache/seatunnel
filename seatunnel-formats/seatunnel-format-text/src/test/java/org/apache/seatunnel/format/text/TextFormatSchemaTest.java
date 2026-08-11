@@ -351,6 +351,39 @@ public class TextFormatSchemaTest {
     }
 
     @Test
+    void testTimestampTzWallClockExplicitZoneIdIsIndependentOfJvmDefault() {
+        // When an explicit target zone is supplied, the JVM default must not affect the output
+        // (issue #10795 follow-up). Run the assertion under a JVM default that does NOT match the
+        // target zone to prove the explicit zone is the only thing that matters.
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"ts_tz"},
+                        new SeaTunnelDataType<?>[] {LocalTimeType.OFFSET_DATE_TIME_TYPE});
+        TextSerializationSchema ser =
+                TextSerializationSchema.builder()
+                        .seaTunnelRowType(rowType)
+                        .delimiter(",")
+                        .wallClockTimestampTz(true)
+                        .wallClockTimestampTzZoneId(java.time.ZoneId.of("Asia/Shanghai"))
+                        .build();
+
+        TimeZone original = TimeZone.getDefault();
+        try {
+            TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
+            // 2024-01-01T10:00:00Z == 2024-01-01 18:00:00 in Asia/Shanghai, regardless of JVM
+            // default being UTC.
+            SeaTunnelRow utcRow =
+                    new SeaTunnelRow(
+                            new Object[] {
+                                OffsetDateTime.of(2024, 1, 1, 10, 0, 0, 0, ZoneOffset.UTC)
+                            });
+            Assertions.assertEquals("2024-01-01 18:00:00", new String(ser.serialize(utcRow)));
+        } finally {
+            TimeZone.setDefault(original);
+        }
+    }
+
+    @Test
     void testFormatDecimal() {
         // test 0000.01000
         assertEquals("0.01000", formatDecimalWithToString(new BigDecimal("0000.01000")));

@@ -32,6 +32,7 @@ import lombok.Getter;
 
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.time.ZoneId;
 
 import static org.apache.seatunnel.shade.com.google.common.base.Preconditions.checkNotNull;
 
@@ -69,9 +70,27 @@ public class JsonSerializationSchema implements SerializationSchema {
     }
 
     public JsonSerializationSchema(SeaTunnelRowType rowType, boolean serializeTimestampTzAsLocal) {
+        this(rowType, serializeTimestampTzAsLocal, null);
+    }
+
+    /**
+     * Construct a {@link JsonSerializationSchema} with an explicit target zone for wall-clock
+     * {@code TIMESTAMP_TZ} serialization. Use this overload when the caller knows the target
+     * session zone (for example the Doris sink session timezone) so the JVM default is not silently
+     * relied on.
+     *
+     * @param rowType the row type to serialize
+     * @param serializeTimestampTzAsLocal whether to drop the offset on {@code TIMESTAMP_TZ}
+     * @param timestampTzZoneId the target zone to convert {@code TIMESTAMP_TZ} values to before
+     *     dropping the offset; if {@code null}, {@link ZoneId#systemDefault()} is used.
+     */
+    public JsonSerializationSchema(
+            SeaTunnelRowType rowType,
+            boolean serializeTimestampTzAsLocal,
+            ZoneId timestampTzZoneId) {
         this.rowType = rowType;
         this.runtimeConverter =
-                new RowToJsonConverters(serializeTimestampTzAsLocal)
+                new RowToJsonConverters(serializeTimestampTzAsLocal, timestampTzZoneId)
                         .createConverter(checkNotNull(rowType));
         this.charset = StandardCharsets.UTF_8;
     }
