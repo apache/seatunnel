@@ -71,6 +71,7 @@ public abstract class BaseFileSourceConfig implements Serializable {
         this.readStrategy = ReadStrategyFactory.of(readonlyConfig, getHadoopConfig());
         this.fileDiscoveryDeferred = shouldDeferFileDiscovery(readonlyConfig);
         if (isMarkdownKnowledgeSyncMetadataEnabled(readonlyConfig)) {
+            // Fail fast without replacing the logical identity of each discovered file.
             MarkdownKnowledgeSyncMetadata.canonicalizeSourceUri(
                     readonlyConfig.get(FileBaseSourceOptions.FILE_PATH));
         }
@@ -142,7 +143,9 @@ public abstract class BaseFileSourceConfig implements Serializable {
                             safeSourceContext(rootPath));
             if (isMarkdownKnowledgeSyncMetadataEnabled(baseFileSourceConfig)) {
                 throw new FileConnectorException(
-                        FileConnectorErrorCode.FILE_LIST_GET_FAILED, errorMsg);
+                        FileConnectorErrorCode.FILE_LIST_GET_FAILED,
+                        errorMsg,
+                        MarkdownKnowledgeSyncMetadata.copyStackTraceOnly(ex));
             }
             throw new FileConnectorException(
                     FileConnectorErrorCode.FILE_LIST_GET_FAILED, errorMsg, ex);
@@ -223,6 +226,8 @@ public abstract class BaseFileSourceConfig implements Serializable {
     }
 
     private String safeSourceContext(String rawPath) {
+        // Knowledge Sync requires a credential-free logical URI; legacy formats keep their
+        // existing user-info masking behavior.
         if (isMarkdownKnowledgeSyncMetadataEnabled(baseFileSourceConfig)) {
             return MarkdownKnowledgeSyncMetadata.safeSourceContext(rawPath);
         }

@@ -115,6 +115,7 @@ public class MarkdownReadStrategy extends AbstractReadStrategy {
         }
     }
 
+    /** Per-file logical identity and digest reused by every row emitted from that document. */
     private static final class LogicalDocumentMetadata {
         private final String sourceUri;
         private final String documentId;
@@ -405,6 +406,7 @@ public class MarkdownReadStrategy extends AbstractReadStrategy {
         return enriched;
     }
 
+    /** Adds the four logical Knowledge Sync fields to row options for Metadata projection. */
     static void addKnowledgeSyncMetadata(
             SeaTunnelRow row,
             String sourceUri,

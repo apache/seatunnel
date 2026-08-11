@@ -23,13 +23,16 @@ import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.KnowledgeSyncMetadataField;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.source.BaseFileSourceTest.EmptyFileSystem;
+import org.apache.seatunnel.connectors.seatunnel.file.source.BaseFileSourceTest.FailingFileSystem;
 import org.apache.seatunnel.connectors.seatunnel.file.source.BaseMultipleTableFileSource;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
+import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -89,6 +92,23 @@ class BaseFileSourceConfigMetadataTest {
         Assertions.assertFalse(exception.getMessage().contains("part"));
     }
 
+    @Test
+    void shouldRetainSanitizedDiscoveryCause() {
+        String source = "failing:///docs/a.md?token=secret-value#part";
+
+        FileConnectorException exception =
+                Assertions.assertThrows(
+                        FileConnectorException.class, () -> createFailingConfig(source, "failing"));
+
+        Assertions.assertNotNull(exception.getCause());
+        Assertions.assertTrue(
+                exception.getCause().getMessage().contains(IOException.class.getName()));
+        Assertions.assertTrue(exception.getCause().getStackTrace().length > 0);
+        Assertions.assertNotNull(exception.getCause().getCause());
+        Assertions.assertTrue(exception.getCause().getCause().getStackTrace().length > 0);
+        assertDoesNotExposeSensitiveSource(exception);
+    }
+
     private BaseFileSourceConfig createConfig(
             String path, String discoveryMode, boolean enabled, String tableName) {
         Map<String, Object> values = new HashMap<>();
@@ -105,6 +125,33 @@ class BaseFileSourceConfigMetadataTest {
                                 new org.apache.seatunnel.api.table.type.SeaTunnelDataType[] {
                                     BasicType.STRING_TYPE
                                 })));
+    }
+
+    private BaseFileSourceConfig createFailingConfig(String path, String tableName) {
+        Map<String, Object> values = new HashMap<>();
+        values.put(FileBaseSourceOptions.FILE_PATH.key(), path);
+        values.put(FileBaseSourceOptions.FILE_FORMAT_TYPE.key(), "markdown");
+        values.put(FileBaseSourceOptions.MARKDOWN_RAG_METADATA_ENABLED.key(), true);
+        return new FailingFileSourceConfig(
+                ReadonlyConfig.fromMap(values),
+                CatalogTableUtil.getCatalogTable(
+                        tableName,
+                        new SeaTunnelRowType(
+                                new String[] {"placeholder"},
+                                new org.apache.seatunnel.api.table.type.SeaTunnelDataType[] {
+                                    BasicType.STRING_TYPE
+                                })));
+    }
+
+    private static void assertDoesNotExposeSensitiveSource(Throwable throwable) {
+        StringBuilder rendered = new StringBuilder();
+        for (Throwable current = throwable; current != null; current = current.getCause()) {
+            rendered.append(current.getMessage()).append('\n');
+        }
+        String message = rendered.toString();
+        Assertions.assertFalse(message.contains("secret-value"));
+        Assertions.assertFalse(message.contains("token="));
+        Assertions.assertFalse(message.contains("#part"));
     }
 
     private static void assertBridgeMetadata(CatalogTable catalogTable) {
@@ -139,6 +186,24 @@ class BaseFileSourceConfigMetadataTest {
         }
     }
 
+    private static class FailingFileSourceConfig extends BaseFileSourceConfig {
+
+        private FailingFileSourceConfig(
+                ReadonlyConfig readonlyConfig, CatalogTable catalogTableFromConfig) {
+            super(readonlyConfig, catalogTableFromConfig);
+        }
+
+        @Override
+        public HadoopConf getHadoopConfig() {
+            return new FailingConf("failing:///");
+        }
+
+        @Override
+        public String getPluginName() {
+            return "test-failing-file";
+        }
+    }
+
     private static class TestMultipleTableSource extends BaseMultipleTableFileSource {
 
         private TestMultipleTableSource(BaseMultipleTableFileSourceConfig config) {
@@ -165,6 +230,23 @@ class BaseFileSourceConfigMetadataTest {
         @Override
         public String getSchema() {
             return "empty";
+        }
+    }
+
+    private static class FailingConf extends HadoopConf {
+
+        private FailingConf(String hdfsNameKey) {
+            super(hdfsNameKey);
+        }
+
+        @Override
+        public String getFsHdfsImpl() {
+            return FailingFileSystem.class.getName();
+        }
+
+        @Override
+        public String getSchema() {
+            return "failing";
         }
     }
 }

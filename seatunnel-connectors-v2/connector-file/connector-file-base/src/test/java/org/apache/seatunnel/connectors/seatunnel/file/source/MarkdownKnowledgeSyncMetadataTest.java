@@ -84,6 +84,11 @@ class MarkdownKnowledgeSyncMetadataTest {
         Assertions.assertNotEquals(
                 FileSourceDocumentRouting.buildDocumentId(first),
                 FileSourceDocumentRouting.buildDocumentId(second));
+        Assertions.assertNotEquals(
+                FileSourceDocumentRouting.normalizeSourceUri(first), firstLogicalUri);
+        Assertions.assertNotEquals(
+                FileSourceDocumentRouting.buildDocumentId(first),
+                MarkdownKnowledgeSyncMetadata.buildDocumentId(firstLogicalUri));
     }
 
     @Test

@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.KnowledgeSyncMetadataField;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
+import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
@@ -135,6 +136,24 @@ public class BaseFileSourceTest {
     }
 
     @Test
+    void testMarkdownSourceRetainsSanitizedDiscoveryCause() {
+        String source = "failing:///docs/a.md?token=secret-value#part";
+
+        FileConnectorException exception =
+                Assertions.assertThrows(
+                        FileConnectorException.class,
+                        () -> new FailingTestFileSource(createMarkdownConfig(source, true)));
+
+        Assertions.assertNotNull(exception.getCause());
+        Assertions.assertTrue(
+                exception.getCause().getMessage().contains(IOException.class.getName()));
+        Assertions.assertTrue(exception.getCause().getStackTrace().length > 0);
+        Assertions.assertNotNull(exception.getCause().getCause());
+        Assertions.assertTrue(exception.getCause().getCause().getStackTrace().length > 0);
+        assertDoesNotExposeSensitiveSource(exception);
+    }
+
+    @Test
     void testPdfSourceDiscoversSchemaFromEmptyDirectory() {
         BaseFileSource source = new TestFileSource(createPdfConfig(false));
 
@@ -198,6 +217,17 @@ public class BaseFileSourceTest {
                 metadataNames);
     }
 
+    private static void assertDoesNotExposeSensitiveSource(Throwable throwable) {
+        StringBuilder rendered = new StringBuilder();
+        for (Throwable current = throwable; current != null; current = current.getCause()) {
+            rendered.append(current.getMessage()).append('\n');
+        }
+        String message = rendered.toString();
+        Assertions.assertFalse(message.contains("secret-value"));
+        Assertions.assertFalse(message.contains("token="));
+        Assertions.assertFalse(message.contains("#part"));
+    }
+
     private static class TestFileSource extends BaseFileSource {
 
         private TestFileSource(ReadonlyConfig pluginConfig) {
@@ -229,6 +259,23 @@ public class BaseFileSourceTest {
         @Override
         public String getPluginName() {
             return "LocalTestFileSource";
+        }
+    }
+
+    private static class FailingTestFileSource extends BaseFileSource {
+
+        private FailingTestFileSource(ReadonlyConfig pluginConfig) {
+            super(pluginConfig);
+        }
+
+        @Override
+        protected HadoopConf initHadoopConf() {
+            return new FailingConf("failing:///");
+        }
+
+        @Override
+        public String getPluginName() {
+            return "FailingTestFileSource";
         }
     }
 
@@ -265,6 +312,23 @@ public class BaseFileSourceTest {
         @Override
         public String getSchema() {
             return "file";
+        }
+    }
+
+    private static class FailingConf extends HadoopConf {
+
+        private FailingConf(String hdfsNameKey) {
+            super(hdfsNameKey);
+        }
+
+        @Override
+        public String getFsHdfsImpl() {
+            return FailingFileSystem.class.getName();
+        }
+
+        @Override
+        public String getSchema() {
+            return "failing";
         }
     }
 
@@ -338,8 +402,16 @@ public class BaseFileSourceTest {
         }
 
         @Override
-        public FileStatus getFileStatus(Path path) {
+        public FileStatus getFileStatus(Path path) throws IOException {
             return new FileStatus(0, true, 1, 0, 0, path.makeQualified(uri, workingDirectory));
+        }
+    }
+
+    public static class FailingFileSystem extends EmptyFileSystem {
+
+        @Override
+        public FileStatus getFileStatus(Path path) throws IOException {
+            throw new IOException("Access denied for " + path + " token=secret-value#part");
         }
     }
 }

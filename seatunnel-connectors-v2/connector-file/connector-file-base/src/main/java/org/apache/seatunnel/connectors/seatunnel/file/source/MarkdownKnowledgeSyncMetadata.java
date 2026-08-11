@@ -133,6 +133,22 @@ public final class MarkdownKnowledgeSyncMetadata {
         }
     }
 
+    /**
+     * Retains the failing call site without carrying a cause message that may contain credentials.
+     *
+     * @param cause original source-operation failure
+     * @return sanitized cause chain containing only original type names and stack traces
+     */
+    public static RuntimeException copyStackTraceOnly(Throwable cause) {
+        RuntimeException sanitizedCause =
+                new RuntimeException("Sanitized cause type: " + cause.getClass().getName());
+        sanitizedCause.setStackTrace(cause.getStackTrace());
+        if (cause.getCause() != null && cause.getCause() != cause) {
+            sanitizedCause.initCause(copyStackTraceOnly(cause.getCause()));
+        }
+        return sanitizedCause;
+    }
+
     /** Creates the SHA-256 digest used while the Markdown input stream is read. */
     public static MessageDigest newSha256Digest() {
         try {

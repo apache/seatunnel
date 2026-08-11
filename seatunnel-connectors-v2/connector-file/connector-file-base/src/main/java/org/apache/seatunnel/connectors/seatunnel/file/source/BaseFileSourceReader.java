@@ -40,12 +40,21 @@ public class BaseFileSourceReader implements SourceReader<SeaTunnelRow, FileSour
 
     private final ReadStrategy readStrategy;
     private final SourceReader.Context context;
+    private final boolean markdownKnowledgeSyncMetadataEnabled;
     private final Deque<FileSourceSplit> sourceSplits = new ConcurrentLinkedDeque<>();
     private volatile boolean noMoreSplit;
 
     public BaseFileSourceReader(ReadStrategy readStrategy, SourceReader.Context context) {
+        this(readStrategy, context, false);
+    }
+
+    public BaseFileSourceReader(
+            ReadStrategy readStrategy,
+            SourceReader.Context context,
+            boolean markdownKnowledgeSyncMetadataEnabled) {
         this.readStrategy = readStrategy;
         this.context = context;
+        this.markdownKnowledgeSyncMetadataEnabled = markdownKnowledgeSyncMetadataEnabled;
     }
 
     @Override
@@ -67,11 +76,15 @@ public class BaseFileSourceReader implements SourceReader<SeaTunnelRow, FileSour
                     // to set this
                     readStrategy.read(split.splitId(), "", output);
                 } catch (Exception e) {
+                    String sourceContext = split.splitId();
+                    Throwable cause = e;
+                    if (markdownKnowledgeSyncMetadataEnabled) {
+                        sourceContext =
+                                MarkdownKnowledgeSyncMetadata.safeSourceContext(split.splitId());
+                        cause = MarkdownKnowledgeSyncMetadata.copyStackTraceOnly(e);
+                    }
                     throw CommonError.fileOperationFailed(
-                            "SeaTunnel",
-                            "read",
-                            MarkdownKnowledgeSyncMetadata.safeSourceContext(split.splitId()),
-                            e);
+                            "SeaTunnel", "read", sourceContext, cause);
                 }
             }
         }
