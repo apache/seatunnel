@@ -151,7 +151,7 @@ public class JdbcTrinoIT extends AbstractJdbcIT {
                 .networkAliases(TRINO_ALIASES)
                 .driverClass(DRIVER_CLASS)
                 .host(HOST)
-                .port(TRINO_PORT)
+                .port(8080)
                 .localPort(TRINO_PORT)
                 .jdbcTemplate(TRINO_URL)
                 .jdbcUrl(jdbcUrl)
@@ -226,7 +226,7 @@ public class JdbcTrinoIT extends AbstractJdbcIT {
                                 Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(5)))
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(TRINO_IMAGE)));
-        container.setPortBindings(Lists.newArrayList(String.format("%s:%s", TRINO_PORT, "8080")));
+        container.addExposedPort(8080);
 
         return container;
     }

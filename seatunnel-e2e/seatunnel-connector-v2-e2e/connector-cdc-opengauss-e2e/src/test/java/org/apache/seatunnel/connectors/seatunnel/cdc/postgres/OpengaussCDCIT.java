@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.postgres;
 
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
-
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
@@ -103,6 +101,7 @@ public class OpengaussCDCIT extends TestSuiteBase implements TestResource {
             new GenericContainer<>(OPENGAUSS_IMAGE)
                     .withNetwork(NETWORK)
                     .withNetworkAliases(OPENGAUSS_HOST)
+                    .withExposedPorts(OPENGAUSS_PORT)
                     .withEnv("GS_PASSWORD", PASSWORD)
                     .withLogConsumer(new Slf4jLogConsumer(log));
 
@@ -140,8 +139,6 @@ public class OpengaussCDCIT extends TestSuiteBase implements TestResource {
     @Override
     public void startUp() throws Exception {
         log.info("The second stage: Starting opengauss containers...");
-        OPENGAUSS_CONTAINER.setPortBindings(
-                Lists.newArrayList(String.format("%s:%s", OPENGAUSS_PORT, OPENGAUSS_PORT)));
         Startables.deepStart(Stream.of(OPENGAUSS_CONTAINER)).join();
         log.info("Opengauss Containers are started");
         given().ignoreExceptions()
