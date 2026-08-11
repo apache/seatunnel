@@ -96,6 +96,7 @@
         <module>connector-fluss-e2e</module>
         <module>connector-lance-e2e</module>
         <module>connector-bigquery-e2e</module>
+        <module>connector-nats-jetstream-e2e</module>
     </modules>
 
     <properties>
