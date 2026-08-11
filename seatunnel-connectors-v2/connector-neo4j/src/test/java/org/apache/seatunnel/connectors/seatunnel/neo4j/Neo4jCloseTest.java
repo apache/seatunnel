@@ -35,18 +35,27 @@ import org.neo4j.driver.SessionConfig;
 import org.neo4j.driver.TransactionWork;
 import org.neo4j.driver.exceptions.ServiceUnavailableException;
 
+import java.io.IOException;
+
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * Both the sink writer and the source reader release the session and the driver as consecutive
- * statements, so anything that throws part way through leaks the rest. The sink is the sharper
- * case: {@code close()} flushes the last batch first, and {@code writeByQuery} deliberately
- * rethrows, so a failing final flush leaves a whole {@link Driver} — and its Netty event loop —
+ * Both the sink writer and the source reader used to release the session and the driver as
+ * consecutive statements, so anything that threw part way through leaked the rest. The sink is the
+ * sharper case: {@code close()} flushes the last batch first, and {@code writeByQuery} deliberately
+ * rethrows, so a failing final flush left a whole {@link Driver} — and its Netty event loop —
  * behind.
+ *
+ * <p>Each side is covered twice: once for "the later resource is still released", and once for "the
+ * first failure is still the one the caller sees, with the later ones attached as suppressed".
  */
 class Neo4jCloseTest {
 
@@ -58,6 +67,79 @@ class Neo4jCloseTest {
     void sinkWriterClosesSessionAndDriverWhenTheFinalFlushFails() throws Exception {
         Session session = mock(Session.class);
         Driver driver = mock(Driver.class);
+        Neo4jSinkWriter writer = sinkWriterWithFailingFlush(session, driver);
+
+        assertThrows(Neo4jConnectorException.class, writer::close);
+
+        verify(session).close();
+        verify(driver).close();
+    }
+
+    @Test
+    void sinkWriterKeepsTheFlushFailureWhenTheSessionAlsoFailsToClose() throws Exception {
+        Session session = mock(Session.class);
+        Driver driver = mock(Driver.class);
+        ServiceUnavailableException sessionFailure =
+                new ServiceUnavailableException("session close failed");
+        doThrow(sessionFailure).when(session).close();
+
+        Neo4jSinkWriter writer = sinkWriterWithFailingFlush(session, driver);
+
+        // The flush failure is what the caller cares about; the close failure must not replace it.
+        Neo4jConnectorException thrown = assertThrows(Neo4jConnectorException.class, writer::close);
+        assertArrayEquals(new Throwable[] {sessionFailure}, thrown.getSuppressed());
+        verify(driver).close();
+    }
+
+    @Test
+    void sourceReaderClosesDriverWhenTheSessionFailsToClose() throws Exception {
+        Session session = mock(Session.class);
+        Driver driver = mock(Driver.class);
+        doThrow(new ServiceUnavailableException("session close failed")).when(session).close();
+
+        Neo4jSourceReader reader = openedSourceReader(session, driver);
+
+        assertThrows(ServiceUnavailableException.class, reader::close);
+
+        verify(driver).close();
+    }
+
+    @Test
+    void sourceReaderKeepsTheSessionFailureWhenTheDriverAlsoFailsToClose() throws Exception {
+        Session session = mock(Session.class);
+        Driver driver = mock(Driver.class);
+        ServiceUnavailableException sessionFailure =
+                new ServiceUnavailableException("session close failed");
+        ServiceUnavailableException driverFailure =
+                new ServiceUnavailableException("driver close failed");
+        doThrow(sessionFailure).when(session).close();
+        doThrow(driverFailure).when(driver).close();
+
+        Neo4jSourceReader reader = openedSourceReader(session, driver);
+
+        ServiceUnavailableException thrown =
+                assertThrows(ServiceUnavailableException.class, reader::close);
+        assertSame(sessionFailure, thrown);
+        assertArrayEquals(new Throwable[] {driverFailure}, thrown.getSuppressed());
+    }
+
+    @Test
+    void sourceReaderClosesTheDriverWhenOpenWasNeverCalled() throws Exception {
+        Session session = mock(Session.class);
+        Driver driver = mock(Driver.class);
+
+        // The constructor builds the driver but the session is only assigned in open(), so a reader
+        // whose open() failed still owns a driver that has to be released.
+        Neo4jSourceReader reader =
+                new Neo4jSourceReader(null, sourceQueryInfo(session, driver), ROW_TYPE);
+        reader.close();
+
+        verify(driver).close();
+        verify(session, never()).close();
+    }
+
+    private Neo4jSinkWriter sinkWriterWithFailingFlush(Session session, Driver driver)
+            throws IOException {
         DriverBuilder driverBuilder = mock(DriverBuilder.class);
         Neo4jSinkQueryInfo queryInfo = mock(Neo4jSinkQueryInfo.class);
 
@@ -75,17 +157,17 @@ class Neo4jCloseTest {
 
         Neo4jSinkWriter writer = new Neo4jSinkWriter(queryInfo, ROW_TYPE);
         writer.write(new SeaTunnelRow(new Object[] {"a"}));
-
-        assertThrows(Neo4jConnectorException.class, writer::close);
-
-        verify(session).close();
-        verify(driver).close();
+        return writer;
     }
 
-    @Test
-    void sourceReaderClosesDriverWhenTheSessionFailsToClose() throws Exception {
-        Session session = mock(Session.class);
-        Driver driver = mock(Driver.class);
+    private Neo4jSourceReader openedSourceReader(Session session, Driver driver) throws Exception {
+        Neo4jSourceReader reader =
+                new Neo4jSourceReader(null, sourceQueryInfo(session, driver), ROW_TYPE);
+        reader.open();
+        return reader;
+    }
+
+    private Neo4jSourceQueryInfo sourceQueryInfo(Session session, Driver driver) {
         DriverBuilder driverBuilder = mock(DriverBuilder.class);
         Neo4jSourceQueryInfo queryInfo = mock(Neo4jSourceQueryInfo.class);
 
@@ -94,19 +176,6 @@ class Neo4jCloseTest {
         when(driver.session(any(SessionConfig.class))).thenReturn(session);
         when(queryInfo.getDriverBuilder()).thenReturn(driverBuilder);
         when(queryInfo.getQuery()).thenReturn("MATCH (n) RETURN n");
-        doThrowOnClose(session);
-
-        Neo4jSourceReader reader = new Neo4jSourceReader(null, queryInfo, ROW_TYPE);
-        reader.open();
-
-        assertThrows(ServiceUnavailableException.class, reader::close);
-
-        verify(driver).close();
-    }
-
-    private static void doThrowOnClose(Session session) {
-        org.mockito.Mockito.doThrow(new ServiceUnavailableException("connection refused"))
-                .when(session)
-                .close();
+        return queryInfo;
     }
 }

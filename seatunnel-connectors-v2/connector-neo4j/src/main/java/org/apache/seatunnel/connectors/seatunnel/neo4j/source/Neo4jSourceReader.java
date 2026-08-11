@@ -71,11 +71,43 @@ public class Neo4jSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
 
     @Override
     public void close() throws IOException {
-        try {
-            session.close();
-        } finally {
-            driver.close();
+        // The session is only assigned in open(), so a reader whose open() failed still owns a
+        // driver that has to be released. Every step runs, and the first failure is the one that
+        // propagates: later ones are attached to it as suppressed.
+        Throwable closeFailure = null;
+        if (null != session) {
+            try {
+                session.close();
+            } catch (Throwable throwable) {
+                closeFailure = appendSuppressed(closeFailure, throwable);
+            }
         }
+        try {
+            driver.close();
+        } catch (Throwable throwable) {
+            closeFailure = appendSuppressed(closeFailure, throwable);
+        }
+        if (closeFailure != null) {
+            rethrowCloseFailure(closeFailure);
+        }
+    }
+
+    private Throwable appendSuppressed(Throwable existingFailure, Throwable newFailure) {
+        if (existingFailure == null) {
+            return newFailure;
+        }
+        existingFailure.addSuppressed(newFailure);
+        return existingFailure;
+    }
+
+    private void rethrowCloseFailure(Throwable throwable) throws IOException {
+        if (throwable instanceof IOException) {
+            throw (IOException) throwable;
+        }
+        if (throwable instanceof RuntimeException) {
+            throw (RuntimeException) throwable;
+        }
+        throw new IOException("Failed to close Neo4j source reader.", throwable);
     }
 
     @Override
