@@ -836,6 +836,50 @@ sink {
 }
 ```
 
+#### SqlServer CDC source
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  SqlServer-CDC {
+    plugin_output = "customers"
+    username = "sa"
+    password = "Password!"
+    database-names = ["column_type_test"]
+    table-names = [
+      "column_type_test.dbo.full_types",
+      "column_type_test.dbo.full_types_2"
+    ]
+    url = "jdbc:sqlserver://sqlserver-host:1433;databaseName=column_type_test"
+  }
+}
+
+sink {
+  Jdbc {
+    plugin_input = "customers"
+    driver = "com.microsoft.sqlserver.jdbc.SQLServerDriver"
+    url = "jdbc:sqlserver://sqlserver-host:1433;databaseName=column_type_test;encrypt=false"
+    user = "sa"
+    password = "Password!"
+    generate_sink_sql = true
+    database = "column_type_test"
+    schema = "dbo"
+    tablePrefix = "sink_"
+    batch_size = 1
+    primary_keys = ["id"]
+  }
+}
+```
+
+The `${schema_name}` and `${table_name}` placeholders in `database` and `table` are filled from the upstream record's
+schema/table metadata. Pair this with `generate_sink_sql = true` and a pre-existing `primary_keys` list so SeaTunnel can
+emit the right INSERT/UPSERT for each upstream table.
+
 #### Amazon Aurora DSQL
 
 ```hocon
@@ -883,6 +927,10 @@ sink {
     }
 }
 ```
+
+`dialect = "Dsql"` selects Amazon Aurora DSQL. AWS credentials are read from `access_key_id` / `secret_access_key`
+(and `region`) rather than from a username/password pair. Aurora DSQL does not support XA, so leave
+`is_exactly_once` at its default of `false`.
 
 ## Troubleshooting
 

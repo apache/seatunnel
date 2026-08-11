@@ -18,6 +18,7 @@ import ChangeLog from '../changelog/connector-cdc-sqlserver.md';
 - [ ] [batch](../../introduction/concepts/connector-v2-features.md)
 - [x] [stream](../../introduction/concepts/connector-v2-features.md)
 - [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [x] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [ ] [column projection](../../introduction/concepts/connector-v2-features.md)
 - [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
 - [x] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
@@ -26,6 +27,10 @@ import ChangeLog from '../changelog/connector-cdc-sqlserver.md';
 
 The Sql Server CDC connector allows for reading snapshot data and incremental data from SqlServer database. This document
 describes how to setup the Sql Server CDC connector to run SQL queries against SqlServer databases.
+
+When `startup.mode = initial`, the connector first reads the snapshot of each monitored table using parallel splits,
+then switches to incremental streaming from the LSN recorded at the end of the snapshot. Downstream consumers should
+treat the snapshot phase as a one-time bootstrap and not rely on it for steady-state reads.
 
 :::tip
 
@@ -317,12 +322,72 @@ source {
 }
 ```
 
+### Heartbeat action
+
+Use the `debezium.heartbeat.action.query` option to keep the CDC slot active when there are no upstream changes for a
+long time. Pair it with `debezium.heartbeat.interval.ms` so the action runs at a regular cadence.
+
+```hocon
+source {
+  SqlServer-CDC {
+    plugin_output = "customers"
+    username = "sa"
+    password = "Password!"
+    database-names = ["column_type_test"]
+    table-names = ["column_type_test.dbo.full_types"]
+    url = "jdbc:sqlserver://sqlserver-host:1433;databaseName=column_type_test"
+    debezium {
+      heartbeat.interval.ms = 100
+      heartbeat.action.query = "INSERT INTO column_type_test.dbo.heartbeat (ts) VALUES (GETDATE())"
+    }
+  }
+}
+```
+
+The heartbeat table and insert statement must exist on the target database. Without a heartbeat, the LSN window may be
+recycled by SQL Server when there is no activity, which can break resumable streaming jobs.
+
 ### Schema change event filtering
 
 When `schema-changes.enabled = true`, you can further control which schema change event types are
 propagated downstream using `schema-changes.include` / `schema-changes.exclude`.
 
-Use these SeaTunnel-owned canonical names:
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  SqlServer-CDC {
+    plugin_output = "products"
+    username = "sa"
+    password = "Password!"
+    database-names = ["schema_change_test"]
+    table-names = ["schema_change_test.dbo.products"]
+    url = "jdbc:sqlserver://sqlserver-host:1433;databaseName=schema_change_test"
+    schema-changes.enabled = true
+  }
+}
+
+sink {
+  Jdbc {
+    plugin_input = "products"
+    driver = "com.microsoft.sqlserver.jdbc.SQLServerDriver"
+    url = "jdbc:sqlserver://sqlserver-host:1433;databaseName=schema_change_test;encrypt=false"
+    user = "sa"
+    password = "Password!"
+    generate_sink_sql = true
+    database = "schema_change_test"
+    table = "dbo.products_sink"
+    batch_size = 1
+    primary_keys = ["id"]
+  }
+}
+```
+
+Use these SeaTunnel-owned canonical names to filter schema events:
 
 | Canonical name   | Operation                                            |
 |------------------|------------------------------------------------------|
@@ -352,6 +417,47 @@ source {
 **Data handling when `drop.column` is excluded.** For a retained **NOT NULL** column the `NULL` write is rejected
 by the sink, so excluding `drop.column` for a NOT NULL column that the source has stopped supplying
 will fail at the sink.
+
+### Databases with special characters in the name
+
+The `database-names` list and the `databaseName` parameter in the JDBC URL must use the exact identifier as stored on
+the server. When the database name contains characters such as `-` or `.`, quote the database name in SQL but quote
+the URL parameter literally. The connector does not URL-encode the database name automatically.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  SqlServer-CDC {
+    plugin_output = "customers"
+    username = "sa"
+    password = "Password!"
+    database-names = ["test-db-name"]
+    table-names = ["test-db-name.dbo.simple_table"]
+    url = "jdbc:sqlserver://sqlserver-host:1433;databaseName=test-db-name"
+    exactly_once = false
+  }
+}
+
+sink {
+  Jdbc {
+    plugin_input = "customers"
+    driver = "com.microsoft.sqlserver.jdbc.SQLServerDriver"
+    url = "jdbc:sqlserver://sqlserver-host:1433;databaseName=test-db-name;encrypt=false"
+    user = "sa"
+    password = "Password!"
+    generate_sink_sql = true
+    database = "test-db-name"
+    table = "dbo.simple_table_sink"
+    batch_size = 1
+    primary_keys = ["id"]
+  }
+}
+```
 
 ## Changelog
 
