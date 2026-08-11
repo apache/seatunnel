@@ -71,6 +71,8 @@ import ChangeLog from '../changelog/connector-file-hadoop.md';
 | skip_header_row_number     | long    | 否    | 0                   | 跳过前几行，但仅适用于 txt 和 csv。例如，设置如下：`skip_header_row_number = 2`。然后 Seatunnel 将跳过源文件的前 2 行                                                                                             |
 | schema                     | config  | 否    | -                   | 上游数据的 schema 字段。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。                                                                                                                                                                  |
 | sheet_name                 | string  | 否    | -                   | 读取工作簿的工作表，仅在 file_format 为 excel 时使用。                                                                                                                                            |
+| excel_engine               | string  | 否    | POI                | 仅在 `file_format` 为 excel 时使用。支持的引擎包括 `POI` 和 `EasyExcel`。                                                                                                                          |
+| poi_excel_max_file_size    | long    | 否    | 52428800           | 仅在 `file_format` 为 excel 且 `excel_engine` 为 POI 时使用。POI 引擎允许读取的最大 Excel 文件大小（默认 50 MB）。                                                                                                                          |
 | xml_row_tag                | string  | 否    | -                   | 指定 XML 文件中数据行的标签名称，仅在 file_format 为 xml 时使用。                                                                                                                                     |
 | xml_use_attr_format        | boolean | 否    | -                   | 指定是否使用标签属性格式处理数据，仅在 file_format 为 xml 时使用。                                                                                                                                       |
 | csv_use_header_line        | boolean | 否    | false               | 是否使用标题行解析文件，仅在 file_format 为 `csv` 且文件包含符合 RFC 4180 的标题行时使用                                                                                                                      |
@@ -220,6 +222,22 @@ abc.*
 /data/seatunnel/20241002/abcg202410.csv
 /data/seatunnel/20241005/old_data.csv
 ```
+
+### excel_engine [string]
+
+仅在 `file_format` 为 excel 时使用。
+
+支持的引擎包括 `POI` 和 `EasyExcel`。默认值为 `POI`。
+
+默认的 Excel 读取引擎是 POI。POI 会保留历史读取行为，包括 POI 特有的公式和格式处理能力，但读取大 Excel 文件时可能占用大量内存。
+
+如果需要读取大 Excel 文件，可以设置 `excel_engine = EasyExcel` 使用流式读取。
+
+### poi_excel_max_file_size [long]
+
+仅在 `file_format` 为 excel 且 `excel_engine` 为 POI 时使用。
+
+POI 引擎允许读取的最大 Excel 文件大小，单位为字节。默认值为 `52428800` 字节（50 MB）。当文件超过该限制时，连接器会提前失败，并提示使用 EasyExcel。
 
 ### compress_codec [string]
 
