@@ -25,6 +25,13 @@ import org.apache.spark.sql.types.StructType;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
+/**
+ * Creates row encoders for the shared Spark 3 starter code.
+ *
+ * <p>This module is compiled against Spark 3.3 but also runs with Spark 3.5. Resolve the encoder
+ * API at runtime, preferring {@code Encoders.row} when available and falling back to {@code
+ * RowEncoder.apply} for older Spark 3 runtimes.
+ */
 final class SparkRowEncoder {
 
     private static final String ROW_ENCODER_CLASS =
