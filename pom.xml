@@ -836,8 +836,7 @@
                     <version>${maven-shade-plugin.version}</version>
                     <configuration>
                         <shadedArtifactAttached>false</shadedArtifactAttached>
-                        <!-- Set to false to avoid generating the dependency-reduced-pom.xml temporary file -->
-                        <createDependencyReducedPom>false</createDependencyReducedPom>
+                        <createDependencyReducedPom>true</createDependencyReducedPom>
                         <!-- Make sure the transitive dependencies are written to the generated pom under <dependencies> -->
                         <promoteTransitiveDependencies>true</promoteTransitiveDependencies>
                         <artifactSet>
