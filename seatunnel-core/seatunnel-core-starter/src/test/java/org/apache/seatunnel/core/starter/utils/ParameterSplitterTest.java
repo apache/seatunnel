@@ -43,6 +43,17 @@ public class ParameterSplitterTest {
     }
 
     @Test
+    void testEscapedQuotes() {
+        String input =
+                "json={\"key\":\"value with \\\"${var}\\\" inside\",\"path\":\"D:\\data\\file\\\\\"},next=2";
+        String[] expected = {
+            "json={\"key\":\"value with \\\"${var}\\\" inside\",\"path\":\"D:\\data\\file\\\\\"}",
+            "next=2"
+        };
+        assertArrayEquals(expected, parameterSplitter.split(input).toArray());
+    }
+
+    @Test
     void testArrayWithCommas() {
         String input = "arr=[1,2,3],other=4";
         String[] expected = {"arr=[1,2,3]", "other=4"};
