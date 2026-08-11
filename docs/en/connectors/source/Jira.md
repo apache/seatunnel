@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-http-jira.md';
 
 > Jira source connector
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Description
 
 Reads data from Jira REST APIs. The connector adds the Jira Basic authentication header from `email` and `api_token`, then uses the shared HTTP source runtime to parse the response.
@@ -53,7 +59,12 @@ Create a Jira API token from your Atlassian account and set:
 - `email`: the Jira account email.
 - `api_token`: the Jira API token.
 
-The connector builds the Basic authentication header automatically.
+The connector builds the Basic authentication header automatically. Do not also add an `Authorization`
+header in `headers` — the explicit one would override the generated Basic header and authentication would
+fail.
+
+If your Jira site sits behind a proxy, place proxy-specific headers (e.g. `X-Atlassian-Token`)
+in `headers` instead of trying to override the Basic auth header.
 
 ### Response Parsing
 
@@ -90,7 +101,13 @@ Use `content_field` when the rows are inside a nested JSON node. Use `json_field
 | cursor_response_field | String | No | - | JSONPath field used to read the next cursor from the response. |
 | use_placeholder_replacement | boolean | No | false | Use `${field}` placeholder replacement in headers, parameters, and body. |
 
+The Jira REST search endpoint (`/rest/api/3/search`) supports both `startAt`/`maxResults` style paging and
+`nextPageToken`-style cursor paging. Pick whichever the target endpoint exposes — most cloud endpoints accept
+the older offset/limit paging, while newer endpoints only accept cursor paging.
+
 ## Example
+
+### Read Jira issues via REST search
 
 ```hocon
 env {
@@ -120,6 +137,93 @@ source {
 sink {
   Console {
     plugin_input = "jira"
+  }
+}
+```
+
+### Read a paginated Jira endpoint
+
+For endpoints that only support cursor-based paging (e.g. newer comment / sprint endpoints), switch
+`page_type` to `Cursor` and point `cursor_response_field` at the field that holds the next cursor token.
+The connector will keep paging until the cursor is missing from the response.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Jira {
+    plugin_output = "jira_paged"
+    url = "https://example.atlassian.net/rest/api/3/search"
+    email = "admin@example.com"
+    api_token = "replace-with-token"
+    method = "POST"
+    headers = {
+      "Content-Type" = "application/json"
+    }
+    body = "{\"jql\":\"project = DEMO AND created >= -30d\",\"maxResults\":100,\"fields\":[\"summary\",\"status\"]}"
+    format = "json"
+    content_field = "$.issues.*"
+    pageing = {
+      page_type = "Cursor"
+      cursor_field = "nextPageToken"
+      cursor_response_field = "$.nextPageToken"
+      batch_size = 100
+    }
+    schema = {
+      fields {
+        id = string
+        key = string
+        summary = string
+        status_name = string
+      }
+    }
+  }
+}
+
+sink {
+  Console {
+    plugin_input = "jira_paged"
+  }
+}
+```
+
+### POST with JQL and `content_field`
+
+Jira's modern search endpoint accepts a JQL payload over `POST`. Use this when your query is large or
+contains characters that would need URL-encoding in `params`.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Jira {
+    plugin_output = "jira_jql"
+    url = "https://example.atlassian.net/rest/api/3/search"
+    email = "admin@example.com"
+    api_token = "replace-with-token"
+    method = "POST"
+    body = "{\"jql\":\"project = DEMO AND created >= -7d\"}"
+    format = "json"
+    content_field = "$.issues.*"
+    schema = {
+      fields {
+        id = string
+        key = string
+        summary = string
+      }
+    }
+  }
+}
+
+sink {
+  Console {
+    plugin_input = "jira_jql"
   }
 }
 ```
