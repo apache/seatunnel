@@ -149,6 +149,12 @@ The main PDF-specific behaviors are:
 
 Note: Only single-column (top-to-bottom) PDF layouts are supported. Multi-column layouts (e.g., side-by-side two-column documents) are not supported and may produce incorrect text ordering.
 
+:::caution
+
+For security reasons (XXE hardening), XML files (`file_format_type = xml`) containing a `<!DOCTYPE ...>` declaration — including benign declarations that only define internal, non-external entities — are rejected with a `FILE_READ_FAILED` error. There is no configuration option to restore the previous, less secure behavior. If your XML files are exported by a tool that emits a `DOCTYPE` header, remove it or pre-process the file before ingesting it with SeaTunnel.
+
+:::
+
 ### tables_configs [list]
 
 Use `tables_configs` when one HDFS source needs to read multiple tables or directories. Each item can define its own

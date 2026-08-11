@@ -109,6 +109,12 @@
     - **已存在的 Iceberg 表**（Glue/Hive 元数据中已有 `identifier-field-ids`）在运行时不受影响；
       只有 sink 新建的表会改变行为。
 
+- **破坏性变更：File 连接器拒绝 XML 输入中的 `DOCTYPE` 声明（XXE 加固）**
+  - **影响范围**：`seatunnel-connectors-v2/connector-file/connector-file-base`（`XmlReadStrategy`），以及所有基于该模块构建的 File Source：LocalFile、HdfsFile、S3File、OssFile、OssJindoFile、CosFile、FtpFile、SftpFile（`file_format_type = xml`）
+  - **变更说明**：此前 XML 读取器使用默认的 dom4j `SAXReader` 解析用户提供的文件，DTD 处理和外部实体解析均保持 JAXP 默认行为。精心构造的 `DOCTYPE`/外部实体载荷可能导致 worker 节点本地文件泄露、SSRF 式请求，或通过实体展开（"billion laughs"）耗尽内存。现在 `XmlReadStrategy` 的所有解析都会经过加固后的 reader：启用 JAXP 安全处理特性、彻底拒绝任何 `<!DOCTYPE ...>` 声明、禁用外部通用/参数实体及外部 DTD 加载，并额外安装一个拒绝一切解析请求的 `EntityResolver` 作为与具体解析器实现无关的兜底防护。
+  - **影响**：此前仅因携带 `<!DOCTYPE ...>` 声明才能被解析的 XML 文件——即使该声明是不引用任何外部 `SYSTEM`/`PUBLIC` 资源的良性声明——现在会以 `FileConnectorException(FILE_READ_FAILED)` 失败。该行为没有配置项可以恢复为旧版本的处理方式。
+  - **迁移指南**：在使用 SeaTunnel 读取前，移除 XML 文件中的 `DOCTYPE` 声明，或对文件做预处理/重新导出。不带 `DOCTYPE` 声明的合法 XML 文件不受影响。(#11250)
+
 ### 转换变更
 
 - **[BREAKING]** SQL Transform 的 `PARSEDATETIME`、`TO_DATE` 和 `IS_DATE` 函数现在只接受白名单中的日期时间格式模式。以前接受的自定义格式模式现在将在运行时失败。支持的模式有：

@@ -114,6 +114,12 @@ You need to check this document before you upgrade to related version.
       Glue/Hive metastore schema are not affected at runtime; only newly auto-created tables change
       behavior.
 
+- **Breaking Change: File connectors reject `DOCTYPE` declarations in XML input (XXE hardening)**
+  - **Affected component**: `seatunnel-connectors-v2/connector-file/connector-file-base` (`XmlReadStrategy`), and every file source built on it: LocalFile, HdfsFile, S3File, OssFile, OssJindoFile, CosFile, FtpFile, SftpFile (`file_format_type = xml`)
+  - **Description**: The XML reader previously parsed user-supplied files with a default dom4j `SAXReader`, leaving DTD processing and external entity resolution at their JAXP defaults. A crafted `DOCTYPE`/external-entity payload could disclose local worker-node files, trigger SSRF-style fetches, or exhaust memory via entity expansion ("billion laughs"). `XmlReadStrategy` now routes every parse through a hardened reader that enables JAXP secure processing, rejects any `<!DOCTYPE ...>` declaration outright, disables external general/parameter entities and external DTD loading, and installs a deny-all `EntityResolver` as a parser-agnostic backstop.
+  - **Impact**: XML files that previously parsed successfully only because they carried a `<!DOCTYPE ...>` declaration — even a benign one with no external `SYSTEM`/`PUBLIC` reference — now fail with `FileConnectorException(FILE_READ_FAILED)`. There is no configuration option to opt back into the previous behavior.
+  - **Migration Guide**: Remove the `DOCTYPE` declaration from XML files before ingesting them with SeaTunnel, or pre-process/re-export the file without it. Well-formed XML without a `DOCTYPE` declaration is unaffected. (#11250)
+
 ### Transform Changes
 
 - **[BREAKING]** SQL Transform `PARSEDATETIME`, `TO_DATE`, and `IS_DATE` functions now only accept whitelisted datetime format patterns. Custom format patterns that were previously accepted will now fail at runtime. The supported patterns are:

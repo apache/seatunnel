@@ -125,7 +125,7 @@ public class XmlReadStrategy extends AbstractReadStrategy {
             Map<String, String> partitionsMap,
             String currentFileName)
             throws IOException {
-        SAXReader saxReader = createSecureSaxReader();
+        SAXReader saxReader = createSecureSaxReader(split.getFilePath());
         Document document;
         try (BufferedReader reader = createBomAwareBufferedReader(inputStream, encoding)) {
             document = saxReader.read(reader);
@@ -192,8 +192,11 @@ public class XmlReadStrategy extends AbstractReadStrategy {
 
     /**
      * Configure the XML reader with XXE-safe defaults before parsing user-controlled file contents.
+     * The parser-init failure message includes the file path (rather than reusing the bare "Failed
+     * to initialize secure xml parser" text) so operators can tell an environment/classpath problem
+     * (every file on this deployment would fail identically) apart from a per-file issue.
      */
-    private SAXReader createSecureSaxReader() {
+    private SAXReader createSecureSaxReader(String filePath) {
         SAXReader saxReader = new SAXReader();
         try {
             // Keep JAXP entity-expansion limits enabled even if Xerces is on the classpath.
@@ -207,7 +210,7 @@ public class XmlReadStrategy extends AbstractReadStrategy {
         } catch (SAXException e) {
             throw new FileConnectorException(
                     FileConnectorErrorCode.FILE_READ_FAILED,
-                    "Failed to initialize secure xml parser",
+                    "Failed to initialize secure XML parser while reading file [" + filePath + "]",
                     e);
         }
         return saxReader;

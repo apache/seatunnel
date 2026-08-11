@@ -75,7 +75,6 @@ public class XmlReadStrategyTest {
         xmlReadStrategy.setPluginConfig(pluginConfig);
         xmlReadStrategy.init(localConf);
         List<String> fileNamesByPath = xmlReadStrategy.getFileNamesByPath(xmlFilePath);
-        // Partition inference needs the real sample path before the schema is expanded.
         CatalogTable catalogTable = CatalogTableUtil.buildWithConfig(pluginConfig);
         xmlReadStrategy.setCatalogTable(catalogTable);
         TestCollector testCollector = new TestCollector();
@@ -162,6 +161,10 @@ public class XmlReadStrategyTest {
         Assertions.assertTrue(
                 containsMessage(exception, "DOCTYPE"),
                 "expected secure XML parser to reject the DOCTYPE declaration");
+        Assertions.assertFalse(
+                containsMessage(exception, "secret-from-temp-file"),
+                "expected the sentinel secret to never appear in the exception message/cause chain, "
+                        + "confirming the external entity was rejected rather than resolved and merely dropped");
     }
 
     private boolean containsMessage(Throwable throwable, String message) {
