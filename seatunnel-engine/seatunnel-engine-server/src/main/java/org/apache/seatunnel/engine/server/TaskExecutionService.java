@@ -1074,7 +1074,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             ClassLoader oldClassLoader = Thread.currentThread().getContextClassLoader();
             final Task t = tracker.task;
             ProgressState result = null;
-            boolean startSignalled = false;
+            boolean startLatchReleased = false;
             try {
                 // Resolving the class loader has to happen inside this try. The execution
                 // context for this location can already have been removed by a taskDone() of
@@ -1098,7 +1098,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 // Signalled before init() so that submitBlockingTask() returns once workers
                 // have started, not once they have finished.
                 startedLatch.countDown();
-                startSignalled = true;
+                startLatchReleased = true;
                 t.init();
                 do {
                     result = t.call();
@@ -1122,7 +1122,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 // A worker that failed before signalling must still release the deployer,
                 // otherwise submitBlockingTask() blocks forever. Guarded so each worker counts
                 // down exactly once.
-                if (!startSignalled) {
+                if (!startLatchReleased) {
                     startedLatch.countDown();
                 }
                 taskGroupExecutionTracker.taskDone(t);
