@@ -638,7 +638,7 @@ The same pattern works with `format = debezium_json` when you need to consume De
 
 ### Avro Deserialization
 
-Use `format = avro` together with `avro_schema` when the Avro record layout (record name, namespace, or union structure) does not exactly match the SeaTunnel schema. SeaTunnel falls back to the reader schema embedded in each Avro message when `avro_schema` is not provided.
+Use `format = avro` together with `avro_schema` when the Avro record layout (record name, namespace, or union structure) does not exactly match the SeaTunnel schema. When `avro_schema` is not provided, SeaTunnel derives the decode schema from the configured `schema` block and uses it as both reader and writer schema; set `avro_schema` explicitly whenever the producer's Avro layout (record name, namespace, union structure) differs from the SeaTunnel schema. There is no Confluent Schema Registry lookup or per-message schema fallback in the current implementation.
 
 ```hocon
 source {

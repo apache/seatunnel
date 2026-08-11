@@ -631,7 +631,7 @@ sink {
 
 ### Avro 反序列化
 
-当 Avro 消息的 record 名称、namespace 或 union 结构与 SeaTunnel schema 不一致时，需要将 `format` 设置为 `avro` 并提供 `avro_schema`。如果不提供 `avro_schema`，连接器会使用每条 Avro 消息内嵌的 writer schema 进行解析。
+当 Avro 消息的 record 名称、namespace 或 union 结构与 SeaTunnel schema 不一致时，需要将 `format` 设置为 `avro` 并提供 `avro_schema`。如果不提供 `avro_schema`，连接器会从用户配置的 `schema` 块派生解码 schema，并同时将其作为 reader schema 和 writer schema 使用；如果生产端的 Avro 结构（record 名称、namespace、union 结构）与 SeaTunnel schema 不一致，请显式配置 `avro_schema`。当前实现中没有 Confluent Schema Registry 查询或按消息回退读取 schema 的机制。
 
 ```hocon
 source {

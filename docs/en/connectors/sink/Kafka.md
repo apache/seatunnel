@@ -14,10 +14,7 @@ import ChangeLog from '../changelog/connector-kafka.md';
 
 - [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
-- [ ] [batch](../../introduction/concepts/connector-v2-features.md)
-- [x] [stream](../../introduction/concepts/connector-v2-features.md)
-- [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
-- [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 > By default, we will use 2pc to guarantee the message is sent to kafka exactly once.
 
@@ -405,7 +402,9 @@ sink {
     format = json
     semantics = EXACTLY_ONCE
     transaction_prefix = "orders_pipeline"
-    kafka.transaction.timeout.ms = 900000
+    kafka.config = {
+      "transaction.timeout.ms" = "900000"
+    }
     partition_key_fields = ["order_id"]
   }
 }
@@ -436,7 +435,7 @@ sink {
 }
 ```
 
-Note: when the upstream rows are produced with `format = "NATIVE"`, the `key` and `value` columns are `byte[]`. Configure `kafka_headers_fields` carefully or avoid it for NATIVE inputs, since headers are already encoded in the row.
+Note: when the upstream rows are produced with `format = "NATIVE"`, the `key` and `value` columns are `byte[]`. Combining `kafka_headers_fields` with `format = "NATIVE"` is not a "configure carefully" situation — `KafkaSinkWriter.getSerializer()` throws `KafkaConnectorException(OPERATION_NOT_SUPPORTED)` at job initialization if both are set, so the job fails to start. Do not configure `kafka_headers_fields` together with `format = "NATIVE"`; headers for NATIVE inputs are already encoded inside the `value` byte array.
 
 ## FAQ
 
@@ -465,7 +464,9 @@ sink {
     bootstrap.servers = "localhost:9092"
     semantics = EXACTLY_ONCE
     transaction_prefix = "SeaTunnelJob"
-    kafka.transaction.timeout.ms = "900000"
+    kafka.config = {
+      "transaction.timeout.ms" = "900000"
+    }
   }
 }
 ```

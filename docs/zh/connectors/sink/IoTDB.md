@@ -20,10 +20,6 @@ import ChangeLog from '../changelog/connector-iotdb.md';
 
   > IoTDB 通过幂等写支持`精确一次`功能。如果两条数据使用相同的`key`和`timestamp`，新数据将覆盖旧数据。
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
-- [x] [批处理](../../introduction/concepts/connector-v2-features.md)
-- [x] [流处理](../../introduction/concepts/connector-v2-features.md)
-- [x] [并行度](../../introduction/concepts/connector-v2-features.md)
-- [ ] [支持用户自定义分片](../../introduction/concepts/connector-v2-features.md)
 
 > IoTDB Sink 通过调用 IoTDB 的 insert RPC 写入。当一行带有非唯一的 `(device, timestamp)` 组合时，写入会按 upsert 处理——最新值覆盖之前的值，因此上游重复投递不会产生多余数据。行类型 `UPDATE`/`DELETE` 不会被当作 CDC 操作处理，所有行都按 insert 写入。
 

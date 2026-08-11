@@ -31,9 +31,6 @@ semantics (using XA transaction guarantee).
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
 - [x] [timer flush](../../introduction/concepts/connector-v2-features.md)
-- [x] [batch](../../introduction/concepts/connector-v2-features.md)
-- [x] [stream](../../introduction/concepts/connector-v2-features.md)
-- [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
 
 > Use `Xa transactions` to ensure `exactly-once`. So only support `exactly-once` for the database which is
 > support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
@@ -322,7 +319,7 @@ COPY is not a good fit when:
 
 ### Streaming With Timer Flush
 
-For long-running streaming jobs, set `batch_interval_ms` together with `batch_size` so the writer flushes the buffer either when the row count reaches `batch_size` or the elapsed time reaches `batch_interval_ms`. The flush happens synchronously on the writer thread; pick a value in the seconds range to balance latency and throughput.
+For long-running streaming jobs, set `batch_interval_ms` together with `batch_size`. The flush is **write-triggered**: each incoming write checks the buffered row count and elapsed time and flushes synchronously when either threshold is reached. There is no background scheduler, so during idle periods (no incoming rows) buffered rows are held until the next row arrives or a checkpoint completes — `batch_interval_ms` does not by itself guarantee a strict wall-clock latency bound. Pick a value in the seconds range to balance throughput and per-record latency.
 
 ```hocon
 env {

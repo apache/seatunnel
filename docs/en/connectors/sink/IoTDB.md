@@ -20,10 +20,6 @@ Used to write data to IoTDB.
 
   > IoTDB supports the `exactly-once` feature through idempotent writing. If multiple data have the same `key` and `timestamp`, the latest one will overwrite the previous one.
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
-- [x] [batch](../../introduction/concepts/connector-v2-features.md)
-- [x] [stream](../../introduction/concepts/connector-v2-features.md)
-- [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
-- [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
 
 > The IoTDB sink connector writes rows by calling the IoTDB insert RPC. When a row carries a non-unique `(device, timestamp)` pair, the write is treated as an upsert — the latest value overwrites earlier ones — so duplicate deliveries from upstream do not create phantom rows. Row-kind `UPDATE`/`DELETE` are not interpreted as CDC operations; all rows are written as inserts.
 

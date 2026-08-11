@@ -291,7 +291,7 @@ sink {
 
 ### Timer Flush + Batch Combined
 
-For streaming jobs, set `batch_interval_ms` to flush buffered rows on a wall-clock interval even when the buffer is not full. Combined with `batch_size`, this gives both throughput and latency guarantees. The flush happens synchronously on the writer thread, so set `batch_interval_ms` to at least a few seconds in production.
+For streaming jobs, set `batch_interval_ms` to flush buffered rows based on elapsed time since the previous flush. The flush is **write-triggered**: each incoming write checks the elapsed time and flushes synchronously when the interval is reached. There is no background scheduler, so during idle periods (no incoming rows) buffered rows are held until the next row arrives or a checkpoint completes — `batch_interval_ms` does not by itself guarantee a wall-clock latency bound for low-throughput streams. Combined with `batch_size`, it gives both throughput and reasonable per-record latency, but do not treat it as a strict real-time timer.
 
 ```hocon
 sink {

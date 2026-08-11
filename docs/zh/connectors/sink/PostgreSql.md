@@ -30,9 +30,6 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 - [x] [变更数据捕获（CDC）](../../introduction/concepts/connector-v2-features.md)
 - [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
 - [x] [定时刷新](../../introduction/concepts/connector-v2-features.md)
-- [x] [批处理](../../introduction/concepts/connector-v2-features.md)
-- [x] [流处理](../../introduction/concepts/connector-v2-features.md)
-- [x] [并行度](../../introduction/concepts/connector-v2-features.md)
 
 > 使用 `XA 事务` 来确保 `精确一次`。因此，仅对支持 `XA 事务` 的数据库支持 `精确一次`。您可以设置 `is_exactly_once=true` 来启用此功能。
 
@@ -315,7 +312,7 @@ INSERT batching。这时重复键是否报错，完全取决于目标表自身�
 
 ### 流式定时刷新
 
-对于长时间运行的流式作业，可以同时设置 `batch_size` 与 `batch_interval_ms`，让缓冲行数到达阈值或时间间隔到达时主动刷新。两种触发器都会在写入线程上同步执行，生产环境建议把 `batch_interval_ms` 设为几秒以上。
+对于长时间运行的流式作业，可以同时设置 `batch_size` 与 `batch_interval_ms`。刷新是**写入触发的**：每条记录进入写入路径时都会检查缓冲行数和耗时，达到任一阈值就同步刷新，并没有后台调度线程。因此在空闲（没有新记录）的时段，缓冲行会一直保留到下一条记录到达或下一个 checkpoint 完成——`batch_interval_ms` 自身并不能保证严格的 wall-clock 时延边界，生产环境建议把 `batch_interval_ms` 设为几秒以上。
 
 ```hocon
 env {

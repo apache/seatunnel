@@ -14,10 +14,7 @@ import ChangeLog from '../changelog/connector-kafka.md';
 
 - [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
-- [ ] [批处理](../../introduction/concepts/connector-v2-features.md)
-- [x] [流处理](../../introduction/concepts/connector-v2-features.md)
-- [x] [并行度](../../introduction/concepts/connector-v2-features.md)
-- [ ] [支持用户自定义拆分](../../introduction/concepts/connector-v2-features.md)
+- [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 > 默认情况下，我们将使用 2pc 来保证消息只发送一次到kafka
 
@@ -406,7 +403,9 @@ sink {
     format = json
     semantics = EXACTLY_ONCE
     transaction_prefix = "orders_pipeline"
-    kafka.transaction.timeout.ms = 900000
+    kafka.config = {
+      "transaction.timeout.ms" = "900000"
+    }
     partition_key_fields = ["order_id"]
   }
 }
@@ -465,7 +464,9 @@ sink {
     bootstrap.servers = "localhost:9092"
     semantics = EXACTLY_ONCE
     transaction_prefix = "SeaTunnelJob"
-    kafka.transaction.timeout.ms = "900000"
+    kafka.config = {
+      "transaction.timeout.ms" = "900000"
+    }
   }
 }
 ```

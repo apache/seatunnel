@@ -210,7 +210,7 @@ sink {
 
 ### 批量 + 定时刷新组合
 
-流式作业同时设置 `batch_size` 与 `batch_interval_ms`，缓冲行数到达阈值或时间间隔到达时主动刷新。两种触发器都会在写入线程上同步执行，生产环境建议把 `batch_interval_ms` 设为几秒以上。
+流式作业同时设置 `batch_size` 与 `batch_interval_ms`。刷新是**写入触发的**：每条记录进入写入路径时都会检查缓冲行数和耗时，达到任一阈值就同步刷新，并没有后台调度线程。因此在空闲（没有新记录）的时段，缓冲行会一直保留到下一条记录到达或下一个 checkpoint 完成——`batch_interval_ms` 自身并不能保证严格的 wall-clock 时延边界，生产环境建议把 `batch_interval_ms` 设为几秒以上。
 
 ```hocon
 sink {
