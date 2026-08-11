@@ -564,6 +564,29 @@ sink {
 }
 ```
 
+### 使用 STS AssumeRole 读取（跨账号或联邦身份）
+
+如果作业需要读取另一个 AWS 账号拥有的 bucket，或者通过 STS 切换 IAM 角色，可以把 AssumeRole 颁发的临时会话凭证通过 `hadoop_s3_properties` 传给连接器，并配合自定义凭据 provider 使用。
+
+```hocon
+source {
+  S3File {
+    path = "/cross-account/prefix"
+    bucket = "s3a://target-bucket"
+    fs.s3a.endpoint = "s3.cn-north-1.amazonaws.com.cn"
+    fs.s3a.aws.credentials.provider = "org.apache.hadoop.fs.s3a.TemporaryAWSCredentialsProvider"
+    hadoop_s3_properties = {
+      "fs.s3a.access.key"     = "<assumed-role-access-key>"
+      "fs.s3a.secret.key"     = "<assumed-role-secret-key>"
+      "fs.s3a.session.token"  = "<assumed-role-session-token>"
+    }
+    file_format_type = "parquet"
+  }
+}
+```
+
+对于 AWS SSO / Profile 这类 provider，只需要把 provider 类换成 `com.amazonaws.auth.profile.ProfileCredentialsProvider`，并在 `hadoop_s3_properties` 里配置 `fs.s3a.profile`、`fs.s3a.credentialsFile` 等 provider 特定键。完整的 `fs.s3a.*` 键集合参见 [Hadoop AWS](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html) 文档。
+
 ## 变更日志
 
 <ChangeLog />

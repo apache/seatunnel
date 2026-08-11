@@ -868,6 +868,31 @@ sink {
 }
 ```
 
+### Reading via SFTP (SSH File Transfer)
+
+`FtpFile` reads from FTP and SFTP servers through the same Hadoop FileSystem URI scheme; switch to `sftp://` to use SSH instead of plain FTP. SFTP requires an SSH key (or a password) for authentication, and the host key must be trusted by the running JVM (either via `~/.ssh/known_hosts` or a custom `known_hosts` file passed through `ftp_properties`).
+
+```hocon
+source {
+  FtpFile {
+    fs.defaultFS = "sftp://sftp.example.example.com:22"
+    path = "/upload/landing/"
+    user = "seatunnel"
+    file_format_type = "csv"
+    delimiter = ","
+    ftp_properties = {
+      "fs.sftp.user." = "seatunnel"
+      "fs.sftp.keyfile" = "/etc/seatunnel/id_rsa"
+      "fs.sftp.host"   = "sftp.example.example.com"
+      "fs.sftp.port"   = "22"
+      "fs.sftp.knownHosts" = "/etc/seatunnel/known_hosts"
+    }
+  }
+}
+```
+
+If the SFTP server uses a self-signed host key, add it to `known_hosts` ahead of time — otherwise the first read throws a `SftpException` complaining about host verification. The connector does not cache or refresh `known_hosts` itself; updating the file and restarting the job is enough.
+
 ## Changelog
 
 <ChangeLog />

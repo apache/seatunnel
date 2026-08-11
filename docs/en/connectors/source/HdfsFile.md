@@ -678,6 +678,23 @@ sink {
 
 ```
 
+### Reading from an HA HDFS Cluster (Nameservice)
+
+When the HDFS namenode is deployed in HA mode (multiple namenodes behind a single nameservice), point `fs.defaultFS` at the nameservice URI (not an individual namenode) so the client can fail over automatically. The nameservice ID must match the `dfs.nameservices` value in `hdfs-site.xml`.
+
+```hocon
+source {
+  HdfsFile {
+    fs.defaultFS = "hdfs://mycluster"
+    path = "/data/orders/dt=2026-08-11"
+    file_format_type = "parquet"
+    hdfs_site_path = "/etc/hadoop/conf/hdfs-site.xml"
+  }
+}
+```
+
+If the cluster is configured with ViewFS (federated HDFS), use a `viewfs://<nameservice-path>` URI for `fs.defaultFS` instead — the connector passes the URI straight to the Hadoop FileSystem client. The `hdfs_site_path` option lets you load an external `hdfs-site.xml` (for example from `/etc/hadoop/conf/`) so the cluster's HA / federation settings are picked up without restating them in the job file.
+
 ## Changelog
 
 <ChangeLog />
