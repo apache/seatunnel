@@ -555,6 +555,17 @@ Yes. Set `database-names` to the CDB name and configure the JDBC URL to point to
 
 By default, Oracle CDC requires primary keys. You can specify a custom primary key column via `table-names-config` with the `primaryKeys` field if the table has a suitable unique column.
 
+### How do I use a custom snapshot query?
+
+Use Debezium's `snapshot.select.statement.overrides` properties inside the `debezium` block. The query is applied before SeaTunnel adds the snapshot-split boundaries, so it must include every column needed by the configured table schema and its split key.
+
+```hocon
+debezium {
+  snapshot.select.statement.overrides = "DEBEZIUM.FULL_TYPES"
+  snapshot.select.statement.overrides.DEBEZIUM.FULL_TYPES = "SELECT * FROM DEBEZIUM.FULL_TYPES WHERE ACTIVE = 1"
+}
+```
+
 ### How do I improve LogMiner performance?
 
 Treat this primarily as a database and redo-log tuning topic. Reuse the LogMiner setup and
