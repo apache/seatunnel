@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.checkpoint;
 
+import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
@@ -29,6 +30,7 @@ import org.junit.jupiter.api.condition.OS;
 
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.awaitility.Awaitility.await;
 
@@ -68,6 +70,7 @@ public class SavePointBusySourceTest extends AbstractSeaTunnelServerTest<SavePoi
                                 Assertions.assertEquals(
                                         JobStatus.RUNNING,
                                         server.getCoordinatorService().getJobStatus(jobId)));
+        awaitCheckpointCoordinatorsReady(server.getCoordinatorService().getJobMaster(jobId));
 
         // Let the source saturate the pipeline mid-split before requesting the savepoint
         Thread.sleep(5000L);
@@ -119,6 +122,7 @@ public class SavePointBusySourceTest extends AbstractSeaTunnelServerTest<SavePoi
                                 Assertions.assertEquals(
                                         JobStatus.RUNNING,
                                         server.getCoordinatorService().getJobStatus(jobId)));
+        awaitCheckpointCoordinatorsReady(server.getCoordinatorService().getJobMaster(jobId));
 
         // Let the custom rows source enter its paced split loop before requesting the savepoint.
         // The config uses many small splits with a read interval, so this settle window avoids
@@ -193,7 +197,7 @@ public class SavePointBusySourceTest extends AbstractSeaTunnelServerTest<SavePoi
                                 Assertions.assertEquals(
                                         JobStatus.RUNNING,
                                         server.getCoordinatorService().getJobStatus(jobId)));
-        Thread.sleep(2000L);
+        awaitCheckpointCoordinatorsReady(server.getCoordinatorService().getJobMaster(jobId));
 
         PassiveCompletableFuture<Void> savepointFuture =
                 server.getCoordinatorService().savePoint(jobId);
@@ -235,6 +239,7 @@ public class SavePointBusySourceTest extends AbstractSeaTunnelServerTest<SavePoi
                                         server.getCoordinatorService().getJobStatus(jobId)));
         JobMaster jobMaster = server.getCoordinatorService().getJobMaster(jobId);
         Assertions.assertEquals(2, jobMaster.getPhysicalPlan().getPipelineList().size());
+        awaitCheckpointCoordinatorsReady(jobMaster);
 
         PassiveCompletableFuture<Void> savepointFuture =
                 server.getCoordinatorService().savePoint(jobId);
@@ -257,10 +262,18 @@ public class SavePointBusySourceTest extends AbstractSeaTunnelServerTest<SavePoi
                                         subPlan.getPipelineState().isEndState(),
                                         "unexpected pipeline status "
                                                 + subPlan.getPipelineState()));
-        // A failed savepoint stops the whole job. Depending on scheduling, the non-failing
-        // pipeline can be suspended by the checkpoint coordinator or be moved directly to a
-        // terminal state by the job-level fallback. The invariant is that no coordinator remains
-        // running after the failed stop-with-savepoint request.
+        Assertions.assertTrue(
+                jobMaster.getPhysicalPlan().getPipelineList().stream()
+                        .map(
+                                subPlan ->
+                                        jobMaster
+                                                .getCheckpointManager()
+                                                .waitCheckpointCoordinatorComplete(
+                                                        subPlan.getPipelineId())
+                                                .join()
+                                                .getCheckpointCoordinatorStatus())
+                        .anyMatch(CheckpointCoordinatorStatus.SUSPEND::equals),
+                "expected the successful pipeline checkpoint coordinator to reach SUSPEND");
         jobMaster
                 .getPhysicalPlan()
                 .getPipelineList()
@@ -284,6 +297,35 @@ public class SavePointBusySourceTest extends AbstractSeaTunnelServerTest<SavePoi
                                                 .getWorkerProfile()
                                                 .getAssignedSlots()
                                                 .length));
+    }
+
+    private void awaitCheckpointCoordinatorsReady(JobMaster jobMaster) {
+        await().atMost(120, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                jobMaster
+                                        .getPhysicalPlan()
+                                        .getPipelineList()
+                                        .forEach(
+                                                subPlan -> {
+                                                    AtomicBoolean isAllTaskReady =
+                                                            (AtomicBoolean)
+                                                                    ReflectionUtils.getField(
+                                                                                    jobMaster
+                                                                                            .getCheckpointManager()
+                                                                                            .getCheckpointCoordinator(
+                                                                                                    subPlan
+                                                                                                            .getPipelineId()),
+                                                                                    "isAllTaskReady")
+                                                                            .orElseThrow(
+                                                                                    () ->
+                                                                                            new AssertionError(
+                                                                                                    "isAllTaskReady field not found"));
+                                                    Assertions.assertTrue(
+                                                            isAllTaskReady.get(),
+                                                            "checkpoint coordinator not ready for pipeline "
+                                                                    + subPlan.getPipelineId());
+                                                }));
     }
 
     private void assertFailedSavepointTerminalStatus(long jobId) {
