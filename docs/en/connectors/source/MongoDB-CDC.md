@@ -286,6 +286,200 @@ sink {
 }
 ```
 
+### CDC Data Write to Another MongoDB
+
+You can also route CDC events to a sink MongoDB collection. The example below mirrors `inventory.products` from the source cluster to a target cluster named `mongo1`:
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  MongoDB-CDC {
+    hosts = "mongo0:27017"
+    database = ["inventory"]
+    collection = ["inventory.products"]
+    schema = {
+      fields {
+        "_id" : string,
+        "name" : string,
+        "description" : string,
+        "weight" : string
+      }
+    }
+  }
+}
+
+sink {
+  MongoDB {
+    uri = "mongodb://mongo1:27017"
+    database = "inventory"
+    collection = "products_mirror"
+  }
+}
+```
+
+## Startup From a Specific Timestamp
+
+If you want to skip the snapshot and resume the change stream from a known point in time, set `startup.mode` to `timestamp` and provide `startup.timestamp` in epoch milliseconds. This is useful when re-processing a backlog of changes after a maintenance window or when bootstrapping a new sink that should ignore historical writes.
+
+```hocon
+source {
+  MongoDB-CDC {
+    hosts = "mongo0:27017"
+    database = ["inventory"]
+    collection = ["inventory.products"]
+    startup.mode = "timestamp"
+    # 2026-08-01 00:00:00 UTC
+    startup.timestamp = 1785542400000
+    schema = {
+      fields {
+        "_id" : string,
+        "name" : string,
+        "description" : string,
+        "weight" : string
+      }
+    }
+  }
+}
+```
+
+## Using the SRV Connection URI
+
+For MongoDB Atlas or any deployment that exposes a `mongodb+srv://` connection string, pass the URI directly to the `hosts` option. Authentication credentials, the replica set name, and other URI options are forwarded to the driver as-is, so you do not need to also set `connection.options`:
+
+```hocon
+source {
+  MongoDB-CDC {
+    hosts = "mongodb+srv://cluster0.example.net"
+    username = "stuser"
+    password = "stpw"
+    database = ["inventory"]
+    collection = ["inventory.products"]
+    schema = {
+      fields {
+        "_id" : string,
+        "name" : string,
+        "description" : string,
+        "weight" : string
+      }
+    }
+  }
+}
+```
+
+## Heartbeat and Resume Token Maintenance
+
+Change stream resume tokens can expire if no source records are published for a long time (for example, on a low-traffic collection). Set `heartbeat.interval.ms` to a non-zero value so the connector periodically advances the resume token and keeps the change stream open across checkpoint restores:
+
+```hocon
+source {
+  MongoDB-CDC {
+    hosts = "mongo0:27017"
+    database = ["inventory"]
+    collection = ["inventory.products"]
+    # Send a heartbeat every 30 seconds when no records are flowing
+    heartbeat.interval.ms = 30000
+    schema = {
+      fields {
+        "_id" : string,
+        "name" : string,
+        "description" : string,
+        "weight" : string
+      }
+    }
+  }
+}
+```
+
+## Reading From Multiple MongoDB Sources
+
+A SeaTunnel job only accepts one source block per `source { ... }`, so the supported way to
+fan in CDC streams from several MongoDB clusters is to submit one job per source and have them
+write to the same sink table. Each job preserves its own parallelism, schema, and restart
+tokens; the sink table deduplicates by primary key.
+
+```hocon
+# Job A: CDC from cluster `mongo0` writing to `inventory_a.products_a`
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  MongoDB-CDC {
+    hosts = "mongo0:27017"
+    database = ["inventory_a"]
+    collection = ["inventory_a.products_a"]
+    username = superuser
+    password = superpw
+    schema = {
+      fields {
+        "_id": string,
+        "name": string,
+        "price": int
+      }
+    }
+  }
+}
+
+sink {
+  jdbc {
+    url = "jdbc:mysql://mysql_e2e:3306/mongodb_cdc"
+    driver = "com.mysql.cj.jdbc.Driver"
+    username = "st_user"
+    password = "seatunnel"
+    generate_sink_sql = true
+    database = mongodb_cdc
+    table = "${table_name}"
+    primary_keys = ["_id"]
+  }
+}
+```
+
+```hocon
+# Job B: CDC from cluster `mongo1` writing to `inventory_b.products_b`
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  MongoDB-CDC {
+    hosts = "mongo1:27017"
+    database = ["inventory_b"]
+    collection = ["inventory_b.products_b"]
+    username = superuser
+    password = superpw
+    schema = {
+      fields {
+        "_id": string,
+        "name": string,
+        "price": int
+      }
+    }
+  }
+}
+
+sink {
+  jdbc {
+    url = "jdbc:mysql://mysql_e2e:3306/mongodb_cdc"
+    driver = "com.mysql.cj.jdbc.Driver"
+    username = "st_user"
+    password = "seatunnel"
+    generate_sink_sql = true
+    database = mongodb_cdc
+    table = "${table_name}"
+    primary_keys = ["_id"]
+  }
+}
+```
+
 ## Multi-table Synchronization
 
 The following example demonstrates how to read CDC data from multiple MongoDB collections and write each collection to the matching MySQL table. The sink table uses `${table_name}`, so `inventory.products` and `inventory.orders` are routed to their own target tables.
