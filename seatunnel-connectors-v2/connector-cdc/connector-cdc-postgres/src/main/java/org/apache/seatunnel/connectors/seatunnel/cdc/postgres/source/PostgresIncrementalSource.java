@@ -38,8 +38,19 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
 import java.util.List;
 import java.util.Optional;
 
-/** PostgreSQL incremental source backed by the shared PG-base source behavior. */
+/**
+ * PostgreSQL incremental source backed by the shared PG-base source behavior.
+ *
+ * <p>Keeps PostgreSQL-specific options, dialect selection and offset handling in this connector.
+ */
 public class PostgresIncrementalSource<T> extends PgBaseIncrementalSource<T, JdbcSourceConfig> {
+
+    /**
+     * Preserves serialized job DAG compatibility with the Postgres source released in 2.3.13.
+     *
+     * <p>Do not regenerate this value when the class hierarchy or implementation changes.
+     */
+    private static final long serialVersionUID = -9086519839702872016L;
 
     static final String IDENTIFIER = "Postgres-CDC";
 

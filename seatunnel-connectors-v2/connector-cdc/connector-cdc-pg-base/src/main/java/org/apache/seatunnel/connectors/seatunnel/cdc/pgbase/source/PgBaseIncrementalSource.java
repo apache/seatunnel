@@ -102,27 +102,33 @@ public abstract class PgBaseIncrementalSource<T, C extends JdbcSourceConfig>
      * payload used by the row deserializer.
      *
      * <p>Reuses the dialect built by the constructor instead of instantiating a second one, so the
-     * discovery here shares the connector's existing connection configuration.
+     * discovery here shares the connector's existing connection configuration. Table discovery must
+     * finish before the schema reader opens because discovery owns its JDBC connection; this keeps
+     * initialization at the historical peak of one active connection.
      */
     protected Map<TableId, Struct> loadTableChanges() {
         C sourceConfig = configFactory.create(0);
         JdbcDataSourceDialect jdbcDataSourceDialect = (JdbcDataSourceDialect) dataSourceDialect;
         ConnectTableChangeSerializer serializer =
                 new ConnectTableChangeSerializer(SchemaNameAdjuster.create());
-        try (JdbcConnection jdbcConnection =
-                jdbcDataSourceDialect.openJdbcConnection(sourceConfig)) {
-            return jdbcDataSourceDialect.discoverDataCollections(sourceConfig).stream()
-                    .collect(
-                            Collectors.toMap(
-                                    Function.identity(),
-                                    tableId ->
-                                            serializeTableChange(
-                                                    jdbcDataSourceDialect,
-                                                    jdbcConnection,
-                                                    tableId,
-                                                    serializer)));
+        try {
+            // Discovery owns its JDBC connection, so finish it before opening the schema reader.
+            List<TableId> tableIds = jdbcDataSourceDialect.discoverDataCollections(sourceConfig);
+            try (JdbcConnection jdbcConnection =
+                    jdbcDataSourceDialect.openJdbcConnection(sourceConfig)) {
+                return tableIds.stream()
+                        .collect(
+                                Collectors.toMap(
+                                        Function.identity(),
+                                        tableId ->
+                                                serializeTableChange(
+                                                        jdbcDataSourceDialect,
+                                                        jdbcConnection,
+                                                        tableId,
+                                                        serializer)));
+            }
         } catch (Exception e) {
-            // Shared by every PG-family connector now, so name the phase: a bare wrapped
+            // Shared by every PG-base connector now, so name the phase: a bare wrapped
             // exception here is indistinguishable between discovery, schema query and
             // serialization failures.
             throw new SeaTunnelException(

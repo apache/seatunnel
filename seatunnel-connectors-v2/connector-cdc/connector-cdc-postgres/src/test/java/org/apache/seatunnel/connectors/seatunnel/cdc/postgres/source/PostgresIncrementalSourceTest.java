@@ -38,6 +38,7 @@ import io.debezium.connector.postgresql.connection.PostgresConnection;
 import io.debezium.connector.postgresql.connection.ServerInfo;
 import io.debezium.relational.TableId;
 
+import java.io.ObjectStreamClass;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -60,6 +61,18 @@ import static org.mockito.Mockito.when;
 public class PostgresIncrementalSourceTest {
 
     private static final TableId ORDERS = new TableId(null, "public", "orders");
+
+    /**
+     * Locks the UID computed from the released 2.3.13 class for persisted job DAG upgrades.
+     *
+     * <p>Changing the constant would make released logical DAG payloads fail deserialization.
+     */
+    @Test
+    public void testSerialVersionUidMatchesReleasedPostgresSource() {
+        Assertions.assertEquals(
+                -9086519839702872016L,
+                ObjectStreamClass.lookup(PostgresIncrementalSource.class).getSerialVersionUID());
+    }
 
     @Test
     public void testDialectEnforcesReplicaIdentityFullByDefault() throws Exception {

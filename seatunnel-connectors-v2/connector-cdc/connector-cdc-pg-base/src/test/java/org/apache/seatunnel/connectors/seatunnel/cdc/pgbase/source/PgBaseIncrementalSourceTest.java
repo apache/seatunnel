@@ -44,6 +44,7 @@ import org.apache.kafka.connect.data.Struct;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.InOrder;
 
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.Column;
@@ -60,9 +61,12 @@ import java.util.Map;
 import java.util.Optional;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 /**
@@ -93,14 +97,14 @@ public class PgBaseIncrementalSourceTest {
         TestingPgBaseIncrementalSource source = new TestingPgBaseIncrementalSource(defaultConfig());
         JdbcDataSourceDialect constructorDialect = source.dialect();
 
+        clearInvocations(constructorDialect);
         source.loadTableChanges();
 
-        // Two invocations: one from the deserializer the constructor builds, one from the explicit
-        // call above. A fresh dialect per call would leave the constructor's mock at one, and would
-        // open connections outside the connector's configured pool.
-        verify(constructorDialect, times(2)).openJdbcConnection(any());
-        verify(constructorDialect, times(2)).discoverDataCollections(any());
-        verify(constructorDialect, times(4)).queryTableSchema(any(), any());
+        InOrder connectionOrder = inOrder(constructorDialect);
+        connectionOrder.verify(constructorDialect).discoverDataCollections(any());
+        connectionOrder.verify(constructorDialect).openJdbcConnection(any());
+        connectionOrder.verify(constructorDialect, times(2)).queryTableSchema(any(), any());
+        verifyNoMoreInteractions(constructorDialect);
     }
 
     @Test
