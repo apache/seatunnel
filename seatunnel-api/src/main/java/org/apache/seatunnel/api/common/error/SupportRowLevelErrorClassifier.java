@@ -20,6 +20,10 @@ package org.apache.seatunnel.api.common.error;
 /**
  * Marker interface for connectors/transforms that can classify exceptions as row-level or
  * system-level errors.
+ *
+ * <p>Provides a safe {@link RowErrorClassification#SYSTEM_ERROR} default so that downstream
+ * subclasses of an implementing class (for example {@code JdbcSinkWriter}) remain source- and
+ * binary-compatible without being forced to override {@link #classifyRowError(Throwable, Object)}.
  */
 public interface SupportRowLevelErrorClassifier<T> {
 
@@ -30,5 +34,7 @@ public interface SupportRowLevelErrorClassifier<T> {
      * @param row the row being processed
      * @return row-level or system-level classification
      */
-    RowErrorClassification classifyRowError(Throwable t, T row);
+    default RowErrorClassification classifyRowError(Throwable t, T row) {
+        return RowErrorClassification.SYSTEM_ERROR;
+    }
 }
