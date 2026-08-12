@@ -17,70 +17,63 @@
 
 package org.apache.seatunnel.e2e.connector.hive;
 
-import org.apache.hadoop.fs.CosFileSystem;
-import org.apache.hadoop.fs.aliyun.oss.AliyunOSSFileSystem;
-import org.apache.hadoop.fs.s3a.S3AFileSystem;
-import org.apache.hadoop.hive.ql.exec.Task;
-
-import org.jdom.Document;
 import org.junit.jupiter.api.Assertions;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.utility.MountableFile;
 
-import com.aliyun.oss.OSS;
-import com.facebook.fb303.FacebookService;
-
 import java.io.IOException;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
 final class HiveDependencyResolver {
 
+    private static final String DEPENDENCY_RESOURCE_DIRECTORY = "e2e-dependencies/";
+    private static final String[] HIVE_DEPENDENCIES = {
+        "hive-exec.jar",
+        "libfb303.jar",
+        "hadoop-aws.jar",
+        "aliyun-sdk-oss.jar",
+        "jdom.jar",
+        "hadoop-aliyun.jar",
+        "hadoop-cos.jar"
+    };
+
     private HiveDependencyResolver() {}
 
     static void copyHiveDependenciesToContainer(
             GenericContainer<?> container, String targetDirectory)
             throws IOException, InterruptedException {
-        copyDependencyToContainer(container, Task.class, targetDirectory);
-        copyDependencyToContainer(container, FacebookService.class, targetDirectory);
-        copyDependencyToContainer(container, S3AFileSystem.class, targetDirectory);
-        copyDependencyToContainer(container, OSS.class, targetDirectory);
-        copyDependencyToContainer(container, Document.class, targetDirectory);
-        copyDependencyToContainer(container, AliyunOSSFileSystem.class, targetDirectory);
-        copyDependencyToContainer(container, CosFileSystem.class, targetDirectory);
-    }
-
-    private static void copyDependencyToContainer(
-            GenericContainer<?> container, Class<?> dependencyClass, String targetDirectory)
-            throws IOException, InterruptedException {
         Container.ExecResult mkdirResult =
                 container.execInContainer("bash", "-c", "mkdir -p " + targetDirectory);
         Assertions.assertEquals(0, mkdirResult.getExitCode(), mkdirResult.getStderr());
 
-        Path dependencyJar = dependencyJarPath(dependencyClass);
-        container.copyFileToContainer(
-                MountableFile.forHostPath(dependencyJar),
-                targetDirectory + "/" + dependencyJar.getFileName());
+        for (String dependency : HIVE_DEPENDENCIES) {
+            Path dependencyJar = dependencyJarPath(dependency);
+            container.copyFileToContainer(
+                    MountableFile.forHostPath(dependencyJar),
+                    targetDirectory + "/" + dependencyJar.getFileName());
+        }
     }
 
-    private static Path dependencyJarPath(Class<?> dependencyClass) {
+    private static Path dependencyJarPath(String dependency) {
         try {
-            Path dependencyJar =
-                    Paths.get(
-                            dependencyClass
-                                    .getProtectionDomain()
-                                    .getCodeSource()
-                                    .getLocation()
-                                    .toURI());
+            URL dependencyResource =
+                    HiveDependencyResolver.class
+                            .getClassLoader()
+                            .getResource(DEPENDENCY_RESOURCE_DIRECTORY + dependency);
+            Assertions.assertNotNull(
+                    dependencyResource, "Maven dependency copy output is missing: " + dependency);
+            Path dependencyJar = Paths.get(dependencyResource.toURI());
             Assertions.assertTrue(
                     Files.isRegularFile(dependencyJar),
-                    "Dependency should be resolved from the test classpath: " + dependencyJar);
+                    "Maven dependency copy output should be a file: " + dependencyJar);
             return dependencyJar;
         } catch (Exception e) {
             throw new RuntimeException(
-                    "Failed to resolve dependency jar for " + dependencyClass.getName(), e);
+                    "Failed to resolve Maven-copied dependency " + dependency, e);
         }
     }
 }

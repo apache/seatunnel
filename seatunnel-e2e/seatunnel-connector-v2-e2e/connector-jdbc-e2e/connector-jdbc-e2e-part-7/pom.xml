@@ -126,6 +126,11 @@
             <artifactId>yashandb-jdbc</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>org.opengauss</groupId>
+            <artifactId>opengauss-jdbc</artifactId>
+            <scope>test</scope>
+        </dependency>
 
     </dependencies>
 

@@ -96,15 +96,7 @@ public class MysqlCDCCheckpointRestoreIT extends TestSuiteBase implements TestRe
 
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
-            container -> {
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/MySQL-CDC/lib && cd /tmp/seatunnel/plugins/MySQL-CDC/lib && wget "
-                                        + driverUrl());
-                Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
-            };
+            MysqlCDCDriverResolver::copyMySQLDriverToContainer;
 
     private static MySqlContainer createMySqlContainer(MySqlVersion version) {
         return new MySqlContainer(version)
@@ -200,10 +192,6 @@ public class MysqlCDCCheckpointRestoreIT extends TestSuiteBase implements TestRe
                                         "CANCELED",
                                         container.getJobStatus(String.valueOf(restoreJobId))));
         Assertions.assertEquals(0, restoreFuture.get().getExitCode());
-    }
-
-    private String driverUrl() {
-        return "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
     }
 
     private Connection getJdbcConnection() throws SQLException {

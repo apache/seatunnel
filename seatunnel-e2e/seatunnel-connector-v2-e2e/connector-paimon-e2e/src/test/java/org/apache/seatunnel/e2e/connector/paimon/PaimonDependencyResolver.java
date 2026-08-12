@@ -17,24 +17,22 @@
 
 package org.apache.seatunnel.e2e.connector.paimon;
 
-import org.apache.hadoop.fs.s3a.S3AFileSystem;
-import org.apache.hadoop.hive.ql.exec.Task;
-
 import org.junit.jupiter.api.Assertions;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.utility.MountableFile;
 
-import com.amazonaws.services.s3.AmazonS3;
-import com.facebook.fb303.FacebookService;
 import com.mysql.cj.jdbc.Driver;
 
 import java.io.IOException;
+import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 
 final class PaimonDependencyResolver {
+
+    private static final String DEPENDENCY_RESOURCE_DIRECTORY = "e2e-dependencies/";
 
     private PaimonDependencyResolver() {}
 
@@ -46,14 +44,14 @@ final class PaimonDependencyResolver {
     static void copyHiveDependenciesToContainer(
             GenericContainer<?> container, String targetDirectory)
             throws IOException, InterruptedException {
-        copyDependencyToContainer(container, Task.class, targetDirectory);
-        copyDependencyToContainer(container, FacebookService.class, targetDirectory);
+        copyMavenDependencyToContainer(container, "hive-exec.jar", targetDirectory);
+        copyMavenDependencyToContainer(container, "libfb303.jar", targetDirectory);
     }
 
     static void addS3DependenciesToContainer(
             GenericContainer<?> container, String targetDirectory) {
-        addDependencyToContainer(container, AmazonS3.class, targetDirectory);
-        addDependencyToContainer(container, S3AFileSystem.class, targetDirectory);
+        addMavenDependencyToContainer(container, "aws-java-sdk-bundle.jar", targetDirectory);
+        addMavenDependencyToContainer(container, "hadoop-aws.jar", targetDirectory);
     }
 
     private static void copyDependencyToContainer(
@@ -69,9 +67,22 @@ final class PaimonDependencyResolver {
                 targetDirectory + "/" + dependencyJar.getFileName());
     }
 
-    private static void addDependencyToContainer(
-            GenericContainer<?> container, Class<?> dependencyClass, String targetDirectory) {
-        Path dependencyJar = dependencyJarPath(dependencyClass);
+    private static void copyMavenDependencyToContainer(
+            GenericContainer<?> container, String dependency, String targetDirectory)
+            throws IOException, InterruptedException {
+        Container.ExecResult mkdirResult =
+                container.execInContainer("bash", "-c", "mkdir -p " + targetDirectory);
+        Assertions.assertEquals(0, mkdirResult.getExitCode(), mkdirResult.getStderr());
+
+        Path dependencyJar = mavenDependencyJarPath(dependency);
+        container.copyFileToContainer(
+                MountableFile.forHostPath(dependencyJar),
+                targetDirectory + "/" + dependencyJar.getFileName());
+    }
+
+    private static void addMavenDependencyToContainer(
+            GenericContainer<?> container, String dependency, String targetDirectory) {
+        Path dependencyJar = mavenDependencyJarPath(dependency);
         container.withCopyFileToContainer(
                 MountableFile.forHostPath(dependencyJar),
                 targetDirectory + "/" + dependencyJar.getFileName());
@@ -93,6 +104,25 @@ final class PaimonDependencyResolver {
         } catch (Exception e) {
             throw new RuntimeException(
                     "Failed to resolve dependency jar for " + dependencyClass.getName(), e);
+        }
+    }
+
+    private static Path mavenDependencyJarPath(String dependency) {
+        try {
+            URL dependencyResource =
+                    PaimonDependencyResolver.class
+                            .getClassLoader()
+                            .getResource(DEPENDENCY_RESOURCE_DIRECTORY + dependency);
+            Assertions.assertNotNull(
+                    dependencyResource, "Maven dependency copy output is missing: " + dependency);
+            Path dependencyJar = Paths.get(dependencyResource.toURI());
+            Assertions.assertTrue(
+                    Files.isRegularFile(dependencyJar),
+                    "Maven dependency copy output should be a file: " + dependencyJar);
+            return dependencyJar;
+        } catch (Exception e) {
+            throw new RuntimeException(
+                    "Failed to resolve Maven-copied dependency " + dependency, e);
         }
     }
 }
