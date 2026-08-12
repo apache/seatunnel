@@ -29,12 +29,14 @@ import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.kafka.clients.admin.AdminClient;
 import org.apache.kafka.clients.admin.AdminClientConfig;
 import org.apache.kafka.clients.admin.NewTopic;
+import org.apache.kafka.clients.admin.RecordsToDelete;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
+import org.apache.kafka.common.TopicPartition;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -122,6 +124,8 @@ public class KafkaJsonDefaultValueIT extends TestSuiteBase implements TestResour
                 .pollInterval(500, TimeUnit.MILLISECONDS)
                 .atMost(180, TimeUnit.SECONDS)
                 .untilAsserted(this::waitForKafkaTopicsReady);
+
+        warmUpKafkaTopics();
 
         initKafkaConsumer();
         produceDataToKafka();
@@ -212,6 +216,65 @@ public class KafkaJsonDefaultValueIT extends TestSuiteBase implements TestResour
         Properties props = new Properties();
         props.put(AdminClientConfig.BOOTSTRAP_SERVERS_CONFIG, kafkaContainer.getBootstrapServers());
         return AdminClient.create(props);
+    }
+
+    /**
+     * Forces the Kafka broker to finish metadata propagation for the test topics before the job is
+     * submitted. Leader visibility in the admin metadata view does not guarantee the broker the
+     * job's own Kafka client connects to has completed partition-leader assignment — the job can
+     * fail with UnknownTopicOrPartitionException in KafkaSourceSplitEnumerator.getTopicInfo.
+     * Producing and consuming a throwaway record exercises the full produce/consume path and makes
+     * the leader assignment observable end-to-end; the record is then deleted so it does not leak
+     * into the job's earliest-start read.
+     */
+    private void warmUpKafkaTopics()
+            throws ExecutionException, InterruptedException, TimeoutException {
+        String bootstrapServers = kafkaContainer.getBootstrapServers();
+        Properties producerProps = new Properties();
+        producerProps.put("bootstrap.servers", bootstrapServers);
+        producerProps.put("acks", "all");
+        producerProps.put(
+                "key.serializer", "org.apache.kafka.common.serialization.StringSerializer");
+        producerProps.put(
+                "value.serializer", "org.apache.kafka.common.serialization.StringSerializer");
+        try (KafkaProducer<String, String> producer = new KafkaProducer<>(producerProps)) {
+            producer.send(new ProducerRecord<>(SOURCE_TOPIC, null, "{\"name\":\"__warmup__\"}"))
+                    .get();
+        }
+
+        Properties consumerProps = new Properties();
+        consumerProps.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        consumerProps.put(
+                ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG,
+                "org.apache.kafka.common.serialization.StringDeserializer");
+        consumerProps.put(
+                ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG,
+                "org.apache.kafka.common.serialization.StringDeserializer");
+        consumerProps.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+        consumerProps.put(ConsumerConfig.GROUP_ID_CONFIG, "json-default-value-warmup");
+        try (KafkaConsumer<String, String> consumer = new KafkaConsumer<>(consumerProps)) {
+            consumer.subscribe(Collections.singletonList(SOURCE_TOPIC));
+            await().atMost(30000, TimeUnit.MILLISECONDS)
+                    .untilAsserted(
+                            () -> {
+                                ConsumerRecords<String, String> records =
+                                        consumer.poll(Duration.ofMillis(1000));
+                                Assertions.assertTrue(
+                                        records.count() > 0,
+                                        "warm-up record not readable from " + SOURCE_TOPIC);
+                            });
+        }
+
+        // Remove the throwaway record so the job (start_mode = earliest) does not read it
+        try (AdminClient adminClient = createKafkaAdmin()) {
+            adminClient
+                    .deleteRecords(
+                            Collections.singletonMap(
+                                    new TopicPartition(SOURCE_TOPIC, 0),
+                                    RecordsToDelete.beforeOffset(1L)))
+                    .all()
+                    .get(30, TimeUnit.SECONDS);
+        }
     }
 
     private void produceDataToKafka() throws ExecutionException, InterruptedException {
