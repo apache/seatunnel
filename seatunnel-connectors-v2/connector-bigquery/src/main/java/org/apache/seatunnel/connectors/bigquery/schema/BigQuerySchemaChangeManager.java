@@ -24,29 +24,46 @@ import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnsEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.ArrayType;
+import org.apache.seatunnel.api.table.type.DecimalType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.bigquery.client.BigQueryClientFactory;
 import org.apache.seatunnel.connectors.bigquery.exception.BigQueryConnectorErrorCode;
 import org.apache.seatunnel.connectors.bigquery.exception.BigQueryConnectorException;
 import org.apache.seatunnel.connectors.bigquery.option.BigQuerySinkOptions;
 
 import com.google.cloud.bigquery.BigQuery;
+import com.google.cloud.bigquery.BigQueryException;
 import com.google.cloud.bigquery.Field;
 import com.google.cloud.bigquery.FieldList;
+import com.google.cloud.bigquery.JobException;
 import com.google.cloud.bigquery.QueryJobConfiguration;
 import com.google.cloud.bigquery.Schema;
 import com.google.cloud.bigquery.StandardSQLTypeName;
 import com.google.cloud.bigquery.Table;
 import com.google.cloud.bigquery.TableId;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /** Applies supported SeaTunnel schema change events to a configured BigQuery table. */
+@Slf4j
 public class BigQuerySchemaChangeManager {
+    private static final long SCHEMA_CHANGE_RETRY_TIMEOUT_MILLIS = TimeUnit.MINUTES.toMillis(1);
+    private static final long SCHEMA_CHANGE_INITIAL_RETRY_DELAY_MILLIS = 1_000L;
+    private static final long SCHEMA_CHANGE_MAX_RETRY_DELAY_MILLIS = 10_000L;
+    private static final long NUMERIC_MAX_PRECISION = 38L;
+    private static final long NUMERIC_MAX_SCALE = 9L;
+    private static final long BIGNUMERIC_MAX_PRECISION = 76L;
+    private static final long BIGNUMERIC_MAX_SCALE = 38L;
+
     private final BigQuery bigQuery;
     private final TableId tableId;
     private final String quotedTable;
@@ -82,26 +99,125 @@ public class BigQuerySchemaChangeManager {
     public void applySchemaChange(SchemaChangeEvent event) {
         List<AlterTableAddColumnEvent> addColumnEvents = extractAddColumnEvents(event);
         validateColumns(addColumnEvents);
+        String actions =
+                addColumnEvents.stream()
+                        .map(this::toAddColumnAction)
+                        .collect(Collectors.joining(", "));
+        QueryJobConfiguration ddl =
+                QueryJobConfiguration.newBuilder("ALTER TABLE " + quotedTable + " " + actions)
+                        .setUseLegacySql(false)
+                        .build();
+        long retryDeadline = System.currentTimeMillis() + SCHEMA_CHANGE_RETRY_TIMEOUT_MILLIS;
+        int retryCount = 0;
 
-        try {
-            if (!hasMissingColumns(addColumnEvents)) {
+        while (true) {
+            try {
+                if (!hasMissingColumns(addColumnEvents)) {
+                    return;
+                }
+                bigQuery.query(ddl);
+                waitUntilSchemaApplied(event, addColumnEvents, retryDeadline, retryCount);
                 return;
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw schemaChangeFailed(event, e);
+            } catch (BigQueryConnectorException e) {
+                throw e;
+            } catch (BigQueryException | JobException e) {
+                if (isSchemaAppliedAfterConcurrentDdl(addColumnEvents)) {
+                    return;
+                }
+                if (!isRetryableDdlFailure(e)) {
+                    throw schemaChangeFailed(event, e);
+                }
+                try {
+                    if (!waitBeforeRetry(retryDeadline, retryCount++, "DDL quota contention")) {
+                        throw schemaChangeFailed(event, e);
+                    }
+                } catch (InterruptedException interruptedException) {
+                    Thread.currentThread().interrupt();
+                    throw schemaChangeFailed(event, interruptedException);
+                }
+            } catch (RuntimeException e) {
+                throw schemaChangeFailed(event, e);
             }
-            String actions =
-                    addColumnEvents.stream()
-                            .map(this::toAddColumnAction)
-                            .collect(Collectors.joining(", "));
-            String sql = "ALTER TABLE " + quotedTable + " " + actions;
-            bigQuery.query(QueryJobConfiguration.newBuilder(sql).setUseLegacySql(false).build());
-            validateAppliedSchema(addColumnEvents);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw schemaChangeFailed(event, e);
+        }
+    }
+
+    private void waitUntilSchemaApplied(
+            SchemaChangeEvent event,
+            List<AlterTableAddColumnEvent> addColumnEvents,
+            long retryDeadline,
+            int retryCount)
+            throws InterruptedException {
+        int currentRetryCount = retryCount;
+        while (hasMissingColumns(addColumnEvents)) {
+            if (!waitBeforeRetry(
+                    retryDeadline, currentRetryCount++, "BigQuery schema metadata propagation")) {
+                throw new BigQueryConnectorException(
+                        BigQueryConnectorErrorCode.SCHEMA_CHANGE_FAILED,
+                        String.format(
+                                "BigQuery did not expose the added columns before the schema "
+                                        + "change retry timeout for %s on table %s",
+                                event.getEventType(), tableId));
+            }
+        }
+    }
+
+    private boolean isSchemaAppliedAfterConcurrentDdl(
+            List<AlterTableAddColumnEvent> addColumnEvents) {
+        try {
+            return !hasMissingColumns(addColumnEvents);
         } catch (BigQueryConnectorException e) {
             throw e;
-        } catch (RuntimeException e) {
-            throw schemaChangeFailed(event, e);
+        } catch (BigQueryException e) {
+            return false;
         }
+    }
+
+    private boolean isRetryableDdlFailure(RuntimeException exception) {
+        if (exception instanceof BigQueryException) {
+            BigQueryException bigQueryException = (BigQueryException) exception;
+            return bigQueryException.isRetryable()
+                    || bigQueryException.getCode() == 429
+                    || isRateLimitReason(bigQueryException.getReason());
+        }
+        if (exception instanceof JobException) {
+            JobException jobException = (JobException) exception;
+            return jobException.getErrors() != null
+                    && jobException.getErrors().stream()
+                            .anyMatch(error -> isRateLimitReason(error.getReason()));
+        }
+        return false;
+    }
+
+    private boolean isRateLimitReason(String reason) {
+        return "rateLimitExceeded".equals(reason) || "jobRateLimitExceeded".equals(reason);
+    }
+
+    private boolean waitBeforeRetry(long retryDeadline, int retryCount, String reason)
+            throws InterruptedException {
+        long remainingMillis = retryDeadline - System.currentTimeMillis();
+        if (remainingMillis <= 0L) {
+            return false;
+        }
+        long exponentialDelay =
+                Math.min(
+                        SCHEMA_CHANGE_INITIAL_RETRY_DELAY_MILLIS << Math.min(retryCount, 4),
+                        SCHEMA_CHANGE_MAX_RETRY_DELAY_MILLIS);
+        long jitter = ThreadLocalRandom.current().nextLong(Math.max(1L, exponentialDelay / 2L));
+        long delayMillis = Math.min(exponentialDelay + jitter, remainingMillis);
+        log.warn(
+                "BigQuery schema change is waiting for {}. Retrying table {} in {} ms.",
+                reason,
+                tableId,
+                delayMillis);
+        waitForRetry(delayMillis);
+        return true;
+    }
+
+    void waitForRetry(long delayMillis) throws InterruptedException {
+        Thread.sleep(delayMillis);
     }
 
     private List<AlterTableAddColumnEvent> extractAddColumnEvents(SchemaChangeEvent event) {
@@ -185,21 +301,6 @@ public class BigQuerySchemaChangeManager {
         return hasMissingColumn;
     }
 
-    private void validateAppliedSchema(List<AlterTableAddColumnEvent> events) {
-        FieldList fields = getTargetFields("after ADD COLUMN");
-        for (AlterTableAddColumnEvent event : events) {
-            Column column = event.getColumn();
-            Field actualField = findField(fields, column.getName());
-            if (actualField == null) {
-                throw new BigQueryConnectorException(
-                        BigQueryConnectorErrorCode.SCHEMA_CHANGE_FAILED,
-                        "BigQuery did not expose the added column after schema change: "
-                                + column.getName());
-            }
-            validateCompatibleField(column, actualField);
-        }
-    }
-
     private FieldList getTargetFields(String operation) {
         Table table = bigQuery.getTable(tableId);
         Schema schema =
@@ -225,13 +326,21 @@ public class BigQuerySchemaChangeManager {
     }
 
     private void validateCompatibleField(Column column, Field actualField) {
-        StandardSQLTypeName expectedType =
-                BigQueryTypeConverter.toStandardType(column.getDataType());
+        validateCompatibleField(
+                column.getName(),
+                column.getDataType(),
+                expectedMode(column.getDataType()),
+                actualField);
+    }
+
+    private void validateCompatibleField(
+            String fieldPath,
+            SeaTunnelDataType<?> expectedDataType,
+            Field.Mode expectedMode,
+            Field actualField) {
+        SeaTunnelDataType<?> expectedElementType = unwrapArray(expectedDataType);
+        StandardSQLTypeName expectedType = BigQueryTypeConverter.toStandardType(expectedDataType);
         StandardSQLTypeName actualType = actualField.getType().getStandardType();
-        Field.Mode expectedMode =
-                column.getDataType() instanceof ArrayType
-                        ? Field.Mode.REPEATED
-                        : Field.Mode.NULLABLE;
         Field.Mode actualMode =
                 actualField.getMode() == null ? Field.Mode.NULLABLE : actualField.getMode();
         if (expectedType != actualType || expectedMode != actualMode) {
@@ -240,8 +349,100 @@ public class BigQuerySchemaChangeManager {
                     String.format(
                             "BigQuery column %s exists with incompatible type or mode. "
                                     + "Expected %s %s but found %s %s",
-                            column.getName(), expectedType, expectedMode, actualType, actualMode));
+                            fieldPath, expectedType, expectedMode, actualType, actualMode));
         }
+
+        if (expectedElementType instanceof DecimalType) {
+            validateCompatibleDecimal(
+                    fieldPath, (DecimalType) expectedElementType, expectedType, actualField);
+        } else if (expectedElementType instanceof SeaTunnelRowType) {
+            validateCompatibleRow(
+                    fieldPath, (SeaTunnelRowType) expectedElementType, actualField.getSubFields());
+        }
+    }
+
+    private void validateCompatibleDecimal(
+            String fieldPath,
+            DecimalType expectedDecimal,
+            StandardSQLTypeName expectedType,
+            Field actualField) {
+        long defaultPrecision =
+                expectedType == StandardSQLTypeName.NUMERIC
+                        ? NUMERIC_MAX_PRECISION
+                        : BIGNUMERIC_MAX_PRECISION;
+        long defaultScale =
+                expectedType == StandardSQLTypeName.NUMERIC
+                        ? NUMERIC_MAX_SCALE
+                        : BIGNUMERIC_MAX_SCALE;
+        Long configuredPrecision = actualField.getPrecision();
+        Long configuredScale = actualField.getScale();
+        long actualPrecision = configuredPrecision == null ? defaultPrecision : configuredPrecision;
+        long actualScale =
+                configuredScale == null
+                        ? configuredPrecision == null ? defaultScale : 0L
+                        : configuredScale;
+        long expectedIntegerDigits = expectedDecimal.getPrecision() - expectedDecimal.getScale();
+        long actualIntegerDigits = actualPrecision - actualScale;
+
+        if (actualScale < expectedDecimal.getScale()
+                || actualIntegerDigits < expectedIntegerDigits) {
+            throw new BigQueryConnectorException(
+                    BigQueryConnectorErrorCode.SCHEMA_CHANGE_FAILED,
+                    String.format(
+                            "BigQuery column %s exists with incompatible decimal precision or "
+                                    + "scale. Expected DECIMAL(%d, %d) capacity but found %s(%d, %d)",
+                            fieldPath,
+                            expectedDecimal.getPrecision(),
+                            expectedDecimal.getScale(),
+                            expectedType,
+                            actualPrecision,
+                            actualScale));
+        }
+    }
+
+    private void validateCompatibleRow(
+            String fieldPath, SeaTunnelRowType expectedRowType, FieldList actualSubFields) {
+        int actualFieldCount = actualSubFields == null ? 0 : actualSubFields.size();
+        if (expectedRowType.getTotalFields() != actualFieldCount) {
+            throw incompatibleStruct(
+                    fieldPath,
+                    String.format(
+                            "expected %d nested fields but found %d",
+                            expectedRowType.getTotalFields(), actualFieldCount));
+        }
+        for (int index = 0; index < expectedRowType.getTotalFields(); index++) {
+            String expectedName = expectedRowType.getFieldName(index);
+            Field actualSubField = actualSubFields.get(index);
+            String nestedPath = fieldPath + "." + expectedName;
+            if (!expectedName.equalsIgnoreCase(actualSubField.getName())) {
+                throw incompatibleStruct(
+                        nestedPath,
+                        String.format(
+                                "expected nested field name %s but found %s",
+                                expectedName, actualSubField.getName()));
+            }
+            SeaTunnelDataType<?> expectedSubType = expectedRowType.getFieldType(index);
+            validateCompatibleField(
+                    nestedPath, expectedSubType, expectedMode(expectedSubType), actualSubField);
+        }
+    }
+
+    private BigQueryConnectorException incompatibleStruct(String fieldPath, String detail) {
+        return new BigQueryConnectorException(
+                BigQueryConnectorErrorCode.SCHEMA_CHANGE_FAILED,
+                String.format(
+                        "BigQuery column %s exists with an incompatible STRUCT schema: %s",
+                        fieldPath, detail));
+    }
+
+    private SeaTunnelDataType<?> unwrapArray(SeaTunnelDataType<?> dataType) {
+        return dataType instanceof ArrayType
+                ? ((ArrayType<?, ?>) dataType).getElementType()
+                : dataType;
+    }
+
+    private Field.Mode expectedMode(SeaTunnelDataType<?> dataType) {
+        return dataType instanceof ArrayType ? Field.Mode.REPEATED : Field.Mode.NULLABLE;
     }
 
     static String quoteIdentifier(String identifier) {

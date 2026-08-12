@@ -27,6 +27,8 @@ import org.apache.seatunnel.api.table.schema.event.AlterTableDropColumnEvent;
 import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.bigquery.exception.BigQueryConnectorErrorCode;
 import org.apache.seatunnel.connectors.bigquery.exception.BigQueryConnectorException;
 import org.apache.seatunnel.connectors.bigquery.option.BigQuerySinkOptions;
@@ -36,7 +38,9 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 import com.google.cloud.bigquery.BigQuery;
+import com.google.cloud.bigquery.BigQueryError;
 import com.google.cloud.bigquery.Field;
+import com.google.cloud.bigquery.JobException;
 import com.google.cloud.bigquery.QueryJobConfiguration;
 import com.google.cloud.bigquery.Schema;
 import com.google.cloud.bigquery.StandardSQLTypeName;
@@ -45,8 +49,18 @@ import com.google.cloud.bigquery.TableDefinition;
 import com.google.cloud.bigquery.TableId;
 import com.google.cloud.bigquery.TableResult;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -54,6 +68,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -252,6 +267,201 @@ class BigQuerySchemaChangeManagerTest {
         verify(bigQuery, never()).query(any(QueryJobConfiguration.class));
     }
 
+    @Test
+    void testConcurrentHandlersRecoverFromTableUpdateQuota() throws Exception {
+        int writerCount = 6;
+        Table missingColumnTable = mockTable(Schema.of());
+        Table appliedTable = mockTable(Schema.of(Field.of("email", StandardSQLTypeName.STRING)));
+        CountDownLatch initialReads = new CountDownLatch(writerCount);
+        CountDownLatch ddlApplied = new CountDownLatch(1);
+        ThreadLocal<Boolean> firstRead = ThreadLocal.withInitial(() -> true);
+        AtomicBoolean schemaVisible = new AtomicBoolean(false);
+        AtomicInteger ddlAttempts = new AtomicInteger();
+
+        when(bigQuery.getTable(TARGET_TABLE))
+                .thenAnswer(
+                        invocation -> {
+                            if (firstRead.get()) {
+                                firstRead.set(false);
+                                initialReads.countDown();
+                                assertTrue(initialReads.await(5, TimeUnit.SECONDS));
+                                return missingColumnTable;
+                            }
+                            return schemaVisible.get() ? appliedTable : missingColumnTable;
+                        });
+        when(bigQuery.query(any(QueryJobConfiguration.class)))
+                .thenAnswer(
+                        invocation -> {
+                            int attempt = ddlAttempts.incrementAndGet();
+                            if (attempt > 5) {
+                                assertTrue(ddlApplied.await(5, TimeUnit.SECONDS));
+                                throw tableUpdateQuotaExceeded();
+                            }
+                            schemaVisible.set(true);
+                            ddlApplied.countDown();
+                            return mock(TableResult.class);
+                        });
+
+        AlterTableAddColumnEvent event =
+                AlterTableAddColumnEvent.add(
+                        SOURCE_TABLE, column("email", BasicType.STRING_TYPE, true));
+        ExecutorService executor = Executors.newFixedThreadPool(writerCount);
+        try {
+            List<Future<Void>> results = new ArrayList<>();
+            for (int index = 0; index < writerCount; index++) {
+                BigQuerySchemaChangeManager concurrentManager =
+                        new BigQuerySchemaChangeManager(ReadonlyConfig.fromMap(options), bigQuery);
+                results.add(
+                        executor.submit(
+                                () -> {
+                                    concurrentManager.applySchemaChange(event);
+                                    return null;
+                                }));
+            }
+            for (Future<Void> result : results) {
+                result.get(10, TimeUnit.SECONDS);
+            }
+        } finally {
+            executor.shutdownNow();
+        }
+
+        assertEquals(writerCount, ddlAttempts.get());
+        verify(bigQuery, times(writerCount)).query(any(QueryJobConfiguration.class));
+    }
+
+    @Test
+    void testRetryDdlAfterQuotaFailureWhileColumnIsStillMissing() throws Exception {
+        Table missingColumnTable = mockTable(Schema.of());
+        Table appliedTable = mockTable(Schema.of(Field.of("email", StandardSQLTypeName.STRING)));
+        when(bigQuery.getTable(TARGET_TABLE))
+                .thenReturn(
+                        missingColumnTable, missingColumnTable, missingColumnTable, appliedTable);
+        JobException quotaException = tableUpdateQuotaExceeded();
+        when(bigQuery.query(any(QueryJobConfiguration.class)))
+                .thenThrow(quotaException)
+                .thenReturn(mock(TableResult.class));
+        AtomicInteger waits = new AtomicInteger();
+        manager =
+                new BigQuerySchemaChangeManager(ReadonlyConfig.fromMap(options), bigQuery) {
+                    @Override
+                    void waitForRetry(long delayMillis) {
+                        waits.incrementAndGet();
+                    }
+                };
+        AlterTableAddColumnEvent event =
+                AlterTableAddColumnEvent.add(
+                        SOURCE_TABLE, column("email", BasicType.STRING_TYPE, true));
+
+        manager.applySchemaChange(event);
+
+        assertEquals(1, waits.get());
+        verify(bigQuery, times(2)).query(any(QueryJobConfiguration.class));
+    }
+
+    @Test
+    void testPollSchemaWithoutRepeatingSuccessfulDdl() throws Exception {
+        Table missingColumnTable = mockTable(Schema.of());
+        Table appliedTable = mockTable(Schema.of(Field.of("email", StandardSQLTypeName.STRING)));
+        when(bigQuery.getTable(TARGET_TABLE))
+                .thenReturn(missingColumnTable, missingColumnTable, appliedTable);
+        AtomicInteger waits = new AtomicInteger();
+        manager =
+                new BigQuerySchemaChangeManager(ReadonlyConfig.fromMap(options), bigQuery) {
+                    @Override
+                    void waitForRetry(long delayMillis) {
+                        waits.incrementAndGet();
+                    }
+                };
+        AlterTableAddColumnEvent event =
+                AlterTableAddColumnEvent.add(
+                        SOURCE_TABLE, column("email", BasicType.STRING_TYPE, true));
+
+        manager.applySchemaChange(event);
+
+        assertEquals(1, waits.get());
+        verify(bigQuery).query(any(QueryJobConfiguration.class));
+    }
+
+    @Test
+    void testRejectExistingNarrowerDecimal() throws Exception {
+        mockExistingTargetSchema(
+                Field.newBuilder("amount", StandardSQLTypeName.NUMERIC)
+                        .setPrecision(10L)
+                        .setScale(2L)
+                        .build());
+        AlterTableAddColumnEvent event =
+                AlterTableAddColumnEvent.add(
+                        SOURCE_TABLE, column("amount", new DecimalType(20, 2), true));
+
+        BigQueryConnectorException exception =
+                assertThrows(
+                        BigQueryConnectorException.class, () -> manager.applySchemaChange(event));
+
+        assertTrue(exception.getMessage().contains("incompatible decimal precision or scale"));
+        verify(bigQuery, never()).query(any(QueryJobConfiguration.class));
+    }
+
+    @Test
+    void testAcceptExistingDecimalWithSufficientCapacity() throws Exception {
+        mockExistingTargetSchema(
+                Field.newBuilder("amount", StandardSQLTypeName.NUMERIC)
+                        .setPrecision(22L)
+                        .setScale(4L)
+                        .build());
+        AlterTableAddColumnEvent event =
+                AlterTableAddColumnEvent.add(
+                        SOURCE_TABLE, column("amount", new DecimalType(20, 2), true));
+
+        manager.applySchemaChange(event);
+
+        verify(bigQuery, never()).query(any(QueryJobConfiguration.class));
+    }
+
+    @Test
+    void testRejectExistingStructWithIncompatibleNestedField() throws Exception {
+        mockExistingTargetSchema(
+                Field.of(
+                        "profile",
+                        StandardSQLTypeName.STRUCT,
+                        Field.of("name", StandardSQLTypeName.STRING),
+                        Field.of("score", StandardSQLTypeName.STRING)));
+        AlterTableAddColumnEvent event =
+                AlterTableAddColumnEvent.add(SOURCE_TABLE, column("profile", profileType(), true));
+
+        BigQueryConnectorException exception =
+                assertThrows(
+                        BigQueryConnectorException.class, () -> manager.applySchemaChange(event));
+
+        assertTrue(exception.getMessage().contains("profile.score"));
+        assertTrue(exception.getMessage().contains("incompatible type or mode"));
+        verify(bigQuery, never()).query(any(QueryJobConfiguration.class));
+    }
+
+    @Test
+    void testRejectExistingArrayOfStructWithIncompatibleNestedMode() throws Exception {
+        mockExistingTargetSchema(
+                Field.newBuilder(
+                                "profiles",
+                                StandardSQLTypeName.STRUCT,
+                                Field.of("name", StandardSQLTypeName.STRING),
+                                Field.newBuilder("score", StandardSQLTypeName.INT64)
+                                        .setMode(Field.Mode.REQUIRED)
+                                        .build())
+                        .setMode(Field.Mode.REPEATED)
+                        .build());
+        AlterTableAddColumnEvent event =
+                AlterTableAddColumnEvent.add(
+                        SOURCE_TABLE, column("profiles", ArrayType.of(profileType()), false));
+
+        BigQueryConnectorException exception =
+                assertThrows(
+                        BigQueryConnectorException.class, () -> manager.applySchemaChange(event));
+
+        assertTrue(exception.getMessage().contains("profiles.score"));
+        assertTrue(exception.getMessage().contains("incompatible type or mode"));
+        verify(bigQuery, never()).query(any(QueryJobConfiguration.class));
+    }
+
     private void mockTargetSchema(Field... fields) {
         Table beforeSchemaChange = mockTable(Schema.of());
         Table afterSchemaChange = mockTable(Schema.of(fields));
@@ -271,10 +481,23 @@ class BigQuerySchemaChangeManagerTest {
         return table;
     }
 
-    private static Column column(
-            String name,
-            org.apache.seatunnel.api.table.type.SeaTunnelDataType<?> type,
-            boolean nullable) {
+    private static Column column(String name, SeaTunnelDataType<?> type, boolean nullable) {
         return PhysicalColumn.of(name, type, (Long) null, nullable, null, null);
+    }
+
+    private static SeaTunnelRowType profileType() {
+        return new SeaTunnelRowType(
+                new String[] {"name", "score"},
+                new SeaTunnelDataType<?>[] {BasicType.STRING_TYPE, BasicType.INT_TYPE});
+    }
+
+    private static JobException tableUpdateQuotaExceeded() {
+        String message = "Exceeded rate limits: too many table update operations for this table";
+        JobException exception = mock(JobException.class);
+        when(exception.getErrors())
+                .thenReturn(
+                        Collections.singletonList(
+                                new BigQueryError("rateLimitExceeded", "table", message)));
+        return exception;
     }
 }

@@ -32,8 +32,10 @@ import java.util.List;
 final class BigQueryTypeConverter {
     private static final int NUMERIC_MAX_PRECISION = 38;
     private static final int NUMERIC_MAX_SCALE = 9;
+    private static final int NUMERIC_MAX_INTEGER_DIGITS = 29;
     private static final int BIGNUMERIC_MAX_PRECISION = 76;
     private static final int BIGNUMERIC_MAX_SCALE = 38;
+    private static final int BIGNUMERIC_MAX_INTEGER_DIGITS = 38;
 
     private BigQueryTypeConverter() {}
 
@@ -123,10 +125,14 @@ final class BigQueryTypeConverter {
         if (precision <= 0 || scale < 0 || scale > precision) {
             throw unsupported(decimalType, "Invalid decimal precision or scale");
         }
-        if (precision <= NUMERIC_MAX_PRECISION && scale <= NUMERIC_MAX_SCALE) {
+        if (precision <= NUMERIC_MAX_PRECISION
+                && scale <= NUMERIC_MAX_SCALE
+                && precision - scale <= NUMERIC_MAX_INTEGER_DIGITS) {
             return StandardSQLTypeName.NUMERIC;
         }
-        if (precision <= BIGNUMERIC_MAX_PRECISION && scale <= BIGNUMERIC_MAX_SCALE) {
+        if (precision <= BIGNUMERIC_MAX_PRECISION
+                && scale <= BIGNUMERIC_MAX_SCALE
+                && precision - scale <= BIGNUMERIC_MAX_INTEGER_DIGITS) {
             return StandardSQLTypeName.BIGNUMERIC;
         }
         throw unsupported(decimalType, "Decimal precision or scale exceeds BigQuery limits");

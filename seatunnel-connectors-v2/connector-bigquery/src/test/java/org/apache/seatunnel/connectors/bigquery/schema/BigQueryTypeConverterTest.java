@@ -35,8 +35,9 @@ class BigQueryTypeConverterTest {
     void testScalarAndCompositeDdlTypes() {
         assertEquals("INT64", BigQueryTypeConverter.toDdlType(BasicType.LONG_TYPE));
         assertEquals("NUMERIC(30, 8)", BigQueryTypeConverter.toDdlType(new DecimalType(30, 8)));
+        assertEquals("BIGNUMERIC(38, 0)", BigQueryTypeConverter.toDdlType(new DecimalType(38, 0)));
         assertEquals(
-                "BIGNUMERIC(50, 10)", BigQueryTypeConverter.toDdlType(new DecimalType(50, 10)));
+                "BIGNUMERIC(48, 10)", BigQueryTypeConverter.toDdlType(new DecimalType(48, 10)));
         assertEquals("ARRAY<STRING>", BigQueryTypeConverter.toDdlType(ArrayType.STRING_ARRAY_TYPE));
         assertEquals(
                 "STRUCT<`id` INT64, `name` STRING>",
@@ -55,5 +56,8 @@ class BigQueryTypeConverterTest {
                 () ->
                         BigQueryTypeConverter.toDdlType(
                                 new MapType<>(BasicType.STRING_TYPE, BasicType.STRING_TYPE)));
+        assertThrows(
+                BigQueryConnectorException.class,
+                () -> BigQueryTypeConverter.toDdlType(new DecimalType(76, 0)));
     }
 }
