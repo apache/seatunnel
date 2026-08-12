@@ -118,6 +118,11 @@ public class JdbcSink
 
     @Override
     public AbstractJdbcSinkWriter createWriter(SinkWriter.Context context) {
+        return createWriter(context, tableSchema, new ArrayList<>());
+    }
+
+    private AbstractJdbcSinkWriter createWriter(
+            SinkWriter.Context context, TableSchema writerTableSchema, List<JdbcSinkState> states) {
         try {
             Class.forName(jdbcSinkConfig.getJdbcConnectionConfig().getDriverName());
         } catch (Exception e) {
@@ -136,15 +141,15 @@ public class JdbcSink
                             jobContext,
                             dialect,
                             jdbcSinkConfig,
-                            tableSchema,
+                            writerTableSchema,
                             getDatabaseTableSchema().orElse(null),
-                            new ArrayList<>());
+                            states);
 
         } else {
             Integer primaryKeyIndex = null;
-            if (catalogTable.getTableSchema().getPrimaryKey() != null) {
-                String keyName = tableSchema.getPrimaryKey().getColumnNames().get(0);
-                int index = tableSchema.toPhysicalRowDataType().indexOf(keyName);
+            if (writerTableSchema.getPrimaryKey() != null) {
+                String keyName = writerTableSchema.getPrimaryKey().getColumnNames().get(0);
+                int index = writerTableSchema.toPhysicalRowDataType().indexOf(keyName);
                 if (index > -1) {
                     primaryKeyIndex = index;
                 }
@@ -155,7 +160,7 @@ public class JdbcSink
                             context,
                             dialect,
                             jdbcSinkConfig,
-                            tableSchema,
+                            writerTableSchema,
                             getDatabaseTableSchema().orElse(null),
                             primaryKeyIndex);
         }
@@ -165,27 +170,18 @@ public class JdbcSink
     @Override
     public SinkWriter<SeaTunnelRow, XidInfo, JdbcSinkState> restoreWriter(
             SinkWriter.Context context, List<JdbcSinkState> states) throws IOException {
-        try {
-            Class.forName(jdbcSinkConfig.getJdbcConnectionConfig().getDriverName());
-        } catch (Exception e) {
-            log.warn(
-                    "Failed to load JDBC driver {}",
-                    jdbcSinkConfig.getJdbcConnectionConfig().getDriverName(),
-                    e);
-        }
-        TablePath sinkTablePath = catalogTable.getTablePath();
-        if (jdbcSinkConfig.isExactlyOnce()) {
-            return new JdbcExactlyOnceSinkWriter(
-                    sinkTablePath,
-                    context,
-                    jobContext,
-                    dialect,
-                    jdbcSinkConfig,
-                    tableSchema,
-                    getDatabaseTableSchema().orElse(null),
-                    states);
-        }
-        return SeaTunnelSink.super.restoreWriter(context, states);
+        TableSchema restoredTableSchema =
+                states.stream()
+                        .map(JdbcSinkState::getTableSchema)
+                        .filter(schema -> schema != null)
+                        .findFirst()
+                        .orElse(tableSchema);
+        return createWriter(context, restoredTableSchema, states);
+    }
+
+    @Override
+    public Optional<Serializer<JdbcSinkState>> getWriterStateSerializer() {
+        return Optional.of(new DefaultSerializer<>());
     }
 
     private Optional<TableSchema> getDatabaseTableSchema() {

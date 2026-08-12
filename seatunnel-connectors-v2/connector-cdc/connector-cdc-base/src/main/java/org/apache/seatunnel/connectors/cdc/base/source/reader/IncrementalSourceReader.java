@@ -77,6 +77,8 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
 
     private final AtomicBoolean needSendSplitRequest = new AtomicBoolean(false);
 
+    private transient volatile List<CatalogTable> restoredCheckpointTables;
+
     public IncrementalSourceReader(
             DataSourceDialect<C> dataSourceDialect,
             BlockingQueue<RecordsWithSplitIds<SourceRecords>> elementsQueue,
@@ -101,6 +103,7 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
 
     @Override
     public void pollNext(Collector<T> output) throws Exception {
+        restoreCollectorSchema(output);
         if (!running) {
             if (getNumberOfCurrentlyAssignedSplits() == 0) {
                 context.sendSplitRequest();
@@ -118,6 +121,15 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
         } else {
             super.pollNext(output);
         }
+    }
+
+    private void restoreCollectorSchema(Collector<T> output) {
+        List<CatalogTable> checkpointTables = restoredCheckpointTables;
+        if (checkpointTables == null) {
+            return;
+        }
+        output.restoreSchema(checkpointTables);
+        restoredCheckpointTables = null;
     }
 
     @Override
@@ -209,13 +221,14 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
             return new SnapshotSplitState(split.asSnapshotSplit());
         } else {
             IncrementalSplit incrementalSplit = split.asIncrementalSplit();
-            if (incrementalSplit.getCheckpointDataType() != null) {
+            if (incrementalSplit.getCheckpointTables() != null) {
                 log.info(
-                        "The incremental split[{}] has checkpoint datatype {} for restore.",
+                        "The incremental split[{}] has checkpoint tables {} for restore.",
                         incrementalSplit.splitId(),
-                        incrementalSplit.getCheckpointDataType());
+                        incrementalSplit.getCheckpointTables());
                 debeziumDeserializationSchema.restoreCheckpointProducedType(
                         incrementalSplit.getCheckpointTables());
+                restoredCheckpointTables = incrementalSplit.getCheckpointTables();
             }
             IncrementalSplitState splitState = new IncrementalSplitState(incrementalSplit);
             if (splitState.autoEnterPureIncrementPhaseIfAllowed()) {

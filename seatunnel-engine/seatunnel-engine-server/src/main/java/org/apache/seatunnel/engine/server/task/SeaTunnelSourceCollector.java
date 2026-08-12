@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.common.metrics.Meter;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.signal.FlushSignal;
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.schema.handler.DataTypeChangeEventDispatcher;
@@ -292,6 +293,34 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    @Override
+    public void restoreSchema(List<CatalogTable> catalogTables) {
+        if (rowType instanceof SeaTunnelRowType) {
+            if (catalogTables.size() != 1) {
+                throw new SeaTunnelEngineException(
+                        "Single-table source collector cannot restore multiple table schemas: "
+                                + catalogTables.stream()
+                                        .map(CatalogTable::getTablePath)
+                                        .collect(java.util.stream.Collectors.toList()));
+            }
+            this.rowType = catalogTables.get(0).getTableSchema().toPhysicalRowDataType();
+        } else if (rowType instanceof MultipleRowType) {
+            catalogTables.forEach(
+                    table ->
+                            rowTypeMap.put(
+                                    table.getTablePath().toString(),
+                                    table.getTableSchema().toPhysicalRowDataType()));
+        } else {
+            throw new SeaTunnelEngineException(
+                    "Unsupported row type: " + rowType.getClass().getName());
+        }
+        log.info(
+                "Restored source collector schema from checkpoint for tables: {}",
+                catalogTables.stream()
+                        .map(CatalogTable::getTablePath)
+                        .collect(java.util.stream.Collectors.toList()));
     }
 
     @Override

@@ -155,7 +155,7 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
 
     @Override
     public List<JdbcSinkState> snapshotState(long checkpointId) {
-        return Collections.emptyList();
+        return Collections.singletonList(new JdbcSinkState(null, tableSchema));
     }
 
     @Override
