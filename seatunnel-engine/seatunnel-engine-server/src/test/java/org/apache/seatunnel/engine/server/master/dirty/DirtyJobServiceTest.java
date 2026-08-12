@@ -17,11 +17,14 @@
 
 package org.apache.seatunnel.engine.server.master.dirty;
 
+import org.apache.seatunnel.engine.common.job.DirtyJobMemberEvent;
 import org.apache.seatunnel.engine.common.job.DirtyJobState;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -71,5 +74,29 @@ class DirtyJobServiceTest {
         DirtyJobService.registerLocalOwner(owners, incompleteOwners, 1L, 200L, true);
 
         Assertions.assertFalse(incompleteOwners.containsKey(1L));
+    }
+
+    @Test
+    void shouldInjectGapEventWhenPendingJournalReadFailsWithoutLocalFallback() {
+        List<DirtyJobMemberEvent> events =
+                DirtyJobService.buildFailClosedPendingMemberEvents(Collections.emptyList());
+
+        Assertions.assertEquals(1, events.size());
+        Assertions.assertEquals(-1L, events.get(0).getSequence());
+        Assertions.assertEquals("local-tracking-gap", events.get(0).getMemberUuid());
+    }
+
+    @Test
+    void shouldPreserveLocalFallbackWhileFailingClosedAfterJournalReadFailure() {
+        DirtyJobMemberEvent localEvent =
+                new DirtyJobMemberEvent(7L, "member-1", "127.0.0.1", 5801, 1_000L);
+
+        List<DirtyJobMemberEvent> events =
+                DirtyJobService.buildFailClosedPendingMemberEvents(
+                        Collections.singletonList(localEvent));
+
+        Assertions.assertEquals(2, events.size());
+        Assertions.assertEquals("local-tracking-gap", events.get(0).getMemberUuid());
+        Assertions.assertEquals(localEvent, events.get(1));
     }
 }

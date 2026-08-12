@@ -334,12 +334,7 @@ public class DirtyJobService {
             return events;
         } catch (Throwable error) {
             logger.warning("Failed to load pending dirty-job member events", error);
-            List<DirtyJobMemberEvent> events = new ArrayList<>(localPendingMemberEvents.values());
-            if (localTrackingGap) {
-                events.add(createLocalTrackingGapEvent());
-            }
-            events.sort((left, right) -> Long.compare(left.getSequence(), right.getSequence()));
-            return events;
+            return buildFailClosedPendingMemberEvents(localPendingMemberEvents.values());
         }
     }
 
@@ -892,7 +887,20 @@ public class DirtyJobService {
         }
     }
 
-    private DirtyJobMemberEvent createLocalTrackingGapEvent() {
+    /** Forces the current replay round to fail closed when the shared journal cannot be read. */
+    static List<DirtyJobMemberEvent> buildFailClosedPendingMemberEvents(
+            Collection<DirtyJobMemberEvent> localEvents) {
+        Map<String, DirtyJobMemberEvent> eventsByMember = new HashMap<>();
+        if (localEvents != null) {
+            localEvents.forEach(event -> eventsByMember.put(event.getMemberUuid(), event));
+        }
+        eventsByMember.put(LOCAL_TRACKING_GAP_MEMBER_UUID, createLocalTrackingGapEvent());
+        List<DirtyJobMemberEvent> events = new ArrayList<>(eventsByMember.values());
+        events.sort((left, right) -> Long.compare(left.getSequence(), right.getSequence()));
+        return events;
+    }
+
+    private static DirtyJobMemberEvent createLocalTrackingGapEvent() {
         return new DirtyJobMemberEvent(
                 -1L, LOCAL_TRACKING_GAP_MEMBER_UUID, "", 0, System.currentTimeMillis());
     }
