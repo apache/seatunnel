@@ -157,7 +157,9 @@ schema {
 
 如果您将文件类型指定为 `parquet` 或 `orc`，则不需要 schema 选项，因为连接器可以从文件元数据中读取 schema。
 
-如果您将文件类型指定为 `text`、`json`、`excel`、`csv` 或 `xml`，则必须指定 schema，因为这些格式不提供 SeaTunnel 所需的字段类型。
+如果您将文件类型指定为 `json`、`excel` 或 `xml`，则必须指定 schema，因为这些格式不提供 SeaTunnel 所需的字段类型。
+
+对于 `text` 和 `csv`，schema 是可选的。未配置 schema 时，连接器会将每个输入行读取为一个 string 类型的 `content` 字段；此模式不支持 `read_columns`。如果需要有类型的字段或列映射，请配置 schema。
 
 如果您指定数据 schema，除了 CSV 文件类型外，您还应该指定选项 `field_delimiter`
 
@@ -296,7 +298,7 @@ PDF 特有的解析行为如下：
 
 ### schema [config]
 
-当 `file_format_type` 为 `text`、`json`、`excel`、`xml` 或 `csv`（或其他无法从元数据读取 schema 的格式）时必须配置。
+当 `file_format_type` 为 `json`、`excel` 或 `xml` 时必须配置。对于 `text` 和 `csv`，schema 是可选的；未配置时，每个输入行会被读取为一个 string 类型的 `content` 字段，并且不支持 `read_columns`。
 
 #### fields [Config]
 

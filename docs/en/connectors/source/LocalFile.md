@@ -157,7 +157,9 @@ connector will generate data as the following:
 
 If you assign file type to `parquet` or `orc`, the schema option is not required because the connector can read the schema from the file metadata.
 
-If you assign file type to `text`, `json`, `excel`, `csv`, or `xml`, you must specify the schema because these formats do not provide the field types required by SeaTunnel.
+If you assign file type to `json`, `excel`, or `xml`, you must specify the schema because these formats do not provide the field types required by SeaTunnel.
+
+For `text` and `csv`, the schema is optional. Without a schema, the connector reads each input line into a single `content` field of type string; `read_columns` is not supported in this mode. Configure a schema when you need typed fields or column mapping.
 
 If you assign data schema, you should also assign the option `field_delimiter` too except CSV file type
 
@@ -296,7 +298,7 @@ then SeaTunnel will skip the first 2 lines from source files
 
 ### schema [config]
 
-Required when `file_format_type` is `text`, `json`, `excel`, `xml`, or `csv` (or another format whose schema cannot be read from metadata).
+Required when `file_format_type` is `json`, `excel`, or `xml`. Optional for `text` and `csv`; when omitted, each input line is read into a single `content` field of type string and `read_columns` is not supported.
 
 #### fields [Config]
 
