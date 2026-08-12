@@ -99,6 +99,8 @@ The File does not have a specific type list, and we can indicate which SeaTunnel
 | skip_header_row_number     | Long    | No       | 0                             | Skip the first few lines, but only for the txt and csv. <br/> For example, set like following: <br/> `skip_header_row_number = 2` <br/> then SeaTunnel will skip the first 2 lines from source files                                                                                                                                                                            |
 | read_columns               | list    | no       | -                             | The read column list of the data source, user can use it to implement field projection.                                                                                                                                                                                                                                                                                         |
 | sheet_name                 | String  | No       | -                             | Reader the sheet of the workbook,Only used when file_format is excel.                                                                                                                                                                                                                                                                                                           |
+| excel_engine               | string  | no       | POI                           | Only used when `file_format` is excel. Supported engines are `POI` and `EasyExcel`.                                                                                                                                                                                                                                                                                            |
+| poi_excel_max_file_size    | long    | no       | 52428800                      | Only used when `file_format` is excel and `excel_engine` is POI. The maximum Excel file size in bytes that the POI engine can read (default 50 MB).                                                                                                                                                                                                                            |
 | xml_row_tag                | string  | no       | -                             | Specifies the tag name of the data rows within the XML file, only used when file_format is xml.                                                                                                                                                                                                                                                                                 |
 | xml_use_attr_format        | boolean | no       | -                             | Specifies whether to process data using the tag attribute format, only used when file_format is xml.                                                                                                                                                                                                                                                                            |
 | csv_use_header_line        | boolean | no       | false                         | Whether to use the header line to parse the file, only used when the file_format is `csv` and the file contains the header line that match RFC 4180                                                                                                                                                                                                                             |
@@ -268,7 +270,7 @@ Each extracted element is converted to a document-element row with the following
 - `parent_id`: ID of the parent element
 - `child_ids`: Comma-separated list of child element IDs
 
-When `markdown_rag_metadata_enabled` is set to `true`, SeaTunnel appends the following RAG metadata fields after `child_ids`:
+When either `markdown_rag_metadata_enabled` or `pdf_rag_metadata_enabled` is set to `true`, SeaTunnel appends the following RAG metadata fields after `child_ids` for the corresponding file type:
 - `source_uri`: Source file path or URI
 - `document_id`: Stable document identifier derived from `source_uri`
 - `chunk_id`: Stable chunk identifier derived from document identity, chunk order, and content hash
@@ -283,6 +285,7 @@ Note: Markdown format only supports reading, not writing.
 
 If you assign file type to `pdf`, SeaTunnel can parse PDF files and extract structured document elements.
 PDF uses the same document-element row schema described above.
+For PDF input, enable `pdf_rag_metadata_enabled` to append the RAG metadata fields described above.
 
 The main PDF-specific behaviors are:
 

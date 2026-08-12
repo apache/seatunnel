@@ -75,6 +75,7 @@ public class RestApiSubmitJobStartWithSavePointTest {
 
     private static final String SOURCE_FACTORY_ID = "FakeSource";
     private static final String TEST_JOB_NAME = "test";
+    private static final int HAZELCAST_PORT = TestUtils.getAvailablePort(100);
 
     private HazelcastInstanceImpl masterInstance;
     private HazelcastInstanceImpl workerInstance;
@@ -524,7 +525,9 @@ public class RestApiSubmitJobStartWithSavePointTest {
                 + "    port:\n"
                 + "      auto-increment: true\n"
                 + "      port-count: 100\n"
-                + "      port: 5801\n"
+                + "      port: "
+                + HAZELCAST_PORT
+                + "\n"
                 + "\n"
                 + "  properties:\n"
                 + "    hazelcast.invocation.max.retry.count: 200\n"

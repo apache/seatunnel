@@ -138,6 +138,106 @@ sink {
 }
 ```
 
+## Streaming Remote Write With Batched Flush
+
+This example reads from Kafka in streaming mode and writes to a Prometheus remote
+write endpoint. The sink buffers up to `batch_size` rows or waits up to
+`flush_interval` milliseconds before issuing the HTTP write, which keeps network
+overhead low when the upstream flow is bursty.
+
+```hocon
+env {
+  parallelism = 2
+  job.mode = "STREAMING"
+  checkpoint.interval = 30000
+}
+
+source {
+  Kafka {
+    plugin_output = "metrics_topic"
+    bootstrap.servers = "kafka:9092"
+    topic = "metrics"
+    format = "json"
+    schema = {
+      fields {
+        c_map = "map<string, string>"
+        c_double = double
+        c_timestamp = bigint
+      }
+    }
+  }
+}
+
+sink {
+  Prometheus {
+    plugin_input = "metrics_topic"
+    url = "http://prometheus:9090/api/v1/write"
+    key_label = "c_map"
+    key_value = "c_double"
+    key_timestamp = "c_timestamp"
+    batch_size = 2048
+    flush_interval = 10000
+    retry = 5
+    retry_backoff_multiplier_ms = 200
+    retry_backoff_max_ms = 10000
+  }
+}
+```
+
+## Multi-Table Remote Write
+
+When a single job reads from multiple upstream tables and writes to a single
+Prometheus remote write endpoint, set `multi_table_sink_replica` to control how
+many writer tasks each table gets. The default of `1` is fine when tables are
+small; raise it only when one table needs more parallelism than the others.
+
+```hocon
+env {
+  parallelism = 2
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    plugin_output = "fake_app_a"
+    schema = {
+      fields {
+        c_map = "map<string, string>"
+        c_double = double
+        c_timestamp = timestamp
+      }
+    }
+    rows = [
+      { kind = INSERT, fields = [{"__name__" : "app_a_metric"}, 1.0, CURRENT_TIMESTAMP] }
+    ]
+  }
+  FakeSource {
+    plugin_output = "fake_app_b"
+    schema = {
+      fields {
+        c_map = "map<string, string>"
+        c_double = double
+        c_timestamp = timestamp
+      }
+    }
+    rows = [
+      { kind = INSERT, fields = [{"__name__" : "app_b_metric"}, 2.0, CURRENT_TIMESTAMP] }
+    ]
+  }
+}
+
+sink {
+  Prometheus {
+    plugin_input = ["fake_app_a", "fake_app_b"]
+    url = "http://prometheus:9090/api/v1/write"
+    key_label = "c_map"
+    key_value = "c_double"
+    key_timestamp = "c_timestamp"
+    multi_table_sink_replica = 2
+  }
+}
+```
+
 ## Changelog
 
 <ChangeLog />

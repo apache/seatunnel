@@ -99,6 +99,8 @@ import ChangeLog from '../changelog/connector-file-sftp.md';
 | skip_header_row_number     | Long    | 否    | 0                   | 跳过前几行，但仅适用于txt和csv。<br/> 例如，设置如下：<br/> `skip_header_row_number = 2` <br/> 然后SeaTunnel将跳过源文件的前2行                                                                                                                                                    |
 | read_columns               | list    | 否    | -                   | 数据源的读取列列表，用户可以使用它来实现字段投影。                                                                                                                                                                                                                          |
 | sheet_name                 | String  | 否    | -                   | 读取工作簿的工作表，仅在file_format为excel时使用。                                                                                                                                                                                                                  |
+| excel_engine               | string  | 否    | POI                | 仅在 `file_format` 为 excel 时使用。支持的引擎包括 `POI` 和 `EasyExcel`。                                                                                                                                                                                                |
+| poi_excel_max_file_size    | long    | 否    | 52428800           | 仅在 `file_format` 为 excel 且 `excel_engine` 为 POI 时使用。POI 引擎允许读取的最大 Excel 文件大小（默认 50 MB）。                                                                                                                                                                                                |
 | xml_row_tag                | string  | 否    | -                   | 指定XML文件中数据行的标签名称，仅在file_format为xml时使用。                                                                                                                                                                                                             |
 | xml_use_attr_format        | boolean | 否    | -                   | 指定是否使用标签属性格式处理数据，仅在file_format为xml时使用。                                                                                                                                                                                                             |
 | csv_use_header_line        | boolean | 否    | false               | 是否使用标题行来解析文件，仅在file_format为`csv`且文件包含符合RFC 4180的标题行时使用                                                                                                                                                                                             |
@@ -273,7 +275,7 @@ markdown 解析器提取各种元素，包括标题、段落、列表、代码�
 - `parent_id`：父元素的 ID
 - `child_ids`：子元素 ID 的逗号分隔列表
 
-当 `markdown_rag_metadata_enabled` 设置为 `true` 时，SeaTunnel 会在 `child_ids` 之后追加以下 RAG 元数据字段：
+当 `markdown_rag_metadata_enabled` 或 `pdf_rag_metadata_enabled` 设置为 `true` 时，SeaTunnel 会针对对应文件类型在 `child_ids` 之后追加以下 RAG 元数据字段：
 - `source_uri`：源文件路径或 URI
 - `document_id`：由 `source_uri` 派生的稳定文档标识符
 - `chunk_id`：由文档标识、chunk 顺序和内容哈希派生的稳定 chunk 标识符
@@ -288,6 +290,7 @@ markdown 解析器提取各种元素，包括标题、段落、列表、代码�
 
 如果您将文件类型指定为 `pdf`，SeaTunnel 可以解析 PDF 文件并提取结构化的文档元素。
 PDF 使用与上文相同的文档元素 schema。
+对于 PDF 输入，启用 `pdf_rag_metadata_enabled` 即可追加上文所述的 RAG 元数据字段。
 
 PDF 特有的解析行为如下：
 

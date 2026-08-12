@@ -114,6 +114,12 @@ You need to check this document before you upgrade to related version.
       Glue/Hive metastore schema are not affected at runtime; only newly auto-created tables change
       behavior.
 
+- **Breaking Change: File source connectors reject POI-engine Excel files larger than `poi_excel_max_file_size` (default 50 MB)**
+  - **Affected component**: `seatunnel-connectors-v2/connector-file` (LocalFile, HdfsFile, S3File, FtpFile, SftpFile, OssFile, OssJindoFile, ObsFile, CosFile)
+  - **Description**: Apache POI fully materializes an Excel workbook into memory before any row can be read, which can drive a Zeta worker into heavy GC pressure or OOM on large `.xls`/`.xlsx` files. A new `poi_excel_max_file_size` option (default 50 MB) now makes POI reject an Excel file that exceeds the limit before the workbook is built. The guard covers both plain and archived (ZIP/TAR/TAR_GZ/GZ) Excel entries, and applies only when `excel_engine = POI` (the default); the streaming `excel_engine = EasyExcel` path is not bound by this limit.
+  - **Impact**: Existing jobs that read POI-engine Excel files larger than 50 MB - which previously succeeded at the cost of heavy memory pressure - will now fail fast with a `FileConnectorException` instead of potentially OOMing the worker.
+  - **Migration Guide**: For POI jobs that must read large Excel files and have sufficient worker memory, raise the limit with `poi_excel_max_file_size = <bytes>`. Otherwise switch to `excel_engine = EasyExcel`, which streams rows lazily and is not subject to the limit.
+
 - **Breaking Change: File connectors reject `DOCTYPE` declarations in XML input (XXE hardening)**
   - **Affected component**: `seatunnel-connectors-v2/connector-file/connector-file-base` (`XmlReadStrategy`), and every file source built on it: LocalFile, HdfsFile, S3File, OssFile, OssJindoFile, CosFile, FtpFile, SftpFile (`file_format_type = xml`)
   - **Description**: The XML reader previously parsed user-supplied files with a default dom4j `SAXReader`, leaving DTD processing and external entity resolution at their JAXP defaults. A crafted `DOCTYPE`/external-entity payload could disclose local worker-node files, trigger SSRF-style fetches, or exhaust memory via entity expansion ("billion laughs"). `XmlReadStrategy` now routes every parse through a hardened reader that enables JAXP secure processing, rejects any `<!DOCTYPE ...>` declaration outright, disables external general/parameter entities and external DTD loading, and installs a deny-all `EntityResolver` as a parser-agnostic backstop.

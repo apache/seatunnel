@@ -109,6 +109,12 @@
     - **已存在的 Iceberg 表**（Glue/Hive 元数据中已有 `identifier-field-ids`）在运行时不受影响；
       只有 sink 新建的表会改变行为。
 
+- **破坏性变更：File 源连接器拒绝大于 `poi_excel_max_file_size`（默认 50 MB）的 POI 引擎 Excel 文件**
+  - **影响范围**：`seatunnel-connectors-v2/connector-file`（LocalFile、HdfsFile、S3File、FtpFile、SftpFile、OssFile、OssJindoFile、ObsFile、CosFile）
+  - **变更说明**：Apache POI 在读取任何行之前会将整个 Excel 工作簿完全加载到内存，对于较大的 `.xls`/`.xlsx` 文件可能导致 Zeta worker 严重 GC 压力甚至 OOM。新增 `poi_excel_max_file_size` 选项（默认 50 MB），POI 在构建工作簿之前会拒绝超过该限制的 Excel 文件。该校验同时覆盖普通 Excel 文件和归档（ZIP/TAR/TAR_GZ/GZ）中的 Excel 条目，且仅在 `excel_engine = POI`（默认值）时生效；流式读取的 `excel_engine = EasyExcel` 路径不受此限制。
+  - **影响**：此前以 POI 引擎读取大于 50 MB Excel 文件的任务（虽然成功但伴随严重内存压力）现在会以 `FileConnectorException` 快速失败，而不再可能导致 worker OOM。
+  - **迁移指南**：对于必须读取大 Excel 文件且 worker 内存充足的 POI 任务，可通过 `poi_excel_max_file_size = <字节数>` 调高限制；否则切换为 `excel_engine = EasyExcel`，该引擎惰性流式读取行，不受此限制约束。
+
 - **破坏性变更：File 连接器拒绝 XML 输入中的 `DOCTYPE` 声明（XXE 加固）**
   - **影响范围**：`seatunnel-connectors-v2/connector-file/connector-file-base`（`XmlReadStrategy`），以及所有基于该模块构建的 File Source：LocalFile、HdfsFile、S3File、OssFile、OssJindoFile、CosFile、FtpFile、SftpFile（`file_format_type = xml`）
   - **变更说明**：此前 XML 读取器使用默认的 dom4j `SAXReader` 解析用户提供的文件，DTD 处理和外部实体解析均保持 JAXP 默认行为。精心构造的 `DOCTYPE`/外部实体载荷可能导致 worker 节点本地文件泄露、SSRF 式请求，或通过实体展开（"billion laughs"）耗尽内存。现在 `XmlReadStrategy` 的所有解析都会经过加固后的 reader：启用 JAXP 安全处理特性、彻底拒绝任何 `<!DOCTYPE ...>` 声明、禁用外部通用/参数实体及外部 DTD 加载，并额外安装一个拒绝一切解析请求的 `EntityResolver` 作为与具体解析器实现无关的兜底防护。

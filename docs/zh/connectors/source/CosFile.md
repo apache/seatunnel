@@ -71,6 +71,8 @@ import ChangeLog from '../changelog/connector-file-cos.md';
 | time_format                | string  | 否  | HH:mm:ss            |
 | schema                     | config  | 否  | -                   |
 | sheet_name                 | string  | 否  | -                   |
+| excel_engine               | string  | 否  | POI                |
+| poi_excel_max_file_size    | long    | 否  | 52428800           |
 | xml_row_tag                | string  | 否  | -                   |
 | xml_use_attr_format        | boolean | 否  | -                   |
 | csv_use_header_line        | boolean | 否  | false               |
@@ -196,7 +198,7 @@ markdown 解析器提取各种元素，包括标题、段落、列表、代码�
 - `parent_id`：父元素的 ID
 - `child_ids`：子元素 ID 的逗号分隔列表
 
-当 `markdown_rag_metadata_enabled` 设置为 `true` 时，SeaTunnel 会在 `child_ids` 之后追加以下 RAG 元数据字段：
+当 `markdown_rag_metadata_enabled` 或 `pdf_rag_metadata_enabled` 设置为 `true` 时，SeaTunnel 会针对对应文件类型在 `child_ids` 之后追加以下 RAG 元数据字段：
 - `source_uri`：源文件路径或 URI
 - `document_id`：由 `source_uri` 派生的稳定文档标识符
 - `chunk_id`：由文档标识、chunk 顺序和内容哈希派生的稳定 chunk 标识符
@@ -211,6 +213,7 @@ markdown 解析器提取各种元素，包括标题、段落、列表、代码�
 
 如果您将文件类型指定为 `pdf`，SeaTunnel 可以解析 PDF 文件并提取结构化的文档元素。
 PDF 使用与上文相同的文档元素 schema。
+对于 PDF 输入，启用 `pdf_rag_metadata_enabled` 即可追加上文所述的 RAG 元数据字段。
 
 PDF 特有的解析行为如下：
 
@@ -228,15 +231,15 @@ Cos文件系统的bucket地址，例如: `cos://tyrantlucifer-image-bed`
 
 ### secret_id [string]
 
-Cos文件系统的秘密id。
+Cos 文件系统的 SecretId。在 [腾讯云 CAM 控制台](https://console.cloud.tencent.com/cam/capi) 创建。生产环境建议为作业分配一个绑定细粒度策略（如 `QcloudCOSReadOnlyAccess`）的 CAM 角色，并通过 STS 颁发临时密钥，避免长期密钥出现在作业配置里。
 
 ### secret_key [string]
 
-Cos文件系统的密钥。
+Cos 文件系统的 SecretKey，与 `secret_id` 成对使用。生产建议参考 `secret_id`，改用 STS 临时密钥。
 
 ### region [string]
 
-cos文件系统的region。
+Cos 文件系统所在 region。请填入与 bucket 实际所在地域一致的 region（如 `ap-guangzhou`、`ap-shanghai`、`ap-chengdu`）。跨 region 访问虽然可行，但会产生跨地域传输费用和时延。
 
 ### read_columns [list]
 
@@ -321,6 +324,22 @@ default `HH:mm:ss`
 仅当file_format为excel时才需要配置。
 
 阅读工作簿的纸张。
+
+### excel_engine [string]
+
+仅在 `file_format` 为 excel 时使用。
+
+支持的引擎包括 `POI` 和 `EasyExcel`。默认值为 `POI`。
+
+默认的 Excel 读取引擎是 POI。POI 会保留历史读取行为，包括 POI 特有的公式和格式处理能力，但读取大 Excel 文件时可能占用大量内存。
+
+如果需要读取大 Excel 文件，可以设置 `excel_engine = EasyExcel` 使用流式读取。
+
+### poi_excel_max_file_size [long]
+
+仅在 `file_format` 为 excel 且 `excel_engine` 为 POI 时使用。
+
+POI 引擎允许读取的最大 Excel 文件大小，单位为字节。默认值为 `52428800` 字节（50 MB）。当文件超过该限制时，连接器会提前失败，并提示使用 EasyExcel。
 
 ### xml_row_tag [string]
 
