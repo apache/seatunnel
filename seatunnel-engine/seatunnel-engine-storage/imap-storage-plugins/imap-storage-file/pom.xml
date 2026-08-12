@@ -44,6 +44,12 @@
             <artifactId>serializer-protobuf</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-engine-common</artifactId>
+            <version>${project.version}</version>
+            <scope>test</scope>
+        </dependency>
         <!-- hadoop jar -->
         <dependency>
             <groupId>org.apache.seatunnel</groupId>

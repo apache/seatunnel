@@ -42,6 +42,22 @@ import java.util.Map;
 import java.util.Set;
 
 public class WALReader {
+    private static final Map<String, String> LEGACY_CLASS_NAME_MAPPINGS;
+
+    static {
+        Map<String, String> legacyClassNameMappings = new HashMap<>();
+        legacyClassNameMappings.put(
+                "org.apache.seatunnel.engine.core.job.JobResult",
+                "org.apache.seatunnel.engine.common.job.JobResult");
+        legacyClassNameMappings.put(
+                "org.apache.seatunnel.engine.core.job.JobStatus",
+                "org.apache.seatunnel.engine.common.job.JobStatus");
+        legacyClassNameMappings.put(
+                "org.apache.seatunnel.engine.core.job.JobStatusData",
+                "org.apache.seatunnel.engine.common.job.JobStatusData");
+        LEGACY_CLASS_NAME_MAPPINGS = Collections.unmodifiableMap(legacyClassNameMappings);
+    }
+
     private final Serializer serializer;
     private final IFileReader fileReader;
 
@@ -114,7 +130,7 @@ public class WALReader {
 
     private Object deserializeData(byte[] data, String className) {
         try {
-            Class<?> clazz = ClassUtils.getClass(className);
+            Class<?> clazz = ClassUtils.getClass(resolveClassName(className));
             try {
                 return serializer.deserialize(data, clazz);
             } catch (IOException e) {
@@ -128,5 +144,16 @@ public class WALReader {
             throw new IMapStorageException(
                     e, "deserialize data error, class name is {}", className);
         }
+    }
+
+    /**
+     * Resolves class names written by SeaTunnel versions before the job model moved to
+     * engine-common.
+     *
+     * @param className class name recorded in the WAL
+     * @return class name available in the current distribution
+     */
+    private static String resolveClassName(String className) {
+        return LEGACY_CLASS_NAME_MAPPINGS.getOrDefault(className, className);
     }
 }
