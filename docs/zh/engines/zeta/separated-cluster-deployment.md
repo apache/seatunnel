@@ -48,8 +48,8 @@ Master节点的JVM参数在`$SEATUNNEL_HOME/config/jvm_master_options`文件中�
 
 ```shell
 # JVM Heap
--Xms2g
--Xmx2g
+-Xms16g
+-Xmx16g
 
 # JVM Dump
 -XX:+HeapDumpOnOutOfMemoryError
@@ -67,8 +67,8 @@ Worker节点的JVM参数在`$SEATUNNEL_HOME/config/jvm_worker_options`文件中�
 
 ```shell
 # JVM Heap
--Xms2g
--Xmx2g
+-Xms16g
+-Xmx16g
 
 # JVM Dump
 -XX:+HeapDumpOnOutOfMemoryError
@@ -81,6 +81,8 @@ Worker节点的JVM参数在`$SEATUNNEL_HOME/config/jvm_worker_options`文件中�
 -XX:+UseG1GC
 
 ```
+
+以上示例使用 16 GB JVM 堆内存。对于大规模数据处理场景，建议使用 32 GB JVM 堆内存。
 
 ## 4. 配置 SeaTunnel Engine
 
