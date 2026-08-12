@@ -349,10 +349,11 @@ public abstract class AbstractSchemaChangeBaseIT extends TestSuiteBase implement
      * running schema-change DDL bursts.
      */
     private void waitForStreamingReady(String sourceTable, String sinkTable) {
+        // Keep the probe database-neutral because JDBC drivers can return different decimal scales.
         executeSourceSql(
                 String.format(
                         "INSERT INTO %s.%s (id, name, description, weight) "
-                                + "VALUES (%d, '%s', '%s', 0.0) "
+                                + "VALUES (%d, '%s', '%s', NULL) "
                                 + "ON DUPLICATE KEY UPDATE "
                                 + "name = VALUES(name), description = VALUES(description), weight = VALUES(weight)",
                         SOURCE_DATABASE,
