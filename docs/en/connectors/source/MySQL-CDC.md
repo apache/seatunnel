@@ -196,6 +196,9 @@ When an initial consistent snapshot is made for large databases, your establishe
 | startup.mode                              | Enum     | No       | INITIAL | Optional startup mode for MySQL CDC consumer, valid enumerations are `initial`, `earliest`, `latest` , `specific` and `timestamp`. <br/> `initial`: Synchronize historical data at startup, and then synchronize incremental data.<br/> `earliest`: Startup from the earliest offset possible.<br/> `latest`: Startup from the latest offset.<br/> `specific`: Startup from user-supplied specific offsets.<br/> `timestamp`: Startup from user-supplied timestamp.                                                                                                                                                  |
 | startup.specific-offset.file              | String   | No       | -       | Start from the specified binlog file name. **Note, This option is required when the `startup.mode` option used `specific`.**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | startup.specific-offset.pos               | Long     | No       | -       | Start from the specified binlog file position. **Note, This option is required when the `startup.mode` option used `specific`.**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| startup.specific-offset.gtid-set          | String   | No       | -       | Optional MySQL GTID set for `specific` startup mode. This option is used together with `startup.specific-offset.file` and `startup.specific-offset.pos`.                                                                                                                                                                                                                                                                                                                                                                                               |
+| startup.specific-offset.skip-events       | Long     | No       | 0       | Number of binlog events to skip after the configured specific startup offset. This option can only be used when `startup.mode` is `specific`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| startup.specific-offset.skip-rows         | Long     | No       | 0       | Number of rows to skip after the configured specific startup offset. This option can only be used when `startup.mode` is `specific`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | startup.timestamp                         | Long     | No       | -       | Start from the specified timestamp, in milliseconds since Unix epoch. **Note, This option is required when the `startup.mode` option uses `timestamp`.**                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | stop.mode                                 | Enum     | No       | NEVER   | Optional stop mode for MySQL CDC consumer, valid enumerations are `never`, `latest` or `specific`. <br/> `never`: Real-time job don't stop the source.<br/> `latest`: Stop from the latest offset.<br/> `specific`: Stop from user-supplied specific offset.                                                                                                                                                                                                                                                                                                                                                         |
 | stop.specific-offset.file                 | String   | No       | -       | Stop from the specified binlog file name. **Note, This option is required when the `stop.mode` option used `specific`.**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
@@ -212,6 +215,7 @@ When an initial consistent snapshot is made for large databases, your establishe
 | sample-sharding.threshold                 | Integer  | No       | 1000    | This configuration specifies the threshold of estimated shard count to trigger the sample sharding strategy. When the distribution factor is outside the bounds specified by `chunk-key.even-distribution.factor.upper-bound` and `chunk-key.even-distribution.factor.lower-bound`, and the estimated shard count (calculated as approximate row count / chunk size) exceeds this threshold, the sample sharding strategy will be used. This can help to handle large datasets more efficiently. The default value is 1000 shards.                                                                                   |
 | inverse-sampling.rate                     | Integer  | No       | 1000    | The inverse of the sampling rate used in the sample sharding strategy. For example, if this value is set to 1000, it means a 1/1000 sampling rate is applied during the sampling process. This option provides flexibility in controlling the granularity of the sampling, thus affecting the final number of shards. It's especially useful when dealing with very large datasets where a lower sampling rate is preferred. The default value is 1000.                                                                                                                                                              |
 | split.allow-sampling                      | Boolean  | No       | true    | Whether to allow sampling-based sharding strategy. When set to false, the system will fall back to unevenly-sized chunk splitting (iterative query approach) regardless of the shard count. The default value is true. |
+| enable_concurrent_read                    | Boolean  | No       | true    | Whether to enable concurrent read with split during the snapshot phase. When set to false, the source skips split analysis and reads the table as a single split, which is useful for tables without indexes. The default value is true. |
 | exactly_once                              | Boolean  | No       | false   | Enable exactly once semantic.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | format                                    | Enum     | No       | DEFAULT | Optional output format for MySQL CDC, valid enumerations are `DEFAULT`、`COMPATIBLE_DEBEZIUM_JSON`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | schema-changes.enabled                    | Boolean  | No       | false   | Schema evolution is disabled by default. Now we only support `add column`、`drop column`、`rename column` and `modify column`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
@@ -410,6 +414,90 @@ sink {
   }
 }
 ```
+
+### Configure Debezium heartbeat
+
+For low-traffic tables, the MySQL binlog only advances when row changes occur. Use a Debezium heartbeat to keep the binlog position moving so downstream checkpoints record fresh offsets and replication lag stays measurable. The heartbeat table must exist on the MySQL server before the job starts.
+
+```hocon
+source {
+  MySQL-CDC {
+    username = "st_user_source"
+    password = "mysqlpw"
+    table-names = ["mysql_cdc.mysql_cdc_e2e_source_table"]
+    url = "jdbc:mysql://mysql_cdc_e2e:3306/mysql_cdc"
+    debezium {
+      heartbeat.interval.ms = 100
+      heartbeat.action.query = "INSERT INTO mysql_cdc.heartbeat (ts) VALUES (NOW())"
+    }
+  }
+}
+```
+
+### Flush on a timer without waiting for `batch_size`
+
+When the source has very low write volume, the JDBC sink can sit idle until a checkpoint fires. Enable timer flush in the sink so buffered rows are written even if `batch_size` is not reached.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 300000
+  sink.flush.interval = 500
+}
+
+source {
+  MySQL-CDC {
+    server-id = 5680-5690
+    username = "st_user_source"
+    password = "mysqlpw"
+    table-names = ["mysql_cdc.timer_flush_src"]
+    url = "jdbc:mysql://mysql_cdc_e2e:3306/mysql_cdc"
+  }
+}
+
+sink {
+  Jdbc {
+    url = "jdbc:mysql://mysql_cdc_e2e:3306/mysql_cdc"
+    driver = "com.mysql.cj.jdbc.Driver"
+    username = "st_user_sink"
+    password = "mysqlpw"
+    generate_sink_sql = true
+    database = mysql_cdc
+    table = timer_flush_sink
+    primary_keys = ["id"]
+    batch_size = 100000000
+    batch_interval_ms = 0
+  }
+}
+```
+
+`sink.flush.interval` is configured in the `env` block and applies to the sink pipeline regardless of `batch_size`.
+
+### Read tables without a primary key
+
+For tables without a physical primary key, set `exactly_once = false` and supply a unique column via `table-names-config.primaryKeys` when you need stable row identity for downstream upserts.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  MySQL-CDC {
+    server-id = 5652
+    username = "st_user_source"
+    password = "mysqlpw"
+    table-names = ["mysql_cdc.mysql_cdc_e2e_source_table_no_primary_key"]
+    url = "jdbc:mysql://mysql_cdc_e2e:3306/mysql_cdc"
+    exactly_once = false
+  }
+}
+```
+
+Without a usable primary key (configured or physical) the connector cannot safely apply UPDATE/DELETE events. Use this mode only for append-only workloads or when downstream sink behavior does not depend on row identity.
 
 ### Start From a Specific Binlog Offset
 

@@ -32,7 +32,6 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
-import org.testcontainers.containers.Container;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
@@ -47,7 +46,6 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
@@ -77,9 +75,6 @@ public class MongodbCDCMultiSourceIT extends TestSuiteBase implements TestResour
     private static final String MYSQL_USER_NAME = "st_user";
     private static final String MYSQL_USER_PASSWORD = "seatunnel";
     private static final String MYSQL_DATABASE = "mongodb_cdc";
-    private static final String MYSQL_DRIVER_JAR =
-            "https://repo1.maven.org/maven2/mysql/mysql-connector-java/8.0.16/mysql-connector-java-8.0.16.jar";
-
     private static final MySqlContainer MYSQL_CONTAINER = createMySqlContainer();
     private final UniqueDatabase database = new UniqueDatabase(MYSQL_CONTAINER, MYSQL_DATABASE);
 
@@ -92,21 +87,12 @@ public class MongodbCDCMultiSourceIT extends TestSuiteBase implements TestResour
         mySqlContainer.withPassword(MYSQL_USER_PASSWORD);
         mySqlContainer.withLogConsumer(
                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger("Mysql-Docker-Image")));
-        mySqlContainer.setPortBindings(Collections.singletonList("3310:3306"));
         return mySqlContainer;
     }
 
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
-            container -> {
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && wget "
-                                        + MYSQL_DRIVER_JAR);
-                Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
-            };
+            MysqlDriverResolver::copyMySQLDriverToJdbcContainer;
 
     @BeforeAll
     @Override
@@ -121,7 +107,6 @@ public class MongodbCDCMultiSourceIT extends TestSuiteBase implements TestResour
         mongodbContainerA =
                 new MongoDBContainer(NETWORK, MongoDBContainer.ShardingClusterRole.SHARD);
         mongodbContainerA.withNetworkAliases("mongo0");
-        mongodbContainerA.setPortBindings(Collections.singletonList("27017:27017"));
         mongodbContainerA.withLogConsumer(
                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger("MongoDB-A-Docker-Image")));
         Startables.deepStart(Stream.of(mongodbContainerA)).join();
@@ -131,7 +116,6 @@ public class MongodbCDCMultiSourceIT extends TestSuiteBase implements TestResour
         mongodbContainerB =
                 new MongoDBContainer(NETWORK, MongoDBContainer.ShardingClusterRole.SHARD);
         mongodbContainerB.withNetworkAliases("mongo1");
-        mongodbContainerB.setPortBindings(Collections.singletonList("27018:27017"));
         mongodbContainerB.withLogConsumer(
                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger("MongoDB-B-Docker-Image")));
         Startables.deepStart(Stream.of(mongodbContainerB)).join();

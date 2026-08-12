@@ -247,6 +247,7 @@ exit;
 | sample-sharding.threshold                 | Integer  | No        | 1000    | This configuration specifies the threshold of estimated shard count to trigger the sample sharding strategy. When the distribution factor is outside the bounds specified by `chunk-key.even-distribution.factor.upper-bound` and `chunk-key.even-distribution.factor.lower-bound`, and the estimated shard count (calculated as approximate row count / chunk size) exceeds this threshold, the sample sharding strategy will be used. This can help to handle large datasets more efficiently. The default value is 1000 shards.                                                                                   |
 | inverse-sampling.rate                     | Integer  | No        | 1000    | The inverse of the sampling rate used in the sample sharding strategy. For example, if this value is set to 1000, it means a 1/1000 sampling rate is applied during the sampling process. This option provides flexibility in controlling the granularity of the sampling, thus affecting the final number of shards. It's especially useful when dealing with very large datasets where a lower sampling rate is preferred. The default value is 1000.                                                                                                                                                              |
 | split.allow-sampling                    | Boolean  | No        | true    | When set to false, the system should fall back to unevenly-sized chunk splitting (iterative query approach) regardless of the shard count.                                                                                                                                                              |
+| enable_concurrent_read                  | Boolean  | No        | true    | Whether to enable concurrent read with split during the snapshot phase. When set to false, the source skips split analysis and reads the table as a single split, which is useful for tables without indexes. The default value is true. |
 | exactly_once                              | Boolean  | No        | false   | Enable exactly once semantic.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | use_select_count                          | Boolean  | No        | false   | Use select count for table count rather then other methods in full stage.In this scenario, select count directly is used when it is faster to update statistics using sql from analysis table                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | skip_analyze                              | Boolean  | No        | false   | Skip the analysis of table count in full stage.In this scenario, you schedule analysis table sql to update related table statistics periodically or your table data does not change frequently                                                                                                                                                                                                                                                                                                                                                                                                                       |
@@ -422,12 +423,11 @@ source {
 
 ### Configure Debezium heartbeat
 
-For low-traffic tables, Debezium heartbeat can help the Oracle LogMiner position move forward regularly.
+For low-traffic tables, the Oracle LogMiner SCN only advances when redo log changes occur. Use a Debezium heartbeat to keep the SCN moving so checkpoint offsets are recorded regularly and replication lag stays observable. The heartbeat table must exist on the Oracle server before the job starts.
 
 ```hocon
 source {
   Oracle-CDC {
-    plugin_output = "customers"
     username = "system"
     password = "top_secret"
     database-names = ["ORCLCDB"]
@@ -436,12 +436,37 @@ source {
     url = "jdbc:oracle:thin:@//oracle-host:1521/ORCLCDB"
     debezium {
       database.oracle.jdbc.timezoneAsRegion = "false"
-      heartbeat.interval.ms = 1000
+      heartbeat.interval.ms = 100
       heartbeat.action.query = "INSERT INTO DEBEZIUM.heartbeat (ts) VALUES (SYSTIMESTAMP)"
     }
   }
 }
 ```
+
+### Read tables without a primary key
+
+For tables without a physical primary key, set `exactly_once = false` and supply a unique column via `table-names-config.primaryKeys` when you need stable row identity for downstream upserts.
+
+```hocon
+source {
+  Oracle-CDC {
+    username = "system"
+    password = "top_secret"
+    database-names = ["ORCLCDB"]
+    schema-names = ["DEBEZIUM"]
+    url = "jdbc:oracle:thin:@//oracle-host:1521/ORCLCDB"
+    table-names = ["ORCLCDB.DEBEZIUM.FULL_TYPES_NO_PRIMARY_KEY"]
+    table-names-config = [
+      {
+        table = "ORCLCDB.DEBEZIUM.FULL_TYPES_NO_PRIMARY_KEY"
+        primaryKeys = ["ID"]
+      }
+    ]
+  }
+}
+```
+
+Without a usable primary key, the connector cannot safely apply UPDATE/DELETE events. Use this mode only for append-only workloads.
 
 ### Schema change event filtering
 

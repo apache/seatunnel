@@ -41,5 +41,10 @@
             <type>test-jar</type>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>com.alibaba</groupId>
+            <artifactId>dns-cache-manipulator</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 </project>

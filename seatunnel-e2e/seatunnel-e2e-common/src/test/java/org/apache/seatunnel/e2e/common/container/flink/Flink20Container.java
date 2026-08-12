@@ -88,8 +88,24 @@ public class Flink20Container extends AbstractTestFlinkContainer {
                         "",
                         "# Memory Configuration",
                         "jobmanager.memory.process.size: 1600m",
-                        "taskmanager.memory.process.size: 1728m",
+                        // One TaskManager serves every job of a test class, and each SeaTunnel job
+                        // loads its connector jars through a fresh user-code ClassLoader. The
+                        // implied 256m metaspace was exhausted part-way through long classes
+                        // ("OutOfMemoryError: Metaspace"), killing the TaskManager. The process
+                        // budget grows by the same amount the metaspace does, so the derived Flink
+                        // memory stays at 1280m and the heap/network/managed pools are unchanged.
+                        "taskmanager.memory.process.size: 2048m",
                         "taskmanager.memory.flink.size: 1280m",
+                        "taskmanager.memory.jvm-metaspace.size: 512m",
+                        "",
+                        "# Heartbeat Configuration",
+                        // CI runners host several containers at once, so a TaskManager can be
+                        // starved of CPU for longer than the 50s Flink default before it answers a
+                        // heartbeat. A missed heartbeat fails the job outright, because SeaTunnel
+                        // jobs run with NoRestartBackoffTimeStrategy unless the job config asks for
+                        // restarts.
+                        "heartbeat.timeout: 120000",
+                        "heartbeat.interval: 10000",
                         "",
                         "# Network Buffer Configuration - Fix for insufficient network buffers",
                         "taskmanager.memory.network.fraction: 0.2",
@@ -136,7 +152,7 @@ public class Flink20Container extends AbstractTestFlinkContainer {
                         .withCommand("sh", "-c", createJobManagerStartupCommand())
                         .withNetwork(NETWORK)
                         .withNetworkAliases("jobmanager")
-                        .withExposedPorts()
+                        .withExposedPorts(8081)
                         .withEnv("FLINK_PROPERTIES", properties)
                         .withLogConsumer(
                                 new org.testcontainers.containers.output.Slf4jLogConsumer(
@@ -154,8 +170,6 @@ public class Flink20Container extends AbstractTestFlinkContainer {
 
         copySeaTunnelStarterToContainer(jobManager);
         copySeaTunnelStarterLoggingToContainer(jobManager);
-
-        jobManager.setPortBindings(java.util.Arrays.asList(String.format("%s:%s", 8081, 8081)));
 
         taskManager =
                 new org.testcontainers.containers.GenericContainer<>(dockerImage)

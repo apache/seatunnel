@@ -26,6 +26,9 @@
 # export AI_PROVIDER=anthropic    # Option A
 # export AI_PROVIDER=openai       # Option B
 # export AI_PROVIDER=bedrock      # Option C
+# export AI_PROVIDER=bedrock-mantle  # Option C2: OpenAI-family models on Bedrock
+#                                    #   (GPT-5.6 Terra/Sol; needs ".[bedrock-mantle]" extra;
+#                                    #    model via OPENAI_MODEL, e.g. openai.gpt-5.6-terra)
 
 # ─── Option A: Anthropic API (AI_PROVIDER=anthropic) ───
 # export ANTHROPIC_API_KEY=sk-ant-...
