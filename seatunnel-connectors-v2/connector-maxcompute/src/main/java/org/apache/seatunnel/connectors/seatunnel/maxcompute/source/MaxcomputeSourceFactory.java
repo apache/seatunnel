@@ -53,7 +53,8 @@ public class MaxcomputeSourceFactory implements TableSourceFactory {
                         ConnectorCommonOptions.SCHEMA,
                         MaxcomputeSourceOptions.PROJECT,
                         MaxcomputeSourceOptions.READ_COLUMNS,
-                        MaxcomputeSourceOptions.TUNNEL_ENDPOINT)
+                        MaxcomputeSourceOptions.TUNNEL_ENDPOINT,
+                        MaxcomputeSourceOptions.TUNNEL_NAME)
                 .exclusive(CatalogOptions.TABLE_LIST, MaxcomputeSourceOptions.TABLE_NAME)
                 .build();
     }

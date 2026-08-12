@@ -25,6 +25,10 @@ import ChangeLog from '../changelog/connector-file-sftp.md';
 
   默认情况下，我们使用2PC commit来确保`精确一次`
 
+- [ ] [CDC](../../introduction/concepts/connector-v2-features.md)
+- [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
+- [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
+
 - [x] 文件格式类型
   - [x] text
   - [x] csv
@@ -37,7 +41,6 @@ import ChangeLog from '../changelog/connector-file-sftp.md';
   - [x] canal_json
   - [x] debezium_json
   - [x] maxwell_json
-- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## 参数
 
@@ -78,10 +81,10 @@ import ChangeLog from '../changelog/connector-file-sftp.md';
 | enable_header_write                   | boolean | 否    | false                                      | 仅当file_format_type为text、csv时使用<br/>false：不写标头，true：写标头。   |
 | parquet_avro_write_fixed_as_int96     | array   | 否    | -                                          | 仅当file_format_type为parquet时使用                             |
 | encoding                              | string  | 否    | "UTF-8"                                    | 仅当file_format_type为json、text、csv、xml时使用。                  |
+| schema_evolution_enabled              | boolean | 否    | false                                      | 开启 Schema 演变支持，适用于 CDC 管道。为 true 时，来自上游的 ADD/DROP/RENAME/MODIFY 列事件无需重启作业即可应用到 Sink。不支持 binary 格式。 |
 | schema_save_mode                      | string  | 否    | CREATE_SCHEMA_WHEN_NOT_EXIST               | 现有目录处理方式                                                  |
 | data_save_mode                        | string  | 否    | APPEND_DATA                                | 现有数据处理方式                                                  |
 | merge_update_event                    | boolean | 否    | false                                      | 仅当file_format_type为canal_json、debezium_json、maxwell_json. |
-| schema_evolution_enabled              | boolean | 否    | false                                      | 开启 Schema 演变支持，适用于 CDC 管道。为 true 时，来自上游的 ADD/DROP/RENAME/MODIFY 列事件无需重启作业即可应用到 Sink。不支持 binary 格式。 |
 
 ### host [string]
 
@@ -339,7 +342,6 @@ SftpFile {
 
 ```
 
-
 ### schema_evolution_enabled [boolean]
 
 设置为 `true` 时，文件 Sink 可在运行时处理 CDC Schema 变更事件（ADD COLUMN、DROP COLUMN、RENAME COLUMN、MODIFY COLUMN 类型），无需重启作业。每次 Schema 变更时，当前输出文件会被关闭，并以新 Schema 打开一个新文件。
@@ -358,15 +360,16 @@ SftpFile {
 CDC 管道中的使用示例：
 
 ```hocon
-LocalFile {
-    path = "/tmp/cdc/${table_name}"
+SftpFile {
+    host = "xxx.xxx.xxx.xxx"
+    port = 22
+    user = "username"
+    password = "xxxxxxxxxxxxxxxxx"
+    path = "/data/sftp/cdc/${table_name}"
     file_format_type = "parquet"
     schema_evolution_enabled = true
-    have_partition = true
-    partition_by = ["updated_at_month"]
 }
 ```
-
 
 ## 变更日志
 

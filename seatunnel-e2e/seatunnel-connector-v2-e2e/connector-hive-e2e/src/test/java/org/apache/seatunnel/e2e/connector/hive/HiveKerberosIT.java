@@ -40,12 +40,13 @@ import org.testcontainers.utility.DockerLoggerFactory;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Duration;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
@@ -109,6 +110,7 @@ public class HiveKerberosIT extends SeaTunnelContainer {
     private HiveContainer hiveServerContainer;
     private HiveContainer hmsContainer;
     private Connection hiveConnection;
+    private Path kerberosLocalConfig;
     private String pluginHiveDir = "/tmp/seatunnel/plugins/Hive/lib";
 
     protected void downloadHivePluginJar() throws IOException, InterruptedException {
@@ -170,9 +172,9 @@ public class HiveKerberosIT extends SeaTunnelContainer {
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(KERBEROS_IMAGE_NAME)));
-        kerberosContainer.setPortBindings(Arrays.asList("88/udp:88/udp", "749:749"));
         Startables.deepStart(Stream.of(kerberosContainer)).join();
         log.info("Kerberos just started");
+        configureLocalKerberos();
 
         // Copy the keytab file from kerberos container to local
         given().ignoreExceptions()
@@ -199,8 +201,6 @@ public class HiveKerberosIT extends SeaTunnelContainer {
                                 ContainerUtil.getResourcesFile("/kerberos/core-site.xml").getPath(),
                                 "/opt/hive/conf/core-site.xml")
                         .withNetworkAliases(HMS_HOST);
-        hmsContainer.setPortBindings(Collections.singletonList("9083:9083"));
-
         Startables.deepStart(Stream.of(hmsContainer)).join();
         log.info("HMS just started");
 
@@ -225,8 +225,6 @@ public class HiveKerberosIT extends SeaTunnelContainer {
                         .withEnv("SERVICE_OPTS", "-Dhive.metastore.uris=thrift://metastore:9083")
                         .withEnv("IS_RESUME", "true")
                         .dependsOn(hmsContainer);
-        hiveServerContainer.setPortBindings(Collections.singletonList("10000:10000"));
-
         Startables.deepStart(Stream.of(hiveServerContainer)).join();
 
         log.info("HiveServer2 just started");
@@ -261,12 +259,35 @@ public class HiveKerberosIT extends SeaTunnelContainer {
             kerberosContainer.close();
         }
         super.tearDown();
+        if (kerberosLocalConfig != null) {
+            if (kerberosLocalConfig
+                    .toString()
+                    .equals(System.getProperty("java.security.krb5.conf"))) {
+                System.clearProperty("java.security.krb5.conf");
+            }
+            Files.deleteIfExists(kerberosLocalConfig);
+            kerberosLocalConfig = null;
+        }
     }
 
     private void initializeConnection()
             throws ClassNotFoundException, InstantiationException, IllegalAccessException,
                     SQLException {
-        this.hiveConnection = this.hiveServerContainer.getConnection(true);
+        this.hiveConnection =
+                this.hiveServerContainer.getConnection(true, kerberosLocalConfig.toString());
+    }
+
+    private void configureLocalKerberos() throws IOException {
+        Path configTemplate = ContainerUtil.getResourcesFile("/kerberos/krb5_local.conf").toPath();
+        String config =
+                new String(Files.readAllBytes(configTemplate), StandardCharsets.UTF_8)
+                        .replace("${KDC_PORT}", String.valueOf(kerberosContainer.getMappedPort(88)))
+                        .replace(
+                                "${ADMIN_SERVER_PORT}",
+                                String.valueOf(kerberosContainer.getMappedPort(749)));
+        kerberosLocalConfig = Files.createTempFile("seatunnel-krb5-", ".conf");
+        Files.write(kerberosLocalConfig, config.getBytes(StandardCharsets.UTF_8));
+        System.setProperty("java.security.krb5.conf", kerberosLocalConfig.toString());
     }
 
     private void prepareTable() throws Exception {
