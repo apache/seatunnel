@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.postgres;
 
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
-
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfigFactory;
 import org.apache.seatunnel.connectors.seatunnel.cdc.postgres.config.PostgresSourceConfigFactory;
@@ -215,12 +213,6 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
     @Override
     public void startUp() {
         log.info("The second stage: Starting Postgres containers...");
-        POSTGRES_CONTAINER.setPortBindings(
-                Lists.newArrayList(
-                        String.format(
-                                "%s:%s",
-                                PostgreSQLContainer.POSTGRESQL_PORT,
-                                PostgreSQLContainer.POSTGRESQL_PORT)));
         Startables.deepStart(Stream.of(POSTGRES_CONTAINER)).join();
 
         log.info("Postgres Containers are started");
@@ -631,7 +623,9 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                                 }
                             });
             CompletableFuture<Void> restoredCommittedOffsetJob = committedOffsetJob;
-            await().atMost(60000, TimeUnit.MILLISECONDS)
+            // Restoring the checkpoint and reconnecting the existing replication slot can take
+            // longer on shared GitHub runners than the initial CDC startup.
+            await().atMost(120, TimeUnit.SECONDS)
                     .untilAsserted(
                             () -> {
                                 assertJobHasNoAsyncFailure(restoredCommittedOffsetJob);
@@ -1226,7 +1220,7 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
         JdbcSourceConfigFactory factory =
                 new PostgresSourceConfigFactory()
                         .hostname(POSTGRES_CONTAINER.getHost())
-                        .port(5432)
+                        .port(POSTGRES_CONTAINER.getMappedPort(PostgreSQLContainer.POSTGRESQL_PORT))
                         .username("postgres")
                         .password("postgres")
                         .databaseList(POSTGRESQL_DATABASE);

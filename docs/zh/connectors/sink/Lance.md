@@ -13,7 +13,11 @@ import ChangeLog from '../changelog/connector-lance.md';
 ## 主要特性
 
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [x] [批处理](../../introduction/concepts/connector-v2-features.md)
+- [x] [流处理](../../introduction/concepts/connector-v2-features.md)
 - [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
+- [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 ## 描述
 
@@ -82,6 +86,10 @@ Lance namespace 的根目录。SeaTunnel 运行用户需要有权限在该目录
 
 控制 Lance 的写入方式。默认值是 `CREATE`。该值需要是 Lance `WriteParams.WriteMode` 支持的值：`CREATE`、`APPEND` 或 `OVERWRITE`。
 
+### lance.write.enable.stable.row.ids
+
+写入 Lance 时是否启用稳定的 row ID。连接器会把这个选项读入 `LanceSinkConfig.enableStableRowIds`，并通过 `getEnableStableRowIds()` 暴露，但**当前实现中该值仅被解析，还未真正传入底层的 Lance `WriteParams`**（`LanceSinkWriter.initializeDataset()` 构造的 `WriteParams` 不包含这个开关），目前切换它对写入路径没有可见效果。这是一项已知的缺口，需要后续连接器提交来补齐。
+
 ### lance.write.storage.options
 
 以键值对形式传递额外的 Lance 存储参数。
@@ -95,9 +103,13 @@ lance.write.storage.options = {
 }
 ```
 
+### multi_table_sink_replica
+
+多表写入时的 sink 并行副本数。当一个多表作业写入大量 Lance 表、单个副本成为瓶颈时调大该值。详见 [Sink 通用选项](../common-options/sink-common-options.md)。
+
 ## 数据类型映射
 
-Lance 使用 Apache Arrow 类型系统。sink 会根据上游 SeaTunnel 表结构创建 Lance schema。
+Lance 使用 Apache Arrow 类型系统。sink 会根据上游 SeaTunnel 表结构创建 Lance schema。当前映射会把所有整数类型（`TINYINT`、`SMALLINT`、`INT`、`BIGINT`）一律收窄为 Arrow `int32`，因此超出有符号 32 位范围的 `BIGINT` 值会被截断。
 
 | SeaTunnel 数据类型 | Lance / Arrow 数据类型 |
 |--------------------|------------------------|
@@ -105,18 +117,24 @@ Lance 使用 Apache Arrow 类型系统。sink 会根据上游 SeaTunnel 表结�
 | TINYINT            | int32                  |
 | SMALLINT           | int32                  |
 | INT                | int32                  |
-| BIGINT             | int32                  |
+| BIGINT             | int32（超出有符号 32 位范围的值会被截断） |
 | FLOAT              | float32                |
 | DOUBLE             | float64                |
 | DECIMAL            | decimal128             |
 | NULL               | null                   |
 | BYTES              | binary                 |
 | DATE               | date32                 |
-| TIME               | time32                 |
-| TIMESTAMP          | timestamp              |
+| TIME               | time32（毫秒精度）     |
+| TIMESTAMP          | timestamp（微秒精度，Asia/Shanghai 时区） |
 | STRING             | utf8                   |
 | ARRAY              | list                   |
 | MAP                | map                    |
+
+:::tip
+
+Sink 不会按 `UPDATE` / `DELETE` 行类型执行 CDC 语义 —— 每条上游记录都会按 `lance.write.mode` 追加到 Lance 数据集中。在流式模式下，Writer 会在每个 checkpoint 把内存中的行缓冲写入 Lance。
+
+:::
 
 ## 任务示例
 
@@ -157,6 +175,77 @@ sink {
     namespace_type = "dir"
     namespace_id = "root"
     table = "lance_sink_table"
+  }
+}
+```
+
+### 使用 APPEND 模式并调大文件分片
+
+`APPEND` 模式会保留已有数据集并写入新行。把 `lance.write.max-rows-per-file` 和 `lance.write.max-bytes-per-file` 调大，可以减少追加大批量数据时产生的 Lance fragment 数量。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    row.num = 1000000
+    schema = {
+      fields {
+        c_string = string
+        c_int = int
+      }
+    }
+    plugin_output = "fake"
+  }
+}
+
+sink {
+  Lance {
+    dataset_path = "/tmp/seatunnel_mnt/lanceTest/lance_sink_table"
+    namespace_type = "dir"
+    namespace_id = "root"
+    table = "lance_sink_table"
+    lance.write.mode = "APPEND"
+    lance.write.max-rows-per-file = 100000
+    lance.write.max-rows-per-group = 5000
+    lance.write.max-bytes-per-file = 134217728
+  }
+}
+```
+
+### 流式追加并按 Checkpoint 刷新
+
+```hocon
+env {
+  parallelism = 2
+  job.mode = "STREAMING"
+  checkpoint.interval = 30000
+}
+
+source {
+  FakeSource {
+    row.num = 1000
+    schema = {
+      fields {
+        c_string = string
+        c_int = int
+      }
+    }
+    plugin_output = "fake_stream"
+  }
+}
+
+sink {
+  Lance {
+    plugin_input = "fake_stream"
+    dataset_path = "/tmp/seatunnel_mnt/lanceTest/lance_sink_table"
+    namespace_type = "dir"
+    namespace_id = "root"
+    table = "lance_sink_table"
+    lance.write.mode = "APPEND"
   }
 }
 ```

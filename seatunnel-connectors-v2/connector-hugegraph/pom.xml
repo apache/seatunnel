@@ -29,10 +29,6 @@
     <artifactId>connector-hugegraph</artifactId>
     <name>SeaTunnel : Connectors V2 : HugeGraph</name>
 
-    <properties>
-        <hugegraph.client.version>1.5.0</hugegraph.client.version>
-    </properties>
-
     <dependencies>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
@@ -44,12 +40,53 @@
             <groupId>org.apache.hugegraph</groupId>
             <artifactId>hugegraph-client</artifactId>
             <version>${hugegraph.client.version}</version>
+            <exclusions>
+                <!-- hugegraph-common leaks junit/hamcrest as compile-scope transitives;
+                     they must not be shaded into the connector runtime jar. -->
+                <exclusion>
+                    <groupId>junit</groupId>
+                    <artifactId>junit</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.hamcrest</groupId>
+                    <artifactId>hamcrest-core</artifactId>
+                </exclusion>
+                <!-- The connector only uses the HTTP REST client (HugeClient.builder), not the
+                     distributed PD/HStore path, so drop the heavy PD + gRPC transitives that the
+                     1.7.0 client pulls in (~18MB of shaded jar). -->
+                <exclusion>
+                    <groupId>org.apache.hugegraph</groupId>
+                    <artifactId>hg-pd-client</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.hugegraph</groupId>
+                    <artifactId>hg-pd-common</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.apache.hugegraph</groupId>
+                    <artifactId>hg-pd-grpc</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>io.grpc</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
             <groupId>org.apache.hugegraph</groupId>
             <artifactId>hugegraph-common</artifactId>
             <version>${hugegraph.client.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>junit</groupId>
+                    <artifactId>junit</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.hamcrest</groupId>
+                    <artifactId>hamcrest-core</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
     </dependencies>
@@ -66,6 +103,68 @@
                         </manifestEntries>
                     </archive>
                 </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <phase>package</phase>
+                        <configuration>
+                            <!-- Relocate dependencies that clash with engine-provided jars.
+                                 Spark ships an old Guava (14.x) and Jackson (2.13.x) on its
+                                 classpath; without relocation the engine versions win and
+                                 hugegraph-client fails with NoSuchMethodError. -->
+                            <relocations>
+                                <relocation>
+                                    <pattern>com.google.common</pattern>
+                                    <shadedPattern>${seatunnel.shade.package}.hugegraph.com.google.common</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>com.google.thirdparty</pattern>
+                                    <shadedPattern>${seatunnel.shade.package}.hugegraph.com.google.thirdparty</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>com.fasterxml.jackson</pattern>
+                                    <shadedPattern>${seatunnel.shade.package}.hugegraph.com.fasterxml.jackson</shadedPattern>
+                                </relocation>
+                                <!-- Spark bundles okhttp 3.12 / okio 1.x (kubernetes-client),
+                                     hugegraph-client needs okhttp 4.12 / okio 3.x -->
+                                <relocation>
+                                    <pattern>okhttp3</pattern>
+                                    <shadedPattern>${seatunnel.shade.package}.hugegraph.okhttp3</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>okio</pattern>
+                                    <shadedPattern>${seatunnel.shade.package}.hugegraph.okio</shadedPattern>
+                                </relocation>
+                                <!-- Spark bundles javassist 3.25 (hive) and joda-time 2.9 (Spark 2.4) -->
+                                <relocation>
+                                    <pattern>javassist</pattern>
+                                    <shadedPattern>${seatunnel.shade.package}.hugegraph.javassist</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.joda.time</pattern>
+                                    <shadedPattern>${seatunnel.shade.package}.hugegraph.org.joda.time</shadedPattern>
+                                </relocation>
+                            </relocations>
+                            <transformers>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer" />
+                            </transformers>
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/maven/**</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>

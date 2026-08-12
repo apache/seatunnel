@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-hbase.md';
 
 > Hbase 源连接器
 
+## 引擎支持
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## 描述
 
 从 Apache HBase 表读取数据。支持普通扫描、行键范围扫描、时间戳范围扫描、二进制行键、自定义命名空间和并行批读取。
