@@ -195,6 +195,92 @@ source {
 }
 ```
 
+### Configure Debezium heartbeat
+
+For low-traffic tables, the Postgres logical decoding slot position only advances when row changes are written to the WAL. A Debezium heartbeat keeps the slot advancing so checkpoint offsets are recorded regularly and replication lag stays observable. The heartbeat table must exist on the Postgres server before the job starts.
+
+```hocon
+source {
+  Postgres-CDC {
+    username = "postgres"
+    password = "postgres"
+    database-names = ["postgres_cdc"]
+    schema-names = ["inventory"]
+    table-names = ["postgres_cdc.inventory.postgres_cdc_table_1"]
+    url = "jdbc:postgresql://postgres_cdc_e2e:5432/postgres_cdc?loggerLevel=OFF"
+    decoding.plugin.name = "decoderbufs"
+    slot.name = "seatunnel_postgres_cdc"
+    debezium {
+      heartbeat.interval.ms = 100
+      heartbeat.action.query = "INSERT INTO inventory.heartbeat (ts) VALUES (NOW())"
+    }
+  }
+}
+```
+
+### Run a snapshot-only batch
+
+Use `startup.mode = "snapshot-only"` when the job must perform an initial snapshot and stop without entering WAL streaming. This is useful for one-time backfills.
+
+```hocon
+env {
+  execution.parallelism = 1
+  job.mode = "BATCH"
+  checkpoint.interval = 5000
+}
+
+source {
+  Postgres-CDC {
+    username = "postgres"
+    password = "postgres"
+    database-names = ["postgres_cdc"]
+    schema-names = ["inventory"]
+    table-names = ["postgres_cdc.inventory.postgres_cdc_table_1"]
+    url = "jdbc:postgresql://postgres_cdc_e2e:5432/postgres_cdc?loggerLevel=OFF"
+    decoding.plugin.name = "decoderbufs"
+    slot.name = "seatunnel_postgres_cdc"
+    startup.mode = "snapshot-only"
+  }
+}
+
+sink {
+  Jdbc {
+    url = "jdbc:postgresql://postgres_cdc_e2e:5432/postgres_cdc?loggerLevel=OFF"
+    driver = "org.postgresql.Driver"
+    username = "postgres"
+    password = "postgres"
+    generate_sink_sql = true
+    database = postgres_cdc
+    table = inventory.sink_postgres_cdc_table_1
+    primary_keys = ["id"]
+  }
+}
+```
+
+In `snapshot-only` mode, the connector skips WAL streaming entirely; configure `slot.name` if you need a dedicated slot for the snapshot read.
+
+### Read tables without a primary key
+
+For tables without a physical primary key, set `exactly_once = false` and supply a unique column via `table-names-config.primaryKeys` when you need stable row identity for downstream upserts.
+
+```hocon
+source {
+  Postgres-CDC {
+    username = "postgres"
+    password = "postgres"
+    database-names = ["postgres_cdc"]
+    schema-names = ["inventory"]
+    table-names = ["postgres_cdc.inventory.full_types_no_primary_key"]
+    url = "jdbc:postgresql://postgres_cdc_e2e:5432/postgres_cdc?loggerLevel=OFF"
+    decoding.plugin.name = "decoderbufs"
+    exactly_once = false
+    slot.name = "seatunnel_postgres_cdc"
+  }
+}
+```
+
+Without a usable primary key, the connector cannot safely apply UPDATE/DELETE events. Use this mode only for append-only workloads.
+
 ## CDC Metadata Fields
 
 PostgreSQL CDC exposes metadata fields that can be used by the `Metadata` transform:

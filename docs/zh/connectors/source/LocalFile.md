@@ -65,7 +65,8 @@ import ChangeLog from '../changelog/connector-file-local.md';
 | skip_header_row_number     | long    | 否    | 0                   |
 | schema                     | config  | 视情况而定 | -                   |
 | sheet_name                 | string  | 否    | -                   |
-| excel_engine               | string  | 否    | POI                 |                                             
+| excel_engine               | string  | 否    | POI                 |
+| poi_excel_max_file_size    | long    | 否    | 52428800            |
 | xml_row_tag                | string  | 否    | -                   |
 | xml_use_attr_format        | boolean | 否    | -                   |
 | csv_use_header_line        | boolean | 否    | false               |
@@ -198,7 +199,7 @@ markdown 解析器提取各种元素，包括标题、段落、列表、代码�
 - `parent_id`：父元素的 ID
 - `child_ids`：子元素 ID 的逗号分隔列表
 
-当 `markdown_rag_metadata_enabled` 设置为 `true` 时，SeaTunnel 会在 `child_ids` 之后追加以下 RAG 元数据字段：
+当 `markdown_rag_metadata_enabled` 或 `pdf_rag_metadata_enabled` 设置为 `true` 时，SeaTunnel 会针对对应文件类型在 `child_ids` 之后追加以下 RAG 元数据字段：
 - `source_uri`：源文件路径或 URI
 - `document_id`：由 `source_uri` 派生的稳定文档标识符
 - `chunk_id`：由文档标识、chunk 顺序和内容哈希派生的稳定 chunk 标识符
@@ -213,6 +214,7 @@ markdown 解析器提取各种元素，包括标题、段落、列表、代码�
 
 如果您将文件类型指定为 `pdf`，SeaTunnel 可以解析 PDF 文件并提取结构化的文档元素。
 PDF 使用与上文相同的文档元素 schema。
+对于 PDF 输入，启用 `pdf_rag_metadata_enabled` 即可追加上文所述的 RAG 元数据字段。
 
 PDF 特有的解析行为如下：
 
@@ -323,7 +325,15 @@ PDF 特有的解析行为如下：
 支持以下文件类型：
 `POI` `EasyExcel`
 
-默认的 excel 读取引擎是 POI，但当读取超过 65,000 行的 Excel 时，POI 容易导致内存溢出，因此您可以切换到 EasyExcel 作为读取引擎。
+默认的 Excel 读取引擎是 POI。POI 会保留历史读取行为，包括 POI 特有的公式和格式处理能力，但读取大 Excel 文件时可能占用大量内存。
+
+如果需要读取大 Excel 文件，可以设置 `excel_engine = EasyExcel` 使用流式读取。
+
+### poi_excel_max_file_size [long]
+
+仅在 `file_format` 为 excel 且 `excel_engine` 为 POI 时使用。
+
+POI 引擎允许读取的最大 Excel 文件大小，单位为字节。默认值为 `52428800` 字节（50 MB）。当文件超过该限制时，连接器会提前失败，并提示使用 EasyExcel。
 
 
 ### xml_row_tag [string]
