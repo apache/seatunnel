@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-tablestore.md';
 
 > Tablestore source connector
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Description
 
 Read full and incremental data from Alibaba Cloud Tablestore. The source uses Tablestore Tunnel in `BaseAndStream` mode, so it can read existing data first and then consume later changes.

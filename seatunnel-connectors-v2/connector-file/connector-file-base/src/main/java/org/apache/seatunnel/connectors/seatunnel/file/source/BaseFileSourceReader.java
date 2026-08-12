@@ -74,7 +74,9 @@ public class BaseFileSourceReader implements SourceReader<SeaTunnelRow, FileSour
 
         if (split != null) {
             if (Boundedness.UNBOUNDED.equals(context.getBoundedness())) {
-                context.sendSourceEventToEnumerator(new FileSplitFinishedEvent(split.splitId()));
+                context.sendSourceEventToEnumerator(
+                        new FileSplitFinishedEvent(
+                                split.splitId(), readStrategy.getLastReadFingerprint()));
             }
             return;
         }

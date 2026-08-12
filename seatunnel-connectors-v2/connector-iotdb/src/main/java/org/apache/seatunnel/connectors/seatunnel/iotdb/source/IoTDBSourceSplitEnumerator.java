@@ -30,11 +30,14 @@ import lombok.extern.slf4j.Slf4j;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 import static org.apache.iotdb.tsfile.common.constant.QueryConstant.RESERVED_TIME;
 import static org.apache.seatunnel.connectors.seatunnel.iotdb.config.IoTDBSourceOptions.LOWER_BOUND;
@@ -59,6 +62,7 @@ public class IoTDBSourceSplitEnumerator
     private final Context<IoTDBSourceSplit> context;
     private final ReadonlyConfig conf;
     private final Map<Integer, List<IoTDBSourceSplit>> pendingSplit;
+    private final AtomicInteger assignCount = new AtomicInteger(0);
     private volatile boolean shouldEnumerate;
 
     public IoTDBSourceSplitEnumerator(
@@ -77,6 +81,7 @@ public class IoTDBSourceSplitEnumerator
         if (sourceState != null) {
             this.shouldEnumerate = sourceState.isShouldEnumerate();
             this.pendingSplit.putAll(sourceState.getPendingSplit());
+            this.assignCount.set(sourceState.getAssignCount());
         }
     }
 
@@ -183,8 +188,15 @@ public class IoTDBSourceSplitEnumerator
     public void addSplitsBack(List<IoTDBSourceSplit> splits, int subtaskId) {
         log.debug("Add back splits {} to IoTDBSourceSplitEnumerator.", splits);
         if (!splits.isEmpty()) {
-            addPendingSplit(splits);
-            assignSplit(Collections.singletonList(subtaskId));
+            addPendingSplit(splits, subtaskId);
+            if (context.registeredReaders().contains(subtaskId)) {
+                assignSplit(Collections.singletonList(subtaskId));
+            } else {
+                log.warn(
+                        "Reader {} is not registered. Pending splits {} are not assigned.",
+                        subtaskId,
+                        splits);
+            }
         }
     }
 
@@ -203,11 +215,21 @@ public class IoTDBSourceSplitEnumerator
 
     private void addPendingSplit(Collection<IoTDBSourceSplit> splits) {
         int readerCount = context.currentParallelism();
-        for (IoTDBSourceSplit split : splits) {
-            int ownerReader = getSplitOwner(split.splitId(), readerCount);
+
+        List<IoTDBSourceSplit> sortedSplits =
+                splits.stream()
+                        .sorted(Comparator.comparing(IoTDBSourceSplit::splitId))
+                        .collect(Collectors.toList());
+
+        for (IoTDBSourceSplit split : sortedSplits) {
+            int ownerReader = getSplitOwner(assignCount.getAndIncrement(), readerCount);
             log.info("Assigning {} to {} reader.", split, ownerReader);
             pendingSplit.computeIfAbsent(ownerReader, r -> new ArrayList<>()).add(split);
         }
+    }
+
+    private void addPendingSplit(Collection<IoTDBSourceSplit> splits, int ownerReader) {
+        pendingSplit.computeIfAbsent(ownerReader, r -> new ArrayList<>()).addAll(splits);
     }
 
     private void assignSplit(Collection<Integer> readers) {
@@ -234,12 +256,12 @@ public class IoTDBSourceSplitEnumerator
     @Override
     public IoTDBSourceState snapshotState(long checkpointId) throws Exception {
         synchronized (stateLock) {
-            return new IoTDBSourceState(shouldEnumerate, pendingSplit);
+            return new IoTDBSourceState(shouldEnumerate, pendingSplit, assignCount.get());
         }
     }
 
-    private static int getSplitOwner(String tp, int numReaders) {
-        return (tp.hashCode() & Integer.MAX_VALUE) % numReaders;
+    private static int getSplitOwner(int currentAssignCount, int numReaders) {
+        return currentAssignCount % numReaders;
     }
 
     @Override

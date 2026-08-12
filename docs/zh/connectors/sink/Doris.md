@@ -21,7 +21,7 @@ import ChangeLog from '../changelog/connector-doris.md';
 - [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [x] [变更数据捕获](../../introduction/concepts/connector-v2-features.md)
 - [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
-- [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
+- [x] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 ## 描述
 
@@ -172,6 +172,7 @@ CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}`
 | ARRAY          | ARRAY                                   |
 | MAP            | MAP                                     |
 | JSON           | STRING                                  |
+| VARIANT        | STRING                                  |
 | HLL            | 尚不支持                                    |
 | BITMAP         | 尚不支持                                    |
 | QUANTILE_STATE | 尚不支持                                    |
@@ -181,6 +182,8 @@ CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}`
 
 支持的格式包括 CSV 和 JSON。
 
+当从 SeaTunnel `STRING` 字段写入 Doris `VARIANT` 列时，字段值需要是合法的 JSON 文档。
+
 ## 调优指南
 适当增加`sink.buffer-size`和`doris.batch.size`的值可以提高写性能。
 
@@ -189,6 +192,33 @@ CREATE TABLE IF NOT EXISTS `${database}`.`${table_name}`
 这是因为最后到达的数据总量可能不会超过doris.batch.size指定的阈值。因此，在接收到数据的数据量没有超过该阈值之前只有检查点才会触发提交操作。因此，需要选择一个合适的检查点间隔。
 
 此外，如果你通过`sink.enable-2pc=true`属性启用2pc。`sink.buffer-size`将会失去作用，只有检查点才能触发提交。
+
+### Zeta 定时刷新
+
+该引擎级能力仅由 Zeta 支持，Spark 和 Flink 不会注入 `FlushSignal`。在 Zeta 中，可以在 `env` 块配置 `sink.flush.interval`，使当前 Stream Load 在达到 `doris.batch.size` 之前也能定时完成。
+
+仅当 `sink.enable-2pc=false` 时才会注册定时刷新。`sink.enable-2pc=true` 时会明确禁用该能力，因为在 checkpoint 之间完成当前 Stream Load 并开启新 Stream Load 会破坏 2PC 事务边界和精确一次保证。因此，首版定时刷新仅提供至少一次语义。
+
+```hocon
+env {
+  job.mode = "STREAMING"
+  checkpoint.interval = 300000
+  sink.flush.interval = 5000
+}
+
+sink {
+  Doris {
+    fenodes = "doris-fe:8030"
+    username = root
+    password = ""
+    database = "mydb"
+    table = "mytable"
+    sink.label-prefix = "timer-flush"
+    sink.enable-2pc = false
+    doris.batch.size = 10000
+  }
+}
+```
 
 ## `307 Temporary Redirect` 排查
 
