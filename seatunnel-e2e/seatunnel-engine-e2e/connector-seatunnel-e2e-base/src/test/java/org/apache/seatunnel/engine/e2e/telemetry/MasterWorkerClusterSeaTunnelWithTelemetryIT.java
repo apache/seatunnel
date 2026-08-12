@@ -46,6 +46,7 @@ import static io.restassured.RestAssured.given;
 import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PATH;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.CONTEXT_PATH;
 import static org.hamcrest.CoreMatchers.containsString;
+import static org.hamcrest.CoreMatchers.not;
 import static org.hamcrest.Matchers.equalTo;
 import static org.hamcrest.Matchers.matchesRegex;
 
@@ -79,8 +80,9 @@ public class MasterWorkerClusterSeaTunnelWithTelemetryIT extends SeaTunnelContai
     @BeforeEach
     public void startUp() throws Exception {
 
-        server = createServer("server", "master");
+        // Start the lite worker first so Hazelcast mastership lands on a worker-only member.
         secondServer = createServer("secondServer", "worker");
+        server = createServer("server", "master");
 
         // check cluster
         Awaitility.await()
@@ -573,6 +575,9 @@ public class MasterWorkerClusterSeaTunnelWithTelemetryIT extends SeaTunnelContai
                                 "(?s)^.*hazelcast_partition_isLocalMemberSafe\\{cluster=\""
                                         + testClusterName
                                         + "\",address=.*$"));
+        if (!isMaster) {
+            validatableResponse.body(not(containsString("job_thread_pool_activeCount")));
+        }
     }
 
     @Override

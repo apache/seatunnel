@@ -183,9 +183,9 @@ The `result` label has the following meanings:
   pre-check and request execution.
 - `failure`: the master-to-worker invocation failed or the operation completed exceptionally.
 
-During cancellation, SeaTunnel does not synchronously flush a final best-effort
-`ReportMetricsOperation`. If cancellation happens after the latest periodic backup, the final
-reported metrics can lag behind the most recent task-local progress.
+During cancellation, SeaTunnel attempts a final best-effort `ReportMetricsOperation` flush with a
+bounded timeout. If the active coordinator is unavailable or the bounded flush does not complete in
+time, the final reported metrics can still lag behind the most recent task-local progress.
 
 ### Job info detail
 

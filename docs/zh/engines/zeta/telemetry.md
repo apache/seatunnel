@@ -177,8 +177,8 @@ worker 发送 `RequestSlotOperation` 请求以预留 slot。这些指标用于�
   worker 资源视图与 worker 当前 slot 状态存在偏差，或者在 pre-check 与请求执行之间并发分配消耗了 slot。
 - `failure`：master 到 worker 的调用失败，或 operation 异常完成。
 
-在取消流程中，SeaTunnel 不会同步等待最后一次 best-effort 的 `ReportMetricsOperation` 刷新。如果
-取消发生在最近一次周期性备份之后，最终上报的 metrics 可能会落后于任务本地最新进度。
+在取消流程中，SeaTunnel 会用有界超时尝试最后一次 best-effort 的 `ReportMetricsOperation` 刷新。如果
+激活中的 coordinator 不可用，或有界刷新未能及时完成，最终上报的 metrics 仍可能落后于任务本地最新进度。
 
 ### 作业信息详细
 
