@@ -273,11 +273,6 @@ public class JdbcOracleIT extends AbstractJdbcIT {
     }
 
     @Override
-    String driverUrl() {
-        return "https://repo1.maven.org/maven2/com/oracle/database/jdbc/ojdbc8/12.2.0.1/ojdbc8-12.2.0.1.jar";
-    }
-
-    @Override
     Pair<String[], List<SeaTunnelRow>> initTestData() {
         List<SeaTunnelRow> rows = new ArrayList<>();
         for (int i = 0; i < 20000; i++) {

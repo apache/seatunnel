@@ -27,6 +27,7 @@ import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.TestContainerId;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.Table;
@@ -80,8 +81,8 @@ public class IcebergSinkIT extends TestSuiteBase {
                                 + "seatunnel_namespace/iceberg_sink_table/metadata");
                 container.execInContainer("sh", "-c", "chmod -R 777  " + CATALOG_DIR);
 
-                IcebergDependencyResolver.copyDependencyToContainer(
-                        container, Zstd.class, "/tmp/seatunnel/plugins/Iceberg/lib");
+                DependencyJar.of(Zstd.class)
+                        .copyTo(container, "/tmp/seatunnel/plugins/Iceberg/lib");
             };
 
     @TestTemplate

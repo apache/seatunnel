@@ -23,6 +23,7 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -40,9 +41,6 @@ import org.testcontainers.utility.MountableFile;
 import java.io.File;
 import java.io.IOException;
 import java.net.URL;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Optional;
 import java.util.stream.Stream;
 
@@ -87,33 +85,9 @@ public class TestDynamicCompileIT extends TestSuiteBase implements TestResource 
 
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
-            container -> {
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash", "-c", "mkdir -p /tmp/seatunnel/plugins/Fake/lib");
-                Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
-                Path hutoolJarPath = hutoolJarPath();
-                container.copyFileToContainer(
-                        MountableFile.forHostPath(hutoolJarPath),
-                        "/tmp/seatunnel/plugins/Fake/lib/" + hutoolJarPath.getFileName());
-            };
-
-    private Path hutoolJarPath() {
-        try {
-            Path hutoolJarPath =
-                    Paths.get(
-                            cn.hutool.core.util.StrUtil.class
-                                    .getProtectionDomain()
-                                    .getCodeSource()
-                                    .getLocation()
-                                    .toURI());
-            Assertions.assertTrue(Files.isRegularFile(hutoolJarPath));
-            return hutoolJarPath;
-        } catch (Exception e) {
-            throw new IllegalStateException(
-                    "Failed to resolve Hutool jar from the test classpath", e);
-        }
-    }
+            container ->
+                    DependencyJar.of(cn.hutool.core.util.StrUtil.class)
+                            .copyTo(container, "/tmp/seatunnel/plugins/Fake/lib");
 
     @AfterAll
     @Override

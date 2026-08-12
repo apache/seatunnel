@@ -28,6 +28,7 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
 
 import org.apache.hadoop.conf.Configuration;
@@ -115,8 +116,8 @@ public class HudiSinkCDCIT extends TestSuiteBase implements TestResource {
             container -> {
                 container.execInContainer("sh", "-c", "mkdir -p " + TABLE_PATH);
                 container.execInContainer("sh", "-c", "chmod -R 777  " + TABLE_PATH);
-                HudiDependencyResolver.copyDependencyToContainer(
-                        container, Driver.class, "/tmp/seatunnel/plugins/MySQL-CDC/lib");
+                DependencyJar.of(Driver.class)
+                        .copyTo(container, "/tmp/seatunnel/plugins/MySQL-CDC/lib");
             };
 
     @BeforeAll

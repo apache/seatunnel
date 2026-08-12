@@ -25,6 +25,7 @@ import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -79,7 +80,9 @@ public class JdbcPrestoIT extends AbstractJdbcIT {
 
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
-            container -> JdbcE2EDriverResolver.copyDriverToContainer(container, DRIVER_CLASS);
+            container ->
+                    DependencyJar.ofClassName(DRIVER_CLASS)
+                            .copyTo(container, "/tmp/seatunnel/plugins/Jdbc/lib");
 
     @Override
     protected void initializeJdbcConnection(String jdbcUrl)
@@ -184,11 +187,6 @@ public class JdbcPrestoIT extends AbstractJdbcIT {
             log.error(ExceptionUtils.getMessage(exception));
             throw new SeaTunnelRuntimeException(JdbcITErrorCode.INSERT_DATA_FAILED, exception);
         }
-    }
-
-    @Override
-    String driverUrl() {
-        return "https://repo1.maven.org/maven2/com/facebook/presto/presto-jdbc/0.279/presto-jdbc-0.279.jar";
     }
 
     @Override

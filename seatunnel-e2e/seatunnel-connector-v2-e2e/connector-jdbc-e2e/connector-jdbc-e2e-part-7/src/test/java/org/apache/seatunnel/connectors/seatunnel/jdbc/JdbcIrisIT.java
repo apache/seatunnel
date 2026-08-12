@@ -439,6 +439,11 @@ public class JdbcIrisIT extends AbstractJdbcIT {
     }
 
     @Override
+    protected boolean useMavenRepositoryDriver() {
+        return false;
+    }
+
+    @Override
     protected Class<?> loadDriverClass() {
         return super.loadDriverClassFromUrl();
     }

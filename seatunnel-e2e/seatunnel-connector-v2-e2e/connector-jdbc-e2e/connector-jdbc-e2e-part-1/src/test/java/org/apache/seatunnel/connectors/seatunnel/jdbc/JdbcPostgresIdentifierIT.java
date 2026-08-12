@@ -24,6 +24,7 @@ import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 import org.apache.seatunnel.e2e.common.util.JdbcUtil;
 
 import org.junit.jupiter.api.AfterAll;
@@ -194,9 +195,12 @@ public class JdbcPostgresIdentifierIT extends TestSuiteBase implements TestResou
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
             container -> {
-                JdbcE2EDriverResolver.copyDriverToContainer(container, "org.postgresql.Driver");
-                JdbcE2EDriverResolver.copyDriverToContainer(container, "org.postgis.DriverWrapper");
-                JdbcE2EDriverResolver.copyDriverToContainer(container, "org.postgis.Geometry");
+                DependencyJar.ofClassName("org.postgresql.Driver")
+                        .copyTo(container, "/tmp/seatunnel/plugins/Jdbc/lib");
+                DependencyJar.ofClassName("org.postgis.DriverWrapper")
+                        .copyTo(container, "/tmp/seatunnel/plugins/Jdbc/lib");
+                DependencyJar.ofClassName("org.postgis.Geometry")
+                        .copyTo(container, "/tmp/seatunnel/plugins/Jdbc/lib");
             };
 
     @BeforeAll

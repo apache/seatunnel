@@ -19,6 +19,7 @@ package org.apache.seatunnel.e2e.connector.hudi;
 
 import org.apache.seatunnel.common.utils.FileUtils;
 import org.apache.seatunnel.e2e.common.container.seatunnel.SeaTunnelContainer;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.LocalFileSystem;
@@ -100,10 +101,8 @@ public class HudiSeatunnelS3MultiTableIT extends SeaTunnelContainer {
     protected void executeExtraCommands(GenericContainer<?> server)
             throws IOException, InterruptedException {
         super.executeExtraCommands(server);
-        HudiDependencyResolver.addDependencyToContainer(
-                server, AmazonS3.class, SEATUNNEL_HOME + "lib");
-        HudiDependencyResolver.addDependencyToContainer(
-                server, S3AFileSystem.class, SEATUNNEL_HOME + "lib");
+        DependencyJar.of(AmazonS3.class).addTo(server, SEATUNNEL_HOME + "lib");
+        DependencyJar.of(S3AFileSystem.class).addTo(server, SEATUNNEL_HOME + "lib");
     }
 
     @Override

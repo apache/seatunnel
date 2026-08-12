@@ -24,6 +24,7 @@ import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Pair;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.e2e.common.container.seatunnel.SeaTunnelContainer;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -145,7 +146,7 @@ public class MetalakeIT extends SeaTunnelContainer {
         executeExtraCommands(server);
         server.start();
 
-        JdbcE2EDriverResolver.copyDriverToContainer(server, DRIVER_CLASS);
+        DependencyJar.ofClassName(DRIVER_CLASS).copyTo(server, "/tmp/seatunnel/plugins/Jdbc/lib");
         server.execInContainer(
                 "bash",
                 "-c",

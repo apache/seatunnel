@@ -35,6 +35,7 @@ import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -156,17 +157,17 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
     @TestContainerExtension
     private final ContainerExtendedFactory extendedSqlServerFactory =
             container -> {
-                JdbcE2EDriverResolver.copyDriverToContainer(container, "org.postgresql.Driver");
-                JdbcE2EDriverResolver.copyDriverToContainer(container, "org.postgis.DriverWrapper");
-                JdbcE2EDriverResolver.copyDriverToContainer(container, "org.postgis.Geometry");
-                JdbcE2EDriverResolver.copyDriverToContainer(container, MYSQL_DRIVER_CLASS);
-                JdbcE2EDriverResolver.copyDriverToContainer(
-                        container, "com.microsoft.sqlserver.jdbc.SQLServerDriver");
+                DependencyJar.ofClassName("org.postgresql.Driver")
+                        .copyTo(container, "/tmp/seatunnel/plugins/Jdbc/lib");
+                DependencyJar.ofClassName("org.postgis.DriverWrapper")
+                        .copyTo(container, "/tmp/seatunnel/plugins/Jdbc/lib");
+                DependencyJar.ofClassName("org.postgis.Geometry")
+                        .copyTo(container, "/tmp/seatunnel/plugins/Jdbc/lib");
+                DependencyJar.ofClassName(MYSQL_DRIVER_CLASS)
+                        .copyTo(container, "/tmp/seatunnel/plugins/Jdbc/lib");
+                DependencyJar.ofClassName("com.microsoft.sqlserver.jdbc.SQLServerDriver")
+                        .copyTo(container, "/tmp/seatunnel/plugins/Jdbc/lib");
             };
-
-    String driverSqlserverUrl() {
-        return "https://repo1.maven.org/maven2/com/microsoft/sqlserver/mssql-jdbc/9.4.1.jre8/mssql-jdbc-9.4.1.jre8.jar";
-    }
 
     void initContainer() throws ClassNotFoundException {
         DockerImageName imageName = DockerImageName.parse(SQLSERVER_IMAGE);

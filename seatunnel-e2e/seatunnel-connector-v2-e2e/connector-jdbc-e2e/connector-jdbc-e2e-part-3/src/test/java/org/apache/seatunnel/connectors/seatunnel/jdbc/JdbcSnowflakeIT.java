@@ -21,6 +21,7 @@ import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -40,8 +41,8 @@ public class JdbcSnowflakeIT extends TestSuiteBase implements TestResource {
     private static final String PASSWORD = "password";
     private final ContainerExtendedFactory extendedFactory =
             container ->
-                    JdbcE2EDriverResolver.copyDriverToContainer(
-                            container, "net.snowflake.client.jdbc.SnowflakeDriver");
+                    DependencyJar.ofClassName("net.snowflake.client.jdbc.SnowflakeDriver")
+                            .copyTo(container, "/tmp/seatunnel/plugins/Jdbc/lib");
 
     private Connection connection;
 

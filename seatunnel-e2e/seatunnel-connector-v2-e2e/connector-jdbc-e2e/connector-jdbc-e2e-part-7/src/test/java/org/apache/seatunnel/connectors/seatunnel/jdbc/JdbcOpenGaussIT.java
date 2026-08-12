@@ -34,6 +34,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.opengauss.OpenGaus
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -130,7 +131,9 @@ public class JdbcOpenGaussIT extends AbstractJdbcIT {
 
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
-            container -> JdbcE2EDriverResolver.copyDriverToContainer(container, DRIVER_CLASS);
+            container ->
+                    DependencyJar.ofClassName(DRIVER_CLASS)
+                            .copyTo(container, "/tmp/seatunnel/plugins/Jdbc/lib");
 
     @Test
     @Override
@@ -275,11 +278,6 @@ public class JdbcOpenGaussIT extends AbstractJdbcIT {
                 .insertSql(insertSql)
                 .testData(testDataSet)
                 .build();
-    }
-
-    @Override
-    String driverUrl() {
-        return "https://repo1.maven.org/maven2/org/opengauss/opengauss-jdbc/5.1.0-og/opengauss-jdbc-5.1.0-og.jar";
     }
 
     @Override

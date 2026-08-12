@@ -31,6 +31,7 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
 import org.apache.paimon.catalog.Catalog;
 import org.apache.paimon.catalog.CatalogContext;
@@ -129,8 +130,8 @@ public class PaimonSinkDynamicBucketIT extends TestSuiteBase implements TestReso
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
             container ->
-                    PaimonDependencyResolver.copyMySqlDriverToContainer(
-                            container, "/tmp/seatunnel/plugins/MySQL-CDC/lib");
+                    DependencyJar.of(com.mysql.cj.jdbc.Driver.class)
+                            .copyTo(container, "/tmp/seatunnel/plugins/MySQL-CDC/lib");
 
     @BeforeAll
     @Override

@@ -31,6 +31,7 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
@@ -122,10 +123,10 @@ public class IcebergSinkCDCIT extends TestSuiteBase implements TestResource {
                                 + "seatunnel_namespace/iceberg_sink_table/metadata");
                 container.execInContainer("sh", "-c", "chmod -R 777 " + CATALOG_DIR);
 
-                IcebergDependencyResolver.copyDependencyToContainer(
-                        container, Zstd.class, "/tmp/seatunnel/plugins/Iceberg/lib");
-                IcebergDependencyResolver.copyDependencyToContainer(
-                        container, Driver.class, "/tmp/seatunnel/plugins/MySQL-CDC/lib");
+                DependencyJar.of(Zstd.class)
+                        .copyTo(container, "/tmp/seatunnel/plugins/Iceberg/lib");
+                DependencyJar.of(Driver.class)
+                        .copyTo(container, "/tmp/seatunnel/plugins/MySQL-CDC/lib");
             };
 
     private static final String SOURCE_TABLE = "mysql_cdc_e2e_source_table";

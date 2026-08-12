@@ -29,6 +29,7 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
 
 import org.junit.jupiter.api.AfterAll;
@@ -172,12 +173,10 @@ public abstract class AbstractSchemaChangeBaseIT extends TestSuiteBase implement
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
             container -> {
-                JdbcDdlDriverResolver.copyDriverToContainer(
-                        container,
-                        "com.mysql.cj.jdbc.Driver",
-                        "/tmp/seatunnel/plugins/MySQL-CDC/lib");
-                JdbcDdlDriverResolver.copyDriverToContainer(
-                        container, schemaChangeCase.getDriverClassName());
+                DependencyJar.ofClassName("com.mysql.cj.jdbc.Driver")
+                        .copyTo(container, "/tmp/seatunnel/plugins/MySQL-CDC/lib");
+                DependencyJar.ofClassName(schemaChangeCase.getDriverClassName())
+                        .copyTo(container, "/tmp/seatunnel/plugins/Jdbc/lib");
             };
 
     @Order(1)

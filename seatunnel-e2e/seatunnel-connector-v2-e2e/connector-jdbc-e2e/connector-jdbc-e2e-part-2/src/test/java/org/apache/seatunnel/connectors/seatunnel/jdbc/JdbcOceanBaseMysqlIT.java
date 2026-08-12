@@ -26,6 +26,7 @@ import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oceanbase.OceanBaseMySqlCatalog;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.Wait;
@@ -58,7 +59,8 @@ public class JdbcOceanBaseMysqlIT extends JdbcOceanBaseITBase {
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
             container ->
-                    JdbcE2EDriverResolver.copyDriverToContainer(container, OCEANBASE_DRIVER_CLASS);
+                    DependencyJar.ofClassName(OCEANBASE_DRIVER_CLASS)
+                            .copyTo(container, "/tmp/seatunnel/plugins/Jdbc/lib");
 
     @Override
     List<String> configFile() {

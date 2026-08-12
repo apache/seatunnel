@@ -65,8 +65,7 @@ public class PaimonSinkHdfsIT extends TestSuiteBase {
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
             container ->
-                    PaimonDependencyResolver.copyHiveDependenciesToContainer(
-                            container, "/tmp/seatunnel/plugins/Paimon/lib");
+                    PaimonDependencies.copyHiveTo(container, "/tmp/seatunnel/plugins/Paimon/lib");
 
     private Map<String, Object> PAIMON_SINK_PROPERTIES;
 

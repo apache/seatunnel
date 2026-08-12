@@ -148,6 +148,7 @@
                         <phase>process-test-resources</phase>
                         <configuration>
                             <skip>false</skip>
+                            <overWriteReleases>true</overWriteReleases>
                             <artifactItems>
                                 <artifactItem>
                                     <groupId>org.apache.hive</groupId>

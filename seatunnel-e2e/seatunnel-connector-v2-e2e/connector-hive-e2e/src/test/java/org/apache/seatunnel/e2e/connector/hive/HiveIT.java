@@ -147,9 +147,7 @@ public class HiveIT extends TestSuiteBase implements TestResource {
 
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
-            container ->
-                    HiveDependencyResolver.copyHiveDependenciesToContainer(
-                            container, pluginHiveDir);
+            container -> HiveDependencies.copyTo(container, pluginHiveDir);
 
     @BeforeAll
     @Override

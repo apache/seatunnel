@@ -22,6 +22,7 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
 
 import org.awaitility.Awaitility;
@@ -32,7 +33,6 @@ import org.testcontainers.containers.Container;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerLoggerFactory;
-import org.testcontainers.utility.MountableFile;
 
 import com.mysql.cj.jdbc.Driver;
 
@@ -74,35 +74,11 @@ public class EdgeAgentFileToEngineIT extends AbstractEdgeAgentEngineIT {
 
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
-            container -> {
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash", "-c", "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib");
-                Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
-                Path driverJarPath = driverJarPath();
-                container.copyFileToContainer(
-                        MountableFile.forHostPath(driverJarPath),
-                        "/tmp/seatunnel/plugins/Jdbc/lib/" + driverJarPath.getFileName());
-            };
+            container ->
+                    DependencyJar.of(Driver.class)
+                            .copyTo(container, "/tmp/seatunnel/plugins/Jdbc/lib");
 
     @TempDir Path tempDir;
-
-    private Path driverJarPath() {
-        try {
-            Path driverJarPath =
-                    Paths.get(
-                            Driver.class
-                                    .getProtectionDomain()
-                                    .getCodeSource()
-                                    .getLocation()
-                                    .toURI());
-            Assertions.assertTrue(Files.isRegularFile(driverJarPath));
-            return driverJarPath;
-        } catch (Exception e) {
-            throw new IllegalStateException(
-                    "Failed to resolve MySQL JDBC driver jar from the test classpath", e);
-        }
-    }
 
     @Override
     protected void startSinkDependencies() throws Exception {

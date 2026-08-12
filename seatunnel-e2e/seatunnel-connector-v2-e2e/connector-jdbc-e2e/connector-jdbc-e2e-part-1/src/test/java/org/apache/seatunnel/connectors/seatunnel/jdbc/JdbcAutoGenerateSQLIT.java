@@ -22,6 +22,7 @@ import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -58,7 +59,8 @@ public class JdbcAutoGenerateSQLIT extends TestSuiteBase implements TestResource
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
             container ->
-                    JdbcE2EDriverResolver.copyDriverToContainer(container, "org.postgresql.Driver");
+                    DependencyJar.ofClassName("org.postgresql.Driver")
+                            .copyTo(container, "/tmp/seatunnel/plugins/Jdbc/lib");
 
     @BeforeAll
     @Override

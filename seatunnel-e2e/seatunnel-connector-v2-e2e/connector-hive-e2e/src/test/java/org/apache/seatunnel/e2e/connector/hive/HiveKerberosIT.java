@@ -85,9 +85,9 @@ public class HiveKerberosIT extends SeaTunnelContainer {
     private Path kerberosLocalConfig;
     private String pluginHiveDir = "/tmp/seatunnel/plugins/Hive/lib";
 
-    protected void downloadHivePluginJar() throws IOException, InterruptedException {
-        HiveDependencyResolver.copyHiveDependenciesToContainer(server, pluginHiveDir);
-    };
+    protected void copyHivePluginDependencies() throws IOException, InterruptedException {
+        HiveDependencies.copyTo(server, pluginHiveDir);
+    }
 
     @BeforeEach
     @Override
@@ -170,7 +170,7 @@ public class HiveKerberosIT extends SeaTunnelContainer {
         // Set the fixed network to SeatunnelContainer
         super.startUp(this.NETWORK);
         // Load the hive plugin jar
-        this.downloadHivePluginJar();
+        copyHivePluginDependencies();
     }
 
     @AfterEach

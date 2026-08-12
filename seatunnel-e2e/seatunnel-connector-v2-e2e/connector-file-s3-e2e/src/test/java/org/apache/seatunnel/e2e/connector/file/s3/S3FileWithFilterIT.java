@@ -18,6 +18,7 @@
 package org.apache.seatunnel.e2e.connector.file.s3;
 
 import org.apache.seatunnel.e2e.common.container.seatunnel.SeaTunnelContainer;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
 
@@ -35,7 +36,6 @@ import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerImageName;
 
-import com.amazonaws.services.s3.AmazonS3;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -87,10 +87,8 @@ public class S3FileWithFilterIT extends SeaTunnelContainer {
     protected void executeExtraCommands(GenericContainer<?> server)
             throws IOException, InterruptedException {
         super.executeExtraCommands(server);
-        S3DependencyResolver.addDependencyToContainer(
-                server, AmazonS3.class, SEATUNNEL_HOME + "lib");
-        S3DependencyResolver.addDependencyToContainer(
-                server, S3AFileSystem.class, SEATUNNEL_HOME + "lib");
+        DependencyJar.staged("aws-java-sdk-bundle.jar").addTo(server, SEATUNNEL_HOME + "lib");
+        DependencyJar.of(S3AFileSystem.class).addTo(server, SEATUNNEL_HOME + "lib");
     }
 
     @Override

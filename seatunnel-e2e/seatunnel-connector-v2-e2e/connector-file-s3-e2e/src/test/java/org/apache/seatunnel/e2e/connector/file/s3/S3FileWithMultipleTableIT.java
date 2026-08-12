@@ -22,13 +22,12 @@ import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.TestHelper;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
 import org.apache.hadoop.fs.s3a.S3AFileSystem;
 
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.TestTemplate;
-
-import com.amazonaws.services.s3.AmazonS3;
 
 import java.io.IOException;
 
@@ -38,14 +37,13 @@ public class S3FileWithMultipleTableIT extends TestSuiteBase {
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
             container -> {
-                S3DependencyResolver.copyDependencyToContainer(
-                        container, AmazonS3.class, "/tmp/seatunnel/plugins/s3/lib");
-                S3DependencyResolver.copyDependencyToContainer(
-                        container, S3AFileSystem.class, "/tmp/seatunnel/plugins/s3/lib");
-                S3DependencyResolver.copyDependencyToContainer(
-                        container, AmazonS3.class, "/tmp/seatunnel/lib");
-                S3DependencyResolver.copyDependencyToContainer(
-                        container, S3AFileSystem.class, "/tmp/seatunnel/lib");
+                DependencyJar.staged("aws-java-sdk-bundle.jar")
+                        .copyTo(container, "/tmp/seatunnel/plugins/s3/lib");
+                DependencyJar.of(S3AFileSystem.class)
+                        .copyTo(container, "/tmp/seatunnel/plugins/s3/lib");
+                DependencyJar.staged("aws-java-sdk-bundle.jar")
+                        .copyTo(container, "/tmp/seatunnel/lib");
+                DependencyJar.of(S3AFileSystem.class).copyTo(container, "/tmp/seatunnel/lib");
             };
 
     /** Copy data files to s3 */

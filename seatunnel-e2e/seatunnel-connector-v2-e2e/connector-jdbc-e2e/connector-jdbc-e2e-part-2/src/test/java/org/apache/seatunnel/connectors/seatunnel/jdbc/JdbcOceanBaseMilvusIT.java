@@ -30,6 +30,7 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
@@ -122,7 +123,8 @@ public class JdbcOceanBaseMilvusIT extends TestSuiteBase implements TestResource
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
             container ->
-                    JdbcE2EDriverResolver.copyDriverToContainer(container, OCEANBASE_DRIVER_CLASS);
+                    DependencyJar.ofClassName(OCEANBASE_DRIVER_CLASS)
+                            .copyTo(container, "/tmp/seatunnel/plugins/Jdbc/lib");
 
     @BeforeAll
     @Override

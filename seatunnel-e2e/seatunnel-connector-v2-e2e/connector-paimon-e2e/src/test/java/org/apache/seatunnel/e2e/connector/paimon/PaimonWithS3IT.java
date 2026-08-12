@@ -112,7 +112,7 @@ public class PaimonWithS3IT extends SeaTunnelContainer {
     protected void executeExtraCommands(GenericContainer<?> server)
             throws IOException, InterruptedException {
         super.executeExtraCommands(server);
-        PaimonDependencyResolver.addS3DependenciesToContainer(server, SEATUNNEL_HOME + "lib");
+        PaimonDependencies.addS3To(server, SEATUNNEL_HOME + "lib");
     }
 
     @Override

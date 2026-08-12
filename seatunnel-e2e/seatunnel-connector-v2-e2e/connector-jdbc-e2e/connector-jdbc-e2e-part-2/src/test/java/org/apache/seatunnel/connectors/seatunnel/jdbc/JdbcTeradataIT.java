@@ -21,6 +21,7 @@ import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -44,8 +45,8 @@ public class JdbcTeradataIT extends TestSuiteBase implements TestResource {
     private static final String SINK_TABLE = "sink_table";
     private final ContainerExtendedFactory extendedFactory =
             container ->
-                    JdbcE2EDriverResolver.copyDriverToContainer(
-                            container, TeraDataSource.class.getName());
+                    DependencyJar.of(TeraDataSource.class)
+                            .copyTo(container, "/tmp/seatunnel/plugins/Jdbc/lib");
 
     private Connection connection;
 

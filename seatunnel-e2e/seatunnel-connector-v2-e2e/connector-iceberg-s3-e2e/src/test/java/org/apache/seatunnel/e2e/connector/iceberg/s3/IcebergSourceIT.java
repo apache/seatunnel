@@ -30,6 +30,7 @@ import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.TestContainerId;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.s3a.S3AFileSystem;
@@ -92,10 +93,10 @@ public class IcebergSourceIT extends TestSuiteBase implements TestResource {
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
             container -> {
-                IcebergS3DependencyResolver.copyDependencyToContainer(
-                        container, S3AFileSystem.class, "/tmp/seatunnel/plugins/Iceberg/lib");
-                IcebergS3DependencyResolver.copyDependencyToContainer(
-                        container, AmazonS3.class, "/tmp/seatunnel/plugins/Iceberg/lib");
+                DependencyJar.of(S3AFileSystem.class)
+                        .copyTo(container, "/tmp/seatunnel/plugins/Iceberg/lib");
+                DependencyJar.of(AmazonS3.class)
+                        .copyTo(container, "/tmp/seatunnel/plugins/Iceberg/lib");
             };
 
     private static final String MINIO_DOCKER_IMAGE = "minio/minio:RELEASE.2024-06-13T22-53-53Z";

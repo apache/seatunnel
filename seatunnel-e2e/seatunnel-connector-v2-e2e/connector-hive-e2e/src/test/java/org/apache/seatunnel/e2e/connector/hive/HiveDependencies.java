@@ -15,25 +15,32 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.jdbc;
+package org.apache.seatunnel.e2e.connector.hive;
 
-import lombok.Builder;
-import lombok.Data;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
-@Data
-@Builder
-public class SchemaChangeCase {
-    private String jdbcUrl;
-    private String driverClassName;
-    private int port;
-    private String username;
-    private String password;
-    private String schemaName;
-    private String databaseName;
-    private String schemaEvolutionCase;
-    private String sinkTable1;
-    private boolean openExactlyOnce;
-    private String schemaEvolutionCaseExactlyOnce;
-    private String sinkTable2;
-    private String sinkQueryColumns;
+import org.testcontainers.containers.GenericContainer;
+
+import java.io.IOException;
+
+final class HiveDependencies {
+
+    private static final String[] HIVE_DEPENDENCIES = {
+        "hive-exec.jar",
+        "libfb303.jar",
+        "hadoop-aws.jar",
+        "aliyun-sdk-oss.jar",
+        "jdom.jar",
+        "hadoop-aliyun.jar",
+        "hadoop-cos.jar"
+    };
+
+    private HiveDependencies() {}
+
+    static void copyTo(GenericContainer<?> container, String targetDirectory)
+            throws IOException, InterruptedException {
+        for (String dependency : HIVE_DEPENDENCIES) {
+            DependencyJar.staged(dependency).copyTo(container, targetDirectory);
+        }
+    }
 }

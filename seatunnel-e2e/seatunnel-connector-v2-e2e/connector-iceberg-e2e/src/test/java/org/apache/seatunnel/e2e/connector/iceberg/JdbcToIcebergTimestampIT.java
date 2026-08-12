@@ -24,6 +24,7 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -137,12 +138,11 @@ public class JdbcToIcebergTimestampIT extends TestSuiteBase implements TestResou
                 }
                 container.execInContainer("sh", "-c", "chmod -R 777 /tmp/seatunnel_mnt/iceberg/");
 
-                IcebergDependencyResolver.copyDependencyToContainer(
-                        container, Zstd.class, "/tmp/seatunnel/plugins/Iceberg/lib");
-                IcebergDependencyResolver.copyDependencyToContainer(
-                        container, Driver.class, "/tmp/seatunnel/plugins/Jdbc/lib");
-                IcebergDependencyResolver.copyDependencyToContainer(
-                        container, org.postgresql.Driver.class, "/tmp/seatunnel/plugins/Jdbc/lib");
+                DependencyJar.of(Zstd.class)
+                        .copyTo(container, "/tmp/seatunnel/plugins/Iceberg/lib");
+                DependencyJar.of(Driver.class).copyTo(container, "/tmp/seatunnel/plugins/Jdbc/lib");
+                DependencyJar.staged("postgresql-jdbc.jar")
+                        .copyTo(container, "/tmp/seatunnel/plugins/Jdbc/lib");
             };
 
     // -------------------------------------------------------------------------

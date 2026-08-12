@@ -45,6 +45,7 @@ import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -96,9 +97,10 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
             container -> {
-                if (isMavenRepositoryDriver()) {
+                if (useMavenRepositoryDriver()) {
                     for (String driverClassName : driverDependencyClassNames()) {
-                        JdbcE2EDriverResolver.copyDriverToContainer(container, driverClassName);
+                        DependencyJar.ofClassName(driverClassName)
+                                .copyTo(container, "/tmp/seatunnel/plugins/Jdbc/lib");
                     }
                 } else {
                     Container.ExecResult extraCommands =
@@ -123,7 +125,9 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
 
     void checkResult(String executeKey, TestContainer container, Container.ExecResult execResult) {}
 
-    abstract String driverUrl();
+    String driverUrl() {
+        throw new UnsupportedOperationException("External JDBC driver URL is not configured");
+    }
 
     abstract Pair<String[], List<SeaTunnelRow>> initTestData();
 
@@ -132,9 +136,9 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
     protected URLClassLoader getUrlClassLoader() throws MalformedURLException {
         if (urlClassLoader == null) {
             URL driverUrl =
-                    isMavenRepositoryDriver()
-                            ? JdbcE2EDriverResolver.driverJarPath(
-                                            driverDependencyClassNames().get(0))
+                    useMavenRepositoryDriver()
+                            ? DependencyJar.ofClassName(driverDependencyClassNames().get(0))
+                                    .path()
                                     .toUri()
                                     .toURL()
                             : new URL(driverUrl());
@@ -150,9 +154,8 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
         return Arrays.asList(getJdbcCase().getDriverClass());
     }
 
-    private boolean isMavenRepositoryDriver() {
-        return driverUrl().contains("repo1.maven.org/maven2")
-                || driverUrl().contains("repo.maven.apache.org/maven2");
+    protected boolean useMavenRepositoryDriver() {
+        return true;
     }
 
     protected Class<?> loadDriverClassFromUrl() {

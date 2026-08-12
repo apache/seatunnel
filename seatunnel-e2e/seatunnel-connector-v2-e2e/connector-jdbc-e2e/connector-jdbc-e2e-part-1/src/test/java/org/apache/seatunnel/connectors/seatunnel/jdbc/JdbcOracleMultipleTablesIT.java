@@ -26,6 +26,7 @@ import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -107,10 +108,12 @@ public class JdbcOracleMultipleTablesIT extends TestSuiteBase implements TestRes
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
             container -> {
-                JdbcE2EDriverResolver.copyDriverToContainer(container, "oracle.jdbc.OracleDriver");
-                JdbcE2EDriverResolver.copyDriverToContainer(container, "oracle.xdb.XMLType");
-                JdbcE2EDriverResolver.copyDriverToContainer(
-                        container, "oracle.xml.parser.v2.XMLParser");
+                DependencyJar.ofClassName("oracle.jdbc.OracleDriver")
+                        .copyTo(container, "/tmp/seatunnel/plugins/Jdbc/lib");
+                DependencyJar.ofClassName("oracle.xdb.XMLType")
+                        .copyTo(container, "/tmp/seatunnel/plugins/Jdbc/lib");
+                DependencyJar.ofClassName("oracle.xml.parser.v2.XMLParser")
+                        .copyTo(container, "/tmp/seatunnel/plugins/Jdbc/lib");
             };
 
     @BeforeAll

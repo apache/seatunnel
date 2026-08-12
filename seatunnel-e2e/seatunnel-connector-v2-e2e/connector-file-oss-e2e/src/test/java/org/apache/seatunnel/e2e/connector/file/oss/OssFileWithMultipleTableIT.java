@@ -22,6 +22,7 @@ import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.TestHelper;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
 import org.apache.hadoop.fs.aliyun.oss.AliyunOSSFileSystem;
 
@@ -39,18 +40,14 @@ public class OssFileWithMultipleTableIT extends TestSuiteBase {
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
             container -> {
-                OssDependencyResolver.copyDependencyToContainer(
-                        container, OSS.class, "/tmp/seatunnel/plugins/oss/lib");
-                OssDependencyResolver.copyDependencyToContainer(
-                        container, Document.class, "/tmp/seatunnel/plugins/oss/lib");
-                OssDependencyResolver.copyDependencyToContainer(
-                        container, AliyunOSSFileSystem.class, "/tmp/seatunnel/plugins/oss/lib");
-                OssDependencyResolver.copyDependencyToContainer(
-                        container, OSS.class, "/tmp/seatunnel/lib");
-                OssDependencyResolver.copyDependencyToContainer(
-                        container, Document.class, "/tmp/seatunnel/lib");
-                OssDependencyResolver.copyDependencyToContainer(
-                        container, AliyunOSSFileSystem.class, "/tmp/seatunnel/lib");
+                DependencyJar.of(OSS.class).copyTo(container, "/tmp/seatunnel/plugins/oss/lib");
+                DependencyJar.of(Document.class)
+                        .copyTo(container, "/tmp/seatunnel/plugins/oss/lib");
+                DependencyJar.of(AliyunOSSFileSystem.class)
+                        .copyTo(container, "/tmp/seatunnel/plugins/oss/lib");
+                DependencyJar.of(OSS.class).copyTo(container, "/tmp/seatunnel/lib");
+                DependencyJar.of(Document.class).copyTo(container, "/tmp/seatunnel/lib");
+                DependencyJar.of(AliyunOSSFileSystem.class).copyTo(container, "/tmp/seatunnel/lib");
             };
 
     /** Copy data files to oss */

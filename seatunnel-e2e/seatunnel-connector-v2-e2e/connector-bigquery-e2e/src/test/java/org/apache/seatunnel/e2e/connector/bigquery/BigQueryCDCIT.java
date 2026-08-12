@@ -25,17 +25,16 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.TestTemplate;
-import org.testcontainers.containers.Container;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
-import org.testcontainers.utility.MountableFile;
 
 import com.google.cloud.bigquery.QueryJobConfiguration;
 import com.google.cloud.bigquery.TableId;
@@ -43,9 +42,6 @@ import com.google.cloud.bigquery.TableResult;
 import com.mysql.cj.jdbc.Driver;
 import lombok.extern.slf4j.Slf4j;
 
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -85,16 +81,9 @@ public class BigQueryCDCIT extends AbstractBigqueryIT {
 
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
-            container -> {
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash", "-c", "mkdir -p /tmp/seatunnel/plugins/MySQL-CDC/lib");
-                Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
-                Path driverJarPath = driverJarPath();
-                container.copyFileToContainer(
-                        MountableFile.forHostPath(driverJarPath),
-                        "/tmp/seatunnel/plugins/MySQL-CDC/lib/" + driverJarPath.getFileName());
-            };
+            container ->
+                    DependencyJar.of(Driver.class)
+                            .copyTo(container, "/tmp/seatunnel/plugins/MySQL-CDC/lib");
 
     private static MySqlContainer createMySqlContainer(MySqlVersion version) {
         return new MySqlContainer(version)
@@ -107,23 +96,6 @@ public class BigQueryCDCIT extends AbstractBigqueryIT {
                 .withPassword(MYSQL_USER_PASSWORD)
                 .withLogConsumer(
                         new Slf4jLogConsumer(DockerLoggerFactory.getLogger("mysql-docker-image")));
-    }
-
-    private Path driverJarPath() {
-        try {
-            Path driverJarPath =
-                    Paths.get(
-                            Driver.class
-                                    .getProtectionDomain()
-                                    .getCodeSource()
-                                    .getLocation()
-                                    .toURI());
-            Assertions.assertTrue(Files.isRegularFile(driverJarPath));
-            return driverJarPath;
-        } catch (Exception e) {
-            throw new IllegalStateException(
-                    "Failed to resolve MySQL JDBC driver jar from the test classpath", e);
-        }
     }
 
     @BeforeAll
