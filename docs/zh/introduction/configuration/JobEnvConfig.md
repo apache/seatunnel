@@ -51,6 +51,14 @@
 
 用于控制作业失败时的默认重试间隔。默认值为3秒，并且仅适用于Zeta引擎。
 
+### job.dirty-task.threshold
+
+用于启用 Zeta 脏任务标记。默认值为 `-1`，小于等于 0 时关闭。配置为正数后，由 Hazelcast 成员离线引起的作业级部署代数达到该阈值时，作业会被标记为 `DIRTY`。该选项不会修改 `job.retry.times`、停止作业或替代原有作业状态。
+
+一次成员离线恢复即使重新部署多个 Pipeline，首次部署也只计为一个作业级尝试；后续再次部署时，代数只增加一次。没有处于成员离线恢复上下文中的 Connector、数据或用户代码异常不会计入。Kubernetes Pod 重启、手动删除和滚动替换在缺少可信计划下线协议时只能识别为未分类成员离线，因此对应的重新部署尝试会被计入。
+
+启用后，运行中和已完成作业接口会返回可选的 `dirtyTask` 对象，其中 `evaluationStatus` 为 `CLEAN`、`DIRTY` 或 `UNKNOWN`。`UNKNOWN` 表示状态存储或故障转移期间无法证明观测完整，不能把该作业判断为干净任务。
+
 ### savemode.execute.location
 
 此参数用于指定在Zeta引擎中执行作业时SaveMode执行的时机。

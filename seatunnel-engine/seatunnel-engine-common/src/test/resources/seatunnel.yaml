@@ -18,6 +18,9 @@
 seatunnel:
     engine:
         backup-count: 1
+        dirty-task:
+            event-history-size: 12
+            pending-incident-ttl: 5m
         print-execution-info-interval: 2
         slot-service:
             dynamic-slot: false

@@ -32,6 +32,7 @@ import org.apache.seatunnel.engine.common.runtime.ExecutionMode;
 
 import lombok.Data;
 
+import java.time.Duration;
 import java.util.Collections;
 import java.util.Map;
 
@@ -90,6 +91,16 @@ public class EngineConfig {
 
     private long stateCleanupDelayMillis =
             ServerConfigOptions.MasterServerConfigOptions.STATE_CLEANUP_DELAY_MILLIS.defaultValue();
+
+    // Maximum closed recovery episodes retained in each dirty-job state.
+    private int dirtyJobEventHistorySize =
+            ServerConfigOptions.MasterServerConfigOptions.DIRTY_JOB_EVENT_HISTORY_SIZE
+                    .defaultValue();
+
+    // Lifetime shared by incomplete episodes and acknowledged journal tombstones.
+    private Duration dirtyJobPendingIncidentTtl =
+            ServerConfigOptions.MasterServerConfigOptions.DIRTY_JOB_PENDING_INCIDENT_TTL
+                    .defaultValue();
 
     private ClusterRole clusterRole = ClusterRole.MASTER_AND_WORKER;
 
@@ -198,6 +209,24 @@ public class EngineConfig {
                             + " must be >= 0");
         }
         this.stateCleanupDelayMillis = stateCleanupDelayMillis;
+    }
+
+    public void setDirtyJobEventHistorySize(int dirtyJobEventHistorySize) {
+        checkPositive(
+                dirtyJobEventHistorySize,
+                ServerConfigOptions.MasterServerConfigOptions.DIRTY_JOB_EVENT_HISTORY_SIZE
+                        + " must be > 0");
+        this.dirtyJobEventHistorySize = dirtyJobEventHistorySize;
+    }
+
+    public void setDirtyJobPendingIncidentTtl(Duration dirtyJobPendingIncidentTtl) {
+        checkNotNull(dirtyJobPendingIncidentTtl);
+        if (dirtyJobPendingIncidentTtl.isZero() || dirtyJobPendingIncidentTtl.isNegative()) {
+            throw new IllegalArgumentException(
+                    ServerConfigOptions.MasterServerConfigOptions.DIRTY_JOB_PENDING_INCIDENT_TTL
+                            + " must be > 0");
+        }
+        this.dirtyJobPendingIncidentTtl = dirtyJobPendingIncidentTtl;
     }
 
     public EngineConfig setQueueType(QueueType queueType) {

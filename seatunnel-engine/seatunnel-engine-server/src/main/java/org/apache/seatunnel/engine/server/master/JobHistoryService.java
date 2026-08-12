@@ -25,6 +25,8 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode
 import org.apache.seatunnel.api.common.metrics.JobMetrics;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
+import org.apache.seatunnel.engine.common.job.DirtyJobState;
+import org.apache.seatunnel.engine.common.job.DirtyJobSummary;
 import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.common.job.JobStatusData;
 import org.apache.seatunnel.engine.core.job.ExecutionAddress;
@@ -35,6 +37,7 @@ import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import org.apache.seatunnel.engine.server.execution.ExecutionState;
 import org.apache.seatunnel.engine.server.execution.PendingJobInfo;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
+import org.apache.seatunnel.engine.server.master.dirty.DirtyJobService;
 import org.apache.seatunnel.engine.server.telemetry.log.operation.CleanLogOperation;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
@@ -53,6 +56,7 @@ import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -110,6 +114,8 @@ public class JobHistoryService {
 
     private final int finishedJobExpireTime;
 
+    private final DirtyJobService dirtyJobService;
+
     private final Map<String, AtomicLong> finishedJobCleanupTotals = new ConcurrentHashMap<>();
 
     public JobHistoryService(
@@ -121,7 +127,8 @@ public class JobHistoryService {
             IMap<Long, JobState> finishedJobStateImap,
             IMap<Long, JobMetrics> finishedJobMetricsImap,
             IMap<Long, JobDAGInfo> finishedJobVertexInfoImap,
-            int finishedJobExpireTime) {
+            int finishedJobExpireTime,
+            DirtyJobService dirtyJobService) {
         this.nodeEngine = nodeEngine;
         this.runningJobStateIMap = runningJobStateIMap;
         this.logger = logger;
@@ -139,6 +146,7 @@ public class JobHistoryService {
         this.objectMapper = new ObjectMapper();
         this.objectMapper.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
         this.finishedJobExpireTime = finishedJobExpireTime;
+        this.dirtyJobService = dirtyJobService;
     }
 
     // Gets the status of a running and completed job.
@@ -154,9 +162,26 @@ public class JobHistoryService {
 
     public List<JobStatusData> getJobStatusData() {
         List<JobStatusData> status = new ArrayList<>();
+        Set<Long> dirtyEnabledActiveJobIds = new HashSet<>();
+        runningJobMasterMap.values().stream()
+                .filter(dirtyJobService::isEnabled)
+                .map(JobMaster::getJobId)
+                .forEach(dirtyEnabledActiveJobIds::add);
+        pendingJobInfoMap.values().stream()
+                .map(PendingJobInfo::getJobMaster)
+                .filter(dirtyJobService::isEnabled)
+                .map(JobMaster::getJobId)
+                .forEach(dirtyEnabledActiveJobIds::add);
+        Map<Long, DirtyJobState> dirtyJobStates =
+                dirtyJobService.getEvaluatedStates(dirtyEnabledActiveJobIds);
         final List<JobState> runningJobStateList =
                 runningJobMasterMap.values().stream()
-                        .map(master -> toJobStateMapper(master, true))
+                        .map(
+                                master ->
+                                        toJobStateMapper(
+                                                master,
+                                                true,
+                                                dirtyJobStates.get(master.getJobId())))
                         .collect(Collectors.toList());
         Set<Long> runningJonIds =
                 runningJobStateList.stream().map(JobState::getJobId).collect(Collectors.toSet());
@@ -170,6 +195,10 @@ public class JobHistoryService {
                                             entry.getValue()
                                                     .getJobMaster()
                                                     .getJobImmutableInformation();
+                                    DirtyJobState dirtyJobState =
+                                            resolveDirtyJobState(
+                                                    entry.getValue().getJobMaster(),
+                                                    dirtyJobStates.get(jobId));
                                     return new JobState(
                                             jobId,
                                             jobImmutableInformation.getJobName(),
@@ -178,7 +207,8 @@ public class JobHistoryService {
                                             null,
                                             null,
                                             null,
-                                            null);
+                                            null,
+                                            dirtyJobState);
                                 })
                         .collect(Collectors.toList());
         Set<Long> pendingJobIds =
@@ -201,7 +231,8 @@ public class JobHistoryService {
                                             jobState.getJobStatus(),
                                             jobState.getSubmitTime(),
                                             jobState.getStartTime(),
-                                            jobState.getFinishTime());
+                                            jobState.getFinishTime(),
+                                            toDirtyJobSummary(jobState.getDirtyTask()));
                             status.add(jobStatusData);
                         });
         return status;
@@ -211,8 +242,9 @@ public class JobHistoryService {
     public JobState getJobDetailState(Long jobId) {
         if (pendingJobInfoMap.containsKey(jobId)) {
             // return pending job state
+            JobMaster pendingJobMaster = pendingJobInfoMap.get(jobId).getJobMaster();
             JobImmutableInformation jobImmutableInformation =
-                    pendingJobInfoMap.get(jobId).getJobMaster().getJobImmutableInformation();
+                    pendingJobMaster.getJobImmutableInformation();
             return new JobState(
                     jobId,
                     jobImmutableInformation.getJobName(),
@@ -221,7 +253,8 @@ public class JobHistoryService {
                     null,
                     null,
                     null,
-                    null);
+                    null,
+                    resolveDirtyJobState(pendingJobMaster, getDirtyJobState(pendingJobMaster)));
         }
         return runningJobMasterMap.containsKey(jobId)
                 ? toJobStateMapper(runningJobMasterMap.get(jobId), false)
@@ -255,12 +288,55 @@ public class JobHistoryService {
     }
 
     public void storeFinishedJobState(JobMaster jobMaster) {
-        JobState jobState = toJobStateMapper(jobMaster, false);
+        DirtyJobState dirtyJobState = null;
+        try {
+            boolean dirtyTrackingEnabled = dirtyJobService.isEnabled(jobMaster);
+            dirtyJobState =
+                    dirtyTrackingEnabled
+                            ? dirtyJobService.finishAndGetState(jobMaster.getJobId())
+                            : null;
+            if (dirtyJobState == null && dirtyTrackingEnabled) {
+                dirtyJobState =
+                        dirtyJobService.createUnknownState(
+                                jobMaster.getJobImmutableInformation(),
+                                "Dirty-job state was unavailable while writing finished history");
+            }
+        } catch (Throwable trackingError) {
+            logger.warning(
+                    String.format(
+                            "Failed to snapshot dirty-job state for finished job %s; continuing history persistence",
+                            jobMaster.getJobId()),
+                    trackingError);
+            try {
+                dirtyJobState =
+                        dirtyJobService.createUnknownState(
+                                jobMaster.getJobImmutableInformation(),
+                                "Dirty-job snapshot failed while writing finished history");
+            } catch (Throwable ignored) {
+                // The primary job history must still be persisted.
+            }
+        }
+        JobState jobState = toJobStateMapper(jobMaster, false, dirtyJobState);
         jobState.setErrorMessage(jobMaster.getErrorMessage());
         finishedJobStateImap.put(jobState.jobId, jobState, finishedJobExpireTime, TimeUnit.MINUTES);
     }
 
     public void storeFinishedJobState(JobState jobState) {
+        if (jobState.getDirtyTask() != null) {
+            try {
+                DirtyJobState dirtyJobState =
+                        dirtyJobService.finishAndGetState(jobState.getJobId());
+                if (dirtyJobState != null) {
+                    jobState.setDirtyTask(dirtyJobState);
+                }
+            } catch (Throwable trackingError) {
+                logger.warning(
+                        String.format(
+                                "Failed to finalize dirty-job state for finished job %s; continuing history persistence",
+                                jobState.getJobId()),
+                        trackingError);
+            }
+        }
         finishedJobStateImap.put(jobState.jobId, jobState, finishedJobExpireTime, TimeUnit.MINUTES);
     }
 
@@ -271,6 +347,11 @@ public class JobHistoryService {
     }
 
     private JobState toJobStateMapper(JobMaster jobMaster, boolean simple) {
+        return toJobStateMapper(jobMaster, simple, getDirtyJobState(jobMaster));
+    }
+
+    private JobState toJobStateMapper(
+            JobMaster jobMaster, boolean simple, DirtyJobState dirtyJobState) {
         Long jobId = jobMaster.getJobImmutableInformation().getJobId();
         Map<PipelineLocation, PipelineStateData> pipelineStateMapperMap = new HashMap<>();
         if (!simple) {
@@ -337,7 +418,38 @@ public class JobHistoryService {
                 startTime,
                 finishTime,
                 pipelineStateMapperMap,
-                null);
+                null,
+                resolveDirtyJobState(jobMaster, dirtyJobState));
+    }
+
+    private DirtyJobState getDirtyJobState(JobMaster jobMaster) {
+        return dirtyJobService.isEnabled(jobMaster)
+                ? dirtyJobService.getEvaluatedState(jobMaster.getJobId())
+                : null;
+    }
+
+    private DirtyJobSummary toDirtyJobSummary(DirtyJobState dirtyJobState) {
+        return dirtyJobState == null ? null : dirtyJobState.toSummary();
+    }
+
+    private DirtyJobState resolveDirtyJobState(JobMaster jobMaster, DirtyJobState dirtyJobState) {
+        if (dirtyJobState != null) {
+            return dirtyJobState;
+        }
+        try {
+            if (!dirtyJobService.isEnabled(jobMaster)) {
+                return null;
+            }
+            return dirtyJobService.createUnknownState(
+                    jobMaster.getJobImmutableInformation(),
+                    "Dirty-job state was unavailable while building job status");
+        } catch (Throwable trackingError) {
+            logger.warning(
+                    String.format(
+                            "Failed to resolve dirty-job state for job %s", jobMaster.getJobId()),
+                    trackingError);
+            return null;
+        }
     }
 
     public void storeJobInfo(long jobId, JobDAGInfo jobInfo) {
@@ -389,6 +501,28 @@ public class JobHistoryService {
         private Long finishTime;
         private Map<PipelineLocation, PipelineStateData> pipelineStateMapperMap;
         private String errorMessage;
+        private DirtyJobState dirtyTask;
+
+        public JobState(
+                Long jobId,
+                String jobName,
+                JobStatus jobStatus,
+                long submitTime,
+                Long startTime,
+                Long finishTime,
+                Map<PipelineLocation, PipelineStateData> pipelineStateMapperMap,
+                String errorMessage) {
+            this(
+                    jobId,
+                    jobName,
+                    jobStatus,
+                    submitTime,
+                    startTime,
+                    finishTime,
+                    pipelineStateMapperMap,
+                    errorMessage,
+                    null);
+        }
     }
 
     @AllArgsConstructor

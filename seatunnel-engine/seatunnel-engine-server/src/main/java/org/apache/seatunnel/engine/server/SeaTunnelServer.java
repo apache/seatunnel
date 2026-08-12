@@ -24,6 +24,7 @@ import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineRetryableException;
+import org.apache.seatunnel.engine.common.job.DirtyJobMemberEvent;
 import org.apache.seatunnel.engine.core.classloader.ClassLoaderService;
 import org.apache.seatunnel.engine.core.classloader.DefaultClassLoaderService;
 import org.apache.seatunnel.engine.server.checkpoint.monitor.CheckpointMonitorService;
@@ -262,8 +263,46 @@ public class SeaTunnelServer
     @Override
     public void memberRemoved(MembershipServiceEvent event) {
         try {
+            boolean trackDirtyJobMemberEvent = false;
+            if (coordinatorService != null) {
+                try {
+                    trackDirtyJobMemberEvent =
+                            coordinatorService.getDirtyJobService().shouldTrackMemberEvents();
+                } catch (Throwable trackingError) {
+                    LOGGER.warning(
+                            "Failed to inspect dirty-job member tracking; tracking conservatively",
+                            trackingError);
+                    trackDirtyJobMemberEvent = true;
+                }
+                if (trackDirtyJobMemberEvent) {
+                    try {
+                        coordinatorService.rememberMemberEventLocally(event);
+                    } catch (Throwable trackingError) {
+                        LOGGER.warning(
+                                "Failed to retain local dirty-job member event; continuing member recovery",
+                                trackingError);
+                    }
+                }
+            }
             if (isMasterNode()) {
-                this.getCoordinatorService().memberRemoved(event);
+                DirtyJobMemberEvent dirtyJobMemberEvent = null;
+                if (trackDirtyJobMemberEvent) {
+                    try {
+                        dirtyJobMemberEvent = coordinatorService.recordMemberEvent(event);
+                    } catch (Throwable trackingError) {
+                        LOGGER.warning(
+                                "Failed to journal dirty-job member event; continuing member recovery",
+                                trackingError);
+                        dirtyJobMemberEvent =
+                                new DirtyJobMemberEvent(
+                                        -1L,
+                                        event.getMember().getUuid().toString(),
+                                        event.getMember().getAddress().getHost(),
+                                        event.getMember().getAddress().getPort(),
+                                        System.currentTimeMillis());
+                    }
+                }
+                this.getCoordinatorService().memberRemoved(event, dirtyJobMemberEvent);
             }
         } catch (SeaTunnelEngineException e) {
             LOGGER.severe("Error when handle member removed event", e);
