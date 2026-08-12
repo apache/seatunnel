@@ -25,13 +25,14 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /**
  * Tests for {@link SupportRowLevelErrorClassifier}.
  *
- * <p>The interface must keep downstream subclasses source- and binary-compatible when they do
- * not override {@link SupportRowLevelErrorClassifier#classifyRowError(Throwable, Object)}.
+ * <p>The interface must keep downstream subclasses source- and binary-compatible when they do not
+ * override {@link SupportRowLevelErrorClassifier#classifyRowError(Throwable, Object)}.
  */
 public class SupportRowLevelErrorClassifierTest {
 
     /** Subclass that does not override {@code classifyRowError}. */
-    private static final class NoOverrideSubclass implements SupportRowLevelErrorClassifier<String> {}
+    private static final class NoOverrideSubclass
+            implements SupportRowLevelErrorClassifier<String> {}
 
     /** Subclass that overrides {@code classifyRowError}. */
     private static final class OverridingSubclass
