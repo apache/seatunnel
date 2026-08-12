@@ -47,6 +47,8 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -202,6 +204,50 @@ public class JdbcSqlServerSplitIT extends TestSuiteBase implements TestResource 
         Assertions.assertEquals(
                 300, readKeys.size(), "No (order_id, line_no) key may be duplicated or missing");
         catalog.close();
+    }
+
+    @Test
+    public void testBoundaryQueryOffsetForm() throws Exception {
+        // SQL Server has no LIMIT/OFFSET syntax; the optimized boundary query uses the
+        // OFFSET ... ROWS FETCH NEXT form and must return exactly one row equal to the last row
+        // of the first chunkSize rows (network/temporary-object saving).
+        int chunkSize = 10;
+        String tableRef = SQLSERVER_SCHEMA + "." + SQLSERVER_TABLE;
+        try (Connection connection = getJdbcConnection();
+                Statement stmt = connection.createStatement()) {
+            java.util.List<String> limitRows = new ArrayList<>();
+            try (ResultSet rs =
+                    stmt.executeQuery(
+                            "SELECT TOP ("
+                                    + chunkSize
+                                    + ") order_id, line_no FROM "
+                                    + tableRef
+                                    + " ORDER BY order_id ASC, line_no ASC")) {
+                while (rs.next()) {
+                    limitRows.add(rs.getLong(1) + "|" + rs.getInt(2));
+                }
+            }
+            Assertions.assertEquals(chunkSize, limitRows.size());
+
+            java.util.List<String> offsetRows = new ArrayList<>();
+            try (ResultSet rs =
+                    stmt.executeQuery(
+                            "SELECT order_id, line_no FROM "
+                                    + tableRef
+                                    + " ORDER BY order_id ASC, line_no ASC OFFSET "
+                                    + (chunkSize - 1)
+                                    + " ROWS FETCH NEXT 1 ROWS ONLY")) {
+                while (rs.next()) {
+                    offsetRows.add(rs.getLong(1) + "|" + rs.getInt(2));
+                }
+            }
+            Assertions.assertEquals(
+                    1, offsetRows.size(), "OFFSET/FETCH must return exactly one row");
+            Assertions.assertEquals(
+                    limitRows.get(limitRows.size() - 1),
+                    offsetRows.get(0),
+                    "Boundary row must match the last row of the first chunkSize rows");
+        }
     }
 
     @Override

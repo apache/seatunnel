@@ -49,6 +49,7 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.HashMap;
@@ -208,6 +209,48 @@ public class JdbcPostgresSplitIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(
                 300, readKeys.size(), "No (order_id, line_no) key may be duplicated or missing");
         catalog.close();
+    }
+
+    @Test
+    public void testBoundaryQueryOffsetForm() throws Exception {
+        // The optimized boundary query form (LIMIT 1 OFFSET chunkSize-1) must be supported and
+        // return exactly one row equal to the last row of LIMIT chunkSize, so the boundary query
+        // transfers 1 row instead of chunkSize rows (network/temporary-object saving).
+        int chunkSize = 10;
+        String tableRef = PG_DATABASE + "." + PG_SCHEMA + "." + PG_TABLE;
+        try (Connection connection = getJdbcConnection();
+                Statement stmt = connection.createStatement()) {
+            java.util.List<String> limitRows = new java.util.ArrayList<>();
+            try (ResultSet rs =
+                    stmt.executeQuery(
+                            "SELECT order_id, line_no FROM "
+                                    + tableRef
+                                    + " ORDER BY order_id ASC, line_no ASC LIMIT "
+                                    + chunkSize)) {
+                while (rs.next()) {
+                    limitRows.add(rs.getLong(1) + "|" + rs.getInt(2));
+                }
+            }
+            Assertions.assertEquals(chunkSize, limitRows.size());
+
+            java.util.List<String> offsetRows = new java.util.ArrayList<>();
+            try (ResultSet rs =
+                    stmt.executeQuery(
+                            "SELECT order_id, line_no FROM "
+                                    + tableRef
+                                    + " ORDER BY order_id ASC, line_no ASC LIMIT 1 OFFSET "
+                                    + (chunkSize - 1))) {
+                while (rs.next()) {
+                    offsetRows.add(rs.getLong(1) + "|" + rs.getInt(2));
+                }
+            }
+            Assertions.assertEquals(
+                    1, offsetRows.size(), "LIMIT 1 OFFSET must return exactly one row");
+            Assertions.assertEquals(
+                    limitRows.get(limitRows.size() - 1),
+                    offsetRows.get(0),
+                    "Boundary row must match the last row of LIMIT chunkSize");
+        }
     }
 
     @Override

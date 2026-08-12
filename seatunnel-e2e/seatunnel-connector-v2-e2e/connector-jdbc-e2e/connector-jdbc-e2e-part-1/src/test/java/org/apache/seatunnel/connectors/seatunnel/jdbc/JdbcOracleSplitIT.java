@@ -48,6 +48,8 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -212,6 +214,113 @@ public class JdbcOracleSplitIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(
                 300, readKeys.size(), "No (ORDER_ID, LINE_NO) key may be duplicated or missing");
         catalog.close();
+    }
+
+    @Test
+    public void testCompositeKeySplitWithCustomQuery() throws Exception {
+        String jdbcUrl = getJdbcUrl();
+        TablePath tablePath = TablePath.of(null, SCHEMA, ORACLE_TABLE);
+        OracleCatalog catalog =
+                new OracleCatalog(
+                        "oracle",
+                        USERNAME,
+                        PASSWORD,
+                        OracleURLParser.parse(jdbcUrl),
+                        SCHEMA,
+                        "oracle.jdbc.OracleDriver");
+        catalog.open();
+        CatalogTable table = catalog.getTable(tablePath);
+        // Custom query exercises the "FROM (...) _st_tmp" inline-view alias (no AS), which is
+        // required by Oracle's table_reference grammar.
+        String query = "SELECT ORDER_ID, LINE_NO, PAYLOAD FROM " + SCHEMA + "." + ORACLE_TABLE;
+        JdbcSourceTable jdbcSourceTable =
+                JdbcSourceTable.builder()
+                        .tablePath(tablePath)
+                        .query(query)
+                        .catalogTable(table)
+                        .build();
+
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put("url", jdbcUrl);
+        configMap.put("driver", "oracle.jdbc.OracleDriver");
+        configMap.put("user", USERNAME);
+        configMap.put("password", PASSWORD);
+        configMap.put("query", query);
+        configMap.put("split.size", "10");
+        ReadonlyConfig readonlyConfig = ReadonlyConfig.fromMap(configMap);
+        DynamicChunkSplitter splitter =
+                new DynamicChunkSplitter(JdbcSourceConfig.of(readonlyConfig));
+
+        Collection<JdbcSourceSplit> jdbcSourceSplits = splitter.generateSplits(jdbcSourceTable);
+
+        // Query-based tables keep a single full-table split by design (findSplitKey returns empty
+        // unless a partition column is explicitly configured); the point of this test is that the
+        // custom query is executed correctly on Oracle and all rows are readable.
+        Assertions.assertEquals(1, jdbcSourceSplits.size(), "Query-based table keeps single split");
+        JdbcSourceSplit single = jdbcSourceSplits.iterator().next();
+        Assertions.assertNull(single.getSplitKeyName());
+
+        // Data-correctness with custom query: all 300 rows readable.
+        TableSchema tableSchema = table.getTableSchema();
+        Set<String> readKeys = new HashSet<>();
+        int readCount = 0;
+        try (Connection connection = getJdbcConnection()) {
+            try (PreparedStatement ps = splitter.generateSplitStatement(single, tableSchema);
+                    ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) {
+                    readCount++;
+                    readKeys.add(rs.getLong("ORDER_ID") + "|" + rs.getInt("LINE_NO"));
+                }
+            }
+        }
+        Assertions.assertEquals(300, readCount, "All 300 rows must be read through the split");
+        Assertions.assertEquals(
+                300, readKeys.size(), "No (ORDER_ID, LINE_NO) key may be duplicated or missing");
+        catalog.close();
+    }
+
+    @Test
+    public void testBoundaryQueryOffsetForm() throws Exception {
+        // Oracle 12c+ supports the OFFSET ... ROWS FETCH NEXT form (no LIMIT syntax); the
+        // optimized boundary query must return exactly one row equal to the last row of the
+        // first chunkSize rows (network/temporary-object saving).
+        int chunkSize = 10;
+        String tableRef = SCHEMA + "." + ORACLE_TABLE;
+        try (Connection connection = getJdbcConnection();
+                Statement stmt = connection.createStatement()) {
+            java.util.List<String> limitRows = new ArrayList<>();
+            try (ResultSet rs =
+                    stmt.executeQuery(
+                            "SELECT ORDER_ID, LINE_NO FROM "
+                                    + tableRef
+                                    + " ORDER BY ORDER_ID ASC, LINE_NO ASC FETCH FIRST "
+                                    + chunkSize
+                                    + " ROWS ONLY")) {
+                while (rs.next()) {
+                    limitRows.add(rs.getLong(1) + "|" + rs.getInt(2));
+                }
+            }
+            Assertions.assertEquals(chunkSize, limitRows.size());
+
+            java.util.List<String> offsetRows = new ArrayList<>();
+            try (ResultSet rs =
+                    stmt.executeQuery(
+                            "SELECT ORDER_ID, LINE_NO FROM "
+                                    + tableRef
+                                    + " ORDER BY ORDER_ID ASC, LINE_NO ASC OFFSET "
+                                    + (chunkSize - 1)
+                                    + " ROWS FETCH NEXT 1 ROWS ONLY")) {
+                while (rs.next()) {
+                    offsetRows.add(rs.getLong(1) + "|" + rs.getInt(2));
+                }
+            }
+            Assertions.assertEquals(
+                    1, offsetRows.size(), "OFFSET/FETCH must return exactly one row");
+            Assertions.assertEquals(
+                    limitRows.get(limitRows.size() - 1),
+                    offsetRows.get(0),
+                    "Boundary row must match the last row of the first chunkSize rows");
+        }
     }
 
     @Override

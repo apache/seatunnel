@@ -331,12 +331,15 @@ public class OracleDialect implements JdbcDialect {
 
     @Override
     public String getLimitClause(int limit) {
+        // FETCH FIRST is available on Oracle 12c Release 1 and later; older releases (11g and
+        // before) do not support it and must use the single-column split fallback.
         return " FETCH FIRST " + limit + " ROWS ONLY";
     }
 
     @Override
     public boolean supportCompositeKeySplit() {
-        // Validated by JdbcOracleSplitIT (official E2E, composite-PK table)
+        // Validated by JdbcOracleSplitIT (official E2E, composite-PK table); requires Oracle 12c+
+        // because the composite boundary queries use the FETCH FIRST limit clause.
         return true;
     }
 

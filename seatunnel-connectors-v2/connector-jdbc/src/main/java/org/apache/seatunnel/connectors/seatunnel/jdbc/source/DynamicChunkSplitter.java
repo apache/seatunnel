@@ -211,7 +211,7 @@ public class DynamicChunkSplitter extends ChunkSplitter {
 
         String fromClause;
         if (StringUtils.isNotBlank(table.getQuery())) {
-            fromClause = "(" + normalizeQuery(table.getQuery()) + ") AS _st_tmp";
+            fromClause = "(" + normalizeQuery(table.getQuery()) + ") _st_tmp";
         } else {
             fromClause = jdbcDialect.tableIdentifier(table.getTablePath());
         }
@@ -288,7 +288,7 @@ public class DynamicChunkSplitter extends ChunkSplitter {
 
         String fromClause;
         if (StringUtils.isNotBlank(table.getQuery())) {
-            fromClause = "(" + normalizeQuery(table.getQuery()) + ") AS _st_tmp";
+            fromClause = "(" + normalizeQuery(table.getQuery()) + ") _st_tmp";
         } else {
             fromClause = jdbcDialect.tableIdentifier(table.getTablePath());
         }
@@ -351,7 +351,7 @@ public class DynamicChunkSplitter extends ChunkSplitter {
 
         String fromClause;
         if (StringUtils.isNotBlank(table.getQuery())) {
-            fromClause = "(" + normalizeQuery(table.getQuery()) + ") AS _st_tmp";
+            fromClause = "(" + normalizeQuery(table.getQuery()) + ") _st_tmp";
         } else {
             fromClause = jdbcDialect.tableIdentifier(table.getTablePath());
         }

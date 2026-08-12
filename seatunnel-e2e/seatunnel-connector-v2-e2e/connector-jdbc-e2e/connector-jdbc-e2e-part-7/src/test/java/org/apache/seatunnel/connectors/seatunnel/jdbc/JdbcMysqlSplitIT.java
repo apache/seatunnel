@@ -60,6 +60,7 @@ import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.sql.Timestamp;
 import java.time.Duration;
 import java.time.LocalDate;
@@ -70,8 +71,8 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -781,8 +782,7 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
                 JdbcSourceTable.builder().tablePath(tablePathMySql).catalogTable(table).build();
 
         DynamicChunkSplitter splitter = getDynamicChunkSplitter(configMap);
-        Collection<JdbcSourceSplit> jdbcSourceSplits =
-                splitter.generateSplits(jdbcSourceTable);
+        Collection<JdbcSourceSplit> jdbcSourceSplits = splitter.generateSplits(jdbcSourceTable);
 
         Assertions.assertTrue(
                 jdbcSourceSplits.size() > 1,
@@ -813,8 +813,7 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
                         ResultSet rs = ps.executeQuery()) {
                     while (rs.next()) {
                         readCount++;
-                        readKeys.add(
-                                rs.getLong("order_id") + "|" + rs.getInt("line_no"));
+                        readKeys.add(rs.getLong("order_id") + "|" + rs.getInt("line_no"));
                     }
                 }
             }
@@ -823,6 +822,74 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
         Assertions.assertEquals(
                 300, readKeys.size(), "No (order_id, line_no) key may be duplicated or missing");
         mySqlCatalog.close();
+    }
+
+    @Test
+    public void testBoundaryQueryOffsetForm() throws Exception {
+        // The optimized boundary query form (LIMIT 1 OFFSET chunkSize-1) must be supported and
+        // return exactly one row equal to the last row of LIMIT chunkSize, so the boundary query
+        // transfers 1 row instead of chunkSize rows (network/temporary-object saving).
+        String compositeTable = "composite_split_test";
+        try (Connection connection = getJdbcConnection();
+                Statement stmt = connection.createStatement()) {
+            stmt.execute(
+                    "CREATE TABLE IF NOT EXISTS "
+                            + MYSQL_DATABASE
+                            + "."
+                            + compositeTable
+                            + " (order_id BIGINT NOT NULL, line_no INT NOT NULL, "
+                            + "PRIMARY KEY (order_id, line_no))");
+        }
+        try (Connection connection = getJdbcConnection();
+                PreparedStatement ps =
+                        connection.prepareStatement(
+                                "INSERT IGNORE INTO "
+                                        + MYSQL_DATABASE
+                                        + "."
+                                        + compositeTable
+                                        + " (order_id, line_no) VALUES (?, ?)")) {
+            for (int i = 0; i < 300; i++) {
+                ps.setLong(1, i % 3);
+                ps.setInt(2, i / 3);
+                ps.addBatch();
+            }
+            ps.executeBatch();
+        }
+        int chunkSize = 10;
+        String tableRef = MYSQL_DATABASE + "." + compositeTable;
+        try (Connection connection = getJdbcConnection();
+                Statement stmt = connection.createStatement()) {
+            java.util.List<String> limitRows = new java.util.ArrayList<>();
+            try (ResultSet rs =
+                    stmt.executeQuery(
+                            "SELECT order_id, line_no FROM "
+                                    + tableRef
+                                    + " ORDER BY order_id ASC, line_no ASC LIMIT "
+                                    + chunkSize)) {
+                while (rs.next()) {
+                    limitRows.add(rs.getLong(1) + "|" + rs.getInt(2));
+                }
+            }
+            Assertions.assertEquals(chunkSize, limitRows.size());
+
+            java.util.List<String> offsetRows = new java.util.ArrayList<>();
+            try (ResultSet rs =
+                    stmt.executeQuery(
+                            "SELECT order_id, line_no FROM "
+                                    + tableRef
+                                    + " ORDER BY order_id ASC, line_no ASC LIMIT 1 OFFSET "
+                                    + (chunkSize - 1))) {
+                while (rs.next()) {
+                    offsetRows.add(rs.getLong(1) + "|" + rs.getInt(2));
+                }
+            }
+            Assertions.assertEquals(
+                    1, offsetRows.size(), "LIMIT 1 OFFSET must return exactly one row");
+            Assertions.assertEquals(
+                    limitRows.get(limitRows.size() - 1),
+                    offsetRows.get(0),
+                    "Boundary row must match the last row of LIMIT chunkSize");
+        }
     }
 
     @Test
