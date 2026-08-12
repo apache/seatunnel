@@ -31,9 +31,6 @@ import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerImageName;
 
-import com.github.dockerjava.api.model.ExposedPort;
-import com.github.dockerjava.api.model.PortBinding;
-import com.github.dockerjava.api.model.Ports;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -71,18 +68,15 @@ public class S3FileWithFilterIT extends SeaTunnelContainer {
                         .withNetwork(NETWORK)
                         .withExposedPorts(S3_PORT)
                         .withNetworkAliases(S3_CONTAINER_HOST)
-                        .withCreateContainerCmdModifier(
-                                cmd ->
-                                        cmd.withPortBindings(
-                                                new PortBinding(
-                                                        Ports.Binding.bindPort(S3_PORT),
-                                                        new ExposedPort(S3_PORT))))
                         .withLogConsumer(new Slf4jLogConsumer(log))
                         .withEnv("MINIO_ROOT_USER", "minioadmin")
                         .withEnv("MINIO_ROOT_PASSWORD", "minioadmin")
                         .withCommand("server", "/data")
                         .waitingFor(Wait.forLogMessage(".*", 1));
         s3Container.start();
+        S3Utils.initialize(
+                String.format(
+                        "http://%s:%s", s3Container.getHost(), s3Container.getMappedPort(S3_PORT)));
 
         super.startUp();
     }

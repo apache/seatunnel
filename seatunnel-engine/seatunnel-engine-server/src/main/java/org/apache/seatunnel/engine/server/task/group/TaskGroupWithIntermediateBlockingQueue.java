@@ -57,6 +57,7 @@ public class TaskGroupWithIntermediateBlockingQueue extends AbstractTaskGroupWit
         private final Counter putBlockedNs;
         private final Counter flushSignalQueueSuccessTotal;
         private final Counter flushSignalQueueFailureTotal;
+        private final IntermediateBlockingQueue.QueueSizeTracker queueSizeTracker;
 
         private QueueWithMetrics(
                 BlockingQueue<Record<?>> queue,
@@ -64,13 +65,15 @@ public class TaskGroupWithIntermediateBlockingQueue extends AbstractTaskGroupWit
                 Counter queueSize,
                 Counter putBlockedNs,
                 Counter flushSignalQueueSuccessTotal,
-                Counter flushSignalQueueFailureTotal) {
+                Counter flushSignalQueueFailureTotal,
+                IntermediateBlockingQueue.QueueSizeTracker queueSizeTracker) {
             this.queue = queue;
             this.totalQueueSize = totalQueueSize;
             this.queueSize = queueSize;
             this.putBlockedNs = putBlockedNs;
             this.flushSignalQueueSuccessTotal = flushSignalQueueSuccessTotal;
             this.flushSignalQueueFailureTotal = flushSignalQueueFailureTotal;
+            this.queueSizeTracker = queueSizeTracker;
         }
     }
 
@@ -107,7 +110,8 @@ public class TaskGroupWithIntermediateBlockingQueue extends AbstractTaskGroupWit
                             queueSize,
                             putBlockedNs,
                             flushSignalQueueSuccessTotal,
-                            flushSignalQueueFailureTotal);
+                            flushSignalQueueFailureTotal,
+                            new IntermediateBlockingQueue.QueueSizeTracker());
                 });
         QueueWithMetrics cache = blockingQueueCache.get(id);
         return new IntermediateBlockingQueue(
@@ -116,7 +120,8 @@ public class TaskGroupWithIntermediateBlockingQueue extends AbstractTaskGroupWit
                 cache.queueSize,
                 cache.putBlockedNs,
                 cache.flushSignalQueueSuccessTotal,
-                cache.flushSignalQueueFailureTotal);
+                cache.flushSignalQueueFailureTotal,
+                cache.queueSizeTracker);
     }
 
     @Override

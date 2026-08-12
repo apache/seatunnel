@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-cassandra.md';
 
 > Cassandra 接收器连接器
 
+## 引擎支持
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## 描述
 
 以批处理方式将数据写入 Apache Cassandra。
@@ -13,11 +19,17 @@ sink 会把数据写入已经存在的 Cassandra 表。如果不配置 `fields`�
 
 连接器不会自动创建 keyspace、表或缺失字段。启动任务前请先准备好目标 Cassandra 表结构。
 
+## 支持的数据源信息
+
+| 数据源      | 支持版本 | 依赖 |
+|-----------|--------|------|
+| Cassandra | 通用    | [下载](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-cassandra) |
+
 ## 关键特性
 
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
 
-## 选项
+## Sink 选项
 
 | 名称              | 类型    | 是否必填 | 默认值      | 描述 |
 |-------------------|---------|----------|-------------|------|
@@ -93,8 +105,11 @@ Sink 插件通用参数，详情请参考 [Sink 常用选项](../common-options/
 - 任务启动前，目标 keyspace 和表必须已经存在。
 - `fields` 适合上游数据有额外字段、只想写入其中一部分字段的场景；它不是建表配置。
 - `async_write = true` 可以提升吞吐，`batch_size` 用来控制每次 flush 前聚合的行数。
+- 连接器底层使用 Cassandra Java Driver；认证和一致性相关参数与 Driver 保持一致，需要更强一致性时请结合
+  集群的副本策略设置 `consistency_level`。
+- `batch_type = "UNLOGGED"` 是常见默认值；当正确性优先于吞吐时使用 `LOGGED`，counter 表使用 `COUNTER`。
 
-## 示例
+## 任务示例
 
 ### 写入 Cassandra
 

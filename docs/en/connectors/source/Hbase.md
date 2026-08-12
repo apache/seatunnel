@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-hbase.md';
 
 > Hbase Source Connector
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Description
 
 Reads data from Apache HBase tables. The source supports normal scans, row key range scans, timestamp

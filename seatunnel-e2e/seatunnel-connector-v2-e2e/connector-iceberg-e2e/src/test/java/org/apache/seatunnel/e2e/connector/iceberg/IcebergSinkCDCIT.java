@@ -115,9 +115,8 @@ public class IcebergSinkCDCIT extends TestSuiteBase implements TestResource {
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
             container -> {
-                // TODO: remove this after fix the issue of encountering a failure to create the
-                // metadata and data directories under the /tmp/seatunnel_mnt path in the container
-                // Manually create iceberg metadata and data directory in container
+                // Iceberg's Hadoop catalog cannot reliably create the mounted warehouse's
+                // metadata and data directories from the job containers.
                 container.execInContainer(
                         "sh",
                         "-c",

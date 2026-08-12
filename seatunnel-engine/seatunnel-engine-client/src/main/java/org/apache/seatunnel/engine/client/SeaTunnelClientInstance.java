@@ -59,6 +59,14 @@ public interface SeaTunnelClientInstance {
             @NonNull SeaTunnelConfig seaTunnelConfig,
             @NonNull Long jobId);
 
+    ClientJobExecutionEnvironment restoreFromCheckpointExecutionContext(
+            @NonNull String filePath,
+            List<String> variables,
+            @NonNull JobConfig config,
+            @NonNull SeaTunnelConfig seaTunnelConfig,
+            @NonNull Long sourceJobId,
+            Long jobId);
+
     JobClient createJobClient();
 
     void close();
