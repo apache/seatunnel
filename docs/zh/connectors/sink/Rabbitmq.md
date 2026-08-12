@@ -6,7 +6,13 @@ import ChangeLog from '../changelog/connector-rabbitmq.md';
 
 ## 描述
 
-用于将数据写入 RabbitMQ 队列。
+RabbitMQ Sink 连接器会把每一行上游数据发布为一条 RabbitMQ 消息，写入指定的队列、exchange
+或 routing key。默认情况下，消息会通过默认 exchange 直接发送到名为 `queue_name` 的队列；
+当配置了 `routing_key`（可选地同时配置 `exchange`）时，连接器会改为通过指定 exchange 来路由消息。
+
+如果目标队列不存在，连接器会按照 `durable`、`exclusive`、`auto_delete` 等参数声明队列，并使用
+标准的 AMQP 恢复选项（`network_recovery_interval`、`topology_recovery_enabled`、
+`AUTOMATIC_RECOVERY_ENABLED`）在 broker 故障时自动重连。
 
 ## 主要特性
 

@@ -12,7 +12,12 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## 描述
 
-通过 JDBC 写入数据。支持批处理模式和流式模式，支持并发写入，支持精确一次语义（使用 XA 事务保证）。
+PostgreSQL Sink 连接器通过 JDBC 驱动将行写入 PostgreSQL 数据库。支持批处理模式和流式模式，
+并通过可选的 `partition_column` 将写入拆分成并行任务，同时通过 XA 事务保证精确一次语义。
+
+当上游数据需要落到关系型数据库，并且目标表遵循下方“数据类型映射”小节中描述的标准 PostgreSQL
+类型体系时，可以使用该连接器。它既可以写入固定的 `database.table`，也可以根据 schema 自动生成
+`INSERT` 语句，或者使用自定义的 `query` 模板，因此既适合 CDC 场景，也适合纯批量加载场景。
 
 ## 使用依赖
 
@@ -26,12 +31,16 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## 主要特性
 
+- [x] [批处理](../../introduction/concepts/connector-v2-features.md)
+- [x] [流处理](../../introduction/concepts/connector-v2-features.md)
 - [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [x] [变更数据捕获（CDC）](../../introduction/concepts/connector-v2-features.md)
 - [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
+- [x] [并行写入](../../introduction/concepts/connector-v2-features.md)
 - [x] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
-> 使用 `XA 事务` 来确保 `精确一次`。因此，仅对支持 `XA 事务` 的数据库支持 `精确一次`。您可以设置 `is_exactly_once=true` 来启用此功能。
+精确一次通过 XA 事务实现，只有目标数据库支持 XA 事务时才可用。需要设置
+`is_exactly_once=true`，并提供对应的 `xa_data_source_class_name`。
 
 ## 支持的数据源信息
 | 数据源       |                     支持的版本                     |        驱动         |                  URL                  |                                  Maven                                   |
@@ -135,7 +144,8 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ### 提示
 
-> 如果未设置 `partition_column`，它将以单线程并发运行；如果设置了 `partition_column`，它将根据任务的并发性并行执行。
+> 如果没有设置 `partition_column`，则会以单并发方式运行；一旦设置了，连接器就会按照配置的并行度
+> 并行写入，并通过分区列的值范围划分行。
 
 ## 任务示例
 
