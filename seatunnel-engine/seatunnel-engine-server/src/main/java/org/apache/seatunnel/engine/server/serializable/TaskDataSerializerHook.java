@@ -23,6 +23,7 @@ import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.Progress;
 import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
 import org.apache.seatunnel.engine.server.task.operation.CancelTaskOperation;
+import org.apache.seatunnel.engine.server.task.operation.CdcProgressReportBatch;
 import org.apache.seatunnel.engine.server.task.operation.CheckTaskGroupIsExecutingOperation;
 import org.apache.seatunnel.engine.server.task.operation.CleanTaskGroupContextOperation;
 import org.apache.seatunnel.engine.server.task.operation.CollectCdcEnumeratorProgressOperation;
@@ -116,6 +117,8 @@ public class TaskDataSerializerHook implements DataSerializerHook {
 
     public static final int COLLECT_CDC_ENUMERATOR_PROGRESS_OPERATION = 30;
 
+    public static final int CDC_PROGRESS_REPORT_BATCH = 31;
+
     public static final int FACTORY_ID =
             FactoryIdHelper.getFactoryId(
                     SeaTunnelFactoryIdConstant.SEATUNNEL_TASK_DATA_SERIALIZER_FACTORY,
@@ -196,6 +199,8 @@ public class TaskDataSerializerHook implements DataSerializerHook {
                     return new ReportCdcProgressOperation();
                 case COLLECT_CDC_ENUMERATOR_PROGRESS_OPERATION:
                     return new CollectCdcEnumeratorProgressOperation();
+                case CDC_PROGRESS_REPORT_BATCH:
+                    return new CdcProgressReportBatch();
                 default:
                     throw new IllegalArgumentException("Unknown type id " + typeId);
             }

@@ -19,7 +19,6 @@ package org.apache.seatunnel.engine.server.task.operation;
 
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
-import org.apache.seatunnel.engine.server.observability.cdc.CdcProgressEnvelope;
 import org.apache.seatunnel.engine.server.serializable.TaskDataSerializerHook;
 
 import com.hazelcast.cluster.Address;
@@ -37,6 +36,7 @@ public class CollectCdcEnumeratorProgressOperation extends Operation
         implements IdentifiedDataSerializable {
 
     private List<TaskGroupLocation> taskGroupLocations;
+    private CdcProgressReportBatch response;
 
     public CollectCdcEnumeratorProgressOperation() {}
 
@@ -54,18 +54,15 @@ public class CollectCdcEnumeratorProgressOperation extends Operation
         }
 
         SeaTunnelServer server = getService();
-        List<CdcProgressEnvelope<?>> reports =
-                server.getTaskExecutionService().collectEnumeratorCdcProgress(taskGroupLocations);
-        if (!reports.isEmpty()) {
-            getNodeEngine()
-                    .getOperationService()
-                    .createInvocationBuilder(
-                            SeaTunnelServer.SERVICE_NAME,
-                            new ReportCdcProgressOperation(reports),
-                            masterAddress)
-                    .invoke()
-                    .get();
-        }
+        response =
+                new CdcProgressReportBatch(
+                        server.getTaskExecutionService()
+                                .collectEnumeratorCdcProgress(taskGroupLocations));
+    }
+
+    @Override
+    public Object getResponse() {
+        return response;
     }
 
     @Override

@@ -44,6 +44,7 @@ import org.apache.seatunnel.engine.server.observability.cdc.CdcProgressEnvelope;
 import org.apache.seatunnel.engine.server.observability.cdc.CdcProgressOwner;
 import org.apache.seatunnel.engine.server.observability.cdc.CdcProgressReportSource;
 import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
+import org.apache.seatunnel.engine.server.task.operation.CdcProgressReportBatch;
 import org.apache.seatunnel.engine.server.task.operation.CollectCdcEnumeratorProgressOperation;
 
 import org.junit.jupiter.api.Assertions;
@@ -125,15 +126,18 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         Assertions.assertEquals(7L, reports.get(0).getExecutionAttemptId());
         Assertions.assertEquals(41L, reports.get(0).getSourceVertexId());
 
-        nodeEngine
-                .getOperationService()
-                .createInvocationBuilder(
-                        SeaTunnelServer.SERVICE_NAME,
-                        new CollectCdcEnumeratorProgressOperation(
-                                Collections.singletonList(groupLocation)),
-                        nodeEngine.getThisAddress())
-                .invoke()
-                .get();
+        CdcProgressReportBatch batch =
+                (CdcProgressReportBatch)
+                        nodeEngine
+                                .getOperationService()
+                                .createInvocationBuilder(
+                                        SeaTunnelServer.SERVICE_NAME,
+                                        new CollectCdcEnumeratorProgressOperation(
+                                                Collections.singletonList(groupLocation)),
+                                        nodeEngine.getThisAddress())
+                                .invoke()
+                                .get();
+        server.getCdcProgressService().updateReports(batch.getReports());
         Assertions.assertNotNull(
                 server.getCdcProgressService()
                         .getEnumeratorReport(

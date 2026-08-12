@@ -142,6 +142,14 @@ class ReportCdcProgressOperationSerializationTest {
                         .getLowWatermark()
                         .getValue()
                         .getType());
+
+        CdcProgressReportBatch batch =
+                new CdcProgressReportBatch(java.util.Arrays.asList(reader, enumerator));
+        CdcProgressReportBatch restoredBatch =
+                serializationService.toObject(serializationService.toData(batch));
+        Assertions.assertEquals(2, restoredBatch.getReports().size());
+        Assertions.assertEquals(
+                CdcProgressOwner.ENUMERATOR, restoredBatch.getReports().get(1).getOwner());
     }
 
     @Test
@@ -153,6 +161,16 @@ class ReportCdcProgressOperationSerializationTest {
         ReportCdcProgressOperation restored = serializationService.toObject(data);
 
         Assertions.assertTrue(reports(restored).isEmpty());
+    }
+
+    @Test
+    void testEmptyReportBatchIsPreservedAfterSerialization() {
+        CdcProgressReportBatch original = new CdcProgressReportBatch(Collections.emptyList());
+
+        Data data = serializationService.toData(original);
+        CdcProgressReportBatch restored = serializationService.toObject(data);
+
+        Assertions.assertTrue(restored.getReports().isEmpty());
     }
 
     @Test

@@ -17,6 +17,9 @@
 
 package org.apache.seatunnel.engine.server;
 
+import org.apache.seatunnel.api.cdc.CdcEnumeratorProgressReport;
+import org.apache.seatunnel.api.cdc.CdcProgressValue;
+import org.apache.seatunnel.api.cdc.CdcSnapshotAssignmentStatus;
 import org.apache.seatunnel.api.event.Event;
 import org.apache.seatunnel.api.event.EventProcessor;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
@@ -51,10 +54,13 @@ import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.master.JobHistoryService;
 import org.apache.seatunnel.engine.server.master.JobMaster;
 import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
+import org.apache.seatunnel.engine.server.observability.cdc.CdcProgressEnvelope;
+import org.apache.seatunnel.engine.server.observability.cdc.CdcProgressOwner;
 import org.apache.seatunnel.engine.server.operation.PrintMessageOperation;
 import org.apache.seatunnel.engine.server.operation.ReturnRetryTimesOperation;
 import org.apache.seatunnel.engine.server.operation.SubmitJobOperation;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
+import org.apache.seatunnel.engine.server.task.operation.CdcProgressReportBatch;
 import org.apache.seatunnel.engine.server.task.operation.ReportMetricsOperation;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
@@ -82,6 +88,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -93,6 +100,7 @@ import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -810,6 +818,73 @@ public class CoordinatorServiceTest {
         Assertions.assertEquals(
                 Collections.singletonList(thirdGroup), taskGroupsByWorker.get(secondWorker));
         Assertions.assertEquals(2, taskGroupsByWorker.size());
+    }
+
+    @Test
+    void testEnumeratorProgressCollectionDoesNotWaitForSlowWorkers() throws Exception {
+        Address slowWorker = new Address("127.0.0.1", 5801);
+        Address availableWorker = new Address("127.0.0.1", 5802);
+        Address failedWorker = new Address("127.0.0.1", 5803);
+        Map<Address, List<TaskGroupLocation>> taskGroupsByWorker = new HashMap<>();
+        taskGroupsByWorker.put(
+                slowWorker, Collections.singletonList(new TaskGroupLocation(1L, 1, 1L)));
+        taskGroupsByWorker.put(
+                availableWorker, Collections.singletonList(new TaskGroupLocation(1L, 1, 2L)));
+        taskGroupsByWorker.put(
+                failedWorker, Collections.singletonList(new TaskGroupLocation(1L, 1, 3L)));
+        Map<Address, CompletableFuture<CdcProgressReportBatch>> requests = new HashMap<>();
+        Set<Address> requestedWorkers = new HashSet<>();
+        List<CdcProgressEnvelope<?>> collectedReports = new ArrayList<>();
+        List<Address> failedWorkers = new ArrayList<>();
+
+        CoordinatorService.collectCdcEnumeratorProgress(
+                taskGroupsByWorker,
+                (worker, ignored) -> {
+                    requestedWorkers.add(worker);
+                    if (worker.equals(failedWorker)) {
+                        throw new IllegalStateException("worker unavailable");
+                    }
+                    CompletableFuture<CdcProgressReportBatch> request = new CompletableFuture<>();
+                    requests.put(worker, request);
+                    return request;
+                },
+                collectedReports::addAll,
+                (worker, ignored) -> failedWorkers.add(worker));
+
+        Assertions.assertEquals(taskGroupsByWorker.keySet(), requestedWorkers);
+        Assertions.assertEquals(2, requests.size());
+        requests.get(availableWorker).complete(createEnumeratorProgressBatch());
+        Assertions.assertEquals(1, collectedReports.size());
+        Assertions.assertEquals(Collections.singletonList(failedWorker), failedWorkers);
+        Assertions.assertFalse(requests.get(slowWorker).isDone());
+
+        requests.get(slowWorker).completeExceptionally(new TimeoutException("worker timeout"));
+        Assertions.assertEquals(Arrays.asList(failedWorker, slowWorker), failedWorkers);
+        Assertions.assertEquals(1, collectedReports.size());
+    }
+
+    private CdcProgressReportBatch createEnumeratorProgressBatch() {
+        TaskGroupLocation taskGroupLocation = new TaskGroupLocation(1L, 1, 2L);
+        CdcEnumeratorProgressReport report =
+                new CdcEnumeratorProgressReport(
+                        "MySQL-CDC",
+                        CdcSnapshotAssignmentStatus.ASSIGNING,
+                        CdcProgressValue.exact(1),
+                        CdcProgressValue.exact(0),
+                        CdcProgressValue.exact(1),
+                        CdcProgressValue.exact(0),
+                        CdcProgressValue.exact(0),
+                        Collections.emptyList());
+        CdcProgressEnvelope<CdcEnumeratorProgressReport> envelope =
+                new CdcProgressEnvelope<>(
+                        CdcProgressOwner.ENUMERATOR,
+                        new TaskLocation(taskGroupLocation, 0L, 0),
+                        3L,
+                        4L,
+                        5L,
+                        6L,
+                        report);
+        return new CdcProgressReportBatch(Collections.singletonList(envelope));
     }
 
     @Test

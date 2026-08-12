@@ -76,12 +76,14 @@ import org.apache.seatunnel.engine.server.master.JobMaster;
 import org.apache.seatunnel.engine.server.master.cleanup.JobCleanupRecord;
 import org.apache.seatunnel.engine.server.master.cleanup.PipelineCleanupRecord;
 import org.apache.seatunnel.engine.server.metrics.JobMetricsUtil;
+import org.apache.seatunnel.engine.server.observability.cdc.CdcProgressEnvelope;
 import org.apache.seatunnel.engine.server.resourcemanager.NoEnoughResourceException;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.service.jar.ConnectorPackageService;
 import org.apache.seatunnel.engine.server.task.SourceSplitEnumeratorTask;
+import org.apache.seatunnel.engine.server.task.operation.CdcProgressReportBatch;
 import org.apache.seatunnel.engine.server.task.operation.CleanTaskGroupContextOperation;
 import org.apache.seatunnel.engine.server.task.operation.CollectCdcEnumeratorProgressOperation;
 import org.apache.seatunnel.engine.server.task.operation.GetMetricsOperation;
@@ -113,6 +115,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -124,6 +127,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.api.options.EnvCommonOptions.CHECKPOINT_INTERVAL;
@@ -2096,22 +2102,46 @@ public class CoordinatorService {
                                                                     });
                                                 }));
 
-        taskGroupsByWorker.forEach(
-                (worker, taskGroupLocations) -> {
-                    try {
+        collectCdcEnumeratorProgress(
+                taskGroupsByWorker,
+                (worker, taskGroupLocations) ->
                         NodeEngineUtil.sendOperationToMemberNode(
-                                        nodeEngine,
-                                        new CollectCdcEnumeratorProgressOperation(
-                                                taskGroupLocations),
-                                        worker)
-                                .get();
-                    } catch (Exception e) {
+                                nodeEngine,
+                                new CollectCdcEnumeratorProgressOperation(taskGroupLocations),
+                                worker),
+                reports -> seaTunnelServer.getCdcProgressService().updateReports(reports),
+                (worker, error) ->
                         logger.warning(
                                 String.format(
                                         "Collect CDC enumerator progress from %s failed: %s",
-                                        worker, ExceptionUtils.getMessage(e)));
+                                        worker, ExceptionUtils.getMessage(error))));
+    }
+
+    static void collectCdcEnumeratorProgress(
+            Map<Address, List<TaskGroupLocation>> taskGroupsByWorker,
+            BiFunction<Address, List<TaskGroupLocation>, CompletionStage<CdcProgressReportBatch>>
+                    collect,
+            Consumer<List<CdcProgressEnvelope<?>>> update,
+            BiConsumer<Address, Throwable> onFailure) {
+        Map<Address, CompletionStage<CdcProgressReportBatch>> requests = new HashMap<>();
+        taskGroupsByWorker.forEach(
+                (worker, taskGroupLocations) -> {
+                    try {
+                        requests.put(worker, collect.apply(worker, taskGroupLocations));
+                    } catch (Exception e) {
+                        onFailure.accept(worker, e);
                     }
                 });
+        requests.forEach(
+                (worker, request) ->
+                        request.whenComplete(
+                                (batch, error) -> {
+                                    if (error != null) {
+                                        onFailure.accept(worker, error);
+                                    } else if (batch != null && !batch.getReports().isEmpty()) {
+                                        update.accept(batch.getReports());
+                                    }
+                                }));
     }
 
     static void addEnumeratorTaskGroup(

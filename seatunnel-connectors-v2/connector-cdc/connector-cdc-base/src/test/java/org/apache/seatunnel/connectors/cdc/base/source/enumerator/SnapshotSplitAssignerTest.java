@@ -176,6 +176,65 @@ public class SnapshotSplitAssignerTest {
                 "20", activeProgress.getHighWatermark().getValue().getValues().get("pos"));
     }
 
+    @Test
+    public void testCompletedSplitIsRemovedFromActiveProgressAfterRestore() {
+        SnapshotSplit activeSplit = createFinishedSnapshotSplit("db1.table1.active", 10L, 20L);
+        Map<String, SnapshotSplit> assignedSplits = new HashMap<>();
+        assignedSplits.put(activeSplit.splitId(), activeSplit);
+        SnapshotSplitAssigner<?> splitAssigner =
+                createRestoredSnapshotSplitAssigner(assignedSplits, new HashMap<>());
+
+        Assertions.assertEquals(
+                1,
+                splitAssigner
+                        .getCdcEnumeratorProgress("MySQL-CDC", "MYSQL_BINLOG")
+                        .getActiveSplits()
+                        .size());
+
+        splitAssigner.onCompletedSplits(Collections.singletonList(createWatermark(activeSplit)));
+
+        CdcEnumeratorProgressReport completedReport =
+                splitAssigner.getCdcEnumeratorProgress("MySQL-CDC", "MYSQL_BINLOG");
+        Assertions.assertEquals(0, completedReport.getRunningSplitCount().getValue());
+        Assertions.assertTrue(completedReport.getActiveSplits().isEmpty());
+
+        SnapshotPhaseState checkpointState = splitAssigner.snapshotState(15L);
+        SnapshotSplitAssigner<?> restoredAssigner =
+                createRestoredSnapshotSplitAssigner(
+                        checkpointState.getAssignedSplits(),
+                        checkpointState.getSplitCompletedOffsets());
+        Assertions.assertTrue(
+                restoredAssigner
+                        .getCdcEnumeratorProgress("MySQL-CDC", "MYSQL_BINLOG")
+                        .getActiveSplits()
+                        .isEmpty());
+    }
+
+    @Test
+    public void testProgressKeepsOnlyActiveSplitsForLargeCompletedHistory() {
+        Map<String, SnapshotSplit> assignedSplits = new HashMap<>();
+        Map<String, SnapshotSplitWatermark> completedOffsets = new HashMap<>();
+        for (int i = 0; i < 10_000; i++) {
+            SnapshotSplit completedSplit = createFinishedSnapshotSplit("db1.table1.completed-" + i);
+            assignedSplits.put(completedSplit.splitId(), completedSplit);
+            completedOffsets.put(completedSplit.splitId(), createWatermark(completedSplit));
+        }
+        SnapshotSplit activeSplit = createFinishedSnapshotSplit("db1.table1.active");
+        assignedSplits.put(activeSplit.splitId(), activeSplit);
+        SnapshotSplitAssigner<?> splitAssigner =
+                createRestoredSnapshotSplitAssigner(assignedSplits, completedOffsets);
+
+        CdcEnumeratorProgressReport report =
+                splitAssigner.getCdcEnumeratorProgress("MySQL-CDC", "MYSQL_BINLOG");
+
+        Assertions.assertEquals(10_001, report.getAssignedSplitCount().getValue());
+        Assertions.assertEquals(10_000, report.getCompletedSplitCount().getValue());
+        Assertions.assertEquals(1, report.getRunningSplitCount().getValue());
+        Assertions.assertEquals(1, report.getActiveSplits().size());
+        Assertions.assertEquals(
+                activeSplit.splitId(), report.getActiveSplits().get(0).getSplitId());
+    }
+
     private SnapshotSplitAssigner<?> createRestoredSnapshotSplitAssigner(
             Map<String, SnapshotSplit> assignedSplits,
             Map<String, SnapshotSplitWatermark> completedOffsets) {

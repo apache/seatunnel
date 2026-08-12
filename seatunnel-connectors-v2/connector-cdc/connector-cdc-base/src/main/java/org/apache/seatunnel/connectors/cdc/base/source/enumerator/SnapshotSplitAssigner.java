@@ -68,6 +68,7 @@ public class SnapshotSplitAssigner<C extends SourceConfig>
     private final Queue<SnapshotSplit> remainingSplits;
     private final Map<String, SnapshotSplit> assignedSplits;
     private final Map<String, SnapshotSplitWatermark> splitCompletedOffsets;
+    private final Map<String, SnapshotSplit> activeSplits;
     private boolean assignerCompleted;
     private final int currentParallelism;
     private final Deque<TableId> remainingTables;
@@ -137,6 +138,8 @@ public class SnapshotSplitAssigner<C extends SourceConfig>
         this.remainingSplits = new ConcurrentLinkedQueue(remainingSplits);
         this.assignedSplits = new ConcurrentHashMap<>(assignedSplits);
         this.splitCompletedOffsets = new ConcurrentHashMap<>(splitCompletedOffsets);
+        this.activeSplits = new ConcurrentHashMap<>(assignedSplits);
+        this.splitCompletedOffsets.keySet().forEach(this.activeSplits::remove);
         this.assignerCompleted = assignerCompleted;
         this.remainingTables = new ConcurrentLinkedDeque<>(remainingTables);
         this.isRemainingTablesCheckpointed = isRemainingTablesCheckpointed;
@@ -183,6 +186,7 @@ public class SnapshotSplitAssigner<C extends SourceConfig>
             SnapshotSplit split = iterator.next();
             iterator.remove();
             assignedSplits.put(split.splitId(), split);
+            activeSplits.put(split.splitId(), split);
             context.getAssignedSnapshotSplit().put(split.splitId(), split);
             return Optional.of(split);
         } else {
@@ -208,7 +212,10 @@ public class SnapshotSplitAssigner<C extends SourceConfig>
     @Override
     public void onCompletedSplits(List<SnapshotSplitWatermark> completedSplitWatermarks) {
         completedSplitWatermarks.forEach(
-                watermark -> this.splitCompletedOffsets.put(watermark.getSplitId(), watermark));
+                watermark -> {
+                    this.splitCompletedOffsets.put(watermark.getSplitId(), watermark);
+                    this.activeSplits.remove(watermark.getSplitId());
+                });
         if (allSplitsCompleted()) {
             // Skip the waiting checkpoint when current parallelism is 1 which means we do not need
             // to care about the global output data order of snapshot splits and incremental split.
@@ -238,6 +245,7 @@ public class SnapshotSplitAssigner<C extends SourceConfig>
             // failed
             assignedSplits.remove(snapshotSplit.splitId());
             splitCompletedOffsets.remove(snapshotSplit.splitId());
+            activeSplits.remove(snapshotSplit.splitId());
         }
     }
 
@@ -291,9 +299,8 @@ public class SnapshotSplitAssigner<C extends SourceConfig>
     @Override
     public CdcEnumeratorProgressReport getCdcEnumeratorProgress(
             String connectorType, String positionType) {
-        List<CdcSnapshotSplitProgress> activeSplits =
-                assignedSplits.entrySet().stream()
-                        .filter(entry -> !splitCompletedOffsets.containsKey(entry.getKey()))
+        List<CdcSnapshotSplitProgress> activeSplitProgress =
+                activeSplits.entrySet().stream()
                         .sorted(Map.Entry.comparingByKey())
                         .map(entry -> activeSplitProgress(entry.getValue(), positionType))
                         .collect(Collectors.toList());
@@ -302,10 +309,10 @@ public class SnapshotSplitAssigner<C extends SourceConfig>
                 snapshotAssignmentStatus(),
                 CdcProgressValue.exact(assignedSplits.size()),
                 CdcProgressValue.exact(splitCompletedOffsets.size()),
-                CdcProgressValue.exact(activeSplits.size()),
+                CdcProgressValue.exact(activeSplitProgress.size()),
                 CdcProgressValue.exact(remainingSplits.size()),
                 CdcProgressValue.exact(remainingTables.size()),
-                activeSplits);
+                activeSplitProgress);
     }
 
     private CdcSnapshotAssignmentStatus snapshotAssignmentStatus() {
@@ -375,6 +382,7 @@ public class SnapshotSplitAssigner<C extends SourceConfig>
             if (tableIds.contains(assignedSplit.getTableId())) {
                 assignedSplits.remove(splitKey);
                 splitCompletedOffsets.remove(assignedSplit.splitId());
+                activeSplits.remove(assignedSplit.splitId());
             }
         }
 
