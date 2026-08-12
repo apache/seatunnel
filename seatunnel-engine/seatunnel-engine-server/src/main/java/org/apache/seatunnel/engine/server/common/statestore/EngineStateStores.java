@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.common.statestore;
 
 import org.apache.seatunnel.engine.server.common.statestore.checkpoint.CheckpointOverviewStateStore;
+import org.apache.seatunnel.engine.server.common.statestore.counter.CounterStateStore;
 import org.apache.seatunnel.engine.server.common.statestore.metrics.MetricsSnapshotStateStore;
 
 /**
@@ -53,6 +54,17 @@ public interface EngineStateStores extends AutoCloseable {
      */
     default MetricsSnapshotStateStore metricsSnapshotStore() {
         return auxiliary().metricsSnapshotStore();
+    }
+
+    /**
+     * Returns the checkpoint ID counter store.
+     *
+     * <p>The current key format is a string composed from {@code jobId + pipelineId}.
+     *
+     * @return checkpoint counter store
+     */
+    default CounterStateStore<String> checkpointCounterStore() {
+        return authoritative().checkpointCounterStore();
     }
 
     /**

@@ -17,7 +17,7 @@ import ChangeLog from '../changelog/connector-clickhouse.md';
 
 > 当目标表引擎支持去重时，例如 `AggregatingMergeTree` 或 `ReplacingMergeTree`，Clickhouse Sink 可以通过幂等写入减少重复数据影响。这里未标记为精准一次，因为实际保证取决于目标表设计。
 - [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
-- [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
+- [x] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 
 ## 描述
@@ -131,6 +131,35 @@ CREATE TABLE IF NOT EXISTS  `${database}`.`${table}` (
 - rowtype_primary_key：用于获取上游模式中的主键（可能是列表）。
 - rowtype_unique_key：用于获取上游模式中的唯一键（可能是列表）。
 - comment：用于获取上游模式中的表注释。
+
+### Zeta 定时刷新
+
+该引擎级能力仅由 Zeta 支持。可以在 `env` 块中配置 `sink.flush.interval`，使尚未达到 `bulk_size` 的缓冲数据也能定时通过 ClickHouse JDBC 写出。Spark 和 Flink 不会触发该定时刷新。
+
+:::tip
+
+ClickHouse 定时刷新不提供基于 2PC 的精准一次语义，ClickHouse Sink 仍为至少一次语义，失败重试或任务重启后可能重复插入数据。如果业务需要处理重复数据，应为目标表选择合适的去重引擎并使用确定性的键。
+
+:::
+
+```hocon
+env {
+  job.mode = "STREAMING"
+  checkpoint.interval = 300000
+  sink.flush.interval = 5000
+}
+
+sink {
+  Clickhouse {
+    host = "localhost:8123"
+    database = "default"
+    table = "seatunnel_table"
+    username = "default"
+    password = ""
+    bulk_size = 10000
+  }
+}
+```
 
 ## 示例配置与案例
 

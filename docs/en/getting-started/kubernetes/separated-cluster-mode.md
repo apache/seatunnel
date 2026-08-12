@@ -298,6 +298,8 @@ spec:
 
 ## Create Master StatefulSet
 
+The StatefulSet examples below use a 16 GB JVM heap, request 4 CPUs and 20 GiB of memory, and limit the container to 8 CPUs and 24 GiB of memory. The memory headroom is reserved for metaspace, direct memory, thread stacks, and other native memory, while the CPU allocation provides capacity for task execution, garbage collection, and engine coordination. For large-scale data processing, a 32 GB JVM heap is recommended; increase the CPU request and limit to 8 and 16, and the memory request and limit to 36 GiB and 40 GiB as a starting point. Adjust these values based on connector characteristics, job parallelism, and observed CPU, GC, and memory utilization.
+
 ```yaml
 apiVersion: apps/v1
 kind: StatefulSet
@@ -328,6 +330,7 @@ spec:
             - /opt/seatunnel/bin/seatunnel-cluster.sh
             - -r
             - master
+            - '-DJvmOption=-Xms16g -Xmx16g'
           env:
             - name: SEATUNNEL_HOME
               value: /opt/seatunnel
@@ -340,11 +343,11 @@ spec:
               name: hazelcast
           resources:
             requests:
-              cpu: 500m
-              memory: 3Gi
+              cpu: "4"
+              memory: 20Gi
             limits:
-              cpu: "1"
-              memory: 4Gi
+              cpu: "8"
+              memory: 24Gi
           volumeMounts:
             - name: hazelcast-master-config
               mountPath: /opt/seatunnel/config/hazelcast-master.yaml
@@ -400,6 +403,7 @@ spec:
             - /opt/seatunnel/bin/seatunnel-cluster.sh
             - -r
             - worker
+            - '-DJvmOption=-Xms16g -Xmx16g'
           env:
             - name: SEATUNNEL_HOME
               value: /opt/seatunnel
@@ -412,11 +416,11 @@ spec:
               name: hazelcast
           resources:
             requests:
-              cpu: "1"
-              memory: 2Gi
+              cpu: "4"
+              memory: 20Gi
             limits:
-              cpu: "2"
-              memory: 5Gi
+              cpu: "8"
+              memory: 24Gi
           volumeMounts:
             - name: hazelcast-worker-config
               mountPath: /opt/seatunnel/config/hazelcast-worker.yaml
