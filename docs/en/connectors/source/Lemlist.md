@@ -4,9 +4,26 @@ import ChangeLog from '../changelog/connector-http-lemlist.md';
 
 > Lemlist source connector
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Description
 
 Reads data from Lemlist APIs. The connector uses `password` as the Lemlist API key, creates a Basic authentication header, and then uses the shared HTTP source runtime to parse the response.
+
+The Lemlist connector shares its HTTP request, retry, and pagination runtime with other HTTP-based source connectors. Configure `password` with the Lemlist API key and point `url` at the Lemlist endpoint you want to call.
+
+## Supported DataSource Info
+
+In order to use the Lemlist connector, the following dependency is required.
+It can be downloaded via install-plugin.sh or from the Maven central repository.
+
+| Datasource   | Supported Versions |                                         Dependency                                          |
+|--------------|--------------------|-----------------------------------------------------------------------------------------------|
+| Lemlist      | universal          | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-http-base)       |
 
 ## Key features
 
@@ -93,6 +110,8 @@ Use `content_field` when the rows are inside a nested JSON node. Use `json_field
 
 ## Example
 
+### Batch Read of a Lemlist Team
+
 ```hocon
 env {
   parallelism = 1
@@ -127,6 +146,87 @@ source {
 sink {
   Console {
     plugin_input = "lemlist"
+  }
+}
+```
+
+### Read with Page-Number Pagination
+
+Some Lemlist endpoints paginate by page number. Configure `pageing` with
+`total_page_size` and `batch_size` so the connector keeps requesting the next
+page until either the configured total page count is reached or the response
+no longer carries the expected page size.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Lemlist {
+    plugin_output = "lemlist_pages"
+    url = "https://api.lemlist.com/api/campaigns"
+    password = "replace-with-api-key"
+    method = "GET"
+    format = "json"
+    pageing = {
+      total_page_size = 5
+      batch_size = 20
+      page_field = "page"
+      page_type = "PageNumber"
+    }
+    schema = {
+      fields {
+        _id = string
+        name = string
+        createdAt = string
+      }
+    }
+  }
+}
+
+sink {
+  Console {
+    plugin_input = "lemlist_pages"
+  }
+}
+```
+
+### Polling Read in Streaming Mode
+
+For Lemlist endpoints that grow over time, run the connector in `STREAMING`
+mode and let `poll_interval_millis` decide how often SeaTunnel re-issues the
+same request.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 60000
+}
+
+source {
+  Lemlist {
+    plugin_output = "lemlist_stream"
+    url = "https://api.lemlist.com/api/activities"
+    password = "replace-with-api-key"
+    method = "GET"
+    poll_interval_millis = 30000
+    format = "json"
+    schema = {
+      fields {
+        _id = string
+        type = string
+        createdAt = string
+      }
+    }
+  }
+}
+
+sink {
+  Console {
+    plugin_input = "lemlist_stream"
   }
 }
 ```
