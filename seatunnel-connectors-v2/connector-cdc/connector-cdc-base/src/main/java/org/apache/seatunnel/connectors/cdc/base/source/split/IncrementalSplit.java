@@ -166,13 +166,17 @@ public class IncrementalSplit extends SourceSplitBase {
                         : historyTableChanges.entrySet().stream()
                                 .filter(entry -> capturedTableSet.contains(entry.getKey()))
                                 .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-        return new IncrementalSplit(
-                splitId(),
-                filteredTableIds,
-                startupOffset,
-                stopOffset,
-                filteredCompletedSnapshotSplitInfos,
-                filteredCheckpointTables,
-                filteredHistoryTableChanges);
+        IncrementalSplit prunedSplit =
+                new IncrementalSplit(
+                        splitId(),
+                        filteredTableIds,
+                        startupOffset,
+                        stopOffset,
+                        filteredCompletedSnapshotSplitInfos,
+                        filteredCheckpointTables,
+                        filteredHistoryTableChanges);
+        // Keep compatibility with checkpoints created before table-level schema history.
+        prunedSplit.checkpointDataType = checkpointDataType;
+        return prunedSplit;
     }
 }

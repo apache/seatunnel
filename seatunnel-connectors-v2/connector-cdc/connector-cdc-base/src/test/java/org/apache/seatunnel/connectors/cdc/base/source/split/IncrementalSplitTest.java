@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.type.BasicType;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -69,6 +70,38 @@ public class IncrementalSplitTest {
                 pruned.getCheckpointTables().get(0).getTablePath());
         Assertions.assertEquals(
                 Collections.singleton(KEPT_TABLE), pruned.getHistoryTableChanges().keySet());
+    }
+
+    @Test
+    public void testPruneTablesPreservesLegacyCheckpointDataTypeWhenTableRemoved() {
+        IncrementalSplit split = legacyCheckpointSplit();
+
+        IncrementalSplit pruned = split.pruneTables(Collections.singletonList(KEPT_TABLE));
+
+        Assertions.assertEquals(Collections.singletonList(KEPT_TABLE), pruned.getTableIds());
+        Assertions.assertSame(BasicType.STRING_TYPE, pruned.getCheckpointDataType());
+    }
+
+    @Test
+    public void testPruneTablesPreservesLegacyCheckpointDataTypeWhenTablesUnchanged() {
+        IncrementalSplit split = legacyCheckpointSplit();
+
+        IncrementalSplit pruned = split.pruneTables(Arrays.asList(KEPT_TABLE, REMOVED_TABLE));
+
+        Assertions.assertEquals(Arrays.asList(KEPT_TABLE, REMOVED_TABLE), pruned.getTableIds());
+        Assertions.assertSame(BasicType.STRING_TYPE, pruned.getCheckpointDataType());
+    }
+
+    @SuppressWarnings("deprecation")
+    private static IncrementalSplit legacyCheckpointSplit() {
+        IncrementalSplit split =
+                new IncrementalSplit(
+                        "incremental-split-legacy",
+                        Arrays.asList(KEPT_TABLE, REMOVED_TABLE),
+                        null,
+                        null,
+                        Collections.emptyList());
+        return new IncrementalSplit(split, BasicType.STRING_TYPE);
     }
 
     private static CompletedSnapshotSplitInfo completedSnapshotSplitInfo(
