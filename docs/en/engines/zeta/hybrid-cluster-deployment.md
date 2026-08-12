@@ -109,6 +109,10 @@ seatunnel:
 
 ```
 
+**print-job-metrics-info-interval**
+
+The interval (in seconds) at which the master node dumps the comprehensive metrics of every running job into the engine log. The same content is also written to a dedicated log file `seatunnel-metrics.log` under `seatunnel.logs.path` (default `<SEATUNNEL_HOME>/logs`). Each entry contains the job id, a timestamp, and a sorted snapshot of all `SourceReceivedCount` / `SourceReceivedBytes` / `SinkWriteCount` / `SinkCommittedCount` / etc. measurements collected from every task. Set to `0` (or any non-positive value) to disable. Default: `60`.
+
 **checkpoint storage**
 
 Checkpoints are a fault-tolerant recovery mechanism. This mechanism ensures that the program can recover on its own even if an exception occurs suddenly during operation. Checkpoints are triggered at regular intervals. Each time a checkpoint is performed, each task is required to report its own status information (such as which offset was read when reading from Kafka) to the checkpoint thread, which writes it to a distributed storage (or shared storage). When a task fails and is automatically fault-tolerant and restored, or when a previously suspended task is restored using the seatunnel.sh -r command, the status information of the corresponding job will be loaded from the checkpoint storage and the job will be restored based on this status information.
