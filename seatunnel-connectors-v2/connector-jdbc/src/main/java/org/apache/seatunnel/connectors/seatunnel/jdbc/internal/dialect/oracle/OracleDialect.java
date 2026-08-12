@@ -337,6 +337,11 @@ public class OracleDialect implements JdbcDialect {
     }
 
     @Override
+    public String getOffsetLimitClause(int offset, int limit) {
+        return " OFFSET " + offset + " ROWS FETCH NEXT " + limit + " ROWS ONLY";
+    }
+
+    @Override
     public boolean supportCompositeKeySplit() {
         // Validated by JdbcOracleSplitIT (official E2E, composite-PK table); requires Oracle 12c+
         // because the composite boundary queries use the FETCH FIRST limit clause.

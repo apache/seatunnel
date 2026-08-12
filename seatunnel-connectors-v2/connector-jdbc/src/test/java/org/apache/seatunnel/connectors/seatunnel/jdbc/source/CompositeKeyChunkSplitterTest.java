@@ -242,26 +242,33 @@ public class CompositeKeyChunkSplitterTest {
         JdbcDialect mysql = JdbcDialectLoader.load("jdbc:mysql://localhost:3306/test", null, null);
         Assertions.assertTrue(mysql.supportCompositeKeySplit());
         Assertions.assertEquals(" LIMIT 10", mysql.getLimitClause(10));
+        Assertions.assertEquals(" LIMIT 1 OFFSET 9", mysql.getOffsetLimitClause(9, 1));
 
         JdbcDialect postgres =
                 JdbcDialectLoader.load("jdbc:postgresql://localhost:5432/test", null, null);
         Assertions.assertTrue(postgres.supportCompositeKeySplit());
         Assertions.assertEquals(" LIMIT 10", postgres.getLimitClause(10));
+        Assertions.assertEquals(" LIMIT 1 OFFSET 9", postgres.getOffsetLimitClause(9, 1));
 
         JdbcDialect sqlite =
                 JdbcDialectLoader.load("jdbc:sqlite:/tmp/seatunnel_split_e2e.db", null, null);
         Assertions.assertTrue(sqlite.supportCompositeKeySplit());
         Assertions.assertEquals(" LIMIT 10", sqlite.getLimitClause(10));
+        Assertions.assertEquals(" LIMIT 1 OFFSET 9", sqlite.getOffsetLimitClause(9, 1));
 
         JdbcDialect sqlserver =
                 JdbcDialectLoader.load("jdbc:sqlserver://localhost:1433", null, null);
         Assertions.assertTrue(sqlserver.supportCompositeKeySplit());
         Assertions.assertEquals(
                 " OFFSET 0 ROWS FETCH NEXT 10 ROWS ONLY", sqlserver.getLimitClause(10));
+        Assertions.assertEquals(
+                " OFFSET 9 ROWS FETCH NEXT 1 ROWS ONLY", sqlserver.getOffsetLimitClause(9, 1));
 
         JdbcDialect oracle =
                 JdbcDialectLoader.load("jdbc:oracle:thin:@localhost:1521:xe", null, null);
         Assertions.assertTrue(oracle.supportCompositeKeySplit());
         Assertions.assertEquals(" FETCH FIRST 10 ROWS ONLY", oracle.getLimitClause(10));
+        Assertions.assertEquals(
+                " OFFSET 9 ROWS FETCH NEXT 1 ROWS ONLY", oracle.getOffsetLimitClause(9, 1));
     }
 }

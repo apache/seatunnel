@@ -387,6 +387,20 @@ public interface JdbcDialect extends Serializable {
         return " LIMIT " + limit;
     }
 
+    /**
+     * Returns the dialect-specific pagination clause with an explicit offset (appended after an
+     * {@code ORDER BY} clause), used by composite-primary-key boundary queries to fetch only the
+     * chunk boundary row instead of transferring {@code limit} rows: {@code "LIMIT limit OFFSET
+     * offset"} on MySQL/PostgreSQL/SQLite, {@code "OFFSET offset ROWS FETCH NEXT limit ROWS ONLY"}
+     * on SQL Server and Oracle 12c+.
+     *
+     * <p>Note: the server still scans {@code offset + limit} rows to position the cursor; only the
+     * rows transferred to the client are reduced to {@code limit}.
+     */
+    default String getOffsetLimitClause(int offset, int limit) {
+        return " LIMIT " + limit + " OFFSET " + offset;
+    }
+
     default boolean supportHashSplitter() {
         return true;
     }

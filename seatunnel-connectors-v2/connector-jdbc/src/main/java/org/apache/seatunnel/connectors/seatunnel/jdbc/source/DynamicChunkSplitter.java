@@ -303,7 +303,10 @@ public class DynamicChunkSplitter extends ChunkSplitter {
                         + " ORDER BY "
                         + orderBy
                         + " ASC"
-                        + jdbcDialect.getLimitClause(chunkSize);
+                        // Fetch only the chunkSize-th row (the next chunk boundary) instead of
+                        // transferring all chunkSize rows; the server still scans them to position
+                        // the cursor, but only one row crosses the wire.
+                        + jdbcDialect.getOffsetLimitClause(chunkSize - 1, 1);
 
         Connection conn = getOrEstablishConnection();
         try (java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
@@ -315,14 +318,14 @@ public class DynamicChunkSplitter extends ChunkSplitter {
                 }
             }
             try (ResultSet rs = ps.executeQuery()) {
-                Object[] lastRow = null;
-                while (rs.next()) {
-                    lastRow = new Object[columns.length];
+                if (rs.next()) {
+                    Object[] row = new Object[columns.length];
                     for (int i = 0; i < columns.length; i++) {
-                        lastRow[i] = rs.getObject(i + 1);
+                        row[i] = rs.getObject(i + 1);
                     }
+                    return row;
                 }
-                return lastRow;
+                return null;
             }
         }
     }

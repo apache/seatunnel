@@ -289,6 +289,11 @@ public class SqlServerDialect implements JdbcDialect {
     }
 
     @Override
+    public String getOffsetLimitClause(int offset, int limit) {
+        return " OFFSET " + offset + " ROWS FETCH NEXT " + limit + " ROWS ONLY";
+    }
+
+    @Override
     public boolean supportCompositeKeySplit() {
         // Validated by JdbcSqlServerSplitIT (official E2E, composite-PK table)
         return true;
