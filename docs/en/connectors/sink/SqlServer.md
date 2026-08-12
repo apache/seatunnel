@@ -12,12 +12,16 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 > Spark<br/>
 > Flink<br/>
-> Seatunnel Zeta<br/>
+> SeaTunnel Zeta<br/>
 
 ## Description
 
-Write data through jdbc. Support Batch mode and Streaming mode, support concurrent writing, support exactly-once
-semantics (using XA transaction guarantee).
+Write data to SQL Server through JDBC. This connector inherits all options from the
+[Jdbc sink connector](./Jdbc.md) and uses the Microsoft JDBC driver for SQL Server.
+
+It supports Batch mode and Streaming mode, concurrent writing, and exactly-once semantics
+(using XA transactions). CDC events from upstream are also supported when configured with
+`primary_keys` and `generate_sink_sql`.
 
 ## Using Dependency
 
@@ -69,12 +73,16 @@ semantics (using XA transaction guarantee).
 
 ## Sink Options
 
+This connector uses the same set of options as the [Jdbc sink connector](./Jdbc.md). The options
+listed below cover everything specific to SQL Server; for options that are identical to the generic
+JDBC sink, see the linked page for the canonical description.
+
 |                   Name                    |  Type   | Required | Default |                                                                                                                 Description                                                                                                                  |
 |-------------------------------------------|---------|----------|---------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| url                                       | String  | Yes      | -       | The URL of the JDBC connection. Refer to a case: jdbc:sqlserver://localhost:1433;databaseName=mydatabase                                                                                                                                     |
-| driver                                    | String  | Yes      | -       | The jdbc class name used to connect to the remote data source,<br/> if you use sqlServer the value is `com.microsoft.sqlserver.jdbc.SQLServerDriver`.                                                                                        |
-| username                                      | String  | No       | -       | Connection instance user name                                                                                                                                                                                                                |
-| password                                  | String  | No       | -       | Connection instance password                                                                                                                                                                                                                 |
+| url                                       | String  | Yes      | -       | The URL of the JDBC connection. Refer to a case: `jdbc:sqlserver://localhost:1433;databaseName=mydatabase`. The `databaseName` parameter selects the default database for the connection.                                                    |
+| driver                                    | String  | Yes      | -       | The jdbc class name used to connect to the remote data source. For SQL Server use `com.microsoft.sqlserver.jdbc.SQLServerDriver`.                                                                                                            |
+| username                                  | String  | Yes      | -       | Connection instance user name. `user` is also accepted as a fallback alias.                                                                                                                                                                  |
+| password                                  | String  | Yes      | -       | Connection instance password.                                                                                                                                                                                                                 |
 | query                                     | String  | No       | -       | Use this sql write upstream input datas to database. e.g `INSERT ...`,`query` have the higher priority                                                                                                                                       |
 | database                                  | String  | No       | -       | Use this `database` and `table-name` auto-generate sql and receive upstream input datas write to database.<br/>This option is mutually exclusive with `query` and has a higher priority.                                                     |
 | table                                     | String  | No       | -       | Use database and this table-name auto-generate sql and receive upstream input datas write to database.<br/>This option is mutually exclusive with `query` and has a higher priority.                                                         |
@@ -83,111 +91,154 @@ semantics (using XA transaction guarantee).
 | max_retries                               | Int     | No       | 0       | The number of retries to submit failed (executeBatch)                                                                                                                                                                                        |
 | batch_size                                | Int     | No       | 1000    | For batch writing, when the number of buffered records reaches `batch_size`, the data will be flushed into the database. If `batch_interval_ms` is greater than 0, elapsed time can also trigger a flush.                                    |
 | batch_interval_ms                         | Long    | No       | 0       | Write-triggered flush interval in milliseconds. `0` disables time-based flushing. When greater than 0, the writer checks elapsed time on each record and flushes synchronously when the interval is reached.                                  |
-| is_exactly_once                           | Boolean | No       | false   | Whether to enable exactly-once semantics, which will use Xa transactions. If on, you need to<br/>set `xa_data_source_class_name`.                                                                                                            |
+| is_exactly_once                           | Boolean | No       | false   | Whether to enable exactly-once semantics, which will use Xa transactions. If on, you need to set `xa_data_source_class_name`.                                                                                                                 |
 | generate_sink_sql                         | Boolean | No       | false   | Generate sql statements based on the database table you want to write to                                                                                                                                                                     |
-| xa_data_source_class_name                 | String  | No       | -       | The xa data source class name of the database Driver, for example, SqlServer is `com.microsoft.sqlserver.jdbc.SQLServerXADataSource`, and<br/>please refer to appendix for other data sources                                                |
+| xa_data_source_class_name                 | String  | No       | -       | The xa data source class name of the database Driver, for example, SqlServer is `com.microsoft.sqlserver.jdbc.SQLServerXADataSource`, and please refer to [Jdbc options appendix](./Jdbc.md#sink-options) for other data sources.            |
 | max_commit_attempts                       | Int     | No       | 3       | The number of retries for transaction commit failures                                                                                                                                                                                        |
-| transaction_timeout_sec                   | Int     | No       | -1      | The timeout after the transaction is opened, the default is -1 (never timeout). Note that setting the timeout may affect<br/>exactly-once semantics                                                                                          |
+| transaction_timeout_sec                   | Int     | No       | -1      | The timeout after the transaction is opened, the default is -1 (never timeout). Note that setting the timeout may affect exactly-once semantics                                                                                              |
 | auto_commit                               | Boolean | No       | true    | Automatic transaction commit is enabled by default                                                                                                                                                                                           |
 | properties                                | Map     | No       | -       | Additional JDBC connection parameters. When the same parameter exists in both `properties` and the URL, priority depends on the SQL Server JDBC driver.                                                                                        |
-| common-options                            |         | no       | -       | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details                                                                                                                                  |
+| common-options                            |         | no       | -       | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details                                                                                                                     |
 | schema_save_mode                          | Enum    | No       | CREATE_SCHEMA_WHEN_NOT_EXIST | Before the synchronization task starts, controls how the target table schema is handled.                                                                                                                                                       |
 | data_save_mode                            | Enum    | No       | APPEND_DATA | Before the synchronization task starts, controls how existing target table data is handled.                                                                                                                                                    |
 | custom_sql                                | String  | No       | -       | When `data_save_mode` is `CUSTOM_PROCESSING`, fill this option with SQL that can be executed before synchronization starts.                                                                                                                   |
 | enable_upsert                             | Boolean | No       | true    | Enable upsert by primary_keys exist, If the task has no key duplicate data, setting this parameter to `false` can speed up data import                                                                                                       |
-| multi_table_sink_replica                  | Int     | No       | 1       | The number of sink writer replicas used when writing multiple tables.                                                                                                                           |
+| multi_table_sink_replica                  | Int     | No       | 1       | The number of sink writer replicas used when writing multiple tables.                                                                                                                                                                         |
 
-## tips
+### Schema Save Mode
 
-> If partition_column is not set, it will run in single concurrency, and if partition_column is set, it will be executed  in parallel according to the concurrency of tasks.
+`schema_save_mode` controls what happens to the target schema before the job starts:
+
+- `CREATE_SCHEMA_WHEN_NOT_EXIST` (default): create the target table when it does not exist; skip if it already exists.
+- `RECREATE_SCHEMA`: drop the target table if it exists and recreate it from the upstream schema.
+- `ERROR_WHEN_SCHEMA_NOT_EXIST`: fail fast when the target table does not exist.
+- `IGNORE`: do nothing and let downstream handle the schema.
+
+### Data Save Mode
+
+`data_save_mode` controls how existing data in the target table is handled when the job starts:
+
+- `APPEND_DATA` (default): append new rows to the existing table.
+- `DROP_DATA`: keep the table and delete the existing data.
+- `CUSTOM_PROCESSING`: run the user-supplied `custom_sql` once before the job starts.
+- `ERROR_WHEN_DATA_EXISTS`: fail fast when the target table already has rows.
 
 ## Task Example
 
-### simple
+### Simple
 
-> This is one that reads Sqlserver data and inserts it directly into another table
+> Read data from SQL Server and write it directly to another SQL Server table.
 
-```
+```hocon
 env {
   # You can set engine configuration here
-  parallelism = 10
+  parallelism = 1
+  job.mode = "BATCH"
 }
 
 source {
-  # This is a example source plugin **only for test and demonstrate the feature source plugin**
   Jdbc {
     driver = com.microsoft.sqlserver.jdbc.SQLServerDriver
     url = "jdbc:sqlserver://localhost:1433;databaseName=column_type_test"
-    username = SA
+    username = "SA"
     password = "Y.sa123456"
-    query = "select * from column_type_test.dbo.full_types_jdbc"
-    # Parallel sharding reads fields
-    partition_column = "id"
-    # Number of fragments
-    partition_num = 10
-
+    query = "select id, name, age from column_type_test.dbo.full_types_jdbc"
   }
-  # If you would like to get more information about how to configure seatunnel and see full list of source plugins,
-  # please go to https://seatunnel.apache.org/docs/connectors/source/Jdbc
 }
 
 transform {
-
-  # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
-  # please go to https://seatunnel.apache.org/docs/transforms/sql
 }
 
 sink {
   Jdbc {
     driver = com.microsoft.sqlserver.jdbc.SQLServerDriver
     url = "jdbc:sqlserver://localhost:1433;databaseName=column_type_test"
-    username = SA
+    username = "SA"
     password = "Y.sa123456"
-    query = "insert into full_types_jdbc_sink( id, val_char, val_varchar, val_text, val_nchar, val_nvarchar, val_ntext, val_decimal, val_numeric, val_float, val_real, val_smallmoney, val_money, val_bit, val_tinyint, val_smallint, val_int, val_bigint, val_date, val_time, val_datetime2, val_datetime, val_smalldatetime ) values( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )"
-
-  }  # If you would like to get more information about how to configure seatunnel and see full list of sink plugins,
-  # please go to https://seatunnel.apache.org/docs/connectors/sink/Jdbc
+    query = "insert into full_types_jdbc_sink(id, name, age) values(?, ?, ?)"
+  }
 }
 ```
 
-### CDC(Change data capture) event
+### CDC (Change Data Capture) Event
 
-> CDC change data is also supported by us In this case, you need config database, table and primary_keys.
+> CDC change data is also supported. In this case you need to configure `database`, `table` and `primary_keys`.
 
-```
-Jdbc {
-  plugin_input = "customers"
-  driver = com.microsoft.sqlserver.jdbc.SQLServerDriver
-  url = "jdbc:sqlserver://localhost:1433;databaseName=column_type_test"
-  username = SA
-  password = "Y.sa123456"
-  generate_sink_sql = true
-  database = "column_type_test"
-  table = "dbo.full_types_sink"
-  batch_size = 100
-  primary_keys = ["id"]
+```hocon
+sink {
+  Jdbc {
+    plugin_input = "customers_cdc"
+    driver = com.microsoft.sqlserver.jdbc.SQLServerDriver
+    url = "jdbc:sqlserver://localhost:1433;databaseName=column_type_test"
+    username = "SA"
+    password = "Y.sa123456"
+    generate_sink_sql = true
+    database = "column_type_test"
+    table = "dbo.full_types_sink"
+    batch_size = 100
+    primary_keys = ["id"]
+  }
 }
 ```
 
 ### Exactly Once Sink
 
-> Transactional writes may be slower but more accurate to the data
+> Transactional writes may be slower but more accurate to the data.
 
-```
+```hocon
+sink {
   Jdbc {
     driver = com.microsoft.sqlserver.jdbc.SQLServerDriver
     url = "jdbc:sqlserver://localhost:1433;databaseName=column_type_test"
-    username = SA
+    username = "SA"
     password = "Y.sa123456"
     max_retries = 0
-    query = "insert into full_types_jdbc_sink( id, val_char, val_varchar, val_text, val_nchar, val_nvarchar, val_ntext, val_decimal, val_numeric, val_float, val_real, val_smallmoney, val_money, val_bit, val_tinyint, val_smallint, val_int, val_bigint, val_date, val_time, val_datetime2, val_datetime, val_smalldatetime ) values( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ? )"
-    is_exactly_once = "true"
-
+    query = "insert into full_types_jdbc_sink(id, name, age) values(?, ?, ?)"
+    is_exactly_once = true
     xa_data_source_class_name = "com.microsoft.sqlserver.jdbc.SQLServerXADataSource"
+  }
+}
+```
 
-  }  # If you would like to get more information about how to configure seatunnel and see full list of sink plugins,
-  # please go to https://seatunnel.apache.org/docs/connectors/sink/Jdbc
+### Save Mode Example
 
+> Recreate the target table on each run, drop the existing rows, then load fresh data.
+
+```hocon
+sink {
+  Jdbc {
+    driver = com.microsoft.sqlserver.jdbc.SQLServerDriver
+    url = "jdbc:sqlserver://localhost:1433;databaseName=column_type_test"
+    username = "SA"
+    password = "Y.sa123456"
+    generate_sink_sql = true
+    database = "column_type_test"
+    table = "dbo.full_types_sink"
+    schema_save_mode = "RECREATE_SCHEMA"
+    data_save_mode = "DROP_DATA"
+  }
+}
+```
+
+### Multiple Table Sink
+
+> Use `${database_name}` and `${table_name}` placeholders in the connection URL or write path so rows
+> from different upstream tables are routed to different target tables in a single pipeline.
+
+```hocon
+sink {
+  Jdbc {
+    driver = com.microsoft.sqlserver.jdbc.SQLServerDriver
+    url = "jdbc:sqlserver://localhost:1433;databaseName=${database_name}"
+    username = "SA"
+    password = "Y.sa123456"
+    generate_sink_sql = true
+    database = "${database_name}"
+    table = "${table_name}"
+    primary_keys = ["id"]
+    multi_table_sink_replica = 2
+  }
+}
 ```
 
 ## Changelog
