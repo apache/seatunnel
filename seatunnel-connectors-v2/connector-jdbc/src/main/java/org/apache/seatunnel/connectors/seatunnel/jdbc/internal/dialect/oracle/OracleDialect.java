@@ -335,6 +335,12 @@ public class OracleDialect implements JdbcDialect {
     }
 
     @Override
+    public boolean supportCompositeKeySplit() {
+        // Validated by JdbcOracleSplitIT (official E2E, composite-PK table)
+        return true;
+    }
+
+    @Override
     public Object[] sampleDataFromColumn(
             Connection connection,
             JdbcSourceTable table,

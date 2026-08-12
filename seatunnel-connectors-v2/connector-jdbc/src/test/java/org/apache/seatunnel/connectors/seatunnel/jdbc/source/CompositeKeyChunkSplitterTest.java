@@ -236,7 +236,9 @@ public class CompositeKeyChunkSplitterTest {
     @Test
     public void testCompositeKeySplitDialectSupport() {
         // Composite split SQL is emitted in portable expanded OR/AND form (no row-value
-        // constructor), so every dialect supports it; per-dialect LIMIT clause differs.
+        // constructor). Each dialect opts in via supportCompositeKeySplit() only after its
+        // composite-PK path is validated by an official E2E; currently MySQL, PostgreSQL,
+        // SQLite, SQL Server and Oracle are covered.
         JdbcDialect mysql = JdbcDialectLoader.load("jdbc:mysql://localhost:3306/test", null, null);
         Assertions.assertTrue(mysql.supportCompositeKeySplit());
         Assertions.assertEquals(" LIMIT 10", mysql.getLimitClause(10));
@@ -245,6 +247,11 @@ public class CompositeKeyChunkSplitterTest {
                 JdbcDialectLoader.load("jdbc:postgresql://localhost:5432/test", null, null);
         Assertions.assertTrue(postgres.supportCompositeKeySplit());
         Assertions.assertEquals(" LIMIT 10", postgres.getLimitClause(10));
+
+        JdbcDialect sqlite =
+                JdbcDialectLoader.load("jdbc:sqlite:/tmp/seatunnel_split_e2e.db", null, null);
+        Assertions.assertTrue(sqlite.supportCompositeKeySplit());
+        Assertions.assertEquals(" LIMIT 10", sqlite.getLimitClause(10));
 
         JdbcDialect sqlserver =
                 JdbcDialectLoader.load("jdbc:sqlserver://localhost:1433", null, null);

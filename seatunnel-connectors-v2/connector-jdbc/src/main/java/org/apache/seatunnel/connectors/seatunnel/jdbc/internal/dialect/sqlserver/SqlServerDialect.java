@@ -289,6 +289,12 @@ public class SqlServerDialect implements JdbcDialect {
     }
 
     @Override
+    public boolean supportCompositeKeySplit() {
+        // Validated by JdbcSqlServerSplitIT (official E2E, composite-PK table)
+        return true;
+    }
+
+    @Override
     public void applySchemaChange(
             Connection connection, TablePath tablePath, AlterTableAddColumnEvent event)
             throws SQLException {

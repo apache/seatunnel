@@ -49,6 +49,7 @@ public class SqliteDialect implements JdbcDialect {
 
     @Override
     public boolean supportCompositeKeySplit() {
+        // Validated by JdbcSqliteSplitIT (embedded SQLite E2E, composite-PK table)
         return true;
     }
 

@@ -365,16 +365,16 @@ public interface JdbcDialect extends Serializable {
     }
 
     /**
-     * Returns whether this dialect supports row-value-constructor comparison syntax used by
-     * composite-primary-key chunk splitting, i.e. {@code (col1, col2) > (?, ?)}.
+     * Returns whether this dialect supports composite-primary-key chunk splitting.
      *
-     * <p>MySQL, PostgreSQL (and its derivatives) and SQLite support row-value comparisons; SQL
-     * Server (T-SQL) and several other dialects do not and would fail with a syntax error if such
-     * predicates were emitted. The splitter falls back to the single-column behavior when this
-     * returns {@code false}.
+     * <p>Composite split SQL is emitted in a portable expanded OR/AND form (no row-value
+     * constructor), so it is dialect-safe, but each dialect's composite path must be validated by
+     * tests before it is enabled. Dialects default to {@code false}; override to {@code true} only
+     * after the composite-PK path is covered by an official E2E for that dialect. The splitter
+     * falls back to the single-column behavior when this returns {@code false}.
      */
     default boolean supportCompositeKeySplit() {
-        return true;
+        return false;
     }
 
     /**
