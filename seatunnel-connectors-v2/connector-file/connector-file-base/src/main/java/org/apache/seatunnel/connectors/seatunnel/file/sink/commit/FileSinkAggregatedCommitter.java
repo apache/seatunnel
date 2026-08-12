@@ -17,9 +17,11 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.sink.commit;
 
+import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
 
 import org.apache.hadoop.fs.Path;
 
@@ -38,7 +40,14 @@ public class FileSinkAggregatedCommitter
         implements SinkAggregatedCommitter<FileCommitInfo, FileAggregatedCommitInfo> {
     protected HadoopFileSystemProxy hadoopFileSystemProxy;
     private final HadoopConf hadoopConf;
+
+    /**
+     * True only for FTP sinks configured with APPEND_DATA. In this mode commits append staged bytes
+     * to an existing target and abort must not rename the target back to the transaction directory,
+     * because the target may already contain user data that predates this checkpoint.
+     */
     private final boolean appendData;
+
     private final Set<String> pendingUuidDirectories = new LinkedHashSet<>();
     private final Set<String> pendingJobDirectories = new LinkedHashSet<>();
 
@@ -49,6 +58,11 @@ public class FileSinkAggregatedCommitter
     public FileSinkAggregatedCommitter(HadoopConf hadoopConf, boolean appendData) {
         this.hadoopConf = hadoopConf;
         this.appendData = appendData;
+    }
+
+    public static boolean shouldAppendData(HadoopConf hadoopConf, FileSinkConfig fileSinkConfig) {
+        return DataSaveMode.APPEND_DATA.equals(fileSinkConfig.getDataSaveMode())
+                && "ftp".equalsIgnoreCase(hadoopConf.getSchema());
     }
 
     @Override

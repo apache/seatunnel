@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.file.config;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
@@ -45,6 +46,7 @@ public class BaseFileSinkConfig implements DelimiterConfig, Serializable {
     protected boolean createEmptyFileWhenNoData;
     protected FileFormat fileFormat;
     protected String filenameExtension;
+    protected DataSaveMode dataSaveMode;
     protected DateUtils.Formatter dateFormat;
     protected DateTimeUtils.Formatter datetimeFormat;
     protected TimeUtils.Formatter timeFormat;
@@ -66,6 +68,7 @@ public class BaseFileSinkConfig implements DelimiterConfig, Serializable {
         this.createEmptyFileWhenNoData =
                 pluginConfig.get(FileBaseSinkOptions.CREATE_EMPTY_FILE_WHEN_NO_DATA);
         this.fileFormat = pluginConfig.get(FileBaseSinkOptions.FILE_FORMAT_TYPE);
+        this.dataSaveMode = pluginConfig.get(FileBaseSinkOptions.DATA_SAVE_MODE);
         // if set, use user config, if not set, when format is csv, use "," otherwise use default
         // delimiter
         if (pluginConfig.getOptional(FileBaseSinkOptions.FIELD_DELIMITER).isPresent()) {

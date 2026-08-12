@@ -17,8 +17,10 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.sink.commit;
 
+import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -126,6 +128,22 @@ class FileSinkAggregatedCommitterTest {
         Mockito.verify(fs).deleteFile(TRANSACTION_DIR);
     }
 
+    @Test
+    void shouldEnableAppendDataOnlyForFtpAppendDataMode() {
+        FileSinkConfig fileSinkConfig = Mockito.mock(FileSinkConfig.class);
+        Mockito.when(fileSinkConfig.getDataSaveMode()).thenReturn(DataSaveMode.APPEND_DATA);
+
+        Assertions.assertTrue(
+                FileSinkAggregatedCommitter.shouldAppendData(newHadoopConf("ftp"), fileSinkConfig));
+        Assertions.assertFalse(
+                FileSinkAggregatedCommitter.shouldAppendData(
+                        newHadoopConf("hdfs"), fileSinkConfig));
+
+        Mockito.when(fileSinkConfig.getDataSaveMode()).thenReturn(DataSaveMode.DROP_DATA);
+        Assertions.assertFalse(
+                FileSinkAggregatedCommitter.shouldAppendData(newHadoopConf("ftp"), fileSinkConfig));
+    }
+
     private static TestableCommitter newCommitter(HadoopFileSystemProxy fs) {
         TestableCommitter committer = new TestableCommitter();
         committer.setFileSystemProxy(fs);
@@ -146,5 +164,14 @@ class FileSinkAggregatedCommitterTest {
         LinkedHashMap<String, LinkedHashMap<String, String>> transactionMap = new LinkedHashMap<>();
         transactionMap.put(TRANSACTION_DIR, fileMoves);
         return new FileAggregatedCommitInfo(transactionMap, new LinkedHashMap<>());
+    }
+
+    private static HadoopConf newHadoopConf(String schema) {
+        return new HadoopConf(schema + "://dummy") {
+            @Override
+            public String getSchema() {
+                return schema;
+            }
+        };
     }
 }

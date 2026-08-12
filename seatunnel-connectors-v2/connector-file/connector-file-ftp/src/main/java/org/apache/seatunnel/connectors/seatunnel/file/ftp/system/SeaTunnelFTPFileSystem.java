@@ -420,21 +420,42 @@ public class SeaTunnelFTPFileSystem extends FileSystem implements StreamingFileS
                 new FSDataOutputStream(client.appendFileStream(file.getName()), statistics) {
                     @Override
                     public void close() throws IOException {
-                        super.close();
-                        if (!client.isConnected()) {
-                            throw new FTPException("Client not connected");
+                        IOException closeException = null;
+                        try {
+                            super.close();
+                            if (!client.isConnected()) {
+                                throw new FTPException("Client not connected");
+                            }
+                            boolean cmdCompleted = client.completePendingCommand();
+                            if (!cmdCompleted) {
+                                throw new FTPException(
+                                        "Could not complete transfer, Reply Code - "
+                                                + client.getReplyCode());
+                            }
+                        } catch (IOException e) {
+                            closeException = e;
+                        } finally {
+                            try {
+                                disconnect(client);
+                            } catch (IOException e) {
+                                if (closeException == null) {
+                                    closeException = e;
+                                } else {
+                                    closeException.addSuppressed(e);
+                                }
+                            }
                         }
-                        boolean cmdCompleted = client.completePendingCommand();
-                        disconnect(client);
-                        if (!cmdCompleted) {
-                            throw new FTPException(
-                                    "Could not complete transfer, Reply Code - "
-                                            + client.getReplyCode());
+                        if (closeException != null) {
+                            throw closeException;
                         }
                     }
                 };
         if (!FTPReply.isPositivePreliminary(client.getReplyCode())) {
-            fos.close();
+            try {
+                fos.close();
+            } catch (IOException e) {
+                LOG.warn("Close rejected FTP append stream failed, ignore cleanup error.", e);
+            }
             throw new IOException("Unable to append file: " + file + ", Aborting");
         }
         return fos;

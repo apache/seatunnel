@@ -43,12 +43,16 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.Closeable;
 import java.io.IOException;
 import java.io.Serializable;
+import java.nio.charset.StandardCharsets;
 import java.security.PrivilegedExceptionAction;
 import java.util.ArrayList;
 import java.util.List;
 
 @Slf4j
 public class HadoopFileSystemProxy implements Serializable, Closeable {
+
+    private static final int DEFAULT_BUFFER_SIZE = 4096;
+    private static final String APPEND_TARGET_LENGTH_MARKER_SUFFIX = ".append-target-length";
 
     private transient UserGroupInformation userGroupInformation;
     private transient FileSystem fileSystem;
@@ -183,8 +187,8 @@ public class HadoopFileSystemProxy implements Serializable, Closeable {
      * Appends a temporary file to an existing target file, or moves it when the target is absent.
      *
      * <p>The move path preserves the normal rename behavior for the first committed file. Later
-     * commits append the temporary file's bytes and remove that temporary file only after the
-     * append stream has closed successfully.
+     * commits record the target length before appending. If a retry sees the expected post-append
+     * length, it only cleans the temporary file instead of appending the same bytes again.
      */
     public void appendFile(@NonNull String sourceFilePath, @NonNull String targetFilePath)
             throws IOException {
@@ -192,8 +196,10 @@ public class HadoopFileSystemProxy implements Serializable, Closeable {
                 () -> {
                     Path sourcePath = new Path(sourceFilePath);
                     Path targetPath = new Path(targetFilePath);
+                    Path markerPath = new Path(sourceFilePath + APPEND_TARGET_LENGTH_MARKER_SUFFIX);
                     FileSystem fileSystem = getFileSystem();
                     if (!fileSystem.exists(sourcePath)) {
+                        deleteAppendMarkerIfExists(fileSystem, markerPath);
                         log.warn(
                                 "append file:[{}] to [{}] already finished in the last commit, skip.",
                                 sourcePath,
@@ -204,18 +210,81 @@ public class HadoopFileSystemProxy implements Serializable, Closeable {
                         renameFile(sourceFilePath, targetFilePath, false);
                         return Void.class;
                     }
+                    long sourceLength = fileSystem.getFileStatus(sourcePath).getLen();
+                    long initialTargetLength =
+                            getOrCreateAppendTargetLength(fileSystem, markerPath, targetPath);
+                    long expectedTargetLength = initialTargetLength + sourceLength;
+                    long currentTargetLength = fileSystem.getFileStatus(targetPath).getLen();
+                    if (currentTargetLength == expectedTargetLength) {
+                        cleanupCommittedAppend(fileSystem, sourcePath, markerPath);
+                        log.info(
+                                "append file:[{}] to [{}] already applied in the last commit, cleanup source file.",
+                                sourcePath,
+                                targetPath);
+                        return Void.class;
+                    }
+                    if (currentTargetLength != initialTargetLength) {
+                        throw new IOException(
+                                String.format(
+                                        "Cannot append file [%s] to [%s], target length changed from [%s] to [%s] before append.",
+                                        sourcePath,
+                                        targetPath,
+                                        initialTargetLength,
+                                        currentTargetLength));
+                    }
                     try (FSDataInputStream inputStream = fileSystem.open(sourcePath);
                             FSDataOutputStream outputStream =
                                     fileSystem.append(targetPath, DEFAULT_BUFFER_SIZE, null)) {
                         IOUtils.copyBytes(inputStream, outputStream, DEFAULT_BUFFER_SIZE, false);
                     }
-                    if (!fileSystem.delete(sourcePath, false)) {
-                        throw CommonError.fileOperationFailed(
-                                "SeaTunnel", "delete", sourceFilePath);
+                    long actualTargetLength = fileSystem.getFileStatus(targetPath).getLen();
+                    if (actualTargetLength != expectedTargetLength) {
+                        throw new IOException(
+                                String.format(
+                                        "Append file [%s] to [%s] finished with unexpected target length [%s], expected [%s].",
+                                        sourcePath,
+                                        targetPath,
+                                        actualTargetLength,
+                                        expectedTargetLength));
                     }
+                    cleanupCommittedAppend(fileSystem, sourcePath, markerPath);
                     log.info("append file:[{}] to [{}] finish", sourcePath, targetPath);
                     return Void.class;
                 });
+    }
+
+    private long getOrCreateAppendTargetLength(
+            FileSystem fileSystem, Path markerPath, Path targetPath) throws IOException {
+        if (fileSystem.exists(markerPath)) {
+            try (FSDataInputStream inputStream = fileSystem.open(markerPath)) {
+                byte[] bytes = new byte[64];
+                int length = inputStream.read(bytes);
+                if (length <= 0) {
+                    throw new IOException("Append target length marker is empty: " + markerPath);
+                }
+                return Long.parseLong(new String(bytes, 0, length, StandardCharsets.UTF_8).trim());
+            }
+        }
+        long targetLength = fileSystem.getFileStatus(targetPath).getLen();
+        try (FSDataOutputStream outputStream = fileSystem.create(markerPath, false)) {
+            outputStream.write(Long.toString(targetLength).getBytes(StandardCharsets.UTF_8));
+        }
+        return targetLength;
+    }
+
+    private void cleanupCommittedAppend(FileSystem fileSystem, Path sourcePath, Path markerPath)
+            throws IOException {
+        if (!fileSystem.delete(sourcePath, false)) {
+            throw CommonError.fileOperationFailed("SeaTunnel", "delete", sourcePath.toString());
+        }
+        deleteAppendMarkerIfExists(fileSystem, markerPath);
+    }
+
+    private void deleteAppendMarkerIfExists(FileSystem fileSystem, Path markerPath)
+            throws IOException {
+        if (fileSystem.exists(markerPath) && !fileSystem.delete(markerPath, false)) {
+            log.warn("Delete append marker [{}] failed, ignore this cleanup error.", markerPath);
+        }
     }
 
     public void createDir(@NonNull String filePath) throws IOException {

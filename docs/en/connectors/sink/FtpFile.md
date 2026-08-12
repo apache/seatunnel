@@ -287,7 +287,7 @@ Existing dir processing method.
 Existing data processing method.
 
 - DROP_DATA: preserve dir and delete data files
-- APPEND_DATA: preserve dir, preserve data files
+- APPEND_DATA: preserve dir and data files, and append new rows to existing target files
 - ERROR_WHEN_DATA_EXISTS: when there is data files, an error is reported
 
 ### schema_evolution_enabled [boolean]

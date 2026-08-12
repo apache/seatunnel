@@ -105,9 +105,7 @@ public abstract class BaseMultipleTableFileSink
     public Optional<SinkAggregatedCommitter<FileCommitInfo, FileAggregatedCommitInfo>>
             createAggregatedCommitter() {
         boolean appendData =
-                DataSaveMode.APPEND_DATA.equals(
-                                readonlyConfig.get(FileBaseSinkOptions.DATA_SAVE_MODE))
-                        && "ftp".equalsIgnoreCase(hadoopConf.getSchema());
+                FileSinkAggregatedCommitter.shouldAppendData(hadoopConf, fileSinkConfig);
         return Optional.of(new FileSinkAggregatedCommitter(hadoopConf, appendData));
     }
 
