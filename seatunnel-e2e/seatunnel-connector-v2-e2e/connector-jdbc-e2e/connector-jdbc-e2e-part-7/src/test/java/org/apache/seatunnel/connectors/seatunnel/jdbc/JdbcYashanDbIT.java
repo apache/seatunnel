@@ -199,8 +199,7 @@ public class JdbcYashanDbIT extends AbstractJdbcIT {
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(YASHANDB_IMAGE)));
-        container.setPortBindings(
-                Lists.newArrayList(String.format("%s:%s", YASHANDB_PORT, YASHANDB_PORT)));
+        container.addExposedPort(YASHANDB_PORT);
 
         return container;
     }

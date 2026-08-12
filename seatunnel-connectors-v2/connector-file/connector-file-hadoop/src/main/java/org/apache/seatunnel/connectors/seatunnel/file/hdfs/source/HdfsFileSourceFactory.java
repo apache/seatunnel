@@ -27,6 +27,7 @@ import org.apache.seatunnel.api.table.factory.TableSourceFactory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FilePostSyncAction;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSyncMode;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.hdfs.config.HdfsFileSourceOptions;
@@ -109,10 +110,18 @@ public class HdfsFileSourceFactory implements TableSourceFactory {
                 .optional(HdfsFileSourceOptions.NULL_FORMAT)
                 .optional(HdfsFileSourceOptions.FILENAME_EXTENSION)
                 .optional(HdfsFileSourceOptions.READ_COLUMNS)
+                .optional(
+                        FileBaseSourceOptions.SHEET_NAME,
+                        FileBaseSourceOptions.EXCEL_ENGINE,
+                        FileBaseSourceOptions.POI_EXCEL_MAX_FILE_SIZE)
                 .conditional(
                         HdfsFileSourceOptions.FILE_FORMAT_TYPE,
                         FileFormat.MARKDOWN,
                         HdfsFileSourceOptions.MARKDOWN_RAG_METADATA_ENABLED)
+                .conditional(
+                        HdfsFileSourceOptions.FILE_FORMAT_TYPE,
+                        FileFormat.PDF,
+                        HdfsFileSourceOptions.PDF_RAG_METADATA_ENABLED)
                 .optional(
                         HdfsFileSourceOptions.DISCOVERY_MODE,
                         HdfsFileSourceOptions.SCAN_INTERVAL,
@@ -124,10 +133,19 @@ public class HdfsFileSourceFactory implements TableSourceFactory {
                         HdfsFileSourceOptions.COMPARE_MODE,
                         HdfsFileSourceOptions.UPDATE_COMPARE_PARALLELISM,
                         HdfsFileSourceOptions.UPDATE_COMPARE_BULK_THRESHOLD)
+                .optional(
+                        HdfsFileSourceOptions.POST_SYNC_ACTION,
+                        HdfsFileSourceOptions.BACKUP_PATH,
+                        HdfsFileSourceOptions.RETENTION_MAX_AGE,
+                        HdfsFileSourceOptions.RETENTION_CHECK_INTERVAL)
                 .conditional(
                         HdfsFileSourceOptions.SYNC_MODE,
                         FileSyncMode.UPDATE,
                         HdfsFileSourceOptions.TARGET_PATH)
+                .conditional(
+                        HdfsFileSourceOptions.POST_SYNC_ACTION,
+                        FilePostSyncAction.BACKUP,
+                        HdfsFileSourceOptions.BACKUP_PATH)
                 .optional(HdfsFileSourceOptions.HDFS_SITE_PATH)
                 .optional(HdfsFileSourceOptions.KERBEROS_PRINCIPAL)
                 .optional(HdfsFileSourceOptions.KERBEROS_KEYTAB_PATH)
