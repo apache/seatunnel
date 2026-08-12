@@ -76,6 +76,7 @@ import org.apache.seatunnel.engine.server.master.JobMaster;
 import org.apache.seatunnel.engine.server.master.cleanup.JobCleanupRecord;
 import org.apache.seatunnel.engine.server.master.cleanup.PipelineCleanupRecord;
 import org.apache.seatunnel.engine.server.metrics.JobMetricsUtil;
+import org.apache.seatunnel.engine.server.metrics.PeriodicJobMetricsLogger;
 import org.apache.seatunnel.engine.server.resourcemanager.NoEnoughResourceException;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
@@ -211,6 +212,13 @@ public class CoordinatorService {
 
     private final ScheduledExecutorService pipelineCleanupScheduler;
 
+    /**
+     * Periodically logs the {@link org.apache.seatunnel.api.common.metrics.JobMetrics} of every
+     * running job to {@code seatunnel-metrics.log}. {@code null} when the engine config disables
+     * periodic metrics logging (i.e. {@code print-job-metrics-info-interval <= 0}).
+     */
+    private ScheduledExecutorService metricsLoggingScheduler;
+
     private final EngineConfig engineConfig;
 
     private ConnectorPackageService connectorPackageService;
@@ -260,6 +268,7 @@ public class CoordinatorService {
                 PIPELINE_CLEANUP_INTERVAL_SECONDS,
                 PIPELINE_CLEANUP_INTERVAL_SECONDS,
                 TimeUnit.SECONDS);
+        startPeriodicJobMetricsLogger();
         scheduleStrategy = engineConfig.getScheduleStrategy();
         isWaitStrategy = scheduleStrategy.equals(ScheduleStrategy.WAIT);
     }
@@ -275,6 +284,70 @@ public class CoordinatorService {
                         .setNameFormat("seatunnel-coordinator-service-%d")
                         .build(),
                 new ThreadPoolStatus.RejectionCountingHandler());
+    }
+
+    /**
+     * Starts the single-thread scheduler that periodically writes the {@link
+     * org.apache.seatunnel.api.common.metrics.JobMetrics} of every running job to the engine
+     * metrics log. Driven by {@code print-job-metrics-info-interval} in {@link EngineConfig}; a
+     * non-positive interval disables the feature entirely (no scheduler is created).
+     *
+     * <p>Failures in any single cycle are logged and swallowed so the next cycle still fires.
+     */
+    private void startPeriodicJobMetricsLogger() {
+        int intervalSeconds = engineConfig.getPrintJobMetricsInfoInterval();
+        if (intervalSeconds <= 0) {
+            logger.info(
+                    "Periodic job metrics logging is disabled (print-job-metrics-info-interval="
+                            + intervalSeconds
+                            + ")");
+            return;
+        }
+        metricsLoggingScheduler =
+                Executors.newSingleThreadScheduledExecutor(
+                        new ThreadFactoryBuilder()
+                                .setNameFormat("seatunnel-job-metrics-logger-%d")
+                                .setDaemon(true)
+                                .build());
+        metricsLoggingScheduler.scheduleAtFixedRate(
+                this::logAllRunningJobMetrics, intervalSeconds, intervalSeconds, TimeUnit.SECONDS);
+        logger.info(
+                "Started periodic job metrics logger with interval "
+                        + intervalSeconds
+                        + " seconds");
+    }
+
+    /**
+     * Periodically dumps the {@link org.apache.seatunnel.api.common.metrics.JobMetrics} of every
+     * running job to {@link PeriodicJobMetricsLogger}. Best-effort: a failure fetching one job's
+     * metrics does not prevent the others from being logged.
+     *
+     * <p>Schedule: see {@link #startPeriodicJobMetricsLogger()}.
+     */
+    private void logAllRunningJobMetrics() {
+        if (!isActive) {
+            return;
+        }
+        Set<Long> runningJobIds = runningJobMasterMap.keySet();
+        if (runningJobIds.isEmpty()) {
+            return;
+        }
+        // Use a generous timeout but never block the scheduler forever; failures are logged
+        // per-job.
+        long timeoutMs = TimeUnit.SECONDS.toMillis(engineConfig.getPrintJobMetricsInfoInterval());
+        Map<Long, JobMetrics> jobMetricsMap;
+        try {
+            jobMetricsMap = getRunningJobMetrics(runningJobIds, timeoutMs);
+        } catch (Throwable t) {
+            logger.warning(
+                    "Failed to collect metrics for periodic logging: "
+                            + ExceptionUtils.getMessage(t));
+            return;
+        }
+        for (Long jobId : runningJobIds) {
+            JobMetrics jobMetrics = jobMetricsMap.get(jobId);
+            PeriodicJobMetricsLogger.logJobMetrics(jobId, jobMetrics);
+        }
     }
 
     /**
@@ -1964,9 +2037,13 @@ public class CoordinatorService {
         if (pipelineCleanupScheduler != null) {
             pipelineCleanupScheduler.shutdown();
         }
+        if (metricsLoggingScheduler != null) {
+            metricsLoggingScheduler.shutdownNow();
+        }
         clearCoordinatorService();
         awaitSchedulerTermination("master active listener", masterActiveListener);
         awaitSchedulerTermination("pipeline cleanup scheduler", pipelineCleanupScheduler);
+        awaitSchedulerTermination("job metrics logging scheduler", metricsLoggingScheduler);
     }
 
     /** return true if this node is a master node and the coordinator service init finished. */
