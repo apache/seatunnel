@@ -204,6 +204,8 @@ schema {
 | csv_use_header_line        | boolean | 否    | false              | 是否使用标题行来解析文件，仅在file_format为`csv`且文件包含符合RFC 4180的标题行时使用                                                                                               |
 | schema                     | config  | 否    | -                  | 上游数据的schema。                                                                                                                                         |
 | sheet_name                 | string  | 否    | -                  | 读取工作簿的工作表，仅在file_format为excel时使用。                                                                                                                    |
+| excel_engine               | string  | 否    | POI                | 仅在 `file_format` 为 excel 时使用。支持的引擎包括 `POI` 和 `EasyExcel`。                                                                                                                                                                 |
+| poi_excel_max_file_size    | long    | 否    | 52428800           | 仅在 `file_format` 为 excel 且 `excel_engine` 为 POI 时使用。POI 引擎允许读取的最大 Excel 文件大小（默认 50 MB）。                                                                                                                                                                 |
 | xml_row_tag                | string  | 否    | -                  | 指定XML文件中数据行的标签名称，仅在file_format为xml时使用。                                                                                                               |
 | xml_use_attr_format        | boolean | 否    | -                  | 指定是否使用标签属性格式处理数据，仅在file_format为xml时使用。                                                                                                               |
 | compress_codec             | string  | 否    | none               | 文件使用的压缩编解码器。                                                                                                                                         |
@@ -266,12 +268,14 @@ markdown 解析器提取各种元素，包括标题、段落、列表、代码�
 - `parent_id`：父元素的 ID
 - `child_ids`：子元素 ID 的逗号分隔列表
 
-当 `markdown_rag_metadata_enabled` 设置为 `true` 时，SeaTunnel 会在 `child_ids` 之后追加以下 RAG 元数据字段：
+当 `markdown_rag_metadata_enabled` 或 `pdf_rag_metadata_enabled` 设置为 `true` 时，SeaTunnel 会针对对应文件类型在 `child_ids` 之后追加以下 RAG 元数据字段：
 - `source_uri`：源文件路径或 URI
 - `document_id`：由 `source_uri` 派生的稳定文档标识符
 - `chunk_id`：由文档标识、chunk 顺序和内容哈希派生的稳定 chunk 标识符
 - `chunk_index`：解析后文档中的一基 chunk 顺序
 - `content_hash`：已输出 `text` 值的 SHA-256 哈希
+
+启用该选项并读取有界 Markdown 文件时，source enumerator 会使用相同的 `document_id` 哈希分配整文件 split，使同一文档派生的所有行留在同一个 source 路由 bucket 中。禁用该选项时，默认的轮询 split 分配行为保持不变。
 
 该选项默认值为 `false`，因此只有显式启用后才会改变原始 Markdown schema。
 
@@ -279,6 +283,7 @@ markdown 解析器提取各种元素，包括标题、段落、列表、代码�
 
 如果您将文件类型指定为 `pdf`，SeaTunnel 可以解析 PDF 文件并提取结构化的文档元素。
 PDF 使用与上文相同的文档元素 schema。
+对于 PDF 输入，启用 `pdf_rag_metadata_enabled` 即可追加上文所述的 RAG 元数据字段。
 
 PDF 特有的解析行为如下：
 

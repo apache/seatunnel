@@ -101,6 +101,14 @@ public class EnvCommonOptions {
                             "The minimum pause (in milliseconds) between consecutive checkpoints. "
                                     + "This ensures that checkpoints are not triggered too frequently and provides.");
 
+    public static Option<Boolean> CHECKPOINT_RETAIN_AFTER_JOB_CANCELLED =
+            Options.key("checkpoint.retain-after-job-cancelled")
+                    .booleanType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Whether to retain completed checkpoint data after this job is cancelled. "
+                                    + "If configured, this job-level option overrides the cluster default.");
+
     public static Option<SaveModeExecuteLocation> SAVEMODE_EXECUTE_LOCATION =
             Options.key("savemode.execute.location")
                     .enumType(SaveModeExecuteLocation.class)
