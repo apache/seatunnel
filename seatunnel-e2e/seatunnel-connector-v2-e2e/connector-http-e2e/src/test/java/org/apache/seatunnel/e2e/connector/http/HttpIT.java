@@ -20,7 +20,6 @@ package org.apache.seatunnel.e2e.connector.http;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.DeserializationFeature;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
@@ -150,9 +149,10 @@ public class HttpIT extends TestSuiteBase implements TestResource {
                         .withEnv("MOCKSERVER_LOG_LEVEL", "WARN")
                         .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(IMAGE)))
                         .waitingFor(new HttpWaitStrategy().forPath("/").forStatusCode(404));
-        mockserverContainer.setPortBindings(Lists.newArrayList(String.format("%s:%s", 1080, 1080)));
         Startables.deepStart(Stream.of(mockserverContainer)).join();
-        mockServerClient = new MockServerClient("127.0.0.1", 1080);
+        mockServerClient =
+                new MockServerClient(
+                        mockserverContainer.getHost(), mockserverContainer.getMappedPort(1080));
         fillMockRecords();
 
         postgreSQLContainer =
