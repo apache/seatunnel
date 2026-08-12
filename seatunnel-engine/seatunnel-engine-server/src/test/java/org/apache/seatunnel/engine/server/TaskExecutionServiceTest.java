@@ -36,6 +36,7 @@ import org.apache.seatunnel.engine.server.execution.TaskGroupType;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.execution.TestTask;
 import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
+import org.apache.seatunnel.engine.server.task.operation.ReportMetricsOperation;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -46,6 +47,7 @@ import org.mockito.Mockito;
 import com.hazelcast.flakeidgen.FlakeIdGenerator;
 import com.hazelcast.internal.serialization.Data;
 import com.hazelcast.spi.exception.RetryableHazelcastException;
+import com.hazelcast.spi.impl.operationservice.Operation;
 import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 import lombok.NonNull;
 
@@ -61,6 +63,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static java.util.Collections.emptySet;
@@ -123,6 +126,49 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         taskExecutionService.updateMetricsContextInImap();
 
         Mockito.verify(taskExecutionService, Mockito.times(2)).sendOperationToMaster(Mockito.any());
+    }
+
+    /**
+     * Verifies that cancelled task groups still attempt a final metrics flush without waiting
+     * unboundedly on a slow coordinator invocation.
+     */
+    @Test
+    void testCancelCompletesWhenFinalMetricsFlushTimesOut() throws Exception {
+        TaskExecutionService taskExecutionService = Mockito.spy(server.getTaskExecutionService());
+        InvocationFuture<Object> slowMetricsInvocation = Mockito.mock(InvocationFuture.class);
+        InvocationFuture<Object> successfulInvocation = Mockito.mock(InvocationFuture.class);
+        Mockito.when(slowMetricsInvocation.get(1, TimeUnit.SECONDS))
+                .thenThrow(new TimeoutException("timeout"));
+        Mockito.when(successfulInvocation.get()).thenReturn(null);
+        Mockito.doAnswer(
+                        invocation -> {
+                            Operation operation = invocation.getArgument(0);
+                            if (operation instanceof ReportMetricsOperation) {
+                                return slowMetricsInvocation;
+                            }
+                            return successfulInvocation;
+                        })
+                .when(taskExecutionService)
+                .sendOperationToMaster(Mockito.any());
+
+        long sleepTime = 300;
+        AtomicBoolean stop = new AtomicBoolean(false);
+        TestTask testTask1 = new TestTask(stop, sleepTime, true);
+        TestTask testTask2 = new TestTask(stop, sleepTime, false);
+        TaskGroupDefaultImpl taskGroup =
+                new TaskGroupDefaultImpl(
+                        new TaskGroupLocation(jobId, pipeLineId, FLAKE_ID_GENERATOR.newId()),
+                        "cancel-metrics-flush",
+                        Lists.newArrayList(testTask1, testTask2));
+        CompletableFuture<TaskExecutionState> completableFuture =
+                deployLocalTask(taskExecutionService, taskGroup);
+
+        taskExecutionService.cancelTaskGroup(taskGroup.getTaskGroupLocation());
+
+        await().atMost(sleepTime + 10000, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> assertEquals(CANCELED, completableFuture.get().getExecutionState()));
+        Mockito.verify(slowMetricsInvocation).get(1, TimeUnit.SECONDS);
     }
 
     private PassiveCompletableFuture<TaskExecutionState> deployLocalTask(

@@ -149,6 +149,9 @@ import static org.apache.seatunnel.api.common.metrics.MetricTags.TASK_ID;
  */
 public class TaskExecutionService implements DynamicMetricsProvider {
 
+    /** Maximum time a cancelled task group waits for the final metrics flush. */
+    private static final long CANCEL_METRICS_FLUSH_TIMEOUT_SECONDS = 1L;
+
     /** The name of the Hazelcast instance this service runs on. */
     private final String hzInstanceName;
 
@@ -816,6 +819,17 @@ public class TaskExecutionService implements DynamicMetricsProvider {
      * not suppressed during coordinator election.
      */
     void updateMetricsContextInImap() {
+        updateMetricsContextInImap(0, null);
+    }
+
+    /**
+     * Publishes the current worker metrics snapshot to the active coordinator with an optional wait
+     * timeout.
+     *
+     * @param timeout maximum time to wait for the metrics report when positive
+     * @param timeoutUnit timeout unit, or {@code null} to wait without a timeout
+     */
+    void updateMetricsContextInImap(long timeout, TimeUnit timeoutUnit) {
         if (!nodeEngine.getNode().getState().equals(NodeState.ACTIVE)) {
             logger.warning(
                     String.format(
@@ -832,7 +846,11 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         try {
             InvocationFuture<Object> invoke =
                     sendOperationToMaster(new ReportMetricsOperation(localMetricsMap));
-            invoke.get();
+            if (timeoutUnit == null) {
+                invoke.get();
+            } else {
+                invoke.get(timeout, timeoutUnit);
+            }
             recordReportMetricsOperationSuccess(
                     payloadTaskCount, elapsedMillisSince(invocationStartNanos));
         } catch (InterruptedException e) {
@@ -1437,15 +1455,17 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 } catch (Throwable t) {
                     logger.severe("cancel timer-flush tasks failed", t);
                 }
-                if (!isCancel.get()) {
-                    try {
-                        // Cancellation completion must not wait on a best-effort metrics RPC.
-                        // The periodic metrics backup already covers steady-state reporting, and a
-                        // failover window can otherwise keep the task group stuck in CANCELING.
+                try {
+                    if (isCancel.get()) {
+                        // Keep cancellation completion bounded while still giving the final local
+                        // metrics snapshot a chance to reach the active coordinator.
+                        updateMetricsContextInImap(
+                                CANCEL_METRICS_FLUSH_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+                    } else {
                         updateMetricsContextInImap();
-                    } catch (Throwable t) {
-                        logger.severe("update metrics context in imap failed", t);
                     }
+                } catch (Throwable t) {
+                    logger.severe("update metrics context in imap failed", t);
                 }
                 if (ex == null) {
                     logger.info(
