@@ -62,7 +62,7 @@ seatunnel:
         plugin-config:
           namespace: # 检查点存储父路径，默认值为/seatunnel/checkpoint/
           storage.type: oss
-          oss.bucket: your-bucket
+          oss.bucket: oss://your-bucket
           fs.oss.accessKeyId: your-access-key
           fs.oss.accessKeySecret: your-secret-key
           fs.oss.endpoint: endpoint address

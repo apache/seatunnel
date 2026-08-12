@@ -14,6 +14,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Description
 
@@ -74,7 +75,14 @@ Write data through jdbc. Support Batch mode and Streaming mode, support concurre
 
 > If partition_column is not set, it will run in single concurrency, and if partition_column is set, it will be executed  in parallel according to the concurrency of tasks.
 >
-  ## Task Example
+## Notes
+
+- Use `query` when you want to fully control the INSERT statement and parameter order.
+- Use `database`, `table`, and `primary_keys` when SeaTunnel should generate sink SQL for insert, update, and delete events.
+- Snowflake sink uses normal JDBC batch writes. The connector does not provide exactly-once guarantees for Snowflake.
+- Keep Snowflake credentials out of shared examples, logs, and screenshots.
+
+## Task Example
 
 ### simple
 
@@ -100,11 +108,11 @@ source {
         }
     }
     # If you would like to get more information about how to configure seatunnel and see full list of source plugins,
-    # please go to https://seatunnel.apache.org/docs/connector-v2/source
+    # please go to https://seatunnel.apache.org/docs/connectors/source
 }
 transform {
     # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
-    # please go to https://seatunnel.apache.org/docs/transform-v2
+    # please go to https://seatunnel.apache.org/docs/transforms
 }
 sink {
     jdbc {
@@ -115,7 +123,7 @@ sink {
         query = "insert into test_table(name,age) values(?,?)"
     }
     # If you would like to get more information about how to configure seatunnel and see full list of sink plugins,
-    # please go to https://seatunnel.apache.org/docs/connector-v2/sink
+    # please go to https://seatunnel.apache.org/docs/connectors/sink
 }
 ```
 

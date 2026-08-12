@@ -27,8 +27,13 @@ import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.ImmutablePair;
 
 import org.apache.seatunnel.api.common.PluginIdentifier;
+import org.apache.seatunnel.api.common.multitable.MultiTableFailedTable;
+import org.apache.seatunnel.api.common.multitable.MultiTableFailureHelper;
+import org.apache.seatunnel.api.common.multitable.MultiTableFailurePhase;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
+import org.apache.seatunnel.api.metadata.MetadataConfig;
+import org.apache.seatunnel.api.metadata.MetadataProviderManager;
 import org.apache.seatunnel.api.metalake.MetalakeConfigUtils;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.options.EnvCommonOptions;
@@ -48,7 +53,6 @@ import org.apache.seatunnel.api.table.factory.FactoryUtil;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.transform.SeaTunnelTransform;
 import org.apache.seatunnel.common.Constants;
-import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.TypesafeConfigUtils;
 import org.apache.seatunnel.common.constants.CollectionConstants;
 import org.apache.seatunnel.common.constants.JobMode;
@@ -56,11 +60,8 @@ import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.core.starter.utils.ConfigBuilder;
 import org.apache.seatunnel.engine.common.config.JobConfig;
-import org.apache.seatunnel.engine.common.config.server.DataSourceConfig;
 import org.apache.seatunnel.engine.common.exception.JobDefineCheckException;
-import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.common.loader.SeaTunnelChildFirstClassLoader;
-import org.apache.seatunnel.engine.common.utils.DataSourceConfigResolver;
 import org.apache.seatunnel.engine.common.utils.IdGenerator;
 import org.apache.seatunnel.engine.core.classloader.ClassLoaderService;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
@@ -80,9 +81,7 @@ import lombok.extern.slf4j.Slf4j;
 import scala.Tuple2;
 
 import java.io.Serializable;
-import java.net.MalformedURLException;
 import java.net.URL;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.sql.DriverManager;
 import java.util.ArrayList;
@@ -133,8 +132,10 @@ public class MultipleTableJobConfigParser {
 
     private final boolean isStartWithSavePoint;
     private final List<JobPipelineCheckpointData> pipelineCheckpoints;
+    private final List<MultiTableFailedTable> failedTables = new ArrayList<>();
+    private final List<MultiTableFailedTable> sourceFailedTables = new ArrayList<>();
 
-    private final DataSourceConfig dataSourceConfig;
+    private final MetadataConfig metaDataConfig;
 
     @VisibleForTesting
     public MultipleTableJobConfigParser(
@@ -152,7 +153,7 @@ public class MultipleTableJobConfigParser {
                 Collections.emptyList(),
                 false,
                 Collections.emptyList(),
-                new DataSourceConfig());
+                new MetadataConfig());
     }
 
     @VisibleForTesting
@@ -170,7 +171,7 @@ public class MultipleTableJobConfigParser {
                 commonPluginJars,
                 isStartWithSavePoint,
                 Collections.emptyList(),
-                new DataSourceConfig());
+                new MetadataConfig());
     }
 
     public MultipleTableJobConfigParser(
@@ -181,7 +182,7 @@ public class MultipleTableJobConfigParser {
             List<URL> commonPluginJars,
             boolean isStartWithSavePoint,
             List<JobPipelineCheckpointData> pipelineCheckpoints,
-            DataSourceConfig dataSourceConfig) {
+            MetadataConfig metaDataConfig) {
         this(
                 ConfigBuilder.of(Paths.get(jobDefineFilePath), variables),
                 idGenerator,
@@ -189,7 +190,7 @@ public class MultipleTableJobConfigParser {
                 commonPluginJars,
                 isStartWithSavePoint,
                 pipelineCheckpoints,
-                dataSourceConfig);
+                metaDataConfig);
     }
 
     public MultipleTableJobConfigParser(
@@ -199,19 +200,21 @@ public class MultipleTableJobConfigParser {
             List<URL> commonPluginJars,
             boolean isStartWithSavePoint,
             List<JobPipelineCheckpointData> pipelineCheckpoints,
-            DataSourceConfig dataSourceConfig) {
+            MetadataConfig metaDataConfig) {
         this.idGenerator = idGenerator;
         this.jobConfig = jobConfig;
         this.commonPluginJars = commonPluginJars;
         this.isStartWithSavePoint = isStartWithSavePoint;
-        this.seaTunnelJobConfig = handleDataSource(seaTunnelJobConfig, dataSourceConfig);
+        this.seaTunnelJobConfig = handleDataSource(seaTunnelJobConfig, metaDataConfig);
         this.envOptions = ReadonlyConfig.fromConfig(seaTunnelJobConfig.getConfig("env"));
         this.pipelineCheckpoints = pipelineCheckpoints;
-        this.dataSourceConfig = dataSourceConfig;
+        this.metaDataConfig = metaDataConfig;
         ConfigValidator.of(this.envOptions).validate(new EnvOptionRule().optionRule());
     }
 
     public ImmutablePair<List<Action>, Set<URL>> parse(ClassLoaderService classLoaderService) {
+        failedTables.clear();
+        sourceFailedTables.clear();
         this.fillJobConfigAndCommonJars();
         List<? extends Config> sourceConfigs =
                 TypesafeConfigUtils.getConfigList(
@@ -260,6 +263,15 @@ public class MultipleTableJobConfigParser {
                         parseSource(configIndex, sourceConfig, sourceAndTransformClassLoader);
                 tableWithActionMap.put(tuple2._1(), tuple2._2());
             }
+            boolean hasSourceTables =
+                    tableWithActionMap.values().stream().anyMatch(actions -> !actions.isEmpty());
+            if (!sourceConfigs.isEmpty()
+                    && !hasSourceTables
+                    && MultiTableFailureHelper.shouldContinueOtherTables(envOptions)) {
+                throw new JobDefineCheckException(
+                        "No source tables were available after discovery. "
+                                + "Check source-side failed-table warnings for details.");
+            }
 
             log.info("start generating all transforms.");
             parseTransforms(transformConfigs, sourceAndTransformClassLoader, tableWithActionMap);
@@ -271,6 +283,16 @@ public class MultipleTableJobConfigParser {
                 Config sinkConfig = sinkConfigs.get(configIndex);
                 sinkActions.addAll(
                         parseSink(configIndex, sinkConfig, sinkClassLoader, tableWithActionMap));
+            }
+            if (sinkActions.isEmpty() && !failedTables.isEmpty()) {
+                throw new JobDefineCheckException(
+                        buildFailureSummary(
+                                "All candidate sink tables were skipped during job parsing."));
+            }
+            if (!failedTables.isEmpty()) {
+                log.warn(
+                        buildFailureSummary(
+                                "Some tables were skipped during multi-table job parsing."));
             }
             Set<URL> factoryUrls = getUsedFactoryUrls(sinkActions);
             return new ImmutablePair<>(sinkActions, factoryUrls);
@@ -306,22 +328,15 @@ public class MultipleTableJobConfigParser {
         return urls;
     }
 
+    /**
+     * Resolves connector JAR paths for the given plugin configs and type.
+     *
+     * <p>Delegates to {@link JobPluginClasspathHelper#connectorJarList} so that dry-run validation
+     * ({@link org.apache.seatunnel.core.starter.seatunnel.command.SeaTunnelConfValidateCommand})
+     * and the normal runtime parse path use the same discovery contract.
+     */
     private List<URL> getConnectorJarList(List<? extends Config> configs, PluginType type) {
-        List<PluginIdentifier> factoryIds =
-                configs.stream()
-                        .map(ConfigParserUtil::getFactoryId)
-                        .map(
-                                factory ->
-                                        PluginIdentifier.of(
-                                                CollectionConstants.SEATUNNEL_PLUGIN,
-                                                type.getType(),
-                                                factory))
-                        .collect(Collectors.toList());
-        List<URL> jarPaths = new ArrayList<>();
-        jarPaths.addAll(
-                new SeaTunnelSinkPluginDiscovery().getPluginJarAndDependencyPaths(factoryIds));
-        jarPaths.addAll(commonPluginJars);
-        return jarPaths;
+        return JobPluginClasspathHelper.connectorJarList(configs, type, commonPluginJars);
     }
 
     private void fillUsedFactoryUrls(List<Action> actions, Set<URL> result) {
@@ -348,25 +363,7 @@ public class MultipleTableJobConfigParser {
             jobConfig.setName(envOptions.get(EnvCommonOptions.JOB_NAME));
         }
         jobConfig.getEnvOptions().putAll(envOptions.getSourceMap());
-        this.commonPluginJars.addAll(
-                new ArrayList<>(
-                        Common.getThirdPartyJars(
-                                        jobConfig
-                                                .getEnvOptions()
-                                                .getOrDefault(EnvCommonOptions.JARS.key(), "")
-                                                .toString())
-                                .stream()
-                                .map(Path::toUri)
-                                .map(
-                                        uri -> {
-                                            try {
-                                                return uri.toURL();
-                                            } catch (MalformedURLException e) {
-                                                throw new SeaTunnelEngineException(
-                                                        "the uri of jar illegal:" + uri, e);
-                                            }
-                                        })
-                                .collect(Collectors.toList())));
+        this.commonPluginJars.addAll(JobPluginClasspathHelper.thirdPartyJarsFromEnv(envOptions));
         log.info("add common jar in plugins :{}", commonPluginJars);
     }
 
@@ -379,7 +376,9 @@ public class MultipleTableJobConfigParser {
 
     public Tuple2<String, List<Tuple2<CatalogTable, Action>>> parseSource(
             int configIndex, Config sourceConfig, ClassLoader classLoader) {
-        final ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(sourceConfig);
+        final ReadonlyConfig readonlyConfig =
+                MultiTableFailureHelper.withMultiTableFailurePolicy(
+                        ReadonlyConfig.fromConfig(sourceConfig), envOptions);
         final String factoryId = getFactoryId(readonlyConfig);
         final String tableId =
                 readonlyConfig.getOptional(ConnectorCommonOptions.PLUGIN_OUTPUT).orElse(DEFAULT_ID);
@@ -393,29 +392,19 @@ public class MultipleTableJobConfigParser {
                     return sourcePluginDiscovery.createPluginInstance(pluginIdentifier);
                 };
 
-        Tuple2<SeaTunnelSource<Object, SourceSplit, Serializable>, List<CatalogTable>> tuple2;
-        if (isStartWithSavePoint && pipelineCheckpoints != null && !pipelineCheckpoints.isEmpty()) {
-            ChangeStreamTableSourceCheckpoint checkpoint =
-                    getSourceCheckpoint(configIndex, factoryId);
-            tuple2 =
-                    FactoryUtil.restoreAndPrepareSource(
-                            readonlyConfig,
-                            classLoader,
-                            factoryId,
-                            checkpoint,
-                            fallbackCreateSource,
-                            null,
-                            envOptions);
-        } else {
-            tuple2 =
-                    FactoryUtil.createAndPrepareSource(
-                            readonlyConfig,
-                            classLoader,
-                            factoryId,
-                            fallbackCreateSource,
-                            null,
-                            envOptions);
-        }
+        List<MultiTableFailedTable> discoveryFailedTables = new ArrayList<>();
+        Tuple2<SeaTunnelSource<Object, SourceSplit, Serializable>, List<CatalogTable>> tuple2 =
+                MultiTableFailureHelper.collectFailedTables(
+                        discoveryFailedTables,
+                        () ->
+                                createAndPrepareSource(
+                                        configIndex,
+                                        readonlyConfig,
+                                        classLoader,
+                                        factoryId,
+                                        fallbackCreateSource));
+        failedTables.addAll(discoveryFailedTables);
+        sourceFailedTables.addAll(discoveryFailedTables);
 
         Set<URL> factoryUrls = new HashSet<>();
         factoryUrls.addAll(getSourcePluginJarPaths(sourceConfig));
@@ -435,6 +424,29 @@ public class MultipleTableJobConfigParser {
         return new Tuple2<>(tableId, actions);
     }
 
+    protected Tuple2<SeaTunnelSource<Object, SourceSplit, Serializable>, List<CatalogTable>>
+            createAndPrepareSource(
+                    int configIndex,
+                    ReadonlyConfig readonlyConfig,
+                    ClassLoader classLoader,
+                    String factoryId,
+                    Function<PluginIdentifier, SeaTunnelSource> fallbackCreateSource) {
+        if (isStartWithSavePoint && pipelineCheckpoints != null && !pipelineCheckpoints.isEmpty()) {
+            ChangeStreamTableSourceCheckpoint checkpoint =
+                    getSourceCheckpoint(configIndex, factoryId);
+            return FactoryUtil.restoreAndPrepareSource(
+                    readonlyConfig,
+                    classLoader,
+                    factoryId,
+                    checkpoint,
+                    fallbackCreateSource,
+                    null,
+                    metaDataConfig);
+        }
+        return FactoryUtil.createAndPrepareSource(
+                readonlyConfig, classLoader, factoryId, fallbackCreateSource, null, metaDataConfig);
+    }
+
     public void parseTransforms(
             List<? extends Config> transformConfigs,
             ClassLoader classLoader,
@@ -442,10 +454,12 @@ public class MultipleTableJobConfigParser {
         if (CollectionUtils.isEmpty(transformConfigs) || transformConfigs.isEmpty()) {
             return;
         }
+        Set<String> usedTransformNames = new HashSet<>();
         Queue<Config> configList = new LinkedList<>(transformConfigs);
         int index = 0;
         while (!configList.isEmpty()) {
-            parseTransform(index++, configList, classLoader, tableWithActionMap);
+            parseTransform(
+                    index++, configList, classLoader, tableWithActionMap, usedTransformNames);
         }
     }
 
@@ -453,7 +467,8 @@ public class MultipleTableJobConfigParser {
             int index,
             Queue<Config> transforms,
             ClassLoader classLoader,
-            LinkedHashMap<String, List<Tuple2<CatalogTable, Action>>> tableWithActionMap) {
+            LinkedHashMap<String, List<Tuple2<CatalogTable, Action>>> tableWithActionMap,
+            Set<String> usedTransformNames) {
         Config config = transforms.poll();
         final ReadonlyConfig readonlyConfig = ReadonlyConfig.fromConfig(config);
         final String factoryId = getFactoryId(readonlyConfig);
@@ -501,7 +516,18 @@ public class MultipleTableJobConfigParser {
 
         transform.setJobContext(jobConfig.getJobContext());
         long id = idGenerator.getNextId();
-        String actionName = JobConfigParser.createTransformActionName(index, factoryId);
+        String legacyActionName = JobConfigParser.createTransformActionName(index, factoryId);
+        String actionName = legacyActionName;
+        String configuredName = getOptionalName(config);
+        if (StringUtils.isNotBlank(configuredName)) {
+            if (!usedTransformNames.add(configuredName)) {
+                throw new JobDefineCheckException(
+                        String.format(
+                                "Duplicated transform name '%s'. Transform names must be unique within a job.",
+                                configuredName));
+            }
+            actionName = configuredName;
+        }
 
         TransformAction transformAction =
                 new TransformAction(
@@ -521,6 +547,17 @@ public class MultipleTableJobConfigParser {
         }
 
         tableWithActionMap.put(tableId, actions);
+    }
+
+    private static String getOptionalName(Config config) {
+        if (config == null || !config.hasPath("name")) {
+            return null;
+        }
+        String name = config.getString("name");
+        if (name == null) {
+            return null;
+        }
+        return name.trim();
     }
 
     public static SeaTunnelDataType<?> getProducedType(Action action) {
@@ -600,6 +637,7 @@ public class MultipleTableJobConfigParser {
         Set<URL> jarUrls = new HashSet<>();
         jarUrls.addAll(getSinkPluginJarPaths(sinkConfig));
         List<SinkAction<?, ?, ?, ?>> sinkActions = new ArrayList<>();
+        int failedTableStartIndex = failedTables.size();
 
         // union
         if (inputVertices.size() > 1) {
@@ -610,7 +648,7 @@ public class MultipleTableJobConfigParser {
                             .collect(Collectors.toCollection(LinkedHashSet::new));
             checkProducedTypeEquals(inputActions);
             Tuple2<CatalogTable, Action> inputActionSample = inputVertices.get(0).get(0);
-            SinkAction<?, ?, ?, ?> sinkAction =
+            Optional<SinkAction<?, ?, ?, ?>> sinkAction =
                     createSinkAction(
                             inputActionSample._1(),
                             inputActions,
@@ -621,14 +659,14 @@ public class MultipleTableJobConfigParser {
                             factoryId,
                             inputActionSample._2().getParallelism(),
                             configIndex);
-            sinkActions.add(sinkAction);
+            sinkAction.ifPresent(sinkActions::add);
             return sinkActions;
         }
 
         // TODO move it into tryGenerateMultiTableSink when we don't support sink template
         // sink template
         for (Tuple2<CatalogTable, Action> tuple : inputVertices.get(0)) {
-            SinkAction<?, ?, ?, ?> sinkAction =
+            Optional<SinkAction<?, ?, ?, ?>> sinkAction =
                     createSinkAction(
                             tuple._1(),
                             Collections.singleton(tuple._2()),
@@ -639,11 +677,16 @@ public class MultipleTableJobConfigParser {
                             factoryId,
                             tuple._2().getParallelism(),
                             configIndex);
-            sinkActions.add(sinkAction);
+            sinkAction.ifPresent(sinkActions::add);
         }
         Optional<SinkAction<?, ?, ?, ?>> multiTableSink =
                 tryGenerateMultiTableSink(
-                        sinkActions, readonlyConfig, classLoader, factoryId, configIndex);
+                        sinkActions,
+                        readonlyConfig,
+                        classLoader,
+                        factoryId,
+                        configIndex,
+                        getInitialFailedTablesForSink(failedTableStartIndex));
         return multiTableSink
                 .<List<SinkAction<?, ?, ?, ?>>>map(Collections::singletonList)
                 .orElse(sinkActions);
@@ -654,7 +697,11 @@ public class MultipleTableJobConfigParser {
             ReadonlyConfig options,
             ClassLoader classLoader,
             String factoryId,
-            int configIndex) {
+            int configIndex,
+            List<MultiTableFailedTable> skippedTables) {
+        if (sinkActions.isEmpty()) {
+            return Optional.empty();
+        }
         if (sinkActions.stream()
                 .anyMatch(action -> !(action.getSink() instanceof SupportMultiTableSink))) {
             log.info("Unsupported multi table sink api, rollback to sink template");
@@ -672,7 +719,12 @@ public class MultipleTableJobConfigParser {
                     sinks.put(tablePath, sink);
                 });
         SeaTunnelSink<?, ?, ?, ?> sink =
-                FactoryUtil.createMultiTableSink(sinks, options, classLoader);
+                FactoryUtil.createMultiTableSink(
+                        sinks,
+                        MultiTableFailureHelper.withFailedTables(
+                                MultiTableFailureHelper.mergeOptions(options, envOptions),
+                                skippedTables),
+                        classLoader);
         String actionName =
                 JobConfigParser.createSinkActionName(configIndex, factoryId, "MultiTableSink");
         SinkAction<?, ?, ?, ?> multiTableAction =
@@ -687,7 +739,19 @@ public class MultipleTableJobConfigParser {
         return Optional.of(multiTableAction);
     }
 
-    private SinkAction<?, ?, ?, ?> createSinkAction(
+    private List<MultiTableFailedTable> getInitialFailedTablesForSink(int failedTableStartIndex) {
+        Map<String, MultiTableFailedTable> initialFailedTables = new LinkedHashMap<>();
+        sourceFailedTables.forEach(
+                failedTable -> initialFailedTables.put(failedTable.getTablePath(), failedTable));
+        failedTables
+                .subList(failedTableStartIndex, failedTables.size())
+                .forEach(
+                        failedTable ->
+                                initialFailedTables.put(failedTable.getTablePath(), failedTable));
+        return new ArrayList<>(initialFailedTables.values());
+    }
+
+    protected Optional<SinkAction<?, ?, ?, ?>> createSinkAction(
             CatalogTable catalogTable,
             Set<Action> inputActions,
             ReadonlyConfig readonlyConfig,
@@ -705,14 +769,20 @@ public class MultipleTableJobConfigParser {
                     return sinkPluginDiscovery.createPluginInstance(pluginIdentifier);
                 };
 
-        SeaTunnelSink<?, ?, ?, ?> sink =
-                FactoryUtil.createAndPrepareSink(
-                        catalogTable,
-                        readonlyConfig,
-                        classLoader,
-                        factoryId,
-                        fallbackCreateSink,
-                        null);
+        SeaTunnelSink<?, ?, ?, ?> sink;
+        try {
+            sink =
+                    FactoryUtil.createAndPrepareSink(
+                            catalogTable,
+                            readonlyConfig,
+                            classLoader,
+                            factoryId,
+                            fallbackCreateSink,
+                            null);
+        } catch (Exception error) {
+            return handleCreateSinkFailure(
+                    catalogTable, factoryId, MultiTableFailurePhase.SINK_INIT, error);
+        }
         sink.setJobContext(jobConfig.getJobContext());
         SinkConfig actionConfig = new SinkConfig(catalogTable.getTableId().toTablePath());
         long id = idGenerator.getNextId();
@@ -728,13 +798,18 @@ public class MultipleTableJobConfigParser {
                         factoryUrls,
                         connectorJarIdentifiers,
                         actionConfig);
-        if (!isStartWithSavePoint) {
-            handleSaveMode(sink);
-        } else {
-            handleSchemaSaveModeWithRestore(sink);
+        try {
+            if (!isStartWithSavePoint) {
+                handleSaveMode(sink);
+            } else {
+                handleSchemaSaveModeWithRestore(sink);
+            }
+        } catch (Exception error) {
+            return handleCreateSinkFailure(
+                    catalogTable, factoryId, MultiTableFailurePhase.SAVE_MODE, error);
         }
         sinkAction.setParallelism(parallelism);
-        return sinkAction;
+        return Optional.of(sinkAction);
     }
 
     public void handleSaveMode(SeaTunnelSink<?, ?, ?, ?> sink) {
@@ -775,6 +850,36 @@ public class MultipleTableJobConfigParser {
                 }
             }
         }
+    }
+
+    private Optional<SinkAction<?, ?, ?, ?>> handleCreateSinkFailure(
+            CatalogTable catalogTable,
+            String factoryId,
+            MultiTableFailurePhase phase,
+            Throwable error) {
+        if (!MultiTableFailureHelper.shouldContinueOtherTables(envOptions)) {
+            throw wrapThrowable(error);
+        }
+        MultiTableFailedTable failedTable =
+                MultiTableFailureHelper.buildFailedTable(
+                        catalogTable.getTablePath().getFullName(), phase, factoryId, error);
+        failedTables.add(failedTable);
+        log.warn(
+                "Skip failed sink table during parsing: {}",
+                MultiTableFailureHelper.formatFailedTableLine(failedTable),
+                error);
+        return Optional.empty();
+    }
+
+    private String buildFailureSummary(String title) {
+        return MultiTableFailureHelper.formatFailedTableSummary(title, failedTables);
+    }
+
+    private RuntimeException wrapThrowable(Throwable error) {
+        if (error instanceof RuntimeException) {
+            return (RuntimeException) error;
+        }
+        return new RuntimeException(error);
     }
 
     private List<URL> getSourcePluginJarPaths(Config sourceConfig) {
@@ -854,17 +959,17 @@ public class MultipleTableJobConfigParser {
         return new ChangeStreamTableSourceCheckpoint(coordinatorState, subtaskState);
     }
 
-    private Config handleDataSource(Config seaTunnelJobConfig, DataSourceConfig dataSourceConfig) {
+    private Config handleDataSource(Config seaTunnelJobConfig, MetadataConfig metaDataConfig) {
         Config tempconfig = seaTunnelJobConfig;
-        // Only resolve datasource configs when:
-        // 1. DataSource is enabled
-        // 2. The job config contains datasource_id in any connector
-        if (dataSourceConfig != null
-                && dataSourceConfig.isEnabled()
+        // Only resolve MetaData configs when:
+        // 1. MetaData is enabled
+        // 2. The job config contains metadata_datasource_id in any connector
+        if (metaDataConfig != null
+                && metaDataConfig.isEnabled()
                 && hasDatasourceId(seaTunnelJobConfig)) {
             tempconfig =
-                    DataSourceConfigResolver.resolveDataSourceConfigs(
-                            seaTunnelJobConfig, dataSourceConfig);
+                    MetadataProviderManager.resolveDataSourceConfigs(
+                            seaTunnelJobConfig, metaDataConfig);
         }
         // Compatible with old code
         tempconfig = MetalakeConfigUtils.getMetalakeConfig(tempconfig);
@@ -872,10 +977,11 @@ public class MultipleTableJobConfigParser {
     }
 
     /**
-     * Checks if the job config contains datasource_id in any connector configuration.
+     * Checks if the job config contains metadata_datasource_id in any connector configuration.
      *
      * @param config the SeaTunnel job configuration
-     * @return true if any connector (source or sink) contains datasource_id, false otherwise
+     * @return true if any connector (source or sink) contains metadata_datasource_id, false
+     *     otherwise
      */
     private boolean hasDatasourceId(Config config) {
         List<? extends Config> sourceConfigs =
@@ -900,15 +1006,15 @@ public class MultipleTableJobConfigParser {
     }
 
     /**
-     * Checks if a single connector config contains datasource_id.
+     * Checks if a single connector config contains metadata_datasource_id.
      *
      * @param connectorConfig the connector configuration
-     * @return true if datasource_id is present, false otherwise
+     * @return true if metadata_datasource_id is present, false otherwise
      */
     private boolean hasDatasourceIdInConnector(Config connectorConfig) {
         try {
             // Check at root level
-            if (connectorConfig.hasPath(ConnectorCommonOptions.DATASOURCE_ID.key())) {
+            if (connectorConfig.hasPath(ConnectorCommonOptions.METADATA_DATASOURCE_ID.key())) {
                 return true;
             }
 
@@ -916,12 +1022,12 @@ public class MultipleTableJobConfigParser {
             String connectorIdentifier = getConnectorIdentifier(connectorConfig);
             if (!"unknown".equals(connectorIdentifier)) {
                 Config nestedConfig = connectorConfig.getConfig(connectorIdentifier);
-                if (nestedConfig.hasPath(ConnectorCommonOptions.DATASOURCE_ID.key())) {
+                if (nestedConfig.hasPath(ConnectorCommonOptions.METADATA_DATASOURCE_ID.key())) {
                     return true;
                 }
             }
         } catch (Exception e) {
-            log.debug("Failed to check datasource_id in connector config", e);
+            log.debug("Failed to check metadata_datasource_id in connector config", e);
         }
         return false;
     }

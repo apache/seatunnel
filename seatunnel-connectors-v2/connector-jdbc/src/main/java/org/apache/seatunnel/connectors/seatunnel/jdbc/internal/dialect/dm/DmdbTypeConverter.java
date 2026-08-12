@@ -311,7 +311,7 @@ public class DmdbTypeConverter implements TypeConverter<BasicTypeDefine> {
                     builder.sourceType(
                             String.format("DATETIME(%s) WITH TIME ZONE", typeDefine.getScale()));
                 }
-                builder.dataType(LocalTimeType.LOCAL_DATE_TIME_TYPE);
+                builder.dataType(LocalTimeType.OFFSET_DATE_TIME_TYPE);
                 builder.scale(typeDefine.getScale());
                 break;
             default:
@@ -489,6 +489,28 @@ public class DmdbTypeConverter implements TypeConverter<BasicTypeDefine> {
                     builder.scale(timestampScale);
                 } else {
                     builder.columnType(DM_TIMESTAMP);
+                }
+                break;
+            case TIMESTAMP_TZ:
+                builder.dataType(DM_DATETIME_WITH_TIME_ZONE);
+                if (column.getScale() != null && column.getScale() > 0) {
+                    Integer timestampTzScale = column.getScale();
+                    if (timestampTzScale > MAX_TIMESTAMP_SCALE) {
+                        timestampTzScale = MAX_TIMESTAMP_SCALE;
+                        log.warn(
+                                "The timestamp_tz column {} type datetime_tz({}) is out of range, "
+                                        + "which exceeds the maximum scale of {}, "
+                                        + "it will be converted to datetime_tz({})",
+                                column.getName(),
+                                column.getScale(),
+                                MAX_TIMESTAMP_SCALE,
+                                timestampTzScale);
+                    }
+                    builder.columnType(
+                            String.format("DATETIME(%s) WITH TIME ZONE", timestampTzScale));
+                    builder.scale(timestampTzScale);
+                } else {
+                    builder.columnType(DM_DATETIME_WITH_TIME_ZONE);
                 }
                 break;
             default:

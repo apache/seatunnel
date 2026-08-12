@@ -38,7 +38,6 @@ import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.List;
 
-import static io.debezium.connector.AbstractSourceInfo.DATABASE_NAME_KEY;
 import static io.debezium.connector.AbstractSourceInfo.SCHEMA_NAME_KEY;
 import static io.debezium.connector.AbstractSourceInfo.TABLE_NAME_KEY;
 
@@ -51,7 +50,8 @@ public class SourceRecordUtils {
     public static final List<String> SUPPORT_SCHEMA_CHANGE_EVENT_KEY_NAME =
             Arrays.asList(
                     "io.debezium.connector.mysql.SchemaChangeKey",
-                    "io.debezium.connector.oracle.SchemaChangeKey");
+                    "io.debezium.connector.oracle.SchemaChangeKey",
+                    "io.debezium.connector.sqlserver.SchemaChangeKey");
 
     public static final String HEARTBEAT_VALUE_SCHEMA_KEY_NAME =
             "io.debezium.connector.common.Heartbeat";
@@ -122,7 +122,7 @@ public class SourceRecordUtils {
     public static TableId getTableId(SourceRecord dataRecord) {
         Struct value = (Struct) dataRecord.value();
         Struct source = value.getStruct(Envelope.FieldName.SOURCE);
-        String dbName = source.getString(DATABASE_NAME_KEY);
+        String dbName = resolveDatabaseName(source);
         // Oracle need schemaName
         String schemaName = getSchemaName(source);
         String tableName = source.getString(TABLE_NAME_KEY);
@@ -213,13 +213,28 @@ public class SourceRecordUtils {
     public static TablePath getTablePath(SourceRecord record) {
         Struct messageStruct = (Struct) record.value();
         Struct sourceStruct = messageStruct.getStruct(Envelope.FieldName.SOURCE);
-        String databaseName = sourceStruct.getString(AbstractSourceInfo.DATABASE_NAME_KEY);
+        String databaseName = resolveDatabaseName(sourceStruct);
         String tableName = sourceStruct.getString(AbstractSourceInfo.TABLE_NAME_KEY);
         String schemaName = null;
         if (sourceStruct.schema().field(AbstractSourceInfo.SCHEMA_NAME_KEY) != null) {
             schemaName = sourceStruct.getString(AbstractSourceInfo.SCHEMA_NAME_KEY);
         }
         return TablePath.of(databaseName, schemaName, tableName);
+    }
+
+    /**
+     * Resolves the logical database name from Debezium source metadata.
+     *
+     * <p>Vitess writes an empty string into the generic database field and stores the real logical
+     * database in {@code keyspace}, so blank values must also trigger the fallback.
+     */
+    private static String resolveDatabaseName(Struct sourceStruct) {
+        String databaseName = sourceStruct.getString(AbstractSourceInfo.DATABASE_NAME_KEY);
+        if ((databaseName == null || databaseName.isEmpty())
+                && sourceStruct.schema().field("keyspace") != null) {
+            return sourceStruct.getString("keyspace");
+        }
+        return databaseName;
     }
 
     public static String getDdl(SourceRecord record) {

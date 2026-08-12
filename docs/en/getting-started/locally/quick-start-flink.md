@@ -4,6 +4,16 @@ sidebar_position: 3
 
 # Quick Start With Flink
 
+## Before You Begin
+
+This page is for teams that already want SeaTunnel to run on Flink. If you are evaluating SeaTunnel for the first time and do not specifically need Flink, start with [Quick Start With SeaTunnel Engine](./quick-start-seatunnel-engine.md) first.
+
+Read these pages first if needed:
+
+- [Engine Overview](../../engines/overview.md)
+- [SeaTunnel With Flink](../../engines/flink.md)
+- [Job Configuration Guide](../job-configuration-guide.md)
+
 ## Step 1: Deploy SeaTunnel And Connectors
 
 Before starting, make sure you have downloaded and deployed SeaTunnel as described in [Deployment](deployment.md)
@@ -59,6 +69,11 @@ sink {
 
 More information about config please check [Config Concept](../../introduction/concepts/config.md)
 
+If you need more details about dataset wiring or transform parameters, continue with:
+
+- [Job Configuration Guide](../job-configuration-guide.md)
+- [Transform Common Options](../../transforms/common-options/common-options.md)
+
 ## Step 4: Run SeaTunnel Application
 
 You can start the application by the following commands:
@@ -107,4 +122,5 @@ row=16 : SGZCr, 94186144
 
 - Start write your own config file now, choose the [connector](../../connectors/source) you want to use, and configure the parameters according to the connector's documentation.
 - See [SeaTunnel With Flink](../../engines/flink.md) if you want to know more about SeaTunnel With Flink.
-- SeaTunnel have a builtin engine named `Zeta`, and it's the default engine of SeaTunnel. You can follow [Quick Start](quick-start-seatunnel-engine.md) to configure and run a data synchronization job.
+- See [Flink Translation Layer](../../architecture/api-design/flink-translation-layer.md) if you want to understand how SeaTunnel APIs are adapted to Flink.
+- SeaTunnel has a builtin engine named `Zeta`, and it is the default engine of SeaTunnel. You can follow [Quick Start With SeaTunnel Engine](quick-start-seatunnel-engine.md) if you want the shortest local validation path.

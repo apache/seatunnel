@@ -29,15 +29,33 @@ public class TestReplaceIT extends TestSuiteBase {
 
     @TestTemplate
     public void testReplace(TestContainer container) throws IOException, InterruptedException {
-        Container.ExecResult execResult = container.executeJob("/replace_transform.conf");
+        // Backward compatibility old key 'replace_field' with a single string value
+        Container.ExecResult execResult = container.executeJob("/replace/replace_transform.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 
     @TestTemplate
     public void testReplaceMultiTable(TestContainer container)
             throws IOException, InterruptedException {
+        // Backward compatibility old key 'replace_field' with a single string value
         Container.ExecResult execResult =
-                container.executeJob("/replace_transform_multi_table.conf");
+                container.executeJob("/replace/replace_transform_multi_table.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
+
+    @TestTemplate
+    public void testReplaceMultiField(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/replace/replace_transform_multi_field.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
+
+    @TestTemplate
+    public void testReplaceMultiTableMultiField(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                container.executeJob("/replace/replace_transform_multi_table_multi_field.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
     }
 }

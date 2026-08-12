@@ -6,6 +6,22 @@ sidebar_position: 1
 
 SeaTunnel supports multiple execution engines, allowing you to choose the best one for your use case. This document provides a comprehensive comparison to help you make the right choice.
 
+## Start Here
+
+If you are evaluating SeaTunnel for the first time, use this rule first and read the full comparison second:
+
+- Start with **SeaTunnel Engine (Zeta)** if you do not already operate Flink or Spark infrastructure.
+- Choose **Flink** if your team already runs Flink clusters and wants to reuse that operational stack.
+- Choose **Spark** if your team already runs Spark and your workloads are mainly batch-oriented.
+
+For most new deployments, SeaTunnel Engine is the recommended default because it has the shortest setup path, lower operational overhead, and strong support for synchronization workloads such as CDC and multi-table migration.
+
+## Recommended Reading Path
+
+- I want the shortest first-run path: [Getting Started Overview](../getting-started/overview.md) -> [SeaTunnel Engine](zeta/about.md) -> [Quick Start With SeaTunnel Engine](../getting-started/locally/quick-start-seatunnel-engine.md)
+- I need detailed architecture context before choosing: [About SeaTunnel](../introduction/about.md) -> [How It Works](../introduction/how-it-works.md) -> [Architecture Overview](../architecture/overview.md)
+- I already know my runtime platform: jump directly to [SeaTunnel Engine](zeta/about.md), [Flink Engine Guide](flink.md), or [Spark Engine Guide](spark.md)
+
 ## Supported Engines
 
 | Engine | Description | Recommended For |
@@ -111,21 +127,30 @@ SeaTunnel supports multiple execution engines, allowing you to choose the best o
 
 ## Decision Flowchart
 
-```
-Start
-  │
-  ▼
-Do you have existing Flink/Spark infrastructure?
-  │
-  ├─ Yes ──► Do you want to reuse it?
-  │            │
-  │            ├─ Yes (Flink) ──► Use Flink Engine
-  │            │
-  │            ├─ Yes (Spark) ──► Use Spark Engine
-  │            │
-  │            └─ No ──► Use SeaTunnel Engine
-  │
-  └─ No ──► Use SeaTunnel Engine (Recommended)
+```mermaid
+flowchart TD
+    start["Start"]
+    infra{"Do you already have<br/>Flink or Spark infrastructure?"}
+    reuse{"Do you want to reuse it?"}
+    flink["Use Flink Engine"]
+    spark["Use Spark Engine"]
+    zeta["Use SeaTunnel Engine<br/>(Recommended by default)"]
+
+    start --> infra
+    infra -- "Yes" --> reuse
+    infra -- "No" --> zeta
+    reuse -- "Yes, Flink" --> flink
+    reuse -- "Yes, Spark" --> spark
+    reuse -- "No" --> zeta
+
+    classDef layerBlue fill:#0f1d33,stroke:#5db8e2,stroke-width:2px,color:#f8fbff;
+    classDef layerCyan fill:#0c2530,stroke:#2dd4bf,stroke-width:2px,color:#f8fbff;
+    classDef layerPurple fill:#1f1a34,stroke:#8d7cf6,stroke-width:2px,color:#f8fbff;
+
+    class start,infra,reuse layerBlue;
+    class flink,spark layerCyan;
+    class zeta layerPurple;
+    linkStyle default stroke:#5db8e2,stroke-width:2px;
 ```
 
 ## Configuration Examples
@@ -202,6 +227,8 @@ All SeaTunnel V2 connectors are compatible with all three engines. However, some
 
 ## Next Steps
 
-- [SeaTunnel Engine Quick Start](zeta/about.md)
+- [SeaTunnel Engine Introduction](zeta/about.md)
+- [Getting Started Overview](../getting-started/overview.md)
+- [SeaTunnel Engine Quick Start](../getting-started/locally/quick-start-seatunnel-engine.md)
 - [Flink Engine Guide](flink.md)
 - [Spark Engine Guide](spark.md)

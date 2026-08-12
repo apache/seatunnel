@@ -19,7 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.hive.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.sink.SchemaSaveMode;
-import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveOptions;
+import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveSinkOptions;
 
 import org.junit.jupiter.api.Test;
 
@@ -89,8 +89,8 @@ public class HiveSinkOptionsTest {
     @Test
     void testOptionalConfiguration() {
         Map<String, Object> configMap = new HashMap<>();
-        configMap.put(HiveOptions.TABLE_NAME.key(), "test_db.test_table");
-        configMap.put(HiveOptions.METASTORE_URI.key(), "thrift://localhost:9083");
+        configMap.put(HiveSinkOptions.TABLE_NAME.key(), "test_db.test_table");
+        configMap.put(HiveSinkOptions.METASTORE_URI.key(), "thrift://localhost:9083");
 
         ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
 
@@ -147,10 +147,10 @@ public class HiveSinkOptionsTest {
     }
 
     @Test
-    void testConfigurationWithExistingHiveOptions() {
+    void testConfigurationWithExistingHiveSinkOptions() {
         Map<String, Object> configMap = new HashMap<>();
-        configMap.put(HiveOptions.TABLE_NAME.key(), "analytics.user_events");
-        configMap.put(HiveOptions.METASTORE_URI.key(), "thrift://hive-metastore:9083");
+        configMap.put(HiveSinkOptions.TABLE_NAME.key(), "analytics.user_events");
+        configMap.put(HiveSinkOptions.METASTORE_URI.key(), "thrift://hive-metastore:9083");
 
         configMap.put(HiveSinkOptions.SCHEMA_SAVE_MODE.key(), "RECREATE_SCHEMA");
         String template =
@@ -167,8 +167,8 @@ public class HiveSinkOptionsTest {
 
         ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
 
-        assertEquals("analytics.user_events", config.get(HiveOptions.TABLE_NAME));
-        assertEquals("thrift://hive-metastore:9083", config.get(HiveOptions.METASTORE_URI));
+        assertEquals("analytics.user_events", config.get(HiveSinkOptions.TABLE_NAME));
+        assertEquals("thrift://hive-metastore:9083", config.get(HiveSinkOptions.METASTORE_URI));
         assertEquals(SchemaSaveMode.RECREATE_SCHEMA, config.get(HiveSinkOptions.SCHEMA_SAVE_MODE));
         assertEquals(template, config.get(HiveSinkOptions.SAVE_MODE_CREATE_TEMPLATE));
     }

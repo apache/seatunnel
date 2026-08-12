@@ -268,7 +268,8 @@ public class PaimonSinkWriter
                                 sourceTableSchema,
                                 paimonCatalog,
                                 sinkPaimonTableSchema,
-                                paimonTablePath)
+                                paimonTablePath,
+                                paimonSinkConfig.getBranch())
                         .apply(event);
         reOpenTableWrite();
     }

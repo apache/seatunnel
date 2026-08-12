@@ -17,6 +17,7 @@ import ChangeLog from '../changelog/connector-clickhouse.md';
 你也可以采用JDBC的方式将数据写入Clickhouse。
 
 :::
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## 接收器选项
 

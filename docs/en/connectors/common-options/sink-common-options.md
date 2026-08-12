@@ -6,16 +6,19 @@ sidebar_position: 4
 
 > Common parameters of sink connectors
 
+For sink write mode selection, automatic SQL generation, `schema_save_mode`, `data_save_mode`,
+`custom_sql`, and `enable_upsert`, see [Sink Write Modes and Save Modes](sink-write-modes.md).
+
 :::caution warn
 
 The old configuration name `source_table_name` is deprecated, please migrate to the new name `plugin_input` as soon as possible.
 
 :::
 
-| Name          | Type   | Required | Default | Description                                                                                                                                                                                                                                                                                                                                     |
-|---------------|--------|----------|---------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| plugin_input  | String | No       | -       | When `plugin_input` is not specified, the current plug-in processes the data set `dataset` output by the previous plugin in the configuration file <br/> When `plugin_input` is specified, the current plug-in is processing the data set corresponding to this parameter.                                                                      |
-| datasource_id | String | No       | -       | The data source ID for retrieving connection configuration from DataSource Center. When specified, the connector will fetch connection details (e.g., URL, username, password) from the external metadata service instead of using direct configuration. See [DataSource SPI](../../introduction/concepts/datasource-spi) for more information. |
+| Name          | Type   | Required | Default | Description                                                                                                                                                                                                                                                                                                                                  |
+|---------------|--------|----------|---------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| plugin_input  | String | No       | -       | When `plugin_input` is not specified, the current plug-in processes the data set `dataset` output by the previous plugin in the configuration file <br/> When `plugin_input` is specified, the current plug-in is processing the data set corresponding to this parameter.                                                                   |
+| metadata_datasource_id | String | No       | -       | The data source ID for retrieving connection configuration from Metadata Center. When specified, the connector will fetch connection details (e.g., URL, username, password) from the external metadata service instead of using direct configuration. See [Metadata SPI](../../introduction/concepts/metadata-spi.md) for more information. |
 
 # Important note
 
@@ -61,4 +64,3 @@ sink {
 
 > If the job only have one source and one(or zero) transform and one sink, You do not need to specify `plugin_input` and `plugin_output` for connector.
 > If the number of any operator in source, transform and sink is greater than 1, you must specify the `plugin_input` and `plugin_output` for each connector in the job.
-
