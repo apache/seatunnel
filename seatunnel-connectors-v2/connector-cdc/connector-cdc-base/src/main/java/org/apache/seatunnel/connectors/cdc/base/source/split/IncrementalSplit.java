@@ -136,6 +136,7 @@ public class IncrementalSplit extends SourceSplitBase {
         this.historyTableChanges = historyTableChanges;
     }
 
+    /** Returns restored checkpoint state limited to the tables captured by the current job. */
     public IncrementalSplit pruneTables(Collection<TableId> capturedTables) {
         Set<TableId> capturedTableSet = new HashSet<>(capturedTables);
         List<TableId> filteredTableIds =
