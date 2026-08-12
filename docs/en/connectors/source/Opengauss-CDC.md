@@ -14,7 +14,6 @@ import ChangeLog from '../changelog/connector-cdc-opengauss.md';
 - [ ] [batch](../../introduction/concepts/connector-v2-features.md)
 - [x] [stream](../../introduction/concepts/connector-v2-features.md)
 - [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
-- [x] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [ ] [column projection](../../introduction/concepts/connector-v2-features.md)
 - [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
 - [x] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
@@ -77,8 +76,7 @@ select 'ALTER TABLE ' || schemaname || '.' || tablename || ' REPLICA IDENTITY FU
 | username                                  | String   | Yes      | -        | Username of the database to use when connecting to the database server.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | password                                  | String   | Yes      | -        | Password to use when connecting to the database server.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | database-names                            | List     | No       | -        | Database names to monitor.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| schema-names                              | List     | No       | -        | Schema names to monitor within the configured `database-names`. When set, only tables in the listed schemas are captured. Use this option to limit capture scope inside a single database.                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| table-names                               | List     | Yes, if `table-pattern` is not used | -        | Tables to monitor. Use the fully qualified `database.schema.table` format, for example: `opengauss_cdc.inventory.orders`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| table-names                               | List     | Yes, if `table-pattern` is not used | -        | Tables to monitor. Use the fully qualified `database.schema.table` format, for example: `opengauss_cdc.inventory.orders`. Use `database.schema.table` matching to scope capture to a specific schema inside a database.                                                                                                                                                                                                                                                                                                                                                                                              |
 | table-pattern                             | String   | Yes, if `table-names` is not used | -        | Regular expression for tables to monitor. Use the fully qualified table name in the pattern, for example: `opengauss_cdc\\.inventory\\..*`. `table-names` and `table-pattern` are mutually exclusive.                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | table-names-config                        | List     | No       | -        | Per-table config list. Example: `[{"table": "db1.schema1.table1","primaryKeys": ["key1"],"snapshotSplitColumn": "key2"}]`. Use `primaryKeys` for tables without a physical primary key. `snapshotSplitColumn` must be a unique key; otherwise SeaTunnel ignores it and selects a split column internally.                                                                                                                                                                                                                                                                                                          |
 | startup.mode                              | Enum     | No       | INITIAL  | Optional startup mode for Opengauss CDC consumer, valid enumerations are `initial`, `earliest`, `latest`. <br/> `initial`: Synchronize historical data at startup, and then synchronize incremental data.<br/> `earliest`: Startup from the earliest offset possible.<br/> `latest`: Startup from the latest offset.                                                                                                                                                                                                                                                                                                 |
@@ -146,48 +144,6 @@ sink {
     database = "opengauss_cdc"
     schema = "inventory"
     tablePrefix = "sink_"
-    primary_keys = ["id"]
-  }
-}
-```
-
-### Filter by schema
-
-Use `schema-names` together with `database-names` to capture only the tables inside one schema. The fully qualified
-identifier still follows the `database.schema.table` rule when used with `table-names`.
-
-```hocon
-env {
-  execution.parallelism = 1
-  job.mode = "STREAMING"
-  checkpoint.interval = 5000
-}
-
-source {
-  Opengauss-CDC {
-    plugin_output = "inventory_changes"
-    username = "gaussdb"
-    password = "openGauss@123"
-    database-names = ["opengauss_cdc"]
-    schema-names = ["inventory"]
-    table-names = ["opengauss_cdc.inventory.opengauss_cdc_table_3"]
-    url = "jdbc:postgresql://opengauss_cdc_e2e:5432/opengauss_cdc?loggerLevel=OFF"
-    decoding.plugin.name = "pgoutput"
-  }
-}
-
-sink {
-  jdbc {
-    plugin_input = "inventory_changes"
-    url = "jdbc:postgresql://opengauss_cdc_e2e:5432/opengauss_cdc?loggerLevel=OFF"
-    driver = "org.postgresql.Driver"
-    username = "dailai"
-    password = "openGauss@123"
-
-    compatible_mode = "postgresLow"
-    generate_sink_sql = true
-    database = opengauss_cdc
-    table = inventory.sink_opengauss_cdc_table_3
     primary_keys = ["id"]
   }
 }

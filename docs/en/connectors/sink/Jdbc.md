@@ -869,16 +869,17 @@ sink {
     generate_sink_sql = true
     database = "column_type_test"
     schema = "dbo"
-    tablePrefix = "sink_"
+    table = "sink_${table_name}"
     batch_size = 1
     primary_keys = ["id"]
   }
 }
 ```
 
-The `${schema_name}` and `${table_name}` placeholders in `database` and `table` are filled from the upstream record's
-schema/table metadata. Pair this with `generate_sink_sql = true` and a pre-existing `primary_keys` list so SeaTunnel can
-emit the right INSERT/UPSERT for each upstream table.
+The `${table_name}` placeholder in `table` is filled from the upstream record's table metadata so each source table
+(`full_types`, `full_types_2`) is written to its own sink table (`sink_full_types`, `sink_full_types_2`). Pair this with
+`generate_sink_sql = true` and a pre-existing `primary_keys` list so SeaTunnel can emit the right INSERT/UPSERT for each
+upstream table.
 
 #### Amazon Aurora DSQL
 

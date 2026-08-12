@@ -634,9 +634,10 @@ sink {
 }
 ```
 
-`password` and `keyfile` are mutually exclusive. When both are set, `password` is used and `keyfile` is ignored.
-The engine process must have permission to read `keyfile`; if the key file is passphrase-protected, configure the
-SSH agent or decrypt it before the job starts.
+`password` and `keyfile` are both loaded into the SSH session when configured. The connector uses the JSCH library,
+whose default authentication order tries `publickey` (via `keyfile`) before `password`. To avoid surprises during
+authentication failures, prefer setting only one of them. The engine process must have permission to read `keyfile`;
+if the key file is passphrase-protected, configure the SSH agent or decrypt it before the job starts.
 ### Multiple Table
 
 ```hocon
