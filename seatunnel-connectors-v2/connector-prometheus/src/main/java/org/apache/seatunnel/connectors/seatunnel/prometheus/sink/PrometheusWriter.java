@@ -17,6 +17,7 @@
 package org.apache.seatunnel.connectors.seatunnel.prometheus.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
@@ -26,6 +27,7 @@ import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
 import org.apache.seatunnel.connectors.seatunnel.http.sink.HttpSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.prometheus.Exception.PrometheusConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.prometheus.config.PrometheusSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.prometheus.config.PrometheusSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.prometheus.serialize.PrometheusSerializer;
 import org.apache.seatunnel.connectors.seatunnel.prometheus.serialize.Serializer;
 import org.apache.seatunnel.connectors.seatunnel.prometheus.sink.proto.Remote;
@@ -42,33 +44,25 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
 
 @Slf4j
 public class PrometheusWriter extends HttpSinkWriter {
     private final List<Point> batchList;
-    private volatile Exception flushException;
     private final Integer batchSize;
-    private final long flushInterval;
-    private PrometheusSinkConfig sinkConfig;
+    private final PrometheusSinkConfig sinkConfig;
     private final Serializer serializer;
     protected final HttpClientProvider httpClient;
-    private ScheduledExecutorService executor;
-    private ScheduledFuture scheduledFuture;
 
     public PrometheusWriter(
             SeaTunnelRowType seaTunnelRowType,
             HttpParameter httpParameter,
-            ReadonlyConfig pluginConfig) {
+            ReadonlyConfig pluginConfig,
+            SinkWriter.Context context) {
 
         super(seaTunnelRowType, httpParameter);
         this.batchList = new ArrayList<>();
         this.sinkConfig = PrometheusSinkConfig.loadConfig(pluginConfig);
         this.batchSize = sinkConfig.getBatchSize();
-        this.flushInterval = sinkConfig.getFlushInterval();
         this.serializer =
                 new PrometheusSerializer(
                         seaTunnelRowType,
@@ -76,23 +70,18 @@ public class PrometheusWriter extends HttpSinkWriter {
                         sinkConfig.getKeyLabel(),
                         sinkConfig.getKeyValue());
         this.httpClient = new HttpClientProvider(httpParameter);
-        if (flushInterval > 0) {
-            log.info("start schedule submit message,interval:{}", flushInterval);
-            this.executor =
-                    Executors.newScheduledThreadPool(
-                            1,
-                            runnable -> {
-                                Thread thread = new Thread(runnable);
-                                thread.setDaemon(true);
-                                thread.setName("Prometheus-Metric-Sender");
-                                return thread;
-                            });
-            this.scheduledFuture =
-                    executor.scheduleAtFixedRate(
-                            this::flushSchedule,
-                            flushInterval,
-                            flushInterval,
-                            TimeUnit.MILLISECONDS);
+        if (pluginConfig.getOptional(PrometheusSinkOptions.FLUSH_INTERVAL).isPresent()) {
+            log.warn(
+                    "The connector option 'flush_interval' is deprecated and no longer starts a "
+                            + "background flush thread. Use the engine-level timer flush by setting "
+                            + "'sink.flush.interval' in the job 'env' block instead (supported by "
+                            + "Zeta only).");
+        }
+        // Opt in to engine-level timer flush. The engine invokes this action on the normal Sink
+        // input-processing path when a FlushSignal arrives, so no connector-owned scheduler thread
+        // is needed and there is no concurrency with write/checkpoint/close.
+        if (context != null) {
+            context.registerFlushAction(this::flush);
         }
     }
 
@@ -103,8 +92,6 @@ public class PrometheusWriter extends HttpSinkWriter {
     }
 
     public void write(Point record) {
-        checkFlushException();
-
         synchronized (batchList) {
             batchList.add(record);
             if (batchSize > 0 && batchList.size() >= batchSize) {
@@ -113,45 +100,38 @@ public class PrometheusWriter extends HttpSinkWriter {
         }
     }
 
-    private void flushSchedule() {
-        synchronized (batchList) {
-            if (!batchList.isEmpty()) {
-                flush();
-            }
-        }
-    }
-
-    private void checkFlushException() {
-        if (flushException != null) {
-            throw new PrometheusConnectorException(
-                    CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
-                    "Writing records to prometheus failed.",
-                    flushException);
-        }
-    }
-
     private void flush() {
-        checkFlushException();
-        if (batchList.isEmpty()) {
-            return;
-        }
-        try {
-            byte[] body = snappy(batchList);
-            ByteArrayEntity byteArrayEntity = new ByteArrayEntity(body);
-            HttpResponse response =
-                    httpClient.doPost(
-                            httpParameter.getUrl(), httpParameter.getHeaders(), byteArrayEntity);
-            if (HttpStatus.SC_NO_CONTENT == response.getCode()) {
+        synchronized (batchList) {
+            if (batchList.isEmpty()) {
                 return;
             }
-            log.error(
-                    "http client execute exception, http response status code:[{}], content:[{}]",
-                    response.getCode(),
-                    response.getContent());
-        } catch (Exception e) {
-            log.error(e.getMessage(), e);
-        } finally {
-            batchList.clear();
+            try {
+                byte[] body = snappy(batchList);
+                ByteArrayEntity byteArrayEntity = new ByteArrayEntity(body);
+                HttpResponse response =
+                        httpClient.doPost(
+                                httpParameter.getUrl(),
+                                httpParameter.getHeaders(),
+                                byteArrayEntity);
+                if (HttpStatus.SC_NO_CONTENT == response.getCode()) {
+                    batchList.clear();
+                    return;
+                }
+                // Propagate the failure to the engine instead of silently dropping the batch, so a
+                // flush that did not succeed is not treated as a successful flush.
+                throw new PrometheusConnectorException(
+                        CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
+                        String.format(
+                                "Writing records to prometheus failed, http response status code:[%d], content:[%s]",
+                                response.getCode(), response.getContent()));
+            } catch (PrometheusConnectorException e) {
+                throw e;
+            } catch (Exception e) {
+                throw new PrometheusConnectorException(
+                        CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
+                        "Writing records to prometheus failed.",
+                        e);
+            }
         }
     }
 
@@ -202,13 +182,11 @@ public class PrometheusWriter extends HttpSinkWriter {
 
     @Override
     public void close() throws IOException {
-        super.close();
-        if (scheduledFuture != null) {
-            scheduledFuture.cancel(false);
-            if (executor != null) {
-                executor.shutdownNow();
-            }
+        try {
+            // Send any records still buffered before the writer is closed.
+            flush();
+        } finally {
+            super.close();
         }
-        this.flush();
     }
 }
