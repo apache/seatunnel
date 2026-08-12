@@ -122,6 +122,12 @@ You need to check this document before you upgrade to related version.
       Glue/Hive metastore schema are not affected at runtime; only newly auto-created tables change
       behavior.
 
+- **Breaking Change: File source connectors reject POI-engine Excel files larger than `poi_excel_max_file_size` (default 50 MB)**
+  - **Affected component**: `seatunnel-connectors-v2/connector-file` (LocalFile, HdfsFile, S3File, FtpFile, SftpFile, OssFile, OssJindoFile, ObsFile, CosFile)
+  - **Description**: Apache POI fully materializes an Excel workbook into memory before any row can be read, which can drive a Zeta worker into heavy GC pressure or OOM on large `.xls`/`.xlsx` files. A new `poi_excel_max_file_size` option (default 50 MB) now makes POI reject an Excel file that exceeds the limit before the workbook is built. The guard covers both plain and archived (ZIP/TAR/TAR_GZ/GZ) Excel entries, and applies only when `excel_engine = POI` (the default); the streaming `excel_engine = EasyExcel` path is not bound by this limit.
+  - **Impact**: Existing jobs that read POI-engine Excel files larger than 50 MB - which previously succeeded at the cost of heavy memory pressure - will now fail fast with a `FileConnectorException` instead of potentially OOMing the worker.
+  - **Migration Guide**: For POI jobs that must read large Excel files and have sufficient worker memory, raise the limit with `poi_excel_max_file_size = <bytes>`. Otherwise switch to `excel_engine = EasyExcel`, which streams rows lazily and is not subject to the limit.
+
 ### Transform Changes
 
 - **[BREAKING]** SQL Transform `PARSEDATETIME`, `TO_DATE`, and `IS_DATE` functions now only accept whitelisted datetime format patterns. Custom format patterns that were previously accepted will now fail at runtime. The supported patterns are:

@@ -110,6 +110,11 @@ Sink plugin common parameters. For details, see [Sink Common Options](../common-
 - `fields` is useful when the upstream row has extra columns. It is not a schema creation option.
 - `async_write = true` improves throughput, while `batch_size` controls how many rows are grouped
   before a flush.
+- The sink uses the Cassandra Java driver. Authentication and consistency options match the
+  driver's terminology; configure `consistency_level` together with the cluster's replication
+  strategy when stronger guarantees are required.
+- `batch_type = "UNLOGGED"` is the typical default. Use `LOGGED` for atomic batches when
+  correctness outweighs throughput, or `COUNTER` for counter tables.
 
 ## Task Example
 

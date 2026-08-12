@@ -49,7 +49,7 @@ Choose your runtime execution engine:
 - For integrating video, images, and binary files with SeaTunnel, please refer to the documentation for detailed instructions.
 
 ## Apache SeaTunnel Tools
-SeaTunnel Tools provides a range of peripheral tools, including Apache SeaTunnel Mcp Server, etc,please refer to [SeaTunnel Tools](https://github.com/apache/seatunnel-tools).
+SeaTunnel Tools provides a range of peripheral tools, including Apache SeaTunnel Mcp Server, etc, please refer to [SeaTunnel Tools](https://github.com/apache/seatunnel-tools).
 
 ## Users
 Companies and organizations worldwide use SeaTunnel for research, production, and commercial products. 
