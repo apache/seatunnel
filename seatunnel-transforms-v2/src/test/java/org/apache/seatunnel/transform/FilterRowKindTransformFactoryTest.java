@@ -21,6 +21,14 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.configuration.util.OptionValidationException;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
+import org.apache.seatunnel.transform.filterrowkind.FilterRowKindTransform;
 import org.apache.seatunnel.transform.filterrowkind.FilterRowKindTransformFactory;
 
 import org.junit.jupiter.api.Assertions;
@@ -37,6 +45,16 @@ class FilterRowKindTransformFactoryTest {
 
     private void validate(Map<String, Object> config) {
         ConfigValidator.of(ReadonlyConfig.fromMap(config)).validate(rule);
+    }
+
+    private void assertValidationFails(Map<String, Object> config, String... optionKeys) {
+        OptionValidationException exception =
+                Assertions.assertThrows(OptionValidationException.class, () -> validate(config));
+        for (String optionKey : optionKeys) {
+            Assertions.assertTrue(
+                    exception.getMessage().contains(optionKey),
+                    "Should mention " + optionKey + ": " + exception.getMessage());
+        }
     }
 
     @Test
@@ -56,7 +74,7 @@ class FilterRowKindTransformFactoryTest {
     @Test
     void testNeitherKindsFails() {
         Map<String, Object> cfg = new HashMap<>();
-        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+        assertValidationFails(cfg, "include_kinds", "exclude_kinds");
     }
 
     @Test
@@ -64,20 +82,40 @@ class FilterRowKindTransformFactoryTest {
         Map<String, Object> cfg = new HashMap<>();
         cfg.put("include_kinds", Arrays.asList("INSERT"));
         cfg.put("exclude_kinds", Arrays.asList("DELETE"));
-        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+        assertValidationFails(cfg, "include_kinds", "exclude_kinds");
     }
 
     @Test
     void testIncludeKindsEmptyFails() {
         Map<String, Object> cfg = new HashMap<>();
         cfg.put("include_kinds", Collections.emptyList());
-        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+        assertValidationFails(cfg, "include_kinds");
     }
 
     @Test
     void testExcludeKindsEmptyFails() {
         Map<String, Object> cfg = new HashMap<>();
         cfg.put("exclude_kinds", Collections.emptyList());
-        Assertions.assertThrows(OptionValidationException.class, () -> validate(cfg));
+        assertValidationFails(cfg, "exclude_kinds");
+    }
+
+    @Test
+    void testDirectConstructionWithEmptyKindsFailsOnTransform() {
+        Map<String, Object> cfg = new HashMap<>();
+        cfg.put("exclude_kinds", Collections.emptyList());
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"id"}, new SeaTunnelDataType[] {BasicType.INT_TYPE});
+        CatalogTable catalogTable = CatalogTableUtil.getCatalogTable("test", rowType);
+        FilterRowKindTransform transform =
+                new FilterRowKindTransform(ReadonlyConfig.fromMap(cfg), catalogTable);
+
+        SeaTunnelRuntimeException exception =
+                Assertions.assertThrows(
+                        SeaTunnelRuntimeException.class,
+                        () -> transform.map(new SeaTunnelRow(new Object[] {1})));
+        Assertions.assertTrue(
+                exception.getMessage().contains("Either excludeKinds or includeKinds"),
+                "Should explain the required options: " + exception.getMessage());
     }
 }
