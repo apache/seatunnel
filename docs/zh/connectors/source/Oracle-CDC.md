@@ -246,6 +246,7 @@ exit;
 | sample-sharding.threshold                 | Integer  | 否      | 1000    | 此配置指定触发采样分片策略的预估分片数阈值。当分布因子超出 `chunk-key.even-distribution.factor.upper-bound` 和 `chunk-key.even-distribution.factor.lower-bound` 指定的范围，并且预估的分片数（计算为近似行数 / 分块大小）超过此阈值时，将使用采样分片策略。这有助于更有效地处理大型数据集。默认值为 1000 个分片。                                                                                   |
 | inverse-sampling.rate                     | Integer  | 否      | 1000    | 采样分片策略中使用的采样率的倒数。例如，如果此值设置为 1000，则意味着在采样过程中应用 1/1000 的采样率。此选项提供了控制采样粒度的灵活性，从而影响最终的分片数量。在处理首选较低采样率的极大型数据集时，它特别有用。默认值为 1000。                                                                                                                                                              |
 | split.allow-sampling                    | Boolean  | 否      | true    | 是否启用基于采样的分片策略。当设置为 false 时，无论预估分片数是否超过阈值，系统都将回退到非均匀分片方式（迭代查询方式）。                                                                                                                                                                                    |
+| enable_concurrent_read                  | Boolean  | 否      | true    | 是否在快照阶段启用基于分片的并发读取。当设置为 false 时，source 会跳过分片分析，并以单个 split 读取整张表，适合没有索引的表。默认值为 true。 |
 | exactly_once                              | Boolean  | 否      | false   | 启用精确一次语义。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | use_select_count                          | Boolean  | 否      | false   | 使用 `select count` 统计表行数，而不是在全量阶段使用其他方法。在这种情况下，当通过分析表使用 SQL 更新统计信息更快时，直接使用 `select count`。                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | skip_analyze                              | Boolean  | 否      | false   | 在全量阶段跳过表行数的分析。在这种情况下，您需要定期调度分析表 SQL 以更新相关表统计信息，或者您的表数据更改不频繁。                                                                                                                                                                                                                                                                                                                                                                                                                       |
@@ -421,12 +422,11 @@ source {
 
 ### 配置 Debezium 心跳
 
-对于变更较少的表，可以配置 Debezium 心跳，让 Oracle LogMiner 位点定期向前推进。
+对于变更较少的表，Oracle LogMiner 的 SCN 只有在发生 redo log 变更时才会推进。使用 Debezium 心跳让 SCN 持续向前滚动，便于 checkpoint 定期记录偏移，并让复制延迟可观测。心跳表必须提前在 Oracle 服务端创建。
 
 ```hocon
 source {
   Oracle-CDC {
-    plugin_output = "customers"
     username = "system"
     password = "top_secret"
     database-names = ["ORCLCDB"]
@@ -435,12 +435,37 @@ source {
     url = "jdbc:oracle:thin:@//oracle-host:1521/ORCLCDB"
     debezium {
       database.oracle.jdbc.timezoneAsRegion = "false"
-      heartbeat.interval.ms = 1000
+      heartbeat.interval.ms = 100
       heartbeat.action.query = "INSERT INTO DEBEZIUM.heartbeat (ts) VALUES (SYSTIMESTAMP)"
     }
   }
 }
 ```
+
+### 读取没有主键的表
+
+对于没有物理主键的表，将 `exactly_once` 设为 `false`，并通过 `table-names-config.primaryKeys` 提供一列作为下游 upsert 所需的稳定行标识。
+
+```hocon
+source {
+  Oracle-CDC {
+    username = "system"
+    password = "top_secret"
+    database-names = ["ORCLCDB"]
+    schema-names = ["DEBEZIUM"]
+    url = "jdbc:oracle:thin:@//oracle-host:1521/ORCLCDB"
+    table-names = ["ORCLCDB.DEBEZIUM.FULL_TYPES_NO_PRIMARY_KEY"]
+    table-names-config = [
+      {
+        table = "ORCLCDB.DEBEZIUM.FULL_TYPES_NO_PRIMARY_KEY"
+        primaryKeys = ["ID"]
+      }
+    ]
+  }
+}
+```
+
+没有可用的主键时，connector 无法安全地应用 UPDATE/DELETE 事件。仅在仅追加（append-only）场景下使用此模式。
 
 ### Schema change 事件过滤
 

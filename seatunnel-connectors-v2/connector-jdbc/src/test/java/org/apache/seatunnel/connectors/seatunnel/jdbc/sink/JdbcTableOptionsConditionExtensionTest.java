@@ -110,7 +110,43 @@ class JdbcTableOptionsConditionExtensionTest {
     }
 
     @Test
-    void testOceanBaseOracleRejectsNonEmptyTableOptionsViaOptionRule() {
+    void testOracleTableOptionsPassViaOptionRule() {
+        Map<String, Object> config = oracleSinkConfig();
+        Map<String, String> tableOptions = new HashMap<>();
+        tableOptions.put("tablespace", "USERS");
+        tableOptions.put("pctfree", "10");
+        config.put(SinkConnectorCommonOptions.TABLE_OPTIONS.key(), tableOptions);
+
+        Assertions.assertDoesNotThrow(() -> validateSinkOptionRule(config));
+    }
+
+    @Test
+    void testOracleRejectsUnknownTableOptionsViaOptionRule() {
+        Map<String, Object> config = oracleSinkConfig();
+        Map<String, String> tableOptions = new HashMap<>();
+        tableOptions.put("engine", "InnoDB");
+        config.put(SinkConnectorCommonOptions.TABLE_OPTIONS.key(), tableOptions);
+
+        OptionValidationException exception =
+                Assertions.assertThrows(
+                        OptionValidationException.class, () -> validateSinkOptionRule(config));
+        Assertions.assertTrue(exception.getMessage().contains("Unsupported JDBC table_options"));
+        Assertions.assertTrue(exception.getMessage().contains("Oracle"));
+    }
+
+    @Test
+    void testOceanBaseOracleTableOptionsPassViaOptionRule() {
+        Map<String, Object> config = oceanBaseOracleSinkConfig();
+        Map<String, String> tableOptions = new HashMap<>();
+        tableOptions.put("tablespace", "USERS");
+        tableOptions.put("pctfree", "10");
+        config.put(SinkConnectorCommonOptions.TABLE_OPTIONS.key(), tableOptions);
+
+        Assertions.assertDoesNotThrow(() -> validateSinkOptionRule(config));
+    }
+
+    @Test
+    void testOceanBaseOracleRejectsUnknownTableOptionsViaOptionRule() {
         Map<String, Object> config = oceanBaseOracleSinkConfig();
         Map<String, String> tableOptions = new HashMap<>();
         tableOptions.put("engine", "InnoDB");
@@ -119,8 +155,33 @@ class JdbcTableOptionsConditionExtensionTest {
         OptionValidationException exception =
                 Assertions.assertThrows(
                         OptionValidationException.class, () -> validateSinkOptionRule(config));
-        Assertions.assertTrue(
-                exception.getMessage().contains("not supported for dialect 'Oracle'"));
+        Assertions.assertTrue(exception.getMessage().contains("Unsupported JDBC table_options"));
+        Assertions.assertTrue(exception.getMessage().contains("Oracle"));
+    }
+
+    @Test
+    void testDamengTableOptionsPassViaOptionRule() {
+        Map<String, Object> config = damengSinkConfig();
+        Map<String, String> tableOptions = new HashMap<>();
+        tableOptions.put("tablespace", "MAIN");
+        tableOptions.put("fillfactor", "80");
+        config.put(SinkConnectorCommonOptions.TABLE_OPTIONS.key(), tableOptions);
+
+        Assertions.assertDoesNotThrow(() -> validateSinkOptionRule(config));
+    }
+
+    @Test
+    void testDamengRejectsUnknownTableOptionsViaOptionRule() {
+        Map<String, Object> config = damengSinkConfig();
+        Map<String, String> tableOptions = new HashMap<>();
+        tableOptions.put("engine", "InnoDB");
+        config.put(SinkConnectorCommonOptions.TABLE_OPTIONS.key(), tableOptions);
+
+        OptionValidationException exception =
+                Assertions.assertThrows(
+                        OptionValidationException.class, () -> validateSinkOptionRule(config));
+        Assertions.assertTrue(exception.getMessage().contains("Unsupported JDBC table_options"));
+        Assertions.assertTrue(exception.getMessage().contains("Dameng"));
     }
 
     @Test
@@ -177,6 +238,14 @@ class JdbcTableOptionsConditionExtensionTest {
         return config;
     }
 
+    private static Map<String, Object> oracleSinkConfig() {
+        Map<String, Object> config = new HashMap<>();
+        config.put("url", "jdbc:oracle:thin:@127.0.0.1:1521:ORCL");
+        config.put("driver", "oracle.jdbc.OracleDriver");
+        config.put("query", "INSERT INTO test_table VALUES (?)");
+        return config;
+    }
+
     private static Map<String, Object> oceanBaseMysqlSinkConfig() {
         Map<String, Object> config = new HashMap<>();
         config.put("url", "jdbc:oceanbase://127.0.0.1:2881/test");
@@ -190,6 +259,14 @@ class JdbcTableOptionsConditionExtensionTest {
         config.put("url", "jdbc:oceanbase://127.0.0.1:2881/test");
         config.put("driver", "com.oceanbase.jdbc.Driver");
         config.put("compatible_mode", "oracle");
+        config.put("query", "INSERT INTO test_table VALUES (?)");
+        return config;
+    }
+
+    private static Map<String, Object> damengSinkConfig() {
+        Map<String, Object> config = new HashMap<>();
+        config.put("url", "jdbc:dm://127.0.0.1:5236");
+        config.put("driver", "dm.jdbc.driver.DmDriver");
         config.put("query", "INSERT INTO test_table VALUES (?)");
         return config;
     }

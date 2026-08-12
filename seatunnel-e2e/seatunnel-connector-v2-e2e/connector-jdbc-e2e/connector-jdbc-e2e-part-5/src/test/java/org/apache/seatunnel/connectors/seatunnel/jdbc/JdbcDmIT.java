@@ -50,6 +50,7 @@ public class JdbcDmIT extends AbstractJdbcIT {
     private static final String DM_USERNAME = "SYSDBA";
     private static final String DM_PASSWORD = "SYSDBA";
     private static final int DM_PORT = 5336;
+    private static final int DM_CONTAINER_PORT = 5236;
     private static final String DM_URL = "jdbc:dm://" + HOST + ":%s";
 
     private static final String DRIVER_CLASS = "dm.jdbc.driver.DmDriver";
@@ -115,7 +116,7 @@ public class JdbcDmIT extends AbstractJdbcIT {
                 .containerEnv(containerEnv)
                 .driverClass(DRIVER_CLASS)
                 .host(HOST)
-                .port(DM_PORT)
+                .port(DM_CONTAINER_PORT)
                 .localPort(DM_PORT)
                 .jdbcTemplate(DM_URL)
                 .jdbcUrl(jdbcUrl)
@@ -239,7 +240,7 @@ public class JdbcDmIT extends AbstractJdbcIT {
                                 Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(5)))
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(DM_IMAGE)));
-        container.setPortBindings(Lists.newArrayList(String.format("%s:%s", 5336, 5236)));
+        container.addExposedPort(DM_CONTAINER_PORT);
 
         return container;
     }
