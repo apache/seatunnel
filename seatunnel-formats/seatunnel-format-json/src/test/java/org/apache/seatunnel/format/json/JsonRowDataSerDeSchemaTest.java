@@ -85,11 +85,12 @@ public class JsonRowDataSerDeSchemaTest {
                 new SeaTunnelRowType(
                         new String[] {"ts_tz"},
                         new SeaTunnelDataType<?>[] {LocalTimeType.OFFSET_DATE_TIME_TYPE});
-        JsonSerializationSchema serializationSchema = new JsonSerializationSchema(rowType, true);
 
         TimeZone original = TimeZone.getDefault();
         try {
             TimeZone.setDefault(TimeZone.getTimeZone("Asia/Shanghai"));
+            JsonSerializationSchema serializationSchema =
+                    new JsonSerializationSchema(rowType, true);
             // 2024-01-01T10:00:00Z == 2024-01-01T18:00:00 in Asia/Shanghai.
             SeaTunnelRow utcRow =
                     new SeaTunnelRow(
