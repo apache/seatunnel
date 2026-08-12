@@ -307,7 +307,7 @@ source {
 
 ### 流式增量区间读取
 
-OceanBase Source 本质上是一个批连接器，但可以在流式作业里通过 `partition_column` + `partition_lower_bound` + `partition_upper_bound` 组合做增量区间读取：每个 checkpoint 都会重放配置的区间。这种用法适合范围小且有界的场景，或者按计划重放历史数据。持续变更捕获请改用 OceanBase CDC。
+OceanBase Source 本质上是一个批连接器。设置 `job.mode = "STREAMING"` 只用于开启 checkpoint 以便在失败时恢复作业；source 本身仍然是有界的，每次作业只会读取一次配置好的 `[partition_lower_bound, partition_upper_bound)` 区间。如需周期性地拉取新增数据，必须在外部重新提交作业（例如按计划滑动区间窗口），或改用 OceanBase CDC 做持续变更捕获。
 
 ```hocon
 env {

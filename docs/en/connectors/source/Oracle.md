@@ -333,7 +333,7 @@ sink {
 
 ### Streaming With Incremental ID Range
 
-The Oracle Source connector is batch-oriented, but you can drive incremental reads in a streaming job by combining `partition_column` with `partition_lower_bound` and `partition_upper_bound`. Each checkpoint replays the configured range, so use this pattern only when the range is small and bounded or for scheduled replays of historical data. For continuous change capture, use Oracle-CDC instead.
+The Oracle Source connector is batch-oriented. Setting `job.mode = "STREAMING"` only enables checkpointing so the job can resume on failure; the source itself is bounded and reads the configured `[partition_lower_bound, partition_upper_bound)` range exactly once per job run. To pick up new rows repeatedly you must externally resubmit the job (for example on a schedule, with a sliding window), or use Oracle-CDC for continuous change capture.
 
 ```hocon
 env {

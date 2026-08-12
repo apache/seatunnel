@@ -307,7 +307,7 @@ source {
 
 ### Streaming With `STREAMING` and Incremental Column
 
-OceanBase Source is primarily a batch connector, but you can drive incremental reads in a streaming job by combining a bounded primary-key range with `job.mode = "STREAMING"` and `partition_column` plus `partition_lower_bound` / `partition_upper_bound`. Each checkpoint replays the configured range, so use this pattern only when the range is small and bounded, or when you are replaying historical data on a schedule. For continuous change capture, use OceanBase CDC instead.
+OceanBase Source is primarily a batch connector. Setting `job.mode = "STREAMING"` only enables checkpointing so the job can resume on failure; the source itself is bounded and reads the configured `[partition_lower_bound, partition_upper_bound)` range exactly once per job run. To pick up new rows repeatedly you must externally resubmit the job (for example on a schedule, with a sliding window), or use OceanBase CDC for continuous change capture.
 
 ```hocon
 env {
