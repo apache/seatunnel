@@ -28,6 +28,7 @@ import com.hazelcast.spi.impl.NodeEngineImpl;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.Closeable;
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Field;
@@ -53,31 +54,59 @@ public class DefaultClassLoaderService implements ClassLoaderService {
     public static final String SKIP_CHECK_JAR = "CLASSLOADER_SERVICE_SKIP_CHECK_JAR";
     public static final String ENABLE_DEEP_CLEAN = "SEATUNNEL_CLASSLOADER_DEEP_CLEAN";
     private static final AtomicBoolean JAR_CACHE_DISABLED = new AtomicBoolean(false);
-    private static final AtomicBoolean DEEP_CLEAN_ENABLED = new AtomicBoolean(false);
+
+    private final boolean deepCleanEnabled;
 
     public DefaultClassLoaderService(boolean cacheMode, NodeEngine nodeEngine) {
         this.cacheMode = cacheMode;
         this.nodeEngine = nodeEngine;
+        // Read once into an instance field so each service instance carries its own deep-clean
+        // state. The previous static-flag-with-unconditional-set design let a second instance
+        // silently flip the first instance's behavior; an instance field removes that hazard.
+        this.deepCleanEnabled =
+                Boolean.parseBoolean(System.getProperty(ENABLE_DEEP_CLEAN, "false"));
         classLoaderCache = new ConcurrentHashMap<>();
         classLoaderReferenceCount = new ConcurrentHashMap<>();
-        disableJarUrlCache();
-        log.info("start classloader service {}", cacheMode ? " with cache mode" : "");
+        // Default path: never touch URLConnection cache defaults. Only opt-in deep-clean
+        // instances perform the JAR cache disable, which preserves prior default behavior.
+        if (deepCleanEnabled) {
+            disableJarUrlCache();
+            log.info("Deep clean mode enabled (requires --add-opens JVM options)");
+        }
+        log.info("start classloader service{}", cacheMode ? " with cache mode" : "");
     }
 
     private void disableJarUrlCache() {
-        if (JAR_CACHE_DISABLED.compareAndSet(false, true)) {
+        // URLConnection.setDefaultUseCaches is JVM-global and idempotent; the CAS guard makes
+        // it run at most once per JVM regardless of how many deep-clean services are constructed.
+        if (!JAR_CACHE_DISABLED.compareAndSet(false, true)) {
+            return;
+        }
+        try {
+            // JDK 9+ added a protocol-scoped overload: setDefaultUseCaches(String, boolean).
+            // Use it when available so non-JAR protocols (http/file/...) keep their defaults.
+            Method protocolScoped =
+                    URLConnection.class.getMethod(
+                            "setDefaultUseCaches", String.class, boolean.class);
+            protocolScoped.invoke(null, "jar", false);
+            log.info("Disabled JAR URL connection cache (protocol-scoped, JDK 9+)");
+        } catch (NoSuchMethodException e) {
+            // JDK 8: only the JVM-global 1-arg API exists. Side effect: every URLConnection
+            // protocol inherits useCaches=false. Mirrors Tomcat's
+            // JreMemoryLeakPreventionListener, which faces the same platform limitation.
             try {
                 URLConnection connection = new URL("jar:file://dummy.jar!/").openConnection();
                 connection.setDefaultUseCaches(false);
-                log.info("Disabled JAR URL connection cache");
-            } catch (Exception e) {
-                log.warn("Failed to disable JAR URL connection cache: {}", e.getMessage());
+                log.warn(
+                        "Disabled JAR URL cache via JVM-global toggle (JDK 8 has no "
+                                + "protocol-scoped API). Side effect: default useCaches=false "
+                                + "for ALL URLConnection protocols (http/file/etc.) for this JVM. "
+                                + "See docs for trade-offs.");
+            } catch (Exception ex) {
+                log.warn("Failed to disable JAR URL connection cache: {}", ex.getMessage());
             }
-        }
-        boolean deepClean = Boolean.parseBoolean(System.getProperty(ENABLE_DEEP_CLEAN, "false"));
-        DEEP_CLEAN_ENABLED.set(deepClean);
-        if (deepClean) {
-            log.info("Deep clean mode enabled (requires --add-opens JVM options)");
+        } catch (Exception e) {
+            log.warn("Failed to disable JAR URL connection cache: {}", e.getMessage());
         }
     }
 
@@ -167,11 +196,12 @@ public class DefaultClassLoaderService implements ClassLoaderService {
      * <p>Many third-party connectors (e.g., JDBC drivers, Hadoop RPC clients) mutate the TCCL
      * during execution but fail to restore it in a finally block. If left uncleared, these pooled
      * threads will hold strong references to the {@link SeaTunnelChildFirstClassLoader}, preventing
-     * GC and ultimately causing severe Metaspace OutOfMemory (OOM) errors. * Note: We restore the
-     * TCCL to the system/application classloader (fallbackLoader) instead of setting it to 'null'.
-     * Setting TCCL to 'null' breaks frameworks that heavily rely on it for SPI discovery or static
-     * resource loading (e.g., Hazelcast, Jetty REST APIs), which would otherwise result in 404 Not
-     * Found errors during E2E integration tests.
+     * GC and ultimately causing severe Metaspace OutOfMemory (OOM) errors.
+     *
+     * <p>Note: We restore the TCCL to the system/application classloader (systemLoader) instead of
+     * setting it to 'null'. Setting TCCL to 'null' breaks frameworks that heavily rely on it for
+     * SPI discovery or static resource loading (e.g., Hazelcast, Jetty REST APIs), which would
+     * otherwise result in 404 Not Found errors during E2E integration tests.
      */
     private static void recycleClassLoaderFromThread(ClassLoader classLoader) {
         // Acquire a safe fallback ClassLoader (usually the SystemClassLoader)
@@ -235,7 +265,7 @@ public class DefaultClassLoaderService implements ClassLoaderService {
     }
 
     @Override
-    public void close() {
+    public synchronized void close() {
         log.info("close classloader service");
         closeAllClassLoaders();
         classLoaderCache.clear();
@@ -249,14 +279,14 @@ public class DefaultClassLoaderService implements ClassLoaderService {
 
         // [Phase 1 Compromise]
         // Currently, physical closure (URLClassLoader.close) and deep cache cleanups are strictly
-        // guarded by the DEEP_CLEAN_ENABLED flag.
+        // guarded by the deepCleanEnabled instance flag.
         //
         // Reason: Many connectors currently leak their ClassLoader references into the global TCCL
         // or static caches. In a shared JVM test environment (like GitHub CI), explicitly closing
         // the Jar handlers here will cause subsequent ITs to fail with ZipException or NPE.
         // Once the global TCCL isolation is fully implemented in Phase 3, this physical closure
         // can be safely moved outside the flag as the default behavior.
-        if (DEEP_CLEAN_ENABLED.get()) {
+        if (deepCleanEnabled) {
             closeUrlClassLoader(classLoader);
             clearUrlClassPathCache(classLoader);
 
@@ -295,34 +325,58 @@ public class DefaultClassLoaderService implements ClassLoaderService {
             return;
         }
         try {
-            Field ucpField = URLClassLoader.class.getDeclaredField("ucp");
-            ucpField.setAccessible(true);
-            Object ucp = ucpField.get(classLoader);
-            if (ucp == null) {
-                return;
-            }
-            Field loadersField = ucp.getClass().getDeclaredField("loaders");
-            loadersField.setAccessible(true);
-            Object loaders = loadersField.get(ucp);
-            if (loaders instanceof ArrayList) {
-                ArrayList<?> loadersList = (ArrayList<?>) loaders;
-                for (Object loader : loadersList) {
-                    closeJarLoader(loader);
-                }
-                loadersList.clear();
-            }
-            Field lmapField = ucp.getClass().getDeclaredField("lmap");
-            lmapField.setAccessible(true);
-            Object lmap = lmapField.get(ucp);
-            if (lmap instanceof Map) {
-                ((Map<?, ?>) lmap).clear();
-            }
+            clearUrlClassPathCacheReflectively((URLClassLoader) classLoader);
             log.info("Cleared URLClassPath cache for: {}", classLoader);
         } catch (Exception e) {
             // Configuration/Initialization errors -> Elevated to WARN
+            // URLClassPath lives in jdk.internal.loader (not java.net) on JDK 9+, so both
+            // --add-opens flags are required for the reflective cache-clearing to fully succeed.
+            // Failure here degrades gracefully: URLClassLoader.close() (called above) already
+            // released the underlying JarFile fd handles; only the stale-reference cleanup is
+            // skipped.
             log.warn(
-                    "Failed to clear URLClassPath cache due to reflection restrictions. Please add '--add-opens java.base/java.net=ALL-UNNAMED' to JVM options.",
+                    "Failed to clear URLClassPath cache due to reflection restrictions. "
+                            + "Please add BOTH JVM options:\n"
+                            + "  --add-opens java.base/java.net=ALL-UNNAMED\n"
+                            + "  --add-opens java.base/jdk.internal.loader=ALL-UNNAMED",
                     e);
+        }
+    }
+
+    /**
+     * Reflectively clears {@code URLClassPath}'s internal {@code loaders} / {@code lmap} caches
+     * that hold stale {@code JarFile} references after {@link URLClassLoader#close()}.
+     *
+     * <p>Extracted as a protected hook so tests can simulate JDK 9+ {@code
+     * InaccessibleObjectException} (missing {@code --add-opens}) and assert the caller degrades
+     * gracefully rather than propagating.
+     *
+     * @param classLoader the classloader whose URLClassPath cache is to be cleared
+     * @throws Exception if reflective access fails (caller is responsible for catching)
+     */
+    @VisibleForTesting
+    protected void clearUrlClassPathCacheReflectively(URLClassLoader classLoader) throws Exception {
+        Field ucpField = URLClassLoader.class.getDeclaredField("ucp");
+        ucpField.setAccessible(true);
+        Object ucp = ucpField.get(classLoader);
+        if (ucp == null) {
+            return;
+        }
+        Field loadersField = ucp.getClass().getDeclaredField("loaders");
+        loadersField.setAccessible(true);
+        Object loaders = loadersField.get(ucp);
+        if (loaders instanceof ArrayList) {
+            ArrayList<?> loadersList = (ArrayList<?>) loaders;
+            for (Object loader : loadersList) {
+                closeJarLoader(loader);
+            }
+            loadersList.clear();
+        }
+        Field lmapField = ucp.getClass().getDeclaredField("lmap");
+        lmapField.setAccessible(true);
+        Object lmap = lmapField.get(ucp);
+        if (lmap instanceof Map) {
+            ((Map<?, ?>) lmap).clear();
         }
     }
 
@@ -331,20 +385,12 @@ public class DefaultClassLoaderService implements ClassLoaderService {
             Field jarFileField = loader.getClass().getDeclaredField("jar");
             jarFileField.setAccessible(true);
             Object jarFile = jarFileField.get(loader);
-            if (jarFile != null) {
-                Method closeMethod = jarFile.getClass().getDeclaredMethod("close");
-                closeMethod.setAccessible(true);
-                closeMethod.invoke(jarFile);
+            // JarFile extends ZipFile which implements Closeable since Java 7; no need to
+            // reflect for a declared close() method (it is inherited from ZipFile, so
+            // getDeclaredMethod("close") would always throw NoSuchMethodException).
+            if (jarFile instanceof Closeable) {
+                ((Closeable) jarFile).close();
                 log.info("Closed JarFile: {}", jarFile);
-            }
-        } catch (NoSuchFieldException e) {
-            try {
-                Method closeMethod = loader.getClass().getDeclaredMethod("close");
-                closeMethod.setAccessible(true);
-                closeMethod.invoke(loader);
-            } catch (Exception ex) {
-                // Empty catch block fixed -> Keep at DEBUG to avoid spamming
-                log.debug("Failed to invoke close() on inner jar loader: {}", ex.getMessage());
             }
         } catch (Exception e) {
             // Per-resource cleanup failures -> Keep at DEBUG
