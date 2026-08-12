@@ -19,6 +19,12 @@ CI&CD:
   - changed-files:
       - any-glob-to-any-file:
           - .github/**
+benchmarks:
+  - changed-files:
+      - any-glob-to-any-file:
+          - seatunnel-benchmarks/**
+          - tools/benchmarks/**
+          - .github/workflows/benchmarks.yml
 Zeta:
   - changed-files:
       - any-glob-to-any-file: seatunnel-engine/**
@@ -143,6 +149,11 @@ file:
       - changed-files:
           - any-glob-to-any-file: seatunnel-connectors-v2/connector-file/**
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(file)/**'
+fluss:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-fluss/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(fluss)/**'
 google-firestore:
   - all:
       - changed-files:
@@ -349,3 +360,13 @@ bigquery:
       - changed-files:
           - any-glob-to-any-file: seatunnel-connectors-v2/connector-bigquery/**
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(bigquery)/**'
+
+nats-jetstream:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file:
+              - seatunnel-connectors-v2/connector-nats-jetstream/**
+              - seatunnel-e2e/seatunnel-connector-v2-e2e/connector-nats-jetstream-e2e/**
+          - all-globs-to-all-files:
+              - '!seatunnel-connectors-v2/connector-!(nats-jetstream)/**'
+              - '!seatunnel-e2e/seatunnel-connector-v2-e2e/connector-!(nats-jetstream)-e2e/**'

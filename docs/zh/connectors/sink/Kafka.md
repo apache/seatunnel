@@ -164,6 +164,49 @@ sink {
 }
 ```
 
+### 使用 Kafka Headers
+
+本示例展示如何使用 `kafka_headers_fields` 将上游字段设置为 Kafka 消息头：
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    parallelism = 1
+    plugin_output = "fake"
+    row.num = 16
+    schema = {
+      fields {
+        name = "string"
+        age = "int"
+        source = "string"
+        traceId = "string"
+      }
+    }
+  }
+}
+
+sink {
+  Kafka {
+      topic = "test_topic"
+      bootstrap.servers = "localhost:9092"
+      format = json
+      partition_key_fields = ["name"]
+      kafka_headers_fields = ["source", "traceId"]
+      semantics = EXACTLY_ONCE
+      kafka.config = {
+        acks = "all"
+        request.timeout.ms = 60000
+        buffer.memory = 33554432
+      }
+  }
+}
+```
+
 ### AWS MSK SASL/SCRAM
 
 将以下 `${username}` 和 `${password}` 替换为 AWS MSK 中的配置值。

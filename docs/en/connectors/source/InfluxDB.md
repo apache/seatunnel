@@ -4,12 +4,18 @@ import ChangeLog from '../changelog/connector-influxdb.md';
 
 > InfluxDB source connector
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Description
 
 Read data from InfluxDB 1.x by using an InfluxQL query. The connector supports a normal single
 query and an optional parallel scan mode that splits one query by an integer column range.
 
-## Key features
+## Key Features
 
 - [x] [batch](../../introduction/concepts/connector-v2-features.md)
 - [ ] [stream](../../introduction/concepts/connector-v2-features.md)
@@ -32,7 +38,7 @@ query and an optional parallel scan mode that splits one query by an integer col
 
 Other SeaTunnel types are not supported by the current InfluxDB source converter.
 
-## Options
+## Source Options
 
 | name               | type   | required | default value | description                                                                                      |
 |--------------------|--------|----------|---------------|--------------------------------------------------------------------------------------------------|
@@ -50,30 +56,24 @@ Other SeaTunnel types are not supported by the current InfluxDB source converter
 | epoch              | string | no       | n             | Time precision returned by InfluxDB. For example: `H`, `m`, `s`, `MS`, `u`, `n`.                 |
 | connect_timeout_ms | long   | no       | 15000         | Timeout for connecting to InfluxDB, in milliseconds.                                             |
 | query_timeout_sec  | int    | no       | 3             | Timeout for querying InfluxDB, in seconds.                                                       |
-| common-options     | config | no       | -             | Source plugin common options.                                                                    |
+| common-options     | config | no       | -             | Source plugin common options. See [Source Common Options](../common-options/source-common-options.md). |
 
-### url
+### url [string]
 
-the url to connect to influxDB e.g.
-
-```
-http://influxdb-host:8086
-```
+The URL to connect to InfluxDB, for example `http://influxdb-host:8086`.
 
 ### sql [string]
 
-The query sql used to search data
+The InfluxQL query used to read data. For example:
 
 ```
-select name,age from test
+select name, age from test
 ```
 
 ### schema [config]
 
-#### fields [Config]
-
-The schema information of upstream data. For more details, please refer to [Schema Feature](../../introduction/concepts/schema-feature.md).
-e.g.
+The output schema of the source. See [Schema Feature](../../introduction/concepts/schema-feature.md)
+for the full grammar. For example:
 
 ```
 schema {
@@ -81,82 +81,83 @@ schema {
         name = string
         age = int
     }
-  }
+}
 ```
 
 ### database [string]
 
-The `influxDB` database
+The InfluxDB database name.
 
 ### username [string]
 
-the username of the influxDB when you select
+InfluxDB username used to authenticate the connection. Configure it together with `password`.
 
 ### password [string]
 
-the password of the influxDB when you select
+InfluxDB password used to authenticate the connection. Configure it together with `username`.
 
 ### split_column [string]
 
-The column used to split one query into multiple range queries.
+The integer column used to split one query into multiple range queries when parallel scan is
+enabled.
 
 > Tips:
-> - influxDB tags is not supported as a segmented primary key because the type of tags can only be a string
-> - influxDB time is not supported as a segmented primary key because the time field cannot participate in mathematical calculation
-> - Currently, `split_column` only supports integer data segmentation, and does not support `float`, `string`, `date` and other types.
+> - InfluxDB tags cannot be used as a split column because tags only support the string type.
+> - InfluxDB time cannot be used as a split column because the time field cannot participate in
+>   mathematical calculations.
+> - `split_column` currently only supports integer columns; `float`, `string`, `date`, and other
+>   types are not supported.
 > - `split_column`, `lower_bound`, `upper_bound`, and `partition_num` must be configured together.
-> - If the split query contains a filter, use lowercase `where` in `sql`, for example `select * from test where age > 0`. The current split parser is case-sensitive.
-> - `where` is an option in the validation rule, but the current split logic reads the filter from `sql`. Put the filter in `sql` instead of configuring a separate `where` value.
+> - If the split query has a filter, write the filter with a lowercase `where` directly inside
+>   `sql` (for example `select * from test where age > 0`). The current split parser is
+>   case-sensitive.
+> - `where` is part of the option validation rule but the split logic reads the filter from `sql`.
+>   Put the filter in `sql` instead of configuring a separate `where` value.
 
 ### upper_bound [int]
 
-upper bound of the `split_column`column
+Upper bound of the `split_column` column when parallel scan is enabled.
 
 ### lower_bound [int]
 
-lower bound of the `split_column` column
+Lower bound of the `split_column` column when parallel scan is enabled.
+
+The split column range is divided into `partition_num` parts. If `partition_num = 1`, the connector
+uses the whole range. If `partition_num` is less than `upper_bound - lower_bound`, the connector
+uses `(upper_bound - lower_bound)` partitions.
+
+For example, with `lower_bound = 1`, `upper_bound = 10`, `partition_num = 2`, and
+`sql = "select * from test where age > 0 and age < 10"`, the connector splits the query into:
 
 ```
-     split the $split_column range into $partition_num parts
-     if partition_num is 1, use the whole `split_column` range
-     if partition_num < (upper_bound - lower_bound), use (upper_bound - lower_bound) partitions
-     
-     eg: lower_bound = 1, upper_bound = 10, partition_num = 2
-     sql = "select * from test where age > 0 and age < 10"
-     
-     split result
-
-     split 1: select * from test where ($split_column >= 1 and $split_column < 6)  and (  age > 0 and age < 10 )
-     
-     split 2: select * from test where ($split_column >= 6 and $split_column < 11) and (  age > 0 and age < 10 )
-
+split 1: select * from test where ($split_column >= 1 and $split_column < 6)  and (  age > 0 and age < 10 )
+split 2: select * from test where ($split_column >= 6 and $split_column < 11) and (  age > 0 and age < 10 )
 ```
 
 ### partition_num [int]
 
-the `partition_num` of the InfluxDB when you select
-
-> Tips: Ensure that `upper_bound` minus `lower_bound` is divided `bypartition_num`, otherwise the query results will overlap
+Number of query splits. Configure it together with `lower_bound`, `upper_bound`, and
+`split_column`. Make sure `upper_bound - lower_bound` is divisible by `partition_num`; otherwise
+the query results overlap.
 
 ### epoch [string]
 
-returned time precision
-- Optional values: H, m, s, MS, u, n
-- default value: n
+Time precision returned by InfluxDB. Valid values include `H`, `m`, `s`, `MS`, `u`, and `n`. The
+default value is `n`.
 
 ### query_timeout_sec [int]
 
-the `query_timeout` of the InfluxDB when you select, in seconds
+Query timeout for the InfluxDB client, in seconds.
 
 ### connect_timeout_ms [long]
 
-the timeout for connecting to InfluxDB, in milliseconds
+Connection timeout for the InfluxDB client, in milliseconds.
 
 ### common options
 
-Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details
+Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details.
 
-## Examples
+## Task Example
 
 ### Read With Parallel Range Splits
 
@@ -167,7 +168,6 @@ env {
 }
 
 source {
-
     InfluxDB {
         url = "http://influxdb-host:8086"
         sql = "select label, c_string, c_double, c_bigint, c_float, c_int, c_smallint, c_boolean from source"
@@ -190,7 +190,6 @@ source {
             }
         }
     }
-
 }
 
 sink {
@@ -207,7 +206,6 @@ env {
 }
 
 source {
-
     InfluxDB {
         url = "http://influxdb-host:8086"
         sql = "select label, c_string, c_double, c_bigint, c_float, c_int, c_smallint, c_boolean from source"
@@ -226,7 +224,6 @@ source {
             }
         }
     }
-
 }
 
 sink {
