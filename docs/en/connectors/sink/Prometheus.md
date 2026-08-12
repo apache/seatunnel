@@ -54,7 +54,6 @@ downloaded from Maven Central.
 | retry_backoff_multiplier_ms | Int    | No       | 100     | Retry backoff multiplier in milliseconds. |
 | retry_backoff_max_ms        | Int    | No       | 10000   | Maximum retry backoff in milliseconds. |
 | batch_size                  | Int    | No       | 1024    | Maximum number of rows buffered before writing to Prometheus. |
-| flush_interval              | Long   | No       | 300000  | Deprecated and ignored. The connector no longer starts its own flush thread. Use the engine-level timer flush by setting `sink.flush.interval` in the job `env` block instead (see [Timer Flush](#timer-flush)). |
 | multi_table_sink_replica    | Int    | No       | 1       | Writer replica count for each table in a multi-table sink job. |
 | common-options              | Config | No       | -       | Sink plugin common parameters. See [Sink Common Options](../common-options/sink-common-options.md). |
 
@@ -99,9 +98,8 @@ connector-owned background thread and no concurrency between the timer flush and
 checkpoint, or close paths. A flush that fails is propagated to the engine instead of being silently
 dropped.
 
-> The connector-level `flush_interval` option is deprecated and ignored. On Spark and Flink the timer
-> flush is not applied; the buffer is still flushed when it reaches `batch_size`, on checkpoint, and
-> when the writer is closed.
+> On Spark and Flink the timer flush is not applied; the buffer is still flushed when it reaches
+> `batch_size`, on checkpoint, and when the writer is closed.
 
 ## Example
 

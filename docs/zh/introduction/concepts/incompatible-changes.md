@@ -115,6 +115,12 @@
   - **影响**：此前以 POI 引擎读取大于 50 MB Excel 文件的任务（虽然成功但伴随严重内存压力）现在会以 `FileConnectorException` 快速失败，而不再可能导致 worker OOM。
   - **迁移指南**：对于必须读取大 Excel 文件且 worker 内存充足的 POI 任务，可通过 `poi_excel_max_file_size = <字节数>` 调高限制；否则切换为 `excel_engine = EasyExcel`，该引擎惰性流式读取行，不受此限制约束。
 
+- **破坏性变更：移除 Prometheus Sink 的 `flush_interval` 选项**
+  - **受影响组件**：`seatunnel-connectors-v2/connector-prometheus`
+  - **变更说明**：Prometheus Sink 不再启动自己的后台刷新线程，连接器级的 `flush_interval` 选项已被移除。定时刷新改为由引擎通过作业 `env` 中的 `sink.flush.interval` 驱动（仅 Zeta 支持）。
+  - **影响**：在 `Prometheus` sink 中配置了 `flush_interval` 的作业会因未知选项校验失败。
+  - **迁移指南**：从 `Prometheus` sink 中移除 `flush_interval`。如需继续使用定时刷新，请在作业 `env` 中设置 `sink.flush.interval`（毫秒）。`batch_size` 触发和写入器关闭时的最后一次刷新保持不变。
+
 ### 转换变更
 
 - **[BREAKING]** SQL Transform 的 `PARSEDATETIME`、`TO_DATE` 和 `IS_DATE` 函数现在只接受白名单中的日期时间格式模式。以前接受的自定义格式模式现在将在运行时失败。支持的模式有：

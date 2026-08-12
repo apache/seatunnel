@@ -27,7 +27,6 @@ import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
 import org.apache.seatunnel.connectors.seatunnel.http.sink.HttpSinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.prometheus.Exception.PrometheusConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.prometheus.config.PrometheusSinkConfig;
-import org.apache.seatunnel.connectors.seatunnel.prometheus.config.PrometheusSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.prometheus.serialize.PrometheusSerializer;
 import org.apache.seatunnel.connectors.seatunnel.prometheus.serialize.Serializer;
 import org.apache.seatunnel.connectors.seatunnel.prometheus.sink.proto.Remote;
@@ -70,13 +69,6 @@ public class PrometheusWriter extends HttpSinkWriter {
                         sinkConfig.getKeyLabel(),
                         sinkConfig.getKeyValue());
         this.httpClient = new HttpClientProvider(httpParameter);
-        if (pluginConfig.getOptional(PrometheusSinkOptions.FLUSH_INTERVAL).isPresent()) {
-            log.warn(
-                    "The connector option 'flush_interval' is deprecated and no longer starts a "
-                            + "background flush thread. Use the engine-level timer flush by setting "
-                            + "'sink.flush.interval' in the job 'env' block instead (supported by "
-                            + "Zeta only).");
-        }
         // Opt in to engine-level timer flush. The engine invokes this action on the normal Sink
         // input-processing path when a FlushSignal arrives, so no connector-owned scheduler thread
         // is needed and there is no concurrency with write/checkpoint/close.

@@ -25,8 +25,6 @@ public class PrometheusSinkOptions extends HttpCommonOptions {
 
     private static final int DEFAULT_BATCH_SIZE = 1024;
 
-    private static final Long DEFAULT_FLUSH_INTERVAL = 300000L;
-
     public static final Option<String> KEY_TIMESTAMP =
             Options.key("key_timestamp")
                     .stringType()
@@ -44,21 +42,4 @@ public class PrometheusSinkOptions extends HttpCommonOptions {
                     .intType()
                     .defaultValue(DEFAULT_BATCH_SIZE)
                     .withDescription("the batch size writer to prometheus");
-
-    /**
-     * @deprecated The connector no longer starts its own background flush thread. Use the
-     *     engine-level timer flush by setting {@code sink.flush.interval} in the job {@code env}
-     *     block instead (supported by Zeta only). This option is kept only for backward
-     *     compatibility and is ignored.
-     */
-    @Deprecated
-    public static final Option<Long> FLUSH_INTERVAL =
-            Options.key("flush_interval")
-                    .longType()
-                    .defaultValue(DEFAULT_FLUSH_INTERVAL)
-                    .withDescription(
-                            "Deprecated. The connector no longer starts its own flush thread; "
-                                    + "use the engine-level 'sink.flush.interval' in the job 'env' "
-                                    + "block instead (Zeta only). Kept for backward compatibility "
-                                    + "and ignored.");
 }

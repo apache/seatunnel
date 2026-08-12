@@ -120,7 +120,7 @@ class PrometheusWriterTest {
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(
                         new String[] {"value"}, new SeaTunnelDataType[] {BasicType.DOUBLE_TYPE});
-        // No batch_size / flush_interval configured, so writes buffer without auto-flushing.
+        // No batch_size configured, so writes buffer without auto-flushing.
         ReadonlyConfig pluginConfig = ReadonlyConfig.fromMap(new HashMap<>());
         return new PrometheusWriter(rowType, httpParameter, pluginConfig, context);
     }

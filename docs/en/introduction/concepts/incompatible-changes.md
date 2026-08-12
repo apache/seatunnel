@@ -120,6 +120,12 @@ You need to check this document before you upgrade to related version.
   - **Impact**: Existing jobs that read POI-engine Excel files larger than 50 MB - which previously succeeded at the cost of heavy memory pressure - will now fail fast with a `FileConnectorException` instead of potentially OOMing the worker.
   - **Migration Guide**: For POI jobs that must read large Excel files and have sufficient worker memory, raise the limit with `poi_excel_max_file_size = <bytes>`. Otherwise switch to `excel_engine = EasyExcel`, which streams rows lazily and is not subject to the limit.
 
+- **Breaking Change: Prometheus Sink `flush_interval` option removed**
+  - **Affected component**: `seatunnel-connectors-v2/connector-prometheus`
+  - **Description**: The Prometheus Sink no longer starts its own background flush thread. The connector-level `flush_interval` option has been removed. Timer-based flushing is now driven by the engine through `sink.flush.interval` in the job `env` block (supported by Zeta only).
+  - **Impact**: Jobs that set `flush_interval` in the `Prometheus` sink block will fail validation with an unknown option error.
+  - **Migration Guide**: Remove `flush_interval` from the `Prometheus` sink block. To keep timer-based flushing, set `sink.flush.interval` (milliseconds) in the job `env` block. The `batch_size` trigger and the final flush on writer close are unchanged.
+
 ### Transform Changes
 
 - **[BREAKING]** SQL Transform `PARSEDATETIME`, `TO_DATE`, and `IS_DATE` functions now only accept whitelisted datetime format patterns. Custom format patterns that were previously accepted will now fail at runtime. The supported patterns are:
