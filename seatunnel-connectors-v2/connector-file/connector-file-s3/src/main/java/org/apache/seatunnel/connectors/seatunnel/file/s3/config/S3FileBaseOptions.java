@@ -42,11 +42,53 @@ public class S3FileBaseOptions extends FileBaseSourceOptions {
                     .noDefaultValue()
                     .withDescription("fs s3a endpoint");
 
+    /**
+     * The class name of the {@code SimpleAWSCredentialsProvider}, which authenticates with a static
+     * {@code access_key} / {@code secret_key} pair.
+     */
+    public static final String SIMPLE_AWS_CREDENTIALS_PROVIDER =
+            "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider";
+
+    /**
+     * The class name of the {@code InstanceProfileCredentialsProvider}, which resolves credentials
+     * from the runtime environment (for example an EC2 instance profile).
+     */
+    public static final String INSTANCE_PROFILE_CREDENTIALS_PROVIDER =
+            "com.amazonaws.auth.InstanceProfileCredentialsProvider";
+
+    /**
+     * The legacy typed S3A credentials provider option.
+     *
+     * @deprecated Use {@link #S3A_AWS_CREDENTIALS_PROVIDER_CLASS}. This field retains its original
+     *     generic type so downstream code compiled against earlier releases remains source and
+     *     binary compatible.
+     */
+    @Deprecated
     public static final Option<S3aAwsCredentialsProvider> S3A_AWS_CREDENTIALS_PROVIDER =
             Options.key("fs.s3a.aws.credentials.provider")
                     .enumType(S3aAwsCredentialsProvider.class)
                     .defaultValue(S3aAwsCredentialsProvider.InstanceProfileCredentialsProvider)
                     .withDescription("s3a aws credentials provider");
+
+    /**
+     * The S3A credentials provider class name passed through to Hadoop. Any fully-qualified S3A
+     * credentials provider class available on the classpath is accepted, so container-oriented
+     * providers (for example {@code com.amazonaws.auth.ContainerCredentialsProvider}) and custom
+     * providers can be used in addition to the two well-known values {@link
+     * #SIMPLE_AWS_CREDENTIALS_PROVIDER} and {@link #INSTANCE_PROFILE_CREDENTIALS_PROVIDER}. Hadoop
+     * also accepts a comma- or newline-separated chain of provider classes. The class must be
+     * present on the runtime classpath of every node running the S3A filesystem (for example under
+     * {@code ${SEATUNNEL_HOME}/lib}).
+     */
+    public static final Option<String> S3A_AWS_CREDENTIALS_PROVIDER_CLASS =
+            Options.key(S3A_AWS_CREDENTIALS_PROVIDER.key())
+                    .stringType()
+                    .defaultValue(INSTANCE_PROFILE_CREDENTIALS_PROVIDER)
+                    .withDescription(
+                            "The fully-qualified class name of the S3A credentials provider. "
+                                    + "Defaults to "
+                                    + INSTANCE_PROFILE_CREDENTIALS_PROVIDER
+                                    + ". The class must be present on the classpath.");
 
     /**
      * The current key for that config option. if you need to add a new option, you can add it here
@@ -62,12 +104,21 @@ public class S3FileBaseOptions extends FileBaseSourceOptions {
                     .noDefaultValue()
                     .withDescription("S3 properties");
 
+    /**
+     * The set of S3A credentials providers accepted by the legacy {@link
+     * #S3A_AWS_CREDENTIALS_PROVIDER} option.
+     *
+     * @deprecated Use {@link #S3A_AWS_CREDENTIALS_PROVIDER_CLASS} with the {@link
+     *     #SIMPLE_AWS_CREDENTIALS_PROVIDER} and {@link #INSTANCE_PROFILE_CREDENTIALS_PROVIDER}
+     *     class-name constants. This enum remains the type of the deprecated compatibility option.
+     */
+    @Deprecated
     public enum S3aAwsCredentialsProvider {
-        SimpleAWSCredentialsProvider("org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider"),
+        SimpleAWSCredentialsProvider(SIMPLE_AWS_CREDENTIALS_PROVIDER),
 
-        InstanceProfileCredentialsProvider("com.amazonaws.auth.InstanceProfileCredentialsProvider");
+        InstanceProfileCredentialsProvider(INSTANCE_PROFILE_CREDENTIALS_PROVIDER);
 
-        private String provider;
+        private final String provider;
 
         S3aAwsCredentialsProvider(String provider) {
             this.provider = provider;

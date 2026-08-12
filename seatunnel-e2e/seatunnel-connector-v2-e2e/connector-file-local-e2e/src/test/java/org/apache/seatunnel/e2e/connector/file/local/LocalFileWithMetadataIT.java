@@ -38,7 +38,6 @@ import org.testcontainers.utility.MountableFile;
 import lombok.extern.slf4j.Slf4j;
 
 import java.nio.file.Paths;
-import java.util.Arrays;
 
 import static org.apache.seatunnel.e2e.common.util.ContainerUtil.PROJECT_ROOT_PATH;
 
@@ -94,7 +93,6 @@ public class LocalFileWithMetadataIT extends SeaTunnelContainer {
                                                 "seatunnel-engine:" + JDK_DOCKER_IMAGE)))
                         .waitingFor(Wait.forLogMessage(".*received new worker register:.*", 1));
         copySeaTunnelStarterToContainer(server);
-        server.setPortBindings(Arrays.asList("5801:5801", "8080:8080"));
         server.withCopyFileToContainer(
                 MountableFile.forHostPath(
                         PROJECT_ROOT_PATH

@@ -44,6 +44,8 @@ public abstract class AbstractJobEnvironment {
 
     protected final boolean isStartWithSavePoint;
 
+    protected final RestoreMode restoreMode;
+
     protected final List<Action> actions = new ArrayList<>();
 
     protected final Set<URL> jarUrls = new HashSet<>();
@@ -57,9 +59,14 @@ public abstract class AbstractJobEnvironment {
     protected final List<URL> commonPluginJars = new ArrayList<>();
 
     public AbstractJobEnvironment(JobConfig jobConfig, boolean isStartWithSavePoint) {
+        this(jobConfig, isStartWithSavePoint ? RestoreMode.SAVEPOINT : RestoreMode.NONE);
+    }
+
+    public AbstractJobEnvironment(JobConfig jobConfig, RestoreMode restoreMode) {
         LOGGER = Logger.getLogger(getClass().getName());
         this.jobConfig = jobConfig;
-        this.isStartWithSavePoint = isStartWithSavePoint;
+        this.restoreMode = restoreMode == null ? RestoreMode.NONE : restoreMode;
+        this.isStartWithSavePoint = this.restoreMode == RestoreMode.SAVEPOINT;
         this.idGenerator = new IdGenerator();
         this.commonPluginJars.addAll(searchPluginJars());
     }
@@ -128,7 +135,7 @@ public abstract class AbstractJobEnvironment {
     protected abstract MultipleTableJobConfigParser getJobConfigParser();
 
     protected LogicalDagGenerator getLogicalDagGenerator() {
-        return new LogicalDagGenerator(actions, jobConfig, idGenerator, isStartWithSavePoint);
+        return new LogicalDagGenerator(actions, jobConfig, idGenerator, restoreMode.isRestore());
     }
 
     public abstract LogicalDag getLogicalDag();
