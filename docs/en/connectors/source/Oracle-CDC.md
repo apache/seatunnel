@@ -423,12 +423,11 @@ source {
 
 ### Configure Debezium heartbeat
 
-For low-traffic tables, Debezium heartbeat can help the Oracle LogMiner position move forward regularly.
+For low-traffic tables, the Oracle LogMiner SCN only advances when redo log changes occur. Use a Debezium heartbeat to keep the SCN moving so checkpoint offsets are recorded regularly and replication lag stays observable. The heartbeat table must exist on the Oracle server before the job starts.
 
 ```hocon
 source {
   Oracle-CDC {
-    plugin_output = "customers"
     username = "system"
     password = "top_secret"
     database-names = ["ORCLCDB"]
@@ -437,12 +436,37 @@ source {
     url = "jdbc:oracle:thin:@//oracle-host:1521/ORCLCDB"
     debezium {
       database.oracle.jdbc.timezoneAsRegion = "false"
-      heartbeat.interval.ms = 1000
+      heartbeat.interval.ms = 100
       heartbeat.action.query = "INSERT INTO DEBEZIUM.heartbeat (ts) VALUES (SYSTIMESTAMP)"
     }
   }
 }
 ```
+
+### Read tables without a primary key
+
+For tables without a physical primary key, set `exactly_once = false` and supply a unique column via `table-names-config.primaryKeys` when you need stable row identity for downstream upserts.
+
+```hocon
+source {
+  Oracle-CDC {
+    username = "system"
+    password = "top_secret"
+    database-names = ["ORCLCDB"]
+    schema-names = ["DEBEZIUM"]
+    url = "jdbc:oracle:thin:@//oracle-host:1521/ORCLCDB"
+    table-names = ["ORCLCDB.DEBEZIUM.FULL_TYPES_NO_PRIMARY_KEY"]
+    table-names-config = [
+      {
+        table = "ORCLCDB.DEBEZIUM.FULL_TYPES_NO_PRIMARY_KEY"
+        primaryKeys = ["ID"]
+      }
+    ]
+  }
+}
+```
+
+Without a usable primary key, the connector cannot safely apply UPDATE/DELETE events. Use this mode only for append-only workloads.
 
 ### Schema change event filtering
 
