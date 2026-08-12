@@ -20,6 +20,7 @@ Sink connector for Apache Iceberg. It supports CDC writes, automatic table creat
 
 ## Key features
 
+- [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
 
@@ -392,6 +393,28 @@ sink {
   }
 }
 ```
+
+## FAQ
+
+### How do I enable upsert mode in Iceberg sink?
+
+Set `iceberg.table.upsert-mode-enabled=true` and configure `iceberg.table.primary-keys` with a comma-separated list of columns. The sink does not inherit primary keys from the source automatically, so the primary key list is required in this mode.
+
+### What does `iceberg.table.partition-keys` accept?
+
+A comma-separated list of column names (for example `dt,region`) or Iceberg transform expressions such as `days(ts)`. In multi-table jobs you can use the placeholder `${partition_keys}` to use each upstream table's partition keys.
+
+### How do I commit to a non-default Iceberg branch?
+
+Set `iceberg.table.commit-branch` to the branch name. Leave it empty to keep committing to the table's default branch.
+
+### When is `custom_sql` required?
+
+`custom_sql` is required only when `data_save_mode = CUSTOM_PROCESSING`. It is the `delete` SQL that runs against the target Iceberg table before the sink writes new rows.
+
+### How does Kerberos authentication work for Iceberg sinks?
+
+Set `krb5_path`, `kerberos_principal`, and `kerberos_keytab_path` to the values described in the source FAQ. These options are evaluated by the Hadoop FileSystem used by the Iceberg writer and apply when the catalog is Hadoop or Hive with HDFS.
 
 ## Changelog
 

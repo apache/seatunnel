@@ -20,6 +20,7 @@ Apache Iceberg 目标连接器支持 CDC 写入、自动建表、表结构变更
 
 ## 主要特性
 
+- [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
 
@@ -369,3 +370,25 @@ sink {
 ## 变更日志
 
 <ChangeLog />
+
+## 常见问题
+
+### 如何开启 Iceberg Sink 的 upsert 模式？
+
+设置 `iceberg.table.upsert-mode-enabled=true` 并通过 `iceberg.table.primary-keys` 配置以逗号分隔的主键列。Sink 不会自动从 source 推断主键，因此在该模式下必须显式配置主键。
+
+### `iceberg.table.partition-keys` 支持什么格式？
+
+支持以逗号分隔的列名（例如 `dt,region`）或 Iceberg transform 表达式（例如 `days(ts)`）。多表写入作业中可以使用占位符 `${partition_keys}` 来引用每张上游表的分区键。
+
+### 如何提交到非默认 Iceberg 分支？
+
+设置 `iceberg.table.commit-branch` 为目标分支名即可。留空表示提交到表的默认分支。
+
+### 什么时候必须配置 `custom_sql`？
+
+只有当 `data_save_mode = CUSTOM_PROCESSING` 时才需要配置 `custom_sql`。它是目标 Iceberg 表上用于在 Sink 写入新数据前删除目标数据的 SQL。
+
+### Iceberg Sink 如何配置 Kerberos 认证？
+
+设置 `krb5_path`、`kerberos_principal` 和 `kerberos_keytab_path`，含义同 Source FAQ。这些选项由 Iceberg writer 底层使用的 Hadoop FileSystem 解析，仅在 catalog 为 Hadoop 或 Hive 且基于 HDFS 时生效。
