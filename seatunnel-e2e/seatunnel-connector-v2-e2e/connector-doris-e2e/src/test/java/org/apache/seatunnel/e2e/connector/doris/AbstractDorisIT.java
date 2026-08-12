@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.e2e.connector.doris;
 
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
-
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 
@@ -63,7 +61,7 @@ public abstract class AbstractDorisIT extends TestSuiteBase implements TestResou
     protected static final int QUERY_PORT = 9030;
     protected static final int HTTP_PORT = 8030;
     protected static final int BE_HTTP_PORT = 8040;
-    protected static final String URL = "jdbc:mysql://%s:" + QUERY_PORT;
+    protected static final String URL = "jdbc:mysql://%s:%s";
     protected static final String USERNAME = "root";
     protected static final String PASSWORD = "";
     protected Connection jdbcConnection;
@@ -84,12 +82,8 @@ public abstract class AbstractDorisIT extends TestSuiteBase implements TestResou
                 new GenericContainer<>(DOCKER_IMAGE)
                         .withNetwork(NETWORK)
                         .withNetworkAliases(HOST)
+                        .withExposedPorts(QUERY_PORT, HTTP_PORT, BE_HTTP_PORT)
                         .withPrivilegedMode(true);
-        container.setPortBindings(
-                Lists.newArrayList(
-                        String.format("%s:%s", QUERY_PORT, QUERY_PORT),
-                        String.format("%s:%s", HTTP_PORT, HTTP_PORT),
-                        String.format("%s:%s", BE_HTTP_PORT, BE_HTTP_PORT)));
         Startables.deepStart(Stream.of(container)).join();
         log.info("doris container started");
         given().pollDelay(20, TimeUnit.SECONDS)
@@ -112,7 +106,11 @@ public abstract class AbstractDorisIT extends TestSuiteBase implements TestResou
         Properties props = new Properties();
         props.put("user", USERNAME);
         props.put("password", PASSWORD);
-        jdbcConnection = driver.connect(String.format(URL, container.getHost()), props);
+        jdbcConnection =
+                driver.connect(
+                        String.format(
+                                URL, container.getHost(), container.getMappedPort(QUERY_PORT)),
+                        props);
         initializeBE();
         try (Statement statement = jdbcConnection.createStatement()) {
             statement.execute(SET_SQL);

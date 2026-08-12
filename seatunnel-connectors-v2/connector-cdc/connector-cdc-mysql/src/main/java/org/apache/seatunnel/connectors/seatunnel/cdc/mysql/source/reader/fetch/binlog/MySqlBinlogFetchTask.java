@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.reader.fetch.
 import org.apache.seatunnel.connectors.cdc.base.config.StartupConfig;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.base.relational.JdbcSourceEventDispatcher;
+import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 import org.apache.seatunnel.connectors.cdc.base.source.reader.external.FetchTask;
 import org.apache.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
@@ -72,7 +73,7 @@ public class MySqlBinlogFetchTask implements FetchTask<SourceSplitBase> {
         StartupConfig startupConfig = sourceFetchContext.getSourceConfig().getStartupConfig();
 
         StartupMode startupMode = startupConfig.getStartupMode();
-        if (startupMode.equals(StartupMode.TIMESTAMP)) {
+        if (shouldFilterByTimestamp(startupMode, split.getStartupOffset())) {
             log.info(
                     "Starting MySQL binlog reader,with timestamp filter {}",
                     startupConfig.getTimestamp());
@@ -137,6 +138,12 @@ public class MySqlBinlogFetchTask implements FetchTask<SourceSplitBase> {
     @Override
     public SourceSplitBase getSplit() {
         return split;
+    }
+
+    static boolean shouldFilterByTimestamp(StartupMode startupMode, Offset startupOffset) {
+        return startupMode.equals(StartupMode.TIMESTAMP)
+                && startupOffset instanceof BinlogOffset
+                && ((BinlogOffset) startupOffset).isTimestampOffset();
     }
 
     /**

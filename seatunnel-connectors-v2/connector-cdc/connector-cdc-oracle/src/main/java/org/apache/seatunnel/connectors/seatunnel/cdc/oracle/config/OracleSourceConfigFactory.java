@@ -155,33 +155,37 @@ public class OracleSourceConfigFactory extends JdbcSourceConfigFactory {
             props.putAll(dbzProperties);
         }
 
-        return new OracleSourceConfig(
-                useSelectCount,
-                skipAnalyze,
-                startupConfig,
-                stopConfig,
-                databaseList,
-                tableList,
-                splitSize,
-                splitColumn,
-                distributionFactorUpper,
-                distributionFactorLower,
-                sampleShardingThreshold,
-                inverseSamplingRate,
-                sampleShardingAllow,
-                props,
-                DRIVER_CLASS_NAME,
-                hostname,
-                port,
-                username,
-                password,
-                originUrl,
-                fetchSize,
-                serverTimeZone,
-                connectTimeoutMillis,
-                connectMaxRetries,
-                connectionPoolSize,
-                exactlyOnce);
+        OracleSourceConfig config =
+                new OracleSourceConfig(
+                        useSelectCount,
+                        skipAnalyze,
+                        startupConfig,
+                        stopConfig,
+                        databaseList,
+                        tableList,
+                        splitSize,
+                        splitColumn,
+                        distributionFactorUpper,
+                        distributionFactorLower,
+                        sampleShardingThreshold,
+                        inverseSamplingRate,
+                        sampleShardingAllow,
+                        props,
+                        DRIVER_CLASS_NAME,
+                        hostname,
+                        port,
+                        username,
+                        password,
+                        originUrl,
+                        fetchSize,
+                        serverTimeZone,
+                        connectTimeoutMillis,
+                        connectMaxRetries,
+                        connectionPoolSize,
+                        exactlyOnce);
+        // Propagate the enableConcurrentRead flag so the chunk splitter can skip split analysis.
+        config.setEnableConcurrentRead(this.enableConcurrentRead);
+        return config;
     }
 
     private void validateConfig() throws IllegalArgumentException {

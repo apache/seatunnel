@@ -120,6 +120,19 @@ cd "${SEATUNNEL_HOME}"
 
 If the job fails before reading rows, check [Troubleshooting](#troubleshooting) first.
 
+:::note
+
+When connecting to MariaDB, use MariaDB Connector/J with the matching URL and driver:
+
+```hocon
+url = "jdbc:mariadb://localhost:3306/database"
+driver = "org.mariadb.jdbc.Driver"
+```
+
+Do not use MySQL Connector/J with a `jdbc:mysql:` URL for MariaDB. That configuration selects the MySQL dialect, which can reject a MariaDB server version as an unsupported MySQL version.
+
+:::
+
 ## Key features
 
 - [x] [batch](../../introduction/concepts/connector-v2-features.md)
@@ -174,6 +187,7 @@ Use `query` to select only the required columns.
 | split.sample-sharding.threshold            | Int     | No        | 1000            | This configuration specifies the threshold of estimated shard count to trigger the sample sharding strategy. When the distribution factor is outside the bounds specified by `chunk-key.even-distribution.factor.upper-bound` and `chunk-key.even-distribution.factor.lower-bound`, and the estimated shard count (calculated as approximate row count / chunk size) exceeds this threshold, the sample sharding strategy will be used. This can help to handle large datasets more efficiently. The default value is 1000 shards.                                                                                                                 |
 | split.inverse-sampling.rate                | Int     | No        | 1000            | The inverse of the sampling rate used in the sample sharding strategy. For example, if this value is set to 1000, it means a 1/1000 sampling rate is applied during the sampling process. This option provides flexibility in controlling the granularity of the sampling, thus affecting the final number of shards. It's especially useful when dealing with very large datasets where a lower sampling rate is preferred. The default value is 1000.                                                                                                                                                                                            |
 | split.allow-sampling                       | Boolean | No        | true            | Whether to allow sampling-based sharding strategy. When set to false, the system will fall back to unevenly-sized chunk splitting (iterative query approach) regardless of the shard count.                                                                                                                                                              |
+| enable_concurrent_read                     | Boolean | No        | true            | Whether to enable concurrent read with split during the snapshot phase. When set to false, the source skips split analysis and reads the table as a single split, which is useful for tables without indexes.                                                                                                                                           |
 | common-options                             |         | No        | -               | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | split.string_split_mode                    | String  | No        | sample          | Supports different string splitting algorithms. By default, `sample` is used to determine the split by sampling the string value. You can switch to `charset_based` to enable charset-based string splitting algorithm. When set to `charset_based`, the algorithm assumes characters of partition_column are within ASCII range 32-126, which covers most character-based splitting scenarios.                                                                                                                                                                                                                                                    |
 | split.string-strategy                      | String  | No        | -               | Controls how String partition columns are split. Available values are `none`, `hash`, `range`, and `auto`. `range` and `auto` currently require MySQL binary collation and fixed-length printable ASCII key values. Other JDBC dialects reject `range` and `auto` until their range split support is explicitly validated. `auto` tries range splitting first and falls back to hash splitting when range splitting is unsafe. When this option is not set, SeaTunnel keeps the existing `split.string_split_mode` behavior.                                                                                                                                                                                                                                           |
@@ -199,6 +213,18 @@ use_regex = true
 In HOCON strings, a regular-expression backslash must be escaped, so `\d+` is written as `\\d+` in the file. The final unescaped dot separates the database/schema path from the table pattern.
 
 Many JDBC drivers treat schema and table arguments passed to `DatabaseMetaData` as SQL `LIKE` patterns. SeaTunnel performs an exact identifier check after metadata discovery, but you should still use the exact case for case-sensitive database identifiers.
+
+:::note Views and table matching
+
+Whether `table_path` (with or without `use_regex`) also matches database views, not only base tables, depends on the dialect's internal table-listing query. There is no option to explicitly include or exclude views:
+
+- MySQL and PostgreSQL list views alongside base tables, so a broad pattern like `db.*` also matches views.
+- SQL Server filters to `TABLE_TYPE = 'BASE TABLE'` and excludes views.
+- Oracle and Dameng query `ALL_TABLES`, which excludes views as a side effect of that view not listing them.
+
+To read only specific base tables regardless of dialect, list them explicitly in `table_list` instead of relying on a broad regular expression.
+
+:::
 
 ### decimal_type_narrowing
 
@@ -313,7 +339,7 @@ The following values are starting points. Confirm the driver artifact, license, 
 | Highgo            | com.highgo.jdbc.Driver                              | jdbc:highgo://localhost:5866/highgo                                    | https://repo1.maven.org/maven2/com/highgo/HgdbJdbc/6.2.3/HgdbJdbc-6.2.3.jar                                                   |
 | Presto            | com.facebook.presto.jdbc.PrestoDriver               | jdbc:presto://localhost:8080/presto                                    | https://repo1.maven.org/maven2/com/facebook/presto/presto-jdbc/0.279/presto-jdbc-0.279.jar                                    |
 | Trino             | io.trino.jdbc.TrinoDriver                           | jdbc:trino://localhost:8080/trino                                      | https://repo1.maven.org/maven2/io/trino/trino-jdbc/460/trino-jdbc-460.jar                                                     |
-| YashanDB          | com.yashandb.jdbc.Driver                            | jdbc:yasdb://localhost:1688/SYS                                        | https://mvnrepository.com/artifact/com.yashandb/yashandb-jdbc                                                                 |
+| YashanDB          | com.yashandb.jdbc.Driver                            | jdbc:yasdb://localhost:1688/SYS                                        | https://repo1.maven.org/maven2/com/yashandb/yashandb-jdbc/1.10.7/yashandb-jdbc-1.10.7.jar                                     |
 
 ## Common patterns
 
