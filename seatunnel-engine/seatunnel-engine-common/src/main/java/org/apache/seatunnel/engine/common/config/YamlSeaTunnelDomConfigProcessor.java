@@ -57,6 +57,7 @@ import static com.hazelcast.internal.config.DomConfigHelper.childElements;
 import static com.hazelcast.internal.config.DomConfigHelper.cleanNodeName;
 import static com.hazelcast.internal.config.DomConfigHelper.getBooleanValue;
 import static com.hazelcast.internal.config.DomConfigHelper.getIntegerValue;
+import static com.hazelcast.internal.config.DomConfigHelper.getLongValue;
 
 /** Builds {@link SeaTunnelConfig} from the YAML DOM tree used by the engine startup path. */
 public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor {
@@ -197,7 +198,11 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
             } else if (ServerConfigOptions.MasterServerConfigOptions.METRICS_FETCH_TIMEOUT_MS
                     .key()
                     .equals(name)) {
-                engineConfig.setMetricsFetchTimeoutMs(Long.parseLong(getTextContent(node)));
+                engineConfig.setMetricsFetchTimeoutMs(
+                        getLongValue(
+                                ServerConfigOptions.MasterServerConfigOptions.METRICS_FETCH_TIMEOUT_MS
+                                        .key(),
+                                getTextContent(node)));
             } else if (ServerConfigOptions.WorkerServerConfigOptions
                     .TASK_EXECUTION_THREAD_SHARE_MODE
                     .key()
