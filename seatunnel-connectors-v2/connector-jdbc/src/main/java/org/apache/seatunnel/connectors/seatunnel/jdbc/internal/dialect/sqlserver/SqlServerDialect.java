@@ -284,6 +284,11 @@ public class SqlServerDialect implements JdbcDialect {
     }
 
     @Override
+    public String getLimitClause(int limit) {
+        return " OFFSET 0 ROWS FETCH NEXT " + limit + " ROWS ONLY";
+    }
+
+    @Override
     public void applySchemaChange(
             Connection connection, TablePath tablePath, AlterTableAddColumnEvent event)
             throws SQLException {

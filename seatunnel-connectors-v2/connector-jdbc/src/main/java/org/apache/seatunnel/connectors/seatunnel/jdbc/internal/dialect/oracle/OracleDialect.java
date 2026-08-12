@@ -330,6 +330,11 @@ public class OracleDialect implements JdbcDialect {
     }
 
     @Override
+    public String getLimitClause(int limit) {
+        return " FETCH FIRST " + limit + " ROWS ONLY";
+    }
+
+    @Override
     public Object[] sampleDataFromColumn(
             Connection connection,
             JdbcSourceTable table,

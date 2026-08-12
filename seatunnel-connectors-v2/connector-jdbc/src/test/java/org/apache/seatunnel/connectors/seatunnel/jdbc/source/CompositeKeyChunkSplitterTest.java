@@ -29,6 +29,8 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectLoader;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -135,7 +137,7 @@ public class CompositeKeyChunkSplitterTest {
     }
 
     @Test
-    public void testCompositeSplitQuerySQLUsesTupleConditions() {
+    public void testCompositeSplitQuerySQLUsesExpandedTupleConditions() {
         JdbcSourceConfig config = config();
         DynamicChunkSplitter splitter = new DynamicChunkSplitter(config);
         TableSchema schema = TableSchema.builder().columns(compositePkColumns()).build();
@@ -145,7 +147,7 @@ public class CompositeKeyChunkSplitterTest {
                         new String[] {"order_id", "line_no"},
                         new SeaTunnelDataType<?>[] {BasicType.LONG_TYPE, BasicType.INT_TYPE});
 
-        // middle split: (a,b) > (?,?) AND (a,b) <= (?,?)
+        // middle split: (a > ? OR (a = ? AND b > ?)) AND (a < ? OR (a = ? AND b <= ?))
         JdbcSourceSplit middle =
                 new JdbcSourceSplit(
                         TablePath.of("db", "schema", "table"),
@@ -158,11 +160,11 @@ public class CompositeKeyChunkSplitterTest {
         String sql = splitter.createDynamicSplitQuerySQL(middle, schema);
         Assertions.assertEquals(
                 "SELECT * FROM `db`.`table` "
-                        + "WHERE (`order_id`, `line_no`) > (?, ?) "
-                        + "AND (`order_id`, `line_no`) <= (?, ?)",
+                        + "WHERE ((`order_id` > ?) OR (`order_id` = ? AND `line_no` > ?)) "
+                        + "AND ((`order_id` < ?) OR (`order_id` = ? AND `line_no` <= ?))",
                 sql);
 
-        // first split: (a,b) <= (?,?)
+        // first split: a < ? OR (a = ? AND b <= ?)
         JdbcSourceSplit first =
                 new JdbcSourceSplit(
                         TablePath.of("db", "schema", "table"),
@@ -174,9 +176,11 @@ public class CompositeKeyChunkSplitterTest {
                         new Object[] {100L, 5});
         String firstSql = splitter.createDynamicSplitQuerySQL(first, schema);
         Assertions.assertEquals(
-                "SELECT * FROM `db`.`table` WHERE (`order_id`, `line_no`) <= (?, ?)", firstSql);
+                "SELECT * FROM `db`.`table` "
+                        + "WHERE ((`order_id` < ?) OR (`order_id` = ? AND `line_no` <= ?))",
+                firstSql);
 
-        // last split: (a,b) > (?,?)
+        // last split: a > ? OR (a = ? AND b > ?)
         JdbcSourceSplit last =
                 new JdbcSourceSplit(
                         TablePath.of("db", "schema", "table"),
@@ -188,7 +192,9 @@ public class CompositeKeyChunkSplitterTest {
                         null);
         String lastSql = splitter.createDynamicSplitQuerySQL(last, schema);
         Assertions.assertEquals(
-                "SELECT * FROM `db`.`table` WHERE (`order_id`, `line_no`) > (?, ?)", lastSql);
+                "SELECT * FROM `db`.`table` "
+                        + "WHERE ((`order_id` > ?) OR (`order_id` = ? AND `line_no` > ?))",
+                lastSql);
     }
 
     @Test
@@ -213,8 +219,8 @@ public class CompositeKeyChunkSplitterTest {
         String sql = splitter.createDynamicSplitQuerySQL(split, schema);
         Assertions.assertEquals(
                 "SELECT * FROM (select * from src_table) tmp "
-                        + "WHERE (`order_id`, `line_no`) > (?, ?) "
-                        + "AND (`order_id`, `line_no`) <= (?, ?)",
+                        + "WHERE ((`order_id` > ?) OR (`order_id` = ? AND `line_no` > ?)) "
+                        + "AND ((`order_id` < ?) OR (`order_id` = ? AND `line_no` <= ?))",
                 sql);
     }
 
@@ -225,5 +231,30 @@ public class CompositeKeyChunkSplitterTest {
                         Collections.singletonMap("url", "jdbc:mysql://localhost:3306/test"));
         JdbcSourceConfig cfg = JdbcSourceConfig.of(readonly);
         Assertions.assertTrue(cfg.isUseDynamicSplitter());
+    }
+
+    @Test
+    public void testCompositeKeySplitDialectSupport() {
+        // Composite split SQL is emitted in portable expanded OR/AND form (no row-value
+        // constructor), so every dialect supports it; per-dialect LIMIT clause differs.
+        JdbcDialect mysql = JdbcDialectLoader.load("jdbc:mysql://localhost:3306/test", null, null);
+        Assertions.assertTrue(mysql.supportCompositeKeySplit());
+        Assertions.assertEquals(" LIMIT 10", mysql.getLimitClause(10));
+
+        JdbcDialect postgres =
+                JdbcDialectLoader.load("jdbc:postgresql://localhost:5432/test", null, null);
+        Assertions.assertTrue(postgres.supportCompositeKeySplit());
+        Assertions.assertEquals(" LIMIT 10", postgres.getLimitClause(10));
+
+        JdbcDialect sqlserver =
+                JdbcDialectLoader.load("jdbc:sqlserver://localhost:1433", null, null);
+        Assertions.assertTrue(sqlserver.supportCompositeKeySplit());
+        Assertions.assertEquals(
+                " OFFSET 0 ROWS FETCH NEXT 10 ROWS ONLY", sqlserver.getLimitClause(10));
+
+        JdbcDialect oracle =
+                JdbcDialectLoader.load("jdbc:oracle:thin:@localhost:1521:xe", null, null);
+        Assertions.assertTrue(oracle.supportCompositeKeySplit());
+        Assertions.assertEquals(" FETCH FIRST 10 ROWS ONLY", oracle.getLimitClause(10));
     }
 }

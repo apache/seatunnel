@@ -48,6 +48,11 @@ public class SqliteDialect implements JdbcDialect {
     }
 
     @Override
+    public boolean supportCompositeKeySplit() {
+        return true;
+    }
+
+    @Override
     public Optional<String> getUpsertStatement(
             String database, String tableName, String[] fieldNames, String[] pkNames) {
         String updateClause =

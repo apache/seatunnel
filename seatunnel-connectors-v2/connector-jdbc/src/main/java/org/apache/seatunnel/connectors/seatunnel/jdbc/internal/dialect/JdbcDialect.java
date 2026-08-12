@@ -364,6 +364,29 @@ public interface JdbcDialect extends Serializable {
         return false;
     }
 
+    /**
+     * Returns whether this dialect supports row-value-constructor comparison syntax used by
+     * composite-primary-key chunk splitting, i.e. {@code (col1, col2) > (?, ?)}.
+     *
+     * <p>MySQL, PostgreSQL (and its derivatives) and SQLite support row-value comparisons; SQL
+     * Server (T-SQL) and several other dialects do not and would fail with a syntax error if such
+     * predicates were emitted. The splitter falls back to the single-column behavior when this
+     * returns {@code false}.
+     */
+    default boolean supportCompositeKeySplit() {
+        return true;
+    }
+
+    /**
+     * Returns the dialect-specific LIMIT clause (appended after an {@code ORDER BY} clause) used by
+     * composite-primary-key chunk splitting, e.g. {@code "LIMIT 1000"} on MySQL/PostgreSQL, {@code
+     * "OFFSET 0 ROWS FETCH NEXT 1000 ROWS ONLY"} on SQL Server, or {@code "FETCH FIRST 1000 ROWS
+     * ONLY"} on Oracle 12c+.
+     */
+    default String getLimitClause(int limit) {
+        return " LIMIT " + limit;
+    }
+
     default boolean supportHashSplitter() {
         return true;
     }

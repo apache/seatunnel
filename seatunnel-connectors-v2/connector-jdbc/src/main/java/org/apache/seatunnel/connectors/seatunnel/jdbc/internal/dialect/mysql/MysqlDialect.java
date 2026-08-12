@@ -289,6 +289,11 @@ public class MysqlDialect implements JdbcDialect {
         return true;
     }
 
+    @Override
+    public boolean supportCompositeKeySplit() {
+        return true;
+    }
+
     private String queryColumnCollation(
             Connection connection, JdbcSourceTable table, String columnName) throws SQLException {
         TablePath tablePath = table.getTablePath();

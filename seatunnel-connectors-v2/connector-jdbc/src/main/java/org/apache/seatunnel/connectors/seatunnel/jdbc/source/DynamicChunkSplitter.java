@@ -40,9 +40,12 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.Serializable;
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.sql.Connection;
 import java.sql.Date;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.util.ArrayList;
@@ -118,9 +121,17 @@ public class DynamicChunkSplitter extends ChunkSplitter {
      * Split a table on the full composite key tuple. Boundaries are tuple-ordered ((start, end] per
      * chunk, matching {@link #buildCompositeCondition}), so composite-key tables whose first column
      * repeats heavily still split into balanced chunks via the remaining key columns.
+     *
+     * <p><b>Performance trade-off:</b> unlike the single-column paths which compute chunk
+     * boundaries arithmetically (closed-form evenly/unevenly sized chunks), this path walks the
+     * boundary with one database round trip per chunk ({@link #queryNextChunkMaxComposite} scans at
+     * most {@code split.size} rows per call). For a large table with many chunks this is more round
+     * trips than the single-column arithmetic path, in exchange for correct, balanced chunks on
+     * composite keys where arithmetic is impossible (the first column has low cardinality).
+     * Boundary queries are index-friendly (expanded OR/AND), so each round trip is cheap.
      */
     private Collection<JdbcSourceSplit> createCompositeDynamicSplits(
-            JdbcSourceTable table, SeaTunnelRowType splitKey) throws Exception {
+            JdbcSourceTable table, SeaTunnelRowType splitKey) throws SQLException {
         String[] columns = splitKey.getFieldNames();
         Object[][] minMax = queryMinMaxComposite(table, columns);
         Object[] min = minMax[0];
@@ -174,8 +185,15 @@ public class DynamicChunkSplitter extends ChunkSplitter {
                 end);
     }
 
+    /**
+     * Queries the tuple-ordered minimum and maximum of the composite key using {@code ORDER BY ...
+     * ASC/DESC LIMIT 1} (index-friendly, works for any comparable type and avoids MIN()/MAX()
+     * aggregates which would scan without index benefit).
+     *
+     * @return {@code [minRow, maxRow]}, each element null when the table is empty
+     */
     private Object[][] queryMinMaxComposite(JdbcSourceTable table, String[] columns)
-            throws Exception {
+            throws SQLException {
         StringBuilder selectCols = new StringBuilder();
         StringBuilder orderAsc = new StringBuilder();
         StringBuilder orderDesc = new StringBuilder();
@@ -205,7 +223,7 @@ public class DynamicChunkSplitter extends ChunkSplitter {
                         + fromClause
                         + " ORDER BY "
                         + orderAsc
-                        + " LIMIT 1";
+                        + jdbcDialect.getLimitClause(1);
         String maxQuery =
                 "SELECT "
                         + selectCols
@@ -213,17 +231,25 @@ public class DynamicChunkSplitter extends ChunkSplitter {
                         + fromClause
                         + " ORDER BY "
                         + orderDesc
-                        + " LIMIT 1";
+                        + jdbcDialect.getLimitClause(1);
 
-        java.sql.Connection conn = getOrEstablishConnection();
+        Connection conn = getOrEstablishConnection();
         Object[] minRow = executeRowQuery(conn, minQuery, columns.length);
         Object[] maxRow = executeRowQuery(conn, maxQuery, columns.length);
         return new Object[][] {minRow, maxRow};
     }
 
+    /**
+     * Walks the composite key boundary: returns the last row of the first {@code chunkSize} rows
+     * strictly greater than {@code includedLowerBound} (tuple-ordered), using an expanded OR/AND
+     * condition so the composite index is used instead of a row-constructor comparison. Each call
+     * scans at most {@code chunkSize} rows.
+     *
+     * @return the next chunk-end tuple, or null when no row is greater than the bound
+     */
     private Object[] queryNextChunkMaxComposite(
             JdbcSourceTable table, String[] columns, int chunkSize, Object[] includedLowerBound)
-            throws Exception {
+            throws SQLException {
         StringBuilder columnList = new StringBuilder();
         StringBuilder orderBy = new StringBuilder();
         for (int i = 0; i < columns.length; i++) {
@@ -276,10 +302,10 @@ public class DynamicChunkSplitter extends ChunkSplitter {
                         + where
                         + " ORDER BY "
                         + orderBy
-                        + " ASC LIMIT "
-                        + chunkSize;
+                        + " ASC"
+                        + jdbcDialect.getLimitClause(chunkSize);
 
-        java.sql.Connection conn = getOrEstablishConnection();
+        Connection conn = getOrEstablishConnection();
         try (java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
             // Bind: v1, v1,v2, v1,v2,v3 ... (cumulative per OR branch)
             int paramIndex = 1;
@@ -288,7 +314,7 @@ public class DynamicChunkSplitter extends ChunkSplitter {
                     ps.setObject(paramIndex++, includedLowerBound[j]);
                 }
             }
-            try (java.sql.ResultSet rs = ps.executeQuery()) {
+            try (ResultSet rs = ps.executeQuery()) {
                 Object[] lastRow = null;
                 while (rs.next()) {
                     lastRow = new Object[columns.length];
@@ -301,27 +327,27 @@ public class DynamicChunkSplitter extends ChunkSplitter {
         }
     }
 
+    /**
+     * Returns the first tuple strictly greater than {@code excludedLowerBound} (tuple-ordered).
+     * Used to advance past a duplicated chunk boundary value so chunks never degenerate into
+     * zero-row ranges.
+     *
+     * @return the next greater tuple, or null when none exists
+     */
     private Object[] queryMinComposite(
-            JdbcSourceTable table, String[] columns, Object[] excludedLowerBound) throws Exception {
+            JdbcSourceTable table, String[] columns, Object[] excludedLowerBound)
+            throws SQLException {
         StringBuilder columnList = new StringBuilder();
         StringBuilder orderBy = new StringBuilder();
-        StringBuilder tupleLeft = new StringBuilder("(");
-        StringBuilder tupleRight = new StringBuilder("(");
         for (int i = 0; i < columns.length; i++) {
             if (i > 0) {
                 columnList.append(", ");
                 orderBy.append(", ");
-                tupleLeft.append(", ");
-                tupleRight.append(", ");
             }
             String quoted = jdbcDialect.quoteIdentifier(columns[i]);
             columnList.append(quoted);
             orderBy.append(quoted);
-            tupleLeft.append(quoted);
-            tupleRight.append("?");
         }
-        tupleLeft.append(")");
-        tupleRight.append(")");
 
         String fromClause;
         if (StringUtils.isNotBlank(table.getQuery())) {
@@ -330,25 +356,29 @@ public class DynamicChunkSplitter extends ChunkSplitter {
             fromClause = jdbcDialect.tableIdentifier(table.getTablePath());
         }
 
+        // Expanded OR/AND form of (col1, col2, ...) > (?, ?, ...) without row-value-constructor
+        // syntax (portable across dialects, e.g. SQL Server).
         String sql =
                 "SELECT "
                         + columnList
                         + " FROM "
                         + fromClause
                         + " WHERE "
-                        + tupleLeft
-                        + " > "
-                        + tupleRight
+                        + buildExpandedTupleCondition(columns, ">", ">")
                         + " ORDER BY "
                         + orderBy
-                        + " ASC LIMIT 1";
+                        + " ASC"
+                        + jdbcDialect.getLimitClause(1);
 
-        java.sql.Connection conn = getOrEstablishConnection();
+        Connection conn = getOrEstablishConnection();
         try (java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
+            int paramIndex = 1;
             for (int i = 0; i < columns.length; i++) {
-                ps.setObject(i + 1, excludedLowerBound[i]);
+                for (int j = 0; j <= i; j++) {
+                    ps.setObject(paramIndex++, excludedLowerBound[j]);
+                }
             }
-            try (java.sql.ResultSet rs = ps.executeQuery()) {
+            try (ResultSet rs = ps.executeQuery()) {
                 if (rs.next()) {
                     Object[] result = new Object[columns.length];
                     for (int i = 0; i < columns.length; i++) {
@@ -361,10 +391,14 @@ public class DynamicChunkSplitter extends ChunkSplitter {
         }
     }
 
-    private Object[] executeRowQuery(java.sql.Connection conn, String sql, int columnCount)
-            throws Exception {
-        try (java.sql.Statement stmt = conn.createStatement();
-                java.sql.ResultSet rs = stmt.executeQuery(sql)) {
+    /**
+     * Executes a simple row query (no parameters) and returns the first row as an Object array, or
+     * null when the result set is empty.
+     */
+    private Object[] executeRowQuery(Connection conn, String sql, int columnCount)
+            throws SQLException {
+        try (Statement stmt = conn.createStatement();
+                ResultSet rs = stmt.executeQuery(sql)) {
             if (rs.next()) {
                 Object[] row = new Object[columnCount];
                 for (int i = 0; i < columnCount; i++) {
@@ -384,6 +418,10 @@ public class DynamicChunkSplitter extends ChunkSplitter {
         return StringUtils.stripEnd(query, " \t\r\n;");
     }
 
+    /**
+     * Lexicographically compares two composite-key tuples element-wise using {@link
+     * ObjectUtils#compare}, returning a negative/zero/positive value.
+     */
     private int compareArrays(Object[] a, Object[] b) {
         int len = Math.min(a.length, b.length);
         for (int i = 0; i < len; i++) {
@@ -1100,9 +1138,7 @@ public class DynamicChunkSplitter extends ChunkSplitter {
 
     @VisibleForTesting
     String createDynamicSplitQuerySQL(JdbcSourceSplit split, TableSchema schema) {
-        boolean isComposite =
-                split.getSplitStart() instanceof Object[]
-                        || split.getSplitEnd() instanceof Object[];
+        boolean isComposite = isCompositeSplit(split);
 
         final String condition;
         if (isComposite) {
@@ -1172,6 +1208,12 @@ public class DynamicChunkSplitter extends ChunkSplitter {
         }
     }
 
+    /**
+     * Builds the WHERE predicate for a composite-key split: lexicographic {@code > start} and
+     * {@code <= end} tuple comparisons, expressed as portable expanded OR/AND conditions (no
+     * row-value-constructor syntax, so it works on SQL Server too). Returns null for a single
+     * full-table split (both bounds null).
+     */
     private String buildCompositeCondition(JdbcSourceSplit split) {
         Object[] startArr = (Object[]) split.getSplitStart();
         Object[] endArr = (Object[]) split.getSplitEnd();
@@ -1182,50 +1224,60 @@ public class DynamicChunkSplitter extends ChunkSplitter {
             return null;
         }
 
-        String[] columnNames = split.getSplitKeyName().split(COMPOSITE_KEY_SEPARATOR);
-        int keyCount = columnNames.length;
-        String tuple = buildTupleExpr(columnNames);
+        String[] columnNames = ((SeaTunnelRowType) split.getSplitKeyType()).getFieldNames();
 
         if (isFirstSplit) {
-            // (col1, col2, ...) <= (?, ?, ...)
-            return tuple + " <= " + buildPlaceholderTuple(keyCount);
+            // (col1 < ?) OR (col1 = ? AND col2 <= ?) ... — lexicographic <= without
+            // row-value-constructor syntax
+            return buildExpandedTupleCondition(columnNames, "<", "<=");
         } else if (isLastSplit) {
-            // (col1, col2, ...) > (?, ?, ...)
-            return tuple + " > " + buildPlaceholderTuple(keyCount);
+            // (col1 > ?) OR (col1 = ? AND col2 > ?) ... — lexicographic >
+            return buildExpandedTupleCondition(columnNames, ">", ">");
         } else {
-            // (col1, col2, ...) > (?, ...) AND (col1, col2, ...) <= (?, ...)
-            return tuple
-                    + " > "
-                    + buildPlaceholderTuple(keyCount)
+            // (cols) > start AND (cols) <= end, both expanded
+            return buildExpandedTupleCondition(columnNames, ">", ">")
                     + " AND "
-                    + tuple
-                    + " <= "
-                    + buildPlaceholderTuple(keyCount);
+                    + buildExpandedTupleCondition(columnNames, "<", "<=");
         }
     }
 
-    private String buildTupleExpr(String[] columns) {
-        StringBuilder sb = new StringBuilder("(");
+    /**
+     * Builds an expanded OR/AND condition equivalent to a row-value-constructor comparison {@code
+     * (col1, col2, ...) OP (?, ?, ...)} without using the row-value-constructor syntax, which SQL
+     * Server (T-SQL) and a few other dialects do not support. For example for {@code ">"}: {@code
+     * (col1 > ?) OR (col1 = ? AND col2 > ?) OR (col1 = ? AND col2 = ? AND col3 > ?)}.
+     *
+     * @param columns quoted key column names
+     * @param prefixOp comparison operator used by the intermediate OR branches ({@code ">"} or
+     *     {@code "<"})
+     * @param lastOp comparison operator used by the final OR branch that binds the full tuple
+     * @return the expanded, portable comparison condition
+     */
+    private String buildExpandedTupleCondition(String[] columns, String prefixOp, String lastOp) {
+        StringBuilder where = new StringBuilder("(");
         for (int i = 0; i < columns.length; i++) {
             if (i > 0) {
-                sb.append(", ");
+                where.append(" OR ");
             }
-            sb.append(jdbcDialect.quoteIdentifier(columns[i]));
-        }
-        sb.append(")");
-        return sb.toString();
-    }
-
-    private String buildPlaceholderTuple(int count) {
-        StringBuilder sb = new StringBuilder("(");
-        for (int i = 0; i < count; i++) {
-            if (i > 0) {
-                sb.append(", ");
+            where.append("(");
+            for (int j = 0; j <= i; j++) {
+                if (j > 0) {
+                    where.append(" AND ");
+                }
+                String quoted = jdbcDialect.quoteIdentifier(columns[j]);
+                if (j < i) {
+                    where.append(quoted).append(" = ?");
+                } else {
+                    where.append(quoted)
+                            .append(" ")
+                            .append(i == columns.length - 1 ? lastOp : prefixOp)
+                            .append(" ?");
+                }
             }
-            sb.append("?");
+            where.append(")");
         }
-        sb.append(")");
-        return sb.toString();
+        where.append(")");
+        return where.toString();
     }
 
     private void addKeyColumnsToCondition(
@@ -1244,6 +1296,15 @@ public class DynamicChunkSplitter extends ChunkSplitter {
         }
     }
 
+    /**
+     * Returns whether a split carries a composite (multi-column) key, tracked explicitly on the
+     * split key type rather than inferred from the runtime type of a nullable boundary field.
+     */
+    private static boolean isCompositeSplit(JdbcSourceSplit split) {
+        return split.getSplitKeyType() instanceof SeaTunnelRowType
+                && ((SeaTunnelRowType) split.getSplitKeyType()).getTotalFields() > 1;
+    }
+
     private static void prepareDynamicSplitStatement(
             PreparedStatement statement, JdbcSourceSplit split) throws SQLException {
         boolean isFirstSplit = split.getSplitStart() == null;
@@ -1252,9 +1313,7 @@ public class DynamicChunkSplitter extends ChunkSplitter {
             return;
         }
 
-        boolean isComposite =
-                split.getSplitStart() instanceof Object[]
-                        || split.getSplitEnd() instanceof Object[];
+        boolean isComposite = isCompositeSplit(split);
 
         if (isComposite) {
             prepareCompositeStatement(statement, split);
@@ -1272,24 +1331,34 @@ public class DynamicChunkSplitter extends ChunkSplitter {
 
         int paramIndex = 1;
         if (isFirstSplit) {
-            // WHERE (col1, col2, ...) <= (?, ?, ...)
-            for (Object val : endArr) {
-                statement.setObject(paramIndex++, val);
-            }
+            // WHERE (col1 < ?) OR (col1 = ? AND col2 <= ?) ... — bind end tuple cumulatively
+            paramIndex = bindExpandedTuple(statement, endArr, paramIndex);
         } else if (isLastSplit) {
-            // WHERE (col1, col2, ...) > (?, ?, ...)
-            for (Object val : startArr) {
-                statement.setObject(paramIndex++, val);
-            }
+            // WHERE (col1 > ?) OR (col1 = ? AND col2 > ?) ... — bind start tuple cumulatively
+            paramIndex = bindExpandedTuple(statement, startArr, paramIndex);
         } else {
-            // WHERE (col1, col2, ...) > (?, ...) AND (col1, col2, ...) <= (?, ...)
-            for (Object val : startArr) {
-                statement.setObject(paramIndex++, val);
-            }
-            for (Object val : endArr) {
-                statement.setObject(paramIndex++, val);
+            // WHERE (cols) > start AND (cols) <= end — bind both tuples cumulatively
+            paramIndex = bindExpandedTuple(statement, startArr, paramIndex);
+            bindExpandedTuple(statement, endArr, paramIndex);
+        }
+    }
+
+    /**
+     * Binds a composite-key boundary tuple to the placeholders of the expanded OR/AND condition
+     * built by {@link #buildExpandedTupleCondition}: the i-th OR branch consumes {@code
+     * values[0..i]}, so the tuple is bound cumulatively.
+     *
+     * @return the next free parameter index
+     */
+    private static int bindExpandedTuple(
+            PreparedStatement statement, Object[] values, int startIndex) throws SQLException {
+        int paramIndex = startIndex;
+        for (int i = 0; i < values.length; i++) {
+            for (int j = 0; j <= i; j++) {
+                statement.setObject(paramIndex++, values[j]);
             }
         }
+        return paramIndex;
     }
 
     private static void prepareSingleColumnStatement(

@@ -298,6 +298,11 @@ public class PostgresDialect implements JdbcDialect {
     }
 
     @Override
+    public boolean supportCompositeKeySplit() {
+        return true;
+    }
+
+    @Override
     public void applySchemaChange(
             Connection connection, TablePath tablePath, AlterTableAddColumnEvent event)
             throws SQLException {

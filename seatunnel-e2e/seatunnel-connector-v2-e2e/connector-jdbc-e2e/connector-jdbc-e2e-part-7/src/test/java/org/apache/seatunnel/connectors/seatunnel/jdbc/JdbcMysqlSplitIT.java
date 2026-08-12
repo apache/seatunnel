@@ -24,6 +24,7 @@ import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Pair;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
@@ -57,6 +58,7 @@ import java.sql.Connection;
 import java.sql.Date;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Duration;
@@ -66,7 +68,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -776,8 +780,9 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
         JdbcSourceTable jdbcSourceTable =
                 JdbcSourceTable.builder().tablePath(tablePathMySql).catalogTable(table).build();
 
+        DynamicChunkSplitter splitter = getDynamicChunkSplitter(configMap);
         Collection<JdbcSourceSplit> jdbcSourceSplits =
-                getDynamicChunkSplitter(configMap).generateSplits(jdbcSourceTable);
+                splitter.generateSplits(jdbcSourceTable);
 
         Assertions.assertTrue(
                 jdbcSourceSplits.size() > 1,
@@ -796,6 +801,27 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
                         "Composite split end should be an Object[] tuple");
             }
         }
+
+        // Data-correctness: reading through every split must reconstruct the source table exactly
+        // once - 300 rows, no missing and no duplicate (order_id, line_no) keys.
+        TableSchema tableSchema = table.getTableSchema();
+        Set<String> readKeys = new HashSet<>();
+        int readCount = 0;
+        try (Connection connection = getJdbcConnection()) {
+            for (JdbcSourceSplit split : splitArray) {
+                try (PreparedStatement ps = splitter.generateSplitStatement(split, tableSchema);
+                        ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        readCount++;
+                        readKeys.add(
+                                rs.getLong("order_id") + "|" + rs.getInt("line_no"));
+                    }
+                }
+            }
+        }
+        Assertions.assertEquals(300, readCount, "All 300 rows must be read through the splits");
+        Assertions.assertEquals(
+                300, readKeys.size(), "No (order_id, line_no) key may be duplicated or missing");
         mySqlCatalog.close();
     }
 

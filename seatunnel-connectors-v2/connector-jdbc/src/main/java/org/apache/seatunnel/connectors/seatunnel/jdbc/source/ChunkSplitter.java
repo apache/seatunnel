@@ -355,20 +355,24 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
         PrimaryKey pk = schema.getPrimaryKey();
         if (pk != null) {
             List<String> pkColumnNames = pk.getColumnNames();
-            // Composite primary key: use all key columns (tuple-ordered split). Unlike the
-            // single-key path below, no type filter is applied - any comparable column type works
-            // with tuple comparison, so e.g. a (VARCHAR, INT) key splits on the full tuple.
-            // Only the dynamic splitter supports multi-column boundaries; the fixed splitter
-            // keeps the existing single-column behavior.
-            if (pkColumnNames.size() > 1 && config.isUseDynamicSplitter()) {
+            // Composite primary key: use all key columns (tuple-ordered split). Only the dynamic
+            // splitter supports multi-column boundaries, and only for dialects that support
+            // row-value-constructor comparison ((a, b) > (?, ?)); other dialects (e.g. SQL
+            // Server) fall back to the single-column behavior below. All key columns must also
+            // be splittable (Comparable) types - a composite PK containing e.g. BINARY/
+            // VARBINARY would otherwise fail compareArrays with a ClassCastException, so such
+            // keys also fall back to the single-column path.
+            if (pkColumnNames.size() > 1
+                    && config.isUseDynamicSplitter()
+                    && jdbcDialect.supportCompositeKeySplit()) {
                 List<Column> pkColumns = new ArrayList<>();
                 for (String pkField : pkColumnNames) {
                     Column column = columnMap.get(pkField);
-                    if (column != null) {
+                    if (column != null && isSupportSplitColumn(column)) {
                         pkColumns.add(column);
                     }
                 }
-                if (!pkColumns.isEmpty()) {
+                if (pkColumns.size() == pkColumnNames.size()) {
                     String[] fieldNames =
                             pkColumns.stream().map(Column::getName).toArray(String[]::new);
                     SeaTunnelDataType[] fieldTypes =
