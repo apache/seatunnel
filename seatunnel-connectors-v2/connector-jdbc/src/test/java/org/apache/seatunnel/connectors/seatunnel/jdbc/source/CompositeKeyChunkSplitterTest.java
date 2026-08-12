@@ -137,6 +137,65 @@ public class CompositeKeyChunkSplitterTest {
     }
 
     @Test
+    public void testFindSplitKeyFallsBackToSingleColumnForUnsupportedType() {
+        // A composite PK containing a non-splittable type (BOOLEAN here, standing for e.g.
+        // BINARY/VARBINARY) must not reach compareArrays; findSplitKey falls back to the
+        // first supported PK column.
+        JdbcSourceConfig config = config();
+        CatalogTable ct =
+                catalogTable(
+                        Arrays.asList(
+                                PhysicalColumn.builder()
+                                        .name("order_id")
+                                        .sourceType("bigint")
+                                        .dataType(BasicType.LONG_TYPE)
+                                        .build(),
+                                PhysicalColumn.builder()
+                                        .name("flag")
+                                        .sourceType("boolean")
+                                        .dataType(BasicType.BOOLEAN_TYPE)
+                                        .build()),
+                        new PrimaryKey("pk", Arrays.asList("order_id", "flag")));
+        JdbcSourceTable table = table(ct);
+
+        DynamicChunkSplitter splitter = new DynamicChunkSplitter(config);
+        Optional<SeaTunnelRowType> splitKey = splitter.findSplitKey(table);
+
+        Assertions.assertTrue(splitKey.isPresent());
+        SeaTunnelRowType rowType = splitKey.get();
+        Assertions.assertEquals(1, rowType.getTotalFields());
+        Assertions.assertEquals("order_id", rowType.getFieldName(0));
+    }
+
+    @Test
+    public void testFindSplitKeyFallsBackToSingleColumnForDialectNotOptedIn() {
+        // A dialect that has not opted in via supportCompositeKeySplit() (DB2 default false)
+        // must keep the pre-PR single-column behavior even for an all-supported composite PK.
+        JdbcSourceConfig config =
+                JdbcSourceConfig.of(
+                        ReadonlyConfig.fromMap(
+                                new HashMap<String, Object>() {
+                                    {
+                                        put("url", "jdbc:db2://localhost:50000/test");
+                                        put("driver", "com.ibm.db2.jcc.DB2Driver");
+                                    }
+                                }));
+        CatalogTable ct =
+                catalogTable(
+                        compositePkColumns(),
+                        new PrimaryKey("pk", Arrays.asList("order_id", "line_no")));
+        JdbcSourceTable table = table(ct);
+
+        DynamicChunkSplitter splitter = new DynamicChunkSplitter(config);
+        Optional<SeaTunnelRowType> splitKey = splitter.findSplitKey(table);
+
+        Assertions.assertTrue(splitKey.isPresent());
+        SeaTunnelRowType rowType = splitKey.get();
+        Assertions.assertEquals(1, rowType.getTotalFields());
+        Assertions.assertEquals("order_id", rowType.getFieldName(0));
+    }
+
+    @Test
     public void testCompositeSplitQuerySQLUsesExpandedTupleConditions() {
         JdbcSourceConfig config = config();
         DynamicChunkSplitter splitter = new DynamicChunkSplitter(config);

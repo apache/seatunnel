@@ -309,7 +309,7 @@ public class DynamicChunkSplitter extends ChunkSplitter {
                         + jdbcDialect.getOffsetLimitClause(chunkSize - 1, 1);
 
         Connection conn = getOrEstablishConnection();
-        try (java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
             // Bind: v1, v1,v2, v1,v2,v3 ... (cumulative per OR branch)
             int paramIndex = 1;
             for (int i = 0; i < columns.length; i++) {
@@ -374,7 +374,7 @@ public class DynamicChunkSplitter extends ChunkSplitter {
                         + jdbcDialect.getLimitClause(1);
 
         Connection conn = getOrEstablishConnection();
-        try (java.sql.PreparedStatement ps = conn.prepareStatement(sql)) {
+        try (PreparedStatement ps = conn.prepareStatement(sql)) {
             int paramIndex = 1;
             for (int i = 0; i < columns.length; i++) {
                 for (int j = 0; j <= i; j++) {

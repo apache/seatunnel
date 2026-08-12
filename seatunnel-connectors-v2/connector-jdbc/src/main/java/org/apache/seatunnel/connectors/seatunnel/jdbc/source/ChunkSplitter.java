@@ -356,12 +356,12 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
         if (pk != null) {
             List<String> pkColumnNames = pk.getColumnNames();
             // Composite primary key: use all key columns (tuple-ordered split). Only the dynamic
-            // splitter supports multi-column boundaries, and only for dialects that support
-            // row-value-constructor comparison ((a, b) > (?, ?)); other dialects (e.g. SQL
-            // Server) fall back to the single-column behavior below. All key columns must also
-            // be splittable (Comparable) types - a composite PK containing e.g. BINARY/
-            // VARBINARY would otherwise fail compareArrays with a ClassCastException, so such
-            // keys also fall back to the single-column path.
+            // splitter supports multi-column boundaries, and only for dialects whose composite-PK
+            // path is validated by an official E2E (see JdbcDialect.supportCompositeKeySplit(),
+            // default false); unvalidated dialects fall back to the single-column behavior below.
+            // All key columns must also be splittable (Comparable) types - a composite PK
+            // containing e.g. BINARY/VARBINARY would otherwise fail compareArrays with a
+            // ClassCastException, so such keys also fall back to the single-column path.
             if (pkColumnNames.size() > 1
                     && config.isUseDynamicSplitter()
                     && jdbcDialect.supportCompositeKeySplit()) {
