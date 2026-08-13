@@ -105,6 +105,9 @@ Sink 插件通用参数，详情请参考 [Sink 常用选项](../common-options/
 - 任务启动前，目标 keyspace 和表必须已经存在。
 - `fields` 适合上游数据有额外字段、只想写入其中一部分字段的场景；它不是建表配置。
 - `async_write = true` 可以提升吞吐，`batch_size` 用来控制每次 flush 前聚合的行数。
+- 连接器底层使用 Cassandra Java Driver；认证和一致性相关参数与 Driver 保持一致，需要更强一致性时请结合
+  集群的副本策略设置 `consistency_level`。
+- `batch_type = "UNLOGGED"` 是常见默认值；当正确性优先于吞吐时使用 `LOGGED`，counter 表使用 `COUNTER`。
 
 ## 任务示例
 

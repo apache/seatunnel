@@ -105,3 +105,4 @@ connector-hugegraph
 connector-lance
 connector-mqtt
 connector-bigquery
+connector-nats-jetstream

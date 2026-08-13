@@ -750,6 +750,8 @@ seatunnel:
 > | jobId                | optional | string | job id                            |
 > | jobName              | optional | string | job name                          |
 > | isStartWithSavePoint | optional | string | if job is started with save point |
+> | restoreMode          | optional | string | 作业恢复的数据来源：`CHECKPOINT` 或 `SAVEPOINT`，需与 `restoreSourceJobId` 搭配使用。详见 [作业恢复与重启](rest-api-job-lifecycle.md#6-作业恢复与重启)。 |
+> | restoreSourceJobId   | optional | string | 设置了 `restoreMode` 时，用于指定需要恢复的作业 ID。若只设置了 `isStartWithSavePoint`（未设置 `restoreMode`），则回退使用 `jobId`。 |
 > | format               | optional | string    | 配置风格,支持json、hocon 和 sql,默认 json   |
 
 **注意:** REST API 不支持 dry-run 功能。该功能仅通过 CLI 提供。
@@ -875,7 +877,7 @@ INSERT INTO console_sink SELECT * FROM fake_source;
 ### 提交作业来源上传配置文件
 
 <details>
-<summary><code>POST</code> <code><b>/submit-job</b></code> <code>(如果作业提交成功，返回jobId和jobName。)</code></summary>
+<summary><code>POST</code> <code><b>/submit-job/upload</b></code> <code>(如果作业提交成功，返回jobId和jobName。)</code></summary>
 
 #### 参数
 
@@ -884,6 +886,8 @@ INSERT INTO console_sink SELECT * FROM fake_source;
 > | jobId                | optional | string | job id                            |
 > | jobName              | optional | string | job name                          |
 > | isStartWithSavePoint | optional | string | if job is started with save point |
+> | restoreMode          | optional | string | 作业恢复的数据来源：`CHECKPOINT` 或 `SAVEPOINT`，需与 `restoreSourceJobId` 搭配使用。详见 [作业恢复与重启](rest-api-job-lifecycle.md#6-作业恢复与重启)。 |
+> | restoreSourceJobId   | optional | string | 设置了 `restoreMode` 时，用于指定需要恢复的作业 ID。若只设置了 `isStartWithSavePoint`（未设置 `restoreMode`），则回退使用 `jobId`。 |
 
 #### 请求体
 上传文件key的名称是config_file，支持以下格式：
@@ -899,6 +903,9 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload' --form 'config_file=@"
 
 # 上传 SQL 配置文件
 curl --location 'http://127.0.0.1:8080/submit-job/upload' --form 'config_file=@"/temp/job.sql"'
+
+# 上传配置文件，并从上一个作业最新的 checkpoint 恢复
+curl --location 'http://127.0.0.1:8080/submit-job/upload?restoreMode=CHECKPOINT&restoreSourceJobId=733584788375666689' --form 'config_file=@"/temp/fake_to_console.conf"'
 ```
 #### 响应
 
