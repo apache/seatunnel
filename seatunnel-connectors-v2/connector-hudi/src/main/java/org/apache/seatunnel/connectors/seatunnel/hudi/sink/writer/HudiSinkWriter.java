@@ -115,7 +115,7 @@ public class HudiSinkWriter
 
     /**
      * Flushes buffered records when Zeta delivers a timer-generated FlushSignal. The signal is
-     * handled on the sink task thread, serializing timer flushes with writes and checkpoints.
+     * delivered through the same ordered pipeline path as data and checkpoint barriers.
      */
     private void timerFlush() {
         hudiRecordWriter.flush();
