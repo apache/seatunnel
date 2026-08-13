@@ -21,6 +21,7 @@ import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
+import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
 import org.apache.seatunnel.engine.server.master.JobMaster;
 
 import org.junit.jupiter.api.Assertions;
@@ -227,6 +228,56 @@ public class SavePointBusySourceTest extends AbstractSeaTunnelServerTest<SavePoi
     }
 
     @Test
+    public void testSavepointStartPreconditionFailureKeepsJobRunning() throws Exception {
+        long jobId = System.currentTimeMillis();
+        startJob(jobId, BUSY_STREAM_CONF_PATH, false);
+
+        await().atMost(120, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        JobStatus.RUNNING,
+                                        server.getCoordinatorService().getJobStatus(jobId)));
+
+        JobMaster jobMaster = server.getCoordinatorService().getJobMaster(jobId);
+        setCheckpointCoordinatorsReady(jobMaster, false);
+
+        PassiveCompletableFuture<Void> savepointFuture =
+                server.getCoordinatorService().savePoint(jobId);
+
+        // A too-early savepoint request should fail the request, but it has not started a
+        // checkpoint. The job must stay RUNNING so the caller can retry after the checkpoint
+        // coordinators report all tasks ready.
+        Assertions.assertThrows(
+                ExecutionException.class, () -> savepointFuture.get(120, TimeUnit.SECONDS));
+
+        await().atMost(120, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        JobStatus.RUNNING,
+                                        server.getCoordinatorService().getJobStatus(jobId)));
+        Assertions.assertNotNull(server.getCoordinatorService().getJobMaster(jobId));
+
+        server.getCoordinatorService().cancelJob(jobId).join();
+        await().atMost(120, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        JobStatus.CANCELED,
+                                        server.getCoordinatorService().getJobStatus(jobId)));
+        await().atMost(120, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        0,
+                                        server.getSlotService()
+                                                .getWorkerProfile()
+                                                .getAssignedSlots()
+                                                .length));
+    }
+
+    @Test
     public void testSavepointFailureStopsWholeMultiPipelineJob() throws Exception {
         long jobId = System.currentTimeMillis();
         startJob(jobId, MULTI_PIPELINE_SAVEPOINT_PARTIAL_FAILURE_CONF_PATH, false);
@@ -299,6 +350,15 @@ public class SavePointBusySourceTest extends AbstractSeaTunnelServerTest<SavePoi
                                                 .length));
     }
 
+    private void setCheckpointCoordinatorsReady(JobMaster jobMaster, boolean ready) {
+        jobMaster
+                .getPhysicalPlan()
+                .getPipelineList()
+                .forEach(
+                        subPlan ->
+                                getCheckpointCoordinatorReadyFlag(jobMaster, subPlan).set(ready));
+    }
+
     private void awaitCheckpointCoordinatorsReady(JobMaster jobMaster) {
         await().atMost(120, TimeUnit.SECONDS)
                 .untilAsserted(
@@ -309,23 +369,23 @@ public class SavePointBusySourceTest extends AbstractSeaTunnelServerTest<SavePoi
                                         .forEach(
                                                 subPlan -> {
                                                     AtomicBoolean isAllTaskReady =
-                                                            (AtomicBoolean)
-                                                                    ReflectionUtils.getField(
-                                                                                    jobMaster
-                                                                                            .getCheckpointManager()
-                                                                                            .getCheckpointCoordinator(
-                                                                                                    subPlan
-                                                                                                            .getPipelineId()),
-                                                                                    "isAllTaskReady")
-                                                                            .orElseThrow(
-                                                                                    () ->
-                                                                                            new AssertionError(
-                                                                                                    "isAllTaskReady field not found"));
+                                                            getCheckpointCoordinatorReadyFlag(
+                                                                    jobMaster, subPlan);
                                                     Assertions.assertTrue(
                                                             isAllTaskReady.get(),
                                                             "checkpoint coordinator not ready for pipeline "
                                                                     + subPlan.getPipelineId());
                                                 }));
+    }
+
+    private AtomicBoolean getCheckpointCoordinatorReadyFlag(JobMaster jobMaster, SubPlan subPlan) {
+        return (AtomicBoolean)
+                ReflectionUtils.getField(
+                                jobMaster
+                                        .getCheckpointManager()
+                                        .getCheckpointCoordinator(subPlan.getPipelineId()),
+                                "isAllTaskReady")
+                        .orElseThrow(() -> new AssertionError("isAllTaskReady field not found"));
     }
 
     private void assertFailedSavepointTerminalStatus(long jobId) {
