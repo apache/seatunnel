@@ -67,6 +67,7 @@ public abstract class AbstractSourceExecuteProcessor
         extends FlinkAbstractPluginExecuteProcessor<SourceTableInfo> {
 
     private static final String SOURCE_KEEP_ALIVE_CONFIG = "schema-changes.source-keep-alive";
+    private static final String INCREMENTAL_PARALLELISM_CONFIG = "incremental.parallelism";
 
     protected AbstractSourceExecuteProcessor(
             List<URL> jarPaths,
@@ -106,19 +107,15 @@ public abstract class AbstractSourceExecuteProcessor
                                     .toString()
                                     .equalsIgnoreCase(envConfig.getString("job.mode"));
 
-            boolean enableSchemaChange = false;
-            for (Config cfg : pluginConfigs) {
-                if (cfg.hasPath("schema-changes.enabled")
-                        && cfg.getBoolean("schema-changes.enabled")) {
-                    enableSchemaChange = true;
-                    break;
-                }
-            }
+            boolean enableSchemaChange =
+                    pluginConfig.hasPath("schema-changes.enabled")
+                            && pluginConfig.getBoolean("schema-changes.enabled");
             // add schema evolution functionality to cdc source
             DataStream<SeaTunnelRow> evolvedStream = null;
             if (isStreaming
                     && enableSchemaChange
                     && sourceTableInfo.getSource() instanceof SupportSchemaEvolution) {
+                validateSchemaEvolutionIncrementalParallelism(pluginConfig);
                 evolvedStream =
                         sourceStream.transform(
                                 "schema-evolution",
@@ -134,7 +131,8 @@ public abstract class AbstractSourceExecuteProcessor
                         new DataStreamTableInfo(
                                 evolvedStream,
                                 sourceTableInfo.getCatalogTables(),
-                                ReadonlyConfig.fromConfig(pluginConfig).get(PLUGIN_OUTPUT)));
+                                ReadonlyConfig.fromConfig(pluginConfig).get(PLUGIN_OUTPUT),
+                                true));
             } else {
                 sources.add(
                         new DataStreamTableInfo(
@@ -144,6 +142,20 @@ public abstract class AbstractSourceExecuteProcessor
             }
         }
         return sources;
+    }
+
+    static void validateSchemaEvolutionIncrementalParallelism(Config pluginConfig) {
+        int incrementalParallelism =
+                pluginConfig.hasPath(INCREMENTAL_PARALLELISM_CONFIG)
+                        ? pluginConfig.getInt(INCREMENTAL_PARALLELISM_CONFIG)
+                        : 1;
+        if (incrementalParallelism != 1) {
+            throw new IllegalArgumentException(
+                    "Flink CDC schema evolution requires incremental.parallelism = 1, but was "
+                            + incrementalParallelism
+                            + ". Multiple incremental readers are not supported by the Flink "
+                            + "schema-evolution protocol.");
+        }
     }
 
     private Config enableSourceKeepAliveIfNeeded(

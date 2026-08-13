@@ -21,7 +21,6 @@ import org.apache.seatunnel.shade.com.typesafe.config.Config;
 
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
-import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSink;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.translation.flink.schema.SchemaEvolutionStreamUtils;
 import org.apache.seatunnel.translation.flink.sink.FlinkSink;
@@ -52,7 +51,7 @@ public class SinkExecuteProcessor extends AbstractSinkExecuteProcessor {
                 envConfig.hasPath("job.mode")
                         && STREAMING.toString().equalsIgnoreCase(envConfig.getString("job.mode"));
         DataStream<SeaTunnelRow> ds = stream.getDataStream();
-        if (isStreaming && sink instanceof SupportSchemaEvolutionSink) {
+        if (SchemaEvolutionRouting.isRequired(isStreaming, stream, sink)) {
             ds =
                     SchemaEvolutionStreamUtils.routeSchemaChanges(
                                     ds, parallelism, stream.getCatalogTables())

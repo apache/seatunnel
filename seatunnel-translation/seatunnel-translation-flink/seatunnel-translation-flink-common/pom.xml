@@ -68,20 +68,6 @@
             <artifactId>seatunnel-core-starter</artifactId>
             <version>${project.version}</version>
         </dependency>
-
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-config-base</artifactId>
-            <version>${project.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-commons-lang3</artifactId>
-            <version>${project.version}</version>
-            <classifier>optional</classifier>
-            <scope>test</scope>
-        </dependency>
     </dependencies>
 
 </project>

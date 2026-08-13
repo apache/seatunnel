@@ -217,6 +217,121 @@ class BroadcastSchemaSinkOperatorTest {
     }
 
     @Test
+    void testRescaledPendingRowIsRestoredOnlyByNewTableOwner() throws Exception {
+        AlterTableAddColumnEvent event = createSchemaChangeEvent(415L);
+        SeaTunnelRow pendingRow = createDataRow();
+        SchemaEvolutionControlMessage.requireSchemaChange(pendingRow, schemaChangeId(event));
+        BroadcastSchemaSinkOperator.PendingRowEntry restoredPendingRow =
+                new BroadcastSchemaSinkOperator.PendingRowEntry(pendingRow, 123L, true);
+        int parallelism = 3;
+        int owner = ownerSubtask(DEFAULT_TABLE_ID, parallelism);
+
+        for (int subtask = 0; subtask < parallelism; subtask++) {
+            OperatorTestContext context =
+                    createParallelOperator(
+                            subtask,
+                            Collections.emptyList(),
+                            Collections.emptyList(),
+                            Collections.emptyList(),
+                            Collections.singletonList(restoredPendingRow),
+                            true,
+                            parallelism);
+
+            context.operator.processElement(new StreamRecord<>(createBroadcastRow(event)));
+
+            if (subtask == owner) {
+                assertEquals(2, context.output.records.size());
+                assertSame(pendingRow, context.output.records.get(1).getValue());
+                assertEquals(123L, context.output.records.get(1).getTimestamp());
+            } else {
+                assertTrue(context.output.records.isEmpty());
+            }
+        }
+    }
+
+    @Test
+    void testCheckpointedPendingRowIsReassignedAfterRescale() throws Exception {
+        AlterTableAddColumnEvent event = createSchemaChangeEvent(416L);
+        SeaTunnelRow pendingRow = createDataRow();
+        SchemaEvolutionControlMessage.requireSchemaChange(pendingRow, schemaChangeId(event));
+        TestingOperatorStateStore checkpointState = new TestingOperatorStateStore();
+        int oldParallelism = 5;
+        OperatorTestContext oldOwner =
+                createStateStoreOperator(
+                        checkpointState,
+                        ownerSubtask(DEFAULT_TABLE_ID, oldParallelism),
+                        oldParallelism,
+                        Collections.singletonList(createInitialTable(DEFAULT_TABLE_ID)),
+                        false);
+
+        oldOwner.operator.processElement(new StreamRecord<>(pendingRow, 123L));
+        oldOwner.operator.snapshotState(checkpoint(1L));
+
+        assertTrue(oldOwner.output.records.isEmpty());
+        assertEquals(1, checkpointState.size("schema-gate-pending-rows"));
+
+        int newParallelism = 3;
+        int newOwner = ownerSubtask(DEFAULT_TABLE_ID, newParallelism);
+        for (int subtask = 0; subtask < newParallelism; subtask++) {
+            OperatorTestContext restored =
+                    createStateStoreOperator(
+                            checkpointState,
+                            subtask,
+                            newParallelism,
+                            Collections.singletonList(createInitialTable(DEFAULT_TABLE_ID)),
+                            true);
+
+            restored.operator.processElement(new StreamRecord<>(createBroadcastRow(event)));
+
+            if (subtask == newOwner) {
+                assertEquals(2, restored.output.records.size());
+                assertSame(pendingRow, restored.output.records.get(1).getValue());
+                assertEquals(123L, restored.output.records.get(1).getTimestamp());
+            } else {
+                assertTrue(restored.output.records.isEmpty());
+            }
+        }
+    }
+
+    @Test
+    void testAppliedSequenceCheckpointRestoresSchemaBeforeDependentRow() throws Exception {
+        AlterTableAddColumnEvent event = createSchemaChangeEvent(417L);
+        TestingOperatorStateStore checkpointState = new TestingOperatorStateStore();
+        OperatorTestContext original =
+                createStateStoreOperator(
+                        checkpointState,
+                        0,
+                        1,
+                        Collections.singletonList(createInitialTable(DEFAULT_TABLE_ID)),
+                        false);
+
+        // Treat this output as an in-flight command that has not reached the writer yet. The gate
+        // has already advanced its sequence when the checkpoint snapshots its managed state.
+        original.operator.processElement(new StreamRecord<>(createBroadcastRow(event)));
+        original.operator.snapshotState(checkpoint(1L));
+
+        assertEquals(1, original.output.records.size());
+        assertEquals(1, checkpointState.size("applied-schema-sequences"));
+        assertEquals(1, checkpointState.size("latest-applied-schema-events"));
+
+        OperatorTestContext restored =
+                createStateStoreOperator(
+                        checkpointState,
+                        0,
+                        1,
+                        Collections.singletonList(createInitialTable(DEFAULT_TABLE_ID)),
+                        true);
+        SeaTunnelRow dependentRow = createDataRow();
+        SchemaEvolutionControlMessage.requireSchemaChange(dependentRow, schemaChangeId(event));
+
+        restored.operator.processElement(new StreamRecord<>(dependentRow));
+
+        assertEquals(2, restored.output.records.size());
+        assertRestoresTargetSchema(restored.output.records.get(0), event);
+        assertSame(dependentRow, restored.output.records.get(1).getValue());
+    }
+
+    @Test
     void testRestoredPendingControlRunsAfterConfirmedSchemaRestore() throws Exception {
         AlterTableAddColumnEvent confirmedEvent = createSchemaChangeEvent(420L);
         AlterTableAddColumnEvent pendingEvent =
@@ -543,14 +658,34 @@ class BroadcastSchemaSinkOperatorTest {
             List<BroadcastSchemaSinkOperator.PendingSchemaEventEntry> restoredPendingEvents,
             boolean restored)
             throws Exception {
+        return createParallelOperator(
+                subtask,
+                restoredSequences,
+                restoredEvents,
+                restoredPendingEvents,
+                Collections.emptyList(),
+                restored,
+                4);
+    }
+
+    private static OperatorTestContext createParallelOperator(
+            int subtask,
+            List<BroadcastSchemaSinkOperator.SchemaSequenceEntry> restoredSequences,
+            List<BroadcastSchemaSinkOperator.LatestSchemaEventEntry> restoredEvents,
+            List<BroadcastSchemaSinkOperator.PendingSchemaEventEntry> restoredPendingEvents,
+            List<BroadcastSchemaSinkOperator.PendingRowEntry> restoredPendingRows,
+            boolean restored,
+            int parallelism)
+            throws Exception {
         return createOperator(
                 restoredSequences,
                 restoredEvents,
                 restoredPendingEvents,
+                restoredPendingRows,
                 restored,
                 Collections.singletonList(createInitialTable(DEFAULT_TABLE_ID)),
                 subtask,
-                4);
+                parallelism);
     }
 
     private static OperatorTestContext createOperator(
@@ -586,6 +721,7 @@ class BroadcastSchemaSinkOperatorTest {
                 restoredSequences,
                 restoredEvents,
                 restoredPendingEvents,
+                Collections.emptyList(),
                 restored,
                 initialTables,
                 0,
@@ -596,6 +732,7 @@ class BroadcastSchemaSinkOperatorTest {
             List<BroadcastSchemaSinkOperator.SchemaSequenceEntry> restoredSequences,
             List<BroadcastSchemaSinkOperator.LatestSchemaEventEntry> restoredEvents,
             List<BroadcastSchemaSinkOperator.PendingSchemaEventEntry> restoredPendingEvents,
+            List<BroadcastSchemaSinkOperator.PendingRowEntry> restoredPendingRows,
             boolean restored,
             List<CatalogTable> initialTables,
             int subtask,
@@ -624,7 +761,7 @@ class BroadcastSchemaSinkOperatorTest {
         ListState<BroadcastSchemaSinkOperator.PendingSchemaEventEntry> pendingSchemaEventState =
                 listState(restoredPendingEvents);
         ListState<BroadcastSchemaSinkOperator.PendingRowEntry> pendingState =
-                listState(Collections.emptyList());
+                listState(restoredPendingRows);
 
         OperatorStateStore stateStore = Mockito.mock(OperatorStateStore.class);
         Mockito.when(stateStore.getUnionListState(Mockito.any(ListStateDescriptor.class)))
@@ -637,10 +774,11 @@ class BroadcastSchemaSinkOperatorTest {
                             if ("latest-applied-schema-events".equals(descriptor.getName())) {
                                 return schemaEventState;
                             }
-                            return pendingSchemaEventState;
+                            if ("out-of-order-schema-events".equals(descriptor.getName())) {
+                                return pendingSchemaEventState;
+                            }
+                            return pendingState;
                         });
-        Mockito.when(stateStore.getListState(Mockito.any(ListStateDescriptor.class)))
-                .thenReturn(pendingState);
 
         StateInitializationContext initializationContext =
                 Mockito.mock(StateInitializationContext.class);
@@ -662,14 +800,26 @@ class BroadcastSchemaSinkOperatorTest {
             int parallelism,
             List<CatalogTable> initialTables)
             throws Exception {
+        return createStateStoreOperator(stateStore, subtask, parallelism, initialTables, false)
+                .operator;
+    }
+
+    private static OperatorTestContext createStateStoreOperator(
+            TestingOperatorStateStore stateStore,
+            int subtask,
+            int parallelism,
+            List<CatalogTable> initialTables,
+            boolean restored)
+            throws Exception {
         BroadcastSchemaSinkOperator operator = new BroadcastSchemaSinkOperator(initialTables);
+        CollectingOutput output = new CollectingOutput();
         StreamingRuntimeContext runtimeContext = Mockito.mock(StreamingRuntimeContext.class);
         Mockito.when(runtimeContext.getIndexOfThisSubtask()).thenReturn(subtask);
         Mockito.when(runtimeContext.getNumberOfParallelSubtasks()).thenReturn(parallelism);
         Mockito.when(runtimeContext.getMaxNumberOfParallelSubtasks()).thenReturn(MAX_PARALLELISM);
         Mockito.when(runtimeContext.getJobId()).thenReturn(new JobID());
 
-        setField(operator, AbstractStreamOperator.class, "output", new CollectingOutput());
+        setField(operator, AbstractStreamOperator.class, "output", output);
         setField(operator, AbstractStreamOperator.class, "runtimeContext", runtimeContext);
         setField(
                 operator,
@@ -680,9 +830,9 @@ class BroadcastSchemaSinkOperatorTest {
         StateInitializationContext initializationContext =
                 Mockito.mock(StateInitializationContext.class);
         Mockito.when(initializationContext.getOperatorStateStore()).thenReturn(stateStore);
-        Mockito.when(initializationContext.isRestored()).thenReturn(false);
+        Mockito.when(initializationContext.isRestored()).thenReturn(restored);
         operator.initializeState(initializationContext);
-        return operator;
+        return new OperatorTestContext(operator, output);
     }
 
     @SuppressWarnings("unchecked")
