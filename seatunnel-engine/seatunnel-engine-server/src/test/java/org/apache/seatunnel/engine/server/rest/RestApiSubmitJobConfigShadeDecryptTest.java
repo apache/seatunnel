@@ -63,6 +63,7 @@ public class RestApiSubmitJobConfigShadeDecryptTest {
 
     private static final String ENCRYPTED_USERNAME = "c2VhdHVubmVs";
     private static final String ENCRYPTED_PASSWORD = "c2VhdHVubmVsX3Bhc3N3b3Jk";
+    private static final int HAZELCAST_PORT = TestUtils.getAvailablePort(100);
 
     private HazelcastInstanceImpl instance;
     private SeaTunnelServer server;
@@ -372,7 +373,9 @@ public class RestApiSubmitJobConfigShadeDecryptTest {
                 + "    port:\n"
                 + "      auto-increment: true\n"
                 + "      port-count: 100\n"
-                + "      port: 5801\n"
+                + "      port: "
+                + HAZELCAST_PORT
+                + "\n"
                 + "\n"
                 + "  properties:\n"
                 + "    hazelcast.invocation.max.retry.count: 200\n"

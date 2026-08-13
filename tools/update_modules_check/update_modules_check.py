@@ -161,6 +161,8 @@ def build_sub_it_modules(modules, total_num, current_num):
     modules_arr.remove("connector-file-sftp-e2e")
     modules_arr.remove("connector-redis-e2e")
     modules_arr.remove("connector-sensorsdata-e2e")
+    modules_arr.remove("connector-elasticsearch-e2e")
+    modules_arr.remove("connector-cdc-mysql-e2e")
     if "connector-iceberg-e2e" in modules_arr:
         modules_arr.remove("connector-iceberg-e2e")
     if "connector-hbase-e2e" in modules_arr:
@@ -215,6 +217,10 @@ def get_sub_update_it_modules(modules, total_num, current_num):
         module_list.remove("connector-file-sftp-e2e")
     if "connector-redis-e2e" in module_list:
         module_list.remove("connector-redis-e2e")
+    if "connector-elasticsearch-e2e" in module_list:
+        module_list.remove("connector-elasticsearch-e2e")
+    if "connector-cdc-mysql-e2e" in module_list:
+        module_list.remove("connector-cdc-mysql-e2e")
     if "connector-seatunnel-e2e-base" in module_list:
         module_list.remove("connector-seatunnel-e2e-base")
     if "connector-console-seatunnel-e2e" in module_list:

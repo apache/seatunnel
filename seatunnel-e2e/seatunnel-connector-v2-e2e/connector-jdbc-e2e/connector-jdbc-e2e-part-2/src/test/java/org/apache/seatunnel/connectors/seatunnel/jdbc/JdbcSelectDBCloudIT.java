@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
-
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.e2e.common.TestResource;
@@ -74,9 +72,8 @@ public class JdbcSelectDBCloudIT extends TestSuiteBase implements TestResource {
     private static final String DRIVER_CLASS = "com.mysql.cj.jdbc.Driver";
     private static final String HOST = "selectdb_e2e";
     private static final int DOCKER_PORT = 9030;
-    private static final int JDBC_PORT = 9630;
 
-    private static final String URL = "jdbc:mysql://%s:" + JDBC_PORT;
+    private static final String URL = "jdbc:mysql://%s:%s";
     private static final String USERNAME = "admin";
     private static final String PASSWORD = "";
     private static final String DATABASE = "test";
@@ -189,12 +186,11 @@ public class JdbcSelectDBCloudIT extends TestSuiteBase implements TestResource {
                 new GenericContainer<>(DOCKER_IMAGE)
                         .withNetwork(TestSuiteBase.NETWORK)
                         .withNetworkAliases(HOST)
+                        .withExposedPorts(DOCKER_PORT)
                         .waitingFor(
                                 Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(5)))
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(DOCKER_IMAGE)));
-        selectdbServer.setPortBindings(
-                Lists.newArrayList(String.format("%s:%s", JDBC_PORT, DOCKER_PORT)));
         Startables.deepStart(Stream.of(selectdbServer)).join();
         log.info("SelectDB container started");
 
@@ -303,7 +299,13 @@ public class JdbcSelectDBCloudIT extends TestSuiteBase implements TestResource {
         Properties props = new Properties();
         props.put("user", USERNAME);
         props.put("password", PASSWORD);
-        jdbcConnection = driver.connect(String.format(URL, selectdbServer.getHost()), props);
+        jdbcConnection =
+                driver.connect(
+                        String.format(
+                                URL,
+                                selectdbServer.getHost(),
+                                selectdbServer.getMappedPort(DOCKER_PORT)),
+                        props);
         try (Statement statement = jdbcConnection.createStatement()) {
             statement.execute(CREATE_DATABASE);
             statement.execute(DDL_SOURCE);
