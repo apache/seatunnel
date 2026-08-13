@@ -47,7 +47,9 @@ import ChangeLog from '../changelog/connector-http-feishu.md';
 | DECIMAL                     | BigDecimal |
 | BYTES                       | byte[]     |
 | STRING                      | String     |
-| TIME<br/>TIMESTAMP<br/>TIME | String     |
+| DATE                        | String     |
+| TIME                        | String     |
+| TIMESTAMP                   | String     |
 | ARRAY                       | JsonArray  |
 
 ## 接收器选项
@@ -86,7 +88,7 @@ env {
 
 source {
   FakeSource {
-    row_num = 1
+    row.num = 1
     schema = {
       fields {
         name = string
@@ -140,6 +142,97 @@ Feishu {
 Feishu {
   url = "https://open.feishu.cn/open-apis/bot/v2/hook/<your-hook-token>"
   multi_table_sink_replica = 2
+}
+```
+
+### 流式告警推送到飞书机器人
+
+如果需要持续推送告警，可以把 Sink 运行在流模式下，并配合 `request_interval_ms`
+和 `array_mode = true`，把多条告警合并成一次 Webhook 调用。下面的示例从 Kafka
+主题读取事件，并按批次以 JSON 数组的形式发送。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 30000
+}
+
+source {
+  Kafka {
+    plugin_output = "alerts"
+    bootstrap.servers = "kafka:9092"
+    topic = "service_alerts"
+    format = "json"
+    schema = {
+      fields {
+        name = string
+        age = int
+      }
+    }
+  }
+}
+
+sink {
+  Feishu {
+    plugin_input = "alerts"
+    url = "https://open.feishu.cn/open-apis/bot/v2/hook/<your-hook-token>"
+    array_mode = true
+    batch_size = 20
+    request_interval_ms = 1000
+    retry = 5
+    retry_backoff_multiplier_ms = 200
+    retry_backoff_max_ms = 10000
+  }
+}
+```
+
+### 发送飞书富文本消息
+
+飞书机器人 Webhook 接收的是 `msg_type` 包裹的消息，例如 `text`、`post` 或
+`interactive`。可以在上游加一个 Transform，把每一行包装成期望的格式后再交给
+飞书 Sink 发送。下面的示例把每行数据封装成 `text` 消息体。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    plugin_output = "raw"
+    row.num = 1
+    schema = {
+      fields {
+        name = string
+        age = int
+      }
+    }
+    rows = [
+      {
+        fields = [tyrantlucifer, 12]
+        kind = INSERT
+      }
+    ]
+  }
+}
+
+transform {
+  Sql {
+    plugin_input = "raw"
+    query = "SELECT 'text' AS msg_type, named_struct('text', concat('User ', name, ' is ', cast(age as string), ' years old')) AS content FROM raw"
+  }
+}
+
+sink {
+  Feishu {
+    plugin_input = "Sql"
+    url = "https://open.feishu.cn/open-apis/bot/v2/hook/<your-hook-token>"
+    headers {
+      Content-Type = "application/json"
+    }
+  }
 }
 ```
 
