@@ -69,9 +69,24 @@ public class PrometheusWriter extends HttpSinkWriter {
                         sinkConfig.getKeyLabel(),
                         sinkConfig.getKeyValue());
         this.httpClient = new HttpClientProvider(httpParameter);
-        // Opt in to engine-level timer flush. The engine invokes this action on the normal Sink
-        // input-processing path when a FlushSignal arrives, so no connector-owned scheduler thread
-        // is needed and there is no concurrency with write/checkpoint/close.
+        // The connector-level `flush_interval` option was removed in favor of the engine-level
+        // `sink.flush.interval`. A leftover key in an upgraded job config is silently ignored on a
+        // direct job run (only `--check`/`--dry-run` reject unknown keys), so warn here to give
+        // operators a signal instead of silently dropping periodic flushing.
+        if (pluginConfig.getSourceMap().containsKey("flush_interval")) {
+            log.warn(
+                    "The connector option 'flush_interval' has been removed and is ignored. Use the "
+                            + "engine-level 'sink.flush.interval' in the job 'env' block instead. "
+                            + "Engine-level timer flush is supported only by Zeta; on Spark and "
+                            + "Flink there is no periodic flush, so tune 'batch_size' instead.");
+        }
+        // Opt in to engine-level timer flush. On Zeta the engine invokes this action on the normal
+        // Sink input-processing path when a FlushSignal arrives, so there is no connector-owned
+        // scheduler thread and no concurrency with write/checkpoint/close. On Spark and Flink the
+        // Context does not implement registerFlushAction (it keeps the interface's no-op default),
+        // so there is no periodic timer flush there; the buffer is flushed on batch_size and on
+        // close(). The null-check is defensive for non-standard/test call sites that may not supply
+        // a context.
         if (context != null) {
             context.registerFlushAction(this::flush);
         }
@@ -178,7 +193,13 @@ public class PrometheusWriter extends HttpSinkWriter {
             // Send any records still buffered before the writer is closed.
             flush();
         } finally {
-            super.close();
+            try {
+                // Close the HttpClientProvider actually used for remote-write (this field shadows
+                // the parent's), otherwise it would leak when the writer is closed.
+                httpClient.close();
+            } finally {
+                super.close();
+            }
         }
     }
 }

@@ -113,6 +113,39 @@ class PrometheusWriterTest {
         }
     }
 
+    /**
+     * On Spark and Flink the sink writer context does not implement registerFlushAction (it keeps
+     * the interface's no-op default), so the engine never invokes the flush action. The buffered
+     * records must still be delivered when the writer is closed, not lost.
+     */
+    @Test
+    void shouldFlushOnCloseWhenEngineNeverInvokesFlushAction() throws Exception {
+        SinkWriter.Context context = mock(SinkWriter.Context.class);
+        HttpResponse ok = new HttpResponse(HttpStatus.SC_NO_CONTENT);
+
+        try (MockedConstruction<HttpClientProvider> ignored =
+                mockConstruction(
+                        HttpClientProvider.class,
+                        (mockClient, ctx) ->
+                                when(mockClient.doPost(
+                                                anyString(), any(), any(ByteArrayEntity.class)))
+                                        .thenReturn(ok))) {
+
+            PrometheusWriter writer = createWriter(context);
+            writer.write(newPoint());
+
+            // Simulate Spark/Flink: the registered flush action is never invoked by the engine.
+            verify(writer.httpClient, never())
+                    .doPost(anyString(), any(), any(ByteArrayEntity.class));
+
+            writer.close();
+
+            // close() must flush the buffered row so it is not lost.
+            verify(writer.httpClient, times(1))
+                    .doPost(anyString(), any(), any(ByteArrayEntity.class));
+        }
+    }
+
     private PrometheusWriter createWriter(SinkWriter.Context context) {
         HttpParameter httpParameter = new HttpParameter();
         httpParameter.setUrl("http://localhost:9090/api/v1/write");
