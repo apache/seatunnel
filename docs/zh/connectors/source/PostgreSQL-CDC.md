@@ -193,6 +193,92 @@ source {
 }
 ```
 
+### 配置 Debezium 心跳
+
+对于低流量表，Postgres 逻辑解码槽的位置只有在 WAL 中发生行变更时才会推进。使用 Debezium 心跳让槽位持续推进，便于 checkpoint 定期记录偏移，并让复制延迟可观测。心跳表必须提前在 Postgres 服务端创建。
+
+```hocon
+source {
+  Postgres-CDC {
+    username = "postgres"
+    password = "postgres"
+    database-names = ["postgres_cdc"]
+    schema-names = ["inventory"]
+    table-names = ["postgres_cdc.inventory.postgres_cdc_table_1"]
+    url = "jdbc:postgresql://postgres_cdc_e2e:5432/postgres_cdc?loggerLevel=OFF"
+    decoding.plugin.name = "decoderbufs"
+    slot.name = "seatunnel_postgres_cdc"
+    debezium {
+      heartbeat.interval.ms = 100
+      heartbeat.action.query = "INSERT INTO inventory.heartbeat (ts) VALUES (NOW())"
+    }
+  }
+}
+```
+
+### 仅运行一次性快照
+
+当任务只需要执行初始快照并停止（不进入 WAL 流式读取）时，使用 `startup.mode = "snapshot-only"`。该模式适合一次性数据回填。
+
+```hocon
+env {
+  execution.parallelism = 1
+  job.mode = "BATCH"
+  checkpoint.interval = 5000
+}
+
+source {
+  Postgres-CDC {
+    username = "postgres"
+    password = "postgres"
+    database-names = ["postgres_cdc"]
+    schema-names = ["inventory"]
+    table-names = ["postgres_cdc.inventory.postgres_cdc_table_1"]
+    url = "jdbc:postgresql://postgres_cdc_e2e:5432/postgres_cdc?loggerLevel=OFF"
+    decoding.plugin.name = "decoderbufs"
+    slot.name = "seatunnel_postgres_cdc"
+    startup.mode = "snapshot-only"
+  }
+}
+
+sink {
+  Jdbc {
+    url = "jdbc:postgresql://postgres_cdc_e2e:5432/postgres_cdc?loggerLevel=OFF"
+    driver = "org.postgresql.Driver"
+    username = "postgres"
+    password = "postgres"
+    generate_sink_sql = true
+    database = postgres_cdc
+    table = inventory.sink_postgres_cdc_table_1
+    primary_keys = ["id"]
+  }
+}
+```
+
+`snapshot-only` 模式下，connector 完全跳过 WAL 流式读取；如果快照读取需要独立的复制槽，请配置 `slot.name`。
+
+### 读取没有主键的表
+
+对于没有物理主键的表，将 `exactly_once` 设为 `false`，并通过 `table-names-config.primaryKeys` 提供一列作为下游 upsert 所需的稳定行标识。
+
+```hocon
+source {
+  Postgres-CDC {
+    username = "postgres"
+    password = "postgres"
+    database-names = ["postgres_cdc"]
+    schema-names = ["inventory"]
+    table-names = ["postgres_cdc.inventory.full_types_no_primary_key"]
+    url = "jdbc:postgresql://postgres_cdc_e2e:5432/postgres_cdc?loggerLevel=OFF"
+    decoding.plugin.name = "decoderbufs"
+    exactly_once = false
+    slot.name = "seatunnel_postgres_cdc"
+  }
+}
+```
+
+没有可用的主键时，connector 无法安全地应用 UPDATE/DELETE 事件。仅在仅追加（append-only）场景下使用此模式。
+
 ## CDC 元数据字段
 
 PostgreSQL CDC 会提供以下元数据字段，可配合 `Metadata` 转换使用：

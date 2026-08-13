@@ -92,6 +92,9 @@ SeaTunnel provides an API for querying logs.
 
 For more details, please refer to the [REST-API](rest-api-v2.md).
 
+For a workflow to collect, redact, and analyze runtime logs, see
+[Diagnose Runtime Logs with AI Tools](log-analysis-with-ai.md).
+
 ## SeaTunnel Log Configuration
 
 ### Scheduled deletion of old logs
