@@ -37,6 +37,8 @@ import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -88,7 +90,11 @@ public class JdbcSqliteSplitIT {
     }
 
     @AfterAll
-    public static void tearDown() throws Exception {}
+    public static void tearDown() throws Exception {
+        // Remove the temporary file-based SQLite DB created by setUp().
+        Files.deleteIfExists(
+                Paths.get(System.getProperty("java.io.tmpdir"), "seatunnel_split_e2e.db"));
+    }
 
     private static CatalogTable catalogTable() {
         TableSchema schema =

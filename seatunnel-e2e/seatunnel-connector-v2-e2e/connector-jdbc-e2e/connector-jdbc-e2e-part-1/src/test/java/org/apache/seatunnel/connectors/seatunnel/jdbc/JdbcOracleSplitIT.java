@@ -230,8 +230,10 @@ public class JdbcOracleSplitIT extends TestSuiteBase implements TestResource {
                         "oracle.jdbc.OracleDriver");
         catalog.open();
         CatalogTable table = catalog.getTable(tablePath);
-        // Custom query exercises the "FROM (...) _st_tmp" inline-view alias (no AS), which is
-        // required by Oracle's table_reference grammar.
+        // Query-based tables never reach the composite-key path: findSplitKey returns empty
+        // unless a partition column is explicitly configured (composite splitting and a custom
+        // query are mutually exclusive), so this test exercises the pre-existing single-split
+        // "FROM (...) tmp" path on Oracle with the custom query executed correctly.
         String query = "SELECT ORDER_ID, LINE_NO, PAYLOAD FROM " + SCHEMA + "." + ORACLE_TABLE;
         JdbcSourceTable jdbcSourceTable =
                 JdbcSourceTable.builder()

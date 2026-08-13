@@ -209,12 +209,10 @@ public class DynamicChunkSplitter extends ChunkSplitter {
             orderDesc.append(quoted).append(" DESC");
         }
 
-        String fromClause;
-        if (StringUtils.isNotBlank(table.getQuery())) {
-            fromClause = "(" + normalizeQuery(table.getQuery()) + ") _st_tmp";
-        } else {
-            fromClause = jdbcDialect.tableIdentifier(table.getTablePath());
-        }
+        // Composite splitting and a custom query are mutually exclusive today: findSplitKey
+        // returns empty (single split) or a single-column key before ever reaching the composite
+        // branch whenever table.getQuery() is set, so the from-clause is always the table path.
+        String fromClause = jdbcDialect.tableIdentifier(table.getTablePath());
 
         String minQuery =
                 "SELECT "
@@ -286,12 +284,10 @@ public class DynamicChunkSplitter extends ChunkSplitter {
         }
         where.append(")");
 
-        String fromClause;
-        if (StringUtils.isNotBlank(table.getQuery())) {
-            fromClause = "(" + normalizeQuery(table.getQuery()) + ") _st_tmp";
-        } else {
-            fromClause = jdbcDialect.tableIdentifier(table.getTablePath());
-        }
+        // Composite splitting and a custom query are mutually exclusive today: findSplitKey
+        // returns empty (single split) or a single-column key before ever reaching the composite
+        // branch whenever table.getQuery() is set, so the from-clause is always the table path.
+        String fromClause = jdbcDialect.tableIdentifier(table.getTablePath());
 
         String sql =
                 "SELECT "
@@ -352,12 +348,10 @@ public class DynamicChunkSplitter extends ChunkSplitter {
             orderBy.append(quoted);
         }
 
-        String fromClause;
-        if (StringUtils.isNotBlank(table.getQuery())) {
-            fromClause = "(" + normalizeQuery(table.getQuery()) + ") _st_tmp";
-        } else {
-            fromClause = jdbcDialect.tableIdentifier(table.getTablePath());
-        }
+        // Composite splitting and a custom query are mutually exclusive today: findSplitKey
+        // returns empty (single split) or a single-column key before ever reaching the composite
+        // branch whenever table.getQuery() is set, so the from-clause is always the table path.
+        String fromClause = jdbcDialect.tableIdentifier(table.getTablePath());
 
         // Expanded OR/AND form of (col1, col2, ...) > (?, ?, ...) without row-value-constructor
         // syntax (portable across dialects, e.g. SQL Server).
@@ -411,14 +405,6 @@ public class DynamicChunkSplitter extends ChunkSplitter {
             }
             return null;
         }
-    }
-
-    private String normalizeQuery(String query) {
-        if (StringUtils.isEmpty(query)) {
-            return query;
-        }
-        // Avoid trailing semicolons/whitespace breaking wrapped subqueries
-        return StringUtils.stripEnd(query, " \t\r\n;");
     }
 
     /**
