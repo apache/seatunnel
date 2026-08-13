@@ -142,6 +142,8 @@ Source plugin common parameters. For details, see [Source Common Options](../com
 - The source is a batch source. It reads the current query result and then finishes.
 - A single CQL query is read as one source split. Increasing job parallelism does not split one
   Cassandra table scan automatically.
+- The connector uses the Cassandra Java driver. The connection options documented above are the
+  only settings the connector reads; any other DataStax driver option uses its built-in default.
 
 ## Task Example
 

@@ -291,8 +291,7 @@ public class JdbcHighGoIT extends AbstractJdbcIT {
                                 Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(5)))
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(HIGHGO_IMAGE)));
-        container.setPortBindings(
-                Lists.newArrayList(String.format("%s:%s", HIGHGO_PORT, HIGHGO_PORT)));
+        container.addExposedPort(HIGHGO_PORT);
 
         return container;
     }

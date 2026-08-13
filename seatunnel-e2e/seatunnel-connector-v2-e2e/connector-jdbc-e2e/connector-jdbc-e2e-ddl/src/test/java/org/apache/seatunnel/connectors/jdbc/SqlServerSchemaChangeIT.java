@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.jdbc;
 
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
-
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -132,9 +130,6 @@ public class SqlServerSchemaChangeIT extends AbstractSchemaChangeBaseIT {
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(SQLSERVER_IMAGE)));
-
-        container.setPortBindings(
-                Lists.newArrayList(String.format("%d:%d", SQLSERVER_PORT, SQLSERVER_PORT)));
 
         container.start();
         try {
