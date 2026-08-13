@@ -22,6 +22,7 @@ import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.job.DirtyJobMemberEvent;
 import org.apache.seatunnel.engine.common.job.DirtyJobState;
 import org.apache.seatunnel.engine.common.job.MemberLeaveClassification;
+import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.server.master.JobMaster;
 
@@ -40,7 +41,6 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
@@ -731,7 +731,7 @@ public class DirtyJobService {
 
     private long nextMemberEventSequence() {
         try {
-            CompletableFuture<Long> update =
+            java.util.concurrent.CompletableFuture<Long> update =
                     memberEventSequenceMap
                             .submitToKey(
                                     MEMBER_EVENT_SEQUENCE_KEY, new IncrementSequenceProcessor())
@@ -959,11 +959,11 @@ public class DirtyJobService {
             return CompletableFuture.completedFuture(null);
         }
         try {
-            CompletableFuture<Void> update =
+            java.util.concurrent.CompletableFuture<Void> rawUpdate =
                     dirtyJobStateMap
                             .submitToKey(jobId, new MarkIncompleteProcessor(jobCreateTime, reason))
                             .toCompletableFuture();
-            update.whenComplete(
+            rawUpdate.whenComplete(
                     (ignored, markError) -> {
                         if (markError != null) {
                             logger.warning(
@@ -974,6 +974,7 @@ public class DirtyJobService {
                             scheduleIncompleteMarkerRetry(jobId, jobCreateTime, reason);
                         }
                     });
+            CompletableFuture<Void> update = new CompletableFuture<>(rawUpdate);
             scheduleIncompleteMarkerWatchdog(jobId, jobCreateTime, reason, update);
             return update;
         } catch (Throwable markError) {
@@ -1070,6 +1071,7 @@ public class DirtyJobService {
 
     private <R> CompletableFuture<R> submitStateUpdate(
             long jobId, DirtyJobProcessor<R> processor, String operation) {
+        java.util.concurrent.CompletableFuture<R> rawUpdate;
         CompletableFuture<R> update;
         long epoch = coordinatorEpoch.get();
         try {
@@ -1083,8 +1085,9 @@ public class DirtyJobService {
                                                 ignored ->
                                                         dirtyJobStateMap.submitToKey(
                                                                 jobId, processor));
-                update = submitted.toCompletableFuture();
-                pendingStateUpdates.put(jobId, update);
+                rawUpdate = submitted.toCompletableFuture();
+                update = new CompletableFuture<>(rawUpdate);
+                pendingStateUpdates.put(jobId, rawUpdate);
             }
         } catch (Throwable error) {
             if (coordinatorEpoch.get() == epoch) {
@@ -1092,10 +1095,10 @@ public class DirtyJobService {
             }
             return CompletableFuture.completedFuture(null);
         }
-        update.whenComplete(
+        rawUpdate.whenComplete(
                 (ignored, error) -> {
                     synchronized (pendingStateUpdates) {
-                        pendingStateUpdates.remove(jobId, update);
+                        pendingStateUpdates.remove(jobId, rawUpdate);
                     }
                     if (error != null && coordinatorEpoch.get() == epoch) {
                         handleTrackingFailure(jobId, operation, error);
