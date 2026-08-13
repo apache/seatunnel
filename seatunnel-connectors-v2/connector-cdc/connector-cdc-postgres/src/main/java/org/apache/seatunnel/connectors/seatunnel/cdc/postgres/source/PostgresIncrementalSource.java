@@ -48,7 +48,11 @@ public class PostgresIncrementalSource<T> extends PgBaseIncrementalSource<T, Jdb
     /**
      * Preserves serialized job DAG compatibility with the Postgres source released in 2.3.13.
      *
-     * <p>Do not regenerate this value when the class hierarchy or implementation changes.
+     * <p>Cross-checked with {@code serialver} against the real {@code PostgresIncrementalSource}
+     * class shipped in the {@code connector-cdc-postgres} 2.3.12 and 2.3.13 Maven Central
+     * artifacts, where both versions compute this same default UID (2.3.11 computes a different
+     * one, so it was already incompatible with 2.3.12 before this PR). This constant is not a
+     * guess; do not regenerate it when the class hierarchy or implementation changes.
      */
     private static final long serialVersionUID = -9086519839702872016L;
 
