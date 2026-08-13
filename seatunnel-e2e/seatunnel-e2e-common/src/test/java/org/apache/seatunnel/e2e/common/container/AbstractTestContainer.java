@@ -149,6 +149,16 @@ public abstract class AbstractTestContainer implements TestContainer {
     protected Container.ExecResult executeJob(
             GenericContainer<?> container, String confFile, String jobId, List<String> variables)
             throws IOException, InterruptedException {
+        return executeJob(container, confFile, jobId, variables, new ArrayList<>());
+    }
+
+    protected Container.ExecResult executeJob(
+            GenericContainer<?> container,
+            String confFile,
+            String jobId,
+            List<String> variables,
+            List<String> engineArguments)
+            throws IOException, InterruptedException {
         final String confInContainerPath = copyConfigFileToContainer(container, confFile);
         // copy connectors
         copyConnectorJarToContainer(
@@ -162,6 +172,9 @@ public abstract class AbstractTestContainer implements TestContainer {
         String binPath = Paths.get(SEATUNNEL_HOME, "bin", getStartShellName()).toString();
         // base command
         command.add(adaptPathForWin(binPath));
+        if (engineArguments != null) {
+            command.addAll(engineArguments);
+        }
         command.add("--config");
         command.add(adaptPathForWin(confInContainerPath));
         command.add("--name");

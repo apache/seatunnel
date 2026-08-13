@@ -20,10 +20,17 @@ package org.apache.seatunnel.e2e.common.container.flink;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.TestContainerId;
 
+import org.testcontainers.containers.BindMode;
+import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.output.Slf4jLogConsumer;
+import org.testcontainers.containers.wait.strategy.LogMessageWaitStrategy;
+import org.testcontainers.utility.DockerLoggerFactory;
+
 import com.google.auto.service.AutoService;
 import lombok.NoArgsConstructor;
 
 import java.io.File;
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
 
@@ -171,27 +178,7 @@ public class Flink20Container extends AbstractTestFlinkContainer {
         copySeaTunnelStarterToContainer(jobManager);
         copySeaTunnelStarterLoggingToContainer(jobManager);
 
-        taskManager =
-                new org.testcontainers.containers.GenericContainer<>(dockerImage)
-                        .withCommand("sh", "-c", createTaskManagerStartupCommand())
-                        .withNetwork(NETWORK)
-                        .withNetworkAliases("taskmanager")
-                        .withEnv("FLINK_PROPERTIES", properties)
-                        .dependsOn(jobManager)
-                        .withLogConsumer(
-                                new org.testcontainers.containers.output.Slf4jLogConsumer(
-                                        org.testcontainers.utility.DockerLoggerFactory.getLogger(
-                                                dockerImage + ":taskmanager")))
-                        .waitingFor(
-                                new org.testcontainers.containers.wait.strategy
-                                                .LogMessageWaitStrategy()
-                                        .withRegEx(
-                                                ".*Successful registration at resource manager.*")
-                                        .withStartupTimeout(java.time.Duration.ofMinutes(2)))
-                        .withFileSystemBind(
-                                HOST_VOLUME_MOUNT_PATH,
-                                CONTAINER_VOLUME_MOUNT_PATH,
-                                org.testcontainers.containers.BindMode.READ_WRITE);
+        taskManager = createTaskManagerContainer(dockerImage, properties, "taskmanager");
 
         org.testcontainers.lifecycle.Startables.deepStart(java.util.stream.Stream.of(jobManager))
                 .join();
@@ -203,6 +190,26 @@ public class Flink20Container extends AbstractTestFlinkContainer {
         executeExtraCommands(jobManager);
 
         System.out.println("=== Flink20Container Startup Complete ===");
+    }
+
+    @Override
+    protected GenericContainer<?> createTaskManagerContainer(
+            String dockerImage, String properties, String logName) {
+        return new GenericContainer<>(dockerImage)
+                .withCommand("sh", "-c", createTaskManagerStartupCommand())
+                .withNetwork(NETWORK)
+                .withNetworkAliases(logName)
+                .withEnv("FLINK_PROPERTIES", properties)
+                .dependsOn(jobManager)
+                .withLogConsumer(
+                        new Slf4jLogConsumer(
+                                DockerLoggerFactory.getLogger(dockerImage + ":" + logName)))
+                .waitingFor(
+                        new LogMessageWaitStrategy()
+                                .withRegEx(".*Successful registration at resource manager.*")
+                                .withStartupTimeout(Duration.ofMinutes(2)))
+                .withFileSystemBind(
+                        HOST_VOLUME_MOUNT_PATH, CONTAINER_VOLUME_MOUNT_PATH, BindMode.READ_WRITE);
     }
 
     private String createJobManagerStartupCommand() {

@@ -65,9 +65,23 @@ public class SchemaOperator13 extends SchemaOperator {
         super(jobId, source, pluginConfig, exactlyOnceMode);
     }
 
+    public SchemaOperator13(
+            String jobId,
+            SupportSchemaEvolution source,
+            Config pluginConfig,
+            boolean exactlyOnceMode,
+            long checkpointIntervalMs) {
+        super(
+                jobId,
+                source,
+                pluginConfig,
+                exactlyOnceMode,
+                checkpointStallTimeout(checkpointIntervalMs));
+    }
+
     /**
      * Registers a processing-time timer that will call {@link #handleFallbackTimerOnTaskThread()}
-     * on the Flink task thread after {@link #CHECKPOINT_STALL_TIMEOUT_MS} milliseconds.
+     * on the Flink task thread after the checkpoint-aware stall timeout.
      *
      * <p>Using {@link ProcessingTimeService#registerTimer} instead of a background {@code
      * ScheduledExecutorService} achieves two goals:
@@ -89,7 +103,7 @@ public class SchemaOperator13 extends SchemaOperator {
         fallbackTimerPending = true;
 
         ProcessingTimeService pts = getProcessingTimeService();
-        long fireAt = pts.getCurrentProcessingTime() + CHECKPOINT_STALL_TIMEOUT_MS;
+        long fireAt = pts.getCurrentProcessingTime() + checkpointStallTimeoutMs;
 
         pts.registerTimer(
                 fireAt,
@@ -109,7 +123,22 @@ public class SchemaOperator13 extends SchemaOperator {
 
         log.debug(
                 "Registered Flink processing-time fallback timer to fire in {}ms for job {}",
-                CHECKPOINT_STALL_TIMEOUT_MS,
+                checkpointStallTimeoutMs,
                 jobId);
+    }
+
+    static long checkpointStallTimeout(long checkpointIntervalMs) {
+        if (checkpointIntervalMs <= 0 || checkpointIntervalMs == Long.MAX_VALUE) {
+            return DEFAULT_CHECKPOINT_STALL_TIMEOUT_MS;
+        }
+        try {
+            return Math.max(
+                    DEFAULT_CHECKPOINT_STALL_TIMEOUT_MS,
+                    Math.addExact(
+                            Math.multiplyExact(checkpointIntervalMs, 2L),
+                            DEFAULT_CHECKPOINT_STALL_TIMEOUT_MS));
+        } catch (ArithmeticException overflow) {
+            return Long.MAX_VALUE / 4;
+        }
     }
 }

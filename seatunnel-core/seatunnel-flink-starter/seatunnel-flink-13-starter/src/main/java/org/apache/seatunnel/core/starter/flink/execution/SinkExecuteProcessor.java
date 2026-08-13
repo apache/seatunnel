@@ -32,7 +32,6 @@ import org.apache.seatunnel.api.sink.SaveModeHandler;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SupportMultiTableSink;
 import org.apache.seatunnel.api.sink.SupportSaveMode;
-import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSink;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
@@ -209,7 +208,7 @@ public class SinkExecuteProcessor
                                     .toString()
                                     .equalsIgnoreCase(envConfig.getString("job.mode"));
             DataStream<SeaTunnelRow> ds = stream.getDataStream();
-            if (isStreaming && sink instanceof SupportSchemaEvolutionSink) {
+            if (SchemaEvolutionRouting.isRequired(isStreaming, stream, sink)) {
                 ds =
                         SchemaEvolutionStreamUtils.routeSchemaChanges(
                                         ds, parallelism, stream.getCatalogTables())

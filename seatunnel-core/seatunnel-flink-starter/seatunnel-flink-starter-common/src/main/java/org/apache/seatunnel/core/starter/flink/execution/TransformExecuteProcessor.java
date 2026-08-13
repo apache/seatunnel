@@ -143,7 +143,8 @@ public class TransformExecuteProcessor
                         new DataStreamTableInfo(
                                 inputStream,
                                 transform.getProducedCatalogTables(),
-                                pluginOutputIdentifier));
+                                pluginOutputIdentifier,
+                                stream.isSchemaEvolutionEnabled()));
             } catch (Exception e) {
                 throw new TaskExecuteException(
                         String.format(

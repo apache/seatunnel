@@ -116,7 +116,8 @@ public abstract class FlinkAbstractPluginExecuteProcessor<T>
                     new DataStreamTableInfo(
                             dataStreamTableInfo.getDataStream(),
                             dataStreamTableInfo.getCatalogTables(),
-                            tableName));
+                            tableName,
+                            dataStreamTableInfo.isSchemaEvolutionEnabled()));
         }
         return Optional.empty();
     }
