@@ -87,6 +87,21 @@ nc -l -v 9999
 {"name":"jared","age":17}{"name":"jared","age":18}...
 ```
 
+## 常见问题
+
+### Socket Sink 会在记录之间追加分隔符吗？
+
+不会。Sink 用 `JsonSerializationSchema` 把每行序列化为 JSON，然后直接写到 TCP 流，*不会*追加任何分隔符——既不会追加 `\n`，也不会追加任何其它字符。多条记录会作为一条连续的、拼接在一起的字节流传出去（例如 `{"a":1}{"a":2}{"a":3}`）。所以对端必须使用流式 JSON 解析器（例如 Jackson 的 `MappingIterator`），而不是按行解析的解析器来切分记录。
+
+### `max_retries` 到底控制什么？
+
+`max_retries` 是 Writer 在 TCP 连接已经建立后，发送失败时重试的次数（连接被拒绝、管道破裂、写超时等场景）。默认值为 `3`。设置为 `-1` 表示无限重试，设置为 `0` 表示第一次写失败就立即抛错。
+
+### Socket Sink 能并行写吗？
+
+可以。每个 Writer 会各自建立一条到 `host:port` 的 TCP 连接，因此 `env.parallelism` 大于 1 时会向同一个 socket server 同时打开 N 条连接。请确认对端能够接受多客户端连接，否则只会同时处理一个客户端。
+
 ## 变更日志
 
 <ChangeLog />
+
