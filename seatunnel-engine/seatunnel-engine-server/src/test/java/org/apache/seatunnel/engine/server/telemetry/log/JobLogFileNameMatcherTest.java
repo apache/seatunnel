@@ -54,10 +54,13 @@ public class JobLogFileNameMatcherTest {
     void testIsRolledSegmentRejectsActiveAndUnclassified() {
         assertTrue(JobLogFileNameMatcher.isRolledSegment("job-123.log.2026-07-13-1"));
         assertTrue(JobLogFileNameMatcher.isRolledSegment("job-123.log.2026-08-05-12"));
+        assertTrue(JobLogFileNameMatcher.isRolledSegment("/tmp/job-123.log.2026-08-05-12"));
 
         assertFalse(JobLogFileNameMatcher.isRolledSegment("job-123.log"));
         assertFalse(JobLogFileNameMatcher.isRolledSegment("job-123.log.unclassified"));
         assertFalse(JobLogFileNameMatcher.isRolledSegment("job-123.log.tmp"));
+        assertFalse(JobLogFileNameMatcher.isRolledSegment("seatunnel.log.2026-08-05-1"));
+        assertFalse(JobLogFileNameMatcher.isRolledSegment("metrics.log.2026-08-05-1"));
         assertFalse(JobLogFileNameMatcher.isRolledSegment("seatunnel.log"));
         assertFalse(JobLogFileNameMatcher.isRolledSegment(null));
     }

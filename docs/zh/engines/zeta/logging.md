@@ -112,7 +112,7 @@ seatunnel:
 
 - `history-job-expire-minutes`: 设置历史作业和日志的保留时间（单位：分钟）。系统将在指定的时间后自动清除过期的作业信息和日志文件。
 - `scheduled-deletion-enable`: 启用定时清理功能，默认为 `true`。系统将在作业达到 `history-job-expire-minutes` 设置的过期时间后自动删除相关日志文件。关闭该功能后，日志将永久保留在磁盘上，需要用户自行管理，否则可能影响磁盘占用。建议根据需求合理配置。
-- `job-log-prune-interval-minutes`: 本地作业日志剪枝器的扫描间隔（单位：分钟）。剪枝器会扫描日志目录，并删除那些最后修改时间超过 Log4j2 `RollingFile` 策略配置的 `file_ttl` 的滚动段（例如 `job-<id>.log.yyyy-MM-dd-N`）。默认值为 `60`。将该值设置为非正数可关闭剪枝器。剪枝器仅针对日期索引的滚动段生效，永远不会触碰当前活动的 `job-<id>.log` 文件以及 `job-<id>.log.unclassified` 旁挂文件。
+- `job-log-prune-interval-minutes`: 本地作业日志剪枝器的扫描间隔（单位：分钟）。剪枝器会扫描日志目录，并删除那些最后修改时间超过 Log4j2 `RollingFile` 策略配置的 `file_ttl` 的滚动段（例如 `job-<id>.log.yyyy-MM-dd-N`）。默认值为 `60`。将该值设置为非正数可关闭剪枝器。该配置仅在 `scheduled-deletion-enable` 同时为 `true` 时生效。剪枝器仅针对日期索引的作业日志滚动段生效，永远不会触碰当前活动的 `job-<id>.log` 文件以及 `job-<id>.log.unclassified` 旁挂文件。
 
 
 ## 开发人员最佳实践

@@ -1270,15 +1270,23 @@ public class CoordinatorService {
             return new PassiveCompletableFuture<>(jobSubmitFuture);
         }
 
+        JobImmutableInformation submittedJobImmutableInformation;
+        try {
+            submittedJobImmutableInformation =
+                    deserializeJobImmutableInformation(jobImmutableInformation);
+        } catch (Throwable e) {
+            String errorMsg = ExceptionUtils.getMessage(e);
+            logger.severe(String.format("submit job %s error %s ", jobId, errorMsg));
+            jobSubmitFuture.completeExceptionally(new JobException(errorMsg));
+            return new PassiveCompletableFuture<>(jobSubmitFuture);
+        }
         MDCExecutorService mdcExecutorService =
-                createJobMdcExecutorService(jobId, jobImmutableInformation);
+                createJobMdcExecutorService(jobId, submittedJobImmutableInformation);
         mdcExecutorService.submit(
                 () -> {
                     JobMaster jobMaster = null;
                     JobInfo submittedJobInfo = null;
                     try {
-                        JobImmutableInformation submittedJobImmutableInformation =
-                                deserializeJobImmutableInformation(jobImmutableInformation);
                         validateCheckpointRestoreSourceJobIsTerminal(
                                 submittedJobImmutableInformation, jobId);
                         if (isStartWithSavePoint) {

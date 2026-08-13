@@ -27,6 +27,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -97,5 +98,35 @@ public class TaskLogManagerServiceTest {
         service.clean(-1);
 
         assertTrue(Files.exists(activeFile), "Active job log should remain for invalid jobId");
+    }
+
+    @Test
+    void testPruneDeletesOnlyExpiredRolledJobSegments() throws IOException {
+        Path expiredRolledFile = tempDir.resolve("job-123.log.2026-07-13-1");
+        Path freshRolledFile = tempDir.resolve("job-123.log.2026-07-14-1");
+        Path activeFile = tempDir.resolve("job-123.log");
+        Path sidecarFile = tempDir.resolve("job-123.log.unclassified");
+        Path systemRolledFile = tempDir.resolve("seatunnel.log.2026-07-13-1");
+
+        Files.write(expiredRolledFile, "expired".getBytes(StandardCharsets.UTF_8));
+        Files.write(freshRolledFile, "fresh".getBytes(StandardCharsets.UTF_8));
+        Files.write(activeFile, "active".getBytes(StandardCharsets.UTF_8));
+        Files.write(sidecarFile, "sidecar".getBytes(StandardCharsets.UTF_8));
+        Files.write(systemRolledFile, "system".getBytes(StandardCharsets.UTF_8));
+
+        long now = System.currentTimeMillis();
+        assertTrue(
+                expiredRolledFile.toFile().setLastModified(now - Duration.ofDays(10).toMillis()));
+        assertTrue(freshRolledFile.toFile().setLastModified(now - Duration.ofHours(1).toMillis()));
+        assertTrue(systemRolledFile.toFile().setLastModified(now - Duration.ofDays(10).toMillis()));
+
+        service.pruneRolledJobLogSegments(Duration.ofDays(7));
+
+        assertFalse(
+                Files.exists(expiredRolledFile), "Expired rolled job segment should be deleted");
+        assertTrue(Files.exists(freshRolledFile), "Fresh rolled job segment should remain");
+        assertTrue(Files.exists(activeFile), "Active job log should remain");
+        assertTrue(Files.exists(sidecarFile), "Unclassified sidecar should remain");
+        assertTrue(Files.exists(systemRolledFile), "Non-job rolled log should remain");
     }
 }
