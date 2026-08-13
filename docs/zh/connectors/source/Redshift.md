@@ -44,11 +44,6 @@ Redshift 兼容 PostgreSQL，因此连接器可以读取 JDBC 用户有权访问
 |--------|-----------|------|--------|-------|
 | redshift | 不同的依赖版本有不同的驱动类 | com.amazon.redshift.jdbc.Driver | jdbc:redshift://localhost:5439/database | [下载](https://mvnrepository.com/artifact/com.amazon.redshift/redshift-jdbc42) |
 
-## 数据库依赖
-
-> 请下载对应 'Maven' 的支持列表，并将其复制到 '$SEATUNNEL_HOME/plugins/jdbc/lib/' 工作目录<br/>
-> 例如 Redshift 数据源：cp RedshiftJDBC42-xxx.jar $SEATUNNEL_HOME/plugins/jdbc/lib/
-
 ## 源选项
 
 | 名称 | 类型 | 是否必填 | 默认值 | 描述 |
@@ -69,6 +64,11 @@ Redshift 兼容 PostgreSQL，因此连接器可以读取 JDBC 用户有权访问
 | where_condition | String | 否 | - | 对所有表/查询生效的统一行过滤条件，必须以 `where` 开头，例如 `where id > 100`。 |
 | split.size | Int | 否 | 8096 | 使用 `table_path` 或 `table_list` 时自动分片的行数。 |
 | common-options |  | 否 | - | 源插件通用参数，详情请参考 [Source 通用选项](../common-options/source-common-options.md)。 |
+
+## 数据库依赖
+
+> 请下载对应 'Maven' 的支持列表，并将其复制到 '$SEATUNNEL_HOME/plugins/jdbc/lib/' 工作目录<br/>
+> 例如 Redshift 数据源：cp RedshiftJDBC42-xxx.jar $SEATUNNEL_HOME/plugins/jdbc/lib/
 
 ## 数据类型映射
 

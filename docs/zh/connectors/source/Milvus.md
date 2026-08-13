@@ -67,7 +67,7 @@ Milvus 源连接器用于从 Milvus 或 Zilliz Cloud 读取数据。它可以读
 - 源端会按 Milvus 分区拆分读取任务。有分区键的集合使用一个 split 读取；没有分区键的集合会按分区名拆分，并分配给多个 reader。
 - 源端读取带分区的集合时，下游 Milvus 接收器可以利用这些元数据在目标集合创建相同分区名。
 - 源端读取到向量索引信息时，下游 Milvus 接收器可以配合 `create_index = true` 创建相同向量索引。
-- 流处理作业需要设置 checkpoint 间隔，并在重启时复用同一个 Milvus token，确保增量读取能从已提交的 offset 正确恢复。
+- Milvus 源是 BOUNDED（有界）源：作业在所有分区（split）扫描完成后会自然结束，不会像 Kafka、Fluss 那样提供按记录级别 offset 持续增量读取。检查点/恢复以 split（分区）为粒度——已经扫描完成的分区不会被重读，但作业失败时正在扫描的分区会从分区开头重新扫描；如果希望持续摄入新增向量，需要在外部（例如业务写入端）配合周期性重新提交 SeaTunnel 作业。
 
 ## 任务示例
 
@@ -167,10 +167,13 @@ sink {
 }
 ```
 
-### 流式读取单集合并配合检查点
+### 配合检查点周期性地重跑
 
-本示例以 `STREAMING` 模式运行 Source，检查点间隔为 30 秒。下游 Sink 设置
-`enable_upsert = false`，保证每行只插入一次，重复行会被拒绝。
+Milvus 源是 BOUNDED 的，所有分区扫描完成后作业会自然结束。本示例以
+`STREAMING` 模式运行，并设置较短的检查点间隔——如果希望持续摄入新增向量，
+可以让外部调度器按需重新提交作业；恢复时以 split（分区）为粒度，已经完整扫描
+的分区不会被重读，正在扫描时失败的分区会从分区开头重新读取。下游 Sink 设置
+`enable_upsert = true`，配合主键去重避免重复写入。
 
 ```bash
 env {
@@ -195,7 +198,7 @@ sink {
     url = "http://127.0.0.1:19530"
     token = "username:password"
     database = "streaming_test"
-    enable_upsert = false
+    enable_upsert = true
     batch_size = 1000
   }
 }
