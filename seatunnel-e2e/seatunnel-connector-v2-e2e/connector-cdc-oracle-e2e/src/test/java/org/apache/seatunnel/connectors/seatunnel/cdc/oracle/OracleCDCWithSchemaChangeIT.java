@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.oracle;
 
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
-
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TablePath;
@@ -134,8 +132,6 @@ public class OracleCDCWithSchemaChangeIT extends AbstractOracleCDCIT implements 
         Startables.deepStart(Stream.of(MYSQL_CONTAINER)).join();
         log.info("Mysql Containers are started");
 
-        ORACLE_CONTAINER.setPortBindings(
-                Lists.newArrayList(String.format("%s:%s", ORACLE_PORT, ORACLE_PORT)));
         log.info("Starting Oracle containers...");
         Startables.deepStart(Stream.of(ORACLE_CONTAINER)).join();
         log.info("Oracle containers are started.");

@@ -459,13 +459,13 @@ public class SeaTunnelContainer extends AbstractTestContainer {
     }
 
     private Map<String, String> getThreadClassLoader() throws IOException {
-        // Resolve the mapped REST port at runtime so local standalone clusters do not collide with
-        // E2E.
+        // Resolve the mapped REST endpoint at runtime so E2E clusters do not collide and remote
+        // Docker hosts remain reachable.
         HttpGet get =
                 new HttpGet(
                         String.format(
-                                "http://localhost:%s/hazelcast/rest/maps/running-threads",
-                                server.getMappedPort(5801)));
+                                "http://%s:%s/hazelcast/rest/maps/running-threads",
+                                server.getHost(), server.getMappedPort(5801)));
         try (CloseableHttpClient client = HttpClients.createDefault()) {
             CloseableHttpResponse response = client.execute(get);
             String threads = EntityUtils.toString(response.getEntity());
