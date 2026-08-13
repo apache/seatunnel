@@ -151,11 +151,6 @@
                 <version>${hadoop-aws.version}</version>
             </dependency>
             <dependency>
-                <groupId>org.apache.hive</groupId>
-                <artifactId>hive-exec</artifactId>
-                <version>${hive.exec.version}</version>
-            </dependency>
-            <dependency>
                 <groupId>org.apache.thrift</groupId>
                 <artifactId>libfb303</artifactId>
                 <version>${libfb303.version}</version>
