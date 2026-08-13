@@ -25,7 +25,6 @@ import org.apache.seatunnel.connectors.seatunnel.firebase.config.FirebaseSourceO
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
-import org.mockito.Mockito;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -36,9 +35,10 @@ import java.util.Map;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.eq;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -48,8 +48,8 @@ class FirebaseSourceSplitEnumeratorTest {
 
     @BeforeEach
     void setUp() {
-        mockContext = Mockito.mock(SourceSplitEnumerator.Context.class);
-        mockHttpClient = Mockito.mock(FirebaseHttpClient.class);
+        mockContext = mock(SourceSplitEnumerator.Context.class);
+        mockHttpClient = mock(FirebaseHttpClient.class);
     }
 
     @Test
@@ -176,5 +176,54 @@ class FirebaseSourceSplitEnumeratorTest {
         assertEquals(1, assignedSplits.size());
         assertEquals("split_failed_1", assignedSplits.get(0).splitId());
         assertEquals(0, enumerator.currentUnassignedSplitSize());
+    }
+
+    @Test
+    public void testRestorePathSignalsNoMoreSplitsToLateRegisteringReaders() throws Exception {
+        // 1. Mock Context
+        @SuppressWarnings("unchecked")
+        SourceSplitEnumerator.Context<FirebaseSourceSplit> mockContext =
+                mock(SourceSplitEnumerator.Context.class);
+
+        // 2. Prepare restored state with 1 pending split
+        FirebaseSourceSplit restoredSplit = new FirebaseSourceSplit("split_restored_1", "users");
+        Set<FirebaseSourceSplit> pendingSplits =
+                new HashSet<>(Collections.singletonList(restoredSplit));
+        Set<String> assignedSplitIds = new HashSet<>();
+        FirebaseSourceState restoredState =
+                new FirebaseSourceState(pendingSplits, assignedSplitIds);
+
+        // 3. Construct ReadonlyConfig with both "url" and "path"
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put("url", "https://test-db.firebaseio.com");
+        configMap.put("path", "users");
+        ReadonlyConfig config = ReadonlyConfig.fromMap(configMap);
+
+        // 4. Construct enumerator from state
+        FirebaseSourceSplitEnumerator enumerator =
+                new FirebaseSourceSplitEnumerator(mockContext, config, restoredState);
+
+        // 5. Step 1: Reader 0 registers first
+        Set<Integer> registeredReaders = new HashSet<>(Collections.singletonList(0));
+        when(mockContext.registeredReaders()).thenReturn(registeredReaders);
+
+        enumerator.registerReader(0);
+
+        // Verify Reader 0 received the split and NO_MORE_SPLITS signal
+        ArgumentCaptor<List<FirebaseSourceSplit>> splitCaptor = ArgumentCaptor.forClass(List.class);
+        verify(mockContext).assignSplit(eq(0), splitCaptor.capture());
+        assertEquals(1, splitCaptor.getValue().size());
+        assertEquals("split_restored_1", splitCaptor.getValue().get(0).splitId());
+        verify(mockContext).signalNoMoreSplits(eq(0));
+
+        // 6. Step 2: Reader 1 registers later (pendingSplits is now empty)
+        registeredReaders.add(1); // registeredReaders is now {0, 1}
+        when(mockContext.registeredReaders()).thenReturn(registeredReaders);
+
+        enumerator.registerReader(1);
+
+        // 7. Assertion: Reader 1 MUST receive NO_MORE_SPLITS signal despite pendingSplits being
+        // empty
+        verify(mockContext).signalNoMoreSplits(eq(1));
     }
 }

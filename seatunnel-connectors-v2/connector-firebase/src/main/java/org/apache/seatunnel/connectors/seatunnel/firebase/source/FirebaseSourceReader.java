@@ -33,12 +33,16 @@ import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Queue;
+import java.util.Set;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 @Slf4j
 public class FirebaseSourceReader implements SourceReader<SeaTunnelRow, FirebaseSourceSplit> {
@@ -49,8 +53,8 @@ public class FirebaseSourceReader implements SourceReader<SeaTunnelRow, Firebase
     private final CatalogTable catalogTable;
     private final FirebaseHttpClient httpClient;
     private final JsonDeserializationSchema deserializationSchema;
-
-    private final Queue<FirebaseSourceSplit> splits = new ArrayDeque<>();
+    private final Set<String> declaredFields;
+    private final Queue<FirebaseSourceSplit> splits = new ConcurrentLinkedQueue<>();
     private volatile boolean noMoreSplits = false;
 
     public FirebaseSourceReader(
@@ -61,6 +65,7 @@ public class FirebaseSourceReader implements SourceReader<SeaTunnelRow, Firebase
         this.httpClient = new FirebaseHttpClient(config);
 
         SeaTunnelRowType rowType = catalogTable.getTableSchema().toPhysicalRowDataType();
+        this.declaredFields = extractDeclaredFields(catalogTable);
         this.deserializationSchema = new JsonDeserializationSchema(false, false, rowType);
     }
 
@@ -75,6 +80,7 @@ public class FirebaseSourceReader implements SourceReader<SeaTunnelRow, Firebase
         this.httpClient = httpClient;
 
         SeaTunnelRowType rowType = catalogTable.getTableSchema().toPhysicalRowDataType();
+        this.declaredFields = extractDeclaredFields(catalogTable);
         this.deserializationSchema = new JsonDeserializationSchema(false, false, rowType);
     }
 
@@ -85,20 +91,17 @@ public class FirebaseSourceReader implements SourceReader<SeaTunnelRow, Firebase
 
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
-        synchronized (splits) {
-            if (splits.isEmpty()) {
-                if (noMoreSplits) {
-                    log.info("notify engine , no more splits");
-                    context.signalNoMoreElement();
-                } else {
-                    Thread.sleep(100);
-                }
-                return;
-            }
-            FirebaseSourceSplit split = splits.poll();
-            if (split != null) {
-                readSplit(split, output);
-            }
+        FirebaseSourceSplit split = splits.poll();
+        if (split != null) {
+            readSplit(split, output);
+            return;
+        }
+
+        if (noMoreSplits) {
+            log.info("notify engine , no more splits");
+            context.signalNoMoreElement();
+        } else {
+            Thread.sleep(100);
         }
     }
 
@@ -118,11 +121,10 @@ public class FirebaseSourceReader implements SourceReader<SeaTunnelRow, Firebase
             for (String key : keys) {
                 String jsonPayload = httpClient.fetchNodeData(key);
                 if (jsonPayload != null && !jsonPayload.trim().equals("null")) {
+
                     String trimmedPayload = jsonPayload.trim();
-                    if (trimmedPayload.startsWith("{") || trimmedPayload.startsWith("[")) {
-                        containsChildRecordObjects = true;
-                        processJsonPayload(trimmedPayload, output);
-                    } else {
+
+                    if (declaredFields.contains(key)) {
                         try {
                             Object parsedVal =
                                     OBJECT_MAPPER.readValue(trimmedPayload, Object.class);
@@ -130,6 +132,11 @@ public class FirebaseSourceReader implements SourceReader<SeaTunnelRow, Firebase
                         } catch (Exception e) {
                             reconstructedMap.put(key, trimmedPayload);
                         }
+                    } else if (trimmedPayload.startsWith("{") || trimmedPayload.startsWith("[")) {
+                        containsChildRecordObjects = true;
+                        processJsonPayload(trimmedPayload, output);
+                    } else {
+                        reconstructedMap.put(key, trimmedPayload);
                     }
                 }
             }
@@ -142,6 +149,18 @@ public class FirebaseSourceReader implements SourceReader<SeaTunnelRow, Firebase
             String jsonPayload = httpClient.fetchNodeData(null);
             processJsonPayload(jsonPayload, output);
         }
+    }
+
+    /** Extracts top-level schema field names into an unmodifiable Set once during construction. */
+    private static Set<String> extractDeclaredFields(CatalogTable catalogTable) {
+        if (catalogTable != null && catalogTable.getTableSchema() != null) {
+            SeaTunnelRowType rowType = catalogTable.getTableSchema().toPhysicalRowDataType();
+            if (rowType != null && rowType.getFieldNames() != null) {
+                return Collections.unmodifiableSet(
+                        new HashSet<>(Arrays.asList(rowType.getFieldNames())));
+            }
+        }
+        return Collections.emptySet();
     }
 
     /** Helper method that consistently handles single records, record maps, and JSON arrays. */
@@ -184,32 +203,15 @@ public class FirebaseSourceReader implements SourceReader<SeaTunnelRow, Firebase
      * dictionary of child records.
      */
     private boolean isSingleRecordObject(Map<String, Object> map) {
-        if (map == null
-                || map.isEmpty()
-                || catalogTable == null
-                || catalogTable.getTableSchema() == null) {
-            log.info("isSingleRecordObject map input is null or empty");
+        if (map == null || map.isEmpty() || declaredFields.isEmpty()) {
             return false;
         }
 
-        SeaTunnelRowType rowType = catalogTable.getTableSchema().toPhysicalRowDataType();
-        if (rowType == null) {
-            log.info("isSingleRecordObject row Type is null");
-            return false;
-        }
-
-        String[] fieldNames = rowType.getFieldNames();
-        if (fieldNames == null || fieldNames.length == 0) {
-            log.info("isSingleRecordObject fieldNames are null or empty");
-            return false;
-        }
-
-        for (String fieldName : fieldNames) {
+        for (String fieldName : declaredFields) {
             if (map.containsKey(fieldName)) {
                 return true;
             }
         }
-        log.info("isSingleRecordObject did not find any matching field name");
         return false;
     }
 
@@ -225,16 +227,12 @@ public class FirebaseSourceReader implements SourceReader<SeaTunnelRow, Firebase
 
     @Override
     public List<FirebaseSourceSplit> snapshotState(long checkpointId) {
-        synchronized (splits) {
-            return new ArrayList<>(splits);
-        }
+        return new ArrayList<>(splits);
     }
 
     @Override
     public void addSplits(List<FirebaseSourceSplit> newSplits) {
-        synchronized (splits) {
-            splits.addAll(newSplits);
-        }
+        splits.addAll(newSplits);
     }
 
     @Override

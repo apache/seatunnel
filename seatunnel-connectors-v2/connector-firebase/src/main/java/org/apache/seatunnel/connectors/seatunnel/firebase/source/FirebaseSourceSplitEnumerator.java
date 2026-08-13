@@ -42,6 +42,9 @@ public class FirebaseSourceSplitEnumerator
     private final Set<FirebaseSourceSplit> pendingSplits = new HashSet<>();
     private final Set<String> assignedSplitIds = new HashSet<>();
 
+    private final Set<Integer> signalledReaders = new HashSet<>();
+    private volatile boolean discoveryDone = false;
+
     public FirebaseSourceSplitEnumerator(
             Context<FirebaseSourceSplit> context, ReadonlyConfig config) {
         this.context = context;
@@ -57,6 +60,8 @@ public class FirebaseSourceSplitEnumerator
         if (state != null) {
             this.pendingSplits.addAll(state.getPendingSplits());
             this.assignedSplitIds.addAll(state.getAssignedSplitIds());
+            // Restored state already has discovery complete
+            this.discoveryDone = true;
         }
     }
 
@@ -78,7 +83,8 @@ public class FirebaseSourceSplitEnumerator
     public void run() throws Exception {
         log.info("FirebaseSourceSplitEnumerator run()");
         if (!pendingSplits.isEmpty() || !assignedSplitIds.isEmpty()) {
-            // Already initialized or restored from state
+            this.discoveryDone = true;
+            assignSplits();
             return;
         }
         String basePath = config.get(FirebaseSourceOptions.PATH);
@@ -106,6 +112,7 @@ public class FirebaseSourceSplitEnumerator
         }
         pendingSplits.addAll(generatedSplits);
         log.info("pending Splits : {}", pendingSplits.toString());
+        this.discoveryDone = true;
         assignSplits();
     }
 
@@ -175,37 +182,47 @@ public class FirebaseSourceSplitEnumerator
         return new FirebaseSourceSplit("split_single_path_" + basePath.hashCode(), basePath);
     }
 
-    /** Assigns pending splits to available reader subtasks. */
+    /** Assigns pending splits to available reader subtasks idempotently. */
     private synchronized void assignSplits() {
-        if (pendingSplits.isEmpty()) {
-            return;
-        }
         Set<Integer> registeredReaders = context.registeredReaders();
         if (registeredReaders.isEmpty()) {
             return;
         }
-        List<Integer> readersList = new ArrayList<>(registeredReaders);
-        Map<Integer, List<FirebaseSourceSplit>> assignmentMap = new HashMap<>();
-        int readerIndex = 0;
-        Set<FirebaseSourceSplit> assignedInThisBatch = new HashSet<>();
-        for (FirebaseSourceSplit split : pendingSplits) {
-            int targetReader = readersList.get(readerIndex % readersList.size());
-            assignmentMap.computeIfAbsent(targetReader, k -> new ArrayList<>()).add(split);
-            assignedSplitIds.add(split.splitId());
-            assignedInThisBatch.add(split);
-            readerIndex++;
+
+        // 1. Assign any remaining pending splits
+        if (!pendingSplits.isEmpty()) {
+            List<Integer> readersList = new ArrayList<>(registeredReaders);
+            Map<Integer, List<FirebaseSourceSplit>> assignmentMap = new HashMap<>();
+            int readerIndex = 0;
+            Set<FirebaseSourceSplit> assignedInThisBatch = new HashSet<>();
+
+            for (FirebaseSourceSplit split : pendingSplits) {
+                int targetReader = readersList.get(readerIndex % readersList.size());
+                assignmentMap.computeIfAbsent(targetReader, k -> new ArrayList<>()).add(split);
+                assignedSplitIds.add(split.splitId());
+                assignedInThisBatch.add(split);
+                readerIndex++;
+            }
+
+            for (Map.Entry<Integer, List<FirebaseSourceSplit>> entry : assignmentMap.entrySet()) {
+                int readerId = entry.getKey();
+                List<FirebaseSourceSplit> splitsForReader = entry.getValue();
+                context.assignSplit(readerId, splitsForReader);
+                log.info(
+                        "Assigned {} splits to reader subtask [{}]",
+                        splitsForReader.size(),
+                        readerId);
+            }
+
+            pendingSplits.removeAll(assignedInThisBatch);
         }
-        for (Map.Entry<Integer, List<FirebaseSourceSplit>> entry : assignmentMap.entrySet()) {
-            int readerId = entry.getKey();
-            List<FirebaseSourceSplit> splitsForReader = entry.getValue();
-            context.assignSplit(readerId, splitsForReader);
-            log.info("Assigned {} splits to reader subtask [{}]", splitsForReader.size(), readerId);
-        }
-        pendingSplits.removeAll(assignedInThisBatch);
-        if (pendingSplits.isEmpty()) {
-            for (Integer readerId : readersList) {
-                context.signalNoMoreSplits(readerId);
-                log.info("Signaled NO_MORE_SPLITS to reader subtask [{}]", readerId);
+
+        if (discoveryDone && pendingSplits.isEmpty()) {
+            for (Integer readerId : registeredReaders) {
+                if (signalledReaders.add(readerId)) {
+                    context.signalNoMoreSplits(readerId);
+                    log.info("Signaled NO_MORE_SPLITS to reader subtask [{}]", readerId);
+                }
             }
         }
     }

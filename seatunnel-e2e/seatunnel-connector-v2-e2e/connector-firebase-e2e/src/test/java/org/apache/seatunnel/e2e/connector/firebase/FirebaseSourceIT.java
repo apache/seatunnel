@@ -111,15 +111,15 @@ public class FirebaseSourceIT extends TestSuiteBase implements TestResource {
                         + "  \"user_2\": {\"id\": 102, \"name\": \"Apache SeaTunnel\", \"score\": 100.0, \"is_active\": false, \"timestamp\": 1700000005000}"
                         + "}";
 
-        String putEndpointUrl = emulatorHostUrl + "/users.json";
+        String putEndpointUrl = emulatorHostUrl + "/users.json?ns=test-project";
 
-        // Rule 2: Wait on Conditions via Awaitility
+        // Wait until PUT returns 200 OK
         Awaitility.await()
                 .atMost(30, TimeUnit.SECONDS)
                 .pollInterval(1, TimeUnit.SECONDS)
                 .until(() -> executePut(putEndpointUrl, jsonPayload) == 200);
 
-        log.info("Successfully seeded test records into /users.json");
+        log.info("Successfully seeded test records into /users.json?ns=test-project");
     }
 
     private int executePut(String urlStr, String jsonBody) {
@@ -169,7 +169,6 @@ public class FirebaseSourceIT extends TestSuiteBase implements TestResource {
     @AfterAll
     @Override
     public void tearDown() throws Exception {
-        // Rule 3: Release Resources Promptly
         if (firebaseEmulator != null) {
             log.info("Stopping Firebase Emulator container and freeing bound host ports...");
             firebaseEmulator.stop();
