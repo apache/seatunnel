@@ -67,9 +67,12 @@ public final class DependencyJar {
                     DependencyJar.class
                             .getClassLoader()
                             .getResource(STAGED_RESOURCE_DIRECTORY + fileName);
-            Assertions.assertNotNull(
-                    resource,
-                    "Maven dependency should be staged at " + STAGED_RESOURCE_DIRECTORY + fileName);
+            if (resource == null) {
+                throw new IllegalStateException(
+                        "Maven dependency should be staged at "
+                                + STAGED_RESOURCE_DIRECTORY
+                                + fileName);
+            }
             return new DependencyJar(
                     requireJar(Paths.get(resource.toURI()), "Staged Maven dependency " + fileName));
         } catch (Exception e) {
@@ -105,7 +108,9 @@ public final class DependencyJar {
     }
 
     private static Path requireJar(Path path, String description) {
-        Assertions.assertTrue(Files.isRegularFile(path), description + " should be a jar: " + path);
+        if (!Files.isRegularFile(path)) {
+            throw new IllegalStateException(description + " should be a jar: " + path);
+        }
         return path;
     }
 }
