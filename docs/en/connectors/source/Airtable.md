@@ -174,6 +174,67 @@ source {
 }
 ```
 
+### Restrict To A View
+
+Use `view` to read only records that are visible in a specific view. Combine it with `fields` to
+project only the columns the view exposes:
+
+```hocon
+source {
+  Airtable {
+    token = "patXXXXXXXX.XXXXXXXX"
+    base_id = "appXXXXXXXX"
+    table = "Shipments"
+    view = "Pending shipments"
+    fields = ["Name", "Status", "Weight"]
+    format = "json"
+    content_field = "$.records[*].fields"
+    schema = {
+      fields {
+        Name = string
+        Status = string
+        Weight = float
+      }
+    }
+  }
+}
+```
+
+### Stream New Records With Filter And Sort
+
+Airtable's filter and sort parameters are stable on a single job run. To continuously consume new
+rows as they appear, switch to streaming mode and pin `filter_by_formula` together with a `sort`
+that orders rows by `createdTime`. Each restart reads from the beginning, so capture the last seen
+`createdTime` and re-inject it into the formula between runs.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 60000
+}
+
+source {
+  Airtable {
+    token = "patXXXXXXXX.XXXXXXXX"
+    base_id = "appXXXXXXXX"
+    table = "Shipments"
+    format = "json"
+    content_field = "$.records[*].fields"
+    filter_by_formula = "IS_AFTER({CreatedAt}, '2026-01-01T00:00:00.000Z')"
+    sort = "[{\"field\":\"CreatedAt\",\"direction\":\"asc\"}]"
+    page_size = 100
+    schema = {
+      fields {
+        Name = string
+        Status = string
+        CreatedAt = string
+      }
+    }
+  }
+}
+```
+
 ## Changelog
 
 <ChangeLog />

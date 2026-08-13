@@ -128,6 +128,45 @@ sink {
 }
 ```
 
+### 将汇总表 upsert 到 Phoenix
+
+Phoenix 的 `upsert` 语义天然适合写入汇总表。下面的示例将分数数据 upsert 到
+`test.summary`，重复执行时同名行会被覆盖：
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    row.num = 4
+    schema = {
+      fields {
+        id = int
+        name = string
+        score = double
+      }
+    }
+    rows = [
+      { kind = INSERT, fields = [1, "Alice", 95.5] }
+      { kind = INSERT, fields = [2, "Bob", 88.0] }
+      { kind = INSERT, fields = [3, "Carol", 76.0] }
+      { kind = INSERT, fields = [4, "Dave", 84.5] }
+    ]
+  }
+}
+
+sink {
+  Jdbc {
+    driver = org.apache.phoenix.jdbc.PhoenixDriver
+    url = "jdbc:phoenix:localhost:2182/hbase"
+    query = "upsert into test.summary(id, name, score) values(?, ?, ?)"
+  }
+}
+```
+
 ## 变更日志
 
 <ChangeLog />

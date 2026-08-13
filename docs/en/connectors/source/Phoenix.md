@@ -110,6 +110,61 @@ sink {
 }
 ```
 
+### Project Specific Columns With A Predicate
+
+Combine column projection with a `WHERE` clause to narrow the rows that flow downstream. This
+example only fetches rows whose `name` starts with `A`:
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Jdbc {
+    driver = org.apache.phoenix.jdbc.PhoenixDriver
+    url = "jdbc:phoenix:localhost:2182/hbase"
+    query = "select name, score from test.source where name like 'A%'"
+  }
+}
+
+sink {
+  Console {}
+}
+```
+
+### Stream CDC Events Into Phoenix
+
+Use Phoenix upsert behavior from a CDC source to keep an aggregated view in sync. The CDC
+row kinds are mapped to inserts and deletes; pair the source with the Phoenix sink for a
+consistent write path.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 10000
+}
+
+source {
+  MySQL-CDC {
+    base-url = "jdbc:mysql://mysql:3306/test"
+    username = "root"
+    password = "mysqlpw"
+    table-names = ["test.orders"]
+  }
+}
+
+sink {
+  Jdbc {
+    driver = org.apache.phoenix.jdbc.PhoenixDriver
+    url = "jdbc:phoenix:phoenix-server:2182/hbase"
+    query = "upsert into test.orders(id, customer, amount) values(?, ?, ?)"
+  }
+}
+```
+
 ## Changelog
 
 <ChangeLog />

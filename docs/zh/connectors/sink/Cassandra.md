@@ -163,6 +163,41 @@ sink {
 }
 ```
 
+### 将 MySQL CDC 事件流式写入 Cassandra
+
+把 MySQL CDC 事件通过 Cassandra sink 写入下游，需要把 CDC 的行类型映射成表字段。Cassandra
+按行执行 `INSERT`，CDC 的 `DELETE` 可以通过写入 `is_deleted` 字段并在下游过滤掉来实现：
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 10000
+}
+
+source {
+  MySQL-CDC {
+    base-url = "jdbc:mysql://mysql:3306/test"
+    username = "root"
+    password = "mysqlpw"
+    table-names = ["test.orders"]
+  }
+}
+
+sink {
+  Cassandra {
+    host = "cassandra1:9042,cassandra2:9042"
+    keyspace = "test"
+    table = "orders"
+    fields = ["id", "order_id", "customer", "amount", "is_deleted"]
+    consistency_level = "LOCAL_QUORUM"
+    batch_size = 2000
+    batch_type = "UNLOGGED"
+    async_write = true
+  }
+}
+```
+
 ## 变更日志
 
 <ChangeLog />

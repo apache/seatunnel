@@ -170,6 +170,42 @@ sink {
 }
 ```
 
+### Stream MySQL CDC Events Into Cassandra
+
+Pipe MySQL CDC events through a Cassandra sink by mapping the CDC row kinds to the table
+columns. Cassandra uses `INSERT` semantics per row, so a CDC `DELETE` is expressed by writing
+a tombstone column (`is_deleted`) and filtering it out downstream if needed:
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 10000
+}
+
+source {
+  MySQL-CDC {
+    base-url = "jdbc:mysql://mysql:3306/test"
+    username = "root"
+    password = "mysqlpw"
+    table-names = ["test.orders"]
+  }
+}
+
+sink {
+  Cassandra {
+    host = "cassandra1:9042,cassandra2:9042"
+    keyspace = "test"
+    table = "orders"
+    fields = ["id", "order_id", "customer", "amount", "is_deleted"]
+    consistency_level = "LOCAL_QUORUM"
+    batch_size = 2000
+    batch_type = "UNLOGGED"
+    async_write = true
+  }
+}
+```
+
 ## Changelog
 
 <ChangeLog />

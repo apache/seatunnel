@@ -174,6 +174,65 @@ source {
 }
 ```
 
+### 仅读取某个视图中的记录
+
+使用 `view` 只读取指定视图中可见的记录，配合 `fields` 限制返回的列：
+
+```hocon
+source {
+  Airtable {
+    token = "patXXXXXXXX.XXXXXXXX"
+    base_id = "appXXXXXXXX"
+    table = "Shipments"
+    view = "Pending shipments"
+    fields = ["Name", "Status", "Weight"]
+    format = "json"
+    content_field = "$.records[*].fields"
+    schema = {
+      fields {
+        Name = string
+        Status = string
+        Weight = float
+      }
+    }
+  }
+}
+```
+
+### 流式消费新增记录
+
+Airtable 的 `filter_by_formula` 和 `sort` 在同一任务运行期间是稳定的。要按写入顺序持续消费
+新增行，可以切换到流式模式，并结合 `sort` 按 `createdTime` 升序排列。每次重启任务都会从
+头扫描，请在两次运行之间记录已经读到的最大 `CreatedAt`，并把它写回 `filter_by_formula`。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 60000
+}
+
+source {
+  Airtable {
+    token = "patXXXXXXXX.XXXXXXXX"
+    base_id = "appXXXXXXXX"
+    table = "Shipments"
+    format = "json"
+    content_field = "$.records[*].fields"
+    filter_by_formula = "IS_AFTER({CreatedAt}, '2026-01-01T00:00:00.000Z')"
+    sort = "[{\"field\":\"CreatedAt\",\"direction\":\"asc\"}]"
+    page_size = 100
+    schema = {
+      fields {
+        Name = string
+        Status = string
+        CreatedAt = string
+      }
+    }
+  }
+}
+```
+
 ## 变更日志
 
 <ChangeLog />
