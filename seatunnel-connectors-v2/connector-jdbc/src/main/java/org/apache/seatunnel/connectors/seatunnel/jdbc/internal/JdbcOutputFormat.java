@@ -242,7 +242,16 @@ public class JdbcOutputFormat<I, E extends JdbcBatchStatementExecutor<I>> implem
         }
         Connection connection = connectionProvider.getConnection();
         if (connection != null && !connection.getAutoCommit()) {
-            connection.commit();
+            try {
+                connection.commit();
+            } catch (SQLException e) {
+                recordFlushException(e);
+                throw new JdbcConnectorException(
+                        CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
+                        "JDBC commit after flush failed. The batch commit result is unknown, so"
+                                + " the writer will not retry this batch silently.",
+                        e);
+            }
         }
     }
 

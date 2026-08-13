@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.internal;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.executor.JdbcBatchStatementExecutor;
 
@@ -27,6 +28,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 import java.sql.Connection;
+import java.sql.SQLException;
 
 /** Tests the commit boundary of batch-size-triggered flushes in {@link JdbcOutputFormat}. */
 class JdbcOutputFormatBatchCommitTest {
@@ -91,6 +93,28 @@ class JdbcOutputFormatBatchCommitTest {
 
         Assertions.assertEquals(1, executor.executeBatchCalls);
         Mockito.verify(connection, Mockito.never()).commit();
+    }
+
+    @Test
+    void testCommitFailureAfterBatchFlushShouldNotReconnectAndRetryEmptyBatch() throws Exception {
+        JdbcConnectionProvider provider = Mockito.mock(JdbcConnectionProvider.class);
+        Connection connection = Mockito.mock(Connection.class);
+        Mockito.when(provider.getOrEstablishConnection()).thenReturn(connection);
+        Mockito.when(provider.getConnection()).thenReturn(connection);
+        Mockito.when(connection.getAutoCommit()).thenReturn(false);
+        Mockito.doThrow(new SQLException("commit failed", "08006")).when(connection).commit();
+
+        CountingExecutor executor = new CountingExecutor();
+        JdbcOutputFormat<SeaTunnelRow, CountingExecutor> outputFormat =
+                new JdbcOutputFormat<>(provider, buildConnectionConfig(), () -> executor, true);
+        outputFormat.open();
+        outputFormat.writeRecord(new SeaTunnelRow(new Object[] {"AA"}));
+
+        Assertions.assertThrows(JdbcConnectorException.class, outputFormat::flush);
+
+        Assertions.assertEquals(1, executor.executeBatchCalls);
+        Mockito.verify(connection, Mockito.times(1)).commit();
+        Mockito.verify(provider, Mockito.never()).reestablishConnection();
     }
 
     private static JdbcConnectionConfig buildConnectionConfig() {
