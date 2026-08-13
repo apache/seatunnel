@@ -342,7 +342,11 @@ public class DorisMultiReadIT extends AbstractDorisIT {
             Properties props = new Properties();
             props.put("user", USERNAME);
             props.put("password", PASSWORD);
-            conn = driver.connect(String.format(URL, container.getHost()), props);
+            conn =
+                    driver.connect(
+                            String.format(
+                                    URL, container.getHost(), container.getMappedPort(QUERY_PORT)),
+                            props);
             try (Statement statement = conn.createStatement()) {
                 // create test databases
                 statement.execute(createDatabase(SOURCE_DB_0));

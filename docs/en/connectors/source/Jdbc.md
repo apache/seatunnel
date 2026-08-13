@@ -214,6 +214,18 @@ In HOCON strings, a regular-expression backslash must be escaped, so `\d+` is wr
 
 Many JDBC drivers treat schema and table arguments passed to `DatabaseMetaData` as SQL `LIKE` patterns. SeaTunnel performs an exact identifier check after metadata discovery, but you should still use the exact case for case-sensitive database identifiers.
 
+:::note Views and table matching
+
+Whether `table_path` (with or without `use_regex`) also matches database views, not only base tables, depends on the dialect's internal table-listing query. There is no option to explicitly include or exclude views:
+
+- MySQL and PostgreSQL list views alongside base tables, so a broad pattern like `db.*` also matches views.
+- SQL Server filters to `TABLE_TYPE = 'BASE TABLE'` and excludes views.
+- Oracle and Dameng query `ALL_TABLES`, which excludes views as a side effect of that view not listing them.
+
+To read only specific base tables regardless of dialect, list them explicitly in `table_list` instead of relying on a broad regular expression.
+
+:::
+
 ### decimal_type_narrowing
 
 Decimal type narrowing, if true, the decimal type will be narrowed to the int or long type if without loss of precision. Only support for Oracle at now.

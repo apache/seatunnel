@@ -56,6 +56,19 @@ class BaseFileSourceTest {
     private static final String[] MARKDOWN_RAG_METADATA_FIELD_NAMES = {
         "source_uri", "document_id", "chunk_id", "chunk_index", "content_hash"
     };
+    private static final String[] PDF_FIELD_NAMES = {
+        "element_id",
+        "element_type",
+        "heading_level",
+        "text",
+        "page_number",
+        "position_index",
+        "parent_id",
+        "child_ids"
+    };
+    private static final String[] PDF_RAG_METADATA_FIELD_NAMES = {
+        "source_uri", "document_id", "chunk_id", "chunk_index", "content_hash"
+    };
 
     @Test
     void testMarkdownSourceDiscoversSchemaFromEmptyDirectory() {
@@ -78,11 +91,40 @@ class BaseFileSourceTest {
                 catalogTable.getSeaTunnelRowType().getFieldNames());
     }
 
+    @Test
+    void testPdfSourceDiscoversSchemaFromEmptyDirectory() {
+        BaseFileSource source = new TestFileSource(createPdfConfig(false));
+
+        CatalogTable catalogTable = source.getProducedCatalogTables().get(0);
+
+        Assertions.assertArrayEquals(
+                PDF_FIELD_NAMES, catalogTable.getSeaTunnelRowType().getFieldNames());
+    }
+
+    @Test
+    void testPdfSourceDiscoversRagMetadataSchemaFromEmptyDirectory() {
+        BaseFileSource source = new TestFileSource(createPdfConfig(true));
+
+        CatalogTable catalogTable = source.getProducedCatalogTables().get(0);
+
+        Assertions.assertArrayEquals(
+                concat(PDF_FIELD_NAMES, PDF_RAG_METADATA_FIELD_NAMES),
+                catalogTable.getSeaTunnelRowType().getFieldNames());
+    }
+
     private ReadonlyConfig createMarkdownConfig(boolean ragMetadataEnabled) {
         Map<String, Object> map = new HashMap<>();
         map.put(FileBaseSourceOptions.FILE_PATH.key(), EMPTY_PATH);
         map.put(FileBaseSourceOptions.FILE_FORMAT_TYPE.key(), "markdown");
         map.put(FileBaseSourceOptions.MARKDOWN_RAG_METADATA_ENABLED.key(), ragMetadataEnabled);
+        return ReadonlyConfig.fromMap(map);
+    }
+
+    private ReadonlyConfig createPdfConfig(boolean ragMetadataEnabled) {
+        Map<String, Object> map = new HashMap<>();
+        map.put(FileBaseSourceOptions.FILE_PATH.key(), EMPTY_PATH);
+        map.put(FileBaseSourceOptions.FILE_FORMAT_TYPE.key(), "pdf");
+        map.put(FileBaseSourceOptions.PDF_RAG_METADATA_ENABLED.key(), ragMetadataEnabled);
         return ReadonlyConfig.fromMap(map);
     }
 
