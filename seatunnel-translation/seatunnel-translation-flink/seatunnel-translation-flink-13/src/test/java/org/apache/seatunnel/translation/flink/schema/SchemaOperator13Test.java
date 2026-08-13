@@ -29,7 +29,14 @@ import org.mockito.Mockito;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 class SchemaOperator13Test {
+
+    @Test
+    void testFallbackTimerAllowsTwoConfiguredCheckpointRounds() {
+        assertEquals(75_000L, SchemaOperator13.checkpointStallTimeout(30_000L));
+    }
 
     @Test
     void testFallbackTimerRegistrationIsDeduplicatedAndCanBeRescheduled() throws Exception {

@@ -17,13 +17,6 @@
 
 package org.apache.seatunnel.core.starter.flink.execution;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import org.apache.flink.api.common.functions.util.ListCollector;
-import org.apache.flink.configuration.Configuration;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
@@ -34,8 +27,19 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.transform.SeaTunnelFlatMapTransform;
 import org.apache.seatunnel.api.transform.SeaTunnelMapTransform;
 import org.apache.seatunnel.translation.flink.schema.SchemaEvolutionControlMessage;
+
+import org.apache.flink.api.common.functions.util.ListCollector;
+import org.apache.flink.configuration.Configuration;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -155,6 +159,7 @@ class TransformExecuteProcessorTest {
             return Collections.singletonList(row);
         }
     }
+
     private static final String FIRST_SCHEMA_CHANGE_ID = "producer-1#1";
     private static final String SECOND_SCHEMA_CHANGE_ID = "producer-1#2";
 

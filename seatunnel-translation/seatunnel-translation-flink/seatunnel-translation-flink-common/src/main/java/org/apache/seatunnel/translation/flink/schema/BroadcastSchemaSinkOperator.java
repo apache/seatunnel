@@ -195,7 +195,7 @@ public class BroadcastSchemaSinkOperator extends AbstractStreamOperator<SeaTunne
                                         PendingSchemaEventEntry.class));
         pendingRowState =
                 context.getOperatorStateStore()
-                        .getListState(
+                        .getUnionListState(
                                 new ListStateDescriptor<>(
                                         "schema-gate-pending-rows", PendingRowEntry.class));
 
@@ -215,8 +215,10 @@ public class BroadcastSchemaSinkOperator extends AbstractStreamOperator<SeaTunne
                 restorePendingSchemaChange(entry);
             }
             for (PendingRowEntry entry : pendingRowState.get()) {
-                pendingRows.add(entry);
-                pendingBytes += estimateRowBytes(entry.row);
+                if (entry.row != null && isTableOwner(entry.row.getTableId())) {
+                    pendingRows.add(entry);
+                    pendingBytes += estimateRowBytes(entry.row);
+                }
             }
             replayRestoredSchemaEvents = true;
             log.info(
@@ -564,6 +566,17 @@ public class BroadcastSchemaSinkOperator extends AbstractStreamOperator<SeaTunne
      * Returns whether this subtask receives data rows for the table from Flink's key partitioner.
      */
     private boolean isTableOwner(TablePath tablePath) {
+        return isTableOwner(tablePath == null ? null : tablePath.toString());
+    }
+
+    private boolean isTableOwner(String tableId) {
+        if (tableId == null || tableId.isEmpty()) {
+            throw new SchemaEvolutionException(
+                    SchemaEvolutionErrorCode.SCHEMA_EVENT_PROCESSING_FAILED,
+                    "Cannot restore a pending schema-evolution row without a table identifier",
+                    null,
+                    null);
+        }
         int parallelism = Math.max(1, getRuntimeContext().getNumberOfParallelSubtasks());
         int maxParallelism = getRuntimeContext().getMaxNumberOfParallelSubtasks();
         if (maxParallelism <= 0) {
@@ -571,7 +584,7 @@ public class BroadcastSchemaSinkOperator extends AbstractStreamOperator<SeaTunne
         }
         int owner =
                 KeyGroupRangeAssignment.assignKeyToParallelOperator(
-                        tablePath.toString(), maxParallelism, parallelism);
+                        tableId, maxParallelism, parallelism);
         return owner == getRuntimeContext().getIndexOfThisSubtask();
     }
 
