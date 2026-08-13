@@ -151,10 +151,11 @@ public class EngineConfig {
     }
 
     public void setPrintJobMetricsInfoInterval(int printJobMetricsInfoInterval) {
-        checkPositive(
-                printJobMetricsInfoInterval,
-                ServerConfigOptions.MasterServerConfigOptions.PRINT_JOB_METRICS_INFO_INTERVAL
-                        + " must be > 0");
+        if (printJobMetricsInfoInterval < 0) {
+            throw new IllegalArgumentException(
+                    ServerConfigOptions.MasterServerConfigOptions.PRINT_JOB_METRICS_INFO_INTERVAL
+                            + " must be >= 0");
+        }
         this.printJobMetricsInfoInterval = printJobMetricsInfoInterval;
     }
 

@@ -175,7 +175,7 @@ seatunnel:
 
 **print-job-metrics-info-interval**
 
-master 节点将每个运行中任务的综合指标周期性写入引擎日志的间隔（秒）。同一份内容也会被单独写入 `seatunnel.logs.path`（默认 `<SEATUNNEL_HOME>/logs`）下的独立日志文件 `seatunnel-metrics.log`。每条记录包含任务 id、本地时间戳，以及从各 task 汇总的 `SourceReceivedCount` / `SourceReceivedBytes` / `SinkWriteCount` / `SinkCommittedCount` 等指标的排序快照。设为 `0`（或其它非正值）可关闭此功能。默认值：`60`。
+master 节点将每个运行中任务的综合指标周期性写入 `seatunnel.logs.path`（默认 `<SEATUNNEL_HOME>/logs`）下独立日志文件 `seatunnel-metrics.log` 的间隔（秒）。每条记录包含任务 id、本地时间戳，以及从各 task 汇总的 `SourceReceivedCount` / `SourceReceivedBytes` / `SinkWriteCount` / `SinkCommittedCount` 等指标的排序快照。设为 `0` 可关闭此功能。默认值：`60`。
 
 **checkpoint storage**
 

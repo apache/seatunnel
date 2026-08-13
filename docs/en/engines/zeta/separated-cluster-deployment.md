@@ -170,7 +170,7 @@ seatunnel:
 
 **print-job-metrics-info-interval**
 
-The interval (in seconds) at which the master node dumps the comprehensive metrics of every running job into the engine log. The same content is also written to a dedicated log file `seatunnel-metrics.log` under `seatunnel.logs.path` (default `<SEATUNNEL_HOME>/logs`). Each entry contains the job id, a timestamp, and a sorted snapshot of all `SourceReceivedCount` / `SourceReceivedBytes` / `SinkWriteCount` / `SinkCommittedCount` / etc. measurements collected from every task. Set to `0` (or any non-positive value) to disable. Default: `60`.
+The interval (in seconds) at which the master node dumps the comprehensive metrics of every running job into the dedicated log file `seatunnel-metrics.log` under `seatunnel.logs.path` (default `<SEATUNNEL_HOME>/logs`). Each entry contains the job id, a timestamp, and a sorted snapshot of all `SourceReceivedCount` / `SourceReceivedBytes` / `SinkWriteCount` / `SinkCommittedCount` / etc. measurements collected from every task. Set to `0` to disable. Default: `60`.
 
 **checkpoint storage**
 
