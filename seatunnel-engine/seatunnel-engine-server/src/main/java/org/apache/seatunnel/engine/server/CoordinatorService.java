@@ -288,7 +288,7 @@ public class CoordinatorService {
 
     /**
      * Starts the single-thread scheduler that periodically writes the {@link
-     * org.apache.seatunnel.api.common.metrics.JobMetrics} of every running job to the engine
+     * org.apache.seatunnel.api.common.metrics.JobMetrics} of every running job to the dedicated
      * metrics log. Driven by {@code print-job-metrics-info-interval} in {@link EngineConfig}; a
      * non-positive interval disables the feature entirely (no scheduler is created).
      *
@@ -319,8 +319,8 @@ public class CoordinatorService {
 
     /**
      * Periodically dumps the {@link org.apache.seatunnel.api.common.metrics.JobMetrics} of every
-     * running job to {@link PeriodicJobMetricsLogger}. Best-effort: a failure fetching one job's
-     * metrics does not prevent the others from being logged.
+     * running job to {@link PeriodicJobMetricsLogger}. Best-effort: failures fetching or logging
+     * one job's metrics do not prevent the others from being processed.
      *
      * <p>Schedule: see {@link #startPeriodicJobMetricsLogger()}.
      */
@@ -332,12 +332,11 @@ public class CoordinatorService {
         if (runningJobIds.isEmpty()) {
             return;
         }
-        // Use a generous timeout but never block the scheduler forever; failures are logged
-        // per-job.
+        // Use the configured interval as an overall budget for the whole fetch, not per worker.
         long timeoutMs = TimeUnit.SECONDS.toMillis(engineConfig.getPrintJobMetricsInfoInterval());
         Map<Long, JobMetrics> jobMetricsMap;
         try {
-            jobMetricsMap = getRunningJobMetrics(runningJobIds, timeoutMs);
+            jobMetricsMap = getRunningJobMetricsForPeriodicLogging(runningJobIds, timeoutMs);
         } catch (Throwable t) {
             logger.warning(
                     "Failed to collect metrics for periodic logging: "
@@ -346,7 +345,22 @@ public class CoordinatorService {
         }
         for (Long jobId : runningJobIds) {
             JobMetrics jobMetrics = jobMetricsMap.get(jobId);
-            PeriodicJobMetricsLogger.logJobMetrics(jobId, jobMetrics);
+            if (jobMetrics == null) {
+                logger.warning(
+                        String.format(
+                                "Skip periodic metrics logging for job %s: metrics snapshot was null",
+                                jobId));
+                continue;
+            }
+            try {
+                PeriodicJobMetricsLogger.logJobMetrics(jobId, jobMetrics);
+            } catch (Throwable t) {
+                logger.warning(
+                        String.format(
+                                "Failed to log periodic metrics for job %s: %s",
+                                jobId, ExceptionUtils.getMessage(t)),
+                        t);
+            }
         }
     }
 
@@ -1690,17 +1704,14 @@ public class CoordinatorService {
             }
         }
 
-        Map<Long, JobMetrics> longJobMetricsMap = toJobMetricsMap(metrics);
+        return mergeWithHistoricalJobMetrics(toJobMetricsMap(metrics));
+    }
 
-        longJobMetricsMap.forEach(
-                (jobId, jobMetrics) -> {
-                    JobMetrics jobMetricsImap = jobHistoryService.getJobMetrics(jobId);
-                    if (jobMetricsImap != JobMetrics.empty()) {
-                        longJobMetricsMap.put(jobId, jobMetricsImap.merge(jobMetrics));
-                    }
-                });
-
-        return longJobMetricsMap;
+    @VisibleForTesting
+    Map<Long, JobMetrics> getRunningJobMetricsForPeriodicLogging(
+            Set<Long> runningJobIds, long timeoutMs) {
+        List<RawJobMetrics> metrics = getRunningJobRawMetrics(runningJobIds, timeoutMs, null);
+        return mergeWithHistoricalJobMetrics(toJobMetricsMap(metrics));
     }
 
     /**
@@ -2320,6 +2331,11 @@ public class CoordinatorService {
     }
 
     @VisibleForTesting
+    void runPeriodicJobMetricsLoggingOnce() {
+        logAllRunningJobMetrics();
+    }
+
+    @VisibleForTesting
     void runPendingPipelineCleanupOnce() {
         cleanupPendingPipelines();
     }
@@ -2337,6 +2353,17 @@ public class CoordinatorService {
     @VisibleForTesting
     public PeekBlockingQueue<PendingJobInfo> getPendingJobQueue() {
         return pendingJobQueue;
+    }
+
+    private Map<Long, JobMetrics> mergeWithHistoricalJobMetrics(Map<Long, JobMetrics> jobMetrics) {
+        jobMetrics.forEach(
+                (jobId, currentJobMetrics) -> {
+                    JobMetrics historicalJobMetrics = jobHistoryService.getJobMetrics(jobId);
+                    if (historicalJobMetrics != JobMetrics.empty()) {
+                        jobMetrics.put(jobId, historicalJobMetrics.merge(currentJobMetrics));
+                    }
+                });
+        return jobMetrics;
     }
 
     private void awaitSchedulerTermination(

@@ -26,8 +26,8 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 
 /**
- * Periodically dumps the {@link JobMetrics} of running jobs to the engine log and to a dedicated
- * {@code seatunnel-metrics.log} file.
+ * Periodically dumps the {@link JobMetrics} of running jobs to the dedicated {@code
+ * seatunnel-metrics.log} file.
  *
  * <p>The logger name must match the {@code logger.metrics.name} entry in {@code
  * config/log4j2.properties}; with {@code additivity=false} on that named logger, the emitted INFO
@@ -52,12 +52,11 @@ public final class PeriodicJobMetricsLogger {
      * diffed at a glance from the log file.
      *
      * @param jobId the running job id
-     * @param jobMetrics the freshly-collected metrics for that job; may be {@code null} (in which
-     *     case a warning is logged instead of an entry)
+     * @param jobMetrics the freshly-collected metrics for that job; {@code null} snapshots are
+     *     skipped by the caller
      */
     public static void logJobMetrics(long jobId, JobMetrics jobMetrics) {
         if (jobMetrics == null) {
-            log.warn("Skip logging metrics for job {}: metrics snapshot was null", jobId);
             return;
         }
         log.info(
