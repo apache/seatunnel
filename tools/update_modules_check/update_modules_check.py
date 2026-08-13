@@ -23,9 +23,12 @@ import zlib
 # the resulting seven shards were estimated at 79.1-89.6 minutes. The stable
 # hash keeps existing modules in the same shard when modules are added or removed,
 # without maintaining per-module durations or assignments.
-CONNECTOR_IT_SHARD_SEED = "37709"
+_FULL_CONNECTOR_IT_SHARD_SEED = "37709"
 
-DEDICATED_CONNECTOR_IT_MODULES = {
+# Connector modules handled by jobs outside the shared connector shards. Add a
+# module here only after its dedicated job handles API, engine, and direct changes
+# to that module.
+_CONNECTOR_IT_MODULES_WITH_DEDICATED_JOB = {
     "connector-kafka-e2e",
     "connector-rocketmq-e2e",
     "connector-kudu-e2e",
@@ -42,22 +45,6 @@ DEDICATED_CONNECTOR_IT_MODULES = {
     "connector-hbase-e2e",
     "connector-sensorsdata-e2e",
 }
-
-NON_SHARED_IT_MODULES = {
-    "connector-seatunnel-e2e-base",
-    "connector-console-seatunnel-e2e",
-    "seatunnel-edge-agent-e2e",
-}
-
-FULL_CONNECTOR_IT_EXCLUDED_MODULES = (
-    DEDICATED_CONNECTOR_IT_MODULES | NON_SHARED_IT_MODULES | {"connector-jdbc-e2e"}
-)
-
-UPDATED_CONNECTOR_IT_EXCLUDED_MODULES = (
-    DEDICATED_CONNECTOR_IT_MODULES
-    | NON_SHARED_IT_MODULES
-    | {"seatunnel-engine-k8s-e2e"}
-)
 
 
 def get_cv2_modules(files):
@@ -183,22 +170,33 @@ def get_deleted_modules(files):
     print(output_module)
 
 
-def split_connector_it_modules(modules, total_num):
+def _filter_shared_it_modules(modules, extra_exclusions=()):
+    excluded_modules = _CONNECTOR_IT_MODULES_WITH_DEDICATED_JOB | set(
+        extra_exclusions
+    )
+    return [
+        module
+        for module in dict.fromkeys(modules)
+        if module and module not in excluded_modules
+    ]
+
+
+def split_full_connector_it_modules(modules, total_num):
     shards = [[] for _ in range(total_num)]
     for module in sorted(set(modules)):
-        shard_key = f"{CONNECTOR_IT_SHARD_SEED}:{module}".encode("utf-8")
+        shard_key = f"{_FULL_CONNECTOR_IT_SHARD_SEED}:{module}".encode("utf-8")
         shard = zlib.crc32(shard_key) % total_num
         shards[shard].append(module)
     return shards
 
 
 def get_sub_it_modules(modules, total_num, current_num):
-    modules_arr = [
-        module
-        for module in dict.fromkeys(modules.split(","))
-        if module and module not in FULL_CONNECTOR_IT_EXCLUDED_MODULES
-    ]
-    shards = split_connector_it_modules(modules_arr, int(total_num))
+    # The JDBC aggregate is handled by the dedicated JDBC jobs for full runs,
+    # while direct JDBC changes still rely on the updated-module shards.
+    modules_arr = _filter_shared_it_modules(
+        modules.split(","), {"connector-jdbc-e2e"}
+    )
+    shards = split_full_connector_it_modules(modules_arr, int(total_num))
     print(",".join(":" + module for module in shards[int(current_num)]))
 
 
@@ -207,12 +205,14 @@ def get_sub_update_it_modules(modules, total_num, current_num):
     # :connector-jdbc-e2e-common,:connector-jdbc-e2e-part-1 --> connector-jdbc-e2e-common,:connector-jdbc-e2e-part-1
     modules = modules[1:]
     # connector-jdbc-e2e-common,:connector-jdbc-e2e-part-1 --> [connector-jdbc-e2e-common, connector-jdbc-e2e-part-1]
-    module_list = list(dict.fromkeys(modules.split(",:")))
-    module_list = [
-        module
-        for module in module_list
-        if module not in UPDATED_CONNECTOR_IT_EXCLUDED_MODULES
-    ]
+    module_list = _filter_shared_it_modules(
+        modules.split(",:"),
+        {
+            "connector-seatunnel-e2e-base",
+            "connector-console-seatunnel-e2e",
+            "seatunnel-engine-k8s-e2e",
+        },
+    )
     for i, module in enumerate(module_list):
         if len(module) > 0 and i % int(total_num) == int(current_num):
             final_modules.append(":" + module)

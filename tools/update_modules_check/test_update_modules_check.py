@@ -16,14 +16,14 @@
 
 """Regression tests for connector E2E module sharding."""
 
+import io
 import unittest
+from contextlib import redirect_stdout
 
 from update_modules_check import (
-    DEDICATED_CONNECTOR_IT_MODULES,
-    FULL_CONNECTOR_IT_EXCLUDED_MODULES,
-    NON_SHARED_IT_MODULES,
-    UPDATED_CONNECTOR_IT_EXCLUDED_MODULES,
-    split_connector_it_modules,
+    get_sub_it_modules,
+    get_sub_update_it_modules,
+    split_full_connector_it_modules,
 )
 
 
@@ -33,7 +33,7 @@ class ConnectorItShardingTest(unittest.TestCase):
     def test_every_module_is_assigned_once(self) -> None:
         modules = ["connector-a-e2e", "connector-b-e2e", "connector-c-e2e"]
 
-        shards = split_connector_it_modules(modules, 7)
+        shards = split_full_connector_it_modules(modules, 7)
 
         assigned_modules = [module for shard in shards for module in shard]
         self.assertCountEqual(modules, assigned_modules)
@@ -41,9 +41,9 @@ class ConnectorItShardingTest(unittest.TestCase):
 
     def test_unknown_module_does_not_reshuffle_existing_modules(self) -> None:
         modules = ["connector-a-e2e", "connector-b-e2e", "connector-c-e2e"]
-        original_shards = split_connector_it_modules(modules, 7)
+        original_shards = split_full_connector_it_modules(modules, 7)
 
-        shards_with_new_module = split_connector_it_modules(
+        shards_with_new_module = split_full_connector_it_modules(
             modules + ["new-connector-e2e"], 7
         )
 
@@ -53,52 +53,73 @@ class ConnectorItShardingTest(unittest.TestCase):
                 [module for module in new_shard if module != "new-connector-e2e"],
             )
 
-    def test_dedicated_iceberg_and_hbase_are_excluded_from_shared_shards(
-        self,
-    ) -> None:
-        for module in ("connector-iceberg-e2e", "connector-hbase-e2e"):
-            with self.subTest(module=module):
-                self.assertIn(module, DEDICATED_CONNECTOR_IT_MODULES)
-                self.assertIn(module, FULL_CONNECTOR_IT_EXCLUDED_MODULES)
-                self.assertIn(module, UPDATED_CONNECTOR_IT_EXCLUDED_MODULES)
-
-    def test_all_dedicated_modules_are_excluded_from_shared_shards(self) -> None:
-        self.assertLessEqual(
-            DEDICATED_CONNECTOR_IT_MODULES, FULL_CONNECTOR_IT_EXCLUDED_MODULES
-        )
-        self.assertLessEqual(
-            DEDICATED_CONNECTOR_IT_MODULES, UPDATED_CONNECTOR_IT_EXCLUDED_MODULES
-        )
-        self.assertLessEqual(NON_SHARED_IT_MODULES, FULL_CONNECTOR_IT_EXCLUDED_MODULES)
-        self.assertLessEqual(
-            NON_SHARED_IT_MODULES, UPDATED_CONNECTOR_IT_EXCLUDED_MODULES
-        )
-
-    def test_path_specific_exclusions_are_preserved(self) -> None:
-        self.assertIn("connector-jdbc-e2e", FULL_CONNECTOR_IT_EXCLUDED_MODULES)
-        self.assertNotIn("connector-jdbc-e2e", UPDATED_CONNECTOR_IT_EXCLUDED_MODULES)
-        self.assertNotIn(
-            "seatunnel-engine-k8s-e2e", FULL_CONNECTOR_IT_EXCLUDED_MODULES
-        )
-        self.assertIn(
-            "seatunnel-engine-k8s-e2e", UPDATED_CONNECTOR_IT_EXCLUDED_MODULES
-        )
-
-    def test_sensorsdata_is_owned_by_its_dedicated_job(self) -> None:
-        self.assertIn(
-            "connector-sensorsdata-e2e", DEDICATED_CONNECTOR_IT_MODULES
-        )
-        self.assertIn("connector-sensorsdata-e2e", FULL_CONNECTOR_IT_EXCLUDED_MODULES)
-        self.assertIn(
-            "connector-sensorsdata-e2e", UPDATED_CONNECTOR_IT_EXCLUDED_MODULES
-        )
-
     def test_sharding_is_independent_of_module_order(self) -> None:
         modules = ["connector-a-e2e", "connector-b-e2e", "connector-c-e2e"]
 
         self.assertEqual(
-            split_connector_it_modules(modules, 7),
-            split_connector_it_modules(list(reversed(modules)), 7),
+            split_full_connector_it_modules(modules, 7),
+            split_full_connector_it_modules(list(reversed(modules)), 7),
+        )
+
+    def test_historical_seed_assignments_are_preserved(self) -> None:
+        modules = [
+            "connector-file-hadoop-e2e",
+            "connector-cdc-mongodb-e2e",
+            "connector-clickhouse-e2e",
+            "connector-typesense-e2e",
+            "connector-file-ftp-e2e",
+            "connector-databend-e2e",
+            "connector-http-e2e",
+        ]
+
+        self.assertEqual(
+            split_full_connector_it_modules(modules, 7),
+            [
+                ["connector-file-hadoop-e2e"],
+                ["connector-cdc-mongodb-e2e"],
+                ["connector-clickhouse-e2e"],
+                ["connector-typesense-e2e"],
+                ["connector-file-ftp-e2e"],
+                ["connector-databend-e2e"],
+                ["connector-http-e2e"],
+            ],
+        )
+
+    def test_full_and_updated_paths_apply_their_ownership_rules(self) -> None:
+        connector_modules = [
+            "connector-normal-e2e",
+            "connector-jdbc-e2e",
+            "connector-iceberg-e2e",
+            "connector-hbase-e2e",
+            "connector-sensorsdata-e2e",
+            "connector-iceberg-hadoop3-e2e",
+            "connector-iceberg-s3-e2e",
+        ]
+        updated_modules = connector_modules + [
+            "connector-seatunnel-e2e-base",
+            "connector-console-seatunnel-e2e",
+            "seatunnel-engine-k8s-e2e",
+        ]
+
+        full_output = io.StringIO()
+        with redirect_stdout(full_output):
+            get_sub_it_modules("," + ",".join(connector_modules), 1, 0)
+        self.assertEqual(
+            full_output.getvalue(),
+            ":connector-iceberg-hadoop3-e2e,"
+            ":connector-iceberg-s3-e2e,"
+            ":connector-normal-e2e\n",
+        )
+
+        updated_output = io.StringIO()
+        with redirect_stdout(updated_output):
+            get_sub_update_it_modules(":" + ",:".join(updated_modules), 1, 0)
+        self.assertEqual(
+            updated_output.getvalue(),
+            ":connector-normal-e2e,"
+            ":connector-jdbc-e2e,"
+            ":connector-iceberg-hadoop3-e2e,"
+            ":connector-iceberg-s3-e2e\n",
         )
 
 

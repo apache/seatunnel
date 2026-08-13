@@ -1650,7 +1650,6 @@ jobs:
         env:
           MAVEN_OPTS: -Xmx4096m
 
-
   doris-connector-it:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(needs.changes.outputs.it-modules, 'connector-doris-e2e')
@@ -1814,7 +1813,7 @@ jobs:
 
   connector-sensorsdata-it:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || contains(needs.changes.outputs.it-modules, 'connector-sensorsdata-e2e')
+    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(needs.changes.outputs.it-modules, 'connector-sensorsdata-e2e')
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
