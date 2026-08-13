@@ -19,8 +19,9 @@
 import unittest
 
 from update_modules_check import (
-    COMMON_CONNECTOR_IT_EXCLUDED_MODULES,
+    DEDICATED_CONNECTOR_IT_MODULES,
     FULL_CONNECTOR_IT_EXCLUDED_MODULES,
+    NON_SHARED_IT_MODULES,
     UPDATED_CONNECTOR_IT_EXCLUDED_MODULES,
     split_connector_it_modules,
 )
@@ -57,22 +58,39 @@ class ConnectorItShardingTest(unittest.TestCase):
     ) -> None:
         for module in ("connector-iceberg-e2e", "connector-hbase-e2e"):
             with self.subTest(module=module):
-                self.assertIn(module, COMMON_CONNECTOR_IT_EXCLUDED_MODULES)
+                self.assertIn(module, DEDICATED_CONNECTOR_IT_MODULES)
                 self.assertIn(module, FULL_CONNECTOR_IT_EXCLUDED_MODULES)
                 self.assertIn(module, UPDATED_CONNECTOR_IT_EXCLUDED_MODULES)
+
+    def test_all_dedicated_modules_are_excluded_from_shared_shards(self) -> None:
+        self.assertLessEqual(
+            DEDICATED_CONNECTOR_IT_MODULES, FULL_CONNECTOR_IT_EXCLUDED_MODULES
+        )
+        self.assertLessEqual(
+            DEDICATED_CONNECTOR_IT_MODULES, UPDATED_CONNECTOR_IT_EXCLUDED_MODULES
+        )
+        self.assertLessEqual(NON_SHARED_IT_MODULES, FULL_CONNECTOR_IT_EXCLUDED_MODULES)
+        self.assertLessEqual(
+            NON_SHARED_IT_MODULES, UPDATED_CONNECTOR_IT_EXCLUDED_MODULES
+        )
 
     def test_path_specific_exclusions_are_preserved(self) -> None:
         self.assertIn("connector-jdbc-e2e", FULL_CONNECTOR_IT_EXCLUDED_MODULES)
         self.assertNotIn("connector-jdbc-e2e", UPDATED_CONNECTOR_IT_EXCLUDED_MODULES)
-        self.assertIn("connector-sensorsdata-e2e", FULL_CONNECTOR_IT_EXCLUDED_MODULES)
-        self.assertNotIn(
-            "connector-sensorsdata-e2e", UPDATED_CONNECTOR_IT_EXCLUDED_MODULES
-        )
         self.assertNotIn(
             "seatunnel-engine-k8s-e2e", FULL_CONNECTOR_IT_EXCLUDED_MODULES
         )
         self.assertIn(
             "seatunnel-engine-k8s-e2e", UPDATED_CONNECTOR_IT_EXCLUDED_MODULES
+        )
+
+    def test_sensorsdata_is_owned_by_its_dedicated_job(self) -> None:
+        self.assertIn(
+            "connector-sensorsdata-e2e", DEDICATED_CONNECTOR_IT_MODULES
+        )
+        self.assertIn("connector-sensorsdata-e2e", FULL_CONNECTOR_IT_EXCLUDED_MODULES)
+        self.assertIn(
+            "connector-sensorsdata-e2e", UPDATED_CONNECTOR_IT_EXCLUDED_MODULES
         )
 
     def test_sharding_is_independent_of_module_order(self) -> None:

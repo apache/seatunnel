@@ -25,7 +25,7 @@ import zlib
 # without maintaining per-module durations or assignments.
 CONNECTOR_IT_SHARD_SEED = "37709"
 
-COMMON_CONNECTOR_IT_EXCLUDED_MODULES = {
+DEDICATED_CONNECTOR_IT_MODULES = {
     "connector-kafka-e2e",
     "connector-rocketmq-e2e",
     "connector-kudu-e2e",
@@ -38,52 +38,25 @@ COMMON_CONNECTOR_IT_EXCLUDED_MODULES = {
     "connector-redis-e2e",
     "connector-elasticsearch-e2e",
     "connector-cdc-mysql-e2e",
-    "connector-seatunnel-e2e-base",
-    "connector-console-seatunnel-e2e",
-    "seatunnel-edge-agent-e2e",
     "connector-iceberg-e2e",
     "connector-hbase-e2e",
-}
-
-FULL_CONNECTOR_IT_EXCLUDED_MODULES = COMMON_CONNECTOR_IT_EXCLUDED_MODULES | {
-    "connector-jdbc-e2e",
     "connector-sensorsdata-e2e",
 }
 
-UPDATED_CONNECTOR_IT_EXCLUDED_MODULES = COMMON_CONNECTOR_IT_EXCLUDED_MODULES | {
-    "seatunnel-engine-k8s-e2e",
-}
-
-ALL_CONNECTORS_REQUIRED_DEDICATED_SHARD_MODULES = (
-    "connector-jdbc-e2e",
-    "connector-kafka-e2e",
-    "connector-rocketmq-e2e",
-    "connector-kudu-e2e",
-    "connector-amazonsqs-e2e",
-    "connector-doris-e2e",
-    "connector-paimon-e2e",
-    "connector-cdc-oracle-e2e",
-    "connector-file-local-e2e",
-    "connector-file-sftp-e2e",
-    "connector-redis-e2e",
-    "connector-sensorsdata-e2e",
-    "connector-elasticsearch-e2e",
-    "connector-cdc-mysql-e2e",
-    "connector-iceberg-e2e",
-    "connector-hbase-e2e",
-)
-
-# These suites have dedicated jobs in backend.yml, but they are not listed by
-# seatunnel-connector-v2-e2e's project.modules input.
-ALL_CONNECTORS_OPTIONAL_DEDICATED_SHARD_MODULES = (
+NON_SHARED_IT_MODULES = {
     "connector-seatunnel-e2e-base",
     "connector-console-seatunnel-e2e",
     "seatunnel-edge-agent-e2e",
+}
+
+FULL_CONNECTOR_IT_EXCLUDED_MODULES = (
+    DEDICATED_CONNECTOR_IT_MODULES | NON_SHARED_IT_MODULES | {"connector-jdbc-e2e"}
 )
 
-ALL_CONNECTORS_DEDICATED_SHARD_MODULES = (
-    ALL_CONNECTORS_REQUIRED_DEDICATED_SHARD_MODULES
-    + ALL_CONNECTORS_OPTIONAL_DEDICATED_SHARD_MODULES
+UPDATED_CONNECTOR_IT_EXCLUDED_MODULES = (
+    DEDICATED_CONNECTOR_IT_MODULES
+    | NON_SHARED_IT_MODULES
+    | {"seatunnel-engine-k8s-e2e"}
 )
 
 
