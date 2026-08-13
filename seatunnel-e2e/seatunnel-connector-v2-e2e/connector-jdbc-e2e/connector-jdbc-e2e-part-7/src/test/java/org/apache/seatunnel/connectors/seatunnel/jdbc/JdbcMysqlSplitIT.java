@@ -825,6 +825,99 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
     }
 
     @Test
+    public void testStreamingSplitMatchesBulkSplit() throws Exception {
+        // The lazy (streaming) split path must yield exactly the same splits as the bulk
+        // generateSplits() path for the same composite-key table, and the single-column paths
+        // must keep the bulk behavior (lazy path not engaged).
+        String streamingTable = "streaming_composite_test";
+        try (Connection connection = getJdbcConnection();
+                PreparedStatement ps =
+                        connection.prepareStatement(
+                                "CREATE TABLE IF NOT EXISTS "
+                                        + MYSQL_DATABASE
+                                        + "."
+                                        + streamingTable
+                                        + " (order_id BIGINT NOT NULL, line_no INT NOT NULL, "
+                                        + "PRIMARY KEY (order_id, line_no))")) {
+            ps.execute();
+        }
+        try (Connection connection = getJdbcConnection();
+                PreparedStatement ps =
+                        connection.prepareStatement(
+                                "INSERT INTO "
+                                        + MYSQL_DATABASE
+                                        + "."
+                                        + streamingTable
+                                        + " (order_id, line_no) VALUES (?, ?)")) {
+            for (int i = 0; i < 300; i++) {
+                ps.setLong(1, i % 3);
+                ps.setInt(2, i / 3);
+                ps.addBatch();
+            }
+            ps.executeBatch();
+        }
+
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put("url", mysqlUrlInfo.getUrlWithDatabase().get());
+        configMap.put("driver", "com.mysql.cj.jdbc.Driver");
+        configMap.put("user", MYSQL_USERNAME);
+        configMap.put("password", MYSQL_PASSWORD);
+        configMap.put("table_path", MYSQL_DATABASE + "." + streamingTable);
+        configMap.put("split.size", "10");
+
+        TablePath tablePathMySql = TablePath.of(MYSQL_DATABASE, streamingTable);
+        MySqlCatalog mySqlCatalog =
+                new MySqlCatalog("mysql", MYSQL_USERNAME, MYSQL_PASSWORD, mysqlUrlInfo, null);
+        mySqlCatalog.open();
+        CatalogTable table = mySqlCatalog.getTable(tablePathMySql);
+        JdbcSourceTable jdbcSourceTable =
+                JdbcSourceTable.builder().tablePath(tablePathMySql).catalogTable(table).build();
+
+        DynamicChunkSplitter splitter = getDynamicChunkSplitter(configMap);
+
+        // Bulk path
+        Collection<JdbcSourceSplit> bulkSplits = splitter.generateSplits(jdbcSourceTable);
+        Assertions.assertTrue(
+                bulkSplits.size() > 1,
+                "Composite key should split into multiple chunks, got " + bulkSplits.size());
+
+        // Streaming path: one split per generateNextSplit() call
+        splitter.open(jdbcSourceTable);
+        List<JdbcSourceSplit> streamedSplits = new ArrayList<>();
+        while (splitter.hasMoreSplits()) {
+            JdbcSourceSplit split = splitter.generateNextSplit();
+            Assertions.assertNotNull(
+                    split, "generateNextSplit must not return null while hasMoreSplits");
+            streamedSplits.add(split);
+        }
+
+        Assertions.assertEquals(
+                bulkSplits.size(),
+                streamedSplits.size(),
+                "Streaming and bulk paths must produce the same number of splits");
+        JdbcSourceSplit[] bulkArray = bulkSplits.toArray(new JdbcSourceSplit[0]);
+        for (int i = 0; i < bulkArray.length; i++) {
+            Assertions.assertEquals(
+                    bulkArray[i].splitId(),
+                    streamedSplits.get(i).splitId(),
+                    "Split " + i + " id must match");
+            Assertions.assertEquals(
+                    bulkArray[i].getSplitKeyName(),
+                    streamedSplits.get(i).getSplitKeyName(),
+                    "Split " + i + " key name must match");
+            Assertions.assertArrayEquals(
+                    (Object[]) bulkArray[i].getSplitStart(),
+                    (Object[]) streamedSplits.get(i).getSplitStart(),
+                    "Split " + i + " start tuple must match");
+            Assertions.assertArrayEquals(
+                    (Object[]) bulkArray[i].getSplitEnd(),
+                    (Object[]) streamedSplits.get(i).getSplitEnd(),
+                    "Split " + i + " end tuple must match");
+        }
+        mySqlCatalog.close();
+    }
+
+    @Test
     public void testBoundaryQueryOffsetForm() throws Exception {
         // The optimized boundary query form (LIMIT 1 OFFSET chunkSize-1) must be supported and
         // return exactly one row equal to the last row of LIMIT chunkSize, so the boundary query
