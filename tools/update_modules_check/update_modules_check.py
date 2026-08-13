@@ -25,8 +25,7 @@ import zlib
 # without maintaining per-module durations or assignments.
 CONNECTOR_IT_SHARD_SEED = "37709"
 
-FULL_CONNECTOR_IT_EXCLUDED_MODULES = {
-    "connector-jdbc-e2e",
+COMMON_CONNECTOR_IT_EXCLUDED_MODULES = {
     "connector-kafka-e2e",
     "connector-rocketmq-e2e",
     "connector-kudu-e2e",
@@ -37,7 +36,6 @@ FULL_CONNECTOR_IT_EXCLUDED_MODULES = {
     "connector-file-local-e2e",
     "connector-file-sftp-e2e",
     "connector-redis-e2e",
-    "connector-sensorsdata-e2e",
     "connector-elasticsearch-e2e",
     "connector-cdc-mysql-e2e",
     "connector-seatunnel-e2e-base",
@@ -47,25 +45,13 @@ FULL_CONNECTOR_IT_EXCLUDED_MODULES = {
     "connector-hbase-e2e",
 }
 
-UPDATED_CONNECTOR_IT_EXCLUDED_MODULES = {
-    "connector-kudu-e2e",
-    "connector-amazonsqs-e2e",
-    "connector-kafka-e2e",
-    "connector-rocketmq-e2e",
+FULL_CONNECTOR_IT_EXCLUDED_MODULES = COMMON_CONNECTOR_IT_EXCLUDED_MODULES | {
+    "connector-jdbc-e2e",
+    "connector-sensorsdata-e2e",
+}
+
+UPDATED_CONNECTOR_IT_EXCLUDED_MODULES = COMMON_CONNECTOR_IT_EXCLUDED_MODULES | {
     "seatunnel-engine-k8s-e2e",
-    "connector-seatunnel-e2e-base",
-    "connector-console-seatunnel-e2e",
-    "connector-doris-e2e",
-    "connector-paimon-e2e",
-    "connector-cdc-oracle-e2e",
-    "connector-file-local-e2e",
-    "connector-file-sftp-e2e",
-    "connector-redis-e2e",
-    "connector-elasticsearch-e2e",
-    "connector-cdc-mysql-e2e",
-    "seatunnel-edge-agent-e2e",
-    "connector-iceberg-e2e",
-    "connector-hbase-e2e",
 }
 
 ALL_CONNECTORS_REQUIRED_DEDICATED_SHARD_MODULES = (
