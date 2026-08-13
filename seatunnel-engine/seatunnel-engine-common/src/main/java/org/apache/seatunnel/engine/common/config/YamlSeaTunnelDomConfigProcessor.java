@@ -201,7 +201,8 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                 engineConfig.setMetricsFetchTimeoutMs(
                         getLongValue(
                                 ServerConfigOptions.MasterServerConfigOptions
-                                        .METRICS_FETCH_TIMEOUT_MS.key(),
+                                        .METRICS_FETCH_TIMEOUT_MS
+                                        .key(),
                                 getTextContent(node)));
             } else if (ServerConfigOptions.WorkerServerConfigOptions
                     .TASK_EXECUTION_THREAD_SHARE_MODE
