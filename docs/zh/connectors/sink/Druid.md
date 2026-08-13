@@ -204,10 +204,6 @@ sink {
 }
 ```
 
-## 变更日志
-
-<ChangeLog />
-
 ## 常见问题
 
 ### Druid Sink 是否支持 CDC？
@@ -225,3 +221,8 @@ sink {
 ### 如何把多张上游表写到多个 Druid datasource？
 
 设置 `datasource = "${table_name}"`，SeaTunnel 会把每张上游表写到同名 Druid datasource。如需针对每张表进行并行度微调，可叠加通用 sink 选项（如 `multi_table_sink_replica`）。
+
+## 变更日志
+
+<ChangeLog />
+

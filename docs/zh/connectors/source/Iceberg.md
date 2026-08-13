@@ -269,10 +269,6 @@ source {
 }
 ```
 
-## 变更日志
-
-<ChangeLog />
-
 ## 常见问题
 
 ### 如何在一个作业中读取多张 Iceberg 表？
@@ -290,4 +286,8 @@ source {
 ### Iceberg 源如何配置 Kerberos 认证？
 
 设置 `krb5_path` 为 `krb5.conf` 路径，`kerberos_principal` 为 `primary/instance@REALM`，`kerberos_keytab_path` 为 keytab 文件的绝对路径。这些选项由底层 Hadoop FileSystem 解析，仅在 `iceberg.catalog.config` 使用 Hadoop 或 Hive catalog 并基于 HDFS 时生效。
+
+## 变更日志
+
+<ChangeLog />
 

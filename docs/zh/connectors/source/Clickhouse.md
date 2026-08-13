@@ -56,7 +56,7 @@ import ChangeLog from '../changelog/connector-clickhouse.md';
 | host              | String | 是      | -                      | `ClickHouse` 集群地址, 格式是`host:port` , 允许多个`hosts`配置. 例如 `"host1:8123,host2:8123"` . |
 | username          | String | 是      | -                      | `ClickHouse` user 用户账号.                                                           |
 | password          | String | 是      | -                      | `ClickHouse` user 用户密码.                                                           |
-| table_path        | String | 否       | -                      | 单个数据表的完整路径，例如 `default.table`。在 `table_path`（单表展开）和 `table_list` 中必须二选一配置。                                                                                |
+| table_path        | String | 否       | -                      | 单个数据表的完整路径，例如 `default.table`。当未设置 `table_list` 时，在外层 source 中配置 `table_path` 和/或 `sql`（至少需要其一）；若已设置 `table_list`，则 `table_list` 优先，外层展开的 `table_path`/`sql` 会被忽略。                                                                                |
 | table_list        | Array  | 否       | -                      | 要读取的数据表列表，支持配置多表。每个表条目可以独立覆盖 `sql`、`filter_query`、`split_size`、`batch_size`、`partition_list`。                                              |
 | sql               | String | 否       | -                      | 通过 ClickHouse 服务查询数据的 SQL 语句。需要表名占位符时使用字面量 `table`，不要使用表别名。                                                                            |
 | filter_query      | String | 否       | -                      | ClickHouse 数据过滤条件。格式为 `field = value`，例如 `filter_query = "id > 2 and type = 1"`。SeaTunnel 会将其作为额外的 ClickHouse 侧过滤条件叠加在 `sql` 之上。                          |

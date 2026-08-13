@@ -204,10 +204,6 @@ sink {
 }
 ```
 
-## Changelog
-
-<ChangeLog />
-
 ## FAQ
 
 ### Does Druid Sink support CDC?
@@ -225,3 +221,8 @@ Rows are buffered in memory and submitted to Druid as one native batch indexing 
 ### Can I write multiple upstream tables to multiple Druid datasources?
 
 Yes. Set `datasource = "${table_name}"` and SeaTunnel routes each upstream table to a Druid datasource that shares the table name. For per-table tuning, you can still layer common sink options such as `multi_table_sink_replica`.
+
+## Changelog
+
+<ChangeLog />
+

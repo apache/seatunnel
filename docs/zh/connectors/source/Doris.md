@@ -234,10 +234,6 @@ sink{
 }
 ```
 
-## 变更日志
-
-<ChangeLog />
-
 ## 常见问题
 
 ### 为什么有一个选项叫 `doris.request.retriesdoris.deserialize.queue.size`？
@@ -251,3 +247,8 @@ sink{
 ### 什么时候应该调整 `doris.request.tablet.size`？
 
 值越大，每个 SeaTunnel split 包含的 Doris tablet 越多，split 数量越少，可能影响并行度。值越小（最小 `1`）会产生更多 split，提升并行读取数量。建议和 `env.parallelism` 配合一起调整以平衡 worker 负载。
+
+## 变更日志
+
+<ChangeLog />
+
