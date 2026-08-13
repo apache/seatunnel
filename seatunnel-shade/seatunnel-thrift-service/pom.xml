@@ -26,7 +26,7 @@
     <name>SeaTunnel : Shade : Thrift-Service</name>
 
     <properties>
-        <thrift-service.version>1.0.0</thrift-service.version>
+        <thrift-service.version>1.0.1</thrift-service.version>
     </properties>
 
     <dependencies>

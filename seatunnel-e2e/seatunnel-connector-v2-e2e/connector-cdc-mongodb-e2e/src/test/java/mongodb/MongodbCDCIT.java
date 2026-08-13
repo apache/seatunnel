@@ -71,7 +71,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -136,8 +135,6 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
         mySqlContainer.withPassword(MYSQL_USER_PASSWORD);
         mySqlContainer.withLogConsumer(
                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger("Mysql-Docker-Image")));
-        // For local test use
-        mySqlContainer.setPortBindings(Collections.singletonList("3310:3306"));
         return mySqlContainer;
     }
 
@@ -156,8 +153,6 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
 
         log.info("The second stage:Starting Mongodb containers...");
         mongodbContainer = new MongoDBContainer(NETWORK);
-        // For local test use
-        mongodbContainer.setPortBindings(Collections.singletonList("27017:27017"));
         mongodbContainer.withLogConsumer(
                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger("Mongodb-Docker-Image")));
 

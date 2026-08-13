@@ -157,7 +157,7 @@ public class JdbcPrestoIT extends AbstractJdbcIT {
                 .networkAliases(PRESTO_ALIASES)
                 .driverClass(DRIVER_CLASS)
                 .host(HOST)
-                .port(PRESTO_PORT)
+                .port(8080)
                 .localPort(PRESTO_PORT)
                 .jdbcTemplate(PRESTO_URL)
                 .jdbcUrl(jdbcUrl)
@@ -249,7 +249,7 @@ public class JdbcPrestoIT extends AbstractJdbcIT {
                                 Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(5)))
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(PRESTO_IMAGE)));
-        container.setPortBindings(Lists.newArrayList(String.format("%s:%s", PRESTO_PORT, "8080")));
+        container.addExposedPort(8080);
 
         return container;
     }

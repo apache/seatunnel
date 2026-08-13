@@ -39,24 +39,34 @@ public class S3Utils implements AutoCloseable {
     private static final String ACCESS_KEY = "minioadmin";
     private static final String SECRET_KEY = "minioadmin";
     private static final String REGION = "cn-north-1";
-    private static final String ENDPOINT = "http://localhost:9000";
+    private static final String DEFAULT_ENDPOINT = "http://localhost:9000";
     private static final String BUCKET = "ws-package";
 
-    private static final AmazonS3 S3_CLIENT;
+    private static AmazonS3 s3Client;
 
-    static {
+    public static synchronized void initialize(String endpoint) {
+        if (s3Client != null) {
+            s3Client.shutdown();
+        }
         BasicAWSCredentials credentials = new BasicAWSCredentials(ACCESS_KEY, SECRET_KEY);
-        S3_CLIENT =
+        s3Client =
                 AmazonS3ClientBuilder.standard()
                         .withCredentials(new AWSStaticCredentialsProvider(credentials))
                         .enablePathStyleAccess()
                         .withEndpointConfiguration(
-                                new AwsClientBuilder.EndpointConfiguration(ENDPOINT, REGION))
+                                new AwsClientBuilder.EndpointConfiguration(endpoint, REGION))
                         .build();
 
-        if (!S3_CLIENT.doesBucketExistV2(BUCKET)) {
-            S3_CLIENT.createBucket(BUCKET);
+        if (!s3Client.doesBucketExistV2(BUCKET)) {
+            s3Client.createBucket(BUCKET);
         }
+    }
+
+    private static synchronized AmazonS3 getS3Client() {
+        if (s3Client == null) {
+            initialize(DEFAULT_ENDPOINT);
+        }
+        return s3Client;
     }
 
     public static void uploadTestFiles(
@@ -67,7 +77,7 @@ public class S3Utils implements AutoCloseable {
         } else {
             resourcesFile = new File(filePath);
         }
-        S3_CLIENT.putObject(BUCKET, targetFilePath, resourcesFile);
+        getS3Client().putObject(BUCKET, targetFilePath, resourcesFile);
     }
 
     public static void createDir(String dir) {
@@ -76,13 +86,13 @@ public class S3Utils implements AutoCloseable {
         InputStream emptyContent = new ByteArrayInputStream(new byte[0]);
         PutObjectRequest putObjectRequest =
                 new PutObjectRequest(BUCKET, dir, emptyContent, metadata);
-        S3_CLIENT.putObject(putObjectRequest);
+        getS3Client().putObject(putObjectRequest);
     }
 
     @Override
     public void close() throws Exception {
-        if (S3_CLIENT != null) {
-            S3_CLIENT.shutdown();
+        if (s3Client != null) {
+            s3Client.shutdown();
         }
     }
 }

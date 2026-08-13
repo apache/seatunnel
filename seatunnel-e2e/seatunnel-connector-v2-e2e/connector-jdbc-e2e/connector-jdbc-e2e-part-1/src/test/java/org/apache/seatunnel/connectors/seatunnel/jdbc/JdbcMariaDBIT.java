@@ -185,8 +185,6 @@ public class JdbcMariaDBIT extends AbstractJdbcIT {
                         .waitingFor(Wait.forHealthcheck())
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(MARIADB_IMAGE)));
-        container.setPortBindings(
-                Lists.newArrayList(String.format("%d:%d", MARIADB_PORT, MARIADB_PORT)));
         return container;
     }
 }
