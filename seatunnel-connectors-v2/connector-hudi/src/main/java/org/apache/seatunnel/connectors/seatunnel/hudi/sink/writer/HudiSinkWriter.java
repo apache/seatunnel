@@ -114,9 +114,8 @@ public class HudiSinkWriter
     }
 
     /**
-     * Flushes buffered records when the sink receives a timer-generated FlushSignal. Once accepted
-     * by the pipeline, the signal is processed in order with data records and checkpoint barriers
-     * on the sink task thread.
+     * Flushes buffered records when the sink receives a timer-generated FlushSignal. The signal is
+     * processed on the sink task thread in order with data records and checkpoint barriers.
      */
     private void timerFlush() {
         hudiRecordWriter.flush();
