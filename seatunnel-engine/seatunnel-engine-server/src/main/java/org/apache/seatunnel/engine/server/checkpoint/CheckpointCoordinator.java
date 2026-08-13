@@ -1138,10 +1138,7 @@ public class CheckpointCoordinator {
                         .values()
                         .forEach(
                                 pendingCheckpoint -> {
-                                    boolean aborted =
-                                            pendingCheckpoint.abortCheckpoint(closedReason, null);
-                                    if (aborted
-                                            && checkpointMonitorService != null
+                                    if (checkpointMonitorService != null
                                             && closedReason
                                                     != CheckpointCloseReason
                                                             .CHECKPOINT_COORDINATOR_RESET) {
@@ -1154,6 +1151,7 @@ public class CheckpointCoordinator {
                                                 null,
                                                 pendingCheckpoint.getCheckpointTimestamp());
                                     }
+                                    pendingCheckpoint.abortCheckpoint(closedReason, null);
                                 });
                 // TODO: clear related future & scheduler task
                 pendingCheckpoints.clear();
