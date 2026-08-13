@@ -36,6 +36,11 @@ You need to check this document before you upgrade to related version.
   - **Migration**: Jobs that select the provider through the typed `fs.s3a.aws.credentials.provider` enum (`SimpleAWSCredentialsProvider` / `InstanceProfileCredentialsProvider`) need **no change** — the enum constant names are unchanged, only the class name they map to changed. Jobs that hardcode a `com.amazonaws.*` class name in `fs.s3a.aws.credentials.provider` or `hadoop_s3_properties` should be checked against the two tables above: the five remapped names still work but will log a warning, and everything else must be rewritten.
   - **Note on distribution size**: `hadoop-aws` 3.4.x depends on `software.amazon.awssdk:bundle`, which carries all 411 AWS service clients. `hadoop-aws` itself references only three of them (`s3`, `sts`, `kms`), so the shade step keeps those and drops the rest; see the `<filter>` comment in `seatunnel-shade/seatunnel-hadoop-aws/pom.xml`. No user action is required, and no S3A feature is affected.
 
+- **Breaking Change: OSS deployments must replace three jars together**
+  - **Affected component**: `seatunnel-connectors-v2/connector-file/connector-file-oss`
+  - **Description**: `hadoop-aliyun` is kept in lockstep with the uber jar's `hadoop-common` for the same reason `hadoop-aws` is, so it moves 3.1.4 → 3.4.3 as well. `hadoop-aliyun` 3.4.3 references `com.aliyun.oss.model.ListObjectsV2Request`/`ListObjectsV2Result` and expects four `OSSClient` methods to return `VoidResult`; `aliyun-sdk-oss` 3.4.1 provides neither, so it must move to 3.13.2. `aliyun-sdk-oss` 3.13.2 in turn parses XML with `jdom2` rather than `jdom` 1.x.
+  - **Migration**: in `${SEATUNNEL_HOME}/lib/`, replace `hadoop-aliyun-3.1.4.jar`, `aliyun-sdk-oss-3.4.1.jar` and `jdom-1.1.jar` with `hadoop-aliyun-3.4.3.jar`, `aliyun-sdk-oss-3.13.2.jar` and `jdom2-2.0.6.1.jar`. Leaving any of the old jars in place next to the 3.4.3 uber jar starts without error and then fails at runtime on every OSS listing, so this is not a mismatch the build or job submission will catch for you.
+
 ### JDBC Connector
 
 - **Breaking Change: Mapping of timezone-aware timestamp columns to `TIMESTAMP_TZ` type**

@@ -35,6 +35,11 @@
   - **迁移方式**：通过枚举方式（`SimpleAWSCredentialsProvider` / `InstanceProfileCredentialsProvider`）指定 `fs.s3a.aws.credentials.provider` 的作业**无需修改**——枚举常量名未变，只是其映射的类名发生了变化。在 `fs.s3a.aws.credentials.provider` 或 `hadoop_s3_properties` 中硬编码 `com.amazonaws.*` 类名的作业，请对照上面两张表检查：五个被重映射的类名仍可用但会输出警告，其余必须改写。
   - **关于发布包体积**：`hadoop-aws` 3.4.x 依赖 `software.amazon.awssdk:bundle`，其中包含全部 411 个 AWS 服务的客户端。`hadoop-aws` 自身只引用其中三个（`s3`、`sts`、`kms`），因此 shade 阶段只保留这三个、丢弃其余部分，详见 `seatunnel-shade/seatunnel-hadoop-aws/pom.xml` 中 `<filter>` 的注释。用户无需做任何调整，也不会影响任何 S3A 功能。
 
+- **破坏性变更：OSS 部署必须同时替换三个 jar**
+  - **受影响组件**：`seatunnel-connectors-v2/connector-file/connector-file-oss`
+  - **说明**：出于与 `hadoop-aws` 相同的原因，`hadoop-aliyun` 与 uber jar 中的 `hadoop-common` 保持版本联动，因此同样从 3.1.4 升级到 3.4.3。`hadoop-aliyun` 3.4.3 引用了 `com.aliyun.oss.model.ListObjectsV2Request`/`ListObjectsV2Result`，并要求四个 `OSSClient` 方法返回 `VoidResult`；`aliyun-sdk-oss` 3.4.1 两者都不具备，因此必须升级到 3.13.2。而 `aliyun-sdk-oss` 3.13.2 使用 `jdom2` 而非 `jdom` 1.x 解析 XML。
+  - **迁移方式**：在 `${SEATUNNEL_HOME}/lib/` 目录中，将 `hadoop-aliyun-3.1.4.jar`、`aliyun-sdk-oss-3.4.1.jar` 和 `jdom-1.1.jar` 替换为 `hadoop-aliyun-3.4.3.jar`、`aliyun-sdk-oss-3.13.2.jar` 和 `jdom2-2.0.6.1.jar`。若将任一旧 jar 与 3.4.3 uber jar 混用，启动时不会报错，但运行时每次 OSS 列举操作都会失败——构建和作业提交阶段都无法帮您发现这种不匹配。
+
 ### JDBC Connector
 
 - **破坏性变更：带时区的时间戳列映射为 `TIMESTAMP_TZ` 类型**
