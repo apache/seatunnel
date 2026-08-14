@@ -129,29 +129,6 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
         return splits;
     }
 
-    /**
-     * Opens a table for lazy (streaming) split generation. Splitters that support the streaming
-     * path override this plus {@link #hasMoreSplits()} / {@link #generateNextSplit()}; the default
-     * implementation is a no-op and the enumerator falls back to the bulk {@link
-     * #generateSplits(JdbcSourceTable)}.
-     */
-    public void open(JdbcSourceTable table) throws Exception {
-        // default: no lazy path, enumerator falls back to generateSplits()
-    }
-
-    /** Returns whether this splitter still has a lazily-generated split to yield. */
-    public boolean hasMoreSplits() {
-        return false;
-    }
-
-    /**
-     * Generates the next split lazily, or {@code null} when the lazy stream is exhausted. Only
-     * meaningful after {@link #open(JdbcSourceTable)} and while {@link #hasMoreSplits()} is true.
-     */
-    public JdbcSourceSplit generateNextSplit() throws Exception {
-        return null;
-    }
-
     protected abstract Collection<JdbcSourceSplit> createSplits(
             JdbcSourceTable table, SeaTunnelRowType splitKeyType) throws SQLException, Exception;
 

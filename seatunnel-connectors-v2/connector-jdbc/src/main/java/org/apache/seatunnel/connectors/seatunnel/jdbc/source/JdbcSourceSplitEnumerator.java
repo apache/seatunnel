@@ -78,23 +78,10 @@ public class JdbcSourceSplitEnumerator
                 TablePath tablePath = pendingTables.poll();
                 LOG.info("Splitting table {}.", tablePath);
 
-                JdbcSourceTable table = tables.get(tablePath);
-                splitter.open(table);
-                if (splitter.hasMoreSplits()) {
-                    // Streaming path: yield one split at a time so readers can start consuming
-                    // while the rest of the chunk walk is still in progress (reduces
-                    // first-split latency and memory for large composite-key tables).
-                    while (splitter.hasMoreSplits()) {
-                        JdbcSourceSplit split = splitter.generateNextSplit();
-                        if (split != null) {
-                            addPendingSplit(Collections.singletonList(split));
-                        }
-                    }
-                } else {
-                    Collection<JdbcSourceSplit> splits = splitter.generateSplits(table);
-                    LOG.info("Split table {} into {} splits.", tablePath, splits.size());
-                    addPendingSplit(splits);
-                }
+                Collection<JdbcSourceSplit> splits = splitter.generateSplits(tables.get(tablePath));
+                LOG.info("Split table {} into {} splits.", tablePath, splits.size());
+
+                addPendingSplit(splits);
             }
 
             synchronized (stateLock) {

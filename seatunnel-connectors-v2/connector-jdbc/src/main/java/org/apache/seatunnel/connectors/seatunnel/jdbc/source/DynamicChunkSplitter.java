@@ -55,7 +55,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static java.math.BigDecimal.ROUND_CEILING;
@@ -67,20 +66,6 @@ public class DynamicChunkSplitter extends ChunkSplitter {
     private final boolean useCharsetBasedStringSplitter =
             StringSplitMode.CHARSET_BASED.equals(config.getStringSplitMode());
 
-    // Lazy (streaming) split-generation state, active only for composite primary keys. The
-    // single-column paths keep the bulk generateSplits() behavior, so the O(1) arithmetic
-    // boundary computation is untouched.
-    private JdbcSourceTable lazyTable;
-    private SeaTunnelRowType lazySplitKey;
-    private String[] lazyColumns;
-    private Object[] lazyMin;
-    private Object[] lazyMax;
-    private Object[] lazyChunkStart;
-    private Object[] lazyChunkEnd;
-    private int lazyIndex;
-    private boolean lazyFirstCall;
-    private boolean lazyActive;
-
     public DynamicChunkSplitter(JdbcSourceConfig config) {
         super(config);
     }
@@ -89,79 +74,6 @@ public class DynamicChunkSplitter extends ChunkSplitter {
     protected Collection<JdbcSourceSplit> createSplits(
             JdbcSourceTable table, SeaTunnelRowType splitKey) throws Exception {
         return createDynamicSplits(table, splitKey);
-    }
-
-    @Override
-    public void open(JdbcSourceTable table) throws Exception {
-        // Only composite primary keys take the lazy (streaming) path. Single-column tables keep
-        // the bulk generateSplits() behavior, so the O(1) arithmetic boundary computation is
-        // unaffected; the enumerator falls back to generateSplits() when hasMoreSplits() is false.
-        Optional<SeaTunnelRowType> splitKeyOptional = findSplitKey(table);
-        if (splitKeyOptional.isPresent() && splitKeyOptional.get().getTotalFields() > 1) {
-            lazyTable = table;
-            lazySplitKey = splitKeyOptional.get();
-            lazyColumns = lazySplitKey.getFieldNames();
-            Object[][] minMax = queryMinMaxComposite(lazyTable, lazyColumns);
-            lazyMin = minMax[0];
-            lazyMax = minMax[1];
-            lazyChunkStart = null;
-            lazyChunkEnd = null;
-            lazyIndex = 0;
-            lazyFirstCall = true;
-            lazyActive = true;
-        } else {
-            lazyActive = false;
-        }
-    }
-
-    @Override
-    public boolean hasMoreSplits() {
-        return lazyActive;
-    }
-
-    @Override
-    public JdbcSourceSplit generateNextSplit() throws Exception {
-        if (!lazyActive) {
-            return null;
-        }
-        if (lazyMin == null || lazyMax == null) {
-            // empty table: single full-table split
-            lazyActive = false;
-            return createCompositeSplit(lazyTable, 0, lazySplitKey, null, null);
-        }
-        if (lazyFirstCall) {
-            // first call: compute the first chunk end
-            lazyFirstCall = false;
-            Object[] firstEnd =
-                    queryNextChunkMaxComposite(
-                            lazyTable, lazyColumns, config.getSplitSize(), lazyMin);
-            if (firstEnd == null || compareArrays(firstEnd, lazyMax) >= 0) {
-                // all data fits in one chunk
-                lazyActive = false;
-                return createCompositeSplit(lazyTable, 0, lazySplitKey, null, null);
-            }
-            lazyChunkEnd = firstEnd;
-        }
-        if (lazyChunkEnd == null || compareArrays(lazyChunkEnd, lazyMax) >= 0) {
-            // ending split (chunkStart, null)
-            JdbcSourceSplit end =
-                    createCompositeSplit(lazyTable, lazyIndex, lazySplitKey, lazyChunkStart, null);
-            lazyActive = false;
-            return end;
-        }
-        JdbcSourceSplit split =
-                createCompositeSplit(
-                        lazyTable, lazyIndex++, lazySplitKey, lazyChunkStart, lazyChunkEnd);
-        lazyChunkStart = lazyChunkEnd;
-        lazyChunkEnd =
-                queryNextChunkMaxComposite(
-                        lazyTable, lazyColumns, config.getSplitSize(), lazyChunkStart);
-        if (lazyChunkEnd != null && Arrays.equals(lazyChunkStart, lazyChunkEnd)) {
-            // we don't allow equal chunk start and end,
-            // should query the next one larger than chunkEnd
-            lazyChunkEnd = queryMinComposite(lazyTable, lazyColumns, lazyChunkEnd);
-        }
-        return split;
     }
 
     @Override
