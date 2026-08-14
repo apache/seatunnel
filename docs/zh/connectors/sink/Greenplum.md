@@ -31,7 +31,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [ ] [变更数据捕获](../../introduction/concepts/connector-v2-features.md)
 - [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
-- [x] [定时刷新](../../introduction/concepts/connector-v2-features.md)
+- [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 :::tip
 
@@ -48,7 +48,7 @@ Greenplum Sink 不支持精确一次语义，因为 Greenplum 不支持 XA 事�
 
 ## 数据类型映射
 
-Greenplum 沿用 PostgreSQL JDBC 驱动映射，详见 [Jdbc 连接器](Jdbc.md) 的数据类型映射章节。下表列出常用类型对照：
+Greenplum 沿用 PostgreSQL JDBC 驱动映射。下表列出常用类型对照：
 
 | Greenplum 数据类型 | SeaTunnel 数据类型 |
 |--------------------|--------------------|
@@ -83,7 +83,7 @@ Greenplum 沿用 PostgreSQL JDBC 驱动映射，详见 [Jdbc 连接器](Jdbc.md)
 | table | String | 否 | - | `generate_sink_sql = true` 时使用的目标表名。 |
 | primary_keys | Array | 否 | - | 自动生成 SQL 时用于 upsert 语义的主键字段列表。 |
 | connection_check_timeout_sec | Int | 否 | 30 | 验证数据库连接操作的超时时间（秒）。 |
-| max_commit_attempts | Int | 否 | 5 | 事务提交失败时的最大重试次数。 |
+| max_commit_attempts | Int | 否 | 3 | 事务提交失败时的最大重试次数。 |
 | transaction_timeout_sec | Int | 否 | -1 | 事务超时时间（秒）。`-1` 表示无限制。 |
 | enable_upsert | Boolean | 否 | true | 是否启用基于主键的 upsert 写入。 |
 | common-options | | 否 | - | Sink 插件通用参数，请参考 [Sink 通用选项](../common-options/sink-common-options.md)。 |

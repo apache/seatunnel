@@ -28,7 +28,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 - [x] [批处理](../../introduction/concepts/connector-v2-features.md)
 - [ ] [流处理](../../introduction/concepts/connector-v2-features.md)
-- [x] [精确一次](../../introduction/concepts/connector-v2-features.md)（仅 XA 事务数据源）
+- [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [x] [列投影](../../introduction/concepts/connector-v2-features.md)
 - [x] [并行度](../../introduction/concepts/connector-v2-features.md)
 - [x] [支持用户定义分割](../../introduction/concepts/connector-v2-features.md)
@@ -162,8 +162,6 @@ JDBC 源连接器支持从表中并行读取数据。SeaTunnel 将使用某些�
 > 如果表无法分割（例如，表没有主键或唯一索引，且未设置 `partition_column`），将以单并发运行。
 >
 > 单表读取可使用 `table_path` 替代 `query`，多表读取请使用 `table_list`。
->
-> 跨库字符集或时间精度差异较大的场景下，建议显式设置 `fetch_size` 与 `partition_column`。
 
 ## 任务示例
 
@@ -254,7 +252,9 @@ source {
 
 transform {
   Sql {
-    sql = "select id, name from full_types_jdbc"
+    plugin_input = "Jdbc"
+    plugin_output = "tmp_id_name"
+    query = "select id, name from full_types_jdbc"
   }
 }
 
