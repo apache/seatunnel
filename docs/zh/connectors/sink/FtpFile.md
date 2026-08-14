@@ -297,7 +297,9 @@ Sink 插件的通用参数，请参考[Sink通用选项](../common-options/sink-
 
 现有数据处理方法：
 - DROP_DATA（删除数据）：保留目录，删除数据文件。
-- APPEND_DATA（追加数据）：保留目录和数据文件，并将新数据追加到已有目标文件。
+- APPEND_DATA（追加数据）：保留目录和数据文件。对于 FTP Sink，只有在作业配置中显式写出
+  `data_save_mode = "APPEND_DATA"` 时，才会把新数据追加到已有目标文件；如果省略该配置、
+  仅使用默认值，FTP Sink 会保持历史提交路径，不启用 FTP 字节级追加。
 - ERROR_WHEN_DATA_EXISTS（数据存在时报错）：当存在数据文件时，报告错误。
 
 ### schema_evolution_enabled [boolean]

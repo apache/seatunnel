@@ -287,7 +287,10 @@ Existing dir processing method.
 Existing data processing method.
 
 - DROP_DATA: preserve dir and delete data files
-- APPEND_DATA: preserve dir and data files, and append new rows to existing target files
+- APPEND_DATA: preserve dir and data files. For FTP sinks, new rows are appended to
+  existing target files only when `data_save_mode = "APPEND_DATA"` is explicitly
+  configured in the job config. If this option is omitted and the value only comes from
+  the default, FTP sinks keep the legacy commit path and do not use FTP byte-level append
 - ERROR_WHEN_DATA_EXISTS: when there is data files, an error is reported
 
 ### schema_evolution_enabled [boolean]

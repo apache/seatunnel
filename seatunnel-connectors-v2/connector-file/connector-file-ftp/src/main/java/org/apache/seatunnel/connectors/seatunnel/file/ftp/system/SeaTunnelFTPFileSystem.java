@@ -432,8 +432,11 @@ public class SeaTunnelFTPFileSystem extends FileSystem implements StreamingFileS
                                         "Could not complete transfer, Reply Code - "
                                                 + client.getReplyCode());
                             }
-                        } catch (IOException e) {
-                            closeException = e;
+                        } catch (IOException | FTPException e) {
+                            closeException =
+                                    e instanceof IOException
+                                            ? (IOException) e
+                                            : new IOException(e.getMessage(), e);
                         } finally {
                             try {
                                 disconnect(client);
@@ -453,7 +456,7 @@ public class SeaTunnelFTPFileSystem extends FileSystem implements StreamingFileS
         if (!FTPReply.isPositivePreliminary(client.getReplyCode())) {
             try {
                 fos.close();
-            } catch (IOException e) {
+            } catch (IOException | FTPException e) {
                 LOG.warn("Close rejected FTP append stream failed, ignore cleanup error.", e);
             }
             throw new IOException("Unable to append file: " + file + ", Aborting");
