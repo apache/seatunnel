@@ -337,16 +337,16 @@ public class CsvTextFormatSchemaTest {
                 new SeaTunnelRowType(
                         new String[] {"ts_tz"},
                         new SeaTunnelDataType<?>[] {LocalTimeType.OFFSET_DATE_TIME_TYPE});
-        CsvSerializationSchema ser =
-                CsvSerializationSchema.builder()
-                        .seaTunnelRowType(rowType)
-                        .delimiter(",")
-                        .wallClockTimestampTz(true)
-                        .build();
-
         TimeZone original = TimeZone.getDefault();
         try {
             TimeZone.setDefault(TimeZone.getTimeZone("Asia/Shanghai"));
+            CsvSerializationSchema ser =
+                    CsvSerializationSchema.builder()
+                            .seaTunnelRowType(rowType)
+                            .delimiter(",")
+                            .wallClockTimestampTz(true)
+                            .build();
+
             // 2024-01-01T10:00:00Z == 2024-01-01 18:00:00 in Asia/Shanghai.
             SeaTunnelRow utcRow =
                     new SeaTunnelRow(
