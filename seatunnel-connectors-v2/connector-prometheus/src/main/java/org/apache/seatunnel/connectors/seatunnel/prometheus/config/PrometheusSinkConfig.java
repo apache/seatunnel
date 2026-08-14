@@ -51,10 +51,11 @@ public class PrometheusSinkConfig extends HttpConfig {
         if (pluginConfig.getOptional(PrometheusSinkOptions.KEY_TIMESTAMP).isPresent()) {
             sinkConfig.setKeyTimestamp(pluginConfig.get(PrometheusSinkOptions.KEY_TIMESTAMP));
         }
-        if (pluginConfig.getOptional(PrometheusSinkOptions.BATCH_SIZE).isPresent()) {
-            int batchSize = checkIntArgument(pluginConfig.get(PrometheusSinkOptions.BATCH_SIZE));
-            sinkConfig.setBatchSize(batchSize);
-        }
+        // Use get() (not getOptional().isPresent()) so the option's declared default is applied
+        // when batch_size is not configured; getOptional() does not fall back to the default, which
+        // would leave batchSize at 0 and disable the size-based flush trigger.
+        int batchSize = checkIntArgument(pluginConfig.get(PrometheusSinkOptions.BATCH_SIZE));
+        sinkConfig.setBatchSize(batchSize);
         if (pluginConfig.getOptional(PrometheusSinkOptions.FLUSH_INTERVAL).isPresent()) {
             long flushInterval = pluginConfig.get(PrometheusSinkOptions.FLUSH_INTERVAL);
             sinkConfig.setFlushInterval(flushInterval);

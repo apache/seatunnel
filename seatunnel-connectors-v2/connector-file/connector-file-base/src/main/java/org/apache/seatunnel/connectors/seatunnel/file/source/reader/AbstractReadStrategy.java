@@ -30,6 +30,7 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.seatunnel.file.config.ArchiveCompressFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
@@ -428,8 +429,20 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
             Map<String, String> partitionsMap,
             FileFormat fileFormat)
             throws IOException {
+        resolveArchiveCompressedInputStream(
+                split, output, partitionsMap, fileFormat, Long.valueOf(-1L));
+    }
+
+    protected void resolveArchiveCompressedInputStream(
+            FileSourceSplit split,
+            Collector<SeaTunnelRow> output,
+            Map<String, String> partitionsMap,
+            FileFormat fileFormat,
+            Long maxBytesForEntry)
+            throws IOException {
         String path = split.getFilePath();
         String tableId = split.getTableId();
+        long effectiveMaxBytes = maxBytesForEntry == null ? -1L : maxBytesForEntry;
         switch (archiveCompressFormat) {
             case ZIP:
                 try (ZipInputStream zis =
@@ -437,10 +450,12 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
                     ZipEntry entry;
                     while ((entry = zis.getNextEntry()) != null) {
                         if (!entry.isDirectory() && checkFileType(entry.getName(), fileFormat)) {
+                            assertArchiveEntrySize(
+                                    entry.getName(), entry.getSize(), effectiveMaxBytes);
                             readProcess(
                                     split,
                                     output,
-                                    copyInputStream(zis),
+                                    copyInputStream(zis, effectiveMaxBytes),
                                     partitionsMap,
                                     entry.getName());
                         }
@@ -454,10 +469,12 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
                     TarArchiveEntry entry;
                     while ((entry = tarInput.getNextTarEntry()) != null) {
                         if (!entry.isDirectory() && checkFileType(entry.getName(), fileFormat)) {
+                            assertArchiveEntrySize(
+                                    entry.getName(), entry.getSize(), effectiveMaxBytes);
                             readProcess(
                                     split,
                                     output,
-                                    copyInputStream(tarInput),
+                                    copyInputStream(tarInput, effectiveMaxBytes),
                                     partitionsMap,
                                     entry.getName());
                         }
@@ -473,10 +490,12 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
                     TarArchiveEntry entry;
                     while ((entry = tarIn.getNextTarEntry()) != null) {
                         if (!entry.isDirectory() && checkFileType(entry.getName(), fileFormat)) {
+                            assertArchiveEntrySize(
+                                    entry.getName(), entry.getSize(), effectiveMaxBytes);
                             readProcess(
                                     split,
                                     output,
-                                    copyInputStream(tarIn),
+                                    copyInputStream(tarIn, effectiveMaxBytes),
                                     partitionsMap,
                                     entry.getName());
                         }
@@ -484,25 +503,31 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
                 }
                 break;
             case GZ:
-                GzipCompressorInputStream gzipIn =
-                        new GzipCompressorInputStream(hadoopFileSystemProxy.getInputStream(path));
-                GzipParameters parameters = gzipIn.getMetaData();
-                String fileName = parameters.getFilename();
-                if (fileName == null) {
-                    // remove file suffix
-                    // eg: excel need full compressed name
-                    if (fileFormat == FileFormat.EXCEL) {
-                        if (path.endsWith(".gz")) {
-                            fileName = path.substring(0, path.length() - 3);
+                try (GzipCompressorInputStream gzipIn =
+                        new GzipCompressorInputStream(hadoopFileSystemProxy.getInputStream(path))) {
+                    GzipParameters parameters = gzipIn.getMetaData();
+                    String fileName = parameters.getFilename();
+                    if (fileName == null) {
+                        // remove file suffix
+                        // eg: excel need full compressed name
+                        if (fileFormat == FileFormat.EXCEL) {
+                            if (path.endsWith(".gz")) {
+                                fileName = path.substring(0, path.length() - 3);
+                            } else {
+                                throw new IllegalArgumentException(
+                                        "Excel file must have a .gz extension. File: " + path);
+                            }
                         } else {
-                            throw new IllegalArgumentException(
-                                    "Excel file must have a .gz extension. File: " + path);
+                            fileName = path;
                         }
-                    } else {
-                        fileName = path;
                     }
+                    readProcess(
+                            split,
+                            output,
+                            copyInputStream(gzipIn, effectiveMaxBytes),
+                            partitionsMap,
+                            fileName);
                 }
-                readProcess(split, output, copyInputStream(gzipIn), partitionsMap, fileName);
                 break;
             case NONE:
                 readProcess(
@@ -523,6 +548,25 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
                         partitionsMap,
                         path);
         }
+    }
+
+    /**
+     * Rejects an archive entry whose declared size exceeds the configured POI limit.
+     *
+     * @param entryName archive entry name used in the error message
+     * @param entrySize declared uncompressed entry size in bytes
+     * @param maxBytes maximum allowed size in bytes; non-positive values disable the limit
+     */
+    private void assertArchiveEntrySize(String entryName, long entrySize, long maxBytes) {
+        if (maxBytes <= 0 || entrySize <= 0 || entrySize <= maxBytes) {
+            return;
+        }
+        throw new FileConnectorException(
+                CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                String.format(
+                        "Archived entry [%s] is %,d bytes, larger than POI limit %,d bytes. "
+                                + "Please set excel_engine = EasyExcel, or increase the limit if POI is required.",
+                        entryName, entrySize, maxBytes));
     }
 
     protected void readProcess(
@@ -607,11 +651,35 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
     }
 
     protected static InputStream copyInputStream(InputStream inputStream) throws IOException {
+        return copyInputStream(inputStream, -1L);
+    }
+
+    /**
+     * Copies an input stream into memory, optionally stopping once it exceeds a byte limit.
+     *
+     * @param inputStream source stream
+     * @param maxBytes maximum number of bytes to copy; non-positive values disable the limit
+     * @return an input stream backed by the copied bytes
+     * @throws IOException if reading from the source stream fails
+     * @throws FileConnectorException if the copied data exceeds {@code maxBytes}
+     */
+    protected static InputStream copyInputStream(InputStream inputStream, long maxBytes)
+            throws IOException {
         ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
         byte[] buffer = new byte[1024];
         int bytesRead;
+        long total = 0;
 
         while ((bytesRead = inputStream.read(buffer)) != -1) {
+            total += bytesRead;
+            if (maxBytes > 0 && total > maxBytes) {
+                throw new FileConnectorException(
+                        CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                        String.format(
+                                "Archived entry exceeds %,d bytes (POI limit). "
+                                        + "Please set excel_engine = EasyExcel, or increase the limit if POI is required.",
+                                maxBytes));
+            }
             byteArrayOutputStream.write(buffer, 0, bytesRead);
         }
 
