@@ -126,7 +126,7 @@ The current job-detail response and its `errorMsg` field remain unchanged. This 
 
 The endpoint uses the same `BasicAuthFilter` boundary as the existing engine REST API. It must not introduce an endpoint-specific authentication mechanism. Deployments that leave REST authentication disabled expose this diagnostic data under the same policy as the other job-detail endpoints, and the documentation must call out that exception text and worker addresses can contain operationally sensitive information.
 
-Redaction is applied before HA persistence, not only while serializing a REST response. This ensures that Hazelcast state, terminal snapshots, external history backends, and API responses all contain the same bounded representation and that an unsanitized value cannot be recovered through another storage path.
+Redaction is applied before HA persistence, not only while serializing a REST response. This ensures that Hazelcast state, terminal snapshots, and API responses all contain the same bounded representation and that an unsanitized value cannot be recovered through another storage path.
 
 The route handler owns validation of `jobId` and `limit`:
 
