@@ -139,7 +139,6 @@ public class ElasticsearchSchemaChangeIT extends TestSuiteBase implements TestRe
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger("mysql-docker-image")));
-        mySqlContainer.setPortBindings(Lists.newArrayList(String.format("%s:%s", 3306, 3306)));
         return mySqlContainer;
     }
 
