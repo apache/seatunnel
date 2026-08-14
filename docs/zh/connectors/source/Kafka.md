@@ -576,7 +576,7 @@ source {
     "header1": "header1",
     "header2": "header2"
   },
-  "key": "dGVzdF9ieXRlc19kYXRh",  
+  "key": "dGVzdF9ieXRlc19kYXRh",
   "partition": 3,
   "timestamp": 1672531200000,
   "timestampType": "CREATE_TIME",
@@ -584,6 +584,83 @@ source {
 }
 ```
 注意：key/value是byte[]类型。
+
+### 配合动态分区发现与 EXACTLY_ONCE 下游的流式作业
+
+常见的长时间运行模式：使用 Kafka 源读取数据并写入 Kafka sink，配合 checkpoint 与 `semantics = EXACTLY_ONCE` 实现端到端精确一次。开启 `partition-discovery.interval-millis` 后，新增分区会被自动发现，无需重启作业。
+
+```hocon
+env {
+  parallelism = 2
+  job.mode = "STREAMING"
+  checkpoint.interval = 10000
+}
+
+source {
+  Kafka {
+    topic = "orders"
+    bootstrap.servers = "localhost:9092"
+    consumer.group = "orders_consumer"
+    start_mode = group_offsets
+    commit_on_checkpoint = true
+    partition-discovery.interval-millis = 30000
+    format = json
+    schema = {
+      fields {
+        order_id = bigint
+        user_id = bigint
+        amount = double
+      }
+    }
+  }
+}
+
+sink {
+  Kafka {
+    topic = "orders_sink"
+    bootstrap.servers = "localhost:9092"
+    format = json
+    semantics = EXACTLY_ONCE
+    transaction_prefix = "orders_sink_job"
+    partition_key_fields = ["order_id"]
+  }
+}
+```
+
+同样的写法也适用于 `format = debezium_json`，可以从 Kafka Connect sink 输出的 Debezium 变更事件中消费变更数据并转发到下游。
+
+### Avro 反序列化
+
+当 Avro 消息的 record 名称、namespace 或 union 结构与 SeaTunnel schema 不一致时，需要将 `format` 设置为 `avro` 并提供 `avro_schema`。如果不提供 `avro_schema`，连接器会从用户配置的 `schema` 块派生解码 schema，并同时将其作为 reader schema 和 writer schema 使用；如果生产端的 Avro 结构（record 名称、namespace、union 结构）与 SeaTunnel schema 不一致，请显式配置 `avro_schema`。当前实现中没有 Confluent Schema Registry 查询或按消息回退读取 schema 的机制。
+
+```hocon
+source {
+  Kafka {
+    topic = "users_avro"
+    bootstrap.servers = "localhost:9092"
+    format = avro
+    avro_schema = """
+      {
+        "type": "record",
+        "name": "User",
+        "namespace": "com.example",
+        "fields": [
+          {"name": "id", "type": "long"},
+          {"name": "name", "type": "string"},
+          {"name": "email", "type": ["null", "string"], "default": null}
+        ]
+      }
+      """
+    schema = {
+      fields {
+        id = bigint
+        name = string
+        email = string
+      }
+    }
+  }
+}
+```
 
 ## 常见问题
 

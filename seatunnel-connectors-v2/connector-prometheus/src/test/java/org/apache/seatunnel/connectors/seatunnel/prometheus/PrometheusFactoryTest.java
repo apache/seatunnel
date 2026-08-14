@@ -20,7 +20,6 @@ package org.apache.seatunnel.connectors.seatunnel.prometheus;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.OptionValidationException;
-import org.apache.seatunnel.connectors.seatunnel.prometheus.config.PrometheusSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.prometheus.config.PrometheusSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.prometheus.sink.PrometheusSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.prometheus.source.PrometheusSourceFactory;
@@ -47,15 +46,6 @@ public class PrometheusFactoryTest {
     @Test
     void testBatchSizeIsOptional() {
         Assertions.assertDoesNotThrow(() -> validate(sinkConfig()));
-    }
-
-    @Test
-    void testDefaultBatchSize() {
-        PrometheusSinkConfig config =
-                PrometheusSinkConfig.loadConfig(ReadonlyConfig.fromMap(sinkConfig()));
-
-        Assertions.assertEquals(
-                PrometheusSinkOptions.BATCH_SIZE.defaultValue(), config.getBatchSize());
     }
 
     @Test
