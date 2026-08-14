@@ -174,7 +174,13 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy<ParquetWriter<Ge
         GenericData dataModel = new GenericData();
         dataModel.addLogicalTypeConversion(new Conversions.DecimalConversion());
         dataModel.addLogicalTypeConversion(new TimeConversions.DateConversion());
-        dataModel.addLogicalTypeConversion(new TimeConversions.LocalTimestampMillisConversion());
+        // LocalTimestampMillisConversion is not needed here because
+        // seaTunnelDataType2ParquetDataType maps TIMESTAMP to
+        // INT64.as(OriginalType.TIMESTAMP_MILLIS), which AvroSchemaConverter
+        // converts to Avro's timestamp-millis (not local-timestamp-millis).
+        // resolveObject also handles TIMESTAMP values manually (converting to
+        // epoch millis), bypassing the data model entirely.
+        // See https://github.com/apache/seatunnel/issues/11743
         if (writer == null) {
             Path path = new Path(filePath);
             // initialize the kerberos login
