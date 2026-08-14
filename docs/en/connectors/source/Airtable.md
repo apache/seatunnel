@@ -200,18 +200,16 @@ source {
 }
 ```
 
-### Stream New Records With Filter And Sort
+### Run An Incremental Batch Read
 
-Airtable's filter and sort parameters are stable on a single job run. To continuously consume new
-rows as they appear, switch to streaming mode and pin `filter_by_formula` together with a `sort`
-that orders rows by `createdTime`. Each restart reads from the beginning, so capture the last seen
-`createdTime` and re-inject it into the formula between runs.
+The Airtable source only supports `BATCH` jobs (it rejects non-batch modes). To consume
+newly added rows across runs, pin `filter_by_formula` together with a `sort` that orders rows by
+`createdTime`, and re-inject the last-seen `createdTime` watermark between runs:
 
 ```hocon
 env {
   parallelism = 1
-  job.mode = "STREAMING"
-  checkpoint.interval = 60000
+  job.mode = "BATCH"
 }
 
 source {

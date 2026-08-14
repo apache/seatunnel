@@ -131,46 +131,6 @@ sink {
 }
 ```
 
-### Route Multiple Tables Into Phoenix With A Placeholder
-
-Phoenix upsert statements can target different physical tables by combining the `query` with a
-placeholder that is rewritten by the engine. A common pattern is to write one upsert that
-covers all tables and rely on upstream transforms to choose the right rows:
-
-```hocon
-env {
-  parallelism = 1
-  job.mode = "BATCH"
-}
-
-source {
-  FakeSource {
-    row.num = 4
-    schema = {
-      fields {
-        id = int
-        name = string
-        score = double
-      }
-    }
-    rows = [
-      { kind = INSERT, fields = [1, "Alice", 95.5] }
-      { kind = INSERT, fields = [2, "Bob", 88.0] }
-      { kind = INSERT, fields = [3, "Carol", 76.0] }
-      { kind = INSERT, fields = [4, "Dave", 84.5] }
-    ]
-  }
-}
-
-sink {
-  Jdbc {
-    driver = org.apache.phoenix.jdbc.PhoenixDriver
-    url = "jdbc:phoenix:localhost:2182/hbase"
-    query = "upsert into test.summary(id, name, score) values(?, ?, ?)"
-  }
-}
-```
-
 ## Changelog
 
 <ChangeLog />

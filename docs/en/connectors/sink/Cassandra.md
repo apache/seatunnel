@@ -206,6 +206,13 @@ sink {
 }
 ```
 
+> **Note:** The `is_deleted` column shown above is not produced by MySQL-CDC and is not
+> derived from `RowKind` by the Cassandra sink. You must populate it yourself — either by
+> carrying an `is_deleted` column in the upstream MySQL table, or by adding a Transform-V2
+> (for example `sql` / `replace`) between the source and the sink that synthesizes it from
+> the CDC `RowKind`. Without that, `DELETE` events will be written back to Cassandra as a
+> regular upsert.
+
 ## Changelog
 
 <ChangeLog />

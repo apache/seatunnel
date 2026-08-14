@@ -134,36 +134,6 @@ sink {
 }
 ```
 
-### 将 CDC 事件流式写入 Phoenix
-
-Phoenix 的 `upsert` 语义天然适合 CDC 写入，配合 Phoenix sink 即可保持聚合视图与上游一致。
-下面示例将 MySQL CDC 事件持续 upsert 到 Phoenix：
-
-```hocon
-env {
-  parallelism = 1
-  job.mode = "STREAMING"
-  checkpoint.interval = 10000
-}
-
-source {
-  MySQL-CDC {
-    base-url = "jdbc:mysql://mysql:3306/test"
-    username = "root"
-    password = "mysqlpw"
-    table-names = ["test.orders"]
-  }
-}
-
-sink {
-  Jdbc {
-    driver = org.apache.phoenix.jdbc.PhoenixDriver
-    url = "jdbc:phoenix:phoenix-server:2182/hbase"
-    query = "upsert into test.orders(id, customer, amount) values(?, ?, ?)"
-  }
-}
-```
-
 ## 变更日志
 
 <ChangeLog />

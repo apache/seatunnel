@@ -198,6 +198,11 @@ sink {
 }
 ```
 
+> **注意**：上面示例中的 `is_deleted` 字段不会由 MySQL-CDC 自动产出，也不会被 Cassandra
+> sink 根据 `RowKind` 推导。你需要自行提供——既可以让上游 MySQL 表本身带有 `is_deleted`
+> 列，也可以在 source 和 sink 之间增加一个 Transform-V2（例如 `sql`、`replace`）从 CDC 的
+> `RowKind` 合成该字段。否则 `DELETE` 事件会被当作普通 upsert 写回 Cassandra。
+
 ## 变更日志
 
 <ChangeLog />

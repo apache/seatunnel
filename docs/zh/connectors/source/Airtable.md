@@ -199,17 +199,16 @@ source {
 }
 ```
 
-### 流式消费新增记录
+### 按增量批次消费新增记录
 
-Airtable 的 `filter_by_formula` 和 `sort` 在同一任务运行期间是稳定的。要按写入顺序持续消费
-新增行，可以切换到流式模式，并结合 `sort` 按 `createdTime` 升序排列。每次重启任务都会从
-头扫描，请在两次运行之间记录已经读到的最大 `CreatedAt`，并把它写回 `filter_by_formula`。
+Airtable source 只支持 `BATCH` 作业（其它模式在初始化时会被拒绝）。要在多次运行之间持续
+消费新增行，可以固定 `filter_by_formula` 并配合 `sort` 按 `createdTime` 升序排列，同时把
+上一次运行读到的最大 `CreatedAt` 写回公式：
 
 ```hocon
 env {
   parallelism = 1
-  job.mode = "STREAMING"
-  checkpoint.interval = 60000
+  job.mode = "BATCH"
 }
 
 source {
