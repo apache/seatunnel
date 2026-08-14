@@ -36,11 +36,13 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedConstruction;
 
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.mockConstruction;
 import static org.mockito.Mockito.never;
@@ -146,6 +148,44 @@ class PrometheusWriterTest {
         }
     }
 
+    /**
+     * When the final flush in close() fails and closing the HTTP client also throws, the meaningful
+     * flush failure must be the exception that surfaces, with the client-close error suppressed,
+     * not the other way around.
+     */
+    @Test
+    void closeShouldKeepFlushExceptionWhenHttpClientCloseAlsoThrows() throws Exception {
+        SinkWriter.Context context = mock(SinkWriter.Context.class);
+        HttpResponse failed = new HttpResponse(HttpStatus.SC_BAD_REQUEST, "boom");
+
+        try (MockedConstruction<HttpClientProvider> ignored =
+                mockConstruction(
+                        HttpClientProvider.class,
+                        (mockClient, ctx) ->
+                                when(mockClient.doPost(
+                                                anyString(), any(), any(ByteArrayEntity.class)))
+                                        .thenReturn(failed))) {
+
+            PrometheusWriter writer = createWriter(context);
+            writer.write(newPoint());
+            // The HTTP client teardown also fails during close().
+            doThrow(new IOException("client close failed")).when(writer.httpClient).close();
+
+            PrometheusConnectorException thrown =
+                    Assertions.assertThrows(PrometheusConnectorException.class, writer::close);
+
+            boolean clientCloseSuppressed = false;
+            for (Throwable suppressed : thrown.getSuppressed()) {
+                if (suppressed instanceof IOException) {
+                    clientCloseSuppressed = true;
+                }
+            }
+            Assertions.assertTrue(
+                    clientCloseSuppressed,
+                    "The client-close IOException should be suppressed on the flush failure");
+        }
+    }
+
     private PrometheusWriter createWriter(SinkWriter.Context context) {
         HttpParameter httpParameter = new HttpParameter();
         httpParameter.setUrl("http://localhost:9090/api/v1/write");
@@ -153,7 +193,8 @@ class PrometheusWriterTest {
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(
                         new String[] {"value"}, new SeaTunnelDataType[] {BasicType.DOUBLE_TYPE});
-        // No batch_size configured, so writes buffer without auto-flushing.
+        // batch_size is not set, so it resolves to its declared default of 1024; each test writes a
+        // single row, which stays well below that, so no size-triggered flush occurs.
         ReadonlyConfig pluginConfig = ReadonlyConfig.fromMap(new HashMap<>());
         return new PrometheusWriter(rowType, httpParameter, pluginConfig, context);
     }

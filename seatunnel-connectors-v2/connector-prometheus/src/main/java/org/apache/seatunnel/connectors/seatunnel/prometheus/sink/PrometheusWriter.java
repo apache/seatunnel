@@ -46,6 +46,11 @@ import java.util.Map;
 
 @Slf4j
 public class PrometheusWriter extends HttpSinkWriter {
+
+    // The removed connector-level option key, kept only to detect and warn about a leftover key in
+    // an upgraded job config.
+    private static final String REMOVED_FLUSH_INTERVAL_KEY = "flush_interval";
+
     private final List<Point> batchList;
     private final Integer batchSize;
     private final PrometheusSinkConfig sinkConfig;
@@ -71,9 +76,10 @@ public class PrometheusWriter extends HttpSinkWriter {
         this.httpClient = new HttpClientProvider(httpParameter);
         // The connector-level `flush_interval` option was removed in favor of the engine-level
         // `sink.flush.interval`. A leftover key in an upgraded job config is silently ignored on a
-        // direct job run (only `--check`/`--dry-run` reject unknown keys), so warn here to give
-        // operators a signal instead of silently dropping periodic flushing.
-        if (pluginConfig.getSourceMap().containsKey("flush_interval")) {
+        // direct job run (only `--check`/`--dry-run` reject unknown keys), so warn here (once per
+        // writer instance) to give operators a signal instead of silently dropping periodic
+        // flushing.
+        if (pluginConfig.getSourceMap().containsKey(REMOVED_FLUSH_INTERVAL_KEY)) {
             log.warn(
                     "The connector option 'flush_interval' has been removed and is ignored. Use the "
                             + "engine-level 'sink.flush.interval' in the job 'env' block instead. "
@@ -189,17 +195,48 @@ public class PrometheusWriter extends HttpSinkWriter {
 
     @Override
     public void close() throws IOException {
+        // Run the final flush and both cleanup steps unconditionally, but keep the first failure as
+        // the primary exception and attach later ones with addSuppressed. Otherwise an IOException
+        // from closing an HTTP client (thrown from a finally block) would replace the meaningful
+        // "Writing records to prometheus failed" exception from the final flush.
+        Throwable primary = null;
         try {
             // Send any records still buffered before the writer is closed.
             flush();
-        } finally {
-            try {
-                // Close the HttpClientProvider actually used for remote-write (this field shadows
-                // the parent's), otherwise it would leak when the writer is closed.
-                httpClient.close();
-            } finally {
-                super.close();
-            }
+        } catch (Throwable t) {
+            primary = t;
         }
+        try {
+            // Close the HttpClientProvider actually used for remote-write (this field shadows the
+            // parent's), otherwise it would leak when the writer is closed.
+            httpClient.close();
+        } catch (Throwable t) {
+            primary = addAsPrimaryOrSuppressed(primary, t);
+        }
+        try {
+            super.close();
+        } catch (Throwable t) {
+            primary = addAsPrimaryOrSuppressed(primary, t);
+        }
+        if (primary != null) {
+            if (primary instanceof IOException) {
+                throw (IOException) primary;
+            }
+            if (primary instanceof RuntimeException) {
+                throw (RuntimeException) primary;
+            }
+            if (primary instanceof Error) {
+                throw (Error) primary;
+            }
+            throw new IOException(primary);
+        }
+    }
+
+    private static Throwable addAsPrimaryOrSuppressed(Throwable primary, Throwable next) {
+        if (primary == null) {
+            return next;
+        }
+        primary.addSuppressed(next);
+        return primary;
     }
 }
