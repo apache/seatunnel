@@ -80,13 +80,13 @@ Field rules:
 
 `TaskExecutionState` is the natural task-to-master transport boundary. The implementation should extend that transport with structured failure fields and capture the record in the JobMaster before task resources are released. Exception content must be sanitized and bounded at this capture boundary, before it is written to HA or finished-job history. The implementation should generalize the existing `DryRunConnectFailureMessageSanitizer` rules into a shared utility rather than persisting raw connector messages or stack traces.
 
-Repeated delivery of the same terminal task-group state must not create duplicate rows. The first implementation deduplicates on `(pipelineId, attempt, taskGroupId)`, because a task group has one terminal failure for one pipeline attempt. A Hazelcast `EntryProcessor` on the job-scoped HA entry performs the deduplication check, sequence allocation, append, and oldest-record eviction as one atomic operation. The first terminal delivery creates the record and receives a sequence number, while later deliveries with the same key are ignored without consuming another sequence number. A different task group in the same attempt remains separate, and a failure after restore has a different attempt number and remains visible.
+Repeated delivery of the same terminal task-group state must not create duplicate rows. The first implementation deduplicates on `(pipelineId, attempt, taskGroupId)`, because a task group has one terminal failure for one pipeline attempt. A Hazelcast `EntryProcessor` on the job-scoped HA entry performs the deduplication check, sequence allocation, append, and oldest-record eviction as one atomic operation. It must be submitted asynchronously from the task-status operation path. Completion handling can log a store failure, but must not wait on or re-enter a Hazelcast operation thread. The first terminal delivery creates the record and receives a sequence number, while later deliveries with the same key are ignored without consuming another sequence number. A different task group in the same attempt remains separate, and a failure after restore has a different attempt number and remains visible.
 
 Recording history is diagnostic and best effort. A history-store failure must be logged, but it must not block the original task failure or restore decision.
 
 ## Storage and Retention
 
-Failure history should use a dedicated HA-backed engine state entry keyed by `jobId`. The first implementation can use a dedicated Hazelcast `IMap`, consistent with the engine's existing running-job state. The REST representation remains independent of that storage choice.
+Failure history should use a dedicated HA-backed engine state entry keyed by `jobId`. The first implementation can use a dedicated Hazelcast `IMap`, consistent with the engine's existing running-job state. Its backup count and persistence configuration must not provide a broader durability footprint than the existing running-job and finished-job state maps. The REST representation remains independent of that storage choice.
 
 The first version uses these bounds:
 
@@ -118,7 +118,7 @@ Behavior:
 - use the existing job-not-found behavior for an unknown or expired job; and
 - return the same response model for running and finished jobs, regardless of which dedicated state entry supplies the records.
 
-`JobInfoServlet` currently treats all path information after `/job-info/` as one numeric job ID. The REST implementation must extend that routing, or add an equivalent dedicated handler, so `/job-info/{jobId}` keeps its current behavior while `/job-info/{jobId}/failures` is routed to failure history.
+`JobInfoServlet` currently treats all path information after `/job-info/` as one numeric job ID. The REST implementation must extend that routing, or add an equivalent dedicated handler, so `/job-info/{jobId}` keeps its current behavior while `/job-info/{jobId}/failures` is routed to failure history. Routing must match only these exact path shapes. Additional segments, prefixes, or substring matches must fall through to the existing not-found behavior.
 
 The current job-detail response and its `errorMsg` field remain unchanged. This keeps existing clients compatible while the UI adopts the history endpoint separately.
 
@@ -168,6 +168,9 @@ The feature is additive:
 13. Secrets in messages and stack traces are redacted before HA and finished-history persistence.
 14. Malformed `jobId` or `limit` input returns a controlled `400` response without exposing a stack trace or reflecting the invalid value.
 15. The endpoint is covered by the same configured REST authentication boundary as existing job-detail endpoints.
+16. Failure-history updates are submitted asynchronously and do not block a Hazelcast operation thread.
+17. Failure-history state does not use more backups or persistence than the existing job-state maps.
+18. Only the exact `/job-info/{jobId}` and `/job-info/{jobId}/failures` path shapes are accepted; additional path segments use the existing not-found behavior.
 
 ## Delivery Plan
 

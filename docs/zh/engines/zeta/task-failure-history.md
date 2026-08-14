@@ -80,13 +80,13 @@ Attempt 属于 pipeline，而不是单个 task。
 
 `TaskExecutionState` 是 task 到 master 的自然传输边界。实现应扩展这条传输路径，增加结构化失败字段，并在释放 task 资源之前由 JobMaster 捕获记录。异常内容必须在该捕获边界完成脱敏和长度限制，再写入 HA 或 finished-job 历史。实现应将现有 `DryRunConnectFailureMessageSanitizer` 的规则抽取为共享工具，不能持久化未经处理的 connector 消息或堆栈。
 
-重复收到同一个 task group 的终态不应生成重复记录。第一版使用 `(pipelineId, attempt, taskGroupId)` 去重，因为一个 task group 在一次 pipeline attempt 中只有一个终态失败。以作业级 HA 条目为目标的 Hazelcast `EntryProcessor` 在一次原子操作中完成去重检查、sequence 分配、追加记录和最旧记录删除。第一次终态上报创建记录并分配 sequence，相同 key 的后续上报直接忽略且不消耗新的 sequence。同一 attempt 中不同 task group 的失败分别保留，恢复后的失败使用新的 attempt，因此仍然可见。
+重复收到同一个 task group 的终态不应生成重复记录。第一版使用 `(pipelineId, attempt, taskGroupId)` 去重，因为一个 task group 在一次 pipeline attempt 中只有一个终态失败。以作业级 HA 条目为目标的 Hazelcast `EntryProcessor` 在一次原子操作中完成去重检查、sequence 分配、追加记录和最旧记录删除。它必须从 task 状态操作路径异步提交。完成回调可以记录存储失败，但不能等待 Hazelcast operation thread，也不能重新进入该线程。第一次终态上报创建记录并分配 sequence，相同 key 的后续上报直接忽略且不消耗新的 sequence。同一 attempt 中不同 task group 的失败分别保留，恢复后的失败使用新的 attempt，因此仍然可见。
 
 历史记录属于尽力而为的诊断能力。存储失败需要记录日志，但不能阻塞原始失败处理或恢复决策。
 
 ## 存储与保留
 
-失败历史应使用以 `jobId` 为 key 的独立 HA 引擎状态条目。第一版可以使用独立的 Hazelcast `IMap`，与引擎现有的运行中作业状态保持一致。REST 表示不依赖具体的存储选择。
+失败历史应使用以 `jobId` 为 key 的独立 HA 引擎状态条目。第一版可以使用独立的 Hazelcast `IMap`，与引擎现有的运行中作业状态保持一致。它的备份数量和持久化配置不能提供比现有运行中和已完成作业状态 map 更大的持久化范围。REST 表示不依赖具体的存储选择。
 
 第一版使用以下边界：
 
@@ -118,7 +118,7 @@ GET /job-info/{jobId}/failures?limit=100
 - 未知或已过期作业沿用现有 job-not-found 行为；
 - 无论记录来自哪个独立状态条目，运行中和已完成作业都返回同一个响应模型。
 
-`JobInfoServlet` 当前将 `/job-info/` 之后的全部路径信息作为一个数字 job ID 解析。REST 实现必须扩展该路由，或增加等效的独立处理器，确保 `/job-info/{jobId}` 保持现有行为，同时将 `/job-info/{jobId}/failures` 路由到失败历史。
+`JobInfoServlet` 当前将 `/job-info/` 之后的全部路径信息作为一个数字 job ID 解析。REST 实现必须扩展该路由，或增加等效的独立处理器，确保 `/job-info/{jobId}` 保持现有行为，同时将 `/job-info/{jobId}/failures` 路由到失败历史。路由只能匹配这两种精确路径。额外路径段、前缀或子字符串匹配必须沿用现有 not-found 行为。
 
 现有 job detail 响应和 `errorMsg` 字段保持不变，在 Web UI 单独接入历史端点前继续兼容现有客户端。
 
@@ -168,6 +168,9 @@ Exception tab 可以在单独变更中接入 REST 端点。第一版 UI 应按 a
 13. 消息和堆栈中的敏感信息在写入 HA 和 finished history 前完成脱敏；
 14. 非法 `jobId` 或 `limit` 返回受控的 `400` 响应，不暴露堆栈或回显非法值；
 15. 该端点使用与现有 job-detail 端点相同的 REST 认证边界。
+16. 失败历史更新异步提交，不阻塞 Hazelcast operation thread；
+17. 失败历史状态使用的备份和持久化范围不超过现有作业状态 map；
+18. 只接受精确的 `/job-info/{jobId}` 和 `/job-info/{jobId}/failures` 路径；额外路径段沿用现有 not-found 行为。
 
 ## 交付计划
 
