@@ -182,6 +182,7 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy<ParquetWriter<Ge
             // resolveObject also handles TIMESTAMP values manually (converting to
             // epoch millis), bypassing the data model entirely.
             // See https://github.com/apache/seatunnel/issues/11743
+
             Path path = new Path(filePath);
             // initialize the kerberos login
             return hadoopFileSystemProxy.doWithHadoopAuth(

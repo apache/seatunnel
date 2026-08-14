@@ -180,8 +180,9 @@ public class ParquetTypeCoercionTest {
      * single row per file and therefore only ever takes the {@code writer == null} branch of {@link
      * ParquetWriteStrategy#getOrCreateOutputStream(String)}. Every row here goes to the same file,
      * so rows 2 and 3 are served by the reuse branch: they are written through the writer built for
-     * row 1, along with the Avro data model that carries the DECIMAL/DATE/TIMESTAMP logical-type
-     * conversions.
+     * row 1, along with the Avro data model that carries the DECIMAL and DATE logical-type
+     * conversions. TIMESTAMP is covered here too, but it never reaches the data model — {@code
+     * resolveObject} converts it by hand — which is why no TIMESTAMP conversion is registered.
      *
      * <p>That is the property worth pinning. The data model is now constructed only where it is
      * actually consumed — at writer creation — rather than on every call; this asserts that a model
@@ -215,9 +216,10 @@ public class ParquetTypeCoercionTest {
         LocalDate[] dates = {
             LocalDate.of(2026, 4, 26), LocalDate.of(1970, 1, 1), LocalDate.of(2038, 12, 31)
         };
-        // Sub-second components are deliberate and distinct: the conversion under test is
-        // LocalTimestampMillisConversion, so whole-second fixtures would still round-trip
-        // faithfully if millis were truncated or a micros/second conversion were substituted.
+        // Sub-second components are deliberate and distinct: TIMESTAMP fidelity here comes from
+        // resolveObject converting LocalDateTime to epoch millis against an INT64
+        // TIMESTAMP_MILLIS column, so whole-second fixtures would still round-trip faithfully if
+        // millis were truncated or a seconds-granularity path were substituted.
         LocalDateTime[] timestamps = {
             LocalDateTime.of(2026, 4, 26, 14, 30, 15, 123_000_000),
             LocalDateTime.of(1970, 1, 1, 0, 0, 0, 1_000_000),
