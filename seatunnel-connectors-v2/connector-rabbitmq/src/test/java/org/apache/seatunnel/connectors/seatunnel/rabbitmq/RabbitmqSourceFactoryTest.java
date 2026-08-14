@@ -146,7 +146,10 @@ public class RabbitmqSourceFactoryTest {
         OptionValidationException optionValidationException =
                 Assertions.assertThrows(OptionValidationException.class, () -> validate(config));
 
-        Assertions.assertTrue(optionValidationException.getMessage().contains("schema"));
+        Assertions.assertTrue(
+                optionValidationException
+                        .getMessage()
+                        .contains(RabbitmqSourceOptions.SCHEMA.key()));
     }
 
     @Test
@@ -203,7 +206,18 @@ public class RabbitmqSourceFactoryTest {
 
         config.put(RabbitmqSourceOptions.SCHEMA.key(), schema);
 
-        Assertions.assertThrows(OptionValidationException.class, () -> validate(config));
+        OptionValidationException optionValidationException =
+                Assertions.assertThrows(OptionValidationException.class, () -> validate(config));
+
+        Assertions.assertTrue(
+                optionValidationException
+                        .getMessage()
+                        .contains(RabbitmqSourceOptions.SCHEMA.key()));
+
+        Assertions.assertTrue(
+                optionValidationException
+                        .getMessage()
+                        .contains(RabbitmqSourceOptions.TABLE_CONFIGS.key()));
     }
 
     @Test
@@ -243,7 +257,10 @@ public class RabbitmqSourceFactoryTest {
         OptionValidationException optionValidationException =
                 Assertions.assertThrows(OptionValidationException.class, () -> validate(config));
 
-        Assertions.assertTrue(optionValidationException.getMessage().contains("queue_name"));
+        Assertions.assertTrue(
+                optionValidationException
+                        .getMessage()
+                        .contains(RabbitmqSourceOptions.QUEUE_NAME.key()));
     }
 
     @Test
@@ -266,7 +283,10 @@ public class RabbitmqSourceFactoryTest {
 
         OptionValidationException optionValidationException =
                 Assertions.assertThrows(OptionValidationException.class, () -> validate(config));
-        Assertions.assertTrue(optionValidationException.getMessage().contains("queue_name"));
+        Assertions.assertTrue(
+                optionValidationException
+                        .getMessage()
+                        .contains(RabbitmqSourceOptions.QUEUE_NAME.key()));
     }
 
     @Test
@@ -283,7 +303,10 @@ public class RabbitmqSourceFactoryTest {
         OptionValidationException optionValidationException =
                 Assertions.assertThrows(OptionValidationException.class, () -> validate(config));
 
-        Assertions.assertTrue(optionValidationException.getMessage().contains("schema"));
+        Assertions.assertTrue(
+                optionValidationException
+                        .getMessage()
+                        .contains(RabbitmqSourceOptions.SCHEMA.key()));
     }
 
     @Test
@@ -294,6 +317,24 @@ public class RabbitmqSourceFactoryTest {
 
         config.put(RabbitmqSourceOptions.TABLE_CONFIGS.key(), Collections.emptyList());
 
-        Assertions.assertThrows(OptionValidationException.class, () -> validate(config));
+        OptionValidationException optionValidationException =
+                Assertions.assertThrows(OptionValidationException.class, () -> validate(config));
+
+        Assertions.assertTrue(
+                optionValidationException
+                        .getMessage()
+                        .contains(RabbitmqSourceOptions.TABLE_CONFIGS.key()));
+    }
+
+    @Test
+    public void testSchemaIsRegisteredAsOptionalOption() {
+        RabbitmqSourceFactory factory = new RabbitmqSourceFactory();
+
+        boolean hasSchema =
+                factory.optionRule().getOptionalOptions().stream()
+                        .anyMatch(
+                                option -> option.key().equals(RabbitmqSourceOptions.SCHEMA.key()));
+
+        Assertions.assertTrue(hasSchema, "SCHEMA should be registered as an optional option");
     }
 }

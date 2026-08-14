@@ -20,21 +20,30 @@ package org.apache.seatunnel.connectors.seatunnel.rabbitmq.config;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConditionExtension;
 import org.apache.seatunnel.api.configuration.util.OptionValidationException;
-import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 
+/**
+ * Validates the RabbitMQ source single-table configuration.
+ *
+ * <p>This validator is invoked by {@code ConfigValidator} through {@code
+ * Conditions.extension(QUEUE_NAME, ...)} before {@code RabbitmqSource} is constructed.
+ */
 public class RabbitmqSingleTableValidator implements ConditionExtension<String> {
+
+    private static final String SCHEMA_KEY = RabbitmqBaseOptions.SCHEMA.key();
+    private static final String QUEUE_NAME_KEY = RabbitmqBaseOptions.QUEUE_NAME.key();
+
     @Override
     public String description() {
-        return "'schema' must be configured when 'queue_name' is used.";
+        return "requires '" + SCHEMA_KEY + "' to be configured";
     }
 
     @Override
     public boolean evaluate(ReadonlyConfig config, String queueName)
             throws OptionValidationException {
 
-        if (!config.getOptional(ConnectorCommonOptions.SCHEMA).isPresent()) {
+        if (!config.getOptional(RabbitmqBaseOptions.SCHEMA).isPresent()) {
             throw new OptionValidationException(
-                    "'schema' must be configured when 'queue_name' is used");
+                    "'%s' must be configured when '%s' is used", SCHEMA_KEY, QUEUE_NAME_KEY);
         }
 
         return true;

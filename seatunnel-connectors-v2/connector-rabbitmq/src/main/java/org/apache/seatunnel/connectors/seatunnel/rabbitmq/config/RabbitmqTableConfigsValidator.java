@@ -20,18 +20,33 @@ package org.apache.seatunnel.connectors.seatunnel.rabbitmq.config;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConditionExtension;
 import org.apache.seatunnel.api.configuration.util.OptionValidationException;
-import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Validates the RabbitMQ source multi-table configuration.
+ *
+ * <p>This validator is invoked by {@code ConfigValidator} through {@code
+ * Conditions.extension(TABLE_CONFIGS, ...)} before {@code RabbitmqSource} is constructed. It
+ * validates each {@code tables_configs} entry and rejects a root-level {@code schema}.
+ */
 public class RabbitmqTableConfigsValidator
         implements ConditionExtension<List<Map<String, Object>>> {
 
+    private static final String TABLE_CONFIGS_KEY = RabbitmqBaseOptions.TABLE_CONFIGS.key();
+    private static final String QUEUE_NAME_KEY = RabbitmqBaseOptions.QUEUE_NAME.key();
+    private static final String SCHEMA_KEY = RabbitmqBaseOptions.SCHEMA.key();
+
     @Override
     public String description() {
-        return "when 'table_configs' is configured, root-level 'schema' must not be configured "
-                + "and each 'table_configs' entry must declare a non-blank 'queue_name' and a 'schema'";
+        return "requires each entry to declare a non-blank '"
+                + QUEUE_NAME_KEY
+                + "' and a '"
+                + SCHEMA_KEY
+                + "', and forbids a root-level '"
+                + SCHEMA_KEY
+                + "'";
     }
 
     @Override
@@ -39,19 +54,20 @@ public class RabbitmqTableConfigsValidator
             throws OptionValidationException {
         if (config.getOptional(RabbitmqBaseOptions.SCHEMA).isPresent()) {
             throw new OptionValidationException(
-                    "Cannot specify both 'table_configs' and root-level 'schema'.");
+                    "Cannot specify both '%s' and root-level '%s'.", TABLE_CONFIGS_KEY, SCHEMA_KEY);
         }
         for (int i = 0; i < entries.size(); i++) {
             ReadonlyConfig entry = ReadonlyConfig.fromMap(entries.get(i));
             String queueName = entry.getOptional(RabbitmqBaseOptions.QUEUE_NAME).orElse(null);
             if (queueName == null || queueName.trim().isEmpty()) {
                 throw new OptionValidationException(
-                        "table_configs[%d]: 'queue_name' must be configured and non-blank", i);
+                        "%s[%d]: '%s' must be configured and non-blank",
+                        TABLE_CONFIGS_KEY, i, QUEUE_NAME_KEY);
             }
 
-            if (!entry.getOptional(ConnectorCommonOptions.SCHEMA).isPresent()) {
+            if (!entry.getOptional(RabbitmqBaseOptions.SCHEMA).isPresent()) {
                 throw new OptionValidationException(
-                        "table_configs[%d]: 'schema' must be configured", i);
+                        "%s[%d]: '%s' must be configured", TABLE_CONFIGS_KEY, i, SCHEMA_KEY);
             }
         }
 
