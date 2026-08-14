@@ -15,26 +15,12 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.source.offset;
+package org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.offset;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import io.debezium.connector.sqlserver.Lsn;
-
 class LsnOffsetTest {
-
-    @Test
-    void testInitialOffsetRepresentsNoLsn() {
-        LsnOffset initial = LsnOffset.INITIAL_OFFSET;
-
-        // no LSN keys should be present in the offset map
-        Assertions.assertTrue(initial.getOffset().isEmpty());
-
-        // commit LSN resolved from the empty map should be Debezium's NULL LSN
-        Lsn commitLsn = initial.getCommitLsn();
-        Assertions.assertFalse(commitLsn.isAvailable());
-    }
 
     @Test
     void testNoStoppingOffsetIsNeverStop() {
