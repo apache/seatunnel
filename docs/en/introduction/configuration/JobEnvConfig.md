@@ -45,7 +45,7 @@ For more details, you can refer to the documentation [Config Encryption Decrypti
 
 Used to control the default retry times when a job fails. The default value is 3, and it only works in the Zeta engine.
 
-This counter is per-pipeline and cumulative for the whole lifetime of the job run: it increments on every restore attempt and is never reset, even after a restore succeeds and the pipeline runs successfully for a long time afterward. For example, with the default `job.retry.times = 3`, if the pipeline fails and successfully recovers 3 times, any further failure will no longer be retried -- the pipeline fails permanently, even if it ran without error for hours between the 3rd recovery and the next failure. Retry attempts are not tracked per-failure or reset on a successful run; resubmitting the job (a new job run) is the only way to reset the counter.
+This counter accumulates for the life of the pipeline; an intermediate successful recovery does not reset it. For example, with `job.retry.times = 5`: if the pipeline fails, retries, and recovers on attempt #3, then later fails again, only 2 retries remain (attempts #4 and #5) before the job is marked permanently failed — the budget does not refresh back to 5. The one exception is an active-master failover in a Zeta cluster, which rebuilds the pipeline execution plan (and its retry counter) from scratch.
 
 ### job.retry.interval.seconds
 
