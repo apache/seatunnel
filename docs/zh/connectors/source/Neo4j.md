@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-neo4j.md';
 
 > Neo4j 源连接器
 
+## 引擎支持
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## 描述
 
 Neo4j 源连接器通过执行 Cypher 查询从 Neo4j 读取数据，并把查询返回字段映射成 SeaTunnel

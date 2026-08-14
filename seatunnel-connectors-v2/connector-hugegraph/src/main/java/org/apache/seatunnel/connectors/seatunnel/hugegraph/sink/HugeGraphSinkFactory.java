@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.seatunnel.hugegraph.sink;
 
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
@@ -48,17 +49,40 @@ public class HugeGraphSinkFactory implements TableSinkFactory {
                 // connection config
                 .required(HugeGraphOptions.HOST, HugeGraphOptions.PORT, HugeGraphOptions.GRAPH_NAME)
                 .optional(
-                        HugeGraphOptions.GRAPH_SPACE,
+                        HugeGraphOptions.PROTOCOL,
                         HugeGraphOptions.USERNAME,
-                        HugeGraphOptions.PASSWORD)
-                // mapping config
-                .exclusive(
-                        HugeGraphSinkOptions.SELECTED_FIELDS, HugeGraphSinkOptions.IGNORED_FIELDS)
-                .required(HugeGraphSinkOptions.SCHEMA_CONFIG)
+                        HugeGraphOptions.PASSWORD,
+                        // Optional connection setting passed through to select the HugeGraph graph
+                        // space (defaults to "DEFAULT").
+                        HugeGraphOptions.GRAPH_SPACE)
+                // mapping config: mappings (new) or schema_config (legacy)
+                .optional(HugeGraphSinkOptions.MAPPINGS, HugeGraphSinkOptions.SCHEMA_CONFIG)
+                // schema and data save mode
+                .optional(
+                        HugeGraphSinkOptions.SCHEMA_SAVE_MODE,
+                        HugeGraphSinkOptions.DATA_SAVE_MODE,
+                        HugeGraphSinkOptions.DELETE_VERTEX_WITH_EDGES,
+                        HugeGraphSinkOptions.ALLOW_CASCADE_DELETE_UNMAPPED_EDGES)
                 // batch config
-                .optional(HugeGraphOptions.BATCH_SIZE, HugeGraphOptions.BATCH_INTERVAL_MS)
-                // error operation
-                .optional(HugeGraphOptions.MAX_RETRIES, HugeGraphOptions.RETRY_BACKOFF_MS)
+                .optional(
+                        HugeGraphOptions.BATCH_SIZE,
+                        HugeGraphOptions.BATCH_INTERVAL_MS,
+                        HugeGraphOptions.CHECK_VERTEX)
+                // required by the multi-table sink SPI (HugeGraphSink implements
+                // SupportMultiTableSink): lets the framework size per-table write replicas
+                .optional(SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
+                // error handling
+                .optional(
+                        HugeGraphOptions.BATCH_FAILURE_FALLBACK,
+                        HugeGraphOptions.MAX_INSERT_ERRORS,
+                        HugeGraphOptions.FAILURE_DATA_PATH)
+                // retry config
+                .optional(
+                        HugeGraphOptions.MAX_RETRIES,
+                        HugeGraphOptions.RETRY_BACKOFF_MS,
+                        HugeGraphOptions.RETRY_BACKOFF_MAX_MS)
+                // deprecated field selection
+                .optional(HugeGraphSinkOptions.SELECTED_FIELDS, HugeGraphSinkOptions.IGNORED_FIELDS)
                 .build();
     }
 }
