@@ -770,7 +770,16 @@ public class ZetaSQLFunction {
                 return leftBigDecimal.subtract(rightBigDecimal);
             }
             if (binaryExpression instanceof Multiplication) {
-                return leftBigDecimal.multiply(rightBigDecimal);
+                // BigDecimal.multiply returns a value whose scale is leftScale + rightScale,
+                // but the column type declared for this expression is
+                // DECIMAL(max(precision), max(scale)). Normalise to the declared scale, as
+                // Division already does, so the emitted value matches the schema the transform
+                // advertises: a sink that encodes against that schema (Parquet through Avro,
+                // for example) rejects a value whose scale differs from the declared one.
+                DecimalType decimalType = (DecimalType) resultType;
+                return leftBigDecimal
+                        .multiply(rightBigDecimal)
+                        .setScale(decimalType.getScale(), RoundingMode.HALF_UP);
             }
             if (binaryExpression instanceof Division) {
                 if (rightBigDecimal.signum() == 0) {

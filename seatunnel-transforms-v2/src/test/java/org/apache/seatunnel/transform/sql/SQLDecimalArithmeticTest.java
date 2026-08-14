@@ -82,7 +82,9 @@ public class SQLDecimalArithmeticTest {
         // 1234567890123456.8 respectively.
         Assertions.assertEquals("123456789012345679.00", plain(outRow.getField(0)));
         Assertions.assertEquals("123456789012345678.98", plain(outRow.getField(1)));
-        Assertions.assertEquals("1234567890123456.7899", plain(outRow.getField(2)));
+        // The exact product is 1234567890123456.7899; it is rounded to the scale declared for
+        // the output column, the same way division is.
+        Assertions.assertEquals("1234567890123456.79", plain(outRow.getField(2)));
     }
 
     /** An integral operand wider than double's 53-bit mantissa must not be rounded either. */
@@ -201,5 +203,49 @@ public class SQLDecimalArithmeticTest {
         Throwable cause = exception.getCause();
         Assertions.assertInstanceOf(TransformException.class, cause);
         Assertions.assertTrue(cause.getMessage().contains("Division by zero"), cause.getMessage());
+    }
+
+    /**
+     * Every emitted DECIMAL must carry the scale that the transform declares for its column. A sink
+     * that builds its write schema from the declared type and then encodes the value against it
+     * rejects the row when the two disagree, so an exact result is not usable on its own.
+     */
+    @Test
+    public void testEmittedScaleMatchesDeclaredType() {
+        SeaTunnelRowType rowType = twoDecimals(38, 2);
+        CatalogTable table = CatalogTableUtil.getCatalogTable("test", rowType);
+        ReadonlyConfig config =
+                ReadonlyConfig.fromMap(
+                        Collections.singletonMap(
+                                "query",
+                                "select a + b as sum_val,"
+                                        + " a - b as diff_val,"
+                                        + " a * b as mul_val,"
+                                        + " a / b as div_val"
+                                        + " from dual"));
+        SQLTransform transform = new SQLTransform(config, table);
+
+        SeaTunnelRowType outType = transform.getProducedCatalogTable().getSeaTunnelRowType();
+        SeaTunnelRow outRow =
+                transform
+                        .transformRow(
+                                new SeaTunnelRow(
+                                        new Object[] {
+                                            new BigDecimal("10.25"), new BigDecimal("3.75")
+                                        }))
+                        .get(0);
+
+        for (int i = 0; i < outType.getTotalFields(); i++) {
+            SeaTunnelDataType<?> fieldType = outType.getFieldType(i);
+            Assertions.assertInstanceOf(DecimalType.class, fieldType);
+            Assertions.assertEquals(
+                    ((DecimalType) fieldType).getScale(),
+                    ((BigDecimal) outRow.getField(i)).scale(),
+                    "declared and emitted scale differ for column "
+                            + outType.getFieldName(i)
+                            + " (value "
+                            + outRow.getField(i)
+                            + ")");
+        }
     }
 }
