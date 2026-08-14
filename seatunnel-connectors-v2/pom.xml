@@ -57,6 +57,7 @@
         <module>connector-datahub</module>
         <module>connector-sentry</module>
         <module>connector-mongodb</module>
+        <module>connector-couchbase</module>
         <module>connector-mqtt</module>
         <module>connector-python</module>
         <module>connector-iceberg</module>
@@ -97,6 +98,7 @@
         <module>connector-lance</module>
         <module>connector-bigquery</module>
         <module>connector-edge-socket</module>
+        <module>connector-nats-jetstream</module>
     </modules>
 
     <dependencyManagement>

@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.e2e.connector.starrocks;
 
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
-
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.MySqlContainer;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.MySqlVersion;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.UniqueDatabase;
@@ -162,7 +160,10 @@ public class StarRocksSchemaChangeIT extends TestSuiteBase implements TestResour
         Class.forName(DRIVER_CLASS);
         starRocksConnection =
                 DriverManager.getConnection(
-                        String.format("jdbc:mysql://%s:%s", starRocksServer.getHost(), QUERY_PORT),
+                        String.format(
+                                "jdbc:mysql://%s:%s",
+                                starRocksServer.getHost(),
+                                starRocksServer.getMappedPort(QUERY_PORT)),
                         USERNAME,
                         PASSWORD);
     }
@@ -172,13 +173,9 @@ public class StarRocksSchemaChangeIT extends TestSuiteBase implements TestResour
                 new GenericContainer<>(DOCKER_IMAGE)
                         .withNetwork(NETWORK)
                         .withNetworkAliases(HOST)
+                        .withExposedPorts(QUERY_PORT, HTTP_PORT, BE_HTTP_PORT)
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(DOCKER_IMAGE)));
-        starRocksServer.setPortBindings(
-                Lists.newArrayList(
-                        String.format("%s:%s", QUERY_PORT, QUERY_PORT),
-                        String.format("%s:%s", HTTP_PORT, HTTP_PORT),
-                        String.format("%s:%s", BE_HTTP_PORT, BE_HTTP_PORT)));
         Startables.deepStart(Stream.of(starRocksServer)).join();
         log.info("StarRocks container started");
         // wait for starrocks fully start

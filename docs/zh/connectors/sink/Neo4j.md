@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-neo4j.md';
 
 > Neo4j Sink 连接器
 
+## 引擎支持
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## 描述
 
 Neo4j Sink 连接器通过执行 Cypher 语句把 SeaTunnel 数据写入 Neo4j。它支持逐条写入，
