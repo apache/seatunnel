@@ -2,6 +2,12 @@
 
 Avro 在流式数据处理管道中非常流行。现在seatunnel在kafka连接器中支持Avro格式
 
+:::note 不支持 Confluent Schema Registry
+
+该格式直接使用你配置的 `schema` 解码原始 Avro 二进制数据，不会与 schema registry 交互。经过 Confluent Schema Registry 序列化的消息，会在 Avro 数据前带有 5 字节的线上格式头（1 字节 magic byte + 4 字节 schema ID），该格式不会剥离这部分头信息，因此无法直接读取 registry 生成的消息。如果需要消费 Confluent 风格的 Avro 数据，可以自行实现一个在解码前剥离头信息的反序列化 schema，或者改用不添加 registry 头的生产者写入普通 Avro 数据。Protobuf 格式提供了类似的 [`strip_schema_registry_header`](../source/Kafka.md) 选项；Avro 目前还没有对应的选项。
+
+:::
+
 # 怎样用
 
 ## Kafka 使用示例
