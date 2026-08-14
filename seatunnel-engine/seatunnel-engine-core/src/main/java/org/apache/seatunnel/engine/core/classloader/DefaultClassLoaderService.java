@@ -36,8 +36,8 @@ import java.lang.reflect.Method;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.net.URLConnection;
-import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -63,22 +63,41 @@ public class DefaultClassLoaderService implements ClassLoaderService {
         // Read once into an instance field so each service instance carries its own deep-clean
         // state. The previous static-flag-with-unconditional-set design let a second instance
         // silently flip the first instance's behavior; an instance field removes that hazard.
-        this.deepCleanEnabled =
-                Boolean.parseBoolean(System.getProperty(ENABLE_DEEP_CLEAN, "false"));
+        this.deepCleanEnabled = readDeepCleanEnabled();
         classLoaderCache = new ConcurrentHashMap<>();
         classLoaderReferenceCount = new ConcurrentHashMap<>();
         // Default path: never touch URLConnection cache defaults. Only opt-in deep-clean
         // instances perform the JAR cache disable, which preserves prior default behavior.
         if (deepCleanEnabled) {
             disableJarUrlCache();
-            log.info("Deep clean mode enabled (requires --add-opens JVM options)");
+            log.info("Deep clean mode enabled");
         }
         log.info("start classloader service{}", cacheMode ? " with cache mode" : "");
     }
 
+    // Accepts both a system property (-D...) and an environment variable of the same name;
+    // the property wins when both are present. Accepting the env form prevents silent no-ops
+    // for operators who export the flag instead of using -D (the sibling SKIP_CHECK_JAR
+    // constant is env-only, which is easy to confuse with this property).
+    private static boolean readDeepCleanEnabled() {
+        return resolveDeepCleanEnabled(
+                System.getProperty(ENABLE_DEEP_CLEAN),
+                System.getenv().getOrDefault(ENABLE_DEEP_CLEAN, "false"));
+    }
+
+    @VisibleForTesting
+    static boolean resolveDeepCleanEnabled(String propertyValue, String envValue) {
+        if (propertyValue != null) {
+            return Boolean.parseBoolean(propertyValue);
+        }
+        return Boolean.parseBoolean(envValue == null ? "false" : envValue);
+    }
+
     private void disableJarUrlCache() {
         // URLConnection.setDefaultUseCaches is JVM-global and idempotent; the CAS guard makes
-        // it run at most once per JVM regardless of how many deep-clean services are constructed.
+        // the disable attempt run at most once per JVM regardless of how many deep-clean
+        // services are constructed. If the disable itself fails (caught below), the flag stays
+        // set so no later construction retries — the WARN log is the only signal of that outcome.
         if (!JAR_CACHE_DISABLED.compareAndSet(false, true)) {
             return;
         }
@@ -288,10 +307,12 @@ public class DefaultClassLoaderService implements ClassLoaderService {
         // can be safely moved outside the flag as the default behavior.
         if (deepCleanEnabled) {
             closeUrlClassLoader(classLoader);
-            clearUrlClassPathCache(classLoader);
-
-            // Success execution -> Elevated to INFO
-            log.info("Deep clean for ClassLoader completed successfully.");
+            boolean cacheCleared = clearUrlClassPathCache(classLoader);
+            if (cacheCleared) {
+                log.info("Deep clean for ClassLoader completed successfully.");
+            } else {
+                log.info("Deep clean for ClassLoader completed with degraded cache cleanup.");
+            }
         }
     }
 
@@ -305,8 +326,6 @@ public class DefaultClassLoaderService implements ClassLoaderService {
                         "Failed to close URLClassLoader: {}, error: {}",
                         classLoader,
                         e.getMessage());
-            } catch (NoSuchMethodError e) {
-                log.debug("URLClassLoader.close() not available (Java < 7)");
             }
         }
     }
@@ -320,13 +339,14 @@ public class DefaultClassLoaderService implements ClassLoaderService {
         }
     }
 
-    private void clearUrlClassPathCache(ClassLoader classLoader) {
+    private boolean clearUrlClassPathCache(ClassLoader classLoader) {
         if (!(classLoader instanceof URLClassLoader)) {
-            return;
+            return false;
         }
         try {
             clearUrlClassPathCacheReflectively((URLClassLoader) classLoader);
             log.info("Cleared URLClassPath cache for: {}", classLoader);
+            return true;
         } catch (Exception e) {
             // Configuration/Initialization errors -> Elevated to WARN
             // URLClassPath lives in jdk.internal.loader (not java.net) on JDK 9+, so both
@@ -340,6 +360,7 @@ public class DefaultClassLoaderService implements ClassLoaderService {
                             + "  --add-opens java.base/java.net=ALL-UNNAMED\n"
                             + "  --add-opens java.base/jdk.internal.loader=ALL-UNNAMED",
                     e);
+            return false;
         }
     }
 
@@ -365,8 +386,10 @@ public class DefaultClassLoaderService implements ClassLoaderService {
         Field loadersField = ucp.getClass().getDeclaredField("loaders");
         loadersField.setAccessible(true);
         Object loaders = loadersField.get(ucp);
-        if (loaders instanceof ArrayList) {
-            ArrayList<?> loadersList = (ArrayList<?>) loaders;
+        // JDK 9+ uses an ArrayList while JDK 8 uses a Vector; matching against List covers both
+        // so the stale JarFile cleanup also runs on JDK 8 instead of being silently skipped.
+        if (loaders instanceof List) {
+            List<?> loadersList = (List<?>) loaders;
             for (Object loader : loadersList) {
                 closeJarLoader(loader);
             }

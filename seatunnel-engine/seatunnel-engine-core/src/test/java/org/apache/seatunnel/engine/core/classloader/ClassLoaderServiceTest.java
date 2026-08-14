@@ -220,6 +220,17 @@ public class ClassLoaderServiceTest extends AbstractClassLoaderServiceTest {
     }
 
     @Test
+    void testDeepCleanEnabledResolution() {
+        // property wins over env
+        Assertions.assertTrue(DefaultClassLoaderService.resolveDeepCleanEnabled("true", "false"));
+        // env is used when property is absent
+        Assertions.assertTrue(DefaultClassLoaderService.resolveDeepCleanEnabled(null, "true"));
+        // neither present -> false
+        Assertions.assertFalse(DefaultClassLoaderService.resolveDeepCleanEnabled(null, null));
+        Assertions.assertFalse(DefaultClassLoaderService.resolveDeepCleanEnabled(null, "false"));
+    }
+
+    @Test
     void testDeepCleanModeEnabled() throws IOException {
         File tempJar = File.createTempFile("test", ".jar");
         URL jarUrl = tempJar.toURI().toURL();
