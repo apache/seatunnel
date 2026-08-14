@@ -1202,6 +1202,16 @@ public class CoordinatorService {
                     "Coordinator service shutdown interrupted while waiting executorService termination, continue cleanup.");
         }
 
+        // The finished-job IMaps are cluster-wide, so the expiration listeners registered by the
+        // current JobHistoryService are not released automatically when this node leaves the
+        // active master role. Deregister them here, otherwise repeated master role switches
+        // accumulate stale listeners that keep old service instances reachable and duplicate
+        // finished-job expiration side effects. The instance itself is kept because read paths
+        // may still use it until a new active master creates a fresh one.
+        if (jobHistoryService != null) {
+            jobHistoryService.close();
+        }
+
         ResourceManager manager = resourceManager;
         resourceManager = null;
         if (manager != null) {
