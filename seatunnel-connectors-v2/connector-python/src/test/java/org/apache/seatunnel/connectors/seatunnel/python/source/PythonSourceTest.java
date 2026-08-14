@@ -283,7 +283,9 @@ class PythonSourceTest {
         Map<String, Object> config = baseConfig(pythonExecutable, scriptPath.toString());
         Map<String, Object> scriptConfig = new HashMap<>();
         scriptConfig.put("prefix", "seatunnel");
-        scriptConfig.put("sleep_seconds", 5);
+        // Sleep comfortably longer than the poll budget below so a slow interpreter cold start
+        // cannot make the process exit before the assertion window closes and mask a real block.
+        scriptConfig.put("sleep_seconds", 10);
         config.put(PythonSourceOptions.PYTHON_SCRIPT_CONFIG.key(), scriptConfig);
 
         PythonSource source = new PythonSource(ReadonlyConfig.fromMap(config));
@@ -292,7 +294,7 @@ class PythonSourceTest {
 
         reader.open();
         try {
-            long deadlineNanos = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
+            long deadlineNanos = System.nanoTime() + TimeUnit.SECONDS.toNanos(6);
             while (collector.rows.isEmpty() && System.nanoTime() < deadlineNanos) {
                 reader.pollNext(collector);
             }
@@ -626,22 +628,25 @@ class PythonSourceTest {
     }
 
     /**
-     * Periodic child output must not renew the post-exit stdout drain deadline.
+     * A full stdout queue during the post-exit grace period must not renew the drain deadline.
      *
-     * <p>This cannot be exercised with a real grandchild process that keeps writing on a timer:
-     * verified independently of SeaTunnel (bare {@code java.lang.ProcessBuilder}, no connector code
-     * involved) that on this JDK a grandchild's write to stdout it inherited from an already-exited
-     * direct child reliably fails with {@code BrokenPipeError}/{@code SIGPIPE} roughly 100-150ms
-     * after the direct child exits — before a script sleeping between writes (as the property being
-     * tested requires, to span multiple poll cycles) can produce its second line. That failure
-     * window is a JDK/OS pipe-lifetime characteristic, not something either the reader or a test
-     * script can control, and pulling every write inside it would trade this flake for a narrower
-     * and less reproducible one. Injecting a line directly into the reader's internal queue
-     * exercises the exact branch {@link PythonSourceReader#pollNext} takes when new data arrives
-     * during the grace period, deterministically and without that dependency.
+     * <p>This is the scenario a chatty inherited-stdout descendant creates: {@code
+     * stdoutLines.remainingCapacity() == 0} when {@link PythonSourceReader#pollNext} starts. It
+     * cannot be exercised with a real grandchild process that writes fast enough to saturate the
+     * queue: verified independently of SeaTunnel (bare {@code java.lang.ProcessBuilder}, no
+     * connector code involved) that on this JDK a grandchild's write to stdout it inherited from an
+     * already-exited direct child reliably fails with {@code BrokenPipeError}/{@code SIGPIPE}
+     * roughly 100-150ms after the direct child exits — not enough time to reliably fill a 256-entry
+     * queue on a loaded CI runner. That failure window is a JDK/OS pipe-lifetime characteristic,
+     * not something either the reader or a test script can control, and racing every write inside
+     * it would trade this flake for a narrower and less reproducible one. Filling the reader's
+     * internal queue directly to capacity exercises the exact branch deterministically and without
+     * that dependency. Eventual rejection of a child that never releases stdout is already covered
+     * by {@link #testReaderFailsWhenChildKeepsStdoutOpen()} using the same fixture script, so this
+     * test only needs to isolate the deadline-renewal defect itself.
      */
     @Test
-    void testPeriodicChildOutputCannotRenewInheritedStdoutDeadline() throws Exception {
+    void testFullStdoutQueueDuringGracePeriodCannotRenewDeadline() throws Exception {
         String pythonExecutable = requirePythonExecutable();
         Path scriptPath = copyResource("python/spawn_stdout_child_then_exit.py");
         SingleSplitReaderContext readerContext = Mockito.mock(SingleSplitReaderContext.class);
@@ -665,19 +670,14 @@ class PythonSourceTest {
             Assertions.assertNotEquals(
                     0L, deadlineAfterArm, "poll did not enter inherited stdout wait");
 
-            offerStdoutLine(reader, "2,python_child_0");
+            fillStdoutQueueToCapacity(reader);
             reader.pollNext(collector);
             Assertions.assertFalse(
-                    collector.rows.isEmpty(), "injected line should have been emitted");
+                    collector.rows.isEmpty(), "buffered filler rows should have been emitted");
             Assertions.assertEquals(
                     deadlineAfterArm,
                     getStdoutCloseDeadline(reader),
-                    "new stdout data during the grace period must not renew the deadline");
-
-            IOException exception =
-                    Assertions.assertTimeoutPreemptively(
-                            Duration.ofSeconds(8), () -> pollUntilIOException(reader, collector));
-            Assertions.assertTrue(exception.getMessage().contains("child processes"));
+                    "a full stdout queue during the grace period must not renew the deadline");
         } finally {
             reader.close();
         }
@@ -826,13 +826,20 @@ class PythonSourceTest {
         return null;
     }
 
-    /** Injects a line directly into the reader's internal stdout queue, bypassing the process. */
+    /**
+     * Fills the reader's internal stdout queue to capacity, bypassing the process, so the next poll
+     * deterministically observes {@code stdoutLines.remainingCapacity() == 0} without depending on
+     * a real process's output rate.
+     */
     @SuppressWarnings("unchecked")
-    private void offerStdoutLine(PythonSourceReader reader, String line) throws Exception {
+    private void fillStdoutQueueToCapacity(PythonSourceReader reader) throws Exception {
         Field stdoutLinesField = PythonSourceReader.class.getDeclaredField("stdoutLines");
         stdoutLinesField.setAccessible(true);
         BlockingQueue<String> stdoutQueue = (BlockingQueue<String>) stdoutLinesField.get(reader);
-        Assertions.assertTrue(stdoutQueue.offer(line), "stdout queue rejected injected line");
+        while (stdoutQueue.offer("999,filler")) {
+            // Keep offering synthetic rows until the bounded queue reports no remaining capacity.
+        }
+        Assertions.assertEquals(0, stdoutQueue.remainingCapacity(), "stdout queue did not fill");
     }
 
     /** Waits until the producer is deterministically backpressured by the bounded stdout queue. */

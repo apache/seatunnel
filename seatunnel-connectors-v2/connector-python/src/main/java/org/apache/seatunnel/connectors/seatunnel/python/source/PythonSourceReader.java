@@ -184,7 +184,6 @@ public class PythonSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> 
         try {
             checkPumpFailures();
 
-            boolean stdoutQueueWasFull = stdoutLines.remainingCapacity() == 0;
             String firstLine = stdoutLines.poll(STDOUT_POLL_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS);
             if (closeRequested) {
                 return;
@@ -212,9 +211,6 @@ public class PythonSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> 
                 }
             }
 
-            if (stdoutQueueWasFull) {
-                stdoutCloseDeadlineNanos = 0L;
-            }
             if (!closeRequested) {
                 finishIfProcessCompleted();
             }
@@ -361,6 +357,16 @@ public class PythonSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> 
                             + " seconds while writing python.script.config; ensure the Python script reads its first stdin line");
         }
         if (stdinWriterFailure != null) {
+            if (!process.isAlive()) {
+                // A closed stdin pipe surfaces here as a generic write IOException (e.g. "Broken
+                // pipe"), but the actual contract violation is that the script exited without
+                // reading python.script.config; report that instead of the write symptom.
+                throw new IOException(
+                        "Python script exited before reading its first stdin line;"
+                                + " python.script.config could not be delivered"
+                                + formatRecentStderr(),
+                        stdinWriterFailure);
+            }
             throw new IOException("Failed to write python.script.config", stdinWriterFailure);
         }
     }
@@ -696,8 +702,18 @@ public class PythonSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> 
                 return new IOException("Interrupted while closing python source " + threadName, e);
             }
         }
-        if (failOnTimeout && thread.isAlive() && closeException == null) {
-            return new IOException("Timed out while closing python source " + threadName);
+        if (thread.isAlive()) {
+            if (failOnTimeout && closeException == null) {
+                return new IOException("Timed out while closing python source " + threadName);
+            }
+            // Not surfaced as a close failure (failOnTimeout=false, or an earlier join already
+            // produced closeException), but the thread outliving its bounded join is otherwise
+            // invisible: log it so a leaked thread or inherited descendant is observable.
+            LOG.warn(
+                    "Python source {} thread did not finish within {}ms while closing; it may keep"
+                            + " running along with any descendant process it holds open",
+                    threadName,
+                    timeoutMillis);
         }
         return closeException;
     }
@@ -770,6 +786,12 @@ public class PythonSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> 
             streamCloser.join(timeoutMillis);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+        }
+        if (streamCloser.isAlive()) {
+            LOG.warn(
+                    "Python source stream closer did not finish within {}ms; process stream"
+                            + " handles may remain open until it completes or the JVM exits",
+                    timeoutMillis);
         }
     }
 
