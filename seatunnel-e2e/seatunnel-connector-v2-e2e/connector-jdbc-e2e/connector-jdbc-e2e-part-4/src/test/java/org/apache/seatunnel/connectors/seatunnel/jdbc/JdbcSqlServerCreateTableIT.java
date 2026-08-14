@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
-
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
@@ -145,6 +143,9 @@ public class JdbcSqlServerCreateTableIT extends TestSuiteBase implements TestRes
 
     private MSSQLServerContainer<?> sqlserver_container;
     private MySQLContainer<?> mysql_container;
+    private JdbcUrlUtil.UrlInfo sqlParse;
+    private JdbcUrlUtil.UrlInfo mysqlUrlInfo;
+    private JdbcUrlUtil.UrlInfo pg;
 
     private static final String mysqlCheck =
             "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema = 'auto' AND table_name = 'sqlserver_auto_create_mysql') AS table_exists";
@@ -168,12 +169,6 @@ public class JdbcSqlServerCreateTableIT extends TestSuiteBase implements TestRes
     String driverSqlserverUrl() {
         return "https://repo1.maven.org/maven2/com/microsoft/sqlserver/mssql-jdbc/9.4.1.jre8/mssql-jdbc-9.4.1.jre8.jar";
     }
-
-    static JdbcUrlUtil.UrlInfo sqlParse =
-            SqlServerURLParser.parse("jdbc:sqlserver://localhost:1433;database=testauto");
-    static JdbcUrlUtil.UrlInfo MysqlUrlInfo =
-            JdbcUrlUtil.getUrlInfo("jdbc:mysql://localhost:3306/auto?useSSL=false");
-    static JdbcUrlUtil.UrlInfo pg = JdbcUrlUtil.getUrlInfo("jdbc:postgresql://localhost:5432/pg");
 
     @TestContainerExtension
     private final ContainerExtendedFactory extendedSqlServerFactory =
@@ -209,11 +204,6 @@ public class JdbcSqlServerCreateTableIT extends TestSuiteBase implements TestRes
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(SQLSERVER_IMAGE)));
 
-        sqlserver_container.setPortBindings(
-                Lists.newArrayList(
-                        String.format(
-                                "%s:%s", SQLSERVER_CONTAINER_PORT, SQLSERVER_CONTAINER_PORT)));
-
         try {
             Class.forName(sqlserver_container.getDriverClassName());
         } catch (ClassNotFoundException e) {
@@ -236,9 +226,6 @@ public class JdbcSqlServerCreateTableIT extends TestSuiteBase implements TestRes
                         .withCommand("postgres -c max_prepared_transactions=100")
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(PG_IMAGE)));
-        POSTGRESQL_CONTAINER.setPortBindings(
-                Lists.newArrayList(String.format("%s:%s", 5432, 5432)));
-
         log.info("PostgreSQL container started");
         Class.forName(POSTGRESQL_CONTAINER.getDriverClassName());
 
@@ -256,11 +243,16 @@ public class JdbcSqlServerCreateTableIT extends TestSuiteBase implements TestRes
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(MYSQL_IMAGE)));
 
-        mysql_container.setPortBindings(
-                Lists.newArrayList(String.format("%s:%s", MYSQL_PORT, MYSQL_PORT)));
-
         Startables.deepStart(Stream.of(POSTGRESQL_CONTAINER, sqlserver_container, mysql_container))
                 .join();
+        sqlParse =
+                SqlServerURLParser.parse(
+                        String.format(
+                                "jdbc:sqlserver://%s:%s;database=testauto",
+                                sqlserver_container.getHost(),
+                                sqlserver_container.getMappedPort(SQLSERVER_CONTAINER_PORT)));
+        mysqlUrlInfo = JdbcUrlUtil.getUrlInfo(mysql_container.getJdbcUrl());
+        pg = JdbcUrlUtil.getUrlInfo(POSTGRESQL_CONTAINER.getJdbcUrl());
 
         log.info(" container is up ");
     }
@@ -283,7 +275,7 @@ public class JdbcSqlServerCreateTableIT extends TestSuiteBase implements TestRes
 
         SqlServerCatalog sqlServerCatalog =
                 new SqlServerCatalog("sqlserver", "sa", password, sqlParse, "dbo", null);
-        MySqlCatalog mySqlCatalog = new MySqlCatalog("mysql", "root", PASSWORD, MysqlUrlInfo, null);
+        MySqlCatalog mySqlCatalog = new MySqlCatalog("mysql", "root", PASSWORD, mysqlUrlInfo, null);
         PostgresCatalog postgresCatalog =
                 new PostgresCatalog("postgres", "testUser", PASSWORD, pg, "public", null);
 

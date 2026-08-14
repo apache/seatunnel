@@ -83,6 +83,8 @@ It only supports hadoop version **2.9.X+**.
 | schema                     | config  | no       | -                   | [Tips](#schema)                                                                                                                                                                      |
 | common-options             |         | no       | -                   | [Tips](#common_options)                                                                                                                                                              |
 | sheet_name                 | string  | no       | -                   | Reader the sheet of the workbook,Only used when file_format is excel.                                                                                                                |
+| excel_engine               | string  | no       | POI                 | Only used when `file_format` is excel. Supported engines are `POI` and `EasyExcel`.                                                                                                                                                                |
+| poi_excel_max_file_size    | long    | no       | 52428800            | Only used when `file_format` is excel and `excel_engine` is POI. The maximum Excel file size in bytes that the POI engine can read (default 50 MB).                                                                                                |
 | file_filter_modified_start | string  | no       | -                   | File modification time filter. The connector will filter some files base on the last modification start time (include start time). The default data format is `yyyy-MM-dd HH:mm:ss`. |
 | file_filter_modified_end   | string  | no       | -                   | File modification time filter. The connector will filter some files base on the last modification end time (not include end time). The default data format is `yyyy-MM-dd HH:mm:ss`. |
 | quote_char                 | string  | no       | "                   | A single character that encloses CSV fields, allowing fields with commas, line breaks, or quotes to be read correctly.                                                               |
@@ -236,7 +238,7 @@ schema {
 > - `parent_id`: ID of the parent element
 > - `child_ids`: Comma-separated list of child element IDs
 >
-> When `markdown_rag_metadata_enabled` is set to `true`, SeaTunnel appends the following RAG metadata fields after `child_ids`:
+> When either `markdown_rag_metadata_enabled` or `pdf_rag_metadata_enabled` is set to `true`, SeaTunnel appends the following RAG metadata fields after `child_ids` for the corresponding file type:
 > - `source_uri`: Source file path or URI
 > - `document_id`: Stable document identifier derived from `source_uri`
 > - `chunk_id`: Stable chunk identifier derived from document identity, chunk order, and content hash
@@ -251,6 +253,7 @@ schema {
 >
 > If you assign file type to `pdf`, SeaTunnel can parse PDF files and extract structured document elements.
 > PDF uses the same document-element row schema described above.
+> For PDF input, enable `pdf_rag_metadata_enabled` to append the RAG metadata fields described above.
 >
 > The main PDF-specific behaviors are:
 >
@@ -397,6 +400,28 @@ schema {
   }
 
 ```
+
+### Reading with Temporary Security Credentials (OBS STS)
+
+For production jobs that need scoped, short-lived access, generate temporary AK/SK via [OBS STS](https://support.huaweicloud.com/intl/en-us/api-obs/obs_04_0081.html) and pass them through `hadoop_obs_properties`. The temporary credentials can carry a fine-grained custom policy that limits access to a specific bucket prefix.
+
+```hocon
+source {
+  ObsFile {
+    path = "/staging/prefix"
+    bucket = "obs://target-bucket"
+    endpoint = "obs.ap-southeast-1.myhuaweicloud.com"
+    hadoop_obs_properties = {
+      "fs.obs.access.key"    = "<temp-access-key>"
+      "fs.obs.secret.key"    = "<temp-secret-key>"
+      "fs.obs.session.token" = "<temp-security-token>"
+    }
+    file_format_type = "parquet"
+  }
+}
+```
+
+The provider jar must be on the runtime classpath of every node (`${SEATUNNEL_HOME}/lib`). Avoid long-lived AK/SK in job files; prefer STS-issued temporary credentials or an ECS Agency when running inside Huawei Cloud.
 
 ## Changelog
 

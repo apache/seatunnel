@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-datahub.md';
 
 > DataHub sink connector
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Description
 
 The DataHub sink writes SeaTunnel rows to Alibaba Cloud DataHub.
@@ -25,7 +31,7 @@ Create the DataHub project and topic before running the SeaTunnel job. The
 DataHub topic schema must contain fields with the same names as the upstream
 SeaTunnel schema fields, because the sink writes values by field name.
 
-## Options
+## Sink Options
 
 | name           | type   | required | default value | description |
 |----------------|--------|----------|---------------|-------------|
@@ -36,7 +42,7 @@ SeaTunnel schema fields, because the sink writes values by field name.
 | topic          | string | yes      | -             | DataHub topic name. Supports placeholders in multi-table jobs. |
 | timeout        | int    | no       | 3000          | Maximum client connection timeout in milliseconds. |
 | retryTimes     | int    | no       | 3             | Maximum retry count when writing a record fails. |
-| common-options | config | no       | -             | Sink plugin common options. |
+| common-options | config | no       | -             | Sink plugin common options. See [Sink Common Options](../common-options/sink-common-options.md). |
 
 ### endpoint [string]
 
@@ -57,7 +63,7 @@ The DataHub project name.
 ### topic [string]
 
 The DataHub topic name. For multi-table writes, this value can contain
-placeholders, for example `${table}`. `${table_name}` is only kept as a
+placeholders such as `${table}`. `${table_name}` is only kept as a
 deprecated compatibility alias; use `${table}` for new jobs.
 
 The SeaTunnel field names must match the DataHub topic fields, because the sink
@@ -78,9 +84,11 @@ Sink plugin common parameters, please refer to
 For multi-table writes, `multi_table_sink_replica` can be used with the common
 sink options.
 
-## Examples
+## Task Example
 
-### Write one table to one topic
+### Write One Table to One Topic
+
+A simple batch job that writes records from a fake source to a single DataHub topic.
 
 ```hocon
 env {
@@ -113,7 +121,10 @@ sink {
 }
 ```
 
-### Write multiple input tables to matching topics
+### Write Multiple Input Tables to Matching Topics
+
+When the upstream source provides multiple tables, configure `topic` with the
+`${table}` placeholder so each input table is routed to a topic with the same name.
 
 ```hocon
 env {

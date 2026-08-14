@@ -115,6 +115,12 @@
     - **已存在的 Iceberg 表**（Glue/Hive 元数据中已有 `identifier-field-ids`）在运行时不受影响；
       只有 sink 新建的表会改变行为。
 
+- **破坏性变更：File 源连接器拒绝大于 `poi_excel_max_file_size`（默认 50 MB）的 POI 引擎 Excel 文件**
+  - **影响范围**：`seatunnel-connectors-v2/connector-file`（LocalFile、HdfsFile、S3File、FtpFile、SftpFile、OssFile、OssJindoFile、ObsFile、CosFile）
+  - **变更说明**：Apache POI 在读取任何行之前会将整个 Excel 工作簿完全加载到内存，对于较大的 `.xls`/`.xlsx` 文件可能导致 Zeta worker 严重 GC 压力甚至 OOM。新增 `poi_excel_max_file_size` 选项（默认 50 MB），POI 在构建工作簿之前会拒绝超过该限制的 Excel 文件。该校验同时覆盖普通 Excel 文件和归档（ZIP/TAR/TAR_GZ/GZ）中的 Excel 条目，且仅在 `excel_engine = POI`（默认值）时生效；流式读取的 `excel_engine = EasyExcel` 路径不受此限制。
+  - **影响**：此前以 POI 引擎读取大于 50 MB Excel 文件的任务（虽然成功但伴随严重内存压力）现在会以 `FileConnectorException` 快速失败，而不再可能导致 worker OOM。
+  - **迁移指南**：对于必须读取大 Excel 文件且 worker 内存充足的 POI 任务，可通过 `poi_excel_max_file_size = <字节数>` 调高限制；否则切换为 `excel_engine = EasyExcel`，该引擎惰性流式读取行，不受此限制约束。
+
 ### 转换变更
 
 - **[BREAKING]** SQL Transform 的 `PARSEDATETIME`、`TO_DATE` 和 `IS_DATE` 函数现在只接受白名单中的日期时间格式模式。以前接受的自定义格式模式现在将在运行时失败。支持的模式有：
@@ -138,6 +144,24 @@
   | `DynamicCompile` | `compile_pattern = ABSOLUTE_PATH` 但 `absolute_path` 为空 | 运行时文件读取失败 | 使用 `ABSOLUTE_PATH` 模式时提供 `absolute_path` |
 
   **迁移指南**：升级前请对照上表检查您的转换配置。如果现有配置匹配了"新增拒绝的配置"中的情况，请在升级前修改。提交时的错误消息会清楚标明哪个选项无效及原因。
+- **[BREAKING]** SQL 转换的 `CEIL` / `CEILING`、`FLOOR` 与 `TRUNC` / `TRUNCATE` 现在返回与参数相同的数据类型，
+  这与文档中一直声明的行为一致。此前无论输入类型如何，`CEIL` 和 `FLOOR` 都声明为 `INT`、`TRUNC` 声明为 `DOUBLE`，
+  从而静默产生错误的值：
+
+  | 表达式 | 输入 | 以前的结果 | 现在的结果 |
+  |-------|------|-----------|-----------|
+  | `CEIL(bigint_col)` | `9007199254740993` | `1` | `9007199254740993` |
+  | `FLOOR(double_col)` | `1.0E18` | `2147483647` | `1.0E18` |
+  | `TRUNC(bigint_col)` | `9007199254740993` | 声明为 `DOUBLE`，实际返回 `Long` | `9007199254740993` |
+
+  **迁移指南**：如果下游 Sink 的列是按旧的 `INT` / `DOUBLE` 输出类型创建的，请将其放宽为与源列一致的类型
+  （例如 `CEIL(bigint_col)` 对应 `BIGINT`），或使用显式的 `CAST(... AS INT)` 保持原有 schema。
+  对 `INT` 列的表达式不受影响。
+- **[BREAKING]** SQL 转换的 `ROUND`、`TRUNC` / `TRUNCATE` 和 `MOD` 不再将参数经由 `double` 中转，
+  因此 `DECIMAL` 和大 `BIGINT` 值可以保留完整精度。例如
+  `ROUND(CAST('12345678901234567890.987654321' AS DECIMAL(38,9)), 2)` 以前返回
+  `12345678901234567000.00`，现在返回 `12345678901234567890.99`；`MOD(9007199254740993, 2)` 以前返回 `0`，
+  现在返回 `1`。依赖旧的精度丢失结果的作业，其输出会发生变化（现在是正确的）。
 
 ### 引擎行为变更
 

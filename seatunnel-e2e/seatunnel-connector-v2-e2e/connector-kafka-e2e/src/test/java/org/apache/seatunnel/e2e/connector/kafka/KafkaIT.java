@@ -2141,6 +2141,15 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                                                 sourceDataRestore)));
     }
 
+    /**
+     * Regression guard for issue #11534: under EXACTLY_ONCE semantics a checkpoint could capture
+     * the transaction state before the first record's asynchronous send had registered its
+     * partitions with the broker, causing the committer to skip EndTxn and drop that record
+     * permanently. The checkData assertion below fails on both a lost record (matched &lt; 10) and
+     * a duplicate (matched &gt; 10), so it exercises the exactly-once guarantee in both directions
+     * once the send is flushed before the transaction state is captured in
+     * KafkaTransactionSender#prepareCommit.
+     */
     @TestTemplate
     @DisabledOnContainer(
             type = EngineType.SPARK,

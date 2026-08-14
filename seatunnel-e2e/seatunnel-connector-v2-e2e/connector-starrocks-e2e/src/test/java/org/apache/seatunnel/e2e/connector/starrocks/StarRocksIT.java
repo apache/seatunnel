@@ -19,7 +19,6 @@ package org.apache.seatunnel.e2e.connector.starrocks;
 
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
@@ -74,11 +73,10 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
     private static final String DRIVER_CLASS = "com.mysql.cj.jdbc.Driver";
     private static final String HOST = "starrocks_e2e";
     private static final int SR_DOCKER_PORT = 9030;
-    private static final int SR_PORT = 9033;
     private static final String USERNAME = "root";
     private static final String PASSWORD = "";
     private static final String DATABASE = "test";
-    private static final String URL = "jdbc:mysql://%s:" + SR_PORT;
+    private static final String URL = "jdbc:mysql://%s:%s";
     private static final String SOURCE_TABLE = "e2e_table_source";
     private static final String SOURCE_TABLE_3 = "e2e_table_source_3";
     private static final String SINK_TABLE = "e2e_table_sink";
@@ -269,9 +267,8 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
                 new GenericContainer<>(DOCKER_IMAGE)
                         .withNetwork(NETWORK)
                         .withNetworkAliases(HOST)
+                        .withExposedPorts(SR_DOCKER_PORT)
                         .withLogConsumer(new Slf4jLogConsumer(log));
-        starRocksServer.setPortBindings(
-                Lists.newArrayList(String.format("%s:%s", SR_PORT, SR_DOCKER_PORT)));
         Startables.deepStart(Stream.of(starRocksServer)).join();
         log.info("StarRocks container started");
         // wait for starrocks fully start
@@ -422,7 +419,12 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
         Class.forName(DRIVER_CLASS);
         jdbcConnection =
                 DriverManager.getConnection(
-                        String.format(URL, starRocksServer.getHost()), USERNAME, PASSWORD);
+                        String.format(
+                                URL,
+                                starRocksServer.getHost(),
+                                starRocksServer.getMappedPort(SR_DOCKER_PORT)),
+                        USERNAME,
+                        PASSWORD);
     }
 
     private void initializeJdbcTable() {
@@ -571,7 +573,10 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
                         "StarRocks",
                         "root",
                         PASSWORD,
-                        String.format(URL, starRocksServer.getHost()),
+                        String.format(
+                                URL,
+                                starRocksServer.getHost(),
+                                starRocksServer.getMappedPort(SR_DOCKER_PORT)),
                         "CREATE TABLE IF NOT EXISTS `${database}`.`${table}` (\n ${rowtype_fields}\n ) ENGINE=OLAP \n  DUPLICATE KEY(`BIGINT_COL`) \n COMMENT '${comment}' \n DISTRIBUTED BY HASH (BIGINT_COL) BUCKETS 1 \n PROPERTIES (\n   \"replication_num\" = \"1\", \n  \"in_memory\" = \"false\" , \n  \"storage_format\" = \"DEFAULT\"  \n )");
         starRocksCatalog.open();
 
