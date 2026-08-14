@@ -51,6 +51,8 @@ hive-exec-xxx.jar
 libfb303-xxx.jar
 ```
 
+> 如果您将 Paimon warehouse 部署在 OSS 文件系统上，请在启动引擎前将所需的 Jindo SDK 依赖以及与当前 Paimon 版本匹配的 OSS 文件系统 Jar 放到 `${SEATUNNEL_HOME}/lib`。Jindo 运行时准备方式可以参考 [OSS Jindo 文件连接器文档](./OssJindoFile.md)。
+
 > 有些版本的hive-exec包没有libfb303-xxx.jar，所以您还需要手动导入Jar包。
 
 ## 主要特性
@@ -131,9 +133,11 @@ Paimon表的changelog产生模式有[四种](https://paimon.apache.org/docs/mast
 > 当你使用流模式去读paimon表的数据时，不同模式将会产生[不同的结果](../source/Paimon.md#changelog)。
 
 ## 文件系统
-Paimon连接器支持向多文件系统写入数据。目前支持的文件系统有hdfs和s3。
-如果您使用s3文件系统。您可以配置`fs.s3a.access-key `， `fs.s3a.secret-key`， `fs.s3a.endpoint`， `fs.s3a.path.style.access`， `fs.s3a.aws.credentials`。在`paimon.hadoop.conf`选项中设置提供程序的属性。
-除此之外，warehouse应该以`s3a://`开头。
+Paimon连接器支持向多文件系统写入数据。目前支持的文件系统有 hdfs、s3 和 oss。
+- 如果您使用 s3 文件系统，请在 `paimon.hadoop.conf` 中配置 `fs.s3a.access-key`、`fs.s3a.secret-key`、`fs.s3a.endpoint`、`fs.s3a.path.style.access`、`fs.s3a.aws.credentials.provider` 等属性。
+- 如果您使用 oss 文件系统，请在 `paimon.hadoop.conf` 中配置所需的 `fs.oss.*` Hadoop 属性，并确保对应的 OSS/Jindo 运行时 Jar 已放入 `${SEATUNNEL_HOME}/lib`。
+
+除此之外，warehouse 应该以 `s3a://` 或 `oss://` 开头。
 
 ## 模式演变
 Cdc采集支持有限数量的模式更改。目前支持的模式更改包括：

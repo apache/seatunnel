@@ -49,6 +49,7 @@ public class PaimonCatalogLoader implements Serializable {
 
     private static final String HDFS_PREFIX = "hdfs://";
     private static final String S3A_PREFIX = "s3a://";
+    private static final String OSS_PREFIX = "oss://";
     /** ******* Hdfs constants ************* */
     private static final String HDFS_IMPL = "org.apache.hadoop.hdfs.DistributedFileSystem";
 
@@ -73,9 +74,7 @@ public class PaimonCatalogLoader implements Serializable {
         this.password = paimonConfig.getPassword();
     }
 
-    public Catalog loadCatalog() {
-        // When using the seatunnel engine, set the current class loader to prevent loading failures
-        Thread.currentThread().setContextClassLoader(PaimonCatalogLoader.class.getClassLoader());
+    Map<String, String> buildCatalogOptions() {
         final Map<String, String> optionsMap = new HashMap<>(1);
         optionsMap.put(CatalogOptions.WAREHOUSE.key(), warehouse);
         optionsMap.put(CatalogOptions.METASTORE.key(), catalogType.getType());
@@ -90,14 +89,20 @@ public class PaimonCatalogLoader implements Serializable {
             if (StringUtils.isNotBlank(username)) {
                 UserGroupInformation.setLoginUser(UserGroupInformation.createRemoteUser(username));
             }
-        } else if (warehouse.startsWith(S3A_PREFIX)) {
+        } else if (warehouse.startsWith(S3A_PREFIX) || warehouse.startsWith(OSS_PREFIX)) {
             optionsMap.putAll(paimonHadoopConfiguration.getPropsWithPrefix(StringUtils.EMPTY));
         }
         if (PaimonCatalogEnum.HIVE.getType().equals(catalogType.getType())) {
             optionsMap.put(CatalogOptions.URI.key(), catalogUri);
             optionsMap.putAll(paimonHadoopConfiguration.getPropsWithPrefix(StringUtils.EMPTY));
         }
-        final Options options = Options.fromMap(optionsMap);
+        return optionsMap;
+    }
+
+    public Catalog loadCatalog() {
+        // When using the seatunnel engine, set the current class loader to prevent loading failures
+        Thread.currentThread().setContextClassLoader(PaimonCatalogLoader.class.getClassLoader());
+        final Options options = Options.fromMap(buildCatalogOptions());
         PaimonSecurityContext.shouldEnableKerberos(paimonHadoopConfiguration);
         final CatalogContext catalogContext =
                 CatalogContext.create(options, paimonHadoopConfiguration);

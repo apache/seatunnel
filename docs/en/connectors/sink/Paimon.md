@@ -51,6 +51,8 @@ hive-exec-xxx.jar
 libfb303-xxx.jar
 ```
 
+> If you use the OSS filesystem for the Paimon warehouse, add the required Jindo SDK jars and the matching Paimon OSS filesystem jars for the bundled Paimon version to `${SEATUNNEL_HOME}/lib` before starting the engine. You can use the [OSS Jindo connector documentation](./OssJindoFile.md) as the base runtime setup reference.
+
 > Some versions of the hive-exec package do not have libfb303-xxx.jar, so you also need to manually import the Jar package.
 
 ## Key features
@@ -131,9 +133,11 @@ All `changelog-producer` modes are currently supported. The default is `none`.
 > When you use a streaming mode to read paimon table，different mode will produce [different results](../source/Paimon.md#changelog)。
 
 ## Filesystems
-The Paimon connector supports writing data to multiple file systems. Currently, the supported file systems are hdfs and s3.
-If you use the s3 filesystem. You can configure the `fs.s3a.access-key`、`fs.s3a.secret-key`、`fs.s3a.endpoint`、`fs.s3a.path.style.access`、`fs.s3a.aws.credentials.provider` properties in the `paimon.hadoop.conf` option.
-Besides, the warehouse should start with `s3a://`.
+The Paimon connector supports writing data to multiple file systems. Currently, the supported file systems are hdfs, s3 and oss.
+- If you use the s3 filesystem, configure the `fs.s3a.access-key`, `fs.s3a.secret-key`, `fs.s3a.endpoint`, `fs.s3a.path.style.access`, and `fs.s3a.aws.credentials.provider` properties in `paimon.hadoop.conf`.
+- If you use the oss filesystem, configure the required `fs.oss.*` Hadoop properties in `paimon.hadoop.conf` and make sure the corresponding OSS/Jindo runtime jars are available in `${SEATUNNEL_HOME}/lib`.
+
+Besides, the warehouse should start with `s3a://` or `oss://`.
 
 ## Schema Evolution
 Cdc Ingestion supports a limited number of schema changes. Currently supported schema changes includes:
