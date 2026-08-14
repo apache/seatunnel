@@ -145,6 +145,25 @@ You need to check this document before you upgrade to related version.
 - Adjusted SQL Transform date & time functions:
   - `DATEDIFF(<start>, <end>, 'MONTH')` now returns the total number of months between the two dates across years (for example, from `2023-01-01` to `2024-03-01` returns `14` instead of `15`).
   - `WEEK(<datetime>)` now returns the ISO week number directly (previous behavior added an extra `+1` to the ISO week value).
+- **[BREAKING]** SQL Transform `CEIL` / `CEILING`, `FLOOR` and `TRUNC` / `TRUNCATE` now return the data type of their
+  argument, as their documentation has always specified. Previously `CEIL` and `FLOOR` declared `INT` and `TRUNC`
+  declared `DOUBLE` regardless of the input type, which silently produced wrong values:
+
+  | Expression | Input | Previous result | Current result |
+  |------------|-------|-----------------|----------------|
+  | `CEIL(bigint_col)` | `9007199254740993` | `1` | `9007199254740993` |
+  | `FLOOR(double_col)` | `1.0E18` | `2147483647` | `1.0E18` |
+  | `TRUNC(bigint_col)` | `9007199254740993` | declared `DOUBLE`, returned a `Long` | `9007199254740993` |
+
+  **Migration Guide**: If a downstream sink column was created against the old `INT` / `DOUBLE` output type, widen it to
+  match the source column type (for example `BIGINT` for `CEIL(bigint_col)`), or wrap the expression in an explicit
+  `CAST(... AS INT)` to keep the previous schema. Expressions over `INT` columns are unaffected.
+- **[BREAKING]** SQL Transform `ROUND`, `TRUNC` / `TRUNCATE` and `MOD` no longer round-trip their arguments through
+  `double`, so `DECIMAL` and large `BIGINT` values keep full precision. For example
+  `ROUND(CAST('12345678901234567890.987654321' AS DECIMAL(38,9)), 2)` previously returned
+  `12345678901234567000.00` and now returns `12345678901234567890.99`, and `MOD(9007199254740993, 2)` previously
+  returned `0` and now returns `1`. Jobs that (intentionally or not) depended on the old lossy values will see
+  different — now correct — output.
 
 ### Engine Behavior Changes
 
