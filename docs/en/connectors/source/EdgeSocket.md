@@ -91,6 +91,51 @@ sink {
 }
 ```
 
+### Common Downstream Pattern
+
+EdgeSocket is a `STRING` (or schema-typed) source. The most common production pattern is to
+chain a `Sql` transform and a database sink so each batch becomes one or more rows in a target
+table. The example below mirrors what the bundled e2e tests use:
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 3000
+}
+
+source {
+  EdgeSocket {
+    port = 10091
+    auth_type = "TOKEN"
+    token = "edge-token"
+    packet_mode = "RAW"
+    max_retries = 3
+    reconnect_interval_ms = 2000
+    accept_timeout_ms = 5000
+  }
+}
+
+transform {
+  Sql {
+    query = "SELECT CONCAT(value, '_transformed') AS value_text FROM source_table"
+  }
+}
+
+sink {
+  Jdbc {
+    url = "jdbc:mysql://mysql-e2e:3306/seatunnel?useSSL=false&allowPublicKeyRetrieval=true"
+    driver = "com.mysql.cj.jdbc.Driver"
+    username = "root"
+    password = "mysqlpw"
+    query = "insert into edge_socket_sink(value_text) values (?)"
+  }
+}
+```
+
+Other database sinks such as `Postgres`, `ClickHouse`, or `Kafka` work the same way; the source has
+no first-class binding to a specific sink, so choose whichever target your collectors need.
+
 ## Schema Mode
 
 By default the source emits one STRING field (value) containing the raw payload line.
@@ -360,6 +405,7 @@ The following table lists connection outcomes and every application-level respon
 The diagram below shows the full collector lifecycle with all response branches and corresponding actions.
 
 ```mermaid
+%%{init: {"theme": "base", "themeVariables": {"background": "#0f1d33", "primaryColor": "#0c2530", "primaryBorderColor": "#2dd4bf", "primaryTextColor": "#f8fbff", "actorBkg": "#0c2530", "actorBorder": "#2dd4bf", "actorTextColor": "#f8fbff", "activationBkgColor": "#1f1a34", "activationBorderColor": "#8d7cf6", "noteBkgColor": "#1f1a34", "noteBorderColor": "#8d7cf6", "noteTextColor": "#f8fbff", "signalColor": "#5db8e2", "signalTextColor": "#f8fbff", "labelBoxBkgColor": "#0f1d33", "labelBoxBorderColor": "#5db8e2", "labelTextColor": "#f8fbff", "loopTextColor": "#f8fbff"}}}%%
 sequenceDiagram
       participant C as Collector
       participant S as EdgeSocket Source

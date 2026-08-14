@@ -195,6 +195,9 @@ show variables where variable_name in ('log_bin', 'binlog_format', 'binlog_row_i
 | startup.mode                              | Enum     | 否    | INITIAL | MySQL CDC 消费者的可选启动模式, 有效枚举值为 `initial`, `earliest`, `latest` , `specific` 和 `timestamp`. <br/> `initial`: 启动时同步历史数据, 然后同步增量数据.<br/> `earliest`: 从尽可能最早的偏移量开始启动.<br/> `latest`: 从最近的偏移量启动.<br/> `specific`: 从用户提供的特定偏移量开始启动.<br/> `timestamp`: 从用户提供的特定时间戳开始启动.                 |
 | startup.specific-offset.file              | String   | 否    | -       | 从指定的binlog日志文件名开始. **注意, 当使用 `startup.mode` 选项为 `specific` 时，此选项为必填项.**                                                                                                                                                                      |
 | startup.specific-offset.pos               | Long     | 否    | -       | 从指定的binlog日志文件位置开始. **注意, 当使用 `startup.mode` 选项为 `specific` 时，此选项为必填项.**                                                                                                                                                                     |
+| startup.specific-offset.gtid-set          | String   | 否    | -       | 当 `startup.mode` 为 `specific` 时，可选配置 MySQL GTID 集合. 该选项需要和 `startup.specific-offset.file`、`startup.specific-offset.pos` 一起使用.                                                                                                                                             |
+| startup.specific-offset.skip-events       | Long     | 否    | 0       | 配置 specific 启动偏移量后需要跳过的 binlog event 数量. 该选项只能在 `startup.mode` 为 `specific` 时使用.                                                                                                                                                         |
+| startup.specific-offset.skip-rows         | Long     | 否    | 0       | 配置 specific 启动偏移量后需要跳过的行数. 该选项只能在 `startup.mode` 为 `specific` 时使用.                                                                                                                                                                    |
 | startup.timestamp                         | Long     | 否    | -       | 从指定时间戳启动，单位为 Unix 纪元以来的毫秒数。**注意，当 `startup.mode` 为 `timestamp` 时，此选项必填。**                                                                                                                                                                    |
 | stop.mode                                 | Enum     | 否    | NEVER   | MySQL CDC 消费者的可选停止模式, 有效枚举值为 `never`, `latest` 和 `specific`. <br/> `never`: 实时任务一直运行不停止.<br/> `latest`: 从最新的偏移量处停止.<br/> `specific`: 从用户提供的特定偏移量处停止.                                                                                         |
 | stop.specific-offset.file                 | String   | 否    | -       | 从指定的binlog日志文件名停止. **注意, 当使用 `stop.mode` 选项为 `specific` 时，此选项为必填项.**                                                                                                                                                                         |
@@ -211,6 +214,7 @@ show variables where variable_name in ('log_bin', 'binlog_format', 'binlog_row_i
 | sample-sharding.threshold                 | Integer  | 否    | 1000    | 此配置指定了触发采样分片策略的预估分片数量阈值. 当分配因子超出由 `chunk-key.even-distribution.factor.upper-bound` 和 `chunk-key.even-distribution.factor.lower-bound` 所指定的范围时, 如果估计的分片数量 (按近似行数/块大小 计算) 超过此阈值, 则将使用样本分片策略. 这有助于更高效地处理大型数据集. 默认值为 1000 分片.                    |
 | inverse-sampling.rate                     | Integer  | 否    | 1000    | 采样分片策略中使用的采样率的倒数. 例如, 如果该值设置为 1000, 则表示在采样过程中应用了 1/1000 的采样率. 此选项在控制采样的粒度方面提供了灵活性, 从而影响最终的分片数量. 在处理非常大的数据集时非常有用, 因为此时更倾向于使用较低的采样率. 默认值为 1000.                                                                                                |
 | split.allow-sampling                      | Boolean  | 否    | true    | 是否允许基于采样的分片策略。当设置为 false 时，无论预估分片数是否超过阈值，系统都将回退到非均匀分片方式（迭代查询方式）。默认值为 true。 |
+| enable_concurrent_read                    | Boolean  | 否    | true    | 是否在快照阶段启用基于分片的并发读取。当设置为 false 时，source 会跳过分片分析，并以单个 split 读取整张表，适合没有索引的表。默认值为 true。 |
 | exactly_once                              | Boolean  | 否    | false   | 启用精确一次语义.                                                                                                                                                                                                                                    |
 | format                                    | Enum     | 否    | DEFAULT | MySQL CDC 的可选输出格式, 有效的枚举值为 `DEFAULT`、`COMPATIBLE_DEBEZIUM_JSON`.                                                                                                                                                                             |
 | schema-changes.enabled                    | Boolean  | 否    | false   | 模式演进默认是禁用的. 当前我们只支持 `add column`、`drop column`、`rename column` 和 `modify column`.                                                                                                                                                            |
@@ -408,6 +412,90 @@ sink {
 }
 ```
 
+### 配置 Debezium 心跳
+
+对于低流量表，binlog 只有在发生行变更时才会推进。使用 Debezium 心跳让 binlog 位置持续向前滚动，便于下游 checkpoint 记录到新鲜偏移，并让复制延迟可观测。心跳表必须提前在 MySQL 服务端创建。
+
+```hocon
+source {
+  MySQL-CDC {
+    username = "st_user_source"
+    password = "mysqlpw"
+    table-names = ["mysql_cdc.mysql_cdc_e2e_source_table"]
+    url = "jdbc:mysql://mysql_cdc_e2e:3306/mysql_cdc"
+    debezium {
+      heartbeat.interval.ms = 100
+      heartbeat.action.query = "INSERT INTO mysql_cdc.heartbeat (ts) VALUES (NOW())"
+    }
+  }
+}
+```
+
+### 定时刷新，无需等待 `batch_size`
+
+当 source 写入量非常低时，JDBC sink 可能在 checkpoint 触发前一直处于空闲状态。在 sink 中开启定时刷新，即使没有达到 `batch_size`，缓冲的数据也会被写入。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 300000
+  sink.flush.interval = 500
+}
+
+source {
+  MySQL-CDC {
+    server-id = 5680-5690
+    username = "st_user_source"
+    password = "mysqlpw"
+    table-names = ["mysql_cdc.timer_flush_src"]
+    url = "jdbc:mysql://mysql_cdc_e2e:3306/mysql_cdc"
+  }
+}
+
+sink {
+  Jdbc {
+    url = "jdbc:mysql://mysql_cdc_e2e:3306/mysql_cdc"
+    driver = "com.mysql.cj.jdbc.Driver"
+    username = "st_user_sink"
+    password = "mysqlpw"
+    generate_sink_sql = true
+    database = mysql_cdc
+    table = timer_flush_sink
+    primary_keys = ["id"]
+    batch_size = 100000000
+    batch_interval_ms = 0
+  }
+}
+```
+
+`sink.flush.interval` 配置在 `env` 块中，无论 `batch_size` 是否达到，都会作用于 sink 流水线。
+
+### 读取没有主键的表
+
+对于没有物理主键的表，将 `exactly_once` 设为 `false`，并通过 `table-names-config.primaryKeys` 提供一列作为下游 upsert 所需的稳定行标识。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  MySQL-CDC {
+    server-id = 5652
+    username = "st_user_source"
+    password = "mysqlpw"
+    table-names = ["mysql_cdc.mysql_cdc_e2e_source_table_no_primary_key"]
+    url = "jdbc:mysql://mysql_cdc_e2e:3306/mysql_cdc"
+    exactly_once = false
+  }
+}
+```
+
+如果没有可用的主键（无论配置的或物理的），connector 就无法安全地应用 UPDATE/DELETE 事件。仅在仅追加（append-only）场景或下游 sink 行为不依赖行标识时使用此模式。
+
 ### 从指定 Binlog 位置启动
 
 当需要从明确的 binlog 文件和位置开始读取时，可以使用 `startup.mode = "specific"`。
@@ -423,6 +511,52 @@ source {
     startup.mode = "specific"
     startup.specific-offset.file = "mysql-bin.000001"
     startup.specific-offset.pos = 154
+  }
+}
+```
+
+### 有界读取：在指定 Binlog 位置停止
+
+使用 `stop.mode = "specific"` 可以将作业变为有界读取：作业读取启动偏移量（或启动时间戳）
+与配置的停止偏移量之间的 binlog，然后自行终止（`FINISHED`），而不是一直运行下去。
+
+> **注意**：有界读取的终止行为目前仅在 **Zeta** 引擎上支持。
+> Flink 和 Spark 引擎暂不支持有界增量分片的终止。
+
+```hocon
+source {
+  MySQL-CDC {
+    server-id = 5654
+    username = "st_user_source"
+    password = "mysqlpw"
+    table-names = ["mysql_cdc.mysql_cdc_e2e_source_table"]
+    url = "jdbc:mysql://mysql_cdc_e2e:3306/mysql_cdc"
+    startup.mode = "specific"
+    startup.specific-offset.file = "mysql-bin.000001"
+    startup.specific-offset.pos = 154
+    stop.mode = "specific"
+    stop.specific-offset.file = "mysql-bin.000010"
+    stop.specific-offset.pos = 4096
+  }
+}
+```
+
+`stop.mode = "specific"` 也可以与 `startup.mode = "timestamp"` 组合使用，同时按时间和
+binlog 位置限定读取范围：
+
+```hocon
+source {
+  MySQL-CDC {
+    server-id = 5654
+    username = "st_user_source"
+    password = "mysqlpw"
+    table-names = ["mysql_cdc.mysql_cdc_e2e_source_table"]
+    url = "jdbc:mysql://mysql_cdc_e2e:3306/mysql_cdc"
+    startup.mode = "timestamp"
+    startup.timestamp = 1716076800000
+    stop.mode = "specific"
+    stop.specific-offset.file = "mysql-bin.000010"
+    stop.specific-offset.pos = 4096
   }
 }
 ```

@@ -20,7 +20,6 @@ package org.apache.seatunnel.e2e.connector.http;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.DeserializationFeature;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
@@ -35,6 +34,7 @@ import org.junit.jupiter.api.TestTemplate;
 import org.mockserver.client.MockServerClient;
 import org.mockserver.model.ClearType;
 import org.mockserver.model.Format;
+import org.postgresql.Driver;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -54,6 +54,9 @@ import java.io.File;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -90,21 +93,35 @@ public class HttpIT extends TestSuiteBase implements TestResource {
     private static final String COUNT_QUERY = "select count(*) from sink";
 
     private static final String PG_IMAGE = "postgres:14-alpine";
-    private static final String PG_DRIVER_JAR =
-            "https://repo1.maven.org/maven2/org/postgresql/postgresql/42.3.3/postgresql-42.3.3.jar";
+    private static final String PG_DRIVER_CONTAINER_PATH =
+            "/tmp/seatunnel/plugins/Jdbc/lib/postgresql.jar";
     private PostgreSQLContainer<?> postgreSQLContainer;
 
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
             container -> {
+                Path driverJarPath = driverJarPath();
+                Assertions.assertTrue(
+                        Files.isRegularFile(driverJarPath),
+                        "PostgreSQL JDBC driver should be resolved from the test classpath before E2E runs: "
+                                + driverJarPath);
                 Container.ExecResult extraCommands =
                         container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && curl -O "
-                                        + PG_DRIVER_JAR);
-                Assertions.assertEquals(0, extraCommands.getExitCode());
+                                "bash", "-c", "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib");
+                Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
+                container.copyFileToContainer(
+                        MountableFile.forHostPath(driverJarPath), PG_DRIVER_CONTAINER_PATH);
             };
+
+    private Path driverJarPath() {
+        try {
+            return Paths.get(
+                    Driver.class.getProtectionDomain().getCodeSource().getLocation().toURI());
+        } catch (Exception e) {
+            throw new RuntimeException(
+                    "Failed to resolve PostgreSQL JDBC driver jar from the test classpath", e);
+        }
+    }
 
     @BeforeAll
     @Override
@@ -132,9 +149,10 @@ public class HttpIT extends TestSuiteBase implements TestResource {
                         .withEnv("MOCKSERVER_LOG_LEVEL", "WARN")
                         .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(IMAGE)))
                         .waitingFor(new HttpWaitStrategy().forPath("/").forStatusCode(404));
-        mockserverContainer.setPortBindings(Lists.newArrayList(String.format("%s:%s", 1080, 1080)));
         Startables.deepStart(Stream.of(mockserverContainer)).join();
-        mockServerClient = new MockServerClient("127.0.0.1", 1080);
+        mockServerClient =
+                new MockServerClient(
+                        mockserverContainer.getHost(), mockserverContainer.getMappedPort(1080));
         fillMockRecords();
 
         postgreSQLContainer =
@@ -365,10 +383,17 @@ public class HttpIT extends TestSuiteBase implements TestResource {
         // http airtable source
         Container.ExecResult execResult22 = container.executeJob("/airtable_json_to_assert.conf");
         Assertions.assertEquals(0, execResult22.getExitCode());
+    }
 
-        // http binary download
-        Container.ExecResult execResult23 = container.executeJob("/http_binary_to_assert.conf");
-        Assertions.assertEquals(0, execResult23.getExitCode());
+    /**
+     * Run the binary download case in a fresh container so the longest HTTP source path does not
+     * inherit accumulated runtime pressure from the broader source-to-assert matrix.
+     */
+    @TestTemplate
+    public void testBinarySourceToAssertSink(TestContainer container)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult = container.executeJob("/http_binary_to_assert.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
     }
 
     @TestTemplate

@@ -33,6 +33,8 @@ import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentHashMap;
 
+import static org.apache.seatunnel.api.common.metrics.MetricNames.FLUSH_SIGNAL_QUEUE_FAILURE_TOTAL;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.FLUSH_SIGNAL_QUEUE_SUCCESS_TOTAL;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.INTERMEDIATE_QUEUE_CAPACITY;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.INTERMEDIATE_QUEUE_PUT_BLOCKED_NANOS;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.INTERMEDIATE_QUEUE_SIZE;
@@ -53,16 +55,25 @@ public class TaskGroupWithIntermediateBlockingQueue extends AbstractTaskGroupWit
         private final Counter totalQueueSize;
         private final Counter queueSize;
         private final Counter putBlockedNs;
+        private final Counter flushSignalQueueSuccessTotal;
+        private final Counter flushSignalQueueFailureTotal;
+        private final IntermediateBlockingQueue.QueueSizeTracker queueSizeTracker;
 
         private QueueWithMetrics(
                 BlockingQueue<Record<?>> queue,
                 Counter totalQueueSize,
                 Counter queueSize,
-                Counter putBlockedNs) {
+                Counter putBlockedNs,
+                Counter flushSignalQueueSuccessTotal,
+                Counter flushSignalQueueFailureTotal,
+                IntermediateBlockingQueue.QueueSizeTracker queueSizeTracker) {
             this.queue = queue;
             this.totalQueueSize = totalQueueSize;
             this.queueSize = queueSize;
             this.putBlockedNs = putBlockedNs;
+            this.flushSignalQueueSuccessTotal = flushSignalQueueSuccessTotal;
+            this.flushSignalQueueFailureTotal = flushSignalQueueFailureTotal;
+            this.queueSizeTracker = queueSizeTracker;
         }
     }
 
@@ -89,15 +100,28 @@ public class TaskGroupWithIntermediateBlockingQueue extends AbstractTaskGroupWit
                     Counter capacityCounter =
                             metricsContext.counter(INTERMEDIATE_QUEUE_CAPACITY + "#" + i);
                     capacityCounter.set(effectiveCapacity);
+                    Counter flushSignalQueueSuccessTotal =
+                            metricsContext.counter(FLUSH_SIGNAL_QUEUE_SUCCESS_TOTAL);
+                    Counter flushSignalQueueFailureTotal =
+                            metricsContext.counter(FLUSH_SIGNAL_QUEUE_FAILURE_TOTAL);
                     return new QueueWithMetrics(
                             new ArrayBlockingQueue<>(effectiveCapacity),
                             totalQueueSize,
                             queueSize,
-                            putBlockedNs);
+                            putBlockedNs,
+                            flushSignalQueueSuccessTotal,
+                            flushSignalQueueFailureTotal,
+                            new IntermediateBlockingQueue.QueueSizeTracker());
                 });
         QueueWithMetrics cache = blockingQueueCache.get(id);
         return new IntermediateBlockingQueue(
-                cache.queue, cache.totalQueueSize, cache.queueSize, cache.putBlockedNs);
+                cache.queue,
+                cache.totalQueueSize,
+                cache.queueSize,
+                cache.putBlockedNs,
+                cache.flushSignalQueueSuccessTotal,
+                cache.flushSignalQueueFailureTotal,
+                cache.queueSizeTracker);
     }
 
     @Override

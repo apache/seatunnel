@@ -155,10 +155,14 @@ def get_sub_it_modules(modules, total_num, current_num):
     modules_arr.remove("connector-file-sftp-e2e")
     modules_arr.remove("connector-redis-e2e")
     modules_arr.remove("connector-sensorsdata-e2e")
+    modules_arr.remove("connector-elasticsearch-e2e")
+    modules_arr.remove("connector-cdc-mysql-e2e")
     if "connector-seatunnel-e2e-base" in modules_arr:
         modules_arr.remove("connector-seatunnel-e2e-base")
     if "connector-console-seatunnel-e2e" in modules_arr:
         modules_arr.remove("connector-console-seatunnel-e2e")
+    if "seatunnel-edge-agent-e2e" in modules_arr:
+        modules_arr.remove("seatunnel-edge-agent-e2e")
     output = ""
     for i, module in enumerate(modules_arr):
         if len(module) > 0 and i % int(total_num) == int(current_num):
@@ -200,10 +204,16 @@ def get_sub_update_it_modules(modules, total_num, current_num):
         module_list.remove("connector-file-sftp-e2e")
     if "connector-redis-e2e" in module_list:
         module_list.remove("connector-redis-e2e")
+    if "connector-elasticsearch-e2e" in module_list:
+        module_list.remove("connector-elasticsearch-e2e")
+    if "connector-cdc-mysql-e2e" in module_list:
+        module_list.remove("connector-cdc-mysql-e2e")
     if "connector-seatunnel-e2e-base" in module_list:
         module_list.remove("connector-seatunnel-e2e-base")
     if "connector-console-seatunnel-e2e" in module_list:
         module_list.remove("connector-console-seatunnel-e2e")
+    if "seatunnel-edge-agent-e2e" in module_list:
+        module_list.remove("seatunnel-edge-agent-e2e")
     for i, module in enumerate(module_list):
         if len(module) > 0 and i % int(total_num) == int(current_num):
             final_modules.append(":" + module)
