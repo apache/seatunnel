@@ -28,6 +28,9 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseI
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dialectenum.FieldIdeEnum;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MySqlTypeMapper;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MysqlDialect;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.mysql.MysqlJdbcRowConverter;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -38,7 +41,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 public class KingbaseDialect implements JdbcDialect {
-
     /** Kingbase (PostgreSQL-compatible) FILLFACTOR legal range (inclusive): 10-100. */
     private static final int FILLFACTOR_MIN = 10;
 
@@ -51,11 +53,24 @@ public class KingbaseDialect implements JdbcDialect {
                                     KingbaseCatalog.TABLE_OPTION_TABLESPACE,
                                     KingbaseCatalog.TABLE_OPTION_FILLFACTOR)));
 
-    public String fieldIde = FieldIdeEnum.ORIGINAL.getValue();
+    /**
+     * Kingbase runtime compatibility mode detected from the JDBC connection or supplied by config.
+     */
+    private final String compatibleLevel;
 
-    public KingbaseDialect() {}
+    /** Field identifier normalization strategy used when quoting Kingbase identifiers. */
+    private final String fieldIde;
+
+    public KingbaseDialect() {
+        this(null, FieldIdeEnum.ORIGINAL.getValue());
+    }
 
     public KingbaseDialect(String fieldIde) {
+        this(null, fieldIde);
+    }
+
+    public KingbaseDialect(String compatibleLevel, String fieldIde) {
+        this.compatibleLevel = compatibleLevel;
         this.fieldIde = fieldIde;
     }
 
@@ -66,17 +81,26 @@ public class KingbaseDialect implements JdbcDialect {
 
     @Override
     public JdbcRowConverter getRowConverter() {
+        if (isMySQL()) {
+            return new MysqlJdbcRowConverter();
+        }
         return new KingbaseJdbcRowConverter();
     }
 
     @Override
     public JdbcDialectTypeMapper getJdbcDialectTypeMapper() {
+        if (isMySQL()) {
+            return new MySqlTypeMapper();
+        }
         return new KingbaseTypeMapper();
     }
 
     @Override
     public Optional<String> getUpsertStatement(
             String database, String tableName, String[] fieldNames, String[] pkNames) {
+        if (isMySQL()) {
+            return new MysqlDialect().getUpsertStatement(database, tableName, fieldNames, pkNames);
+        }
         String uniqueColumns =
                 Arrays.stream(pkNames).map(this::quoteIdentifier).collect(Collectors.joining(", "));
         String updateClause =
@@ -206,5 +230,10 @@ public class KingbaseDialect implements JdbcDialect {
                             "Invalid JDBC table_options for dialect '%s': key '%s' contains illegal characters: '%s'",
                             dialectName(), KingbaseCatalog.TABLE_OPTION_TABLESPACE, value));
         }
+    }
+
+    /** Returns whether this Kingbase connection should reuse MySQL JDBC dialect behavior. */
+    private boolean isMySQL() {
+        return "mysql".equalsIgnoreCase(this.compatibleLevel);
     }
 }

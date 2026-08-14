@@ -126,6 +126,7 @@ public interface JdbcDialect extends Serializable {
     default String quoteIdentifier(String identifier) {
         return identifier;
     }
+
     /** Quotes the identifier for database name or field name */
     default String quoteDatabaseIdentifier(String identifier) {
         return identifier;
