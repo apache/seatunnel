@@ -49,9 +49,7 @@ public class PrometheusSinkConfig extends HttpConfig {
         if (pluginConfig.getOptional(PrometheusSinkOptions.KEY_TIMESTAMP).isPresent()) {
             sinkConfig.setKeyTimestamp(pluginConfig.get(PrometheusSinkOptions.KEY_TIMESTAMP));
         }
-        if (pluginConfig.getOptional(PrometheusSinkOptions.BATCH_SIZE).isPresent()) {
-            sinkConfig.setBatchSize(pluginConfig.get(PrometheusSinkOptions.BATCH_SIZE));
-        }
+        sinkConfig.setBatchSize(pluginConfig.get(PrometheusSinkOptions.BATCH_SIZE));
         if (pluginConfig.getOptional(PrometheusSinkOptions.FLUSH_INTERVAL).isPresent()) {
             long flushInterval = pluginConfig.get(PrometheusSinkOptions.FLUSH_INTERVAL);
             sinkConfig.setFlushInterval(flushInterval);
