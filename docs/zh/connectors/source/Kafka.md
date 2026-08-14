@@ -102,7 +102,7 @@ debezium_record_table_filter {
   schema_name = "public" // null 如果不存在
   table_name = "products"
 }
-```
+```hocon
 
 只有 `test.public.products` 表的数据将被消费。
 
@@ -134,7 +134,7 @@ transform {
     query = "select *, FROM_UNIXTIME(kafka_ts/1000, 'yyyy-MM-dd', 'Asia/Shanghai') as pt from kafka_with_meta where kafka_ts >= 0"
   }
 }
-```
+```hocon
 
 ## 任务示例
 
@@ -159,7 +159,7 @@ source {
     format = json
   }
 }
-```
+```hocon
 
 输出行将包含：`user_id`（int）、`name`（string）、`correlation-id`（string）、`x-trace-id`（string）。  
 如果某条消息中不存在对应的 header key，则该字段值为 `null`。
@@ -199,7 +199,7 @@ source {
 sink {
   Console {}
 }
-```
+```hocon
 
 ### 正则表达式主题
 
@@ -212,7 +212,7 @@ source {
           consumer.group = "seatunnel_group"
     }
 }
-```
+```hocon
 
 ### 动态发现分区
 
@@ -234,7 +234,7 @@ source {
     format = json
   }
 }
-```
+```hocon
 
 ### AWS MSK SASL/SCRAM
 
@@ -253,7 +253,7 @@ source {
         }
     }
 }
-```
+```hocon
 
 ### AWS MSK IAM
 
@@ -268,7 +268,7 @@ source {
     "kafka-cluster:AlterCluster",
     "kafka-cluster:DescribeCluster"
 ],
-```
+```hocon
 
 源配置示例：
 
@@ -286,7 +286,7 @@ source {
         }
     }
 }
-```
+```hocon
 
 ### Kerberos 认证示例
 
@@ -308,7 +308,7 @@ source {
         }
     }
 }
-```
+```hocon
 
 ### 多 Kafka 源示例
 
@@ -371,7 +371,7 @@ sink {
     primary_keys = ["id"]
   }
 }
-```
+```hocon
 
 ```hocon
 env {
@@ -429,7 +429,7 @@ sink {
     primary_keys = ["id"]
   }
 }
-```
+```hocon
 
 ### Protobuf配置
 
@@ -478,7 +478,7 @@ source {
     plugin_output = "kafka_table"
   }
 }
-```
+```hocon
 
 ### Protobuf with Schema Registry wire format
 
@@ -528,10 +528,10 @@ source {
     plugin_output = "kafka_table"
   }
 }
-```
+```hocon
 
 **注意**：当启用 `strip_schema_registry_header` 时，连接器可以安全地处理 Schema Registry 编码的消息和纯 Protobuf 消息。如果未检测到 Schema Registry 头部，它将自动回退到标准 Protobuf 反序列化。
-```
+```hocon
 
 ### 忽略无 Leader 分区
 
@@ -547,7 +547,7 @@ source {
     start_mode = "earliest"
   }
 }
-```
+```hocon
 
 当 `ignore_no_leader_partition = true` 时，连接器将在分区发现过程中跳过任何没有 leader 的分区，允许作业继续处理其他健康的分区。
 
@@ -567,7 +567,7 @@ source {
     consumer.group = "native_group"
   }
 }
-```
+```hocon
 
 返回数据格式如下:
 ```json
@@ -582,7 +582,7 @@ source {
   "timestampType": "CREATE_TIME",
   "value": "dGVzdF9ieXRlc19kYXRh"
 }
-```
+```hocon
 注意：key/value是byte[]类型。
 
 ### 配合动态分区发现与 EXACTLY_ONCE 下游的流式作业
@@ -625,7 +625,7 @@ sink {
     partition_key_fields = ["order_id"]
   }
 }
-```
+```hocon
 
 同样的写法也适用于 `format = debezium_json`，可以从 Kafka Connect sink 输出的 Debezium 变更事件中消费变更数据并转发到下游。
 
@@ -660,7 +660,7 @@ source {
     }
   }
 }
-```
+```hocon
 
 ## 常见问题
 
@@ -696,7 +696,7 @@ transform {
     query = "SELECT * FROM kafka_source WHERE key = 'expected_key_base64'"
   }
 }
-```
+```hocon
 
 注意：NATIVE 格式中 `key` 字段为 base64 编码的字节数组。
 
@@ -723,7 +723,7 @@ source {
       principal="user@REALM.COM";"""
   }
 }
-```
+```hocon
 
 ### 消费组 offset 是如何提交的？
 

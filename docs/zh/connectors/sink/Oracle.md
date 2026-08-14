@@ -103,7 +103,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 >此示例定义了一个SeaTunnel同步任务，该任务通过FakeSource自动生成数据并将其发送到JDBC Sink。FakeSource总共生成16行数据（row.num=16），每行有两个字段，name（字符串类型）和age（int类型）。最终的目标表是test_table，表中也将有16行数据。在运行此作业之前，您需要在Oracle中创建测试数据库和表test_table。如果您尚未安装和部署SeaTunnel，则需要按照[安装SeaTunnel](../../getting-started/locally/deployment.md)中的说明安装和部署SeaTunnel。然后按照[快速启动SeaTunnel引擎](../../getting-started/locally/quick-start-seatunnel-engine.md)中的说明运行此作业。
 
-```
+```hocon
 # 定义运行环境
 env {
   parallelism = 1
@@ -142,13 +142,13 @@ sink {
 	#如果你想了解更多关于如何配置seatunnel的信息，并查看完整的sink插件列表，
 	#请前往https://seatunnel.apache.org/docs/connectors/sink
 }
-```
+```hocon
 
 ### 生成Sink SQL
 
 >此示例不需要编写复杂的sql语句，您可以配置数据库名称表名以自动为您生成add语句
 
-```
+```hocon
 sink {
     Jdbc {
         url = "jdbc:oracle:thin:@datasource01:1523:xe"
@@ -161,13 +161,13 @@ sink {
         table = "TEST.TEST_TABLE"
     }
 }
-```
+```hocon
 
 ### 精确一次
 
 为了准确的写入场景，我们保证一次准确
 
-```
+```hocon
 sink {
     jdbc {
         url = "jdbc:oracle:thin:@datasource01:1523:xe"
@@ -183,13 +183,13 @@ sink {
         xa_data_source_class_name = "oracle.jdbc.xa.client.OracleXADataSource"
     }
 }
-```
+```hocon
 
 ### CDC（变更数据捕获）事件
 
 >我们也支持CDC更改数据。在这种情况下，您需要配置数据库、表和主键。
 
-```
+```hocon
 sink {
     jdbc {
         url = "jdbc:oracle:thin:@datasource01:1523:xe"
@@ -206,7 +206,7 @@ sink {
         data_save_mode="APPEND_DATA"
     }
 }
-```
+```hocon
 
 ### 批量 + 定时刷新组合
 
@@ -227,7 +227,7 @@ sink {
     batch_interval_ms = 5000
   }
 }
-```
+```hocon
 
 ### 使用占位符的多表写入
 
@@ -247,7 +247,7 @@ sink {
     multi_table_sink_replica = 2
   }
 }
-```
+```hocon
 
 ## 变更日志
 

@@ -182,7 +182,7 @@ JDBC Source 连接器支持并行读取表数据。SeaTunnel 会按一定规则�
 
 > 该示例从你 Oracle 中的 test 数据库查询名为 TEST_TABLE 的 16 条数据，以单并行方式运行，并查询其所有字段。你也可以指定要查询的字段，最终输出到控制台。
 
-```
+```hocon
 # 定义运行时环境
 env {
   parallelism = 4
@@ -205,13 +205,13 @@ transform {
 sink {
   Console {}
 }
-```
+```hocon
 
 ### 按 partition_column 并行
 
 > 通过配置分片字段和分片数据，可以并行读取查询表中的数据。需要读取整张表时可以使用这种方式。
 
-```
+```hocon
 env {
   parallelism = 4
   job.mode = "BATCH"
@@ -237,13 +237,13 @@ source {
 sink {
   Console {}
 }
-```
+```hocon
 
 ### 按主键或唯一索引并行
 
 > 配置 `table_path` 会开启自动分片，可通过 `split.*` 选项调整分片策略。
 
-```
+```hocon
 env {
   parallelism = 4
   job.mode = "BATCH"
@@ -264,13 +264,13 @@ source {
 sink {
   Console {}
 }
-```
+```hocon
 
 ### 并行边界
 
 > 显式指定查询的上下界可以更高效地读取数据源。
 
-```
+```hocon
 source {
   Jdbc {
     url = "jdbc:oracle:thin:@datasource01:1523:xe"
@@ -288,7 +288,7 @@ source {
     partition_num = 10
   }
 }
-```
+```hocon
 
 ### 多表读取
 
@@ -326,7 +326,7 @@ source {
 sink {
   Console {}
 }
-```
+```hocon
 
 ### 流式增量 ID 区间读取
 
@@ -352,7 +352,7 @@ source {
     partition_num = 16
   }
 }
-```
+```hocon
 
 ### 使用 TNS 连接串
 
@@ -372,7 +372,7 @@ source {
     split.size = 10000
   }
 }
-```
+```hocon
 
 ### 使用 where_condition 过滤行
 
@@ -390,7 +390,7 @@ source {
     split.size = 10000
   }
 }
-```
+```hocon
 
 ## 变更日志
 

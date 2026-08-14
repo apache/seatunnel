@@ -103,7 +103,7 @@ debezium_record_table_filter {
   schema_name = "public" // null if not exists
   table_name = "products"
 }
-```
+```hocon
 
 Only the data of the `test.public.products` table will be consumed.
 
@@ -135,7 +135,7 @@ transform {
     query = "select *, FROM_UNIXTIME(kafka_ts/1000, 'yyyy-MM-dd', 'Asia/Shanghai') as pt from kafka_with_meta where kafka_ts >= 0"
   }
 }
-```
+```hocon
 
 ## Task Example
 
@@ -173,7 +173,7 @@ source {
 sink {
   Console {}
 }
-```
+```hocon
 
 ### Regex Topic
 
@@ -186,7 +186,7 @@ source {
           consumer.group = "seatunnel_group"
     }
 }
-```
+```hocon
 
 ### Dynamic Partition Discovery
 
@@ -208,7 +208,7 @@ source {
     format = json
   }
 }
-```
+```hocon
 
 ### AWS MSK SASL/SCRAM
 
@@ -231,7 +231,7 @@ source {
         }
     }
 }
-```
+```hocon
 
 ### AWS MSK IAM
 
@@ -246,7 +246,7 @@ Please ensure the IAM policy have `"kafka-cluster:Connect",`. Like this:
     "kafka-cluster:AlterCluster",
     "kafka-cluster:DescribeCluster"
 ],
-```
+```hocon
 
 Source Config
 
@@ -267,7 +267,7 @@ source {
         }
     }
 }
-```
+```hocon
 
 ### Kerberos Authentication Example
 
@@ -275,7 +275,7 @@ Please set JVM parameters `java.security.krb5.conf` before starting the SeaTunne
 
 Source Config
 
-```
+```hocon
 source {
     Kafka {
         topic = "seatunnel"
@@ -289,7 +289,7 @@ source {
         }
     }
 }
-```
+```hocon
 
 ### Multiple Kafka Source
 
@@ -352,7 +352,7 @@ sink {
     primary_keys = ["id"]
   }
 }
-```
+```hocon
 
 ```hocon
 
@@ -409,7 +409,7 @@ sink {
     primary_keys = ["id"]
   }
 }
-```
+```hocon
 
 ### Protobuf configuration
 
@@ -458,7 +458,7 @@ source {
     plugin_output = "kafka_table"
   }
 }
-```
+```hocon
 
 ### Protobuf with Schema Registry wire format
 
@@ -508,7 +508,7 @@ source {
     plugin_output = "kafka_table"
   }
 }
-```
+```hocon
 
 **Note**: When `strip_schema_registry_header` is enabled, the connector can safely handle both Schema Registry encoded messages and plain Protobuf messages. If the Schema Registry header is not detected, it will automatically fall back to standard Protobuf deserialization.
 
@@ -533,7 +533,7 @@ source {
     format = json
   }
 }
-```
+```hocon
 
 The output row will contain: `user_id` (int), `name` (string), `correlation-id` (string), `x-trace-id` (string).  
 If a header key is absent in a record, the corresponding field value will be `null`.
@@ -554,7 +554,7 @@ source {
     start_mode = "earliest"
   }
 }
-```
+```hocon
 
 With `ignore_no_leader_partition = true`, the connector will skip any partitions that don't have a leader during partition discovery, allowing the job to continue processing other healthy partitions.
 
@@ -574,7 +574,7 @@ source {
     consumer.group = "native_group"
   }
 }
-```
+```hocon
 
 The returned data is as follows:
 ```json
@@ -589,7 +589,7 @@ The returned data is as follows:
   "timestampType": "CREATE_TIME",
   "value": "dGVzdF9ieXRlc19kYXRh"
 }
-```
+```hocon
 Note：key/value is of type byte[].
 
 ### Streaming With Dynamic Partition Discovery and EXACTLY_ONCE Sink
@@ -632,7 +632,7 @@ sink {
     partition_key_fields = ["order_id"]
   }
 }
-```
+```hocon
 
 The same pattern works with `format = debezium_json` when you need to consume Debezium-formatted change events from a Kafka Connect sink and forward them downstream.
 
@@ -667,7 +667,7 @@ source {
     }
   }
 }
-```
+```hocon
 
 ## FAQ
 
@@ -703,7 +703,7 @@ transform {
     query = "SELECT * FROM kafka_source WHERE key = 'expected_key_base64'"
   }
 }
-```
+```hocon
 
 Note: the `key` field in NATIVE format is base64-encoded bytes.
 
@@ -730,7 +730,7 @@ source {
       principal="user@REALM.COM";"""
   }
 }
-```
+```hocon
 
 ### How are consumer group offsets committed?
 

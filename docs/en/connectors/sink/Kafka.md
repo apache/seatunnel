@@ -161,7 +161,7 @@ sink {
       }
   }
 }
-```
+```hocon
 
 ### Using Kafka Headers
 
@@ -204,7 +204,7 @@ sink {
       }
   }
 }
-```
+```hocon
 
 ### AWS MSK SASL/SCRAM
 
@@ -224,7 +224,7 @@ sink {
       }
   }
 }
-```
+```hocon
 
 ### AWS MSK IAM
 
@@ -239,7 +239,7 @@ Please ensure the IAM policy have `"kafka-cluster:Connect",`. Like this:
     "kafka-cluster:AlterCluster",
     "kafka-cluster:DescribeCluster"
 ],
-```
+```hocon
 
 Sink Config
 
@@ -258,7 +258,7 @@ sink {
       }
   }
 }
-```
+```hocon
 
 ### Kerberos Authentication Example
 
@@ -266,7 +266,7 @@ Please set JVM parameters `java.security.krb5.conf` before starting the SeaTunne
 
 Sink Config
 
-```
+```hocon
 sink {
     Kafka {
         topic = "seatunnel"
@@ -281,7 +281,7 @@ sink {
         }
     }
 }
-```
+```hocon
 
 
 ### Protobuf Configuration
@@ -334,7 +334,7 @@ sink {
               """
   }
 }
-```
+```hocon
 
 
 ### format
@@ -349,7 +349,7 @@ sink {
       format = "NATIVE"
   }
 }
-```
+```hocon
 
 The input parameter requirements are as follows:
 ```json
@@ -364,7 +364,7 @@ The input parameter requirements are as follows:
   "timestampType": "CREATE_TIME",
   "value": "dGVzdF9ieXRlc19kYXRh"
 }
-```
+```hocon
 Note：key/value is of type byte[].
 
 ### Streaming EXACTLY_ONCE With Checkpoints
@@ -408,7 +408,7 @@ sink {
     partition_key_fields = ["order_id"]
   }
 }
-```
+```hocon
 
 Important: pick a unique `transaction_prefix` per job. Kafka distinguishes transactions by the transactional id, and reusing the same prefix across concurrent jobs causes Kafka transaction conflicts.
 
@@ -433,7 +433,7 @@ sink {
     format = "NATIVE"
   }
 }
-```
+```hocon
 
 Note: when the upstream rows are produced with `format = "NATIVE"`, the `key` and `value` columns are `byte[]`. Combining `kafka_headers_fields` with `format = "NATIVE"` is not a "configure carefully" situation — `KafkaSinkWriter.getSerializer()` throws `KafkaConnectorException(OPERATION_NOT_SUPPORTED)` at job initialization if both are set, so the job fails to start. Do not configure `kafka_headers_fields` together with `format = "NATIVE"`; headers for NATIVE inputs are already encoded inside the `value` byte array.
 
@@ -469,7 +469,7 @@ sink {
     }
   }
 }
-```
+```hocon
 
 Ensure the Kafka broker has transactions enabled and that `transaction.timeout.ms` is aligned with your checkpoint interval.
 
@@ -491,7 +491,7 @@ sink {
       principal="user@REALM.COM";"""
   }
 }
-```
+```hocon
 
 ### What message formats does Kafka Sink support?
 
