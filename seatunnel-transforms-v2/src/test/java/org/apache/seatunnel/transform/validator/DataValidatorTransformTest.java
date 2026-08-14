@@ -23,12 +23,14 @@ import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 
 import org.junit.jupiter.api.Test;
 
+import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.List;
 
@@ -139,5 +141,35 @@ public class DataValidatorTransformTest {
         assertEquals(2, producedTables.size());
         assertEquals("db1.source", producedTables.get(0).getTablePath().toString());
         assertEquals("db2.ffp", producedTables.get(1).getTablePath().toString());
+    }
+
+    @Test
+    void rangeRuleShouldAcceptDecimalFieldWithIntegerBounds() {
+        // DECIMAL field is read as BigDecimal, while RANGE bounds are parsed as Integer.
+        // Before the fix, BigDecimal.compareTo(Integer) threw ClassCastException.
+        SeaTunnelRowType inputRowType =
+                new SeaTunnelRowType(
+                        new String[] {"amount"},
+                        new SeaTunnelDataType[] {new DecimalType(10, 2)});
+        CatalogTable inputCatalogTable =
+                CatalogTableUtil.getCatalogTable("catalog", "db1", null, "source", inputRowType);
+
+        ReadonlyConfig config =
+                ReadonlyConfig.fromMap(
+                        ImmutableMap.of(
+                                "field_rules",
+                                Arrays.asList(
+                                        ImmutableMap.of(
+                                                "field_name", "amount",
+                                                "rule_type", "RANGE",
+                                                "min_value", "0",
+                                                "max_value", "1000"))));
+
+        DataValidatorTransform transform = new DataValidatorTransform(config, inputCatalogTable);
+
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {new BigDecimal("99.90")});
+        SeaTunnelRow result = transform.map(row);
+
+        assertEquals(new BigDecimal("99.90"), result.getField(0));
     }
 }

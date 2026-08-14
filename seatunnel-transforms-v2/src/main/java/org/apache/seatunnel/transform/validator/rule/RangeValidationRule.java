@@ -26,6 +26,8 @@ import org.apache.seatunnel.transform.validator.ValidationResult;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
+
 /** Validation rule to check if a numeric value is within a specified range. */
 @Data
 @NoArgsConstructor
@@ -59,10 +61,26 @@ public class RangeValidationRule implements ValidationRule {
         }
 
         Comparable comparableValue = (Comparable) value;
+        Comparable min = minValue;
+        Comparable max = maxValue;
+
+        // Normalize numeric values to BigDecimal before comparison. The field value can be a
+        // BigDecimal (from a DECIMAL column) while the bounds parsed by
+        // DataValidatorTransformConfig.parseComparable are Integer/Long/Double, and comparing
+        // BigDecimal with Integer via Comparable.compareTo throws ClassCastException.
+        if (value instanceof Number) {
+            comparableValue = new BigDecimal(value.toString());
+            if (min instanceof Number) {
+                min = new BigDecimal(min.toString());
+            }
+            if (max instanceof Number) {
+                max = new BigDecimal(max.toString());
+            }
+        }
 
         // Check minimum value
-        if (minValue != null) {
-            int minComparison = comparableValue.compareTo(minValue);
+        if (min != null) {
+            int minComparison = comparableValue.compareTo(min);
             if (minInclusive ? minComparison < 0 : minComparison <= 0) {
                 return ValidationResult.failure(
                         customMessage != null
@@ -72,8 +90,8 @@ public class RangeValidationRule implements ValidationRule {
         }
 
         // Check maximum value
-        if (maxValue != null) {
-            int maxComparison = comparableValue.compareTo(maxValue);
+        if (max != null) {
+            int maxComparison = comparableValue.compareTo(max);
             if (maxInclusive ? maxComparison > 0 : maxComparison >= 0) {
                 return ValidationResult.failure(
                         customMessage != null
