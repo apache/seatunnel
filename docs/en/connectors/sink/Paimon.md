@@ -163,7 +163,10 @@ CDC ingestion supports a limited number of schema changes. The currently support
 
 * Dropping columns.
 
-* Renaming columns.
+* Renaming columns (optionally combined with the same type-widening / column-position /
+  comment / nullability changes listed under "Modifying a column type" above — the change
+  handler applies those updates and renames the column in the same step when the name
+  differs).
 
 
 ## Examples
