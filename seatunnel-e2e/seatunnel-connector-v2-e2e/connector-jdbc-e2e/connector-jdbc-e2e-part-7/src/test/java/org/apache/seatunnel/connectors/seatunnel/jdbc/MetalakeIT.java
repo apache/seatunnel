@@ -115,7 +115,7 @@ public class MetalakeIT extends SeaTunnelContainer {
                                 "http://127.0.0.1:8090/api/metalakes/test_metalake/catalogs/")
                         .withCommand(buildStartCommand())
                         .withNetworkAliases("server")
-                        .withExposedPorts()
+                        .withExposedPorts(5801, 8080)
                         .withFileSystemBind("/tmp", "/opt/hive")
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
@@ -123,7 +123,6 @@ public class MetalakeIT extends SeaTunnelContainer {
                                                 "seatunnel-engine:" + JDK_DOCKER_IMAGE)))
                         .waitingFor(Wait.forLogMessage(".*received new worker register:.*", 1));
         copySeaTunnelStarterToContainer(server);
-        server.setPortBindings(Arrays.asList("5801:5801", "8080:8080"));
         server.withCopyFileToContainer(
                 MountableFile.forHostPath(
                         PROJECT_ROOT_PATH
@@ -178,6 +177,10 @@ public class MetalakeIT extends SeaTunnelContainer {
         Startables.deepStart(Stream.of(dbServer)).join();
 
         jdbcCase = getJdbcCase();
+        int mappedPort = dbServer.getMappedPort(jdbcCase.getPort());
+        jdbcCase.setJdbcUrl(
+                jdbcCase.getJdbcUrl().replace(":" + jdbcCase.getLocalPort(), ":" + mappedPort));
+        jdbcCase.setLocalPort(mappedPort);
 
         given().ignoreExceptions()
                 .await()
@@ -235,9 +238,6 @@ public class MetalakeIT extends SeaTunnelContainer {
                         .waitingFor(Wait.forHealthcheck())
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(MYSQL_IMAGE)));
-
-        container.setPortBindings(
-                Lists.newArrayList(String.format("%s:%s", MYSQL_PORT, MYSQL_PORT)));
 
         return container;
     }

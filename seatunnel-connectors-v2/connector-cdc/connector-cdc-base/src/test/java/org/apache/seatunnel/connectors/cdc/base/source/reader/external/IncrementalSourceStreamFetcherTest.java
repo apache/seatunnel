@@ -18,7 +18,10 @@
 package org.apache.seatunnel.connectors.cdc.base.source.reader.external;
 
 import org.apache.seatunnel.connectors.cdc.base.schema.SchemaChangeResolver;
+import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
+import org.apache.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceRecords;
+import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
 import org.apache.seatunnel.connectors.cdc.base.source.split.wartermark.WatermarkEvent;
 import org.apache.seatunnel.connectors.cdc.base.utils.SourceRecordUtils;
 
@@ -34,6 +37,7 @@ import org.mockito.stubbing.Answer;
 import io.debezium.config.CommonConnectorConfig;
 import io.debezium.config.Configuration;
 import io.debezium.connector.SourceInfoStructMaker;
+import io.debezium.connector.base.ChangeEventQueue;
 import io.debezium.data.Envelope;
 import io.debezium.heartbeat.Heartbeat;
 import io.debezium.heartbeat.HeartbeatFactory;
@@ -43,7 +47,9 @@ import io.debezium.relational.TableId;
 import io.debezium.schema.TopicSelector;
 import io.debezium.util.SchemaNameAdjuster;
 
+import java.lang.reflect.Field;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -401,6 +407,98 @@ public class IncrementalSourceStreamFetcherTest {
                 Collections.singletonMap("heartbeat", "heartbeat"),
                 sourceRecord -> eventRef.set(sourceRecord));
         return eventRef.get();
+    }
+
+    @Test
+    public void testPollSplitRecordsDrainsQueueBeforeBoundedCompletion() throws Exception {
+        IncrementalSourceStreamFetcher fetcher = createFetcher();
+
+        // A bounded incremental split: the stop offset is set and is not the
+        // never-stop sentinel, so the split can finish.
+        Offset stopOffset = mock(Offset.class);
+        IncrementalSplit incrementalSplit =
+                new IncrementalSplit(
+                        "incremental-0",
+                        Collections.emptyList(),
+                        null,
+                        stopOffset,
+                        Collections.emptyList());
+
+        // The fetch task has already finished (isRunning() == false), simulating the
+        // bounded reader reaching the stop offset and stopping the binlog context.
+        FetchTask<SourceSplitBase> fetchTask = mock(FetchTask.class);
+        when(fetchTask.isRunning()).thenReturn(false);
+        when(fetchTask.getSplit()).thenReturn(incrementalSplit);
+
+        // The queue still holds one last batch that must be drained before completion.
+        ChangeEventQueue<DataChangeEvent> queue = mock(ChangeEventQueue.class);
+        when(queue.poll())
+                .thenReturn(
+                        Arrays.asList(
+                                new DataChangeEvent(createDataEvent()),
+                                new DataChangeEvent(createDataEvent())),
+                        Collections.emptyList());
+
+        setField(fetcher, "queue", queue);
+        setField(fetcher, "streamFetchTask", fetchTask);
+        setField(fetcher, "currentIncrementalSplit", incrementalSplit);
+        setField(fetcher, "taskStarted", true);
+        setField(fetcher, "executing", false);
+
+        // First poll: the last queued batch must be returned, not null.
+        Iterator<SourceRecords> first = fetcher.pollSplitRecords();
+        Assertions.assertNotNull(first);
+        Assertions.assertTrue(first.hasNext());
+        SourceRecords records = first.next();
+        Assertions.assertEquals(2, records.getSourceRecordList().size());
+
+        // Second poll: the queue is drained, so the bounded split completion is
+        // signaled by returning null.
+        Assertions.assertNull(fetcher.pollSplitRecords());
+    }
+
+    @Test
+    public void testNeverStopSentinelIsNotSignaledAsBoundedCompletion() throws Exception {
+        IncrementalSourceStreamFetcher fetcher = createFetcher();
+
+        // A real never-stop sentinel offset (e.g. LsnOffset.NO_STOPPING_OFFSET or
+        // RedoLogOffset.NO_STOPPING_OFFSET) reports isNeverStop() == true. The fetch task
+        // has finished without an error, but the split must NOT be marked completed: an
+        // unbounded connector must never be turned into a bounded one by the shared reader.
+        Offset stopOffset = mock(Offset.class);
+        when(stopOffset.isNeverStop()).thenReturn(true);
+        IncrementalSplit incrementalSplit =
+                new IncrementalSplit(
+                        "incremental-0",
+                        Collections.emptyList(),
+                        null,
+                        stopOffset,
+                        Collections.emptyList());
+
+        FetchTask<SourceSplitBase> fetchTask = mock(FetchTask.class);
+        when(fetchTask.isRunning()).thenReturn(false);
+        when(fetchTask.getSplit()).thenReturn(incrementalSplit);
+
+        ChangeEventQueue<DataChangeEvent> queue = mock(ChangeEventQueue.class);
+        when(queue.poll()).thenReturn(Collections.emptyList());
+
+        setField(fetcher, "queue", queue);
+        setField(fetcher, "streamFetchTask", fetchTask);
+        setField(fetcher, "currentIncrementalSplit", incrementalSplit);
+        setField(fetcher, "taskStarted", true);
+        setField(fetcher, "executing", false);
+
+        // Even though the task is finished, an unbounded sentinel must not cause a
+        // bounded-completion signal (null); an empty iterator is returned instead.
+        Iterator<SourceRecords> result = fetcher.pollSplitRecords();
+        Assertions.assertNotNull(result);
+        Assertions.assertFalse(result.hasNext());
+    }
+
+    private static void setField(Object target, String fieldName, Object value) throws Exception {
+        Field field = IncrementalSourceStreamFetcher.class.getDeclaredField(fieldName);
+        field.setAccessible(true);
+        field.set(target, value);
     }
 
     static IncrementalSourceStreamFetcher createFetcher() {

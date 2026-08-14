@@ -560,6 +560,30 @@ S3File {
 
 For production jobs, avoid hardcoding long-lived keys in job files. Prefer an IAM-based provider such as `fs.s3a.aws.credentials.provider = org.apache.hadoop.fs.s3a.auth.IAMInstanceCredentialsProvider`, or inject `access_key` and `secret_key` with SeaTunnel variable substitution.
 
+### Writing with STS AssumeRole (cross-account writes)
+
+For sinks that must write to a bucket owned by a different AWS account, assume an IAM role and pass the temporary session credentials through `hadoop_s3_properties`. The temporary credentials are issued by `sts:AssumeRole` and used via `TemporaryAWSCredentialsProvider`.
+
+```hocon
+sink {
+  S3File {
+    path = "/cross-account/prefix"
+    bucket = "s3a://target-bucket"
+    fs.s3a.endpoint = "s3.cn-north-1.amazonaws.com.cn"
+    fs.s3a.aws.credentials.provider = "org.apache.hadoop.fs.s3a.TemporaryAWSCredentialsProvider"
+    hadoop_s3_properties = {
+      "fs.s3a.access.key"    = "<assumed-role-access-key>"
+      "fs.s3a.secret.key"    = "<assumed-role-secret-key>"
+      "fs.s3a.session.token" = "<assumed-role-session-token>"
+    }
+    file_format_type = "parquet"
+    schema_evolution_enabled = true
+  }
+}
+```
+
+For AWS SSO/Profile-based roles, swap the provider class (for example `com.amazonaws.auth.profile.ProfileCredentialsProvider` with `fs.s3a.profile` and `fs.s3a.credentialsFile`) and pass the provider-specific keys under `hadoop_s3_properties`. See the [Hadoop AWS](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html) documentation for the full set of supported `fs.s3a.*` keys.
+
 ## Changelog
 
 <ChangeLog />

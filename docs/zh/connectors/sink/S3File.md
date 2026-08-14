@@ -548,6 +548,30 @@ S3File {
 
 生产作业中不建议把长期有效的密钥直接写入任务文件。优先使用 IAM 类认证方式，例如 `fs.s3a.aws.credentials.provider = org.apache.hadoop.fs.s3a.auth.IAMInstanceCredentialsProvider`，或通过 SeaTunnel 变量替换注入 `access_key` 和 `secret_key`。
 
+### 使用 STS AssumeRole 写入（跨账号写入）
+
+向另一个 AWS 账号拥有的 bucket 写入时，先通过 `sts:AssumeRole` 拿到临时会话凭证，再通过 `hadoop_s3_properties` 与 `TemporaryAWSCredentialsProvider` 配合使用。
+
+```hocon
+sink {
+  S3File {
+    path = "/cross-account/prefix"
+    bucket = "s3a://target-bucket"
+    fs.s3a.endpoint = "s3.cn-north-1.amazonaws.com.cn"
+    fs.s3a.aws.credentials.provider = "org.apache.hadoop.fs.s3a.TemporaryAWSCredentialsProvider"
+    hadoop_s3_properties = {
+      "fs.s3a.access.key"    = "<assumed-role-access-key>"
+      "fs.s3a.secret.key"    = "<assumed-role-secret-key>"
+      "fs.s3a.session.token" = "<assumed-role-session-token>"
+    }
+    file_format_type = "parquet"
+    schema_evolution_enabled = true
+  }
+}
+```
+
+对于 AWS SSO / Profile 角色，把 provider 类换成 `com.amazonaws.auth.profile.ProfileCredentialsProvider`，并把 `fs.s3a.profile`、`fs.s3a.credentialsFile` 等 provider 特定键放在 `hadoop_s3_properties` 里。完整的 `fs.s3a.*` 键集合参见 [Hadoop AWS](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html) 文档。
+
 ## 变更日志
 
 <ChangeLog />

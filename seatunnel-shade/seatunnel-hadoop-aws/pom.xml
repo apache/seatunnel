@@ -192,6 +192,27 @@
                                         <include>com.google.common.collect.*</include>
                                     </includes>
                                 </relocation>
+                                <!--
+                                    hadoop-aws carries no Jackson classes of its own; it only
+                                    *references* them, and it reaches them through hadoop-common,
+                                    which this jar does not bundle either - the uber jar supplies it.
+                                    The uber jar relocates Jackson, so its JsonSerialization#getMapper
+                                    is declared to return the relocated ObjectMapper. Left unrelocated,
+                                    RoleModel's call site keeps the original descriptor
+                                    ()Lcom/fasterxml/jackson/databind/ObjectMapper; and fails at
+                                    runtime with NoSuchMethodError on any fs.s3a.assumed.role.* path.
+
+                                    This must therefore use the UBER jar's shaded pattern, not this
+                                    module's own prefix: the point is to agree with the class that
+                                    supplies the method, not to be self-consistent. Bundling a second
+                                    Jackson under a different name would leave the descriptor just as
+                                    mismatched. Nothing is added to this jar - only references are
+                                    rewritten. Keep in lockstep with seatunnel-hadoop3-*-uber.
+                                -->
+                                <relocation>
+                                    <pattern>com.fasterxml.jackson</pattern>
+                                    <shadedPattern>${seatunnel.shade.package}.hadoop.com.fasterxml.jackson</shadedPattern>
+                                </relocation>
                             </relocations>
                         </configuration>
                     </execution>
