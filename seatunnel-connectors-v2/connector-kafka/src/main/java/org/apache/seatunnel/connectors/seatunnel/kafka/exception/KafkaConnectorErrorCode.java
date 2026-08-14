@@ -30,7 +30,11 @@ public enum KafkaConnectorErrorCode implements SeaTunnelErrorCode {
             "KAFKA-05", "Error occurred when the kafka consumer thread was running"),
     CONSUME_DATA_FAILED("KAFKA-06", "Kafka failed to consume data"),
     CONSUMER_CLOSE_FAILED("KAFKA-07", "Kafka failed to close consumer"),
-    DISCOVER_PARTITION_FAILED("KAFKA-08", "Kafka failed to discover source partitions");
+    TRANSACTION_NOT_STARTED(
+            "KAFKA-08",
+            "Kafka transaction still reported as not started after flushing pending sends"),
+    PRODUCE_DATA_FAILED("KAFKA-09", "Kafka failed to produce data"),
+    DISCOVER_PARTITION_FAILED("KAFKA-10", "Kafka failed to discover source partitions");
 
     private final String code;
     private final String description;

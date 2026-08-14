@@ -704,6 +704,8 @@ transform {
 
 支持：`json`、`text`、`canal_json`、`debezium_json`、`ogg_json`、`avro`、`protobuf` 和 `NATIVE`。当需要将 Kafka 元数据（headers、key、partition、timestamp）作为记录字段使用时，选择 `NATIVE` 格式。
 
+`format = avro` 仅支持原始（未经 Schema Registry 封装）的 Avro 消息。与 `protobuf`（参见 [Protobuf with Schema Registry wire format](#protobuf-with-schema-registry-wire-format)）不同，`avro` 没有对应 `strip_schema_registry_header` 的选项：如果 topic 是由 Confluent `KafkaAvroSerializer` 写入、消息中带有 Confluent Schema Registry 线格式头部（magic byte + schema id），`format = avro` 不会在反序列化前去除该头部，因此会读取失败或得到损坏的数据。`avro_schema` 仅用于为普通（非 Schema Registry）Avro 消息提供 writer schema。
+
 ### 如何配置 SASL/Kerberos 认证？
 
 通过 `kafka.*` 属性传入认证参数：
