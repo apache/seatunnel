@@ -61,7 +61,8 @@ public class FileSinkAggregatedCommitter
     }
 
     public static boolean shouldAppendData(HadoopConf hadoopConf, FileSinkConfig fileSinkConfig) {
-        return DataSaveMode.APPEND_DATA.equals(fileSinkConfig.getDataSaveMode())
+        return fileSinkConfig.isDataSaveModeExplicitlyConfigured()
+                && DataSaveMode.APPEND_DATA.equals(fileSinkConfig.getDataSaveMode())
                 && "ftp".equalsIgnoreCase(hadoopConf.getSchema());
     }
 

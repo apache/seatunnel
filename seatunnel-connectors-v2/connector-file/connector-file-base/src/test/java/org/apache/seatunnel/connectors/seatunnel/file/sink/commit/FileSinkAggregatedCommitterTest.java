@@ -132,6 +132,7 @@ class FileSinkAggregatedCommitterTest {
     void shouldEnableAppendDataOnlyForFtpAppendDataMode() {
         FileSinkConfig fileSinkConfig = Mockito.mock(FileSinkConfig.class);
         Mockito.when(fileSinkConfig.getDataSaveMode()).thenReturn(DataSaveMode.APPEND_DATA);
+        Mockito.when(fileSinkConfig.isDataSaveModeExplicitlyConfigured()).thenReturn(true);
 
         Assertions.assertTrue(
                 FileSinkAggregatedCommitter.shouldAppendData(newHadoopConf("ftp"), fileSinkConfig));
@@ -139,6 +140,11 @@ class FileSinkAggregatedCommitterTest {
                 FileSinkAggregatedCommitter.shouldAppendData(
                         newHadoopConf("hdfs"), fileSinkConfig));
 
+        Mockito.when(fileSinkConfig.isDataSaveModeExplicitlyConfigured()).thenReturn(false);
+        Assertions.assertFalse(
+                FileSinkAggregatedCommitter.shouldAppendData(newHadoopConf("ftp"), fileSinkConfig));
+
+        Mockito.when(fileSinkConfig.isDataSaveModeExplicitlyConfigured()).thenReturn(true);
         Mockito.when(fileSinkConfig.getDataSaveMode()).thenReturn(DataSaveMode.DROP_DATA);
         Assertions.assertFalse(
                 FileSinkAggregatedCommitter.shouldAppendData(newHadoopConf("ftp"), fileSinkConfig));
