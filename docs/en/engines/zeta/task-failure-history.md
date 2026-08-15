@@ -78,7 +78,7 @@ Field rules:
 
 ## Capture and Deduplication
 
-`TaskExecutionState` is the natural task-to-master transport boundary. The implementation should extend that transport with structured failure fields and capture the record in the JobMaster before task resources are released. Exception content must be sanitized and bounded at this capture boundary, before it is written to HA or finished-job history. The implementation should generalize the existing `DryRunConnectFailureMessageSanitizer` rules into a shared utility rather than persisting raw connector messages or stack traces.
+`TaskExecutionState` is the natural task-to-master transport boundary. The implementation should extend that transport with structured failure fields and capture the record in the JobMaster before task resources are released. Exception content must be sanitized and bounded at this capture boundary, before it is written to HA or finished-job history. The implementation should extract the redaction patterns from `DryRunConnectFailureMessageSanitizer` into a shared utility rather than persisting raw connector messages or stack traces. Failure history keeps its own 4 KiB message and 64 KiB stack-trace limits and truncation flags; it must not inherit the dry-run utility's 2 KiB display limit.
 
 Repeated delivery of the same terminal task-group state must not create duplicate rows while the original record is retained. The first implementation deduplicates on `(pipelineId, attempt, taskGroupId)`, because a task group has one terminal failure for one pipeline attempt. A Hazelcast `EntryProcessor` on the job-scoped HA entry performs the deduplication check, sequence allocation, append, and oldest-record eviction as one atomic operation. It must be submitted asynchronously from the task-status operation path. Completion handling can log a store failure, but must not wait on or re-enter a Hazelcast operation thread. The first terminal delivery creates the record and receives a sequence number, while later deliveries with the same key are ignored without consuming another sequence number. A different task group in the same attempt remains separate, and a failure after restore has a different attempt number and remains visible.
 
@@ -88,18 +88,19 @@ Recording history is diagnostic and best effort. A history-store failure must be
 
 ## Storage and Retention
 
-Failure history should use a dedicated HA-backed engine state entry keyed by `jobId`. The first implementation can use a dedicated Hazelcast `IMap`, consistent with the engine's existing running-job state. Its backup count and persistence configuration must not provide a broader durability footprint than the existing running-job and finished-job state maps. The REST representation remains independent of that storage choice.
+Failure history should use a dedicated HA-backed engine state entry keyed by `jobId`. The first implementation can use a dedicated Hazelcast `IMap` with the same default Hazelcast `MapConfig` baseline as the engine's existing job-state maps. It does not introduce additional backups, persistence, or an external history backend. The REST representation remains independent of that storage choice.
 
 The first version uses these bounds:
 
 - retain at most 100 failure records per job;
-- evict the oldest record when the limit is exceeded;
+- retain at most 1 MiB of combined UTF-8 `message` and `stackTrace` content per job;
+- evict the oldest records until both the record-count and aggregate-text limits are satisfied;
 - do not apply a TTL while the job is active; and
-- after the job reaches a terminal state, apply the existing `history-job-expire-minutes` policy used by `JobHistoryService`.
+- after the job reaches a terminal state, give the dedicated finished-history entry its own `history-job-expire-minutes` TTL.
 
 The initial limit should be a constant rather than a new user option. A configurable limit can be added later if operational evidence shows that 100 records is insufficient.
 
-When a job reaches a terminal state, `JobHistoryService` writes the retained records and authoritative pipeline attempt values to a dedicated finished-history entry. This reuses the existing finished-job lifecycle and `history-job-expire-minutes` semantics; it does not assume a separate or pluggable history-store abstraction. The failure-history entry is removed when the corresponding finished-job record expires.
+When a job reaches a terminal state, `JobHistoryService` writes the retained records and authoritative pipeline attempt values to a dedicated finished-history entry. The entry receives the same `history-job-expire-minutes` TTL as the corresponding finished-job record, so expiration does not depend on a cleanup-listener callback. A listener may remove it eagerly when the finished-job record is deleted, but the entry's own TTL remains the fallback guarantee. This reuses the existing finished-job lifecycle without introducing a pluggable history-store abstraction.
 
 The terminal snapshot write is best effort. A write or cleanup failure must be logged, but must not change the job terminal state, restore behavior, or existing finished-job record. Running and finished reads use the same response model even though their storage lifecycle differs.
 
@@ -155,6 +156,8 @@ The feature is additive:
 - no checkpoint or savepoint payload is changed; and
 - old failure paths can populate only the fields they know.
 
+`TaskExecutionState` is Java-serialized between workers and the master. Before adding the new optional failure fields, the implementation must capture the serial UID generated for the current class and declare that value explicitly. Keeping that UID and treating the new fields as optional preserves deserialization of the existing wire form instead of changing compatibility accidentally.
+
 ## Acceptance Criteria
 
 1. A first-attempt task-group failure creates one record with attempt `0`.
@@ -163,7 +166,7 @@ The feature is additive:
 4. Failures from different task groups in the same attempt remain separate.
 5. A master failover preserves records acknowledged by the HA history store and the next attempt number; an asynchronous submission still in flight at failover may be lost.
 6. A finished job exposes the same records until the configured history expiration.
-7. More than 100 failures evicts the oldest records deterministically.
+7. More than 100 failures, or more than 1 MiB of retained UTF-8 message and stack-trace content, evicts the oldest records deterministically until both limits are satisfied.
 8. Messages larger than 4 KiB and stack traces larger than 64 KiB are truncated at valid UTF-8 boundaries and expose the corresponding truncation flag.
 9. A terminal job writes one bounded failure-history entry that expires with its corresponding finished-job record.
 10. Failure-history write or cleanup errors do not change the job failure, restore, or terminal-state path.
@@ -173,8 +176,9 @@ The feature is additive:
 14. Malformed `jobId` or `limit` input returns a controlled `400` response without exposing a stack trace or reflecting the invalid value.
 15. The endpoint is covered by the same configured REST authentication boundary as existing job-detail endpoints.
 16. Failure-history updates are submitted asynchronously and do not block a Hazelcast operation thread.
-17. Failure-history state does not use more backups or persistence than the existing job-state maps.
+17. Failure-history state uses the same default Hazelcast map configuration as the existing job-state maps and does not add backups or persistence.
 18. Only the exact `/job-info/{jobId}` and `/job-info/{jobId}/failures` path shapes are accepted; additional path segments use the existing not-found behavior.
+19. Existing serialized `TaskExecutionState` values remain readable after the optional structured failure fields are added.
 
 ## Delivery Plan
 

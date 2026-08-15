@@ -78,7 +78,7 @@ Attempt 属于 pipeline，而不是单个 task。
 
 ## 捕获与去重
 
-`TaskExecutionState` 是 task 到 master 的自然传输边界。实现应扩展这条传输路径，增加结构化失败字段，并在释放 task 资源之前由 JobMaster 捕获记录。异常内容必须在该捕获边界完成脱敏和长度限制，再写入 HA 或 finished-job 历史。实现应将现有 `DryRunConnectFailureMessageSanitizer` 的规则抽取为共享工具，不能持久化未经处理的 connector 消息或堆栈。
+`TaskExecutionState` 是 task 到 master 的自然传输边界。实现应扩展这条传输路径，增加结构化失败字段，并在释放 task 资源之前由 JobMaster 捕获记录。异常内容必须在该捕获边界完成脱敏和长度限制，再写入 HA 或 finished-job 历史。实现应将 `DryRunConnectFailureMessageSanitizer` 中的脱敏规则抽取为共享工具，不能持久化未经处理的 connector 消息或堆栈。失败历史仍使用自己的 4 KiB 消息上限、64 KiB 堆栈上限和截断标记，不能继承 dry-run 工具的 2 KiB 展示上限。
 
 当原始记录仍在保留范围内时，重复收到同一个 task group 的终态不应生成重复记录。第一版使用 `(pipelineId, attempt, taskGroupId)` 去重，因为一个 task group 在一次 pipeline attempt 中只有一个终态失败。以作业级 HA 条目为目标的 Hazelcast `EntryProcessor` 在一次原子操作中完成去重检查、sequence 分配、追加记录和最旧记录删除。它必须从 task 状态操作路径异步提交。完成回调可以记录存储失败，但不能等待 Hazelcast operation thread，也不能重新进入该线程。第一次终态上报创建记录并分配 sequence，相同 key 的后续上报直接忽略且不消耗新的 sequence。同一 attempt 中不同 task group 的失败分别保留，恢复后的失败使用新的 attempt，因此仍然可见。
 
@@ -88,18 +88,19 @@ Attempt 属于 pipeline，而不是单个 task。
 
 ## 存储与保留
 
-失败历史应使用以 `jobId` 为 key 的独立 HA 引擎状态条目。第一版可以使用独立的 Hazelcast `IMap`，与引擎现有的运行中作业状态保持一致。它的备份数量和持久化配置不能提供比现有运行中和已完成作业状态 map 更大的持久化范围。REST 表示不依赖具体的存储选择。
+失败历史应使用以 `jobId` 为 key 的独立 HA 引擎状态条目。第一版可以使用独立的 Hazelcast `IMap`，并采用与引擎现有作业状态 map 相同的默认 Hazelcast `MapConfig`。它不增加额外备份、持久化或外部历史后端。REST 表示不依赖具体的存储选择。
 
 第一版使用以下边界：
 
 - 每个作业最多保留 100 条失败记录；
-- 超过限制时删除最旧记录；
+- 每个作业保留的 UTF-8 `message` 和 `stackTrace` 内容总量最多为 1 MiB；
+- 删除最旧记录，直到记录数量和文本总量两个限制都满足；
 - 作业运行期间不设置 TTL；
-- 作业进入终态后，使用 `JobHistoryService` 现有的 `history-job-expire-minutes` 策略。
+- 作业进入终态后，为独立的 finished-history 条目设置自己的 `history-job-expire-minutes` TTL。
 
 初始上限应使用常量，不新增用户配置。如果实际运行数据证明 100 条不足，可以后续增加可配置项。
 
-作业进入终态时，`JobHistoryService` 将保留的失败记录和权威 pipeline attempt 值写入独立的 finished history 条目。该方案复用现有 finished job 的生命周期和 `history-job-expire-minutes` 语义，不假设已经存在独立或可插拔的历史存储抽象。对应的 finished job 记录过期时，失败历史条目也会被删除。
+作业进入终态时，`JobHistoryService` 将保留的失败记录和权威 pipeline attempt 值写入独立的 finished history 条目。该条目使用与对应 finished job 记录相同的 `history-job-expire-minutes` TTL，因此过期不依赖 cleanup listener 回调。listener 可以在 finished job 记录删除时提前清理，但条目自身的 TTL 仍是兜底保证。该方案复用现有 finished job 生命周期，不引入可插拔的历史存储抽象。
 
 终态快照写入采用尽力而为语义。写入或清理失败必须记录日志，但不能改变作业终态、恢复行为或现有 finished job 记录。运行中和已完成作业虽然存储生命周期不同，但读取时使用同一个响应模型。
 
@@ -155,6 +156,8 @@ Exception tab 可以在单独变更中接入 REST 端点。第一版 UI 应按 a
 - 不修改 checkpoint 或 savepoint 内容；
 - 旧失败路径只需要填写它能够提供的字段。
 
+`TaskExecutionState` 在 worker 和 master 之间使用 Java 序列化。增加新的可选失败字段之前，实现必须记录当前类自动生成的 serial UID，并显式声明该值。保留这个 UID，同时将新字段视为可选字段，可以继续反序列化原有 wire 数据，避免无意改变兼容性。
+
 ## 验收标准
 
 1. 首次执行的 task group 失败生成一条 attempt `0` 的记录；
@@ -163,7 +166,7 @@ Exception tab 可以在单独变更中接入 REST 端点。第一版 UI 应按 a
 4. 同一个 attempt 中不同 task group 的失败分别保留；
 5. master 切换后，HA 历史存储已确认的记录和下一个 attempt 编号保持不变；切换时仍在处理中的异步提交可能丢失；
 6. 已完成作业在配置的历史过期时间内可以查询相同记录；
-7. 超过 100 条记录后按确定顺序删除最旧记录；
+7. 超过 100 条记录，或者保留的 UTF-8 消息和堆栈内容超过 1 MiB 后，按确定顺序删除最旧记录，直到两个限制都满足；
 8. 超过 4 KiB 的消息和超过 64 KiB 的堆栈在有效 UTF-8 边界截断，并提供对应的截断标记；
 9. 作业进入终态时写入一个有界失败历史条目，该条目随对应的 finished job 记录过期；
 10. 写入或清理失败历史时发生错误，不改变作业失败、恢复或终态流程；
@@ -173,8 +176,9 @@ Exception tab 可以在单独变更中接入 REST 端点。第一版 UI 应按 a
 14. 非法 `jobId` 或 `limit` 返回受控的 `400` 响应，不暴露堆栈或回显非法值；
 15. 该端点使用与现有 job-detail 端点相同的 REST 认证边界。
 16. 失败历史更新异步提交，不阻塞 Hazelcast operation thread；
-17. 失败历史状态使用的备份和持久化范围不超过现有作业状态 map；
+17. 失败历史状态使用与现有作业状态 map 相同的默认 Hazelcast 配置，不增加备份或持久化；
 18. 只接受精确的 `/job-info/{jobId}` 和 `/job-info/{jobId}/failures` 路径；额外路径段沿用现有 not-found 行为。
+19. 增加可选的结构化失败字段后，已有序列化 `TaskExecutionState` 仍可读取。
 
 ## 交付计划
 
