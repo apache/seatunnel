@@ -130,6 +130,62 @@ public class MongodbIncrementalSourceFactoryTest {
     }
 
     @Test
+    public void testSourceConfigBuilderAcceptsTimestampRange() {
+        MongodbSourceConfig config =
+                MongodbSourceConfigProvider.newBuilder()
+                        .hosts("localhost:27017")
+                        .startupOptions(
+                                new StartupConfig(
+                                        StartupMode.TIMESTAMP, null, null, 1_700_000_000_000L))
+                        .stopOptions(
+                                new StopConfig(StopMode.TIMESTAMP, null, null, 1_700_000_001_000L))
+                        .validate()
+                        .create(0);
+
+        Assertions.assertEquals(StartupMode.TIMESTAMP, config.getStartupConfig().getStartupMode());
+        Assertions.assertEquals(StopMode.TIMESTAMP, config.getStopConfig().getStopMode());
+    }
+
+    @Test
+    public void testSourceConfigBuilderRejectsInvalidTimestampRange() {
+        long startupTimestamp = 1_700_000_000_000L;
+
+        Assertions.assertThrows(
+                MongodbConnectorException.class,
+                () ->
+                        MongodbSourceConfigProvider.newBuilder()
+                                .hosts("localhost:27017")
+                                .startupOptions(
+                                        new StartupConfig(
+                                                StartupMode.TIMESTAMP,
+                                                null,
+                                                null,
+                                                startupTimestamp))
+                                .stopOptions(
+                                        new StopConfig(
+                                                StopMode.TIMESTAMP, null, null, startupTimestamp))
+                                .validate());
+        Assertions.assertThrows(
+                MongodbConnectorException.class,
+                () ->
+                        MongodbSourceConfigProvider.newBuilder()
+                                .hosts("localhost:27017")
+                                .startupOptions(
+                                        new StartupConfig(
+                                                StartupMode.TIMESTAMP,
+                                                null,
+                                                null,
+                                                startupTimestamp))
+                                .stopOptions(
+                                        new StopConfig(
+                                                StopMode.TIMESTAMP,
+                                                null,
+                                                null,
+                                                startupTimestamp - 1000L))
+                                .validate());
+    }
+
+    @Test
     public void testSourceConfigBuilderRejectsUnsupportedStopMode() {
         Assertions.assertThrows(
                 MongodbConnectorException.class,

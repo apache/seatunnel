@@ -23,6 +23,7 @@ import org.apache.seatunnel.connectors.cdc.base.config.StopConfig;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.exception.MongodbConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.source.offset.ChangeStreamOffsetFactory;
 
 import java.util.List;
 import java.util.Objects;
@@ -147,6 +148,20 @@ public class MongodbSourceConfigProvider {
 
         public Builder validate() {
             checkNotNull(hosts, "hosts must be provided");
+            if (startupOptions != null
+                    && stopOptions != null
+                    && startupOptions.getStartupMode() == StartupMode.TIMESTAMP
+                    && stopOptions.getStopMode() == StopMode.TIMESTAMP) {
+                ChangeStreamOffsetFactory offsetFactory = new ChangeStreamOffsetFactory();
+                if (stopOptions
+                                .getStopOffset(offsetFactory)
+                                .compareTo(startupOptions.getStartupOffset(offsetFactory))
+                        <= 0) {
+                    throw new MongodbConnectorException(
+                            ILLEGAL_ARGUMENT,
+                            "The stop timestamp must be later than the startup timestamp.");
+                }
+            }
             return this;
         }
 

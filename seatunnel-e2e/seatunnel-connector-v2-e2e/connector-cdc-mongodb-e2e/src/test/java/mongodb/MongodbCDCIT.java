@@ -84,6 +84,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbUtils.getCurrentClusterTime;
 import static org.testcontainers.shaded.org.awaitility.Awaitility.await;
 import static org.testcontainers.shaded.org.awaitility.Awaitility.with;
 import static org.testcontainers.shaded.org.awaitility.Durations.TWO_SECONDS;
@@ -198,9 +199,7 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
     public void testMongodbCdcTimestampStopMode(TestContainer container) throws Exception {
         cleanSourceTable();
 
-        long startupTimestamp = System.currentTimeMillis();
-        await().atMost(5, TimeUnit.SECONDS)
-                .until(() -> System.currentTimeMillis() >= startupTimestamp + 2000L);
+        long startupTimestamp = currentClusterTimeMillis();
 
         MongoCollection<Document> products =
                 client.getDatabase(MONGODB_DATABASE).getCollection(MONGODB_COLLECTION_1);
@@ -215,7 +214,7 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
                                 .append("description", "before stop timestamp")
                                 .append("weight", "20")));
 
-        long stopTimestamp = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(30);
+        long stopTimestamp = currentClusterTimeMillis() + TimeUnit.SECONDS.toMillis(60);
         String jobId = String.valueOf(JobIdGenerator.newJobId());
         String[] variables = {
             "startup_timestamp=" + startupTimestamp, "stop_timestamp=" + stopTimestamp
@@ -254,25 +253,57 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
                                         querySql(
                                                 "select name from products where name like 'bounded-before-%' order by name")));
 
-        await().atMost(30, TimeUnit.SECONDS)
-                .until(() -> System.currentTimeMillis() > stopTimestamp + 1000L);
+        Assertions.assertEquals(0, container.savepointJob(jobId).getExitCode());
+        products.insertOne(
+                new Document("_id", new ObjectId("100000000000000000000133"))
+                        .append("name", "bounded-after-restore")
+                        .append("description", "after savepoint restore")
+                        .append("weight", "25"));
+
+        CompletableFuture<Container.ExecResult> restoredJobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.restoreJob(
+                                        "/mongodbcdc_stop_mode_timestamp.conf", jobId, variables);
+                            } catch (Exception e) {
+                                throw new CompletionException(e);
+                            }
+                        });
+
+        await().atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertIterableEquals(
+                                        Collections.singletonList(
+                                                Collections.singletonList("bounded-after-restore")),
+                                        querySql(
+                                                "select name from products where name = 'bounded-after-restore'")));
+
+        await().atMost(60, TimeUnit.SECONDS)
+                .until(() -> currentClusterTimeMillis() > stopTimestamp);
         products.insertOne(
                 new Document("_id", new ObjectId("100000000000000000000132"))
                         .append("name", "bounded-after")
                         .append("description", "after stop timestamp")
                         .append("weight", "30"));
 
-        Container.ExecResult result = jobFuture.get(120, TimeUnit.SECONDS);
+        Container.ExecResult result = restoredJobFuture.get(120, TimeUnit.SECONDS);
         Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
         await().atMost(30, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> Assertions.assertEquals("FINISHED", container.getJobStatus(jobId)));
         Assertions.assertIterableEquals(
                 Arrays.asList(
+                        Collections.singletonList("bounded-after-restore"),
                         Collections.singletonList("bounded-before-1"),
                         Collections.singletonList("bounded-before-2")),
                 querySql("select name from products where name like 'bounded-%' order by name"),
                 "the bounded result must contain only events before the stop timestamp");
+    }
+
+    private long currentClusterTimeMillis() {
+        return Integer.toUnsignedLong(getCurrentClusterTime(client).getTime()) * 1000L;
     }
 
     @TestTemplate
