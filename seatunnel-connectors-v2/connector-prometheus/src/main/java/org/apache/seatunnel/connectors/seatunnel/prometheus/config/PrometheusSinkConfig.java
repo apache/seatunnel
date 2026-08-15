@@ -38,8 +38,6 @@ public class PrometheusSinkConfig extends HttpConfig {
 
     private int batchSize;
 
-    private long flushInterval;
-
     public static PrometheusSinkConfig loadConfig(ReadonlyConfig pluginConfig) {
         PrometheusSinkConfig sinkConfig = new PrometheusSinkConfig();
         if (pluginConfig.getOptional(PrometheusSinkOptions.KEY_VALUE).isPresent()) {
@@ -56,10 +54,6 @@ public class PrometheusSinkConfig extends HttpConfig {
         // would leave batchSize at 0 and disable the size-based flush trigger.
         int batchSize = checkIntArgument(pluginConfig.get(PrometheusSinkOptions.BATCH_SIZE));
         sinkConfig.setBatchSize(batchSize);
-        if (pluginConfig.getOptional(PrometheusSinkOptions.FLUSH_INTERVAL).isPresent()) {
-            long flushInterval = pluginConfig.get(PrometheusSinkOptions.FLUSH_INTERVAL);
-            sinkConfig.setFlushInterval(flushInterval);
-        }
         return sinkConfig;
     }
 
