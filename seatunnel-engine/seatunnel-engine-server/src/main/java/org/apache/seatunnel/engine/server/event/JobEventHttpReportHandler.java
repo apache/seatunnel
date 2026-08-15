@@ -29,13 +29,13 @@ import com.hazelcast.ringbuffer.OverflowPolicy;
 import com.hazelcast.ringbuffer.ReadResultSet;
 import com.hazelcast.ringbuffer.Ringbuffer;
 import com.hazelcast.ringbuffer.impl.RingbufferProxy;
-import com.squareup.okhttp.MediaType;
-import com.squareup.okhttp.OkHttpClient;
-import com.squareup.okhttp.Request;
-import com.squareup.okhttp.RequestBody;
-import com.squareup.okhttp.Response;
-import com.squareup.okhttp.ResponseBody;
 import lombok.extern.slf4j.Slf4j;
+import okhttp3.ConnectionPool;
+import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
 
 import java.io.IOException;
 import java.time.Duration;
@@ -59,6 +59,8 @@ public class JobEventHttpReportHandler implements EventHandler {
     public static final ObjectMapper JSON_MAPPER = new ObjectMapper();
     public static final Duration REPORT_INTERVAL = Duration.ofSeconds(10);
     private static final int LOCAL_EVENT_BUFFER_CAPACITY = 2000;
+    private static final int MAX_IDLE_CONNECTIONS = 5;
+    private static final long KEEP_ALIVE_DURATION_MINUTES = 5;
 
     private final String httpEndpoint;
     private final Map<String, String> httpHeaders;
@@ -185,10 +187,9 @@ public class JobEventHttpReportHandler implements EventHandler {
         Request.Builder requestBuilder =
                 new Request.Builder()
                         .url(httpEndpoint)
-                        .post(RequestBody.create(httpMediaType, events));
+                        .post(RequestBody.create(events, httpMediaType));
         httpHeaders.forEach(requestBuilder::header);
-        Response response = httpClient.newCall(requestBuilder.build()).execute();
-        try (ResponseBody closeable = response.body()) {
+        try (Response response = httpClient.newCall(requestBuilder.build()).execute()) {
             if (response.isSuccessful()) {
                 return true;
             }
@@ -240,10 +241,16 @@ public class JobEventHttpReportHandler implements EventHandler {
     }
 
     private OkHttpClient createHttpClient() {
-        OkHttpClient client = new OkHttpClient();
-        client.setConnectTimeout(30, TimeUnit.SECONDS);
-        client.setWriteTimeout(10, TimeUnit.SECONDS);
-        return client;
+        return new OkHttpClient.Builder()
+                .connectionPool(
+                        new ConnectionPool(
+                                MAX_IDLE_CONNECTIONS,
+                                KEEP_ALIVE_DURATION_MINUTES,
+                                TimeUnit.MINUTES))
+                .connectTimeout(30, TimeUnit.SECONDS)
+                .readTimeout(10, TimeUnit.SECONDS)
+                .writeTimeout(10, TimeUnit.SECONDS)
+                .build();
     }
 
     private void addToLocalBuffer(Event event) {

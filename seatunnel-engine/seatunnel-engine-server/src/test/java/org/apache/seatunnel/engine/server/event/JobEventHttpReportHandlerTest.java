@@ -33,14 +33,14 @@ import com.hazelcast.config.RingbufferStoreConfig;
 import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
 import com.hazelcast.ringbuffer.Ringbuffer;
-import com.squareup.okhttp.mockwebserver.MockResponse;
-import com.squareup.okhttp.mockwebserver.MockWebServer;
-import com.squareup.okhttp.mockwebserver.RecordedRequest;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
+import okhttp3.mockwebserver.MockResponse;
+import okhttp3.mockwebserver.MockWebServer;
+import okhttp3.mockwebserver.RecordedRequest;
 import okio.Buffer;
 
 import java.io.IOException;
@@ -94,10 +94,15 @@ public class JobEventHttpReportHandlerTest {
     @Test
     public void testReportEvent() throws IOException, InterruptedException {
         int maxEvents = 1000;
+        String headerName = "X-SeaTunnel-Test";
+        String headerValue = "event-report";
         Ringbuffer ringbuffer = hazelcast.getRingbuffer(ringBufferName);
         JobEventHttpReportHandler handler =
                 new JobEventHttpReportHandler(
-                        mockWebServer.url("/api").toString(), Duration.ofSeconds(1), ringbuffer);
+                        mockWebServer.url("/api").toString(),
+                        Collections.singletonMap(headerName, headerValue),
+                        Duration.ofSeconds(1),
+                        ringbuffer);
         for (int i = 0; i < maxEvents; i++) {
             handler.handle(new TestEvent(i));
         }
@@ -111,6 +116,8 @@ public class JobEventHttpReportHandlerTest {
         List<TestEvent> events = new ArrayList<>();
         for (int i = 0; i < mockWebServer.getRequestCount(); i++) {
             RecordedRequest request = mockWebServer.takeRequest();
+            Assertions.assertEquals("POST", request.getMethod());
+            Assertions.assertEquals(headerValue, request.getHeader(headerName));
             try (Buffer buffer = request.getBody()) {
                 String body = buffer.readUtf8();
                 List<TestEvent> data =
