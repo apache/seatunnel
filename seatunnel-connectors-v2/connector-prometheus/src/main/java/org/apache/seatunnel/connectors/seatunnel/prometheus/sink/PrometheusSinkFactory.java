@@ -56,7 +56,6 @@ public class PrometheusSinkFactory extends HttpSinkFactory {
                 .optional(
                         PrometheusSinkOptions.BATCH_SIZE,
                         Conditions.greaterThan(PrometheusSinkOptions.BATCH_SIZE, 0))
-                .optional(PrometheusSinkOptions.FLUSH_INTERVAL)
                 .optional(SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
                 .build();
     }

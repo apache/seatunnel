@@ -36,8 +36,6 @@ public class PrometheusSinkConfig extends HttpConfig {
 
     private int batchSize;
 
-    private long flushInterval;
-
     public static PrometheusSinkConfig loadConfig(ReadonlyConfig pluginConfig) {
         PrometheusSinkConfig sinkConfig = new PrometheusSinkConfig();
         if (pluginConfig.getOptional(PrometheusSinkOptions.KEY_VALUE).isPresent()) {
@@ -50,10 +48,6 @@ public class PrometheusSinkConfig extends HttpConfig {
             sinkConfig.setKeyTimestamp(pluginConfig.get(PrometheusSinkOptions.KEY_TIMESTAMP));
         }
         sinkConfig.setBatchSize(pluginConfig.get(PrometheusSinkOptions.BATCH_SIZE));
-        if (pluginConfig.getOptional(PrometheusSinkOptions.FLUSH_INTERVAL).isPresent()) {
-            long flushInterval = pluginConfig.get(PrometheusSinkOptions.FLUSH_INTERVAL);
-            sinkConfig.setFlushInterval(flushInterval);
-        }
         return sinkConfig;
     }
 }

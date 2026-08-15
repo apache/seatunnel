@@ -515,6 +515,52 @@ source {
 }
 ```
 
+### 有界读取：在指定 Binlog 位置停止
+
+使用 `stop.mode = "specific"` 可以将作业变为有界读取：作业读取启动偏移量（或启动时间戳）
+与配置的停止偏移量之间的 binlog，然后自行终止（`FINISHED`），而不是一直运行下去。
+
+> **注意**：有界读取的终止行为目前仅在 **Zeta** 引擎上支持。
+> Flink 和 Spark 引擎暂不支持有界增量分片的终止。
+
+```hocon
+source {
+  MySQL-CDC {
+    server-id = 5654
+    username = "st_user_source"
+    password = "mysqlpw"
+    table-names = ["mysql_cdc.mysql_cdc_e2e_source_table"]
+    url = "jdbc:mysql://mysql_cdc_e2e:3306/mysql_cdc"
+    startup.mode = "specific"
+    startup.specific-offset.file = "mysql-bin.000001"
+    startup.specific-offset.pos = 154
+    stop.mode = "specific"
+    stop.specific-offset.file = "mysql-bin.000010"
+    stop.specific-offset.pos = 4096
+  }
+}
+```
+
+`stop.mode = "specific"` 也可以与 `startup.mode = "timestamp"` 组合使用，同时按时间和
+binlog 位置限定读取范围：
+
+```hocon
+source {
+  MySQL-CDC {
+    server-id = 5654
+    username = "st_user_source"
+    password = "mysqlpw"
+    table-names = ["mysql_cdc.mysql_cdc_e2e_source_table"]
+    url = "jdbc:mysql://mysql_cdc_e2e:3306/mysql_cdc"
+    startup.mode = "timestamp"
+    startup.timestamp = 1716076800000
+    stop.mode = "specific"
+    stop.specific-offset.file = "mysql-bin.000010"
+    stop.specific-offset.pos = 4096
+  }
+}
+```
+
 ### 多表读取后写入 JDBC
 
 当一个 MySQL CDC source 读取多张表时，JDBC sink 可以使用占位符保留原始表名。
