@@ -124,7 +124,8 @@ public class MongodbSourceConfigProvider {
 
         public Builder stopOptions(StopConfig stopOptions) {
             this.stopOptions = Objects.requireNonNull(stopOptions);
-            if (stopOptions.getStopMode() != StopMode.NEVER) {
+            if (stopOptions.getStopMode() != StopMode.NEVER
+                    && stopOptions.getStopMode() != StopMode.TIMESTAMP) {
                 throw new MongodbConnectorException(
                         ILLEGAL_ARGUMENT,
                         String.format("The %s mode is not supported.", stopOptions.getStopMode()));

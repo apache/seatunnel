@@ -71,6 +71,8 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -185,6 +187,92 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
         cleanSourceTable();
         TimeUnit.SECONDS.sleep(20);
         assertionsSourceAndSink(MONGODB_COLLECTION_1, SINK_SQL_PRODUCTS);
+    }
+
+    @TestTemplate
+    @DisabledOnContainer(
+            value = {},
+            type = {EngineType.FLINK, EngineType.SPARK},
+            disabledReason =
+                    "Currently FLINK and SPARK do not support bounded incremental split termination")
+    public void testMongodbCdcTimestampStopMode(TestContainer container) throws Exception {
+        cleanSourceTable();
+
+        long startupTimestamp = System.currentTimeMillis();
+        await().atMost(5, TimeUnit.SECONDS)
+                .until(() -> System.currentTimeMillis() >= startupTimestamp + 2000L);
+
+        MongoCollection<Document> products =
+                client.getDatabase(MONGODB_DATABASE).getCollection(MONGODB_COLLECTION_1);
+        products.insertMany(
+                Arrays.asList(
+                        new Document("_id", new ObjectId("100000000000000000000130"))
+                                .append("name", "bounded-before-1")
+                                .append("description", "before stop timestamp")
+                                .append("weight", "10"),
+                        new Document("_id", new ObjectId("100000000000000000000131"))
+                                .append("name", "bounded-before-2")
+                                .append("description", "before stop timestamp")
+                                .append("weight", "20")));
+
+        long stopTimestamp = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(30);
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
+        String[] variables = {
+            "startup_timestamp=" + startupTimestamp, "stop_timestamp=" + stopTimestamp
+        };
+
+        CompletableFuture<Container.ExecResult> jobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.executeJob(
+                                        "/mongodbcdc_stop_mode_timestamp.conf", jobId, variables);
+                            } catch (Exception e) {
+                                throw new CompletionException(e);
+                            }
+                        });
+
+        await().atMost(30, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            if (jobFuture.isDone()) {
+                                Container.ExecResult jobResult = jobFuture.get();
+                                Assertions.fail(
+                                        "The bounded MongoDB CDC job terminated before reaching RUNNING: "
+                                                + jobResult.getStderr());
+                            }
+                            Assertions.assertEquals("RUNNING", container.getJobStatus(jobId));
+                        });
+
+        await().atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertIterableEquals(
+                                        Arrays.asList(
+                                                Collections.singletonList("bounded-before-1"),
+                                                Collections.singletonList("bounded-before-2")),
+                                        querySql(
+                                                "select name from products where name like 'bounded-before-%' order by name")));
+
+        await().atMost(30, TimeUnit.SECONDS)
+                .until(() -> System.currentTimeMillis() > stopTimestamp + 1000L);
+        products.insertOne(
+                new Document("_id", new ObjectId("100000000000000000000132"))
+                        .append("name", "bounded-after")
+                        .append("description", "after stop timestamp")
+                        .append("weight", "30"));
+
+        Container.ExecResult result = jobFuture.get(120, TimeUnit.SECONDS);
+        Assertions.assertEquals(0, result.getExitCode(), result.getStderr());
+        await().atMost(30, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> Assertions.assertEquals("FINISHED", container.getJobStatus(jobId)));
+        Assertions.assertIterableEquals(
+                Arrays.asList(
+                        Collections.singletonList("bounded-before-1"),
+                        Collections.singletonList("bounded-before-2")),
+                querySql("select name from products where name like 'bounded-%' order by name"),
+                "the bounded result must contain only events before the stop timestamp");
     }
 
     @TestTemplate

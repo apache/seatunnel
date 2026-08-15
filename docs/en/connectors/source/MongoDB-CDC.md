@@ -129,6 +129,8 @@ For specific types in MongoDB, we use Extended JSON format to map them to Seatun
 | incremental.snapshot.chunk.size.mb | Integer | No       | 64      | Chunk size, in MB, for incremental snapshot reading.                                                                                                                                                                                                                     |
 | startup.mode                       | Enum    | No       | INITIAL | Optional startup mode for MongoDB CDC consumer. Valid values are `initial`, `latest`, and `timestamp`. See the [Startup Mode](#startup-mode) section below.                                                                                                               |
 | startup.timestamp                  | Long    | No       | -       | Start from the specified epoch timestamp in milliseconds. Only used when `startup.mode` is `timestamp`.                                                                                                                                                                   |
+| stop.mode                          | Enum    | No       | NEVER   | Optional stop mode for MongoDB CDC consumer. Valid values are `never` and `timestamp`. See the [Stop Mode](#stop-mode) section below.                                                                                                                                      |
+| stop.timestamp                     | Long    | No       | -       | Stop at the change-stream position derived from this epoch timestamp in milliseconds. Only used when `stop.mode` is `timestamp`.                                                                                                                                           |
 | exactly_once                       | Boolean | No       | false   | Enable exactly-once semantics. Enabling this may increase memory usage during large table snapshot recovery.                                                                                                                                                              |
 | debezium                           | Config  | No       | -       | Pass-through Debezium properties used by the embedded engine.                                                                                                                                                                                                             |
 | common-options                     |         | No       | -       | Source plugin common parameters. For details, see [Source Common Options](../common-options/source-common-options.md).                                                                                                                                                    |
@@ -152,6 +154,39 @@ source {
     database = ["inventory"]
     collection = ["inventory.products"]
     startup.mode = "latest"
+    schema = {
+      fields {
+        "_id" : string,
+        "name" : string,
+        "description" : string,
+        "weight" : string
+      }
+    }
+  }
+}
+```
+
+### Stop Mode
+
+The `stop.mode` option controls whether the connector runs continuously or finishes at a bounded change-stream position:
+
+- `never` (default): keeps reading the change stream.
+- `timestamp`: reads until the MongoDB change-stream timestamp reaches the position derived from `stop.timestamp`, drains the records already produced by the source, and then finishes the job.
+
+MongoDB change-stream timestamps have second precision. `stop.timestamp` is supplied as epoch milliseconds and converted to that timestamp representation. Events after the stop position are not emitted.
+
+For example, to read a bounded interval:
+
+```hocon
+source {
+  MongoDB-CDC {
+    hosts = "mongo0:27017"
+    database = ["inventory"]
+    collection = ["inventory.products"]
+    startup.mode = "timestamp"
+    startup.timestamp = 1785542400000
+    stop.mode = "timestamp"
+    stop.timestamp = 1785546000000
     schema = {
       fields {
         "_id" : string,
