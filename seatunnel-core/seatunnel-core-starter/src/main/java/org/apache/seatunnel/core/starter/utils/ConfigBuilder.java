@@ -59,6 +59,7 @@ public class ConfigBuilder {
     private static final String PLACEHOLDER_REGEX = "\\$\\{([^:{}]+)(?::[^}]*)?\\}";
     private static final String MASKED_VALUE = "******";
     private static final String CONFIG_PATH_SEPARATOR = ".";
+    // Treat common option separators as equivalent when matching config paths in logs.
     private static final Pattern CONFIG_OPTION_SEPARATOR_PATTERN = Pattern.compile("[._-]+");
 
     private ConfigBuilder() {
@@ -98,7 +99,7 @@ public class ConfigBuilder {
                 mapToString(
                         configDesensitization(
                                 config.root().unwrapped(),
-                                ConfigShadeUtils.getSensitiveOptions(config))));
+                                ConfigShadeUtils.getLogDesensitizationOptions(config))));
         return config;
     }
 
@@ -115,7 +116,7 @@ public class ConfigBuilder {
                 mapToString(
                         configDesensitization(
                                 config.root().unwrapped(),
-                                ConfigShadeUtils.getSensitiveOptions(config))));
+                                ConfigShadeUtils.getLogDesensitizationOptions(config))));
         return config;
     }
 
@@ -125,13 +126,17 @@ public class ConfigBuilder {
                 sensitiveKeywords.stream()
                         .map(ConfigBuilder::normalizeConfigOption)
                         .collect(Collectors.toSet());
-        return configDesensitization(
-                configMap, sensitiveKeywords, normalizedSensitiveKeywords, null);
+        return configDesensitization(configMap, normalizedSensitiveKeywords, null);
     }
 
+    /**
+     * Recursively builds a masked copy of the config map.
+     *
+     * <p>The accumulated {@code parentPath} preserves dotted option context after HOCON has
+     * expanded paths into nested maps.
+     */
     private static Map<String, Object> configDesensitization(
             Map<String, Object> configMap,
-            Set<String> sensitiveKeywords,
             Set<String> normalizedSensitiveKeywords,
             String parentPath) {
         return configMap.entrySet().stream()
@@ -144,11 +149,7 @@ public class ConfigBuilder {
                                     parentPath == null
                                             ? key
                                             : parentPath + CONFIG_PATH_SEPARATOR + key;
-                            if (isSensitiveOption(
-                                    key,
-                                    configPath,
-                                    sensitiveKeywords,
-                                    normalizedSensitiveKeywords)) {
+                            if (isSensitiveOption(key, configPath, normalizedSensitiveKeywords)) {
                                 if (value instanceof List<?>) {
                                     List<Object> maskedList =
                                             ((List<?>) value)
@@ -169,7 +170,6 @@ public class ConfigBuilder {
                                             key,
                                             configDesensitization(
                                                     (Map<String, Object>) value,
-                                                    sensitiveKeywords,
                                                     normalizedSensitiveKeywords,
                                                     configPath));
                                 } else if (value instanceof List<?>) {
@@ -181,7 +181,6 @@ public class ConfigBuilder {
                                                                 if (v instanceof Map<?, ?>) {
                                                                     return configDesensitization(
                                                                             (Map<String, Object>) v,
-                                                                            sensitiveKeywords,
                                                                             normalizedSensitiveKeywords,
                                                                             configPath);
                                                                 } else {
@@ -198,36 +197,39 @@ public class ConfigBuilder {
                         LinkedHashMap::putAll);
     }
 
+    /**
+     * Checks whether the current option should be masked in the parsed-config log.
+     *
+     * <p>The matcher compares both the leaf key and the accumulated config path. Option separators
+     * '.', '_' and '-' are treated as equivalent, so paths like {@code
+     * kafka.config.sasl.jaas.config} can match {@code sasl.jaas.config}. Suffix matching is applied
+     * only to multi-segment sensitive options such as {@code access_key}; single-word options such
+     * as {@code token} still require an exact leaf-key or full-path match.
+     */
     private static boolean isSensitiveOption(
-            String key,
-            String configPath,
-            Set<String> sensitiveKeywords,
-            Set<String> normalizedSensitiveKeywords) {
-        String lowerCaseKey = key.toLowerCase();
-        String lowerCaseConfigPath = configPath.toLowerCase();
-        if (sensitiveKeywords.contains(lowerCaseKey)
-                || sensitiveKeywords.contains(lowerCaseConfigPath)
-                || sensitiveKeywords.stream()
-                        .anyMatch(
-                                sensitiveKeyword ->
-                                        lowerCaseConfigPath.endsWith(
-                                                CONFIG_PATH_SEPARATOR
-                                                        + sensitiveKeyword.toLowerCase()))) {
-            return true;
-        }
-
+            String key, String configPath, Set<String> normalizedSensitiveKeywords) {
         String normalizedKey = normalizeConfigOption(key);
         String normalizedConfigPath = normalizeConfigOption(configPath);
-        return normalizedSensitiveKeywords.contains(normalizedKey)
-                || normalizedSensitiveKeywords.contains(normalizedConfigPath)
-                || normalizedSensitiveKeywords.stream()
-                        .anyMatch(
-                                sensitiveKeyword ->
-                                        normalizedConfigPath.endsWith("_" + sensitiveKeyword));
+        if (normalizedSensitiveKeywords.contains(normalizedKey)
+                || normalizedSensitiveKeywords.contains(normalizedConfigPath)) {
+            return true;
+        }
+        return normalizedSensitiveKeywords.stream()
+                .filter(ConfigBuilder::isMultiSegmentOption)
+                .anyMatch(
+                        sensitiveKeyword -> normalizedConfigPath.endsWith("_" + sensitiveKeyword));
     }
 
+    /**
+     * Normalizes common option separator styles so equivalent config names can share one matching
+     * rule.
+     */
     private static String normalizeConfigOption(String option) {
         return CONFIG_OPTION_SEPARATOR_PATTERN.matcher(option.toLowerCase()).replaceAll("_");
+    }
+
+    private static boolean isMultiSegmentOption(String option) {
+        return option.contains("_");
     }
 
     public static Config of(
