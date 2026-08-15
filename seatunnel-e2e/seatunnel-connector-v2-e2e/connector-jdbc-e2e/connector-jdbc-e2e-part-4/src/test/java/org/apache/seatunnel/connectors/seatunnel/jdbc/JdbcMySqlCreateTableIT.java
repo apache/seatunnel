@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
-
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
@@ -71,7 +69,7 @@ import java.util.stream.Stream;
 public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResource {
     private static final String SQLSERVER_IMAGE = "mcr.microsoft.com/mssql/server:2022-latest";
     private static final String SQLSERVER_CONTAINER_HOST = "sqlserver";
-    private static final int SQLSERVER_CONTAINER_PORT = 14333;
+    private static final int SQLSERVER_CONTAINER_PORT = 1433;
     private static final String PG_IMAGE = "postgis/postgis";
     private static final String PG_DRIVER_JAR =
             "https://repo1.maven.org/maven2/org/postgresql/postgresql/42.3.3/postgresql-42.3.3.jar";
@@ -86,7 +84,7 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
 
     private static final String MYSQL_USERNAME = "root";
     private static final String PASSWORD = "Abc!@#135_seatunnel";
-    private static final int MYSQL_PORT = 33061;
+    private static final int MYSQL_CONTAINER_PORT = 3306;
     private static final String MYSQL_DRIVER_CLASS = "com.mysql.cj.jdbc.Driver";
     private static final String USERNAME = "testUser";
 
@@ -94,6 +92,9 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
 
     private MSSQLServerContainer<?> sqlserver_container;
     private MySQLContainer<?> mysql_container;
+    private JdbcUrlUtil.UrlInfo sqlParse;
+    private JdbcUrlUtil.UrlInfo mysqlUrlInfo;
+    private JdbcUrlUtil.UrlInfo pg;
 
     private static final String mysqlCheck =
             "SELECT EXISTS(SELECT 1 FROM information_schema.tables WHERE table_schema = 'auto' AND table_name = 'mysql_auto_create_mysql') AS table_exists";
@@ -205,9 +206,6 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(SQLSERVER_IMAGE)));
 
-        sqlserver_container.setPortBindings(
-                Lists.newArrayList(String.format("%s:%s", SQLSERVER_CONTAINER_PORT, 1433)));
-
         try {
             Class.forName(sqlserver_container.getDriverClassName());
         } catch (ClassNotFoundException e) {
@@ -228,9 +226,6 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
                         .withCommand("postgres -c max_prepared_transactions=100")
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(PG_IMAGE)));
-        POSTGRESQL_CONTAINER.setPortBindings(
-                Lists.newArrayList(String.format("%s:%s", 54323, 5432)));
-
         log.info("PostgreSQL container started");
         Class.forName(POSTGRESQL_CONTAINER.getDriverClassName());
 
@@ -243,15 +238,21 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
                         .withDatabaseName(MYSQL_DATABASE)
                         .withNetwork(NETWORK)
                         .withNetworkAliases(MYSQL_CONTAINER_HOST)
-                        .withExposedPorts(MYSQL_PORT)
+                        .withExposedPorts(MYSQL_CONTAINER_PORT)
                         .waitingFor(Wait.forHealthcheck())
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(MYSQL_IMAGE)));
 
-        mysql_container.setPortBindings(
-                Lists.newArrayList(String.format("%s:%s", MYSQL_PORT, 3306)));
         Startables.deepStart(Stream.of(POSTGRESQL_CONTAINER, sqlserver_container, mysql_container))
                 .join();
+        sqlParse =
+                SqlServerURLParser.parse(
+                        String.format(
+                                "jdbc:sqlserver://%s:%s;database=testauto",
+                                sqlserver_container.getHost(),
+                                sqlserver_container.getMappedPort(SQLSERVER_CONTAINER_PORT)));
+        mysqlUrlInfo = JdbcUrlUtil.getUrlInfo(mysql_container.getJdbcUrl());
+        pg = JdbcUrlUtil.getUrlInfo(POSTGRESQL_CONTAINER.getJdbcUrl());
     }
 
     @Override
@@ -262,12 +263,6 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
         initializeJdbcTable();
     }
 
-    static JdbcUrlUtil.UrlInfo sqlParse =
-            SqlServerURLParser.parse("jdbc:sqlserver://localhost:14333;database=testauto");
-    static JdbcUrlUtil.UrlInfo MysqlUrlInfo =
-            JdbcUrlUtil.getUrlInfo("jdbc:mysql://localhost:33061/auto?useSSL=false");
-    static JdbcUrlUtil.UrlInfo pg = JdbcUrlUtil.getUrlInfo("jdbc:postgresql://localhost:54323/pg");
-
     @Test
     public void testAutoCreateTable() {
         TablePath tablePathMySql = TablePath.of("auto", "mysql_auto_create");
@@ -277,7 +272,7 @@ public class JdbcMySqlCreateTableIT extends TestSuiteBase implements TestResourc
 
         SqlServerCatalog sqlServerCatalog =
                 new SqlServerCatalog("sqlserver", "sa", PASSWORD, sqlParse, "dbo", null);
-        MySqlCatalog mySqlCatalog = new MySqlCatalog("mysql", "root", PASSWORD, MysqlUrlInfo, null);
+        MySqlCatalog mySqlCatalog = new MySqlCatalog("mysql", "root", PASSWORD, mysqlUrlInfo, null);
         PostgresCatalog postgresCatalog =
                 new PostgresCatalog("postgres", "testUser", PASSWORD, pg, "public", null);
 

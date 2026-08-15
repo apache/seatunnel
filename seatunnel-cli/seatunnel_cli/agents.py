@@ -1108,6 +1108,16 @@ When generating configs with **multiple source/sink blocks**:
 - ALL source blocks go inside ONE `source {{ }}` section
 - ALL sink blocks go inside ONE `sink {{ }}` section
 
+Chained/wide DAGs (transforms in the middle, 5+ blocks):
+- Wire every hop explicitly: source → transform → sink each consume the
+  upstream label and emit their own (`a_raw` → `a_filtered` → sink).
+- After inserting a transform, re-point the downstream consumer to the
+  transform's OUTPUT label — a sink still reading the source label silently
+  bypasses the transform.
+- To SPLIT one stream by condition: several transforms may consume the SAME
+  source label (each with its own predicate + distinct output label). Two
+  different sources must never emit the same label.
+
 Example — Two Jdbc sources routed to Console and Assert:
 ```hocon
 env {{

@@ -18,7 +18,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Pair;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -135,9 +134,6 @@ public class JdbcOracleMultipleTablesIT extends TestSuiteBase implements TestRes
                         .withImagePullPolicy((PullPolicy.alwaysPull()))
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(ORACLE_IMAGE)));
-
-        oracleContainer.setPortBindings(
-                Lists.newArrayList(String.format("%s:%s", ORACLE_PORT, ORACLE_PORT)));
 
         Startables.deepStart(Stream.of(oracleContainer)).join();
 
