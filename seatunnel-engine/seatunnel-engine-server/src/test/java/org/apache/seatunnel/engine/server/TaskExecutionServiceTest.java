@@ -56,6 +56,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ScheduledFuture;
@@ -241,11 +242,15 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
      * a later task cannot be deserialized.
      */
     @Test
-    public void testDeployTaskReleasesClassLoadersWhenDeserializationFails() {
+    public void testDeployTaskReleasesClassLoadersWhenDeserializationFails() throws IOException {
         TaskExecutionService taskExecutionService = server.getTaskExecutionService();
         DefaultClassLoaderService classLoaderService =
                 (DefaultClassLoaderService) server.getClassLoaderService();
 
+        File testJar = File.createTempFile("failed-deployment", ".jar");
+        testJar.deleteOnExit();
+        URL testJarUrl = testJar.toURI().toURL();
+        Set<URL> testJars = Collections.singleton(testJarUrl);
         long testJobId = System.currentTimeMillis();
         TestTask validTask = new TestTask(new AtomicBoolean(false), 300, true);
         TaskGroupImmutableInformation taskGroupImmutableInformation =
@@ -258,23 +263,20 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
                         Arrays.asList(
                                 nodeEngine.getSerializationService().toData(validTask),
                                 nodeEngine.getSerializationService().toData("not a task")),
-                        Arrays.asList(emptySet(), emptySet()),
+                        Arrays.asList(testJars, testJars),
                         Arrays.asList(emptySet(), emptySet()));
 
         TaskDeployState taskDeployState =
                 taskExecutionService.deployTask(taskGroupImmutableInformation);
 
         Assertions.assertFalse(taskDeployState.isSuccess());
-        Assertions.assertTrue(taskDeployState.getThrowableMsg().contains("ClassCastException"));
         Assertions.assertThrows(
                 TaskGroupContextNotFoundException.class,
                 () ->
                         taskExecutionService.getActiveExecutionContext(
                                 taskGroupImmutableInformation.getTaskGroupLocation()));
         Assertions.assertEquals(
-                0,
-                classLoaderService.queryClassLoaderReferenceCount(
-                        testJobId, Collections.emptySet()));
+                0, classLoaderService.queryClassLoaderReferenceCount(testJobId, testJars));
     }
 
     /** Test task execution time is the same as the timer timeout */

@@ -443,6 +443,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                         "received deploying task executionId [%s]",
                         taskImmutableInfo.getExecutionId()));
         TaskGroup taskGroup = null;
+        // References owned by this deployment attempt until TaskGroupContext is published.
         List<Collection<URL>> acquiredClassLoaderJars = new ArrayList<>();
         try {
             List<Set<ConnectorJarIdentifier>> connectorJarIdentifiersList =
@@ -518,6 +519,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                     return TaskDeployState.success();
                 }
                 deployLocalTask(taskGroup, classLoaders, taskJars);
+                // TaskGroupContext now owns these references and recycleClassLoader releases them.
                 acquiredClassLoaderJars.clear();
                 return TaskDeployState.success();
             }
@@ -535,10 +537,18 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         }
     }
 
+    /**
+     * Releases classloader references acquired by the current deployment attempt.
+     *
+     * <p>This cleanup only runs before ownership is transferred to a published {@link
+     * TaskGroupContext}. Cleanup failures are added to the deployment failure so all references are
+     * attempted without replacing the original error.
+     */
     private void releaseClassLoadersAfterFailedDeployment(
             long jobId,
             List<Collection<URL>> acquiredClassLoaderJars,
             Throwable deploymentFailure) {
+        // Release in reverse acquisition order, matching the ownership stack built above.
         for (int i = acquiredClassLoaderJars.size() - 1; i >= 0; i--) {
             Collection<URL> jars = acquiredClassLoaderJars.get(i);
             try {
