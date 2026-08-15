@@ -518,6 +518,53 @@ source {
 }
 ```
 
+### Bounded Read: Stop at a Specific Binlog Offset
+
+Use `stop.mode = "specific"` to make the job a bounded read: it reads the binlog between the
+startup offset (or startup timestamp) and the configured stop offset, then terminates
+(`FINISHED`) instead of running forever.
+
+> **Note**: bounded-read termination is currently supported on the **Zeta** engine only.
+> Flink and Spark engines do not support bounded incremental-split termination yet.
+
+```hocon
+source {
+  MySQL-CDC {
+    server-id = 5654
+    username = "st_user_source"
+    password = "mysqlpw"
+    table-names = ["mysql_cdc.mysql_cdc_e2e_source_table"]
+    url = "jdbc:mysql://mysql_cdc_e2e:3306/mysql_cdc"
+    startup.mode = "specific"
+    startup.specific-offset.file = "mysql-bin.000001"
+    startup.specific-offset.pos = 154
+    stop.mode = "specific"
+    stop.specific-offset.file = "mysql-bin.000010"
+    stop.specific-offset.pos = 4096
+  }
+}
+```
+
+`stop.mode = "specific"` can also be combined with `startup.mode = "timestamp"` to bound the
+read both by time and by binlog position:
+
+```hocon
+source {
+  MySQL-CDC {
+    server-id = 5654
+    username = "st_user_source"
+    password = "mysqlpw"
+    table-names = ["mysql_cdc.mysql_cdc_e2e_source_table"]
+    url = "jdbc:mysql://mysql_cdc_e2e:3306/mysql_cdc"
+    startup.mode = "timestamp"
+    startup.timestamp = 1716076800000
+    stop.mode = "specific"
+    stop.specific-offset.file = "mysql-bin.000010"
+    stop.specific-offset.pos = 4096
+  }
+}
+```
+
 ### Route Multiple Source Tables to JDBC
 
 When one MySQL CDC source reads multiple tables, JDBC sink placeholders can keep the original table name.
