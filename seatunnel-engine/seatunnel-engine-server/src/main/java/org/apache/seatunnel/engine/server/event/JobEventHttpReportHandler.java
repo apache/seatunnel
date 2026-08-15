@@ -241,6 +241,7 @@ public class JobEventHttpReportHandler implements EventHandler {
     }
 
     private OkHttpClient createHttpClient() {
+        // Preserve the timeout and connection-pool behavior of the previous okhttp 2.x client.
         return new OkHttpClient.Builder()
                 .connectionPool(
                         new ConnectionPool(
