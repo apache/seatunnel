@@ -62,7 +62,7 @@ public class HbaseSourceFactory implements TableSourceFactory {
                         HbaseSourceOptions.START_TIMESTAMP,
                         HbaseSourceOptions.END_TIMESTAMP,
                         Conditions.greaterOrEqual(HbaseSourceOptions.START_TIMESTAMP, 0L),
-                        Conditions.greaterOrEqual(HbaseSourceOptions.END_TIMESTAMP, 0L),
+                        Conditions.greaterThan(HbaseSourceOptions.END_TIMESTAMP, 0L),
                         Conditions.lessThanField(
                                 HbaseSourceOptions.START_TIMESTAMP,
                                 HbaseSourceOptions.END_TIMESTAMP))

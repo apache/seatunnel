@@ -31,6 +31,10 @@ import org.junit.jupiter.api.Test;
 import java.util.HashMap;
 import java.util.Map;
 
+/**
+ * Tests factory option rules, including the half-open {@code [start_timestamp, end_timestamp)}
+ * range.
+ */
 public class HbaseFactoryTest {
 
     @Test
@@ -44,6 +48,7 @@ public class HbaseFactoryTest {
         Assertions.assertDoesNotThrow(() -> validateTimestampRange(null, null));
         Assertions.assertDoesNotThrow(() -> validateTimestampRange(0L, null));
         Assertions.assertDoesNotThrow(() -> validateTimestampRange(null, 1000L));
+        Assertions.assertDoesNotThrow(() -> validateTimestampRange(0L, 1L));
         Assertions.assertDoesNotThrow(() -> validateTimestampRange(0L, 1000L));
     }
 
@@ -51,10 +56,12 @@ public class HbaseFactoryTest {
     void testNegativeTimestampFails() {
         assertInvalidTimestampRange(-1L, null);
         assertInvalidTimestampRange(null, -1L);
+        assertInvalidTimestampRange(null, 0L);
     }
 
     @Test
     void testInvalidTimestampRangeFails() {
+        // Equal bounds describe an empty half-open range and are rejected before source creation.
         assertInvalidTimestampRange(1000L, 1000L);
         assertInvalidTimestampRange(2000L, 1000L);
     }
