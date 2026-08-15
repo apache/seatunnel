@@ -118,13 +118,13 @@ public class MarkdownReadStrategy extends AbstractReadStrategy {
         try (InputStream inputStream = hadoopFileSystemProxy.getInputStream(path)) {
             markdown = IOUtils.toString(inputStream, StandardCharsets.UTF_8);
         }
-        parseMarkdown(markdown, path, output);
+        collectMarkdownRows(markdown, path, output);
     }
 
     /**
      * Emits rows from Markdown while deriving stable document metadata from the original source.
      */
-    void parseMarkdown(String markdown, String sourcePath, Collector<SeaTunnelRow> output) {
+    void collectMarkdownRows(String markdown, String sourcePath, Collector<SeaTunnelRow> output) {
         Parser parser = Parser.builder().build();
         Node document = parser.parse(markdown);
         String sourceUri = FileSourceDocumentRouting.normalizeSourceUri(sourcePath);

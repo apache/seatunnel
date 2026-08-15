@@ -212,7 +212,7 @@ class MarkdownReadStrategyTest {
                 (MarkdownReadStrategy) createRagMetadataMarkdownReadStrategy();
         TempCollector collector = new TempCollector();
 
-        markdownReadStrategy.parseMarkdown(convertedMarkdown, sourcePath, collector);
+        markdownReadStrategy.collectMarkdownRows(convertedMarkdown, sourcePath, collector);
 
         Assertions.assertEquals(2, collector.getRows().size());
         Assertions.assertEquals("Heading", collector.getRows().get(0).getField(1));
