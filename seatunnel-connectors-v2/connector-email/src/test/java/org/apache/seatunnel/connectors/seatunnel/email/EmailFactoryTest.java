@@ -17,15 +17,64 @@
 
 package org.apache.seatunnel.connectors.seatunnel.email;
 
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConfigValidator;
+import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
+import org.apache.seatunnel.connectors.seatunnel.email.config.EmailSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.email.sink.EmailSinkFactory;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.util.HashMap;
+import java.util.Map;
+
 public class EmailFactoryTest {
 
+    private final OptionRule optionRule = new EmailSinkFactory().optionRule();
+
     @Test
-    void optionRule() {
-        Assertions.assertNotNull((new EmailSinkFactory()).optionRule());
+    void testValidSmtpPorts() {
+        Map<String, Object> config = validConfig();
+        config.put(EmailSinkOptions.EMAIL_SMTP_PORT.key(), 465);
+        Assertions.assertDoesNotThrow(() -> validate(config));
+
+        config.put(EmailSinkOptions.EMAIL_SMTP_PORT.key(), 1);
+        Assertions.assertDoesNotThrow(() -> validate(config));
+    }
+
+    @Test
+    void testDefaultSmtpPort() {
+        Assertions.assertDoesNotThrow(() -> validate(validConfig()));
+    }
+
+    @Test
+    void testNonPositiveSmtpPorts() {
+        Map<String, Object> config = validConfig();
+        config.put(EmailSinkOptions.EMAIL_SMTP_PORT.key(), 0);
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(config));
+
+        config.put(EmailSinkOptions.EMAIL_SMTP_PORT.key(), -1);
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(config));
+    }
+
+    private void validate(Map<String, Object> config) {
+        ConfigValidator.of(ReadonlyConfig.fromMap(config)).validate(optionRule);
+    }
+
+    private Map<String, Object> validConfig() {
+        Map<String, Object> config = new HashMap<>();
+        config.put(EmailSinkOptions.EMAIL_FROM_ADDRESS.key(), "sender@example.com");
+        config.put(EmailSinkOptions.EMAIL_TO_ADDRESS.key(), "receiver@example.com");
+        config.put(EmailSinkOptions.EMAIL_HOST.key(), "smtp.example.com");
+        config.put(EmailSinkOptions.EMAIL_TRANSPORT_PROTOCOL.key(), "smtp");
+        config.put(EmailSinkOptions.EMAIL_SMTP_AUTH.key(), true);
+        config.put(EmailSinkOptions.EMAIL_AUTHORIZATION_CODE.key(), "code");
+        config.put(EmailSinkOptions.EMAIL_MESSAGE_HEADLINE.key(), "subject");
+        config.put(EmailSinkOptions.EMAIL_MESSAGE_CONTENT.key(), "content");
+        config.put(EmailSinkOptions.EMAIL_ATTACHMENT_NAME.key(), "report.csv");
+        config.put(EmailSinkOptions.EMAIL_FIELD_DELIMITER.key(), "|");
+        return config;
     }
 }

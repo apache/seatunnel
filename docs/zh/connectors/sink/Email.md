@@ -62,7 +62,7 @@ import ChangeLog from '../changelog/connector-email.md';
 
 ### email_smtp_port [int]
 
-SMTP 服务器端口。默认值 `465` 为 SMTPS 端口，需与 `email_smtp_auth = true` 配合使用。如果使用不带认证的普通 SMTP，请填写与服务匹配的端口（例如 `25` 或 `3025`）。
+SMTP 服务器端口，取值必须大于 `0`。默认值 `465` 为 SMTPS 端口，需与 `email_smtp_auth = true` 配合使用。如果使用不带认证的普通 SMTP，请填写与服务匹配的端口（例如 `25` 或 `3025`）。
 
 ### email_authorization_code [string]
 
