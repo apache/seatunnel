@@ -101,4 +101,120 @@ class HadoopFileSystemProxyTest {
             proxy.close();
         }
     }
+
+    @Test
+    void testWrapClasspathMismatchRewritesNoSuchMethodErrorAsDiagnosticIOException() {
+        assertRewrittenAsDiagnosticIOException(
+                new NoSuchMethodError("org.apache.hadoop.fs.FsTracer.get"));
+    }
+
+    @Test
+    void testWrapClasspathMismatchRewritesNoClassDefFoundError() {
+        assertRewrittenAsDiagnosticIOException(
+                new NoClassDefFoundError("org/apache/hadoop/tracing/TraceUtils"));
+    }
+
+    @Test
+    void testWrapClasspathMismatchRewritesNoSuchFieldError() {
+        assertRewrittenAsDiagnosticIOException(
+                new NoSuchFieldError("org.apache.hadoop.fs.FileSystem.statistics"));
+    }
+
+    @Test
+    void testWrapClasspathMismatchRewritesIncompatibleClassChangeError() {
+        assertRewrittenAsDiagnosticIOException(
+                new IncompatibleClassChangeError("org.apache.hadoop.hdfs.DFSClient"));
+    }
+
+    @Test
+    void testWrapClasspathMismatchDoesNotSwallowUnrelatedErrors() {
+        OutOfMemoryError original = new OutOfMemoryError("Java heap space");
+
+        OutOfMemoryError thrown =
+                Assertions.assertThrows(
+                        OutOfMemoryError.class,
+                        () ->
+                                HadoopFileSystemProxy.wrapClasspathMismatch(
+                                        () -> {
+                                            throw original;
+                                        }));
+
+        Assertions.assertSame(original, thrown);
+    }
+
+    @Test
+    void testWrapClasspathMismatchPropagatesIOExceptionUnchanged() {
+        IOException original = new IOException("Connection refused");
+
+        IOException thrown =
+                Assertions.assertThrows(
+                        IOException.class,
+                        () ->
+                                HadoopFileSystemProxy.wrapClasspathMismatch(
+                                        () -> {
+                                            throw original;
+                                        }));
+
+        Assertions.assertSame(original, thrown);
+        Assertions.assertNull(thrown.getCause());
+    }
+
+    @Test
+    void testWrapClasspathMismatchNamesTheConcreteLinkageFailure() {
+        UnsatisfiedLinkError original = new UnsatisfiedLinkError("no hadoop in java.library.path");
+
+        IOException wrapped = rewrite(original);
+
+        Assertions.assertSame(original, wrapped.getCause());
+        Assertions.assertTrue(wrapped.getMessage().contains("UnsatisfiedLinkError"));
+        Assertions.assertTrue(
+                wrapped.getMessage().contains("no hadoop in java.library.path"),
+                "the concrete linkage failure should be inlined for logs that only capture "
+                        + "getMessage()");
+    }
+
+    @Test
+    void testWrapClasspathMismatchHandlesLinkageErrorWithoutMessage() {
+        NoClassDefFoundError original = new NoClassDefFoundError();
+
+        IOException wrapped = rewrite(original);
+
+        Assertions.assertSame(original, wrapped.getCause());
+        Assertions.assertTrue(wrapped.getMessage().contains("NoClassDefFoundError"));
+        Assertions.assertFalse(wrapped.getMessage().contains("null"));
+    }
+
+    private static IOException rewrite(LinkageError original) {
+        return Assertions.assertThrows(
+                IOException.class,
+                () ->
+                        HadoopFileSystemProxy.wrapClasspathMismatch(
+                                () -> {
+                                    throw original;
+                                }));
+    }
+
+    private static void assertRewrittenAsDiagnosticIOException(LinkageError original) {
+        IOException wrapped = rewrite(original);
+
+        Assertions.assertSame(original, wrapped.getCause());
+        Assertions.assertTrue(wrapped.getMessage().contains("Hadoop client"));
+        Assertions.assertTrue(wrapped.getMessage().contains("version mismatch"));
+        Assertions.assertTrue(
+                wrapped.getMessage().contains(original.getClass().getSimpleName()),
+                "the diagnostic should name the concrete linkage error");
+    }
+
+    @Test
+    void testWrapClasspathMismatchPassesThroughOnSuccess() throws Exception {
+        HadoopFileSystemProxy proxy = new HadoopFileSystemProxy(new HadoopConf("file:///"));
+        try {
+            org.apache.hadoop.fs.FileSystem fileSystem =
+                    HadoopFileSystemProxy.wrapClasspathMismatch(proxy::getFileSystem);
+
+            Assertions.assertNotNull(fileSystem);
+        } finally {
+            proxy.close();
+        }
+    }
 }
