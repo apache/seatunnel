@@ -57,6 +57,9 @@ public class ConfigBuilder {
             ConfigRenderOptions.concise().setFormatted(true);
 
     private static final String PLACEHOLDER_REGEX = "\\$\\{([^:{}]+)(?::[^}]*)?\\}";
+    private static final String MASKED_VALUE = "******";
+    private static final String CONFIG_PATH_SEPARATOR = ".";
+    private static final Pattern CONFIG_OPTION_SEPARATOR_PATTERN = Pattern.compile("[._-]+");
 
     private ConfigBuilder() {
         // utility class and cannot be instantiated
@@ -118,34 +121,57 @@ public class ConfigBuilder {
 
     public static Map<String, Object> configDesensitization(
             Map<String, Object> configMap, Set<String> sensitiveKeywords) {
+        Set<String> normalizedSensitiveKeywords =
+                sensitiveKeywords.stream()
+                        .map(ConfigBuilder::normalizeConfigOption)
+                        .collect(Collectors.toSet());
+        return configDesensitization(
+                configMap, sensitiveKeywords, normalizedSensitiveKeywords, null);
+    }
+
+    private static Map<String, Object> configDesensitization(
+            Map<String, Object> configMap,
+            Set<String> sensitiveKeywords,
+            Set<String> normalizedSensitiveKeywords,
+            String parentPath) {
         return configMap.entrySet().stream()
                 .collect(
                         LinkedHashMap::new,
                         (m, p) -> {
                             String key = p.getKey();
                             Object value = p.getValue();
-                            if (sensitiveKeywords.contains(key.toLowerCase())) {
+                            String configPath =
+                                    parentPath == null
+                                            ? key
+                                            : parentPath + CONFIG_PATH_SEPARATOR + key;
+                            if (isSensitiveOption(
+                                    key,
+                                    configPath,
+                                    sensitiveKeywords,
+                                    normalizedSensitiveKeywords)) {
                                 if (value instanceof List<?>) {
                                     List<Object> maskedList =
                                             ((List<?>) value)
                                                     .stream()
-                                                            .map(v -> "******")
+                                                            .map(v -> MASKED_VALUE)
                                                             .collect(Collectors.toList());
                                     m.put(key, maskedList);
                                 } else {
-                                    m.put(key, "******");
+                                    m.put(key, MASKED_VALUE);
                                 }
                             } else if (value instanceof String
                                     && ((String) value)
                                             .regionMatches(true, 0, "jdbc:", 0, "jdbc:".length())) {
-                                m.put(key, "******");
+                                m.put(key, MASKED_VALUE);
                             } else {
                                 if (value instanceof Map<?, ?>) {
                                     m.put(
                                             key,
                                             configDesensitization(
                                                     (Map<String, Object>) value,
-                                                    sensitiveKeywords));
+                                                    sensitiveKeywords,
+                                                    normalizedSensitiveKeywords,
+                                                    configPath));
                                 } else if (value instanceof List<?>) {
                                     List<?> listValue = (List<?>) value;
                                     List<Object> newList =
@@ -155,7 +181,9 @@ public class ConfigBuilder {
                                                                 if (v instanceof Map<?, ?>) {
                                                                     return configDesensitization(
                                                                             (Map<String, Object>) v,
-                                                                            sensitiveKeywords);
+                                                                            sensitiveKeywords,
+                                                                            normalizedSensitiveKeywords,
+                                                                            configPath);
                                                                 } else {
                                                                     return v;
                                                                 }
@@ -168,6 +196,38 @@ public class ConfigBuilder {
                             }
                         },
                         LinkedHashMap::putAll);
+    }
+
+    private static boolean isSensitiveOption(
+            String key,
+            String configPath,
+            Set<String> sensitiveKeywords,
+            Set<String> normalizedSensitiveKeywords) {
+        String lowerCaseKey = key.toLowerCase();
+        String lowerCaseConfigPath = configPath.toLowerCase();
+        if (sensitiveKeywords.contains(lowerCaseKey)
+                || sensitiveKeywords.contains(lowerCaseConfigPath)
+                || sensitiveKeywords.stream()
+                        .anyMatch(
+                                sensitiveKeyword ->
+                                        lowerCaseConfigPath.endsWith(
+                                                CONFIG_PATH_SEPARATOR
+                                                        + sensitiveKeyword.toLowerCase()))) {
+            return true;
+        }
+
+        String normalizedKey = normalizeConfigOption(key);
+        String normalizedConfigPath = normalizeConfigOption(configPath);
+        return normalizedSensitiveKeywords.contains(normalizedKey)
+                || normalizedSensitiveKeywords.contains(normalizedConfigPath)
+                || normalizedSensitiveKeywords.stream()
+                        .anyMatch(
+                                sensitiveKeyword ->
+                                        normalizedConfigPath.endsWith("_" + sensitiveKeyword));
+    }
+
+    private static String normalizeConfigOption(String option) {
+        return CONFIG_OPTION_SEPARATOR_PATTERN.matcher(option.toLowerCase()).replaceAll("_");
     }
 
     public static Config of(

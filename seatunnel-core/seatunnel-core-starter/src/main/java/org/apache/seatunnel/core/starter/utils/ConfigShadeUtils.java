@@ -52,7 +52,18 @@ public final class ConfigShadeUtils {
     private static final String SHADE_OPTIONS_OPTION = "shade.options";
 
     public static final String[] DEFAULT_SENSITIVE_KEYWORDS =
-            new String[] {"password", "username", "auth", "token", "access_key", "secret_key"};
+            new String[] {
+                "password",
+                "username",
+                "auth",
+                "token",
+                "access_key",
+                "secret_key",
+                "sasl.jaas.config",
+                "kafka.sasl.jaas.config",
+                "fs.s3a.access.key",
+                "fs.s3a.secret.key"
+            };
 
     private static final Map<String, ConfigShade> CONFIG_SHADES = new HashMap<>();
 
