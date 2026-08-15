@@ -2117,6 +2117,11 @@ public class CoordinatorService {
                                         worker, ExceptionUtils.getMessage(error))));
     }
 
+    /**
+     * Starts all worker requests before registering completion callbacks. The callbacks may run on
+     * Hazelcast completion threads, so {@code update} and {@code onFailure} must remain cheap and
+     * non-blocking.
+     */
     static void collectCdcEnumeratorProgress(
             Map<Address, List<TaskGroupLocation>> taskGroupsByWorker,
             BiFunction<Address, List<TaskGroupLocation>, CompletionStage<CdcProgressReportBatch>>

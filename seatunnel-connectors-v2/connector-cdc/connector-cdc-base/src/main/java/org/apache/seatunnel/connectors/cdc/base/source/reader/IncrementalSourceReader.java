@@ -100,7 +100,7 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
                 context,
                 sourceConfig,
                 debeziumDeserializationSchema,
-                createLegacyProgressTracker(recordEmitter));
+                createLegacyProgressTracker(dataSourceDialect, recordEmitter));
     }
 
     public IncrementalSourceReader(
@@ -128,9 +128,10 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
     }
 
     private static <T> CdcReaderProgressTracker createLegacyProgressTracker(
+            DataSourceDialect<?> dataSourceDialect,
             RecordEmitter<SourceRecords, T, SourceSplitStateBase> recordEmitter) {
         CdcReaderProgressTracker progressTracker =
-                new CdcReaderProgressTracker("UNKNOWN", "UNKNOWN");
+                new CdcReaderProgressTracker(dataSourceDialect.getName(), "UNKNOWN");
         if (recordEmitter instanceof IncrementalSourceRecordEmitter) {
             ((IncrementalSourceRecordEmitter<?>) recordEmitter)
                     .setCdcProgressTracker(progressTracker);
