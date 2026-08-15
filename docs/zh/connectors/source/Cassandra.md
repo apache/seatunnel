@@ -100,7 +100,7 @@ Cassandra source 支持两种读取方式：
 
 示例条目：
 
-```
+```hocon
 {
   cql = "SELECT id, name FROM keyspace.table1"
 }
@@ -135,6 +135,8 @@ Source 插件通用参数，详情请参考 [Source 常用选项](../common-opti
   `tables_configs`。
 - 这是批处理 source。它读取当前查询结果后就会结束。
 - 一个 CQL 查询会作为一个 source split 读取。调大任务并行度不会自动把单张 Cassandra 表拆成多个扫描任务。
+- 连接器底层使用 Cassandra Java Driver，本文档列出的连接选项是连接器实际读取的全部设置；其他
+  DataStax Driver 选项沿用其内置默认值。
 
 ## 任务示例
 
@@ -197,6 +199,25 @@ sink {
     datacenter = "datacenter1"
     keyspace = "test"
     table = "mt_sink_table"
+  }
+}
+```
+
+### 提高读取一致性级别
+
+当读取结果必须满足配置的副本因子时，使用 `consistency_level = "QUORUM"`，并配合
+`datacenter` 让 Driver 连接到正确的本地协调节点：
+
+```hocon
+source {
+  Cassandra {
+    host = "cassandra1:9042,cassandra2:9042"
+    username = "cassandra"
+    password = "cassandra"
+    datacenter = "datacenter1"
+    keyspace = "test"
+    consistency_level = "QUORUM"
+    cql = "SELECT id, name, score FROM test.accounts"
   }
 }
 ```
