@@ -443,6 +443,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                         "received deploying task executionId [%s]",
                         taskImmutableInfo.getExecutionId()));
         TaskGroup taskGroup = null;
+        List<Collection<URL>> acquiredClassLoaderJars = new ArrayList<>();
         try {
             List<Set<ConnectorJarIdentifier>> connectorJarIdentifiersList =
                     taskImmutableInfo.getConnectorJarIdentifiers();
@@ -465,9 +466,11 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 } else if (!CollectionUtils.isEmpty(taskImmutableInfo.getJars().get(i))) {
                     jars = taskImmutableInfo.getJars().get(i);
                 }
+                List<URL> classLoaderJars = Lists.newArrayList(jars);
                 ClassLoader classLoader =
                         classLoaderService.getClassLoader(
-                                taskImmutableInfo.getJobId(), Lists.newArrayList(jars));
+                                taskImmutableInfo.getJobId(), classLoaderJars);
+                acquiredClassLoaderJars.add(classLoaderJars);
                 Task task;
                 if (jars.isEmpty()) {
                     task = nodeEngine.getSerializationService().toObject(taskData.get(i));
@@ -480,7 +483,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 }
                 tasks.add(task);
                 classLoaders.put(task.getTaskID(), classLoader);
-                taskJars.put(task.getTaskID(), jars);
+                taskJars.put(task.getTaskID(), classLoaderJars);
             }
             taskGroup =
                     TaskGroupUtils.createTaskGroup(
@@ -515,9 +518,12 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                     return TaskDeployState.success();
                 }
                 deployLocalTask(taskGroup, classLoaders, taskJars);
+                acquiredClassLoaderJars.clear();
                 return TaskDeployState.success();
             }
         } catch (Throwable t) {
+            releaseClassLoadersAfterFailedDeployment(
+                    taskImmutableInfo.getJobId(), acquiredClassLoaderJars, t);
             logger.severe(
                     String.format(
                             "TaskGroupID : %s  deploy error with Exception: %s",
@@ -526,6 +532,22 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                                     : "taskGroupLocation is null",
                             ExceptionUtils.getMessage(t)));
             return TaskDeployState.failed(t);
+        }
+    }
+
+    private void releaseClassLoadersAfterFailedDeployment(
+            long jobId,
+            List<Collection<URL>> acquiredClassLoaderJars,
+            Throwable deploymentFailure) {
+        for (int i = acquiredClassLoaderJars.size() - 1; i >= 0; i--) {
+            Collection<URL> jars = acquiredClassLoaderJars.get(i);
+            try {
+                classLoaderService.releaseClassLoader(jobId, jars);
+            } catch (Throwable cleanupFailure) {
+                deploymentFailure.addSuppressed(cleanupFailure);
+                logger.severe(
+                        "Release classloader after failed task deployment failed", cleanupFailure);
+            }
         }
     }
 

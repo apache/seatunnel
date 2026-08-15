@@ -21,6 +21,8 @@ import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
+import org.apache.seatunnel.engine.core.classloader.DefaultClassLoaderService;
+import org.apache.seatunnel.engine.server.exception.TaskGroupContextNotFoundException;
 import org.apache.seatunnel.engine.server.execution.BlockTask;
 import org.apache.seatunnel.engine.server.execution.ExceptionTestTask;
 import org.apache.seatunnel.engine.server.execution.FixedCallTestTimeTask;
@@ -232,6 +234,47 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
 
         fake.delete();
         console.delete();
+    }
+
+    /**
+     * Verifies that a partially constructed task group does not retain classloader references when
+     * a later task cannot be deserialized.
+     */
+    @Test
+    public void testDeployTaskReleasesClassLoadersWhenDeserializationFails() {
+        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
+        DefaultClassLoaderService classLoaderService =
+                (DefaultClassLoaderService) server.getClassLoaderService();
+
+        long testJobId = System.currentTimeMillis();
+        TestTask validTask = new TestTask(new AtomicBoolean(false), 300, true);
+        TaskGroupImmutableInformation taskGroupImmutableInformation =
+                new TaskGroupImmutableInformation(
+                        testJobId,
+                        1,
+                        TaskGroupType.INTERMEDIATE_BLOCKING_QUEUE,
+                        new TaskGroupLocation(testJobId, 1, 1),
+                        "testDeployTaskReleasesClassLoadersWhenDeserializationFails",
+                        Arrays.asList(
+                                nodeEngine.getSerializationService().toData(validTask),
+                                nodeEngine.getSerializationService().toData("not a task")),
+                        Arrays.asList(emptySet(), emptySet()),
+                        Arrays.asList(emptySet(), emptySet()));
+
+        TaskDeployState taskDeployState =
+                taskExecutionService.deployTask(taskGroupImmutableInformation);
+
+        Assertions.assertFalse(taskDeployState.isSuccess());
+        Assertions.assertTrue(taskDeployState.getThrowableMsg().contains("ClassCastException"));
+        Assertions.assertThrows(
+                TaskGroupContextNotFoundException.class,
+                () ->
+                        taskExecutionService.getActiveExecutionContext(
+                                taskGroupImmutableInformation.getTaskGroupLocation()));
+        Assertions.assertEquals(
+                0,
+                classLoaderService.queryClassLoaderReferenceCount(
+                        testJobId, Collections.emptySet()));
     }
 
     /** Test task execution time is the same as the timer timeout */
