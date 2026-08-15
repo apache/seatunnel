@@ -35,15 +35,22 @@ public class FileSourceState implements Serializable {
     private long discoveryStartTimeMillis;
     private Map<Long, List<FileSourceOperationState>> pendingOpsByCheckpoint;
     private Map<String, Long> retentionLastRunMillisByPath;
+    private Map<String, Long> processedFileOffsets;
 
     public FileSourceState(Set<FileSourceSplit> assignedSplit) {
-        this(assignedSplit, 0L, Collections.emptyMap(), Collections.emptyMap());
+        this(
+                assignedSplit,
+                0L,
+                Collections.emptyMap(),
+                Collections.emptyMap(),
+                Collections.emptyMap());
     }
 
     public FileSourceState(Set<FileSourceSplit> assignedSplit, long discoveryStartTimeMillis) {
         this(
                 assignedSplit,
                 discoveryStartTimeMillis,
+                Collections.emptyMap(),
                 Collections.emptyMap(),
                 Collections.emptyMap());
     }
@@ -53,10 +60,25 @@ public class FileSourceState implements Serializable {
             long discoveryStartTimeMillis,
             Map<Long, List<FileSourceOperationState>> pendingOpsByCheckpoint,
             Map<String, Long> retentionLastRunMillisByPath) {
+        this(
+                assignedSplit,
+                discoveryStartTimeMillis,
+                pendingOpsByCheckpoint,
+                retentionLastRunMillisByPath,
+                Collections.emptyMap());
+    }
+
+    public FileSourceState(
+            Set<FileSourceSplit> assignedSplit,
+            long discoveryStartTimeMillis,
+            Map<Long, List<FileSourceOperationState>> pendingOpsByCheckpoint,
+            Map<String, Long> retentionLastRunMillisByPath,
+            Map<String, Long> processedFileOffsets) {
         this.assignedSplit = assignedSplit;
         this.discoveryStartTimeMillis = discoveryStartTimeMillis;
         this.pendingOpsByCheckpoint = pendingOpsByCheckpoint;
         this.retentionLastRunMillisByPath = retentionLastRunMillisByPath;
+        this.processedFileOffsets = processedFileOffsets;
     }
 
     public Set<FileSourceSplit> getAssignedSplit() {
@@ -75,6 +97,10 @@ public class FileSourceState implements Serializable {
         return retentionLastRunMillisByPath;
     }
 
+    public Map<String, Long> getProcessedFileOffsets() {
+        return processedFileOffsets;
+    }
+
     private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
         in.defaultReadObject();
         if (assignedSplit == null) {
@@ -85,6 +111,9 @@ public class FileSourceState implements Serializable {
         }
         if (retentionLastRunMillisByPath == null) {
             retentionLastRunMillisByPath = new HashMap<>();
+        }
+        if (processedFileOffsets == null) {
+            processedFileOffsets = new HashMap<>();
         }
     }
 }

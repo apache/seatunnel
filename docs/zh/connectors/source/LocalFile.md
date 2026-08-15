@@ -478,7 +478,7 @@ null_format 定义哪些字符串可以表示为 null。
 - `once`：启动时枚举一次文件并结束（有界）。
 - `continuous`：作业保持运行，周期性扫描路径并在运行时处理新增/变更文件（无界）。
 
-当前实现中，`discovery_mode=continuous` 需要配合 `sync_mode=update`（仅 binary）使用，以避免重复传输。
+对于 binary 文件，`discovery_mode=continuous` 需要配合 `sync_mode=update`。对于仅追加的 text 文件，请使用 `sync_mode=full`；SeaTunnel 会保存最后一条完整记录的偏移量，并且只读取新追加的完整记录。
 
 ### scan_interval [string]
 
@@ -809,7 +809,7 @@ sink {
 
 `discovery_mode=continuous` 会让作业保持运行，并按间隔持续扫描路径发现新/变更文件（长跑作业，推荐使用 `job.mode="STREAMING"`）。
 
-**注意：** `discovery_mode=continuous` 当前需要配合 `sync_mode="update"`（仅支持 binary）使用，以避免重复传输而不引入无限增长的“已处理状态”。同时 `target_path` 通常应与 sink 的 `path` 保持一致（同一文件系统、相同相对路径）。
+对于 binary 文件，持续发现需要配合 `sync_mode="update"` 使用；`target_path` 通常应与 sink 的 `path` 保持一致（同一文件系统、相同相对路径）。
 
 ```hocon
 env {
@@ -842,6 +842,30 @@ sink {
     path = "/seatunnel/watch/dst/"
     tmp_path = "/seatunnel/watch/dst-tmp/"
     file_format_type = "binary"
+  }
+}
+```
+
+仅追加的 text 文件可以使用 `sync_mode="full"` 持续读取。source 会等待完整的 `row_delimiter` 后再发送记录，并在 checkpoint 中保存已提交的字节偏移量。`start_mode="earliest"` 会读取已有的完整记录，`start_mode="latest"` 会从第一次扫描时的文件末尾开始。此模式不支持压缩文本、原地修改或重放被截断的内容。文件被截断后，当前文件长度会成为新的读取基线。
+
+```hocon
+env {
+  job.mode = "STREAMING"
+}
+
+source {
+  LocalFile {
+    path = "/var/log/application.log"
+    file_format_type = "text"
+    schema {
+      fields {
+        message = "string"
+      }
+    }
+    discovery_mode = "continuous"
+    scan_interval = "10S"
+    start_mode = "latest"
+    sync_mode = "full"
   }
 }
 ```

@@ -26,8 +26,10 @@ import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.SourceEvent;
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.connectors.seatunnel.file.config.ArchiveCompressFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseFileSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseMultipleTableFileSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.config.CompressFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileCompareMode;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileDiscoveryMode;
@@ -35,6 +37,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FilePostSyncAction;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileStartMode;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileSyncMode;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileUpdateStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
@@ -43,6 +46,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.source.event.FileSplitFini
 import org.apache.seatunnel.connectors.seatunnel.file.source.state.FileSourceOperationState;
 import org.apache.seatunnel.connectors.seatunnel.file.source.state.FileSourceState;
 
+import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileChecksum;
 import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.Path;
@@ -51,6 +55,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -82,8 +87,8 @@ import java.util.regex.Pattern;
  * A continuous split enumerator that keeps scanning the source path and assigns new/changed files
  * to readers at runtime.
  *
- * <p>This enumerator is designed to reuse the existing {@code sync_mode=update} semantics for
- * incremental/dedup behavior, and does not maintain an unbounded "seen" state.
+ * <p>Binary discovery reuses the existing {@code sync_mode=update} semantics. Local text tailing
+ * checkpoints one committed byte offset per active file.
  */
 @Slf4j
 public class ContinuousMultipleTableFileSourceSplitEnumerator
@@ -119,6 +124,7 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
     private final NavigableMap<Long, List<FileSourceOperationState>> pendingOpsByCheckpoint =
             new TreeMap<>();
     private final Map<String, Long> retentionLastRunMillisByPath = new HashMap<>();
+    private final Map<String, Long> processedFileOffsets = new HashMap<>();
     private Set<FileSourceSplit> inFlightSplits;
 
     private final Counter postSyncSubmittedCounter;
@@ -186,6 +192,7 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
         recoverSplitsFromCheckpoint(restoredInFlightSplits);
         restorePendingOpsFromCheckpoint(checkpointState.getPendingOpsByCheckpoint());
         restoreRetentionCursor(checkpointState.getRetentionLastRunMillisByPath());
+        this.processedFileOffsets.putAll(checkpointState.getProcessedFileOffsets());
     }
 
     @Override
@@ -310,7 +317,8 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
                     new HashSet<>(inFlightSplits),
                     jobStartTimeMillis,
                     copyPendingOpsByCheckpoint(),
-                    new HashMap<>(retentionLastRunMillisByPath));
+                    new HashMap<>(retentionLastRunMillisByPath),
+                    new HashMap<>(processedFileOffsets));
         }
     }
 
@@ -345,6 +353,15 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
             return;
         }
         TableScanContext tableScanContext = tableCtxOpt.get();
+        if (tableScanContext.textTailing) {
+            synchronized (lock) {
+                processedFileOffsets.put(
+                        tailingFileKey(finishedContext.split),
+                        finishedContext.split.getStart() + finishedContext.split.getLength());
+            }
+            completeInFlightSplit(splitId, finishedContext, null);
+            return;
+        }
         if (tableScanContext.postSyncAction == FilePostSyncAction.NONE) {
             completeInFlightSplit(splitId, finishedContext, null);
             return;
@@ -415,6 +432,12 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
             List<FileStatus> files = ctx.listFiles(ctx.rootPath);
             scanned += files.size();
             for (FileStatus fileStatus : files) {
+                if (ctx.textTailing) {
+                    if (enqueueTextTailSplit(ctx, fileStatus)) {
+                        queued++;
+                    }
+                    continue;
+                }
                 if (!ctx.shouldProcess(fileStatus, jobStartTimeMillis, startMode)) {
                     clearKnownVersionIfPresent(ctx.tableId, fileStatus.getPath().toString());
                     continue;
@@ -445,6 +468,77 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
         }
 
         assignSplitsToAwaitingReaders();
+    }
+
+    private boolean enqueueTextTailSplit(TableScanContext ctx, FileStatus fileStatus)
+            throws IOException {
+        String filePath = fileStatus.getPath().toString();
+        String fileKey = tailingFileKey(ctx.tableId, filePath);
+        synchronized (lock) {
+            if (!processedFileOffsets.containsKey(fileKey)) {
+                long initialOffset =
+                        startMode == FileStartMode.LATEST
+                                ? fileStatus.getLen()
+                                : ctx.findInitialRowOffset(filePath, fileStatus.getLen());
+                if (initialOffset < 0L) {
+                    return false;
+                }
+                processedFileOffsets.put(fileKey, initialOffset);
+                if (startMode == FileStartMode.LATEST && initialOffset > 0L) {
+                    return false;
+                }
+            }
+            if (hasOutstandingSplit(ctx.tableId, filePath)) {
+                return false;
+            }
+        }
+
+        long committedOffset;
+        synchronized (lock) {
+            committedOffset = processedFileOffsets.get(fileKey);
+        }
+        if (fileStatus.getLen() < committedOffset) {
+            log.warn(
+                    "Local text file was truncated; resetting the tailing baseline without replaying existing content. file={}",
+                    maskUriUserInfo(filePath));
+            synchronized (lock) {
+                processedFileOffsets.put(fileKey, fileStatus.getLen());
+            }
+            return false;
+        }
+
+        long completeEnd =
+                ctx.findLastCompleteRowEnd(filePath, committedOffset, fileStatus.getLen());
+        if (completeEnd <= committedOffset) {
+            return false;
+        }
+        return enqueueSplitIfAbsent(
+                new FileSourceSplit(
+                        ctx.tableId, filePath, committedOffset, completeEnd - committedOffset));
+    }
+
+    private boolean hasOutstandingSplit(String tableId, String filePath) {
+        for (FileSourceSplit split : pendingSplits) {
+            if (Objects.equals(tableId, split.getTableId())
+                    && Objects.equals(filePath, split.getFilePath())) {
+                return true;
+            }
+        }
+        for (FileSourceSplit split : inFlightSplits) {
+            if (Objects.equals(tableId, split.getTableId())
+                    && Objects.equals(filePath, split.getFilePath())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static String tailingFileKey(FileSourceSplit split) {
+        return tailingFileKey(split.getTableId(), split.getFilePath());
+    }
+
+    private static String tailingFileKey(String tableId, String filePath) {
+        return tableId + "\u0000" + filePath;
     }
 
     private void assignSplitsToAwaitingReaders() {
@@ -590,8 +684,7 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
     }
 
     private void clearKnownVersionIfPresent(String tableId, String filePath) {
-        // Continuous mode currently supports binary only, so split id is stable as
-        // tableId+filePath.
+        // Binary continuous splits use a stable tableId+filePath id.
         String splitId = new FileSourceSplit(tableId, filePath).splitId();
         synchronized (lock) {
             knownSplitVersions.remove(splitId);
@@ -1385,13 +1478,37 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
         for (BaseFileSourceConfig cfg : configs) {
             ReadonlyConfig c = cfg.getBaseFileSourceConfig();
             FileSyncMode syncMode = c.get(FileBaseSourceOptions.SYNC_MODE);
-            if (syncMode != FileSyncMode.UPDATE) {
+            FileFormat fileFormat = c.get(FileBaseSourceOptions.FILE_FORMAT_TYPE);
+            boolean localTextTailing =
+                    fileFormat == FileFormat.TEXT
+                            && FileSystemType.LOCAL
+                                    .getFileSystemPluginName()
+                                    .equals(cfg.getPluginName());
+            if (localTextTailing && syncMode != FileSyncMode.FULL) {
+                throw new FileConnectorException(
+                        SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                        "LocalFile continuous text tailing requires sync_mode=full.");
+            }
+            if (localTextTailing
+                    && (c.get(FileBaseSourceOptions.COMPRESS_CODEC) != CompressFormat.NONE
+                            || c.get(FileBaseSourceOptions.ARCHIVE_COMPRESS_CODEC)
+                                    != ArchiveCompressFormat.NONE)) {
+                throw new FileConnectorException(
+                        SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                        "LocalFile continuous text tailing does not support compressed files.");
+            }
+            if (localTextTailing
+                    && c.get(FileBaseSourceOptions.POST_SYNC_ACTION) != FilePostSyncAction.NONE) {
+                throw new FileConnectorException(
+                        SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                        "LocalFile continuous text tailing requires post_sync_action=none.");
+            }
+            if (!localTextTailing && syncMode != FileSyncMode.UPDATE) {
                 throw new FileConnectorException(
                         SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
                         "discovery_mode=continuous currently requires sync_mode=update.");
             }
-            FileFormat fileFormat = c.get(FileBaseSourceOptions.FILE_FORMAT_TYPE);
-            if (fileFormat != FileFormat.BINARY) {
+            if (!localTextTailing && fileFormat != FileFormat.BINARY) {
                 throw new FileConnectorException(
                         SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
                         "discovery_mode=continuous currently only supports file_format_type=binary.");
@@ -1678,6 +1795,9 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
         private final Duration retentionCheckInterval;
         private boolean checksumUnavailableWarned;
         private final boolean recursiveFileScan;
+        private final boolean textTailing;
+        private final byte[] rowDelimiterBytes;
+        private final long skipHeaderRowNumber;
 
         private final Pattern pattern;
         private final String fileBasePath;
@@ -1696,6 +1816,18 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
             this.rootPath = config.get(FileBaseSourceOptions.FILE_PATH);
             this.hadoopConf = baseFileSourceConfig.getHadoopConfig();
             this.sourceFs = new HadoopFileSystemProxy(hadoopConf);
+            this.textTailing =
+                    config.get(FileBaseSourceOptions.FILE_FORMAT_TYPE) == FileFormat.TEXT
+                            && config.get(FileBaseSourceOptions.SYNC_MODE) == FileSyncMode.FULL;
+            this.rowDelimiterBytes =
+                    textTailing
+                            ? config.get(FileBaseSourceOptions.ROW_DELIMITER)
+                                    .getBytes(
+                                            Charset.forName(
+                                                    config.get(FileBaseSourceOptions.ENCODING)))
+                            : new byte[0];
+            this.skipHeaderRowNumber =
+                    textTailing ? config.get(FileBaseSourceOptions.SKIP_HEADER_ROW_NUMBER) : 0L;
 
             String filterPattern =
                     config.getOptional(FileBaseSourceOptions.FILE_FILTER_PATTERN).orElse(null);
@@ -1738,16 +1870,22 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
             }
             this.recursiveFileScan = config.get(FileBaseSourceOptions.RECURSIVE_FILE_SCAN);
 
-            String targetPath = config.get(FileBaseSourceOptions.TARGET_PATH);
-            Map<String, String> targetHadoopConf =
-                    config.getOptional(FileBaseSourceOptions.TARGET_HADOOP_CONF).orElse(null);
-            HadoopConf targetConf = buildTargetHadoopConf(hadoopConf, targetPath, targetHadoopConf);
-            if (targetConf == hadoopConf) {
-                this.targetFs = this.sourceFs;
-                this.shareTargetFs = true;
-            } else {
-                this.targetFs = new HadoopFileSystemProxy(targetConf);
+            if (textTailing) {
+                this.targetFs = null;
                 this.shareTargetFs = false;
+            } else {
+                String targetPath = config.get(FileBaseSourceOptions.TARGET_PATH);
+                Map<String, String> targetHadoopConf =
+                        config.getOptional(FileBaseSourceOptions.TARGET_HADOOP_CONF).orElse(null);
+                HadoopConf targetConf =
+                        buildTargetHadoopConf(hadoopConf, targetPath, targetHadoopConf);
+                if (targetConf == hadoopConf) {
+                    this.targetFs = this.sourceFs;
+                    this.shareTargetFs = true;
+                } else {
+                    this.targetFs = new HadoopFileSystemProxy(targetConf);
+                    this.shareTargetFs = false;
+                }
             }
 
             this.fileSplitStrategy = fileSplitStrategy;
@@ -1762,6 +1900,79 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
 
         private List<FileSourceSplit> toSplits(FileStatus fileStatus) {
             return fileSplitStrategy.split(tableId, fileStatus.getPath().toString());
+        }
+
+        private long findLastCompleteRowEnd(String filePath, long start, long fileSize)
+                throws IOException {
+            if (rowDelimiterBytes.length == 0 || start >= fileSize) {
+                return start;
+            }
+            try (FSDataInputStream input = sourceFs.getInputStream(filePath)) {
+                input.seek(start);
+                byte[] buffer = new byte[64 * 1024];
+                long position = start;
+                long lastCompleteEnd = start;
+                int delimiterIndex = 0;
+                int read;
+                while (position < fileSize
+                        && (read =
+                                        input.read(
+                                                buffer,
+                                                0,
+                                                (int) Math.min(buffer.length, fileSize - position)))
+                                != -1) {
+                    for (int i = 0; i < read; i++) {
+                        position++;
+                        if (buffer[i] == rowDelimiterBytes[delimiterIndex]) {
+                            delimiterIndex++;
+                            if (delimiterIndex == rowDelimiterBytes.length) {
+                                lastCompleteEnd = position;
+                                delimiterIndex = 0;
+                            }
+                        } else {
+                            delimiterIndex = buffer[i] == rowDelimiterBytes[0] ? 1 : 0;
+                        }
+                    }
+                }
+                return lastCompleteEnd;
+            }
+        }
+
+        private long findInitialRowOffset(String filePath, long fileSize) throws IOException {
+            if (skipHeaderRowNumber <= 0L) {
+                return 0L;
+            }
+            try (FSDataInputStream input = sourceFs.getInputStream(filePath)) {
+                byte[] buffer = new byte[64 * 1024];
+                long position = 0L;
+                long completedRows = 0L;
+                int delimiterIndex = 0;
+                int read;
+                while (position < fileSize
+                        && (read =
+                                        input.read(
+                                                buffer,
+                                                0,
+                                                (int) Math.min(buffer.length, fileSize - position)))
+                                != -1) {
+                    for (int i = 0; i < read; i++) {
+                        position++;
+                        if (buffer[i] == rowDelimiterBytes[delimiterIndex]) {
+                            delimiterIndex++;
+                            if (delimiterIndex == rowDelimiterBytes.length) {
+                                completedRows++;
+                                if (completedRows == skipHeaderRowNumber) {
+                                    return position;
+                                }
+                                delimiterIndex = 0;
+                            }
+                        } else {
+                            delimiterIndex = buffer[i] == rowDelimiterBytes[0] ? 1 : 0;
+                        }
+                    }
+                }
+                return -1L;
+            }
         }
 
         private List<FileStatus> listFiles(String path) throws IOException {
@@ -1816,6 +2027,9 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
         private boolean shouldProcess(
                 FileStatus sourceFileStatus, long baselineStartMillis, FileStartMode startMode)
                 throws IOException {
+            if (textTailing) {
+                return true;
+            }
             if (startMode == FileStartMode.LATEST
                     && sourceFileStatus.getModificationTime() <= baselineStartMillis) {
                 return false;

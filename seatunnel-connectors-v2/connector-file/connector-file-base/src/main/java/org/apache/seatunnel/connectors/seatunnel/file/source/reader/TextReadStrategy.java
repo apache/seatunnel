@@ -204,7 +204,7 @@ public class TextReadStrategy extends AbstractReadStrategy {
                 break;
         }
         // rebuild inputStream
-        final boolean useSplitRead = enableSplitFile && split.getLength() > -1;
+        final boolean useSplitRead = split.getLength() > -1;
         if (useSplitRead) {
             actualInputStream = safeSlice(actualInputStream, split.getStart(), split.getLength());
         }

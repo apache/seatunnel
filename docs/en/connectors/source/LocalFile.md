@@ -478,7 +478,7 @@ File discovery mode. Supported values: `once` (default), `continuous`.
 - `once`: enumerate current files once and finish (bounded).
 - `continuous`: keep scanning the path and processing new/changed files at runtime (unbounded).
 
-In the current implementation, `discovery_mode=continuous` requires `sync_mode=update` (binary only) to avoid repeated transfers.
+For binary files, `discovery_mode=continuous` requires `sync_mode=update`. For append-only text files, use `sync_mode=full`; SeaTunnel checkpoints the last complete row offset and reads only newly appended complete rows.
 
 ### scan_interval [string]
 
@@ -810,7 +810,7 @@ sink {
 
 `discovery_mode=continuous` keeps the job running and periodically scans the path for new/changed files (long-running job, recommended to run with `job.mode="STREAMING"`).
 
-**Note:** `discovery_mode=continuous` currently requires `sync_mode="update"` (binary-only) to avoid repeated transfers without keeping an unbounded "seen" state. `target_path` should align with the sink `path` on the same filesystem.
+For binary files, continuous discovery requires `sync_mode="update"`; `target_path` should align with the sink `path` on the same filesystem.
 
 ```hocon
 env {
@@ -843,6 +843,30 @@ sink {
     path = "/seatunnel/watch/dst/"
     tmp_path = "/seatunnel/watch/dst-tmp/"
     file_format_type = "binary"
+  }
+}
+```
+
+Append-only text files can be tailed with `sync_mode="full"`. The source waits for a complete `row_delimiter` before emitting a row and checkpoints the committed byte offset. `start_mode="earliest"` reads existing complete rows, while `start_mode="latest"` starts after the content present at the first scan. Compressed text files, in-place edits, and replay of truncated content are not supported. If a file is truncated, its current length becomes the new baseline.
+
+```hocon
+env {
+  job.mode = "STREAMING"
+}
+
+source {
+  LocalFile {
+    path = "/var/log/application.log"
+    file_format_type = "text"
+    schema {
+      fields {
+        message = "string"
+      }
+    }
+    discovery_mode = "continuous"
+    scan_interval = "10S"
+    start_mode = "latest"
+    sync_mode = "full"
   }
 }
 ```
