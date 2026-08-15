@@ -141,6 +141,7 @@ jobs:
       engine-e2e: ${{ steps.filter.outputs.engine-e2e }}
       edge-agent: ${{ steps.filter.outputs.edge-agent }}
       edge-agent-e2e: ${{ steps.filter.outputs.edge-agent-e2e }}
+      doris-shade: ${{ steps.filter.outputs.doris-shade }}
       benchmarks: ${{ steps.filter.outputs.benchmarks }}
       docs: ${{ steps.filter.outputs.docs }}
       ut-modules: ${{ steps.ut-modules.outputs.modules }}
@@ -220,6 +221,13 @@ jobs:
           file_list=${edge_agent_files#*$'\n'}
           echo "edge-agent=$true_or_false" >> $GITHUB_OUTPUT
           echo "edge-agent_files=$file_list" >> $GITHUB_OUTPUT
+
+          # The shaded thrift-service module only affects Doris packaging, so
+          # route it to the dedicated Doris integration test instead of
+          # widening the full connector or API matrices.
+          doris_shade_files=`python tools/update_modules_check/check_file_updates.py ua $workspace apache/dev origin/$current_branch "seatunnel-shade/seatunnel-thrift-service/**"`
+          true_or_false=${doris_shade_files%%$'\n'*}
+          echo "doris-shade=$true_or_false" >> $GITHUB_OUTPUT
 
           dist_files=`python tools/update_modules_check/check_file_updates.py ua $workspace apache/dev origin/$current_branch "seatunnel-dist/**" "bin/install-plugin.sh"`
           true_or_false=${dist_files%%$'\n'*}
@@ -1494,7 +1502,7 @@ jobs:
 
   doris-connector-it:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(needs.changes.outputs.it-modules, 'connector-doris-e2e')
+    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || needs.changes.outputs.doris-shade == 'true' || contains(needs.changes.outputs.it-modules, 'connector-doris-e2e')
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
