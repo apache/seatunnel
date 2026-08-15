@@ -21,6 +21,7 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
+import org.apache.seatunnel.connectors.seatunnel.file.source.FileSourceDocumentRouting;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -199,6 +200,31 @@ class MarkdownReadStrategyTest {
         Assertions.assertEquals(firstDocumentId, secondCollector.getRows().get(0).getField(9));
         Assertions.assertEquals(firstChunkIndex, secondCollector.getRows().get(0).getField(11));
         Assertions.assertNotEquals(firstContentHash, secondCollector.getRows().get(0).getField(12));
+    }
+
+    @Test
+    public void testParseConvertedMarkdownWithRagMetadata() throws Exception {
+        URL resource = this.getClass().getResource("/anydoc/test_read_excel.md");
+        String convertedMarkdown =
+                new String(Files.readAllBytes(Paths.get(resource.toURI())), StandardCharsets.UTF_8);
+        String sourcePath = "file:///documents/report.xlsx";
+        MarkdownReadStrategy markdownReadStrategy =
+                (MarkdownReadStrategy) createRagMetadataMarkdownReadStrategy();
+        TempCollector collector = new TempCollector();
+
+        markdownReadStrategy.parseMarkdown(convertedMarkdown, sourcePath, collector);
+
+        Assertions.assertEquals(2, collector.getRows().size());
+        Assertions.assertEquals("Heading", collector.getRows().get(0).getField(1));
+        Assertions.assertEquals("Sheet1", collector.getRows().get(0).getField(3));
+        Assertions.assertEquals("Paragraph", collector.getRows().get(1).getField(1));
+        Assertions.assertTrue(
+                String.valueOf(collector.getRows().get(1).getField(3)).contains("Cosmos"));
+        Assertions.assertEquals(
+                FileSourceDocumentRouting.normalizeSourceUri(sourcePath),
+                collector.getRows().get(0).getField(8));
+        Assertions.assertEquals(1, collector.getRows().get(0).getField(11));
+        Assertions.assertEquals(2, collector.getRows().get(1).getField(11));
     }
 
     private static AbstractReadStrategy createMarkdownReadStrategy() {
