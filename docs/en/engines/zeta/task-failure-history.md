@@ -80,7 +80,9 @@ Field rules:
 
 `TaskExecutionState` is the natural task-to-master transport boundary. The implementation should extend that transport with structured failure fields and capture the record in the JobMaster before task resources are released. Exception content must be sanitized and bounded at this capture boundary, before it is written to HA or finished-job history. The implementation should generalize the existing `DryRunConnectFailureMessageSanitizer` rules into a shared utility rather than persisting raw connector messages or stack traces.
 
-Repeated delivery of the same terminal task-group state must not create duplicate rows. The first implementation deduplicates on `(pipelineId, attempt, taskGroupId)`, because a task group has one terminal failure for one pipeline attempt. A Hazelcast `EntryProcessor` on the job-scoped HA entry performs the deduplication check, sequence allocation, append, and oldest-record eviction as one atomic operation. It must be submitted asynchronously from the task-status operation path. Completion handling can log a store failure, but must not wait on or re-enter a Hazelcast operation thread. The first terminal delivery creates the record and receives a sequence number, while later deliveries with the same key are ignored without consuming another sequence number. A different task group in the same attempt remains separate, and a failure after restore has a different attempt number and remains visible.
+Repeated delivery of the same terminal task-group state must not create duplicate rows while the original record is retained. The first implementation deduplicates on `(pipelineId, attempt, taskGroupId)`, because a task group has one terminal failure for one pipeline attempt. A Hazelcast `EntryProcessor` on the job-scoped HA entry performs the deduplication check, sequence allocation, append, and oldest-record eviction as one atomic operation. It must be submitted asynchronously from the task-status operation path. Completion handling can log a store failure, but must not wait on or re-enter a Hazelcast operation thread. The first terminal delivery creates the record and receives a sequence number, while later deliveries with the same key are ignored without consuming another sequence number. A different task group in the same attempt remains separate, and a failure after restore has a different attempt number and remains visible.
+
+Deduplication uses the retained records as its bounded key set. After a record is evicted by the 100-record limit, a delayed duplicate for that key can be recorded again. The first version does not keep a separate unbounded set of every key seen during the job lifetime.
 
 Recording history is diagnostic and best effort. A history-store failure must be logged, but it must not block the original task failure or restore decision.
 
@@ -100,6 +102,8 @@ The initial limit should be a constant rather than a new user option. A configur
 When a job reaches a terminal state, `JobHistoryService` writes the retained records and authoritative pipeline attempt values to a dedicated finished-history entry. This reuses the existing finished-job lifecycle and `history-job-expire-minutes` semantics; it does not assume a separate or pluggable history-store abstraction. The failure-history entry is removed when the corresponding finished-job record expires.
 
 The terminal snapshot write is best effort. A write or cleanup failure must be logged, but must not change the job terminal state, restore behavior, or existing finished-job record. Running and finished reads use the same response model even though their storage lifecycle differs.
+
+Master failover preserves records already acknowledged by the HA history store and resumes sequence and attempt numbering from that persisted state. Because history submission is asynchronous and best effort, a submission still in flight when the active master fails may be lost. This diagnostic path does not delay the task failure or restore decision to wait for a history acknowledgement.
 
 ## REST Contract
 
@@ -126,7 +130,7 @@ The current job-detail response and its `errorMsg` field remain unchanged. This 
 
 The endpoint uses the same `BasicAuthFilter` boundary as the existing engine REST API. It must not introduce an endpoint-specific authentication mechanism. Deployments that leave REST authentication disabled expose this diagnostic data under the same policy as the other job-detail endpoints, and the documentation must call out that exception text and worker addresses can contain operationally sensitive information.
 
-Redaction is applied before HA persistence, not only while serializing a REST response. This ensures that Hazelcast state, terminal snapshots, and API responses all contain the same bounded representation and that an unsanitized value cannot be recovered through another storage path.
+Redaction is applied before HA persistence, not only while serializing a REST response. This ensures that Hazelcast state, dedicated finished-history entries, and API responses all contain the same bounded representation and that an unsanitized value cannot be recovered through another storage path.
 
 The route handler owns validation of `jobId` and `limit`:
 
@@ -134,7 +138,7 @@ The route handler owns validation of `jobId` and `limit`:
 - values above the retained maximum are capped at that maximum; and
 - validation failures must not include a stack trace or echo untrusted input through the shared exception handler.
 
-Worker addresses remain optional and follow the same authorization boundary as the rest of the failure record. A later API version may replace them with logical worker identifiers, but the first version must not expose more worker metadata than the existing job-detail APIs already provide.
+Worker addresses remain optional and follow the same authorization boundary as the rest of the failure record. A later API version may replace them with logical worker identifiers, but the first version is limited to the same worker metadata already exposed by `/pending-jobs`: the `address` value in `host:port` form.
 
 ## Web UI Follow-up
 
@@ -155,9 +159,9 @@ The feature is additive:
 
 1. A first-attempt task-group failure creates one record with attempt `0`.
 2. A restored pipeline failure creates another record with the incremented attempt.
-3. Duplicate delivery of one terminal state does not create a duplicate record.
+3. Duplicate delivery of one terminal state does not create a duplicate record while the original record remains in the bounded history; a delayed duplicate may be recorded after eviction.
 4. Failures from different task groups in the same attempt remain separate.
-5. A master failover preserves records and the next attempt number.
+5. A master failover preserves records acknowledged by the HA history store and the next attempt number; an asynchronous submission still in flight at failover may be lost.
 6. A finished job exposes the same records until the configured history expiration.
 7. More than 100 failures evicts the oldest records deterministically.
 8. Messages larger than 4 KiB and stack traces larger than 64 KiB are truncated at valid UTF-8 boundaries and expose the corresponding truncation flag.

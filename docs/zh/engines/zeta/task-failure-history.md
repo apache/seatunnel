@@ -80,7 +80,9 @@ Attempt 属于 pipeline，而不是单个 task。
 
 `TaskExecutionState` 是 task 到 master 的自然传输边界。实现应扩展这条传输路径，增加结构化失败字段，并在释放 task 资源之前由 JobMaster 捕获记录。异常内容必须在该捕获边界完成脱敏和长度限制，再写入 HA 或 finished-job 历史。实现应将现有 `DryRunConnectFailureMessageSanitizer` 的规则抽取为共享工具，不能持久化未经处理的 connector 消息或堆栈。
 
-重复收到同一个 task group 的终态不应生成重复记录。第一版使用 `(pipelineId, attempt, taskGroupId)` 去重，因为一个 task group 在一次 pipeline attempt 中只有一个终态失败。以作业级 HA 条目为目标的 Hazelcast `EntryProcessor` 在一次原子操作中完成去重检查、sequence 分配、追加记录和最旧记录删除。它必须从 task 状态操作路径异步提交。完成回调可以记录存储失败，但不能等待 Hazelcast operation thread，也不能重新进入该线程。第一次终态上报创建记录并分配 sequence，相同 key 的后续上报直接忽略且不消耗新的 sequence。同一 attempt 中不同 task group 的失败分别保留，恢复后的失败使用新的 attempt，因此仍然可见。
+当原始记录仍在保留范围内时，重复收到同一个 task group 的终态不应生成重复记录。第一版使用 `(pipelineId, attempt, taskGroupId)` 去重，因为一个 task group 在一次 pipeline attempt 中只有一个终态失败。以作业级 HA 条目为目标的 Hazelcast `EntryProcessor` 在一次原子操作中完成去重检查、sequence 分配、追加记录和最旧记录删除。它必须从 task 状态操作路径异步提交。完成回调可以记录存储失败，但不能等待 Hazelcast operation thread，也不能重新进入该线程。第一次终态上报创建记录并分配 sequence，相同 key 的后续上报直接忽略且不消耗新的 sequence。同一 attempt 中不同 task group 的失败分别保留，恢复后的失败使用新的 attempt，因此仍然可见。
+
+去重使用当前保留记录作为有界 key 集合。当一条记录因 100 条上限被删除后，该 key 的延迟重复上报可能再次生成记录。第一版不会额外保存作业生命周期内所有历史 key 的无界集合。
 
 历史记录属于尽力而为的诊断能力。存储失败需要记录日志，但不能阻塞原始失败处理或恢复决策。
 
@@ -100,6 +102,8 @@ Attempt 属于 pipeline，而不是单个 task。
 作业进入终态时，`JobHistoryService` 将保留的失败记录和权威 pipeline attempt 值写入独立的 finished history 条目。该方案复用现有 finished job 的生命周期和 `history-job-expire-minutes` 语义，不假设已经存在独立或可插拔的历史存储抽象。对应的 finished job 记录过期时，失败历史条目也会被删除。
 
 终态快照写入采用尽力而为语义。写入或清理失败必须记录日志，但不能改变作业终态、恢复行为或现有 finished job 记录。运行中和已完成作业虽然存储生命周期不同，但读取时使用同一个响应模型。
+
+master 切换会保留已经由 HA 历史存储确认的记录，并从持久化状态继续 sequence 和 attempt 编号。由于历史提交是异步且尽力而为的，active master 失效时仍在处理中的提交可能丢失。该诊断路径不会为了等待历史写入确认而延迟 task 失败或恢复决策。
 
 ## REST 契约
 
@@ -126,7 +130,7 @@ GET /job-info/{jobId}/failures?limit=100
 
 该端点沿用现有引擎 REST API 的 `BasicAuthFilter` 边界，不新增端点专用的认证机制。如果部署未启用 REST 认证，该诊断数据与其他 job-detail 端点遵循相同的暴露策略。文档必须说明异常文本和 worker 地址可能包含敏感的运行信息。
 
-脱敏必须在写入 HA 前完成，而不能只在 REST 响应序列化时处理。这样 Hazelcast 状态、终态快照和 API 响应都会保存同一份有界内容，也不能通过其他存储路径读取未经脱敏的数据。
+脱敏必须在写入 HA 前完成，而不能只在 REST 响应序列化时处理。这样 Hazelcast 状态、独立的 finished-history 条目和 API 响应都会保存同一份有界内容，也不能通过其他存储路径读取未经脱敏的数据。
 
 路由处理器负责校验 `jobId` 和 `limit`：
 
@@ -134,7 +138,7 @@ GET /job-info/{jobId}/failures?limit=100
 - 超过保留上限的值限制为该上限；
 - 校验失败不能包含堆栈，也不能通过共享异常处理器回显不可信输入。
 
-Worker 地址保持可选，并与失败记录的其他字段使用同一认证边界。后续 API 版本可以改用逻辑 worker 标识，但第一版不能暴露比现有 job-detail API 更多的 worker 元数据。
+Worker 地址保持可选，并与失败记录的其他字段使用同一认证边界。后续 API 版本可以改用逻辑 worker 标识，但第一版仅允许使用 `/pending-jobs` 已经暴露的 worker 元数据，即 `host:port` 格式的 `address` 值。
 
 ## Web UI 后续工作
 
@@ -155,9 +159,9 @@ Exception tab 可以在单独变更中接入 REST 端点。第一版 UI 应按 a
 
 1. 首次执行的 task group 失败生成一条 attempt `0` 的记录；
 2. pipeline 恢复后失败生成一条 attempt 递增的新记录；
-3. 重复发送同一个终态不会生成重复记录；
+3. 当原始记录仍在有界历史中时，重复发送同一个终态不会生成重复记录；记录被删除后，延迟重复上报可以再次生成记录；
 4. 同一个 attempt 中不同 task group 的失败分别保留；
-5. master 切换后记录和下一个 attempt 编号保持不变；
+5. master 切换后，HA 历史存储已确认的记录和下一个 attempt 编号保持不变；切换时仍在处理中的异步提交可能丢失；
 6. 已完成作业在配置的历史过期时间内可以查询相同记录；
 7. 超过 100 条记录后按确定顺序删除最旧记录；
 8. 超过 4 KiB 的消息和超过 64 KiB 的堆栈在有效 UTF-8 边界截断，并提供对应的截断标记；
