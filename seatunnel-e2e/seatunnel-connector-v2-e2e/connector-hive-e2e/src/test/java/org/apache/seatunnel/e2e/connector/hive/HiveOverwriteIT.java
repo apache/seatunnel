@@ -40,7 +40,6 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Duration;
-import java.util.Collections;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
@@ -157,8 +156,6 @@ public class HiveOverwriteIT extends TestSuiteBase implements TestResource {
                         .withCreateContainerCmdModifier(cmd -> cmd.withName(HMS_HOST))
                         .withNetwork(NETWORK)
                         .withNetworkAliases(HMS_HOST);
-        hmsContainer.setPortBindings(Collections.singletonList("9083:9083"));
-
         Startables.deepStart(Stream.of(hmsContainer)).join();
         log.info("HMS just started");
 
@@ -171,8 +168,6 @@ public class HiveOverwriteIT extends TestSuiteBase implements TestResource {
                         .withEnv("SERVICE_OPTS", "-Dhive.metastore.uris=thrift://metastore:9083")
                         .withEnv("IS_RESUME", "true")
                         .dependsOn(hmsContainer);
-        hiveServerContainer.setPortBindings(Collections.singletonList("10004:10000"));
-
         Startables.deepStart(Stream.of(hiveServerContainer)).join();
         log.info("HiveServer2 just started");
         given().ignoreExceptions()

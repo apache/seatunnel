@@ -25,6 +25,9 @@ import ChangeLog from '../changelog/connector-iotdb.md';
   > IoTDB 通过 SQL 查询支持列投影功能。
 - [x] [并行度](../../introduction/concepts/connector-v2-features.md)
 - [ ] [支持用户自定义分片](../../introduction/concepts/connector-v2-features.md)
+- [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
+
+> IoTDB Source 在每个子任务上执行一次有界 SQL 查询，适合批处理作业或带时间窗口的边界读取。它不会持续订阅 IoTDB 的变更日志，因此无法在流式模式下持续拉取新增数据。
 
 ## 支持的数据源信息
 
@@ -223,6 +226,26 @@ IoTDB> SELECT temperature, moisture, c_int, c_bigint, c_float, c_double, c_strin
 | 1664035200001 | root.test_group.device_a | 36.1        | 100      | 1     | 21474836470 | 1.0f    | 1.0d     | abc      | true      |
 | 1664035200001 | root.test_group.device_b | 36.2        | 101      | 2     | 21474836470 | 2.0f    | 2.0d     | abc      | true      |
 | 1664035200001 | root.test_group.device_c | 36.3        | 102      | 3     | 21474836470 | 3.0f    | 3.0d     | abc      | true      |
+
+## 时间范围分片
+
+`lower_bound`、`upper_bound`、`num_partitions` 三个参数联合使用，可以让 SeaTunnel 把一次有界查询拆分成多条按时间分片的子查询，再按 `parallelism` 分配到各子任务，每个子任务负责一个互不重叠的时间段。
+
+拆分规则：
+
+- 如果 `num_partitions = 1`，则整个范围 `[lower_bound, upper_bound)` 作为一个分片。
+- 否则把范围等分成 `num_partitions` 个分片。如果 `upper_bound - lower_bound < num_partitions`，则回退为 `upper_bound - lower_bound` 个分片。
+
+例如 `lower_bound = 1`、`upper_bound = 10`、`num_partitions = 2`，SQL 为 `select * from test where age > 0 and age < 10`，会生成：
+
+```sql
+-- split 1
+select * from test where (time >= 1 and time < 6)  and (age > 0 and age < 10);
+-- split 2
+select * from test where (time >= 6 and time < 11) and (age > 0 and age < 10);
+```
+
+当时间列是天然分区键且底层数据时间跨度很大时，适合使用该机制；如果不是按时间维度并行，请直接调高 `parallelism`，由 IoTDB 端处理并行。
 
 ## 变更日志
 

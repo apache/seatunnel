@@ -75,6 +75,16 @@ public abstract class Offset implements Comparable<Offset>, Serializable {
         return this.compareTo(that) > 0;
     }
 
+    /**
+     * Check if this offset represents a "never stop" sentinel value. Subclasses should override
+     * this method if they use a special sentinel value for unbounded reads.
+     *
+     * @return true if this is a never-stop sentinel value, false otherwise
+     */
+    public boolean isNeverStop() {
+        return false;
+    }
+
     @Override
     public String toString() {
         return offset.toString();
