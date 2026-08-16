@@ -17,7 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.parser;
 
-import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableEvent;
 
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.tree.ErrorNode;
@@ -61,7 +61,7 @@ public class CustomMySqlAntlrDdlParserListener extends MySqlParserBaseListener
     public CustomMySqlAntlrDdlParserListener(
             RelationalDatabaseConnectorConfig dbzConnectorConfig,
             MySqlAntlrDdlParser parser,
-            LinkedList<AlterTableColumnEvent> parsedEvents) {
+            LinkedList<AlterTableEvent> parsedEvents) {
         // Currently only DDL statements that modify the table structure are supported, so add
         // custom listeners to handle these events.
         listeners.add(
