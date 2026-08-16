@@ -39,6 +39,7 @@ import org.mockito.Mockito;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
 import java.util.Collections;
 
 class MultipleTableFileSourceReaderTest {
@@ -50,8 +51,7 @@ class MultipleTableFileSourceReaderTest {
         Path file = tempDir.resolve("application.log");
         Files.write(file, "old\n".getBytes());
         String originalIdentity = LocalFileIdentity.read(file.toString());
-        Files.delete(file);
-        Files.write(file, "replacement\n".getBytes());
+        replaceFile(file, "replacement\n");
 
         ReaderFixture fixture = createReader();
         FileSourceSplit split =
@@ -93,8 +93,7 @@ class MultipleTableFileSourceReaderTest {
         ReaderFixture fixture = createReader();
         Mockito.doAnswer(
                         invocation -> {
-                            Files.delete(file);
-                            Files.write(file, "replacement\n".getBytes());
+                            replaceFile(file, "replacement\n");
                             return null;
                         })
                 .when(fixture.readStrategy)
@@ -138,6 +137,12 @@ class MultipleTableFileSourceReaderTest {
                 context,
                 collector,
                 new MultipleTableFileSourceReader(context, multipleTableConfig));
+    }
+
+    private static void replaceFile(Path file, String content) throws Exception {
+        Path replacement = file.resolveSibling(file.getFileName() + ".replacement");
+        Files.write(replacement, content.getBytes());
+        Files.move(replacement, file, StandardCopyOption.REPLACE_EXISTING);
     }
 
     private static FileSplitFinishedEvent captureFinishedEvent(SourceReader.Context context) {

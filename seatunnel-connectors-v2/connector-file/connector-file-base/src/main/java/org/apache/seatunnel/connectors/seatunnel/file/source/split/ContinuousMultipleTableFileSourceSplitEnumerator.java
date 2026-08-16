@@ -470,6 +470,7 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
         int queued = 0;
         Set<String> activeKnownSplitIds = new HashSet<>();
         Set<String> observedTailStateKeys = new HashSet<>();
+        boolean tailScanComplete = true;
         long currentTailScanGeneration;
         synchronized (lock) {
             currentTailScanGeneration = ++tailScanGeneration;
@@ -479,9 +480,21 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
             scanned += files.size();
             for (FileStatus fileStatus : files) {
                 if (ctx.textTailing) {
-                    if (enqueueTextTailSplit(
-                            ctx, fileStatus, currentTailScanGeneration, observedTailStateKeys)) {
-                        queued++;
+                    try {
+                        if (enqueueTextTailSplit(
+                                ctx,
+                                fileStatus,
+                                currentTailScanGeneration,
+                                observedTailStateKeys)) {
+                            queued++;
+                        }
+                    } catch (IOException | RuntimeException e) {
+                        tailScanComplete = false;
+                        log.warn(
+                                "Failed to inspect local text file during continuous discovery; "
+                                        + "other files will continue to be scanned. file={}",
+                                maskUriUserInfo(fileStatus.getPath().toString()),
+                                e);
                     }
                     continue;
                 }
@@ -501,7 +514,9 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
         synchronized (lock) {
             textTailingInitialScanComplete = true;
         }
-        cleanupStaleTailStates(currentTailScanGeneration, observedTailStateKeys);
+        if (tailScanComplete) {
+            cleanupStaleTailStates(currentTailScanGeneration, observedTailStateKeys);
+        }
         cleanupStaleKnownVersions(activeKnownSplitIds);
         if (queued > 0) {
             log.info(
