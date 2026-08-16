@@ -6,6 +6,8 @@ title: Anydoc document parser PoC
 
 This is a design and compatibility PoC. It does not add a document file format or an anydoc runtime dependency.
 
+**Status:** Open proposal as of August 15, 2026. This page must be updated or removed when the runtime model in GH-11801 is accepted, replaced, or rejected.
+
 ## Current boundary
 
 The file connector currently owns two separate document paths:
@@ -29,18 +31,19 @@ The PoC adds a package-private Markdown handoff method to `MarkdownReadStrategy`
 The experiment used the upstream CLI without adding it to SeaTunnel's dependencies:
 
 ```shell
-npx -y @firecrawl/anydoc \
+npx -y @firecrawl/anydoc@0.1.9 \
   seatunnel-connectors-v2/connector-file/connector-file-base/src/test/resources/excel/test_read_excel.xlsx \
   -o anydoc-output.md
 ```
 
-The result contains a `Sheet1` heading and a GitHub-Flavored Markdown table. The checked-in test fixture preserves that output so unit tests remain local and deterministic.
+The fixture was regenerated with version `0.1.9` on August 15, 2026. The result contains a `Sheet1` heading and a GitHub-Flavored Markdown table. The checked-in test fixture preserves that output so unit tests remain local and deterministic.
 
 ## Compatibility findings
 
 - Existing `markdown` and `pdf` formats do not need to change.
 - The existing RAG fields can use the original source URI, so document and chunk identifiers remain tied to the source document instead of a temporary Markdown file.
-- The current Flexmark parser does not enable the table extension. Anydoc tables therefore remain paragraph text. Enabling the extension would change existing Markdown row output and should be a separate compatibility decision.
+- The current Flexmark parser does not enable the table extension. Anydoc spreadsheet and CSV tables therefore degrade to one paragraph chunk containing pipe markup. Preserving usable table structure, either by enabling `TablesExtension` compatibly or chunking tables in the converter layer, is a prerequisite for tabular-source support rather than an optional improvement.
+- `MarkdownReadStrategy` already contains `TableBlock` handling, but it is unreachable while `TablesExtension` is disabled. A compatibility decision must define the row shape before activating that code.
 - Text-based documents can be converted. Image-only PDFs still require OCR and must not be presented as supported by a local anydoc backend.
 
 ## Runtime choices
@@ -66,7 +69,7 @@ Maintainers need to choose the supported runtime and packaging model before user
 3. supported operating systems and architectures;
 4. timeout, output-size, resource, concurrency, and cleanup limits;
 5. error categories for unsupported, encrypted, malformed, and image-only files;
-6. whether GFM tables should preserve current paragraph behavior or become table elements;
+6. whether GFM tables become table elements or are chunked in the converter layer, including the compatibility effect on existing Markdown output;
 7. licensing, NOTICE, binary-distribution, and vulnerability-update responsibilities.
 
 After that decision, the production slice can add a document parser SPI, one optional provider, declarative options, EN/ZH connector documentation, and connector E2E coverage without changing the current PDF and Markdown defaults.

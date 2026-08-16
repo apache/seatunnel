@@ -203,17 +203,22 @@ class MarkdownReadStrategyTest {
     }
 
     @Test
-    public void testParseConvertedMarkdownWithRagMetadata() throws Exception {
+    public void testCollectRowsFromConvertedMarkdown() throws Exception {
         URL resource = this.getClass().getResource("/anydoc/test_read_excel.md");
         String convertedMarkdown =
                 new String(Files.readAllBytes(Paths.get(resource.toURI())), StandardCharsets.UTF_8);
         String sourcePath = "file:///documents/report.xlsx";
+        String intermediatePath = "file:///tmp/report.md";
         MarkdownReadStrategy markdownReadStrategy =
                 (MarkdownReadStrategy) createRagMetadataMarkdownReadStrategy();
         TempCollector collector = new TempCollector();
+        TempCollector intermediateCollector = new TempCollector();
 
         markdownReadStrategy.collectMarkdownRows(convertedMarkdown, sourcePath, collector);
+        markdownReadStrategy.collectMarkdownRows(
+                convertedMarkdown, intermediatePath, intermediateCollector);
 
+        // TablesExtension is intentionally disabled today, so the table remains one paragraph.
         Assertions.assertEquals(2, collector.getRows().size());
         Assertions.assertEquals("Heading", collector.getRows().get(0).getField(1));
         Assertions.assertEquals("Sheet1", collector.getRows().get(0).getField(3));
@@ -223,6 +228,15 @@ class MarkdownReadStrategyTest {
         Assertions.assertEquals(
                 FileSourceDocumentRouting.normalizeSourceUri(sourcePath),
                 collector.getRows().get(0).getField(8));
+        Assertions.assertEquals(
+                FileSourceDocumentRouting.buildDocumentId(sourcePath),
+                collector.getRows().get(0).getField(9));
+        Assertions.assertNotEquals(
+                intermediateCollector.getRows().get(0).getField(9),
+                collector.getRows().get(0).getField(9));
+        Assertions.assertNotEquals(
+                intermediateCollector.getRows().get(0).getField(10),
+                collector.getRows().get(0).getField(10));
         Assertions.assertEquals(1, collector.getRows().get(0).getField(11));
         Assertions.assertEquals(2, collector.getRows().get(1).getField(11));
     }

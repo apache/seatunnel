@@ -6,6 +6,8 @@ title: Anydoc 文档解析器 PoC
 
 本文是设计与兼容性 PoC，不会新增文档文件格式，也不会引入 anydoc 运行时依赖。
 
+**状态：** 截至 2026 年 8 月 15 日，该方案仍在讨论中。当 GH-11801 的运行时模型被接受、替代或拒绝后，必须更新或删除本文。
+
 ## 当前边界
 
 文件连接器目前有两条独立的文档处理路径：
@@ -29,18 +31,19 @@ anydoc 后端应在现有 Markdown 行生成之前增加转换步骤：
 实验直接使用上游 CLI，不把它加入 SeaTunnel 依赖：
 
 ```shell
-npx -y @firecrawl/anydoc \
+npx -y @firecrawl/anydoc@0.1.9 \
   seatunnel-connectors-v2/connector-file/connector-file-base/src/test/resources/excel/test_read_excel.xlsx \
   -o anydoc-output.md
 ```
 
-输出包含 `Sheet1` 标题和 GitHub-Flavored Markdown 表格。测试资源保存该输出，使单元测试保持本地、确定且不依赖网络。
+该测试资源于 2026 年 8 月 15 日使用 `0.1.9` 版本重新生成。输出包含 `Sheet1` 标题和 GitHub-Flavored Markdown 表格。测试资源保存该输出，使单元测试保持本地、确定且不依赖网络。
 
 ## 兼容性结论
 
 - 现有 `markdown` 和 `pdf` 格式不需要改变。
 - RAG 字段可以继续使用原始源 URI，因此文档和分块标识不会绑定到临时 Markdown 文件。
-- 当前 Flexmark 解析器未启用表格扩展，因此 anydoc 表格会保留为段落文本。启用该扩展会改变现有 Markdown 行输出，应作为独立的兼容性决策。
+- 当前 Flexmark 解析器未启用表格扩展，因此 anydoc 生成的电子表格和 CSV 表格会退化为一个包含竖线标记的段落分块。要支持表格数据，必须兼容地启用 `TablesExtension`，或在转换层按表格结构分块，这不是可选优化。
+- `MarkdownReadStrategy` 已包含 `TableBlock` 处理代码，但在禁用 `TablesExtension` 时无法到达。启用该代码前必须先确定兼容的行结构。
 - 文本型文档可以转换；纯图片 PDF 仍需要 OCR，不能声明为本地 anydoc 后端支持的格式。
 
 ## 运行时选项
@@ -66,7 +69,7 @@ npx -y @firecrawl/anydoc \
 3. 支持的操作系统和处理器架构；
 4. 超时、输出大小、资源、并发和清理限制；
 5. 不支持、加密、损坏和纯图片文件的错误分类；
-6. GFM 表格继续保持段落行为，还是改为表格元素；
+6. GFM 表格改为表格元素，还是在转换层进行分块，以及对现有 Markdown 输出的兼容性影响；
 7. 许可证、NOTICE、二进制分发和漏洞更新责任。
 
 完成上述决策后，生产实现可以增加文档解析器 SPI、一个可选 provider、声明式配置、英文和中文连接器文档及 E2E 测试，同时保持现有 PDF 和 Markdown 默认行为不变。
