@@ -51,10 +51,10 @@ Read data from Apache Paimon.
 | warehouse               | String   | Yes            | -             |
 | catalog_name            | String   | No             | paimon        |
 | catalog_type            | String   | No             | filesystem    |
-| catalog_uri             | String   | No             | -             |
+| catalog_uri             | String   | Yes when `catalog_type` is `hive` | -             |
 | database                | String   | Yes            | -             |
-| table                   | String   | no             | -             |
-| table_list              | array    | no             | -             |
+| table                   | String   | Yes when `table_list` is absent | -             |
+| table_list              | array    | Yes when `table` is absent | -             |
 | user                    | String   | No             | -             |
 | password                | String   | No             | -             |
 | hdfs_site_path          | String   | No             | -             |
@@ -72,7 +72,7 @@ Catalog type of Paimon, support filesystem and hive
 
 ### catalog_uri [string]
 
-Catalog uri of Paimon, only needed when catalog_type is hive
+Catalog URI of Paimon. This option is required when `catalog_type` is `hive`.
 
 ### database [string]
 
@@ -80,11 +80,11 @@ The database you want to access
 
 ### table [string]
 
-The table you want to access
+The table you want to access. Configure exactly one of `table` and `table_list`.
 
 ### table_list [array]
 
-The list of tables to be read. Use this configuration instead of `table` when one source needs to read multiple Paimon tables. Each item must contain `table`, and can contain its own `query`.
+The list of tables to read. Configure exactly one of `table` and `table_list`. Each item must contain `table`, and can contain its own `query`.
 
 ### hdfs_site_path [string]
 

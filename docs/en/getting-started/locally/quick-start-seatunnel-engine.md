@@ -36,6 +36,12 @@ connector-console
 sh bin/install-plugin.sh
 ```
 
+On Windows, use the batch script instead:
+
+```bat
+bin\install-plugin.cmd
+```
+
 ### Step 1: Deploy SeaTunnel And Connectors
 
 Before starting, make sure you have downloaded and deployed SeaTunnel as described in [Deployment](deployment.md).
@@ -101,6 +107,13 @@ Starting from version 2.3.1, the parameter -e in seatunnel.sh is deprecated, use
 cd "apache-seatunnel-${version}"
 ./bin/seatunnel.sh --config ./config/v2.batch.config.template -m local
 
+```
+
+On Windows, run the equivalent batch entry point from the SeaTunnel directory:
+
+```bat
+cd apache-seatunnel-3.0.0
+bin\seatunnel.cmd --config config\v2.batch.config.template -m local
 ```
 
 **See The Output**: When you run the command, you can see its output in your console. This
@@ -245,7 +258,7 @@ Recommendation:
 
 - Start with [Getting Started Overview](../overview.md) if you want a guided reading path across deployment, quick start, and configuration.
 - Use [Job Configuration Guide](../job-configuration-guide.md) when you are ready to replace the sample source and sink with real connectors.
-- If you want runnable source-to-sink examples next, continue with [MySQL CDC to Doris](../recipes/mysql-cdc-to-doris.md), [JDBC to S3](../recipes/jdbc-to-s3.md), [Kafka to Iceberg](../recipes/kafka-to-iceberg.md), [Http to JDBC](../recipes/http-to-jdbc.md), [File to StarRocks](../recipes/file-to-starrocks.md), or [Multi-table CDC](../recipes/multi-table-cdc.md).
+- If you want a newly verified source-to-sink walkthrough next, continue with [MySQL CDC to Kafka](../recipes/mysql-cdc-to-kafka.md). For other pipeline shapes, see [MySQL CDC to Doris](../recipes/mysql-cdc-to-doris.md), [JDBC to S3](../recipes/jdbc-to-s3.md), [Kafka to Iceberg](../recipes/kafka-to-iceberg.md), [Http to JDBC](../recipes/http-to-jdbc.md), [File to StarRocks](../recipes/file-to-starrocks.md), or [Multi-table CDC](../recipes/multi-table-cdc.md).
 - Start writing your own config file, choose the [connector](../../connectors/source) you want to use, and configure the parameters according to the connector documentation.
 - If you want to deploy a multi-node SeaTunnel Engine cluster, continue with [SeaTunnel Engine(Zeta) Deployment](../../engines/zeta/deployment.md).
 - See [SeaTunnel Engine(Zeta)](../../engines/zeta/about.md) if you want to learn more about SeaTunnel Engine.

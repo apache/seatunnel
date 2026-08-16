@@ -28,12 +28,14 @@ import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.connectors.seatunnel.starrocks.config.StarRocksSinkOptions;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.Optional;
 
 public class PreviewActionTest {
@@ -111,6 +113,44 @@ public class PreviewActionTest {
                         + "    \"replication_num\" = \"1\" \n"
                         + ")",
                 Optional.of(CATALOG_TABLE));
+    }
+
+    @Test
+    public void testCreateTablePreviewUsesSinkTableOptionsOnly() {
+        Map<String, String> upstreamOptions = new HashMap<>();
+        upstreamOptions.put("connector", "mysql");
+        upstreamOptions.put("engine", "InnoDB");
+
+        CatalogTable tableWithUpstreamOptions =
+                CatalogTable.of(
+                        CATALOG_TABLE.getTableId(),
+                        CATALOG_TABLE.getTableSchema(),
+                        upstreamOptions,
+                        CATALOG_TABLE.getPartitionKeys(),
+                        CATALOG_TABLE.getComment());
+
+        Map<String, String> sinkTableOptions = new HashMap<>();
+        sinkTableOptions.put("replication_num", "3");
+
+        StarRocksCatalog catalog =
+                new StarRocksCatalog(
+                        "test",
+                        "root",
+                        "root",
+                        "jdbc:mysql://localhost:9030",
+                        StarRocksSinkOptions.SAVE_MODE_CREATE_TEMPLATE.defaultValue(),
+                        sinkTableOptions);
+
+        PreviewResult previewResult =
+                catalog.previewAction(
+                        Catalog.ActionType.CREATE_TABLE,
+                        TablePath.of("testddatabase.testtable"),
+                        Optional.of(tableWithUpstreamOptions));
+
+        String sql = ((SQLPreviewResult) previewResult).getSql();
+        Assertions.assertTrue(sql.contains("\"replication_num\" = \"3\""));
+        Assertions.assertFalse(sql.contains("InnoDB"));
+        Assertions.assertFalse(sql.contains("\"connector\""));
     }
 
     private void assertPreviewResult(

@@ -45,8 +45,7 @@ public class ClientCommandArgs extends AbstractCommandArgs {
 
     @Parameter(
             names = {"-d", "--dry-run"},
-            description =
-                    "Static config validation without running the job. Currently only [static] is supported.",
+            description = "Validate without running the job. Supported modes: [static, connect].",
             converter = DryRunConverter.class)
     protected DryRun dryRun = null;
 
@@ -61,6 +60,11 @@ public class ClientCommandArgs extends AbstractCommandArgs {
             names = {"-r", "--restore", "--restore-job"},
             description = "restore with savepoint by jobId")
     private String restoreJobId;
+
+    @Parameter(
+            names = {"--restore-with-checkpoint"},
+            description = "restore from latest successful completed checkpoint by historical jobId")
+    private String restoreWithCheckpointJobId;
 
     @Parameter(
             names = {"-s", "--savepoint", "--savepoint-job"},
@@ -147,8 +151,30 @@ public class ClientCommandArgs extends AbstractCommandArgs {
 
     @Override
     public Command<?> buildCommand() {
+        if (restoreJobId != null && restoreWithCheckpointJobId != null) {
+            throw new IllegalArgumentException(
+                    "--restore and --restore-with-checkpoint are mutually exclusive");
+        }
+        if (savePointJobId != null && restoreWithCheckpointJobId != null) {
+            throw new IllegalArgumentException(
+                    "--savepoint and --restore-with-checkpoint are mutually exclusive");
+        }
+        if (restoreWithCheckpointJobId != null) {
+            restoreWithCheckpointJobId =
+                    normalizeNumericJobId(
+                            restoreWithCheckpointJobId,
+                            "restoreSourceJobId is required when using --restore-with-checkpoint",
+                            "--restore-with-checkpoint requires a numeric jobId, got: ");
+        }
+        if (customJobId != null) {
+            customJobId =
+                    normalizeNumericJobId(
+                            customJobId,
+                            "--set-job-id requires a non-blank jobId",
+                            "--set-job-id requires a numeric jobId, got: ");
+        }
         Common.setDeployMode(getDeployMode());
-        if (checkConfig || (dryRun != null && dryRun == DryRun.STATIC)) {
+        if (checkConfig || dryRun != null) {
             return new SeaTunnelConfValidateCommand(this);
         }
         if (encrypt) {
@@ -158,6 +184,20 @@ public class ClientCommandArgs extends AbstractCommandArgs {
             return new ConfDecryptCommand(this);
         }
         return new ClientExecuteCommand(this);
+    }
+
+    private String normalizeNumericJobId(
+            String value, String blankMessage, String invalidMessagePrefix) {
+        String trimmed = value.trim();
+        if (trimmed.isEmpty()) {
+            throw new IllegalArgumentException(blankMessage);
+        }
+        try {
+            Long.parseLong(trimmed);
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException(invalidMessagePrefix + value, e);
+        }
+        return trimmed;
     }
 
     public DeployMode getDeployMode() {
@@ -175,10 +215,14 @@ public class ClientCommandArgs extends AbstractCommandArgs {
                     || DryRun.STATIC.name().equalsIgnoreCase(trimmed)) {
                 return DryRun.STATIC;
             }
+            if (DryRun.CONNECT.getName().equalsIgnoreCase(trimmed)
+                    || DryRun.CONNECT.name().equalsIgnoreCase(trimmed)) {
+                return DryRun.CONNECT;
+            }
             throw new IllegalArgumentException(
                     "Unsupported dry-run mode '"
                             + value
-                            + "'. Currently only [static] is supported; connect, sample, and shadow"
+                            + "'. Currently only [static, connect] are supported; sample and shadow"
                             + " are not implemented yet.");
         }
     }

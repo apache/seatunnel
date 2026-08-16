@@ -245,6 +245,15 @@ public class ServerConfigOptions {
                         .noDefaultValue()
                         .withDescription("The checkpoint storage instance configuration.");
 
+        public static final Option<Boolean> CHECKPOINT_RETAIN_AFTER_JOB_CANCELLED =
+                Options.key("retain-after-job-cancelled")
+                        .booleanType()
+                        .defaultValue(false)
+                        .withDescription(
+                                "Whether to retain completed checkpoint data after a job is cancelled. "
+                                        + "When enabled, checkpoint data will not be cleaned up on job cancellation, "
+                                        + "allowing later resume from the latest completed checkpoint via --restore-with-checkpoint.");
+
         public static final Option<CheckpointConfig> CHECKPOINT =
                 Options.key("checkpoint")
                         .type(new TypeReference<CheckpointConfig>() {})
@@ -506,5 +515,11 @@ public class ServerConfigOptions {
         // The options for slot end
         /////////////////////////////////////////////////
 
+        public static final Option<Integer> TIMER_FLUSH_POOL_SIZE =
+                Options.key("timer-flush-pool-size")
+                        .intType()
+                        .defaultValue(1)
+                        .withDescription(
+                                "The number of threads in the timer flush worker pool used to inject FlushSignals into the pipeline.");
     }
 }

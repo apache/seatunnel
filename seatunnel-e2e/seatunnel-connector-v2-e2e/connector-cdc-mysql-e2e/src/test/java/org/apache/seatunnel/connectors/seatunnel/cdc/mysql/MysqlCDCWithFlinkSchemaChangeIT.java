@@ -35,7 +35,6 @@ import org.junit.jupiter.api.MethodOrderer;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.TestMethodOrder;
 import org.junit.jupiter.api.TestTemplate;
-import org.testcontainers.containers.Container;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
@@ -65,6 +64,15 @@ import static org.awaitility.Awaitility.await;
         disabledReason =
                 "Currently SPARK do not support cdc, only test the change process related to Flink.")
 public class MysqlCDCWithFlinkSchemaChangeIT extends TestSuiteBase implements TestResource {
+    /**
+     * Flink schema evolution can restart after XA recover/rollback on loaded CI runners, so these
+     * assertions need enough time for the job to recover and replay the schema-change event.
+     */
+    private static final long SCHEMA_EVOLUTION_ASSERT_TIMEOUT_MILLIS = 300_000L;
+
+    private static final long STRUCTURE_AND_DATA_ASSERT_TIMEOUT_MILLIS = 300_000L;
+    private static final int MAX_TIMESTAMP_DRIFT_SECONDS = 60;
+
     private static final String MYSQL_DATABASE = "shop";
     private static final String SOURCE_TABLE = "products";
     private static final String SINK_TABLE = "mysql_cdc_e2e_sink_table_with_schema_change";
@@ -97,21 +105,9 @@ public class MysqlCDCWithFlinkSchemaChangeIT extends TestSuiteBase implements Te
                         new Slf4jLogConsumer(DockerLoggerFactory.getLogger("mysql-docker-image")));
     }
 
-    private String driverUrl() {
-        return "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
-    }
-
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
-            container -> {
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/MySQL-CDC/lib && cd /tmp/seatunnel/plugins/MySQL-CDC/lib && wget "
-                                        + driverUrl());
-                Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
-            };
+            MysqlCDCDriverResolver::copyMySQLDriverToContainer;
 
     @Order(1)
     @TestTemplate
@@ -147,6 +143,16 @@ public class MysqlCDCWithFlinkSchemaChangeIT extends TestSuiteBase implements Te
 
         // waiting for case3/case4 completed
         assertTableStructureAndData(MYSQL_DATABASE, SOURCE_TABLE, SINK_TABLE);
+
+        // case5 comment changes with cdc data at same time
+        shopDatabase.setTemplateName("comment_changes").createAndInitialize();
+
+        // waiting for case5 completed – data must continue flowing after comment DDL
+        assertTableStructureAndData(MYSQL_DATABASE, SOURCE_TABLE, SINK_TABLE);
+
+        // verify the final source table comment was applied (tests comment update idempotency)
+        assertSourceTableComment(
+                MYSQL_DATABASE, SOURCE_TABLE, "Updated product catalog with sports equipment");
     }
 
     @Order(2)
@@ -169,20 +175,21 @@ public class MysqlCDCWithFlinkSchemaChangeIT extends TestSuiteBase implements Te
     }
 
     private void assertSchemaEvolution(String database, String sourceTable, String sinkTable) {
-        await().atMost(180000, TimeUnit.MILLISECONDS)
+        await().atMost(SCHEMA_EVOLUTION_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 assertTableDataEqualsBySourceColumnOrder(
                                         database, sourceTable, sinkTable, null));
+        awaitIncrementalStreamingReady(database, sourceTable, sinkTable);
 
         // case1 add columns with cdc data at same time
         shopDatabase.setTemplateName("add_columns").createAndInitialize();
-        await().atMost(180000, TimeUnit.MILLISECONDS)
+        await().atMost(SCHEMA_EVOLUTION_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 assertSchemaDescriptionEqualsIgnoringColumnOrder(
                                         database, sourceTable, sinkTable));
-        await().atMost(180000, TimeUnit.MILLISECONDS)
+        await().atMost(SCHEMA_EVOLUTION_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
                             assertTableDataEqualsBySourceColumnOrder(
@@ -209,8 +216,10 @@ public class MysqlCDCWithFlinkSchemaChangeIT extends TestSuiteBase implements Te
                                 while (resultSet.next()) {
                                     int timeDiff = resultSet.getInt("time_diff");
                                     Assertions.assertTrue(
-                                            timeDiff <= 60,
-                                            "Time difference exceeds 60 seconds: "
+                                            timeDiff <= MAX_TIMESTAMP_DRIFT_SECONDS,
+                                            "Time difference exceeds "
+                                                    + MAX_TIMESTAMP_DRIFT_SECONDS
+                                                    + " seconds: "
                                                     + timeDiff
                                                     + " seconds");
                                 }
@@ -225,6 +234,11 @@ public class MysqlCDCWithFlinkSchemaChangeIT extends TestSuiteBase implements Te
 
         // case4 modify column data type with cdc data at same time
         assertCaseByDdlName("modify_columns", database, sourceTable, sinkTable);
+
+        // case5 comment changes with cdc data at same time
+        assertCaseByDdlName("comment_changes", database, sourceTable, sinkTable);
+        assertSourceTableComment(
+                database, sourceTable, "Updated product catalog with sports equipment");
     }
 
     private void assertCaseByDdlName(
@@ -246,20 +260,21 @@ public class MysqlCDCWithFlinkSchemaChangeIT extends TestSuiteBase implements Te
 
     private void assertSchemaEvolutionForAddColumns(
             String database, String sourceTable, String sinkTable) {
-        await().atMost(180000, TimeUnit.MILLISECONDS)
+        await().atMost(SCHEMA_EVOLUTION_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 assertTableDataEqualsBySourceColumnOrder(
                                         database, sourceTable, sinkTable, null));
+        awaitIncrementalStreamingReady(database, sourceTable, sinkTable);
 
         // case1 add columns with cdc data at same time
         shopDatabase.setTemplateName("add_columns").createAndInitialize();
-        await().atMost(180000, TimeUnit.MILLISECONDS)
+        await().atMost(SCHEMA_EVOLUTION_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 assertSchemaDescriptionEqualsIgnoringColumnOrder(
                                         database, sourceTable, sinkTable));
-        await().atMost(180000, TimeUnit.MILLISECONDS)
+        await().atMost(SCHEMA_EVOLUTION_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () -> {
                             assertTableDataEqualsBySourceColumnOrder(
@@ -286,8 +301,10 @@ public class MysqlCDCWithFlinkSchemaChangeIT extends TestSuiteBase implements Te
                                 while (resultSet.next()) {
                                     int timeDiff = resultSet.getInt("time_diff");
                                     Assertions.assertTrue(
-                                            timeDiff <= 60,
-                                            "Time difference exceeds 60 seconds: "
+                                            timeDiff <= MAX_TIMESTAMP_DRIFT_SECONDS,
+                                            "Time difference exceeds "
+                                                    + MAX_TIMESTAMP_DRIFT_SECONDS
+                                                    + " seconds: "
                                                     + timeDiff
                                                     + " seconds");
                                 }
@@ -297,16 +314,46 @@ public class MysqlCDCWithFlinkSchemaChangeIT extends TestSuiteBase implements Te
 
     private void assertTableStructureAndData(
             String database, String sourceTable, String sinkTable) {
-        await().atMost(300000, TimeUnit.MILLISECONDS)
+        await().atMost(STRUCTURE_AND_DATA_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 assertSchemaDescriptionEqualsIgnoringColumnOrder(
                                         database, sourceTable, sinkTable));
-        await().atMost(300000, TimeUnit.MILLISECONDS)
+        await().atMost(STRUCTURE_AND_DATA_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 assertTableDataEqualsBySourceColumnOrder(
                                         database, sourceTable, sinkTable, null));
+    }
+
+    /**
+     * Waits until the incremental binlog reader is active before issuing schema changes.
+     *
+     * <p>Snapshot rows can reach the sink before the binlog reader connects. If DDL is issued in
+     * that gap, Debezium can initialize from the post-DDL table schema and then replay pre-DDL row
+     * events with fewer columns.
+     */
+    private void awaitIncrementalStreamingReady(
+            String database, String sourceTable, String sinkTable) {
+        String source = quoteIdentifier(database) + "." + quoteIdentifier(sourceTable);
+        executeUpdate(
+                "insert into "
+                        + source
+                        + " (id, name, description, weight)"
+                        + " values (100, 'streaming-ready', 'streaming-ready', 0)");
+
+        await().atMost(SCHEMA_EVOLUTION_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                assertTableDataEqualsBySourceColumnOrder(
+                                        database, sourceTable, sinkTable, "id = 100"));
+
+        executeUpdate("delete from " + source + " where id = 100");
+        await().atMost(SCHEMA_EVOLUTION_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () ->
+                                assertTableDataEqualsBySourceColumnOrder(
+                                        database, sourceTable, sinkTable, "id = 100"));
     }
 
     private Connection getJdbcConnection() throws SQLException {
@@ -401,6 +448,40 @@ public class MysqlCDCWithFlinkSchemaChangeIT extends TestSuiteBase implements Te
         } catch (Exception e) {
             log.error("Failed to reset database to initial state", e);
             throw new RuntimeException("Failed to reset database to initial state", e);
+        }
+    }
+
+    /**
+     * Asserts that the given source table's TABLE_COMMENT in {@code information_schema.TABLES}
+     * matches {@code expectedComment}. This check is performed directly against the source MySQL
+     * instance; it is intentionally not compared with the sink because the JDBC sink treats comment
+     * events as no-ops.
+     */
+    private void assertSourceTableComment(String database, String table, String expectedComment) {
+        String sql =
+                String.format(
+                        "SELECT TABLE_COMMENT FROM information_schema.TABLES"
+                                + " WHERE TABLE_SCHEMA = '%s' AND TABLE_NAME = '%s'",
+                        database, table);
+        try (Connection connection = getJdbcConnection();
+                Statement statement = connection.createStatement();
+                ResultSet rs = statement.executeQuery(sql)) {
+            Assertions.assertTrue(rs.next(), "Table " + table + " not found in information_schema");
+            Assertions.assertEquals(
+                    expectedComment,
+                    rs.getString("TABLE_COMMENT"),
+                    "Source table comment should have been updated by the ALTER TABLE COMMENT DDL");
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private void executeUpdate(String sql) {
+        try (Connection connection = getJdbcConnection();
+                Statement statement = connection.createStatement()) {
+            statement.executeUpdate(sql);
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
         }
     }
 

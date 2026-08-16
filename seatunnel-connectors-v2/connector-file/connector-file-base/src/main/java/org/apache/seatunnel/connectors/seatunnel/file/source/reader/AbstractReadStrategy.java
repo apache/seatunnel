@@ -30,6 +30,7 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.seatunnel.file.config.ArchiveCompressFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
@@ -40,6 +41,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.FileSyncMode;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileUpdateStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.file.hadoop.FileStatusListingSession;
 import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemProxy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSplit;
 
@@ -60,7 +62,6 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -127,6 +128,10 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
     protected FileUpdateStrategy updateStrategy =
             FileBaseSourceOptions.UPDATE_STRATEGY.defaultValue();
     protected FileCompareMode compareMode = FileBaseSourceOptions.COMPARE_MODE.defaultValue();
+    protected int updateCompareParallelism =
+            FileBaseSourceOptions.UPDATE_COMPARE_PARALLELISM.defaultValue();
+    protected int updateCompareBulkThreshold =
+            FileBaseSourceOptions.UPDATE_COMPARE_BULK_THRESHOLD.defaultValue();
     protected Map<String, String> targetHadoopConf;
     protected transient HadoopFileSystemProxy targetHadoopFileSystemProxy;
     protected transient boolean shareTargetFileSystemProxy;
@@ -134,11 +139,6 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
     protected boolean recursiveFileScan = true;
     protected boolean sortFilesByModTime =
             FileBaseSourceOptions.SORT_FILES_BY_MOD_TIME.defaultValue();
-
-    private static final class UpdateModeStats {
-        private long scanned;
-        private long skipped;
-    }
 
     @Override
     public void init(HadoopConf conf) {
@@ -162,86 +162,126 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
 
     @Override
     public List<String> getFileNamesByPath(String path) throws IOException {
-        List<FileInfo> fileInfoList = new ArrayList<>();
-        UpdateModeStats updateModeStats = enableUpdateSync ? new UpdateModeStats() : null;
-        collectFileInfoByPath(path, fileInfoList, updateModeStats);
+        List<FileStatus> candidates = new ArrayList<>();
+        FileDiscoveryScanner.ScanStats scanStats;
+        try (FileStatusListingSession session =
+                hadoopFileSystemProxy.openFileStatusListingSession()) {
+            scanStats =
+                    FileDiscoveryScanner.scan(
+                            new Path(path),
+                            recursiveFileScan,
+                            session,
+                            this::isSourceCandidate,
+                            candidates::add);
+        } catch (IOException e) {
+            Path sourcePath = new Path(path);
+            String protocol =
+                    sourcePath.toUri().getScheme() == null
+                            ? hadoopFileSystemProxy.getScheme()
+                            : sourcePath.toUri().getScheme();
+            throw new IOException(
+                    "Failed during source_listing setup/scan for protocol="
+                            + protocol
+                            + ", path="
+                            + maskUriUserInfo(path),
+                    e);
+        }
+
+        List<FileInfo> fileInfoList = new ArrayList<>(candidates.size());
+        UpdateFileMetadataLoader.Result updateResult = null;
+        long skipped = 0;
+        if (enableUpdateSync) {
+            if (targetHadoopFileSystemProxy == null) {
+                initTargetHadoopFileSystemProxy();
+            }
+            List<UpdateFileMetadataLoader.Request> requests = new ArrayList<>(candidates.size());
+            for (int i = 0; i < candidates.size(); i++) {
+                String sourceFilePath = candidates.get(i).getPath().toString();
+                String relativePath = resolveRelativePath(sourceRootPath, sourceFilePath);
+                requests.add(
+                        new UpdateFileMetadataLoader.Request(
+                                i, buildTargetFilePath(targetPath, relativePath)));
+            }
+            updateResult =
+                    UpdateFileMetadataLoader.load(
+                            requests,
+                            targetHadoopFileSystemProxy,
+                            updateCompareParallelism,
+                            updateCompareBulkThreshold);
+            for (int i = 0; i < candidates.size(); i++) {
+                FileStatus source = candidates.get(i);
+                FileStatus target = updateResult.getStatuses().get(i);
+                String targetFilePath = requests.get(i).getTargetPath();
+                if (shouldSyncFileInUpdateMode(source, target, targetFilePath)) {
+                    fileInfoList.add(
+                            new FileInfo(
+                                    source.getPath().toString(), source.getModificationTime()));
+                } else {
+                    skipped++;
+                }
+            }
+        } else {
+            for (FileStatus candidate : candidates) {
+                fileInfoList.add(
+                        new FileInfo(
+                                candidate.getPath().toString(), candidate.getModificationTime()));
+            }
+        }
 
         // Sort by modification time in descending order if enabled
         if (sortFilesByModTime) {
             fileInfoList.sort(Comparator.comparingLong(FileInfo::getModifyTime).reversed());
         }
 
-        if (updateModeStats != null) {
-            log.info(
-                    "Update sync mode statistics: scanned={}, skipped={}, to_sync={}",
-                    updateModeStats.scanned,
-                    updateModeStats.skipped,
-                    updateModeStats.scanned - updateModeStats.skipped);
-        }
-
         for (FileInfo fileInfo : fileInfoList) {
             this.fileNames.add(fileInfo.getFileName());
         }
 
+        log.info(
+                "File metadata pipeline statistics: phase=source_construction, source_entries={}, filtered={}, candidates={}, source_directories={}, target_bulk_directories={}, target_point_lookups={}, peak_point_concurrency={}, peak_point_in_flight={}, skipped={}, to_sync={}, source_listing_ms={}, source_filtering_ms={}, target_bulk_listing_ms={}, target_point_lookup_ms={}",
+                scanStats.getSourceEntries(),
+                scanStats.getFiltered(),
+                scanStats.getCandidates(),
+                scanStats.getListedDirectories(),
+                updateResult == null ? 0 : updateResult.getBulkListedDirectories(),
+                updateResult == null ? 0 : updateResult.getPointLookups(),
+                updateResult == null ? 0 : updateResult.getPeakConcurrency(),
+                updateResult == null ? 0 : updateResult.getPeakInFlight(),
+                skipped,
+                fileInfoList.size(),
+                scanStats.getListingNanos() / 1_000_000,
+                scanStats.getFilteringNanos() / 1_000_000,
+                updateResult == null ? 0 : updateResult.getBulkListingNanos() / 1_000_000,
+                updateResult == null ? 0 : updateResult.getPointLookupNanos() / 1_000_000);
+
         return fileInfoList.stream().map(FileInfo::getFileName).collect(Collectors.toList());
     }
 
-    private void collectFileInfoByPath(
-            String path, List<FileInfo> fileInfoList, UpdateModeStats updateModeStats)
-            throws IOException {
-        FileStatus[] stats = hadoopFileSystemProxy.listStatus(path);
-        for (FileStatus fileStatus : stats) {
-            if (fileStatus.isDirectory() && recursiveFileScan) {
-                // skip hidden tmp directory, such as .hive-staging_hive
-                if (!fileStatus.getPath().getName().startsWith(".")) {
-                    collectFileInfoByPath(
-                            fileStatus.getPath().toString(), fileInfoList, updateModeStats);
-                }
-                continue;
-            }
-            if (!fileStatus.isFile()
-                    || !filterFileByPattern(fileStatus)
-                    || fileStatus.getLen() <= 0) {
-                continue;
-            }
-
-            // filter '_SUCCESS' file and hidden files
-            String fileName = fileStatus.getPath().getName();
-            if (fileName.equals("_SUCCESS")
-                    || fileName.startsWith(".")
-                    || !filterFileByModificationDate(fileStatus)) {
-                continue;
-            }
-
-            String filePath = fileStatus.getPath().toString();
-            if (StringUtils.isNotEmpty(filenameExtension)
-                    && !filePath.endsWith(filenameExtension)) {
-                continue;
-            }
-
-            if (!readPartitions.isEmpty()) {
-                boolean partitionMatched = false;
-                for (String readPartition : readPartitions) {
-                    if (filePath.contains(readPartition)) {
-                        partitionMatched = true;
-                        break;
-                    }
-                }
-                if (!partitionMatched) {
-                    continue;
-                }
-            }
-
-            if (updateModeStats != null) {
-                updateModeStats.scanned++;
-            }
-            if (shouldSyncFileInUpdateMode(fileStatus)) {
-                FileInfo fileInfo = new FileInfo(filePath, fileStatus.getModificationTime());
-                fileInfoList.add(fileInfo);
-            } else if (updateModeStats != null) {
-                updateModeStats.skipped++;
-            }
+    private boolean isSourceCandidate(FileStatus fileStatus) {
+        String fileName = fileStatus.getPath().getName();
+        if (!fileStatus.isFile()
+                || fileName.equals("_SUCCESS")
+                || fileName.startsWith(".")
+                || fileStatus.getLen() <= 0
+                || !filterFileByModificationDate(fileStatus)) {
+            return false;
         }
+        String filePath = fileStatus.getPath().toString();
+        if (StringUtils.isNotEmpty(filenameExtension) && !filePath.endsWith(filenameExtension)) {
+            return false;
+        }
+        if (!filterFileByPattern(fileStatus)) {
+            return false;
+        }
+        if (!readPartitions.isEmpty()) {
+            for (String readPartition : readPartitions) {
+                if (filePath.contains(readPartition)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+        return true;
     }
 
     private Date getFileModifiedDate(String modifiedDate) {
@@ -389,8 +429,20 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
             Map<String, String> partitionsMap,
             FileFormat fileFormat)
             throws IOException {
+        resolveArchiveCompressedInputStream(
+                split, output, partitionsMap, fileFormat, Long.valueOf(-1L));
+    }
+
+    protected void resolveArchiveCompressedInputStream(
+            FileSourceSplit split,
+            Collector<SeaTunnelRow> output,
+            Map<String, String> partitionsMap,
+            FileFormat fileFormat,
+            Long maxBytesForEntry)
+            throws IOException {
         String path = split.getFilePath();
         String tableId = split.getTableId();
+        long effectiveMaxBytes = maxBytesForEntry == null ? -1L : maxBytesForEntry;
         switch (archiveCompressFormat) {
             case ZIP:
                 try (ZipInputStream zis =
@@ -398,10 +450,12 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
                     ZipEntry entry;
                     while ((entry = zis.getNextEntry()) != null) {
                         if (!entry.isDirectory() && checkFileType(entry.getName(), fileFormat)) {
+                            assertArchiveEntrySize(
+                                    entry.getName(), entry.getSize(), effectiveMaxBytes);
                             readProcess(
                                     split,
                                     output,
-                                    copyInputStream(zis),
+                                    copyInputStream(zis, effectiveMaxBytes),
                                     partitionsMap,
                                     entry.getName());
                         }
@@ -415,10 +469,12 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
                     TarArchiveEntry entry;
                     while ((entry = tarInput.getNextTarEntry()) != null) {
                         if (!entry.isDirectory() && checkFileType(entry.getName(), fileFormat)) {
+                            assertArchiveEntrySize(
+                                    entry.getName(), entry.getSize(), effectiveMaxBytes);
                             readProcess(
                                     split,
                                     output,
-                                    copyInputStream(tarInput),
+                                    copyInputStream(tarInput, effectiveMaxBytes),
                                     partitionsMap,
                                     entry.getName());
                         }
@@ -434,10 +490,12 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
                     TarArchiveEntry entry;
                     while ((entry = tarIn.getNextTarEntry()) != null) {
                         if (!entry.isDirectory() && checkFileType(entry.getName(), fileFormat)) {
+                            assertArchiveEntrySize(
+                                    entry.getName(), entry.getSize(), effectiveMaxBytes);
                             readProcess(
                                     split,
                                     output,
-                                    copyInputStream(tarIn),
+                                    copyInputStream(tarIn, effectiveMaxBytes),
                                     partitionsMap,
                                     entry.getName());
                         }
@@ -445,25 +503,31 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
                 }
                 break;
             case GZ:
-                GzipCompressorInputStream gzipIn =
-                        new GzipCompressorInputStream(hadoopFileSystemProxy.getInputStream(path));
-                GzipParameters parameters = gzipIn.getMetaData();
-                String fileName = parameters.getFilename();
-                if (fileName == null) {
-                    // remove file suffix
-                    // eg: excel need full compressed name
-                    if (fileFormat == FileFormat.EXCEL) {
-                        if (path.endsWith(".gz")) {
-                            fileName = path.substring(0, path.length() - 3);
+                try (GzipCompressorInputStream gzipIn =
+                        new GzipCompressorInputStream(hadoopFileSystemProxy.getInputStream(path))) {
+                    GzipParameters parameters = gzipIn.getMetaData();
+                    String fileName = parameters.getFilename();
+                    if (fileName == null) {
+                        // remove file suffix
+                        // eg: excel need full compressed name
+                        if (fileFormat == FileFormat.EXCEL) {
+                            if (path.endsWith(".gz")) {
+                                fileName = path.substring(0, path.length() - 3);
+                            } else {
+                                throw new IllegalArgumentException(
+                                        "Excel file must have a .gz extension. File: " + path);
+                            }
                         } else {
-                            throw new IllegalArgumentException(
-                                    "Excel file must have a .gz extension. File: " + path);
+                            fileName = path;
                         }
-                    } else {
-                        fileName = path;
                     }
+                    readProcess(
+                            split,
+                            output,
+                            copyInputStream(gzipIn, effectiveMaxBytes),
+                            partitionsMap,
+                            fileName);
                 }
-                readProcess(split, output, copyInputStream(gzipIn), partitionsMap, fileName);
                 break;
             case NONE:
                 readProcess(
@@ -484,6 +548,25 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
                         partitionsMap,
                         path);
         }
+    }
+
+    /**
+     * Rejects an archive entry whose declared size exceeds the configured POI limit.
+     *
+     * @param entryName archive entry name used in the error message
+     * @param entrySize declared uncompressed entry size in bytes
+     * @param maxBytes maximum allowed size in bytes; non-positive values disable the limit
+     */
+    private void assertArchiveEntrySize(String entryName, long entrySize, long maxBytes) {
+        if (maxBytes <= 0 || entrySize <= 0 || entrySize <= maxBytes) {
+            return;
+        }
+        throw new FileConnectorException(
+                CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                String.format(
+                        "Archived entry [%s] is %,d bytes, larger than POI limit %,d bytes. "
+                                + "Please set excel_engine = EasyExcel, or increase the limit if POI is required.",
+                        entryName, entrySize, maxBytes));
     }
 
     protected void readProcess(
@@ -568,11 +651,35 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
     }
 
     protected static InputStream copyInputStream(InputStream inputStream) throws IOException {
+        return copyInputStream(inputStream, -1L);
+    }
+
+    /**
+     * Copies an input stream into memory, optionally stopping once it exceeds a byte limit.
+     *
+     * @param inputStream source stream
+     * @param maxBytes maximum number of bytes to copy; non-positive values disable the limit
+     * @return an input stream backed by the copied bytes
+     * @throws IOException if reading from the source stream fails
+     * @throws FileConnectorException if the copied data exceeds {@code maxBytes}
+     */
+    protected static InputStream copyInputStream(InputStream inputStream, long maxBytes)
+            throws IOException {
         ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
         byte[] buffer = new byte[1024];
         int bytesRead;
+        long total = 0;
 
         while ((bytesRead = inputStream.read(buffer)) != -1) {
+            total += bytesRead;
+            if (maxBytes > 0 && total > maxBytes) {
+                throw new FileConnectorException(
+                        CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                        String.format(
+                                "Archived entry exceeds %,d bytes (POI limit). "
+                                        + "Please set excel_engine = EasyExcel, or increase the limit if POI is required.",
+                                maxBytes));
+            }
             byteArrayOutputStream.write(buffer, 0, bytesRead);
         }
 
@@ -632,14 +739,19 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
 
     @Override
     public void close() throws IOException {
+        if (targetHadoopFileSystemProxy != null && !shareTargetFileSystemProxy) {
+            closeFileSystemProxy(targetHadoopFileSystemProxy, "target");
+        }
+        if (hadoopFileSystemProxy != null) {
+            closeFileSystemProxy(hadoopFileSystemProxy, "source");
+        }
+    }
+
+    private void closeFileSystemProxy(HadoopFileSystemProxy proxy, String role) {
         try {
-            if (targetHadoopFileSystemProxy != null && !shareTargetFileSystemProxy) {
-                targetHadoopFileSystemProxy.close();
-            }
-            if (hadoopFileSystemProxy != null) {
-                hadoopFileSystemProxy.close();
-            }
-        } catch (Exception ignore) {
+            proxy.close();
+        } catch (Exception e) {
+            log.warn("Failed to close {} file system proxy", role, e);
         }
     }
 
@@ -693,6 +805,27 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
                     "compare_mode="
                             + compareMode.name().toLowerCase(Locale.ROOT)
                             + " is not supported when update_strategy=distcp.");
+        }
+
+        updateCompareParallelism =
+                pluginConfig.hasPath(FileBaseSourceOptions.UPDATE_COMPARE_PARALLELISM.key())
+                        ? pluginConfig.getInt(
+                                FileBaseSourceOptions.UPDATE_COMPARE_PARALLELISM.key())
+                        : FileBaseSourceOptions.UPDATE_COMPARE_PARALLELISM.defaultValue();
+        if (updateCompareParallelism < 1 || updateCompareParallelism > 64) {
+            throw new FileConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    "update_compare_parallelism must be between 1 and 64.");
+        }
+        updateCompareBulkThreshold =
+                pluginConfig.hasPath(FileBaseSourceOptions.UPDATE_COMPARE_BULK_THRESHOLD.key())
+                        ? pluginConfig.getInt(
+                                FileBaseSourceOptions.UPDATE_COMPARE_BULK_THRESHOLD.key())
+                        : FileBaseSourceOptions.UPDATE_COMPARE_BULK_THRESHOLD.defaultValue();
+        if (updateCompareBulkThreshold < 0) {
+            throw new FileConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    "update_compare_bulk_threshold must be greater than or equal to 0.");
         }
 
         if (pluginConfig.hasPath(FileBaseSourceOptions.TARGET_HADOOP_CONF.key())) {
@@ -770,21 +903,14 @@ public abstract class AbstractReadStrategy implements ReadStrategy {
         }
     }
 
-    private boolean shouldSyncFileInUpdateMode(FileStatus sourceFileStatus) throws IOException {
+    private boolean shouldSyncFileInUpdateMode(
+            FileStatus sourceFileStatus, FileStatus targetFileStatus, String targetFilePath)
+            throws IOException {
         if (!enableUpdateSync) {
             return true;
         }
-        if (targetHadoopFileSystemProxy == null) {
-            initTargetHadoopFileSystemProxy();
-        }
         String sourceFilePath = sourceFileStatus.getPath().toString();
-        String relativePath = resolveRelativePath(sourceRootPath, sourceFilePath);
-        String targetFilePath = buildTargetFilePath(targetPath, relativePath);
-
-        FileStatus targetFileStatus;
-        try {
-            targetFileStatus = targetHadoopFileSystemProxy.getFileStatus(targetFilePath);
-        } catch (FileNotFoundException e) {
+        if (targetFileStatus == null) {
             return true;
         }
 
