@@ -21,6 +21,7 @@ import re
 
 from update_modules_check import (
     ALL_CONNECTORS_DEDICATED_SHARD_MODULES,
+    ALL_CONNECTORS_REQUIRED_DEDICATED_SHARD_MODULES,
     build_sub_it_modules,
 )
 
@@ -72,7 +73,7 @@ class UpdateModulesCheckTest(unittest.TestCase):
                 "connector-assert-e2e",
                 *[
                     module
-                    for module in ALL_CONNECTORS_DEDICATED_SHARD_MODULES
+                    for module in ALL_CONNECTORS_REQUIRED_DEDICATED_SHARD_MODULES
                     if module != "connector-elasticsearch-e2e"
                 ],
             ]
@@ -80,6 +81,23 @@ class UpdateModulesCheckTest(unittest.TestCase):
 
         with self.assertRaisesRegex(ValueError, "connector-elasticsearch-e2e"):
             build_sub_it_modules(modules, 7, 0)
+
+    def test_regular_shards_allow_optional_dedicated_modules_to_be_absent(self):
+        """
+        Dedicated suites outside connector-v2 input should stay optional.
+        """
+        modules = ",".join(
+            ["", "connector-assert-e2e", *ALL_CONNECTORS_REQUIRED_DEDICATED_SHARD_MODULES]
+        )
+
+        shard_outputs = [build_sub_it_modules(modules, 7, shard) for shard in range(7)]
+        combined_modules = {
+            module
+            for output in shard_outputs
+            for module in self.parse_modules(output)
+        }
+
+        self.assertEqual({"connector-assert-e2e"}, combined_modules)
 
     def test_workflow_keeps_dedicated_jobs_for_excluded_modules(self):
         """

@@ -17,7 +17,7 @@
 import json
 import sys
 
-ALL_CONNECTORS_DEDICATED_SHARD_MODULES = (
+ALL_CONNECTORS_REQUIRED_DEDICATED_SHARD_MODULES = (
     "connector-jdbc-e2e",
     "connector-kafka-e2e",
     "connector-rocketmq-e2e",
@@ -34,9 +34,19 @@ ALL_CONNECTORS_DEDICATED_SHARD_MODULES = (
     "connector-cdc-mysql-e2e",
     "connector-iceberg-e2e",
     "connector-hbase-e2e",
+)
+
+# These suites have dedicated jobs in backend.yml, but they are not listed by
+# seatunnel-connector-v2-e2e's project.modules input.
+ALL_CONNECTORS_OPTIONAL_DEDICATED_SHARD_MODULES = (
     "connector-seatunnel-e2e-base",
     "connector-console-seatunnel-e2e",
     "seatunnel-edge-agent-e2e",
+)
+
+ALL_CONNECTORS_DEDICATED_SHARD_MODULES = (
+    ALL_CONNECTORS_REQUIRED_DEDICATED_SHARD_MODULES
+    + ALL_CONNECTORS_OPTIONAL_DEDICATED_SHARD_MODULES
 )
 
 
@@ -194,7 +204,10 @@ def build_sub_it_modules(modules, total_num, current_num):
     """
     modules_arr = list(dict.fromkeys(modules.split(",")))
     modules_arr = filter_dedicated_shard_modules(
-        modules_arr, ALL_CONNECTORS_DEDICATED_SHARD_MODULES, True
+        modules_arr, ALL_CONNECTORS_REQUIRED_DEDICATED_SHARD_MODULES, True
+    )
+    modules_arr = filter_dedicated_shard_modules(
+        modules_arr, ALL_CONNECTORS_OPTIONAL_DEDICATED_SHARD_MODULES, False
     )
     output = []
     for i, module in enumerate(modules_arr):
