@@ -24,6 +24,8 @@ import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.schema.SchemaChangeType;
 import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableCommentEvent;
+import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.schema.exception.SchemaCoordinationException;
 import org.apache.seatunnel.api.table.schema.exception.SchemaEvolutionException;
 import org.apache.seatunnel.api.table.type.BasicType;
@@ -176,6 +178,28 @@ public class SchemaOperatorTest {
         assertTrue(pendingQueue.peek().isSchemaChange);
     }
 
+    @Test
+    void testCommentEventIsSupportedSchemaChange() throws Exception {
+        OperatorTestContext context =
+                createOperator(
+                        Collections.singletonList(SchemaChangeType.ALTER_TABLE_COMMENT), false);
+        AlterTableCommentEvent event =
+                AlterTableCommentEvent.of(
+                        TableIdentifier.of("catalog", "database", "table"),
+                        "old comment",
+                        "new comment");
+        SeaTunnelRow row = createDataRow("row-after-comment-change");
+
+        context.operator.processElement(new StreamRecord<>(createSchemaRow(event), 400L));
+        context.operator.processElement(new StreamRecord<>(row, 401L));
+        context.operator.notifyCheckpointComplete(40L);
+        context.operator.notifyCheckpointComplete(41L);
+
+        assertEquals(2, context.output.records.size());
+        assertSchemaBroadcast(context.output.records.get(0), event);
+        assertEquals(row, context.output.records.get(1).getValue());
+    }
+
     /**
      * Verifies that {@link SchemaOperator#handleFallbackTimerOnTaskThread()} correctly respects the
      * checkpoint-completion safety fence even when called from a stall-detection timer.
@@ -252,9 +276,22 @@ public class SchemaOperatorTest {
 
     private static OperatorTestContext createOperator(
             OperatorStateStoreStub stateStore, boolean restored) throws Exception {
+        return createOperator(
+                stateStore, Collections.singletonList(SchemaChangeType.ADD_COLUMN), restored);
+    }
+
+    private static OperatorTestContext createOperator(
+            List<SchemaChangeType> supportedTypes, boolean restored) throws Exception {
+        return createOperator(new OperatorStateStoreStub(), supportedTypes, restored);
+    }
+
+    private static OperatorTestContext createOperator(
+            OperatorStateStoreStub stateStore,
+            List<SchemaChangeType> supportedTypes,
+            boolean restored)
+            throws Exception {
         SupportSchemaEvolution source = Mockito.mock(SupportSchemaEvolution.class);
-        Mockito.when(source.supports())
-                .thenReturn(Collections.singletonList(SchemaChangeType.ADD_COLUMN));
+        Mockito.when(source.supports()).thenReturn(supportedTypes);
 
         SchemaOperator operator =
                 new SchemaOperator(
@@ -299,7 +336,7 @@ public class SchemaOperatorTest {
                 PhysicalColumn.of("added_col", BasicType.STRING_TYPE, 64L, true, null, null));
     }
 
-    private static SeaTunnelRow createSchemaRow(AlterTableAddColumnEvent event) {
+    private static SeaTunnelRow createSchemaRow(SchemaChangeEvent event) {
         SeaTunnelRow row = new SeaTunnelRow(0);
         row.setTableId("__SCHEMA_CHANGE_EVENT__");
         Map<String, Object> options = new LinkedHashMap<>();
@@ -316,9 +353,9 @@ public class SchemaOperatorTest {
     }
 
     private static void assertSchemaBroadcast(
-            StreamRecord<SeaTunnelRow> record, AlterTableAddColumnEvent event) {
+            StreamRecord<SeaTunnelRow> record, SchemaChangeEvent event) {
         Object broadcastEvent = record.getValue().getOptions().get("schema_change_broadcast");
-        assertInstanceOf(AlterTableAddColumnEvent.class, broadcastEvent);
+        assertInstanceOf(event.getClass(), broadcastEvent);
         assertEquals(event, broadcastEvent);
     }
 
