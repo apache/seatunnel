@@ -159,9 +159,7 @@ public class JdbcPhoenixIT extends AbstractJdbcIT {
                                 Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(5)))
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(PHOENIX_IMAGE)));
-        container.setPortBindings(
-                Lists.newArrayList(
-                        String.format("%s:%s", PHOENIX_CONTAINER_PORT, PHOENIX_CONTAINER_PORT)));
+        container.addExposedPort(PHOENIX_CONTAINER_PORT);
         return container;
     }
 

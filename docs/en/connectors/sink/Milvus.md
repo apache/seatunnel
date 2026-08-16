@@ -59,7 +59,8 @@ Common use cases:
 | enable_auto_id         | boolean             | No       | false                        | Whether Milvus should generate primary key values automatically. If this is `true`, do not send values for the primary key field.                                                                                                 |
 | enable_upsert          | boolean             | No       | true                         | Whether to write by upsert instead of insert. Upsert needs a primary key in the collection schema.                                                                                                                               |
 | enable_dynamic_field   | boolean             | No       | true                         | Whether to enable Milvus dynamic fields when SeaTunnel creates a collection.                                                                                                                                                     |
-| batch_size             | int                 | No       | 1000                         | Number of records buffered before one write. In streaming jobs, data can also be flushed when a checkpoint is triggered.                                                                                                         |
+| enable_nullable_field  | boolean             | No       | false                        | Enable nullable fields. Requires Milvus 2.5 or later. When enabled, SeaTunnel creates the field as a Milvus nullable field and allows writing `null` values when the SeaTunnel column is nullable and the field is used as a Milvus scalar field. |
+| batch_size             | int                 | No       | 1000                         | Non-negative number of records buffered before one write. Setting it to 0 flushes every record immediately. In streaming jobs, data can also be flushed when a checkpoint is triggered.                                           |
 | rate_limit             | int                 | No       | 100000                       | Milvus collection write-rate limit in MB/s. When greater than 0, the connector sets `collection.insertRate.max.mb` and `collection.upsertRate.max.mb` while the writer is running.                                             |
 | partition_key          | String              | No       | -                            | Field name used as the Milvus partition key when SeaTunnel creates a collection.                                                                                                                                                 |
 | create_index           | boolean             | No       | false                        | Whether to create vector indexes for the target collection. When copying from Milvus source, existing vector index metadata can be used to create matching indexes on the target collection.                                     |
@@ -223,6 +224,129 @@ sink {
     collection = "simple_example_preservation"
     create_index = true
     load_collection = true
+  }
+}
+```
+
+### Write With a Partition Key
+
+This example creates a new Milvus collection on the fly with `partition_key` set to a
+SeaTunnel scalar field. SeaTunnel uses this field as the Milvus partition key when it
+creates the collection, so each value of `category` becomes a separate partition.
+
+```bash
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    row.num = 10
+    vector.dimension = 4
+    schema = {
+      table = "simple_example_with_partitionkey"
+      columns = [
+        {
+          name = book_id
+          type = bigint
+          nullable = false
+          defaultValue = 0
+          comment = "primary key id"
+        },
+        {
+          name = book_intro
+          type = float_vector
+          columnScale = 4
+          comment = "vector"
+        },
+        {
+          name = category
+          type = string
+          nullable = false
+          comment = "partition key"
+        }
+      ]
+      primaryKey {
+        name = book_id
+        columnNames = [book_id]
+      }
+    }
+  }
+}
+
+sink {
+  Milvus {
+    url = "http://127.0.0.1:19530"
+    token = "username:password"
+    database = "test"
+    partition_key = "category"
+  }
+}
+```
+
+### Write With Nullable Fields
+
+This example enables nullable Milvus fields. It requires Milvus 2.5 or later. The
+nullable scalar column is declared in the schema with `nullable = true` and the
+sink is configured with `enable_nullable_field = true` so that `null` values can be
+written.
+
+```bash
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    schema = {
+      table = "simple_example_nullable"
+      columns = [
+        {
+          name = book_id
+          type = bigint
+          nullable = false
+          comment = "primary key id"
+        },
+        {
+          name = book_intro
+          type = float_vector
+          columnScale = 4
+          nullable = false
+          comment = "vector"
+        },
+        {
+          name = book_title
+          type = string
+          nullable = true
+          comment = "nullable title"
+        }
+      ]
+      primaryKey {
+        name = book_id
+        columnNames = [book_id]
+      }
+    }
+    rows = [
+      {
+        kind = INSERT
+        fields = [1, [0.1, 0.2, 0.3, 0.4], null]
+      },
+      {
+        kind = INSERT
+        fields = [2, [0.2, 0.3, 0.4, 0.5], "nullable title"]
+      }
+    ]
+  }
+}
+
+sink {
+  Milvus {
+    url = "http://127.0.0.1:19530"
+    token = "username:password"
+    database = "test_nullable"
+    enable_nullable_field = true
   }
 }
 ```

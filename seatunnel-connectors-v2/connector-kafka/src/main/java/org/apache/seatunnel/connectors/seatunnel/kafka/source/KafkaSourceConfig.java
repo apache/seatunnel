@@ -35,13 +35,13 @@ import org.apache.seatunnel.api.table.catalog.schema.ReadonlyConfigParser;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.KafkaSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.MessageFormat;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.MessageFormatErrorHandleWay;
-import org.apache.seatunnel.connectors.seatunnel.kafka.config.StartMode;
 import org.apache.seatunnel.connectors.seatunnel.kafka.config.TableIdentifierConfig;
 import org.apache.seatunnel.format.avro.AvroDeserializationSchema;
 import org.apache.seatunnel.format.compatible.kafka.connect.json.CompatibleKafkaConnectDeserializationSchema;
@@ -59,7 +59,6 @@ import org.apache.seatunnel.format.protobuf.SchemaRegistryAwareProtobufDeseriali
 import org.apache.seatunnel.format.text.TextDeserializationSchema;
 import org.apache.seatunnel.format.text.constant.TextFormatConstant;
 
-import org.apache.commons.collections4.MapUtils;
 import org.apache.kafka.common.TopicPartition;
 
 import lombok.Getter;
@@ -132,11 +131,6 @@ public class KafkaSourceConfig implements Serializable {
         this.consumerGroup = readonlyConfig.get(CONSUMER_GROUP);
         this.readerCacheQueueSize = readonlyConfig.get(READER_CACHE_QUEUE_SIZE);
         this.ignoreNoLeaderPartition = readonlyConfig.get(IGNORE_NO_LEADER_PARTITION);
-        if (this.ignoreNoLeaderPartition && this.discoveryIntervalMillis <= 0) {
-            throw new IllegalArgumentException(
-                    "partition-discovery.interval-millis must be configured when ignore_no_leader_partition is set to true. "
-                            + "Please provide a positive value for partition-discovery.interval-millis.");
-        }
     }
 
     private Properties createKafkaProperties(ReadonlyConfig readonlyConfig) {
@@ -179,11 +173,30 @@ public class KafkaSourceConfig implements Serializable {
         consumerMetadata.setTopic(readonlyConfig.get(TOPIC));
         consumerMetadata.setPattern(readonlyConfig.get(PATTERN));
         consumerMetadata.setProperties(new Properties());
-        // Create a catalog
-        CatalogTable catalogTable = createCatalogTable(readonlyConfig);
-        consumerMetadata.setCatalogTable(catalogTable);
-        consumerMetadata.setDeserializationSchema(
-                createDeserializationSchema(catalogTable, readonlyConfig));
+
+        CatalogTable baseCatalogTable = createCatalogTable(readonlyConfig);
+        List<String> headerFields =
+                readonlyConfig
+                        .getOptional(KafkaSourceOptions.KAFKA_HEADERS_FIELDS)
+                        .orElse(Collections.emptyList());
+        MessageFormat format = readonlyConfig.get(FORMAT);
+
+        boolean applyHeaderFields = !headerFields.isEmpty() && format != MessageFormat.NATIVE;
+
+        DeserializationSchema<SeaTunnelRow> schema =
+                createDeserializationSchema(baseCatalogTable, readonlyConfig, headerFields);
+
+        CatalogTable outputCatalogTable =
+                applyHeaderFields
+                        ? extendCatalogTableWithHeaderFields(baseCatalogTable, headerFields)
+                        : baseCatalogTable;
+
+        if (!headerFields.isEmpty() && format == MessageFormat.COMPATIBLE_KAFKA_CONNECT_JSON) {
+            consumerMetadata.setKafkaHeaderFields(headerFields);
+        }
+
+        consumerMetadata.setCatalogTable(outputCatalogTable);
+        consumerMetadata.setDeserializationSchema(schema);
 
         // parse start mode
         readonlyConfig
@@ -196,10 +209,11 @@ public class KafkaSourceConfig implements Serializable {
                                     long startOffsetsTimestamp =
                                             readonlyConfig.get(START_MODE_TIMESTAMP);
                                     long currentTimestamp = System.currentTimeMillis();
-                                    if (startOffsetsTimestamp < 0
-                                            || startOffsetsTimestamp > currentTimestamp) {
+                                    // Runtime check: cannot be declarative (depends on current
+                                    // time)
+                                    if (startOffsetsTimestamp > currentTimestamp) {
                                         throw new IllegalArgumentException(
-                                                "start_mode.timestamp The value is smaller than 0 or smaller than the current time");
+                                                "start_mode.timestamp must not be greater than the current time");
                                     }
                                     consumerMetadata.setStartOffsetsTimestamp(
                                             startOffsetsTimestamp);
@@ -207,25 +221,19 @@ public class KafkaSourceConfig implements Serializable {
                                             readonlyConfig.get(START_MODE_END_TIMESTAMP))) {
                                         long endOffsetsTimestamp =
                                                 readonlyConfig.get(START_MODE_END_TIMESTAMP);
-                                        if (endOffsetsTimestamp < 0
-                                                || endOffsetsTimestamp > currentTimestamp) {
+                                        // Runtime check: cannot be declarative (depends on current
+                                        // time)
+                                        if (endOffsetsTimestamp > currentTimestamp) {
                                             throw new IllegalArgumentException(
-                                                    "start_mode.endTimestamp The value is smaller than 0 or smaller than the current time");
+                                                    "start_mode.end_timestamp must not be greater than the current time");
                                         }
                                         consumerMetadata.setEndOffsetsTimestamp(
                                                 endOffsetsTimestamp);
                                     }
                                     break;
                                 case SPECIFIC_OFFSETS:
-                                    // Key is topic-partition, value is offset
                                     Map<String, Long> offsetMap =
                                             readonlyConfig.get(START_MODE_OFFSETS);
-                                    if (MapUtils.isEmpty(offsetMap)) {
-                                        throw new IllegalArgumentException(
-                                                "start mode is "
-                                                        + StartMode.SPECIFIC_OFFSETS
-                                                        + "but no specific offsets were specified.");
-                                    }
                                     Map<TopicPartition, Long> specificStartOffsets =
                                             new HashMap<>();
                                     offsetMap.forEach(
@@ -325,7 +333,7 @@ public class KafkaSourceConfig implements Serializable {
     }
 
     private DeserializationSchema<SeaTunnelRow> createDeserializationSchema(
-            CatalogTable catalogTable, ReadonlyConfig readonlyConfig) {
+            CatalogTable catalogTable, ReadonlyConfig readonlyConfig, List<String> headerFields) {
         SeaTunnelRowType seaTunnelRowType = catalogTable.getSeaTunnelRowType();
         MessageFormat format = readonlyConfig.get(FORMAT);
 
@@ -445,7 +453,55 @@ public class KafkaSourceConfig implements Serializable {
             return schema;
         }
 
+        if (!headerFields.isEmpty() && format != MessageFormat.NATIVE) {
+            SeaTunnelRowType baseRowType = (SeaTunnelRowType) schema.getProducedType();
+            SeaTunnelRowType extendedRowType = buildExtendedRowType(baseRowType, headerFields);
+            schema = new KafkaHeadersDeserializationSchema(schema, headerFields, extendedRowType);
+        }
+
         return new KafkaEventTimeDeserializationSchema(schema);
+    }
+
+    private SeaTunnelRowType buildExtendedRowType(
+            SeaTunnelRowType baseRowType, List<String> headerFieldNames) {
+        int baseCount = baseRowType.getTotalFields();
+        String[] fieldNames = new String[baseCount + headerFieldNames.size()];
+        SeaTunnelDataType<?>[] fieldTypes =
+                new SeaTunnelDataType[baseCount + headerFieldNames.size()];
+
+        System.arraycopy(baseRowType.getFieldNames(), 0, fieldNames, 0, baseCount);
+        System.arraycopy(baseRowType.getFieldTypes(), 0, fieldTypes, 0, baseCount);
+
+        for (int i = 0; i < headerFieldNames.size(); i++) {
+            fieldNames[baseCount + i] = headerFieldNames.get(i);
+            fieldTypes[baseCount + i] = BasicType.STRING_TYPE;
+        }
+
+        return new SeaTunnelRowType(fieldNames, fieldTypes);
+    }
+
+    private CatalogTable extendCatalogTableWithHeaderFields(
+            CatalogTable catalogTable, List<String> headerFieldNames) {
+        TableSchema baseSchema = catalogTable.getTableSchema();
+        TableSchema.Builder builder =
+                TableSchema.builder()
+                        .columns(baseSchema.getColumns())
+                        .primaryKey(baseSchema.getPrimaryKey())
+                        .constraintKey(baseSchema.getConstraintKeys());
+
+        for (String headerField : headerFieldNames) {
+            builder.column(
+                    PhysicalColumn.of(headerField, BasicType.STRING_TYPE, 0, true, null, null));
+        }
+
+        return CatalogTable.of(
+                catalogTable.getTableId(),
+                builder.build(),
+                catalogTable.getOptions(),
+                catalogTable.getPartitionKeys(),
+                catalogTable.getComment(),
+                catalogTable.getCatalogName(),
+                catalogTable.getMetadataSchema());
     }
 
     private TableSchema nativeTableSchema() {
