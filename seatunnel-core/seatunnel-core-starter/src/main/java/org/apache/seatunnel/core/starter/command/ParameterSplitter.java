@@ -47,31 +47,23 @@ public class ParameterSplitter implements IParameterSplitter {
                 char next = (i + 1 < value.length()) ? value.charAt(i + 1) : 0;
                 char afterNext = (i + 2 < value.length()) ? value.charAt(i + 2) : 0;
 
-                // 起始包裹符：左侧是起始分隔符，或位于行首
                 boolean isStartWrapper =
                         !insideQuotes
                                 && (i == 0
                                         || START_DELIMITERS.contains(prev)
-                                        || (prev == ' '
-                                                && START_DELIMITERS.contains(beforePrev)) // 防御性
-                                );
+                                        || (prev == ' ' && START_DELIMITERS.contains(beforePrev)));
 
-                // 结束包裹符：右侧是结束分隔符，或位于行尾
                 boolean isEndWrapper =
                         insideQuotes
                                 && (i == value.length() - 1
                                         || END_DELIMITERS.contains(next)
-                                        || (next == ' '
-                                                && END_DELIMITERS.contains(afterNext)) // 防御性
-                                );
+                                        || (next == ' ' && END_DELIMITERS.contains(afterNext)));
 
                 if (isStartWrapper) {
                     insideQuotes = true;
                 } else if (isEndWrapper) {
                     insideQuotes = false;
                 }
-                // 其他情况（内容中的双引号）不切换状态
-
                 currentToken.append(c);
                 continue;
             }
