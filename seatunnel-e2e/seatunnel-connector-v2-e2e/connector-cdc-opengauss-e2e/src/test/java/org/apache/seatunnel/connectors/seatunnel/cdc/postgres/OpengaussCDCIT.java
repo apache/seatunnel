@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.postgres;
 
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
-
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
@@ -38,6 +36,7 @@ import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
+import org.testcontainers.utility.MountableFile;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -45,6 +44,7 @@ import java.io.IOException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -93,6 +93,7 @@ public class OpengaussCDCIT extends TestSuiteBase implements TestResource {
     protected static final DockerImageName OPENGAUSS_IMAGE =
             DockerImageName.parse("opengauss/opengauss:5.0.0")
                     .asCompatibleSubstituteFor("postgres");
+    private static final String JDBC_PLUGIN_LIB = "/tmp/seatunnel/plugins/JDBC/lib";
 
     private static final String SOURCE_SQL_TEMPLATE = "select * from %s.%s order by id";
 
@@ -100,31 +101,44 @@ public class OpengaussCDCIT extends TestSuiteBase implements TestResource {
             new GenericContainer<>(OPENGAUSS_IMAGE)
                     .withNetwork(NETWORK)
                     .withNetworkAliases(OPENGAUSS_HOST)
+                    .withExposedPorts(OPENGAUSS_PORT)
                     .withEnv("GS_PASSWORD", PASSWORD)
                     .withLogConsumer(new Slf4jLogConsumer(log));
-
-    private String driverUrl() {
-        return "https://repo1.maven.org/maven2/org/postgresql/postgresql/42.5.1/postgresql-42.5.1.jar";
-    }
 
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
             container -> {
                 Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/JDBC/lib && cd /tmp/seatunnel/plugins/JDBC/lib && wget "
-                                        + driverUrl());
+                        container.execInContainer("bash", "-c", "mkdir -p " + JDBC_PLUGIN_LIB);
                 Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
+
+                Path driverJarPath = postgresDriverJarPath();
+                container.copyFileToContainer(
+                        MountableFile.forHostPath(driverJarPath),
+                        JDBC_PLUGIN_LIB + "/" + driverJarPath.getFileName());
             };
+
+    private Path postgresDriverJarPath() {
+        try {
+            Path driverJarPath =
+                    Paths.get(
+                            org.postgresql.Driver.class
+                                    .getProtectionDomain()
+                                    .getCodeSource()
+                                    .getLocation()
+                                    .toURI());
+            Assertions.assertTrue(Files.isRegularFile(driverJarPath));
+            return driverJarPath;
+        } catch (Exception e) {
+            throw new RuntimeException(
+                    "Failed to resolve PostgreSQL JDBC driver jar from the test classpath", e);
+        }
+    }
 
     @BeforeAll
     @Override
     public void startUp() throws Exception {
         log.info("The second stage: Starting opengauss containers...");
-        OPENGAUSS_CONTAINER.setPortBindings(
-                Lists.newArrayList(String.format("%s:%s", OPENGAUSS_PORT, OPENGAUSS_PORT)));
         Startables.deepStart(Stream.of(OPENGAUSS_CONTAINER)).join();
         log.info("Opengauss Containers are started");
         given().ignoreExceptions()

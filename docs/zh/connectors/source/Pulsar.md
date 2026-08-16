@@ -42,6 +42,7 @@ Apache Pulsar 的源连接器。
 | cursor.stop.timestamp    | Long    | 否    | -      | 当 `cursor.stop.mode=TIMESTAMP` 时的停止时间戳(毫秒)                                                |
 | schema                   | Config  | 否    | -      | 数据结构,包括字段名称和字段类型                                                                          |
 | format                   | String  | 否    | json   | 数据格式。默认为 json。支持 json、canal_json 和 avro 格式。**多表模式仅支持 JSON、CANAL_JSON 和 AVRO**                                               |
+| field_delimiter          | String  | 否    | ,      | `text` 格式使用的字段分隔符。                                                                             |
 | common-options           |         | 否    | -      | Source 插件通用参数,请参考 [Source Common Options](../common-options/source-common-options.md) 了解详情               |
 
 ### topic [String]
@@ -157,6 +158,10 @@ Pulsar 消费者的启动模式，有效值为 `'EARLIEST'`、`'LATEST'`、`'SUB
 
 数据格式。默认值为 `json`。支持 json、canal_json 和 avro 格式。使用 avro 格式时需要配置 `schema`。更多格式说明参考 [formats](../formats)。
 
+### field_delimiter [String]
+
+`text` 格式使用的字段分隔符。默认值为 `,`。
+
 ### 通用参数
 
 Source 插件通用参数请参考 [Source Common Options](../common-options/source-common-options.md)。
@@ -260,6 +265,94 @@ source {
 ```
 
 用于 batch 作业时，请使用 `LATEST` 或 `TIMESTAMP` 这类有界停止模式；`cursor.stop.mode = "NEVER"` 适合流式作业。
+
+### 读取 Avro 消息
+
+当 topic 中是 Avro 编码的消息时，使用 `format = avro`，并在 `schema` 中声明字段类型，连接器会按 SeaTunnel 类型系统解码 Avro 数据。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Pulsar {
+    topic = "test_avro_topic"
+    subscription.name = "seatunnel-avro"
+    client.service-url = "pulsar://localhost:6650"
+    admin.service-url = "http://localhost:8080"
+    cursor.startup.mode = "EARLIEST"
+    cursor.stop.mode = "LATEST"
+    format = avro
+    schema = {
+      fields {
+        id = bigint
+        c_string = string
+        c_int = int
+        c_double = double
+        c_timestamp = timestamp
+      }
+    }
+  }
+}
+```
+
+### 流式读取 topic
+
+使用 `cursor.stop.mode = "NEVER"` 可以持续读取新消息直到作业停止。配合 `cursor.startup.mode = "LATEST"` 可以从最新消息开始，避免重放历史消息。
+
+```hocon
+env {
+  parallelism = 2
+  job.mode = "STREAMING"
+  checkpoint.interval = 10000
+}
+
+source {
+  Pulsar {
+    topic = "persistent://public/default/events"
+    subscription.name = "seatunnel-stream"
+    client.service-url = "pulsar://localhost:6650"
+    admin.service-url = "http://localhost:8080"
+    cursor.startup.mode = "LATEST"
+    cursor.stop.mode = "NEVER"
+    format = json
+    schema = {
+      fields {
+        event_id = string
+        user_id = bigint
+        payload = string
+      }
+    }
+  }
+}
+```
+
+### 按 topic-pattern 自动发现新 topic
+
+当 topic 列表会随时间增长时，可以组合使用 `topic-pattern` 与 `topic-discovery.interval`，让连接器自动发现新增的 topic。
+
+```hocon
+source {
+  Pulsar {
+    topic-pattern = "persistent://public/default/orders-.*"
+    subscription.name = "seatunnel-orders"
+    client.service-url = "pulsar://localhost:6650"
+    admin.service-url = "http://localhost:8080"
+    topic-discovery.interval = 30000
+    cursor.startup.mode = "EARLIEST"
+    cursor.stop.mode = "LATEST"
+    format = json
+    schema = {
+      fields {
+        order_id = bigint
+        amount = double
+      }
+    }
+  }
+}
+```
 
 ## 变更日志
 

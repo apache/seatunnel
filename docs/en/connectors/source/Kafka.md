@@ -42,7 +42,7 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | bootstrap.servers                   | String                                                                     | Yes      | -                        | Comma separated list of Kafka brokers.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | pattern                             | Boolean                                                                    | No       | false                    | If `pattern` is set to `true`,the regular expression for a pattern of topic names to read from. All topics in clients with names that match the specified regular expression will be subscribed by the consumer.                                                                                                                                                                                                                                                                                                                             |
 | consumer.group                      | String                                                                     | No       | SeaTunnel-Consumer-Group | `Kafka consumer group id`, used to distinguish different consumer groups.                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| commit_on_checkpoint                | Boolean                                                                    | No       | true                     | If true the consumer's offset will be periodically committed in the background.                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| commit_on_checkpoint                | Boolean                                                                    | No       | true                     | If true, consumer offsets are committed only after a SeaTunnel checkpoint completes, and Kafka auto commit is disabled. If false, checkpoint commits are disabled and Kafka auto commit is enabled.                                                                                                                                                                                                                                                                                                                                           |
 | poll.timeout                        | Long                                                                       | No       | 10000                    | The interval(millis) for poll messages.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
 | kafka.config                        | Map                                                                        | No       | -                        | In addition to the above necessary parameters that must be specified by the `Kafka consumer` client, users can also specify multiple `consumer` client non-mandatory parameters, covering [all consumer parameters specified in the official Kafka document](https://kafka.apache.org/documentation.html#consumerconfigs).                                                                                                                                                                                                                   |
 | schema                              | Config                                                                     | No       | -                        | The structure of the data, including field names and field types. For more details, please refer to [Schema Feature](../../introduction/concepts/schema-feature.md).                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
@@ -63,6 +63,8 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | protobuf_schema                     | String                                                                     | No       | -                        | Effective when the format is set to protobuf, specifies the Schema definition                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | strip_schema_registry_header        | Boolean                                                                    | No       | false                    | Effective when the format is set to protobuf. Whether to strip the Confluent Schema Registry wire format header (magic byte, schema id and message indexes) before protobuf deserialization. This option is useful when consuming Protobuf messages that were encoded using Confluent Schema Registry. When enabled, the connector will try to detect and remove the Schema Registry header before parsing the Protobuf message. If the header is not detected, it will fall back to standard Protobuf deserialization.                                                                                                                                                                                                                                                                    |
 | reader_cache_queue_size             | Integer                                                                     | No       | 2                        | The capacity of the fetcher-to-reader element queue. Each element is one `consumer.poll()` batch, not a single message. See [reader_cache_queue_size](#reader_cache_queue_size) for details. |
+| is_native                           | Boolean                                                                     | No       | false                    | Supports retaining the source information of the record.                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
+| kafka_headers_fields                | Array                                                                       | No       | -                        | Specify which Kafka message header keys to extract as row fields. Each header value is read as a STRING type and appended to the output row after the regular schema fields. Cannot be used with NATIVE format.                                                                                                                                                                                                    |
 
 > On restore from checkpoint or savepoint, Kafka Source resumes from the checkpointed split offsets.
 > `start_mode` and consumer-group offsets are only used for the first startup or for newly
@@ -509,7 +511,34 @@ source {
 ```
 
 **Note**: When `strip_schema_registry_header` is enabled, the connector can safely handle both Schema Registry encoded messages and plain Protobuf messages. If the Schema Registry header is not detected, it will automatically fall back to standard Protobuf deserialization.
+
+### Reading Kafka Headers
+
+Use `kafka_headers_fields` to extract specific Kafka message headers as row fields. The header values are appended as STRING type fields after all regular schema fields.
+
+> Note: Cannot be used with `NATIVE` format, which already exposes headers as a `Map<String, String>` field.
+
+```hocon
+source {
+  Kafka {
+    topic = "my-topic"
+    bootstrap.servers = "localhost:9092"
+    kafka_headers_fields = ["correlation-id", "x-trace-id"]
+    schema = {
+      fields {
+        user_id = "int"
+        name = "string"
+      }
+    }
+    format = json
+  }
+}
 ```
+
+The output row will contain: `user_id` (int), `name` (string), `correlation-id` (string), `x-trace-id` (string).  
+If a header key is absent in a record, the corresponding field value will be `null`.
+
+This is the counterpart of `kafka_headers_fields` in the Kafka sink connector, allowing round-trip header propagation between topics.
 
 ### Ignore No Leader Partition
 
@@ -554,7 +583,7 @@ The returned data is as follows:
     "header1": "header1",
     "header2": "header2"
   },
-  "key": "dGVzdF9ieXRlc19kYXRh",  
+  "key": "dGVzdF9ieXRlc19kYXRh",
   "partition": 3,
   "timestamp": 1672531200000,
   "timestampType": "CREATE_TIME",
@@ -562,6 +591,83 @@ The returned data is as follows:
 }
 ```
 Note：key/value is of type byte[].
+
+### Streaming With Dynamic Partition Discovery and EXACTLY_ONCE Sink
+
+A common long-running pattern is to consume from Kafka with auto-offset commit, enable checkpointing, and pipe the records into a downstream sink. Enable dynamic partition discovery so newly created partitions are picked up without restarting the job, and configure the sink with `semantics = EXACTLY_ONCE` for end-to-end exactly-once delivery.
+
+```hocon
+env {
+  parallelism = 2
+  job.mode = "STREAMING"
+  checkpoint.interval = 10000
+}
+
+source {
+  Kafka {
+    topic = "orders"
+    bootstrap.servers = "localhost:9092"
+    consumer.group = "orders_consumer"
+    start_mode = group_offsets
+    commit_on_checkpoint = true
+    partition-discovery.interval-millis = 30000
+    format = json
+    schema = {
+      fields {
+        order_id = bigint
+        user_id = bigint
+        amount = double
+      }
+    }
+  }
+}
+
+sink {
+  Kafka {
+    topic = "orders_sink"
+    bootstrap.servers = "localhost:9092"
+    format = json
+    semantics = EXACTLY_ONCE
+    transaction_prefix = "orders_sink_job"
+    partition_key_fields = ["order_id"]
+  }
+}
+```
+
+The same pattern works with `format = debezium_json` when you need to consume Debezium-formatted change events from a Kafka Connect sink and forward them downstream.
+
+### Avro Deserialization
+
+Use `format = avro` together with `avro_schema` when the Avro record layout (record name, namespace, or union structure) does not exactly match the SeaTunnel schema. When `avro_schema` is not provided, SeaTunnel derives the decode schema from the configured `schema` block and uses it as both reader and writer schema; set `avro_schema` explicitly whenever the producer's Avro layout (record name, namespace, union structure) differs from the SeaTunnel schema. There is no Confluent Schema Registry lookup or per-message schema fallback in the current implementation.
+
+```hocon
+source {
+  Kafka {
+    topic = "users_avro"
+    bootstrap.servers = "localhost:9092"
+    format = avro
+    avro_schema = """
+      {
+        "type": "record",
+        "name": "User",
+        "namespace": "com.example",
+        "fields": [
+          {"name": "id", "type": "long"},
+          {"name": "name", "type": "string"},
+          {"name": "email", "type": ["null", "string"], "default": null}
+        ]
+      }
+      """
+    schema = {
+      fields {
+        id = bigint
+        name = string
+        email = string
+      }
+    }
+  }
+}
+```
 
 ## FAQ
 
@@ -604,6 +710,8 @@ Note: the `key` field in NATIVE format is base64-encoded bytes.
 ### What message formats does Kafka Source support?
 
 Kafka Source supports: `json`, `text`, `canal_json`, `debezium_json`, `ogg_json`, `avro`, `protobuf`, and `NATIVE`. Use `NATIVE` when you need access to Kafka-level metadata (headers, key, partition, timestamp) as part of the record.
+
+`format = avro` expects raw Avro-encoded messages. Unlike `protobuf` (see [Protobuf with Schema Registry wire format](#protobuf-with-schema-registry-wire-format)), there is no `strip_schema_registry_header`-equivalent option for `avro`: if a topic was produced by a Confluent `KafkaAvroSerializer` and its messages carry the Confluent Schema Registry wire-format header (magic byte + schema id), `format = avro` does not strip that header before deserializing, so reading will fail or produce corrupted data. `avro_schema` only supplies the writer schema for plain (non-registry) Avro messages.
 
 ### How do I configure SASL/Kerberos authentication?
 

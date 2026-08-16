@@ -51,6 +51,12 @@ public class JdbcSourceConfig implements Serializable {
     private boolean handleBlobAsString;
     private MultiTableFailurePolicy multiTableFailurePolicy;
 
+    /**
+     * When false, the splitter skips split analysis and returns a single full-table split. Defaults
+     * to true to preserve existing behavior.
+     */
+    private boolean enableConcurrentRead;
+
     private StringSplitMode stringSplitMode;
 
     private StringSplitStrategy stringSplitStrategy;
@@ -86,6 +92,7 @@ public class JdbcSourceConfig implements Serializable {
         builder.handleBlobAsString(config.get(JdbcSourceOptions.HANDLE_BLOB_AS_STRING));
         builder.multiTableFailurePolicy(
                 config.get(MultiTableCommonOptions.MULTI_TABLE_FAILURE_POLICY));
+        builder.enableConcurrentRead(config.get(JdbcSourceOptions.ENABLE_CONCURRENT_READ));
 
         config.getOptional(JdbcSourceOptions.WHERE_CONDITION)
                 .ifPresent(builder::whereConditionClause);

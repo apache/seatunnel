@@ -60,7 +60,7 @@ public class HiveJdbcConnectionProvider extends SimpleJdbcConnectionProvider {
             // caller expectation.
             throw new JdbcConnectorException(
                     JdbcConnectorErrorCode.NO_SUITABLE_DRIVER,
-                    "No suitable driver found for " + super.getJdbcConfig().getUrl());
+                    "No suitable driver found for the configured JDBC URL");
         }
         return super.getConnection();
     }

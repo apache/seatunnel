@@ -29,11 +29,16 @@ import org.apache.seatunnel.engine.core.checkpoint.CheckpointIDCounter;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
 import org.apache.seatunnel.engine.core.job.Job;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
+import org.apache.seatunnel.engine.core.job.RestoreMode;
+import org.apache.seatunnel.engine.serializer.api.Serializer;
+import org.apache.seatunnel.engine.serializer.protobuf.ProtoStuffSerializer;
 import org.apache.seatunnel.engine.server.checkpoint.monitor.CheckpointMonitorService;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskReportStatusOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TriggerSchemaChangeAfterCheckpointOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TriggerSchemaChangeBeforeCheckpointOperation;
+import org.apache.seatunnel.engine.server.common.SeaTunnelEngineContext;
+import org.apache.seatunnel.engine.server.common.statestore.counter.CounterStateStore;
 import org.apache.seatunnel.engine.server.dag.execution.Pipeline;
 import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
@@ -43,6 +48,7 @@ import org.apache.seatunnel.engine.server.master.JobMaster;
 import org.apache.seatunnel.engine.server.task.SourceSplitEnumeratorTask;
 import org.apache.seatunnel.engine.server.task.operation.TaskOperation;
 import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
+import org.apache.seatunnel.engine.server.utils.CheckpointRestoreUtils;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
 import com.hazelcast.map.IMap;
@@ -51,6 +57,8 @@ import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.Arrays;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
@@ -83,9 +91,13 @@ public class CheckpointManager {
 
     private final CheckpointMonitorService checkpointMonitorService;
 
+    private final Serializer serializer = new ProtoStuffSerializer();
+
     public CheckpointManager(
             long jobId,
-            boolean isStartWithSavePoint,
+            boolean isRestoreJob,
+            RestoreMode restoreMode,
+            Long restoreSourceJobId,
             NodeEngine nodeEngine,
             JobMaster jobMaster,
             Map<Integer, CheckpointPlan> checkpointPlanMap,
@@ -93,6 +105,7 @@ public class CheckpointManager {
             CheckpointStorage checkpointStorage,
             ExecutorService executorService,
             IMap<Object, Object> runningJobStateIMap,
+            SeaTunnelEngineContext engineContext,
             CheckpointMonitorService checkpointMonitorService) {
         this.jobId = jobId;
         this.nodeEngine = nodeEngine;
@@ -100,31 +113,36 @@ public class CheckpointManager {
         this.checkpointStorage = checkpointStorage;
         this.checkpointConfig = checkpointConfig;
         this.checkpointMonitorService = checkpointMonitorService;
+        CounterStateStore<String> checkpointCounterStore =
+                engineContext.getStateStores().checkpointCounterStore();
 
         this.coordinatorMap =
                 MDCTracer.tracing(checkpointPlanMap.values().parallelStream())
                         .map(
                                 plan -> {
-                                    IMapCheckpointIDCounter idCounter =
-                                            new IMapCheckpointIDCounter(
-                                                    jobId, plan.getPipelineId(), nodeEngine);
+                                    StateStoreCheckpointIDCounter idCounter =
+                                            new StateStoreCheckpointIDCounter(
+                                                    jobId,
+                                                    plan.getPipelineId(),
+                                                    checkpointCounterStore);
                                     try {
                                         idCounter.start();
                                         PipelineState pipelineState = null;
                                         if (checkpointConfig.isCheckpointEnable()
-                                                && isStartWithSavePoint) {
+                                                && isRestoreJob
+                                                && restoreSourceJobId != null) {
                                             pipelineState =
-                                                    checkpointStorage
-                                                            .getLatestCheckpointByJobIdAndPipelineId(
-                                                                    String.valueOf(jobId),
-                                                                    String.valueOf(
-                                                                            plan.getPipelineId()));
+                                                    getLatestCheckpointStateByType(
+                                                            String.valueOf(restoreSourceJobId),
+                                                            String.valueOf(plan.getPipelineId()),
+                                                            restoreMode);
                                             if (pipelineState != null) {
                                                 long checkpointId = pipelineState.getCheckpointId();
                                                 idCounter.setCount(checkpointId + 1);
                                                 log.info(
-                                                        "pipeline({}) start with savePoint on checkPointId({})",
+                                                        "pipeline({}) restore with {} on checkpointId({})",
                                                         plan.getPipelineId(),
+                                                        restoreMode,
                                                         checkpointId);
                                             }
                                         }
@@ -138,7 +156,7 @@ public class CheckpointManager {
                                                 pipelineState,
                                                 executorService,
                                                 runningJobStateIMap,
-                                                isStartWithSavePoint,
+                                                isRestoreJob,
                                                 checkpointMonitorService);
                                     } catch (Exception e) {
                                         ExceptionUtil.sneakyThrow(e);
@@ -148,6 +166,32 @@ public class CheckpointManager {
                         .collect(
                                 Collectors.toMap(
                                         CheckpointCoordinator::getPipelineId, Function.identity()));
+    }
+
+    private PipelineState getLatestCheckpointStateByType(
+            String sourceJobId, String pipelineId, RestoreMode restoreMode) throws Exception {
+        if (restoreMode == null || !restoreMode.isRestore()) {
+            return checkpointStorage.getLatestCheckpointByJobIdAndPipelineId(
+                    sourceJobId, pipelineId);
+        }
+        List<PipelineState> pipelineStates =
+                checkpointStorage.getCheckpointsByJobIdAndPipelineId(sourceJobId, pipelineId);
+        return pipelineStates.stream()
+                .filter(
+                        state ->
+                                CheckpointRestoreUtils.matchesRestoreCheckpointType(
+                                        deserializeCheckpoint(state).getCheckpointType(),
+                                        restoreMode))
+                .max(Comparator.comparingLong(PipelineState::getCheckpointId))
+                .orElse(null);
+    }
+
+    private CompletedCheckpoint deserializeCheckpoint(PipelineState pipelineState) {
+        try {
+            return serializer.deserialize(pipelineState.getStates(), CompletedCheckpoint.class);
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 
     /**
@@ -243,7 +287,13 @@ public class CheckpointManager {
         if (checkpointConfig.isCheckpointEnable()
                 && (jobStatus == JobStatus.FINISHED || jobStatus == JobStatus.CANCELED)
                 && !isSavePointEnd()) {
-            checkpointStorage.deleteCheckpoint(jobId + "");
+            if (jobStatus == JobStatus.CANCELED && checkpointConfig.isRetainAfterJobCancelled()) {
+                log.info(
+                        "Job {} has retain-after-job-cancelled enabled, retaining checkpoint data",
+                        jobId);
+            } else {
+                checkpointStorage.deleteCheckpoint(jobId + "");
+            }
         }
         if (checkpointMonitorService != null
                 && (jobStatus == JobStatus.FINISHED || jobStatus == JobStatus.CANCELED)) {

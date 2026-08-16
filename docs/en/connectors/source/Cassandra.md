@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-cassandra.md';
 
 > Cassandra source connector
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Description
 
 Read data from Apache Cassandra in batch mode.
@@ -16,7 +22,13 @@ The Cassandra source supports two read modes:
 The source gets column names and data types from the result set returned by the configured CQL, so
 the CQL should return the columns that downstream steps need.
 
-## Key features
+## Supported DataSource Info
+
+| Datasource | Supported Versions | Dependency |
+|------------|--------------------|------------|
+| Cassandra  | Universal          | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-cassandra) |
+
+## Key Features
 
 - [x] [batch](../../introduction/concepts/connector-v2-features.md)
 - [ ] [stream](../../introduction/concepts/connector-v2-features.md)
@@ -49,7 +61,7 @@ the CQL should return the columns that downstream steps need.
 | set                 | ARRAY               |
 | map                 | MAP                 |
 
-## Options
+## Source Options
 
 | Name              | Type       | Required | Default     | Description |
 |-------------------|------------|----------|-------------|-------------|
@@ -93,7 +105,7 @@ duplicate table names during startup.
 
 Example entry:
 
-```
+```hocon
 {
   cql = "SELECT id, name FROM keyspace.table1"
 }
@@ -130,8 +142,10 @@ Source plugin common parameters. For details, see [Source Common Options](../com
 - The source is a batch source. It reads the current query result and then finishes.
 - A single CQL query is read as one source split. Increasing job parallelism does not split one
   Cassandra table scan automatically.
+- The connector uses the Cassandra Java driver. The connection options documented above are the
+  only settings the connector reads; any other DataStax driver option uses its built-in default.
 
-## Examples
+## Task Example
 
 ### Single-table read
 
@@ -192,6 +206,25 @@ sink {
     datacenter = "datacenter1"
     keyspace = "test"
     table = "mt_sink_table"
+  }
+}
+```
+
+### Read With A Stricter Consistency Level
+
+Use `consistency_level = "QUORUM"` when the read result must satisfy the configured replication
+factor. Combine it with `datacenter` so the driver talks to the right local coordinator:
+
+```hocon
+source {
+  Cassandra {
+    host = "cassandra1:9042,cassandra2:9042"
+    username = "cassandra"
+    password = "cassandra"
+    datacenter = "datacenter1"
+    keyspace = "test"
+    consistency_level = "QUORUM"
+    cql = "SELECT id, name, score FROM test.accounts"
   }
 }
 ```

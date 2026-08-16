@@ -2,6 +2,10 @@
 
 SeaTunnel有一个用于监控的API，可用于查询运行作业的状态和统计信息，以及最近完成的作业。监控API是RESTful风格的，它接受HTTP请求并使用JSON数据格式进行响应。
 
+:::tip
+该 API 由 SeaTunnel Engine（Zeta）的 server 提供，因此只在作业运行于 Zeta 引擎时可用；作业运行在 Flink 或 Spark 引擎上时不可用，此时请使用对应引擎自身的工具提交和监控作业。
+:::
+
 ## 概述
 
 v2 版本的 API 和 Web UI 都由内嵌 Jetty 提供，与 v1 版本保持相同的接口规范。只有当
@@ -746,6 +750,8 @@ seatunnel:
 > | jobId                | optional | string | job id                            |
 > | jobName              | optional | string | job name                          |
 > | isStartWithSavePoint | optional | string | if job is started with save point |
+> | restoreMode          | optional | string | 作业恢复的数据来源：`CHECKPOINT` 或 `SAVEPOINT`，需与 `restoreSourceJobId` 搭配使用。详见 [作业恢复与重启](rest-api-job-lifecycle.md#6-作业恢复与重启)。 |
+> | restoreSourceJobId   | optional | string | 设置了 `restoreMode` 时，用于指定需要恢复的作业 ID。若只设置了 `isStartWithSavePoint`（未设置 `restoreMode`），则回退使用 `jobId`。 |
 > | format               | optional | string    | 配置风格,支持json、hocon 和 sql,默认 json   |
 
 **注意:** REST API 不支持 dry-run 功能。该功能仅通过 CLI 提供。
@@ -871,7 +877,7 @@ INSERT INTO console_sink SELECT * FROM fake_source;
 ### 提交作业来源上传配置文件
 
 <details>
-<summary><code>POST</code> <code><b>/submit-job</b></code> <code>(如果作业提交成功，返回jobId和jobName。)</code></summary>
+<summary><code>POST</code> <code><b>/submit-job/upload</b></code> <code>(如果作业提交成功，返回jobId和jobName。)</code></summary>
 
 #### 参数
 
@@ -880,6 +886,8 @@ INSERT INTO console_sink SELECT * FROM fake_source;
 > | jobId                | optional | string | job id                            |
 > | jobName              | optional | string | job name                          |
 > | isStartWithSavePoint | optional | string | if job is started with save point |
+> | restoreMode          | optional | string | 作业恢复的数据来源：`CHECKPOINT` 或 `SAVEPOINT`，需与 `restoreSourceJobId` 搭配使用。详见 [作业恢复与重启](rest-api-job-lifecycle.md#6-作业恢复与重启)。 |
+> | restoreSourceJobId   | optional | string | 设置了 `restoreMode` 时，用于指定需要恢复的作业 ID。若只设置了 `isStartWithSavePoint`（未设置 `restoreMode`），则回退使用 `jobId`。 |
 
 #### 请求体
 上传文件key的名称是config_file，支持以下格式：
@@ -895,6 +903,9 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload' --form 'config_file=@"
 
 # 上传 SQL 配置文件
 curl --location 'http://127.0.0.1:8080/submit-job/upload' --form 'config_file=@"/temp/job.sql"'
+
+# 上传配置文件，并从上一个作业最新的 checkpoint 恢复
+curl --location 'http://127.0.0.1:8080/submit-job/upload?restoreMode=CHECKPOINT&restoreSourceJobId=733584788375666689' --form 'config_file=@"/temp/fake_to_console.conf"'
 ```
 #### 响应
 
@@ -1571,3 +1582,18 @@ Checkpoint 信息字段：
 ```
 
 </details>
+
+------------------------------------------------------------------------------------------
+
+### 暂停、恢复或删除作业
+
+目前没有专门的 `pause`（暂停）、`resume`（恢复）或 `delete`（删除）接口，可以通过已有的作业接口达到同样的效果：
+
+| 目标                       | 方法                                                                                                                                                       |
+|---------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------|
+| 暂停一个正在运行的作业（先停止，之后再恢复） | 调用 [`/stop-job`](#停止作业)，并设置 `isStopWithSavePoint: true`。作业会停止运行，同时会保存一个当前状态的 savepoint。                                                                    |
+| 恢复一个已暂停的作业               | 再次调用 [`/submit-job`](#提交作业)，设置 `isStartWithSavePoint: true`，并传入与之前停止时**相同**的 `jobId` 和相同的作业配置。作业会基于该 `jobId` 最近一次的 savepoint 恢复。                                |
+| 删除一个作业                   | 没有专门的删除接口。如果作业仍在运行，先通过 [`/stop-job`](#停止作业) 停止它；作业进入结束状态后，其记录会在 `history-job-expire-minutes`（默认 1440 分钟）到期后自动清理，参见[历史作业过期配置](separated-cluster-deployment.md#44-历史作业过期配置)。 |
+
+**注意：** 当 `isStartWithSavePoint: true` 时必须提供 `jobId`；不提供 `jobId` 会导致请求失败，报错信息为
+`Please provide jobId when start with save point.`

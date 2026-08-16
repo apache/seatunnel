@@ -274,7 +274,7 @@ public class JdbcHanaIT extends AbstractJdbcIT {
                         .waitingFor(
                                 Wait.forLogMessage(".*Startup finished!.*", 1)
                                         .withStartupTimeout(Duration.of(5, ChronoUnit.MINUTES)));
-        container.setPortBindings(Lists.newArrayList(String.format("%s:%s", HANA_PORT, HANA_PORT)));
+        container.addExposedPort(HANA_PORT);
         return container;
     }
 
