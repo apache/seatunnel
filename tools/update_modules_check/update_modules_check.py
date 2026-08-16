@@ -17,6 +17,28 @@
 import json
 import sys
 
+ALL_CONNECTORS_DEDICATED_SHARD_MODULES = (
+    "connector-jdbc-e2e",
+    "connector-kafka-e2e",
+    "connector-rocketmq-e2e",
+    "connector-kudu-e2e",
+    "connector-amazonsqs-e2e",
+    "connector-doris-e2e",
+    "connector-paimon-e2e",
+    "connector-cdc-oracle-e2e",
+    "connector-file-local-e2e",
+    "connector-file-sftp-e2e",
+    "connector-redis-e2e",
+    "connector-sensorsdata-e2e",
+    "connector-elasticsearch-e2e",
+    "connector-cdc-mysql-e2e",
+    "connector-iceberg-e2e",
+    "connector-hbase-e2e",
+    "connector-seatunnel-e2e-base",
+    "connector-console-seatunnel-e2e",
+    "seatunnel-edge-agent-e2e",
+)
+
 
 def get_cv2_modules(files):
     get_modules(files, 1, "connector-", "seatunnel-connectors-v2")
@@ -141,6 +163,28 @@ def get_deleted_modules(files):
     print(output_module)
 
 
+def filter_dedicated_shard_modules(modules_arr, dedicated_modules, fail_on_missing):
+    """
+    Remove modules that already run in dedicated workflow jobs.
+
+    The all-connectors path stays strict because a missing dedicated module
+    means the exclusion list drifted away from backend.yml.
+    """
+    module_set = set(modules_arr)
+    if fail_on_missing:
+        missing_modules = [
+            module for module in dedicated_modules if module not in module_set
+        ]
+        if missing_modules:
+            raise ValueError(
+                "Missing dedicated shard modules from all-connectors input: "
+                + ",".join(missing_modules)
+            )
+
+    dedicated_modules_set = set(dedicated_modules)
+    return [module for module in modules_arr if module not in dedicated_modules_set]
+
+
 def build_sub_it_modules(modules, total_num, current_num):
     """
     Build one all-connectors shard while excluding suites with dedicated jobs.
@@ -149,38 +193,15 @@ def build_sub_it_modules(modules, total_num, current_num):
     round-robin shards, otherwise CI runs them twice and wastes runner time.
     """
     modules_arr = list(dict.fromkeys(modules.split(",")))
-    modules_arr.remove("connector-jdbc-e2e")
-    modules_arr.remove("connector-kafka-e2e")
-    modules_arr.remove("connector-rocketmq-e2e")
-    modules_arr.remove("connector-kudu-e2e")
-    modules_arr.remove("connector-amazonsqs-e2e")
-    modules_arr.remove("connector-doris-e2e")
-    modules_arr.remove("connector-paimon-e2e")
-    modules_arr.remove("connector-cdc-oracle-e2e")
-    modules_arr.remove("connector-file-local-e2e")
-    modules_arr.remove("connector-file-sftp-e2e")
-    modules_arr.remove("connector-redis-e2e")
-    modules_arr.remove("connector-sensorsdata-e2e")
-    if "connector-elasticsearch-e2e" in modules_arr:
-        modules_arr.remove("connector-elasticsearch-e2e")
-    if "connector-cdc-mysql-e2e" in modules_arr:
-        modules_arr.remove("connector-cdc-mysql-e2e")
-    if "connector-iceberg-e2e" in modules_arr:
-        modules_arr.remove("connector-iceberg-e2e")
-    if "connector-hbase-e2e" in modules_arr:
-        modules_arr.remove("connector-hbase-e2e")
-    if "connector-seatunnel-e2e-base" in modules_arr:
-        modules_arr.remove("connector-seatunnel-e2e-base")
-    if "connector-console-seatunnel-e2e" in modules_arr:
-        modules_arr.remove("connector-console-seatunnel-e2e")
-    if "seatunnel-edge-agent-e2e" in modules_arr:
-        modules_arr.remove("seatunnel-edge-agent-e2e")
-    output = ""
+    modules_arr = filter_dedicated_shard_modules(
+        modules_arr, ALL_CONNECTORS_DEDICATED_SHARD_MODULES, True
+    )
+    output = []
     for i, module in enumerate(modules_arr):
         if len(module) > 0 and i % int(total_num) == int(current_num):
-            output = output + ",:" + module
+            output.append(":" + module)
 
-    return output[1:len(output)]
+    return ",".join(output)
 
 
 def get_sub_it_modules(modules, total_num, current_num):
