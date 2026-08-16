@@ -75,7 +75,9 @@ public class EmailFactoryTest {
     }
 
     private void validate(Map<String, Object> config) {
-        ConfigValidator.of(ReadonlyConfig.fromMap(config)).validate(optionRule);
+        ReadonlyConfig readonlyConfig = ReadonlyConfig.fromMap(config);
+        ConfigValidator.validateUnknownKeys(readonlyConfig, optionRule, "EmailSink");
+        ConfigValidator.of(readonlyConfig).validate(optionRule);
     }
 
     private Map<String, Object> requiredConfig() {
