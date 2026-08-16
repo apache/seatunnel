@@ -243,10 +243,8 @@ public class TestPythonTransformIT {
     /** Injects Python policy before the SeaTunnel server JVM is launched. */
     private static class PythonPolicySeaTunnelContainer extends SeaTunnelContainer {
         @Override
-        protected void executeExtraCommands(GenericContainer<?> container)
-                throws IOException, InterruptedException {
-            super.executeExtraCommands(container);
-            installPythonAndConfigurePolicy(container);
+        protected String getJavaToolOptions() {
+            return PYTHON_POLICY_JAVA_OPTS;
         }
     }
 

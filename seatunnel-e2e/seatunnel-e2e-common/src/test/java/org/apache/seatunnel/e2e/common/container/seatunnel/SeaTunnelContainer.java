@@ -134,6 +134,7 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                         PROJECT_ROOT_PATH
                                 + "/seatunnel-shade/seatunnel-hadoop3-3.1.4-uber/target/seatunnel-hadoop3-3.1.4-uber.jar"),
                 Paths.get(SEATUNNEL_HOME, "lib/seatunnel-hadoop3-3.1.4-uber.jar").toString());
+        applyJavaToolOptions(server);
         // execute extra commands
         executeExtraCommands(server);
 
@@ -146,6 +147,27 @@ public class SeaTunnelContainer extends AbstractTestContainer {
         return new String[] {
             ContainerUtil.adaptPathForWin(Paths.get(SEATUNNEL_HOME, "bin", SERVER_SHELL).toString())
         };
+    }
+
+    /**
+     * Returns extra JVM options injected before SeaTunnel server startup.
+     *
+     * @return JVM option string or {@code null} when no extra options are required
+     */
+    protected String getJavaToolOptions() {
+        return null;
+    }
+
+    /**
+     * Applies test-scoped JVM options through the standard launcher environment hook.
+     *
+     * @param container SeaTunnel runtime container being prepared before startup
+     */
+    protected void applyJavaToolOptions(GenericContainer<?> container) {
+        String javaToolOptions = getJavaToolOptions();
+        if (javaToolOptions != null && !javaToolOptions.trim().isEmpty()) {
+            container.withEnv("JAVA_TOOL_OPTIONS", javaToolOptions);
+        }
     }
 
     protected GenericContainer<?> createSeaTunnelContainerWithFakeSourceAndInMemorySink(
