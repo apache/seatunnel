@@ -98,11 +98,12 @@ connector-owned background thread and no concurrency between the timer flush and
 checkpoint, or close paths. A flush that fails is propagated to the engine instead of being silently
 dropped.
 
-> On Spark and Flink there is no periodic timer flush at all: `sink.flush.interval` is a Zeta engine
+> On Spark and Flink there is no sub-checkpoint timer flush: `sink.flush.interval` is a Zeta engine
 > primitive, and the Spark/Flink sink writer context does not implement it. On those engines the
-> buffer is flushed only when it reaches `batch_size` and when the writer is closed. It is **not**
-> flushed on checkpoint (`PrometheusWriter` does not override `prepareCommit()`). For a low-throughput
-> streaming job on Spark or Flink, tune `batch_size` accordingly.
+> buffer is flushed when it reaches `batch_size`, on checkpoint (`PrometheusWriter` flushes in
+> `prepareCommit()`), and when the writer is closed. Buffered samples are therefore bounded by the
+> checkpoint interval rather than held until `batch_size` or close. For lower latency between
+> checkpoints on Spark or Flink, tune `batch_size` accordingly.
 
 ## Example
 

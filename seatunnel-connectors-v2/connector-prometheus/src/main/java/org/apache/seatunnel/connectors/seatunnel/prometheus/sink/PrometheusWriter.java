@@ -43,6 +43,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @Slf4j
 public class PrometheusWriter extends HttpSinkWriter {
@@ -111,6 +112,18 @@ public class PrometheusWriter extends HttpSinkWriter {
                 flush();
             }
         }
+    }
+
+    @Override
+    public Optional<Void> prepareCommit() {
+        // Flush buffered records on checkpoint. On Spark and Flink the engine-level timer flush
+        // (registerFlushAction) keeps the Context's no-op default, so without this the buffer would
+        // only be sent on batch_size and on close(). Flushing on checkpoint bounds the buffered
+        // window to one checkpoint interval on every engine, matching the sibling FlushSignal sinks
+        // (Doris, ClickHouse, Elasticsearch, StarRocks, MongoDB). flush() throws on failure, so a
+        // failed checkpoint flush fails the checkpoint instead of silently dropping the batch.
+        flush();
+        return Optional.empty();
     }
 
     private void flush() {

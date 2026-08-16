@@ -88,7 +88,7 @@ env {
 
 引擎会在正常的 Sink 数据处理线程上触发刷新，因此不需要连接器自己维护后台线程，也不会和写入、检查点、关闭等流程产生并发。刷新失败会被抛给引擎，而不会被静默丢弃。
 
-> 在 Spark 和 Flink 上完全没有周期性定时刷新：`sink.flush.interval` 是 Zeta 引擎的能力，Spark/Flink 的 Sink 写入器上下文并未实现它。在这两个引擎上，缓存只会在达到 `batch_size` 以及写入器关闭时被刷新，**不会**在检查点时刷新（`PrometheusWriter` 未重写 `prepareCommit()`）。对于低吞吐的流式作业，请相应调整 `batch_size`。
+> 在 Spark 和 Flink 上没有检查点之间的定时刷新：`sink.flush.interval` 是 Zeta 引擎的能力，Spark/Flink 的 Sink 写入器上下文并未实现它。在这两个引擎上，缓存会在达到 `batch_size`、检查点时（`PrometheusWriter` 在 `prepareCommit()` 中刷新）以及写入器关闭时被刷新。因此缓存的采样点最多保留一个检查点间隔，而不会一直保存到 `batch_size` 或关闭。如需降低 Spark 或 Flink 上检查点之间的延迟，请相应调整 `batch_size`。
 
 ## 示例
 
