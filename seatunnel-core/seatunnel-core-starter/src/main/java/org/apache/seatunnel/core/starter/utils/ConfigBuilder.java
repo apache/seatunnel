@@ -423,7 +423,6 @@ public class ConfigBuilder {
             } catch (JsonProcessingException e) {
                 String innerContent = value.substring(1, value.length() - 1).trim();
                 if (innerContent.isEmpty()) {
-                    // 空数组 → 返回空 List
                     return ConfigValueFactory.fromAnyRef(Collections.emptyList());
                 }
                 List<String> elementList = SPLITTER.split(innerContent);
