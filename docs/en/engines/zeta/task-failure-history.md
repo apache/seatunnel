@@ -35,11 +35,13 @@ An attempt belongs to a pipeline, not to an individual task.
 - The initial pipeline execution is attempt `0`.
 - The attempt increments before a restore is scheduled.
 - Every failure captured during that execution carries the same attempt number.
-- The current attempt must be stored in HA state so a new active master does not restart numbering at `0`.
+- The diagnostic attempt identity must be stored in HA state so a new active master does not restart numbering at `0`.
 
-`SubPlan.pipelineRestoreNum` is the existing in-memory counter for this boundary. The implementation must make that counter HA-durable and use it as the single authoritative attempt value. It must not introduce a second counter. A new active master restores the value before scheduling or recording another attempt, and all restore-limit checks, failure records, and REST responses read the same value.
+`SubPlan.pipelineRestoreNum` currently participates in the `job.retry.times` decision. Making it durable and reusing it for history would also make the retry budget survive an active-master failover, which is a separate behavior change. The first implementation must therefore keep the existing retry counter and retry-limit behavior unchanged.
 
-This matches the existing pipeline restore boundary and avoids inventing task-level retry semantics that the engine does not currently expose.
+Failure history stores a separate durable diagnostic attempt identity in the job-scoped history state. The initial identity is created as attempt `0`. Before a restore starts a new execution, the history entry atomically advances that pipeline's diagnostic attempt and records its start time. A new active master reads this identity before recording another failure. This counter is used only for failure correlation and REST output; it must not participate in restore eligibility or retry-limit checks.
+
+This keeps the diagnostic model aligned with the existing pipeline restore boundary without changing retry semantics.
 
 ## Failure Record
 
@@ -69,7 +71,7 @@ Field rules:
 
 - `sequence` is monotonically increasing within one job and provides deterministic ordering when timestamps are equal.
 - `timestamp`, `jobId`, `pipelineId`, `attempt`, and `taskGroupId` are required.
-- `attemptStartedAt` is optional because a failure can occur before the pipeline reaches `RUNNING`. When available, it is the persisted start time for that pipeline attempt and has the same value for every record with the same `pipelineId` and `attempt`. It is distinct from `timestamp`, which records when the individual failure was captured.
+- `attemptStartedAt` is the start time stored with the durable diagnostic attempt metadata. Attempt `0` is initialized when the pipeline execution is created for deployment, and a restored attempt is initialized when its diagnostic attempt identity is advanced before restore scheduling. The field is optional for legacy or synthetic paths that cannot resolve this metadata. It has the same value for every record with the same `pipelineId` and `attempt` and is distinct from `timestamp`, which records when the individual failure was captured.
 - `taskId`, `taskName`, `worker`, `exceptionType`, `message`, and `stackTrace` are optional because older or synthetic failure paths may not provide them.
 - `messageTruncated` and `stackTraceTruncated` are required booleans. They indicate whether the corresponding value was shortened before storage.
 - `exceptionType` must come from structured failure transport. It must not be inferred by parsing the formatted stack trace.
@@ -78,11 +80,15 @@ Field rules:
 
 ## Capture and Deduplication
 
-`TaskExecutionState` is the natural task-to-master transport boundary. The implementation should extend that transport with structured failure fields and capture the record in the JobMaster before task resources are released. Exception content must be sanitized and bounded at this capture boundary, before it is written to HA or finished-job history. The implementation should extract the redaction patterns from `DryRunConnectFailureMessageSanitizer` into a shared utility rather than persisting raw connector messages or stack traces. Failure history keeps its own 4 KiB message and 64 KiB stack-trace limits and truncation flags; it must not inherit the dry-run utility's 2 KiB display limit.
+`TaskExecutionState` remains the structured worker-to-master failure transport, but it is not the only way a task group can fail. The common capture point for terminal worker-reported failures is the `PhysicalVertex` state transition after `updateStateByExecutionService` accepts a `FAILED` state. This covers both normal worker reports and node-loss state updates that are routed directly to the physical vertex.
+
+Deployment failures do not carry a `TaskExecutionState`; they enter through `makeTaskGroupFailing`. That path must create a failure record from the deployment exception and the known pipeline, task-group, slot, and worker metadata. The same deduplication key prevents a later terminal delivery for that attempt from creating another record. Cancellation without a failure cause is not recorded as an exception.
+
+Exception content must be sanitized and bounded at these capture boundaries, before it is written to HA or finished-job history. The implementation should extract the redaction patterns from `DryRunConnectFailureMessageSanitizer` into a shared utility rather than persisting raw connector messages or stack traces. Failure history keeps its own 4 KiB message and 64 KiB stack-trace limits and truncation flags; it must not inherit the dry-run utility's 2 KiB display limit.
 
 Repeated delivery of the same terminal task-group state must not create duplicate rows while the original record is retained. The first implementation deduplicates on `(pipelineId, attempt, taskGroupId)`, because a task group has one terminal failure for one pipeline attempt. A Hazelcast `EntryProcessor` on the job-scoped HA entry performs the deduplication check, sequence allocation, append, and oldest-record eviction as one atomic operation. It must be submitted asynchronously from the task-status operation path. Completion handling can log a store failure, but must not wait on or re-enter a Hazelcast operation thread. The first terminal delivery creates the record and receives a sequence number, while later deliveries with the same key are ignored without consuming another sequence number. A different task group in the same attempt remains separate, and a failure after restore has a different attempt number and remains visible.
 
-Deduplication uses the retained records as its bounded key set. After a record is evicted by the 100-record limit, a delayed duplicate for that key can be recorded again. The first version does not keep a separate unbounded set of every key seen during the job lifetime.
+Deduplication uses the retained records as its bounded key set. After a record is evicted by either the 100-record limit or the 1 MiB aggregate-text limit, a delayed duplicate for that key can be recorded again. The first version does not keep a separate unbounded set of every key seen during the job lifetime.
 
 Recording history is diagnostic and best effort. A history-store failure must be logged, but it must not block the original task failure or restore decision.
 
@@ -120,12 +126,12 @@ Behavior:
 - default `limit` to 100 and reject non-positive values;
 - cap requested limits at the retained maximum;
 - return an empty list for a known job with no failures;
-- use the existing job-not-found behavior for an unknown or expired job; and
+- return a controlled `404` response for an unknown or expired job; and
 - return the same response model for running and finished jobs, regardless of which dedicated state entry supplies the records.
 
 `JobInfoServlet` currently treats all path information after `/job-info/` as one numeric job ID. The REST implementation must extend that routing, or add an equivalent dedicated handler, so `/job-info/{jobId}` keeps its current behavior while `/job-info/{jobId}/failures` is routed to failure history. Routing must match only these exact path shapes. Additional segments, prefixes, or substring matches must fall through to the existing not-found behavior.
 
-The current job-detail response and its `errorMsg` field remain unchanged. This keeps existing clients compatible while the UI adopts the history endpoint separately.
+The current `/job-info/{jobId}` behavior and its `errorMsg` field remain unchanged, including its existing response for an unknown job. The new failure-history endpoint defines its own explicit `404` response so callers can distinguish an unknown job from a known job with no failures.
 
 ## Security and Input Validation
 
@@ -154,6 +160,7 @@ The feature is additive:
 - existing jobs do not need configuration changes;
 - existing REST fields and the final error message remain available;
 - no checkpoint or savepoint payload is changed; and
+- existing `job.retry.times` and active-master failover behavior remain unchanged; and
 - old failure paths can populate only the fields they know.
 
 `TaskExecutionState` is Java-serialized between workers and the master. Before adding the new optional failure fields, the implementation must capture the serial UID generated for the current class and declare that value explicitly. Keeping that UID and treating the new fields as optional preserves deserialization of the existing wire form instead of changing compatibility accidentally.
@@ -179,6 +186,9 @@ The feature is additive:
 17. Failure-history state uses the same default Hazelcast map configuration as the existing job-state maps and does not add backups or persistence.
 18. Only the exact `/job-info/{jobId}` and `/job-info/{jobId}/failures` path shapes are accepted; additional path segments use the existing not-found behavior.
 19. Existing serialized `TaskExecutionState` values remain readable after the optional structured failure fields are added.
+20. A deployment failure that enters through `makeTaskGroupFailing` creates one bounded record even though no `TaskExecutionState` exists.
+21. Persisting diagnostic attempt identity does not change `job.retry.times`, restore eligibility, or retry behavior after active-master failover.
+22. Every record that exposes `attemptStartedAt` reads it from the durable metadata created for that pipeline attempt.
 
 ## Delivery Plan
 
