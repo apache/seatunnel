@@ -324,7 +324,7 @@ sink {
 一些注意事项:
 
 - 如果值包含特殊字符，如`(`，请使用`'`引号将其括起来。
-- 如果值包含逗号，需要用`\"`包裹起来，如 `-i read_cols=\"id,name\"`，但数组类型不需要用`\"`包裹，如`-i include_fileds=[id,name]`。
+- 如果值包含逗号，需要用`\"`包裹起来，如 `-i read_cols=\"id,name\"`，但数组类型不需要用`\"`包裹，如`-i include_fields=[id,name]`。
 - 如果值是map类型，可以使用json传参，参数值支持任意深度的数组和json嵌套。参数值可以使用单引号包裹标准json,也可以使用反斜杠转义。
 
   单引号包裹(推荐，结构更清晰)： `-i mysql_properties='{"connectTimeout":"5000","connectionTimeZone":"UTC","serverTimezone":"UTC","useSSL":"false","allowPublicKeyRetrieval":"true"}'`
