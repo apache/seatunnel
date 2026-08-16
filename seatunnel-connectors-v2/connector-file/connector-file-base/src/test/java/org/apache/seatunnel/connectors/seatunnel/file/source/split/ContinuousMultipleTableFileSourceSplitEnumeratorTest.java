@@ -502,6 +502,53 @@ class ContinuousMultipleTableFileSourceSplitEnumeratorTest {
     }
 
     @Test
+    void testLocalTextTailingContinuesAfterFileDisappearsDuringScan() throws Exception {
+        Path srcDir = Files.createDirectories(tempDir.resolve("text_tail_partial_scan"));
+        Path staleFile = srcDir.resolve("stale.log");
+        Path activeFile = srcDir.resolve("active.log");
+        Files.write(staleFile, new byte[0]);
+        Files.write(activeFile, "first\n".getBytes());
+
+        EnumeratorWithContext enumeratorWithContext =
+                createTextTailingEnumerator(
+                        srcDir, "earliest", new FileSourceState(Collections.emptySet()));
+        try {
+            ContinuousMultipleTableFileSourceSplitEnumerator enumerator =
+                    enumeratorWithContext.enumerator;
+            enumerator.scanOnceForTest();
+            FileSourceSplit firstSplit = assignAndCaptureSingleSplit(enumeratorWithContext);
+            enumerator.handleSourceEvent(0, new FileSplitFinishedEvent(firstSplit.splitId()));
+
+            HadoopFileSystemProxy sourceFs = getTableScanContextFileSystem(enumerator, "sourceFs");
+            FileStatus staleStatus =
+                    findFileStatus(sourceFs.listStatus(srcDir.toString()), "stale.log");
+
+            Files.delete(staleFile);
+            Files.write(activeFile, "second\n".getBytes(), StandardOpenOption.APPEND);
+            FileStatus activeStatus =
+                    findFileStatus(sourceFs.listStatus(srcDir.toString()), "active.log");
+
+            HadoopFileSystemProxy sourceFsSpy = Mockito.spy(sourceFs);
+            Mockito.doReturn(new FileStatus[] {staleStatus, activeStatus})
+                    .when(sourceFsSpy)
+                    .listStatus(srcDir.toString());
+            setTableScanContextFileSystem(enumerator, "sourceFs", sourceFsSpy);
+
+            enumerator.scanOnceForTest();
+
+            FileSourceSplit appendedSplit = assignAndCaptureSingleSplit(enumeratorWithContext);
+            Assertions.assertEquals("first\n".getBytes().length, appendedSplit.getStart());
+            Assertions.assertEquals("second\n".getBytes().length, appendedSplit.getLength());
+            Assertions.assertEquals(
+                    2,
+                    enumerator.snapshotState(1L).getFileTailStates().size(),
+                    "an incomplete scan must not prune state for a file that disappeared");
+        } finally {
+            enumeratorWithContext.enumerator.close();
+        }
+    }
+
+    @Test
     void testLocalTextTailingDoesNotCommitDeletedInFlightRange() throws Exception {
         Path srcDir = Files.createDirectories(tempDir.resolve("text_tail_deleted_inflight"));
         Path srcFile = srcDir.resolve("application.log");
@@ -2408,6 +2455,15 @@ class ContinuousMultipleTableFileSourceSplitEnumeratorTest {
         Field fileSystemField = tableScanContext.getClass().getDeclaredField(fieldName);
         fileSystemField.setAccessible(true);
         return (HadoopFileSystemProxy) fileSystemField.get(tableScanContext);
+    }
+
+    private static FileStatus findFileStatus(FileStatus[] statuses, String fileName) {
+        for (FileStatus status : statuses) {
+            if (fileName.equals(status.getPath().getName())) {
+                return status;
+            }
+        }
+        throw new AssertionError("File status not found: " + fileName);
     }
 
     private static void setTableScanContextFileSystem(
