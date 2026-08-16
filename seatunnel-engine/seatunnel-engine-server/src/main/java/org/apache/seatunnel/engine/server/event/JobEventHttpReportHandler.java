@@ -193,7 +193,10 @@ public class JobEventHttpReportHandler implements EventHandler {
             if (response.isSuccessful()) {
                 return true;
             }
-            log.error("Failed to request http server: {}", response);
+            log.error(
+                    "Failed to report events, http status: {} {}",
+                    response.code(),
+                    response.message());
             return false;
         }
     }
@@ -237,11 +240,14 @@ public class JobEventHttpReportHandler implements EventHandler {
             reportFromLocalBuffer();
         } catch (IOException e) {
             log.error("Failed to flush events from local buffer on close", e);
+        } finally {
+            httpClient.connectionPool().evictAll();
         }
     }
 
     private OkHttpClient createHttpClient() {
-        // Preserve the timeout and connection-pool behavior of the previous okhttp 2.x client.
+        // Timeouts match the previous client. The okhttp3 pool is private to this handler and is
+        // released on close; legacy http.keepAlive system properties do not configure it.
         return new OkHttpClient.Builder()
                 .connectionPool(
                         new ConnectionPool(

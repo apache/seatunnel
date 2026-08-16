@@ -134,6 +134,37 @@ public class JobEventHttpReportHandlerTest {
     }
 
     @Test
+    public void testRetryAfterHttpFailure() throws Exception {
+        MockWebServer retryServer = new MockWebServer();
+        retryServer.enqueue(new MockResponse().setResponseCode(500));
+        retryServer.enqueue(new MockResponse().setResponseCode(200));
+        retryServer.start();
+
+        String retryRingBufferName = "retry-test";
+        Ringbuffer ringbuffer = hazelcast.getRingbuffer(retryRingBufferName);
+        ringbuffer.add(new TestEvent(1));
+        JobEventHttpReportHandler handler =
+                new JobEventHttpReportHandler(
+                        retryServer.url("/api").toString(), Duration.ofDays(1), ringbuffer);
+        try {
+            given().ignoreExceptions()
+                    .await()
+                    .atMost(10, TimeUnit.SECONDS)
+                    .until(() -> retryServer.getRequestCount(), count -> count == 1);
+
+            handler.report();
+
+            RecordedRequest firstRequest = retryServer.takeRequest();
+            RecordedRequest retryRequest = retryServer.takeRequest();
+            Assertions.assertEquals(
+                    firstRequest.getBody().readUtf8(), retryRequest.getBody().readUtf8());
+        } finally {
+            handler.close();
+            retryServer.shutdown();
+        }
+    }
+
+    @Test
     public void testCloseWhenHazelcastNotActive() {
         String closeTestRingBufferName = "close-test";
         Config config = new Config();
