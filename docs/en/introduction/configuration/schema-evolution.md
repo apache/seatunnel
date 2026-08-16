@@ -1,6 +1,8 @@
 # Schema evolution
 Schema Evolution means that the schema of a data table can be changed and the data synchronization task can automatically adapt to the changes of the new table structure without any other operations.
 
+> The proposed operator timeline is described in [Schema Evolution Timeline Design](./schema-evolution-timeline-design.md). It is not implemented yet.
+
 ## Supported engines
 
 - Zeta

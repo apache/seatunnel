@@ -90,6 +90,7 @@ const sidebars = {
                 "introduction/configuration/metalake",
                 "introduction/configuration/sink-options-placeholders",
                 "introduction/configuration/schema-evolution",
+                "introduction/configuration/schema-evolution-timeline-design",
                 "introduction/configuration/speed-limit"
             ]
         },
