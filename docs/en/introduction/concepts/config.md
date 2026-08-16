@@ -321,7 +321,7 @@ sink {
 
 ### Important Notes:
 - If a value contains special characters like `(`, enclose it in single quotes (`'`).
-- If a value contains commas, it must be wrapped with `\"`. For example: `-i read_cols=\"id,name\"`. However, array types do not require wrapping with `\"`; for example: `-i include_fileds=[id,name]`.
+- If a value contains commas, it must be wrapped with `\"`. For example: `-i read_cols=\"id,name\"`. However, array types do not require wrapping with `\"`; for example: `-i include_fields=[id,name]`.
 - If the value is a map type, you can pass it as a JSON string, which supports arrays and JSON objects nested to any depth. You can format the parameter value in two ways:
 
   Single Quotes (Recommended): `-i mysql_properties='{"connectTimeout":"5000","connectionTimeZone":"UTC","serverTimezone":"UTC","useSSL":"false","allowPublicKeyRetrieval":"true"}'`.  
