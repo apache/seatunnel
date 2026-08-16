@@ -21,6 +21,7 @@ import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.container.seatunnel.SeaTunnelContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 
 import org.junit.jupiter.api.AfterAll;
@@ -65,33 +66,36 @@ public class JdbcMysqlJsonParamIT extends TestSuiteBase implements TestResource 
 
     private static final List<String> MULTI_TABLE_DDL =
             Arrays.asList(
+                    "drop table if exists ml_movies;\n",
                     "create table ml_movies("
                             + "movie_id long,"
                             + "title varchar(200),"
                             + "genres varchar(500)"
-                            + ");\n"
-                            + "INSERT INTO ml_movies(movie_id, title, genres) VALUES\n"
-                            + "('1', 'Toy Story (1995)', 'Adventure|Animation|Children|Comedy|Fantasy'),\n"
-                            + "('2', 'Jumanji (1995)', 'Adventure|Children|Fantasy'),\n"
+                            + ");\n",
+                    "INSERT INTO ml_movies(movie_id, title, genres) VALUES"
+                            + "('1', 'Toy Story (1995)', 'Adventure|Animation|Children|Comedy|Fantasy'),"
+                            + "('2', 'Jumanji (1995)', 'Adventure|Children|Fantasy'),"
                             + "('3', 'Grumpier Old Men (1995)', 'Comedy|Romance');",
+                    "drop table if exists ml_tags;\n",
                     "create table ml_tags("
                             + "user_id long,"
                             + "movie_id long,"
                             + "tag varchar(400),"
                             + "unix_time long"
-                            + ");\n"
-                            + "INSERT INTO ml_tags(user_id, movie_id, tag, unix_time) VALUES\n"
-                            + "('336', '1', 'pixar', '1139045764'),\n"
-                            + "('62', '2', 'fantasy', '1528843929'),\n"
+                            + ");\n",
+                    "INSERT INTO ml_tags(user_id, movie_id, tag, unix_time) VALUES"
+                            + "('336', '1', 'pixar', '1139045764'),"
+                            + "('62', '2', 'fantasy', '1528843929'),"
                             + "('289', '3', 'moldy', '1143424860');",
+                    "drop table if exists ratings;\n",
                     "create table ratings("
                             + "user_id long,"
                             + "movie_id long,"
                             + "rating float,"
                             + "unix_time long"
-                            + ");\n"
-                            + "INSERT INTO ratings(user_id, movie_id, rating, unix_time) VALUES"
-                            + "('1', '1', 4.0, '964982703'),\n"
+                            + ");\n",
+                    "INSERT INTO ratings(user_id, movie_id, rating, unix_time) VALUES"
+                            + "('1', '1', 4.0, '964982703'),"
                             + "('1', '3', 4.0, '964981247');");
 
     private static final String MYSQL_DRIVER_URL =
@@ -160,29 +164,33 @@ public class JdbcMysqlJsonParamIT extends TestSuiteBase implements TestResource 
      * @throws InterruptedException
      */
     @TestTemplate
-    public void testMysqlJsonParam(TestContainer container)
+    public void testMysqlJsonParam(SeaTunnelContainer container)
             throws IOException, InterruptedException {
+
         List<String> variables = new ArrayList<>();
-        variables.add("mysql_host=" + MYSQL_HOST);
-        variables.add("mysql_port=3306");
-        variables.add("mysql_db=" + MYSQL_DATABASE);
+        variables.add("-e local");
+        variables.add("-c /jdbc_mysql_json_param.conf");
+        variables.add("-i mysql_host=" + MYSQL_HOST);
+        variables.add("-i mysql_port=3306");
+        variables.add("-i mysql_db=" + MYSQL_DATABASE);
         variables.add(
-                "mysql_props={"
-                        + "\"useSSL\":\"false\","
-                        + "\"connectionTimeZone\":\"Asia/Shanghai\","
-                        + "\"serverTimezone\":\"UTC\","
-                        + "\"allowPublicKeyRetrieval\":\"true\"}");
-        variables.add("mysql_user=" + MYSQL_USER);
-        variables.add("mysql_password=" + MYSQL_PASSWORD);
-        variables.add("mysql_table=" + JSON_COL_TEST_TABLE);
+                "-i mysql_props=\\{"
+                        + "\\\"useSSL\":\"false\\\","
+                        + "\\\"connectionTimeZone\\\":\\\"Asia/Shanghai\\\","
+                        + "\\\"serverTimezone\\\":\\\"UTC\\\","
+                        + "\\\"allowPublicKeyRetrieval\\\":\\\"true\\\"\\}");
+        variables.add("-i mysql_user=" + MYSQL_USER);
+        variables.add("-i mysql_password=" + MYSQL_PASSWORD);
+        variables.add("-i mysql_table=" + JSON_COL_TEST_TABLE);
         // filter UTC+8 timestamp
-        variables.add("ts='2026-07-16 12:00:00'");
+        variables.add("-i ts='2026-07-16 12:00:00'");
         // shell: -i
         // json_data='\{\"a:\"}\",\"b\":\"{xyz}\",\"c\":[{\"k1\":\"v1\"},{\"k2\":\"v2\",\"k3\":\"v3\"}],\"d\":{\"list\":[{\"k1\":\"v1\"},{\"k2\":\"v2\",\"k3\":\"v3\"}]}\}'
         variables.add(
-                "json_data={\"a\":\"}\",\"b\":\"{xyz}\",\"c\":[{\"k1\":\"v1\"},{\"k2\":\"v2\",\"k3\":\"v3\"}],\"d\":{\"list\":[{\"k1\":\"v1\"},{\"k2\":\"v2\",\"k3\":\"v3\"}]}}");
+                "-i json_data='{\"a\":\"}\",\"b\":\"{xyz}\",\"c\":[{\"k1\":\"v1\"},{\"k2\":\"v2\",\"k3\":\"v3\"}],\"d\":{\"list\":[{\"k1\":\"v1\"},{\"k2\":\"v2\",\"k3\":\"v3\"}]}}'");
+
         Container.ExecResult result =
-                container.executeJob("/jdbc_mysql_json_param.conf", variables);
+                container.executeBaseCommand(variables.toArray(new String[0]));
         Assertions.assertEquals(
                 0,
                 result.getExitCode(),
@@ -193,23 +201,54 @@ public class JdbcMysqlJsonParamIT extends TestSuiteBase implements TestResource 
     public void testMysqlArrayWithNestedJsonParam(TestContainer container)
             throws IOException, InterruptedException {
         List<String> variables = new ArrayList<>();
-        variables.add("mysql_host=" + MYSQL_HOST);
-        variables.add("mysql_port=3306");
-        variables.add("mysql_db=" + MYSQL_DATABASE);
+        variables.add("-e local");
+        variables.add("-c /jdbc_mysql_json_in_array_param.conf");
+        variables.add("-i mysql_host=" + MYSQL_HOST);
+        variables.add("-i mysql_port=3306");
+        variables.add("-i mysql_db=" + MYSQL_DATABASE);
         variables.add(
-                "mysql_props={"
+                "-i mysql_props={"
                         + "\"useSSL\":\"false\","
                         + "\"allowPublicKeyRetrieval\":\"true\"}");
-        variables.add("mysql_user=" + MYSQL_USER);
-        variables.add("mysql_password=" + MYSQL_PASSWORD);
+        variables.add("-i mysql_user=" + MYSQL_USER);
+        variables.add("-i mysql_password=" + MYSQL_PASSWORD);
         variables.add(
-                "table_list=[{\"table_path\":\"json_test.ml_*\",\"use_regex\":\"true\"},{\"table_path\":\"json_test.ratings\"}]");
+                "-i table_list=[{\"table_path\":\"json_test.ml_*\",\"use_regex\":\"true\"},{\"table_path\":\"json_test.ratings\"}]");
+
         Container.ExecResult result =
-                container.executeJob("/jdbc_mysql_json_in_array_param.conf", variables);
+                container.executeBaseCommand(variables.toArray(new String[0]));
         Assertions.assertEquals(
                 0,
                 result.getExitCode(),
                 "json in array format params for table_list option assertion failed:\n"
+                        + result.getStderr());
+    }
+
+    @TestTemplate
+    public void testMysqlJsonWithNestedArrayParam(TestContainer container)
+            throws IOException, InterruptedException {
+        List<String> variables = new ArrayList<>();
+        variables.add("-e local");
+        variables.add("-c /jdbc_mysql_array_in_json_param.conf");
+        variables.add("-i mysql_host=" + MYSQL_HOST);
+        variables.add("-i mysql_port=3306");
+        variables.add("-i mysql_db=" + MYSQL_DATABASE);
+        variables.add(
+                "-i mysql_props='{"
+                        + "\"useSSL\":\"false\","
+                        + "\"allowPublicKeyRetrieval\":\"true\"}'");
+        variables.add("-i mysql_user=" + MYSQL_USER);
+        variables.add("-i mysql_password=" + MYSQL_PASSWORD);
+        variables.add("-i mysql_table=ml_tags");
+        variables.add(
+                "-i table_filter='{\"plugin_input\":\"mysql_source\",\"plugin_output\":\"filter\",\"include_fields\":[\"movie_id\",\"unix_time\"]}'");
+
+        Container.ExecResult result =
+                container.executeBaseCommand(variables.toArray(new String[0]));
+        Assertions.assertEquals(
+                0,
+                result.getExitCode(),
+                "array in json format params for filter option assertion failed:\n"
                         + result.getStderr());
     }
 
@@ -220,7 +259,7 @@ public class JdbcMysqlJsonParamIT extends TestSuiteBase implements TestResource 
     private void initMysqlData() throws Exception {
         String jdbcUrl =
                 String.format(
-                        "jdbc:mysql://%s:%d/%s?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true",
+                        "jdbc:mysql://%s:%d/%s?useSSL=false&serverTimezone=UTC&allowPublicKeyRetrieval=true&allowMultiQueries=true",
                         mysqlContainer.getHost(),
                         mysqlContainer.getFirstMappedPort(),
                         MYSQL_DATABASE);
