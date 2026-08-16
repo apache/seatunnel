@@ -96,7 +96,7 @@ public class ParameterSplitter implements IParameterSplitter {
             result.add(currentToken.toString().trim());
         }
 
-        if (insideQuotes) {
+        if (braceDepth != 0 || bracketDepth != 0 || insideQuotes) {
             throw new IllegalArgumentException(
                     "Invalid variable value '"
                             + value
