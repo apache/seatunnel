@@ -516,11 +516,18 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                         classLoaderService.releaseClassLoader(
                                 taskImmutableInfo.getJobId(), entry.getValue());
                     }
+                    acquiredClassLoaderJars.clear();
                     return TaskDeployState.success();
                 }
-                deployLocalTask(taskGroup, classLoaders, taskJars);
-                // TaskGroupContext now owns these references and recycleClassLoader releases them.
-                acquiredClassLoaderJars.clear();
+                try {
+                    deployLocalTask(taskGroup, classLoaders, taskJars);
+                } finally {
+                    // TaskGroupContext owns these references as soon as it is published, even if
+                    // deployLocalTask exits exceptionally after publication.
+                    if (executionContexts.containsKey(taskGroup.getTaskGroupLocation())) {
+                        acquiredClassLoaderJars.clear();
+                    }
+                }
                 return TaskDeployState.success();
             }
         } catch (Throwable t) {
@@ -540,7 +547,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
     /**
      * Releases classloader references acquired by the current deployment attempt.
      *
-     * <p>This cleanup only runs before ownership is transferred to a published {@link
+     * <p>This cleanup only releases references that have not been transferred to a published {@link
      * TaskGroupContext}. Cleanup failures are added to the deployment failure so all references are
      * attempted without replacing the original error.
      */

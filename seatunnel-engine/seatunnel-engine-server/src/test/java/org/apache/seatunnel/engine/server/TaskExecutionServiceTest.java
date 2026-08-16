@@ -275,8 +275,11 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
                 () ->
                         taskExecutionService.getActiveExecutionContext(
                                 taskGroupImmutableInformation.getTaskGroupLocation()));
+        Assertions.assertTrue(
+                classLoaderService.queryClassLoaderById(testJobId, testJars).isPresent());
         Assertions.assertEquals(
                 0, classLoaderService.queryClassLoaderReferenceCount(testJobId, testJars));
+        testJar.delete();
     }
 
     /** Test task execution time is the same as the timer timeout */
