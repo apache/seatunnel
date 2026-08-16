@@ -296,7 +296,7 @@ public class ConfigBuilder {
             processPlaceholders(config.root(), sourceConfig, placeholders);
 
             Config cleanSourceConfig =
-                    filterSourceConfig(systemConfig, userConfigMap, placeholders);
+                    filterSourceConfig(sourceConfig, userConfigMap, placeholders);
 
             return config.withFallback(cleanSourceConfig)
                     .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true));
