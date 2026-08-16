@@ -95,7 +95,8 @@ ALTER TABLE your_table_name REPLICA IDENTITY FULL;
 | table-names                               | List     | 二选一 | -        | 需要监控的表。请使用完整的 `database.schema.table` 格式，例如：`postgres_cdc.inventory.orders`。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | table-pattern                             | String   | 二选一 | -        | 需要监控的表名正则表达式。正则需要匹配完整表名，例如：`postgres_cdc\\.inventory\\..*`。`table-names` 和 `table-pattern` 互斥。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | table-names-config                        | List     | 否   | -        | 表级配置列表。例如：`[{"table": "db1.schema1.table1","primaryKeys": ["key1"],"snapshotSplitColumn": "key2"}]`。无物理主键表可通过 `primaryKeys` 指定唯一键。`snapshotSplitColumn` 必须是唯一键，否则 SeaTunnel 会忽略该配置并自动选择拆分列。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| startup.mode                              | List     | 否   | INITIAL  | PostgreSQL CDC 消费者的可选启动模式，有效枚举为 `initial`、`earliest` 和 `latest`。<br/> `initial`: 启动时同步历史数据，然后同步增量数据。<br/> `earliest`: 从可能的最早偏移量启动。<br/> `latest`: 从最新偏移量启动。                                                                                                                                                                                                                                                                                             |
+| startup.mode                              | Enum     | 否   | INITIAL  | PostgreSQL CDC 消费者的可选启动模式，有效枚举为 `initial`、`snapshot-only`、`committed-offset`、`earliest` 和 `latest`。<br/> `initial`: 启动时同步历史数据，然后同步增量数据。<br/> `snapshot-only`: 仅同步启动时的历史数据，然后以有界任务结束，不进入 WAL 流读取。<br/> `committed-offset`: 跳过快照数据，从配置的复制槽已提交 LSN 开始读取 WAL。该模式要求显式配置 `slot.name`，如果复制槽不存在或没有可用的已提交 LSN，则启动失败。<br/> `earliest`: 从可能的最早偏移量启动。<br/> `latest`: 从最新偏移量启动。 |
+| stop.mode                                 | Enum     | 否   | NEVER    | PostgreSQL CDC 消费者的可选停止模式。唯一有效的枚举值是 `never`：一旦进入增量阶段，数据源会持续读取 WAL 变更，不会自行停止。                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | snapshot.split.size                       | Integer  | 否   | 8096     | 表快照的拆分大小（行数），捕获的表在读取表快照时被拆分成多个拆分。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | snapshot.fetch.size                       | Integer  | 否   | 1024     | 读取表快照时每次轮询的最大获取大小。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | slot.name                                 | String   | 否   | seatunnel | PostgreSQL 逻辑解码槽名称。同一个 PostgreSQL 实例上如果有多个 CDC 任务，请为每个任务配置不同的 `slot.name`。                                                                                                                                                                                                                                                                                                                                                      |
@@ -109,7 +110,8 @@ ALTER TABLE your_table_name REPLICA IDENTITY FULL;
 | sample-sharding.threshold                 | Integer  | 否   | 1000     | 此配置指定触发采样分片策略的估计分片数量阈值。当分布因子超出由 `chunk-key.even-distribution.factor.upper-bound` 和 `chunk-key.even-distribution.factor.lower-bound` 指定的范围，且估计的分片数量（计算为近似行数 / 块大小）超过此阈值时，将使用采样分片策略。这可以帮助更有效地处理大数据集。默认值为 1000 个分片。                                                                                   |
 | inverse-sampling.rate                     | Integer  | 否   | 1000     | 在采样分片策略中使用的采样率的倒数。例如，如果此值设置为 1000，则意味着在采样过程中应用 1/1000 的采样率。此选项提供了控制采样粒度的灵活性，从而影响最终的分片数量。在处理非常大数据集时，较低的采样率尤为有用。默认值为 1000。                                                                                                                                                              |
 | split.allow-sampling                      | Boolean  | 否   | true     | 是否允许基于采样的分片策略。当设置为 false 时，无论预估分片数是否超过阈值，系统都将回退到非均匀分片方式（迭代查询方式）。默认值为 true。 |
-| exactly_once                              | Boolean  | 否   | false    | 在初始快照阶段启用精确一次语义。仅当 `startup.mode` 为 `initial` 时可用。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| enable_concurrent_read                    | Boolean  | 否   | true     | 是否在快照阶段启用基于分片的并发读取。当设置为 false 时，source 会跳过分片分析，并以单个 split 读取整张表，适合没有索引的表。默认值为 true。 |
+| exactly_once                              | Boolean  | 否   | false    | 在快照阶段启用精确一次语义。仅当 `startup.mode` 为 `initial` 或 `snapshot-only` 时可用。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | format                                    | Enum     | 否   | DEFAULT  | PostgreSQL CDC 的可选输出格式，有效枚举为 `DEFAULT`、`COMPATIBLE_DEBEZIUM_JSON`。                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | require-replica-identity-full             | Boolean  | 否   | true     | 要求表具有 REPLICA IDENTITY FULL。设置为 false 时，允许表使用其他副本标识设置，但 UPDATE/DELETE 事件可能不包含之前的状态。此选项仅应用于仅追加的表（例如 outbox 模式）。默认为 true 以保持向后兼容性。                                                                                                                                                                                                                                                                                                             |
 | debezium                                  | Config   | 否   | -        | 将 [Debezium 的属性](https://github.com/debezium/debezium/blob/v1.9.8.Final/documentation/modules/ROOT/pages/connectors/postgresql.adoc#connector-configuration-properties) 传递给用于捕获 PostgreSQL 服务器数据更改的 Debezium 嵌入式引擎。                                                                                                                                                                                                                                                                                                                                |
@@ -192,6 +194,101 @@ source {
 }
 ```
 
+### 配置 Debezium 心跳
+
+对于低流量表，Postgres 逻辑解码槽的位置只有在 WAL 中发生行变更时才会推进。使用 Debezium 心跳让槽位持续推进，便于 checkpoint 定期记录偏移，并让复制延迟可观测。心跳表必须提前在 Postgres 服务端创建。
+
+```hocon
+source {
+  Postgres-CDC {
+    username = "postgres"
+    password = "postgres"
+    database-names = ["postgres_cdc"]
+    schema-names = ["inventory"]
+    table-names = ["postgres_cdc.inventory.postgres_cdc_table_1"]
+    url = "jdbc:postgresql://postgres_cdc_e2e:5432/postgres_cdc?loggerLevel=OFF"
+    decoding.plugin.name = "decoderbufs"
+    slot.name = "seatunnel_postgres_cdc"
+    debezium {
+      heartbeat.interval.ms = 100
+      heartbeat.action.query = "INSERT INTO inventory.heartbeat (ts) VALUES (NOW())"
+    }
+  }
+}
+```
+
+### 仅运行一次性快照
+
+当任务只需要执行初始快照并停止（不进入 WAL 流式读取）时，使用 `startup.mode = "snapshot-only"`。该模式适合一次性数据回填。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+  checkpoint.interval = 5000
+}
+
+source {
+  Postgres-CDC {
+    username = "postgres"
+    password = "postgres"
+    database-names = ["postgres_cdc"]
+    schema-names = ["inventory"]
+    table-names = ["postgres_cdc.inventory.postgres_cdc_table_1"]
+    url = "jdbc:postgresql://postgres_cdc_e2e:5432/postgres_cdc?loggerLevel=OFF"
+    decoding.plugin.name = "decoderbufs"
+    slot.name = "seatunnel_postgres_cdc"
+    startup.mode = "snapshot-only"
+  }
+}
+
+sink {
+  Jdbc {
+    url = "jdbc:postgresql://postgres_cdc_e2e:5432/postgres_cdc?loggerLevel=OFF"
+    driver = "org.postgresql.Driver"
+    username = "postgres"
+    password = "postgres"
+    generate_sink_sql = true
+    database = postgres_cdc
+    table = inventory.sink_postgres_cdc_table_1
+    primary_keys = ["id"]
+  }
+}
+```
+
+`snapshot-only` 模式下，connector 完全跳过 WAL 流式读取；如果快照读取需要独立的复制槽，请配置 `slot.name`。
+
+### 读取没有主键的表
+
+根据源表能够提供的保证来选择合适的路径：
+
+- **仅追加（append-only）场景**：源表不会产生 UPDATE/DELETE 事件，保持 `exactly_once = false` 且不声明主键，源端会退回到尽力而为的行标识。在没有可用主键的情况下，connector 无法安全地应用 UPDATE/DELETE 事件。
+- **存在唯一非主键列**：通过 `table-names-config.primaryKeys` 显式声明该列，并设置 `exactly_once = true`，让快照阶段与 WAL 阶段都使用同一配置主键作为稳定的行标识。
+
+```hocon
+source {
+  Postgres-CDC {
+    username = "postgres"
+    password = "postgres"
+    database-names = ["postgres_cdc"]
+    schema-names = ["inventory"]
+    table-names = ["postgres_cdc.inventory.full_types_no_primary_key"]
+    url = "jdbc:postgresql://postgres_cdc_e2e:5432/postgres_cdc?loggerLevel=OFF"
+    decoding.plugin.name = "decoderbufs"
+    table-names-config = [
+      {
+        table = "postgres_cdc.inventory.full_types_no_primary_key"
+        primaryKeys = ["id"]
+      }
+    ]
+    exactly_once = true
+    slot.name = "seatunnel_postgres_cdc"
+  }
+}
+```
+
+没有可用的主键时，connector 无法安全地应用 UPDATE/DELETE 事件。仅在仅追加（append-only）场景下使用此模式。
+
 ## CDC 元数据字段
 
 PostgreSQL CDC 会提供以下元数据字段，可配合 `Metadata` 转换使用：
@@ -247,9 +344,10 @@ SeaTunnel PostgreSQL CDC 支持 `pgoutput`（PostgreSQL 10 起内置）、`wal2j
 
 ### 复制槽如何管理？
 
-SeaTunnel 在任务启动时会创建或复用 `slot.name` 指定的复制槽。未使用的复制槽会持续占用
-磁盘上的 WAL 段，导致 WAL 持续增长。当 CDC 任务永久下线时，应在 PostgreSQL 侧手动删除
-不再使用的复制槽。
+SeaTunnel 在任务启动时会创建或复用 `slot.name` 指定的复制槽。当 `startup.mode` 为
+`committed-offset` 时，复制槽必须已存在，因为 SeaTunnel 会使用其 `confirmed_flush_lsn`
+作为启动偏移量。未使用的复制槽会持续占用磁盘上的 WAL 段，导致 WAL 持续增长。当 CDC
+任务永久下线时，应在 PostgreSQL 侧手动删除不再使用的复制槽。
 
 ### PostgreSQL CDC 为什么会滞后？
 

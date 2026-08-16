@@ -73,7 +73,9 @@ import ChangeLog from '../changelog/connector-bigquery.md';
 如果没有配置 `sequence_number_column`，则不会发送 `_CHANGE_SEQUENCE_NUMBER`，BigQuery 也不会执行基于 sequence number 的去重。
 
 > **注意**
-> - `sequence_number_column` 应该引用 source 表中单调递增的列，例如以 epoch millis 表示的 `updated_at`、`version` 或 `seq_id`。该列的值必须能够转换为 `long` 类型。
+> - BigQuery 要求 `_CHANGE_SEQUENCE_NUMBER` 是十六进制 `STRING`。对于整数列以及精确的整数 decimal 值（例如映射为 `DECIMAL(20, 0)` 的 MySQL `BIGINT UNSIGNED`），connector 会将 unsigned 64-bit 范围内的非负值转换为十六进制字符串；对于字符串列，connector 会将值视为已编码的十六进制 sequence number，仅进行校验而不转换。
+> - sequence number 最多可以包含 4 个以 `/` 分隔的 section，每个 section 最多包含 16 个十六进制字符。Null、负数、空值或格式错误的值会被拒绝。
+> - `sequence_number_column` 应该引用 source 表中单调递增的列，例如以 epoch millis 表示的 `updated_at`、`version` 或 `seq_id`。
 > - 如果要在 streaming 模式下启用 BigQuery 侧的去重，目标 BigQuery 表必须定义 Primary Key。否则，无论是否配置 sequence number，BigQuery 都会将每次写入视为 append 操作。
 
 ### emulator_host
@@ -172,6 +174,22 @@ sink {
 }
 ```
 
+如果上游 CDC 源能产生单调递增的列（例如 `updated_at` 毫秒时间戳或行版本号），可以把它配到 `sequence_number_column`，让 BigQuery 端对重试批次做去重。目标表必须定义主键（上例使用 `PRIMARY KEY (uuid) NOT ENFORCED`），否则 BigQuery 会把每次写入都当作 append，跳过去重。
+
+```hocon
+sink {
+  BigQuery {
+    project_id = "my-gcp-project"
+    dataset_id = "cdc_dataset"
+    table_id = "orders"
+    service_account_key_path = "/path/to/key.json"
+    write_mode = "streaming"
+    sequence_number_column = "updated_at"
+    batch_size = 500
+  }
+}
+```
+
 ### 复杂数据类型示例
 
 ```hocon
@@ -199,6 +217,22 @@ sink {
     dataset_id = "orders"
     table_id = "customer_orders"
     service_account_key_path = "/path/to/key.json"
+    batch_size = 500
+  }
+}
+```
+
+### 内联服务账号密钥
+
+如果不便挂载密钥文件（例如 CI runner、把密钥放在 Kubernetes Secret 中以环境变量形式注入），可以直接把 JSON 内容放到 `service_account_key_json` 中。
+
+```hocon
+sink {
+  BigQuery {
+    project_id = "my-gcp-project"
+    dataset_id = "orders"
+    table_id = "customer_orders"
+    service_account_key_json = "${GCP_SA_KEY_JSON}"
     batch_size = 500
   }
 }

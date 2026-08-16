@@ -42,7 +42,7 @@ import ChangeLog from '../changelog/connector-kafka.md';
 | bootstrap.servers                   | String                              | 是    | -                            | 逗号分隔的 Kafka brokers 列表。                                                                                                                                                                                                                                                                                                        |
 | pattern                             | Boolean                             | 否    | false                        | 如果 `pattern` 设置为 `true`，则会使用指定的正则表达式匹配并订阅主题。                                                                                                                                                                                                                                                                                   |
 | consumer.group                      | String                              | 否    | SeaTunnel-Consumer-Group     | `Kafka 消费者组 ID`，用于区分不同的消费者组。                                                                                                                                                                                                                                                                                                   |
-| commit_on_checkpoint                | Boolean                             | 否    | true                         | 如果为 true，消费者的偏移量将会定期在后台提交。                                                                                                                                                                                                                                                                                                     |
+| commit_on_checkpoint                | Boolean                             | 否    | true                         | 如果为 true，仅在 SeaTunnel checkpoint 完成后提交消费者偏移量，并禁用 Kafka 自动提交；如果为 false，则禁用 checkpoint 提交并启用 Kafka 自动提交。                                                                                                                                                                                                                                                               |
 | poll.timeout                        | Long                                | 否    | 10000                        | kafka主动拉取时间间隔(毫秒)。                                                                                                                                                                                                                                                                                                             |
 | kafka.config                        | Map                                 | 否    | -                            | 除了上述必要参数外，用户还可以指定多个非强制的消费者客户端参数，覆盖 [Kafka 官方文档](https://kafka.apache.org/documentation.html#consumerconfigs) 中指定的所有消费者参数。                                                                                                                                                                                                      |
 | schema                              | Config                              | 否    | -                            | 数据结构，包括字段名称和字段类型。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。                                                                                                                                                                                                                                                                                    |
@@ -63,6 +63,8 @@ import ChangeLog from '../changelog/connector-kafka.md';
 | protobuf_schema                     | String                              | 否    | -                            | 当格式设置为 protobuf 时有效，指定 Schema 定义。                                                                                                                                                                                                                                                                                              |
 | strip_schema_registry_header        | Boolean                             | 否    | false                        | 当格式设置为 protobuf 时有效。是否在 Protobuf 反序列化之前去除 Confluent Schema Registry 线格式头部（magic byte、schema id 和 message indexes）。当消费使用 Confluent Schema Registry 编码的 Protobuf 消息时，此选项非常有用。启用后，连接器将尝试在解析 Protobuf 消息之前检测并删除 Schema Registry 头部。如果未检测到头部，它将回退到标准的 Protobuf 反序列化。                                                                                                                                                                                                                                                                                              |
 | reader_cache_queue_size             | Integer                             | 否    | 2                            | Fetcher 与 Reader 线程之间缓冲队列的容量。每个元素是一次 `consumer.poll()` 的整批结果，而非单条消息。详见 [reader_cache_queue_size](#reader_cache_queue_size)。 |
+| is_native                           | Boolean                             | 否    | false                        | 支持保留record的源信息。                                                                                                                                                                                                                                                                                                                |
+| kafka_headers_fields                | Array                               | 否    | -                            | 指定要从 Kafka 消息 header 中提取并映射为行字段的 header key 列表。每个 header 值以 STRING 类型追加到输出行的末尾（位于正常 schema 字段之后）。不支持 NATIVE 格式。                                                                                                                                                                                                               |
 
 > 从 checkpoint 或 savepoint 恢复时，Kafka Source 会优先使用 checkpoint 中保存的 split offset。
 > `start_mode` 和 consumer group offset 只在首次启动，或为尚未存在 checkpoint 状态的新发现分区初始化位点时生效。
@@ -135,6 +137,34 @@ transform {
 ```
 
 ## 任务示例
+
+### 读取 Kafka 消息 Header
+
+使用 `kafka_headers_fields` 将指定的 Kafka 消息 header 提取为行字段。header 值以 STRING 类型追加在正常 schema 字段之后。
+
+> 注意：不支持 `NATIVE` 格式，该格式已通过 `Map<String, String>` 字段暴露了所有 header。
+
+```hocon
+source {
+  Kafka {
+    topic = "my-topic"
+    bootstrap.servers = "localhost:9092"
+    kafka_headers_fields = ["correlation-id", "x-trace-id"]
+    schema = {
+      fields {
+        user_id = "int"
+        name = "string"
+      }
+    }
+    format = json
+  }
+}
+```
+
+输出行将包含：`user_id`（int）、`name`（string）、`correlation-id`（string）、`x-trace-id`（string）。  
+如果某条消息中不存在对应的 header key，则该字段值为 `null`。
+
+此功能与 Kafka sink 连接器的 `kafka_headers_fields` 对应，支持 header 在 topic 间的全链路传递。
 
 ### 简单示例
 
@@ -546,7 +576,7 @@ source {
     "header1": "header1",
     "header2": "header2"
   },
-  "key": "dGVzdF9ieXRlc19kYXRh",  
+  "key": "dGVzdF9ieXRlc19kYXRh",
   "partition": 3,
   "timestamp": 1672531200000,
   "timestampType": "CREATE_TIME",
@@ -554,6 +584,83 @@ source {
 }
 ```
 注意：key/value是byte[]类型。
+
+### 配合动态分区发现与 EXACTLY_ONCE 下游的流式作业
+
+常见的长时间运行模式：使用 Kafka 源读取数据并写入 Kafka sink，配合 checkpoint 与 `semantics = EXACTLY_ONCE` 实现端到端精确一次。开启 `partition-discovery.interval-millis` 后，新增分区会被自动发现，无需重启作业。
+
+```hocon
+env {
+  parallelism = 2
+  job.mode = "STREAMING"
+  checkpoint.interval = 10000
+}
+
+source {
+  Kafka {
+    topic = "orders"
+    bootstrap.servers = "localhost:9092"
+    consumer.group = "orders_consumer"
+    start_mode = group_offsets
+    commit_on_checkpoint = true
+    partition-discovery.interval-millis = 30000
+    format = json
+    schema = {
+      fields {
+        order_id = bigint
+        user_id = bigint
+        amount = double
+      }
+    }
+  }
+}
+
+sink {
+  Kafka {
+    topic = "orders_sink"
+    bootstrap.servers = "localhost:9092"
+    format = json
+    semantics = EXACTLY_ONCE
+    transaction_prefix = "orders_sink_job"
+    partition_key_fields = ["order_id"]
+  }
+}
+```
+
+同样的写法也适用于 `format = debezium_json`，可以从 Kafka Connect sink 输出的 Debezium 变更事件中消费变更数据并转发到下游。
+
+### Avro 反序列化
+
+当 Avro 消息的 record 名称、namespace 或 union 结构与 SeaTunnel schema 不一致时，需要将 `format` 设置为 `avro` 并提供 `avro_schema`。如果不提供 `avro_schema`，连接器会从用户配置的 `schema` 块派生解码 schema，并同时将其作为 reader schema 和 writer schema 使用；如果生产端的 Avro 结构（record 名称、namespace、union 结构）与 SeaTunnel schema 不一致，请显式配置 `avro_schema`。当前实现中没有 Confluent Schema Registry 查询或按消息回退读取 schema 的机制。
+
+```hocon
+source {
+  Kafka {
+    topic = "users_avro"
+    bootstrap.servers = "localhost:9092"
+    format = avro
+    avro_schema = """
+      {
+        "type": "record",
+        "name": "User",
+        "namespace": "com.example",
+        "fields": [
+          {"name": "id", "type": "long"},
+          {"name": "name", "type": "string"},
+          {"name": "email", "type": ["null", "string"], "default": null}
+        ]
+      }
+      """
+    schema = {
+      fields {
+        id = bigint
+        name = string
+        email = string
+      }
+    }
+  }
+}
+```
 
 ## 常见问题
 
@@ -596,6 +703,8 @@ transform {
 ### Kafka Source 支持哪些消息格式？
 
 支持：`json`、`text`、`canal_json`、`debezium_json`、`ogg_json`、`avro`、`protobuf` 和 `NATIVE`。当需要将 Kafka 元数据（headers、key、partition、timestamp）作为记录字段使用时，选择 `NATIVE` 格式。
+
+`format = avro` 仅支持原始（未经 Schema Registry 封装）的 Avro 消息。与 `protobuf`（参见 [Protobuf with Schema Registry wire format](#protobuf-with-schema-registry-wire-format)）不同，`avro` 没有对应 `strip_schema_registry_header` 的选项：如果 topic 是由 Confluent `KafkaAvroSerializer` 写入、消息中带有 Confluent Schema Registry 线格式头部（magic byte + schema id），`format = avro` 不会在反序列化前去除该头部，因此会读取失败或得到损坏的数据。`avro_schema` 仅用于为普通（非 Schema Registry）Avro 消息提供 writer schema。
 
 ### 如何配置 SASL/Kerberos 认证？
 

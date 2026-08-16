@@ -46,6 +46,7 @@ connector-file-jindo-oss
 connector-file-s3
 connector-file-sftp
 connector-file-obs
+connector-fluss
 connector-google-sheets
 connector-google-firestore
 connector-google-bigtable
@@ -71,6 +72,7 @@ connector-jdbc
 connector-kafka
 connector-kudu
 connector-maxcompute
+connector-couchbase
 connector-mongodb
 connector-neo4j
 connector-openmldb
@@ -104,3 +106,4 @@ connector-hugegraph
 connector-lance
 connector-mqtt
 connector-bigquery
+connector-nats-jetstream

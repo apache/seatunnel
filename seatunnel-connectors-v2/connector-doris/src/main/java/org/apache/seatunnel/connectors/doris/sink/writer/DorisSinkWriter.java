@@ -136,6 +136,9 @@ public class DorisSinkWriter
         this.schemaChangeManager = new SchemaChangeManager(dorisSinkConfig);
         this.streamLoadFactory = streamLoadFactory;
         this.initializeLoad();
+        if (!dorisSinkConfig.getEnable2PC()) {
+            context.registerFlushAction(this::timerFlush);
+        }
     }
 
     private void initializeLoad() {
@@ -274,6 +277,16 @@ public class DorisSinkWriter
             throw new DorisConnectorException(DorisConnectorErrorCode.STREAM_LOAD_FAILED, errMsg);
         }
         return respContent;
+    }
+
+    /**
+     * Finishes the current non-2PC Stream Load and opens a new one when the Zeta engine delivers a
+     * timer flush signal.
+     */
+    private void timerFlush() throws IOException {
+        checkLoadException();
+        flush();
+        startLoad(labelGenerator.generateLabel(lastCheckpointId));
     }
 
     @Override
