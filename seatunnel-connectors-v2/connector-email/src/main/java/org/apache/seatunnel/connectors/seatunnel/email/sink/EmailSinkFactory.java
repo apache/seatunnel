@@ -28,6 +28,7 @@ import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import com.google.auto.service.AutoService;
 
 import static org.apache.seatunnel.api.configuration.util.Conditions.greaterThan;
+import static org.apache.seatunnel.api.configuration.util.Conditions.lessOrEqual;
 import static org.apache.seatunnel.connectors.seatunnel.email.config.EmailSinkOptions.EMAIL_ATTACHMENT_NAME;
 import static org.apache.seatunnel.connectors.seatunnel.email.config.EmailSinkOptions.EMAIL_AUTHORIZATION_CODE;
 import static org.apache.seatunnel.connectors.seatunnel.email.config.EmailSinkOptions.EMAIL_FIELD_DELIMITER;
@@ -65,7 +66,10 @@ public class EmailSinkFactory implements TableSinkFactory {
                         EMAIL_AUTHORIZATION_CODE,
                         EMAIL_MESSAGE_HEADLINE,
                         EMAIL_MESSAGE_CONTENT)
-                .optional(EMAIL_SMTP_PORT, greaterThan(EMAIL_SMTP_PORT, 0))
+                // Fail fast during option validation instead of when the writer sends the email.
+                .optional(
+                        EMAIL_SMTP_PORT,
+                        greaterThan(EMAIL_SMTP_PORT, 0).and(lessOrEqual(EMAIL_SMTP_PORT, 65535)))
                 .optional(
                         EMAIL_ATTACHMENT_NAME,
                         EMAIL_FIELD_DELIMITER,

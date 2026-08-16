@@ -36,26 +36,41 @@ public class EmailFactoryTest {
 
     @Test
     void testValidSmtpPorts() {
-        Map<String, Object> config = validConfig();
+        Map<String, Object> config = requiredConfig();
+        config.put(EmailSinkOptions.EMAIL_SMTP_PORT.key(), 1);
+        Assertions.assertDoesNotThrow(() -> validate(config));
+
         config.put(EmailSinkOptions.EMAIL_SMTP_PORT.key(), 465);
         Assertions.assertDoesNotThrow(() -> validate(config));
 
-        config.put(EmailSinkOptions.EMAIL_SMTP_PORT.key(), 1);
+        config.put(EmailSinkOptions.EMAIL_SMTP_PORT.key(), 65535);
         Assertions.assertDoesNotThrow(() -> validate(config));
     }
 
     @Test
-    void testDefaultSmtpPort() {
-        Assertions.assertDoesNotThrow(() -> validate(validConfig()));
+    void testDefaultOptionalOptions() {
+        Assertions.assertDoesNotThrow(() -> validate(requiredConfig()));
     }
 
     @Test
-    void testNonPositiveSmtpPorts() {
-        Map<String, Object> config = validConfig();
+    void testExplicitOptionalOptions() {
+        Map<String, Object> config = requiredConfig();
+        config.put(EmailSinkOptions.EMAIL_SMTP_PORT.key(), 465);
+        config.put(EmailSinkOptions.EMAIL_ATTACHMENT_NAME.key(), "report.csv");
+        config.put(EmailSinkOptions.EMAIL_FIELD_DELIMITER.key(), "|");
+        Assertions.assertDoesNotThrow(() -> validate(config));
+    }
+
+    @Test
+    void testInvalidSmtpPorts() {
+        Map<String, Object> config = requiredConfig();
         config.put(EmailSinkOptions.EMAIL_SMTP_PORT.key(), 0);
         Assertions.assertThrows(OptionValidationException.class, () -> validate(config));
 
         config.put(EmailSinkOptions.EMAIL_SMTP_PORT.key(), -1);
+        Assertions.assertThrows(OptionValidationException.class, () -> validate(config));
+
+        config.put(EmailSinkOptions.EMAIL_SMTP_PORT.key(), 65536);
         Assertions.assertThrows(OptionValidationException.class, () -> validate(config));
     }
 
@@ -63,7 +78,7 @@ public class EmailFactoryTest {
         ConfigValidator.of(ReadonlyConfig.fromMap(config)).validate(optionRule);
     }
 
-    private Map<String, Object> validConfig() {
+    private Map<String, Object> requiredConfig() {
         Map<String, Object> config = new HashMap<>();
         config.put(EmailSinkOptions.EMAIL_FROM_ADDRESS.key(), "sender@example.com");
         config.put(EmailSinkOptions.EMAIL_TO_ADDRESS.key(), "receiver@example.com");
@@ -73,8 +88,6 @@ public class EmailFactoryTest {
         config.put(EmailSinkOptions.EMAIL_AUTHORIZATION_CODE.key(), "code");
         config.put(EmailSinkOptions.EMAIL_MESSAGE_HEADLINE.key(), "subject");
         config.put(EmailSinkOptions.EMAIL_MESSAGE_CONTENT.key(), "content");
-        config.put(EmailSinkOptions.EMAIL_ATTACHMENT_NAME.key(), "report.csv");
-        config.put(EmailSinkOptions.EMAIL_FIELD_DELIMITER.key(), "|");
         return config;
     }
 }
