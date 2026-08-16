@@ -41,6 +41,8 @@ An attempt belongs to a pipeline, not to an individual task.
 
 Failure history stores a separate durable diagnostic attempt identity in the job-scoped history state. The initial identity is created as attempt `0`. Before a restore starts a new execution, the history entry atomically advances that pipeline's diagnostic attempt and records its start time. A new active master reads this identity before recording another failure. This counter is used only for failure correlation and REST output; it must not participate in restore eligibility or retry-limit checks.
 
+The attempt advance uses the same job-scoped `EntryProcessor` serialization boundary as failure-record updates, so it cannot overwrite a concurrent record from another pipeline in the same job. Unlike best-effort failure-record capture, the advance is part of restore scheduling: it must complete before the restored execution can start. If the write fails, restore scheduling retries or fails without starting the new execution under a stale attempt identity.
+
 This keeps the diagnostic model aligned with the existing pipeline restore boundary without changing retry semantics.
 
 ## Failure Record
@@ -82,7 +84,7 @@ Field rules:
 
 `TaskExecutionState` remains the structured worker-to-master failure transport, but it is not the only way a task group can fail. The common capture point for terminal worker-reported failures is the `PhysicalVertex` state transition after `updateStateByExecutionService` accepts a `FAILED` state. This covers both normal worker reports and node-loss state updates that are routed directly to the physical vertex.
 
-Deployment failures do not carry a `TaskExecutionState`; they enter through `makeTaskGroupFailing`. That path must create a failure record from the deployment exception and the known pipeline, task-group, slot, and worker metadata. The same deduplication key prevents a later terminal delivery for that attempt from creating another record. Cancellation without a failure cause is not recorded as an exception.
+Deployment failures do not carry a `TaskExecutionState`; they enter through `makeTaskGroupFailing`. That path must create a failure record from the deployment exception and the known pipeline, task-group, slot, and worker metadata. `TaskDeployState` must retain the original failure's class name, message, and bounded stack trace while the `Throwable` is still available. When the failure is wrapped, the existing `TaskGroupDeployException(String, Throwable)` constructor must preserve the cause instead of reducing it to a message-only exception. The resulting record's `exceptionType` identifies the original cause when one is available, rather than the generic wrapper. The same deduplication key prevents a later terminal delivery for that attempt from creating another record. Cancellation without a failure cause is not recorded as an exception.
 
 Exception content must be sanitized and bounded at these capture boundaries, before it is written to HA or finished-job history. The implementation should extract the redaction patterns from `DryRunConnectFailureMessageSanitizer` into a shared utility rather than persisting raw connector messages or stack traces. Failure history keeps its own 4 KiB message and 64 KiB stack-trace limits and truncation flags; it must not inherit the dry-run utility's 2 KiB display limit.
 
@@ -159,7 +161,7 @@ The feature is additive:
 
 - existing jobs do not need configuration changes;
 - existing REST fields and the final error message remain available;
-- no checkpoint or savepoint payload is changed; and
+- no checkpoint or savepoint payload is changed;
 - existing `job.retry.times` and active-master failover behavior remain unchanged; and
 - old failure paths can populate only the fields they know.
 
@@ -186,9 +188,10 @@ The feature is additive:
 17. Failure-history state uses the same default Hazelcast map configuration as the existing job-state maps and does not add backups or persistence.
 18. Only the exact `/job-info/{jobId}` and `/job-info/{jobId}/failures` path shapes are accepted; additional path segments use the existing not-found behavior.
 19. Existing serialized `TaskExecutionState` values remain readable after the optional structured failure fields are added.
-20. A deployment failure that enters through `makeTaskGroupFailing` creates one bounded record even though no `TaskExecutionState` exists.
+20. A deployment failure that enters through `makeTaskGroupFailing` creates one bounded record even though no `TaskExecutionState` exists, and its `exceptionType` identifies the original cause rather than `TaskGroupDeployException` when a cause is available.
 21. Persisting diagnostic attempt identity does not change `job.retry.times`, restore eligibility, or retry behavior after active-master failover.
 22. Every record that exposes `attemptStartedAt` reads it from the durable metadata created for that pipeline attempt.
+23. A restored execution cannot report a failure before its attempt advance is atomically committed in the shared job-scoped entry; an advance failure does not start execution with the previous attempt identity.
 
 ## Delivery Plan
 

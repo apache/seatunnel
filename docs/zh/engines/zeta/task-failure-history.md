@@ -41,6 +41,8 @@ Attempt 属于 pipeline，而不是单个 task。
 
 失败历史在作业级 HA 状态中保存独立的、持久化的诊断 attempt 标识。初次执行创建 attempt `0`。每次恢复开始新的执行前，在历史状态中原子递增该 pipeline 的诊断 attempt 并记录开始时间。新的 active master 在记录下一次失败前读取该标识。这个计数器只用于失败关联和 REST 输出，不能参与恢复资格或重试上限判断。
 
+attempt 递增与失败记录更新使用同一个作业级 `EntryProcessor` 串行化边界，因此不会覆盖同一作业中其他 pipeline 并发写入的记录。attempt 递增不同于尽力而为的失败记录写入，它属于恢复调度流程的一部分，必须在恢复后的执行启动前完成。如果写入失败，恢复调度需要重试或失败，不能使用旧的 attempt 标识启动新执行。
+
 这样既保持与现有 pipeline 恢复边界一致，也不会改变现有重试语义。
 
 ## 失败记录
@@ -82,7 +84,7 @@ Attempt 属于 pipeline，而不是单个 task。
 
 `TaskExecutionState` 仍然是 worker 到 master 的结构化失败传输，但它不是 task group 失败的唯一路径。对于 worker 上报的终态失败，统一捕获点是 `PhysicalVertex` 在 `updateStateByExecutionService` 接受 `FAILED` 状态后的状态转换。该路径同时覆盖正常 worker 上报和直接路由到 physical vertex 的节点丢失状态更新。
 
-部署失败没有 `TaskExecutionState`，而是通过 `makeTaskGroupFailing` 进入状态机。该路径必须使用部署异常以及已知的 pipeline、task group、slot 和 worker 元数据创建失败记录。同一个去重键可以防止该 attempt 后续的终态上报生成重复记录。没有失败原因的取消不记录为异常。
+部署失败没有 `TaskExecutionState`，而是通过 `makeTaskGroupFailing` 进入状态机。该路径必须使用部署异常以及已知的 pipeline、task group、slot 和 worker 元数据创建失败记录。`TaskDeployState` 必须在原始 `Throwable` 仍然可用时保留失败类名、消息和有界堆栈。需要包装异常时，必须使用现有的 `TaskGroupDeployException(String, Throwable)` 构造方法保留 cause，不能只保留消息。当原始 cause 可用时，记录中的 `exceptionType` 必须表示原始原因，而不是通用包装异常。同一个去重键可以防止该 attempt 后续的终态上报生成重复记录。没有失败原因的取消不记录为异常。
 
 异常内容必须在这些捕获边界完成脱敏和长度限制，再写入 HA 或 finished-job 历史。实现应将 `DryRunConnectFailureMessageSanitizer` 中的脱敏规则抽取为共享工具，不能持久化未经处理的 connector 消息或堆栈。失败历史仍使用自己的 4 KiB 消息上限、64 KiB 堆栈上限和截断标记，不能继承 dry-run 工具的 2 KiB 展示上限。
 
@@ -186,9 +188,10 @@ Exception tab 可以在单独变更中接入 REST 端点。第一版 UI 应按 a
 17. 失败历史状态使用与现有作业状态 map 相同的默认 Hazelcast 配置，不增加备份或持久化；
 18. 只接受精确的 `/job-info/{jobId}` 和 `/job-info/{jobId}/failures` 路径；额外路径段沿用现有 not-found 行为。
 19. 增加可选的结构化失败字段后，已有序列化 `TaskExecutionState` 仍可读取。
-20. 通过 `makeTaskGroupFailing` 进入的部署失败即使没有 `TaskExecutionState`，也会创建一条有界记录。
+20. 通过 `makeTaskGroupFailing` 进入的部署失败即使没有 `TaskExecutionState`，也会创建一条有界记录；当原始 cause 可用时，`exceptionType` 表示原始原因而不是 `TaskGroupDeployException`。
 21. 持久化诊断 attempt 标识不会改变 `job.retry.times`、恢复资格或 active master 切换后的重试行为。
 22. 任何包含 `attemptStartedAt` 的记录都从该 pipeline attempt 创建时的持久化元数据读取该值。
+23. 恢复后的执行只有在共享作业级条目中原子提交 attempt 递增后才能上报失败；递增写入失败时，不能使用上一个 attempt 标识启动执行。
 
 ## 交付计划
 
