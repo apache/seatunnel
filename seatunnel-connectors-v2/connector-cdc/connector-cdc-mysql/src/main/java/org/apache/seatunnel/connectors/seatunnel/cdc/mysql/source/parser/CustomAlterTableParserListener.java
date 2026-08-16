@@ -22,8 +22,9 @@ import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableChangeColumnEvent;
-import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableCommentEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableDropColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableModifyColumnEvent;
 import org.apache.seatunnel.connectors.cdc.base.source.parser.SeatunnelDDLParser;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlTypeUtils;
@@ -46,7 +47,7 @@ public class CustomAlterTableParserListener extends MySqlParserBaseListener
     private static final int STARTING_INDEX = 1;
     private final MySqlAntlrDdlParser parser;
     private final List<ParseTreeListener> listeners;
-    private final LinkedList<AlterTableColumnEvent> changes;
+    private final LinkedList<AlterTableEvent> changes;
     private List<ColumnEditor> columnEditors;
     private TableIdentifier tableIdentifier;
 
@@ -60,7 +61,7 @@ public class CustomAlterTableParserListener extends MySqlParserBaseListener
             RelationalDatabaseConnectorConfig dbzConnectorConfig,
             MySqlAntlrDdlParser parser,
             List<ParseTreeListener> listeners,
-            LinkedList<AlterTableColumnEvent> changes) {
+            LinkedList<AlterTableEvent> changes) {
         this.dbzConnectorConfig = dbzConnectorConfig;
         this.parser = parser;
         this.listeners = listeners;
@@ -217,6 +218,25 @@ public class CustomAlterTableParserListener extends MySqlParserBaseListener
         String removedColName = parser.parseName(ctx.uid());
         changes.add(new AlterTableDropColumnEvent(tableIdentifier, removedColName));
         super.enterAlterByDropColumn(ctx);
+    }
+
+    @Override
+    public void enterTableOptionComment(MySqlParser.TableOptionCommentContext ctx) {
+        if (!parser.skipComments()) {
+            parser.runIfNotNull(
+                    () -> {
+                        if (ctx.COMMENT() != null && ctx.STRING_LITERAL() != null) {
+                            String newComment =
+                                    parser.withoutQuotes(ctx.STRING_LITERAL().getText());
+                            // Old comment is not available from DDL parsing alone;
+                            // it will be filled in by the resolver from the catalog table
+                            changes.add(
+                                    AlterTableCommentEvent.of(tableIdentifier, null, newComment));
+                        }
+                    },
+                    tableIdentifier);
+        }
+        super.enterTableOptionComment(ctx);
     }
 
     @Override
