@@ -136,6 +136,7 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
      * PostgreSQL truncates logical replication slot identifiers above this byte length.
      */
     private static final int MAX_REPLICATION_SLOT_NAME_LENGTH = 63;
+    private static final String LOCK_NOT_AVAILABLE_SQL_STATE = "55P03";
     /*
      * Lowercase hexadecimal digits used to mirror production backfill slot hashing.
      */
@@ -452,15 +453,15 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
         String slotVariable = toSlotVariable(slotName);
         Long jobId = JobIdGenerator.newJobId();
         CompletableFuture<Void> job = null;
+        Connection snapshotGate = null;
+        List<CompletableFuture<Void>> sourceChanges = Collections.emptyList();
 
         try {
             clearTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_1);
             clearTable(POSTGRESQL_SCHEMA, SINK_TABLE_1);
-            // Keep the snapshot read long enough for the test to observe the active SELECT and
-            // commit changes inside the low/high watermark window. Using the real SELECT path is
-            // important here: an ACCESS EXCLUSIVE test lock can also block Debezium's startup-time
-            // schema discovery before the backfill slot is created, which hides the behavior this
-            // test is meant to verify.
+            // Keep enough rows so the snapshot reader remains observable after the post-startup
+            // gate is installed. The gate is acquired only after the generated backfill slot has
+            // appeared, so it does not block Debezium startup-time schema discovery.
             executeSql(
                     "INSERT INTO "
                             + POSTGRESQL_SCHEMA
@@ -483,35 +484,55 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                                 }
                             });
 
-            await().ignoreExceptions()
-                    .atMost(POSTGRES_CDC_WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
-                    .untilAsserted(
-                            () ->
-                                    Assertions.assertTrue(
-                                            backfillReplicationSlotExists(slotName),
-                                            "Backfill replication slot was not created"));
+            snapshotGate = waitForBackfillSlotAndLockSourceTable(slotName, SOURCE_TABLE_1);
             await().pollInterval(10, TimeUnit.MILLISECONDS)
                     .atMost(POSTGRES_CDC_WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
                     .untilAsserted(
                             () ->
                                     Assertions.assertTrue(
-                                            isSnapshotSelectOpen(SOURCE_TABLE_1),
-                                            "Snapshot SELECT is not open on the source table"));
+                                            isSnapshotSelectWaitingForTableLock(SOURCE_TABLE_1),
+                                            "Snapshot SELECT is not waiting on the source table"));
 
-            executeSql(
-                    "INSERT INTO "
-                            + POSTGRESQL_SCHEMA
-                            + "."
-                            + SOURCE_TABLE_1
-                            + " (id, f_big, f_text) VALUES (20001, 20001, 'concurrent-insert')");
-            executeSql(
-                    "UPDATE "
-                            + POSTGRESQL_SCHEMA
-                            + "."
-                            + SOURCE_TABLE_1
-                            + " SET f_big = 500000, f_text = 'concurrent-update' WHERE id = 5000");
-            executeSql(
-                    "DELETE FROM " + POSTGRESQL_SCHEMA + "." + SOURCE_TABLE_1 + " WHERE id = 6000");
+            sourceChanges =
+                    Arrays.asList(
+                            CompletableFuture.runAsync(
+                                    () ->
+                                            executeSql(
+                                                    "INSERT INTO "
+                                                            + POSTGRESQL_SCHEMA
+                                                            + "."
+                                                            + SOURCE_TABLE_1
+                                                            + " (id, f_big, f_text) VALUES (20001, 20001, 'concurrent-insert')")),
+                            CompletableFuture.runAsync(
+                                    () ->
+                                            executeSql(
+                                                    "UPDATE "
+                                                            + POSTGRESQL_SCHEMA
+                                                            + "."
+                                                            + SOURCE_TABLE_1
+                                                            + " SET f_big = 500000, f_text = 'concurrent-update' WHERE id = 5000")),
+                            CompletableFuture.runAsync(
+                                    () ->
+                                            executeSql(
+                                                    "DELETE FROM "
+                                                            + POSTGRESQL_SCHEMA
+                                                            + "."
+                                                            + SOURCE_TABLE_1
+                                                            + " WHERE id = 6000")));
+
+            await().pollInterval(10, TimeUnit.MILLISECONDS)
+                    .atMost(30, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertTrue(
+                                            countSourceChangesWaitingForTableLock(SOURCE_TABLE_1)
+                                                    >= 3,
+                                            "Concurrent source changes are not waiting on the source table"));
+            commitAndCloseSnapshotGate(snapshotGate);
+            snapshotGate = null;
+            for (CompletableFuture<Void> sourceChange : sourceChanges) {
+                waitForAsyncTask(sourceChange, "Concurrent PostgreSQL source change failed");
+            }
 
             waitForReplicationSlotActive(slotName);
             await().ignoreExceptions()
@@ -529,6 +550,16 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                                             query(getQuerySQL(POSTGRESQL_SCHEMA, SINK_TABLE_1))));
             assertJobHasNoAsyncFailure(job);
         } finally {
+            if (snapshotGate != null) {
+                rollbackAndCloseSnapshotGate(snapshotGate);
+            }
+            for (CompletableFuture<Void> sourceChange : sourceChanges) {
+                if (!sourceChange.isDone()) {
+                    waitForAsyncTask(
+                            sourceChange,
+                            "Concurrent PostgreSQL source change did not finish during cleanup");
+                }
+            }
             if (job != null) {
                 if (job.isDone()) {
                     assertJobHasNoAsyncFailure(job);
@@ -1382,6 +1413,113 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
     }
 
     /**
+     * Waits until the production code has created the generated bounded-backfill slot, then holds
+     * an ACCESS EXCLUSIVE table lock as a deterministic gate for the snapshot SELECT and the
+     * concurrent source changes.
+     *
+     * <p>The lock is intentionally acquired after the generated slot exists. Holding it before the
+     * job starts can block Debezium startup-time schema discovery and make the test observe startup
+     * behavior instead of the snapshot low/high watermark window.
+     */
+    private Connection waitForBackfillSlotAndLockSourceTable(
+            String streamingSlotName, String tableName) {
+        AtomicReference<Connection> snapshotGate = new AtomicReference<>();
+        await().pollInterval(10, TimeUnit.MILLISECONDS)
+                .atMost(POSTGRES_CDC_WAIT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            Connection connection =
+                                    tryLockSourceTableAfterBackfillSlotExists(
+                                            streamingSlotName, tableName);
+                            Assertions.assertNotNull(
+                                    connection,
+                                    "Backfill replication slot was not created before the test "
+                                            + "could acquire the snapshot gate");
+                            snapshotGate.set(connection);
+                        });
+        return snapshotGate.get();
+    }
+
+    /**
+     * Attempts to acquire the snapshot gate in the same polling iteration that observes the
+     * generated backfill slot.
+     */
+    private Connection tryLockSourceTableAfterBackfillSlotExists(
+            String streamingSlotName, String tableName) {
+        Connection connection = null;
+        try {
+            connection = getJdbcConnection();
+            connection.setAutoCommit(false);
+            if (!backfillReplicationSlotExists(connection, streamingSlotName)) {
+                rollbackAndCloseQuietly(connection);
+                return null;
+            }
+            try (Statement statement = connection.createStatement()) {
+                statement.execute("SET LOCAL lock_timeout = '250ms'");
+                statement.execute(
+                        "LOCK TABLE "
+                                + POSTGRESQL_SCHEMA
+                                + "."
+                                + tableName
+                                + " IN ACCESS EXCLUSIVE MODE");
+            }
+            return connection;
+        } catch (SQLException e) {
+            rollbackAndCloseQuietly(connection);
+            if (LOCK_NOT_AVAILABLE_SQL_STATE.equals(e.getSQLState())) {
+                return null;
+            }
+            throw new RuntimeException("Failed to lock PostgreSQL source table: " + tableName, e);
+        }
+    }
+
+    private boolean backfillReplicationSlotExists(Connection connection, String streamingSlotName)
+            throws SQLException {
+        try (Statement statement = connection.createStatement();
+                ResultSet resultSet =
+                        statement.executeQuery(
+                                "SELECT 1 FROM pg_replication_slots WHERE slot_name = '"
+                                        + createBackfillSlotName(streamingSlotName, 0)
+                                        + "'")) {
+            return resultSet.next();
+        }
+    }
+
+    private void commitAndCloseSnapshotGate(Connection connection) {
+        try {
+            connection.commit();
+            connection.close();
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to release PostgreSQL snapshot gate", e);
+        }
+    }
+
+    private void rollbackAndCloseSnapshotGate(Connection connection) {
+        try {
+            connection.rollback();
+            connection.close();
+        } catch (SQLException e) {
+            log.warn("Failed to rollback PostgreSQL snapshot gate", e);
+        }
+    }
+
+    private void rollbackAndCloseQuietly(Connection connection) {
+        if (connection == null) {
+            return;
+        }
+        try {
+            connection.rollback();
+        } catch (SQLException e) {
+            log.debug("Failed to rollback PostgreSQL snapshot gate attempt", e);
+        }
+        try {
+            connection.close();
+        } catch (SQLException e) {
+            log.debug("Failed to close PostgreSQL snapshot gate attempt", e);
+        }
+    }
+
+    /**
      * The Postgres container is shared across all test methods in this class, so stale generated
      * replication slots must be dropped before the next CDC job starts.
      */
@@ -1503,29 +1641,51 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
         }
     }
 
-    /**
-     * Returns whether Debezium's snapshot SELECT transaction is open on the source table.
-     *
-     * <p>The PostgreSQL backend can appear as {@code active} while executing the SELECT or {@code
-     * idle in transaction} while the JDBC cursor is between fetch batches. Both states mean the
-     * snapshot low watermark has been taken and concurrent DML can be committed into the low/high
-     * backfill window.
-     */
-    private boolean isSnapshotSelectOpen(String tableName) {
+    /** Returns whether the snapshot SELECT is queued behind the test-owned table lock. */
+    private boolean isSnapshotSelectWaitingForTableLock(String tableName) {
         try (Connection connection = getJdbcConnection();
                 Statement statement = connection.createStatement();
                 ResultSet resultSet =
                         statement.executeQuery(
                                 "SELECT 1 FROM pg_stat_activity "
                                         + "WHERE pid <> pg_backend_pid() "
-                                        + "AND state IN ('active', 'idle in transaction') "
+                                        + "AND wait_event_type = 'Lock' "
                                         + "AND query LIKE 'SELECT%FROM%"
                                         + tableName
                                         + "%'")) {
             return resultSet.next();
         } catch (SQLException e) {
             throw new RuntimeException(
-                    "Failed to query open snapshot SELECT for table: " + tableName, e);
+                    "Failed to query waiting snapshot SELECT for table: " + tableName, e);
+        }
+    }
+
+    /**
+     * Returns how many concurrent INSERT/UPDATE/DELETE statements are queued behind the test-owned
+     * table lock.
+     */
+    private int countSourceChangesWaitingForTableLock(String tableName) {
+        try (Connection connection = getJdbcConnection();
+                Statement statement = connection.createStatement();
+                ResultSet resultSet =
+                        statement.executeQuery(
+                                "SELECT count(1) FROM pg_stat_activity "
+                                        + "WHERE pid <> pg_backend_pid() "
+                                        + "AND wait_event_type = 'Lock' "
+                                        + "AND (query LIKE 'INSERT%"
+                                        + tableName
+                                        + "%' "
+                                        + "OR query LIKE 'UPDATE%"
+                                        + tableName
+                                        + "%' "
+                                        + "OR query LIKE 'DELETE%"
+                                        + tableName
+                                        + "%')")) {
+            resultSet.next();
+            return resultSet.getInt(1);
+        } catch (SQLException e) {
+            throw new RuntimeException(
+                    "Failed to query waiting source changes for table: " + tableName, e);
         }
     }
 
