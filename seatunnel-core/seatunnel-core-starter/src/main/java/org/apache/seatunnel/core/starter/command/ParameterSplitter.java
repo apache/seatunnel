@@ -79,7 +79,7 @@ public class ParameterSplitter implements IParameterSplitter {
                     bracketDepth++;
                 } else if (c == ']' && bracketDepth > 0) {
                     bracketDepth--;
-                } else if (c == ']' && braceDepth == 0) {
+                } else if (c == ']' && bracketDepth == 0) {
                     throw new IllegalArgumentException("Unexpected closing bracket ']'");
                 }
             }
