@@ -212,6 +212,56 @@ sink {
 }
 ```
 
+### 使用自定义分隔符写入文本消息
+
+将 `format` 设置为 `text`，并通过 `field_delimiter` 指定分隔符，把每行序列化成定界文本。下游消费者需要简单扁平格式时可以使用这种方式。
+
+```hocon
+sink {
+  Pulsar {
+    topic = "text_events"
+    client.service-url = "pulsar://localhost:6650"
+    admin.service-url = "http://localhost:8080"
+    format = text
+    field_delimiter = "|"
+  }
+}
+```
+
+### 写入 Avro 消息
+
+将 `format` 设置为 `avro` 即可。Avro schema 由上游行类型推导生成，不需要在 Sink 端额外配置 `schema`。
+
+```hocon
+sink {
+  Pulsar {
+    topic = "test_avro_topic_fake_source"
+    client.service-url = "pulsar://localhost:6650"
+    admin.service-url = "http://localhost:8080"
+    format = avro
+  }
+}
+```
+
+### 自定义 Pulsar Producer 属性
+
+通过 `pulsar.config` 传入额外的 producer 属性，这些配置会透传给 Pulsar producer 客户端，可以用来调整超时、批大小、压缩等参数。
+
+```hocon
+sink {
+  Pulsar {
+    topic = "topic_test"
+    client.service-url = "pulsar://localhost:6650"
+    admin.service-url = "http://localhost:8080"
+    format = json
+    pulsar.config = {
+      sendTimeoutMs = 30000
+      batchingMaxMessages = 1000
+    }
+  }
+}
+```
+
 ## 变更日志
 
 <ChangeLog />
