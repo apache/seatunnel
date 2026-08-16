@@ -60,6 +60,11 @@ public class RangeValidationRule implements ValidationRule {
             return ValidationResult.success();
         }
 
+        // Nothing to compare against, so the row trivially passes the rule.
+        if (minValue == null && maxValue == null) {
+            return ValidationResult.success();
+        }
+
         Comparable comparableValue = (Comparable) value;
         Comparable min = minValue;
         Comparable max = maxValue;
@@ -68,7 +73,13 @@ public class RangeValidationRule implements ValidationRule {
         // BigDecimal (from a DECIMAL column) while the bounds parsed by
         // DataValidatorTransformConfig.parseComparable are Integer/Long/Double, and comparing
         // BigDecimal with Integer via Comparable.compareTo throws ClassCastException.
-        if (value instanceof Number) {
+        //
+        // Non-finite floating point values (NaN, +/-Infinity) cannot be represented as
+        // BigDecimal (new BigDecimal("NaN") throws NumberFormatException), so they are left on
+        // the original Comparable path. There Double.compareTo / Float.compareTo handle them
+        // gracefully (non-finite values sort greater than every finite value), so such rows are
+        // rejected as out of range instead of crashing the whole task.
+        if (value instanceof Number && isFinite((Number) value)) {
             comparableValue = new BigDecimal(value.toString());
             if (min instanceof Number) {
                 min = new BigDecimal(min.toString());
@@ -101,6 +112,16 @@ public class RangeValidationRule implements ValidationRule {
         }
 
         return ValidationResult.success();
+    }
+
+    private static boolean isFinite(Number value) {
+        if (value instanceof Double) {
+            return Double.isFinite((Double) value);
+        }
+        if (value instanceof Float) {
+            return Float.isFinite((Float) value);
+        }
+        return true;
     }
 
     @Override

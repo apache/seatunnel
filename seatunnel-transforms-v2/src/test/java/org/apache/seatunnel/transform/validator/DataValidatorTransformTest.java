@@ -50,6 +50,31 @@ public class DataValidatorTransformTest {
                                 ImmutableMap.of("field_name", "name", "rule_type", "NOT_NULL"))));
     }
 
+    private static ReadonlyConfig rangeRuleConfig(
+            String minValue, String maxValue, boolean maxInclusive) {
+        return ReadonlyConfig.fromMap(
+                ImmutableMap.of(
+                        "row_error_handle_way",
+                        "ROUTE_TO_TABLE",
+                        "row_error_handle_way.error_table",
+                        "ffp",
+                        "field_rules",
+                        Arrays.asList(
+                                ImmutableMap.of(
+                                        "field_name", "amount",
+                                        "rule_type", "RANGE",
+                                        "min_value", minValue,
+                                        "max_value", maxValue,
+                                        "max_inclusive", maxInclusive))));
+    }
+
+    private static CatalogTable decimalInputCatalogTable() {
+        SeaTunnelRowType inputRowType =
+                new SeaTunnelRowType(
+                        new String[] {"amount"}, new SeaTunnelDataType[] {new DecimalType(10, 2)});
+        return CatalogTableUtil.getCatalogTable("catalog", "db1", null, "source", inputRowType);
+    }
+
     @Test
     void routeToTableShouldUseSameDatabaseInErrorRowTableId() {
         SeaTunnelRowType inputRowType =
@@ -149,8 +174,7 @@ public class DataValidatorTransformTest {
         // Before the fix, BigDecimal.compareTo(Integer) threw ClassCastException.
         SeaTunnelRowType inputRowType =
                 new SeaTunnelRowType(
-                        new String[] {"amount"},
-                        new SeaTunnelDataType[] {new DecimalType(10, 2)});
+                        new String[] {"amount"}, new SeaTunnelDataType[] {new DecimalType(10, 2)});
         CatalogTable inputCatalogTable =
                 CatalogTableUtil.getCatalogTable("catalog", "db1", null, "source", inputRowType);
 
@@ -171,5 +195,64 @@ public class DataValidatorTransformTest {
         SeaTunnelRow result = transform.map(row);
 
         assertEquals(new BigDecimal("99.90"), result.getField(0));
+    }
+
+    @Test
+    void rangeRuleShouldRouteDecimalAboveMaxToErrorTable() {
+        DataValidatorTransform transform =
+                new DataValidatorTransform(
+                        rangeRuleConfig("0", "1000", true), decimalInputCatalogTable());
+
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {new BigDecimal("1500.00")});
+        SeaTunnelRow result = transform.map(row);
+
+        assertEquals("db1.ffp", result.getTableId());
+    }
+
+    @Test
+    void rangeRuleShouldRejectDecimalEqualToMaxWhenMaxNotInclusive() {
+        DataValidatorTransform transform =
+                new DataValidatorTransform(
+                        rangeRuleConfig("0", "1000", false), decimalInputCatalogTable());
+
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {new BigDecimal("1000.00")});
+        SeaTunnelRow result = transform.map(row);
+
+        assertEquals("db1.ffp", result.getTableId());
+    }
+
+    @Test
+    void rangeRuleShouldCompareDecimalFieldAgainstDoubleBounds() {
+        // min_value/max_value without a decimal point are parsed as Integer, while "0.0"/"1000.0"
+        // are parsed as Double. Both bound types must compare cleanly against a BigDecimal field.
+        DataValidatorTransform transform =
+                new DataValidatorTransform(
+                        rangeRuleConfig("0.0", "1000.0", true), decimalInputCatalogTable());
+
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {new BigDecimal("500.00")});
+        SeaTunnelRow result = transform.map(row);
+
+        assertEquals(new BigDecimal("500.00"), result.getField(0));
+    }
+
+    @Test
+    void rangeRuleShouldRouteNonFiniteDoubleToErrorTableInsteadOfThrowing() {
+        // Double.NaN cannot be represented as BigDecimal (new BigDecimal("NaN") throws
+        // NumberFormatException), so the rule must fall back to the Double.compareTo path and
+        // reject the row as out of range rather than crashing the whole task.
+        SeaTunnelRowType inputRowType =
+                new SeaTunnelRowType(
+                        new String[] {"amount"}, new SeaTunnelDataType[] {BasicType.DOUBLE_TYPE});
+        CatalogTable inputCatalogTable =
+                CatalogTableUtil.getCatalogTable("catalog", "db1", null, "source", inputRowType);
+
+        DataValidatorTransform transform =
+                new DataValidatorTransform(
+                        rangeRuleConfig("0.0", "100.0", true), inputCatalogTable);
+
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {Double.NaN});
+        SeaTunnelRow result = transform.map(row);
+
+        assertEquals("db1.ffp", result.getTableId());
     }
 }
