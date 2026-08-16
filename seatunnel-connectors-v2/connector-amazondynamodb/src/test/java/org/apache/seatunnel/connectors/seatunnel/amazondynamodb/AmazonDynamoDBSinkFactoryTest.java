@@ -37,6 +37,7 @@ import static org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.Am
 import static org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamoDBSinkOptions.TABLE;
 import static org.apache.seatunnel.connectors.seatunnel.amazondynamodb.config.AmazonDynamoDBSinkOptions.URL;
 
+/** Tests declarative sink validation exposed by {@link AmazonDynamoDBSinkFactory}. */
 public class AmazonDynamoDBSinkFactoryTest {
 
     private OptionRule sinkRule;
@@ -47,8 +48,11 @@ public class AmazonDynamoDBSinkFactoryTest {
     }
 
     @Test
-    void testDefaultMaxRetries() {
-        Assertions.assertDoesNotThrow(() -> validate(requiredOptions()));
+    void testOmittedMaxRetriesUsesDefault() {
+        Map<String, Object> config = requiredOptions();
+
+        Assertions.assertDoesNotThrow(() -> validate(config));
+        Assertions.assertEquals(10, ReadonlyConfig.fromMap(config).get(MAX_RETRIES));
     }
 
     @Test
@@ -64,6 +68,18 @@ public class AmazonDynamoDBSinkFactoryTest {
                         OptionValidationException.class, () -> validateMaxRetries(-1));
 
         Assertions.assertTrue(exception.getMessage().contains(MAX_RETRIES.key()));
+        Assertions.assertTrue(exception.getMessage().contains(">= 0"));
+    }
+
+    @Test
+    void testMaxRetriesIsADeclaredOption() {
+        Map<String, Object> config = requiredOptions();
+        config.put(MAX_RETRIES.key(), 3);
+
+        Assertions.assertDoesNotThrow(
+                () ->
+                        ConfigValidator.validateUnknownKeys(
+                                ReadonlyConfig.fromMap(config), sinkRule, "AmazonDynamoDB"));
     }
 
     private void validateMaxRetries(int maxRetries) {
