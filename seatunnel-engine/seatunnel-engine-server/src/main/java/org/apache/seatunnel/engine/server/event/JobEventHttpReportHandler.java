@@ -208,38 +208,41 @@ public class JobEventHttpReportHandler implements EventHandler {
     public void close() {
         log.info("Close http report handler");
         closing.set(true);
-        scheduledExecutorService.shutdown();
-        boolean schedulerTerminated = false;
         try {
-            schedulerTerminated = scheduledExecutorService.awaitTermination(5, TimeUnit.SECONDS);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
-        if (!schedulerTerminated) {
-            scheduledExecutorService.shutdownNow();
+            scheduledExecutorService.shutdown();
+            boolean schedulerTerminated = false;
             try {
                 schedulerTerminated =
-                        scheduledExecutorService.awaitTermination(2, TimeUnit.SECONDS);
+                        scheduledExecutorService.awaitTermination(5, TimeUnit.SECONDS);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
-        }
-        try {
-            if (schedulerTerminated) {
-                // Flush all remaining events before closing.
-                reportFromRingbuffer();
-            } else {
-                log.warn("Timed out waiting for http report scheduler to stop");
+            if (!schedulerTerminated) {
+                scheduledExecutorService.shutdownNow();
+                try {
+                    schedulerTerminated =
+                            scheduledExecutorService.awaitTermination(2, TimeUnit.SECONDS);
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                }
             }
-        } catch (HazelcastInstanceNotActiveException ignore) {
-            // Hazelcast is shutting down, ringbuffer is not available. Flush from local buffer.
-        } catch (IOException e) {
-            log.error("Failed to flush events from ringbuffer on close", e);
-        }
-        try {
-            reportFromLocalBuffer();
-        } catch (IOException e) {
-            log.error("Failed to flush events from local buffer on close", e);
+            try {
+                if (schedulerTerminated) {
+                    // Flush all remaining events before closing.
+                    reportFromRingbuffer();
+                } else {
+                    log.warn("Timed out waiting for http report scheduler to stop");
+                }
+            } catch (HazelcastInstanceNotActiveException ignore) {
+                // Hazelcast is shutting down, ringbuffer is not available. Flush from local buffer.
+            } catch (IOException e) {
+                log.error("Failed to flush events from ringbuffer on close", e);
+            }
+            try {
+                reportFromLocalBuffer();
+            } catch (IOException e) {
+                log.error("Failed to flush events from local buffer on close", e);
+            }
         } finally {
             httpClient.connectionPool().evictAll();
         }
