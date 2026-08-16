@@ -846,7 +846,16 @@ sink {
 }
 ```
 
-仅追加的 text 文件可以使用 `sync_mode="full"` 持续读取。source 会等待完整的 `row_delimiter` 后再发送记录，并在 checkpoint 中保存已提交的字节偏移量。`start_mode="earliest"` 会读取已有的完整记录，`start_mode="latest"` 会从第一次扫描时的文件末尾开始。此模式不支持压缩文本、原地修改或重放被截断的内容。文件被截断后，当前文件长度会成为新的读取基线。
+仅追加的 text 文件可以使用 `sync_mode="full"` 持续读取。source 会等待完整的 `row_delimiter` 后再发送记录，并在 checkpoint 中保存已提交的字节偏移量、本地文件标识和有界内容锚点。`start_mode="earliest"` 会读取已有的完整记录。`start_mode="latest"` 会忽略首次扫描时已有的内容（包括未完成的记录），并从之后新增的完整记录开始读取。
+
+此模式有以下运行约束：
+
+- 仅支持未压缩的 UTF-8 text 文件，并且必须设置 `post_sync_action="none"`。
+- 采用至少一次投递语义。reader 确认完整读取一个范围后，source 才会提交该范围。
+- 单个文件按顺序读取。source 并行度用于并行读取多个文件，不会拆分同一个文件并行读取。
+- 当轮转后的文件仍位于配置路径下并且符合文件过滤条件时，支持重命名后新建文件的轮转方式。通过内容锚点识别 copy-truncate 重写，并从配置的 header 边界重新读取。
+- enumerator 和 reader 节点必须能看到相同的文件和稳定的文件标识。如果它们可能运行在不同节点，请使用共享挂载目录。
+- 文件消失后，其状态会保留三个成功的扫描周期；如果该文件没有等待或运行中的 split，之后会删除该状态。
 
 ```hocon
 env {
@@ -866,6 +875,7 @@ source {
     scan_interval = "10S"
     start_mode = "latest"
     sync_mode = "full"
+    encoding = "UTF-8"
   }
 }
 ```

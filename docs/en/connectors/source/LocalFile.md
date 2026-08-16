@@ -847,7 +847,16 @@ sink {
 }
 ```
 
-Append-only text files can be tailed with `sync_mode="full"`. The source waits for a complete `row_delimiter` before emitting a row and checkpoints the committed byte offset. `start_mode="earliest"` reads existing complete rows, while `start_mode="latest"` starts after the content present at the first scan. Compressed text files, in-place edits, and replay of truncated content are not supported. If a file is truncated, its current length becomes the new baseline.
+Append-only text files can be tailed with `sync_mode="full"`. The source waits for a complete `row_delimiter` before emitting a row and checkpoints the committed byte offset with the local file identity and a bounded content anchor. `start_mode="earliest"` reads existing complete rows. `start_mode="latest"` ignores content present during the initial scan, including an incomplete row, and reads new complete rows after that point.
+
+This mode has the following operational constraints:
+
+- Only uncompressed UTF-8 text files with `post_sync_action="none"` are supported.
+- Delivery is at least once. A range is committed after the reader reports that the complete range was consumed.
+- A file is read serially. Source parallelism is used across files, not within one file.
+- Rename-and-create rotation is supported when the rotated file remains under the configured path and still matches the file filters. Copy-truncate rewrites are detected by the content anchor and restarted from the configured header boundary.
+- The source path must expose the same files and stable file identities to the enumerator and reader nodes. Use a shared mount when they can run on different nodes.
+- State for a missing file is retained for three successful scans and is then removed if no split for that file is pending or running.
 
 ```hocon
 env {
@@ -867,6 +876,7 @@ source {
     scan_interval = "10S"
     start_mode = "latest"
     sync_mode = "full"
+    encoding = "UTF-8"
   }
 }
 ```

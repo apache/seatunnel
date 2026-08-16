@@ -119,6 +119,7 @@ public class ReadStrategySplitFallbackTest {
                     new ByteArrayInputStream("old\nnew\n".getBytes(StandardCharsets.UTF_8)),
                     Collections.emptyMap(),
                     "e2e.txt");
+            Assertions.assertEquals(4L, strategy.getLastReadBytes());
         }
 
         Assertions.assertEquals(1, rows.size());

@@ -25,6 +25,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseFileSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.BaseMultipleTableFileSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.file.source.LocalFileIdentity;
 import org.apache.seatunnel.connectors.seatunnel.file.source.event.FileSplitFinishedEvent;
 import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSplit;
 
@@ -72,10 +73,12 @@ public class MultipleTableFileSourceReader implements SourceReader<SeaTunnelRow,
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) {
         FileSourceSplit split;
+        long processedBytes = -1L;
         synchronized (output.getCheckpointLock()) {
             split = sourceSplits.poll();
             if (split != null) {
                 ReadStrategy readStrategy = readStrategyMap.get(split.getTableId());
+                boolean readStarted = false;
                 if (readStrategy == null) {
                     throw new FileConnectorException(
                             FILE_READ_STRATEGY_NOT_SUPPORT,
@@ -84,11 +87,38 @@ public class MultipleTableFileSourceReader implements SourceReader<SeaTunnelRow,
                                     + "]");
                 }
                 try {
-                    readStrategy.read(split, output);
+                    if (split.getFileIdentity() != null
+                            && !split.getFileIdentity()
+                                    .equals(LocalFileIdentity.read(split.getFilePath()))) {
+                        log.warn(
+                                "Skip stale local tail split because the file identity changed: {}",
+                                split.getFilePath());
+                        processedBytes = 0L;
+                    } else {
+                        readStarted = true;
+                        readStrategy.read(split, output);
+                        if (split.getFileIdentity() != null
+                                && !split.getFileIdentity()
+                                        .equals(LocalFileIdentity.read(split.getFilePath()))) {
+                            throw new IOException(
+                                    "Local file identity changed while reading the tail split");
+                        }
+                        processedBytes = readStrategy.getLastReadBytes();
+                    }
                 } catch (Exception e) {
-                    String errorMsg =
-                            String.format("Read data from this file [%s] failed", split.splitId());
-                    throw new FileConnectorException(FILE_READ_FAILED, errorMsg, e);
+                    if (!readStarted
+                            && split.getFileIdentity() != null
+                            && e instanceof java.nio.file.NoSuchFileException) {
+                        log.warn(
+                                "Skip local tail split because the file disappeared: {}",
+                                split.getFilePath());
+                        processedBytes = 0L;
+                    } else {
+                        String errorMsg =
+                                String.format(
+                                        "Read data from this file [%s] failed", split.splitId());
+                        throw new FileConnectorException(FILE_READ_FAILED, errorMsg, e);
+                    }
                 }
             }
         }
@@ -99,9 +129,8 @@ public class MultipleTableFileSourceReader implements SourceReader<SeaTunnelRow,
                 SourceEvent event =
                         new FileSplitFinishedEvent(
                                 split.splitId(),
-                                readStrategy == null
-                                        ? null
-                                        : readStrategy.getLastReadFingerprint());
+                                readStrategy == null ? null : readStrategy.getLastReadFingerprint(),
+                                processedBytes);
                 context.sendSourceEventToEnumerator(event);
             }
             return;
