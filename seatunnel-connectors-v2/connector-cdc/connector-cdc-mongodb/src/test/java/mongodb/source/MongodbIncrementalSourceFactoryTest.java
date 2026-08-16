@@ -183,6 +183,26 @@ public class MongodbIncrementalSourceFactoryTest {
                                                 null,
                                                 startupTimestamp - 1000L))
                                 .validate());
+        MongodbConnectorException sameSecondException =
+                Assertions.assertThrows(
+                        MongodbConnectorException.class,
+                        () ->
+                                MongodbSourceConfigProvider.newBuilder()
+                                        .hosts("localhost:27017")
+                                        .startupOptions(
+                                                new StartupConfig(
+                                                        StartupMode.TIMESTAMP,
+                                                        null,
+                                                        null,
+                                                        startupTimestamp))
+                                        .stopOptions(
+                                                new StopConfig(
+                                                        StopMode.TIMESTAMP,
+                                                        null,
+                                                        null,
+                                                        startupTimestamp + 500L))
+                                        .validate());
+        Assertions.assertTrue(sameSecondException.getMessage().contains("second precision"));
     }
 
     @Test
@@ -192,5 +212,10 @@ public class MongodbIncrementalSourceFactoryTest {
                 () ->
                         MongodbSourceConfigProvider.newBuilder()
                                 .stopOptions(new StopConfig(StopMode.SPECIFIC, null, null, null)));
+        Assertions.assertThrows(
+                MongodbConnectorException.class,
+                () ->
+                        MongodbSourceConfigProvider.newBuilder()
+                                .stopOptions(new StopConfig(StopMode.LATEST, null, null, null)));
     }
 }

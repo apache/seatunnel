@@ -175,6 +175,13 @@ The `stop.mode` option controls whether the connector runs continuously or finis
 
 MongoDB change-stream timestamps have second precision. `stop.timestamp` is supplied as epoch milliseconds and converted to that timestamp representation. Events after the stop position are not emitted.
 
+- A timestamp startup and timestamp stop must resolve to different positions, with the stop position later than the startup position. Values within the same second resolve to the same position and are rejected.
+- Timestamp stop mode makes the source bounded, so a streaming job finishes after every split reaches the stop position.
+- With `startup.mode = initial`, the initial snapshot is read completely. The stop timestamp only bounds the incremental change-stream phase.
+- With `startup.mode = latest`, a stop position that has already passed produces no incremental records and the bounded source finishes.
+- After checkpoint or savepoint restore, the stop position stored in the restored split takes precedence over a changed `stop.timestamp` in the submitted configuration.
+- On an idle bounded stream, the connector checks MongoDB cluster time once per poll so it can finish even when no change event reaches the boundary.
+
 For example, to read a bounded interval:
 
 ```hocon

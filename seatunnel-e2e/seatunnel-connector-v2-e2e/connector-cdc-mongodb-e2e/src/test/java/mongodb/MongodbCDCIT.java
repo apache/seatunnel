@@ -195,7 +195,7 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
             value = {},
             type = {EngineType.FLINK, EngineType.SPARK},
             disabledReason =
-                    "Currently FLINK and SPARK do not support bounded incremental split termination")
+                    "Currently FLINK and SPARK do not support restore and bounded incremental split termination")
     public void testMongodbCdcTimestampStopMode(TestContainer container) throws Exception {
         cleanSourceTable();
 
@@ -214,7 +214,7 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
                                 .append("description", "before stop timestamp")
                                 .append("weight", "20")));
 
-        long stopTimestamp = currentClusterTimeMillis() + TimeUnit.SECONDS.toMillis(60);
+        long stopTimestamp = currentClusterTimeMillis() + TimeUnit.SECONDS.toMillis(240);
         String jobId = String.valueOf(JobIdGenerator.newJobId());
         String[] variables = {
             "startup_timestamp=" + startupTimestamp, "stop_timestamp=" + stopTimestamp
@@ -280,7 +280,7 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
                                         querySql(
                                                 "select name from products where name = 'bounded-after-restore'")));
 
-        await().atMost(60, TimeUnit.SECONDS)
+        await().atMost(240, TimeUnit.SECONDS)
                 .until(() -> currentClusterTimeMillis() > stopTimestamp);
         products.insertOne(
                 new Document("_id", new ObjectId("100000000000000000000132"))
@@ -303,6 +303,7 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
     }
 
     private long currentClusterTimeMillis() {
+        // Use the MongoDB server clock and retain its second precision to match the stop offset.
         return Integer.toUnsignedLong(getCurrentClusterTime(client).getTime()) * 1000L;
     }
 
