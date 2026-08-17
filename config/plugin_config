@@ -107,3 +107,4 @@ connector-lance
 connector-mqtt
 connector-bigquery
 connector-nats-jetstream
+connector-splunk

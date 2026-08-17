@@ -98,6 +98,7 @@
         <module>connector-bigquery-e2e</module>
         <module>connector-nats-jetstream-e2e</module>
         <module>connector-couchbase-e2e</module>
+        <module>connector-splunk-e2e</module>
     </modules>
 
     <properties>
