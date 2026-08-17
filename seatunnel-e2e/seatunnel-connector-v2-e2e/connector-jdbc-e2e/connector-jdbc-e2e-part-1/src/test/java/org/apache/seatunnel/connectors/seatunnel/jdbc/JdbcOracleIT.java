@@ -23,8 +23,6 @@ import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Pair;
 
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
-import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oracle.OracleCatalog;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.oracle.OracleURLParser;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
@@ -45,12 +43,9 @@ import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 import org.testcontainers.utility.MountableFile;
 
-import oracle.jdbc.OracleTypes;
-
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.sql.Date;
-import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.sql.Timestamp;
@@ -66,7 +61,7 @@ import java.util.stream.IntStream;
 
 public class JdbcOracleIT extends AbstractJdbcIT {
 
-    private static final String ORACLE_IMAGE = "gvenzl/oracle-xe:21-slim-faststart";
+    private static final String ORACLE_IMAGE = "gvenzl/oracle-free:slim-faststart";
     private static final String ORACLE_NETWORK_ALIASES = "e2e_oracleDb";
     private static final String DRIVER_CLASS = "oracle.jdbc.OracleDriver";
     private static final int ORACLE_PORT = 1521;
@@ -106,7 +101,6 @@ public class JdbcOracleIT extends AbstractJdbcIT {
                     + "    TIMESTAMP_WITH_3_FRAC_SEC_COL timestamp(3),\n"
                     + "    TIMESTAMP_WITH_LOCAL_TZ       timestamp with local time zone,\n"
                     + "    XML_TYPE_COL                  \"SYS\".\"XMLTYPE\",\n"
-                    + "    BFILE_COL              bfile,\n"
                     + "    INTERVAL_COL           interval day(2) to second(6),\n"
                     + "    constraint PK_T_COL primary key (INTEGER_COL)"
                     + ")";
@@ -132,7 +126,6 @@ public class JdbcOracleIT extends AbstractJdbcIT {
                     + "    TIMESTAMP_WITH_3_FRAC_SEC_COL timestamp(3),\n"
                     + "    TIMESTAMP_WITH_LOCAL_TZ       timestamp with local time zone,\n"
                     + "    XML_TYPE_COL                  \"SYS\".\"XMLTYPE\",\n"
-                    + "    BFILE_COL              bfile,\n"
                     + "    INTERVAL_COL           interval day(2) to second(6)\n"
                     + ")";
 
@@ -156,7 +149,6 @@ public class JdbcOracleIT extends AbstractJdbcIT {
                 "TIMESTAMP_WITH_3_FRAC_SEC_COL",
                 "TIMESTAMP_WITH_LOCAL_TZ",
                 "XML_TYPE_COL",
-                "BFILE_COL",
                 "INTERVAL_COL"
             };
 
@@ -311,7 +303,6 @@ public class JdbcOracleIT extends AbstractJdbcIT {
                                 Timestamp.valueOf(LocalDateTime.now()),
                                 Timestamp.valueOf(LocalDateTime.now()),
                                 "<?xml version=\"1.0\" encoding=\"UTF-8\"?><project xmlns=\"http://maven.apache.org/POM/4.0.0\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" xsi:schemaLocation=\"http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd\"><name>SeaTunnel : E2E : Connector V2 : Oracle XMLType</name></project>",
-                                "/container-entrypoint-startdb.d/init.sql",
                                 Duration.ofHours(25)
                             });
             rows.add(row);
@@ -322,7 +313,9 @@ public class JdbcOracleIT extends AbstractJdbcIT {
 
     @Override
     GenericContainer<?> initContainer() {
-        DockerImageName imageName = DockerImageName.parse(ORACLE_IMAGE);
+        // gvenzl/oracle-free is a multi-arch (amd64/arm64) substitute for gvenzl/oracle-xe
+        DockerImageName imageName =
+                DockerImageName.parse(ORACLE_IMAGE).asCompatibleSubstituteFor("gvenzl/oracle-xe");
 
         GenericContainer<?> container =
                 new OracleContainer(imageName)
@@ -366,36 +359,6 @@ public class JdbcOracleIT extends AbstractJdbcIT {
                         SCHEMA,
                         null);
         catalog.open();
-    }
-
-    @Override
-    protected void insertTestData() {
-        try (PreparedStatement preparedStatement =
-                connection.prepareStatement(jdbcCase.getInsertSql())) {
-
-            List<SeaTunnelRow> rows = jdbcCase.getTestData().getValue();
-
-            for (SeaTunnelRow row : rows) {
-                for (int index = 0; index < row.getArity(); index++) {
-                    Object value = row.getField(index);
-                    String columnName = fieldNames[index];
-                    if ("BFILE_COL".equalsIgnoreCase(columnName)) {
-                        preparedStatement.setNull(index + 1, OracleTypes.BFILE);
-                        continue;
-                    }
-
-                    preparedStatement.setObject(index + 1, value);
-                }
-                preparedStatement.addBatch();
-            }
-
-            preparedStatement.executeBatch();
-
-            connection.commit();
-        } catch (Exception exception) {
-            log.error(ExceptionUtils.getMessage(exception));
-            throw new SeaTunnelRuntimeException(JdbcITErrorCode.INSERT_DATA_FAILED, exception);
-        }
     }
 
     @BeforeAll

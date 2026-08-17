@@ -71,6 +71,9 @@ public class OracleTypeConverter implements TypeConverter<BasicTypeDefine> {
     public static final String ORACLE_INTERVAL = "INTERVAL";
     public static final String ORACLE_INTERVAL_YEAR = ORACLE_INTERVAL + " YEAR TO MONTH";
     public static final String ORACLE_INTERVAL_DAY = ORACLE_INTERVAL + " DAY TO SECOND";
+    // Type names returned by the Oracle JDBC driver
+    public static final String ORACLE_INTERVAL_YM = "INTERVALYM";
+    public static final String ORACLE_INTERVAL_DS = "INTERVALDS";
 
     // ------------------------------blob-------------------------
     public static final String ORACLE_BLOB = "BLOB";
@@ -271,6 +274,8 @@ public class OracleTypeConverter implements TypeConverter<BasicTypeDefine> {
             case ORACLE_INTERVAL:
             case ORACLE_INTERVAL_YEAR:
             case ORACLE_INTERVAL_DAY:
+            case ORACLE_INTERVAL_YM:
+            case ORACLE_INTERVAL_DS:
                 builder.dataType(BasicType.STRING_TYPE);
                 break;
             default:
