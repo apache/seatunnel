@@ -15,7 +15,7 @@
 # limitations under the License.
 
 group "default" {
-  targets = ["spark-2.4.6", "spark-3.3.0"]
+  targets = ["spark-2-4-6", "spark-3-3-0"]
 }
 
 target "spark" {
@@ -24,7 +24,7 @@ target "spark" {
   platforms  = ["linux/amd64", "linux/arm64"]
 }
 
-target "spark-2.4.6" {
+target "spark-2-4-6" {
   inherits = ["spark"]
   args = {
     SPARK_VERSION  = "2.4.6"
@@ -34,7 +34,7 @@ target "spark-2.4.6" {
   tags = ["apache/seatunnel:e2e-spark-2.4.6"]
 }
 
-target "spark-3.3.0" {
+target "spark-3-3-0" {
   inherits = ["spark"]
   args = {
     SPARK_VERSION  = "3.3.0"
