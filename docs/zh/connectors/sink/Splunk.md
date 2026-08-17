@@ -36,6 +36,16 @@ Splunk HEC 的 `/services/collector/event` 端点没有服务端去重能力，�
 
 :::
 
+:::caution 行类型（RowKind）
+
+Splunk 索引的是仅追加（append-only）的事件流，因此该 Sink 不会解释 CDC 行类型。只有
+`UPDATE_BEFORE` 行会被丢弃，因为写入更新前镜像会在 Splunk 中留下一条具有误导性的重复记录。
+`INSERT`、`UPDATE_AFTER` 与 `DELETE` 行都会作为普通事件写入，进入 Splunk 后彼此无法区分 ——
+`DELETE` **不会**删除任何数据。如果将支持 CDC 的 Source 接入该 Sink，请预期每一次变更都会
+作为一条新事件写入，而不是对既有事件的修改。
+
+:::
+
 ## 配置项
 
 | 名称                       | 类型      | 是否必填 | 默认值   | 描述                                       |
@@ -67,6 +77,16 @@ HTTP Event Collector 地址，支持以下两种形式：
 
 末尾的斜杠会被去除。该地址必须是包含主机名的绝对 `http` 或 `https` URL，否则任务会在启动时失败，
 并给出包含该配置项名称的错误信息。
+
+:::caution
+
+任何已经包含 `/services/collector` 的地址都会被**原样使用**，不会再追加 `/event` 后缀。部分
+Splunk 界面显示的 Collector 路径形如 `https://splunk-host:8088/services/collector`（不带后缀），
+若直接粘贴该形式，JSON 事件信封会被发送到 Splunk 的 **raw** 摄取端点，而该端点期望的是不同的
+载荷格式。请只配置基础地址（`https://splunk-host:8088`）由 Sink 自动追加路径，或者给出包含
+`/event` 的完整端点地址。
+
+:::
 
 ### token [string]
 

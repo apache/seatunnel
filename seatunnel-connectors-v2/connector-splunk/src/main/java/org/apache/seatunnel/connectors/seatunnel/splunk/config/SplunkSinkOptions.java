@@ -28,9 +28,14 @@ public class SplunkSinkOptions {
                     .stringType()
                     .noDefaultValue()
                     .withDescription(
-                            "Splunk HTTP Event Collector address. Either the collector base address "
-                                    + "(for example https://splunk-host:8088), in which case "
-                                    + "/services/collector/event is appended, or the full endpoint address.");
+                            "Splunk HTTP Event Collector address. When the address does not already "
+                                    + "contain a collector path (for example https://splunk-host:8088), "
+                                    + "/services/collector/event is appended. An address that already "
+                                    + "contains /services/collector is used verbatim, so pass the full "
+                                    + "endpoint including the /event suffix: a bare "
+                                    + "https://host:8088/services/collector targets the raw ingestion "
+                                    + "endpoint, which does not accept the JSON event envelopes this "
+                                    + "sink sends.");
 
     public static final Option<String> TOKEN =
             Options.key("token")
@@ -84,9 +89,10 @@ public class SplunkSinkOptions {
                     .noDefaultValue()
                     .withDescription(
                             "Name of an upstream field whose value populates the Splunk 'time' event "
-                                    + "metadata field. Must be of type TIMESTAMP (interpreted as UTC) or "
-                                    + "BIGINT (interpreted as epoch milliseconds). When unset, Splunk "
-                                    + "stamps events with their ingest time.");
+                                    + "metadata field. Must be of type TIMESTAMP (interpreted as UTC), "
+                                    + "TIMESTAMP_TZ (its own offset is used), or BIGINT (interpreted as "
+                                    + "epoch milliseconds). When unset, Splunk stamps events with their "
+                                    + "ingest time.");
 
     public static final Option<Integer> MAX_BATCH_SIZE =
             Options.key("max_batch_size")
@@ -109,7 +115,8 @@ public class SplunkSinkOptions {
                     .defaultValue(200)
                     .withDescription(
                             "Base backoff in milliseconds between two attempts of the same batch. "
-                                    + "The backoff grows linearly with the attempt number.");
+                                    + "The backoff doubles on each subsequent attempt and is capped "
+                                    + "at 20 seconds.");
 
     public static final Option<Integer> CONNECT_TIMEOUT_MS =
             Options.key("connect_timeout_ms")

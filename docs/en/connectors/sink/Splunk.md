@@ -37,6 +37,17 @@ endpoint, and this connector does not send an idempotency key.
 
 :::
 
+:::caution Row kinds
+
+Splunk indexes an append-only event stream, so this sink does not interpret CDC row kinds. Only
+`UPDATE_BEFORE` rows are dropped, because indexing a pre-image would store a second, misleading
+copy of the record. `INSERT`, `UPDATE_AFTER` and `DELETE` rows are all indexed as ordinary events
+and are indistinguishable from one another once in Splunk — a `DELETE` does **not** remove
+anything. If you point a CDC-capable source at this sink, expect every change to land as a new
+event rather than as a mutation of an existing one.
+
+:::
+
 ## Options
 
 | Name                     | Type    | Required | Default | Description                                                                                     |
@@ -70,6 +81,17 @@ The HTTP Event Collector address. Both forms are accepted:
 
 Trailing slashes are stripped. The address must be an absolute `http` or `https` URL including a
 host, otherwise the job fails at startup with a message naming the option.
+
+:::caution
+
+Any address already containing `/services/collector` is used **verbatim** — the `/event` suffix is
+never appended to it. Some Splunk UI screens show the collector path as
+`https://splunk-host:8088/services/collector`, without the suffix; pasting that form sends the JSON
+event envelopes to Splunk's **raw** ingestion endpoint, which expects a different payload. Either
+configure the base address on its own (`https://splunk-host:8088`) and let the sink append the
+path, or give the full endpoint including `/event`.
+
+:::
 
 ### token [string]
 
