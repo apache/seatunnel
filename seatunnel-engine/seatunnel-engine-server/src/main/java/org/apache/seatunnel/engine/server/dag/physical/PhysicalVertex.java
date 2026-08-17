@@ -62,6 +62,7 @@ import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
@@ -72,6 +73,13 @@ import java.util.stream.Collectors;
  */
 @Slf4j
 public class PhysicalVertex {
+
+    /**
+     * Matches the exact failure message emitted when a deployed worker leaves the cluster and the
+     * coordinator fails the affected task group.
+     */
+    private static final Pattern DEPLOYED_NODE_OFFLINE_ERROR_PATTERN =
+            Pattern.compile("^The taskGroup\\(.+\\) deployed node\\(.+\\) offline$");
 
     private final TaskGroupLocation taskGroupLocation;
 
@@ -643,17 +651,20 @@ public class PhysicalVertex {
                 return;
             case FAILED:
                 stopPhysicalVertex();
-                log.error(
-                        String.format(
-                                "%s end with state %s and Exception: %s",
-                                this.taskFullName,
-                                ExecutionState.FAILED,
-                                errorByPhysicalVertex.get()));
+                String errorMsg = errorByPhysicalVertex.get();
+                if (isDeployedNodeOfflineFailure(errorMsg)) {
+                    log.warn(
+                            String.format(
+                                    "%s end with state %s due to node offline: %s",
+                                    this.taskFullName, ExecutionState.FAILED, errorMsg));
+                } else {
+                    log.error(
+                            String.format(
+                                    "%s end with state %s and Exception: %s",
+                                    this.taskFullName, ExecutionState.FAILED, errorMsg));
+                }
                 taskFuture.complete(
-                        new TaskExecutionState(
-                                taskGroupLocation,
-                                ExecutionState.FAILED,
-                                errorByPhysicalVertex.get()));
+                        new TaskExecutionState(taskGroupLocation, ExecutionState.FAILED, errorMsg));
                 return;
             case FINISHED:
                 stopPhysicalVertex();
@@ -672,5 +683,14 @@ public class PhysicalVertex {
     public void makeTaskGroupFailing(Throwable err) {
         errorByPhysicalVertex.compareAndSet(null, ExceptionUtils.getMessage(err));
         updateTaskState(ExecutionState.FAILING);
+    }
+
+    /**
+     * Uses the coordinator's exact offline-node message template so only expected scale-down
+     * failures are downgraded to warn logs.
+     */
+    @VisibleForTesting
+    static boolean isDeployedNodeOfflineFailure(String errorMsg) {
+        return errorMsg != null && DEPLOYED_NODE_OFFLINE_ERROR_PATTERN.matcher(errorMsg).matches();
     }
 }
