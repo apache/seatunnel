@@ -28,7 +28,7 @@ import ChangeLog from '../changelog/connector-file-oss.md';
   使用二进制文件格式读取和写入任何格式的文件，例如视频、图片等。简而言之，任何文件都可以同步到目标位置。
 
 - [x] [批处理](../../introduction/concepts/connector-v2-features.md)
-- [ ] [流处理](../../introduction/concepts/connector-v2-features.md)
+- [x] [流处理](../../introduction/concepts/connector-v2-features.md)
 - [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
 
   在一次pollNext调用中读取分片中的所有数据。将读取的分片保存在快照中。
@@ -213,6 +213,20 @@ schema {
 | null_format                | string  | 否    | -                  | 仅在file_format_type为text时使用。null_format用于定义哪些字符串可以表示为null。例如：`\N`                                                                                     |
 | binary_chunk_size          | int     | 否    | 1024               | 仅在file_format_type为binary时使用。读取二进制文件的块大小（以字节为单位）。默认为1024字节。较大的值可能会提高大文件的性能，但会使用更多内存。                                                                 |
 | binary_complete_file_mode  | boolean | 否    | false              | 仅在file_format_type为binary时使用。是否将完整文件作为单个块读取，而不是分割成块。启用时，整个文件内容将一次性读入内存。默认为false。                                                                     |
+| discovery_mode             | string  | 否    | once               | 文件发现模式，支持 `once`（默认）和 `continuous`。continuous 模式会定期扫描路径，目前需要同时配置 `sync_mode=update` 和 `file_format_type=binary`。 |
+| scan_interval              | string  | 否    | 10S                | `discovery_mode=continuous` 的轮询间隔，支持 `10S` 等简写和 `PT10S` 等 ISO-8601 格式。 |
+| start_mode                 | string  | 否    | earliest           | 持续发现的初始扫描方式。`earliest` 会处理已有文件，`latest` 仅处理后续新增或变更。 |
+| sync_mode                  | string  | 否    | full               | 文件同步模式。`update` 会将源对象与 `target_path` 对比，只读取新增或变更对象，目前仅支持 binary 格式。 |
+| target_path                | string  | 否    | -                  | `sync_mode=update` 时必填，通常应与 sink 的 `path` 一致。 |
+| target_hadoop_conf         | map     | 否    | -                  | `sync_mode=update` 时可选的目标文件系统 Hadoop 配置。 |
+| update_strategy            | string  | 否    | distcp             | update 模式的对比策略，支持 `distcp` 和 `strict`。 |
+| compare_mode               | string  | 否    | len_mtime          | update 模式的对比方式，支持 `len_mtime` 和 `checksum`；checksum 需要 `update_strategy=strict`。 |
+| update_compare_parallelism | int     | 否    | 8                  | 目标对象元数据查询的最大并发数，有效范围为 `1-64`。 |
+| update_compare_bulk_threshold | int  | 否    | 0                  | 同一目标父目录的候选数达到正数阈值时改用一次目录枚举；`0` 表示关闭自动批量枚举。 |
+| post_sync_action           | string  | 否    | none               | 持续发现对象完成 checkpoint 后的可选动作，支持 `none`、`delete` 和 `backup`。 |
+| backup_path                | string  | 否    | -                  | `post_sync_action=backup` 时必填，且备份路径不能与源 `path` 重叠。 |
+| retention_max_age          | string  | 否    | -                  | `backup_path` 中 SeaTunnel 备份对象的可选最大保留时间。 |
+| retention_check_interval   | string  | 否    | 1H                 | 配置备份保留策略时的清理扫描间隔。 |
 | file_filter_pattern        | string  | 否    |                    | 过滤模式，用于过滤文件。                                                                                                                                         |
 | common-options             | config  | 否    | -                  | 数据源插件通用参数，请参考[数据源通用选项](../common-options/source-common-options.md)了解详情。                                                                                             |
 | file_filter_modified_start | string  | 否    | -                  | 按照最后修改时间过滤文件。 要过滤的开始时间(包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`                                                                                            |
@@ -389,6 +403,48 @@ abc.*
 > 当使用 Gravitino 作为元数据源时，Gravitino 的列类型会自动转换为 SeaTunnel 数据类型。详细的类型映射信息请参考 [Gravitino 类型映射](../../introduction/concepts/gravitino-type-mapping.md)。
 
 更多信息请参考 [元数据 SPI](../../introduction/concepts/metadata-spi.md)。
+
+## 持续发现
+
+`discovery_mode=continuous` 会让流式作业保持运行，并定期轮询 OSS 中的新增或变更对象。该模式使用现有文件对比逻辑，不消费 OSS 事件通知，也不会为对象删除或覆盖生成 changelog 行。
+
+持续发现目前需要同时配置 `file_format_type="binary"` 和 `sync_mode="update"`。`target_path` 应与 sink 的基础 `path` 一致，以便源端跳过未变化对象。默认的 `discovery_mode="once"` 会保持原有有界读取行为。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+}
+
+source {
+  OssFile {
+    path = "/watch/source"
+    bucket = "oss://seatunnel-test"
+    endpoint = "oss-cn-hangzhou.aliyuncs.com"
+    access_key = "xxxxxxxxxxxxxxxxx"
+    access_secret = "xxxxxxxxxxxxxxxxx"
+    file_format_type = "binary"
+
+    discovery_mode = "continuous"
+    scan_interval = "10S"
+    start_mode = "earliest"
+    sync_mode = "update"
+    target_path = "/watch/target"
+  }
+}
+
+sink {
+  OssFile {
+    path = "/watch/target"
+    tmp_path = "/watch/tmp"
+    bucket = "oss://seatunnel-test"
+    endpoint = "oss-cn-hangzhou.aliyuncs.com"
+    access_key = "xxxxxxxxxxxxxxxxx"
+    access_secret = "xxxxxxxxxxxxxxxxx"
+    file_format_type = "binary"
+  }
+}
+```
 
 ## 如何创建Oss数据同步作业
 

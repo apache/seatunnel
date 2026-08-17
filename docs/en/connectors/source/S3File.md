@@ -13,7 +13,7 @@ import ChangeLog from '../changelog/connector-file-s3.md';
 ## Key Features
 
 - [x] [batch](../../introduction/concepts/connector-v2-features.md)
-- [ ] [stream](../../introduction/concepts/connector-v2-features.md)
+- [x] [stream](../../introduction/concepts/connector-v2-features.md)
 - [x] [multimodal](../../introduction/concepts/connector-v2-features.md#multimodal)
 
   Use binary file format to read and write files in any format, such as videos, pictures, etc. In short, any files can be synchronized to the target place.
@@ -224,6 +224,20 @@ If you assign file type to `parquet` `orc`, schema option not required, connecto
 | null_format                     | string  | no       | -                                                     | Only used when file_format_type is text. null_format to define which strings can be represented as null. e.g: `\N`                                                                                                                                                                                                                                                                                         |
 | binary_chunk_size               | int     | no       | 1024                                                  | Only used when file_format_type is binary. The chunk size (in bytes) for reading binary files. Default is 1024 bytes. Larger values may improve performance for large files but use more memory.                                                                                                                                                                                                           |
 | binary_complete_file_mode       | boolean | no       | false                                                 | Only used when file_format_type is binary. Whether to read the complete file as a single chunk instead of splitting into chunks. When enabled, the entire file content will be read into memory at once. Default is false.                                                                                                                                                                                 |
+| discovery_mode                  | string  | no       | once                                                  | File discovery mode. Supported values: `once` (default), `continuous`. When `continuous`, the source periodically scans the path and processes new or changed files as an unbounded source. Continuous mode currently requires `sync_mode=update` and `file_format_type=binary`.                                                                 |
+| scan_interval                   | string  | no       | 10S                                                   | Polling interval used when `discovery_mode=continuous`. Shorthand values such as `10S` and ISO-8601 values such as `PT10S` are supported.                                                                                                                                                                                                    |
+| start_mode                      | string  | no       | earliest                                              | Initial scan behavior for continuous discovery. `earliest` processes existing files; `latest` ignores files present when the job starts and processes later additions or changes.                                                                                                                                                            |
+| sync_mode                       | string  | no       | full                                                  | File sync mode. `update` compares source objects with `target_path` and reads only new or changed objects. Update mode currently supports binary format only.                                                                                                                                                                                 |
+| target_path                     | string  | no       | -                                                     | Required when `sync_mode=update`. Target base path used to compare objects by relative path. It should normally match the sink `path`.                                                                                                                                                                                                        |
+| target_hadoop_conf              | map     | no       | -                                                     | Optional Hadoop configuration for the target filesystem when `sync_mode=update`.                                                                                                                                                                                                                                                            |
+| update_strategy                 | string  | no       | distcp                                                | Comparison strategy used by update mode. Supported values are `distcp` and `strict`.                                                                                                                                                                                                                                                         |
+| compare_mode                    | string  | no       | len_mtime                                             | Comparison mode used by update mode. Supported values are `len_mtime` and `checksum`; checksum is valid only with `update_strategy=strict`.                                                                                                                                                                                                  |
+| update_compare_parallelism      | int     | no       | 8                                                     | Maximum parallelism for target metadata lookups. Valid range is `1-64`.                                                                                                                                                                                                                                                                      |
+| update_compare_bulk_threshold   | int     | no       | 0                                                     | Positive values switch comparison to a directory listing when that many candidates share a target parent. `0` disables automatic bulk listing.                                                                                                                                                                                             |
+| post_sync_action                | string  | no       | none                                                  | Optional action after a continuously discovered object is checkpointed. Supported values are `none`, `delete`, and `backup`.                                                                                                                                                                                                                 |
+| backup_path                     | string  | no       | -                                                     | Required when `post_sync_action=backup`. Backup destination must not overlap with the source `path`.                                                                                                                                                                                                                                         |
+| retention_max_age               | string  | no       | -                                                     | Optional maximum age for SeaTunnel backup objects under `backup_path`.                                                                                                                                                                                                                                                                       |
+| retention_check_interval        | string  | no       | 1H                                                    | Retention scan interval when backup retention is configured.                                                                                                                                                                                                                                                                                 |
 | file_filter_pattern             | string  | no       |                                                       | Filter pattern, which used for filtering files.                                                                                                                                                                                                                                                                                                                                                            |
 | filename_extension              | string  | no       | -                                                     | Filter filename extension, which used for filtering files with specific extension. Example: `csv` `.txt` `json` `.xml`.                                                                                                                                                                                                                                                                                    |
 | common-options                  |         | no       | -                                                     | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details.                                                                                                                                                                                                                                                                          |
@@ -448,6 +462,50 @@ For more information, please refer to [Metadata SPI](../../introduction/concepts
 
 Whether to scan subdirectories recursively.
 If `false`, subdirectories will be ignored.
+
+## Continuous Discovery
+
+`discovery_mode=continuous` keeps a streaming job running and polls S3 for new or changed objects. This mode uses the existing file comparison path; it does not consume S3 event notifications and does not emit object delete events or changelog rows.
+
+Continuous discovery currently requires `file_format_type="binary"` and `sync_mode="update"`. Set `target_path` to the same base path used by the sink so the source can skip unchanged objects. The default `discovery_mode="once"` preserves the existing bounded-source behavior.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+}
+
+source {
+  S3File {
+    path = "/watch/source"
+    bucket = "s3a://seatunnel-test"
+    fs.s3a.endpoint = "s3.amazonaws.com"
+    fs.s3a.aws.credentials.provider = "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider"
+    access_key = "xxxxxxxxxxxxxxxxx"
+    secret_key = "xxxxxxxxxxxxxxxxx"
+    file_format_type = "binary"
+
+    discovery_mode = "continuous"
+    scan_interval = "10S"
+    start_mode = "earliest"
+    sync_mode = "update"
+    target_path = "/watch/target"
+  }
+}
+
+sink {
+  S3File {
+    path = "/watch/target"
+    tmp_path = "/watch/tmp"
+    bucket = "s3a://seatunnel-test"
+    fs.s3a.endpoint = "s3.amazonaws.com"
+    fs.s3a.aws.credentials.provider = "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider"
+    access_key = "xxxxxxxxxxxxxxxxx"
+    secret_key = "xxxxxxxxxxxxxxxxx"
+    file_format_type = "binary"
+  }
+}
+```
 
 ## Example
 
