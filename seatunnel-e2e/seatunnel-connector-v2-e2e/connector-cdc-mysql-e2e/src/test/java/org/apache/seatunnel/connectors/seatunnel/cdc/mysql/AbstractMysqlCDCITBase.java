@@ -866,9 +866,7 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                                                 getQuerySQL(
                                                         "source",
                                                         NEWLY_ADDED_WILDCARD_SOURCE_TABLE)),
-                                        query(
-                                                getQuerySQL(
-                                                        "sink", NEWLY_ADDED_WILDCARD_SINK_TABLE))));
+                                        queryNewlyAddedWildcardSinkTable()));
 
         updateNewlyAddedWildcardTable();
         await().atMost(120000, TimeUnit.MILLISECONDS)
@@ -879,9 +877,30 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                                                 getQuerySQL(
                                                         "source",
                                                         NEWLY_ADDED_WILDCARD_SOURCE_TABLE)),
-                                        query(
-                                                getQuerySQL(
-                                                        "sink", NEWLY_ADDED_WILDCARD_SINK_TABLE))));
+                                        queryNewlyAddedWildcardSinkTable()));
+    }
+
+    /**
+     * Polls the newly added wildcard sink table during the runtime-created-table assertions.
+     *
+     * <p>The test drops {@code sink.source_payments} in {@code resetWildcardRuntimeTableState()}
+     * and the sink re-creates it at runtime via schema save mode only after the CDC source
+     * discovers the new table, so a poll issued inside that window legitimately hits {@code Table
+     * 'sink.source_payments' doesn't exist}. {@code query} wraps that {@link SQLException} in a
+     * {@link RuntimeException}, and {@code untilAsserted} only retries {@link AssertionError}, so
+     * without this translation the very first early poll aborts the whole await instead of
+     * retrying. Non-SQL failures still propagate unchanged.
+     */
+    private List<List<Object>> queryNewlyAddedWildcardSinkTable() {
+        try {
+            return query(getQuerySQL("sink", NEWLY_ADDED_WILDCARD_SINK_TABLE));
+        } catch (RuntimeException e) {
+            if (e.getCause() instanceof SQLException) {
+                return Assertions.fail(
+                        "newly added wildcard sink table not readable yet: " + e.getCause());
+            }
+            throw e;
+        }
     }
 
     @TestTemplate
