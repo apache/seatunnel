@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.master;
 
 import org.apache.seatunnel.api.options.EnvCommonOptions;
+import org.apache.seatunnel.common.exception.NonRetryableException;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.engine.common.Constant;
@@ -40,6 +41,8 @@ import org.apache.seatunnel.engine.server.dag.physical.PhysicalVertex;
 import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
 import org.apache.seatunnel.engine.server.dag.physical.UnknownPhysicalPlanException;
+import org.apache.seatunnel.engine.server.execution.ExecutionState;
+import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.master.cleanup.PipelineCleanupRecord;
@@ -241,6 +244,26 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
                         new RuntimeException(),
                         CheckpointCloseReason.AGGREGATE_COMMIT_ERROR);
         Assertions.assertTrue(jobMaster.isNeedRestore());
+    }
+
+    @Test
+    public void testNonRetryableTaskFailureDisablesJobRestore() throws Exception {
+        long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+        JobMaster jobMaster = newJobInstanceWithRunningState(jobId);
+        TaskGroupLocation taskGroupLocation =
+                jobMaster
+                        .getPhysicalPlan()
+                        .getPipelineList()
+                        .get(0)
+                        .getPhysicalVertexList()
+                        .get(0)
+                        .getTaskGroupLocation();
+
+        jobMaster.updateTaskExecutionState(
+                new TaskExecutionState(
+                        taskGroupLocation, ExecutionState.FAILED, new DeterministicTaskFailure()));
+
+        Assertions.assertFalse(jobMaster.isNeedRestore());
     }
 
     @Test
@@ -600,6 +623,9 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
                         "isSavepointStartPreconditionFailure",
                         savepointCompletionResult);
     }
+
+    private static class DeterministicTaskFailure extends RuntimeException
+            implements NonRetryableException {}
 
     private Optional<Exception> getSavepointFailureException(
             JobMaster jobMaster, Object savepointCompletionResult) {

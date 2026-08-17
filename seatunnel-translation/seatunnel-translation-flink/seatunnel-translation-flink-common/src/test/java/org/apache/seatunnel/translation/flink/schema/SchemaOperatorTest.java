@@ -42,6 +42,7 @@ import org.apache.flink.api.common.state.ListState;
 import org.apache.flink.api.common.state.ListStateDescriptor;
 import org.apache.flink.api.common.state.MapStateDescriptor;
 import org.apache.flink.api.common.state.OperatorStateStore;
+import org.apache.flink.runtime.execution.SuppressRestartsException;
 import org.apache.flink.runtime.state.StateInitializationContext;
 import org.apache.flink.runtime.state.StateSnapshotContext;
 import org.apache.flink.streaming.api.operators.AbstractStreamOperator;
@@ -234,11 +235,14 @@ public class SchemaOperatorTest {
                         SchemaChangeBehavior.STRICT,
                         false);
 
-        assertThrows(
-                SchemaEvolutionException.class,
-                () ->
-                        context.operator.processElement(
-                                new StreamRecord<>(createSchemaRow(createSchemaChangeEvent()))));
+        SuppressRestartsException error =
+                assertThrows(
+                        SuppressRestartsException.class,
+                        () ->
+                                context.operator.processElement(
+                                        new StreamRecord<>(
+                                                createSchemaRow(createSchemaChangeEvent()))));
+        assertTrue(error.getCause() instanceof SchemaEvolutionException);
         assertTrue(context.output.records.isEmpty());
         assertFalse(getBooleanField(context.operator, "schemaChangePending"));
     }
@@ -252,7 +256,7 @@ public class SchemaOperatorTest {
                         false);
 
         assertThrows(
-                SchemaEvolutionException.class,
+                SuppressRestartsException.class,
                 () ->
                         context.operator.processElement(
                                 new StreamRecord<>(createSchemaRow(createSchemaChangeEvent()))));
@@ -310,7 +314,7 @@ public class SchemaOperatorTest {
         mixedEvent.addEvent(new AlterTableDropColumnEvent(tableId, "old_col"));
 
         assertThrows(
-                SchemaEvolutionException.class,
+                SuppressRestartsException.class,
                 () ->
                         context.operator.processElement(
                                 new StreamRecord<>(createSchemaRow(mixedEvent))));
@@ -327,7 +331,7 @@ public class SchemaOperatorTest {
                         false);
 
         assertThrows(
-                SchemaEvolutionException.class,
+                SuppressRestartsException.class,
                 () ->
                         context.operator.processElement(
                                 new StreamRecord<>(createSchemaRow(createSchemaChangeEvent()))));

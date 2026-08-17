@@ -163,17 +163,6 @@ public class FlinkSinkWriter<InputT, CommT, WriterStateT>
                     schemaChangeEvent.tableIdentifier());
             return;
         }
-        if (!(sinkWriter instanceof SupportSchemaEvolutionSinkWriter)) {
-            throw new SinkWriterSchemaException(
-                    SchemaEvolutionErrorCode.SCHEMA_EVENT_PROCESSING_FAILED,
-                    String.format(
-                            "Sink writer %s does not support schema evolution for event %s.",
-                            sinkWriter.getClass().getSimpleName(),
-                            schemaChangeEvent.getEventType()),
-                    schemaChangeEvent.tableIdentifier(),
-                    schemaChangeEvent.getJobId(),
-                    null);
-        }
         if (supportedSchemaChangeTypes != null) {
             SchemaChangePolicy.validateSupported(
                     schemaChangeEvent, supportedSchemaChangeTypes, schemaChangeEvent.getJobId());
@@ -185,9 +174,28 @@ public class FlinkSinkWriter<InputT, CommT, WriterStateT>
         boolean success = false;
 
         try {
-            ((SupportSchemaEvolutionSinkWriter) sinkWriter).applySchemaChange(schemaChangeEvent);
+            if (sinkWriter instanceof SupportSchemaEvolutionSinkWriter) {
+                ((SupportSchemaEvolutionSinkWriter) sinkWriter)
+                        .applySchemaChange(schemaChangeEvent);
+            } else if (SchemaChangePolicy.overridesDeprecatedSchemaChangeMethod(sinkWriter)) {
+                log.warn(
+                        "Sink writer {} still uses the deprecated SinkWriter.applySchemaChange "
+                                + "method. Migrate it to SupportSchemaEvolutionSinkWriter.",
+                        sinkWriter.getClass().getName());
+                sinkWriter.applySchemaChange(schemaChangeEvent);
+            } else {
+                log.warn(
+                        "Drop schema change event {} for table {} because sink writer {} inherits "
+                                + "the deprecated no-op applySchemaChange method. This compatibility "
+                                + "fallback will be removed in the next release; implement "
+                                + "SupportSchemaEvolutionSinkWriter, disable schema-changes.enabled, "
+                                + "or exclude this event type.",
+                        schemaChangeEvent.getEventType(),
+                        schemaChangeEvent.tableIdentifier(),
+                        sinkWriter.getClass().getName());
+            }
             log.info(
-                    "FlinkSinkWriter successfully applied SchemaChangeEvent for table: {}",
+                    "FlinkSinkWriter successfully handled SchemaChangeEvent for table: {}",
                     schemaChangeEvent.tableIdentifier());
             success = true;
         } catch (Exception e) {

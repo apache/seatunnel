@@ -27,6 +27,7 @@ import org.apache.seatunnel.api.table.schema.SchemaChangePolicy;
 import org.apache.seatunnel.api.table.schema.SchemaChangeType;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.schema.event.TableEvent;
+import org.apache.seatunnel.api.table.schema.exception.SchemaChangePolicyException;
 import org.apache.seatunnel.api.table.schema.exception.SchemaEvolutionErrorCode;
 import org.apache.seatunnel.api.table.schema.exception.SchemaEvolutionException;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
@@ -34,6 +35,7 @@ import org.apache.seatunnel.translation.flink.schema.coordinator.LocalSchemaCoor
 
 import org.apache.flink.api.common.state.ListState;
 import org.apache.flink.api.common.state.ListStateDescriptor;
+import org.apache.flink.runtime.execution.SuppressRestartsException;
 import org.apache.flink.runtime.state.StateInitializationContext;
 import org.apache.flink.runtime.state.StateSnapshotContext;
 import org.apache.flink.streaming.api.operators.AbstractStreamOperator;
@@ -168,26 +170,30 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
     }
 
     private void handleSchemaChangeDetected(SchemaChangeEvent event) {
-        SchemaChangePolicy.validateStrict(schemaChangeBehavior, event, jobId);
-        SchemaChangePolicy.validateIgnore(schemaChangeBehavior, event, jobId);
-        if (SchemaChangePolicy.shouldIgnore(schemaChangeBehavior)) {
-            log.info(
-                    "Drop schema change event {} for table {} because schema change behavior is IGNORE.",
-                    event.getEventType(),
-                    event.tableIdentifier());
-            return;
+        try {
+            SchemaChangePolicy.validateStrict(schemaChangeBehavior, event, jobId);
+            SchemaChangePolicy.validateIgnore(schemaChangeBehavior, event, jobId);
+            if (SchemaChangePolicy.shouldIgnore(schemaChangeBehavior)) {
+                log.info(
+                        "Drop schema change event {} for table {} because schema change behavior is IGNORE.",
+                        event.getEventType(),
+                        event.tableIdentifier());
+                return;
+            }
+            List<SchemaChangeType> supportedTypes = source.supports();
+            if (!SchemaChangePolicy.isSupported(event, supportedTypes)
+                    && SchemaChangePolicy.isSafeToIgnore(event)) {
+                log.warn(
+                        "Drop unsupported comment-only schema change event {} for table {} "
+                                + "at the Flink policy gate before schema coordination.",
+                        event.getEventType(),
+                        event.tableIdentifier());
+                return;
+            }
+            SchemaChangePolicy.validateSupported(event, supportedTypes, jobId);
+        } catch (SchemaChangePolicyException e) {
+            throw new SuppressRestartsException(e);
         }
-        List<SchemaChangeType> supportedTypes = source.supports();
-        if (!SchemaChangePolicy.isSupported(event, supportedTypes)
-                && SchemaChangePolicy.isSafeToIgnore(event)) {
-            log.warn(
-                    "Drop unsupported comment-only schema change event {} for table {} "
-                            + "under EVOLVE behavior.",
-                    event.getEventType(),
-                    event.tableIdentifier());
-            return;
-        }
-        SchemaChangePolicy.validateSupported(event, supportedTypes, jobId);
 
         if (event instanceof TableEvent) {
             event.setJobId(jobId);

@@ -161,7 +161,7 @@ public class SourceOptions {
                     .enumType(SchemaChangeBehavior.class)
                     .defaultValue(SchemaChangeBehavior.EVOLVE)
                     .withDescription(
-                            "Schema change event behavior. STRICT fails when a schema change is observed, EVOLVE applies supported schema changes, IGNORE drops safe schema changes before downstream schema evolution.");
+                            "Schema change event behavior. Values are case-insensitive. STRICT fails when a schema change is observed, EVOLVE applies supported schema changes, and IGNORE drops comment-only changes but rejects row-layout changes.");
 
     public static OptionRule.Builder getBaseRule() {
         return OptionRule.builder()

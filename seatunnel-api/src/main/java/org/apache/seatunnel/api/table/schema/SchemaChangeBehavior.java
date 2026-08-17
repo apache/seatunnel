@@ -33,8 +33,9 @@ public enum SchemaChangeBehavior {
     EVOLVE,
 
     /**
-     * Consumes schema change events and drops them before downstream schema coordination only when
-     * the current row encoding can safely ignore the change.
+     * Drops comment-only schema change events before downstream schema coordination. Row-layout
+     * changes fail because dropping them would leave decoded rows inconsistent with the runtime
+     * schema. Configuration values are parsed case-insensitively.
      */
     IGNORE
 }

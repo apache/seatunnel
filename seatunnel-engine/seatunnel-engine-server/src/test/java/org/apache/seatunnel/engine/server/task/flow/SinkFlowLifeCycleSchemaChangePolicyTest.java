@@ -160,6 +160,32 @@ public class SinkFlowLifeCycleSchemaChangePolicyTest {
         Assertions.assertEquals(0, writer.appliedCount.get());
     }
 
+    @Test
+    void testExplicitDeprecatedSchemaChangeOverrideRemainsSupported() throws Exception {
+        LegacySchemaChangeWriter writer = new LegacySchemaChangeWriter();
+        SinkFlowLifeCycle<SeaTunnelRow, String, String, String> sinkFlow =
+                createSinkFlow(new SchemaEvolutionSink(writer, SchemaChangeType.ADD_COLUMN));
+        sinkFlow.init();
+        sinkFlow.restoreState(Collections.emptyList());
+
+        sinkFlow.received(new Record<>(createAddColumnEvent()));
+
+        Assertions.assertEquals(1, writer.appliedCount.get());
+    }
+
+    @Test
+    void testInheritedNoOpSchemaChangeMethodIsDroppedDuringCompatibilityWindow() throws Exception {
+        NoOpSchemaChangeWriter writer = new NoOpSchemaChangeWriter();
+        SinkFlowLifeCycle<SeaTunnelRow, String, String, String> sinkFlow =
+                createSinkFlow(new SchemaEvolutionSink(writer, SchemaChangeType.ADD_COLUMN));
+        sinkFlow.init();
+        sinkFlow.restoreState(Collections.emptyList());
+
+        sinkFlow.received(new Record<>(createAddColumnEvent()));
+
+        Assertions.assertEquals(0, writer.writtenCount.get());
+    }
+
     private static SinkFlowLifeCycle<SeaTunnelRow, String, String, String> createSinkFlow(
             SeaTunnelSink<SeaTunnelRow, String, String, String> sink) {
         SinkAction<SeaTunnelRow, String, String, String> sinkAction =
@@ -251,6 +277,52 @@ public class SinkFlowLifeCycleSchemaChangePolicyTest {
                 org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent event) {
             appliedCount.incrementAndGet();
         }
+
+        @Override
+        public void close() throws IOException {}
+    }
+
+    private static class LegacySchemaChangeWriter
+            implements SinkWriter<SeaTunnelRow, String, String> {
+        private final AtomicInteger appliedCount = new AtomicInteger();
+
+        @Override
+        public void write(SeaTunnelRow element) {}
+
+        @Override
+        public Optional<String> prepareCommit() {
+            return Optional.empty();
+        }
+
+        @Override
+        public void abortPrepare() {}
+
+        @Override
+        public void applySchemaChange(
+                org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent event) {
+            appliedCount.incrementAndGet();
+        }
+
+        @Override
+        public void close() throws IOException {}
+    }
+
+    private static class NoOpSchemaChangeWriter
+            implements SinkWriter<SeaTunnelRow, String, String> {
+        private final AtomicInteger writtenCount = new AtomicInteger();
+
+        @Override
+        public void write(SeaTunnelRow element) {
+            writtenCount.incrementAndGet();
+        }
+
+        @Override
+        public Optional<String> prepareCommit() {
+            return Optional.empty();
+        }
+
+        @Override
+        public void abortPrepare() {}
 
         @Override
         public void close() throws IOException {}

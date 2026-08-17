@@ -17,11 +17,13 @@
 
 package org.apache.seatunnel.api.table.schema;
 
+import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.source.SupportSchemaChangeBehavior;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnsEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
+import org.apache.seatunnel.api.table.schema.exception.SchemaChangePolicyException;
 import org.apache.seatunnel.api.table.schema.exception.SchemaEvolutionErrorCode;
 import org.apache.seatunnel.api.table.schema.exception.SchemaEvolutionException;
 
@@ -94,6 +96,27 @@ public final class SchemaChangePolicy {
      */
     public static boolean shouldIgnore(SchemaChangeBehavior behavior) {
         return behavior == SchemaChangeBehavior.IGNORE;
+    }
+
+    /**
+     * Returns whether a sink writer explicitly overrides the deprecated schema-change callback.
+     *
+     * <p>This compatibility check lets existing writers migrate to {@code
+     * SupportSchemaEvolutionSinkWriter} without being mistaken for the inherited no-op method.
+     *
+     * @param sinkWriter sink writer to inspect
+     * @return true when the writer declares its own {@code applySchemaChange} implementation
+     */
+    public static boolean overridesDeprecatedSchemaChangeMethod(Object sinkWriter) {
+        try {
+            return sinkWriter
+                            .getClass()
+                            .getMethod("applySchemaChange", SchemaChangeEvent.class)
+                            .getDeclaringClass()
+                    != SinkWriter.class;
+        } catch (NoSuchMethodException e) {
+            return false;
+        }
     }
 
     /**
@@ -194,7 +217,7 @@ public final class SchemaChangePolicy {
     private static SchemaEvolutionException policyException(
             SchemaChangeEvent event, String jobId, String message) {
         TableIdentifier tableIdentifier = event == null ? null : event.tableIdentifier();
-        return new SchemaEvolutionException(
+        return new SchemaChangePolicyException(
                 SchemaEvolutionErrorCode.SCHEMA_EVENT_PROCESSING_FAILED,
                 message,
                 tableIdentifier,

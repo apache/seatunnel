@@ -37,6 +37,7 @@ import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.factory.MultiTableFactoryContext;
+import org.apache.seatunnel.api.table.schema.SchemaChangePolicy;
 import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.BasicType;
@@ -912,7 +913,8 @@ public class MultiTableSinkWriterTest {
     }
 
     @Test
-    public void testInheritedNoOpSchemaChangeMethodFailsWithMigrationGuidance() {
+    public void testInheritedNoOpSchemaChangeMethodIsDroppedDuringCompatibilityWindow()
+            throws IOException {
         SchemaChangeEvent event = createAddColumnEvent();
         String tableId = event.tablePath().getFullName();
         TestSinkWriter noOpWriter = new TestSinkWriter();
@@ -923,14 +925,10 @@ public class MultiTableSinkWriterTest {
                         1,
                         Collections.singletonMap(sinkIdentifier, new TestSinkWriterContext()));
 
-        RuntimeException error =
-                Assertions.assertThrows(
-                        RuntimeException.class,
-                        () -> multiTableSinkWriter.applySchemaChange(event));
+        multiTableSinkWriter.applySchemaChange(event);
 
-        Assertions.assertTrue(error.getMessage().contains(tableId));
-        Assertions.assertTrue(error.getMessage().contains("SupportSchemaEvolutionSinkWriter"));
-        Assertions.assertTrue(error.getMessage().contains("schema-changes.enabled"));
+        Assertions.assertFalse(
+                SchemaChangePolicy.overridesDeprecatedSchemaChangeMethod(noOpWriter));
     }
 
     @Test

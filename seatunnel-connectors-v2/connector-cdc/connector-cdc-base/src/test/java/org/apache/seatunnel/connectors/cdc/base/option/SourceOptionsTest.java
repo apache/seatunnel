@@ -17,12 +17,12 @@
 
 package org.apache.seatunnel.connectors.cdc.base.option;
 
-import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
-
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.table.schema.SchemaChangeBehavior;
 
 import org.junit.jupiter.api.Test;
+
+import java.util.Collections;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -30,7 +30,7 @@ class SourceOptionsTest {
 
     @Test
     void testSchemaChangeBehaviorDefaultsToEvolve() {
-        ReadonlyConfig config = ReadonlyConfig.fromConfig(ConfigFactory.empty());
+        ReadonlyConfig config = ReadonlyConfig.fromMap(Collections.emptyMap());
 
         assertEquals(
                 SchemaChangeBehavior.EVOLVE, config.get(SourceOptions.SCHEMA_CHANGES_BEHAVIOR));
@@ -39,10 +39,20 @@ class SourceOptionsTest {
     @Test
     void testSchemaChangeBehaviorCanBeParsedFromConfig() {
         ReadonlyConfig config =
-                ReadonlyConfig.fromConfig(
-                        ConfigFactory.parseString("schema-changes.behavior = strict"));
+                ReadonlyConfig.fromMap(
+                        Collections.singletonMap("schema-changes.behavior", "strict"));
 
         assertEquals(
                 SchemaChangeBehavior.STRICT, config.get(SourceOptions.SCHEMA_CHANGES_BEHAVIOR));
+    }
+
+    @Test
+    void testSchemaChangeBehaviorIsCaseInsensitive() {
+        ReadonlyConfig config =
+                ReadonlyConfig.fromMap(
+                        Collections.singletonMap("schema-changes.behavior", "IGNORE"));
+
+        assertEquals(
+                SchemaChangeBehavior.IGNORE, config.get(SourceOptions.SCHEMA_CHANGES_BEHAVIOR));
     }
 }

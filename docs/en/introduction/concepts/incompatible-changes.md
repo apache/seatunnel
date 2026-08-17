@@ -160,6 +160,14 @@ You need to check this document before you upgrade to related version.
   - **Impact**: XML files that previously parsed successfully only because they carried a `<!DOCTYPE ...>` declaration — even a benign one with no external `SYSTEM`/`PUBLIC` reference — now fail with `FileConnectorException(FILE_READ_FAILED)`. There is no configuration option to opt back into the previous behavior.
   - **Migration Guide**: Remove the `DOCTYPE` declaration from XML files before ingesting them with SeaTunnel, or pre-process/re-export the file without it. Well-formed XML without a `DOCTYPE` declaration is unaffected. (#11250)
 
+### CDC Connector Changes
+
+- **Deprecation: inherited CDC sink schema-change no-op will be rejected after the compatibility window**
+  - **Affected component**: CDC jobs with `schema-changes.enabled = true` and a sink writer that does not implement `SupportSchemaEvolutionSinkWriter`
+  - **Description**: In `evolve` mode, Zeta single-table, Zeta multi-table, and both supported Flink sink paths prefer `SupportSchemaEvolutionSinkWriter` and retain explicitly overridden deprecated `SinkWriter.applySchemaChange` with a warning. For one release, a writer that inherits the default no-op also logs a warning and drops the event. This fallback will be removed in the next release. (#11162)
+  - **Impact**: Existing CDC jobs whose writer only inherits the deprecated no-op keep running during the compatibility window, but still do not evolve the sink schema and will fail after the fallback is removed.
+  - **Migration Guide**: Implement an idempotent `SupportSchemaEvolutionSinkWriter` for end-to-end evolution. Alternatively disable `schema-changes.enabled`, or exclude event types the sink should not receive. Use `schema-changes.behavior = ignore` only for comment-only changes; it does not suppress row-layout changes.
+
 ### Transform Changes
 
 - **[BREAKING]** SQL Transform `PARSEDATETIME`, `TO_DATE`, and `IS_DATE` functions now only accept whitelisted datetime format patterns. Custom format patterns that were previously accepted will now fail at runtime. The supported patterns are:

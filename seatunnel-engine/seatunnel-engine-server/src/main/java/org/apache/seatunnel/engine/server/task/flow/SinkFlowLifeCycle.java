@@ -862,15 +862,24 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
         SchemaChangePolicy.validateSupported(event, supportedTypes, event.getJobId());
         if (writer instanceof SupportSchemaEvolutionSinkWriter) {
             ((SupportSchemaEvolutionSinkWriter) writer).applySchemaChange(event);
+        } else if (SchemaChangePolicy.overridesDeprecatedSchemaChangeMethod(writer)) {
+            log.warn(
+                    "Sink writer {} for table {} still uses the deprecated "
+                            + "SinkWriter.applySchemaChange method. Migrate it to "
+                            + "SupportSchemaEvolutionSinkWriter.",
+                    writer.getClass().getName(),
+                    event.tableIdentifier());
+            writer.applySchemaChange(event);
         } else {
-            throw new SinkWriterSchemaException(
-                    SchemaEvolutionErrorCode.SCHEMA_EVENT_PROCESSING_FAILED,
-                    String.format(
-                            "Sink writer %s does not support schema evolution for event %s.",
-                            writer.getClass().getSimpleName(), event.getEventType()),
+            log.warn(
+                    "Drop schema change event {} for table {} because sink writer {} inherits "
+                            + "the deprecated no-op applySchemaChange method. This compatibility "
+                            + "fallback will be removed in the next release; implement "
+                            + "SupportSchemaEvolutionSinkWriter, disable schema-changes.enabled, "
+                            + "or exclude this event type.",
+                    event.getEventType(),
                     event.tableIdentifier(),
-                    event.getJobId(),
-                    null);
+                    writer.getClass().getName());
         }
     }
 

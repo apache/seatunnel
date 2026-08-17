@@ -26,9 +26,8 @@ import org.apache.seatunnel.api.sink.MultiTableResourceManager;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
+import org.apache.seatunnel.api.table.schema.SchemaChangePolicy;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
-import org.apache.seatunnel.api.table.schema.exception.SchemaEvolutionErrorCode;
-import org.apache.seatunnel.api.table.schema.exception.SinkWriterSchemaException;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.tracing.MDCTracer;
 import org.apache.seatunnel.common.constants.JobMode;
@@ -533,7 +532,8 @@ public class MultiTableSinkWriter
                     if (dispatchTarget.getWriter() instanceof SupportSchemaEvolutionSinkWriter) {
                         ((SupportSchemaEvolutionSinkWriter) dispatchTarget.getWriter())
                                 .applySchemaChange(event);
-                    } else if (overridesDeprecatedSchemaChangeMethod(dispatchTarget.getWriter())) {
+                    } else if (SchemaChangePolicy.overridesDeprecatedSchemaChangeMethod(
+                            dispatchTarget.getWriter())) {
                         log.warn(
                                 "Sink writer {} for table {} still uses the deprecated "
                                         + "SinkWriter.applySchemaChange method. Migrate it to "
@@ -542,21 +542,15 @@ public class MultiTableSinkWriter
                                 dispatchTarget.getSinkIdentifier().getTableIdentifier());
                         dispatchTarget.getWriter().applySchemaChange(event);
                     } else {
-                        throw new SinkWriterSchemaException(
-                                SchemaEvolutionErrorCode.SCHEMA_EVENT_PROCESSING_FAILED,
-                                String.format(
-                                        "Sink writer %s for table %s does not support schema "
-                                                + "evolution for event %s. Implement "
-                                                + "SupportSchemaEvolutionSinkWriter, set "
-                                                + "schema-changes.behavior = ignore for "
-                                                + "comment-only changes, or disable "
-                                                + "schema-changes.enabled.",
-                                        dispatchTarget.getWriter().getClass().getName(),
-                                        dispatchTarget.getSinkIdentifier().getTableIdentifier(),
-                                        event.getEventType()),
-                                event.tableIdentifier(),
-                                event.getJobId(),
-                                null);
+                        log.warn(
+                                "Drop schema change event {} for table {} because sink writer {} "
+                                        + "inherits the deprecated no-op applySchemaChange method. "
+                                        + "This compatibility fallback will be removed in the next "
+                                        + "release; implement SupportSchemaEvolutionSinkWriter, disable "
+                                        + "schema-changes.enabled, or exclude this event type.",
+                                event.getEventType(),
+                                dispatchTarget.getSinkIdentifier().getTableIdentifier(),
+                                dispatchTarget.getWriter().getClass().getName());
                     }
                     return null;
                 });
@@ -574,19 +568,6 @@ public class MultiTableSinkWriter
             return physicalSinkIdentifier == null ? Optional.empty() : physicalSinkIdentifier;
         }
         return Optional.empty();
-    }
-
-    private boolean overridesDeprecatedSchemaChangeMethod(
-            SinkWriter<SeaTunnelRow, ?, ?> sinkWriter) {
-        try {
-            return sinkWriter
-                            .getClass()
-                            .getMethod("applySchemaChange", SchemaChangeEvent.class)
-                            .getDeclaringClass()
-                    != SinkWriter.class;
-        } catch (NoSuchMethodException e) {
-            return false;
-        }
     }
 
     /**

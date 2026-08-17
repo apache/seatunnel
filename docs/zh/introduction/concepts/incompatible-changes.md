@@ -150,6 +150,14 @@
   - **影响**：此前仅因携带 `<!DOCTYPE ...>` 声明才能被解析的 XML 文件——即使该声明是不引用任何外部 `SYSTEM`/`PUBLIC` 资源的良性声明——现在会以 `FileConnectorException(FILE_READ_FAILED)` 失败。该行为没有配置项可以恢复为旧版本的处理方式。
   - **迁移指南**：在使用 SeaTunnel 读取前，移除 XML 文件中的 `DOCTYPE` 声明，或对文件做预处理/重新导出。不带 `DOCTYPE` 声明的合法 XML 文件不受影响。(#11250)
 
+### CDC 连接器变更
+
+- **弃用说明：兼容窗口结束后将拒绝继承的 CDC Sink schema change no-op**
+  - **影响范围**：`schema-changes.enabled = true` 且 Sink writer 未实现 `SupportSchemaEvolutionSinkWriter` 的 CDC 作业
+  - **变更说明**：在 `evolve` 模式下，Zeta 单表、Zeta 多表以及两个受支持的 Flink sink 路径优先使用 `SupportSchemaEvolutionSinkWriter`，并在调用显式覆写的 deprecated `SinkWriter.applySchemaChange` 时记录告警。在一个版本的兼容窗口内，继承默认 no-op 的 writer 也会记录告警并丢弃事件；该兜底将在下一个版本移除。(#11162)
+  - **影响**：仅继承 deprecated no-op 的现有 CDC 作业在兼容窗口内仍能运行，但 Sink schema 不会演进；兼容兜底移除后此类作业会失败。
+  - **迁移指南**：实现幂等的 `SupportSchemaEvolutionSinkWriter` 以完成端到端 schema evolution。也可以关闭 `schema-changes.enabled`，或排除 Sink 不应接收的事件类型。`schema-changes.behavior = ignore` 只适用于纯注释变更，不能屏蔽行结构变更。
+
 ### 转换变更
 
 - **[BREAKING]** SQL Transform 的 `PARSEDATETIME`、`TO_DATE` 和 `IS_DATE` 函数现在只接受白名单中的日期时间格式模式。以前接受的自定义格式模式现在将在运行时失败。支持的模式有：

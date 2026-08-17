@@ -19,7 +19,7 @@ package org.apache.seatunnel.api.table.schema;
 
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.schema.event.AlterTableCommentEvent;
-import org.apache.seatunnel.api.table.schema.exception.SchemaEvolutionException;
+import org.apache.seatunnel.api.table.schema.exception.SchemaChangePolicyException;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -34,9 +34,9 @@ public class SchemaChangePolicyTest {
                         "old comment",
                         "new comment");
 
-        SchemaEvolutionException exception =
+        SchemaChangePolicyException exception =
                 Assertions.assertThrows(
-                        SchemaEvolutionException.class,
+                        SchemaChangePolicyException.class,
                         () ->
                                 SchemaChangePolicy.validateStrict(
                                         SchemaChangeBehavior.STRICT, event, "test-job"));
