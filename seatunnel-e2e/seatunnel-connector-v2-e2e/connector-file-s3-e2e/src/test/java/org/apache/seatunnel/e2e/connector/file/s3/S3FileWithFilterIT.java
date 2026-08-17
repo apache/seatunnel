@@ -19,7 +19,6 @@ package org.apache.seatunnel.e2e.connector.file.s3;
 
 import org.apache.seatunnel.e2e.common.container.seatunnel.SeaTunnelContainer;
 import org.apache.seatunnel.e2e.common.util.DependencyJar;
-import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
 
 import org.apache.hadoop.fs.s3a.S3AFileSystem;
@@ -39,7 +38,6 @@ import org.testcontainers.utility.DockerImageName;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
-import java.nio.file.Paths;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
