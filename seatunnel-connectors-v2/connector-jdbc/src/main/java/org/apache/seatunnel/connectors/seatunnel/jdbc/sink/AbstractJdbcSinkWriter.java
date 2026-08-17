@@ -56,6 +56,14 @@ public abstract class AbstractJdbcSinkWriter<ResourceT>
     protected JdbcConnectionProvider connectionProvider;
     protected JdbcSinkConfig jdbcSinkConfig;
     protected JdbcOutputFormat<SeaTunnelRow, JdbcBatchStatementExecutor<SeaTunnelRow>> outputFormat;
+
+    /**
+     * Whether every successful batch flush should commit the connection when it uses manual commit.
+     * Only the non-XA writer sets this to true, and only when checkpointing is disabled, so rebuilt
+     * output formats keep the same commit boundary after schema changes.
+     */
+    protected boolean commitOnFlush;
+
     protected TableSchemaChangeEventDispatcher tableSchemaChanger =
             new TableSchemaChangeEventDispatcher();
 
@@ -93,6 +101,7 @@ public abstract class AbstractJdbcSinkWriter<ResourceT>
                                 jdbcSinkConfig,
                                 tableSchema,
                                 databaseTableSchema)
+                        .commitOnFlush(commitOnFlush)
                         .build();
         this.outputFormat.open();
     }

@@ -41,6 +41,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.state.XidInfo;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.Collections;
 import java.util.List;
@@ -57,15 +58,21 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
             JdbcSinkConfig jdbcSinkConfig,
             TableSchema tableSchema,
             TableSchema databaseTableSchema,
-            Integer primaryKeyIndex) {
+            Integer primaryKeyIndex,
+            boolean checkpointEnabled) {
         this.sinkTablePath = sinkTablePath;
         this.dialect = dialect;
         this.tableSchema = tableSchema;
         this.databaseTableSchema = databaseTableSchema;
         this.jdbcSinkConfig = jdbcSinkConfig;
         this.primaryKeyIndex = primaryKeyIndex;
-        this.connectionProvider =
-                dialect.getJdbcConnectionProvider(jdbcSinkConfig.getJdbcConnectionConfig());
+        // Without checkpointing there is no prepareCommit boundary to commit manual-commit
+        // connections (for example Oracle, which is forced to manual commit above), so every
+        // successful batch flush must carry its own commit or flushed rows stay in one unbounded
+        // transaction until close. With checkpointing enabled the commit boundary stays at
+        // prepareCommit to keep the existing checkpoint semantics.
+        this.commitOnFlush = !checkpointEnabled;
+        this.connectionProvider = dialect.getJdbcConnectionProvider(resolveSinkConnectionConfig());
         this.outputFormat =
                 new JdbcOutputFormatBuilder(
                                 dialect,
@@ -73,6 +80,7 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
                                 jdbcSinkConfig,
                                 tableSchema,
                                 databaseTableSchema)
+                        .commitOnFlush(commitOnFlush)
                         .build();
         context.registerFlushAction(this::timerFlush);
     }
@@ -99,10 +107,67 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
         if (jdbcSinkConfig.getJdbcConnectionConfig().getPassword().isPresent()) {
             ds.setPassword(jdbcSinkConfig.getJdbcConnectionConfig().getPassword().get());
         }
-        ds.setAutoCommit(jdbcSinkConfig.getJdbcConnectionConfig().isAutoCommit());
+        ds.setAutoCommit(resolveSinkAutoCommit());
         applyConnectionValidation(ds, jdbcSinkConfig.getJdbcConnectionConfig());
         jdbcSinkConfig.getJdbcConnectionConfig().getProperties().forEach(ds::addDataSourceProperty);
         return new JdbcMultiTableResourceManager(new ConnectionPoolManager(ds));
+    }
+
+    private boolean resolveSinkAutoCommit() {
+        // Oracle may partially commit a failed JDBC batch when auto-commit is enabled. Keep the
+        // batch atomic there so the original data error is not masked by a later duplicate-key
+        // error.
+        if (DatabaseIdentifier.ORACLE.equals(dialect.dialectName())) {
+            return false;
+        }
+        return jdbcSinkConfig.getJdbcConnectionConfig().isAutoCommit();
+    }
+
+    private JdbcConnectionConfig resolveSinkConnectionConfig() {
+        JdbcConnectionConfig connectionConfig = jdbcSinkConfig.getJdbcConnectionConfig();
+        if (!DatabaseIdentifier.ORACLE.equals(dialect.dialectName())) {
+            return connectionConfig;
+        }
+
+        return copyConnectionConfig(connectionConfig, false);
+    }
+
+    private JdbcConnectionConfig copyConnectionConfig(
+            JdbcConnectionConfig connectionConfig, boolean autoCommit) {
+        JdbcConnectionConfig.Builder builder =
+                JdbcConnectionConfig.builder()
+                        .url(connectionConfig.getUrl())
+                        .driverName(connectionConfig.getDriverName())
+                        .compatibleMode(connectionConfig.getCompatibleMode())
+                        .connectionCheckTimeoutSeconds(
+                                connectionConfig.getConnectionCheckTimeoutSeconds())
+                        .maxRetries(connectionConfig.getMaxRetries())
+                        .query(connectionConfig.getQuery())
+                        .autoCommit(autoCommit)
+                        .batchSize(connectionConfig.getBatchSize())
+                        .batchIntervalMs(connectionConfig.getBatchIntervalMs())
+                        .isExactlyOnce(connectionConfig.isExactlyOnce())
+                        .xaDataSourceClassName(connectionConfig.getXaDataSourceClassName())
+                        .decimalTypeNarrowing(connectionConfig.isDecimalTypeNarrowing())
+                        .intTypeNarrowing(connectionConfig.isIntTypeNarrowing())
+                        .handleBlobAsString(connectionConfig.isHandleBlobAsString())
+                        .maxCommitAttempts(connectionConfig.getMaxCommitAttempts())
+                        .transactionTimeoutSec(
+                                connectionConfig.getTransactionTimeoutSec().orElse(-1))
+                        .socketTimeoutMs(connectionConfig.getSocketTimeoutMs())
+                        .connectTimeoutMs(connectionConfig.getConnectTimeoutMs())
+                        .properties(connectionConfig.getProperties())
+                        .useKerberos(connectionConfig.isUseKerberos())
+                        .kerberosPrincipal(connectionConfig.getKerberosPrincipal())
+                        .kerberosKeytabPath(connectionConfig.getKerberosKeytabPath())
+                        .krb5Path(connectionConfig.getKrb5Path())
+                        .dialect(connectionConfig.getDialect())
+                        .region(connectionConfig.getRegion())
+                        .accessKeyId(connectionConfig.getAccessKeyId())
+                        .secretAccessKey(connectionConfig.getSecretAccessKey());
+        connectionConfig.getUsername().ifPresent(builder::username);
+        connectionConfig.getPassword().ifPresent(builder::password);
+        return builder.build();
     }
 
     /**
@@ -138,6 +203,7 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
                                 jdbcSinkConfig,
                                 tableSchema,
                                 databaseTableSchema)
+                        .commitOnFlush(commitOnFlush)
                         .build();
     }
 
@@ -171,17 +237,23 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
     @Override
     public Optional<XidInfo> prepareCommit() throws IOException {
         tryOpen();
-        outputFormat.checkFlushException();
-        outputFormat.flush();
         try {
-            if (!connectionProvider.getConnection().getAutoCommit()) {
-                connectionProvider.getConnection().commit();
-            }
+            outputFormat.checkFlushException();
+            outputFormat.flush();
+            commitIfNeeded();
         } catch (SQLException e) {
+            rollbackIfNeeded("prepare commit");
             throw new JdbcConnectorException(
                     JdbcConnectorErrorCode.TRANSACTION_OPERATION_FAILED,
                     "commit failed," + e.getMessage(),
                     e);
+        } catch (IOException e) {
+            rollbackIfNeeded("prepare commit");
+            throw e;
+        } catch (Exception e) {
+            rollbackIfNeeded("prepare commit");
+            throw new JdbcConnectorException(
+                    CommonErrorCodeDeprecated.FLUSH_DATA_FAILED, "prepare commit failed", e);
         }
         return Optional.empty();
     }
@@ -192,12 +264,12 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
     @Override
     public void close() throws IOException {
         tryOpen();
-        outputFormat.flush();
         try {
-            if (!connectionProvider.getConnection().getAutoCommit()) {
-                connectionProvider.getConnection().commit();
-            }
-        } catch (SQLException e) {
+            outputFormat.checkFlushException();
+            outputFormat.flush();
+            commitIfNeeded();
+        } catch (Exception e) {
+            rollbackIfNeeded("close");
             throw new JdbcConnectorException(
                     CommonErrorCodeDeprecated.WRITER_OPERATION_FAILED,
                     "unable to close JDBC sink write",
@@ -215,17 +287,41 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
      */
     public void timerFlush() throws IOException {
         tryOpen();
-        outputFormat.checkFlushException();
-        outputFormat.flush();
         try {
-            if (!connectionProvider.getConnection().getAutoCommit()) {
-                connectionProvider.getConnection().commit();
-            }
+            outputFormat.checkFlushException();
+            outputFormat.flush();
+            commitIfNeeded();
         } catch (SQLException e) {
+            rollbackIfNeeded("timer flush");
             throw new JdbcConnectorException(
                     JdbcConnectorErrorCode.TRANSACTION_OPERATION_FAILED,
                     "timer flush commit failed: " + e.getMessage(),
                     e);
+        } catch (IOException e) {
+            rollbackIfNeeded("timer flush");
+            throw e;
+        } catch (Exception e) {
+            rollbackIfNeeded("timer flush");
+            throw new JdbcConnectorException(
+                    CommonErrorCodeDeprecated.FLUSH_DATA_FAILED, "timer flush failed", e);
+        }
+    }
+
+    private void commitIfNeeded() throws SQLException {
+        Connection connection = connectionProvider.getConnection();
+        if (connection != null && !connection.getAutoCommit()) {
+            connection.commit();
+        }
+    }
+
+    private void rollbackIfNeeded(String phase) {
+        try {
+            Connection connection = connectionProvider.getConnection();
+            if (connection != null && !connection.getAutoCommit()) {
+                connection.rollback();
+            }
+        } catch (SQLException rollbackException) {
+            log.warn("Rollback jdbc sink writer failed during {}.", phase, rollbackException);
         }
     }
 }
