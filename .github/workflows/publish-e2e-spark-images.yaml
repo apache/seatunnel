@@ -29,7 +29,7 @@ concurrency:
 
 jobs:
   build:
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' || github.repository != 'apache/seatunnel'
     runs-on: ubuntu-latest
     permissions:
       contents: read
