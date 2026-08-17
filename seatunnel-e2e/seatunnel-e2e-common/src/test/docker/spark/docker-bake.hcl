@@ -29,6 +29,7 @@ target "spark-2.4.6" {
   args = {
     SPARK_VERSION  = "2.4.6"
     HADOOP_PROFILE = "hadoop2.7"
+    SPARK_SHA512   = "3a9f401eda9b5749cdafd246b1d14219229c26387017791c345a23a65782fb8b25a302bf4ac1ed7c16a1fe83108e94e55dad9639a51c751d81c8c0534a4a9641"
   }
   tags = ["apache/seatunnel:e2e-spark-2.4.6"]
 }
@@ -38,6 +39,7 @@ target "spark-3.3.0" {
   args = {
     SPARK_VERSION  = "3.3.0"
     HADOOP_PROFILE = "hadoop3"
+    SPARK_SHA512   = "1e8234d0c1d2ab4462d6b0dfe5b54f2851dcd883378e0ed756140e10adfb5be4123961b521140f580e364c239872ea5a9f813a20b73c69cb6d4e95da2575c29c"
   }
   tags = ["apache/seatunnel:e2e-spark-3.3.0"]
 }
