@@ -43,6 +43,34 @@ seatunnel:
         telemetry:
             metric:
                 enabled: false
+        # Experimental engine-owned Source serialization. It is fail-closed and disabled by
+        # default; both enabled and connector-allowlist must be configured for a new deployment.
+        managed-source-runtime:
+            enabled: false
+            connector-allowlist: []
+            runtime-protocol-version: 1
+            reader-mailbox-max-commands: 1024
+            reader-mailbox-max-bytes: 4194304
+            reader-reserved-control-commands: 64
+            reader-reserved-control-bytes: 262144
+            worker-mailbox-max-bytes: 268435456
+            max-command-payload-bytes: 524288
+            poll-max-records: 64
+            poll-max-bytes: 1048576
+            poll-soft-duration-ms: 5
+            poll-hard-duration-ms: 1000
+            poll-cancellation-timeout-ms: 30000
+            idle-wait-ms: 10
+            admission-budget-ms: 5
+            retry-initial-backoff-ms: 10
+            retry-max-backoff-ms: 1000
+            command-retry-deadline-ms: 30000
+            coordinator-async-max-concurrency: 4
+            coordinator-async-io-threads: 32
+            coordinator-async-cpu-threads: 4
+            coordinator-async-queue-capacity: 4096
+            assignment-tracker-max-entries: 100000
+            assignment-tracker-max-bytes: 67108864
         http:
             enable-http: true
             port: 8080

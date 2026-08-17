@@ -1,0 +1,47 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+seatunnel:
+    engine:
+        managed-source-runtime:
+            enabled: true
+            connector-allowlist:
+                - FakeSource
+                - Kafka
+            runtime-protocol-version: 1
+            reader-mailbox-max-commands: 256
+            reader-mailbox-max-bytes: 2097152
+            reader-reserved-control-commands: 16
+            reader-reserved-control-bytes: 131072
+            worker-mailbox-max-bytes: 134217728
+            max-command-payload-bytes: 262144
+            poll-max-records: 32
+            poll-max-bytes: 524288
+            poll-soft-duration-ms: 4
+            poll-hard-duration-ms: 500
+            poll-cancellation-timeout-ms: 10000
+            idle-wait-ms: 5
+            admission-budget-ms: 4
+            retry-initial-backoff-ms: 5
+            retry-max-backoff-ms: 500
+            command-retry-deadline-ms: 10000
+            coordinator-async-max-concurrency: 2
+            coordinator-async-io-threads: 8
+            coordinator-async-cpu-threads: 2
+            coordinator-async-queue-capacity: 512
+            assignment-tracker-max-entries: 10000
+            assignment-tracker-max-bytes: 16777216

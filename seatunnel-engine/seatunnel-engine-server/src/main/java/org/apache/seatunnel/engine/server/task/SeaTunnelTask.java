@@ -481,15 +481,43 @@ public abstract class SeaTunnelTask extends AbstractTask {
                 this.prepareCloseBarrierId.set(barrier.getId());
             }
             if (barrier.snapshot()) {
-                this.getExecutionContext()
-                        .sendToMaster(
-                                new TaskAcknowledgeOperation(
-                                        this.taskLocation,
-                                        (CheckpointBarrier) barrier,
-                                        checkpointStates.remove(barrier.getId())))
-                        .join();
+                InvocationFuture<?> acknowledgeFuture =
+                        this.getExecutionContext()
+                                .sendToMaster(
+                                        new TaskAcknowledgeOperation(
+                                                this.taskLocation,
+                                                (CheckpointBarrier) barrier,
+                                                checkpointStates.remove(barrier.getId())));
+                if (waitForCheckpointAcknowledge()) {
+                    acknowledgeFuture.join();
+                } else {
+                    acknowledgeFuture.whenComplete(
+                            (ignored, failure) -> {
+                                if (failure != null) {
+                                    onCheckpointAcknowledgeFailure(barrier.getId(), failure);
+                                }
+                            });
+                }
             }
         }
+    }
+
+    /** Legacy tasks retain synchronous checkpoint acknowledgement semantics. */
+    protected boolean waitForCheckpointAcknowledge() {
+        return true;
+    }
+
+    /**
+     * Handles an asynchronous checkpoint acknowledgement failure.
+     *
+     * <p>Legacy tasks never use this callback because they wait synchronously.
+     */
+    protected void onCheckpointAcknowledgeFailure(long checkpointId, Throwable failure) {
+        log.error(
+                "Checkpoint acknowledgement failed for task {} and barrier {}",
+                taskLocation,
+                checkpointId,
+                failure);
     }
 
     /**

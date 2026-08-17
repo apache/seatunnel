@@ -20,6 +20,10 @@ package org.apache.seatunnel.connectors.seatunnel.kafka.source;
 import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
 
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.api.source.scheduler.AsyncTaskKey;
+import org.apache.seatunnel.api.source.scheduler.AsyncTaskOptions;
+import org.apache.seatunnel.api.source.scheduler.Cancellable;
+import org.apache.seatunnel.api.source.scheduler.CoordinatorScheduler;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.connectors.seatunnel.kafka.KafkaClientUtils;
@@ -36,6 +40,8 @@ import org.apache.kafka.common.TopicPartition;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.time.Duration;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -46,6 +52,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
+import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
@@ -60,6 +67,14 @@ public class KafkaSourceSplitEnumerator
         implements SourceSplitEnumerator<KafkaSourceSplit, KafkaSourceState> {
 
     private static final String CLIENT_ID_PREFIX = "seatunnel";
+    private static final AsyncTaskKey MANAGED_DISCOVERY_TASK_KEY =
+            AsyncTaskKey.of("kafka-partition-discovery");
+    private static final AsyncTaskKey MANAGED_DISCOVERY_TIMER_KEY =
+            AsyncTaskKey.of("kafka-partition-discovery-tick");
+    private static final AsyncTaskKey MANAGED_SPLITS_BACK_TASK_KEY =
+            AsyncTaskKey.of("kafka-splits-back");
+    private static final Duration MANAGED_CAPACITY_RETRY_DELAY = Duration.ofMillis(100);
+    private static final int MAX_PENDING_SPLITS_BACK_REQUESTS = 1024;
 
     private final Map<TablePath, ConsumerMetadata> tablePathMetadataMap;
     private final Context<KafkaSourceSplit> context;
@@ -70,6 +85,13 @@ public class KafkaSourceSplitEnumerator
     private final Map<TopicPartition, KafkaSourceSplit> assignedSplit;
     private ScheduledExecutorService executor;
     private ScheduledFuture<?> scheduledFuture;
+    private CoordinatorScheduler coordinatorScheduler;
+    private Cancellable managedDiscoveryTimer;
+    private boolean managedCoordinator;
+    private boolean managedDiscoveryInProgress;
+    private boolean managedSplitsBackInProgress;
+    private boolean closed;
+    private final Queue<List<KafkaSourceSplit>> managedSplitsBackRequests = new ArrayDeque<>();
     private volatile boolean initialized;
     private final Object lock = new Object();
     private final Map<String, TablePath> topicMappingTablePathMap = new HashMap<>();
@@ -135,6 +157,11 @@ public class KafkaSourceSplitEnumerator
 
     @Override
     public void open() {
+        managedCoordinator = context.isManagedCoordinatorRuntime();
+        if (managedCoordinator) {
+            coordinatorScheduler = context.getCoordinatorScheduler();
+            return;
+        }
         if (discoveryIntervalMillis > 0) {
             this.executor =
                     Executors.newScheduledThreadPool(
@@ -164,6 +191,10 @@ public class KafkaSourceSplitEnumerator
 
     @Override
     public void run() throws ExecutionException, InterruptedException {
+        if (managedCoordinator) {
+            triggerManagedDiscovery();
+            return;
+        }
         synchronized (lock) {
             fetchPendingPartitionSplit();
             setPartitionStartOffset();
@@ -253,6 +284,11 @@ public class KafkaSourceSplitEnumerator
 
     @Override
     public void close() throws IOException {
+        closed = true;
+        if (managedDiscoveryTimer != null) {
+            managedDiscoveryTimer.cancel();
+            managedDiscoveryTimer = null;
+        }
         if (this.adminClient != null) {
             KafkaClientUtils.runWithConnectorClassLoader(adminClient::close);
         }
@@ -277,6 +313,17 @@ public class KafkaSourceSplitEnumerator
                                                 split -> split));
                 restoringSplits.addAll(restoredSplits.keySet());
                 pendingSplit.putAll(restoredSplits);
+                return;
+            }
+            if (managedCoordinator) {
+                if (managedSplitsBackRequests.size() >= MAX_PENDING_SPLITS_BACK_REQUESTS) {
+                    throw new KafkaConnectorException(
+                            KafkaConnectorErrorCode.ADD_SPLIT_BACK_TO_ENUMERATOR_FAILED,
+                            "Kafka managed split-back queue exhausted for subtask " + subtaskId);
+                }
+                managedSplitsBackRequests.add(
+                        splits.stream().map(KafkaSourceSplit::copy).collect(Collectors.toList()));
+                triggerManagedSplitsBack();
                 return;
             }
             Map<TopicPartition, ? extends KafkaSourceSplit> nextSplit = convertToNextSplit(splits);
@@ -361,7 +408,19 @@ public class KafkaSourceSplitEnumerator
         return AdminClient.create(props);
     }
 
-    private Set<KafkaSourceSplit> getTopicInfo() throws ExecutionException, InterruptedException {
+    /**
+     * Resolves the configured topics and their partitions without touching enumerator state.
+     *
+     * <p>Both lanes share this step, so it must stay free of side effects: the managed lane runs it
+     * on an engine async worker thread, while {@code topicMappingTablePathMap} and every other
+     * enumerator field are owned exclusively by the coordinator event loop. Callers apply the
+     * returned mapping on their own owner thread.
+     *
+     * @return the discovered topic-to-table mapping together with its partitions
+     */
+    private DiscoveredTopicPartitions discoverTopicPartitions()
+            throws ExecutionException, InterruptedException {
+        Map<String, TablePath> topicMapping = new HashMap<>();
         Collection<String> topics = new HashSet<>();
         for (TablePath tablePath : tablePathMetadataMap.keySet()) {
             ConsumerMetadata metadata = tablePathMetadataMap.get(tablePath);
@@ -375,11 +434,11 @@ public class KafkaSourceSplitEnumerator
             } else {
                 currentPathTopics.addAll(Arrays.asList(metadata.getTopic().split(",")));
             }
-            currentPathTopics.forEach(topic -> topicMappingTablePathMap.put(topic, tablePath));
+            currentPathTopics.forEach(topic -> topicMapping.put(topic, tablePath));
             topics.addAll(currentPathTopics);
         }
         log.info("Discovered topics: {}", topics);
-        Collection<TopicPartition> partitions =
+        Set<TopicPartition> partitions =
                 adminClient.describeTopics(topics).allTopicNames().get().values().stream()
                         .flatMap(
                                 t ->
@@ -404,6 +463,13 @@ public class KafkaSourceSplitEnumerator
                                                                 new TopicPartition(
                                                                         t.name(), p.partition())))
                         .collect(Collectors.toSet());
+        return new DiscoveredTopicPartitions(topicMapping, partitions);
+    }
+
+    private Set<KafkaSourceSplit> getTopicInfo() throws ExecutionException, InterruptedException {
+        DiscoveredTopicPartitions discovered = discoverTopicPartitions();
+        topicMappingTablePathMap.putAll(discovered.topicMapping);
+        Collection<TopicPartition> partitions = discovered.partitions;
         Map<TopicPartition, Long> latestOffsets = listOffsets(partitions, OffsetSpec.latest());
         return partitions.stream()
                 .map(
@@ -496,6 +562,219 @@ public class KafkaSourceSplitEnumerator
                 .get();
     }
 
+    private void triggerManagedDiscovery() {
+        if (closed || managedDiscoveryInProgress) {
+            return;
+        }
+        if (managedDiscoveryTimer != null) {
+            managedDiscoveryTimer.cancel();
+            managedDiscoveryTimer = null;
+        }
+        if (!context.isAssignmentCapacityAvailable()) {
+            scheduleManagedDiscovery(MANAGED_CAPACITY_RETRY_DELAY);
+            return;
+        }
+        managedDiscoveryInProgress = true;
+        Set<TopicPartition> knownPartitions = new HashSet<>(assignedSplit.keySet());
+        knownPartitions.addAll(pendingSplit.keySet());
+        boolean dynamicDiscovery = initialized;
+        coordinatorScheduler.callAsync(
+                MANAGED_DISCOVERY_TASK_KEY,
+                () -> discoverManagedSplits(knownPartitions, dynamicDiscovery),
+                (result, failure) -> {
+                    managedDiscoveryInProgress = false;
+                    if (failure != null) {
+                        throw new KafkaConnectorException(
+                                KafkaConnectorErrorCode.DISCOVER_PARTITION_FAILED, failure);
+                    }
+                    topicMappingTablePathMap.putAll(result.topicMapping);
+                    for (KafkaSourceSplit split : result.splits) {
+                        TopicPartition partition = split.getTopicPartition();
+                        if (!assignedSplit.containsKey(partition)
+                                && !pendingSplit.containsKey(partition)) {
+                            pendingSplit.put(partition, split);
+                        }
+                    }
+                    assignSplit();
+                    restoringSplits.clear();
+                    initialized = true;
+                    scheduleNextManagedDiscovery();
+                },
+                AsyncTaskOptions.builder().timeout(Duration.ofMinutes(1)).build());
+    }
+
+    private void scheduleNextManagedDiscovery() {
+        if (!closed && discoveryIntervalMillis > 0) {
+            scheduleManagedDiscovery(Duration.ofMillis(discoveryIntervalMillis));
+        }
+    }
+
+    private void scheduleManagedDiscovery(Duration delay) {
+        if (closed) {
+            return;
+        }
+        managedDiscoveryTimer =
+                coordinatorScheduler.scheduleInCoordinatorThread(
+                        MANAGED_DISCOVERY_TIMER_KEY,
+                        delay,
+                        () -> {
+                            managedDiscoveryTimer = null;
+                            triggerManagedDiscovery();
+                        });
+    }
+
+    private void triggerManagedSplitsBack() {
+        if (closed || managedSplitsBackInProgress || managedSplitsBackRequests.isEmpty()) {
+            return;
+        }
+        List<KafkaSourceSplit> returnedSplits = managedSplitsBackRequests.peek();
+        managedSplitsBackInProgress = true;
+        coordinatorScheduler.callAsync(
+                MANAGED_SPLITS_BACK_TASK_KEY,
+                () -> convertToNextSplit(returnedSplits),
+                (nextSplit, failure) -> {
+                    managedSplitsBackInProgress = false;
+                    if (failure != null) {
+                        throw new KafkaConnectorException(
+                                KafkaConnectorErrorCode.ADD_SPLIT_BACK_TO_ENUMERATOR_FAILED,
+                                failure);
+                    }
+                    if (managedSplitsBackRequests.poll() != returnedSplits) {
+                        throw new IllegalStateException(
+                                "Kafka managed split-back queue lost owner ordering");
+                    }
+                    nextSplit.keySet().forEach(assignedSplit::remove);
+                    pendingSplit.putAll(nextSplit);
+                    assignSplit();
+                    triggerManagedSplitsBack();
+                },
+                AsyncTaskOptions.builder().timeout(Duration.ofMinutes(1)).build());
+    }
+
+    private ManagedDiscoveryResult discoverManagedSplits(
+            Set<TopicPartition> knownPartitions, boolean dynamicDiscovery) throws Exception {
+        // Runs on an engine async worker, so it must not mutate enumerator state and must not
+        // resolve offsets for partitions it is going to discard. The coordinator event loop
+        // applies the returned mapping when this result is handed back.
+        DiscoveredTopicPartitions discovered = discoverTopicPartitions();
+        Map<String, TablePath> topicMapping = discovered.topicMapping;
+        Set<TopicPartition> partitions =
+                discovered.partitions.stream()
+                        .filter(partition -> !knownPartitions.contains(partition))
+                        .collect(Collectors.toSet());
+        if (partitions.isEmpty()) {
+            return new ManagedDiscoveryResult(topicMapping, Collections.emptyList());
+        }
+
+        Map<TopicPartition, Long> latestOffsets = listOffsets(partitions, OffsetSpec.latest());
+        Map<TopicPartition, Long> startOffsets =
+                dynamicDiscovery
+                        ? listOffsets(partitions, OffsetSpec.earliest())
+                        : resolveManagedStartOffsets(partitions, topicMapping, latestOffsets);
+        Map<TopicPartition, Long> timestampEndOffsets =
+                resolveManagedTimestampEndOffsets(partitions, topicMapping);
+        List<KafkaSourceSplit> discoveredSplits = new ArrayList<>(partitions.size());
+        for (TopicPartition partition : partitions) {
+            TablePath tablePath = topicMapping.get(partition.topic());
+            KafkaSourceSplit split = new KafkaSourceSplit(tablePath, partition);
+            Long resolvedStartOffset = startOffsets.get(partition);
+            if (resolvedStartOffset != null) {
+                split.setStartOffset(resolvedStartOffset);
+            }
+            split.setEndOffset(
+                    isStreamingMode
+                            ? Long.MAX_VALUE
+                            : timestampEndOffsets.getOrDefault(
+                                    partition, latestOffsets.getOrDefault(partition, -1L)));
+            if (shouldIncludeManagedSplit(resolvedStartOffset)) {
+                discoveredSplits.add(split);
+            }
+        }
+        return new ManagedDiscoveryResult(topicMapping, discoveredSplits);
+    }
+
+    private boolean shouldIncludeManagedSplit(Long resolvedStartOffset) {
+        // Preserve the legacy fallback for missing group/specific offsets. A negative offset is
+        // skipped only when Kafka explicitly resolved the partition to that value.
+        return isStreamingMode || resolvedStartOffset == null || resolvedStartOffset >= 0;
+    }
+
+    private Map<TopicPartition, Long> resolveManagedStartOffsets(
+            Set<TopicPartition> partitions,
+            Map<String, TablePath> topicMapping,
+            Map<TopicPartition, Long> latestOffsets)
+            throws ExecutionException, InterruptedException {
+        Map<TopicPartition, Long> startOffsets = new HashMap<>();
+        for (Map.Entry<TablePath, Set<TopicPartition>> entry :
+                groupPartitionsByTablePath(partitions, topicMapping).entrySet()) {
+            ConsumerMetadata metadata = tablePathMetadataMap.get(entry.getKey());
+            Set<TopicPartition> tablePartitions = entry.getValue();
+            switch (metadata.getStartMode()) {
+                case EARLIEST:
+                    startOffsets.putAll(listOffsets(tablePartitions, OffsetSpec.earliest()));
+                    break;
+                case GROUP_OFFSETS:
+                    startOffsets.putAll(listConsumerGroupOffsets(tablePartitions));
+                    break;
+                case LATEST:
+                    tablePartitions.forEach(
+                            partition -> {
+                                if (latestOffsets.containsKey(partition)) {
+                                    startOffsets.put(partition, latestOffsets.get(partition));
+                                }
+                            });
+                    break;
+                case TIMESTAMP:
+                    startOffsets.putAll(
+                            listOffsets(
+                                    tablePartitions,
+                                    OffsetSpec.forTimestamp(metadata.getStartOffsetsTimestamp())));
+                    break;
+                case SPECIFIC_OFFSETS:
+                    tablePartitions.forEach(
+                            partition -> {
+                                Long offset = metadata.getSpecificStartOffsets().get(partition);
+                                if (offset != null) {
+                                    startOffsets.put(partition, offset);
+                                }
+                            });
+                    break;
+                default:
+                    break;
+            }
+        }
+        return startOffsets;
+    }
+
+    private Map<TopicPartition, Long> resolveManagedTimestampEndOffsets(
+            Set<TopicPartition> partitions, Map<String, TablePath> topicMapping)
+            throws ExecutionException, InterruptedException {
+        if (isStreamingMode) {
+            return Collections.emptyMap();
+        }
+        Map<TopicPartition, Long> endOffsets = new HashMap<>();
+        for (Map.Entry<TablePath, Set<TopicPartition>> entry :
+                groupPartitionsByTablePath(partitions, topicMapping).entrySet()) {
+            ConsumerMetadata metadata = tablePathMetadataMap.get(entry.getKey());
+            if (metadata.getEndOffsetsTimestamp() != null) {
+                endOffsets.putAll(
+                        listOffsets(
+                                entry.getValue(),
+                                OffsetSpec.forTimestamp(metadata.getEndOffsetsTimestamp())));
+            }
+        }
+        return endOffsets;
+    }
+
+    private Map<TablePath, Set<TopicPartition>> groupPartitionsByTablePath(
+            Set<TopicPartition> partitions, Map<String, TablePath> topicMapping) {
+        return partitions.stream()
+                .collect(
+                        Collectors.groupingBy(
+                                partition -> topicMapping.get(partition.topic()),
+                                Collectors.toSet()));
+    }
+
     private void discoverySplits() throws ExecutionException, InterruptedException {
         fetchPendingPartitionSplit();
         assignSplit();
@@ -527,5 +806,34 @@ public class KafkaSourceSplitEnumerator
                                 }
                             }
                         });
+    }
+
+    /**
+     * Side-effect-free result of one topic and partition discovery round.
+     *
+     * <p>Carrying the topic-to-table mapping as a return value instead of writing it straight into
+     * {@code topicMappingTablePathMap} is what lets the managed lane run discovery on an engine
+     * async worker while the coordinator event loop stays the only writer of enumerator state.
+     */
+    private static final class DiscoveredTopicPartitions {
+        private final Map<String, TablePath> topicMapping;
+        private final Set<TopicPartition> partitions;
+
+        private DiscoveredTopicPartitions(
+                Map<String, TablePath> topicMapping, Set<TopicPartition> partitions) {
+            this.topicMapping = topicMapping;
+            this.partitions = partitions;
+        }
+    }
+
+    private static final class ManagedDiscoveryResult {
+        private final Map<String, TablePath> topicMapping;
+        private final List<KafkaSourceSplit> splits;
+
+        private ManagedDiscoveryResult(
+                Map<String, TablePath> topicMapping, List<KafkaSourceSplit> splits) {
+            this.topicMapping = topicMapping;
+            this.splits = splits;
+        }
     }
 }
