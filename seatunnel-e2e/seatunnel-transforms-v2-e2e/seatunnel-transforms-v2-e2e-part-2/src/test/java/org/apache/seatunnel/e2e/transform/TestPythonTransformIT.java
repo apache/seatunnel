@@ -61,7 +61,6 @@ import java.util.stream.Collectors;
 public class TestPythonTransformIT {
 
     private static final String BASE_PATH = "/python_transform/";
-    private static final String SEATUNNEL_CONFIG_DIR = "/tmp/seatunnel/config";
     private static final String PYTHON_EXECUTABLE_ALLOWLIST =
             "/usr/bin/python3,/usr/local/bin/python3,/opt/bitnami/python/bin/python3,"
                     + "/usr/bin/python,/usr/local/bin/python";
@@ -89,7 +88,7 @@ public class TestPythonTransformIT {
                 // PythonTransform launches a local worker process inside each runtime container,
                 // so the E2E suite must ensure python3 and path-based scripts are present
                 // everywhere before the job starts.
-                Container.ExecResult execResult = installPythonAndConfigurePolicy(container);
+                Container.ExecResult execResult = installPythonIfNecessary(container);
                 Assertions.assertEquals(
                         0,
                         execResult.getExitCode(),
@@ -167,16 +166,16 @@ public class TestPythonTransformIT {
     }
 
     /**
-     * Installs python3 if necessary and writes launch-time JVM policy files used by SeaTunnel
-     * starters.
+     * Installs python3 if necessary before Python transform jobs are submitted in the shared E2E
+     * harness.
      *
      * @param container runtime container
      * @return shell execution result
      * @throws IOException when the shell command cannot run
      * @throws InterruptedException when the shell command is interrupted
      */
-    private static Container.ExecResult installPythonAndConfigurePolicy(
-            GenericContainer<?> container) throws IOException, InterruptedException {
+    private static Container.ExecResult installPythonIfNecessary(GenericContainer<?> container)
+            throws IOException, InterruptedException {
         return container.execInContainer(
                 "bash",
                 "-c",
@@ -197,42 +196,6 @@ public class TestPythonTransformIT {
                         + " else"
                         + "   echo 'Unsupported package manager for installing python3' >&2;"
                         + "   exit 1;"
-                        + " fi;"
-                        + " if [ -d "
-                        + SEATUNNEL_CONFIG_DIR
-                        + " ]; then"
-                        + "   grep -q '"
-                        + PYTHON_TRANSFORM_ENABLED_PROPERTY
-                        + "' "
-                        + SEATUNNEL_CONFIG_DIR
-                        + "/seatunnel-env.sh 2>/dev/null ||"
-                        + "   printf 'JAVA_OPTS=\"${JAVA_OPTS} %s\"\\n' '"
-                        + PYTHON_POLICY_JAVA_OPTS
-                        + "' >> "
-                        + SEATUNNEL_CONFIG_DIR
-                        + "/seatunnel-env.sh;"
-                        + "   for file in "
-                        + SEATUNNEL_CONFIG_DIR
-                        + "/jvm_master_options "
-                        + SEATUNNEL_CONFIG_DIR
-                        + "/jvm_worker_options "
-                        + SEATUNNEL_CONFIG_DIR
-                        + "/jvm_server_options "
-                        + SEATUNNEL_CONFIG_DIR
-                        + "/jvm_client_options; do"
-                        + "     if [ -f \"$file\" ] && ! grep -q '"
-                        + PYTHON_TRANSFORM_ENABLED_PROPERTY
-                        + "' \"$file\"; then"
-                        + "       printf '%s\\n' '-D"
-                        + PYTHON_TRANSFORM_ENABLED_PROPERTY
-                        + "=true' >> \"$file\";"
-                        + "       printf '%s\\n' '-D"
-                        + PYTHON_ALLOWED_EXECUTABLES_PROPERTY
-                        + "="
-                        + PYTHON_EXECUTABLE_ALLOWLIST
-                        + "' >> \"$file\";"
-                        + "     fi;"
-                        + "   done;"
                         + " fi;"
                         + " python3 --version;"
                         + " echo 'Python transform policy allowlists "
