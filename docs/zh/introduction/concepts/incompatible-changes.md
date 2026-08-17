@@ -4,6 +4,13 @@
 
 ## dev
 
+### MySQL CDC Schema-Change 解析
+
+- **行为变更：向上传播 DDL 解析监听器错误**
+  - **影响范围**：`connector-cdc-mysql`
+  - **变更说明**：处理已解析 DDL 时发生的错误不再被吞掉并当作无操作处理，而是作为解析失败向上抛出，避免 CDC 作业静默跳过 schema 变更。
+  - **影响**：某些过去在内部解析器或监听器出错后被忽略的 DDL，升级后可能导致作业失败。请检查源端 DDL，修改为连接器支持的语法后再重启作业。本变更不修改 checkpoint 或 savepoint 格式。
+
 ### JDBC Connector
 
 - **破坏性变更：带时区的时间戳列映射为 `TIMESTAMP_TZ` 类型**

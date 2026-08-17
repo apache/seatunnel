@@ -45,6 +45,10 @@ public class CustomMySqlAntlrDdlParser extends MySqlAntlrDdlParser {
 
     private RelationalDatabaseConnectorConfig dbzConnectorConfig;
 
+    /**
+     * Creates a parser that propagates listener failures instead of silently treating malformed DDL
+     * as a no-op.
+     */
     public CustomMySqlAntlrDdlParser(RelationalDatabaseConnectorConfig dbzConnectorConfig) {
         super(true, false, true, (MySqlValueConverters) null, Tables.TableFilter.includeAll());
         this.parsedEvents = new LinkedList<>();

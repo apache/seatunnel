@@ -5,6 +5,18 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### MySQL CDC Schema-Change Parsing
+
+- **Behavior change: DDL parser listener errors are propagated**
+  - **Affected component**: `connector-cdc-mysql`
+  - **Description**: Errors raised while processing a parsed DDL are no longer swallowed and
+    treated as a no-op. They are now propagated as parsing failures so that a CDC job cannot
+    silently skip a schema change.
+  - **Impact**: A job may fail on a DDL statement that was previously ignored after an internal
+    parser/listener error. Review the source DDL and update it to syntax supported by the
+    connector before restarting the job. This change does not alter checkpoint or savepoint
+    formats.
+
 ### JDBC Connector
 
 - **Breaking Change: Mapping of timezone-aware timestamp columns to `TIMESTAMP_TZ` type**

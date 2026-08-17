@@ -245,6 +245,8 @@ public abstract class AbstractSchemaChangeResolver implements SchemaChangeResolv
 
     List<AlterTableEvent> normalizeTableIdentifiers(
             List<AlterTableEvent> events, TablePath tablePath) {
+        // The parser may lose the database while walking a SourceRecord. The SourceRecord table
+        // path is authoritative because it comes from the CDC event's captured source table.
         TableIdentifier tableIdentifier =
                 TableIdentifier.of(
                         StringUtils.EMPTY,

@@ -27,6 +27,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import io.debezium.relational.Tables;
+import io.debezium.text.ParsingException;
 
 import java.util.List;
 
@@ -84,5 +85,17 @@ public class CustomMySqlAntlrDdlParserTest {
         Assertions.assertTrue(events.get(0) instanceof AlterTableCommentEvent);
         AlterTableCommentEvent event = (AlterTableCommentEvent) events.get(0);
         Assertions.assertEquals("Product catalog table", event.getNewComment());
+    }
+
+    @Test
+    void testParsePropagatesDdlErrors() {
+        CustomMySqlAntlrDdlParser parser = new CustomMySqlAntlrDdlParser(null);
+
+        Assertions.assertThrows(
+                ParsingException.class,
+                () ->
+                        parser.parse(
+                                "ALTER TABLE products MODIFY COLUMN description VARCHAR(512) DEFAULT",
+                                new Tables()));
     }
 }
