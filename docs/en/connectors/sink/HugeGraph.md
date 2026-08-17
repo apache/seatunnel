@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-hugegraph.md';
 
 `Sink: HugeGraph`
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Description
 
 The HugeGraph sink connector allows you to write data from SeaTunnel to Apache HugeGraph, a fast and scalable graph database.
@@ -276,6 +282,89 @@ sink {
           person1_name = "name"
           person2_name = "name"
         }
+      }
+    ]
+  }
+}
+```
+
+### 3. Writing DELETE rows
+
+The sink honours the row kind. `DELETE` rows only need to carry the columns
+required to rebuild the element id; other columns can be omitted. With
+`delete_vertex_with_edges = true`, deleting a vertex also deletes its incident
+edges.
+
+```hocon
+source {
+  FakeSource {
+    schema = {
+      fields = {
+        name = "string"
+      }
+    }
+    rows = [
+      {
+        kind = DELETE
+        fields = ["bob"]
+      }
+    ]
+  }
+}
+
+sink {
+  HugeGraph {
+    host = "localhost"
+    port = 8080
+    graph_name = "hugegraph"
+    delete_vertex_with_edges = true
+    mappings = [
+      {
+        type = "VERTEX"
+        label = "person"
+        idStrategy = "PRIMARY_KEY"
+        idFields = ["name"]
+      }
+    ]
+  }
+}
+```
+
+### 4. Cloning from a HugeGraph Source
+
+When the upstream is the HugeGraph Source, each row already carries the
+reserved columns with the assembled element ids (`~id` for a vertex;
+`~source_id` / `~target_id` for an edge). Reusing these ids preserves the
+original graph exactly. The example below sets `multi_table_sink_replica` so the
+sink can fan out across parallel writers when the source reads multiple labels.
+
+```hocon
+env {
+  job.mode = "BATCH"
+}
+
+source {
+  HugeGraph {
+    host = "src-host"
+    port = 8080
+    graph_name = "hugegraph"
+    label_type = "VERTEX"
+  }
+}
+
+sink {
+  HugeGraph {
+    host = "dst-host"
+    port = 8080
+    graph_name = "hugegraph"
+    multi_table_sink_replica = 2
+    batch_size = 500
+    mappings = [
+      {
+        type = "VERTEX"
+        label = "person"
+        idStrategy = "CUSTOMIZE_STRING"
+        idFields = ["~id"]
       }
     ]
   }

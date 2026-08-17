@@ -262,6 +262,14 @@ curl -X POST "http://<master>:8080/submit-job?restoreMode=CHECKPOINT&restoreSour
   }'
 ```
 
+同样的 `restoreMode` 和 `restoreSourceJobId` 查询参数也适用于[上传配置文件的接口](rest-api-v2.md#提交作业来源上传配置文件)——
+如果提交的是配置文件而不是 JSON 请求体，两个接口共享同一套恢复处理逻辑：
+
+```bash
+curl --location 'http://<master>:8080/submit-job/upload?restoreMode=CHECKPOINT&restoreSourceJobId=733584788375093248' \
+  --form 'config_file=@"/temp/my-cdc-job.conf"'
+```
+
 如果 `restoreSourceJobId` 对应的 Checkpoint 数据不存在、已被清理或不兼容，提交会直接失败。
 
 如果希望已取消(Canceled)作业仍可从 Checkpoint 恢复，需要通过以下两种方式之一保留作业执行时的Checkpoint 数据。

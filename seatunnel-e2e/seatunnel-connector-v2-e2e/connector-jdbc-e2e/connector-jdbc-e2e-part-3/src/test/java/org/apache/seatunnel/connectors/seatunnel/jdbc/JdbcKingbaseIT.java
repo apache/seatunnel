@@ -174,8 +174,7 @@ public class JdbcKingbaseIT extends AbstractJdbcIT {
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(KINGBASE_IMAGE)));
-        container.setPortBindings(
-                Lists.newArrayList(String.format("%s:%s", KINGBASE_PORT, KINGBASE_PORT)));
+        container.addExposedPort(KINGBASE_PORT);
         return container;
     }
 
