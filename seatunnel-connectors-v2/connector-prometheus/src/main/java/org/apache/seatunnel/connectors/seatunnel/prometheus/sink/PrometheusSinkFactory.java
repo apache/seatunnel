@@ -53,7 +53,6 @@ public class PrometheusSinkFactory extends HttpSinkFactory {
                 .optional(PrometheusSinkOptions.RETRY_BACKOFF_MULTIPLIER_MS)
                 .optional(PrometheusSinkOptions.RETRY_BACKOFF_MAX_MS)
                 .optional(PrometheusSinkOptions.BATCH_SIZE)
-                .optional(PrometheusSinkOptions.FLUSH_INTERVAL)
                 .optional(SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
                 .build();
     }

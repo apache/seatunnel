@@ -76,6 +76,8 @@ import ChangeLog from '../changelog/connector-file-oss-jindo.md';
 | skip_header_row_number    | long    | 否  | 0                           | 跳过前几行                                                                         |
 | schema                    | config  | 否  | -                           | 上游数据的模式信息。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。 |
 | sheet_name                | string  | 否  | -                           | Excel 工作表名称                                                                   |
+| excel_engine              | string  | 否  | POI                         | 仅在 `file_format` 为 excel 时使用。支持的引擎包括 `POI` 和 `EasyExcel`。                                                                                                                                            |
+| poi_excel_max_file_size   | long    | 否  | 52428800                    | 仅在 `file_format` 为 excel 且 `excel_engine` 为 POI 时使用。POI 引擎允许读取的最大 Excel 文件大小（默认 50 MB）。                                                                                                                                            |
 | xml_row_tag               | string  | 否  | -                           | XML 行标签                                                                       |
 | xml_use_attr_format       | boolean | 否  | -                           | 是否使用 XML 属性格式                                                                 |
 | csv_use_header_line       | boolean | 否  | false                       | 是否使用 CSV 标题行                                                                  |

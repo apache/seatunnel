@@ -27,8 +27,8 @@ import ChangeLog from '../changelog/connector-elasticsearch.md';
 |------------------------|---------|------|------------------------------|
 | hosts                  | array   | 是    | -                            |
 | index                  | string  | 是    | -                            |
-| schema_save_mode       | string  | 是    | CREATE_SCHEMA_WHEN_NOT_EXIST |
-| data_save_mode         | string  | 是    | APPEND_DATA                  |
+| schema_save_mode       | string  | 否    | CREATE_SCHEMA_WHEN_NOT_EXIST |
+| data_save_mode         | string  | 否    | APPEND_DATA                  |
 | index_type             | string  | 否    |                              |
 | primary_keys           | list    | 否    |                              |
 | key_delimiter          | string  | 否    | `_`                          |

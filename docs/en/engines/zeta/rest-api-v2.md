@@ -773,6 +773,8 @@ When we can't get the job info, the response will be:
 > | jobId                | optional | string    | job id                                                   |
 > | jobName              | optional | string    | job name                                                 |
 > | isStartWithSavePoint | optional | string    | if job is started with save point                        |
+> | restoreMode          | optional | string    | Restore source for job recovery: `CHECKPOINT` or `SAVEPOINT`. Used together with `restoreSourceJobId`. See [Job Recovery and Restart](rest-api-job-lifecycle.md#6-job-recovery-and-restart). |
+> | restoreSourceJobId   | optional | string    | The job id to restore from when `restoreMode` is set. When only `isStartWithSavePoint` is set (no `restoreMode`), this falls back to `jobId`. |
 > | format               | optional | string    | config format, support json, hocon and sql, default json |
 
 **Note:** The dry-run feature is intentionally not supported via the REST API. It is exclusively available through the SeaTunnel CLI.
@@ -907,6 +909,8 @@ INSERT INTO console_sink SELECT * FROM fake_source;
 > | jobId                | optional | string    | job id                            |
 > | jobName              | optional | string    | job name                          |
 > | isStartWithSavePoint | optional | string    | if job is started with save point |
+> | restoreMode          | optional | string    | Restore source for job recovery: `CHECKPOINT` or `SAVEPOINT`. Used together with `restoreSourceJobId`. See [Job Recovery and Restart](rest-api-job-lifecycle.md#6-job-recovery-and-restart). |
+> | restoreSourceJobId   | optional | string    | The job id to restore from when `restoreMode` is set. When only `isStartWithSavePoint` is set (no `restoreMode`), this falls back to `jobId`. |
 
 #### Request Body
 The name of the uploaded file key is config_file, and supports the following formats:
@@ -921,6 +925,9 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload' --form 'config_file=@"
 
 # Upload SQL config file
 curl --location 'http://127.0.0.1:8080/submit-job/upload' --form 'config_file=@"/temp/job.sql"'
+
+# Upload a config file and restore from the latest checkpoint of a previous job
+curl --location 'http://127.0.0.1:8080/submit-job/upload?restoreMode=CHECKPOINT&restoreSourceJobId=733584788375666689' --form 'config_file=@"/temp/fake_to_console.conf"'
 ```
 #### Responses
 

@@ -84,6 +84,8 @@ It only supports hadoop version **2.9.X+**.
 | schema                     | config  | no       | -                   | [Tips](#schema)                                                                                                                                                                      |
 | common-options             |         | no       | -                   | [Tips](#common_options)                                                                                                                                                              |
 | sheet_name                 | string  | no       | -                   | Reader the sheet of the workbook,Only used when file_format is excel.                                                                                                                |
+| excel_engine               | string  | no       | POI                 | Only used when `file_format` is excel. Supported engines are `POI` and `EasyExcel`.                                                                                                                                                                |
+| poi_excel_max_file_size    | long    | no       | 52428800            | Only used when `file_format` is excel and `excel_engine` is POI. The maximum Excel file size in bytes that the POI engine can read (default 50 MB).                                                                                                |
 | file_filter_modified_start | string  | no       | -                   | File modification time filter. The connector will filter some files base on the last modification start time (include start time). The default data format is `yyyy-MM-dd HH:mm:ss`. |
 | file_filter_modified_end   | string  | no       | -                   | File modification time filter. The connector will filter some files base on the last modification end time (not include end time). The default data format is `yyyy-MM-dd HH:mm:ss`. |
 | quote_char                 | string  | no       | "                   | A single character that encloses CSV fields, allowing fields with commas, line breaks, or quotes to be read correctly.                                                               |
@@ -414,6 +416,28 @@ schema {
   }
 
 ```
+
+### Reading with Temporary Security Credentials (OBS STS)
+
+For production jobs that need scoped, short-lived access, generate temporary AK/SK via [OBS STS](https://support.huaweicloud.com/intl/en-us/api-obs/obs_04_0081.html) and pass them through `hadoop_obs_properties`. The temporary credentials can carry a fine-grained custom policy that limits access to a specific bucket prefix.
+
+```hocon
+source {
+  ObsFile {
+    path = "/staging/prefix"
+    bucket = "obs://target-bucket"
+    endpoint = "obs.ap-southeast-1.myhuaweicloud.com"
+    hadoop_obs_properties = {
+      "fs.obs.access.key"    = "<temp-access-key>"
+      "fs.obs.secret.key"    = "<temp-secret-key>"
+      "fs.obs.session.token" = "<temp-security-token>"
+    }
+    file_format_type = "parquet"
+  }
+}
+```
+
+The provider jar must be on the runtime classpath of every node (`${SEATUNNEL_HOME}/lib`). Avoid long-lived AK/SK in job files; prefer STS-issued temporary credentials or an ECS Agency when running inside Huawei Cloud.
 
 ## Changelog
 
