@@ -171,6 +171,9 @@ if __name__ == "__main__":
 - Phase 1 supports source only.
 - Phase 1 supports `text` output only.
 - The source is single-reader today, so source parallelism must remain `1`.
+- The source keeps no resumable offset or checkpoint state. On failure recovery or restart, the
+  Python script re-executes from the beginning and rows already delivered downstream are emitted
+  again; use idempotent sinks or make sure the job tolerates duplicates.
 - The connector manages only the direct process. Scripts must not detach long-lived child processes
   that inherit stdout or stderr; use worker-level sandboxing and supervision for subprocess trees.
 - Non-zero Python exits fail the source task and include recent stderr lines in the exception.

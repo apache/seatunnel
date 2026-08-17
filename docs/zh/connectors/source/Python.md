@@ -161,6 +161,8 @@ if __name__ == "__main__":
 - Phase 1 只支持 source。
 - Phase 1 只支持 `text` 输出格式。
 - 当前 Source 只有单 reader，因此 source parallelism 必须保持为 `1`。
+- Source 不保存任何可恢复的位点或 checkpoint 状态。任务失败恢复或重启后，Python 脚本会从头
+  重新执行，之前已经下发的行会再次发出；请使用幂等的 sink，或确保任务可以容忍重复数据。
 - 连接器只管理直接启动的进程。脚本不能派生继承 stdout 或 stderr 的长期后台子进程；如需
   管理子进程树，应由 worker 侧的隔离与进程监管机制负责。
 - 如果 Python 进程非零退出，Source task 会失败，并在异常里带上最近的 stderr 输出。
