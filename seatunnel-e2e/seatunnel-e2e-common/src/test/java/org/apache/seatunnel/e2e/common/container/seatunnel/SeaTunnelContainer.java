@@ -115,7 +115,7 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                         .withEnv("TZ", "UTC")
                         .withCommand(buildStartCommand())
                         .withNetworkAliases("server")
-                        .withExposedPorts()
+                        .withExposedPorts(5801, 8080)
                         .withFileSystemBind("/tmp", "/opt/hive")
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
@@ -127,7 +127,6 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                                 BindMode.READ_WRITE)
                         .waitingFor(Wait.forLogMessage(".*received new worker register:.*", 1));
         copySeaTunnelStarterToContainer(server);
-        server.setPortBindings(Arrays.asList("5801:5801", "8080:8080"));
         server.withCopyFileToContainer(
                 MountableFile.forHostPath(
                         PROJECT_ROOT_PATH
@@ -163,15 +162,13 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                                 ContainerUtil.adaptPathForWin(
                                         Paths.get(SEATUNNEL_HOME, "bin", SERVER_SHELL).toString()))
                         .withNetworkAliases("server")
-                        .withExposedPorts()
+                        .withExposedPorts(5801, 8080)
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(
                                                 "seatunnel-engine:" + JDK_DOCKER_IMAGE)))
                         .waitingFor(Wait.forLogMessage(".*received new worker register:.*", 1));
         copySeaTunnelStarterToContainer(server);
-        server.setPortBindings(Arrays.asList("5801:5801", "8080:8080"));
-        server.setExposedPorts(Arrays.asList(5801, 8080));
 
         server.withCopyFileToContainer(
                 MountableFile.forHostPath(
@@ -462,7 +459,13 @@ public class SeaTunnelContainer extends AbstractTestContainer {
     }
 
     private Map<String, String> getThreadClassLoader() throws IOException {
-        HttpGet get = new HttpGet("http://localhost:5801/hazelcast/rest/maps/running-threads");
+        // Resolve the mapped REST endpoint at runtime so E2E clusters do not collide and remote
+        // Docker hosts remain reachable.
+        HttpGet get =
+                new HttpGet(
+                        String.format(
+                                "http://%s:%s/hazelcast/rest/maps/running-threads",
+                                server.getHost(), server.getMappedPort(5801)));
         try (CloseableHttpClient client = HttpClients.createDefault()) {
             CloseableHttpResponse response = client.execute(get);
             String threads = EntityUtils.toString(response.getEntity());
@@ -478,8 +481,74 @@ public class SeaTunnelContainer extends AbstractTestContainer {
         }
     }
 
+    /**
+     * Enables the {@code parallel-\d+} thread-name exemption for the duration of the Couchbase E2E
+     * test.
+     *
+     * <p>Must be called from {@code CouchbaseIT.startUp()} (the {@code @BeforeAll} hook) so that
+     * the exemption is active only while the Couchbase test lifecycle is running, not for the
+     * entire lifetime of any JVM that happens to have the Couchbase SDK on its classpath.
+     *
+     * @see #disableCouchbaseParallelThreadExemption()
+     */
+    public static void enableCouchbaseParallelThreadExemption() {
+        couchbaseE2eActive = true;
+    }
+
+    /**
+     * Disables the {@code parallel-\d+} thread-name exemption after the Couchbase E2E test
+     * completes.
+     *
+     * <p>Must be called from {@code CouchbaseIT.tearDown()} (the {@code @AfterAll} hook).
+     *
+     * @see #enableCouchbaseParallelThreadExemption()
+     */
+    public static void disableCouchbaseParallelThreadExemption() {
+        couchbaseE2eActive = false;
+    }
+
+    /**
+     * {@code true} while the Couchbase E2E test ({@code CouchbaseIT}) is active.
+     *
+     * <p>Set by {@link #enableCouchbaseParallelThreadExemption()} in {@code @BeforeAll} and cleared
+     * by {@link #disableCouchbaseParallelThreadExemption()} in {@code @AfterAll}. Scoping the flag
+     * to the test lifecycle — rather than checking classpath availability — ensures that the {@code
+     * parallel-\d+} exemption cannot silently swallow Reactor thread leaks from unrelated
+     * connectors running in the same JVM.
+     */
+    static volatile boolean couchbaseE2eActive = false;
+
     /** The thread should be recycled but not, we should fix it in the future. */
     protected boolean isIssueWeAlreadyKnow(String threadName) {
+        // Couchbase SDK JVM-global static singleton threads.
+        //
+        // SimplePauseDetectorThread  – GC-pause latency detector (cb-core)
+        // dnsjava NIO selector       – DNS resolution I/O loop   (cb-core)
+        // cb-cleaner                 – SDK internal cleaner       (cb-core)
+        //
+        // These three names are unique to the Couchbase SDK; no other connector produces them.
+        // They are owned by SDK-internal static singletons, survive Cluster.disconnect(), and
+        // are not connector-specific leak candidates.
+        if (threadName.startsWith("SimplePauseDetectorThread")
+                || threadName.startsWith("dnsjava NIO selector")
+                || threadName.startsWith("cb-cleaner")) {
+            return true;
+        }
+        // parallel-<N> – Reactor parallel scheduler thread.
+        //
+        // The Couchbase SDK depends on reactor-core but does NOT shade it, so the thread name
+        // "parallel-<N>" is identical to the thread name produced by any other connector that
+        // also uses reactor-core.  Exempting it by name alone would silently hide leaks from
+        // those connectors.
+        //
+        // Guard: only exempt "parallel-<N>" while the Couchbase E2E test lifecycle is active.
+        // CouchbaseIT.startUp() sets the flag via enableCouchbaseParallelThreadExemption() and
+        // CouchbaseIT.tearDown() clears it via disableCouchbaseParallelThreadExemption().  Any
+        // "parallel-<N>" thread observed outside that window is treated as an unknown thread and
+        // reported as a potential leak.
+        if (threadName.matches("parallel-\\d+") && couchbaseE2eActive) {
+            return true;
+        }
         // ClickHouse com.clickhouse.client.ClickHouseClientBuilder
         return threadName.startsWith("ClickHouseClientWorker")
                 // InfluxDB okio.AsyncTimeout$Watchdog
