@@ -1299,9 +1299,9 @@ public class JobMaster {
                         savepointCompletionResult =
                                 waitSavepointCompleted(passiveCompletableFutures);
                         savepointCompleted = savepointCompletionResult.isCompleted();
-                        if (savepointCompletionResult.getFirstException() != null) {
+                        if (savepointCompletionResult.getFirstException().isPresent()) {
                             throw new SeaTunnelEngineException(
-                                    savepointCompletionResult.getFirstException());
+                                    savepointCompletionResult.getFirstException().get());
                         }
                         return savepointCompleted;
                     } finally {
@@ -1331,6 +1331,14 @@ public class JobMaster {
         }
     }
 
+    /**
+     * Waits for every pipeline savepoint future and preserves all failures for the job-level
+     * decision.
+     *
+     * <p>A stop-with-savepoint request fans out to independent checkpoint coordinators. The cleanup
+     * decision must therefore be based on the whole result set, not on whichever pipeline fails
+     * first or appears first in the pipeline list.
+     */
     private SavepointCompletionResult waitSavepointCompleted(
             PassiveCompletableFuture<CheckpointCoordinatorState>[] passiveCompletableFutures) {
         try {
@@ -1345,7 +1353,7 @@ public class JobMaster {
 
         boolean savepointCompleted = true;
         boolean anyPipelineSuspended = false;
-        Exception firstException = null;
+        List<Exception> exceptions = new ArrayList<>();
         for (PassiveCompletableFuture<CheckpointCoordinatorState> future :
                 passiveCompletableFutures) {
             try {
@@ -1360,49 +1368,65 @@ public class JobMaster {
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
                 savepointCompleted = false;
-                if (firstException == null) {
-                    firstException = e;
-                }
+                exceptions.add(e);
             } catch (Exception e) {
                 savepointCompleted = false;
-                if (firstException == null) {
-                    firstException = e;
-                }
+                exceptions.add(e);
             }
         }
-        return new SavepointCompletionResult(
-                savepointCompleted, firstException, anyPipelineSuspended);
+        return new SavepointCompletionResult(savepointCompleted, exceptions, anyPipelineSuspended);
     }
 
+    /**
+     * Returns true only when the savepoint failed before any pipeline could start a checkpoint.
+     *
+     * <p>These pre-start failures are safe to retry: no pipeline has reached {@link
+     * CheckpointCoordinatorStatus#SUSPEND}, and every reported failure reason comes from a
+     * checkpoint coordinator that rejected the request before creating a pending checkpoint. Any
+     * genuine checkpoint failure, partial suspension, or non-exceptional non-suspend state must use
+     * the deterministic stop fallback instead.
+     */
     private boolean isSavepointStartPreconditionFailure(
             SavepointCompletionResult savepointCompletionResult) {
         if (savepointCompletionResult == null
                 || savepointCompletionResult.isAnyPipelineSuspended()
-                || savepointCompletionResult.getFirstException() == null) {
+                || savepointCompletionResult.getExceptions().isEmpty()) {
             return false;
         }
 
-        Throwable rootException =
-                ExceptionUtils.getRootException(savepointCompletionResult.getFirstException());
+        return savepointCompletionResult.getExceptions().stream()
+                .allMatch(this::isSavepointStartPreconditionException);
+    }
+
+    private boolean isSavepointStartPreconditionException(Exception exception) {
+        Throwable rootException = ExceptionUtils.getRootException(exception);
         if (!(rootException instanceof CheckpointException)) {
             return false;
         }
 
         CheckpointCloseReason failureReason =
                 ((CheckpointException) rootException).getCheckpointFailureReason();
-        return failureReason == CheckpointCloseReason.TASK_NOT_ALL_READY_WHEN_SAVEPOINT;
+        return failureReason == CheckpointCloseReason.TASK_NOT_ALL_READY_WHEN_SAVEPOINT
+                || failureReason == CheckpointCloseReason.CHECKPOINT_COORDINATOR_SHUTDOWN;
     }
 
+    /**
+     * Aggregated outcome of all pipeline savepoint futures.
+     *
+     * <p>The job can be restored to RUNNING only when all failures are retryable pre-start
+     * rejections. A single genuine checkpoint failure or already-suspended pipeline means some
+     * pipeline state may have changed, so the job must use the stop fallback.
+     */
     private static class SavepointCompletionResult {
 
         private final boolean completed;
-        private final Exception firstException;
+        private final List<Exception> exceptions;
         private final boolean anyPipelineSuspended;
 
         private SavepointCompletionResult(
-                boolean completed, Exception firstException, boolean anyPipelineSuspended) {
+                boolean completed, List<Exception> exceptions, boolean anyPipelineSuspended) {
             this.completed = completed;
-            this.firstException = firstException;
+            this.exceptions = exceptions;
             this.anyPipelineSuspended = anyPipelineSuspended;
         }
 
@@ -1410,8 +1434,12 @@ public class JobMaster {
             return completed;
         }
 
-        private Exception getFirstException() {
-            return firstException;
+        private Optional<Exception> getFirstException() {
+            return exceptions.stream().findFirst();
+        }
+
+        private List<Exception> getExceptions() {
+            return exceptions;
         }
 
         private boolean isAnyPipelineSuspended() {

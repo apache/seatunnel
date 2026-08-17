@@ -259,13 +259,18 @@ public class SavePointBusySourceTest extends AbstractSeaTunnelServerTest<SavePoi
                                         server.getCoordinatorService().getJobStatus(jobId)));
         Assertions.assertNotNull(server.getCoordinatorService().getJobMaster(jobId));
 
-        server.getCoordinatorService().cancelJob(jobId).join();
+        setCheckpointCoordinatorsReady(jobMaster, true);
+        PassiveCompletableFuture<Void> retrySavepointFuture =
+                server.getCoordinatorService().savePoint(jobId);
+
         await().atMost(120, TimeUnit.SECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertEquals(
-                                        JobStatus.CANCELED,
+                                        JobStatus.SAVEPOINT_DONE,
                                         server.getCoordinatorService().getJobStatus(jobId)));
+        retrySavepointFuture.get(120, TimeUnit.SECONDS);
+
         await().atMost(120, TimeUnit.SECONDS)
                 .untilAsserted(
                         () ->
