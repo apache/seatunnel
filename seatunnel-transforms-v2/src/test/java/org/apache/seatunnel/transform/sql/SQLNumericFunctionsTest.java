@@ -65,8 +65,9 @@ public class SQLNumericFunctionsTest {
 
         Assertions.assertEquals(3, outRow.getField(0));
         Assertions.assertEquals(-1, outRow.getField(1));
-        Assertions.assertEquals(2, outRow.getField(2));
-        Assertions.assertEquals(1, outRow.getField(3));
+        // CEIL/FLOOR keep the type of their argument, so a DOUBLE column yields a DOUBLE
+        Assertions.assertEquals(2d, outRow.getField(2));
+        Assertions.assertEquals(1d, outRow.getField(3));
     }
 
     @Test

@@ -1,6 +1,10 @@
 Apache SeaTunnel
 Copyright 2021-2024 The Apache Software Foundation
 
+This product includes Bouncy Castle Provider (LTS Distribution), developed by
+The Legion of the Bouncy Castle Inc. and distributed under the Bouncy Castle
+License. The license text is provided in licenses/LICENSE-bcprov-lts8on.txt.
+
 This product includes software developed at
 The Apache Software Foundation (http://www.apache.org/).
 
@@ -859,4 +863,13 @@ The initial codebase was donated to the ASF by HugeGraph Authors, copyright 2017
  +===============================================================================
  + com.aerospike:aerospike-client (https://github.com/aerospike/aerospike-client-java)
  + Copyright 2012-2023 Aerospike, Inc.
+ + Licensed under the Apache License, Version 2.0
+
+=========================================================================
+
+ +===============================================================================
+ + Third-party dependencies for Couchbase connector:
+ +===============================================================================
+ + com.couchbase.client:java-client (https://github.com/couchbase/couchbase-jvm-clients)
+ + Copyright 2019-2024 Couchbase, Inc.
  + Licensed under the Apache License, Version 2.0

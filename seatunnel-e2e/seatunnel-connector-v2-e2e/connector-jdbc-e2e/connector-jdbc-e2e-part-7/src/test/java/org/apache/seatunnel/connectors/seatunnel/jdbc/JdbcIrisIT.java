@@ -568,8 +568,6 @@ public class JdbcIrisIT extends AbstractJdbcIT {
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(IRIS_IMAGE)));
 
-        container.setPortBindings(Lists.newArrayList(String.format("%s:%s", IRIS_PORT, IRIS_PORT)));
-
         return container;
     }
 

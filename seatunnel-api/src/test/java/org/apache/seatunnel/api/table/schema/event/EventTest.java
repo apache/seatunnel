@@ -21,6 +21,8 @@ import org.apache.seatunnel.api.event.EventType;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.schema.handler.AlterTableSchemaEventHandler;
 import org.apache.seatunnel.api.table.type.BasicType;
 
 import org.junit.jupiter.api.Assertions;
@@ -68,6 +70,31 @@ public class EventTest {
                 new CreateTableEvent(TableIdentifier.of("", TablePath.DEFAULT), null);
         Assertions.assertEquals(
                 EventType.SCHEMA_CHANGE_CREATE_TABLE, createTableEvent.getEventType());
+    }
+
+    @Test
+    public void testAlterColumnCommentEventUpdatesSchemaMetadata() {
+        TableSchema schema =
+                TableSchema.builder()
+                        .column(
+                                PhysicalColumn.of(
+                                        "description",
+                                        BasicType.STRING_TYPE,
+                                        512L,
+                                        true,
+                                        null,
+                                        "old comment"))
+                        .build();
+        AlterColumnCommentEvent event =
+                AlterColumnCommentEvent.of(
+                        TableIdentifier.of("", TablePath.DEFAULT),
+                        "description",
+                        "old comment",
+                        "new comment");
+
+        TableSchema changeAfter = new AlterTableSchemaEventHandler().reset(schema).apply(event);
+
+        Assertions.assertEquals("new comment", changeAfter.getColumn("description").getComment());
     }
 
     private EventType getEventType(AlterTableColumnEvent event) {
