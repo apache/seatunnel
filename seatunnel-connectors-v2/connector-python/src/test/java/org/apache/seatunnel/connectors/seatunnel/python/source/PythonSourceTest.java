@@ -482,7 +482,10 @@ class PythonSourceTest {
                         },
                         "python-source-buffered-poll-test");
         pollThread.start();
-        Assertions.assertTrue(collector.collectEntered.await(5, TimeUnit.SECONDS));
+        // 15s matches the interpreter-startup budget used elsewhere in this file: the wait covers
+        // python cold start plus first-row delivery, and 5s has been observed losing that race on
+        // loaded windows-latest runners (fork run 32041891318).
+        Assertions.assertTrue(collector.collectEntered.await(15, TimeUnit.SECONDS));
 
         Thread closeThread =
                 new Thread(
@@ -854,10 +857,18 @@ class PythonSourceTest {
         Assertions.assertEquals(0, stdoutQueue.remainingCapacity(), "stdout queue did not fill");
     }
 
-    /** Waits until polling has entered the inherited-stdout grace period. */
+    /**
+     * Waits until polling has entered the inherited-stdout grace period.
+     *
+     * <p>Arming requires a full real-process cycle (interpreter cold start, child spawn, exit, exit
+     * detection), so this uses the same 15s startup budget as {@code pollUntilIOException}; 5s has
+     * been observed losing that race on loaded windows-latest runners (fork run 32041891318). The
+     * wait returns as soon as the deadline is armed, so the budget only costs time on runners that
+     * actually need it.
+     */
     private void waitUntilStdoutCloseDeadlineIsInitialized(PythonSourceReader reader)
             throws Exception {
-        long deadlineNanos = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+        long deadlineNanos = System.nanoTime() + TimeUnit.SECONDS.toNanos(15);
         while (getStdoutCloseDeadline(reader) == 0L && System.nanoTime() < deadlineNanos) {
             Thread.sleep(10L);
         }
