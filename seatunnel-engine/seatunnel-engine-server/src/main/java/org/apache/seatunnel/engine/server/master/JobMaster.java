@@ -59,6 +59,7 @@ import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobInfo;
 import org.apache.seatunnel.engine.core.job.PipelineStatus;
+import org.apache.seatunnel.engine.core.job.RestoreMode;
 import org.apache.seatunnel.engine.server.CoordinatorService;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointCoordinator;
@@ -266,7 +267,7 @@ public class JobMaster {
         }
         try {
             if (!restart
-                    && !logicalDag.isStartWithSavePoint()
+                    && !jobImmutableInformation.isRestoreJob()
                     && ReadonlyConfig.fromMap(logicalDag.getJobConfig().getEnvOptions())
                             .get(EnvCommonOptions.SAVEMODE_EXECUTE_LOCATION)
                             .equals(SaveModeExecuteLocation.CLUSTER)) {
@@ -281,7 +282,7 @@ public class JobMaster {
                                                             sink.getId()));
                                     JobMaster.handleSaveMode(
                                             ((SinkAction<?, ?, ?, ?>) sink).getSink(),
-                                            logicalDag.isStartWithSavePoint());
+                                            jobImmutableInformation.getRestoreMode());
                                 });
                 Thread.currentThread().setContextClassLoader(appClassLoader);
             }
@@ -698,14 +699,15 @@ public class JobMaster {
         }
     }
 
-    public static void handleSaveMode(SeaTunnelSink sink, boolean isStartWithSavePoint) {
+    public static void handleSaveMode(SeaTunnelSink sink, RestoreMode restoreMode) {
+        boolean isRestoreJob = restoreMode != null && restoreMode.isRestore();
         if (sink instanceof SupportSaveMode) {
             Optional<SaveModeHandler> saveModeHandler =
                     ((SupportSaveMode) sink).getSaveModeHandler();
             if (saveModeHandler.isPresent()) {
                 try (SaveModeHandler handler = saveModeHandler.get()) {
                     handler.open();
-                    if (!isStartWithSavePoint) {
+                    if (!isRestoreJob) {
                         new SaveModeExecuteWrapper(handler).execute();
                     } else {
                         handler.handleSchemaSaveModeWithRestore();
@@ -719,7 +721,7 @@ public class JobMaster {
             Map<TablePath, SeaTunnelSink> sinks = multiTableSink.getSinks();
             if (!multiTableSink.getFailurePolicy().continueOtherTables()) {
                 for (SeaTunnelSink seaTunnelSink : sinks.values()) {
-                    handleSaveMode(seaTunnelSink, isStartWithSavePoint);
+                    handleSaveMode(seaTunnelSink, restoreMode);
                 }
                 return;
             }
@@ -727,7 +729,7 @@ public class JobMaster {
             List<MultiTableFailedTable> failedTables = new ArrayList<>();
             for (Map.Entry<TablePath, SeaTunnelSink> entry : new ArrayList<>(sinks.entrySet())) {
                 try {
-                    handleSaveMode(entry.getValue(), isStartWithSavePoint);
+                    handleSaveMode(entry.getValue(), restoreMode);
                 } catch (RuntimeException error) {
                     MultiTableFailedTable failedTable =
                             MultiTableFailureHelper.buildFailedTable(
