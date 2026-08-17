@@ -141,7 +141,15 @@ public class MultipleTableJobConfigParser {
     @VisibleForTesting
     public MultipleTableJobConfigParser(
             String jobDefineFilePath, IdGenerator idGenerator, JobConfig jobConfig) {
-        this(jobDefineFilePath, idGenerator, jobConfig, Collections.emptyList(), RestoreMode.NONE);
+        this(
+                jobDefineFilePath,
+                null,
+                idGenerator,
+                jobConfig,
+                Collections.emptyList(),
+                RestoreMode.NONE,
+                Collections.emptyList(),
+                new MetadataConfig());
     }
 
     @VisibleForTesting
@@ -166,47 +174,13 @@ public class MultipleTableJobConfigParser {
             boolean isStartWithSavePoint) {
         this(
                 jobDefineFilePath,
-                idGenerator,
-                jobConfig,
-                commonPluginJars,
-                isStartWithSavePoint ? RestoreMode.SAVEPOINT : RestoreMode.NONE);
-    }
-
-    public MultipleTableJobConfigParser(
-            String jobDefineFilePath,
-            IdGenerator idGenerator,
-            JobConfig jobConfig,
-            List<URL> commonPluginJars,
-            RestoreMode restoreMode) {
-        this(
-                jobDefineFilePath,
                 null,
                 idGenerator,
                 jobConfig,
                 commonPluginJars,
-                restoreMode,
+                isStartWithSavePoint ? RestoreMode.SAVEPOINT : RestoreMode.NONE,
                 Collections.emptyList(),
                 new MetadataConfig());
-    }
-
-    public MultipleTableJobConfigParser(
-            String jobDefineFilePath,
-            List<String> variables,
-            IdGenerator idGenerator,
-            JobConfig jobConfig,
-            List<URL> commonPluginJars,
-            boolean isStartWithSavePoint,
-            List<JobPipelineCheckpointData> pipelineCheckpoints,
-            MetadataConfig metaDataConfig) {
-        this(
-                jobDefineFilePath,
-                variables,
-                idGenerator,
-                jobConfig,
-                commonPluginJars,
-                isStartWithSavePoint ? RestoreMode.SAVEPOINT : RestoreMode.NONE,
-                pipelineCheckpoints,
-                metaDataConfig);
     }
 
     public MultipleTableJobConfigParser(
@@ -224,24 +198,6 @@ public class MultipleTableJobConfigParser {
                 jobConfig,
                 commonPluginJars,
                 restoreMode,
-                pipelineCheckpoints,
-                metaDataConfig);
-    }
-
-    public MultipleTableJobConfigParser(
-            Config seaTunnelJobConfig,
-            IdGenerator idGenerator,
-            JobConfig jobConfig,
-            List<URL> commonPluginJars,
-            boolean isStartWithSavePoint,
-            List<JobPipelineCheckpointData> pipelineCheckpoints,
-            MetadataConfig metaDataConfig) {
-        this(
-                seaTunnelJobConfig,
-                idGenerator,
-                jobConfig,
-                commonPluginJars,
-                isStartWithSavePoint ? RestoreMode.SAVEPOINT : RestoreMode.NONE,
                 pipelineCheckpoints,
                 metaDataConfig);
     }
