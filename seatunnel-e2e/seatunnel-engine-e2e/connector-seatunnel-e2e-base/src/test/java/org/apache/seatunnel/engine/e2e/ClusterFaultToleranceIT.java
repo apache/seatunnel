@@ -458,7 +458,6 @@ public class ClusterFaultToleranceIT {
             CompletableFuture<JobStatus> waitForCompletableFuture =
                     CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
 
-            Thread.sleep(5000);
             // shutdown on worker node
             node2.shutdown();
 
@@ -847,7 +846,6 @@ public class ClusterFaultToleranceIT {
                                 Assertions.assertTrue(lineNumberFromDir > 1);
                             });
 
-            Thread.sleep(5000);
             // shutdown all node
             node1.shutdown();
             node2.shutdown();
@@ -855,8 +853,6 @@ public class ClusterFaultToleranceIT {
 
             log.warn(
                     "==========================================All node is done========================================");
-            Thread.sleep(10000);
-
             node1 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
 
             node2 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
@@ -1070,15 +1066,12 @@ public class ClusterFaultToleranceIT {
                                 Assertions.assertTrue(lineNumberFromDir > 1);
                             });
 
-            Thread.sleep(5000);
             // shutdown all node
             node1.shutdown();
             node2.shutdown();
 
             log.info(
                     "==========================================All node is done========================================");
-            Thread.sleep(10000);
-
             node1 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
 
             node2 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);

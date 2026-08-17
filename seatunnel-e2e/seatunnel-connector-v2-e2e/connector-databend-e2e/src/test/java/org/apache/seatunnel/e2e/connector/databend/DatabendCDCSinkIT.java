@@ -184,6 +184,8 @@ public class DatabendCDCSinkIT extends TestSuiteBase implements TestResource {
                                 + " retrying job submission ({}/{})",
                         attempt,
                         MAX_JOB_SUBMIT_ATTEMPTS);
+                // Back off before the next bounded submission attempt while Flink releases the
+                // temporarily unavailable resource.
                 TimeUnit.SECONDS.sleep(JOB_SUBMIT_RETRY_INTERVAL_SECONDS);
             }
         }
@@ -220,13 +222,10 @@ public class DatabendCDCSinkIT extends TestSuiteBase implements TestResource {
 
         this.minioContainer.start();
 
-        LOG.info("MinIO container starting，wait 5 secs ...");
-        Thread.sleep(5000);
-
-        boolean bucketCreated = createMinIOBucketWithAWSSDK("databend");
-        if (!bucketCreated) {
-            LOG.warn("can't make sure MinIO bucket create success，continue to start Databend");
-        }
+        Awaitility.await()
+                .atMost(2, TimeUnit.MINUTES)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .until(() -> createMinIOBucketWithAWSSDK("databend"));
         this.container =
                 new DatabendContainer(DATABEND_DOCKER_IMAGE)
                         .withNetwork(NETWORK)
@@ -343,14 +342,6 @@ public class DatabendCDCSinkIT extends TestSuiteBase implements TestResource {
                 LOG.error("Error closing database connection", e);
             }
         }
-
-        if (minioContainer != null) {
-            minioContainer.stop();
-            LOG.info("Minio container stopped");
-        }
-
-        // Add a longer sleep to ensure all heartbeat threads are properly terminated
-        Thread.sleep(10000);
 
         if (this.container != null) {
             this.container.stop();

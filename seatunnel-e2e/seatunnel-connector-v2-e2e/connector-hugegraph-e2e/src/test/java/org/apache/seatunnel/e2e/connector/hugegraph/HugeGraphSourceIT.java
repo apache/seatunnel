@@ -27,6 +27,7 @@ import org.apache.hugegraph.structure.constant.IdStrategy;
 import org.apache.hugegraph.structure.graph.Edge;
 import org.apache.hugegraph.structure.graph.Vertex;
 
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -42,6 +43,7 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
 public class HugeGraphSourceIT extends TestSuiteBase implements TestResource {
@@ -327,24 +329,11 @@ public class HugeGraphSourceIT extends TestSuiteBase implements TestResource {
     }
 
     private void awaitCondition(Check check, String timeoutMessage) {
-        long deadline = System.currentTimeMillis() + Duration.ofSeconds(30).toMillis();
-        while (System.currentTimeMillis() < deadline) {
-            try {
-                if (check.ok()) {
-                    return;
-                }
-            } catch (Exception ignored) {
-                // HugeGraph metadata/data can be eventually visible right after clear/create.
-            }
-            try {
-                Thread.sleep(1000);
-            } catch (InterruptedException interruptedException) {
-                Thread.currentThread().interrupt();
-                throw new IllegalStateException(
-                        "Interrupted while waiting HugeGraph state", interruptedException);
-            }
-        }
-        throw new IllegalStateException(timeoutMessage);
+        Awaitility.await(timeoutMessage)
+                .atMost(2, TimeUnit.MINUTES)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .ignoreExceptions()
+                .until(check::ok);
     }
 
     @FunctionalInterface

@@ -31,6 +31,7 @@ import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
+import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.Wait;
@@ -100,7 +101,16 @@ public class HdfsFileIT extends TestSuiteBase implements TestResource {
                                         DockerLoggerFactory.getLogger(HADOOP_IMAGE + ":datanode")));
 
         Startables.deepStart(Stream.of(nameNode, dataNode)).join();
-        Thread.sleep(5000);
+        Awaitility.await()
+                .atMost(5, TimeUnit.MINUTES)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .until(
+                        () -> {
+                            Container.ExecResult result =
+                                    nameNode.execInContainer("hdfs", "dfsadmin", "-report");
+                            return result.getExitCode() == 0
+                                    && result.getStdout().contains("Live datanodes (1)");
+                        });
     }
 
     @AfterAll
@@ -264,12 +274,15 @@ public class HdfsFileIT extends TestSuiteBase implements TestResource {
                                         "abc", readHdfsFile("/continuous/dst/test1.bin")));
 
         long firstMtimeSeconds = getHdfsFileMtimeSeconds("/continuous/dst/test1.bin");
-        Thread.sleep(2500);
-        long secondMtimeSeconds = getHdfsFileMtimeSeconds("/continuous/dst/test1.bin");
-        Assertions.assertEquals(
-                firstMtimeSeconds,
-                secondMtimeSeconds,
-                "Continuous discovery should skip unchanged files in update mode.");
+        Awaitility.await()
+                .during(2, TimeUnit.SECONDS)
+                .atMost(1, TimeUnit.MINUTES)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        firstMtimeSeconds,
+                                        getHdfsFileMtimeSeconds("/continuous/dst/test1.bin"),
+                                        "Continuous discovery should skip unchanged files in update mode."));
 
         putHdfsFile("/continuous/src/test2.bin", "def");
         Awaitility.await()
@@ -327,8 +340,13 @@ public class HdfsFileIT extends TestSuiteBase implements TestResource {
                                 Assertions.assertEquals(
                                         "root", readHdfsFile("/continuous/dst/root.bin")));
 
-        Thread.sleep(3000);
-        Assertions.assertFalse(isHdfsFileExists("/continuous/dst/subdir/nested.bin"));
+        Awaitility.await()
+                .during(3, TimeUnit.SECONDS)
+                .atMost(1, TimeUnit.MINUTES)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertFalse(
+                                        isHdfsFileExists("/continuous/dst/subdir/nested.bin")));
 
         cancelContinuousJob(container, jobId, jobFuture);
         nameNode.execInContainer("bash", "-c", "hdfs dfs -rm -r -f /continuous || true");

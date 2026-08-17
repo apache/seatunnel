@@ -39,6 +39,7 @@ import org.apache.paimon.types.DateType;
 import org.apache.paimon.types.TimestampType;
 import org.apache.paimon.utils.DateTimeUtils;
 
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -545,7 +546,6 @@ public class PaimonSinkCDCIT extends AbstractPaimonIT implements TestResource {
                                 throw new SeaTunnelException(e);
                             }
                         }));
-        TimeUnit.SECONDS.sleep(10);
         // dml: insert data
         futures.add(
                 CompletableFuture.runAsync(
@@ -558,8 +558,16 @@ public class PaimonSinkCDCIT extends AbstractPaimonIT implements TestResource {
                                 throw new SeaTunnelException(e);
                             }
                         }));
+        Awaitility.await()
+                .atMost(5, TimeUnit.MINUTES)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        3,
+                                        loadPaimonData("seatunnel_namespace", "st_test_lookup")
+                                                .size()));
         // dml: update and delete data
-        TimeUnit.SECONDS.sleep(10);
         futures.add(
                 CompletableFuture.runAsync(
                         () -> {
@@ -571,13 +579,23 @@ public class PaimonSinkCDCIT extends AbstractPaimonIT implements TestResource {
                                 throw new SeaTunnelException(e);
                             }
                         }));
-        // stream job running 60 seconds
-        TimeUnit.SECONDS.sleep(60);
+        changeLogEnabled = true;
+        Awaitility.await()
+                .atMost(5, TimeUnit.MINUTES)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertEquals(
+                                    8,
+                                    loadPaimonData("seatunnel_namespace", "st_test_sink").size());
+                            Assertions.assertEquals(
+                                    2,
+                                    loadPaimonData("seatunnel_namespace", "st_test_lookup").size());
+                        });
         // cancel stream job
         container.cancelJob(jobIds[1]);
         container.cancelJob(jobIds[2]);
         container.cancelJob(jobIds[0]);
-        changeLogEnabled = true;
         List<PaimonRecord> paimonRecords1 = loadPaimonData("seatunnel_namespace", "st_test_sink");
         List<String> actual1 =
                 paimonRecords1.stream()
@@ -623,12 +641,18 @@ public class PaimonSinkCDCIT extends AbstractPaimonIT implements TestResource {
                                 throw new SeaTunnelException(e);
                             }
                         });
-        // stream job running 20 seconds
-        TimeUnit.SECONDS.sleep(20);
         changeLogEnabled = true;
+        Awaitility.await()
+                .atMost(5, TimeUnit.MINUTES)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        2,
+                                        loadPaimonData("seatunnel_namespace", "st_test_full")
+                                                .size()));
         // cancel stream job
         container.cancelJob(String.valueOf(jobId));
-        TimeUnit.SECONDS.sleep(5);
         List<PaimonRecord> paimonRecords = loadPaimonData("seatunnel_namespace", "st_test_full");
         List<String> actual =
                 paimonRecords.stream()

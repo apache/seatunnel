@@ -47,6 +47,7 @@ public class InMemorySourceReader implements SourceReader<SeaTunnelRow, InMemory
 
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
+        boolean waitingForSplit = false;
         synchronized (output.getCheckpointLock()) {
             InMemorySourceSplit split = sourceSplits.poll();
             if (null != split) {
@@ -57,8 +58,12 @@ public class InMemorySourceReader implements SourceReader<SeaTunnelRow, InMemory
             } else if (noMoreSplit && sourceSplits.isEmpty()) {
                 context.signalNoMoreElement();
             } else {
-                Thread.sleep(1000L);
+                waitingForSplit = true;
             }
+        }
+        if (waitingForSplit) {
+            // Pace the synthetic source without holding the checkpoint lock.
+            Thread.sleep(1000L);
         }
     }
 

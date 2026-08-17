@@ -114,6 +114,8 @@ final class FaultToleranceFakeSourceAssertions {
 
     private static void sleep(long sleepMillis) {
         try {
+            // Pace the bounded custom polling loop so it can measure output stability without
+            // continuously reading the sink directory.
             Thread.sleep(sleepMillis);
         } catch (InterruptedException interruptedException) {
             Thread.currentThread().interrupt();

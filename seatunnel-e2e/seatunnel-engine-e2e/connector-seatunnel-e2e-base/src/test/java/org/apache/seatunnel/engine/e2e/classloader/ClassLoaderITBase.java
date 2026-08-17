@@ -97,7 +97,6 @@ public abstract class ClassLoaderITBase extends SeaTunnelEngineContainer {
                                                             + server.getFirstMappedPort()
                                                             + "/hazelcast/rest/cluster");
                             response.then().statusCode(200);
-                            Thread.sleep(10000);
                             Assertions.assertEquals(
                                     1, response.jsonPath().getList("members").size());
                         });

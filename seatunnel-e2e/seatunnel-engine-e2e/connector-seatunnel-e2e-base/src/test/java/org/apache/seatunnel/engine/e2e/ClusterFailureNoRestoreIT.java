@@ -62,15 +62,8 @@ public class ClusterFailureNoRestoreIT {
      */
     private static final long NO_RESTORE_BATCH_ROW_NUM_PER_PARALLELISM = 20_000L;
 
-    /** Wait for the batch job to enter the steady RUNNING state before shutting a worker down. */
+    /** Wait for the batch job to enter RUNNING before checking observable source progress. */
     private static final long PRE_SHUTDOWN_RUNNING_TIMEOUT_SECONDS = 30L;
-
-    /**
-     * Give the running batch topology a short warm-up window before shutting down a worker. The
-     * LocalFile sink used by this test commits files transactionally, so intermediate file lines
-     * are not a reliable progress signal while the job is still running.
-     */
-    private static final long PRE_SHUTDOWN_RUNNING_GRACE_SECONDS = 5L;
 
     private static final String DYNAMIC_TEST_CASE_NAME = "dynamic_test_case_name";
 
@@ -130,7 +123,21 @@ public class ClusterFailureNoRestoreIT {
                                     Assertions.assertEquals(
                                             JobStatus.RUNNING, clientJobProxy.getJobStatus()));
 
-            TimeUnit.SECONDS.sleep(PRE_SHUTDOWN_RUNNING_GRACE_SECONDS);
+            SeaTunnelClient activeEngineClient = engineClient;
+            Awaitility.await()
+                    .atMost(2, TimeUnit.MINUTES)
+                    .pollInterval(1, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertEquals(
+                                        JobStatus.RUNNING, clientJobProxy.getJobStatus());
+                                Assertions.assertTrue(
+                                        activeEngineClient
+                                                        .getJobMetricsSummary(
+                                                                clientJobProxy.getJobId())
+                                                        .getSourceReadCount()
+                                                > 0L);
+                            });
 
             CompletableFuture<JobResult> waitForCompleteFuture =
                     CompletableFuture.supplyAsync(clientJobProxy::waitForJobCompleteV2);

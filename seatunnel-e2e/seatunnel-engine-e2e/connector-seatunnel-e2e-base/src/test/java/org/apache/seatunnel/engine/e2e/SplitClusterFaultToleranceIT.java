@@ -514,7 +514,6 @@ public class SplitClusterFaultToleranceIT {
             CompletableFuture<JobStatus> objectCompletableFuture =
                     CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
 
-            Thread.sleep(5000);
             // shutdown on worker node
             workerNode1.shutdown();
             Awaitility.await()
@@ -963,7 +962,6 @@ public class SplitClusterFaultToleranceIT {
                                 Assertions.assertTrue(fileLineNumberFromDir > 1);
                             });
 
-            Thread.sleep(5000);
             // shutdown all node
             workerNode1.shutdown();
             workerNode2.shutdown();
@@ -973,7 +971,6 @@ public class SplitClusterFaultToleranceIT {
 
             log.warn(
                     "==========================================All node is done========================================");
-            Thread.sleep(10000);
             masterNode1 = SeaTunnelServerStarter.createMasterHazelcastInstance(masterNode1Config);
 
             masterNode2 = SeaTunnelServerStarter.createMasterHazelcastInstance(masterNode2Config);
@@ -999,8 +996,6 @@ public class SplitClusterFaultToleranceIT {
             ClientJobProxy newClientJobProxy = engineClient.createJobClient().getJobProxy(jobId);
             CompletableFuture<JobStatus> waitForJobCompleteFuture =
                     CompletableFuture.supplyAsync(newClientJobProxy::waitForJobComplete);
-
-            Thread.sleep(10000);
 
             Awaitility.await()
                     .atMost(100000, TimeUnit.MILLISECONDS)

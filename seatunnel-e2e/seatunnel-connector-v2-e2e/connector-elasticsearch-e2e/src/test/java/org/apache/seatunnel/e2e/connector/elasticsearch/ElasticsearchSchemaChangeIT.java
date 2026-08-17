@@ -157,7 +157,16 @@ public class ElasticsearchSchemaChangeIT extends TestSuiteBase implements TestRe
                     }
                 });
 
-        TimeUnit.SECONDS.sleep(20);
+        await().atMost(2, TimeUnit.MINUTES)
+                .ignoreExceptions()
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        9,
+                                        esRestClient
+                                                .getIndexDocsCount("schema_change_index")
+                                                .get(0)
+                                                .getDocsCount()));
         shopDatabase.setTemplateName("add_columns").createAndInitialize();
 
         await().atMost(120, TimeUnit.SECONDS)

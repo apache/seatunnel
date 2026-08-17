@@ -49,6 +49,8 @@ public class InMemorySinkWriter
                         () -> {
                             while (true) {
                                 try {
+                                    // Keep the intentionally leaked thread alive so classloader
+                                    // cleanup tests can detect and handle the leak.
                                     Thread.sleep(1000);
                                     System.out.println(classLoader);
                                 } catch (InterruptedException e) {
@@ -81,6 +83,8 @@ public class InMemorySinkWriter
     public void write(SeaTunnelRow element) throws IOException {
         if (config.get(InMemorySinkFactory.WRITER_SLEEP)) {
             try {
+                // Deliberately block writes for tests that exercise cancellation and timeout
+                // behavior of an unresponsive sink writer.
                 Thread.sleep(999999999L);
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
@@ -102,10 +106,13 @@ public class InMemorySinkWriter
     public Optional<InMemoryCommitInfo> prepareCommit() throws IOException {
         try {
             if (config.get(InMemorySinkFactory.THROW_EXCEPTION)) {
+                // Delay the injected commit failure so fault-tolerance tests reach the intended
+                // lifecycle phase before the exception is raised.
                 Thread.sleep(4000L);
                 throw new IOException("write failed");
             }
             if (config.get(InMemorySinkFactory.CHECKPOINT_SLEEP)) {
+                // Simulate a slow checkpoint commit for checkpoint timeout and coordination tests.
                 Thread.sleep(5000L);
             }
         } catch (InterruptedException e) {

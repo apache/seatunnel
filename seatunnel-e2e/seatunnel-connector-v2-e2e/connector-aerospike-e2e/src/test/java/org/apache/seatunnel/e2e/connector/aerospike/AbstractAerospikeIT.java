@@ -81,12 +81,6 @@ public abstract class AbstractAerospikeIT extends TestSuiteBase implements TestR
 
         container.start();
 
-        try {
-            Thread.sleep(5000);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
-
         ClientPolicy policy = new ClientPolicy();
         policy.timeout = 30000;
         policy.failIfNotConnected = true;

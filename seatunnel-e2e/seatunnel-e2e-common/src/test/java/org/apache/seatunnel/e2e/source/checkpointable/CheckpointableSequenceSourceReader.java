@@ -50,30 +50,32 @@ public class CheckpointableSequenceSourceReader
 
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) throws Exception {
+        long delayMillis = 0L;
         synchronized (output.getCheckpointLock()) {
             CheckpointableSequenceSplit split = activeSplits.poll();
             if (split == null) {
                 if (noMoreSplits) {
                     context.signalNoMoreElement();
                 } else {
-                    Thread.sleep(Math.max(emitIntervalMs, 10L));
+                    delayMillis = Math.max(emitIntervalMs, 10L);
                 }
-                return;
-            }
+            } else {
+                int emitted = 0;
+                while (emitted < recordsPerPoll && split.hasRemaining()) {
+                    output.collect(new SeaTunnelRow(new Object[] {split.advance()}));
+                    emitted++;
+                }
 
-            int emitted = 0;
-            while (emitted < recordsPerPoll && split.hasRemaining()) {
-                output.collect(new SeaTunnelRow(new Object[] {split.advance()}));
-                emitted++;
-            }
+                if (split.hasRemaining()) {
+                    activeSplits.addLast(split);
+                }
 
-            if (split.hasRemaining()) {
-                activeSplits.addLast(split);
+                delayMillis = emitIntervalMs;
             }
-
-            if (emitIntervalMs > 0L) {
-                Thread.sleep(emitIntervalMs);
-            }
+        }
+        if (delayMillis > 0L) {
+            // The delay models source pacing and must not block checkpoint snapshots.
+            Thread.sleep(delayMillis);
         }
     }
 

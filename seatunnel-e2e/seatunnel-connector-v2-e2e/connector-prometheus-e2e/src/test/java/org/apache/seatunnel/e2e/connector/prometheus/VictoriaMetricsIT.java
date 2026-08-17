@@ -27,6 +27,7 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
 
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -45,6 +46,8 @@ import java.net.UnknownHostException;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 
 @Slf4j
@@ -54,8 +57,6 @@ public class VictoriaMetricsIT extends TestSuiteBase implements TestResource {
     private GenericContainer<?> victoriaMetricsContainer;
 
     private static final String HOST = "victoria-metrics-host";
-
-    private static final long INDEX_REFRESH_MILL_DELAY = 30000L;
 
     @BeforeAll
     @Override
@@ -95,26 +96,19 @@ public class VictoriaMetricsIT extends TestSuiteBase implements TestResource {
                 container.executeJob("/victoriaMetrics_remote_write.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
 
-        // waiting  refresh
-        Thread.sleep(INDEX_REFRESH_MILL_DELAY);
-        CloseableHttpClient httpClient = HttpClients.createDefault();
-        HttpGet httpGet =
-                new HttpGet(
-                        "http://"
-                                + victoriaMetricsContainer.getHost()
-                                + ":"
-                                + victoriaMetricsContainer.getMappedPort(8428)
-                                + "/api/v1/query?query=metric_1");
-        CloseableHttpResponse response = httpClient.execute(httpGet);
-        String responseContent = EntityUtils.toString(response.getEntity());
-        List<Metric> metrics =
-                JsonUtils.toList(
-                        JsonPath.read(responseContent, "$.data.result.*").toString(), Metric.class);
+        AtomicReference<List<Metric>> metricsReference = new AtomicReference<>();
+        Awaitility.await()
+                .atMost(2, TimeUnit.MINUTES)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .ignoreExceptions()
+                .untilAsserted(
+                        () -> {
+                            List<Metric> metrics = queryMetrics();
+                            Assertions.assertFalse(metrics.isEmpty());
+                            metricsReference.set(metrics);
+                        });
 
-        Metric metric = metrics.get(0);
-
-        log.info("response:{},metric:{}", responseContent, metrics);
-        Assertions.assertEquals(response.getStatusLine().getStatusCode(), 200);
+        Metric metric = metricsReference.get().get(0);
 
         Assertions.assertEquals(metric.getMetric().get("__name__"), "metric_1");
         Assertions.assertEquals(metric.getValue().get(1), "1.23");
@@ -122,6 +116,27 @@ public class VictoriaMetricsIT extends TestSuiteBase implements TestResource {
         Container.ExecResult execResultForInstant =
                 container.executeJob("/VictoriaMetrics_instant_json_to_assert.conf");
         Assertions.assertEquals(0, execResultForInstant.getExitCode());
+    }
+
+    private List<Metric> queryMetrics() throws IOException {
+        HttpGet httpGet =
+                new HttpGet(
+                        "http://"
+                                + victoriaMetricsContainer.getHost()
+                                + ":"
+                                + victoriaMetricsContainer.getMappedPort(8428)
+                                + "/api/v1/query?query=metric_1");
+        try (CloseableHttpClient httpClient = HttpClients.createDefault();
+                CloseableHttpResponse response = httpClient.execute(httpGet)) {
+            String responseContent = EntityUtils.toString(response.getEntity());
+            Assertions.assertEquals(200, response.getStatusLine().getStatusCode());
+            List<Metric> metrics =
+                    JsonUtils.toList(
+                            JsonPath.read(responseContent, "$.data.result.*").toString(),
+                            Metric.class);
+            log.info("response:{},metric:{}", responseContent, metrics);
+            return metrics;
+        }
     }
 
     @Data

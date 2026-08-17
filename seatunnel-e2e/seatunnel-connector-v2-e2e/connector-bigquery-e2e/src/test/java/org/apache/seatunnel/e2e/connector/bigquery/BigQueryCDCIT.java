@@ -240,12 +240,10 @@ public class BigQueryCDCIT extends AbstractBigqueryIT {
             bigquery.delete(cdcTableId);
             log.info("BigQuery CDC table deleted: {}", cdcTableId);
         }
-        try {
-            initializeBigQueryCDCTable();
-            Thread.sleep(10000);
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
+        initializeBigQueryCDCTable();
+        await().atMost(5, TimeUnit.MINUTES)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .until(() -> bigquery.getTable(cdcTableId) != null);
     }
 
     private Connection getMysqlJdbcConnection() throws SQLException {

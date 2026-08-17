@@ -110,8 +110,20 @@ public class SlotRatioAllocateStrategyIT {
                                     Assertions.assertEquals(
                                             2, finalNode.getCluster().getMembers().size()));
 
-            // Waiting for worker heartbeat registration
-            Thread.sleep(10000);
+            NodeEngineImpl nodeEngine = node1.node.nodeEngine;
+            Address node2Address = node2.node.address;
+            Address node1Address = node1.node.address;
+            SeaTunnelServer server = nodeEngine.getService(SeaTunnelServer.SERVICE_NAME);
+            ResourceManager resourceManager = server.getCoordinatorService().getResourceManager();
+            Awaitility.await()
+                    .atMost(2, TimeUnit.MINUTES)
+                    .pollInterval(1, TimeUnit.SECONDS)
+                    .until(
+                            () ->
+                                    resourceManager.getRegisterWorker().containsKey(node1Address)
+                                            && resourceManager
+                                                    .getRegisterWorker()
+                                                    .containsKey(node2Address));
             Common.setDeployMode(DeployMode.CLIENT);
             JobConfig jobConfig = new JobConfig();
             jobConfig.setName(testCaseName);
@@ -132,14 +144,6 @@ public class SlotRatioAllocateStrategyIT {
                                     jobConfig,
                                     seaTunnelConfig)
                             .execute();
-
-            NodeEngineImpl nodeEngine = node1.node.nodeEngine;
-            Address node2Address = node2.node.address;
-            Address node1Address = node1.node.address;
-
-            // Get the number of occupied slots through resourceManager
-            SeaTunnelServer server = nodeEngine.getService(SeaTunnelServer.SERVICE_NAME);
-            ResourceManager resourceManager = server.getCoordinatorService().getResourceManager();
 
             // SLOT_RATION strategy, the task will eventually occupy 5 slots and will be distributed
             // to two nodes, one node occupies 2 slots and the other occupies 3 slots.

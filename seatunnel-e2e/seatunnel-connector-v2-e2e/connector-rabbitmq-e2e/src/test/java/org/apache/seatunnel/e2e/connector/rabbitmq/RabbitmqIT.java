@@ -216,7 +216,6 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
 
         // send data to source queue before executeJob start in every testContainer
         initSourceData(sourceClient);
-        Thread.sleep(3000);
 
         // init consumer client before executeJob start in every testContainer
         RabbitmqClient sinkRabbitmqClient = getRabbitmqClient(sinkQueueName);
@@ -327,11 +326,6 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
         // We send 10 records to each unique RabbitMQ queue using their respective schemas.
         sendData(queue1, type1, 10);
         sendData(queue2, type2, 10);
-
-        // Wait briefly to ensure all messages are fully persisted and available in the RabbitMQ
-        // broker
-        // before the SeaTunnel job starts consuming.
-        Thread.sleep(5000);
 
         // Execute the SeaTunnel synchronization job.
         // The job uses a multi-table configuration to consume from both queues simultaneously.

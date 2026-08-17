@@ -176,14 +176,11 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
                     }
                     return null;
                 });
-        TimeUnit.SECONDS.sleep(10);
         // insert update delete
         upsertDeleteSourceTable();
-        TimeUnit.SECONDS.sleep(20);
         assertionsSourceAndSink(MONGODB_COLLECTION_1, SINK_SQL_PRODUCTS);
 
         cleanSourceTable();
-        TimeUnit.SECONDS.sleep(20);
         assertionsSourceAndSink(MONGODB_COLLECTION_1, SINK_SQL_PRODUCTS);
     }
 
@@ -201,15 +198,12 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
                     }
                     return null;
                 });
-        TimeUnit.SECONDS.sleep(20);
         // insert update delete
         upsertDeleteSourceTable();
-        TimeUnit.SECONDS.sleep(20);
         assertionsSourceAndSink(MONGODB_COLLECTION_1, SINK_SQL_PRODUCTS);
         assertionsSourceAndSink(MONGODB_COLLECTION_2, SINK_SQL_ORDERS);
 
         cleanSourceTable();
-        TimeUnit.SECONDS.sleep(20);
         assertionsSourceAndSink(MONGODB_COLLECTION_1, SINK_SQL_PRODUCTS);
         assertionsSourceAndSink(MONGODB_COLLECTION_2, SINK_SQL_ORDERS);
 
@@ -232,7 +226,6 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
                 Filters.eq("name", "soap5677"),
                 Updates.set("description", "versatile cleaning essential"));
 
-        TimeUnit.SECONDS.sleep(10);
         assertionsSourceAndSink(MONGODB_COLLECTION_1, SINK_SQL_PRODUCTS);
     }
 
@@ -266,14 +259,11 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
                             return null;
                         });
 
-        TimeUnit.SECONDS.sleep(20);
         assertTaskNotCompletedExceptionally(task1, "products");
         assertTaskNotCompletedExceptionally(task2, "orders");
 
         // insert update delete operations
         upsertDeleteSourceTable();
-
-        TimeUnit.SECONDS.sleep(20);
 
         // Verify both tasks work correctly without cache interference
         assertionsSourceAndSink(MONGODB_COLLECTION_1, SINK_SQL_PRODUCTS);
@@ -283,7 +273,6 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
 
         // Append incremental changes and verify again to ensure CDC continues to work
         appendIncrementalSourceTableData();
-        TimeUnit.SECONDS.sleep(20);
         assertionsSourceAndSink(MONGODB_COLLECTION_1, SINK_SQL_PRODUCTS);
         assertionsSourceAndSink(MONGODB_COLLECTION_2, SINK_SQL_ORDERS);
         assertTaskNotCompletedExceptionally(task1, "products");
@@ -310,11 +299,12 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
                     }
                     return null;
                 });
-        TimeUnit.SECONDS.sleep(10);
+        awaitJobRunning(container, String.valueOf(jobId));
         // insert update delete
         upsertDeleteSourceTable();
-        TimeUnit.SECONDS.sleep(20);
-        await().atMost(2, TimeUnit.MINUTES)
+        await().during(20, TimeUnit.SECONDS)
+                .atMost(2, TimeUnit.MINUTES)
+                .pollInterval(2, TimeUnit.SECONDS)
                 .untilAsserted(
                         () -> {
                             String jobStatus = container.getJobStatus(String.valueOf(jobId));
@@ -349,10 +339,10 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
                     }
                     return null;
                 });
-        TimeUnit.SECONDS.sleep(10);
+        awaitJobRunning(container, jobId);
         upsertDeleteSourceTable();
+        assertionsSourceAndSink(MONGODB_COLLECTION_1, SINK_SQL_PRODUCTS);
         Assertions.assertEquals(0, container.savepointJob(jobId).getExitCode());
-        TimeUnit.SECONDS.sleep(10);
         // restore 1
         CompletableFuture.supplyAsync(
                 () -> {
@@ -364,8 +354,8 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
                     }
                     return null;
                 });
+        awaitJobRunning(container, jobId);
         mongodbContainer.executeCommandFileInDatabase("inventory", MONGODB_DATABASE);
-        TimeUnit.SECONDS.sleep(10);
         // Verify data consistency after recovery
         assertionsSourceAndSink(MONGODB_COLLECTION_1, SINK_SQL_PRODUCTS);
     }
@@ -391,18 +381,13 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
                     }
                     return null;
                 });
-
-        TimeUnit.SECONDS.sleep(10);
+        awaitJobRunning(container, jobId);
 
         upsertDeleteSourceTable();
-
-        TimeUnit.SECONDS.sleep(20);
-
         assertionsSourceAndSink(MONGODB_COLLECTION_1, SINK_SQL_PRODUCTS);
 
         // savepoint
         Assertions.assertEquals(0, container.savepointJob(jobId).getExitCode());
-        TimeUnit.SECONDS.sleep(5);
 
         // modify resume token
         modifyResumeTokenInCheckpoint(jobId, container);
@@ -418,13 +403,8 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
                     }
                     return null;
                 });
-
-        TimeUnit.SECONDS.sleep(30);
-
+        awaitJobRunning(container, jobId);
         mongodbContainer.executeCommandFileInDatabase("inventory", MONGODB_DATABASE);
-
-        TimeUnit.SECONDS.sleep(20);
-
         assertionsSourceAndSink(MONGODB_COLLECTION_1, SINK_SQL_PRODUCTS);
     }
 
@@ -703,6 +683,13 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
                             taskName),
                     cause);
         }
+    }
+
+    private void awaitJobRunning(TestContainer container, String jobId) {
+        await().atMost(5, TimeUnit.MINUTES)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> Assertions.assertEquals("RUNNING", container.getJobStatus(jobId)));
     }
 
     public void initConnection() {

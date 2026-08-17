@@ -497,7 +497,6 @@ public class ClusterFaultToleranceTwoPipelineIT {
             CompletableFuture<JobStatus> objectCompletableFuture =
                     CompletableFuture.supplyAsync(() -> clientJobProxy.waitForJobComplete());
 
-            Thread.sleep(5000);
             // shutdown on worker node
             node2.shutdown();
 

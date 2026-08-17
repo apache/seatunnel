@@ -110,9 +110,13 @@ public class CheckpointEnableIT extends TestSuiteBase {
                             }
                         });
 
-        // wait obtain job id
-        Thread.sleep(15000);
-        Assertions.assertTrue(container.getServerLogs().contains("checkpoint is enabled"));
+        await().atMost(5, TimeUnit.MINUTES)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertTrue(
+                                        container
+                                                .getServerLogs()
+                                                .contains("checkpoint is enabled")));
         Assertions.assertEquals(0, container.savepointJob(String.valueOf(jobId)).getExitCode());
         Assertions.assertEquals(0, startFuture.get().getExitCode());
         // restore job
@@ -164,8 +168,13 @@ public class CheckpointEnableIT extends TestSuiteBase {
                     }
                 });
 
-        Thread.sleep(15000);
-        Assertions.assertTrue(container.getServerLogs().contains("checkpoint is enabled"));
+        await().atMost(5, TimeUnit.MINUTES)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertTrue(
+                                        container
+                                                .getServerLogs()
+                                                .contains("checkpoint is enabled")));
         Assertions.assertEquals(0, container.savepointJob(String.valueOf(jobId)).getExitCode());
 
         // restore job
