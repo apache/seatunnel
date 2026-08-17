@@ -29,7 +29,23 @@ concurrency:
 
 jobs:
   build:
-    if: github.repository == 'apache/seatunnel'
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      - name: Build Spark E2E images
+        working-directory: seatunnel-e2e/seatunnel-e2e-common/src/test/docker/spark
+        run: docker buildx bake
+
+  publish:
+    if: github.event_name == 'workflow_dispatch' && github.repository == 'apache/seatunnel'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -37,7 +53,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Log in to Docker Hub
-        if: github.event_name == 'workflow_dispatch'
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USER }}
@@ -46,6 +61,6 @@ jobs:
         uses: docker/setup-qemu-action@v3
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-      - name: Build Spark E2E images
+      - name: Build and push Spark E2E images
         working-directory: seatunnel-e2e/seatunnel-e2e-common/src/test/docker/spark
-        run: docker buildx bake ${{ github.event_name == 'workflow_dispatch' && '--push' || '' }}
+        run: docker buildx bake --push
