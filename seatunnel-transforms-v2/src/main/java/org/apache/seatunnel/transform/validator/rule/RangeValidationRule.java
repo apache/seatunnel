@@ -69,23 +69,38 @@ public class RangeValidationRule implements ValidationRule {
         Comparable min = minValue;
         Comparable max = maxValue;
 
-        // Normalize numeric values to BigDecimal before comparison. The field value can be a
+        // Normalize numeric values before comparison so that Comparable.compareTo never hits a
+        // type mismatch, regardless of how the bounds were written. The field value can be a
         // BigDecimal (from a DECIMAL column) while the bounds parsed by
         // DataValidatorTransformConfig.parseComparable are Integer/Long/Double, and comparing
         // BigDecimal with Integer via Comparable.compareTo throws ClassCastException.
         //
-        // Non-finite floating point values (NaN, +/-Infinity) cannot be represented as
-        // BigDecimal (new BigDecimal("NaN") throws NumberFormatException), so they are left on
-        // the original Comparable path. There Double.compareTo / Float.compareTo handle them
-        // gracefully (non-finite values sort greater than every finite value), so such rows are
-        // rejected as out of range instead of crashing the whole task.
-        if (value instanceof Number && isFinite((Number) value)) {
-            comparableValue = new BigDecimal(value.toString());
-            if (min instanceof Number) {
-                min = new BigDecimal(min.toString());
-            }
-            if (max instanceof Number) {
-                max = new BigDecimal(max.toString());
+        // - Finite numbers are normalized to BigDecimal, which lets a BigDecimal field compare
+        //   cleanly against Integer/Long/Double bounds.
+        // - Non-finite floating point values (NaN, +/-Infinity) cannot be represented as
+        //   BigDecimal (new BigDecimal("NaN") throws NumberFormatException). They are normalized
+        //   to Double together with any numeric bounds, so Double.compareTo handles them the same
+        //   way whether the bound was parsed as Integer, Long or Double. Double's natural
+        //   ordering places non-finite values beyond every finite value, so such rows are
+        //   rejected as out of range instead of crashing the whole task.
+        if (value instanceof Number) {
+            Number numberValue = (Number) value;
+            if (isFinite(numberValue)) {
+                comparableValue = new BigDecimal(numberValue.toString());
+                if (min instanceof Number) {
+                    min = new BigDecimal(min.toString());
+                }
+                if (max instanceof Number) {
+                    max = new BigDecimal(max.toString());
+                }
+            } else {
+                comparableValue = numberValue.doubleValue();
+                if (min instanceof Number) {
+                    min = ((Number) min).doubleValue();
+                }
+                if (max instanceof Number) {
+                    max = ((Number) max).doubleValue();
+                }
             }
         }
 

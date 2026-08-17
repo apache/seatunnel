@@ -255,4 +255,26 @@ public class DataValidatorTransformTest {
 
         assertEquals("db1.ffp", result.getTableId());
     }
+
+    @Test
+    void rangeRuleShouldRouteNonFiniteDoubleToErrorTableWithIntegerBounds() {
+        // min_value/max_value written as integer literals are parsed as Integer (see
+        // DataValidatorTransformConfig.parseComparable). A non-finite Double (NaN/Infinity) must
+        // be normalized to Double together with those integer bounds; otherwise
+        // Double.compareTo(Integer) throws ClassCastException.
+        SeaTunnelRowType inputRowType =
+                new SeaTunnelRowType(
+                        new String[] {"amount"}, new SeaTunnelDataType[] {BasicType.DOUBLE_TYPE});
+        CatalogTable inputCatalogTable =
+                CatalogTableUtil.getCatalogTable("catalog", "db1", null, "source", inputRowType);
+
+        DataValidatorTransform transform =
+                new DataValidatorTransform(rangeRuleConfig("0", "100", true), inputCatalogTable);
+
+        SeaTunnelRow nanRow = new SeaTunnelRow(new Object[] {Double.NaN});
+        assertEquals("db1.ffp", transform.map(nanRow).getTableId());
+
+        SeaTunnelRow infinityRow = new SeaTunnelRow(new Object[] {Double.POSITIVE_INFINITY});
+        assertEquals("db1.ffp", transform.map(infinityRow).getTableId());
+    }
 }
