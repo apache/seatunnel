@@ -108,7 +108,8 @@ SeaTunnel Hudi sink 会写入 Hudi 数据文件和 `.hoodie` 元数据，但不�
 
 ### batch_interval_ms [Int]
 
-`batch_interval_ms` 两次刷新到 Hudi 的最大时间间隔，单位为毫秒。
+`batch_interval_ms` 为兼容性保留。在 Zeta 上需要定时刷新时，请在作业 `env` 中配置
+`sink.flush.interval`。
 
 ### batch_size [Int]
 
@@ -153,6 +154,22 @@ SeaTunnel Hudi sink 会写入 Hudi 数据文件和 `.hoodie` 元数据，但不�
 ### 通用选项
 
 Sink插件通用参数，请参考 [Sink Common Options](../common-options/sink-common-options.md) 了解详细信息。
+
+## 定时刷新
+
+定时刷新是仅由 Zeta 支持的引擎级能力。在作业的 `env` 中配置 `sink.flush.interval` 后，即使尚未达到
+`batch_size`，Hudi Sink 也会写出待处理的记录。Spark 和 Flink 不会注入 `FlushSignal`，因此不会触发这种
+定时刷新。
+
+```hocon
+env {
+  sink.flush.interval = 5000
+}
+```
+
+Hudi 定时刷新复用连接器现有的同步批量刷新和 Hudi 客户端 auto-commit 行为。Hudi Sink 没有 2PC 精确一次
+写入器，因此定时刷新提供的是至少一次语义，重试可能产生额外的 commit。使用 `INSERT` 时，自动生成的
+record key 还可能在恢复后产生重复行；使用具有稳定 `record_key_fields` 的 `UPSERT` 可以减少逻辑记录重复。
 
 ## 示例
 

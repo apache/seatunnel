@@ -158,11 +158,15 @@ public class NumericFunctionTest {
 
     @Test
     public void testCeilFloorRoundAndTrunc() {
-        Assertions.assertEquals(2, NumericFunction.ceil(Arrays.asList(1.2d)));
-        Assertions.assertEquals(-1, NumericFunction.ceil(Arrays.asList(-1.8d)));
+        // CEIL/FLOOR return the type of their argument, so a DOUBLE argument yields a DOUBLE
+        Assertions.assertEquals(2d, NumericFunction.ceil(Arrays.asList(1.2d)));
+        Assertions.assertEquals(-1d, NumericFunction.ceil(Arrays.asList(-1.8d)));
 
-        Assertions.assertEquals(1, NumericFunction.floor(Arrays.asList(1.8d)));
-        Assertions.assertEquals(-2, NumericFunction.floor(Arrays.asList(-1.2d)));
+        Assertions.assertEquals(1d, NumericFunction.floor(Arrays.asList(1.8d)));
+        Assertions.assertEquals(-2d, NumericFunction.floor(Arrays.asList(-1.2d)));
+
+        Assertions.assertEquals(2, NumericFunction.ceil(Arrays.asList(2)));
+        Assertions.assertEquals(2L, NumericFunction.floor(Arrays.asList(2L)));
 
         Assertions.assertEquals(3L, NumericFunction.round(Arrays.asList(2.6d)).longValue());
         Assertions.assertEquals(2L, NumericFunction.round(Arrays.asList(2.4d)).longValue());

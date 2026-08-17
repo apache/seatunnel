@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnsEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableCommentEvent;
 import org.apache.seatunnel.api.table.schema.event.RestoreTableSchemaEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.schema.handler.TableSchemaChangeEventDispatcher;
@@ -185,7 +186,7 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
                                     changeAfterSchema,
                                     changeBefore.getOptions(),
                                     changeBefore.getPartitionKeys(),
-                                    changeBefore.getComment());
+                                    getChangeAfterTableComment(changeBefore, event));
                     event.setChangeAfter(changeAfter);
 
                     changeBefore = changeAfter;
@@ -201,7 +202,7 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
                                 changeAfterSchema,
                                 changeBefore.getOptions(),
                                 changeBefore.getPartitionKeys(),
-                                changeBefore.getComment());
+                                getChangeAfterTableComment(changeBefore, schemaChangeEvent));
             }
             tables.set(i, changeAfter);
             schemaChangeEvent.setChangeAfter(changeAfter);
@@ -220,6 +221,14 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
                 createTableRowConverters(
                         tables, metadataConverters, serverTimeZone, userDefinedConverterFactory);
         collector.collect(schemaChangeEvent);
+    }
+
+    private String getChangeAfterTableComment(
+            CatalogTable changeBefore, SchemaChangeEvent schemaChangeEvent) {
+        if (schemaChangeEvent instanceof AlterTableCommentEvent) {
+            return ((AlterTableCommentEvent) schemaChangeEvent).getNewComment();
+        }
+        return changeBefore.getComment();
     }
 
     private void deserializeDataChangeRecord(SourceRecord record, Collector<SeaTunnelRow> collector)

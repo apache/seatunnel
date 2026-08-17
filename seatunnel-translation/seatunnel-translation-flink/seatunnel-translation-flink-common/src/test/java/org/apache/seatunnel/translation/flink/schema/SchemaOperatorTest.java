@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.schema.SchemaChangeType;
 import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableCommentEvent;
 import org.apache.seatunnel.api.table.schema.event.RestoreTableSchemaEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.schema.exception.SchemaCoordinationException;
@@ -204,6 +205,28 @@ public class SchemaOperatorTest {
         assertTrue(pendingQueue.peek().isSchemaChange);
     }
 
+    @Test
+    void testCommentEventIsSupportedSchemaChange() throws Exception {
+        OperatorTestContext context =
+                createOperator(
+                        Collections.singletonList(SchemaChangeType.ALTER_TABLE_COMMENT), false);
+        AlterTableCommentEvent event =
+                AlterTableCommentEvent.of(
+                        TableIdentifier.of("catalog", "database", "table"),
+                        "old comment",
+                        "new comment");
+        SeaTunnelRow row = createDataRow("row-after-comment-change");
+
+        context.operator.processElement(new StreamRecord<>(createSchemaRow(event), 400L));
+        context.operator.processElement(new StreamRecord<>(row, 401L));
+        context.operator.notifyCheckpointComplete(40L);
+        context.operator.notifyCheckpointComplete(41L);
+
+        assertEquals(2, context.output.records.size());
+        assertSchemaBroadcast(context.output.records.get(0), event);
+        assertEquals(row, context.output.records.get(1).getValue());
+    }
+
     /**
      * Verifies that {@link SchemaOperator#handleFallbackTimerOnTaskThread()} correctly respects the
      * checkpoint-completion safety fence even when called from a stall-detection timer.
@@ -285,6 +308,11 @@ public class SchemaOperatorTest {
     }
 
     private static OperatorTestContext createOperator(
+            List<SchemaChangeType> supportedTypes, boolean restored) throws Exception {
+        return createOperator(new OperatorStateStoreStub(), restored, supportedTypes);
+    }
+
+    private static OperatorTestContext createOperator(
             OperatorStateStoreStub stateStore,
             boolean restored,
             List<SchemaChangeType> supportedTypes)
@@ -352,9 +380,9 @@ public class SchemaOperatorTest {
     }
 
     private static void assertSchemaBroadcast(
-            StreamRecord<SeaTunnelRow> record, AlterTableAddColumnEvent event) {
+            StreamRecord<SeaTunnelRow> record, SchemaChangeEvent event) {
         Object broadcastEvent = record.getValue().getOptions().get("schema_change_broadcast");
-        assertInstanceOf(AlterTableAddColumnEvent.class, broadcastEvent);
+        assertInstanceOf(event.getClass(), broadcastEvent);
         assertEquals(event, broadcastEvent);
     }
 

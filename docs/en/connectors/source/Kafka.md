@@ -711,6 +711,8 @@ Note: the `key` field in NATIVE format is base64-encoded bytes.
 
 Kafka Source supports: `json`, `text`, `canal_json`, `debezium_json`, `ogg_json`, `avro`, `protobuf`, and `NATIVE`. Use `NATIVE` when you need access to Kafka-level metadata (headers, key, partition, timestamp) as part of the record.
 
+`format = avro` expects raw Avro-encoded messages. Unlike `protobuf` (see [Protobuf with Schema Registry wire format](#protobuf-with-schema-registry-wire-format)), there is no `strip_schema_registry_header`-equivalent option for `avro`: if a topic was produced by a Confluent `KafkaAvroSerializer` and its messages carry the Confluent Schema Registry wire-format header (magic byte + schema id), `format = avro` does not strip that header before deserializing, so reading will fail or produce corrupted data. `avro_schema` only supplies the writer schema for plain (non-registry) Avro messages.
+
 ### How do I configure SASL/Kerberos authentication?
 
 Pass authentication settings via `kafka.*` properties in the connector configuration:
