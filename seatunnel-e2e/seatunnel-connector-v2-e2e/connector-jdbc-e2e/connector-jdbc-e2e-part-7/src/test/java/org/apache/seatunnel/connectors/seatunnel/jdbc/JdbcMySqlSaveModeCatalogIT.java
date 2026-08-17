@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
-
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TablePath;
@@ -67,10 +65,11 @@ public class JdbcMySqlSaveModeCatalogIT extends TestSuiteBase implements TestRes
 
     private static final String MYSQL_USERNAME = "root";
     private static final String MYSQL_PASSWORD = "Abc!@#135_seatunnel";
-    private static final int MYSQL_PORT = 3308;
+    private static final int MYSQL_CONTAINER_PORT = 3306;
     private static final String TABLE_COMMENT = "test table's \\ comment";
 
     private MySQLContainer<?> mysql_container;
+    private JdbcUrlUtil.UrlInfo mysqlUrlInfo;
 
     private static final String CREATE_TABLE_SQL =
             "CREATE TABLE IF NOT EXISTS mysql_auto_create\n"
@@ -143,14 +142,12 @@ public class JdbcMySqlSaveModeCatalogIT extends TestSuiteBase implements TestRes
                         .withDatabaseName(MYSQL_DATABASE)
                         .withNetwork(NETWORK)
                         .withNetworkAliases(MYSQL_CONTAINER_HOST)
-                        .withExposedPorts(MYSQL_PORT)
+                        .withExposedPorts(MYSQL_CONTAINER_PORT)
                         .waitingFor(Wait.forHealthcheck())
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(MYSQL_IMAGE)));
-        mysql_container.setPortBindings(
-                Lists.newArrayList(String.format("%s:%s", MYSQL_PORT, 3306)));
-
         Startables.deepStart(Stream.of(mysql_container)).join();
+        mysqlUrlInfo = JdbcUrlUtil.getUrlInfo(mysql_container.getJdbcUrl());
     }
 
     @Override
@@ -165,15 +162,12 @@ public class JdbcMySqlSaveModeCatalogIT extends TestSuiteBase implements TestRes
         initializeJdbcTable();
     }
 
-    static JdbcUrlUtil.UrlInfo MysqlUrlInfo =
-            JdbcUrlUtil.getUrlInfo("jdbc:mysql://localhost:3308/auto?useSSL=false");
-
     @Test
     public void testCatalog() throws SQLException {
         TablePath tablePathMySql = TablePath.of("auto", "mysql_auto_create");
         TablePath tablePathMySqlSink = TablePath.of("auto", "mysql_auto_create_sink");
         MySqlCatalog mySqlCatalog =
-                new MySqlCatalog("mysql", "root", MYSQL_PASSWORD, MysqlUrlInfo, null);
+                new MySqlCatalog("mysql", "root", MYSQL_PASSWORD, mysqlUrlInfo, null);
         mySqlCatalog.open();
         CatalogTable catalogTable = mySqlCatalog.getTable(tablePathMySql);
         // source table comment

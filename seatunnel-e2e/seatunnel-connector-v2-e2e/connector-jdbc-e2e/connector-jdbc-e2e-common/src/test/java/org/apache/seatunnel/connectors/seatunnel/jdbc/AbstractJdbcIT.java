@@ -315,6 +315,7 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
         Startables.deepStart(Stream.of(dbServer)).join();
 
         jdbcCase = getJdbcCase();
+        updateJdbcCaseWithMappedPort();
         beforeStartUP();
         given().ignoreExceptions()
                 .await()
@@ -329,6 +330,16 @@ public abstract class AbstractJdbcIT extends TestSuiteBase implements TestResour
 
     // before startUp For example, create a user
     protected void beforeStartUP() {}
+
+    protected void updateJdbcCaseWithMappedPort() {
+        if (jdbcCase.getPort() <= 0 || jdbcCase.getLocalPort() <= 0) {
+            return;
+        }
+        int mappedPort = dbServer.getMappedPort(jdbcCase.getPort());
+        jdbcCase.setJdbcUrl(
+                jdbcCase.getJdbcUrl().replace(":" + jdbcCase.getLocalPort(), ":" + mappedPort));
+        jdbcCase.setLocalPort(mappedPort);
+    }
 
     @AfterAll
     @Override

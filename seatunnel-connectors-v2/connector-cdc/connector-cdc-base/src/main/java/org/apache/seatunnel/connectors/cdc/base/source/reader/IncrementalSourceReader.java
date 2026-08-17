@@ -167,13 +167,18 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
     protected void onSplitFinished(Map<String, SourceSplitStateBase> finishedSplitIds) {
         for (SourceSplitStateBase splitState : finishedSplitIds.values()) {
             SourceSplitBase sourceSplit = splitState.toSourceSplit();
-            checkState(
-                    sourceSplit.isSnapshotSplit()
-                            && sourceSplit.asSnapshotSplit().isSnapshotReadFinished(),
-                    String.format(
-                            "Only snapshot split could finish, but the actual split is incremental split %s",
-                            sourceSplit));
-            finishedUnackedSplits.put(sourceSplit.splitId(), sourceSplit.asSnapshotSplit());
+            if (sourceSplit.isSnapshotSplit()) {
+                checkState(
+                        sourceSplit.asSnapshotSplit().isSnapshotReadFinished(),
+                        String.format(
+                                "Snapshot split should be finished, but the actual split is %s",
+                                sourceSplit));
+                finishedUnackedSplits.put(sourceSplit.splitId(), sourceSplit.asSnapshotSplit());
+            } else {
+                log.info(
+                        "Incremental split {} has finished (bounded read completed).",
+                        sourceSplit.splitId());
+            }
         }
         reportFinishedSnapshotSplitsIfNeed();
         context.sendSplitRequest();
