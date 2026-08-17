@@ -105,6 +105,11 @@ dropped.
 > checkpoint interval rather than held until `batch_size` or close. For lower latency between
 > checkpoints on Spark or Flink, tune `batch_size` accordingly.
 
+The checkpoint flush runs on all engines, including Zeta. So on Zeta the buffer is flushed by both
+`sink.flush.interval` and each checkpoint: if the checkpoint interval is shorter than
+`sink.flush.interval`, flushes happen more often (in smaller batches) than the timer alone. This is
+expected; tune `sink.flush.interval` and the checkpoint interval together if request cadence matters.
+
 ## Example
 
 ```hocon
