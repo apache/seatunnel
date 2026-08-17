@@ -120,8 +120,15 @@ public class PrometheusWriter extends HttpSinkWriter {
         // (registerFlushAction) keeps the Context's no-op default, so without this the buffer would
         // only be sent on batch_size and on close(). Flushing on checkpoint bounds the buffered
         // window to one checkpoint interval on every engine, matching the sibling FlushSignal sinks
-        // (Doris, ClickHouse, Elasticsearch, StarRocks, MongoDB). flush() throws on failure, so a
-        // failed checkpoint flush fails the checkpoint instead of silently dropping the batch.
+        // (Doris, ClickHouse, Elasticsearch, StarRocks, MongoDB), which flush their buffer here for
+        // the non-2PC case and return Optional.empty(). Prometheus remote-write is not
+        // transactional, so there is no commit info to return.
+        //
+        // flush() throws on failure, so a failed checkpoint flush fails the checkpoint instead of
+        // silently dropping the batch. On restart the source replays from the last successful
+        // checkpoint and re-sends the buffered samples. That is safe because Prometheus
+        // remote-write is an idempotent upsert keyed by (labels, timestamp), so replaying an
+        // identical sample is a no-op rather than a duplicate.
         flush();
         return Optional.empty();
     }
