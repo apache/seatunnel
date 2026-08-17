@@ -41,7 +41,6 @@ import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Duration;
-import java.util.Collections;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
@@ -236,8 +235,6 @@ public class HiveIT extends TestSuiteBase implements TestResource {
                         .withCreateContainerCmdModifier(cmd -> cmd.withName(HMS_HOST))
                         .withNetwork(NETWORK)
                         .withNetworkAliases(HMS_HOST);
-        hmsContainer.setPortBindings(Collections.singletonList("9083:9083"));
-
         Startables.deepStart(Stream.of(hmsContainer)).join();
         log.info("HMS just started");
 
@@ -254,8 +251,6 @@ public class HiveIT extends TestSuiteBase implements TestResource {
                                         + " -Dmetastore.warehouse.dir=/opt/hive/data/warehouse")
                         .withEnv("IS_RESUME", "true")
                         .dependsOn(hmsContainer);
-        hiveServerContainer.setPortBindings(Collections.singletonList("10000:10000"));
-
         Startables.deepStart(Stream.of(hiveServerContainer)).join();
         log.info("HiveServer2 just started");
         given().ignoreExceptions()
