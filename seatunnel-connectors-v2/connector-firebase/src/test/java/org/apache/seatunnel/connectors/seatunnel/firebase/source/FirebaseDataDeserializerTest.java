@@ -27,6 +27,8 @@ import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.nio.charset.StandardCharsets;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
@@ -51,7 +53,7 @@ public class FirebaseDataDeserializerTest {
     void testDeserializeSingleRecordJson() throws Exception {
         String jsonPayload = "{\"name\": \"john doe\", \"age\": 22, \"active\": true}";
 
-        SeaTunnelRow row = deserializer.deserialize(jsonPayload.getBytes());
+        SeaTunnelRow row = deserializer.deserialize(jsonPayload.getBytes(StandardCharsets.UTF_8));
 
         assertNotNull(row);
         assertEquals("john doe", row.getField(0));
@@ -64,11 +66,20 @@ public class FirebaseDataDeserializerTest {
         // Sparse JSON record (active missing)
         String jsonPayload = "{\"name\": \"my name\", \"age\": 30}";
 
-        SeaTunnelRow row = deserializer.deserialize(jsonPayload.getBytes());
+        SeaTunnelRow row = deserializer.deserialize(jsonPayload.getBytes(StandardCharsets.UTF_8));
 
         assertNotNull(row);
         assertEquals("my name", row.getField(0));
         assertEquals(30, row.getField(1));
         assertEquals(null, row.getField(2)); // Missing fields map gracefully to null
+    }
+
+    @Test
+    void testDeserializeNonAsciiJsonRow() throws Exception {
+        String jsonPayload = "{\"name\":\"اسم عربي\" , \"age\": 44,\"active\":true}";
+        SeaTunnelRow row = deserializer.deserialize(jsonPayload.getBytes(StandardCharsets.UTF_8));
+
+        assertNotNull(row);
+        assertEquals("اسم عربي", row.getField(0));
     }
 }

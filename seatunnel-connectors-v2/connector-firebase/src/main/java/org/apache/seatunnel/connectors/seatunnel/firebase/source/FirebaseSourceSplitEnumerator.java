@@ -58,10 +58,11 @@ public class FirebaseSourceSplitEnumerator
             FirebaseSourceState state) {
         this(context, config);
         if (state != null) {
-            this.pendingSplits.addAll(state.getPendingSplits());
-            this.assignedSplitIds.addAll(state.getAssignedSplitIds());
-            // Restored state already has discovery complete
-            this.discoveryDone = true;
+            synchronized (this) {
+                this.pendingSplits.addAll(state.getPendingSplits());
+                this.assignedSplitIds.addAll(state.getAssignedSplitIds());
+                this.discoveryDone = true;
+            }
         }
     }
 
@@ -82,10 +83,12 @@ public class FirebaseSourceSplitEnumerator
     @Override
     public void run() throws Exception {
         log.info("FirebaseSourceSplitEnumerator run()");
-        if (!pendingSplits.isEmpty() || !assignedSplitIds.isEmpty()) {
-            this.discoveryDone = true;
-            assignSplits();
-            return;
+        synchronized (this) {
+            if (!pendingSplits.isEmpty() || !assignedSplitIds.isEmpty()) {
+                this.discoveryDone = true;
+                assignSplits();
+                return;
+            }
         }
         String basePath = config.get(FirebaseSourceOptions.PATH);
         List<FirebaseSourceSplit> generatedSplits = new ArrayList<>();
@@ -110,20 +113,22 @@ public class FirebaseSourceSplitEnumerator
                     e.getMessage());
             generatedSplits.add(createSinglePathSplit(basePath));
         }
-        pendingSplits.addAll(generatedSplits);
-        log.info("pending Splits : {}", pendingSplits.toString());
-        this.discoveryDone = true;
-        assignSplits();
+        synchronized (this) {
+            pendingSplits.addAll(generatedSplits);
+            log.info("pending Splits : {}", pendingSplits);
+            this.discoveryDone = true;
+            assignSplits();
+        }
     }
 
     @Override
-    public void registerReader(int subtaskId) {
+    public synchronized void registerReader(int subtaskId) {
         log.info("Reader subtask [{}] registered.", subtaskId);
         assignSplits();
     }
 
     @Override
-    public FirebaseSourceState snapshotState(long checkpointId) throws Exception {
+    public synchronized FirebaseSourceState snapshotState(long checkpointId) throws Exception {
         return new FirebaseSourceState(
                 new HashSet<>(pendingSplits), new HashSet<>(assignedSplitIds));
     }
@@ -134,7 +139,7 @@ public class FirebaseSourceSplitEnumerator
     }
 
     @Override
-    public void addSplitsBack(List<FirebaseSourceSplit> splits, int subtaskId) {
+    public synchronized void addSplitsBack(List<FirebaseSourceSplit> splits, int subtaskId) {
         if (splits == null || splits.isEmpty()) {
             return;
         }
@@ -150,12 +155,12 @@ public class FirebaseSourceSplitEnumerator
     }
 
     @Override
-    public int currentUnassignedSplitSize() {
+    public synchronized int currentUnassignedSplitSize() {
         return pendingSplits.size();
     }
 
     @Override
-    public void handleSplitRequest(int subtaskId) {
+    public synchronized void handleSplitRequest(int subtaskId) {
         assignSplits();
     }
 
@@ -183,7 +188,7 @@ public class FirebaseSourceSplitEnumerator
     }
 
     /** Assigns pending splits to available reader subtasks idempotently. */
-    private synchronized void assignSplits() {
+    private void assignSplits() {
         Set<Integer> registeredReaders = context.registeredReaders();
         if (registeredReaders.isEmpty()) {
             return;

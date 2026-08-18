@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.firebase.source;
 
-import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
@@ -33,6 +32,8 @@ import org.apache.seatunnel.format.json.JsonDeserializationSchema;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -116,7 +117,6 @@ public class FirebaseSourceReader implements SourceReader<SeaTunnelRow, Firebase
 
         if (keys != null && !keys.isEmpty()) {
             Map<String, Object> reconstructedMap = new LinkedHashMap<>();
-            boolean containsChildRecordObjects = false;
 
             for (String key : keys) {
                 String jsonPayload = httpClient.fetchNodeData(key);
@@ -133,7 +133,6 @@ public class FirebaseSourceReader implements SourceReader<SeaTunnelRow, Firebase
                             reconstructedMap.put(key, trimmedPayload);
                         }
                     } else if (trimmedPayload.startsWith("{") || trimmedPayload.startsWith("[")) {
-                        containsChildRecordObjects = true;
                         processJsonPayload(trimmedPayload, output);
                     } else {
                         reconstructedMap.put(key, trimmedPayload);
@@ -141,7 +140,7 @@ public class FirebaseSourceReader implements SourceReader<SeaTunnelRow, Firebase
                 }
             }
 
-            if (!containsChildRecordObjects && !reconstructedMap.isEmpty()) {
+            if (!reconstructedMap.isEmpty()) {
                 String singleRowJson = OBJECT_MAPPER.writeValueAsString(reconstructedMap);
                 emitJsonRecord(singleRowJson, output);
             }
@@ -166,35 +165,55 @@ public class FirebaseSourceReader implements SourceReader<SeaTunnelRow, Firebase
     /** Helper method that consistently handles single records, record maps, and JSON arrays. */
     private void processJsonPayload(String jsonPayload, Collector<SeaTunnelRow> output)
             throws Exception {
-        if (jsonPayload == null || jsonPayload.trim().equals("null")) {
+        if (jsonPayload == null || jsonPayload.trim().equalsIgnoreCase("null")) {
             return;
         }
         String trimmed = jsonPayload.trim();
-        if (trimmed.startsWith("{")) {
-            Map<String, Object> recordMap =
-                    OBJECT_MAPPER.readValue(trimmed, new TypeReference<Map<String, Object>>() {});
-            if (isSingleRecordObject(recordMap)) {
-                emitJsonRecord(trimmed, output);
-            } else {
-                for (Object value : recordMap.values()) {
-                    if (value != null) {
-                        String recordJson = OBJECT_MAPPER.writeValueAsString(value);
-                        emitJsonRecord(recordJson, output);
+
+        if (!trimmed.startsWith("{") && !trimmed.startsWith("[")) {
+            throw new SeaTunnelException("Unexpected JSON payload format from Firebase");
+        }
+
+        // Work queue to store objects (Maps, Lists) pending evaluation
+        Queue<Object> workQueue = new ArrayDeque<>();
+
+        // Parse initial payload once into Java Map/List
+        Object initialParsed = OBJECT_MAPPER.readValue(trimmed, Object.class);
+        workQueue.add(initialParsed);
+
+        while (!workQueue.isEmpty()) {
+            Object current = workQueue.poll();
+            if (current == null) {
+                continue;
+            }
+
+            if (current instanceof Map) {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> recordMap = (Map<String, Object>) current;
+
+                if (isSingleRecordObject(recordMap)) {
+                    // Base Case: It's a single database row -> emit it
+                    String recordJson = OBJECT_MAPPER.writeValueAsString(recordMap);
+                    emitJsonRecord(recordJson, output);
+                } else {
+                    // Recursive Case 1: Un-nest child values into queue
+                    for (Object childValue : recordMap.values()) {
+                        if (childValue != null) {
+                            workQueue.add(childValue);
+                        }
+                    }
+                }
+            } else if (current instanceof List) {
+                // Recursive Case 2: Un-nest array elements into queue
+                @SuppressWarnings("unchecked")
+                List<Object> recordList = (List<Object>) current;
+
+                for (Object item : recordList) {
+                    if (item != null) {
+                        workQueue.add(item);
                     }
                 }
             }
-        } else if (trimmed.startsWith("[")) {
-            List<Object> recordList =
-                    OBJECT_MAPPER.readValue(trimmed, new TypeReference<List<Object>>() {});
-            for (Object value : recordList) {
-                if (value != null) {
-                    String recordJson = OBJECT_MAPPER.writeValueAsString(value);
-                    emitJsonRecord(recordJson, output);
-                }
-            }
-        } else {
-            throw new SeaTunnelException(
-                    "Unexpected JSON payload format from Firebase: " + jsonPayload);
         }
     }
 
@@ -218,7 +237,8 @@ public class FirebaseSourceReader implements SourceReader<SeaTunnelRow, Firebase
     private void emitJsonRecord(String jsonRecord, Collector<SeaTunnelRow> output)
             throws IOException {
         if (jsonRecord != null && !jsonRecord.trim().equals("null")) {
-            SeaTunnelRow row = deserializationSchema.deserialize(jsonRecord.getBytes());
+            SeaTunnelRow row =
+                    deserializationSchema.deserialize(jsonRecord.getBytes(StandardCharsets.UTF_8));
             if (row != null) {
                 output.collect(row);
             }

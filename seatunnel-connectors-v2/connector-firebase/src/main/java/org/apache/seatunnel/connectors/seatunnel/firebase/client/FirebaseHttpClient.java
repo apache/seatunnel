@@ -35,9 +35,11 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.UnsupportedEncodingException;
 import java.net.HttpURLConnection;
 import java.net.URI;
 import java.net.URL;
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -50,9 +52,10 @@ import java.util.concurrent.locks.ReentrantLock;
 @Slf4j
 public class FirebaseHttpClient {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private static final int MAX_ERROR_BODY_BYTES = 4096;
     private final String baseUrl;
     private final String path;
-    private final long timeoutMs;
+    private final int timeoutMs;
     private final Map<String, String> extraQueryParams;
     private static final List<String> FIREBASE_SCOPES =
             Arrays.asList(
@@ -87,19 +90,22 @@ public class FirebaseHttpClient {
      * /<path>.json?shallow=true
      */
     public List<String> fetchShallowKeys() {
-        String endpointUrl = buildUrl(this.path, "shallow=true");
+        String endpointUrl = buildUrl(this.path, "shallow=true", false);
         String jsonResponse = executeGet(endpointUrl);
         if (jsonResponse == null || jsonResponse.trim().equals("null")) {
             return Collections.emptyList();
         }
+        String trimmed = jsonResponse.trim();
+        if (!trimmed.startsWith("{")) {
+            return Collections.emptyList();
+        }
+
         try {
             Map<String, Boolean> keysMap =
-                    OBJECT_MAPPER.readValue(
-                            jsonResponse, new TypeReference<Map<String, Boolean>>() {});
+                    OBJECT_MAPPER.readValue(trimmed, new TypeReference<Map<String, Boolean>>() {});
             return new ArrayList<>(keysMap.keySet());
         } catch (Exception e) {
-            throw new SeaTunnelException(
-                    "Failed to parse shallow keys from Firebase response: " + jsonResponse, e);
+            throw new SeaTunnelException("Failed to parse shallow keys from Firebase response", e);
         }
     }
 
@@ -111,16 +117,16 @@ public class FirebaseHttpClient {
         String targetPath =
                 nodeKey == null || nodeKey.isEmpty() ? this.path : this.path + "/" + nodeKey;
 
-        String endpointUrl = buildUrl(targetPath, null);
+        String endpointUrl = buildUrl(targetPath, null, true);
         return executeGet(endpointUrl);
     }
 
     /** Constructs a full REST URL with .json extension and query string parameters. */
-    private String buildUrl(String subPath, String extraQueryParam) {
+    private String buildUrl(String subPath, String extraQueryParam, boolean includeExtraParams) {
         StringBuilder urlBuilder = new StringBuilder(baseUrl);
-        if (!subPath.isEmpty()) {
-            urlBuilder.append("/").append(subPath);
-        }
+        String cleanSubPath = subPath == null ? "" : subPath.replaceAll("^/+|/+$", "");
+        urlBuilder.append("/").append(cleanSubPath);
+
         urlBuilder.append(".json");
 
         List<String> queryParts = new ArrayList<>();
@@ -129,17 +135,30 @@ public class FirebaseHttpClient {
         }
 
         if (databaseSecret != null && !databaseSecret.isEmpty()) {
-            queryParts.add("auth=" + databaseSecret);
+            queryParts.add("auth=" + encodeUriComponent(databaseSecret));
         }
 
-        for (Map.Entry<String, String> entry : extraQueryParams.entrySet()) {
-            queryParts.add(entry.getKey() + "=" + entry.getValue());
+        if (includeExtraParams) {
+            for (Map.Entry<String, String> entry : extraQueryParams.entrySet()) {
+                String key = entry.getKey();
+                String value = entry.getValue();
+
+                if ("orderBy".equals(key)
+                        || "equalTo".equals(key)
+                        || "startAt".equals(key)
+                        || "endAt".equals(key)) {
+                    if (!value.startsWith("\"")) {
+                        value = "\"" + value + "\"";
+                    }
+                }
+
+                queryParts.add(encodeUriComponent(key) + "=" + encodeUriComponent(value));
+            }
         }
 
         if (!queryParts.isEmpty()) {
             urlBuilder.append("?").append(String.join("&", queryParts));
         }
-
         return urlBuilder.toString();
     }
 
@@ -147,11 +166,17 @@ public class FirebaseHttpClient {
     private String executeGet(String urlStr) {
         HttpURLConnection connection = null;
         try {
-            URL url = URI.create(urlStr).toURL();
+            URL url;
+            try {
+                url = URI.create(urlStr).toURL();
+            } catch (IllegalArgumentException e) {
+                throw new SeaTunnelException(
+                        "Invalid Firebase REST URI constructed. Check parameter formatting.");
+            }
             connection = (HttpURLConnection) url.openConnection();
             connection.setRequestMethod("GET");
-            connection.setConnectTimeout((int) timeoutMs);
-            connection.setReadTimeout((int) timeoutMs);
+            connection.setConnectTimeout(timeoutMs);
+            connection.setReadTimeout(timeoutMs);
             connection.setRequestProperty("Accept", "application/json");
             connection.setInstanceFollowRedirects(true);
 
@@ -175,9 +200,11 @@ public class FirebaseHttpClient {
                     return responseBuilder.toString();
                 }
             } else {
+                String rawErrorBody = readErrorStream(connection);
                 throw new SeaTunnelException(
                         String.format(
-                                "Firebase HTTP request failed with status code %d", responseCode));
+                                "Firebase HTTP request failed with status code %d. Response body: %s",
+                                responseCode, rawErrorBody.isEmpty() ? "N/A" : rawErrorBody));
             }
         } catch (IOException e) {
             throw new SeaTunnelException("Failed to execute HTTP request to Firebase endpoint", e);
@@ -185,6 +212,45 @@ public class FirebaseHttpClient {
             if (connection != null) {
                 connection.disconnect();
             }
+        }
+    }
+
+    private String encodeUriComponent(String value) {
+        try {
+            return URLEncoder.encode(value, StandardCharsets.UTF_8.name())
+                    .replaceAll("\\+", "%20"); // Handle space encoding for URIs
+        } catch (UnsupportedEncodingException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private String readErrorStream(HttpURLConnection connection) {
+        InputStream errorStream = connection.getErrorStream();
+        if (errorStream == null) {
+            return "";
+        }
+        try (BufferedReader reader =
+                new BufferedReader(new InputStreamReader(errorStream, StandardCharsets.UTF_8))) {
+            StringBuilder builder = new StringBuilder();
+            char[] buffer = new char[1024];
+            int bytesRead;
+            int totalRead = 0;
+            while ((bytesRead =
+                            reader.read(
+                                    buffer,
+                                    0,
+                                    Math.min(buffer.length, MAX_ERROR_BODY_BYTES - totalRead)))
+                    != -1) {
+                builder.append(buffer, 0, bytesRead);
+                totalRead += bytesRead;
+                if (totalRead >= MAX_ERROR_BODY_BYTES) {
+                    break;
+                }
+            }
+            return builder.toString().trim();
+        } catch (IOException e) {
+            log.warn("Failed to read error stream from Firebase HTTP connection", e);
+            return "";
         }
     }
 

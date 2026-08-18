@@ -26,6 +26,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
@@ -33,8 +34,16 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.any;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.eq;
@@ -45,11 +54,18 @@ import static org.mockito.Mockito.when;
 class FirebaseSourceSplitEnumeratorTest {
     private SourceSplitEnumerator.Context<FirebaseSourceSplit> mockContext;
     private FirebaseHttpClient mockHttpClient;
+    private ReadonlyConfig config;
 
     @BeforeEach
     void setUp() {
         mockContext = mock(SourceSplitEnumerator.Context.class);
         mockHttpClient = mock(FirebaseHttpClient.class);
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put(FirebaseSourceOptions.PATH.key(), "users");
+        configMap.put(FirebaseSourceOptions.URL.key(), "https://test-db.firebaseio.com");
+        config = ReadonlyConfig.fromMap(configMap);
+
+        when(mockContext.currentParallelism()).thenReturn(2);
     }
 
     @Test
@@ -225,5 +241,69 @@ class FirebaseSourceSplitEnumeratorTest {
         // 7. Assertion: Reader 1 MUST receive NO_MORE_SPLITS signal despite pendingSplits being
         // empty
         verify(mockContext).signalNoMoreSplits(eq(1));
+    }
+
+    @Test
+    void testConcurrentStateAccessDoesNotThrowException() throws Exception {
+        FirebaseSourceSplitEnumerator enumerator =
+                new FirebaseSourceSplitEnumerator(mockContext, config, mockHttpClient);
+
+        int iterations = 1000;
+        int numThreads = 3;
+        ExecutorService executor = Executors.newFixedThreadPool(numThreads);
+        CountDownLatch startLatch = new CountDownLatch(1);
+
+        List<Future<?>> futures = new ArrayList<>();
+
+        // Thread 1: Simulates checkpointing thread calling snapshotState()
+        futures.add(
+                executor.submit(
+                        () -> {
+                            startLatch.await();
+                            for (int i = 0; i < iterations; i++) {
+                                FirebaseSourceState state = enumerator.snapshotState(i);
+                                assertNotNull(state);
+                            }
+                            return null;
+                        }));
+
+        // Thread 2: Simulates failover/retry thread calling addSplitsBack()
+        futures.add(
+                executor.submit(
+                        () -> {
+                            startLatch.await();
+                            for (int i = 0; i < iterations; i++) {
+                                FirebaseSourceSplit split =
+                                        new FirebaseSourceSplit("split_concurrent_" + i, "users");
+                                enumerator.addSplitsBack(Collections.singletonList(split), 0);
+                            }
+                            return null;
+                        }));
+
+        // Thread 3: Simulates Hazelcast operation thread registering readers & requesting splits
+        futures.add(
+                executor.submit(
+                        () -> {
+                            startLatch.await();
+                            for (int i = 0; i < iterations; i++) {
+                                int subtaskId = i % 2;
+                                enumerator.registerReader(subtaskId);
+                                enumerator.handleSplitRequest(subtaskId);
+                            }
+                            return null;
+                        }));
+
+        // Release all threads simultaneously to create maximum contention
+        startLatch.countDown();
+
+        // Verify that none of the threads threw a ConcurrentModificationException
+        for (Future<?> future : futures) {
+            assertDoesNotThrow(
+                    () -> future.get(10, TimeUnit.SECONDS),
+                    "Thread execution threw an exception due to a race condition or lock missing");
+        }
+
+        executor.shutdown();
+        assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS));
     }
 }

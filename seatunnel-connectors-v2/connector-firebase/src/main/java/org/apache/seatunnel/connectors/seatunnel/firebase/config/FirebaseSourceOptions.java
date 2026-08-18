@@ -51,11 +51,12 @@ public class FirebaseSourceOptions {
                     .noDefaultValue()
                     .withDescription("Legacy Firebase database secret key or Web API token.");
 
-    public static final Option<Long> TIMEOUT_MS =
+    public static final Option<Integer> TIMEOUT_MS =
             Options.key("timeout_ms")
-                    .longType()
-                    .defaultValue(10000L)
-                    .withDescription("HTTP request timeout in milliseconds.");
+                    .intType()
+                    .defaultValue(10000)
+                    .withDescription(
+                            "HTTP connection and read timeout in milliseconds (must be > 0).");
 
     public static final Option<Map<String, String>> QUERY_PARAMS =
             Options.key("query_params")
