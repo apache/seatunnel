@@ -223,6 +223,20 @@ class PulsarSourceTest {
         Assertions.assertDoesNotThrow(() -> SerializationUtils.serialize(source));
     }
 
+    @Test
+    void shouldConstructSourceWithTextFormat() {
+        Map<String, Object> config = createBaseConfig("NEVER");
+        config.put("topic", "persistent://public/default/orders");
+        config.put("format", "text");
+        config.put("field_delimiter", ",");
+
+        Assertions.assertDoesNotThrow(
+                () ->
+                        new PulsarSource(
+                                ReadonlyConfig.fromMap(config),
+                                CatalogTableUtil.buildSimpleTextTable()));
+    }
+
     private Map<String, Object> createBaseConfig(String stopMode) {
         Map<String, Object> config = new HashMap<>();
         config.put("subscription.name", "seatunnel-sub");

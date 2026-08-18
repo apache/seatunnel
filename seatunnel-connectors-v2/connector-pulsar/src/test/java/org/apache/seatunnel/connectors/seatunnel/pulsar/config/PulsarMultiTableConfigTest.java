@@ -283,6 +283,36 @@ class PulsarMultiTableConfigTest {
         Assertions.assertEquals("AVRO", multiTableConfig.getTableConfigs().get(0).getFormat());
     }
 
+    @Test
+    void shouldAllowTextFormatInSingleTable() {
+        Map<String, Object> config = createBaseConfig();
+        config.put("topic", "persistent://public/default/orders");
+        config.put("format", "text");
+        config.put("field_delimiter", ",");
+
+        PulsarMultiTableConfig multiTableConfig =
+                PulsarMultiTableConfig.of(ReadonlyConfig.fromMap(config));
+
+        Assertions.assertFalse(multiTableConfig.isMultiTable());
+        Assertions.assertEquals("text", multiTableConfig.getTableConfigs().get(0).getFormat());
+    }
+
+    @Test
+    void shouldRejectTextFormatInMultiTable() {
+        Map<String, Object> config = createBaseConfig();
+        Map<String, Object> tableConfig =
+                createTableConfig("db.orders", "persistent://public/default/orders", null, "text");
+        config.put("tables_configs", Collections.singletonList(tableConfig));
+
+        PulsarConnectorException exception =
+                Assertions.assertThrows(
+                        PulsarConnectorException.class,
+                        () -> PulsarMultiTableConfig.of(ReadonlyConfig.fromMap(config)));
+
+        Assertions.assertTrue(
+                exception.getMessage().contains("unsupported format 'text' in multi-table mode"));
+    }
+
     private Map<String, Object> createBaseConfig() {
         Map<String, Object> config = new HashMap<>();
         config.put("subscription.name", "seatunnel-sub");

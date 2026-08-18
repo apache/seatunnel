@@ -200,7 +200,10 @@ public class PulsarSource
                     new PulsarConsumerMetadata(
                             tablePath,
                             catalogTable,
-                            createDeserialization(tableConfig, catalogTable),
+                            createDeserialization(
+                                    tableConfig.getFormat(),
+                                    catalogTable,
+                                    tableConfig.getSchemaConfig()),
                             createDiscoverer(tableConfig),
                             createStartCursor(tableConfig),
                             createStopCursor(tableConfig),
@@ -263,8 +266,7 @@ public class PulsarSource
     }
 
     private DeserializationSchema<SeaTunnelRow> createDeserialization(
-            PulsarTableConfig tableConfig, CatalogTable catalogTable) {
-        String format = tableConfig.getFormat();
+            String format, CatalogTable catalogTable, ReadonlyConfig config) {
         switch (format.toUpperCase()) {
             case "JSON":
                 return new JsonDeserializationSchema(
@@ -279,11 +281,7 @@ public class PulsarSource
             case "TEXT":
                 return TextDeserializationSchema.builder()
                         .seaTunnelRowType(catalogTable.getSeaTunnelRowType())
-                        .delimiter(
-                                tableConfig
-                                        .getSchemaConfig()
-                                        .get(PulsarSourceOptions.FIELD_DELIMITER))
-                        .setCatalogTable(catalogTable)
+                        .delimiter(config.get(PulsarSourceOptions.FIELD_DELIMITER))
                         .build();
             default:
                 throw new SeaTunnelJsonFormatException(
