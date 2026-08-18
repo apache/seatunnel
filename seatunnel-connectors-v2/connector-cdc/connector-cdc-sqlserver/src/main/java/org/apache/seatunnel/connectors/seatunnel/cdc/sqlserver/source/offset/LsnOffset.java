@@ -95,4 +95,9 @@ public class LsnOffset extends Offset {
                 prime * result + ((getEventSerialNo() == null) ? 0 : getEventSerialNo().hashCode());
         return result;
     }
+
+    @Override
+    public boolean isNeverStop() {
+        return NO_STOPPING_OFFSET.equals(this);
+    }
 }

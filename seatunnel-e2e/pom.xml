@@ -32,6 +32,7 @@
         <module>seatunnel-engine-e2e</module>
         <module>seatunnel-transforms-v2-e2e</module>
         <module>seatunnel-core-e2e</module>
+        <module>seatunnel-edge-agent-e2e</module>
     </modules>
 
     <properties>

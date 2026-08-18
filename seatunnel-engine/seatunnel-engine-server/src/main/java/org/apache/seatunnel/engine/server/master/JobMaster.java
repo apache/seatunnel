@@ -331,7 +331,9 @@ public class JobMaster {
         this.checkpointManager =
                 new CheckpointManager(
                         jobImmutableInformation.getJobId(),
-                        jobImmutableInformation.isStartWithSavePoint() || restart,
+                        jobImmutableInformation.isRestoreJob() || restart,
+                        jobImmutableInformation.getRestoreMode(),
+                        jobImmutableInformation.getRestoreSourceJobId(),
                         nodeEngine,
                         this,
                         checkpointPlanMap,
@@ -339,6 +341,7 @@ public class JobMaster {
                         checkpointStorage,
                         executorService,
                         runningJobStateIMap,
+                        seaTunnelServer.getEngineContext(),
                         seaTunnelServer.getCheckpointMonitorService());
     }
 
@@ -355,7 +358,7 @@ public class JobMaster {
                 jobCheckpointConfig != null && jobCheckpointConfig.isCheckpointEnable();
         boolean startWithSavePoint =
                 jobImmutableInformation != null
-                        && (jobImmutableInformation.isStartWithSavePoint() || restart);
+                        && (jobImmutableInformation.isRestoreJob() || restart);
 
         if (checkpointEnabled && startWithSavePoint) {
             throw new IllegalStateException(
@@ -436,6 +439,8 @@ public class JobMaster {
         jobCheckpointConfig.setCheckpointTimeout(defaultCheckpointConfig.getCheckpointTimeout());
         jobCheckpointConfig.setCheckpointInterval(defaultCheckpointConfig.getCheckpointInterval());
         jobCheckpointConfig.setCheckpointMinPause(defaultCheckpointConfig.getCheckpointMinPause());
+        jobCheckpointConfig.setRetainAfterJobCancelled(
+                defaultCheckpointConfig.isRetainAfterJobCancelled());
 
         CheckpointStorageConfig jobCheckpointStorageConfig = new CheckpointStorageConfig();
         jobCheckpointStorageConfig.setStorage(defaultCheckpointConfig.getStorage().getStorage());
@@ -464,6 +469,12 @@ public class JobMaster {
             jobCheckpointConfig.setCheckpointMinPause(
                     Long.parseLong(
                             jobEnv.get(EnvCommonOptions.CHECKPOINT_MIN_PAUSE.key()).toString()));
+        }
+        if (jobEnv.containsKey(EnvCommonOptions.CHECKPOINT_RETAIN_AFTER_JOB_CANCELLED.key())) {
+            jobCheckpointConfig.setRetainAfterJobCancelled(
+                    Boolean.parseBoolean(
+                            jobEnv.get(EnvCommonOptions.CHECKPOINT_RETAIN_AFTER_JOB_CANCELLED.key())
+                                    .toString()));
         }
         return jobCheckpointConfig;
     }
@@ -1113,8 +1124,11 @@ public class JobMaster {
                 PipelineStatus.FINISHED.equals(pipelineStatus)
                         && checkpointManager != null
                         && checkpointManager.isPipelineSavePointEnd(pipelineLocation);
+        // Failed pipelines also need cleanup so their distributed metrics do not leak into later
+        // task recovery or re-submission flows.
         boolean shouldCleanup =
-                PipelineStatus.CANCELED.equals(pipelineStatus)
+                PipelineStatus.FAILED.equals(pipelineStatus)
+                        || PipelineStatus.CANCELED.equals(pipelineStatus)
                         || (PipelineStatus.FINISHED.equals(pipelineStatus) && !savepointEnd);
         if (!shouldCleanup) {
             return;
@@ -1171,7 +1185,8 @@ public class JobMaster {
 
     public void removeMetricsContext(
             PipelineLocation pipelineLocation, PipelineStatus pipelineStatus) {
-        if ((pipelineStatus.equals(PipelineStatus.FINISHED)
+        if (pipelineStatus.equals(PipelineStatus.FAILED)
+                || (pipelineStatus.equals(PipelineStatus.FINISHED)
                         && !checkpointManager.isPipelineSavePointEnd(pipelineLocation))
                 || pipelineStatus.equals(PipelineStatus.CANCELED)) {
 

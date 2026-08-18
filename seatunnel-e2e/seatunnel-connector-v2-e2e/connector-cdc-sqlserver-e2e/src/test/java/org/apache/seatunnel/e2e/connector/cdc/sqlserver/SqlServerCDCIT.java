@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.e2e.connector.cdc.sqlserver;
 
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
-
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfigFactory;
 import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.config.SqlServerSourceConfigFactory;
@@ -45,7 +43,9 @@ import org.testcontainers.containers.MSSQLServerContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
+import org.testcontainers.utility.MountableFile;
 
+import com.microsoft.sqlserver.jdbc.SQLServerDriver;
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.TableId;
 import lombok.extern.slf4j.Slf4j;
@@ -53,6 +53,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.IOException;
 import java.net.URL;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -195,27 +196,44 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
                             new Slf4jLogConsumer(
                                     DockerLoggerFactory.getLogger("sqlserver-docker-image")));
 
-    private String driverUrl() {
-        return "https://repo1.maven.org/maven2/com/microsoft/sqlserver/mssql-jdbc/9.4.1.jre8/mssql-jdbc-9.4.1.jre8.jar";
+    /**
+     * Resolve the SQLServer JDBC test dependency from the active test classpath instead of
+     * hard-coding a Maven local repository path.
+     */
+    private Path driverJarPath() {
+        try {
+            return Paths.get(
+                    SQLServerDriver.class
+                            .getProtectionDomain()
+                            .getCodeSource()
+                            .getLocation()
+                            .toURI());
+        } catch (Exception e) {
+            throw new SeaTunnelException(
+                    "Failed to resolve SQLServer JDBC driver jar from the test classpath", e);
+        }
     }
 
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
             container -> {
+                Path driverJarPath = driverJarPath();
+                Assertions.assertTrue(
+                        Files.isRegularFile(driverJarPath),
+                        "SQLServer JDBC driver should be resolved from the test classpath before E2E runs: "
+                                + driverJarPath);
                 Container.ExecResult extraCommands =
                         container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/SqlServer-CDC/lib && cd /tmp/seatunnel/plugins/SqlServer-CDC/lib && wget "
-                                        + driverUrl());
+                                "bash", "-c", "mkdir -p /tmp/seatunnel/plugins/SqlServer-CDC/lib");
                 Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
+                container.copyFileToContainer(
+                        MountableFile.forHostPath(driverJarPath),
+                        "/tmp/seatunnel/plugins/SqlServer-CDC/lib/mssql-jdbc-9.4.1.jre8.jar");
             };
 
     @Override
     @BeforeAll
     public void startUp() throws Exception {
-        MSSQL_SERVER_CONTAINER.setPortBindings(
-                Lists.newArrayList(String.format("%s:%s", PORT, PORT)));
         log.info("Starting containers...");
         Startables.deepStart(Stream.of(MSSQL_SERVER_CONTAINER)).join();
         log.info("Containers are started.");
@@ -559,7 +577,7 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
         JdbcSourceConfigFactory factory =
                 new SqlServerSourceConfigFactory()
                         .hostname(MSSQL_SERVER_CONTAINER.getHost())
-                        .port(PORT)
+                        .port(MSSQL_SERVER_CONTAINER.getMappedPort(PORT))
                         .username("sa")
                         .password("Password!")
                         .databaseList(DATABASE_NAME);

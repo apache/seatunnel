@@ -17,5 +17,32 @@
 
 package org.apache.seatunnel.engine.server.common.statestore;
 
+import org.apache.seatunnel.engine.server.common.statestore.counter.CounterStateStore;
+
+import java.util.Objects;
+
 /** Default immutable implementation of {@link AuthoritativeStateStores}. */
-public class DefaultAuthoritativeStateStores implements AuthoritativeStateStores {}
+public class DefaultAuthoritativeStateStores implements AuthoritativeStateStores {
+
+    private final CounterStateStore<String> checkpointCounterStore;
+    private final CounterStateStore<String> errorHandlerCounterStore;
+
+    public DefaultAuthoritativeStateStores(
+            CounterStateStore<String> checkpointCounterStore,
+            CounterStateStore<String> errorHandlerCounterStore) {
+        this.checkpointCounterStore =
+                Objects.requireNonNull(checkpointCounterStore, "checkpointCounterStore");
+        this.errorHandlerCounterStore =
+                Objects.requireNonNull(errorHandlerCounterStore, "errorHandlerCounterStore");
+    }
+
+    @Override
+    public CounterStateStore<String> checkpointCounterStore() {
+        return checkpointCounterStore;
+    }
+
+    @Override
+    public CounterStateStore<String> errorHandlerCounterStore() {
+        return errorHandlerCounterStore;
+    }
+}
