@@ -52,6 +52,7 @@
         <module>connector-elasticsearch</module>
         <module>connector-iotdb</module>
         <module>connector-iotdb-v2</module>
+        <module>connector-nebulagraph</module>
         <module>connector-neo4j</module>
         <module>connector-redis</module>
         <module>connector-datahub</module>

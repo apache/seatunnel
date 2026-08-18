@@ -74,6 +74,7 @@ connector-kudu
 connector-maxcompute
 connector-couchbase
 connector-mongodb
+connector-nebulagraph
 connector-neo4j
 connector-openmldb
 connector-pulsar
