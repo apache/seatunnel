@@ -50,6 +50,7 @@ public class CopyFieldTransformFactory implements TableTransformFactory {
                 .optional(CopyTransformConfig.DEST_FIELD)
                 .optional(TransformCommonOptions.MULTI_TABLES)
                 .optional(TransformCommonOptions.TABLE_MATCH_REGEX)
+                .optional(TransformCommonOptions.RULE_MATCH_MODE)
                 .build();
     }
 

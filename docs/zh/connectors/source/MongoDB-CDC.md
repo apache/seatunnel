@@ -27,21 +27,21 @@ MongoDB CDC连接器允许从MongoDB数据库读取快照数据和增量数据�
 为了使用Mongodb CDC连接器，需要以下依赖关系。
 它们可以通过install-plugin.sh或Maven中央存储库下载。
 
-| 数据源 | 支持的版本 | Dependency                                                                                |
-|------------|--------------------|-------------------------------------------------------------------------------------------|
-| MongoDB    | universal          | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-cdc-mongodb) |
+| 数据源 | 支持的版本 | 依赖                                                                                  |
+|--------|------------|---------------------------------------------------------------------------------------|
+| MongoDB | universal | [下载](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-cdc-mongodb) |
 
 ## 可用性设置
 
-1.MongoDB版本：MongoDB版本>=4.0。
+1. MongoDB 版本：MongoDB 版本 >= 4.0。
 
-2.集群部署：副本集或分片集群。
+2. 集群部署：副本集或分片集群。
 
-3.存储引擎：WiredTiger存储引擎。
+3. 存储引擎：WiredTiger 存储引擎。
 
-4.权限：更改流和读取
+4. 权限：`changeStream` 和 `read`。
 
-```
+```javascript
 // 1) 切换到目标数据库
 use <DB_NAME>
 
@@ -112,25 +112,26 @@ db.grantRolesToUser("<USER_NAME>", ["<ROLE_NAME>"])
 
 ## 源配置项
 
-| Name                               | 类型   | 必须 | 默认值 | 描述                                                                                    |
-|------------------------------------|--------|----------|-------|---------------------------------------------------------------------------------------|
-| hosts                              | String | 是      | -     | MongoDB服务器的主机名和端口对的逗号分隔列表，也可以是使用 `mongodb://` 或 `mongodb+srv://` 的标准 MongoDB 连接 URI。如 `localhost:27017,localhost:27018` 或 `mongodb+srv://cluster.example.net`                         |
-| username                           | String | 否       | -     | 连接到MongoDB时要使用的数据库用户的名称。                                                              |
-| password                           | String | 否       | -     | 连接到MongoDB时使用的密码。                                                                     |
-| database                           | List   | 是      | -     | 要监视更改的数据库的名称。如果未设置，则将捕获所有数据库。该数据库还支持正则表达式，以监视与正则表达式匹配的多个数据库。例如db1、db2。                |
-| collection                         | List   | 是      | -     | 要监视更改的数据库中集合的名称。如果未设置，则将捕获所有集合。该集合还支持正则表达式来监视与完全限定的集合标识符匹配的多个集合。例如db1.coll1、db2.coll2。 |
-| schema                             |        | 否       | -     | 数据的结构，包括字段名和字段类型，使用单表cdc。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。                                                             |
-| tables_configs                     |        | 否       | -     | 数据的结构，包括字段名和字段类型，使用多表cdc。                                                             |
-| connection.options                 | String | 否       | -     | 与号分隔了MongoDB的连接选项。如。 `replicaSet=test&connectTimeoutMS=300000`.                       |
-| batch.size                         | Long   | 否       | 1024  | 批量大小。                                                                                 |
-| poll.max.batch.size                | Enum   | 否       | 1024  | 轮询新数据时，单个批中包含的更改流文档的最大数量。                                                             |
-| poll.await.time.ms                 | Long   | 否       | 1000  | 在检查更改流上的新结果之前等待的时间量。                                                                  |
-| heartbeat.interval.ms              | String | 否       | 0     | 发送心跳消息之间的时间长度（毫秒）。使用0禁用。                                                              |
-| incremental.snapshot.chunk.size.mb | Long   | 否       | 64    | 增量快照的块大小（mb）。                                                                         |
-| startup.mode                       | Enum   | 否       | INITIAL | MongoDB CDC 消费者的可选启动模式，有效枚举为 `initial`、`latest` 和 `timestamp`。详见下方[启动模式](#启动模式)章节。      |
-| startup.timestamp                  | Long   | 否       | -     | 从指定的纪元时间戳（毫秒）开始消费。仅在 `startup.mode` 为 `timestamp` 时使用。                                  |
-| exactly_once                       | Boolean| 否       | false | 启用精确一次语义，若开启在大表快照阶段恢复时会有内存溢出风险。                                                       |
-| common-options                     |        | 否       | -     | 源插件常用参数，请参考 [Source Common Options](../common-options/source-common-options.md)                      |
+| 名称                               | 类型    | 必填 | 默认值  | 描述                                                                                                                       |
+|------------------------------------|---------|------|---------|----------------------------------------------------------------------------------------------------------------------------|
+| hosts                              | String  | 是   | -       | MongoDB 服务器的主机名和端口列表，也可以是使用 `mongodb://` 或 `mongodb+srv://` 的标准 MongoDB 连接 URI。例如：`localhost:27017,localhost:27018` 或 `mongodb+srv://cluster.example.net`。 |
+| username                           | String  | 否   | -       | 连接 MongoDB 时使用的数据库用户名。仅在 MongoDB 开启认证时需要。                                                            |
+| password                           | String  | 否   | -       | 连接 MongoDB 时使用的密码。仅在 MongoDB 开启认证时需要。                                                                    |
+| database                           | List    | 是   | -       | 要监听的数据库名称，支持正则表达式，例如 `["inventory"]` 或 `["db.*"]`。                                                    |
+| collection                         | List    | 是   | -       | 要监听的集合名称，建议使用完整的 `database.collection` 格式，例如 `["inventory.products", "inventory.orders"]`，支持正则表达式。 |
+| schema                             | Config  | 否   | -       | 单集合的 Schema 配置，包含字段名、字段类型和可选主键。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。 |
+| tables_configs                     | List    | 否   | -       | 多集合的 Schema 配置列表，每个元素包含一个 `schema` 块。`tables_configs` 的数量和顺序必须与 `collection` 列表一致。           |
+| connection.options                 | String  | 否   | -       | 使用 `&` 分隔的 MongoDB 连接参数，例如 `replicaSet=test&connectTimeoutMS=300000`。                                           |
+| batch.size                         | Integer | 否   | 1024    | 读取快照数据时的游标批大小。                                                                                                |
+| poll.max.batch.size                | Integer | 否   | 1024    | 轮询新数据时，单个批次中包含的变更流文档最大数量。                                                                          |
+| poll.await.time.ms                 | Integer | 否   | 1000    | 检查变更流新结果前等待的时间，单位为毫秒。                                                                                  |
+| heartbeat.interval.ms              | Integer | 否   | 0       | 发送心跳消息的间隔，单位为毫秒。设置为 `0` 表示禁用心跳。                                                                   |
+| incremental.snapshot.chunk.size.mb | Integer | 否   | 64      | 增量快照读取时的分片大小，单位为 MB。                                                                                       |
+| startup.mode                       | Enum    | 否   | INITIAL | MongoDB CDC 的启动模式，可选值为 `initial`、`latest` 和 `timestamp`。详见下方[启动模式](#启动模式)。                         |
+| startup.timestamp                  | Long    | 否   | -       | 从指定的毫秒级时间戳开始消费。仅在 `startup.mode` 为 `timestamp` 时使用。                                                   |
+| exactly_once                       | Boolean | 否   | false   | 启用精确一次语义。开启后，大表快照阶段恢复时可能增加内存使用。                                                              |
+| debezium                           | Config  | 否   | -       | 透传给内嵌 Debezium 引擎的配置。                                                                                            |
+| common-options                     |         | 否   | -       | 源插件通用参数，请参考 [源通用选项](../common-options/source-common-options.md)。                                             |
 
 ### 启动模式
 
@@ -168,7 +169,7 @@ source {
 > 1.如果集合更改速度较慢，强烈建议为heartbeat.interval.ms参数设置一个大于0的适当值。当我们从检查点或保存点恢复Seatunnel作业时，心跳事件可以向前推resumeToken以避免其过期。<br/>
 > 2.MongoDB对单个文档的限制为16MB。变更文档包含其他信息，因此即使原始文档不超过15MB，变更文档也可能超过16MB的限制，从而导致变更流操作终止。<br/>
 > 3.建议使用不可变分片键。在MongoDB中，分片键允许在启用事务后进行修改，但更改分片键可能会导致频繁的分片迁移，从而导致额外的性能开销。此外，修改分片键也可能导致更新查找功能失效，从而导致CDC（变更数据捕获）场景中的结果不一致。<br/>
-> 4.“schema”和“tables_config”是互斥的，必须一次配置一个。
+> 4. `schema` 和 `tables_configs` 互斥。单集合使用 `schema`，多集合使用 `tables_configs`。
 
 ## 更新数据的流
 
@@ -177,7 +178,7 @@ source {
 
 **查找更新操作的完整文档**是**更改流**提供的一项功能，它可以配置更改流以返回更新文档的最新多数提交版本。由于此功能，我们可以轻松收集最新的完整文档，并将更改日志转换为Changelog流。
 
-更新流中删除事件捕获的数据格式：[delete envet](https://www.mongodb.com/docs/v5.0/reference/change-events/delete/)
+更新流中删除事件捕获的数据格式：[delete 事件](https://www.mongodb.com/docs/v5.0/reference/change-events/delete/)
 ```
 {
    "_id": { <Resume Token> },
@@ -217,6 +218,10 @@ source {
     password = stpw
     schema = {
       table = "inventory.products"
+      primaryKey {
+        name = "id"
+        columnNames = ["_id"]
+      }
       fields {
         "_id" : string,
         "name" : string,
@@ -227,7 +232,6 @@ source {
   }
 }
 
-# 控制台打印读取的Mongodb数据
 sink {
   Console {
     parallelism = 1
@@ -270,7 +274,7 @@ sink {
   jdbc {
     url = "jdbc:mysql://mysql_cdc_e2e:3306"
     driver = "com.mysql.cj.jdbc.Driver"
-    user = "st_user"
+    username = "st_user"
     password = "seatunnel"
 
     generate_sink_sql = true
@@ -282,9 +286,200 @@ sink {
 }
 ```
 
+### CDC数据写入另一个MongoDB
+
+您也可以将CDC事件路由到另一个MongoDB集合作为sink。下面的示例将源端 `mongo0` 的 `inventory.products` 镜像写入目标集群 `mongo1`：
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  MongoDB-CDC {
+    hosts = "mongo0:27017"
+    database = ["inventory"]
+    collection = ["inventory.products"]
+    schema = {
+      fields {
+        "_id" : string,
+        "name" : string,
+        "description" : string,
+        "weight" : string
+      }
+    }
+  }
+}
+
+sink {
+  MongoDB {
+    uri = "mongodb://mongo1:27017"
+    database = "inventory"
+    collection = "products_mirror"
+  }
+}
+```
+
+## 从指定时间戳启动
+
+如果希望跳过快照，从某个已知的时间点继续读取change stream，可以将 `startup.mode` 设置为 `timestamp`，并通过 `startup.timestamp` 提供epoch毫秒时间戳。这在维护窗口之后重放积压变更、或为新的sink初始化时跳过历史写入时非常有用：
+
+```hocon
+source {
+  MongoDB-CDC {
+    hosts = "mongo0:27017"
+    database = ["inventory"]
+    collection = ["inventory.products"]
+    startup.mode = "timestamp"
+    # 2026-08-01 00:00:00 UTC
+    startup.timestamp = 1785542400000
+    schema = {
+      fields {
+        "_id" : string,
+        "name" : string,
+        "description" : string,
+        "weight" : string
+      }
+    }
+  }
+}
+```
+
+## 使用SRV连接URI
+
+对于MongoDB Atlas或任何暴露 `mongodb+srv://` 连接字符串的部署，可以将URI直接传给 `hosts` 选项。URI中携带的认证信息、副本集名称等参数会原样传递给驱动，无需再额外配置 `connection.options`：
+
+```hocon
+source {
+  MongoDB-CDC {
+    hosts = "mongodb+srv://cluster0.example.net"
+    username = "stuser"
+    password = "stpw"
+    database = ["inventory"]
+    collection = ["inventory.products"]
+    schema = {
+      fields {
+        "_id" : string,
+        "name" : string,
+        "description" : string,
+        "weight" : string
+      }
+    }
+  }
+}
+```
+
+## 心跳与Resume Token维护
+
+如果某个集合长时间没有数据写入，change stream的resume token可能会过期（例如低流量集合）。将 `heartbeat.interval.ms` 设置为非零值，可以让连接器在没有数据时定期推进resume token，从而在checkpoint恢复后保持change stream有效：
+
+```hocon
+source {
+  MongoDB-CDC {
+    hosts = "mongo0:27017"
+    database = ["inventory"]
+    collection = ["inventory.products"]
+    # 当没有数据写入时，每30秒发送一次心跳
+    heartbeat.interval.ms = 30000
+    schema = {
+      fields {
+        "_id" : string,
+        "name" : string,
+        "description" : string,
+        "weight" : string
+      }
+    }
+  }
+}
+```
+
+## 从多个MongoDB源读取
+
+单个 SeaTunnel 任务在 `source { ... }` 内只支持一个 source 块，因此同时从多个 MongoDB 集群拉取 CDC 流的可行方式是每个源提交一个独立任务，并写入同一个 sink 表。每个任务保留各自的并行度、schema 和重启 token，最终由 sink 表按主键去重。
+
+```hocon
+# 任务 A：从集群 mongo0 读取 CDC，写入 inventory_a.products_a
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  MongoDB-CDC {
+    hosts = "mongo0:27017"
+    database = ["inventory_a"]
+    collection = ["inventory_a.products_a"]
+    username = superuser
+    password = superpw
+    schema = {
+      fields {
+        "_id": string,
+        "name": string,
+        "price": int
+      }
+    }
+  }
+}
+
+sink {
+  jdbc {
+    url = "jdbc:mysql://mysql_e2e:3306/mongodb_cdc"
+    driver = "com.mysql.cj.jdbc.Driver"
+    username = "st_user"
+    password = "seatunnel"
+    generate_sink_sql = true
+    database = mongodb_cdc
+    table = "${table_name}"
+    primary_keys = ["_id"]
+  }
+}
+```
+
+```hocon
+# 任务 B：从集群 mongo1 读取 CDC，写入 inventory_b.products_b
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  MongoDB-CDC {
+    hosts = "mongo1:27017"
+    database = ["inventory_b"]
+    collection = ["inventory_b.products_b"]
+    username = superuser
+    password = superpw
+    schema = {
+      fields {
+        "_id": string,
+        "name": string,
+        "price": int
+      }
+    }
+  }
+}
+
+sink {
+  jdbc {
+    url = "jdbc:mysql://mysql_e2e:3306/mongodb_cdc"
+    driver = "com.mysql.cj.jdbc.Driver"
+    username = "st_user"
+    password = "seatunnel"
+    generate_sink_sql = true
+    database = mongodb_cdc
+    table = "${table_name}"
+    primary_keys = ["_id"]
+  }
+}
+```
+
 ## 多表同步
 
-以下示例演示了如何创建数据同步作业，该作业读取多个库表mongodb的cdc数据并将其打印到本地客户端：
+以下示例演示了如何读取多个 MongoDB 集合的 CDC 数据，并将每个集合写入对应的 MySQL 表。Sink 表名使用 `${table_name}`，因此 `inventory.products` 和 `inventory.orders` 会分别写入自己的目标表。
 
 ```hocon
 env {
@@ -329,9 +524,44 @@ source {
   }
 }
 
-# 控制台打印读取的Mongodb数据
 sink {
-  Console {
+  jdbc {
+    url = "jdbc:mysql://mysql_cdc_e2e:3306/mongodb_cdc"
+    driver = "com.mysql.cj.jdbc.Driver"
+    username = "st_user"
+    password = "seatunnel"
+    generate_sink_sql = true
+    database = mongodb_cdc
+    table = "${table_name}"
+    primary_keys = ["_id"]
+  }
+}
+```
+
+## CDC 元数据字段
+
+MongoDB CDC 会提供以下元数据字段，可配合 `Metadata` 转换使用：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| database | STRING | 源数据库名称。 |
+| table | STRING | 源集合名称。 |
+| rowKind | STRING | 变更类型，例如 insert、update 或 delete。 |
+| ts_ms | LONG | 源事件时间，单位为毫秒。 |
+| delay | LONG | 事件时间和处理时间之间的延迟，单位为毫秒。 |
+
+示例：
+
+```hocon
+transform {
+  Metadata {
+    metadata_fields {
+      Database = database
+      Table = table
+      RowKind = rowKind
+      EventTime = ts_ms
+      Delay = delay
+    }
   }
 }
 ```

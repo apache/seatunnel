@@ -27,6 +27,7 @@ import org.testcontainers.containers.Container;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.util.List;
 
 @Slf4j
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -49,5 +50,10 @@ public abstract class SeaTunnelEngineContainer extends SeaTunnelContainer {
     public Container.ExecResult executeSeaTunnelJob(String confFile)
             throws IOException, InterruptedException {
         return executeJob(confFile);
+    }
+
+    public Container.ExecResult executeSeaTunnelJob(String confFile, List<String> variables)
+            throws IOException, InterruptedException {
+        return executeJob(confFile, variables);
     }
 }

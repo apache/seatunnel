@@ -121,6 +121,10 @@ public class JdbcHanaIT extends AbstractJdbcIT {
                 .userName(USERNAME)
                 .password(PASSWORD)
                 .database(DATABASE)
+                // HANA stores these test tables under schema TEST. Keep the test-side schema so
+                // comparison and cleanup qualify the same schema, but keep the connector config on
+                // database-only mode to avoid producing a TEST.TEST.table identifier in sink SQL.
+                .schema(DATABASE)
                 .sourceTable(SOURCE_TABLE)
                 .sinkTable(SOURCE_TABLE + "_SINK")
                 .createSql(CREATE_SOURCE_SQL)
@@ -270,7 +274,7 @@ public class JdbcHanaIT extends AbstractJdbcIT {
                         .waitingFor(
                                 Wait.forLogMessage(".*Startup finished!.*", 1)
                                         .withStartupTimeout(Duration.of(5, ChronoUnit.MINUTES)));
-        container.setPortBindings(Lists.newArrayList(String.format("%s:%s", HANA_PORT, HANA_PORT)));
+        container.addExposedPort(HANA_PORT);
         return container;
     }
 
