@@ -41,14 +41,13 @@ get_available_space() {
     df -P / | tail -n 1 | awk '{print $4}'
 }
 
+
 echo "=============================================================================="
 echo "Freeing up disk space on CI system"
 echo "=============================================================================="
 df -h
 
 # List 100 largest packages
-start_time=$(date +%s)
-start_space=$(get_available_space)
 echo "Listing 100 largest packages"
 dpkg-query -Wf '${Installed-Size}\t${Package}\n' | sort -nr | head -n 100
 
