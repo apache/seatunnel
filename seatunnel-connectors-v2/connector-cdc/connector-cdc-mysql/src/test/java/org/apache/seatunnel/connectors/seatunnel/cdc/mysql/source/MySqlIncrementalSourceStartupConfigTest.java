@@ -54,6 +54,15 @@ public class MySqlIncrementalSourceStartupConfigTest {
     }
 
     @Test
+    public void testOptionRuleAcceptsSnapshotOnlyStartup() {
+        Map<String, Object> options = requiredOptions();
+        options.put(SourceOptions.STARTUP_MODE_KEY, "snapshot-only");
+
+        ConfigValidator.of(ReadonlyConfig.fromMap(options))
+                .validate(new MySqlIncrementalSourceFactory().optionRule());
+    }
+
+    @Test
     public void testCreateStartupConfigWithGtidSetAndSkipFields() {
         StartupConfig startupConfig =
                 MySqlIncrementalSource.createStartupConfig(
