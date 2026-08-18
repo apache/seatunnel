@@ -28,6 +28,7 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FileUtil;
@@ -87,6 +88,8 @@ public class HudiSinkCDCIT extends TestSuiteBase implements TestResource {
 
     private static final String DATABASE = "st";
     private static final String TABLE_NAME = "st_test";
+    private static final String TIMER_FLUSH_DATABASE = "timer_flush_db";
+    private static final String TIMER_FLUSH_TABLE = "timer_flush_table";
     private static final String TABLE_PATH = HOST_VOLUME_MOUNT_PATH + "/hudi/";
     private static final String NAMESPACE = "hudi";
     private static final String NAMESPACE_TAR = "hudi.tar.gz";
@@ -171,6 +174,117 @@ public class HudiSinkCDCIT extends TestSuiteBase implements TestResource {
         insertAndCheckData(container);
         // upsert/delete data and check
         upsertAndCheckData(container);
+    }
+
+    @TestTemplate
+    public void testHudiTimerFlush(TestContainer container) throws Exception {
+        clearTable(MYSQL_DATABASE, SOURCE_TABLE);
+        FileUtil.fullyDelete(
+                new File(
+                        TABLE_PATH
+                                + File.separator
+                                + TIMER_FLUSH_DATABASE
+                                + File.separator
+                                + TIMER_FLUSH_TABLE));
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
+        CompletableFuture<Container.ExecResult> jobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.executeJob(
+                                        "/hudi/mysql_cdc_to_hudi_timer_flush.conf", jobId);
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+
+        try {
+            given().ignoreExceptions()
+                    .await()
+                    .atMost(2, TimeUnit.MINUTES)
+                    .pollInterval(2, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                assertJobStillRunning(
+                                        jobFuture,
+                                        "The streaming job terminated before reaching RUNNING");
+                                Assertions.assertEquals("RUNNING", container.getJobStatus(jobId));
+                            });
+
+            executeSql(
+                    "INSERT INTO "
+                            + MYSQL_DATABASE
+                            + "."
+                            + SOURCE_TABLE
+                            + " (id, f_bigint, f_json) VALUES (1001, 1, JSON_OBJECT('phase', 1))");
+            awaitTimerFlush(jobFuture, 1);
+
+            executeSql(
+                    "INSERT INTO "
+                            + MYSQL_DATABASE
+                            + "."
+                            + SOURCE_TABLE
+                            + " (id, f_bigint, f_json) VALUES (1002, 2, JSON_OBJECT('phase', 2))");
+            awaitTimerFlush(jobFuture, 2);
+        } finally {
+            if (!jobFuture.isDone()) {
+                Container.ExecResult cancelResult = container.cancelJob(jobId);
+                Assertions.assertEquals(0, cancelResult.getExitCode(), cancelResult.getStderr());
+            }
+        }
+
+        Container.ExecResult jobResult = jobFuture.get(120, TimeUnit.SECONDS);
+        Assertions.assertEquals(0, jobResult.getExitCode(), jobResult.getStderr());
+    }
+
+    private void awaitTimerFlush(
+            CompletableFuture<Container.ExecResult> jobFuture, long expectedRows) {
+        given().ignoreExceptions()
+                .await()
+                .atMost(120, TimeUnit.SECONDS)
+                .pollInterval(2, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            assertJobStillRunning(
+                                    jobFuture,
+                                    "The streaming job terminated before timer flush published "
+                                            + expectedRows
+                                            + " rows");
+                            Assertions.assertEquals(
+                                    expectedRows,
+                                    countNewestCommitRows(),
+                                    "Timer flush should publish buffered rows while the job is running");
+                        });
+    }
+
+    private long countNewestCommitRows() throws IOException {
+        File tablePath =
+                new File(
+                        TABLE_PATH
+                                + File.separator
+                                + TIMER_FLUSH_DATABASE
+                                + File.separator
+                                + TIMER_FLUSH_TABLE);
+        Configuration configuration = new Configuration();
+        configuration.set("fs.defaultFS", LocalFileSystem.DEFAULT_FS);
+        long rowCount = 0;
+        try (ParquetReader<Group> reader =
+                ParquetReader.builder(new GroupReadSupport(), getNewestCommitFilePath(tablePath))
+                        .withConf(configuration)
+                        .build()) {
+            while (reader.read() != null) {
+                rowCount++;
+            }
+        }
+        return rowCount;
+    }
+
+    private void assertJobStillRunning(
+            CompletableFuture<Container.ExecResult> jobFuture, String message) throws Exception {
+        if (jobFuture.isDone()) {
+            Container.ExecResult jobResult = jobFuture.get();
+            Assertions.fail(message + ":\n" + jobResult.getStderr());
+        }
     }
 
     private void insertAndCheckData(TestContainer container) throws InterruptedException {
