@@ -83,6 +83,9 @@ public abstract class AbstractDorisTypeConverter implements TypeConverter<BasicT
     public static final Integer DEFAULT_SCALE = 0;
     public static final Integer MAX_SCALE = 10;
 
+    /** Maximum decimal scale supported by Doris 1.x, whose DECIMAL is DecimalV2 (max 27, 9). */
+    public static final Integer MAX_DECIMALV2_SCALE = 9;
+
     public static final Integer MAX_DATETIME_SCALE = 6;
 
     // Min value of LARGEINT is -170141183460469231731687303715884105728, it will use 39 bytes in
@@ -242,6 +245,18 @@ public abstract class AbstractDorisTypeConverter implements TypeConverter<BasicT
                 IDENTIFIER, column.getDataType().getSqlType().name(), column.getName());
     }
 
+    /**
+     * Maximum decimal scale accepted by the target Doris version.
+     *
+     * <p>DECIMALV3 only requires the scale to not exceed the precision, which the caller already
+     * enforces, so the default imposes no further limit. Doris 1.x is stricter and overrides this.
+     *
+     * @return the largest scale that may be emitted for a decimal column
+     */
+    protected int getMaxDecimalScale() {
+        return MAX_PRECISION.intValue();
+    }
+
     protected BasicTypeDefine sampleReconvert(
             Column column, BasicTypeDefine.BasicTypeDefineBuilder builder) {
 
@@ -296,7 +311,7 @@ public abstract class AbstractDorisTypeConverter implements TypeConverter<BasicT
                 int scale = decimalType.getScale();
                 if (precision <= 0) {
                     precision = MAX_PRECISION.intValue();
-                    scale = MAX_SCALE;
+                    scale = Math.min(MAX_SCALE, getMaxDecimalScale());
                     log.warn(
                             "The decimal column {} type decimal({},{}) is out of range, "
                                     + "which is precision less than 0, "
@@ -318,6 +333,20 @@ public abstract class AbstractDorisTypeConverter implements TypeConverter<BasicT
                     builder.dataType(DORIS_VARCHAR);
                     builder.columnType(String.format("%s(%s)", DORIS_VARCHAR, 200));
                     break;
+                }
+
+                if (scale > getMaxDecimalScale()) {
+                    log.warn(
+                            "The decimal column {} type decimal({},{}) is out of range, "
+                                    + "which exceeds the maximum scale of {} supported by this "
+                                    + "Doris version, it will be converted to decimal({},{})",
+                            column.getName(),
+                            decimalType.getPrecision(),
+                            decimalType.getScale(),
+                            getMaxDecimalScale(),
+                            precision,
+                            getMaxDecimalScale());
+                    scale = getMaxDecimalScale();
                 }
 
                 if (scale < 0) {
