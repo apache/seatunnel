@@ -139,7 +139,8 @@ public abstract class BaseFileSourceConfig implements Serializable {
             // compatible schema so that downstream can initialize correctly.
             if (fileFormat == FileFormat.BINARY
                     || fileFormat == FileFormat.MARKDOWN
-                    || fileFormat == FileFormat.PDF) {
+                    || fileFormat == FileFormat.PDF
+                    || fileFormat == FileFormat.WORD) {
                 return newCatalogTable(catalogTable, getSchemaForEmptyFilePath(readonlyConfig));
             }
             return catalogTable;
@@ -162,6 +163,7 @@ public abstract class BaseFileSourceConfig implements Serializable {
                                 configSchema ? catalogTable.getSeaTunnelRowType() : null));
             case MARKDOWN:
             case PDF:
+            case WORD:
                 return newCatalogTable(
                         catalogTable, readStrategy.getSeaTunnelRowTypeInfo(filePaths.get(0)));
             default:

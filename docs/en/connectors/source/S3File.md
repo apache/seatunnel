@@ -36,6 +36,7 @@ import ChangeLog from '../changelog/connector-file-s3.md';
     - [x] binary
     - [x] markdown
     - [x] pdf
+    - [x] word
 
 ## Description
 
@@ -193,7 +194,7 @@ If you assign file type to `parquet` `orc`, schema option not required, connecto
 | name                            | type    | required | default value                                         | Description                                                                                                                                                                                                                                                                                                                                                                                                |
 |---------------------------------|---------|----------|-------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
 | path                            | string  | yes      | -                                                     | The s3 path that needs to be read can have sub paths, but the sub paths need to meet certain format requirements. Specific requirements can be referred to "parse_partition_from_path" option                                                                                                                                                                                                              |
-| file_format_type                | string  | yes      | -                                                     | File type, supported as the following file types: `text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf`                                                                                                                                                                                                                                                                                    |
+| file_format_type                | string  | yes      | -                                                     | File type, supported as the following file types: `text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf` `word`                                                                                                                                                                                                                                                                                    |
 | bucket                          | string  | yes      | -                                                     | The bucket address of s3 file system, for example: `s3n://seatunnel-test`, if you use `s3a` protocol, this parameter should be `s3a://seatunnel-test`.                                                                                                                                                                                                                                                     |
 | fs.s3a.endpoint                 | string  | yes      | -                                                     | fs s3a endpoint                                                                                                                                                                                                                                                                                                                                                                                            |
 | fs.s3a.aws.credentials.provider | string  | yes      | com.amazonaws.auth.InstanceProfileCredentialsProvider | The fully-qualified class name of the S3A credentials provider passed through to Hadoop. Besides the two well-known values `org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider` (static `access_key`/`secret_key`) and `com.amazonaws.auth.InstanceProfileCredentialsProvider` (default), any S3A credentials provider class available on the classpath is accepted, for example container-based providers such as `com.amazonaws.auth.ContainerCredentialsProvider` or a custom provider. The class must implement `com.amazonaws.auth.AWSCredentialsProvider` and expose one of Hadoop 3.1.4's supported creation mechanisms: a public `(java.net.URI, org.apache.hadoop.conf.Configuration)` constructor, a public `(org.apache.hadoop.conf.Configuration)` constructor, a public static no-arg `getInstance()` factory method returning `AWSCredentialsProvider`, or a public no-arg constructor. Hadoop-style comma- or newline-separated provider chains are accepted and each class is validated independently. The provider jar must be present on the runtime classpath of **every** cluster node (for example under `${SEATUNNEL_HOME}/lib`), not just the submitting node. Note for operators of shared/multi-tenant clusters: this option lets job authors load classes by name, so restrict who can submit jobs accordingly. More information about the credential provider you can see [Hadoop AWS Document](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html#Simple_name.2Fsecret_credentials_with_SimpleAWSCredentialsProvider.2A) |
@@ -251,7 +252,7 @@ If you assign file type to `parquet` `orc`, schema option not required, connecto
 
 File type, supported as the following file types:
 
-`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf`
+`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf` `word`
 
 If you assign file type to `markdown`, SeaTunnel can parse markdown files and extract structured data.
 The markdown parser extracts various elements including headings, paragraphs, lists, code blocks, tables, and more.
@@ -289,6 +290,21 @@ The main PDF-specific behaviors are:
 - `element_type` values for PDF are `heading`, `paragraph`, `image`, and `link`.
 
 Note: Only single-column (top-to-bottom) PDF layouts are supported. Multi-column layouts (e.g., side-by-side two-column documents) are not supported and may produce incorrect text ordering.
+
+If you assign file type to `word`, SeaTunnel can parse Word (.docx) documents and extract paragraphs and tables.
+Each extracted element is converted to a row with the following schema:
+- `element_id`: Sequential identifier for the element, starting at 1
+- `element_type`: `paragraph` or `table`
+- `text`: Text content of the paragraph, or the table's cell data (cells joined by ` | `, rows joined by newlines)
+- `font_style`: `NORMAL`, `BOLD`, `ITALIC`, or `BOLD_ITALIC` (paragraphs only)
+- `underline_style`: Underline style name if present, otherwise null (paragraphs only)
+- `font_size`: Font size if specified, otherwise null (paragraphs only)
+- `font_family`: Font family if specified, otherwise null (paragraphs only)
+- `text_color`: Hex color if specified, defaults to `000000` (paragraphs only)
+- `alignment`: Paragraph alignment, e.g. `LEFT`, `CENTER`, `RIGHT` (paragraphs only)
+- `hyperlink_url`: Hyperlink URL(s) in the paragraph, comma-joined if multiple, otherwise null (paragraphs only)
+
+Note: Only `.docx` (OOXML) files are supported. The legacy binary `.doc` format is not supported.
 
 ### delimiter/field_delimiter [string]
 
