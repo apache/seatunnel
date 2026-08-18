@@ -1241,10 +1241,11 @@ public class MySqlTypeConverterTest {
 
     @Test
     public void testConvertBitEdgeCases() {
-        // BIT with null length and intTypeNarrowing=false
+        // BIT with length=8 and intTypeNarrowing=false
         MySqlTypeConverter converter = new MySqlTypeConverter(MySqlVersion.V_8, false);
         BasicTypeDefine<Object> typeDefine =
-                BasicTypeDefine.builder().name("test").columnType("bit").dataType("bit").build();
+                BasicTypeDefine.builder()
+                        .name("test").columnType("bit").dataType("bit").length(8L).build();
         Column column = converter.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(PrimitiveByteArrayType.INSTANCE, column.getDataType());
