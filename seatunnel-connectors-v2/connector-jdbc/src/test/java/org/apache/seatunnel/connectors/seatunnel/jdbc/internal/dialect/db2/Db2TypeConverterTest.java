@@ -372,11 +372,7 @@ public class Db2TypeConverterTest {
     @Test
     public void testConvertInt() {
         BasicTypeDefine<Object> typeDefine =
-                BasicTypeDefine.builder()
-                        .name("test")
-                        .columnType("INT")
-                        .dataType("INT")
-                        .build();
+                BasicTypeDefine.builder().name("test").columnType("INT").dataType("INT").build();
         Column column = DB2TypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.INT_TYPE, column.getDataType());
@@ -413,8 +409,7 @@ public class Db2TypeConverterTest {
         Assertions.assertEquals(LocalTimeType.LOCAL_DATE_TIME_TYPE, column.getDataType());
         Assertions.assertEquals(0, column.getScale());
         Assertions.assertEquals(
-                String.format("%s(%s)", DB2TypeConverter.DB2_TIMESTAMP, 0),
-                column.getSourceType());
+                String.format("%s(%s)", DB2TypeConverter.DB2_TIMESTAMP, 0), column.getSourceType());
     }
 
     @Test
