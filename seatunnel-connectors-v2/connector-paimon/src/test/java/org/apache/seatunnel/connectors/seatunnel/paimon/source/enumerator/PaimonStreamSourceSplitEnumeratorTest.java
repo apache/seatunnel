@@ -22,6 +22,7 @@ import org.apache.seatunnel.connectors.seatunnel.paimon.source.PaimonSourceSplit
 import org.apache.seatunnel.connectors.seatunnel.paimon.source.PaimonSourceState;
 
 import org.apache.paimon.table.source.ReadBuilder;
+import org.apache.paimon.table.source.Split;
 import org.apache.paimon.table.source.StreamTableScan;
 import org.apache.paimon.table.source.TableScan;
 
@@ -32,9 +33,17 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.Map;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.FutureTask;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -126,6 +135,91 @@ class PaimonStreamSourceSplitEnumeratorTest {
         restored.close();
 
         verify(restoredScan).restore(10L);
+    }
+
+    @Test
+    void shouldCheckpointSnapshotIdAndPendingSplitsAtomicallyDuringAsyncDiscovery()
+            throws Exception {
+        CountDownLatch discoveryBlockedAfterSnapshotIdUpdate = new CountDownLatch(1);
+        CountDownLatch continueDiscovery = new CountDownLatch(1);
+        CountDownLatch snapshotStateStarted = new CountDownLatch(1);
+        AtomicInteger splitsCalls = new AtomicInteger();
+        Split split =
+                new Split() {
+                    @Override
+                    public long rowCount() {
+                        return 1L;
+                    }
+
+                    @Override
+                    public String toString() {
+                        return "split-0";
+                    }
+                };
+        TableScan.Plan plan =
+                () -> {
+                    if (splitsCalls.incrementAndGet() == 1) {
+                        discoveryBlockedAfterSnapshotIdUpdate.countDown();
+                        try {
+                            assertTrue(continueDiscovery.await(30, TimeUnit.SECONDS));
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                            throw new AssertionError(e);
+                        }
+                    }
+                    return Collections.singletonList(split);
+                };
+
+        PaimonStreamSourceSplitEnumerator enumerator =
+                new PaimonStreamSourceSplitEnumerator(
+                        context(), new LinkedList<>(), null, Collections.emptyMap(), 1) {
+                    @Override
+                    public PaimonSourceState snapshotState(long checkpointId) throws Exception {
+                        snapshotStateStarted.countDown();
+                        return super.snapshotState(checkpointId);
+                    }
+                };
+        AtomicReference<Throwable> discoveryError = new AtomicReference<>();
+        Thread discoveryThread =
+                new Thread(
+                        () -> {
+                            try {
+                                enumerator.processDiscoveredSplits(
+                                        Collections.singletonList(
+                                                new AbstractSplitEnumerator.PlanWithNextSnapshotId(
+                                                        "db.table_a", plan, 10L)),
+                                        null);
+                            } catch (Throwable throwable) {
+                                discoveryError.set(throwable);
+                            }
+                        });
+        FutureTask<PaimonSourceState> snapshotState =
+                new FutureTask<>(() -> enumerator.snapshotState(1L));
+        Thread snapshotThread = new Thread(snapshotState);
+
+        try {
+            discoveryThread.start();
+            assertTrue(discoveryBlockedAfterSnapshotIdUpdate.await(10, TimeUnit.SECONDS));
+
+            snapshotThread.start();
+            assertTrue(snapshotStateStarted.await(10, TimeUnit.SECONDS));
+            assertThrows(
+                    TimeoutException.class, () -> snapshotState.get(200, TimeUnit.MILLISECONDS));
+
+            continueDiscovery.countDown();
+            PaimonSourceState state = snapshotState.get(10, TimeUnit.SECONDS);
+            discoveryThread.join(TimeUnit.SECONDS.toMillis(10));
+
+            assertFalse(discoveryThread.isAlive());
+            if (discoveryError.get() != null) {
+                throw new AssertionError(discoveryError.get());
+            }
+            assertEquals(10L, state.getCurrentSnapshotIds().get("db.table_a"));
+            assertEquals(1, state.getAssignedSplits().size());
+        } finally {
+            continueDiscovery.countDown();
+            enumerator.close();
+        }
     }
 
     private static Map<String, ReadBuilder> readBuilders(
