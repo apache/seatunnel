@@ -56,6 +56,10 @@ public class SavePointBusySourceTest extends AbstractSeaTunnelServerTest<SavePoi
     public static final String SAVEPOINT_TIMEOUT_CONF_PATH =
             "stream_fake_to_inmemory_savepoint_timeout.conf";
 
+    /** A lightweight long-running job used to verify savepoint retry after readiness returns. */
+    public static final String RETRYABLE_SAVEPOINT_CONF_PATH =
+            "stream_fakesource_retryable_to_console_savepoint.conf";
+
     /** One pipeline completes its savepoint while another pipeline times out. */
     public static final String MULTI_PIPELINE_SAVEPOINT_PARTIAL_FAILURE_CONF_PATH =
             "stream_two_pipelines_savepoint_partial_failure.conf";
@@ -266,6 +270,59 @@ public class SavePointBusySourceTest extends AbstractSeaTunnelServerTest<SavePoi
                                 Assertions.assertEquals(
                                         JobStatus.CANCELED,
                                         server.getCoordinatorService().getJobStatus(jobId)));
+
+        await().atMost(120, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        0,
+                                        server.getSlotService()
+                                                .getWorkerProfile()
+                                                .getAssignedSlots()
+                                                .length));
+    }
+
+    @Test
+    public void testSavepointStartPreconditionFailureCanBeRetriedAfterReady() throws Exception {
+        long jobId = System.currentTimeMillis();
+        startJob(jobId, RETRYABLE_SAVEPOINT_CONF_PATH, false);
+
+        await().atMost(120, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        JobStatus.RUNNING,
+                                        server.getCoordinatorService().getJobStatus(jobId)));
+
+        JobMaster jobMaster = server.getCoordinatorService().getJobMaster(jobId);
+        setCheckpointCoordinatorsReady(jobMaster, false);
+
+        PassiveCompletableFuture<Void> savepointFuture =
+                server.getCoordinatorService().savePoint(jobId);
+
+        Assertions.assertThrows(
+                ExecutionException.class, () -> savepointFuture.get(120, TimeUnit.SECONDS));
+
+        await().atMost(120, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        JobStatus.RUNNING,
+                                        server.getCoordinatorService().getJobStatus(jobId)));
+
+        setCheckpointCoordinatorsReady(jobMaster, true);
+        awaitCheckpointCoordinatorsReady(jobMaster);
+
+        PassiveCompletableFuture<Void> retrySavepointFuture =
+                server.getCoordinatorService().savePoint(jobId);
+
+        await().atMost(120, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        JobStatus.SAVEPOINT_DONE,
+                                        server.getCoordinatorService().getJobStatus(jobId)));
+        retrySavepointFuture.get(120, TimeUnit.SECONDS);
 
         await().atMost(120, TimeUnit.SECONDS)
                 .untilAsserted(
