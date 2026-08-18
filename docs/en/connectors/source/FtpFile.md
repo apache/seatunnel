@@ -31,6 +31,7 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
   - [x] xml
   - [x] binary
   - [x] markdown
+  - [x] pdf
 
 ## Description
 
@@ -68,6 +69,8 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | skip_header_row_number      | long    | no       | 0                           |
 | schema                      | config  | no       | -                           |
 | sheet_name                  | string  | no       | -                           |
+| excel_engine                | string  | no       | POI                         |
+| poi_excel_max_file_size     | long    | no       | 52428800                    |
 | xml_row_tag                 | string  | no       | -                           |
 | xml_use_attr_format         | boolean | no       | -                           |
 | csv_use_header_line         | boolean | no       | -                           |
@@ -87,6 +90,12 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | target_hadoop_conf          | map     | no       | -                           |
 | update_strategy             | string  | no       | distcp                      |
 | compare_mode                | string  | no       | len_mtime                   |
+| update_compare_parallelism  | int     | no       | 8                           |
+| update_compare_bulk_threshold | int   | no       | 0                           |
+| post_sync_action            | string  | no       | none                        |
+| backup_path                 | string  | no       | -                           |
+| retention_max_age           | string  | no       | -                           |
+| retention_check_interval    | string  | no       | 1H                          |
 | common-options              |         | no       | -                           |
 | file_filter_modified_start  | string  | no       | -                           | 
 | file_filter_modified_end    | string  | no       | -                           | 
@@ -203,7 +212,7 @@ Filter filename extension, which used for filtering files with specific extensio
 
 File type, supported as the following file types:
 
-`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary`
+`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf`
 
 If you assign file type to `json` , you should also assign schema option to tell connector how to parse data to the row you want.
 
@@ -283,7 +292,7 @@ at the same time. You can find the specific usage in the example below.
 
 If you assign file type to `markdown`, SeaTunnel can parse markdown files and extract structured data.
 The markdown parser extracts various elements including headings, paragraphs, lists, code blocks, tables, and more.
-Each element is converted to a row with the following schema:
+Each extracted element is converted to a document-element row with the following schema:
 - `element_id`: Unique identifier for the element
 - `element_type`: Type of the element (Heading, Paragraph, ListItem, etc.)
 - `heading_level`: Level of heading (1-6, null for non-heading elements)
@@ -293,16 +302,30 @@ Each element is converted to a row with the following schema:
 - `parent_id`: ID of the parent element
 - `child_ids`: Comma-separated list of child element IDs
 
-When `markdown_rag_metadata_enabled` is set to `true`, SeaTunnel appends the following RAG metadata fields after `child_ids`:
+When either `markdown_rag_metadata_enabled` or `pdf_rag_metadata_enabled` is set to `true`, SeaTunnel appends the following RAG metadata fields after `child_ids` for the corresponding file type:
 - `source_uri`: Source file path or URI
 - `document_id`: Stable document identifier derived from `source_uri`
 - `chunk_id`: Stable chunk identifier derived from document identity, chunk order, and content hash
 - `chunk_index`: One-based chunk order in the parsed document
 - `content_hash`: SHA-256 hash of the emitted `text` value
 
+When this option is enabled for bounded Markdown file sources, the source enumerator assigns each whole-file split by the same `document_id` hash so all rows derived from one document stay in the same source route bucket. The default round-robin split assignment is unchanged when the option is disabled.
+
 The option defaults to `false`, so the original Markdown schema is unchanged unless you enable it.
 
 Note: Markdown format only supports reading, not writing.
+
+If you assign file type to `pdf`, SeaTunnel can parse PDF files and extract structured document elements.
+PDF uses the same document-element row schema described above.
+For PDF input, enable `pdf_rag_metadata_enabled` to append the RAG metadata fields described above.
+
+The main PDF-specific behaviors are:
+
+- **With outline**: Extracts `heading`, `paragraph`, `image`, and `link` elements. Headings are derived from the outline structure, and elements are organized into a parent-child hierarchy reflecting the document's logical structure.
+- **Without outline**: Extracts only `paragraph` and `image` elements in a flat structure without hierarchy.
+- `element_type` values for PDF are `heading`, `paragraph`, `image`, and `link`.
+
+Note: Only single-column (top-to-bottom) PDF layouts are supported. Multi-column layouts (e.g., side-by-side two-column documents) are not supported and may produce incorrect text ordering.
 
 ### connection_mode [string]
 
@@ -408,6 +431,22 @@ The read column list of the data source, user can use it to implement field proj
 ### sheet_name [string]
 
 Reader the sheet of the workbook,Only used when file_format_type is excel.
+
+### excel_engine [string]
+
+Only used when `file_format` is excel.
+
+Supported engines are `POI` and `EasyExcel`. The default value is `POI`.
+
+The default Excel reading engine is POI. POI keeps the historical read behavior, including POI-specific formula and formatting handling, but it may use a lot of memory for large Excel files.
+
+You can set `excel_engine = EasyExcel` to use streaming reads for large Excel files.
+
+### poi_excel_max_file_size [long]
+
+Only used when `file_format` is excel and `excel_engine` is POI.
+
+The maximum Excel file size in bytes that the POI engine can read. The default value is `52428800` bytes (50 MB). When the file is larger than this limit, the connector fails fast and suggests using EasyExcel.
 
 ### xml_row_tag [string]
 
@@ -532,6 +571,49 @@ Only used when `sync_mode=update`. Supported values: `distcp` (default), `strict
 ### compare_mode [string]
 
 Only used when `sync_mode=update`. Supported values: `len_mtime` (default), `checksum` (only valid when `update_strategy=strict`).
+
+### update_compare_parallelism [int]
+
+Maximum parallelism for sparse target metadata lookups in `sync_mode=update`. The default is `8`; valid values are `1` through `64`; values outside this range are rejected during configuration validation. The maximum number of submitted-but-incomplete lookups is eight times this value.
+
+### update_compare_bulk_threshold [int]
+
+A positive value switches comparison to one directory listing when the candidate count under a target parent reaches the threshold. The default `0` disables automatic bulk listing and uses bounded point lookups, avoiding an unexpectedly expensive target directory scan. This behavior applies to all target filesystems. Source filters are applied while entries are listed to reduce peak metadata memory.
+
+### post_sync_action [string]
+
+Only used when `discovery_mode=continuous`. Supported values: `none` (default), `delete`, `backup`. In `discovery_mode=once`, setting `post_sync_action=delete` or `post_sync_action=backup` is rejected during config validation.
+
+- `none`: default behavior, no source-side file operation.
+- `delete`: delete processed source files after `notifyCheckpointComplete`; failed operations are retried on later checkpoints.
+- `backup`: move processed source files to `backup_path` after `notifyCheckpointComplete`; failed operations are retried on later checkpoints.
+
+Before `delete` or `backup`, SeaTunnel renames the source file to a staging/trash path first, then re-checks the file length and modification time. If the version differs after the rename, the file is restored so the next scan can re-discover the changed version.
+
+**mtime granularity limitation**: FTP MDTM resolution is typically 1 second (sometimes 1 minute). The act-then-verify approach narrows but cannot fully eliminate the race window if a same-second, same-length modification occurs. For maximum safety, ensure no concurrent writers are active during post-sync processing, or use `backup` instead of `delete` so the file is recoverable.
+
+**Security note**: When using `post_sync_action=delete` or `backup` with FTP, use a dedicated least-privilege account that only has DELETE/RENAME permission on the watched directory. FTP credentials are transmitted in cleartext, and this feature requires write/delete permissions that increase the blast radius of a credential compromise.
+
+### backup_path [string]
+
+Only used when `post_sync_action=backup`. Processed files are moved to this base path after checkpoint-complete commit, and destination file names include source version suffix to avoid overwrite collision. Phase-1 only supports backup on the same filesystem as `path` (same scheme and authority); cross-filesystem backup is rejected.
+
+`backup_path` must not be the same as `path`, must not be under `path`, and `path` must not be under `backup_path`. Use a dedicated backup directory because retention only manages files created by SeaTunnel with the version suffix.
+
+### retention_max_age [string]
+
+Optional retention policy for `backup_path`. SeaTunnel backup files older than this age are cleaned up during checkpoint-complete retention scans.
+Only valid when `post_sync_action=backup`.
+
+Supported duration formats are shorthand values with `MS`, `S`, `M`, `H`, or `D` suffixes, such as `500MS`, `30S`, `10M`, `12H`, `7D`, and ISO-8601 durations such as `PT1H30M`.
+
+Duration suffixes are case-insensitive: `MS` (milliseconds), `S` (seconds), `M` (minutes), `H` (hours), `D` (days). `M` always means minutes, never months. Invalid values (e.g., `PT7D`, `P1M`) fail config validation with an error.
+
+### retention_check_interval [string]
+
+Retention scan interval, default `1H`. Cleanup runs at most once per interval when `post_sync_action=backup` and `retention_max_age` is configured. Setting `retention_check_interval` without `retention_max_age` has no effect.
+
+Duration suffixes are case-insensitive: `MS`, `S`, `M`, `H`, `D`. `M` always means minutes, never months. Invalid values fail config validation with an error.
 
 ### file_filter_modified_start [string]
 
@@ -756,6 +838,11 @@ source {
     target_path = "/seatunnel/watch/dst/"
     update_strategy = "distcp"
     compare_mode = "len_mtime"
+
+    post_sync_action = "backup"
+    backup_path = "/seatunnel/watch/backup/"
+    retention_max_age = "7D"
+    retention_check_interval = "1H"
   }
 }
 sink {
@@ -798,6 +885,31 @@ sink {
   }
 }
 ```
+
+### Reading via SFTP (SSH File Transfer)
+
+`FtpFile` reads from FTP and SFTP servers through the same Hadoop FileSystem URI scheme; switch to `sftp://` to use SSH instead of plain FTP. SFTP requires an SSH key (or a password) for authentication, and the host key must be trusted by the running JVM (either via `~/.ssh/known_hosts` or a custom `known_hosts` file passed through `ftp_properties`).
+
+```hocon
+source {
+  FtpFile {
+    fs.defaultFS = "sftp://sftp.example.example.com:22"
+    path = "/upload/landing/"
+    user = "seatunnel"
+    file_format_type = "csv"
+    delimiter = ","
+    ftp_properties = {
+      "fs.sftp.user." = "seatunnel"
+      "fs.sftp.keyfile" = "/etc/seatunnel/id_rsa"
+      "fs.sftp.host"   = "sftp.example.example.com"
+      "fs.sftp.port"   = "22"
+      "fs.sftp.knownHosts" = "/etc/seatunnel/known_hosts"
+    }
+  }
+}
+```
+
+If the SFTP server uses a self-signed host key, add it to `known_hosts` ahead of time — otherwise the first read throws a `SftpException` complaining about host verification. The connector does not cache or refresh `known_hosts` itself; updating the file and restarting the job is enough.
 
 ## Changelog
 

@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.source.SupportParallelism;
@@ -27,8 +29,10 @@ import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
+import org.apache.seatunnel.connectors.cdc.base.config.StartupConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
+import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
 import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
 import org.apache.seatunnel.connectors.cdc.base.schema.SchemaChangeEventFilter;
@@ -41,17 +45,20 @@ import org.apache.seatunnel.connectors.cdc.debezium.row.DebeziumJsonDeserializeS
 import org.apache.seatunnel.connectors.cdc.debezium.row.SeaTunnelRowDebeziumDeserializeSchema;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlIncrementalSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceConfigFactory;
+import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.offset.BinlogOffset;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.offset.BinlogOffsetFactory;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
 
 import org.apache.kafka.connect.data.Struct;
 
+import io.debezium.connector.mysql.GtidSet;
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.TableId;
 import io.debezium.relational.history.TableChanges;
 
 import java.time.ZoneId;
 import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -65,6 +72,143 @@ public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceCo
 
     public MySqlIncrementalSource(ReadonlyConfig options, List<CatalogTable> catalogTables) {
         super(options, catalogTables);
+    }
+
+    @Override
+    protected StartupConfig getStartupConfig(ReadonlyConfig config) {
+        return createStartupConfig(config);
+    }
+
+    /* Route MySQL specific startup through the map-based offset path for GTID and skip metadata. */
+    static StartupConfig createStartupConfig(ReadonlyConfig config) {
+        StartupMode startupMode = config.get(MySqlIncrementalSourceOptions.STARTUP_MODE);
+        if (StartupMode.SPECIFIC.equals(startupMode)) {
+            return new StartupConfig(startupMode, createSpecificStartupOffset(config));
+        }
+
+        validateNoSpecificStartupOffset(config, startupMode);
+        return new StartupConfig(
+                startupMode,
+                config.get(SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE),
+                config.get(SourceOptions.STARTUP_SPECIFIC_OFFSET_POS),
+                config.get(SourceOptions.STARTUP_TIMESTAMP));
+    }
+
+    /*
+     * Debezium's MySqlOffsetContext.Loader requires file and pos for a specific startup offset.
+     * GTID and skip fields are optional metadata on that same offset, not an alternative anchor.
+     */
+    private static Map<String, String> createSpecificStartupOffset(ReadonlyConfig config) {
+        Optional<String> gtidSet = getValidatedGtidSet(config);
+        boolean hasFile =
+                config.getOptional(SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE).isPresent();
+        boolean hasPos = config.getOptional(SourceOptions.STARTUP_SPECIFIC_OFFSET_POS).isPresent();
+
+        if (hasFile != hasPos) {
+            throw new IllegalArgumentException(
+                    String.format(
+                            "'%s' and '%s' must be configured together when '%s' is 'specific'.",
+                            SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE.key(),
+                            SourceOptions.STARTUP_SPECIFIC_OFFSET_POS.key(),
+                            SourceOptions.STARTUP_MODE_KEY));
+        }
+
+        if (!hasFile) {
+            throw new IllegalArgumentException(
+                    String.format(
+                            "'%s' requires '%s' with '%s' when the mode is 'specific'.",
+                            SourceOptions.STARTUP_MODE_KEY,
+                            SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE.key(),
+                            SourceOptions.STARTUP_SPECIFIC_OFFSET_POS.key()));
+        }
+
+        long skipEvents =
+                getNonNegativeSkipValue(
+                        config, MySqlIncrementalSourceOptions.STARTUP_SPECIFIC_OFFSET_SKIP_EVENTS);
+        long skipRows =
+                getNonNegativeSkipValue(
+                        config, MySqlIncrementalSourceOptions.STARTUP_SPECIFIC_OFFSET_SKIP_ROWS);
+
+        Map<String, String> offset = new LinkedHashMap<>();
+        String file = config.get(SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE);
+        if (StringUtils.isBlank(file)) {
+            throw new IllegalArgumentException(
+                    String.format(
+                            "'%s' must not be blank.",
+                            SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE.key()));
+        }
+        offset.put(BinlogOffset.BINLOG_FILENAME_OFFSET_KEY, file);
+        offset.put(
+                BinlogOffset.BINLOG_POSITION_OFFSET_KEY,
+                String.valueOf(config.get(SourceOptions.STARTUP_SPECIFIC_OFFSET_POS)));
+        if (gtidSet.isPresent()) {
+            offset.put(BinlogOffset.GTID_SET_KEY, gtidSet.get());
+        }
+        offset.put(BinlogOffset.EVENTS_TO_SKIP_OFFSET_KEY, String.valueOf(skipEvents));
+        offset.put(BinlogOffset.ROWS_TO_SKIP_OFFSET_KEY, String.valueOf(skipRows));
+        return offset;
+    }
+
+    /* Validate the configured GTID set before adding it to Debezium's offset map. */
+    private static Optional<String> getValidatedGtidSet(ReadonlyConfig config) {
+        Optional<String> configuredGtidSet =
+                config.getOptional(MySqlIncrementalSourceOptions.STARTUP_SPECIFIC_OFFSET_GTID_SET);
+        if (!configuredGtidSet.isPresent()) {
+            return Optional.empty();
+        }
+
+        String gtidSet = configuredGtidSet.get().trim();
+        if (StringUtils.isBlank(gtidSet)) {
+            throw new IllegalArgumentException(
+                    String.format(
+                            "'%s' must not be blank.",
+                            MySqlIncrementalSourceOptions.STARTUP_SPECIFIC_OFFSET_GTID_SET.key()));
+        }
+
+        try {
+            new GtidSet(gtidSet);
+        } catch (Exception e) {
+            throw new IllegalArgumentException(
+                    String.format(
+                            "Invalid '%s' value '%s'.",
+                            MySqlIncrementalSourceOptions.STARTUP_SPECIFIC_OFFSET_GTID_SET.key(),
+                            gtidSet),
+                    e);
+        }
+        return Optional.of(gtidSet);
+    }
+
+    private static long getNonNegativeSkipValue(ReadonlyConfig config, Option<Long> option) {
+        long value = config.getOptional(option).orElse(0L);
+        if (value < 0) {
+            throw new IllegalArgumentException(
+                    String.format("'%s' must be greater than or equal to 0.", option.key()));
+        }
+        return value;
+    }
+
+    private static void validateNoSpecificStartupOffset(
+            ReadonlyConfig config, StartupMode startupMode) {
+        if (hasSpecificStartupOffset(config)) {
+            throw new IllegalArgumentException(
+                    String.format(
+                            "'startup.specific-offset.*' options can only be used when '%s' is 'specific', but current mode is '%s'.",
+                            SourceOptions.STARTUP_MODE_KEY, startupMode));
+        }
+    }
+
+    private static boolean hasSpecificStartupOffset(ReadonlyConfig config) {
+        return config.getOptional(SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE).isPresent()
+                || config.getOptional(SourceOptions.STARTUP_SPECIFIC_OFFSET_POS).isPresent()
+                || config.getOptional(
+                                MySqlIncrementalSourceOptions.STARTUP_SPECIFIC_OFFSET_GTID_SET)
+                        .isPresent()
+                || config.getOptional(
+                                MySqlIncrementalSourceOptions.STARTUP_SPECIFIC_OFFSET_SKIP_EVENTS)
+                        .isPresent()
+                || config.getOptional(
+                                MySqlIncrementalSourceOptions.STARTUP_SPECIFIC_OFFSET_SKIP_ROWS)
+                        .isPresent();
     }
 
     @Override
@@ -178,7 +322,9 @@ public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceCo
                 SchemaChangeType.ADD_COLUMN,
                 SchemaChangeType.DROP_COLUMN,
                 SchemaChangeType.RENAME_COLUMN,
-                SchemaChangeType.UPDATE_COLUMN);
+                SchemaChangeType.UPDATE_COLUMN,
+                SchemaChangeType.ALTER_TABLE_COMMENT,
+                SchemaChangeType.ALTER_COLUMN_COMMENT);
     }
 
     @Override

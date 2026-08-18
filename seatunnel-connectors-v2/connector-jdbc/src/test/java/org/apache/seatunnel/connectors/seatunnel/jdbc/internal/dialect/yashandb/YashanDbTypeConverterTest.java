@@ -459,6 +459,18 @@ public class YashanDbTypeConverterTest {
         Column column = INSTANCE.convert(typeDefine);
         Assertions.assertEquals(VectorType.VECTOR_FLOAT_TYPE, column.getDataType());
         Assertions.assertEquals(3, column.getScale());
+
+        typeDefine =
+                BasicTypeDefine.builder()
+                        .name("test")
+                        .columnType("VECTOR(3,FLOAT64)")
+                        .dataType("VECTOR")
+                        .scale(3)
+                        .length(3L)
+                        .build();
+        column = INSTANCE.convert(typeDefine);
+        Assertions.assertEquals(VectorType.VECTOR_FLOAT_TYPE, column.getDataType());
+        Assertions.assertEquals(3, column.getScale());
     }
 
     // ============================ reconvert() tests ============================
@@ -733,7 +745,7 @@ public class YashanDbTypeConverterTest {
 
     @Test
     public void testReconvertArrayToVector() {
-        // ARRAY<INT> -> VECTOR
+        // ARRAY<INT> -> VECTOR FLOAT32
         Column column =
                 PhysicalColumn.builder()
                         .name("test")
@@ -742,7 +754,19 @@ public class YashanDbTypeConverterTest {
                         .nullable(true)
                         .build();
         BasicTypeDefine<?> typeDefine = INSTANCE.reconvert(column);
-        Assertions.assertEquals("VECTOR(10)", typeDefine.getColumnType());
+        Assertions.assertEquals("VECTOR(10,FLOAT32)", typeDefine.getColumnType());
+        Assertions.assertEquals("VECTOR", typeDefine.getDataType());
+
+        // ARRAY<DOUBLE> -> VECTOR FLOAT64
+        column =
+                PhysicalColumn.builder()
+                        .name("test")
+                        .dataType(ArrayType.DOUBLE_ARRAY_TYPE)
+                        .columnLength(10L)
+                        .nullable(true)
+                        .build();
+        typeDefine = INSTANCE.reconvert(column);
+        Assertions.assertEquals("VECTOR(10,FLOAT64)", typeDefine.getColumnType());
         Assertions.assertEquals("VECTOR", typeDefine.getDataType());
 
         // ARRAY<STRING> -> unsupported

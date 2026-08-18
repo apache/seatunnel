@@ -68,6 +68,10 @@ seatunnel:
   cleaned up manually or via a configurable retention policy.
 - Only the **latest N checkpoints** are retained per pipeline (controlled by Hazelcast in-memory
   references). Old checkpoint directories may remain on disk if the job was killed unexpectedly.
+- By default, canceled jobs still clean up existing checkpoint data. If you want to retain the
+  checkpoints generated during job execution for later recovery, set
+  `checkpoint.retain-after-job-cancelled: true` in the job `env`, or set
+  `seatunnel.engine.checkpoint.retain-after-job-cancelled: true` in `seatunnel.yaml`.
 - **Safe cleanup rule**: A checkpoint directory for a job ID can be deleted only after the job has
   been cancelled and you have confirmed that you do not intend to restore it.
 
@@ -104,7 +108,15 @@ curl -X POST http://<master>:8080/stop-job \
 
 ```bash
 # Submit with --restore to resume from the latest savepoint
-$SEATUNNEL_HOME/bin/seatunnel.sh --config job.conf --restore <savepoint-path>
+$SEATUNNEL_HOME/bin/seatunnel.sh --config job.conf --restore <job-id>
+```
+
+### Restoring from the latest completed checkpoint
+
+```bash
+# Submit with --restore-with-checkpoint to resume from the latest completed checkpoint
+# The new run gets a new runtime job ID.
+$SEATUNNEL_HOME/bin/seatunnel.sh --config job.conf --restore-with-checkpoint <job-id>
 ```
 
 ### Savepoint path layout
