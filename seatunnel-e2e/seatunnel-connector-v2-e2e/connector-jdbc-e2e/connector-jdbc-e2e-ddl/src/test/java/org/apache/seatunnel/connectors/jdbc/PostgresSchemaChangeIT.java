@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.jdbc;
 
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
-
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 
 import org.testcontainers.containers.GenericContainer;
@@ -80,7 +78,6 @@ public class PostgresSchemaChangeIT extends AbstractSchemaChangeBaseIT {
                         .withCommand("postgres -c max_prepared_transactions=100")
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(PG_IMAGE)));
-        container.setPortBindings(Lists.newArrayList(String.format("%s:%s", PG_PORT, PG_PORT)));
         return container;
     }
 

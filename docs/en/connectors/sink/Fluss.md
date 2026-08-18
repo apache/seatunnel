@@ -202,6 +202,77 @@ The sink resolves the target table separately for each upstream table. Before ru
 
 In multi-table mode, the target `database` and `table` values can combine fixed text with placeholders. For example, `database = "fluss_db_${database_name}"` and `table = "fluss_tb_${table_name}"` route upstream table `test2.table1` to `fluss_db_test2.fluss_tb_table1`.
 
+### Stream upserts into a primary-key Fluss table
+
+When the target Fluss table has a primary key, the sink routes each row based on
+its `RowKind`. The example below reads from a CDC source and writes inserts,
+updates, and deletes to a primary-key Fluss table.
+
+```hocon
+env {
+  parallelism = 2
+  job.mode = "STREAMING"
+  checkpoint.interval = 30000
+}
+
+source {
+  MySQL-CDC {
+    plugin_output = "orders_cdc"
+    base-url = "jdbc:mysql://mysql:3306/shop"
+    username = "cdc"
+    password = "${secret}"
+    database-names = ["shop"]
+    table-names = ["shop.orders"]
+  }
+}
+
+sink {
+  Fluss {
+    plugin_input = "orders_cdc"
+    bootstrap.servers = "fluss-coordinator:9123"
+    database = "shop"
+    table = "orders"
+  }
+}
+```
+
+### Replicate CDC changes across databases
+
+Use placeholders to replicate CDC changes from one Fluss namespace to another.
+Fluss only has a database + table identifier (no schema), so the upstream
+`schemaName` is always null for a Fluss-to-Fluss topology. Use `${database_name}`
+to capture the upstream Fluss database and `${table_name}` to capture the
+upstream Fluss table; the placeholder values are rewritten by the engine before
+the sink connects.
+
+```hocon
+env {
+  parallelism = 2
+  job.mode = "STREAMING"
+  checkpoint.interval = 30000
+}
+
+source {
+  Fluss {
+    plugin_output = "fluss_cdc"
+    bootstrap.servers = "fluss-coordinator:9123"
+    database = "source_db"
+    table = "source_table"
+    start_mode = "earliest"
+  }
+}
+
+sink {
+  Fluss {
+    plugin_input = "fluss_cdc"
+    bootstrap.servers = "fluss-coordinator:9123"
+    database = "sink_db_${database_name}"
+    table = "sink_${table_name}"
+    multi_table_sink_replica = 2
+  }
+}
+```
+
 ## Changelog
 
 <ChangeLog />

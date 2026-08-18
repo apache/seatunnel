@@ -65,7 +65,9 @@ public class WorkerTagTest extends AbstractSeaTunnelServerTest<WorkerTagTest> {
                 + "    port:\n"
                 + "      auto-increment: true\n"
                 + "      port-count: 100\n"
-                + "      port: 5801\n"
+                + "      port: "
+                + getHazelcastPort()
+                + "\n"
                 + "\n"
                 + "  properties:\n"
                 + "    hazelcast.invocation.max.retry.count: 200\n"

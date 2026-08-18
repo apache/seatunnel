@@ -409,19 +409,26 @@ public class MultiTableSinkWriterSchemaChangeBroadcastTest {
                                         new TestSchemaChangeEvent(
                                                 TablePath.of("dbA", null, "users"))));
         assertEquals("boom-before-schema-entry", schemaChangeFailure.getMessage());
-
-        // The worker failure asserted above stays recorded, so close() drains the queue and
-        // surfaces it a second time whenever the failing row has not been consumed yet. Whether
-        // that happens is pure scheduling luck: on Linux runners the queue is normally already
-        // empty, while Windows runners still hold the row and hit the rethrow. Tolerate either
-        // outcome here, but pin any close() failure to the same root cause so a genuinely new
-        // shutdown failure still breaks this test.
+        // checkQueueRemain() (invoked by close()) only re-checks subSinkErrorCheck() while a
+        // queue element still looks pending, and MultiTableWriterRunnable clears that pending
+        // flag in a separate volatile write issued after the worker's throwable field is already
+        // stored (MultiTableWriterRunnable.run()). Whether close() observes that narrow window
+        // and re-surfaces the same row failure is pure scheduling luck: on Linux runners the
+        // queue is normally already drained, while Windows runners still hold the row and hit
+        // the rethrow (as either the raw IOException or a RuntimeException wrapping it).
+        // Tolerate every one of those outcomes, but pin any close() failure to the exact
+        // failure instance already asserted above so a genuinely new shutdown failure still
+        // breaks this test.
         try {
             coordinator.close();
         } catch (IOException | RuntimeException closeFailure) {
             Throwable rootCause =
                     closeFailure instanceof IOException ? closeFailure : closeFailure.getCause();
-            assertEquals("boom-before-schema-entry", rootCause.getMessage());
+            org.junit.jupiter.api.Assertions.assertSame(
+                    rowWriteFailure,
+                    rootCause,
+                    "close() surfaced an unexpected failure instead of the known row failure: "
+                            + closeFailure);
         }
     }
 

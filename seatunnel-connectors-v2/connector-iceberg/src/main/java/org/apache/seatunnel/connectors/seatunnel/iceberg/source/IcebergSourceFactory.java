@@ -56,13 +56,13 @@ public class IcebergSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(
-                        IcebergCommonOptions.KEY_CATALOG_NAME,
-                        IcebergCommonOptions.KEY_NAMESPACE,
-                        IcebergCommonOptions.CATALOG_PROPS)
+                .required(IcebergCommonOptions.CATALOG_PROPS)
                 .exclusive(IcebergCommonOptions.KEY_TABLE, IcebergSourceOptions.KEY_TABLE_LIST)
                 .optional(
+                        IcebergCommonOptions.KEY_CATALOG_NAME,
+                        IcebergCommonOptions.KEY_NAMESPACE,
                         ConnectorCommonOptions.SCHEMA,
+                        IcebergSourceOptions.QUERY,
                         IcebergSourceOptions.KEY_CASE_SENSITIVE,
                         IcebergSourceOptions.KEY_START_SNAPSHOT_TIMESTAMP,
                         IcebergSourceOptions.KEY_START_SNAPSHOT_ID,
