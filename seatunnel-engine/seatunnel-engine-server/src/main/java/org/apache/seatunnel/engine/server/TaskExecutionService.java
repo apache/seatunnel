@@ -589,9 +589,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                                                 return true;
                                             }));
             TaskGroupContext context = new TaskGroupContext(taskGroup, classLoaders, jars);
-            executionContexts.put(
-                    taskGroup.getTaskGroupLocation(),
-                    context);
+            executionContexts.put(taskGroup.getTaskGroupLocation(), context);
             executionTracker.ownedContext = context;
             cancellationFutures.put(taskGroup.getTaskGroupLocation(), cancellationFuture);
             submitThreadShareTask(executionTracker, byCooperation.get(true));
@@ -1342,9 +1340,9 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         private final Map<Long, Future<?>> currRunningTaskFuture = new ConcurrentHashMap<>();
 
         /**
-         * The TaskGroupContext that this tracker owns. Used to guard against stale
-         * taskDone calls from a previous restore generation removing the execution
-         * context installed by a newer generation for the same TaskGroupLocation.
+         * The TaskGroupContext that this tracker owns. Used to guard against stale taskDone calls
+         * from a previous restore generation removing the execution context installed by a newer
+         * generation for the same TaskGroupLocation.
          */
         private volatile TaskGroupContext ownedContext;
 
@@ -1502,12 +1500,12 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         }
 
         /**
-         * Moves the execution context from the active map to the finished map, but only if
-         * the entry is still the context this tracker installed. TaskGroupLocation is reused
-         * across pipeline restore generations, so a stale {@link #taskDone(Task)} from an
-         * earlier generation must not evict the context installed by a newer generation for
-         * the same location. {@link java.util.concurrent.ConcurrentMap#remove(Object, Object)}
-         * performs the check atomically.
+         * Moves the execution context from the active map to the finished map, but only if the
+         * entry is still the context this tracker installed. TaskGroupLocation is reused across
+         * pipeline restore generations, so a stale {@link #taskDone(Task)} from an earlier
+         * generation must not evict the context installed by a newer generation for the same
+         * location. {@link java.util.concurrent.ConcurrentMap#remove(Object, Object)} performs the
+         * check atomically.
          */
         private void finishExecutionContext(TaskGroupLocation taskGroupLocation) {
             if (executionContexts.remove(taskGroupLocation, ownedContext)) {
