@@ -528,7 +528,7 @@ public abstract class AbstractSchemaChangeBaseIT extends TestSuiteBase implement
                 String.format(
                         schemaChangeCase.getJdbcUrl(),
                         sinkDbServer.getHost(),
-                        schemaChangeCase.getPort(),
+                        sinkDbServer.getMappedPort(schemaChangeCase.getPort()),
                         schemaChangeCase.getDatabaseName()),
                 schemaChangeCase.getUsername(),
                 schemaChangeCase.getPassword());

@@ -17,11 +17,6 @@
 import json
 import sys
 
-DEDICATED_LONG_CONNECTOR_V2_IT_MODULES = [
-    "connector-iceberg-e2e",
-    "connector-hbase-e2e",
-]
-
 
 def get_cv2_modules(files):
     get_modules(files, 1, "connector-", "seatunnel-connectors-v2")
@@ -146,27 +141,13 @@ def get_deleted_modules(files):
     print(output_module)
 
 
-def get_dedicated_long_connector_v2_it_modules():
-    return list(DEDICATED_LONG_CONNECTOR_V2_IT_MODULES)
+def build_sub_it_modules(modules, total_num, current_num):
+    """
+    Build one all-connectors shard while excluding suites with dedicated jobs.
 
-
-def get_dedicated_long_connector_v2_it_modules_output():
-    print(",".join([":" + module for module in get_dedicated_long_connector_v2_it_modules()]))
-
-
-def filter_excluded_modules(modules_arr, excluded_modules):
-    # Keep dedicated long-running suites out of the dynamic shards.
-    if excluded_modules is None or len(excluded_modules.strip()) == 0:
-        return modules_arr
-    excluded_module_set = {
-        module.strip() for module in excluded_modules.split(",") if len(module.strip()) > 0
-    }
-    return [module for module in modules_arr if module not in excluded_module_set]
-
-
-def get_sub_it_modules(modules, total_num, current_num, excluded_modules=None):
-    if excluded_modules is None:
-        excluded_modules = ",".join(get_dedicated_long_connector_v2_it_modules())
+    Heavy suites that already have their own workflow shard must stay out of the
+    round-robin shards, otherwise CI runs them twice and wastes runner time.
+    """
     modules_arr = list(dict.fromkeys(modules.split(",")))
     modules_arr.remove("connector-jdbc-e2e")
     modules_arr.remove("connector-kafka-e2e")
@@ -180,7 +161,14 @@ def get_sub_it_modules(modules, total_num, current_num, excluded_modules=None):
     modules_arr.remove("connector-file-sftp-e2e")
     modules_arr.remove("connector-redis-e2e")
     modules_arr.remove("connector-sensorsdata-e2e")
-    modules_arr = filter_excluded_modules(modules_arr, excluded_modules)
+    if "connector-elasticsearch-e2e" in modules_arr:
+        modules_arr.remove("connector-elasticsearch-e2e")
+    if "connector-cdc-mysql-e2e" in modules_arr:
+        modules_arr.remove("connector-cdc-mysql-e2e")
+    if "connector-iceberg-e2e" in modules_arr:
+        modules_arr.remove("connector-iceberg-e2e")
+    if "connector-hbase-e2e" in modules_arr:
+        modules_arr.remove("connector-hbase-e2e")
     if "connector-seatunnel-e2e-base" in modules_arr:
         modules_arr.remove("connector-seatunnel-e2e-base")
     if "connector-console-seatunnel-e2e" in modules_arr:
@@ -192,8 +180,11 @@ def get_sub_it_modules(modules, total_num, current_num, excluded_modules=None):
         if len(module) > 0 and i % int(total_num) == int(current_num):
             output = output + ",:" + module
 
-    output = output[1:len(output)]
-    print(output)
+    return output[1:len(output)]
+
+
+def get_sub_it_modules(modules, total_num, current_num):
+    print(build_sub_it_modules(modules, total_num, current_num))
 
 
 def get_sub_update_it_modules(modules, total_num, current_num):
@@ -228,6 +219,10 @@ def get_sub_update_it_modules(modules, total_num, current_num):
         module_list.remove("connector-file-sftp-e2e")
     if "connector-redis-e2e" in module_list:
         module_list.remove("connector-redis-e2e")
+    if "connector-elasticsearch-e2e" in module_list:
+        module_list.remove("connector-elasticsearch-e2e")
+    if "connector-cdc-mysql-e2e" in module_list:
+        module_list.remove("connector-cdc-mysql-e2e")
     if "connector-seatunnel-e2e-base" in module_list:
         module_list.remove("connector-seatunnel-e2e-base")
     if "connector-console-seatunnel-e2e" in module_list:
@@ -264,10 +259,7 @@ def main(argv):
     elif argv[1] == "rm":
         remove_deleted_modules(argv[2], argv[3])
     elif argv[1] == "sub_it_module":
-        excluded_modules = argv[5] if len(argv) > 5 else None
-        get_sub_it_modules(argv[2], argv[3], argv[4], excluded_modules)
-    elif argv[1] == "dedicated_connector_v2_it_module":
-        get_dedicated_long_connector_v2_it_modules_output()
+        get_sub_it_modules(argv[2], argv[3], argv[4])
     elif argv[1] == "sub_update_it_module":
         get_sub_update_it_modules(argv[2], argv[3], argv[4])
 

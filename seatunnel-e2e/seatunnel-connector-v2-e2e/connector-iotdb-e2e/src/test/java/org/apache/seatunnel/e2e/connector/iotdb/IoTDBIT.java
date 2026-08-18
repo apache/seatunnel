@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.e2e.connector.iotdb;
 
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
-
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.EngineType;
@@ -86,10 +84,10 @@ public class IoTDBIT extends TestSuiteBase implements TestResource {
                 new GenericContainer<>(IOTDB_DOCKER_IMAGE)
                         .withNetwork(NETWORK)
                         .withNetworkAliases(IOTDB_HOST)
+                        .withExposedPorts(IOTDB_PORT)
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(IOTDB_DOCKER_IMAGE)));
-        iotdbServer.setPortBindings(Lists.newArrayList(String.format("%s:6667", IOTDB_PORT)));
         Startables.deepStart(Stream.of(iotdbServer)).join();
         log.info("IoTDB container started");
         // wait for IoTDB fully start
@@ -114,8 +112,8 @@ public class IoTDBIT extends TestSuiteBase implements TestResource {
 
     private Session createSession() {
         return new Session.Builder()
-                .host("localhost")
-                .port(IOTDB_PORT)
+                .host(iotdbServer.getHost())
+                .port(iotdbServer.getMappedPort(IOTDB_PORT))
                 .username(IOTDB_USERNAME)
                 .password(IOTDB_PASSWORD)
                 .build();

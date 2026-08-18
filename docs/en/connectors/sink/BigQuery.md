@@ -74,7 +74,9 @@ When `sequence_number_column` is configured, the value from that column is sent 
 If `sequence_number_column` is not configured, `_CHANGE_SEQUENCE_NUMBER` is not sent and BigQuery will not perform sequence-number-based deduplication.
 
 > **Note**
-> - The `sequence_number_column` should reference a monotonically increasing column in your source table (e.g., `updated_at` as epoch millis, `version`, or `seq_id`). The column value must be of a type convertible to `long`.
+> - BigQuery requires `_CHANGE_SEQUENCE_NUMBER` to be a hexadecimal `STRING`. For integer columns and exact integral decimal values, such as MySQL `BIGINT UNSIGNED` mapped to `DECIMAL(20, 0)`, the connector converts non-negative values in the unsigned 64-bit range to hexadecimal strings. For string columns, values are treated as already-encoded hexadecimal sequence numbers and are validated without conversion.
+> - A sequence number may contain up to four sections separated by `/`, and each section may contain up to 16 hexadecimal characters. Null, negative, empty, or malformed values are rejected.
+> - The `sequence_number_column` should reference a monotonically increasing column in your source table (e.g., `updated_at` as epoch millis, `version`, or `seq_id`).
 > - To enable BigQuery-side deduplication in streaming mode, the target BigQuery table must have a Primary Key defined. Otherwise, BigQuery will treat every write as an append operation, regardless of the sequence number.
 
 ### emulator_host
@@ -84,6 +86,10 @@ If `sequence_number_column` is not configured, `_CHANGE_SEQUENCE_NUMBER` is not 
 ## Task Example
 
 ### Simple Batch Example
+
+This example shows a local end-to-end batch test against the BigQuery emulator.
+Production jobs should provide a real service-account key (or rely on default
+application credentials) and target a real GCP project.
 
 ```hocon
 env {
@@ -173,6 +179,27 @@ sink {
 }
 ```
 
+When the upstream CDC source already produces a monotonically increasing column
+(such as an `updated_at` epoch millis or a row version), wire it to
+`sequence_number_column` so BigQuery can dedup retried batches. The target
+table must define a primary key (the example above uses `PRIMARY KEY (uuid)
+NOT ENFORCED`), otherwise BigQuery treats every write as an append and skips
+deduplication.
+
+```hocon
+sink {
+  BigQuery {
+    project_id = "my-gcp-project"
+    dataset_id = "cdc_dataset"
+    table_id = "orders"
+    service_account_key_path = "/path/to/key.json"
+    write_mode = "streaming"
+    sequence_number_column = "updated_at"
+    batch_size = 500
+  }
+}
+```
+
 ### Complex Data Types Example
 
 ```hocon
@@ -200,6 +227,24 @@ sink {
     dataset_id = "orders"
     table_id = "customer_orders"
     service_account_key_path = "/path/to/key.json"
+    batch_size = 500
+  }
+}
+```
+
+### Inline Service Account Key
+
+For environments where a key file is inconvenient (CI runners, Kubernetes
+secrets mounted as env vars), inline the JSON content with
+`service_account_key_json`.
+
+```hocon
+sink {
+  BigQuery {
+    project_id = "my-gcp-project"
+    dataset_id = "orders"
+    table_id = "customer_orders"
+    service_account_key_json = "${GCP_SA_KEY_JSON}"
     batch_size = 500
   }
 }
