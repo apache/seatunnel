@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.common.metrics.JobMetrics;
 import org.apache.seatunnel.api.common.metrics.RawJobMetrics;
 import org.apache.seatunnel.api.event.EventHandler;
 import org.apache.seatunnel.api.event.EventProcessor;
+import org.apache.seatunnel.api.options.EnvCommonOptions;
 import org.apache.seatunnel.api.tracing.MDCExecutorService;
 import org.apache.seatunnel.api.tracing.MDCTracer;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
@@ -1590,9 +1591,13 @@ public class CoordinatorService {
                     JobMaster jobMaster = null;
                     JobInfo submittedJobInfo = null;
                     try {
+                        JobImmutableInformation submittedJobImmutableInformation =
+                                deserializeJobImmutableInformation(jobImmutableInformation);
+                        validateCheckpointRestoreSourceJobIsTerminal(
+                                submittedJobImmutableInformation, jobId);
                         pendingJobCleanupIMap.lock(jobId);
                         try {
-                            validateJobSubmissionFence(jobId);
+                            validateJobSubmissionFence(jobId, isStartWithSavePoint);
                         } finally {
                             pendingJobCleanupIMap.unlock(jobId);
                         }
@@ -1623,7 +1628,7 @@ public class CoordinatorService {
                                 new JobInfo(initializationTimestamp, jobImmutableInformation);
                         pendingJobCleanupIMap.lock(jobId);
                         try {
-                            validateJobSubmissionFence(jobId);
+                            validateJobSubmissionFence(jobId, isStartWithSavePoint);
                             if (isStartWithSavePoint) {
                                 // Invalidate old pipeline cleanup only when this generation can be
                                 // published under the same job cleanup fence.
@@ -1675,14 +1680,23 @@ public class CoordinatorService {
      *
      * <p>The caller must hold the per-job lock in {@link #pendingJobCleanupIMap}. Submission checks
      * this condition before constructing the job master and again immediately before publishing the
-     * new owner, closing both sides of the terminal-cleanup race.
+     * new owner, closing both sides of the terminal-cleanup race. A savepoint restart consumes the
+     * pending cleanup record of its own previous generation instead of failing, and a cleanup
+     * record owned by an unrelated generation no longer blocks the new submission.
      */
-    private void validateJobSubmissionFence(long jobId) throws JobException {
-        if (pendingJobCleanupIMap.containsKey(jobId)) {
-            throw new JobException(
-                    String.format(
-                            "The job id %s is waiting for terminal state cleanup, please retry later.",
-                            jobId));
+    private void validateJobSubmissionFence(long jobId, boolean isStartWithSavePoint)
+            throws JobException {
+        JobCleanupRecord pendingCleanupRecord = pendingJobCleanupIMap.get(jobId);
+        if (pendingCleanupRecord != null
+                && isCleanupOwnedByCurrentJob(jobId, pendingCleanupRecord)) {
+            if (isStartWithSavePoint) {
+                cleanupPendingJobStateForRestore(jobId, pendingCleanupRecord);
+            } else {
+                throw new JobException(
+                        String.format(
+                                "The job id %s is waiting for terminal state cleanup, please retry later.",
+                                jobId));
+            }
         }
         if (runningJobInfoIMap.containsKey(jobId)) {
             throw new JobException(
@@ -1690,6 +1704,56 @@ public class CoordinatorService {
                             "The job id %s has an existing generation awaiting recovery, please retry later.",
                             jobId));
         }
+    }
+
+    /** Resolves cleanup ownership against the currently published generation of the job id. */
+    private boolean isCleanupOwnedByCurrentJob(long jobId, JobCleanupRecord record) {
+        return isCleanupOwnedByCurrentJob(runningJobInfoIMap.get(jobId), jobId, record);
+    }
+
+    /**
+     * Consumes the previous generation's terminal cleanup record while restoring with a savepoint.
+     *
+     * <p>The caller must hold the per-job lock in {@link #pendingJobCleanupIMap} so the record
+     * cannot be applied concurrently by the terminal cleanup executor.
+     */
+    private void cleanupPendingJobStateForRestore(long jobId, JobCleanupRecord record) {
+        removeKeys(runningJobStateIMap, record.getStateKeys());
+        removeKeys(runningJobStateTimestampsIMap, record.getTimestampKeys());
+        removePendingJobCleanupRecord(jobId, record);
+        runningJobInfoIMap.remove(jobId);
+    }
+
+    /** Removes a nullable snapshot key set from the given state map. */
+    private void removeKeys(IMap<Object, ?> map, Set<Object> keys) {
+        if (map == null || keys == null || keys.isEmpty()) {
+            return;
+        }
+        keys.forEach(map::remove);
+    }
+
+    private void validateCheckpointRestoreSourceJobIsTerminal(
+            JobImmutableInformation jobImmutableInformation, long destinationJobId) {
+        CheckpointRestoreValidator.validate(
+                jobImmutableInformation, destinationJobId, this::resolveSourceJobStatusForRestore);
+    }
+
+    private JobImmutableInformation deserializeJobImmutableInformation(
+            Data jobImmutableInformation) {
+        return nodeEngine.getSerializationService().toObject(jobImmutableInformation);
+    }
+
+    private JobStatus resolveSourceJobStatusForRestore(long sourceJobId) {
+        if (pendingJobQueue.contains(sourceJobId)) {
+            return JobStatus.PENDING;
+        }
+        JobMaster runningSourceJobMaster = runningJobMasterMap.get(sourceJobId);
+        if (runningSourceJobMaster != null) {
+            JobStatus runningStatus = runningSourceJobMaster.getJobStatus();
+            return runningStatus == null ? JobStatus.RUNNING : runningStatus;
+        }
+        Object state = runningJobStateIMap.get(sourceJobId);
+        return state instanceof JobStatus ? (JobStatus) state : null;
     }
 
     public PassiveCompletableFuture<Void> savePoint(long jobId) {
@@ -2132,14 +2196,38 @@ public class CoordinatorService {
         }
         if (isCheckpointEnabled(jobImmutableInformation.getJobConfig())
                 && seaTunnelServer.getCheckpointService() != null) {
-            seaTunnelServer
-                    .getCheckpointService()
-                    .getCheckpointStorage()
-                    .deleteCheckpoint(jobId + "");
+            if (finalStatus == JobStatus.CANCELED
+                    && shouldRetainCheckpointAfterJobCancelled(jobImmutableInformation)) {
+                logger.info(
+                        String.format(
+                                "Job %d has retain-after-job-cancelled enabled, retaining checkpoint data",
+                                jobId));
+            } else {
+                seaTunnelServer
+                        .getCheckpointService()
+                        .getCheckpointStorage()
+                        .deleteCheckpoint(jobId + "");
+            }
         }
         if (seaTunnelServer.getCheckpointMonitorService() != null) {
             seaTunnelServer.getCheckpointMonitorService().cleanupJob(jobId);
         }
+    }
+
+    private boolean shouldRetainCheckpointAfterJobCancelled(
+            JobImmutableInformation jobImmutableInformation) {
+        if (jobImmutableInformation == null || jobImmutableInformation.getJobConfig() == null) {
+            return engineConfig.getCheckpointConfig().isRetainAfterJobCancelled();
+        }
+        Map<String, Object> jobEnv = jobImmutableInformation.getJobConfig().getEnvOptions();
+        if (jobEnv != null
+                && jobEnv.containsKey(
+                        EnvCommonOptions.CHECKPOINT_RETAIN_AFTER_JOB_CANCELLED.key())) {
+            return Boolean.parseBoolean(
+                    jobEnv.get(EnvCommonOptions.CHECKPOINT_RETAIN_AFTER_JOB_CANCELLED.key())
+                            .toString());
+        }
+        return engineConfig.getCheckpointConfig().isRetainAfterJobCancelled();
     }
 
     /**

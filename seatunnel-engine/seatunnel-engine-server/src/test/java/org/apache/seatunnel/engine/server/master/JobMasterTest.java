@@ -17,8 +17,11 @@
 
 package org.apache.seatunnel.engine.server.master;
 
+import org.apache.seatunnel.api.options.EnvCommonOptions;
+import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
+import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.job.JobResult;
 import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
@@ -439,6 +442,33 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
         }
     }
 
+    @Test
+    void testJobCheckpointConfigUsesJobLevelRetainAfterCancelledOverride() throws Exception {
+        long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+        Map<String, Object> envOptions = new HashMap<>();
+        envOptions.put(EnvCommonOptions.CHECKPOINT_INTERVAL.key(), 10000L);
+        envOptions.put(EnvCommonOptions.CHECKPOINT_RETAIN_AFTER_JOB_CANCELLED.key(), true);
+
+        JobMaster jobMaster =
+                newJobMaster(
+                        jobId,
+                        "stream_fakesource_to_file.conf",
+                        "test_job_checkpoint_config_retain_override",
+                        false,
+                        envOptions);
+
+        jobMaster.init(System.currentTimeMillis(), false);
+
+        CheckpointConfig jobCheckpointConfig =
+                ReflectionUtils.getField(jobMaster, "jobCheckpointConfig")
+                        .map(CheckpointConfig.class::cast)
+                        .orElse(null);
+        Assertions.assertNotNull(jobCheckpointConfig);
+        Assertions.assertTrue(
+                jobCheckpointConfig.isRetainAfterJobCancelled(),
+                "job-level env option should override retain-after-job-cancelled");
+    }
+
     private void assertCloseIdleTask(JobMaster jobMaster) {
         SlotService slotService = server.getSlotService();
         long jobId = jobMaster.getJobId();
@@ -529,12 +559,22 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
     }
 
     private JobMaster newJobMaster(long jobId, String configFile, String jobName, boolean restore) {
+        return newJobMaster(jobId, configFile, jobName, restore, Collections.emptyMap());
+    }
+
+    private JobMaster newJobMaster(
+            long jobId,
+            String configFile,
+            String jobName,
+            boolean restore,
+            Map<String, Object> envOptions) {
         runningJobInfoIMap = nodeEngine.getHazelcastInstance().getMap("runningJobInfo");
         runningJobStateIMap = nodeEngine.getHazelcastInstance().getMap("runningJobState");
         runningJobStateTimestampsIMap = nodeEngine.getHazelcastInstance().getMap("stateTimestamps");
         ownedSlotProfilesIMap = nodeEngine.getHazelcastInstance().getMap("ownedSlotProfilesIMap");
 
         LogicalDag testLogicalDag = TestUtils.createTestLogicalPlan(configFile, jobName, jobId);
+        testLogicalDag.getJobConfig().getEnvOptions().putAll(envOptions);
         JobImmutableInformation jobImmutableInformation =
                 new JobImmutableInformation(
                         jobId,
