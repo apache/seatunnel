@@ -6,321 +6,162 @@ import ChangeLog from '../changelog/connector-http-onesignal.md';
 
 ## Description
 
-Used to read data from OneSignal.
+The OneSignal source connector reads data from the OneSignal REST API. It is built on the HTTP source connector and automatically sends `password` to OneSignal as the `Authorization: Basic <token>` request header, so you do not need to set `Authorization` yourself.
 
-## Key features
+Use this connector to ingest OneSignal resources such as apps, players, segments, or notifications as SeaTunnel rows.
+
+## Key Features
 
 - [x] [batch](../../introduction/concepts/connector-v2-features.md)
 - [ ] [stream](../../introduction/concepts/connector-v2-features.md)
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
-- [ ] [column projection](../../introduction/concepts/connector-v2-features.md)
+- [x] [column projection](../../introduction/concepts/connector-v2-features.md)
 - [ ] [parallelism](../../introduction/concepts/connector-v2-features.md)
 - [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
 
-## Options
+## Source Options
 
-|            name             |  type   | required | default value |
-|-----------------------------|---------|----------|---------------|
-| url                         | String  | Yes      | -             |
-| password                    | String  | Yes      | -             |
-| method                      | String  | No       | get           |
-| schema                      | Config  | No       | -             |
-| schema.fields               | Config  | No       | -             |
-| format                      | String  | No       | json          |
-| params                      | Map     | No       | -             |
-| body                        | String  | No       | -             |
-| json_field                  | Config  | No       | -             |
-| content_json                | String  | No       | -             |
-| poll_interval_millis        | int     | No       | -             |
-| retry                       | int     | No       | -             |
-| retry_backoff_multiplier_ms | int     | No       | 100           |
-| retry_backoff_max_ms        | int     | No       | 10000         |
-| enable_multi_lines          | boolean | No       | false         |
-| common-options              | config  | No       | -             |
+| Name                        | Type    | Required | Default | Description |
+|-----------------------------|---------|----------|---------|-------------|
+| url                         | String  | Yes      | -       | OneSignal REST API endpoint. Common endpoints include `https://onesignal.com/api/v1/apps` and `https://onesignal.com/api/v1/players`. |
+| password                    | String  | Yes      | -       | OneSignal user auth key. The connector sends it as the HTTP `Authorization: Basic <password>` header. Create one at [OneSignal Accounts and Keys](https://documentation.onesignal.com/docs/accounts-and-keys#user-auth-key). |
+| method                      | String  | No       | get     | HTTP request method. Supported values are `GET` and `POST`. |
+| headers                     | Map     | No       | -       | Extra HTTP headers. Do not put `Authorization` here unless you want to override the header generated from `password`. |
+| params                      | Map     | No       | -       | HTTP query parameters, such as `limit`, `offset`, or other OneSignal API parameters. |
+| body                        | String  | No       | -       | HTTP request body. Useful for endpoints that accept a JSON payload. |
+| format                      | String  | No       | json    | Response format. Use `json` with `schema` to read OneSignal JSON as SeaTunnel rows with named fields. Use `text` to keep the raw response. |
+| schema                      | Config  | No       | -       | Output row structure. Required when `format = "json"`. See [Schema Feature](../../introduction/concepts/schema-feature.md). |
+| schema.fields               | Config  | No       | -       | Field names and SeaTunnel data types used to parse the JSON response. |
+| json_field                  | Config  | No       | -       | Field-level JSONPath mapping. Use it with `schema` when each output field lives at a different JSON path. |
+| content_field               | String  | No       | -       | JSONPath expression that selects a JSON fragment before `schema` parses it. For example, use `$.players[*]` to flatten a list response. |
+| pageing                     | Config  | No       | -       | HTTP pagination settings inherited from the HTTP source connector. OneSignal paged endpoints use `page` / `per_page` parameters. |
+| poll_interval_millis        | Int     | No       | -       | Request interval in milliseconds for streaming jobs. In batch mode the connector reads once and finishes. |
+| retry                       | Int     | No       | -       | Maximum retry count when an HTTP request fails with `IOException`. |
+| retry_backoff_multiplier_ms | Int     | No       | 100     | Retry backoff multiplier in milliseconds. |
+| retry_backoff_max_ms        | Int     | No       | 10000   | Maximum retry backoff in milliseconds. |
+| enable_multi_lines          | Boolean | No       | false   | When `true`, multiple JSON objects separated by newlines in the response body are treated as separate records. |
+| json_filed_missed_return_null | Boolean | No    | false   | When `true`, missing JSON fields return `null`; otherwise a missing field causes an error. |
+| common-options              | Config  | No       | -       | Source plugin common parameters. See [Source Common Options](../common-options/source-common-options.md). |
 
-### url [String]
+## Usage Notes
 
-http request url
+- `password` is sensitive. Avoid hardcoding real keys in shared job files. Use SeaTunnel variable substitution or your deployment secret mechanism.
+- The connector always adds an `Authorization` header from `password`. Put other custom headers in `headers`.
+- Set `format = "json"` and define `schema` when you want typed SeaTunnel rows.
+- Use `content_field` when OneSignal wraps records in a nested array such as `$.players[*]`.
+- Use `json_field` only when each output field needs its own JSONPath expression.
+- OneSignal paged endpoints accept `page` and `per_page` query parameters; configure them through `params` and `pageing`.
 
-### password [String]
+## Task Examples
 
-Auth key for login, you can get more detail at this link:
-
-https://documentation.onesignal.com/docs/accounts-and-keys#user-auth-key
-
-### method [String]
-
-http request method, only supports GET, POST method
-
-### params [Map]
-
-http params
-
-### body [String]
-
-http body
-
-### poll_interval_millis [int]
-
-request http api interval(millis) in stream mode
-
-### retry [int]
-
-The max retry times if request http return to `IOException`
-
-### retry_backoff_multiplier_ms [int]
-
-The retry-backoff times(millis) multiplier if request http failed
-
-### retry_backoff_max_ms [int]
-
-The maximum retry-backoff times(millis) if request http failed
-
-### format [String]
-
-the format of upstream data, now only support `json` `text`, default `json`.
-
-when you assign format is `json`, you should also assign schema option, for example:
-
-upstream data is the following:
-
-```json
-{
-  "code": 200,
-  "data": "get success",
-  "success": true
-}
-```
-
-you should assign schema as the following:
+### Read Apps
 
 ```hocon
-
-schema {
-    fields {
-        code = int
-        data = string
-        success = boolean
-    }
+env {
+  parallelism = 1
+  job.mode = "BATCH"
 }
 
-```
-
-connector will generate data as the following:
-
-| code |    data     | success |
-|------|-------------|---------|
-| 200  | get success | true    |
-
-when you assign format is `text`, connector will do nothing for upstream data, for example:
-
-upstream data is the following:
-
-```json
-{
-  "code": 200,
-  "data": "get success",
-  "success": true
-}
-```
-
-connector will generate data as the following:
-
-|                         content                          |
-|----------------------------------------------------------|
-| {"code":  200, "data":  "get success", "success":  true} |
-
-### schema [Config]
-
-#### fields [Config]
-
-The schema fields of upstream data. For more details, please refer to [Schema Feature](../../introduction/concepts/schema-feature.md).
-
-### content_json [String]
-
-This parameter can get some json data.If you only need the data in the 'book' section, configure `content_field = "$.store.book.*"`.
-
-If your return data looks something like this.
-
-```json
-{
-  "store": {
-    "book": [
-      {
-        "category": "reference",
-        "author": "Nigel Rees",
-        "title": "Sayings of the Century",
-        "price": 8.95
-      },
-      {
-        "category": "fiction",
-        "author": "Evelyn Waugh",
-        "title": "Sword of Honour",
-        "price": 12.99
+source {
+  OneSignal {
+    url = "https://onesignal.com/api/v1/apps"
+    password = "<onesignal-user-auth-key>"
+    method = "GET"
+    format = "json"
+    schema = {
+      fields {
+        id = string
+        name = string
+        gcm_key = string
+        chrome_key = string
+        site_name = string
+        created_at = string
+        updated_at = string
+        players = int
+        messageable_players = int
       }
-    ],
-    "bicycle": {
-      "color": "red",
-      "price": 19.95
     }
-  },
-  "expensive": 10
+  }
+}
+
+sink {
+  Console {
+  }
 }
 ```
 
-You can configure `content_field = "$.store.book.*"` and the result returned looks like this:
+### Read Players With Pagination
 
-```json
-[
-  {
-    "category": "reference",
-    "author": "Nigel Rees",
-    "title": "Sayings of the Century",
-    "price": 8.95
-  },
-  {
-    "category": "fiction",
-    "author": "Evelyn Waugh",
-    "title": "Sword of Honour",
-    "price": 12.99
-  }
-]
-```
-
-Then you can get the desired result with a simpler schema,like
+Use `params` together with `pageing` to walk through paged OneSignal endpoints:
 
 ```hocon
-Http {
-  url = "http://mockserver:1080/contentjson/mock"
-  method = "GET"
-  format = "json"
-  content_field = "$.store.book.*"
-  schema = {
-    fields {
-      category = string
-      author = string
-      title = string
-      price = string
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  OneSignal {
+    url = "https://onesignal.com/api/v1/players"
+    password = "<onesignal-user-auth-key>"
+    method = "GET"
+    params = {
+      app_id = "<your-app-id>"
+      limit = "50"
+      offset = "0"
+    }
+    pageing = {
+      page_field = "offset"
+      start_page_number = 0
+      page_step = 50
+      total_page_size = 10
+      use_placeholder_replacement = false
+    }
+    format = "json"
+    content_field = "$.players[*]"
+    schema = {
+      fields {
+        id = string
+        identifier = string
+        device_type = int
+        sessions = int
+        language = string
+        game_version = string
+      }
     }
   }
 }
 ```
 
-Here is an example:
+### Extract Fields With JSONPath
 
-- Test data can be found at this link [mockserver-config.json](../../../../seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/mockserver-config.json)
-- See this link for task configuration [http_contentjson_to_assert.conf](../../../../seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/http_contentjson_to_assert.conf).
-
-### json_field [Config]
-
-This parameter helps you configure the schema,so this parameter must be used with schema.
-
-If your data looks something like this:
-
-```json
-{
-  "store": {
-    "book": [
-      {
-        "category": "reference",
-        "author": "Nigel Rees",
-        "title": "Sayings of the Century",
-        "price": 8.95
-      },
-      {
-        "category": "fiction",
-        "author": "Evelyn Waugh",
-        "title": "Sword of Honour",
-        "price": 12.99
-      }
-    ],
-    "bicycle": {
-      "color": "red",
-      "price": 19.95
-    }
-  },
-  "expensive": 10
-}
-```
-
-You can get the contents of 'book' by configuring the task as follows:
+Use `json_field` when each output field lives at a different JSON path:
 
 ```hocon
 source {
-  Http {
-    url = "http://mockserver:1080/jsonpath/mock"
+  OneSignal {
+    url = "https://onesignal.com/api/v1/apps"
+    password = "<onesignal-user-auth-key>"
     method = "GET"
     format = "json"
     json_field = {
-      category = "$.store.book[*].category"
-      author = "$.store.book[*].author"
-      title = "$.store.book[*].title"
-      price = "$.store.book[*].price"
+      id = "$.id"
+      name = "$.name"
+      players = "$.players"
+      site_name = "$.site_name"
     }
     schema = {
       fields {
-        category = string
-        author = string
-        title = string
-        price = string
+        id = string
+        name = string
+        players = int
+        site_name = string
       }
     }
   }
-}
-```
-
-- Test data can be found at this link [mockserver-config.json](../../../../seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/mockserver-config.json)
-- See this link for task configuration [http_jsonpath_to_assert.conf](../../../../seatunnel-e2e/seatunnel-connector-v2-e2e/connector-http-e2e/src/test/resources/http_jsonpath_to_assert.conf).
-
-### common options
-
-Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details
-
-## Example
-
-```hocon
-
-OneSignal {
-    url = "https://onesignal.com/api/v1/apps"
-    password = "SeaTunnel-test"
-    schema = {
-       fields {
-         id = string
-         name = string
-         gcm_key = string
-         chrome_key = string
-         chrome_web_key = string
-         chrome_web_origin = string
-         chrome_web_gcm_sender_id = string
-         chrome_web_default_notification_icon = string
-         chrome_web_sub_domain = string
-         apns_env = string
-         apns_certificates = string
-         apns_p8 = string
-         apns_team_id = string
-         apns_key_id = string
-         apns_bundle_id = string
-         safari_apns_certificate = string
-         safari_site_origin = string
-         safari_push_id = string
-         safari_icon_16_16 = string
-         safari_icon_32_32 = string
-         safari_icon_64_64 = string
-         safari_icon_128_128 = string
-         safari_icon_256_256 = string
-         site_name = string
-         created_at = string
-         updated_at = string
-         players = int
-         messageable_players = int
-         basic_auth_key = string
-         additional_data_is_root_payload = string
-       }
-    }   
 }
 ```
 
 ## Changelog
 
 <ChangeLog />
-
