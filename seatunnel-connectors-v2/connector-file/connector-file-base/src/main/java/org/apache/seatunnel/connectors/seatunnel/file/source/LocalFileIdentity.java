@@ -24,7 +24,6 @@ import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.nio.file.attribute.FileTime;
 
 /** Resolves the stable identity used to follow a local file across path changes. */
 public final class LocalFileIdentity {
@@ -34,23 +33,25 @@ public final class LocalFileIdentity {
     /**
      * Returns an identity that remains stable when the file is renamed.
      *
-     * <p>File keys are preferred because they identify the underlying filesystem object directly.
-     * Some providers, including older Windows JDK providers, do not expose a file key. For those
-     * providers the file creation time is the only rename-stable identity available through the
-     * standard Java file API.
+     * <p>A file key is required because it identifies the underlying filesystem object directly.
+     * Creation time is not a safe fallback: some providers preserve it when a different file
+     * replaces the path.
      */
     public static String read(String filePath) throws IOException {
         BasicFileAttributes attributes =
                 Files.readAttributes(toNioPath(filePath), BasicFileAttributes.class);
+        return fromAttributes(filePath, attributes);
+    }
+
+    static String fromAttributes(String filePath, BasicFileAttributes attributes)
+            throws IOException {
         Object fileKey = attributes.fileKey();
-        if (fileKey != null) {
-            return "file-key:" + fileKey;
+        if (fileKey == null) {
+            throw new IOException(
+                    "Local filesystem does not expose BasicFileAttributes.fileKey() for "
+                            + filePath);
         }
-        FileTime creationTime = attributes.creationTime();
-        if (creationTime == null || creationTime.toMillis() <= 0L) {
-            throw new IOException("Local filesystem does not expose a stable file identity");
-        }
-        return "creation-time:" + creationTime;
+        return "file-key:" + fileKey;
     }
 
     private static java.nio.file.Path toNioPath(String filePath) {

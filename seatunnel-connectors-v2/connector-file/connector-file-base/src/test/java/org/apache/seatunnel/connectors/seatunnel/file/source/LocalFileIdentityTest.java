@@ -18,12 +18,16 @@
 package org.apache.seatunnel.connectors.seatunnel.file.source;
 
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.mockito.Mockito;
 
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.attribute.BasicFileAttributes;
 
 /** Verifies local file identity across rename and replacement operations. */
 class LocalFileIdentityTest {
@@ -32,6 +36,7 @@ class LocalFileIdentityTest {
 
     @Test
     void testIdentityRemainsStableAcrossRename() throws Exception {
+        assumeStableFileIdentity();
         Path activeFile = tempDir.resolve("application.log");
         Path rotatedFile = tempDir.resolve("application.log.1");
         Files.write(activeFile, "first\n".getBytes());
@@ -44,6 +49,7 @@ class LocalFileIdentityTest {
 
     @Test
     void testIdentityChangesWhenPathIsReplaced() throws Exception {
+        assumeStableFileIdentity();
         Path activeFile = tempDir.resolve("application.log");
         Path replacementFile = tempDir.resolve("replacement.log");
         Files.write(activeFile, "first\n".getBytes());
@@ -53,5 +59,25 @@ class LocalFileIdentityTest {
         Files.move(replacementFile, activeFile, StandardCopyOption.REPLACE_EXISTING);
 
         Assertions.assertNotEquals(identity, LocalFileIdentity.read(activeFile.toString()));
+    }
+
+    @Test
+    void testRejectsProviderWithoutStableFileIdentity() {
+        BasicFileAttributes attributes = Mockito.mock(BasicFileAttributes.class);
+
+        IOException exception =
+                Assertions.assertThrows(
+                        IOException.class,
+                        () -> LocalFileIdentity.fromAttributes("application.log", attributes));
+
+        Assertions.assertTrue(exception.getMessage().contains("fileKey"));
+    }
+
+    private void assumeStableFileIdentity() {
+        try {
+            LocalFileIdentity.read(tempDir.toString());
+        } catch (IOException e) {
+            Assumptions.assumeTrue(false, "The filesystem does not expose a stable file key");
+        }
     }
 }

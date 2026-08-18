@@ -32,6 +32,8 @@ import org.apache.seatunnel.connectors.seatunnel.file.source.event.FileSplitFini
 import org.apache.seatunnel.connectors.seatunnel.file.source.split.FileSourceSplit;
 
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.ArgumentCaptor;
@@ -45,6 +47,15 @@ import java.util.Collections;
 class MultipleTableFileSourceReaderTest {
 
     @TempDir private Path tempDir;
+
+    @BeforeEach
+    void requireStableFileIdentity() {
+        try {
+            LocalFileIdentity.read(tempDir.toString());
+        } catch (Exception e) {
+            Assumptions.assumeTrue(false, "The filesystem does not expose a stable file key");
+        }
+    }
 
     @Test
     void testStaleTailSplitDoesNotReadReplacementFile() throws Exception {

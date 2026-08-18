@@ -855,7 +855,9 @@ This mode has the following operational constraints:
 - Delivery is at least once. A range is committed after the reader reports that the complete range was consumed.
 - A file is read serially. Source parallelism is used across files, not within one file.
 - Rename-and-create rotation is supported when the rotated file remains under the configured path and still matches the file filters. Copy-truncate rewrites are detected by the content anchor and restarted from the configured header boundary.
-- The source path must expose the same files and stable file identities to the enumerator and reader nodes. Use a shared mount when they can run on different nodes.
+- The source filesystem must expose a stable `BasicFileAttributes.fileKey()` for the configured path. The connector rejects tailing at startup when this is unavailable, including on the default Windows file provider, because creation time cannot safely distinguish a replaced file.
+- The content anchor hashes at most the first and last 2 KiB before the committed offset. It detects common copy-truncate rewrites but does not inspect unchanged content between those samples.
+- The source path must expose the same files and file identities to the enumerator and reader nodes. Use a shared mount when they can run on different nodes.
 - State for a missing file is retained for three successful scans and is then removed if no split for that file is pending or running.
 
 ```hocon

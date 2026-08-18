@@ -381,17 +381,24 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
                 if (processedBytes == finishedContext.split.getLength()
                         && tailState != null
                         && tailState.getCommittedOffset() == finishedContext.split.getStart()) {
+                    long committedOffset =
+                            finishedContext.split.getStart() + finishedContext.split.getLength();
                     fileTailStates.put(
                             tailingFileKey(finishedContext.split.getTableId(), fileIdentity),
                             new FileTailState(
                                     tailState.getTableId(),
                                     tailState.getFileIdentity(),
                                     tailState.getFilePath(),
-                                    finishedContext.split.getStart()
-                                            + finishedContext.split.getLength(),
+                                    committedOffset,
                                     finishedContext.split.getEndContentAnchor(),
                                     false,
                                     tailState.getLastSeenScanGeneration()));
+                    if (log.isDebugEnabled()) {
+                        log.debug(
+                                "Committed local text tail offset. file={}, offset={}",
+                                maskUriUserInfo(tailState.getFilePath()),
+                                committedOffset);
+                    }
                 } else if (processedBytes != finishedContext.split.getLength()) {
                     log.warn(
                             "Local text tail split ended before its planned range; the committed offset is unchanged. file={}, expectedBytes={}, processedBytes={}",
@@ -455,8 +462,11 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
         }
         try {
             scanOnce();
-        } catch (Exception e) {
+        } catch (IOException e) {
             log.warn("Continuous discovery scan failed, will retry in next interval.", e);
+        } catch (RuntimeException e) {
+            log.error("Continuous discovery stopped after an unexpected scan failure.", e);
+            throw e;
         }
     }
 
@@ -488,7 +498,7 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
                                 observedTailStateKeys)) {
                             queued++;
                         }
-                    } catch (IOException | RuntimeException e) {
+                    } catch (IOException e) {
                         tailScanComplete = false;
                         log.warn(
                                 "Failed to inspect local text file during continuous discovery; "
@@ -1647,11 +1657,17 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
             ReadonlyConfig c = cfg.getBaseFileSourceConfig();
             FileSyncMode syncMode = c.get(FileBaseSourceOptions.SYNC_MODE);
             FileFormat fileFormat = c.get(FileBaseSourceOptions.FILE_FORMAT_TYPE);
-            boolean localTextTailing =
-                    fileFormat == FileFormat.TEXT
-                            && FileSystemType.LOCAL
-                                    .getFileSystemPluginName()
-                                    .equals(cfg.getPluginName());
+            boolean localTextTailing = isLocalTextTailing(cfg);
+            if (localTextTailing) {
+                try {
+                    LocalFileIdentity.read(c.get(FileBaseSourceOptions.FILE_PATH));
+                } catch (IOException e) {
+                    throw new FileConnectorException(
+                            SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                            "LocalFile continuous text tailing requires a filesystem that exposes a stable file key for the configured path.",
+                            e);
+                }
+            }
             if (localTextTailing && syncMode != FileSyncMode.FULL) {
                 throw new FileConnectorException(
                         SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
@@ -1704,6 +1720,12 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
             }
             validatePostSyncConfig(cfg);
         }
+    }
+
+    private static boolean isLocalTextTailing(BaseFileSourceConfig config) {
+        ReadonlyConfig readonlyConfig = config.getBaseFileSourceConfig();
+        return readonlyConfig.get(FileBaseSourceOptions.FILE_FORMAT_TYPE) == FileFormat.TEXT
+                && FileSystemType.LOCAL.getFileSystemPluginName().equals(config.getPluginName());
     }
 
     private static void validatePostSyncConfig(BaseFileSourceConfig baseFileSourceConfig) {
@@ -1998,12 +2020,7 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
             this.rootPath = config.get(FileBaseSourceOptions.FILE_PATH);
             this.hadoopConf = baseFileSourceConfig.getHadoopConfig();
             this.sourceFs = new HadoopFileSystemProxy(hadoopConf);
-            this.textTailing =
-                    config.get(FileBaseSourceOptions.FILE_FORMAT_TYPE) == FileFormat.TEXT
-                            && config.get(FileBaseSourceOptions.SYNC_MODE) == FileSyncMode.FULL
-                            && FileSystemType.LOCAL
-                                    .getFileSystemPluginName()
-                                    .equals(baseFileSourceConfig.getPluginName());
+            this.textTailing = isLocalTextTailing(baseFileSourceConfig);
             this.rowDelimiterBytes =
                     textTailing
                             ? config.get(FileBaseSourceOptions.ROW_DELIMITER)
