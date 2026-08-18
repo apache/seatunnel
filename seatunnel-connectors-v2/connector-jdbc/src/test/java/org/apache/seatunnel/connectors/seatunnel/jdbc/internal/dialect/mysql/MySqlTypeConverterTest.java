@@ -1245,7 +1245,11 @@ public class MySqlTypeConverterTest {
         MySqlTypeConverter converter = new MySqlTypeConverter(MySqlVersion.V_8, false);
         BasicTypeDefine<Object> typeDefine =
                 BasicTypeDefine.builder()
-                        .name("test").columnType("bit").dataType("bit").length(8L).build();
+                        .name("test")
+                        .columnType("bit")
+                        .dataType("bit")
+                        .length(8L)
+                        .build();
         Column column = converter.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(PrimitiveByteArrayType.INSTANCE, column.getDataType());
