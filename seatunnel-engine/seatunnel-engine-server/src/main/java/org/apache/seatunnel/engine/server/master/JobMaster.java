@@ -331,7 +331,9 @@ public class JobMaster {
         this.checkpointManager =
                 new CheckpointManager(
                         jobImmutableInformation.getJobId(),
-                        jobImmutableInformation.isStartWithSavePoint() || restart,
+                        jobImmutableInformation.isRestoreJob() || restart,
+                        jobImmutableInformation.getRestoreMode(),
+                        jobImmutableInformation.getRestoreSourceJobId(),
                         nodeEngine,
                         this,
                         checkpointPlanMap,
@@ -356,7 +358,7 @@ public class JobMaster {
                 jobCheckpointConfig != null && jobCheckpointConfig.isCheckpointEnable();
         boolean startWithSavePoint =
                 jobImmutableInformation != null
-                        && (jobImmutableInformation.isStartWithSavePoint() || restart);
+                        && (jobImmutableInformation.isRestoreJob() || restart);
 
         if (checkpointEnabled && startWithSavePoint) {
             throw new IllegalStateException(
@@ -437,6 +439,8 @@ public class JobMaster {
         jobCheckpointConfig.setCheckpointTimeout(defaultCheckpointConfig.getCheckpointTimeout());
         jobCheckpointConfig.setCheckpointInterval(defaultCheckpointConfig.getCheckpointInterval());
         jobCheckpointConfig.setCheckpointMinPause(defaultCheckpointConfig.getCheckpointMinPause());
+        jobCheckpointConfig.setRetainAfterJobCancelled(
+                defaultCheckpointConfig.isRetainAfterJobCancelled());
 
         CheckpointStorageConfig jobCheckpointStorageConfig = new CheckpointStorageConfig();
         jobCheckpointStorageConfig.setStorage(defaultCheckpointConfig.getStorage().getStorage());
@@ -465,6 +469,12 @@ public class JobMaster {
             jobCheckpointConfig.setCheckpointMinPause(
                     Long.parseLong(
                             jobEnv.get(EnvCommonOptions.CHECKPOINT_MIN_PAUSE.key()).toString()));
+        }
+        if (jobEnv.containsKey(EnvCommonOptions.CHECKPOINT_RETAIN_AFTER_JOB_CANCELLED.key())) {
+            jobCheckpointConfig.setRetainAfterJobCancelled(
+                    Boolean.parseBoolean(
+                            jobEnv.get(EnvCommonOptions.CHECKPOINT_RETAIN_AFTER_JOB_CANCELLED.key())
+                                    .toString()));
         }
         return jobCheckpointConfig;
     }

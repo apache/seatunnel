@@ -19,7 +19,9 @@ package org.apache.seatunnel.e2e.connector.file.s3;
 
 import org.apache.seatunnel.e2e.common.container.seatunnel.SeaTunnelContainer;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
+import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
 
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -31,13 +33,12 @@ import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerImageName;
 
-import com.github.dockerjava.api.model.ExposedPort;
-import com.github.dockerjava.api.model.PortBinding;
-import com.github.dockerjava.api.model.Ports;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.nio.file.Paths;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 /**
  * MinIO-based S3 E2E test suite for connector-file-s3, covering:
@@ -71,18 +72,15 @@ public class S3FileWithFilterIT extends SeaTunnelContainer {
                         .withNetwork(NETWORK)
                         .withExposedPorts(S3_PORT)
                         .withNetworkAliases(S3_CONTAINER_HOST)
-                        .withCreateContainerCmdModifier(
-                                cmd ->
-                                        cmd.withPortBindings(
-                                                new PortBinding(
-                                                        Ports.Binding.bindPort(S3_PORT),
-                                                        new ExposedPort(S3_PORT))))
                         .withLogConsumer(new Slf4jLogConsumer(log))
                         .withEnv("MINIO_ROOT_USER", "minioadmin")
                         .withEnv("MINIO_ROOT_PASSWORD", "minioadmin")
                         .withCommand("server", "/data")
                         .waitingFor(Wait.forLogMessage(".*", 1));
         s3Container.start();
+        S3Utils.initialize(
+                String.format(
+                        "http://%s:%s", s3Container.getHost(), s3Container.getMappedPort(S3_PORT)));
 
         super.startUp();
     }
@@ -164,5 +162,75 @@ public class S3FileWithFilterIT extends SeaTunnelContainer {
         Container.ExecResult execResult =
                 executeJob("/text/s3_file_text_enable_split_to_assert.conf");
         Assertions.assertEquals(0, execResult.getExitCode());
+    }
+
+    @Test
+    public void testS3BinaryUpdateModeContinuousDiscovery()
+            throws IOException, InterruptedException {
+        S3Utils.deletePrefix("/continuous/");
+        S3Utils.uploadContent("/continuous/src/test1.bin", "abc");
+
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
+        CompletableFuture<Container.ExecResult> jobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return executeJob(
+                                        "/binary/s3_file_binary_update_distcp_continuous.conf",
+                                        jobId);
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+
+        try {
+            Awaitility.await()
+                    .atMost(120, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                assertContinuousJobIsRunning(jobFuture);
+                                Assertions.assertTrue(
+                                        S3Utils.objectExists("/continuous/dst/test1.bin"));
+                                Assertions.assertEquals(
+                                        "abc", S3Utils.readContent("/continuous/dst/test1.bin"));
+                            });
+
+            S3Utils.uploadContent("/continuous/src/test2.bin", "def");
+            Awaitility.await()
+                    .atMost(120, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                assertContinuousJobIsRunning(jobFuture);
+                                Assertions.assertTrue(
+                                        S3Utils.objectExists("/continuous/dst/test2.bin"));
+                                Assertions.assertEquals(
+                                        "def", S3Utils.readContent("/continuous/dst/test2.bin"));
+                            });
+        } finally {
+            Container.ExecResult cancelResult = cancelJob(jobId);
+            Assertions.assertEquals(0, cancelResult.getExitCode(), cancelResult.getStderr());
+        }
+
+        try {
+            Container.ExecResult execResult = jobFuture.get(120, TimeUnit.SECONDS);
+            Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+        } catch (Exception e) {
+            throw new RuntimeException("Wait continuous S3 job exit failed.", e);
+        } finally {
+            S3Utils.deletePrefix("/continuous/");
+        }
+    }
+
+    private static void assertContinuousJobIsRunning(
+            CompletableFuture<Container.ExecResult> jobFuture) {
+        if (!jobFuture.isDone()) {
+            return;
+        }
+        Container.ExecResult result = jobFuture.join();
+        Assertions.fail(
+                "Continuous S3 job exited before cancellation. exitCode="
+                        + result.getExitCode()
+                        + ", stderr="
+                        + result.getStderr());
     }
 }
