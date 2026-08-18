@@ -59,6 +59,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.NoSuchFileException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.text.ParseException;
@@ -456,7 +457,8 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
         }
     }
 
-    private void safeScanOnce() {
+    @VisibleForTesting
+    void safeScanOnce() {
         if (closed) {
             return;
         }
@@ -465,8 +467,9 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
         } catch (IOException e) {
             log.warn("Continuous discovery scan failed, will retry in next interval.", e);
         } catch (RuntimeException e) {
-            log.error("Continuous discovery stopped after an unexpected scan failure.", e);
-            throw e;
+            log.error(
+                    "Continuous discovery scan failed unexpectedly, will retry in next interval.",
+                    e);
         }
     }
 
@@ -505,6 +508,13 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
                                         + "other files will continue to be scanned. file={}",
                                 maskUriUserInfo(fileStatus.getPath().toString()),
                                 e);
+                    } catch (RuntimeException e) {
+                        tailScanComplete = false;
+                        log.error(
+                                "Unexpected failure while inspecting local text file during continuous discovery; "
+                                        + "other files will continue to be scanned. file={}",
+                                maskUriUserInfo(fileStatus.getPath().toString()),
+                                e);
                     }
                     continue;
                 }
@@ -521,10 +531,10 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
                 }
             }
         }
-        synchronized (lock) {
-            textTailingInitialScanComplete = true;
-        }
         if (tailScanComplete) {
+            synchronized (lock) {
+                textTailingInitialScanComplete = true;
+            }
             cleanupStaleTailStates(currentTailScanGeneration, observedTailStateKeys);
         }
         cleanupStaleKnownVersions(activeKnownSplitIds);
@@ -1659,8 +1669,15 @@ public class ContinuousMultipleTableFileSourceSplitEnumerator
             FileFormat fileFormat = c.get(FileBaseSourceOptions.FILE_FORMAT_TYPE);
             boolean localTextTailing = isLocalTextTailing(cfg);
             if (localTextTailing) {
+                String sourcePath = c.get(FileBaseSourceOptions.FILE_PATH);
                 try {
-                    LocalFileIdentity.read(c.get(FileBaseSourceOptions.FILE_PATH));
+                    LocalFileIdentity.read(sourcePath);
+                } catch (NoSuchFileException e) {
+                    throw new FileConnectorException(
+                            SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                            "LocalFile continuous text tailing path does not exist: "
+                                    + maskUriUserInfo(sourcePath),
+                            e);
                 } catch (IOException e) {
                     throw new FileConnectorException(
                             SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
