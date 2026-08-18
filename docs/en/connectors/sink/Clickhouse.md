@@ -15,10 +15,10 @@ import ChangeLog from '../changelog/connector-clickhouse.md';
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
 
-> The Clickhouse sink plug-in can achieve accuracy once by implementing idempotent writing, and needs to cooperate with aggregatingmergetree and other engines that support deduplication.
+> The Clickhouse sink can reduce duplicate effects through idempotent writing when the target table engine supports deduplication, such as `AggregatingMergeTree` or `ReplacingMergeTree`. It is not marked as exactly-once because the guarantee depends on the target table design.
 
 - [x] [support multiple table sink](../../introduction/concepts/connector-v2-features.md)
-- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
+- [x] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Description
 
@@ -64,10 +64,10 @@ They can be downloaded via install-plugin.sh or from the Maven central repositor
 | primary_key                           | String  | No       | -       | Primary key column list used to handle INSERT/UPDATE/DELETE changelog rows. Use commas for multiple columns, for example `id,name`.                                                                                                                                                                         |
 | support_upsert                        | Boolean | No       | false   | Whether to query by `primary_key` before writing and perform upsert-style writes.                                                                                                                                                                                                                           |
 | allow_experimental_lightweight_delete | Boolean | No       | false   | Allows DELETE changelog rows to use ClickHouse lightweight delete on `*MergeTree` table engines.                                                                                                                                                                                                            |
-| schema_save_mode               | Enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST | Schema save mode. Please refer to the `schema_save_mode` section below.                                                                                       |
-| data_save_mode                 | Enum    | no       | APPEND_DATA                  | Data save mode. Please refer to the `data_save_mode` section below.                                                                                         |
-| custom_sql                  | String  | no       | -                            | When data_save_mode selects CUSTOM_PROCESSING, you should fill in the CUSTOM_SQL parameter. This parameter usually fills in a SQL that can be executed. SQL will be executed before synchronization tasks.        |
-| save_mode_create_template      | string  | no       | see below                    | See below.                                                                                                                                                  |
+| schema_save_mode                     | Enum    | No       | CREATE_SCHEMA_WHEN_NOT_EXIST | Schema save mode. Please refer to the `schema_save_mode` section below.                                                                                                                                                                                                                  |
+| data_save_mode                       | Enum    | No       | APPEND_DATA                  | Data save mode. Please refer to the `data_save_mode` section below.                                                                                                                                                                                                                      |
+| custom_sql                           | String  | No       | -                            | Required when `data_save_mode = CUSTOM_PROCESSING`. The SQL is executed before the synchronization task starts.                                                                                                                                                                           |
+| save_mode_create_template            | String  | No       | see below                    | Template used to create the ClickHouse table when schema save mode creates a table.                                                                                                                                                                                                      |
 | common-options                        |         | No       | -       | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details.                                                                                                                                                                                                |
 
 ### schema_save_mode [Enum]
@@ -130,6 +130,35 @@ The following placeholders can be used:
 - `rowtype_primary_key`: Retrieves the primary key from the upstream schema (this may be a list).
 - `rowtype_unique_key`: Retrieves the unique key from the upstream schema (this may be a list).
 - `comment`: Retrieves the table comment from the upstream schema.
+
+### Zeta Timer Flush
+
+This engine-level capability is available only in Zeta. Configure `sink.flush.interval` in `env` to periodically write buffered rows through ClickHouse JDBC even when `bulk_size` has not been reached. Spark and Flink do not trigger this scheduled flush.
+
+:::tip
+
+ClickHouse timer flush does not provide 2PC exactly-once semantics. The ClickHouse Sink remains at-least-once, and retries or task restarts may insert rows again. When duplicate handling is required, design the target table with a suitable deduplication engine and deterministic keys.
+
+:::
+
+```hocon
+env {
+  job.mode = "STREAMING"
+  checkpoint.interval = 300000
+  sink.flush.interval = 5000
+}
+
+sink {
+  Clickhouse {
+    host = "localhost:8123"
+    database = "default"
+    table = "seatunnel_table"
+    username = "default"
+    password = ""
+    bulk_size = 10000
+  }
+}
+```
 
 ## Example Configurations and Cases
 
@@ -214,6 +243,9 @@ sink {
 ```
 
 ### CDC(Change data capture) Sink
+
+For changelog rows, configure `primary_key` so the connector can map `UPDATE` and `DELETE` rows to target rows.
+Configure `support_upsert=true` when the sink should query by primary key before writing.
 
 ```hocon
 sink {

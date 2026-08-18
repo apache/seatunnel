@@ -63,6 +63,8 @@ import ChangeLog from '../changelog/connector-bigquery.md';
 - `batch`：使用 BigQuery buffered write stream，并在 SeaTunnel checkpoint/commit 阶段提交数据。主要特性中的精确一次能力指的是该模式。
 - `streaming`：使用默认 stream，并携带 BigQuery change 字段写入 CDC 记录。该模式适合 CDC 的 upsert/delete 数据，但该连接器没有将它标记为精确一次。
 
+使用 `streaming` 模式写入 CDC 数据时，请先在 BigQuery 中创建好带 Primary Key 的目标表。连接器会把 SeaTunnel 的行类型转换为 BigQuery change 记录：`INSERT` 和 `UPDATE_AFTER` 会写成 `UPSERT`，`DELETE` 和 `UPDATE_BEFORE` 会写成 `DELETE`。
+
 #### sequence_number_column
 
 `sequence_number_column` 是可选配置。
@@ -71,7 +73,9 @@ import ChangeLog from '../changelog/connector-bigquery.md';
 如果没有配置 `sequence_number_column`，则不会发送 `_CHANGE_SEQUENCE_NUMBER`，BigQuery 也不会执行基于 sequence number 的去重。
 
 > **注意**
-> - `sequence_number_column` 应该引用 source 表中单调递增的列，例如以 epoch millis 表示的 `updated_at`、`version` 或 `seq_id`。该列的值必须能够转换为 `long` 类型。
+> - BigQuery 要求 `_CHANGE_SEQUENCE_NUMBER` 是十六进制 `STRING`。对于整数列以及精确的整数 decimal 值（例如映射为 `DECIMAL(20, 0)` 的 MySQL `BIGINT UNSIGNED`），connector 会将 unsigned 64-bit 范围内的非负值转换为十六进制字符串；对于字符串列，connector 会将值视为已编码的十六进制 sequence number，仅进行校验而不转换。
+> - sequence number 最多可以包含 4 个以 `/` 分隔的 section，每个 section 最多包含 16 个十六进制字符。Null、负数、空值或格式错误的值会被拒绝。
+> - `sequence_number_column` 应该引用 source 表中单调递增的列，例如以 epoch millis 表示的 `updated_at`、`version` 或 `seq_id`。
 > - 如果要在 streaming 模式下启用 BigQuery 侧的去重，目标 BigQuery 表必须定义 Primary Key。否则，无论是否配置 sequence number，BigQuery 都会将每次写入视为 append 操作。
 
 ### emulator_host
@@ -128,6 +132,18 @@ sink {
 
 ### CDC 流式模式（MySQL 到 BigQuery)
 
+目标 BigQuery 表需要提前创建，并且应定义 CDC 源表使用的主键。例如：
+
+```sql
+CREATE TABLE `my-gcp-project.cdc_dataset.orders` (
+  uuid INT64 NOT NULL,
+  name STRING,
+  score INT64,
+  PRIMARY KEY (uuid) NOT ENFORCED
+)
+OPTIONS (max_staleness = INTERVAL 0 MINUTE);
+```
+
 ```hocon
 env {
   parallelism = 1
@@ -153,6 +169,22 @@ sink {
     table_id = "orders"
     service_account_key_path = "/path/to/key.json"
     write_mode = "streaming"
+    batch_size = 500
+  }
+}
+```
+
+如果上游 CDC 源能产生单调递增的列（例如 `updated_at` 毫秒时间戳或行版本号），可以把它配到 `sequence_number_column`，让 BigQuery 端对重试批次做去重。目标表必须定义主键（上例使用 `PRIMARY KEY (uuid) NOT ENFORCED`），否则 BigQuery 会把每次写入都当作 append，跳过去重。
+
+```hocon
+sink {
+  BigQuery {
+    project_id = "my-gcp-project"
+    dataset_id = "cdc_dataset"
+    table_id = "orders"
+    service_account_key_path = "/path/to/key.json"
+    write_mode = "streaming"
+    sequence_number_column = "updated_at"
     batch_size = 500
   }
 }
@@ -190,10 +222,26 @@ sink {
 }
 ```
 
+### 内联服务账号密钥
+
+如果不便挂载密钥文件（例如 CI runner、把密钥放在 Kubernetes Secret 中以环境变量形式注入），可以直接把 JSON 内容放到 `service_account_key_json` 中。
+
+```hocon
+sink {
+  BigQuery {
+    project_id = "my-gcp-project"
+    dataset_id = "orders"
+    table_id = "customer_orders"
+    service_account_key_json = "${GCP_SA_KEY_JSON}"
+    batch_size = 500
+  }
+}
+```
+
 ### 测试
 
 该连接器使用 BigQuery Storage Write API。当前本地 BigQuery emulator 不能完整支持该连接器使用的写入路径。
-因此，目前应在真实的 BigQuery 环境中测试该连接器。
+`emulator_host` 只适合用于本地或 CI 中与 emulator 兼容的检查。生产可用性验证应在真实 BigQuery 环境中完成。
 
 ## 更新日志
 

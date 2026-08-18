@@ -48,6 +48,7 @@ It can be downloaded via install-plugin.sh or from Maven central repository.
 | retry_backoff_max_ms | Int | No | 10000 | Maximum HTTP retry backoff in milliseconds. |
 | connect_timeout_ms | Int | No | 12000 | HTTP connection timeout in milliseconds. |
 | socket_timeout_ms | Int | No | 60000 | HTTP socket timeout in milliseconds. |
+| multi_table_sink_replica | Int | No | - | Sink common option. It controls sink replica count in multi-table runtime. The same GraphQL mutation is still used for all rows routed to this sink. |
 | common-options | Config | No | - | Sink common options. See [Sink Common Options](../common-options/sink-common-options.md). |
 
 ## Notes
@@ -57,6 +58,7 @@ It can be downloaded via install-plugin.sh or from Maven central repository.
 - If `variables` already contains a key and `valueCover = true`, the configured variable value is kept.
 - If `valueCover = false`, row field values replace variables with the same name.
 - The sink sends one mutation request for each input row. If the upstream source contains multiple tables, make sure the same mutation and variable names can handle every table routed to this sink.
+- `multi_table_sink_replica` only affects the multi-table sink runtime replica count. It does not choose a different GraphQL mutation per table.
 
 ## Task Example
 
@@ -152,6 +154,56 @@ sink {
         }
       }
     """
+  }
+}
+```
+
+### Stream Mutations to a GraphQL Service
+
+Run the same mutation continuously in streaming mode. The sink sends one mutation
+per row and uses `retry` plus exponential backoff to absorb transient HTTP
+failures.
+
+```hocon
+env {
+  parallelism = 2
+  job.mode = "STREAMING"
+  checkpoint.interval = 30000
+}
+
+source {
+  FakeSource {
+    plugin_output = "events"
+    schema = {
+      fields {
+        id = int
+        val_string = string
+      }
+    }
+    rows = [
+      { kind = INSERT, fields = [1, "first"] }
+      { kind = INSERT, fields = [2, "second"] }
+    ]
+  }
+}
+
+sink {
+  GraphQL {
+    plugin_input = "events"
+    url = "http://graphql:8080/v1/graphql"
+    headers = {
+      Authorization = "Bearer ${secret}"
+    }
+    query = """
+      mutation MyMutation($id: Int!, $val_string: String!) {
+        insert_event(objects: {id: $id, val_string: $val_string}) {
+          affected_rows
+        }
+      }
+    """
+    retry = 5
+    retry_backoff_multiplier_ms = 200
+    retry_backoff_max_ms = 5000
   }
 }
 ```

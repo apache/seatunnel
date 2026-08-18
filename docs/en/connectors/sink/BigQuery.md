@@ -64,6 +64,8 @@ The connector writes to one configured table: `project_id.dataset_id.table_id`. 
 - `batch`: uses BigQuery buffered write streams and commits data during SeaTunnel checkpoint/commit. This is the mode covered by the exactly-once feature mark.
 - `streaming`: uses the default stream and writes CDC records with BigQuery change fields. This mode is suitable for CDC upsert/delete records, but it is not marked as exactly-once by this connector.
 
+For CDC writes in `streaming` mode, prepare the target BigQuery table with a primary key before starting the SeaTunnel job. The connector maps SeaTunnel row kinds to BigQuery change records: `INSERT` and `UPDATE_AFTER` are written as `UPSERT`, while `DELETE` and `UPDATE_BEFORE` are written as `DELETE`.
+
 #### sequence_number_column
 
 `sequence_number_column` is optional.
@@ -72,7 +74,9 @@ When `sequence_number_column` is configured, the value from that column is sent 
 If `sequence_number_column` is not configured, `_CHANGE_SEQUENCE_NUMBER` is not sent and BigQuery will not perform sequence-number-based deduplication.
 
 > **Note**
-> - The `sequence_number_column` should reference a monotonically increasing column in your source table (e.g., `updated_at` as epoch millis, `version`, or `seq_id`). The column value must be of a type convertible to `long`.
+> - BigQuery requires `_CHANGE_SEQUENCE_NUMBER` to be a hexadecimal `STRING`. For integer columns and exact integral decimal values, such as MySQL `BIGINT UNSIGNED` mapped to `DECIMAL(20, 0)`, the connector converts non-negative values in the unsigned 64-bit range to hexadecimal strings. For string columns, values are treated as already-encoded hexadecimal sequence numbers and are validated without conversion.
+> - A sequence number may contain up to four sections separated by `/`, and each section may contain up to 16 hexadecimal characters. Null, negative, empty, or malformed values are rejected.
+> - The `sequence_number_column` should reference a monotonically increasing column in your source table (e.g., `updated_at` as epoch millis, `version`, or `seq_id`).
 > - To enable BigQuery-side deduplication in streaming mode, the target BigQuery table must have a Primary Key defined. Otherwise, BigQuery will treat every write as an append operation, regardless of the sequence number.
 
 ### emulator_host
@@ -82,6 +86,10 @@ If `sequence_number_column` is not configured, `_CHANGE_SEQUENCE_NUMBER` is not 
 ## Task Example
 
 ### Simple Batch Example
+
+This example shows a local end-to-end batch test against the BigQuery emulator.
+Production jobs should provide a real service-account key (or rely on default
+application credentials) and target a real GCP project.
 
 ```hocon
 env {
@@ -129,6 +137,18 @@ sink {
 
 ### CDC Streaming Mode (MySQL to BigQuery)
 
+The target BigQuery table should already exist and should define the primary key used by the CDC source. For example:
+
+```sql
+CREATE TABLE `my-gcp-project.cdc_dataset.orders` (
+  uuid INT64 NOT NULL,
+  name STRING,
+  score INT64,
+  PRIMARY KEY (uuid) NOT ENFORCED
+)
+OPTIONS (max_staleness = INTERVAL 0 MINUTE);
+```
+
 ```hocon
 env {
   parallelism = 1
@@ -154,6 +174,27 @@ sink {
     table_id = "orders"
     service_account_key_path = "/path/to/key.json"
     write_mode = "streaming"
+    batch_size = 500
+  }
+}
+```
+
+When the upstream CDC source already produces a monotonically increasing column
+(such as an `updated_at` epoch millis or a row version), wire it to
+`sequence_number_column` so BigQuery can dedup retried batches. The target
+table must define a primary key (the example above uses `PRIMARY KEY (uuid)
+NOT ENFORCED`), otherwise BigQuery treats every write as an append and skips
+deduplication.
+
+```hocon
+sink {
+  BigQuery {
+    project_id = "my-gcp-project"
+    dataset_id = "cdc_dataset"
+    table_id = "orders"
+    service_account_key_path = "/path/to/key.json"
+    write_mode = "streaming"
+    sequence_number_column = "updated_at"
     batch_size = 500
   }
 }
@@ -191,10 +232,28 @@ sink {
 }
 ```
 
+### Inline Service Account Key
+
+For environments where a key file is inconvenient (CI runners, Kubernetes
+secrets mounted as env vars), inline the JSON content with
+`service_account_key_json`.
+
+```hocon
+sink {
+  BigQuery {
+    project_id = "my-gcp-project"
+    dataset_id = "orders"
+    table_id = "customer_orders"
+    service_account_key_json = "${GCP_SA_KEY_JSON}"
+    batch_size = 500
+  }
+}
+```
+
 ### Testing
 
 This connector uses the BigQuery Storage Write API. The current local BigQuery emulator does not fully support the write path used by this connector.
-For now, the connector should be tested against a real BigQuery environment.
+Use `emulator_host` only for local or CI checks that are compatible with the emulator. Production validation should be done against a real BigQuery environment.
 
 ## Changelog
 

@@ -63,8 +63,9 @@ It can be downloaded via install-plugin.sh or from Maven central repository.
 
 - In normal query mode, `url` must start with `http://` or `https://`.
 - In subscription mode, set `enable_subscription = true` and use a `ws://` or `wss://` URL.
-- Source queries cannot be GraphQL `mutation` operations.
+- Source queries cannot be GraphQL `mutation` operations. Use the GraphQL sink for `mutation` requests.
 - `content_field` is usually needed because GraphQL responses are commonly wrapped under `data`.
+- When `schema.fields` is configured, set `format = "json"` and point `content_field` to the array or object that should become SeaTunnel rows.
 - For streaming query mode over HTTP, configure `poll_interval_millis` to control how often SeaTunnel sends the same query again.
 - For WebSocket subscription mode, `max_retries` and `retry_delay_ms` only control reconnect behavior after a subscription connection fails.
 
@@ -111,6 +112,97 @@ source {
 sink {
   Console {
     plugin_input = "graphql_source"
+  }
+}
+```
+
+### Query GraphQL With Authentication Headers
+
+When the GraphQL endpoint requires authentication, pass the bearer token through
+`headers`. Any HTTP header supported by the underlying client can be set this way.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  GraphQL {
+    plugin_output = "graphql_auth"
+    url = "https://graphql.example.com/v1/graphql"
+    format = "json"
+    content_field = "$.data.source"
+    headers = {
+      Authorization = "Bearer ${secret}"
+      X-Tenant = "acme"
+    }
+    query = """
+      query MyQuery {
+        source {
+          id
+          val_bool
+        }
+      }
+    """
+    schema = {
+      fields {
+        id = "int"
+        val_bool = "boolean"
+      }
+    }
+  }
+}
+
+sink {
+  Console {
+    plugin_input = "graphql_auth"
+  }
+}
+```
+
+### Streaming Polling Query
+
+For HTTP endpoints that publish new data over time but do not offer a subscription,
+run the same query repeatedly in streaming mode. SeaTunnel sends the request every
+`poll_interval_millis` and forwards the new rows downstream.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 60000
+}
+
+source {
+  GraphQL {
+    plugin_output = "graphql_streaming"
+    url = "http://graphql:8080/v1/graphql"
+    format = "json"
+    content_field = "$.data.source"
+    poll_interval_millis = 10000
+    query = """
+      query MyQuery {
+        source {
+          id
+          val_bool
+          val_double
+        }
+      }
+    """
+    schema = {
+      fields {
+        id = "int"
+        val_bool = "boolean"
+        val_double = "double"
+      }
+    }
+  }
+}
+
+sink {
+  Console {
+    plugin_input = "graphql_streaming"
   }
 }
 ```

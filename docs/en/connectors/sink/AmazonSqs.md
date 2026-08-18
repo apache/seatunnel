@@ -46,8 +46,54 @@ is serialized by the configured `format`, and the serialized value is sent as th
 - `debezium_json` writes Debezium JSON messages. For details, see [Debezium JSON](../formats/debezium-json.md).
 - The sink sends only the message body. It does not expose SQS message attributes, delay seconds, deduplication ID, or message group ID options.
 - `access_key_id` and `secret_access_key` are optional, but they must be configured together when static AWS credentials are used.
+- The sink sends each SeaTunnel row as one SQS message. It does not batch multiple rows into one SQS request.
+
+## Authentication
+
+The connector resolves AWS credentials in the following order:
+
+1. `access_key_id` and `secret_access_key` if both are configured.
+2. Otherwise, the AWS default credential provider chain (environment variables, instance profile, etc.).
+
+For local testing against an SQS-compatible service such as LocalStack or ElasticMQ,
+point `url` at the local endpoint (for example `http://sqs-host:4566/...`) and provide any
+non-empty `access_key_id` / `secret_access_key`. SQS-compatible test services typically
+do not validate the SigV4 signature on incoming requests, so any static credential pair is
+accepted by them.
 
 ## Task Examples
+
+### Copy Messages Between Local-Compatible Queues
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  AmazonSqs {
+    url = "http://sqs-host:4566/000000000000/source_queue"
+    access_key_id = "1234"
+    secret_access_key = "abcd"
+    region = "us-east-1"
+    schema = {
+      fields {
+        name = "string"
+      }
+    }
+  }
+}
+
+sink {
+  AmazonSqs {
+    url = "http://sqs-host:4566/000000000000/sink_queue"
+    access_key_id = "1234"
+    secret_access_key = "abcd"
+    region = "us-east-1"
+  }
+}
+```
 
 ### Write JSON Messages
 
@@ -105,6 +151,22 @@ sink {
     region = "us-east-1"
     format = text
     field_delimiter = "|"
+  }
+}
+```
+
+### Write Canal JSON Messages
+
+Set `format = canal_json` so each SeaTunnel row is serialized as a Canal JSON
+change event. Useful when the downstream consumer is a Canal JSON consumer (such
+as a Canal → Kafka bridge or a Canal-compatible BigQuery loader).
+
+```hocon
+sink {
+  AmazonSqs {
+    url = "https://sqs.us-east-1.amazonaws.com/123456789012/sink_queue"
+    region = "us-east-1"
+    format = canal_json
   }
 }
 ```

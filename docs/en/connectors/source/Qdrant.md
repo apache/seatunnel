@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-qdrant.md';
 
 > Qdrant source connector
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Description
 
 [Qdrant](https://qdrant.tech/) is a high-performance vector search engine and vector database.
@@ -46,6 +52,7 @@ Each Qdrant record is a point:
 - Vector columns are read from Qdrant vectors. For named vectors, the SeaTunnel column name must match the Qdrant vector name.
 - Other supported columns are read from the Qdrant point payload.
 - If the collection uses one default unnamed vector, use `default_vector` as the SeaTunnel vector column name.
+- Include only payload or vector fields that exist on the points being read. The source maps fields directly by name and expects configured fields to be present.
 
 Example:
 
@@ -110,6 +117,7 @@ Source plugin common parameters, see [Source Common Options](../common-options/s
 
 - The collection must already exist before the job starts.
 - Vector field names and dimensions in Qdrant must match the vector columns in the SeaTunnel schema.
+- For a collection with one unnamed vector, name the SeaTunnel vector column `default_vector`.
 - The source is bounded and reads with one split, so it is not a parallel source.
 - Qdrant source emits `INSERT` rows only; it does not read CDC changes.
 

@@ -54,6 +54,8 @@ import ChangeLog from '../changelog/connector-doris.md';
 | FLOAT                                | FLOAT                                                                                                                                               |
 | DOUBLE                               | DOUBLE                                                                                                                                              |
 | CHAR<br/>VARCHAR<br/>STRING<br/>TEXT | STRING                                                                                                                                              |
+| JSON                                 | STRING                                                                                                                                              |
+| VARIANT                              | STRING                                                                                                                                              |
 | DATE                                 | DATE                                                                                                                                                |
 | DATETIME<br/>DATETIME(p)             | TIMESTAMP                                                                                                                                           |
 | ARRAY                                | ARRAY                                                                                                                                               |
@@ -76,6 +78,8 @@ import ChangeLog from '../changelog/connector-doris.md';
 | doris.deserialize.arrow.async    | boolean | no      | false      | 是否异步反序列化 Arrow 数据。                                                                           |
 | doris.request.retriesdoris.deserialize.queue.size | int | no | 64 | 异步反序列化 Arrow 数据时使用的队列大小。                                                                |
 | table_list                       | Array  | no       | -           | 要读取的 Doris 表清单。                                                                                |
+
+`doris.request.retriesdoris.deserialize.queue.size` 是当前运行时实际使用的配置名。调整异步 Arrow 反序列化队列大小时，请按这个完整名称配置。
 
 表清单配置:
 

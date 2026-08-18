@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-qdrant.md';
 
 > Qdrant 数据源连接器
 
+## 引擎支持
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## 描述
 
 [Qdrant](https://qdrant.tech/) 是一个高性能的向量搜索引擎和向量数据库。
@@ -46,6 +52,7 @@ Qdrant 中的每条记录叫作 point：
 - 向量列会从 Qdrant 向量中读取。读取命名向量时，SeaTunnel 列名必须和 Qdrant 向量名一致。
 - 其他支持的列会从 Qdrant point payload 中读取。
 - 如果 collection 使用默认的未命名向量，请使用 `default_vector` 作为 SeaTunnel 向量列名。
+- schema 中只配置实际存在的 payload 或向量字段。Source 会按字段名直接取值，配置的字段需要在读取到的 point 中存在。
 
 示例：
 
@@ -110,6 +117,7 @@ Source 插件通用参数，请参考 [Source 通用选项](../common-options/so
 
 - 作业启动前，collection 必须已经存在。
 - Qdrant 中的向量字段名和维度必须与 SeaTunnel schema 中的向量列一致。
+- 如果 collection 只有一个未命名向量，请把 SeaTunnel 向量列命名为 `default_vector`。
 - Qdrant source 是有界读取，并且只使用一个 split，不支持并行读取。
 - Qdrant source 只输出 `INSERT` 行，不读取 CDC 变更。
 

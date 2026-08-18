@@ -18,10 +18,11 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 - [x] [column projection](../../introduction/concepts/connector-v2-features.md)
 - [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
 - [x] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
+- [x] [support multiple table read](../../introduction/concepts/connector-v2-features.md)
 
 ## Description
 
-Read external data source data through JDBC.
+Read OceanBase data through JDBC. OceanBase can run in MySQL-compatible mode or Oracle-compatible mode, so every OceanBase job should set `compatible_mode` to `mysql` or `oracle`.
 
 ## Supported DataSource Info
 
@@ -84,19 +85,41 @@ Read external data source data through JDBC.
 | username                         | String     | No       | -               | Connection instance user name                                                                                                                                                                                                                                         |
 | password                     | String     | No       | -               | Connection instance password                                                                                                                                                                                                                                          |
 | compatible_mode              | String     | Yes      | -               | The compatible mode of OceanBase, can be 'mysql' or 'oracle'.                                                                                                                                                                                                         |
-| query                        | String     | Yes      | -               | Query statement                                                                                                                                                                                                                                                       |
+| query                        | String     | No       | -               | Query statement. Configure one of `query`, `table_path`, or `table_list`.                                                                                                                                                                                             |
+| table_path                   | String     | No       | -               | Full table path used instead of `query`, for example `test.source`.                                                                                                                                                                                                   |
+| table_list                   | Array      | No       | -               | List of tables to read. Use it for multi-table reads. Each item can contain `table_path`, `query`, `partition_column`, and other table-level settings.                                                                                                                 |
+| where_condition              | String     | No       | -               | Common row filter for all tables or queries. It must start with `where`, for example `where id > 100`.                                                                                                                                                                |
 | connection_check_timeout_sec | Int        | No       | 30              | The time in seconds to wait for the database operation used to validate the connection to complete                                                                                                                                                                    |
 | partition_column             | String     | No       | -               | The column name for parallelism's partition, only support numeric type column and string type column.                                                                                                                                                                 |
 | partition_lower_bound        | BigDecimal | No       | -               | The partition_column min value for scan, if not set SeaTunnel will query database get min value.                                                                                                                                                                      |
 | partition_upper_bound        | BigDecimal | No       | -               | The partition_column max value for scan, if not set SeaTunnel will query database get max value.                                                                                                                                                                      |
-| partition_num                | Int        | No       | job parallelism | The number of partition count, only support positive integer. Default value is job parallelism.                                                                                                                                                                       |
+| partition_num                | Int        | No       | job parallelism | The number of partition count, only support positive integer. When reading by `table_path`, prefer `split.size` to control split size.                                                                                                                                |
 | fetch_size                   | Int        | No       | 0               | For queries that return a large number of objects, you can configure <br/> the row fetch size used in the query to improve performance by <br/> reducing the number database hits required to satisfy the selection criteria.<br/> Zero means use jdbc default value. |
+| split.size                   | Int        | No       | 8096            | Number of rows in one split when reading by `table_path`.                                                                                                                                                                                                             |
+| split.even-distribution.factor.lower-bound | Double | No | 0.05 | Lower bound used to judge whether split-key values are evenly distributed.                                                                                                                                                                                             |
+| split.even-distribution.factor.upper-bound | Double | No | 100 | Upper bound used to judge whether split-key values are evenly distributed.                                                                                                                                                                                             |
+| split.sample-sharding.threshold | Int     | No       | 1000            | Estimated shard count threshold that triggers sample-based sharding for uneven data.                                                                                                                                                                                  |
+| split.inverse-sampling.rate  | Int        | No       | 1000            | Sampling rate denominator used by sample-based sharding.                                                                                                                                                                                                              |
+| split.allow-sampling         | Boolean    | No       | true            | Whether to allow sample-based sharding.                                                                                                                                                                                                                               |
+| split.string_split_mode      | String     | No       | sample          | String split algorithm. Available value includes `sample` and `charset_based`.                                                                                                                                                                                        |
+| split.string-strategy        | String     | No       | -               | String partition strategy. Available values are `none`, `hash`, `range`, and `auto`.                                                                                                                                                                                  |
+| split.string_split_mode_collate | String  | No       | -               | Collation used when `split.string_split_mode` is `charset_based`.                                                                                                                                                                                                     |
+| use_select_count             | Boolean    | No       | false           | Use `select count` during dynamic chunk split. It is mainly used by Oracle-compatible read scenarios.                                                                                                                                                                  |
+| skip_analyze                 | Boolean    | No       | false           | Skip table count analysis during dynamic chunk split. It is mainly used by Oracle-compatible read scenarios.                                                                                                                                                          |
+| use_regex                    | Boolean    | No       | false           | Treat `table_path` as a regular expression when matching tables.                                                                                                                                                                                                      |
+| decimal_type_narrowing       | Boolean    | No       | true            | In Oracle-compatible mode, narrow decimal values to INT or BIGINT when it can be done without losing precision.                                                                                                                                                       |
+| int_type_narrowing           | Boolean    | No       | true            | In MySQL-compatible mode, narrow `TINYINT(1)` to BOOLEAN when it can be done without losing precision.                                                                                                                                                                |
+| dialect                      | String     | No       | -               | Appointed JDBC dialect. OceanBase is usually detected from the URL, so this is only needed for special compatibility cases.                                                                                                                                            |
 | properties                   | Map        | No       | -               | Additional connection configuration parameters,when properties and URL have the same parameters, the priority is determined by the <br/>specific implementation of the driver. For example, in MySQL, properties take precedence over the URL.                        |
 | common-options               |            | No       | -               | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details                                                                                                                                                     |
 
 ### Tips
 
-> If partition_column is not set, it will run in single concurrency, and if partition_column is set, it will be executed  in parallel according to the concurrency of tasks.
+> Configure one of `query`, `table_path`, or `table_list`.
+>
+> If `partition_column` is not set and SeaTunnel cannot find a suitable primary key or unique key from the table metadata, the source runs with one reader. If a supported split column is available, SeaTunnel can read in parallel.
+>
+> For OceanBase MySQL mode, JDBC connection URLs usually include MySQL-compatible parameters such as `rewriteBatchedStatements=true`. For OceanBase Oracle mode, use the Oracle-compatible tenant and set `compatible_mode = "oracle"`.
 
 ## Task Example
 
@@ -176,6 +199,135 @@ source {
     partition_lower_bound = 1
     # Read end boundary
     partition_upper_bound = 500
+  }
+}
+```
+
+### Table Path
+
+Use `table_path` when you want SeaTunnel to discover table metadata and split the table automatically.
+
+```
+source {
+  Jdbc {
+    driver = "com.oceanbase.jdbc.Driver"
+    url = "jdbc:oceanbase://localhost:2883/test"
+    username = "root@test"
+    password = ""
+    compatible_mode = "mysql"
+    table_path = "test.source"
+    split.size = 8096
+  }
+}
+```
+
+### Oracle-Compatible Mode
+
+```
+source {
+  Jdbc {
+    driver = "com.oceanbase.jdbc.Driver"
+    url = "jdbc:oceanbase://localhost:2883/TESTUSER"
+    username = "TESTUSER@test"
+    password = ""
+    compatible_mode = "oracle"
+    query = "SELECT ID, NAME, CREATE_TIME FROM SOURCE"
+  }
+}
+```
+
+### Multiple Table Read
+
+```
+source {
+  Jdbc {
+    driver = "com.oceanbase.jdbc.Driver"
+    url = "jdbc:oceanbase://localhost:2883/test"
+    username = "root@test"
+    password = ""
+    compatible_mode = "mysql"
+    table_list = [
+      {
+        table_path = "test.source_1"
+      },
+      {
+        table_path = "test.source_2"
+      }
+    ]
+    where_condition = "where id > 100"
+  }
+}
+```
+
+### Per-Table Query Override
+
+When the tables in `table_list` need different SQL filters or projections, set `query` per item instead of using `table_path`. SeaTunnel will use the per-item `query` verbatim and skip table metadata lookup for those entries.
+
+```hocon
+source {
+  Jdbc {
+    driver = "com.oceanbase.jdbc.Driver"
+    url = "jdbc:oceanbase://localhost:2883/test"
+    username = "root@test"
+    password = ""
+    compatible_mode = "mysql"
+    table_list = [
+      {
+        table_path = "test.orders"
+        query = "select id, amount, status from orders where status = 'PAID'"
+      },
+      {
+        table_path = "test.refunds"
+        query = "select id, order_id, amount from refunds where amount > 0"
+      }
+    ]
+  }
+}
+```
+
+### Regex Table Path
+
+For OceanBase tenants with many similar tables (for example time-partitioned `orders_2024_q1`, `orders_2024_q2`, ...), set `use_regex = true` and pass a regular expression in `table_path`. SeaTunnel enumerates matching tables and reads them in parallel up to `partition_num`.
+
+```hocon
+source {
+  Jdbc {
+    driver = "com.oceanbase.jdbc.Driver"
+    url = "jdbc:oceanbase://localhost:2883/test"
+    username = "root@test"
+    password = ""
+    compatible_mode = "mysql"
+    table_path = "test.orders_2024_q[1-4]"
+    use_regex = true
+    partition_column = "id"
+    partition_num = 8
+  }
+}
+```
+
+### Streaming With `STREAMING` and Incremental Column
+
+OceanBase Source is primarily a batch connector. Setting `job.mode = "STREAMING"` only enables checkpointing so the job can resume on failure; the source itself is bounded and reads the configured `[partition_lower_bound, partition_upper_bound)` range exactly once per job run. To pick up new rows repeatedly you must externally resubmit the job (for example on a schedule, with a sliding window), or use OceanBase CDC for continuous change capture.
+
+```hocon
+env {
+  parallelism = 4
+  job.mode = "STREAMING"
+  checkpoint.interval = 60000
+}
+
+source {
+  Jdbc {
+    driver = "com.oceanbase.jdbc.Driver"
+    url = "jdbc:oceanbase://localhost:2883/test"
+    username = "root@test"
+    password = ""
+    compatible_mode = "mysql"
+    query = "select * from orders where id >= ? and id < ?"
+    partition_column = "id"
+    partition_lower_bound = 1
+    partition_upper_bound = 1000000
+    partition_num = 16
   }
 }
 ```

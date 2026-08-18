@@ -54,6 +54,8 @@ Used to read data from Apache Doris.
 | FLOAT                                | FLOAT                                                                                                                                               |
 | DOUBLE                               | DOUBLE                                                                                                                                              |
 | CHAR<br/>VARCHAR<br/>STRING<br/>TEXT | STRING                                                                                                                                              |
+| JSON                                 | STRING                                                                                                                                              |
+| VARIANT                              | STRING                                                                                                                                              |
 | DATE                                 | DATE                                                                                                                                                |
 | DATETIME<br/>DATETIME(p)             | TIMESTAMP                                                                                                                                           |
 | ARRAY                                | ARRAY                                                                                                                                               |
@@ -76,6 +78,8 @@ Base configuration:
 | doris.deserialize.arrow.async    | boolean | no      | false      | Whether to deserialize Arrow data asynchronously.                                                    |
 | doris.request.retriesdoris.deserialize.queue.size | int | no | 64 | Queue size used by asynchronous Arrow deserialization.                                               |
 | table_list                       | Array  | no       | -          | List of Doris tables to read.                                                                        |
+
+The `doris.request.retriesdoris.deserialize.queue.size` key is the current runtime option name. Use this exact key when tuning the asynchronous Arrow deserialization queue.
 
 Table list configuration:
 

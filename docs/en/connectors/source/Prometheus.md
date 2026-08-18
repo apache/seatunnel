@@ -13,11 +13,26 @@ Configure `url` as the server base address, such as `http://prometheus:9090` or 
 SeaTunnel automatically uses the Prometheus query endpoint for `Instant` queries and the query range endpoint for
 `Range` queries.
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Key Features
 
 - [x] [batch](../../introduction/concepts/connector-v2-features.md)
 - [ ] [stream](../../introduction/concepts/connector-v2-features.md)
 - [ ] [parallelism](../../introduction/concepts/connector-v2-features.md)
+
+## Supported DataSource Info
+
+To use the Prometheus connector, the following dependency is required. It can be installed by `install-plugin.sh` or
+downloaded from Maven Central.
+
+| Datasource | Supported Versions | Dependency |
+|------------|--------------------|------------|
+| Prometheus | universal          | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-prometheus) |
 
 ## Source Options
 
@@ -130,6 +145,77 @@ source {
     url = "http://victoria-metrics:8428"
     query = "up"
     query_type = "Instant"
+    content_field = "$.data.result.*"
+    format = "json"
+    schema = {
+      fields {
+        metric = "map<string, string>"
+        value = double
+        time = long
+      }
+    }
+  }
+}
+```
+
+## Streaming Range Query Example
+
+Run a range query continuously against a Prometheus or VictoriaMetrics server. The
+source re-runs the same range query every `poll_interval_millis` and forwards the
+newest samples to downstream operators.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 60000
+}
+
+source {
+  Prometheus {
+    plugin_output = "live_metrics"
+    url = "http://prometheus:9090"
+    query = "rate(node_cpu_seconds_total{mode!=\"idle\"}[1m])"
+    query_type = "Range"
+    start = "2026-08-10T00:00:00Z"
+    end = CURRENT_TIMESTAMP
+    step = "30s"
+    content_field = "$.data.result.*"
+    format = "json"
+    poll_interval_millis = 15000
+    retry = 3
+    retry_backoff_multiplier_ms = 200
+    retry_backoff_max_ms = 5000
+    schema = {
+      fields {
+        metric = "map<string, string>"
+        value = double
+        time = long
+      }
+    }
+  }
+}
+
+sink {
+  Console {}
+}
+```
+
+## Range Query With Explicit Unix Timestamps
+
+Both `start` and `end` accept Unix timestamps in seconds. This is useful when you
+want to backfill a fixed window from a known point in time.
+
+```hocon
+source {
+  Prometheus {
+    plugin_output = "backfill"
+    url = "http://prometheus:9090"
+    query = "sum(up) by (job)"
+    query_type = "Range"
+    start = "1754851200"
+    end = "1754937600"
+    step = "60s"
     content_field = "$.data.result.*"
     format = "json"
     schema = {

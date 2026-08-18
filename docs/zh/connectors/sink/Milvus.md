@@ -53,14 +53,15 @@ SeaTunnel 表结构创建目标集合，并支持向量字段、动态字段、�
 | url                    | String              | 是    | -                            | Milvus 或 Zilliz Cloud 的连接地址，例如 `http://127.0.0.1:19530`。                             |
 | token                  | String              | 是    | -                            | Milvus 认证令牌。本地 Milvus 通常使用 `username:password`。                                      |
 | database               | String              | 否    | -                            | 目标数据库。不填时，如果上游带有数据库信息，则使用上游数据库。                                                    |
-| collection             | String              | 否    | -                            | 目标集合。不填时使用上游表名作为集合名。兼容旧配置键 `collection_name`。                                      |
+| collection             | String              | 否    | -                            | 目标集合。不填时使用上游表名作为集合名。旧配置键 `collection_name` 仍可作为兼容别名使用。                            |
 | schema_save_mode       | enum                | 否    | CREATE_SCHEMA_WHEN_NOT_EXIST | 控制如何处理目标集合结构。默认值表示集合不存在时才创建集合。                                                   |
 | data_save_mode         | enum                | 否    | APPEND_DATA                  | 控制如何处理已有数据。支持 `DROP_DATA`、`APPEND_DATA`、`ERROR_WHEN_DATA_EXISTS`。                         |
 | enable_auto_id         | boolean             | 否    | false                        | 是否让 Milvus 自动生成主键。设置为 `true` 时，不要再向主键字段写值。                                          |
 | enable_upsert          | boolean             | 否    | true                         | 是否使用更新插入模式写入，而不是普通插入模式。更新插入需要集合中有主键。                                             |
 | enable_dynamic_field   | boolean             | 否    | true                         | SeaTunnel 创建集合时，是否启用 Milvus 动态字段。                                                       |
-| batch_size             | int                 | 否    | 1000                         | 写入前缓存的记录数。流任务中，检查点触发时也会刷新写入。                                                     |
-| rate_limit             | int                 | 否    | 100000                       | 连接器用于重试和限流控制的最大写入速率。                                                                 |
+| enable_nullable_field  | boolean             | 否    | false                        | 是否启用可空字段。需要 Milvus 2.5 或更高版本。开启后，当 SeaTunnel 列定义为 nullable 且作为 Milvus 标量字段，SeaTunnel 会将该字段创建为 Milvus nullable 字段并允许写入 `null` 值。|
+| batch_size             | int                 | 否    | 1000                         | 写入前缓存的记录数，必须为非负数。设置为 0 时，每条记录都会立即刷新。流任务中，检查点触发时也会刷新写入。                            |
+| rate_limit             | int                 | 否    | 100000                       | Milvus collection 写入限速，单位 MB/s。大于 0 时，写入器运行期间会设置 `collection.insertRate.max.mb` 和 `collection.upsertRate.max.mb`。 |
 | partition_key          | String              | 否    | -                            | SeaTunnel 创建集合时使用的 Milvus 分区键字段名。                                                       |
 | create_index           | boolean             | 否    | false                        | 是否为目标集合创建向量索引。从 Milvus 源端复制时，可以利用上游索引元数据在目标集合创建相同索引。                            |
 | load_collection        | boolean             | 否    | false                        | 创建集合后是否把目标集合加载到 Milvus 内存中。如果写完马上要查询，可以开启。                                        |
@@ -70,8 +71,12 @@ SeaTunnel 表结构创建目标集合，并支持向量字段、动态字段、�
 
 - 向量维度来自 SeaTunnel 表结构。使用 `FakeSource` 生成向量字段时，`columnScale` 表示向量维度。
 - 不配置 `collection` 时，接收器会使用上游表名作为 Milvus 集合名，适合多表写入。
+- `collection_name` 是 `collection` 的向后兼容别名。新任务建议使用 `collection`。
 - Milvus 源端读取分区后，如果目标集合没有使用分区键，接收器可以在目标集合创建相同分区名。
 - `create_index = true` 只有在上游目录信息能提供索引元数据时才会创建向量索引，例如上游也是 Milvus。
+- `enable_upsert = true` 会按主键更新插入，目标集合中需要有主键。希望直接追加写入时，可以设置 `enable_upsert = false`。
+- `rate_limit` 会在写入器运行期间修改 Milvus collection 属性，并在写入器关闭时把 insert/upsert 限速重置为 `-1`。
+- `load_collection = true` 会在创建集合后加载集合，这样写入完成后可以马上查询。
 
 ## 任务示例
 

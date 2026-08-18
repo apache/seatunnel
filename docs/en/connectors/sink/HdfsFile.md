@@ -89,11 +89,11 @@ Output data to hdfs file
 | enable_header_write                   | boolean | no       | false                                      | Only used when file_format_type is text,csv.<br/> false:don't write header,true:write header.                                                                                                                                                                                                                                                                                                                                                                                            |
 | encoding                              | string  | no       | "UTF-8"                                    | Only used when file_format_type is json,text,csv,xml.                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | remote_user                           | string  | no       | -                                          | The remote user name of hdfs.                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| schema_evolution_enabled              | boolean | no       | false                                      | Enable schema evolution support for CDC pipelines. When true, ADD/DROP/RENAME/MODIFY column events from the source are applied to the sink without a job restart. Not supported for binary format.                                                                                                                                                                                                                                                                                       |
 | schema_save_mode                      | string  | no       | CREATE_SCHEMA_WHEN_NOT_EXIST               | Existing dir processing method                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | data_save_mode                        | string  | no       | APPEND_DATA                                | Existing data processing method                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 | multi_table_sink_replica              | int     | no       | 1                                          | The replica number of sink writers used for each table in a multi-table sink job.                                                                                                                                                                                                                                                                                                                                                                                                         |
 | merge_update_event                    | boolean | no       | false                                      | Only used when file_format_type is canal_json,debezium_json or maxwell_json. When value is true, the UPDATE_AFTER and UPDATE_BEFORE event will be merged into UPDATE event data                                                                                                                                                                                                                                                                                                          |
-| schema_evolution_enabled              | boolean | no       | false                                      | Enable schema evolution support for CDC pipelines. When true, ADD/DROP/RENAME/MODIFY column events from the source are applied to the sink without a job restart. Not supported for binary format. |
 
 ### Tips
 
@@ -113,6 +113,32 @@ Existing data processing method.
 - DROP_DATA: preserve dir and delete data files
 - APPEND_DATA: preserve dir, preserve data files
 - ERROR_WHEN_DATA_EXISTS: when there is data files, an error is reported
+
+### schema_evolution_enabled [boolean]
+
+When set to `true`, the file sink handles CDC schema change events (ADD COLUMN, DROP COLUMN, RENAME COLUMN, MODIFY COLUMN type) at runtime without requiring a job restart. On each schema change the current output file is closed and a new file is opened with the updated schema.
+
+**Supported formats:** All file formats except `binary`. Enabling this option with `file_format_type = binary` will fail at job startup with a config validation error.
+
+**Partition constraint:** When `have_partition = true`, dropping a column listed in `partition_by` is not allowed and will fail fast. Partition columns must remain stable across schema changes.
+
+**When `schema_evolution_enabled = false` (default):** If the upstream CDC source has `schema-changes.enabled = true` and an `AlterTableEvent` arrives at the sink, the job will throw immediately with an actionable error:
+> `Received AlterTableEvent but schema_evolution_enabled=false at this sink. Either set schema_evolution_enabled=true to handle schema changes, or set schema-changes.enabled=false at the CDC source to suppress them.`
+
+Users on the default CDC source config (`schema-changes.enabled = false`) are completely unaffected.
+
+**Known limitation:** Schema changes are not atomic with checkpointing. If the job crashes in the narrow window between file rotation and schema metadata update, rows written after restore may use the pre-change schema. This is a known architectural gap shared across other SeaTunnel sinks. For full restart-with-DDL correctness, a follow-up CDC source fix is required (tracked separately).
+
+Example usage in a CDC pipeline:
+
+```hocon
+HdfsFile {
+    fs.defaultFS = "hdfs://hadoopcluster"
+    path = "/tmp/seatunnel/cdc/${table_name}"
+    file_format_type = "parquet"
+    schema_evolution_enabled = true
+}
+```
 
 ### multi_table_sink_replica [int]
 
@@ -298,34 +324,24 @@ Configure mount table in `core-site.xml`:
 </configuration>
 ```
 
+### Writing to an HA HDFS Cluster (Kerberos-enabled)
 
-### schema_evolution_enabled [boolean]
-
-When set to `true`, the file sink handles CDC schema change events (ADD COLUMN, DROP COLUMN, RENAME COLUMN, MODIFY COLUMN type) at runtime without requiring a job restart. On each schema change the current output file is closed and a new file is opened with the updated schema.
-
-**Supported formats:** All file formats except `binary`. Enabling this option with `file_format_type = binary` will fail at job startup with a config validation error.
-
-**Partition constraint:** When `have_partition = true`, dropping a column listed in `partition_by` is not allowed and will fail fast. Partition columns must remain stable across schema changes.
-
-**When `schema_evolution_enabled = false` (default):** If the upstream CDC source has `schema-changes.enabled = true` and an `AlterTableEvent` arrives at the sink, the job will throw immediately with an actionable error:
-> `Received AlterTableEvent but schema_evolution_enabled=false at this sink. Either set schema_evolution_enabled=true to handle schema changes, or set schema-changes.enabled=false at the CDC source to suppress them.`
-
-Users on the default CDC source config (`schema-changes.enabled = false`) are completely unaffected.
-
-**Known limitation:** Schema changes are not atomic with checkpointing. If the job crashes in the narrow window between file rotation and schema metadata update, rows written after restore may use the pre-change schema. This is a known architectural gap shared across other SeaTunnel sinks. For full restart-with-DDL correctness, a follow-up CDC source fix is required (tracked separately).
-
-Example usage in a CDC pipeline:
+When writing to an HA HDFS cluster that uses Kerberos, supply the Kerberos principal/keytab in addition to the nameservice URI. The connector picks up the same authentication the rest of your Hadoop tooling uses, so the principal's HDFS permissions must allow writes to the target directory.
 
 ```hocon
-LocalFile {
-    path = "/tmp/cdc/${table_name}"
+sink {
+  HdfsFile {
+    fs.defaultFS = "hdfs://mycluster"
+    path = "/data/landing/events"
     file_format_type = "parquet"
-    schema_evolution_enabled = true
-    have_partition = true
-    partition_by = ["updated_at_month"]
+    hdfs_site_path = "/etc/hadoop/conf/hdfs-site.xml"
+    kerberos_principal = "sink@EXAMPLE.COM"
+    krb5_path = "/etc/krb5.conf"
+  }
 }
 ```
 
+The `kerberos_principal` and `krb5_path` values are forwarded to the Hadoop FileSystem client; the connector does not perform a `kinit` itself, so the keytab must already be discoverable on every worker node (typically via `KRB5CCNAME` / a `kinit` cron) or supplied to the same JVM via standard Hadoop authentication utilities. For cluster-level auth issues, check the worker logs for `LoginException` / `KrbException` messages — those indicate a credential problem, not a connector bug.
 
 ## Changelog
 

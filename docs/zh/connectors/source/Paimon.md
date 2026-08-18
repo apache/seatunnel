@@ -51,10 +51,10 @@ import ChangeLog from '../changelog/connector-paimon.md';
 | warehouse               | String   | 是      | -             |
 | catalog_name            | String   | 否      | paimon        |
 | catalog_type            | String   | 否      | filesystem    |
-| catalog_uri             | String   | 否      | -             |
+| catalog_uri             | String   | 当 `catalog_type` 为 `hive` 时是 | -             |
 | database                | String   | 是      | -             |
-| table                   | String   | 否      | -             |
-| table_list              | array    | 否      | -             |
+| table                   | String   | 未配置 `table_list` 时是 | -             |
+| table_list              | array    | 未配置 `table` 时是 | -             |
 | user                    | String   | 否      | -             |
 | password                | String   | 否      | -             |
 | hdfs_site_path          | String   | 否      | -             |
@@ -72,7 +72,7 @@ Paimon Catalog 类型，支持 filesystem 和 hive
 
 ### catalog_uri [string]
 
-Paimon 的 catalog uri，仅当 catalog_type 为 hive 时需要
+Paimon 的 catalog URI。当 `catalog_type` 为 `hive` 时必须配置。
 
 ### database [string]
 
@@ -80,11 +80,11 @@ Paimon 的 catalog uri，仅当 catalog_type 为 hive 时需要
 
 ### table [string]
 
-需要访问的表
+需要访问的表。`table` 和 `table_list` 必须二选一配置。
 
 ### table_list [array]
 
-`Paimon` 表名列表。当一个 Source 需要读取多张 Paimon 表时，使用此配置代替 `table`。每个配置项必须包含 `table`，也可以配置该表自己的 `query`。
+`Paimon` 表名列表。当一个 Source 需要读取多张 Paimon 表时，使用此配置代替 `table`。`table` 和 `table_list` 必须二选一配置。每个配置项必须包含 `table`，也可以配置该表自己的 `query`。
 
 ### hdfs_site_path [string]
 
