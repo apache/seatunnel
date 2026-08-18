@@ -20,13 +20,17 @@ import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Pair;
 
+import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.presto.PrestoTypeMapper;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.JdbcFieldTypeUtils;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -36,9 +40,11 @@ import org.testcontainers.utility.DockerLoggerFactory;
 import lombok.extern.slf4j.Slf4j;
 
 import java.sql.Driver;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Duration;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
@@ -75,6 +81,7 @@ public class JdbcPrestoIT extends AbstractJdbcIT {
                     + "date_col                 DATE,\n"
                     + "time_col                 TIME,\n"
                     + "timestamp_col            TIMESTAMP,\n"
+                    + "timestamp_tz_col         TIMESTAMP WITH TIME ZONE,\n"
                     + "varbinary_col            VARBINARY,\n"
                     + "json_col                 json\n"
                     + ")";
@@ -122,7 +129,6 @@ public class JdbcPrestoIT extends AbstractJdbcIT {
                                         "CREATE TABLE IF NOT EXISTS memory.default._readiness_probe (id INTEGER)");
                             }
                         });
-        this.connection.setAutoCommit(false);
     }
 
     @Override
@@ -186,6 +192,7 @@ public class JdbcPrestoIT extends AbstractJdbcIT {
                                 + "date '2024-01-01',\n"
                                 + "time '12:01:01',\n"
                                 + "timestamp '2024-01-01 12:01:01',\n"
+                                + "timestamp '2024-01-01 12:01:01 +08:00',\n"
                                 + "VARBINARY 'str',\n"
                                 + "json '{\"key\":\"val\"}'\n"
                                 + ")");
@@ -193,6 +200,22 @@ public class JdbcPrestoIT extends AbstractJdbcIT {
         } catch (Exception exception) {
             log.error(ExceptionUtils.getMessage(exception));
             throw new SeaTunnelRuntimeException(JdbcITErrorCode.INSERT_DATA_FAILED, exception);
+        }
+    }
+
+    @Test
+    public void testTimestampWithTimeZoneMappingAndValue() throws SQLException {
+        try (Statement statement = connection.createStatement();
+                ResultSet resultSet =
+                        statement.executeQuery(
+                                "SELECT timestamp_tz_col FROM memory.default.presto_e2e_source_table LIMIT 1")) {
+            Assertions.assertTrue(resultSet.next());
+            Assertions.assertEquals(
+                    LocalTimeType.OFFSET_DATE_TIME_TYPE,
+                    new PrestoTypeMapper().mapping(resultSet.getMetaData(), 1));
+            Assertions.assertEquals(
+                    OffsetDateTime.parse("2024-01-01T12:01:01+08:00"),
+                    JdbcFieldTypeUtils.getOffsetDateTime(resultSet, 1));
         }
     }
 

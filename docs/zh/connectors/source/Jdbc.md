@@ -286,6 +286,10 @@ int_type_narrowing = false
 | IRIS      | Inceptor | Highgo |
 | YashanDB  |          |          |
 
+#### 带时区时间戳
+
+JDBC 中原生包含时区语义的列会映射为 SeaTunnel `TIMESTAMP_TZ`。支持 JDBC 4.2 `TIMESTAMP_WITH_TIMEZONE`，以及 Db2 for z/OS 和 Teradata `TIMESTAMP WITH TIME ZONE`、Presto `timestamp(p) with time zone`、Vertica `TIMESTAMPTZ` 等方言类型。运行时值使用 `java.time.OffsetDateTime` 表示。Db2 LUW 不提供这种原生列类型。Db2 for z/OS 最多支持 12 位小数秒，超出 SeaTunnel 纳秒精度的位数会被截断。
+
 ## 并行读取器
 
 任务 `parallelism` 决定最多可以同时运行多少个 Reader；分片配置决定实际有多少个独立 split 可以分配给 Reader。
