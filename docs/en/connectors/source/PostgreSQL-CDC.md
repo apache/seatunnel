@@ -98,6 +98,7 @@ ALTER TABLE your_table_name REPLICA IDENTITY FULL;
 | table-pattern                             | String   | Yes, if `table-names` is not used | -        | Regular expression for tables to monitor. Use the fully qualified table name in the pattern, for example: `postgres_cdc\\.inventory\\..*`. `table-names` and `table-pattern` are mutually exclusive.                                                                                                                                                                                                                                                                                                                                                                                                            |
 | table-names-config                        | List     | No       | -       | Per-table config list. Example: `[{"table": "db1.schema1.table1","primaryKeys": ["key1"],"snapshotSplitColumn": "key2"}]`. Use `primaryKeys` for tables without a physical primary key. `snapshotSplitColumn` must be a unique key; otherwise SeaTunnel ignores it and selects a split column internally.                                                                                                                                                                                                                                                                                                                                                                          |
 | startup.mode                              | Enum     | No       | INITIAL  | Optional startup mode for PostgreSQL CDC consumer, valid enumerations are `initial`, `snapshot-only`, `committed-offset`, `earliest` and `latest`. <br/> `initial`: Synchronize historical data at startup, and then synchronize incremental data.<br/> `snapshot-only`: Synchronize historical data at startup and finish as a bounded job without entering WAL streaming.<br/> `committed-offset`: Skip snapshot data and start WAL streaming from the configured replication slot's committed LSN. This mode requires an explicit `slot.name` and fails if the slot does not exist or has no usable committed LSN.<br/> `earliest`: Startup from the earliest offset possible.<br/> `latest`: Startup from the latest offset. |
+| stop.mode                                 | Enum     | No       | NEVER    | Optional stop mode for PostgreSQL CDC consumer. The only valid enumeration is `never`: the source keeps streaming WAL changes and never stops on its own once it reaches the incremental phase.                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | snapshot.split.size                       | Integer  | No       | 8096     | The split size (number of rows) of table snapshot, captured tables are split into multiple splits when read the snapshot of table.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | snapshot.fetch.size                       | Integer  | No       | 1024     | The maximum fetch size for per poll when read table snapshot.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | slot.name                                 | String   | No       | seatunnel | The PostgreSQL logical decoding slot name. Use a different slot name for each CDC job that reads from the same PostgreSQL instance.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
@@ -224,7 +225,7 @@ Use `startup.mode = "snapshot-only"` when the job must perform an initial snapsh
 
 ```hocon
 env {
-  execution.parallelism = 1
+  parallelism = 1
   job.mode = "BATCH"
   checkpoint.interval = 5000
 }
@@ -261,7 +262,14 @@ In `snapshot-only` mode, the connector skips WAL streaming entirely; configure `
 
 ### Read tables without a primary key
 
-For tables without a physical primary key, set `exactly_once = false` and supply a unique column via `table-names-config.primaryKeys` when you need stable row identity for downstream upserts.
+Pick the path that matches what the source table guarantees:
+
+- **Append-only workload** (no UPDATE/DELETE will ever be produced downstream): keep
+  `exactly_once = false` and do not declare a primary key. The source falls back to a best-effort
+  row identity. Without a usable key, the connector cannot apply UPDATE/DELETE events safely.
+- **Unique non-primary column is available**: declare it via `table-names-config.primaryKeys` and
+  set `exactly_once = true` so the snapshot and WAL phases both use the configured key for
+  consistent row identity.
 
 ```hocon
 source {
@@ -273,7 +281,13 @@ source {
     table-names = ["postgres_cdc.inventory.full_types_no_primary_key"]
     url = "jdbc:postgresql://postgres_cdc_e2e:5432/postgres_cdc?loggerLevel=OFF"
     decoding.plugin.name = "decoderbufs"
-    exactly_once = false
+    table-names-config = [
+      {
+        table = "postgres_cdc.inventory.full_types_no_primary_key"
+        primaryKeys = ["id"]
+      }
+    ]
+    exactly_once = true
     slot.name = "seatunnel_postgres_cdc"
   }
 }
