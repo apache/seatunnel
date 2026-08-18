@@ -24,6 +24,7 @@ import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.TestTemplate;
+import org.junit.jupiter.api.condition.EnabledIfEnvironmentVariable;
 import org.testcontainers.containers.Container;
 
 import java.io.IOException;
@@ -46,6 +47,7 @@ import java.io.IOException;
             TestContainerId.SEATUNNEL
         },
         disabledReason = "Only runs on Spark 4.1")
+@EnabledIfEnvironmentVariable(named = "RUN_SPARK_41_CONTAINER", matches = "true")
 public class FakeSpark41IT extends TestSuiteBase {
 
     @TestTemplate
