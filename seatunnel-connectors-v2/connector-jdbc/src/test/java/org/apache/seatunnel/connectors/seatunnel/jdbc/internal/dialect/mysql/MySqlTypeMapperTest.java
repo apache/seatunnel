@@ -115,7 +115,7 @@ public class MySqlTypeMapperTest {
         assertEquals("name", column.getName());
         assertEquals("VARCHAR", column.getSourceType());
         assertEquals(BasicType.STRING_TYPE, column.getDataType());
-        assertEquals(255, column.getColumnLength());
+        assertEquals(1020, column.getColumnLength());
         assertEquals(true, column.isNullable());
     }
 
