@@ -1,7 +1,8 @@
 # RESTful API V2
 
-SeaTunnel has a monitoring API that can be used to query status and statistics of running jobs, as well as recent
-completed jobs. The monitoring API is a RESTful API that accepts HTTP requests and responds with JSON data.
+SeaTunnel provides a REST API for both monitoring and job lifecycle operations. You can use it to query cluster and
+job status, submit jobs, stop jobs, and inspect recent completed jobs. The API accepts HTTP requests and responds
+with JSON data unless otherwise noted.
 
 ## Overview
 
@@ -599,7 +600,7 @@ When we can't get the job info, the response will be:
 
 #### Body
 
-You can choose json, hocon or sql to pass request body.
+You can choose json, hocon or sql to pass request body. YAML job definitions are not supported by this endpoint.
 The json format example:
 ``` json
 {
@@ -733,6 +734,12 @@ The name of the uploaded file key is config_file, and supports the following for
 - `.json` files: parsed in JSON format
 - `.conf` or `.config` files: parsed in HOCON format
 - `.sql` files: parsed in SQL format, supports CREATE TABLE and INSERT INTO syntax
+
+The upload endpoint detects the config format from the uploaded file name suffix. It does not use the `format` query
+parameter, and YAML job files are not supported.
+
+The current implementation only consumes `jobId`, `jobName`, and `isStartWithSavePoint` as submission parameters for
+this endpoint. If `isStartWithSavePoint=true`, you must also provide `jobId`.
 
 curl Example :
 ```bash

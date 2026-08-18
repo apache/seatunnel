@@ -1,6 +1,6 @@
 # RESTful API V2
 
-SeaTunnel有一个用于监控的API，可用于查询运行作业的状态和统计信息，以及最近完成的作业。监控API是RESTful风格的，它接受HTTP请求并使用JSON数据格式进行响应。
+SeaTunnel 提供了一套同时覆盖监控与作业生命周期操作的 REST API。您可以用它查询集群和作业状态、提交作业、停止作业，以及查看最近完成的作业。除特别说明外，这些接口均通过 HTTP 请求并返回 JSON 数据。
 
 ## 概述
 
@@ -578,7 +578,7 @@ seatunnel:
 
 #### 请求体
 
-你可以选择用json、hocon或者sql的方式来传递请求体。
+你可以选择用json、hocon或者sql的方式来传递请求体。该接口不支持 YAML 作业定义。
 Json请求示例：
 ```json
 {
@@ -694,10 +694,10 @@ INSERT INTO console_sink SELECT * FROM fake_source;
 </details>
 
 ------------------------------------------------------------------------------------------
-### 提交作业来源上传配置文件
+### 通过上传配置文件提交作业
 
 <details>
-<summary><code>POST</code> <code><b>/submit-job</b></code> <code>(如果作业提交成功，返回jobId和jobName。)</code></summary>
+<summary><code>POST</code> <code><b>/submit-job/upload</b></code> <code>(如果作业提交成功，返回jobId和jobName。)</code></summary>
 
 #### 参数
 
@@ -712,6 +712,10 @@ INSERT INTO console_sink SELECT * FROM fake_source;
 - `.json` 文件：按照 JSON 格式解析
 - `.conf` 或 `.config` 文件：按照 HOCON 格式解析
 - `.sql` 文件：按照 SQL 格式解析，支持 CREATE TABLE 和 INSERT INTO 语法
+
+该上传接口会根据上传文件名后缀自动识别配置格式，不会使用 `format` 查询参数，也不支持 YAML 作业文件。
+
+当前实现只会读取 `jobId`、`jobName` 和 `isStartWithSavePoint` 这三个提交参数；如果 `isStartWithSavePoint=true`，则必须同时传入 `jobId`。
 
 curl Example
 

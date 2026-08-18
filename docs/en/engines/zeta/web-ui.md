@@ -2,7 +2,7 @@
 
 ## Access
 
-Before accessing the web ui we need to enable the http rest api. first you need to configure it in the `seatunnel.yaml` configuration file
+Before accessing the Web UI, enable the HTTP REST API in `seatunnel.yaml`:
 
 ```
 seatunnel:
@@ -15,9 +15,26 @@ seatunnel:
 
 Then visit `http://ip:8080/#/overview`
 
+For production deployments, consider enabling Basic authentication or HTTPS as described in [security](security.md).
+
+## Scope And Deployment Mode
+
+The current Web UI is primarily an observability interface for SeaTunnel Engine (Zeta). It lets you inspect cluster
+overview data, running jobs, finished jobs, worker metrics, master metrics, job DAGs, and job logs.
+
+Job lifecycle actions such as submit, cancel, stop, savepoint, or restore are not exposed in the current UI. Use the
+CLI or [REST API V2](rest-api-v2.md) for those operations.
+
+For the full Jobs, Workers, and Master experience, deploy SeaTunnel Engine in hybrid cluster mode or separated cluster
+mode. Local mode exits after the submitted job completes and does not support viewing the job list, so it is not a
+good fit for the full Web UI workflow.
+
 ## Overview
 
-The Web UI of Apache SeaTunnel offers a user-friendly interface for monitoring and managing SeaTunnel jobs. Through the Web UI, users can view real-time information on currently running jobs, finished jobs, and the status of worker and master nodes within the cluster. The main functional modules include Jobs, Workers, and Master, each providing detailed status information and operational options to help users efficiently manage and optimize their data processing workflows.
+The Web UI of Apache SeaTunnel offers a user-friendly interface for monitoring SeaTunnel jobs and cluster status.
+Through the Web UI, users can view real-time information on currently running jobs, finished jobs, and the status of
+worker and master nodes within the cluster. The main functional modules include Jobs, Workers, and Master, each
+providing detailed status information to help users troubleshoot and optimize data processing workflows.
 ![overview.png](../../../images/ui/overview.png)
 
 ## Jobs
@@ -30,7 +47,9 @@ The "Running Jobs" section lists all SeaTunnel jobs that are currently in execut
 
 ### Finished Jobs
 
-The "Finished Jobs" section displays all SeaTunnel jobs that have either successfully completed or failed. This section provides execution results, completion times, durations, and failure reasons (if any) for each job. Users can review past job records through this module to analyze job performance, troubleshoot issues, or rerun specific jobs as needed.
+The "Finished Jobs" section displays all SeaTunnel jobs that have either successfully completed or failed. This
+section provides execution results, completion times, durations, and failure reasons (if any) for each job. Users can
+review past job records through this module to analyze job performance and troubleshoot issues.
 ![finished.png](../../../images/ui/finished.png)
 
 ## Workers
