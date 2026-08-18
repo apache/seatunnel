@@ -230,9 +230,13 @@ public class KafkaIT extends AbstractKafkaIT {
                             });
             // Leader visibility in the admin metadata view does not guarantee the broker the
             // job's own Kafka client connects to has finished propagating the partition
-            // leader. Force end-to-end propagation before any test submits a job.
+            // leader. Wait for a non-null leader on every partition; the static topics below
+            // are then written by generateTestData, whose produce itself forces end-to-end
+            // propagation before any test submits a job. A produce/consume/deleteRecords
+            // warm-up is intentionally NOT applied here: deleteRecords would advance the log
+            // start offset and break tests that read with absolute offsets
+            // (specific_offsets / restore), e.g. testKafkaSpecificOffsetsToConsole.
             waitForKafkaTopicsReady(topicNames);
-            warmUpKafkaTopics(topicNames);
         }
 
         log.info("Write 100 records to topic test_topic_source");
