@@ -70,13 +70,13 @@ DeepLake Sink 将 SeaTunnel 数据追加写入 Deep Lake 托管服务中的表�
 | TIMESTAMP_TZ | TIMESTAMPTZ |
 | FLOAT_VECTOR | FLOAT4[] |
 | BINARY_VECTOR | BYTEA |
-| ARRAY | 对应 Deep Lake 元素类型的数组 |
+| ARRAY | 对应受支持 Deep Lake 元素类型的数组 |
 
-首个版本不支持 `FLOAT16_VECTOR`、`BFLOAT16_VECTOR`、`SPARSE_FLOAT_VECTOR`、`MAP` 和 `ROW`。SQL 生成阶段会直接失败，不会以精度或结构损失的方式转换这些数据。
+首个版本不支持 `FLOAT16_VECTOR`、`BFLOAT16_VECTOR`、`SPARSE_FLOAT_VECTOR`、`MAP`、`ROW`，也不支持包含 `BYTES` 或 `BINARY_VECTOR` 的数组。SQL 生成阶段会直接失败，不会以精度或结构损失的方式转换这些数据。
 
 ## 交付语义
 
-数据先缓存在内存中，再通过 Deep Lake 参数化批量查询接口写入。只有 HTTP 请求成功后才清空缓存；达到 `batch_size`、准备 Checkpoint 和关闭 Writer 时都会刷新缓存。
+数据先缓存在内存中，再通过 Deep Lake 参数化批量查询接口写入。只有 HTTP 请求成功后才清空缓存；达到 `batch_size`、准备 Checkpoint 和关闭正常 Writer 时都会刷新缓存。写入失败后 Writer 会进入终止状态，关闭时不会重试结果不明确的批次。
 
 连接器提供至少一次交付。Deep Lake 已接受请求但 SeaTunnel 尚未记录 Checkpoint 时，如果任务失败，恢复后可能再次发送同一批数据。稳定的主键可以发现重复数据，但不能让重试变成精确一次语义。无法接受重复数据时，应在写入前或写入后去重。
 

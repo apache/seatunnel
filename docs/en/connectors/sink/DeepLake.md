@@ -70,13 +70,13 @@ The sink accepts append-only input. `UPDATE_BEFORE`, `UPDATE_AFTER`, and `DELETE
 | TIMESTAMP_TZ | TIMESTAMPTZ |
 | FLOAT_VECTOR | FLOAT4[] |
 | BINARY_VECTOR | BYTEA |
-| ARRAY | corresponding Deep Lake element type array |
+| ARRAY | corresponding supported Deep Lake element type array |
 
-`FLOAT16_VECTOR`, `BFLOAT16_VECTOR`, `SPARSE_FLOAT_VECTOR`, `MAP`, and `ROW` are not supported in this first version. The connector fails during SQL generation rather than converting these values with a loss of precision or structure.
+`FLOAT16_VECTOR`, `BFLOAT16_VECTOR`, `SPARSE_FLOAT_VECTOR`, `MAP`, `ROW`, and arrays containing `BYTES` or `BINARY_VECTOR` are not supported in this first version. The connector fails during SQL generation rather than converting these values with a loss of precision or structure.
 
 ## Delivery Semantics
 
-Rows are buffered in memory and written through Deep Lake's parameterized batch query endpoint. The buffer is cleared only after a successful HTTP response and is flushed when it reaches `batch_size`, on checkpoint preparation, and when the writer closes.
+Rows are buffered in memory and written through Deep Lake's parameterized batch query endpoint. The buffer is cleared only after a successful HTTP response and is flushed when it reaches `batch_size`, on checkpoint preparation, and when an active writer closes. After a failed write, the writer becomes terminal and closing it does not retry the ambiguous batch.
 
 The connector provides at-least-once delivery. A task failure after Deep Lake accepts a request but before SeaTunnel records the checkpoint can cause the batch to be sent again. A stable primary key can detect duplicates but does not make retries exactly-once. Deduplicate before or after this sink when duplicate rows are not acceptable.
 

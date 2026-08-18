@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.type.ArrayType;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
@@ -70,6 +71,15 @@ class DeepLakeSqlTest {
         assertThrows(
                 DeepLakeConnectorException.class,
                 () -> DeepLakeSql.toDeepLakeType(VectorType.VECTOR_FLOAT16_TYPE));
+    }
+
+    @Test
+    void rejectsBinaryValuesInsideArrays() {
+        assertThrows(
+                DeepLakeConnectorException.class,
+                () ->
+                        DeepLakeSql.toDeepLakeType(
+                                new ArrayType<>(byte[][].class, PrimitiveByteArrayType.INSTANCE)));
     }
 
     static CatalogTable catalogTable() {

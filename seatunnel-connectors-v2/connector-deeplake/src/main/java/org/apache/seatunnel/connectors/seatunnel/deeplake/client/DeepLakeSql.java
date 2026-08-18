@@ -92,6 +92,10 @@ public final class DeepLakeSql {
     }
 
     static String toDeepLakeType(SeaTunnelDataType<?> type) {
+        return toDeepLakeType(type, false);
+    }
+
+    private static String toDeepLakeType(SeaTunnelDataType<?> type, boolean arrayElement) {
         switch (type.getSqlType()) {
             case BOOLEAN:
                 return "BOOLEAN";
@@ -117,6 +121,11 @@ public final class DeepLakeSql {
                 return "TEXT";
             case BYTES:
             case BINARY_VECTOR:
+                if (arrayElement) {
+                    throw new DeepLakeConnectorException(
+                            DeepLakeConnectorErrorCode.UNSUPPORTED_DATA_TYPE,
+                            "DeepLake sink does not support binary values inside arrays");
+                }
                 return "BYTEA";
             case DATE:
                 return "DATE";
@@ -130,7 +139,7 @@ public final class DeepLakeSql {
                 return "FLOAT4[]";
             case ARRAY:
                 ArrayType<?, ?> arrayType = (ArrayType<?, ?>) type;
-                return toDeepLakeType(arrayType.getElementType()) + "[]";
+                return toDeepLakeType(arrayType.getElementType(), true) + "[]";
             default:
                 throw new DeepLakeConnectorException(
                         DeepLakeConnectorErrorCode.UNSUPPORTED_DATA_TYPE,

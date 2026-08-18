@@ -117,7 +117,7 @@ class DeepLakeSinkWriterTest {
     }
 
     @Test
-    void keepsBufferedRowsWhenBatchRequestFails() throws IOException {
+    void doesNotRetryFailedBatchWhenWriterCloses() throws IOException {
         DeepLakeSinkWriter writer = writer(catalogTable(), SchemaSaveMode.IGNORE, 1);
         responseStatus.set(503);
 
@@ -128,8 +128,17 @@ class DeepLakeSinkWriterTest {
 
         assertTrue(error.getMessage().contains("HTTP 503"));
         assertEquals(1, writer.bufferedRows());
+        assertEquals(1, requestBodies.size());
+
+        DeepLakeConnectorException terminalError =
+                assertThrows(
+                        DeepLakeConnectorException.class,
+                        () -> writer.write(row(11L, "later", new byte[] {2}, 0.3F, 0.4F)));
+        assertTrue(terminalError.getMessage().contains("cannot continue"));
+        assertEquals(1, requestBodies.size());
         responseStatus.set(204);
         writer.close();
+        assertEquals(1, requestBodies.size());
     }
 
     @Test
@@ -147,18 +156,57 @@ class DeepLakeSinkWriterTest {
     }
 
     @Test
-    void convertsArrayElementsUsingTheirDeclaredType() {
+    void validatesExistingTableWhenConfigured() throws IOException {
+        DeepLakeSinkWriter writer =
+                writer(catalogTable(), SchemaSaveMode.ERROR_WHEN_SCHEMA_NOT_EXIST, 10);
+
+        assertEquals(1, requestBodies.size());
+        assertTrue(
+                requestBodies
+                        .get(0)
+                        .contains("SELECT 1 FROM \\\"research\\\".\\\"documents\\\" LIMIT 0"));
+        writer.close();
+    }
+
+    @Test
+    void flushesPartialBatchWhenPreparingCommit() throws IOException {
+        DeepLakeSinkWriter writer = writer(catalogTable(), SchemaSaveMode.IGNORE, 2);
+        writer.write(row(10L, "document", new byte[] {1}, 0.1F, 0.2F));
+
+        assertTrue(requestBodies.isEmpty());
+        writer.prepareCommit();
+        assertEquals(1, requestBodies.size());
+        assertEquals(0, writer.bufferedRows());
+        writer.close();
+    }
+
+    @Test
+    void flushesPartialBatchWhenWriterCloses() throws IOException {
+        DeepLakeSinkWriter writer = writer(catalogTable(), SchemaSaveMode.IGNORE, 2);
+        writer.write(row(10L, "document", new byte[] {1}, 0.1F, 0.2F));
+
+        assertTrue(requestBodies.isEmpty());
+        writer.close();
+        assertEquals(1, requestBodies.size());
+    }
+
+    @Test
+    void convertsNestedArrayElementsUsingTheirDeclaredType() {
         SeaTunnelRowType rowType =
                 new SeaTunnelRowType(
-                        new String[] {"payloads"},
+                        new String[] {"scores"},
                         new SeaTunnelDataType[] {
-                            new ArrayType<>(byte[][].class, PrimitiveByteArrayType.INSTANCE)
+                            new ArrayType<>(Float[][].class, ArrayType.FLOAT_ARRAY_TYPE)
                         });
-        SeaTunnelRow row = new SeaTunnelRow(new Object[] {new byte[][] {{1, 2}, {3, 4}}});
+        SeaTunnelRow row =
+                new SeaTunnelRow(new Object[] {new Float[][] {{1.0F, 2.0F}, {3.0F, 4.0F}}});
 
         List<Object> converted = DeepLakeRowConverter.convert(row, rowType);
 
-        assertEquals(Collections.singletonList(Arrays.asList("AQI=", "AwQ=")), converted);
+        assertEquals(
+                Collections.singletonList(
+                        Arrays.asList(Arrays.asList(1.0F, 2.0F), Arrays.asList(3.0F, 4.0F))),
+                converted);
     }
 
     private void handleRequest(HttpExchange exchange) throws IOException {

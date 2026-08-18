@@ -43,6 +43,7 @@ public class DeepLakeSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
     private final int batchSize;
     private final String insertSql;
     private final List<List<Object>> rows;
+    private boolean failed;
 
     public DeepLakeSinkWriter(CatalogTable catalogTable, DeepLakeSinkConfig config) {
         this.client = new DeepLakeClient(config);
@@ -75,30 +76,51 @@ public class DeepLakeSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
 
     @Override
     public void write(SeaTunnelRow element) {
-        if (element.getRowKind() != RowKind.INSERT) {
-            throw new DeepLakeConnectorException(
-                    DeepLakeConnectorErrorCode.UNSUPPORTED_ROW_KIND,
-                    "DeepLake sink supports append-only input, but received "
-                            + element.getRowKind());
-        }
-        rows.add(DeepLakeRowConverter.convert(element, rowType));
-        if (rows.size() >= batchSize) {
-            flush();
+        ensureActive();
+        try {
+            if (element.getRowKind() != RowKind.INSERT) {
+                throw new DeepLakeConnectorException(
+                        DeepLakeConnectorErrorCode.UNSUPPORTED_ROW_KIND,
+                        "DeepLake sink supports append-only input, but received "
+                                + element.getRowKind());
+            }
+            rows.add(DeepLakeRowConverter.convert(element, rowType));
+            if (rows.size() >= batchSize) {
+                flush();
+            }
+        } catch (RuntimeException | Error e) {
+            failed = true;
+            throw e;
         }
     }
 
     @Override
     public Optional<Void> prepareCommit() {
+        ensureActive();
         flush();
         return Optional.empty();
     }
 
     void flush() {
+        ensureActive();
         if (rows.isEmpty()) {
             return;
         }
-        client.executeBatch(insertSql, rows);
+        try {
+            client.executeBatch(insertSql, rows);
+        } catch (RuntimeException | Error e) {
+            failed = true;
+            throw e;
+        }
         rows.clear();
+    }
+
+    private void ensureActive() {
+        if (failed) {
+            throw new DeepLakeConnectorException(
+                    DeepLakeConnectorErrorCode.REQUEST_FAILED,
+                    "DeepLake sink writer cannot continue after a failed write");
+        }
     }
 
     int bufferedRows() {
@@ -108,10 +130,12 @@ public class DeepLakeSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
     @Override
     public void close() throws IOException {
         Throwable primary = null;
-        try {
-            flush();
-        } catch (Throwable t) {
-            primary = t;
+        if (!failed) {
+            try {
+                flush();
+            } catch (Throwable t) {
+                primary = t;
+            }
         }
         try {
             client.close();

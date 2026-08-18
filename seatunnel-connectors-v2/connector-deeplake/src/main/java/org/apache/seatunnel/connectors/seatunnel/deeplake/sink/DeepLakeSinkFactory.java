@@ -17,8 +17,12 @@
 
 package org.apache.seatunnel.connectors.seatunnel.deeplake.sink;
 
+import org.apache.seatunnel.api.configuration.util.Condition;
+import org.apache.seatunnel.api.configuration.util.ConditionOperator;
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
+import org.apache.seatunnel.api.sink.SchemaSaveMode;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
@@ -45,16 +49,32 @@ public class DeepLakeSinkFactory implements TableSinkFactory {
         return OptionRule.builder()
                 .required(
                         DeepLakeSinkOptions.API_KEY,
-                        DeepLakeSinkOptions.ORG_ID,
-                        DeepLakeSinkOptions.WORKSPACE)
+                        Conditions.notBlank(DeepLakeSinkOptions.API_KEY))
+                .required(
+                        DeepLakeSinkOptions.ORG_ID, Conditions.notBlank(DeepLakeSinkOptions.ORG_ID))
+                .required(
+                        DeepLakeSinkOptions.WORKSPACE,
+                        Conditions.notBlank(DeepLakeSinkOptions.WORKSPACE))
                 .optional(
                         DeepLakeSinkOptions.API_URL,
-                        DeepLakeSinkOptions.TABLE,
+                        Conditions.notBlank(DeepLakeSinkOptions.API_URL))
+                .optional(DeepLakeSinkOptions.TABLE, Conditions.notBlank(DeepLakeSinkOptions.TABLE))
+                .optional(
                         DeepLakeSinkOptions.BATCH_SIZE,
+                        Conditions.greaterThan(DeepLakeSinkOptions.BATCH_SIZE, 0))
+                .optional(
                         DeepLakeSinkOptions.CONNECT_TIMEOUT_MS,
+                        Conditions.greaterThan(DeepLakeSinkOptions.CONNECT_TIMEOUT_MS, 0))
+                .optional(
                         DeepLakeSinkOptions.SOCKET_TIMEOUT_MS,
+                        Conditions.greaterThan(DeepLakeSinkOptions.SOCKET_TIMEOUT_MS, 0))
+                .optional(
                         DeepLakeSinkOptions.SCHEMA_SAVE_MODE,
-                        SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
+                        Condition.of(
+                                DeepLakeSinkOptions.SCHEMA_SAVE_MODE,
+                                ConditionOperator.NOT_EQUAL,
+                                SchemaSaveMode.RECREATE_SCHEMA))
+                .optional(SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA)
                 .build();
     }
 }
