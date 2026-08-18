@@ -222,7 +222,8 @@ public class JettyService {
         ServletHolder checkpointHistoryHolder =
                 new ServletHolder(new CheckpointHistoryServlet(nodeEngine));
         ServletHolder httpServiceStatusHolder =
-                new ServletHolder(new HttpServiceStatusServlet(nodeEngine, seaTunnelConfig, server));
+                new ServletHolder(
+                        new HttpServiceStatusServlet(nodeEngine, seaTunnelConfig, server));
 
         context.addServlet(overviewHolder, convertUrlToPath(REST_URL_OVERVIEW));
         context.addServlet(runningJobsHolder, convertUrlToPath(REST_URL_RUNNING_JOBS));
@@ -257,8 +258,7 @@ public class JettyService {
         context.addServlet(
                 checkpointOverviewHolder, convertUrlToPath(REST_URL_CHECKPOINT_OVERVIEW));
         context.addServlet(checkpointHistoryHolder, convertUrlToPath(REST_URL_CHECKPOINT_HISTORY));
-        context.addServlet(
-                httpServiceStatusHolder, convertUrlToPath(REST_URL_HTTP_SERVICE_STATUS));
+        context.addServlet(httpServiceStatusHolder, convertUrlToPath(REST_URL_HTTP_SERVICE_STATUS));
 
         server.setHandler(context);
 
