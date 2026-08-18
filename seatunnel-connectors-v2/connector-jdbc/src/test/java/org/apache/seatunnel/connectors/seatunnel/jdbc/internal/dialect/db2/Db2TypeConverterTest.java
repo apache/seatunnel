@@ -380,7 +380,7 @@ public class Db2TypeConverterTest {
     }
 
     @Test
-    public void testConvertChar() {
+    public void testConvertCharAlias() {
         BasicTypeDefine<Object> typeDefine =
                 BasicTypeDefine.builder()
                         .name("test")
