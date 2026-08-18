@@ -18,6 +18,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.saphana;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
@@ -93,6 +95,10 @@ public class SapHanaDialect implements JdbcDialect {
                                                 quoteIdentifier(fieldName),
                                                 quoteIdentifier(fieldName)))
                         .collect(Collectors.joining(", "));
+        String matchedClause =
+                StringUtils.isNotBlank(updateSetClause)
+                        ? String.format(" WHEN MATCHED THEN UPDATE SET %s", updateSetClause)
+                        : "";
         String insertFields =
                 Arrays.stream(fieldNames)
                         .map(this::quoteIdentifier)
@@ -107,14 +113,13 @@ public class SapHanaDialect implements JdbcDialect {
                         " MERGE INTO %s AS TARGET"
                                 + " USING (%s) AS SOURCE"
                                 + " ON (%s) "
-                                + " WHEN MATCHED THEN"
-                                + " UPDATE SET %s"
+                                + "%s"
                                 + " WHEN NOT MATCHED THEN"
                                 + " INSERT (%s) VALUES (%s)",
                         tableIdentifier(database, tableName),
                         usingClause,
                         onConditions,
-                        updateSetClause,
+                        matchedClause,
                         insertFields,
                         insertValues);
 

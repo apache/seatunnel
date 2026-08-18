@@ -120,5 +120,18 @@ public class VerticaDialectTest {
         Assertions.assertEquals(
                 upsertCreateTimeSQL,
                 " MERGE INTO test_database.\"test_table\" TARGET USING (SELECT CAST(:id AS BIGINT) AS \"id\", CAST(:name AS VARCHAR) AS \"name\", CAST(:age AS INT) AS \"age\", CAST(:createTime AS TIME) AS \"createTime\" ) SOURCE ON (TARGET.\"id\"=SOURCE.\"id\" AND TARGET.\"name\"=SOURCE.\"name\" AND TARGET.\"age\"=SOURCE.\"age\")  WHEN MATCHED THEN UPDATE SET \"createTime\"=SOURCE.\"createTime\" WHEN NOT MATCHED THEN INSERT (\"id\", \"name\", \"age\", \"createTime\") VALUES (SOURCE.\"id\", SOURCE.\"name\", SOURCE.\"age\", SOURCE.\"createTime\")");
+
+        // Test all-key table: every column is a primary key, so no WHEN MATCHED THEN UPDATE SET
+        final String[] allKeyFields = {"id", "name", "age", "createTime"};
+        String allKeySql =
+                dialect.getUpsertStatementByTableSchema(
+                                dataBaseName, tableName, tableSchema, allKeyFields)
+                        .orElseThrow(
+                                () ->
+                                        new AssertionError(
+                                                "Expected allKeySql String to be present"));
+        Assertions.assertEquals(
+                allKeySql,
+                " MERGE INTO test_database.\"test_table\" TARGET USING (SELECT CAST(:id AS BIGINT) AS \"id\", CAST(:name AS VARCHAR) AS \"name\", CAST(:age AS INT) AS \"age\", CAST(:createTime AS TIME) AS \"createTime\" ) SOURCE ON (TARGET.\"id\"=SOURCE.\"id\" AND TARGET.\"name\"=SOURCE.\"name\" AND TARGET.\"age\"=SOURCE.\"age\" AND TARGET.\"createTime\"=SOURCE.\"createTime\")  WHEN NOT MATCHED THEN INSERT (\"id\", \"name\", \"age\", \"createTime\") VALUES (SOURCE.\"id\", SOURCE.\"name\", SOURCE.\"age\", SOURCE.\"createTime\")");
     }
 }

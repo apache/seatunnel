@@ -159,4 +159,25 @@ public class DmdbDialectTest {
                         () -> DmdbDialect.normalizeTablespaceForDdl("MAIN\tTS"));
         Assertions.assertTrue(tabCharacter.getMessage().contains("illegal characters"));
     }
+
+    @Test
+    void testUpsertStatementAllKey() {
+        DmdbDialect dialect = new DmdbDialect(FieldIdeEnum.ORIGINAL.getValue());
+        String[] fieldNames = {"id", "name", "age"};
+        String[] allKeyFields = {"id", "name", "age"};
+
+        String sql =
+                dialect.getUpsertStatement("test_db", "test_table", fieldNames, allKeyFields)
+                        .orElseThrow(
+                                () ->
+                                        new AssertionError(
+                                                "Expected upsert SQL to be present"));
+
+        Assertions.assertFalse(
+                sql.contains("WHEN MATCHED"),
+                "All-key upsert SQL should not contain WHEN MATCHED clause");
+        Assertions.assertTrue(
+                sql.contains("WHEN NOT MATCHED"),
+                "All-key upsert SQL should contain WHEN NOT MATCHED clause");
+    }
 }

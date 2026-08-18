@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.schema.event.AlterTableChangeColumnEvent;
 
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.sql.Connection;
@@ -32,6 +33,27 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class SqlServerDialectTest {
+
+    @Test
+    void testUpsertStatementAllKey() {
+        SqlServerDialect dialect = new SqlServerDialect();
+        String[] fieldNames = {"id", "name", "age"};
+        String[] allKeyFields = {"id", "name", "age"};
+
+        String sql =
+                dialect.getUpsertStatement("test_db", "test_table", fieldNames, allKeyFields)
+                        .orElseThrow(
+                                () ->
+                                        new AssertionError(
+                                                "Expected upsert SQL to be present"));
+
+        Assertions.assertFalse(
+                sql.contains("WHEN MATCHED"),
+                "All-key upsert SQL should not contain WHEN MATCHED clause");
+        Assertions.assertTrue(
+                sql.contains("WHEN NOT MATCHED"),
+                "All-key upsert SQL should contain WHEN NOT MATCHED clause");
+    }
 
     @Test
     void shouldUseSchemaTableColumnForRenameWithoutDatabasePrefix() throws Exception {

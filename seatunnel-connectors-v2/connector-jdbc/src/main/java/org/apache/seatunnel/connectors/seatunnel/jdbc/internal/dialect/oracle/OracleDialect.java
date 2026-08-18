@@ -168,6 +168,10 @@ public class OracleDialect implements JdbcDialect {
                                                 quoteIdentifier(fieldName),
                                                 quoteIdentifier(fieldName)))
                         .collect(Collectors.joining(", "));
+        String matchedClause =
+                StringUtils.isNotBlank(updateSetClause)
+                        ? String.format(" WHEN MATCHED THEN UPDATE SET %s", updateSetClause)
+                        : "";
         String insertFields =
                 Arrays.stream(fieldNames)
                         .map(this::quoteIdentifier)
@@ -182,14 +186,13 @@ public class OracleDialect implements JdbcDialect {
                         " MERGE INTO %s TARGET"
                                 + " USING (%s) SOURCE"
                                 + " ON (%s) "
-                                + " WHEN MATCHED THEN"
-                                + " UPDATE SET %s"
+                                + "%s"
                                 + " WHEN NOT MATCHED THEN"
                                 + " INSERT (%s) VALUES (%s)",
                         tableIdentifier(database, tableName),
                         usingClause,
                         onConditions,
-                        updateSetClause,
+                        matchedClause,
                         insertFields,
                         insertValues);
 
