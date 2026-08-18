@@ -130,9 +130,14 @@ public abstract class BaseFileSource
     }
 
     private CatalogTable buildCatalogTableForEmptyPath(String path, FileFormat fileFormat) {
+        // Self-describing formats must keep their fixed schema even when the initial path has no
+        // matching files yet (e.g. discovery-mode startup); falling back to the simple text table
+        // would bake a wrong 1-column schema into the job. Keep this list in sync with the
+        // equivalent WORD/PDF/MARKDOWN/BINARY branches in BaseFileSourceConfig#parseCatalogTable.
         if (fileFormat != FileFormat.BINARY
                 && fileFormat != FileFormat.MARKDOWN
-                && fileFormat != FileFormat.PDF) {
+                && fileFormat != FileFormat.PDF
+                && fileFormat != FileFormat.WORD) {
             // Preserve the legacy simple-text fallback for formats that still infer schema from
             // the first concrete file.
             return CatalogTableUtil.buildSimpleTextTable();

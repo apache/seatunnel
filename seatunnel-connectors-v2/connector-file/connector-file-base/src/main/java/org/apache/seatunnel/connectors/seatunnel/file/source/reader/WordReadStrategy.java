@@ -92,6 +92,11 @@ public class WordReadStrategy extends AbstractReadStrategy {
         Files.deleteIfExists(tempDocxPath);
     }
 
+    /**
+     * Walks the document body in natural order and emits one row per non-empty paragraph or table.
+     * Ordering matters for RAG consumers: element_id reflects reading order, so paragraphs and
+     * tables must be interleaved exactly as they appear, not grouped by type.
+     */
     private void processDocumentInOrder(
             XWPFDocument document, Collector<SeaTunnelRow> output, String tableId, int elementId) {
 
@@ -142,6 +147,11 @@ public class WordReadStrategy extends AbstractReadStrategy {
                 });
     }
 
+    /**
+     * Builds a 10-field row for one paragraph. Formatting metadata is aggregated across the
+     * paragraph's runs (POI exposes no finer stable position), so mixed-format paragraphs report
+     * the first or strongest value per attribute; see the individual extractors for each rule.
+     */
     private SeaTunnelRow createParagraphRow(
             XWPFParagraph paragraph, int elementId, String tableId) {
         Object[] fields = new Object[10];
@@ -165,6 +175,11 @@ public class WordReadStrategy extends AbstractReadStrategy {
         return row;
     }
 
+    /**
+     * Builds a row for one table. Only element_id/element_type/text are populated: per-run
+     * formatting attributes have no single meaningful value across a whole table, so the formatting
+     * columns stay null by design.
+     */
     private SeaTunnelRow createTableRow(String tableData, int elementId, String tableId) {
         Object[] fields = new Object[10];
 
@@ -177,6 +192,10 @@ public class WordReadStrategy extends AbstractReadStrategy {
         return row;
     }
 
+    /**
+     * Collapses run-level bold/italic flags into one paragraph-level style: any bold run marks the
+     * paragraph BOLD, any italic run ITALIC, both together BOLD_ITALIC, otherwise NORMAL.
+     */
     private String getFontStyle(XWPFParagraph paragraph) {
         boolean isBold = paragraph.getRuns().stream().anyMatch(XWPFRun::isBold);
         boolean isItalic = paragraph.getRuns().stream().anyMatch(XWPFRun::isItalic);
@@ -192,6 +211,11 @@ public class WordReadStrategy extends AbstractReadStrategy {
         }
     }
 
+    /**
+     * Returns the first concrete underline style found in the paragraph's runs, or null when no run
+     * is underlined. POI reports "NONE" for non-underlined runs, which callers should not see as a
+     * style, hence the filter.
+     */
     private String getUnderlineStyle(XWPFParagraph paragraph) {
         return paragraph.getRuns().stream()
                 .map(
@@ -206,6 +230,10 @@ public class WordReadStrategy extends AbstractReadStrategy {
                 .orElse(null);
     }
 
+    /**
+     * Returns the first explicit font size in the paragraph's runs, or null when every run inherits
+     * its size from the style hierarchy (POI reports those as a non-positive value).
+     */
     private Integer getFontSize(XWPFParagraph paragraph) {
         return paragraph.getRuns().stream()
                 .map(XWPFRun::getFontSize)
@@ -214,6 +242,7 @@ public class WordReadStrategy extends AbstractReadStrategy {
                 .orElse(null);
     }
 
+    /** Returns the first explicit font family in the paragraph's runs, or null if none set. */
     private String getFontFamily(XWPFParagraph paragraph) {
         return paragraph.getRuns().stream()
                 .map(XWPFRun::getFontFamily)
@@ -222,6 +251,11 @@ public class WordReadStrategy extends AbstractReadStrategy {
                 .orElse(null);
     }
 
+    /**
+     * Collects every hyperlink URL in the paragraph. Multiple links are comma-joined into one
+     * string because the schema models hyperlink_url as a single STRING column per paragraph;
+     * consumers that need them separately can split on the comma.
+     */
     private String getHyperlinkUrl(XWPFParagraph paragraph) {
         List<String> urls =
                 paragraph.getRuns().stream()
@@ -241,6 +275,10 @@ public class WordReadStrategy extends AbstractReadStrategy {
         }
     }
 
+    /**
+     * Returns the first explicit run color, defaulting to "000000" (black) when no run declares one
+     * -- Word renders undeclared color as black, so the default keeps output faithful.
+     */
     private String getTextColor(XWPFParagraph paragraph) {
         return paragraph.getRuns().stream()
                 .map(XWPFRun::getColor)
@@ -249,6 +287,11 @@ public class WordReadStrategy extends AbstractReadStrategy {
                 .orElse(DEFAULT_TEXT_COLOR);
     }
 
+    /**
+     * Serializes a table to text: cells joined with " | " within a row, rows joined with newlines.
+     * A lossy but stable plain-text projection intended for RAG chunking, not for round-tripping
+     * table structure.
+     */
     private String extractTableData(XWPFTable table) {
         StringBuilder tableData = new StringBuilder();
         List<XWPFTableRow> rows = table.getRows();
