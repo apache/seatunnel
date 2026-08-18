@@ -62,10 +62,13 @@ public class SQLDecimalArithmeticTest {
 
     /**
      * A DECIMAL(38,2) value with 20 significant digits does not survive a round trip through
-     * double, so the operands must be converted exactly.
+     * double, so the operands must be converted exactly. The name says "operands" rather than
+     * "results": {@code +} and {@code -} are exact end to end, but {@code *} is computed exactly
+     * and then rounded to the scale declared for its column, so its result is exact only up to that
+     * scale.
      */
     @Test
-    public void testAddSubtractMultiplyStayExact() {
+    public void testAddSubtractMultiplyUseExactOperands() {
         SeaTunnelRowType rowType = twoDecimals(38, 2);
 
         SeaTunnelRow outRow =
@@ -206,9 +209,21 @@ public class SQLDecimalArithmeticTest {
     }
 
     /**
-     * Every emitted DECIMAL must carry the scale that the transform declares for its column. A sink
-     * that builds its write schema from the declared type and then encodes the value against it
-     * rejects the row when the two disagree, so an exact result is not usable on its own.
+     * When both operands are DECIMAL, every emitted DECIMAL must carry the scale that the transform
+     * declares for its column. A sink that builds its write schema from the declared type and then
+     * encodes the value against it rejects the row when the two disagree, so an exact result is not
+     * usable on its own.
+     *
+     * <p>The invariant is asserted only for DECIMAL-on-DECIMAL arithmetic, which is what this test
+     * exercises. It does not hold in general: {@code getExpressionType} declares DECIMAL as soon as
+     * either side is DECIMAL, while {@code BigDecimal.add}/{@code subtract} return the max of the
+     * operands' <em>runtime</em> scales, so a FLOAT/DOUBLE operand can still push {@code +} and
+     * {@code -} past the declared scale. That path is unchanged from before this fix and is tracked
+     * separately.
+     *
+     * <p>Precision is asserted alongside scale because {@code setScale} bounds only the latter. The
+     * check documents the range these operands stay within; it is not a proof that the declared
+     * precision can never be exceeded, since nothing in the DECIMAL branch bounds it.
      */
     @Test
     public void testEmittedScaleMatchesDeclaredType() {
@@ -242,6 +257,14 @@ public class SQLDecimalArithmeticTest {
                     ((DecimalType) fieldType).getScale(),
                     ((BigDecimal) outRow.getField(i)).scale(),
                     "declared and emitted scale differ for column "
+                            + outType.getFieldName(i)
+                            + " (value "
+                            + outRow.getField(i)
+                            + ")");
+            Assertions.assertTrue(
+                    ((BigDecimal) outRow.getField(i)).precision()
+                            <= ((DecimalType) fieldType).getPrecision(),
+                    "emitted precision exceeds the declared precision for column "
                             + outType.getFieldName(i)
                             + " (value "
                             + outRow.getField(i)
