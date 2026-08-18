@@ -825,6 +825,89 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
     }
 
     @Test
+    public void testCompositeKeyWithStringColumn() throws Exception {
+        // Composite PK mixing a numeric column with a STRING column must walk tuple-ordered
+        // boundaries correctly (String.compareTo semantics match MySQL VARCHAR collation for
+        // ASCII data) and read every row exactly once.
+        String compositeTable = "composite_string_test";
+        try (Connection connection = getJdbcConnection();
+                PreparedStatement ps =
+                        connection.prepareStatement(
+                                "CREATE TABLE IF NOT EXISTS "
+                                        + MYSQL_DATABASE
+                                        + "."
+                                        + compositeTable
+                                        + " (order_id BIGINT NOT NULL, tag VARCHAR(32) NOT NULL, "
+                                        + "PRIMARY KEY (order_id, tag))")) {
+            ps.execute();
+        }
+        try (Connection connection = getJdbcConnection();
+                PreparedStatement ps =
+                        connection.prepareStatement(
+                                "INSERT INTO "
+                                        + MYSQL_DATABASE
+                                        + "."
+                                        + compositeTable
+                                        + " (order_id, tag) VALUES (?, ?)")) {
+            for (int i = 0; i < 300; i++) {
+                ps.setLong(1, i % 3);
+                ps.setString(2, String.format("tag%03d", i));
+                ps.addBatch();
+            }
+            ps.executeBatch();
+        }
+
+        Map<String, Object> configMap = new HashMap<>();
+        configMap.put("url", mysqlUrlInfo.getUrlWithDatabase().get());
+        configMap.put("driver", "com.mysql.cj.jdbc.Driver");
+        configMap.put("user", MYSQL_USERNAME);
+        configMap.put("password", MYSQL_PASSWORD);
+        configMap.put("table_path", MYSQL_DATABASE + "." + compositeTable);
+        configMap.put("split.size", "10");
+
+        TablePath tablePathMySql = TablePath.of(MYSQL_DATABASE, compositeTable);
+        MySqlCatalog mySqlCatalog =
+                new MySqlCatalog("mysql", MYSQL_USERNAME, MYSQL_PASSWORD, mysqlUrlInfo, null);
+        mySqlCatalog.open();
+        CatalogTable table = mySqlCatalog.getTable(tablePathMySql);
+        JdbcSourceTable jdbcSourceTable =
+                JdbcSourceTable.builder().tablePath(tablePathMySql).catalogTable(table).build();
+
+        DynamicChunkSplitter splitter = getDynamicChunkSplitter(configMap);
+        Collection<JdbcSourceSplit> jdbcSourceSplits = splitter.generateSplits(jdbcSourceTable);
+
+        Assertions.assertTrue(
+                jdbcSourceSplits.size() > 1,
+                "Composite key should split into multiple chunks, got " + jdbcSourceSplits.size());
+        JdbcSourceSplit[] splitArray = jdbcSourceSplits.toArray(new JdbcSourceSplit[0]);
+        Assertions.assertEquals(
+                "order_id,tag",
+                splitArray[0].getSplitKeyName(),
+                "Composite key must include the STRING column");
+
+        // Data-correctness: reading through every split must reconstruct the source table exactly
+        // once - 300 rows, no missing and no duplicate (order_id, tag) keys.
+        TableSchema tableSchema = table.getTableSchema();
+        Set<String> readKeys = new HashSet<>();
+        int readCount = 0;
+        try (Connection connection = getJdbcConnection()) {
+            for (JdbcSourceSplit split : splitArray) {
+                try (PreparedStatement ps = splitter.generateSplitStatement(split, tableSchema);
+                        ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        readCount++;
+                        readKeys.add(rs.getLong("order_id") + "|" + rs.getString("tag"));
+                    }
+                }
+            }
+        }
+        Assertions.assertEquals(300, readCount, "All 300 rows must be read through the splits");
+        Assertions.assertEquals(
+                300, readKeys.size(), "No (order_id, tag) key may be duplicated or missing");
+        mySqlCatalog.close();
+    }
+
+    @Test
     public void testBoundaryQueryOffsetForm() throws Exception {
         // The optimized boundary query form (LIMIT 1 OFFSET chunkSize-1) must be supported and
         // return exactly one row equal to the last row of LIMIT chunkSize, so the boundary query
