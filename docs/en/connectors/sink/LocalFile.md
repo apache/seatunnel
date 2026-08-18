@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-file-local.md';
 
 > Local file sink connector
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Description
 
 Output data to local file.
@@ -23,6 +29,7 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
   Use binary file format to read and write files in any format, such as videos, pictures, etc. In short, any files can be synchronized to the target place.
 
 - [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
 
 By default, we use 2PC commit to ensure `exactly-once`
@@ -39,29 +46,30 @@ By default, we use 2PC commit to ensure `exactly-once`
   - [x] canal_json
   - [x] debezium_json
   - [x] maxwell_json
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Options
 
 | Name                                  | Type    | Required | Default                                    | Description                                                                                                                                                                     |
 |---------------------------------------|---------|----------|--------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| path                                  | string  | yes      | -                                          |                                                                                                                                                                                 |
+| path                                  | string  | yes      | -                                          | The target directory the sink writes to. You can inject the upstream CatalogTable into the path using `${database_name}`, `${table_name}` and `${schema_name}`.                     |
 | tmp_path                              | string  | no       | /tmp/seatunnel                             | The result file will write to a tmp path first and then use `mv` to submit tmp dir to target dir.                                                                               |
-| custom_filename                       | boolean | no       | false                                      | Whether you need custom the filename                                                                                                                                            |
-| file_name_expression                  | string  | no       | "${transactionId}"                         | Only used when custom_filename is true                                                                                                                                          |
-| filename_time_format                  | string  | no       | "yyyy.MM.dd"                               | Only used when custom_filename is true                                                                                                                                          |
-| file_format_type                      | string  | no       | "csv"                                      |                                                                                                                                                                                 |
+| custom_filename                       | boolean | no       | false                                      | Whether you need custom the filename.                                                                                                                                           |
+| file_name_expression                  | string  | no       | "${transactionId}"                         | Only used when custom_filename is true.                                                                                                                                         |
+| filename_time_format                  | string  | no       | "yyyy.MM.dd"                               | Only used when custom_filename is true.                                                                                                                                         |
+| file_format_type                      | string  | no       | "csv"                                      | File format type, supported: `text`, `csv`, `parquet`, `orc`, `json`, `excel`, `xml`, `binary`, `canal_json`, `debezium_json`, `maxwell_json`.                                   |
 | filename_extension                    | string  | no       | -                                          | Override the default file name extensions with custom file name extensions. E.g. `.xml`, `.json`, `dat`, `.customtype`                                                          |
-| field_delimiter                       | string  | no       | '\001' for text and ',' for csv            | Only used when file_format_type is text  and csv                                                                                                                                |
-| row_delimiter                         | string  | no       | "\n"                                       | Only used when file_format_type is `text`, `csv` and `json`                                                                                                                     |
+| field_delimiter                       | string  | no       | '\001' for text and ',' for csv            | Only used when file_format_type is text and csv.                                                                                                                                |
+| row_delimiter                         | string  | no       | "\n"                                       | Only used when file_format_type is `text`, `csv` and `json`.                                                                                                                    |
 | have_partition                        | boolean | no       | false                                      | Whether you need processing partitions.                                                                                                                                         |
-| partition_by                          | array   | no       | -                                          | Only used then have_partition is true                                                                                                                                           |
-| partition_dir_expression              | string  | no       | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/" | Only used then have_partition is true                                                                                                                                           |
-| is_partition_field_write_in_file      | boolean | no       | false                                      | Only used then have_partition is true                                                                                                                                           |
-| sink_columns                          | array   | no       |                                            | When this parameter is empty, all fields are sink columns                                                                                                                       |
-| is_enable_transaction                 | boolean | no       | true                                       |                                                                                                                                                                                 |
-| batch_size                            | int     | no       | 1000000                                    |                                                                                                                                                                                 |
-| compress_codec                        | string  | no       | none                                       |                                                                                                                                                                                 |
-| common-options                        | object  | no       | -                                          |                                                                                                                                                                                 |
+| partition_by                          | array   | no       | -                                          | Only used when have_partition is true.                                                                                                                                          |
+| partition_dir_expression              | string  | no       | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/" | Only used when have_partition is true.                                                                                                                                          |
+| is_partition_field_write_in_file      | boolean | no       | false                                      | Only used when have_partition is true.                                                                                                                                          |
+| sink_columns                          | array   | no       |                                            | When this parameter is empty, all fields are sink columns.                                                                                                                      |
+| is_enable_transaction                 | boolean | no       | true                                       | If `true`, data will not be lost or duplicated when written to the target directory. When `true`, `${transactionId}_` is automatically prefixed to the file name.                |
+| batch_size                            | int     | no       | 1000000                                    | The maximum number of rows in a file. For SeaTunnel Engine the file row count is jointly decided by `batch_size` and `checkpoint.interval`.                                       |
+| compress_codec                        | string  | no       | none                                       | The compress codec of files. Excel does not support any compression format.                                                                                                     |
+| common-options                        | object  | no       | -                                          | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details.                                                      |
 | max_rows_in_memory                    | int     | no       | -                                          | Only used when file_format_type is excel.                                                                                                                                       |
 | sheet_max_rows                        | int     | no       | 1048576                                    | Only used when file_format_type is excel.                                                                                                                                       |
 | sheet_name                            | string  | no       | Sheet${Random number}                      | Only used when file_format_type is excel.                                                                                                                                       |
@@ -73,11 +81,12 @@ By default, we use 2PC commit to ensure `exactly-once`
 | create_empty_file_when_no_data        | boolean | no       | false                                      | When there is no data synchronization upstream, the corresponding data files are still generated.                                                                               |
 | parquet_avro_write_timestamp_as_int96 | boolean | no       | false                                      | Only used when file_format is parquet.                                                                                                                                          |
 | parquet_avro_write_fixed_as_int96     | array   | no       | -                                          | Only used when file_format is parquet.                                                                                                                                          |
-| enable_header_write                   | boolean | no       | false                                      | Only used when file_format_type is text,csv.<br/> false:don't write header,true:write header.                                                                                   |
+| enable_header_write                   | boolean | no       | false                                      | Only used when file_format_type is text, csv. `false`: don't write header, `true`: write header.                                                                                 |
 | encoding                              | string  | no       | "UTF-8"                                    | Only used when file_format_type is json,text,csv,xml.                                                                                                                           |
-| schema_save_mode                      | string  | no       | CREATE_SCHEMA_WHEN_NOT_EXIST               | Existing dir processing method                                                                                                                                                  |
-| data_save_mode                        | string  | no       | APPEND_DATA                                | Existing data processing method                                                                                                                                                 |
+| schema_save_mode                      | string  | no       | CREATE_SCHEMA_WHEN_NOT_EXIST               | Controls how the target directory is treated before the synchronization task starts.                                                                                            |
+| data_save_mode                        | string  | no       | APPEND_DATA                                | Controls how existing data files in the target directory are processed before the synchronization task starts.                                                                 |
 | merge_update_event                    | boolean | no       | false                                      | Only used when file_format_type is canal_json,debezium_json or maxwell_json. When value is true, the UPDATE_AFTER and UPDATE_BEFORE event will be merged into UPDATE event data |
+| schema_evolution_enabled              | boolean | no       | false                                      | Enable schema evolution support for CDC pipelines. When true, ADD/DROP/RENAME/MODIFY column events from the source are applied to the sink without a job restart. Not supported for binary format. |
 
 ### path [string]
 
@@ -93,6 +102,8 @@ Only used when `custom_filename` is `true`
 
 `file_name_expression` describes the file expression which will be created into the `path`. We can add the variable `${now}` or `${uuid}` in the `file_name_expression`, like `test_${uuid}_${now}`,
 `${now}` represents the current time, and its format can be defined by specifying the option `filename_time_format`.
+
+For `file_format_type = "binary"`, `custom_filename = true` is intended for renaming a single source file in each sink task. When multiple source files are written by the same sink task, keep `custom_filename = false` to preserve source relative paths. When parallel sink subtasks are used, include `${transactionId}` or `${uuid}` in `file_name_expression` to avoid multiple subtasks writing the same final file.
 
 Please note that, If `is_enable_transaction` is `true`, we will auto add `${transactionId}_` in the head of the file.
 
@@ -125,7 +136,7 @@ The separator between columns in a row of data. Only needed by `text` and `csv` 
 
 ### row_delimiter [string]
 
-The separator between rows in a file. Only needed by `text`, `json` and `json` file format.
+The separator between rows in a file. Only needed by `text`, `csv` and `json` file format.
 
 ### have_partition [boolean]
 
@@ -345,6 +356,35 @@ LocalFile {
 }
 
 ```
+
+
+### schema_evolution_enabled [boolean]
+
+When set to `true`, the file sink handles CDC schema change events (ADD COLUMN, DROP COLUMN, RENAME COLUMN, MODIFY COLUMN type) at runtime without requiring a job restart. On each schema change the current output file is closed and a new file is opened with the updated schema.
+
+**Supported formats:** All file formats except `binary`. Enabling this option with `file_format_type = binary` will fail at job startup with a config validation error.
+
+**Partition constraint:** When `have_partition = true`, dropping a column listed in `partition_by` is not allowed and will fail fast. Partition columns must remain stable across schema changes.
+
+**When `schema_evolution_enabled = false` (default):** If the upstream CDC source has `schema-changes.enabled = true` and an `AlterTableEvent` arrives at the sink, the job will throw immediately with an actionable error:
+> `Received AlterTableEvent but schema_evolution_enabled=false at this sink. Either set schema_evolution_enabled=true to handle schema changes, or set schema-changes.enabled=false at the CDC source to suppress them.`
+
+Users on the default CDC source config (`schema-changes.enabled = false`) are completely unaffected.
+
+**Known limitation:** Schema changes are not atomic with checkpointing. If the job crashes in the narrow window between file rotation and schema metadata update, rows written after restore may use the pre-change schema. This is a known architectural gap shared across other SeaTunnel sinks. For full restart-with-DDL correctness, a follow-up CDC source fix is required (tracked separately).
+
+Example usage in a CDC pipeline:
+
+```hocon
+LocalFile {
+    path = "/tmp/cdc/${table_name}"
+    file_format_type = "parquet"
+    schema_evolution_enabled = true
+    have_partition = true
+    partition_by = ["updated_at_month"]
+}
+```
+
 
 ## Changelog
 

@@ -185,7 +185,6 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
                 log.warn(
                         "unable to load info of replication slot, Debezium will try to create the slot");
             }
-
             if (offsetContext == null) {
                 log.info("No previous offset found");
                 // if we have no initial offset, indicate that to Snapshotter by passing null
@@ -206,18 +205,21 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
                                     dataConnection,
                                     snapshotter.shouldSnapshot(),
                                     connectorConfig);
-                    try {
-                        // create the slot if it doesn't exist, otherwise update slot to add new
-                        // table(job restore and add table)
-                        replicationConnection.createReplicationSlot().orElse(null);
-                    } catch (SQLException ex) {
-                        String message = "Creation of replication slot failed";
-                        if (ex.getMessage().contains("already exists")) {
-                            message +=
-                                    "; when setting up multiple connectors for the same database host, please make sure to use a distinct replication slot name for each.";
-                            log.warn(message);
-                        } else {
-                            throw new DebeziumException(message, ex);
+                    if (slotInfo == null) {
+                        try {
+                            replicationConnection.createReplicationSlot().orElse(null);
+                        } catch (SQLException ex) {
+                            String message = "Creation of replication slot failed";
+                            // PostgreSQL errors all have a 5-character SQLSTATE code, following the
+                            // SQL standard specification
+                            // https://www.postgresql.org/docs/current/errcodes-appendix.html
+                            if ("42710".equals(ex.getSQLState())) {
+                                message +=
+                                        "; when setting up multiple connectors for the same database host, please make sure to use a distinct replication slot name for each.";
+                                log.warn(message);
+                            } else {
+                                throw new DebeziumException(message, ex);
+                            }
                         }
                     }
                 }

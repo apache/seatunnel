@@ -28,6 +28,8 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 - [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [x] [变更数据捕获（CDC）](../../introduction/concepts/connector-v2-features.md)
+- [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
+- [x] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 > 使用 `XA 事务` 来确保 `精确一次`。因此，仅对支持 `XA 事务` 的数据库支持 `精确一次`。您可以设置 `is_exactly_once=true` 来启用此功能。
 
@@ -95,6 +97,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | data_save_mode               | Enum      | 否   | APPEND_DATA                  | 在同步任务开启之前，根据目标端现有数据选择不同处理方案。                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | custom_sql                   | String  | 否   | -                            | 当 `data_save_mode` 选择 `CUSTOM_PROCESSING` 时，您应该填写 `CUSTOM_SQL` 参数。此参数通常填入可执行的 SQL。SQL 将在同步任务之前执行。                                                                                                                                                                                                                                                                                                                                                                        |
 | enable_upsert                | Boolean | 否   | true                         | 通过主键存在启用 upsert，如果任务没有重复数据，设置此参数为 `false` 可以加快数据导入。                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| use_copy_statement           | Boolean | 否   | false                        | 直接使用 PostgreSQL `COPY <table> (...) FROM STDIN WITH CSV` 进行批量导入。该选项优先级高于常规 INSERT / UPSERT 路径；要求 JDBC 驱动连接对象提供 `getCopyAPI()`，且当前不支持 `MAP`、`ARRAY`、`ROW` 类型。                                                                                                                                                                                                                                                                                                                                            |
 
 ### table [字符串]
 
@@ -160,12 +163,12 @@ source {
     }
   }
   # If you would like to get more information about how to configure seatunnel and see full list of source plugins,
-  # please go to https://seatunnel.apache.org/docs/connector-v2/source
+  # please go to https://seatunnel.apache.org/docs/connectors/source
 }
 
 transform {
   # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
-    # please go to https://seatunnel.apache.org/docs/transform-v2
+    # please go to https://seatunnel.apache.org/docs/transforms
 }
 
 sink {
@@ -178,7 +181,7 @@ sink {
         query = "insert into test_table(name,age) values(?,?)"
      }
   # If you would like to get more information about how to configure seatunnel and see full list of sink plugins,
-  # please go to https://seatunnel.apache.org/docs/connector-v2/sink
+  # please go to https://seatunnel.apache.org/docs/connectors/sink
 }
 ```
 
@@ -266,6 +269,91 @@ sink {
         schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
         data_save_mode="APPEND_DATA"
     }
+}
+```
+
+## 常见问题
+
+### PostgreSQL Sink 什么时候会生成 `ON CONFLICT`？
+
+只有在最终拿到了主键/唯一键信息，并且 `enable_upsert = true` 时，PostgreSQL Sink 才会生成
+`INSERT ... ON CONFLICT (...) DO UPDATE`。
+
+这个 key 可以来自两种地方：
+
+- 你显式配置的 `primary_keys`
+- 你没有显式配置时，SeaTunnel 从上游 catalog 元数据继承到的主键；如果没有主键，还会尝试第一组 unique key
+
+如果所有字段本身都是主键，没有可更新列，PostgreSQL 会退化为
+`ON CONFLICT (...) DO NOTHING`。
+
+### 目标表没有主键时会发生什么？
+
+如果既没有显式配置 `primary_keys`，上游元数据里也没有可继承的主键或 unique key，
+PostgreSQL Sink 会退回普通 INSERT，不会生成 `ON CONFLICT`。进入这个无 key 模式后，
+Sink 也不会再使用按 `RowKind` 执行 UPDATE / DELETE 的写入器，因此 CDC 输入会实质上退化为普通
+INSERT batching。这时重复键是否报错，完全取决于目标表自身约束。
+
+### `use_copy_statement` 和 `enable_upsert` 应该怎么选？
+
+`use_copy_statement = true` 会优先进入 PostgreSQL COPY 批量导入路径，而不是常规 INSERT / UPSERT 语句。也就是说，即使同时配置了 `primary_keys` 和 `enable_upsert = true`，COPY 仍然会优先执行。
+
+适合开启 COPY 的场景：
+
+- 目标是 PostgreSQL
+- 重点是高吞吐批量导入
+- 不依赖 `ON CONFLICT` 处理重复键覆盖逻辑
+
+不适合开启 COPY 的场景：
+
+- 你希望通过 PostgreSQL 原生 upsert 语义处理冲突
+- 你的数据包含 `MAP`、`ARRAY`、`ROW` 类型
+- 当前 JDBC 驱动连接对象不提供 `getCopyAPI()`
+
+### 流式定时刷新
+
+对于长时间运行的流式作业，可以同时设置 `batch_size` 与 `batch_interval_ms`。刷新是**写入触发的**：每条记录进入写入路径时都会检查缓冲行数和耗时，达到任一阈值就同步刷新，并没有后台调度线程。因此在空闲（没有新记录）的时段，缓冲行会一直保留到下一条记录到达或下一个 checkpoint 完成——`batch_interval_ms` 自身并不能保证严格的 wall-clock 时延边界，生产环境建议把 `batch_interval_ms` 设为几秒以上。
+
+```hocon
+env {
+  parallelism = 2
+  job.mode = "STREAMING"
+  checkpoint.interval = 10000
+}
+
+sink {
+  Jdbc {
+    url = "jdbc:postgresql://datasource01:5432/demo"
+    driver = "org.postgresql.Driver"
+    username = "postgres"
+    password = "postgres"
+    generate_sink_sql = true
+    database = "demo"
+    table = "public.orders_sink"
+    primary_keys = ["id"]
+    batch_size = 2000
+    batch_interval_ms = 5000
+  }
+}
+```
+
+### 使用占位符的多表写入
+
+当上游行携带表标识时，可以在 `table` 中使用 `${schema_name}` 和 `${table_name}` 占位符，把每行路由到对应的目标表。配合 `multi_table_sink_replica`，SeaTunnel 并行写入多张表。
+
+```hocon
+sink {
+  Jdbc {
+    url = "jdbc:postgresql://datasource01:5432/demo"
+    driver = "org.postgresql.Driver"
+    username = "postgres"
+    password = "postgres"
+    generate_sink_sql = true
+    database = "demo"
+    table = "${schema_name}.${table_name}_SINK"
+    primary_keys = ["id"]
+    multi_table_sink_replica = 2
+  }
 }
 ```
 

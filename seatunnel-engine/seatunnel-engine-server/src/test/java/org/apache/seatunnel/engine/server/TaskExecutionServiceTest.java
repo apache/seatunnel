@@ -33,6 +33,7 @@ import org.apache.seatunnel.engine.server.execution.TaskGroupContext;
 import org.apache.seatunnel.engine.server.execution.TaskGroupDefaultImpl;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskGroupType;
+import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.execution.TestTask;
 import org.apache.seatunnel.engine.server.task.TaskGroupImmutableInformation;
 
@@ -55,6 +56,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -401,6 +403,61 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         LOGGER.info("highAvg : " + highAvg);
     }
 
+    /**
+     * Verifies that {@link TaskExecutionService#deployTask(Data)} is idempotent when the
+     * TaskGroupLocation is already present in {@code executionContexts} (task actively running).
+     *
+     * <p>During master failover, the new master restores job state from the IMap and calls {@code
+     * deployTask()} for every task group it finds in RUNNING or DEPLOYING state. Those task groups
+     * may still be executing on the worker. Before this fix a second {@code deployTask()} call for
+     * the same location threw {@code RuntimeException("TaskGroupLocation: ... already exists")},
+     * causing the job to enter an infinite FAILED/restore loop. After this fix the call returns
+     * {@link TaskDeployState#success()} without interrupting the running task, allowing the master
+     * to reconnect normally.
+     */
+    @Test
+    public void testDeployTaskIdempotentWhenAlreadyRunning() {
+        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
+
+        AtomicBoolean stop = new AtomicBoolean(false);
+        TestTask testTask1 = new TestTask(stop, 500, true);
+        TestTask testTask2 = new TestTask(stop, 500, false);
+
+        long testJobId = System.currentTimeMillis();
+        TaskGroupLocation location = new TaskGroupLocation(testJobId, 1, 1);
+
+        TaskGroupImmutableInformation info =
+                new TaskGroupImmutableInformation(
+                        testJobId,
+                        1,
+                        TaskGroupType.INTERMEDIATE_BLOCKING_QUEUE,
+                        location,
+                        "idempotency-test",
+                        Arrays.asList(
+                                nodeEngine.getSerializationService().toData(testTask1),
+                                nodeEngine.getSerializationService().toData(testTask2)),
+                        Arrays.asList(emptySet(), emptySet()),
+                        Arrays.asList(emptySet(), emptySet()));
+
+        Data data = nodeEngine.getSerializationService().toData(info);
+
+        // First deploy — must succeed normally.
+        TaskDeployState firstResult = taskExecutionService.deployTask(data);
+        assertEquals(TaskDeployState.success(), firstResult);
+        Assertions.assertNotNull(taskExecutionService.getActiveExecutionContext(location));
+
+        // Second deploy while task is still active — simulates master-failover re-deploy.
+        // Before this fix this threw RuntimeException("TaskGroupLocation: ... already exists").
+        TaskDeployState secondResult = taskExecutionService.deployTask(data);
+        assertEquals(TaskDeployState.success(), secondResult);
+
+        // The original task group must still be active — not interrupted by the second deploy.
+        Assertions.assertNotNull(taskExecutionService.getActiveExecutionContext(location));
+
+        stop.set(true);
+        taskExecutionService.cancelTaskGroup(location);
+    }
+
     public List<Task> buildFixedTestTask(
             long callTime, long count, AtomicBoolean stopMart, CopyOnWriteArrayList<Long> lagList) {
         List<Task> taskQueue = new ArrayList<>();
@@ -421,5 +478,65 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
             taskQueue.add(new StopTimeTestTask(callTime, stopList, stopMart));
         }
         return taskQueue;
+    }
+
+    @Test
+    public void testRegisterTimerFlushRejectsNonPositiveInterval() {
+        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
+        TaskGroupLocation groupLocation = new TaskGroupLocation(jobId, pipeLineId, 200L);
+        TaskLocation taskLocation = new TaskLocation(groupLocation, 1L, 1);
+
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> taskExecutionService.registerTimerFlushTask(taskLocation, () -> {}, 0L));
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> taskExecutionService.registerTimerFlushTask(taskLocation, () -> {}, -1L));
+    }
+
+    @Test
+    public void testRegisterAndCloseTimerFlushTask() {
+        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
+        TaskGroupLocation groupLocation = new TaskGroupLocation(jobId, pipeLineId, 201L);
+        TaskLocation taskLocation = new TaskLocation(groupLocation, 1L, 1);
+
+        ScheduledFuture<?> future =
+                taskExecutionService.registerTimerFlushTask(taskLocation, () -> {}, 1_000L);
+        Assertions.assertNotNull(future);
+        Assertions.assertFalse(future.isCancelled());
+
+        taskExecutionService.closeTimerFlushTask(taskLocation);
+        Assertions.assertTrue(future.isCancelled());
+
+        // closing again is idempotent
+        Assertions.assertDoesNotThrow(() -> taskExecutionService.closeTimerFlushTask(taskLocation));
+    }
+
+    @Test
+    public void testReRegisterTimerFlushCancelsPreviousFuture() {
+        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
+        TaskGroupLocation groupLocation = new TaskGroupLocation(jobId, pipeLineId, 202L);
+        TaskLocation taskLocation = new TaskLocation(groupLocation, 1L, 1);
+
+        ScheduledFuture<?> first =
+                taskExecutionService.registerTimerFlushTask(taskLocation, () -> {}, 1_000L);
+        ScheduledFuture<?> second =
+                taskExecutionService.registerTimerFlushTask(taskLocation, () -> {}, 2_000L);
+
+        Assertions.assertNotSame(first, second);
+        Assertions.assertTrue(
+                first.isCancelled(), "previous future must be cancelled on re-register");
+        Assertions.assertFalse(second.isCancelled(), "new future must remain active");
+
+        taskExecutionService.closeTimerFlushTask(taskLocation);
+    }
+
+    @Test
+    public void testCloseTimerFlushOnUnknownLocationIsNoop() {
+        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
+        TaskGroupLocation groupLocation = new TaskGroupLocation(jobId, pipeLineId, 203L);
+        TaskLocation unknown = new TaskLocation(groupLocation, 1L, 99);
+
+        Assertions.assertDoesNotThrow(() -> taskExecutionService.closeTimerFlushTask(unknown));
     }
 }

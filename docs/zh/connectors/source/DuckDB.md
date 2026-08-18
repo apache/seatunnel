@@ -6,7 +6,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## 描述
 
-通过 JDBC 读取外部数据源数据。
+通过 JDBC 读取 DuckDB 数据库文件中的数据。DuckDB 是进程内的 SQL OLAP 数据库，因此连接器对接的是本地数据库文件（`jdbc:duckdb:/path/to/database.db`）或内存数据库，不存在远程服务端。连接器支持批处理和流处理两种模式，支持通过 `partition_column` 进行并行读取，并支持通过 `table_list` 在一个任务中读取多张表。
 
 ## 支持 DuckDB 版本
 
@@ -30,12 +30,12 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## 主要功能
 
-- [x] [批处理](../../concept/connector-v2-features.md)
-- [ ] [流处理](../../concept/connector-v2-features.md)
-- [x] [精确一次](../../concept/connector-v2-features.md)
-- [x] [列投影](../../concept/connector-v2-features.md)
-- [x] [并行度](../../concept/connector-v2-features.md)
-- [x] [支持用户定义的拆分](../../concept/connector-v2-features.md)
+- [x] [批处理](../../introduction/concepts/connector-v2-features.md)
+- [ ] [流处理](../../introduction/concepts/connector-v2-features.md)
+- [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [x] [列投影](../../introduction/concepts/connector-v2-features.md)
+- [x] [并行度](../../introduction/concepts/connector-v2-features.md)
+- [x] [支持用户定义的拆分](../../introduction/concepts/connector-v2-features.md)
 
 > 支持 SQL 查询，并能实现列投影效果
 
@@ -86,7 +86,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | table_list                   | Array      | 否    | -               | 要读取的表列表，您可以使用此配置代替 `table_path` 示例：```[{ table_path = "main.table1"}, {table_path = "main.table2", query = "select * id, name from main.table2"}]``` |
 | where_condition              | String     | 否    | -               | 所有表/查询的通用行过滤条件，必须以 `where` 开头。例如 `where id > 100`                                                                                                    |
 | split.size                   | Int        | 否    | 8096            | 表的拆分大小（行数），读取表时捕获的表被拆分为多个拆分。                                                                                                                         |
-| common-options               |            | 否    | -               | 源插件通用参数，详情请参考 [Source Common Options](../source-common-options.md)                                                                                   |
+| common-options               |            | 否    | -               | 源插件通用参数，详情请参考 [Source Common Options](../common-options/source-common-options.md)                                                                                   |
 
 ## 并行读取器
 
@@ -157,7 +157,7 @@ source{
 
 transform {
     # 如果您想了解更多关于如何配置 seatunnel 和查看转换插件的完整列表，
-    # 请访问 https://seatunnel.apache.org/docs/transform-v2/sql
+    # 请访问 https://seatunnel.apache.org/docs/transforms/sql
 }
 
 sink {

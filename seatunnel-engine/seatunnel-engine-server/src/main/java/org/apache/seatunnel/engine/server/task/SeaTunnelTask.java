@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.tracing.MDCTracer;
 import org.apache.seatunnel.common.utils.function.ConsumerWithException;
+import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.checkpoint.InternalCheckpointListener;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
@@ -31,6 +32,8 @@ import org.apache.seatunnel.engine.core.dag.actions.SourceAction;
 import org.apache.seatunnel.engine.core.dag.actions.TransformChainAction;
 import org.apache.seatunnel.engine.core.dag.actions.UnknownActionException;
 import org.apache.seatunnel.engine.core.job.ConnectorJarIdentifier;
+import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
+import org.apache.seatunnel.engine.core.job.JobInfo;
 import org.apache.seatunnel.engine.server.checkpoint.ActionStateKey;
 import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointBarrier;
@@ -47,6 +50,7 @@ import org.apache.seatunnel.engine.server.dag.physical.flow.UnknownFlowException
 import org.apache.seatunnel.engine.server.execution.TaskGroup;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
+import org.apache.seatunnel.engine.server.observability.ObservabilityConfig;
 import org.apache.seatunnel.engine.server.task.flow.ActionFlowLifeCycle;
 import org.apache.seatunnel.engine.server.task.flow.FlowLifeCycle;
 import org.apache.seatunnel.engine.server.task.flow.IntermediateQueueFlowLifeCycle;
@@ -60,6 +64,8 @@ import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
 
 import com.hazelcast.internal.metrics.MetricDescriptor;
 import com.hazelcast.internal.metrics.MetricsCollectionContext;
+import com.hazelcast.map.IMap;
+import com.hazelcast.spi.impl.NodeEngineImpl;
 import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
@@ -86,12 +92,32 @@ import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTask
 import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.STARTING;
 import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.WAITING_RESTORE;
 
+/**
+ * Abstract base class for all Zeta engine task executions.
+ *
+ * <p>A {@code SeaTunnelTask} drives the lifecycle of a single pipeline subtask. It holds the
+ * execution DAG as a {@link Flow} graph, converts that graph into a chain of {@link FlowLifeCycle}
+ * objects during {@link #init()}, and then repeatedly calls {@link #stateProcess()} to advance
+ * through the task state machine:
+ *
+ * <pre>
+ *   CREATED → INIT → WAITING_RESTORE → READY_START → STARTING → RUNNING → PREPARE_CLOSE → CLOSED
+ * </pre>
+ *
+ * <p>Checkpoint coordination is handled by accumulating per-cycle ACKs via {@link #ack(Barrier)}
+ * and buffering per-action state snapshots via {@link #addState(Barrier, ActionStateKey, List)}
+ * before sending a single {@link TaskAcknowledgeOperation} to the {@code CheckpointCoordinator}.
+ *
+ * <p>Subclasses must implement {@link #collect()} (the main data-reading loop) and {@link
+ * #createSourceFlowLifeCycle} (factory for the source-specific lifecycle).
+ */
 @Slf4j
 public abstract class SeaTunnelTask extends AbstractTask {
     private static final long serialVersionUID = 2604309561613784425L;
 
     protected volatile SeaTunnelTaskState currState;
     private final Flow executionFlow;
+    private final Map<String, Object> envOptions;
 
     protected FlowLifeCycle startFlowLifeCycle;
 
@@ -112,17 +138,48 @@ public abstract class SeaTunnelTask extends AbstractTask {
 
     private SeaTunnelMetricsContext metricsContext;
 
-    public SeaTunnelTask(long jobID, TaskLocation taskID, int indexID, Flow executionFlow) {
+    private transient boolean observabilityEnabled;
+
+    public SeaTunnelTask(
+            long jobID,
+            TaskLocation taskID,
+            int indexID,
+            Flow executionFlow,
+            Map<String, Object> envOptions) {
         super(jobID, taskID);
         this.indexID = indexID;
         this.executionFlow = executionFlow;
+        this.envOptions = envOptions;
         this.currState = SeaTunnelTaskState.CREATED;
     }
 
+    public Map<String, Object> getEnvOptions() {
+        return envOptions;
+    }
+
+    /**
+     * Initializes the task by converting the execution {@link Flow} DAG into a chain of {@link
+     * FlowLifeCycle} objects.
+     *
+     * <p>Specifically this method:
+     *
+     * <ol>
+     *   <li>Creates a {@link SeaTunnelMetricsContext} for this task's metrics reporting.
+     *   <li>Recursively traverses the {@code executionFlow} graph via {@link
+     *       #convertFlowToActionLifeCycle(Flow)}, producing one {@link FlowLifeCycle} per node and
+     *       wiring their output lists together.
+     *   <li>Calls {@link FlowLifeCycle#init()} on every lifecycle in the chain.
+     *   <li>Registers a composite future over all {@code flowFutures} so that {@code closeCalled}
+     *       is set to {@code true} when every flow in the chain has completed.
+     * </ol>
+     *
+     * @throws Exception if flow conversion or any lifecycle init fails
+     */
     @Override
     public void init() throws Exception {
         super.init();
         metricsContext = getExecutionContext().getOrCreateMetricsContext(taskLocation);
+        observabilityEnabled = resolveObservabilityEnabled();
         this.currState = SeaTunnelTaskState.INIT;
         flowFutures = new ArrayList<>();
         allCycles = new ArrayList<>();
@@ -134,6 +191,66 @@ public abstract class SeaTunnelTask extends AbstractTask {
                 .whenComplete((s, e) -> closeCalled = true);
     }
 
+    public boolean isObservabilityEnabled() {
+        return observabilityEnabled;
+    }
+
+    private boolean resolveObservabilityEnabled() {
+        try {
+            if (executionContext == null) {
+                return false;
+            }
+            if (executionContext.getTaskExecutionService() == null) {
+                return false;
+            }
+            NodeEngineImpl nodeEngine = executionContext.getTaskExecutionService().getNodeEngine();
+            if (nodeEngine == null) {
+                return false;
+            }
+            IMap<Long, JobInfo> jobInfoMap =
+                    nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_INFO);
+            JobInfo jobInfo = jobInfoMap.get(jobID);
+            if (jobInfo == null || jobInfo.getJobImmutableInformation() == null) {
+                return false;
+            }
+            JobImmutableInformation immutable =
+                    nodeEngine
+                            .getSerializationService()
+                            .toObject(jobInfo.getJobImmutableInformation());
+            if (immutable == null || immutable.getJobConfig() == null) {
+                return false;
+            }
+            Map<String, Object> envOptions = immutable.getJobConfig().getEnvOptions();
+            return ObservabilityConfig.resolveEnabled(envOptions);
+        } catch (Throwable t) {
+            log.debug(
+                    "Resolve observability enabled failed, jobId={}, taskLocation={}, err={}",
+                    jobID,
+                    taskLocation,
+                    t.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Advances the task through its state machine. Called repeatedly by the task execution loop.
+     *
+     * <p>State transitions:
+     *
+     * <ul>
+     *   <li><b>INIT → WAITING_RESTORE</b>: Reports status and waits for {@code restoreComplete}.
+     *   <li><b>WAITING_RESTORE → READY_START</b>: Once restore is done, opens all {@link
+     *       FlowLifeCycle} instances and waits for the external start signal.
+     *   <li><b>READY_START → STARTING → RUNNING</b>: Triggered when {@code startCalled} is set.
+     *   <li><b>RUNNING</b>: Calls {@link #collect()} to read/process data. Transitions to {@code
+     *       PREPARE_CLOSE} when {@code prepareCloseStatus} is set by a barrier.
+     *   <li><b>PREPARE_CLOSE → CLOSED</b>: Waits for all flows to complete ({@code closeCalled}),
+     *       then calls {@link #close()} and marks the task progress as done.
+     *   <li><b>CANCELLING → CANCELED</b>: External cancellation path; closes and marks done.
+     * </ul>
+     *
+     * @throws Exception if any state transition or the {@link #collect()} call fails
+     */
     protected void stateProcess() throws Exception {
         switch (currState) {
             case INIT:
@@ -160,6 +277,9 @@ public abstract class SeaTunnelTask extends AbstractTask {
                 break;
             case STARTING:
                 currState = RUNNING;
+                for (FlowLifeCycle cycle : allCycles) {
+                    cycle.hook();
+                }
                 break;
             case RUNNING:
                 collect();
@@ -193,6 +313,29 @@ public abstract class SeaTunnelTask extends AbstractTask {
         this.taskBelongGroup = group;
     }
 
+    /**
+     * Recursively converts a {@link Flow} DAG into a chain of {@link FlowLifeCycle} objects.
+     *
+     * <p>For each node in the graph this method:
+     *
+     * <ol>
+     *   <li>Recurses into {@code flow.getNext()} to build downstream lifecycles first.
+     *   <li>Creates a {@link CompletableFuture} and registers it in {@code flowFutures} for
+     *       close-detection.
+     *   <li>Instantiates the appropriate lifecycle based on the flow/action type:
+     *       <ul>
+     *         <li>{@link SourceAction} → {@link SourceFlowLifeCycle} (via subclass factory)
+     *         <li>{@link SinkAction} → {@link SinkFlowLifeCycle}
+     *         <li>{@link TransformChainAction} → {@link TransformFlowLifeCycle}
+     *         <li>{@link IntermediateExecutionFlow} → {@link IntermediateQueueFlowLifeCycle}
+     *       </ul>
+     *   <li>Wires the downstream lifecycles as the outputs of the newly created lifecycle.
+     * </ol>
+     *
+     * @param flow the root (or sub-root) of the DAG to convert
+     * @return the lifecycle corresponding to {@code flow}
+     * @throws Exception if action type is unknown or lifecycle creation fails
+     */
     @SuppressWarnings({"unchecked", "rawtypes"})
     private FlowLifeCycle convertFlowToActionLifeCycle(@NonNull Flow flow) throws Exception {
 
@@ -245,7 +388,10 @@ public abstract class SeaTunnelTask extends AbstractTask {
                             this,
                             completableFuture,
                             ((AbstractTaskGroupWithIntermediateQueue) taskBelongGroup)
-                                    .getQueueCache(config.getQueueID(), this.getMetricsContext()));
+                                    .getQueueCache(
+                                            config.getQueueID(),
+                                            config.getCapacity(),
+                                            this.getMetricsContext()));
             outputs = flowLifeCycles;
         } else {
             throw new UnknownFlowException(flow);
@@ -295,9 +441,23 @@ public abstract class SeaTunnelTask extends AbstractTask {
         return result;
     }
 
+    /**
+     * Performs an ordered teardown of all {@link FlowLifeCycle} objects in this task.
+     *
+     * <p>Each lifecycle's {@link FlowLifeCycle#close()} is called in iteration order. If any
+     * lifecycle throws an {@link IOException}, the error is collected but does not prevent the
+     * remaining lifecycles from being closed.
+     *
+     * @throws IOException if the parent {@link AbstractTask#close()} or any lifecycle close fails
+     */
     @Override
     public void close() throws IOException {
-        super.close();
+        IOException[] closeException = {null};
+        try {
+            super.close();
+        } catch (IOException e) {
+            closeException[0] = e;
+        }
         MDCTracer.tracing(allCycles.stream())
                 .forEach(
                         flowLifeCycle -> {
@@ -305,10 +465,35 @@ public abstract class SeaTunnelTask extends AbstractTask {
                                 flowLifeCycle.close();
                             } catch (IOException e) {
                                 log.error("Close FlowLifeCycle error.", e);
+                                if (closeException[0] == null) {
+                                    closeException[0] = e;
+                                } else {
+                                    closeException[0].addSuppressed(e);
+                                }
                             }
                         });
+        if (closeException[0] != null) {
+            throw closeException[0];
+        }
     }
 
+    /**
+     * Accumulates a per-cycle checkpoint ACK for the given barrier.
+     *
+     * <p>Each {@link FlowLifeCycle} in the chain calls this method when it has finished processing
+     * a barrier. Once every cycle has ACKed (i.e. {@code ackSize == allCycles.size()}):
+     *
+     * <ol>
+     *   <li>If the barrier carries a {@code prepareClose} signal for this task, {@code
+     *       prepareCloseStatus} is set to {@code true} to trigger the {@code RUNNING →
+     *       PREPARE_CLOSE} transition.
+     *   <li>If the barrier is a snapshot barrier, a {@link TaskAcknowledgeOperation} containing all
+     *       buffered {@link ActionSubtaskState}s is sent to the {@code CheckpointCoordinator} on
+     *       the master node.
+     * </ol>
+     *
+     * @param barrier the checkpoint or prepare-close barrier being acknowledged
+     */
     public void ack(Barrier barrier) {
         log.debug("seatunnel task ack barrier[{}]", this.taskLocation);
         Integer ackSize =
@@ -331,6 +516,14 @@ public abstract class SeaTunnelTask extends AbstractTask {
         }
     }
 
+    /**
+     * Sends a {@link TriggerSchemaChangeBeforeCheckpointOperation} to the master node.
+     *
+     * <p>This propagates a DDL-before-checkpoint barrier to the upstream enumerator, signalling
+     * that a schema change must be applied before the next checkpoint can proceed.
+     *
+     * @return a future that completes when the master acknowledges the operation
+     */
     public InvocationFuture<Object> triggerSchemaChangeBeforeCheckpoint() {
         log.info(
                 "trigger schema-change-before checkpoint. jobID[{}], taskLocation[{}]",
@@ -340,6 +533,14 @@ public abstract class SeaTunnelTask extends AbstractTask {
                 .sendToMaster(new TriggerSchemaChangeBeforeCheckpointOperation(taskLocation));
     }
 
+    /**
+     * Sends a {@link TriggerSchemaChangeAfterCheckpointOperation} to the master node.
+     *
+     * <p>This propagates a DDL-after-checkpoint barrier signalling that the schema change has been
+     * committed and downstream tasks can proceed with the new schema.
+     *
+     * @return a future that completes when the master acknowledges the operation
+     */
     public InvocationFuture<Object> triggerSchemaChangeAfterCheckpoint() {
         log.info(
                 "trigger schema-change-after checkpoint. jobID[{}], taskLocation[{}]",
@@ -349,6 +550,17 @@ public abstract class SeaTunnelTask extends AbstractTask {
                 .sendToMaster(new TriggerSchemaChangeAfterCheckpointOperation(taskLocation));
     }
 
+    /**
+     * Buffers a per-action checkpoint state snapshot for the given barrier.
+     *
+     * <p>Each action in the task chain serializes its state as a list of byte arrays and registers
+     * it here. The accumulated states are later sent to the {@code CheckpointCoordinator} when all
+     * cycles have ACKed via {@link #ack(Barrier)}.
+     *
+     * @param barrier the checkpoint barrier this state belongs to
+     * @param stateKey identifies the action that produced the state
+     * @param state the serialized action state as a list of byte arrays
+     */
     public void addState(Barrier barrier, ActionStateKey stateKey, List<byte[]> state) {
         List<ActionSubtaskState> states =
                 checkpointStates.computeIfAbsent(barrier.getId(), id -> new ArrayList<>());

@@ -16,7 +16,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## 描述
 
-通过 jdbc 写入数据。支持批处理模式和流处理模式，支持并发写入，支持精确一次语义（使用 XA 事务保证）。
+通过 JDBC 将数据写入 DuckDB 数据库文件。支持批处理和流处理两种模式，支持并发写入，在底层 JDBC 驱动提供 XA 数据源时支持精确一次语义（设置 `is_exactly_once = true` 并配置 `xa_data_source_class_name`）。DuckDB 是进程内数据库，因此连接器对接的是本地数据库文件路径（`jdbc:duckdb:/path/to/database.db`）或内存数据库。
 
 ## 需要的依赖项
 
@@ -30,8 +30,8 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ## 主要功能
 
-- [x] [精确一次](../../concept/connector-v2-features.md)
-- [x] [CDC](../../concept/connector-v2-features.md)
+- [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [x] [CDC](../../introduction/concepts/connector-v2-features.md)
 
 > 使用 `Xa 事务` 来确保 `精确一次`。因此只支持支持 `Xa 事务` 的数据库的 `精确一次`。您可以设置 `is_exactly_once=true` 来启用它。
 
@@ -81,7 +81,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | auto_commit                  | Boolean | 否    | true                         | 默认启用自动事务提交                                                                                  |
 | field_ide                    | String  | 否    | -                            | 标识从源同步到接收器时字段是否需要转换。`ORIGINAL` 表示不需要转换；`UPPERCASE` 表示转换为大写；`LOWERCASE` 表示转换为小写。             |
 | properties                   | Map     | 否    | -                            | 附加连接配置参数，当 properties 和 URL 具有相同参数时，优先级由 <br/>驱动程序的具体实现确定。例如，在 DuckDB 中，properties 优先于 URL。 |
-| common-options               |         | 否    | -                            | Sink 插件通用参数，详情请参考 [Sink Common Options](../sink-common-options.md)                          |
+| common-options               |         | 否    | -                            | Sink 插件通用参数，详情请参考 [Sink Common Options](../common-options/sink-common-options.md)                          |
 | schema_save_mode             | Enum    | 否    | CREATE_SCHEMA_WHEN_NOT_EXIST | 在同步任务开启之前，针对目标端已有的表结构选择不同的处理方案。                                                             |
 | data_save_mode               | Enum    | 否    | APPEND_DATA                  | 在同步任务开启之前，针对目标端已有数据选择不同的处理方案。                                                               |
 | custom_sql                   | String  | 否    | -                            | 当 data_save_mode 选择 CUSTOM_PROCESSING 时，应填写 CUSTOM_SQL 参数。此参数通常填写可执行的 SQL。SQL 将在同步任务之前执行。   |

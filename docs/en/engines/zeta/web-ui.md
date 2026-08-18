@@ -35,7 +35,6 @@ http://<host>:8080/<context-path>/#/overview
 The Web UI of Apache SeaTunnel is a visual inspection console for SeaTunnel Engine. It helps operators view cluster overview data, running and finished jobs, job detail pages, logs, realtime DAG metrics, and the status of worker and master nodes.
 
 The Web UI does not submit jobs or provide lifecycle control actions such as cancel, stop, savepoint, or restore. Use the REST API or CLI when you need those operations.
-
 ![overview.png](../../../images/ui/overview.png)
 
 ## Capability Summary

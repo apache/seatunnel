@@ -35,7 +35,6 @@ http://<host>:8080/<context-path>/#/overview
 Apache SeaTunnel 的 Web UI 是 SeaTunnel Engine 的可视化巡检控制台。它可以帮助运维人员查看集群概览、运行中和已完成作业、作业详情页、日志、实时 DAG 指标，以及 worker 和 master 节点状态。
 
 Web UI 不负责提交作业，也不提供 cancel、stop、savepoint、restore 等作业生命周期控制；需要这些操作时，请使用 REST API 或命令行。
-
 ![overview.png](../../../images/ui/overview.png)
 
 ## 能力总览

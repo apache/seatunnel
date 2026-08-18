@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-file-local.md';
 
 > 本地文件接收器
 
+## 支持这些引擎
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## 描述
 
 将数据输出到本地文件。
@@ -26,6 +32,9 @@ import ChangeLog from '../changelog/connector-file-local.md';
 
   默认情况下，我们使用 2PC 提交以确保`精确一次`。
 
+- [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
+
 - [x] 文件格式类型
   - [x] 文本
   - [x] csv
@@ -38,6 +47,7 @@ import ChangeLog from '../changelog/connector-file-local.md';
   - [x] canal_json
   - [x] debezium_json
   - [x] maxwell_json
+- [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
   
 ## 选项
 
@@ -64,6 +74,7 @@ import ChangeLog from '../changelog/connector-file-local.md';
 | compress_codec                        | string  | 否    | none                                       | 压缩编码                                                            |
 | common-options                        | object  | 否    | -                                          | 常见选项                                                            |
 | max_rows_in_memory                    | int     | 否    | -                                          | 仅在 file_format_type 为 excel 时使用                                 |
+| sheet_max_rows                         | int     | 否    | 1048576                                    | 仅在 `file_format_type` 为 `excel` 时使用；每个工作表允许写入的最大行数。 |
 | sheet_name                            | string  | 否    | Sheet${随机数}                                | 仅在 file_format_type 为 excel 时使用                                 |
 | csv_string_quote_mode                 | enum    | 否    | MINIMAL                                    | 仅在文件格式为 CSV 时使用。                                                |
 | xml_root_tag                          | string  | 否    | RECORDS                                    | 仅在 file_format 为 xml 时使用                                        |
@@ -76,6 +87,7 @@ import ChangeLog from '../changelog/connector-file-local.md';
 | schema_save_mode                      | string  | 否    | CREATE_SCHEMA_WHEN_NOT_EXIST               | 现有目录处理方式                                                       |
 | data_save_mode                        | string  | 否    | APPEND_DATA                                | 现有数据处理方式                                                       |
 | merge_update_event                    | boolean | 否    | false                                      | 仅当file_format_type为canal_json、debezium_json、maxwell_json.      |
+| schema_evolution_enabled              | boolean | 否    | false                                      | 开启 Schema 演变支持，适用于 CDC 管道。为 true 时，来自上游的 ADD/DROP/RENAME/MODIFY 列事件无需重启作业即可应用到 Sink。不支持 binary 格式。 |
 
 ### path [string]
 
@@ -90,6 +102,8 @@ import ChangeLog from '../changelog/connector-file-local.md';
 仅在 `custom_filename` 为 `true` 时使用
 
 `file_name_expression` 描述将创建到 `path` 中的文件表达式。我们可以在 `file_name_expression` 中添加变量 `${now}` 或 `${uuid}`，例如 `test_${uuid}_${now}`，`${now}` 表示当前时间，其格式可以通过指定 `filename_time_format` 选项来定义。
+
+对于 `file_format_type = "binary"`，`custom_filename = true` 适用于在每个 sink task 中重命名单个源文件。当同一个 sink task 会写入多个源文件时，请保持 `custom_filename = false`，以保留源文件相对路径。当使用并行 sink subtask 时，请在 `file_name_expression` 中包含 `${transactionId}` 或 `${uuid}`，避免多个 subtask 写入同一个最终文件。
 
 请注意，如果 `is_enable_transaction` 为 `true`，我们将自动在文件名的头部添加 `${transactionId}_`。
 
@@ -185,6 +199,10 @@ Sink 插件的常见参数，请参阅 [Sink 常见选项](../common-options/sin
 ### max_rows_in_memory [int]
 
 当文件格式为 Excel 时，内存中可以缓存的数据项最大数量。
+
+### sheet_max_rows [int]
+
+仅在 `file_format_type` 为 `excel` 时使用。该选项限制每个工作表可以写入的最大行数，默认值为 `1048576`。
 
 ### sheet_name [string]
 
@@ -337,6 +355,35 @@ LocalFile {
 }
 
 ```
+
+
+### schema_evolution_enabled [boolean]
+
+设置为 `true` 时，文件 Sink 可在运行时处理 CDC Schema 变更事件（ADD COLUMN、DROP COLUMN、RENAME COLUMN、MODIFY COLUMN 类型），无需重启作业。每次 Schema 变更时，当前输出文件会被关闭，并以新 Schema 打开一个新文件。
+
+**支持的格式：** 除 `binary` 外的所有文件格式。将此选项与 `file_format_type = binary` 一起使用时，作业启动时会抛出配置校验错误。
+
+**分区约束：** 当 `have_partition = true` 时，不允许删除 `partition_by` 中列出的列，违反时会立即抛出异常。分区列在 Schema 变更过程中必须保持稳定。
+
+**当 `schema_evolution_enabled = false`（默认值）时：** 若上游 CDC Source 配置了 `schema-changes.enabled = true` 且 Sink 收到 `AlterTableEvent`，作业会立即抛出如下错误：
+> `Received AlterTableEvent but schema_evolution_enabled=false at this sink. Either set schema_evolution_enabled=true to handle schema changes, or set schema-changes.enabled=false at the CDC source to suppress them.`
+
+使用默认 CDC Source 配置（`schema-changes.enabled = false`）的用户不受影响。
+
+**已知限制：** Schema 变更与 Checkpoint 不是原子操作。若作业在文件轮转与 Schema 元数据更新之间的窗口期崩溃，恢复后写入的数据行可能使用变更前的 Schema。这是与其他 SeaTunnel Sink 共同存在的已知架构限制。完整的重启后 DDL 正确性支持需要配套的 CDC Source 修复（另行跟踪）。
+
+CDC 管道中的使用示例：
+
+```hocon
+LocalFile {
+    path = "/tmp/cdc/${table_name}"
+    file_format_type = "parquet"
+    schema_evolution_enabled = true
+    have_partition = true
+    partition_by = ["updated_at_month"]
+}
+```
+
 
 ## 变更日志
 

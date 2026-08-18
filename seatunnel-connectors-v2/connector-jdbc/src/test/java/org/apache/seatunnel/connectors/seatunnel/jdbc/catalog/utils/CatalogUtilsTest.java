@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
 
 import org.junit.jupiter.api.Assertions;
@@ -36,6 +37,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -52,6 +54,55 @@ public class CatalogUtilsTest {
         Optional<PrimaryKey> primaryKey =
                 CatalogUtils.getPrimaryKey(new TestDatabaseMetaData(), TablePath.of("test.test"));
         Assertions.assertEquals("testfdawe_", primaryKey.get().getPrimaryKey());
+    }
+
+    @Test
+    void testGetTableSchemaPropagatesPrimaryKeyMetadataFailure() {
+        TestDatabaseMetaData metadata =
+                new TestDatabaseMetaData() {
+                    @Override
+                    public java.sql.ResultSet getPrimaryKeys(
+                            String catalog, String schema, String table) throws SQLException {
+                        throw new SQLException("getPrimaryKeys is not supported");
+                    }
+                };
+
+        Assertions.assertThrows(
+                SQLException.class,
+                () ->
+                        CatalogUtils.getTableSchema(
+                                metadata,
+                                TablePath.of("test.test"),
+                                new JdbcDialectTypeMapper() {}));
+    }
+
+    @Test
+    void testGetCatalogTableCanSkipPrimaryKeyMetadata() throws SQLException {
+        Connection connection =
+                new TestConnection() {
+                    @Override
+                    public java.sql.DatabaseMetaData getMetaData() {
+                        return new TestDatabaseMetaData() {
+                            @Override
+                            public java.sql.ResultSet getPrimaryKeys(
+                                    String catalog, String schema, String table)
+                                    throws SQLException {
+                                throw new SQLException("getPrimaryKeys is not supported");
+                            }
+                        };
+                    }
+                };
+
+        TablePath tablePath = TablePath.of("test.test");
+        JdbcDialect dialect = mock(JdbcDialect.class);
+        when(dialect.supportsPrimaryKeyMetadata()).thenReturn(false);
+        when(dialect.getJdbcDialectTypeMapper()).thenReturn(new JdbcDialectTypeMapper() {});
+        when(dialect.getPartitionKeys(connection, tablePath)).thenReturn(Arrays.asList("dt", "hr"));
+
+        CatalogTable catalogTable = CatalogUtils.getCatalogTable(connection, tablePath, dialect);
+
+        Assertions.assertNull(catalogTable.getTableSchema().getPrimaryKey());
+        Assertions.assertEquals(Arrays.asList("dt", "hr"), catalogTable.getPartitionKeys());
     }
 
     @Test
@@ -348,6 +399,72 @@ public class CatalogUtilsTest {
     }
 
     @Test
+    void testGetTableSchemaFallsBackWhenIdentifierCaseMetadataUnsupported() throws SQLException {
+        TestDatabaseMetaData metadata =
+                new TestDatabaseMetaData() {
+                    @Override
+                    public boolean supportsMixedCaseIdentifiers() throws SQLException {
+                        // Hive JDBC 3.1.3 throws a plain SQLException for this metadata API on
+                        // JDK 8, not SQLFeatureNotSupportedException.
+                        throw new SQLException("Method not supported");
+                    }
+
+                    @Override
+                    public java.sql.ResultSet getColumns(
+                            String catalog,
+                            String schemaPattern,
+                            String tableNamePattern,
+                            String columnNamePattern)
+                            throws SQLException {
+                        List<Map<String, Object>> value = new ArrayList<>();
+                        value.add(
+                                new HashMap<String, Object>() {
+                                    {
+                                        put("TABLE_NAME", "USER_INFO");
+                                        put("TABLE_SCHEM", "public");
+                                        put("COLUMN_NAME", "id");
+                                        put("DATA_TYPE", 1);
+                                        put("TYPE_NAME", "INT");
+                                        put("COLUMN_SIZE", 11);
+                                        put("DECIMAL_DIGITS", 0);
+                                        put("NULLABLE", 0);
+                                        put("REMARKS", "id comment");
+                                    }
+                                });
+                        return new TestResultSet(value);
+                    }
+                };
+
+        TablePath tablePath = TablePath.of("test_db", "public", "user_info");
+        TableSchema tableSchema =
+                CatalogUtils.getTableSchema(metadata, tablePath, new JdbcDialectTypeMapper() {});
+
+        Assertions.assertEquals(1, tableSchema.getColumns().size());
+        Assertions.assertEquals("id", tableSchema.getColumns().get(0).getName());
+    }
+
+    @Test
+    void testGetTableSchemaPropagatesIdentifierCaseMetadataFailure() {
+        TestDatabaseMetaData metadata =
+                new TestDatabaseMetaData() {
+                    @Override
+                    public boolean supportsMixedCaseIdentifiers() throws SQLException {
+                        throw new SQLException("connection broken");
+                    }
+                };
+
+        SQLException exception =
+                Assertions.assertThrows(
+                        SQLException.class,
+                        () ->
+                                CatalogUtils.getTableSchema(
+                                        metadata,
+                                        TablePath.of("test_db", "public", "user_info"),
+                                        new JdbcDialectTypeMapper() {}));
+        Assertions.assertEquals("connection broken", exception.getMessage());
+    }
+
+    @Test
     void testGetTableSchemaStoresUpperCaseIdentifiersCanMatchLowerCaseInput() throws SQLException {
         TestDatabaseMetaData metadata =
                 new TestDatabaseMetaData() {
@@ -477,5 +594,30 @@ public class CatalogUtilsTest {
                 CatalogUtils.getCatalogTable(connection, "select name from test_table", typeMapper);
 
         Assertions.assertNull(catalogTable.getTableSchema().getPrimaryKey());
+    }
+
+    @Test
+    void testGetCatalogTableKeepsPartitionKeys() throws SQLException {
+        Connection connection =
+                new TestConnection() {
+                    @Override
+                    public java.sql.DatabaseMetaData getMetaData() {
+                        return new TestDatabaseMetaData();
+                    }
+                };
+
+        CatalogTable catalogTable =
+                CatalogUtils.getCatalogTable(
+                        connection,
+                        TablePath.of("test.test"),
+                        new JdbcDialectTypeMapper() {
+                            @Override
+                            public Column mappingColumn(BasicTypeDefine typeDefine) {
+                                return JdbcDialectTypeMapper.super.mappingColumn(typeDefine);
+                            }
+                        },
+                        Arrays.asList("dt", "hr"));
+
+        Assertions.assertEquals(Arrays.asList("dt", "hr"), catalogTable.getPartitionKeys());
     }
 }

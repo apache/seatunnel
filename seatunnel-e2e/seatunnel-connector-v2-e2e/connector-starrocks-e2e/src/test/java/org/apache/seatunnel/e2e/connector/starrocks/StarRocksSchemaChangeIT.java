@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.e2e.connector.starrocks;
 
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
-
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.MySqlContainer;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.MySqlVersion;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.testutils.UniqueDatabase;
@@ -40,24 +38,25 @@ import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
+import org.testcontainers.utility.MountableFile;
 
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
-import java.net.URL;
-import java.net.URLClassLoader;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.sql.Connection;
-import java.sql.Driver;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
@@ -89,8 +88,8 @@ public class StarRocksSchemaChangeIT extends TestSuiteBase implements TestResour
     private static final String PASSWORD = "";
     private static final String SINK_TABLE = "products";
     private static final String CREATE_DATABASE = "CREATE DATABASE IF NOT EXISTS " + DATABASE;
-    private static final String SR_DRIVER_JAR =
-            "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
+    private static final String SR_DRIVER_CONTAINER_PATH =
+            "/tmp/seatunnel/plugins/Jdbc/lib/mysql-connector-java.jar";
 
     private Connection starRocksConnection;
     private Connection mysqlConnection;
@@ -113,14 +112,36 @@ public class StarRocksSchemaChangeIT extends TestSuiteBase implements TestResour
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
             container -> {
+                Path driverJarPath = driverJarPath();
+                Assertions.assertTrue(
+                        Files.isRegularFile(driverJarPath),
+                        "MySQL JDBC driver should be resolved from the test classpath before E2E runs: "
+                                + driverJarPath);
                 Container.ExecResult extraCommands =
                         container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && curl -O "
-                                        + SR_DRIVER_JAR);
-                Assertions.assertEquals(0, extraCommands.getExitCode());
+                                "bash", "-c", "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib");
+                Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
+                container.copyFileToContainer(
+                        MountableFile.forHostPath(driverJarPath), SR_DRIVER_CONTAINER_PATH);
             };
+
+    /**
+     * Resolve the MySQL JDBC test dependency from the active test classpath instead of downloading
+     * it inside the container.
+     */
+    private Path driverJarPath() {
+        try {
+            return Paths.get(
+                    com.mysql.cj.jdbc.Driver.class
+                            .getProtectionDomain()
+                            .getCodeSource()
+                            .getLocation()
+                            .toURI());
+        } catch (Exception e) {
+            throw new RuntimeException(
+                    "Failed to resolve MySQL JDBC driver jar from the test classpath", e);
+        }
+    }
 
     private static MySqlContainer createMySqlContainer(MySqlVersion version) {
         return new MySqlContainer(version)
@@ -136,19 +157,15 @@ public class StarRocksSchemaChangeIT extends TestSuiteBase implements TestResour
     }
 
     private void initializeJdbcConnection() throws Exception {
-        URLClassLoader urlClassLoader =
-                new URLClassLoader(
-                        new URL[] {new URL(SR_DRIVER_JAR)},
-                        StarRocksCDCSinkIT.class.getClassLoader());
-        Thread.currentThread().setContextClassLoader(urlClassLoader);
-        Driver driver = (Driver) urlClassLoader.loadClass(DRIVER_CLASS).newInstance();
-        Properties props = new Properties();
-        props.put("user", USERNAME);
-        props.put("password", PASSWORD);
+        Class.forName(DRIVER_CLASS);
         starRocksConnection =
-                driver.connect(
-                        String.format("jdbc:mysql://%s:%s", starRocksServer.getHost(), QUERY_PORT),
-                        props);
+                DriverManager.getConnection(
+                        String.format(
+                                "jdbc:mysql://%s:%s",
+                                starRocksServer.getHost(),
+                                starRocksServer.getMappedPort(QUERY_PORT)),
+                        USERNAME,
+                        PASSWORD);
     }
 
     private void initializeStarRocksServer() {
@@ -156,13 +173,9 @@ public class StarRocksSchemaChangeIT extends TestSuiteBase implements TestResour
                 new GenericContainer<>(DOCKER_IMAGE)
                         .withNetwork(NETWORK)
                         .withNetworkAliases(HOST)
+                        .withExposedPorts(QUERY_PORT, HTTP_PORT, BE_HTTP_PORT)
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(DOCKER_IMAGE)));
-        starRocksServer.setPortBindings(
-                Lists.newArrayList(
-                        String.format("%s:%s", QUERY_PORT, QUERY_PORT),
-                        String.format("%s:%s", HTTP_PORT, HTTP_PORT),
-                        String.format("%s:%s", BE_HTTP_PORT, BE_HTTP_PORT)));
         Startables.deepStart(Stream.of(starRocksServer)).join();
         log.info("StarRocks container started");
         // wait for starrocks fully start
@@ -443,17 +456,21 @@ public class StarRocksSchemaChangeIT extends TestSuiteBase implements TestResour
             while (resultSet.next()) {
                 ArrayList<Object> objects = new ArrayList<>();
                 for (int i = 1; i <= columnCount; i++) {
-                    if (resultSet.getObject(i) instanceof Timestamp) {
-                        Timestamp timestamp = resultSet.getTimestamp(i);
-                        objects.add(timestamp.toLocalDateTime().format(DATE_TIME_FORMATTER));
-                        break;
+                    Object obj = resultSet.getObject(i);
+                    if (obj instanceof Timestamp) {
+                        objects.add(
+                                ((Timestamp) obj).toLocalDateTime().format(DATE_TIME_FORMATTER));
+                    } else if (obj instanceof LocalDateTime) {
+                        objects.add(((LocalDateTime) obj).format(DATE_TIME_FORMATTER));
+                    } else if (obj instanceof OffsetDateTime) {
+                        // TIMESTAMP_TZ (LTZ) → normalize to wall-clock string for comparison
+                        objects.add(
+                                ((OffsetDateTime) obj)
+                                        .toLocalDateTime()
+                                        .format(DATE_TIME_FORMATTER));
+                    } else {
+                        objects.add(obj);
                     }
-                    if (resultSet.getObject(i) instanceof LocalDateTime) {
-                        LocalDateTime localDateTime = resultSet.getObject(i, LocalDateTime.class);
-                        objects.add(localDateTime.format(DATE_TIME_FORMATTER));
-                        break;
-                    }
-                    objects.add(resultSet.getObject(i));
                 }
                 log.debug(String.format("Print query, sql: %s, data: %s", sql, objects));
                 result.add(objects);

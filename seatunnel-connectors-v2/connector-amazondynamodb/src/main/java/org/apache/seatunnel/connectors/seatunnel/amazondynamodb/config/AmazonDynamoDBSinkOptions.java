@@ -27,4 +27,22 @@ public class AmazonDynamoDBSinkOptions extends AmazonDynamoDBBaseOptions {
                     .intType()
                     .defaultValue(25)
                     .withDescription("The batch size of Amazon DynamoDB");
+
+    public static final Option<Integer> MAX_RETRIES =
+            Options.key("max_retries")
+                    .intType()
+                    .defaultValue(10)
+                    .withDescription("Maximum number of retries for batch write requests");
+
+    public static final Option<Long> RETRY_BASE_DELAY_MS =
+            Options.key("retry_base_delay_ms")
+                    .longType()
+                    .defaultValue(100L)
+                    .withDescription("Base delay in milliseconds for exponential backoff");
+
+    public static final Option<Long> RETRY_MAX_DELAY_MS =
+            Options.key("retry_max_delay_ms")
+                    .longType()
+                    .defaultValue(5000L)
+                    .withDescription("Maximum delay in milliseconds for exponential backoff");
 }

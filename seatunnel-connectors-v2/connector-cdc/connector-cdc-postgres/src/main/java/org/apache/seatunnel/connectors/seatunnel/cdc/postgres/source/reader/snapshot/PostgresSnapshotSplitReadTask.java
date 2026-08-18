@@ -166,10 +166,38 @@ public class PostgresSnapshotSplitReadTask
         EventDispatcher.SnapshotReceiver snapshotReceiver =
                 dispatcher.getSnapshotChangeEventReceiver();
         log.debug("Snapshotting table {}", tableId);
-        TableId newTableId = new TableId(null, tableId.schema(), tableId.table());
-        createDataEventsForTable(
-                snapshotContext, snapshotReceiver, databaseSchema.tableFor(newTableId));
+        createDataEventsForTable(snapshotContext, snapshotReceiver, resolveTable(tableId));
         snapshotReceiver.completeSnapshot();
+    }
+
+    private Table resolveTable(TableId tableId) {
+        TableId tableIdWithoutCatalog = new TableId(null, tableId.schema(), tableId.table());
+        Table table = databaseSchema.tableFor(tableIdWithoutCatalog);
+        if (table != null) {
+            return table;
+        }
+
+        String catalog = tableId.catalog();
+        if (catalog == null || catalog.isEmpty()) {
+            catalog = connectorConfig.databaseName();
+        }
+        if (catalog == null || catalog.isEmpty()) {
+            throw new IllegalStateException(
+                    String.format(
+                            "Cannot find table schema for table %s. Tried table id: %s.",
+                            tableId, tableIdWithoutCatalog));
+        }
+
+        TableId tableIdWithCatalog = new TableId(catalog, tableId.schema(), tableId.table());
+        table = databaseSchema.tableFor(tableIdWithCatalog);
+        if (table != null) {
+            return table;
+        }
+
+        throw new IllegalStateException(
+                String.format(
+                        "Cannot find table schema for table %s. Tried table ids: %s and %s.",
+                        tableId, tableIdWithoutCatalog, tableIdWithCatalog));
     }
 
     /** Dispatches the data change events for the records of a single table. */

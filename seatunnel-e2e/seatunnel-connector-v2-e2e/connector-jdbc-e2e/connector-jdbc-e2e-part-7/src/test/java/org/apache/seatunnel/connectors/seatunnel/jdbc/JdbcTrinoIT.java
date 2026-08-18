@@ -30,6 +30,7 @@ import org.junit.jupiter.api.Assertions;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
+import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerLoggerFactory;
 
 import lombok.extern.slf4j.Slf4j;
@@ -37,8 +38,12 @@ import lombok.extern.slf4j.Slf4j;
 import java.sql.Driver;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.Duration;
 import java.util.List;
 import java.util.Properties;
+import java.util.concurrent.TimeUnit;
+
+import static org.awaitility.Awaitility.given;
 
 @Slf4j
 public class JdbcTrinoIT extends AbstractJdbcIT {
@@ -106,21 +111,17 @@ public class JdbcTrinoIT extends AbstractJdbcIT {
 
         this.connection = driver.connect(jdbcUrl, props);
 
-        // maybe the TRINO  server is still initializing
-        int tryTimes = 5;
-        for (int i = 0; i < tryTimes; i++) {
-            try (Statement statement = connection.createStatement()) {
-                statement.executeQuery(" select 1 ");
-                break;
-            } catch (SQLException ignored) {
-                log.info("the Trino server is still initializing. wait it ");
-            }
-            try {
-                Thread.sleep(15 * 1000);
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
-        }
+        given().ignoreExceptions()
+                .await()
+                .pollInterval(2, TimeUnit.SECONDS)
+                .atMost(120, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            try (Statement statement = connection.createStatement()) {
+                                statement.execute(
+                                        "CREATE TABLE IF NOT EXISTS memory.default._readiness_probe (id INTEGER)");
+                            }
+                        });
     }
 
     @Override
@@ -150,7 +151,7 @@ public class JdbcTrinoIT extends AbstractJdbcIT {
                 .networkAliases(TRINO_ALIASES)
                 .driverClass(DRIVER_CLASS)
                 .host(HOST)
-                .port(TRINO_PORT)
+                .port(8080)
                 .localPort(TRINO_PORT)
                 .jdbcTemplate(TRINO_URL)
                 .jdbcUrl(jdbcUrl)
@@ -221,9 +222,11 @@ public class JdbcTrinoIT extends AbstractJdbcIT {
                 new GenericContainer<>(TRINO_IMAGE)
                         .withNetwork(NETWORK)
                         .withNetworkAliases(TRINO_ALIASES)
+                        .waitingFor(
+                                Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(5)))
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(TRINO_IMAGE)));
-        container.setPortBindings(Lists.newArrayList(String.format("%s:%s", TRINO_PORT, "8080")));
+        container.addExposedPort(8080);
 
         return container;
     }

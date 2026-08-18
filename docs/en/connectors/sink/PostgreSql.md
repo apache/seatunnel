@@ -29,6 +29,8 @@ semantics (using XA transaction guarantee).
 
 - [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
+- [x] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 > Use `Xa transactions` to ensure `exactly-once`. So only support `exactly-once` for the database which is
 > support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
@@ -99,6 +101,7 @@ semantics (using XA transaction guarantee).
 | data_save_mode                            | Enum    | no       | APPEND_DATA                  | Before the synchronous task is turned on, different processing schemes are selected for data existing data on the target side.                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | custom_sql                                | String  | no       | -                            | When data_save_mode selects CUSTOM_PROCESSING, you should fill in the CUSTOM_SQL parameter. This parameter usually fills in a SQL that can be executed. SQL will be executed before synchronization tasks.                                                                                                                                                                                                                                                                                                                                                                        |
 | enable_upsert                             | Boolean | No       | true                         | Enable upsert by primary_keys exist, If the task has no key duplicate data, setting this parameter to `false` can speed up data import                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| use_copy_statement                        | Boolean | No       | false                        | Use PostgreSQL `COPY <table> (...) FROM STDIN WITH CSV` for bulk import. This option takes precedence over the regular INSERT / UPSERT path, requires a JDBC driver connection that exposes `getCopyAPI()`, and does not support `MAP`, `ARRAY`, or `ROW` types.                                                                                                                                                                                                                                                                                                                |
 
 ### table [string]
 
@@ -165,12 +168,12 @@ source {
     }
   }
   # If you would like to get more information about how to configure seatunnel and see full list of source plugins,
-  # please go to https://seatunnel.apache.org/docs/connector-v2/source
+  # please go to https://seatunnel.apache.org/docs/connectors/source
 }
 
 transform {
   # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
-    # please go to https://seatunnel.apache.org/docs/transform-v2
+    # please go to https://seatunnel.apache.org/docs/transforms
 }
 
 sink {
@@ -183,7 +186,7 @@ sink {
         query = "insert into test_table(name,age) values(?,?)"
      }
   # If you would like to get more information about how to configure seatunnel and see full list of sink plugins,
-  # please go to https://seatunnel.apache.org/docs/connector-v2/sink
+  # please go to https://seatunnel.apache.org/docs/connectors/sink
 }
 ```
 
@@ -270,6 +273,94 @@ sink {
         schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
         data_save_mode="APPEND_DATA"
     }
+}
+```
+
+## FAQ
+
+### When does PostgreSQL Sink generate `ON CONFLICT`?
+
+PostgreSQL Sink generates `INSERT ... ON CONFLICT (...) DO UPDATE` only after it has a final
+primary-key / unique-key set and `enable_upsert = true`.
+
+That key can come from two places:
+
+- explicit `primary_keys`
+- inherited upstream catalog metadata when `primary_keys` is omitted; if no primary key exists, SeaTunnel also tries the first unique key
+
+If every column is part of the key and there is nothing left to update, PostgreSQL degrades this to
+`ON CONFLICT (...) DO NOTHING`.
+
+### What happens when the target table has no primary key?
+
+If there is no explicit `primary_keys` setting and no inheritable primary key or unique key in
+upstream metadata, PostgreSQL Sink falls back to plain INSERT and does not generate `ON CONFLICT`.
+In that keyless mode, the sink also stops using row-kind-aware UPDATE / DELETE executors, so CDC
+inputs effectively degrade to plain INSERT batching. Duplicate-key behavior then depends entirely on
+the target table constraints.
+
+### How should I choose between `use_copy_statement` and `enable_upsert`?
+
+`use_copy_statement = true` makes PostgreSQL Sink enter the COPY bulk-load path before the normal
+INSERT / UPSERT path. In other words, COPY still wins even if `primary_keys` is configured and
+`enable_upsert = true`.
+
+COPY is a good fit when:
+
+- the target is PostgreSQL
+- the goal is high-throughput bulk import
+- you do not rely on PostgreSQL native upsert semantics for duplicate-key overwrite
+
+COPY is not a good fit when:
+
+- you want PostgreSQL native upsert conflict handling
+- your data contains `MAP`, `ARRAY`, or `ROW` types
+- the current JDBC driver connection does not expose `getCopyAPI()`
+
+### Streaming With Timer Flush
+
+For long-running streaming jobs, set `batch_interval_ms` together with `batch_size`. The flush is **write-triggered**: each incoming write checks the buffered row count and elapsed time and flushes synchronously when either threshold is reached. There is no background scheduler, so during idle periods (no incoming rows) buffered rows are held until the next row arrives or a checkpoint completes — `batch_interval_ms` does not by itself guarantee a strict wall-clock latency bound. Pick a value in the seconds range to balance throughput and per-record latency.
+
+```hocon
+env {
+  parallelism = 2
+  job.mode = "STREAMING"
+  checkpoint.interval = 10000
+}
+
+sink {
+  Jdbc {
+    url = "jdbc:postgresql://datasource01:5432/demo"
+    driver = "org.postgresql.Driver"
+    username = "postgres"
+    password = "postgres"
+    generate_sink_sql = true
+    database = "demo"
+    table = "public.orders_sink"
+    primary_keys = ["id"]
+    batch_size = 2000
+    batch_interval_ms = 5000
+  }
+}
+```
+
+### Multi-Table Write With Placeholder
+
+When the upstream rows carry table identity, use `${schema_name}` and `${table_name}` placeholders in `table`. Combined with `multi_table_sink_replica`, SeaTunnel writes each row to the matching target table in parallel.
+
+```hocon
+sink {
+  Jdbc {
+    url = "jdbc:postgresql://datasource01:5432/demo"
+    driver = "org.postgresql.Driver"
+    username = "postgres"
+    password = "postgres"
+    generate_sink_sql = true
+    database = "demo"
+    table = "${schema_name}.${table_name}_SINK"
+    primary_keys = ["id"]
+    multi_table_sink_replica = 2
+  }
 }
 ```
 

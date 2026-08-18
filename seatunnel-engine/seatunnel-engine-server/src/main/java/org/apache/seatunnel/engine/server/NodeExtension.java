@@ -40,10 +40,12 @@ import static com.hazelcast.internal.ascii.TextCommandConstants.TextCommandType.
 public class NodeExtension extends DefaultNodeExtension {
     private final NodeExtensionCommon extCommon;
     @Getter private final CollectorRegistry collectorRegistry;
+    @Getter private final SeaTunnelServer seaTunnelServer;
 
     public NodeExtension(@NonNull Node node, @NonNull SeaTunnelConfig seaTunnelConfig) {
         super(node);
-        extCommon = new NodeExtensionCommon(node, new SeaTunnelServer(seaTunnelConfig));
+        seaTunnelServer = new SeaTunnelServer(seaTunnelConfig);
+        extCommon = new NodeExtensionCommon(node, seaTunnelServer);
         collectorRegistry = CollectorRegistry.defaultRegistry;
     }
 

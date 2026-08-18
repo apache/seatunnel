@@ -30,6 +30,7 @@ import org.junit.jupiter.api.Assertions;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
+import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerLoggerFactory;
 
 import lombok.extern.slf4j.Slf4j;
@@ -37,8 +38,12 @@ import lombok.extern.slf4j.Slf4j;
 import java.sql.Driver;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.Duration;
 import java.util.List;
 import java.util.Properties;
+import java.util.concurrent.TimeUnit;
+
+import static org.awaitility.Awaitility.given;
 
 @Slf4j
 public class JdbcPrestoIT extends AbstractJdbcIT {
@@ -106,22 +111,36 @@ public class JdbcPrestoIT extends AbstractJdbcIT {
 
         this.connection = driver.connect(jdbcUrl, props);
 
-        // maybe the Presto server is still initializing
-        int tryTimes = 5;
-        for (int i = 0; i < tryTimes; i++) {
-            try (Statement statement = connection.createStatement()) {
-                statement.executeQuery(" select 1 ");
-                break;
-            } catch (SQLException ignored) {
-                log.info("the Presto server is still initializing. wait it ");
-            }
-            try {
-                Thread.sleep(15 * 1000);
-            } catch (InterruptedException e) {
-                throw new RuntimeException(e);
-            }
-        }
+        given().ignoreExceptions()
+                .await()
+                .pollInterval(2, TimeUnit.SECONDS)
+                .atMost(120, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            try (Statement statement = connection.createStatement()) {
+                                statement.execute(
+                                        "CREATE TABLE IF NOT EXISTS memory.default._readiness_probe (id INTEGER)");
+                            }
+                        });
         this.connection.setAutoCommit(false);
+    }
+
+    @Override
+    protected void createNeededTables() {
+        try (Statement statement = connection.createStatement()) {
+            String createTemplate = jdbcCase.getCreateSql();
+            String createSource =
+                    String.format(
+                            createTemplate,
+                            buildTableInfoWithSchema(
+                                    jdbcCase.getDatabase(),
+                                    jdbcCase.getSchema(),
+                                    jdbcCase.getSourceTable()));
+            statement.execute(createSource);
+        } catch (Exception exception) {
+            log.error(ExceptionUtils.getMessage(exception));
+            throw new SeaTunnelRuntimeException(JdbcITErrorCode.CREATE_TABLE_FAILED, exception);
+        }
     }
 
     @Override
@@ -132,7 +151,7 @@ public class JdbcPrestoIT extends AbstractJdbcIT {
                 .networkAliases(PRESTO_ALIASES)
                 .driverClass(DRIVER_CLASS)
                 .host(HOST)
-                .port(PRESTO_PORT)
+                .port(8080)
                 .localPort(PRESTO_PORT)
                 .jdbcTemplate(PRESTO_URL)
                 .jdbcUrl(jdbcUrl)
@@ -203,9 +222,11 @@ public class JdbcPrestoIT extends AbstractJdbcIT {
                 new GenericContainer<>(PRESTO_IMAGE)
                         .withNetwork(NETWORK)
                         .withNetworkAliases(PRESTO_ALIASES)
+                        .waitingFor(
+                                Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(5)))
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(PRESTO_IMAGE)));
-        container.setPortBindings(Lists.newArrayList(String.format("%s:%s", PRESTO_PORT, "8080")));
+        container.addExposedPort(8080);
 
         return container;
     }

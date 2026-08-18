@@ -29,9 +29,10 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 - [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
+- [x] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
->使用“Xa事务”来确保“精确一次”。因此，数据库只支持“精确一次”，即
->支持“Xa事务”。您可以设置`is_exactly_once=true `来启用它。
+> 使用 `XA 事务` 来保证 `精确一次`。因此仅支持支持 `XA 事务` 的数据库。可以通过设置 `is_exactly_once=true` 和 `max_retries=0` 来启用。
 
 ## 支持的数据源信息
 
@@ -76,8 +77,8 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | primary_keys                 | Array   | 否       | -                            | 此选项用于支持以下操作，例如 `insert`, `delete`, 和 `update` 当自动生成sql.                                                                                                                                    |
 | connection_check_timeout_sec | Int     | 否       | 30                           | 等待用于验证连接的数据库操作完成的时间（秒）。                                                                                                                                            |
 | max_retries                  | Int     | 否       | 0                            | 提交失败的重试次数（executeBatch）                                                                                                                                                                                          |
-| batch_size                   | Int     | 否       | 1000                         | 对于批量写入，当缓冲记录的数量达到“batch_size”的数量或时间达到“checkpoint.interval”<br/>时，数据将被刷新到数据库中。                                                                  |
-| batch_interval_ms            | Int     | 否       | 1000                         | 对于批写入，当缓冲区的数量达到“batch_size”的数量或时间达到“batch-interval_ms”时，数据将被刷新到数据库中。                                                                           |
+| batch_size                   | Int     | 否       | 1000                         | 对于批量写入，当缓冲记录数达到 `batch_size` 时，数据会刷新到数据库。如果 `batch_interval_ms` 大于 0，经过指定时间也会触发刷新。                                                                  |
+| batch_interval_ms            | Long    | 否       | 0                            | 写入触发的定时刷新间隔，单位毫秒。`0` 表示关闭定时刷新；大于 0 时，写入器会在每条记录写入时检查间隔，达到间隔后同步刷新。                                                                           |
 | is_exactly_once              | Boolean | 否       | false                        | 是否启用精确一次语义，这将使用Xa事务。如果启用，则需要<br/>设置`xa_data_source_class_name`。                                                                                                              |
 | generate_sink_sql            | Boolean | 否       | false                        | 根据要写入的数据库表生成sql语句                                                                                                                                                                        |
 | xa_data_source_class_name    | String  | 否       | -                            | 数据库Driver的xa数据源类名，例如Oracle，是`Oracle.jdbc.xa.client。OracleXADataSource和<br/>请参阅附录了解其他数据源                                                               |
@@ -90,6 +91,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | data_save_mode               | Enum    | 否       | APPEND_DATA                  | 在启动同步任务之前，对目标端的现有数据选择不同的处理方案。                                                                                                                 |
 | custom_sql                   | String  | 否       | -                            | 当data_save_mode选择CUSTOM_PROCESSING时，您应该填写CUSTOM_SQL参数。此参数通常填充可以执行的SQL。SQL将在同步任务之前执行。                                       |
 | enable_upsert                | Boolean | 否       | true                         | 通过primary_keys存在启用upstart，如果任务只有“插入”，将此参数设置为“false”可以加快数据导入                                                                                                          |
+| multi_table_sink_replica     | Int     | 否       | 1                            | 多表写入时使用的 Sink Writer 副本数量。                                                                                                          |
 
 ### 提示
 
@@ -99,7 +101,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 ### 简单的例子
 
->此示例定义了一个SeaTunnel同步任务，该任务通过FakeSource自动生成数据并将其发送到JDBC Sink。FakeSource总共生成16行数据（row.num=16），每行有两个字段，name（字符串类型）和age（int类型）。最终的目标表是test_table，表中也将有16行数据。在运行此作业之前，您需要在Oracle中创建测试数据库和表test_table。如果您尚未安装和部署SeaTunnel，则需要按照[安装SeaTunnel]（../../start-v2/local/deployment.md）中的说明安装和部署SeaTunnel。然后按照[快速启动SeaTunnel引擎]（../../Start-v2/locale/Quick-Start-SeaTunnel-Engine.md）中的说明运行此作业。
+>此示例定义了一个SeaTunnel同步任务，该任务通过FakeSource自动生成数据并将其发送到JDBC Sink。FakeSource总共生成16行数据（row.num=16），每行有两个字段，name（字符串类型）和age（int类型）。最终的目标表是test_table，表中也将有16行数据。在运行此作业之前，您需要在Oracle中创建测试数据库和表test_table。如果您尚未安装和部署SeaTunnel，则需要按照[安装SeaTunnel](../../getting-started/locally/deployment.md)中的说明安装和部署SeaTunnel。然后按照[快速启动SeaTunnel引擎](../../getting-started/locally/quick-start-seatunnel-engine.md)中的说明运行此作业。
 
 ```
 # 定义运行环境
@@ -121,12 +123,12 @@ source {
     }
   }
 	#如果你想了解更多关于如何配置seatunnel的信息，并查看完整的源插件列表，
-	#请前往https://seatunnel.apache.org/docs/connector-v2/source
+	#请前往https://seatunnel.apache.org/docs/connectors/source
 }
 
 transform {
 	#如果你想了解更多关于如何配置seatunnel的信息，并查看转换插件的完整列表，
-	#请前往https://seatunnel.apache.org/docs/transform-v2
+	#请前往https://seatunnel.apache.org/docs/transforms
 }
 
 sink {
@@ -138,7 +140,7 @@ sink {
         query = "INSERT INTO TEST.TEST_TABLE(NAME,AGE) VALUES(?,?)"
      }
 	#如果你想了解更多关于如何配置seatunnel的信息，并查看完整的sink插件列表，
-	#请前往https://seatunnel.apache.org/docs/connector-v2/sink
+	#请前往https://seatunnel.apache.org/docs/connectors/sink
 }
 ```
 
@@ -194,7 +196,7 @@ sink {
         driver = "oracle.jdbc.OracleDriver"
         username = root
         password = 123456
-        
+
         generate_sink_sql = true
         # You need to configure both database and table
         database = XE
@@ -203,6 +205,47 @@ sink {
         schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
         data_save_mode="APPEND_DATA"
     }
+}
+```
+
+### 批量 + 定时刷新组合
+
+流式作业同时设置 `batch_size` 与 `batch_interval_ms`。刷新是**写入触发的**：每条记录进入写入路径时都会检查缓冲行数和耗时，达到任一阈值就同步刷新，并没有后台调度线程。因此在空闲（没有新记录）的时段，缓冲行会一直保留到下一条记录到达或下一个 checkpoint 完成——`batch_interval_ms` 自身并不能保证严格的 wall-clock 时延边界，生产环境建议把 `batch_interval_ms` 设为几秒以上。
+
+```hocon
+sink {
+  Jdbc {
+    url = "jdbc:oracle:thin:@datasource01:1523:xe"
+    driver = "oracle.jdbc.OracleDriver"
+    username = "root"
+    password = "123456"
+    generate_sink_sql = true
+    database = "XE"
+    table = "TEST.TEST_TABLE"
+    primary_keys = ["ID"]
+    batch_size = 2000
+    batch_interval_ms = 5000
+  }
+}
+```
+
+### 使用占位符的多表写入
+
+在 `table` 中使用 `${schema_name}` 和 `${table_name}` 占位符，可以根据上游行携带的元数据把每行路由到对应的目标表。通过 `multi_table_sink_replica` 控制多表写入的 writer 副本数。
+
+```hocon
+sink {
+  Jdbc {
+    url = "jdbc:oracle:thin:@datasource01:1523:xe"
+    driver = "oracle.jdbc.OracleDriver"
+    username = "root"
+    password = "123456"
+    generate_sink_sql = true
+    database = "XE"
+    table = "${schema_name}.${table_name}_SINK"
+    primary_keys = ["ID"]
+    multi_table_sink_replica = 2
+  }
 }
 ```
 

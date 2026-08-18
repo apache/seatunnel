@@ -4,104 +4,58 @@ import ChangeLog from '../changelog/connector-neo4j.md';
 
 > Neo4j sink connector
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Description
 
-Write data to Neo4j.
+The Neo4j sink connector writes SeaTunnel rows to Neo4j by running a Cypher statement.
+It supports one-row-at-a-time writes and batch writes with Cypher `UNWIND`.
 
-`neo4j-java-driver` version 4.4.9
+`neo4j-java-driver` version: 4.4.9
 
-## Key features
+## Key Features
 
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 
-## Options
+## Sink Options
 
-|            name            |  type   | required | default value |
-|----------------------------|---------|----------|---------------|
-| uri                        | String  | Yes      | -             |
-| username                   | String  | No       | -             |
-| password                   | String  | No       | -             |
-| max_batch_size             | Integer | No       | -             |
-| write_mode                 | String  | No       | OneByOne      |
-| bearer_token               | String  | No       | -             |
-| kerberos_ticket            | String  | No       | -             |
-| database                   | String  | Yes      | -             |
-| query                      | String  | Yes      | -             |
-| queryParamPosition         | Object  | Yes      | -             |
-| max_transaction_retry_time | Long    | No       | 30            |
-| max_connection_timeout     | Long    | No       | 30            |
-| common-options             | config  | no       | -             |
+| Name                       | Type    | Required | Default    | Description                                                                                                                                          |
+|----------------------------|---------|----------|------------|------------------------------------------------------------------------------------------------------------------------------------------------------|
+| uri                        | String  | Yes      | -          | Neo4j connection URI, for example `neo4j://localhost:7687` or `bolt://localhost:7687`.                                                               |
+| username                   | String  | No       | -          | Neo4j username. Use it together with `password`. One of `username`, `bearer_token`, or `kerberos_ticket` must be configured.                         |
+| password                   | String  | No       | -          | Neo4j password. Required when `username` is configured.                                                                                               |
+| bearer_token               | String  | No       | -          | Bearer token used for Neo4j authentication.                                                                                                          |
+| kerberos_ticket            | String  | No       | -          | Kerberos ticket used for Neo4j authentication.                                                                                                       |
+| database                   | String  | Yes      | -          | Neo4j database name.                                                                                                                                 |
+| query                      | String  | Yes      | -          | Cypher statement used to write data. In `ONE_BY_ONE` mode, use placeholders such as `$name`; in `BATCH` mode, use `UNWIND $batch AS row`.            |
+| queryParamPosition         | Object  | Yes      | -          | Mapping between Cypher parameter names and input row field positions. It is required by the connector configuration.                                  |
+| max_batch_size             | Integer | No       | 500        | Maximum number of rows written in one transaction when `write_mode = "BATCH"`. Must be greater than 0.                                                |
+| write_mode                 | String  | No       | ONE_BY_ONE | Write mode. Supported values are `ONE_BY_ONE` and `BATCH`.                                                                                            |
+| max_transaction_retry_time | Long    | No       | 30         | Maximum transaction retry time, in seconds.                                                                                                          |
+| max_connection_timeout     | Long    | No       | 30         | Maximum time to wait for a TCP connection to be established, in seconds.                                                                             |
+| common-options             | config  | No       | -          | Sink common options. See [Sink Common Options](../common-options/sink-common-options.md).                                                            |
 
-### uri [string]
+## Notes
 
-The URI of the Neo4j database. Refer to a case: `neo4j://localhost:7687`
+- Use exactly one authentication method: username/password, bearer token, or Kerberos ticket.
+- In `ONE_BY_ONE` mode, `queryParamPosition` maps each Cypher placeholder to a field position in the input row.
+- In `BATCH` mode, the query should use `UNWIND $batch AS row`. The connector passes the rows through the `batch` variable.
+- `queryParamPosition` is still required by the connector configuration in `BATCH` mode, even though the batch query reads values from `row`.
+- Field positions in `queryParamPosition` start from `0`, following the input schema field order.
+- In `BATCH` mode, each `row` entry uses the input field names, so the names referenced in the Cypher statement must match the upstream schema.
 
-### username [string]
+## Write One Row At A Time
 
-username of the Neo4j
-
-### password [string]
-
-password of the Neo4j. required if `username` is provided
-
-### max_batch_size [Integer]
-
-max_batch_size refers to the maximum number of data entries that can be written in a single transaction when writing to a database.
-
-### write_mode
-
-The default value is oneByOne, or set it to "Batch" if you want to have the ability to write in batches
-
-```cypher
-unwind $ttt as row create (n:Label) set n.name = row.name,n.age = rw.age
-```
-
-"ttt" represents a batch of data.,"ttt" can be any arbitrary string as long as it matches the configured "batch_data_variable".
-
-### bearer_token [string]
-
-base64 encoded bearer token of the Neo4j. for Auth.
-
-### kerberos_ticket [string]
-
-base64 encoded kerberos ticket of the Neo4j. for Auth.
-
-### database [string]
-
-database name.
-
-### query [string]
-
-Query statement. contain parameter placeholders that are substituted with the corresponding values at runtime
-
-### queryParamPosition [object]
-
-position mapping information for query parameters.
-
-key name is parameter placeholder name.
-
-associated value is position of field in input data row.
-
-### max_transaction_retry_time [long]
-
-maximum transaction retry time(seconds). transaction fail if exceeded
-
-### max_connection_timeout [long]
-
-The maximum amount of time to wait for a TCP connection to be established (seconds)
-
-### common options
-
-Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details
-
-## WriteOneByOneExample
-
-```
+```bash
 sink {
   Neo4j {
     uri = "neo4j://localhost:7687"
     username = "neo4j"
-    password = "1234"
+    password = "password"
     database = "neo4j"
 
     max_transaction_retry_time = 10
@@ -109,32 +63,53 @@ sink {
 
     query = "CREATE (a:Person {name: $name, age: $age})"
     queryParamPosition = {
-        name = 0
-        age = 1
+      name = 0
+      age = 1
     }
   }
 }
 ```
 
-## WriteBatchExample
-> The unwind keyword provided by cypher supports batch writing, and the default variable for a batch of data is batch. If you write a batch write statement, then you should declare cypher:unwind $batch as row to do someting
- 
+## Write In Batches
 
-```
+```bash
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    plugin_output = "fake"
+    parallelism = 1
+    row.num = 1000
+    schema = {
+      fields {
+        name = "string"
+        age = "int"
+      }
+    }
+  }
+}
+
 sink {
   Neo4j {
-    uri = "bolt://localhost:7687"
+    uri = "neo4j://localhost:7687"
     username = "neo4j"
-    password = "neo4j"
+    password = "password"
     database = "neo4j"
-    max_batch_size = 1000
-    write_mode = "BATCH"
 
+    write_mode = "BATCH"
+    max_batch_size = 500
     max_transaction_retry_time = 3
     max_connection_timeout = 10
 
-    query = "unwind $batch as row  create(n:MyLabel) set n.name = row.name,n.age = row.age"
+    queryParamPosition = {
+      name = 0
+      age = 1
+    }
 
+    query = "UNWIND $batch AS row CREATE (n:BatchLabel) SET n.name = row.name, n.age = row.age"
   }
 }
 ```

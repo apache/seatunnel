@@ -17,10 +17,9 @@
 
 package org.apache.seatunnel.connectors.seatunnel.redshift;
 
-import org.apache.seatunnel.shade.com.typesafe.config.Config;
-
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
-import org.apache.seatunnel.connectors.seatunnel.redshift.config.S3RedshiftConfigOptions;
+import org.apache.seatunnel.connectors.seatunnel.redshift.config.S3RedshiftSinkOptions;
 import org.apache.seatunnel.connectors.seatunnel.redshift.exception.S3RedshiftJdbcConnectorException;
 
 import java.sql.Connection;
@@ -36,7 +35,7 @@ public class RedshiftJdbcClient {
 
     private final Connection connection;
 
-    public static RedshiftJdbcClient getInstance(Config config)
+    public static RedshiftJdbcClient getInstance(ReadonlyConfig config)
             throws S3RedshiftJdbcConnectorException {
         if (INSTANCE == null) {
             synchronized (RedshiftJdbcClient.class) {
@@ -45,10 +44,9 @@ public class RedshiftJdbcClient {
                     try {
                         INSTANCE =
                                 new RedshiftJdbcClient(
-                                        config.getString(S3RedshiftConfigOptions.JDBC_URL.key()),
-                                        config.getString(S3RedshiftConfigOptions.JDBC_USER.key()),
-                                        config.getString(
-                                                S3RedshiftConfigOptions.JDBC_PASSWORD.key()));
+                                        config.get(S3RedshiftSinkOptions.JDBC_URL),
+                                        config.get(S3RedshiftSinkOptions.JDBC_USER),
+                                        config.get(S3RedshiftSinkOptions.JDBC_PASSWORD));
                     } catch (SQLException | ClassNotFoundException e) {
                         throw new S3RedshiftJdbcConnectorException(
                                 CommonErrorCodeDeprecated.SQL_OPERATION_FAILED,

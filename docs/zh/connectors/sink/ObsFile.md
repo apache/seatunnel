@@ -22,6 +22,10 @@ import ChangeLog from '../changelog/connector-file-obs.md';
 
   默认情况下，我们使用2PC commit来确保“精确一次”`
 
+- [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
+- [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
+
 - [x] 文件格式类型
   - [x] text
   - [x] csv
@@ -61,31 +65,32 @@ import ChangeLog from '../changelog/connector-file-obs.md';
 
 | 名称                               | 类型      | 是否必填 | 默认值                                        | 描述                                                                      |
 |----------------------------------|---------|------|--------------------------------------------|-------------------------------------------------------------------------|
-| path                             | string  | 是    | -                                          | 目标目录路径。                                                                 |
-| bucket                           | string  | 是    | -                                          | obs文件系统的bucket地址，例如：`obs://obs-bucket-name`.                            |
-| access_key                       | string  | 是    | -                                          | obs文件系统的访问密钥。                                                           |
-| access_secret                    | string  | 是    | -                                          | obs文件系统的访问私钥。                                                           |
-| endpoint                         | string  | 是    | -                                          | obs文件系统的终端。                                                             |
-| custom_filename                  | boolean | 否    | false                                      | 是否需要自定义文件名。                                                             |
-| file_name_expression             | string  | 否    | "${transactionId}"                         | 描述将在“路径”中创建的文件表达式。仅在custom_filename为true时使用。[提示]（#file_name_expression） |
-| filename_time_format             | string  | 否    | "yyyy.MM.dd"                               | 指定“path”的时间格式。仅在custom_filename为true时使用。[提示]（#filename_time_format）     |
-| file_format_type                 | string  | 否    | "csv"                                      | 支持的文件类型。[提示]（#file_format_type）                                         |
-| field_delimiter                  | string  | 否    | '\001'                                     | 数据行中列之间的分隔符。仅在file_format为文本时使用。                                        |
-| row_delimiter                    | string  | 否    | "\n"                                       | 文件中行之间的分隔符。仅被 `text`、`csv`、`json` 文件格式需要。                               |
-| have_partition                   | boolean | 否    | false                                      | 是否需要处理分区。                                                               |
-| partition_by                     | array   | 否    | -                                          | 根据所选字段对数据进行分区。只有在have_partition为true时才使用。                               |
-| partition_dir_expression         | string  | 否    | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/" | 只有在have_partition为真true时才使用。[提示]（#partition_dir_expression）             |
-| is_partition_field_write_in_file | boolean | 否    | false                                      | 只有在have_partition为true时才使用。[提示]（#is_partition_field_write_in_file）      |
-| sink_columns                     | array   | 否    |                                            | 当此参数为空时，所有字段都是接收列。[提示]（#sink_columns）                                   |
-| is_enable_transaction            | boolean | 否    | true                                       | [提示](#is_enable_transaction)                                            |
-| batch_size                       | int     | 否    | 1000000                                    | [提示](#batch_size)                                                       |
-| single_file_mode                 | boolean | 否    | false                                      | 每个并行处理只会输出一个文件。启用此参数后，batch_size将不会生效。输出文件名没有文件块后缀。                     |
-| create_empty_file_when_no_data   | boolean | 否    | false                                      | 当上游没有数据同步时，仍然会生成相应的数据文件。                                                |
-| compress_codec                   | string  | 否    | none                                       | [提示](#compress_codec)                                                   |
-| common-options                   | object  | 否    | -                                          | [提示](#common_options)                                                   |
-| max_rows_in_memory               | int     | 否    | -                                          | 当文件格式为Excel时，内存中可以缓存的最大数据项数。仅在file_format为excel时使用。                     |
-| sheet_name                       | string  | 否    | Sheet${Random number}                      | 标签页。仅在file_format为excel时使用。                                             |
-| merge_update_event               | boolean | 否    | false                                      | 仅当file_format_type为canal_json、debezium_json、maxwell_json.               |
+| path                             | string  | 是    | -                                          | Sink 写入 OBS 桶内的目标目录。配合 `bucket`，实际路径为 `obs://<bucket><path>`。                                                                       |
+| bucket                           | string  | 是    | -                                          | OBS 文件系统的桶地址，例如：`obs://obs-bucket-name`。                                                                                              |
+| access_key                       | string  | 是    | -                                          | OBS 桶的访问密钥。                                                                                                                       |
+| access_secret                    | string  | 是    | -                                          | OBS 桶的访问密钥（密钥）。                                                                                                                  |
+| endpoint                         | string  | 是    | -                                          | OBS 端点，例如 `obs.cn-north-4.myhuaweicloud.com`。                                                                                       |
+| custom_filename                  | boolean | 否    | false                                      | 是否需要自定义文件名。                                                                                                                         |
+| file_name_expression             | string  | 否    | "${transactionId}"                         | 描述将在“路径”中创建的文件表达式。仅在custom_filename为true时使用。[提示](#file_name_expression)                                                                |
+| filename_time_format             | string  | 否    | "yyyy.MM.dd"                               | 指定“path”的时间格式。仅在custom_filename为true时使用。[提示](#filename_time_format)                                                          |
+| file_format_type                 | string  | 否    | "csv"                                      | 文件格式类型，支持：`text`、`csv`、`parquet`、`orc`、`json`、`excel`、`canal_json`、`debezium_json`、`maxwell_json`。[提示](#file_format_type)                            |
+| field_delimiter                  | string  | 否    | '\001'                                     | 数据行中列之间的分隔符。仅在file_format_type为 text 和 csv 时使用。                                                                              |
+| row_delimiter                    | string  | 否    | "\n"                                       | 文件中行之间的分隔符。仅被 `text`、`csv`、`json` 文件格式需要。                                                                          |
+| have_partition                   | boolean | 否    | false                                      | 是否需要处理分区。                                                                                                                       |
+| partition_by                     | array   | 否    | -                                          | 根据所选字段对数据进行分区。只有在have_partition为true时才使用。                                                                          |
+| partition_dir_expression         | string  | 否    | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/" | 只有在have_partition为真true时才使用。[提示](#partition_dir_expression)                                                          |
+| is_partition_field_write_in_file | boolean | 否    | false                                      | 只有在have_partition为true时才使用。[提示](#is_partition_field_write_in_file)                                                |
+| sink_columns                     | array   | 否    |                                            | 当此参数为空时，所有字段都是接收列。[提示](#sink_columns)                                                                                  |
+| is_enable_transaction            | boolean | 否    | true                                       | 若为 `true`，写入目标目录的数据不会丢失或重复；当为 `true` 时，会自动在文件名前缀添加 `${transactionId}_`。[提示](#is_enable_transaction)                            |
+| batch_size                       | int     | 否    | 1000000                                    | 单个文件的最大行数。对于 SeaTunnel Engine，文件中的行数由 `batch_size` 和 `checkpoint.interval` 共同决定。[提示](#batch_size)                                |
+| single_file_mode                 | boolean | 否    | false                                      | 每个并行处理只会输出一个文件。启用此参数后，batch_size将不会生效。输出文件名没有文件块后缀。                                                                |
+| create_empty_file_when_no_data   | boolean | 否    | false                                      | 当上游没有数据同步时，仍然会生成相应的数据文件。                                                                                                |
+| compress_codec                   | string  | 否    | none                                       | 文件的压缩编解码器。Excel 格式不支持任何压缩格式。[提示](#compress_codec)                                                                        |
+| common-options                   | object  | 否    | -                                          | Sink 插件通用参数，请参考 [Sink Common Options](../common-options/sink-common-options.md)。[提示](#common_options)                                  |
+| max_rows_in_memory               | int     | 否    | -                                          | 当文件格式为Excel时，内存中可以缓存的最大数据项数。仅在file_format_type为excel时使用。                                                                |
+| sheet_name                       | string  | 否    | Sheet${Random number}                      | 标签页。仅在file_format_type为excel时使用。                                                                                          |
+| merge_update_event               | boolean | 否    | false                                      | 仅当file_format_type为canal_json、debezium_json、maxwell_json 时使用。设置为 `true` 时，会将 `UPDATE_AFTER` 与 `UPDATE_BEFORE` 合并为 `UPDATE` 事件数据。     |
+| schema_evolution_enabled         | boolean | 否    | false                                      | 开启 Schema 演变支持，适用于 CDC 管道。为 true 时，来自上游的 ADD/DROP/RENAME/MODIFY 列事件无需重启作业即可应用到 Sink。不支持 binary 格式。 |
 
 ### 提示
 
@@ -174,7 +179,7 @@ import ChangeLog from '../changelog/connector-file-obs.md';
 
 #### <span id="common_options"> common options </span>
 
->Sink插件常用参数，请参考[Sink common Options]（../common-options/sink-common-options.md）了解详细信息。
+>Sink插件常用参数，请参考[Sink common Options](../common-options/sink-common-options.md)了解详细信息。
 
 ## 任务示例
 
@@ -295,6 +300,39 @@ import ChangeLog from '../changelog/connector-file-obs.md';
    }
 
 ```
+
+
+### schema_evolution_enabled [boolean]
+
+设置为 `true` 时，文件 Sink 可在运行时处理 CDC Schema 变更事件（ADD COLUMN、DROP COLUMN、RENAME COLUMN、MODIFY COLUMN 类型），无需重启作业。每次 Schema 变更时，当前输出文件会被关闭，并以新 Schema 打开一个新文件。
+
+**支持的格式：** 除 `binary` 外的所有文件格式。将此选项与 `file_format_type = binary` 一起使用时，作业启动时会抛出配置校验错误。
+
+**分区约束：** 当 `have_partition = true` 时，不允许删除 `partition_by` 中列出的列，违反时会立即抛出异常。分区列在 Schema 变更过程中必须保持稳定。
+
+**当 `schema_evolution_enabled = false`（默认值）时：** 若上游 CDC Source 配置了 `schema-changes.enabled = true` 且 Sink 收到 `AlterTableEvent`，作业会立即抛出如下错误：
+> `Received AlterTableEvent but schema_evolution_enabled=false at this sink. Either set schema_evolution_enabled=true to handle schema changes, or set schema-changes.enabled=false at the CDC source to suppress them.`
+
+使用默认 CDC Source 配置（`schema-changes.enabled = false`）的用户不受影响。
+
+**已知限制：** Schema 变更与 Checkpoint 不是原子操作。若作业在文件轮转与 Schema 元数据更新之间的窗口期崩溃，恢复后写入的数据行可能使用变更前的 Schema。这是与其他 SeaTunnel Sink 共同存在的已知架构限制。完整的重启后 DDL 正确性支持需要配套的 CDC Source 修复（另行跟踪）。
+
+CDC 管道中的使用示例：
+
+```hocon
+ObsFile {
+    path = "/tmp/cdc/${table_name}"
+    bucket = "obs://obs-bucket-name"
+    access_key = "xxxxxxxxxxx"
+    access_secret = "xxxxxxxxxxx"
+    endpoint = "obs.xxxxx.myhuaweicloud.com"
+    file_format_type = "parquet"
+    schema_evolution_enabled = true
+    have_partition = true
+    partition_by = ["updated_at_month"]
+}
+```
+
 
 ## 变更日志
 

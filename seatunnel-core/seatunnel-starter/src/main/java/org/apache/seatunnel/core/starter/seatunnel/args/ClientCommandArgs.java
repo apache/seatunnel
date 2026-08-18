@@ -23,6 +23,7 @@ import org.apache.seatunnel.core.starter.command.AbstractCommandArgs;
 import org.apache.seatunnel.core.starter.command.Command;
 import org.apache.seatunnel.core.starter.command.ConfDecryptCommand;
 import org.apache.seatunnel.core.starter.command.ConfEncryptCommand;
+import org.apache.seatunnel.core.starter.enums.DryRun;
 import org.apache.seatunnel.core.starter.enums.MasterType;
 import org.apache.seatunnel.core.starter.seatunnel.command.ClientExecuteCommand;
 import org.apache.seatunnel.core.starter.seatunnel.command.SeaTunnelConfValidateCommand;
@@ -41,6 +42,13 @@ import java.util.List;
 @EqualsAndHashCode(callSuper = true)
 @Data
 public class ClientCommandArgs extends AbstractCommandArgs {
+
+    @Parameter(
+            names = {"-d", "--dry-run"},
+            description = "Validate without running the job. Supported modes: [static, connect].",
+            converter = DryRunConverter.class)
+    protected DryRun dryRun = null;
+
     @Parameter(
             names = {"-m", "--master", "-e", "--deploy-mode"},
             description = "SeaTunnel job submit master, support [local, cluster]",
@@ -49,12 +57,17 @@ public class ClientCommandArgs extends AbstractCommandArgs {
     private MasterType masterType = MasterType.CLUSTER;
 
     @Parameter(
-            names = {"-r", "--restore"},
+            names = {"-r", "--restore", "--restore-job"},
             description = "restore with savepoint by jobId")
     private String restoreJobId;
 
     @Parameter(
-            names = {"-s", "--savepoint"},
+            names = {"--restore-with-checkpoint"},
+            description = "restore from latest successful completed checkpoint by historical jobId")
+    private String restoreWithCheckpointJobId;
+
+    @Parameter(
+            names = {"-s", "--savepoint", "--savepoint-job"},
             description = "savepoint job by jobId")
     private String savePointJobId;
 
@@ -69,10 +82,16 @@ public class ClientCommandArgs extends AbstractCommandArgs {
     private String jobId;
 
     @Parameter(
-            names = {"-can", "--cancel-job"},
+            names = {"-can", "--cancel", "--cancel-job"},
             variableArity = true,
-            description = "Cancel job by JobId")
+            description = "Cancel job(s) by JobId")
     private List<String> cancelJobId;
+
+    @Parameter(
+            names = {"-f", "--force-cancel", "--force-cancel-job"},
+            variableArity = true,
+            description = "Force Cancel job(s) by JobId")
+    private List<String> forceCancelJobId;
 
     @Parameter(
             names = {"--metrics"},
@@ -126,14 +145,36 @@ public class ClientCommandArgs extends AbstractCommandArgs {
     private boolean async = false;
 
     @Parameter(
-            names = {"-cj", "--close-job"},
+            names = {"-cj", "--close", "--close-job"},
             description = "Close client the task will also be closed")
     private boolean closeJob = true;
 
     @Override
     public Command<?> buildCommand() {
+        if (restoreJobId != null && restoreWithCheckpointJobId != null) {
+            throw new IllegalArgumentException(
+                    "--restore and --restore-with-checkpoint are mutually exclusive");
+        }
+        if (savePointJobId != null && restoreWithCheckpointJobId != null) {
+            throw new IllegalArgumentException(
+                    "--savepoint and --restore-with-checkpoint are mutually exclusive");
+        }
+        if (restoreWithCheckpointJobId != null) {
+            restoreWithCheckpointJobId =
+                    normalizeNumericJobId(
+                            restoreWithCheckpointJobId,
+                            "restoreSourceJobId is required when using --restore-with-checkpoint",
+                            "--restore-with-checkpoint requires a numeric jobId, got: ");
+        }
+        if (customJobId != null) {
+            customJobId =
+                    normalizeNumericJobId(
+                            customJobId,
+                            "--set-job-id requires a non-blank jobId",
+                            "--set-job-id requires a numeric jobId, got: ");
+        }
         Common.setDeployMode(getDeployMode());
-        if (checkConfig) {
+        if (checkConfig || dryRun != null) {
             return new SeaTunnelConfValidateCommand(this);
         }
         if (encrypt) {
@@ -145,8 +186,45 @@ public class ClientCommandArgs extends AbstractCommandArgs {
         return new ClientExecuteCommand(this);
     }
 
+    private String normalizeNumericJobId(
+            String value, String blankMessage, String invalidMessagePrefix) {
+        String trimmed = value.trim();
+        if (trimmed.isEmpty()) {
+            throw new IllegalArgumentException(blankMessage);
+        }
+        try {
+            Long.parseLong(trimmed);
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException(invalidMessagePrefix + value, e);
+        }
+        return trimmed;
+    }
+
     public DeployMode getDeployMode() {
         return DeployMode.CLIENT;
+    }
+
+    public static class DryRunConverter implements IStringConverter<DryRun> {
+        @Override
+        public DryRun convert(String value) {
+            if (value == null || value.trim().isEmpty()) {
+                throw new IllegalArgumentException("Dry-run mode must not be empty.");
+            }
+            String trimmed = value.trim();
+            if (DryRun.STATIC.getName().equalsIgnoreCase(trimmed)
+                    || DryRun.STATIC.name().equalsIgnoreCase(trimmed)) {
+                return DryRun.STATIC;
+            }
+            if (DryRun.CONNECT.getName().equalsIgnoreCase(trimmed)
+                    || DryRun.CONNECT.name().equalsIgnoreCase(trimmed)) {
+                return DryRun.CONNECT;
+            }
+            throw new IllegalArgumentException(
+                    "Unsupported dry-run mode '"
+                            + value
+                            + "'. Currently only [static, connect] are supported; sample and shadow"
+                            + " are not implemented yet.");
+        }
     }
 
     public static class SeaTunnelMasterTargetConverter implements IStringConverter<MasterType> {

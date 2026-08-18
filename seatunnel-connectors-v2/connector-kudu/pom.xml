@@ -30,7 +30,7 @@
     <name>SeaTunnel : Connectors V2 : Kudu</name>
 
     <properties>
-        <kudu.version>1.11.1</kudu.version>
+        <kudu.version>1.15.0</kudu.version>
         <commons.lang3.version>3.18.0</commons.lang3.version>
     </properties>
 

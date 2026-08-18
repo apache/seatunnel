@@ -62,6 +62,16 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
 
     @Override
     public Collection<SnapshotSplit> generateSplits(TableId tableId) {
+        // When concurrent read is disabled, skip split analysis and return a single full-table
+        // split. This avoids expensive MIN/MAX scans on tables without proper indexes.
+        if (!sourceConfig.isEnableConcurrentRead()) {
+            log.info(
+                    "Concurrent read is disabled for table {}, using single split without analysis.",
+                    tableId);
+            return Collections.singletonList(
+                    createSnapshotSplit(null, tableId, 0, null, null, null));
+        }
+
         try (JdbcConnection jdbc = dialect.openJdbcConnection(sourceConfig)) {
             log.info("Start splitting table {} into chunks...", tableId);
             long start = System.currentTimeMillis();
@@ -137,10 +147,12 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
         final double distributionFactorUpper = sourceConfig.getDistributionFactorUpper();
         final double distributionFactorLower = sourceConfig.getDistributionFactorLower();
         final int sampleShardingThreshold = sourceConfig.getSampleShardingThreshold();
+        boolean sampleShardingAllow = sourceConfig.isSampleShardingAllow();
 
         log.info(
                 "Splitting table {} into chunks, split column: {}, min: {}, max: {}, chunk size: {}, "
-                        + "distribution factor upper: {}, distribution factor lower: {}, sample sharding threshold: {}",
+                        + "distribution factor upper: {}, distribution factor lower: {}, sample sharding threshold: {},"
+                        + " sample sharding enable: {}",
                 tableId,
                 splitColumnName,
                 min,
@@ -148,7 +160,8 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
                 chunkSize,
                 distributionFactorUpper,
                 distributionFactorLower,
-                sampleShardingThreshold);
+                sampleShardingThreshold,
+                sampleShardingAllow);
 
         if (isEvenlySplitColumn(splitColumn)) {
             long approximateRowCnt = queryApproximateRowCnt(jdbc, tableId);
@@ -167,7 +180,7 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
             } else {
                 int shardCount = (int) (approximateRowCnt / chunkSize);
                 int inverseSamplingRate = sourceConfig.getInverseSamplingRate();
-                if (sampleShardingThreshold < shardCount) {
+                if (sampleShardingAllow && sampleShardingThreshold < shardCount) {
                     // It is necessary to ensure that the number of data rows sampled by the
                     // sampling rate is greater than the number of shards.
                     // Otherwise, if the sampling rate is too low, it may result in an insufficient

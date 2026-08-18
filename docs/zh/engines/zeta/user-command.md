@@ -18,39 +18,43 @@ bin/seatunnel.sh -h
 
 Usage: seatunnel.sh [options]
   Options:
-    --async                         Run the job asynchronously, when the job 
-                                    is submitted, the client will exit 
-                                    (default: false)
-    -can, --cancel-job              Cancel job by JobId
-    --check                         Whether check config (default: false)
-    -cj, --close-job                Close client the task will also be closed 
-                                    (default: true)
-    -cn, --cluster                  The name of cluster
-    -c, --config                    Config file
-    --decrypt                       Decrypt config file, When both --decrypt 
-                                    and --encrypt are specified, only 
-                                    --encrypt will take effect (default: 
-                                    false) 
-    -m, --master, -e, --deploy-mode SeaTunnel job submit master, support 
-                                    [local, cluster] (default: cluster)
-    --encrypt                       Encrypt config file, when both --decrypt 
-                                    and --encrypt are specified, only 
-                                    --encrypt will take effect (default: 
-                                    false) 
-    --get_running_job_metrics       Gets metrics for running jobs (default: 
-                                    false) 
-    -h, --help                      Show the usage message
-    -j, --job-id                    Get job status by JobId
-    -l, --list                      list job status (default: false)
-    --metrics                       Get job metrics by JobId
-    -n, --name                      SeaTunnel job name (default: SeaTunnel)
-    -r, --restore                   restore with savepoint by jobId
-    -s, --savepoint                 savepoint job by jobId
-    -i, --variable                  Variable substitution, such as -i 
-                                    city=beijing, or -i date=20190318.We use 
-                                    ',' as separator, when inside "", ',' are 
-                                    treated as normal characters instead of 
-                                    delimiters. (default: [])
+    --async                                   Run the job asynchronously, when the job
+                                              is submitted, the client will exit
+                                              (default: false)
+    -can, --cancel, --cancel-job              Cancel job(s) by JobId
+    -f, --force-cancel, --force-cancel-job    Force Cancel job(s) by jobId
+    --check                                   Whether check config (default: false)
+    -cj, --close, --close-job                 Close client the task will also be closed
+                                              (default: true)
+    -cn, --cluster                            The name of cluster
+    -c, --config                              Config file
+    --decrypt                                 Decrypt config file, When both --decrypt
+                                              and --encrypt are specified, only
+                                              --encrypt will take effect (default:
+                                              false)
+    -d, --dry-run                             Run the job in dry-run mode, support
+                                              [static, connect]
+    -m, --master, -e, --deploy-mode           SeaTunnel job submit master, support
+                                              [local, cluster] (default: cluster)
+    --encrypt                                 Encrypt config file, when both --decrypt
+                                              and --encrypt are specified, only
+                                              --encrypt will take effect (default:
+                                              false)
+    --get_running_job_metrics                 Gets metrics for running jobs (default:
+                                              false)
+    -h, --help                                Show the usage message
+    -j, --job-id                              Get job status by JobId
+    -l, --list                                list job status (default: false)
+    --metrics                                 Get job metrics by JobId
+    -n, --name                                SeaTunnel job name (default: SeaTunnel)
+    -r, --restore, --restore-job              按 jobId 从最新 Savepoint 恢复
+    --restore-with-checkpoint                 按 jobId 从最新成功完成的 Checkpoint 恢复
+    -s, --savepoint, --savepoint-job          savepoint job by jobId
+    -i, --variable                            Variable substitution, such as -i
+                                              city=beijing, or -i date=20190318.We use
+                                              ',' as separator, when inside "", ',' are
+                                              treated as normal characters instead of
+                                              delimiters. (default: [])
 
 ```
 
@@ -71,6 +75,32 @@ bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template
 ```shell
 ./bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template --async -n myjob
 ```
+
+## 验证作业配置 (Dry Run)
+
+```shell
+bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template --dry-run static
+```
+
+使用 `--dry-run static`（或者 `--check`）参数可以在**不提交作业**的前提下静态校验配置文件（包括 HOCON/YAML 语法、插件可加载性、DAG 拓扑、必填项与未知配置键等）。它不会执行完整的数据管道。插件加载可能读取本地 JAR，因此这是配置文件的离线校验，不是严格的零 I/O 沙箱。
+
+```shell
+bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template --dry-run connect
+```
+
+使用 `--dry-run connect` 参数会先执行静态校验，然后通过连接器 dry-run 钩子推断 source schema、校验 sink schema 兼容性，并检查连接器连通性。该模式可能连接外部系统以校验凭据、权限以及 source 或 sink 是否存在，但框架不会创建 source/sink 运行时实例、提交作业、读取 source 数据、创建 sink writer、执行 save-mode 逻辑或写入目标数据。Dry-run 校验仅通过 CLI 提供。
+
+**连通性校验由连接器按需实现（opt-in）。** 只有实现了 `SupportSourceDryRunValidation` / `SupportSinkDryRunValidation` 接口的连接器才会真正对外部系统进行校验。当前支持的连接器：
+
+| 连接器 | Source | Sink |
+|--------|--------|------|
+| Jdbc   | 支持（连通性 + schema 推断） | 支持（连通性 + 表存在性 + 字段兼容性） |
+| FakeSource | 支持（仅 schema 推断，无外部系统） | - |
+
+作业中的每个插件都会在校验汇总中报告以下两种状态之一：
+
+- `VALIDATED` – 连接器执行了真实的连通性和/或 schema 校验。
+- `SKIPPED` – 连接器不支持 connect dry-run 校验。**对于 `SKIPPED` 的插件，`--dry-run connect` 成功并不代表其凭据或可达性得到了验证。** 对于不支持 dry-run 的 source，配置中显式声明的 schema 字段（`schema` / `tableConfigs` / `table_list` 中的 `fields` 或 `columns`）仍会用于下游 schema 校验；如果配置中也没有声明 schema 字段，则该管道的下游 transform/sink schema 校验同样会报告为 `SKIPPED`，而不是基于占位 schema 进行校验。
 
 ## 查看作业列表
 
@@ -138,6 +168,22 @@ bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template
 
 被cancel的作业的所有断点信息都将被删除，无法通过seatunnel.sh -r &lt;jobId&gt;恢复。
 
+## 强制取消作业
+
+```shell
+./bin/seatunnel.sh -f <jobId1> [<jobId2> <jobId3> ...]
+```
+
+该命令用于强制取消指定的作业。
+作业被取消后，将立即停止执行，其状态将变更为 `CANCELED`。
+
+该命令支持批量操作，可一次性强制取消多个作业。
+
+被cancel的作业的所有断点信息都将被删除，无法通过seatunnel.sh -r &lt;jobId&gt;恢复。
+
+**注意事项**
+- 当作业状态为 `DOING_SAVEPOINT` 且 Savepoint 未能成功完成时，启用强制取消（force 选项生效）将直接把作业状态设置为 CANCELED。
+- 强制取消可能会导致 Checkpoint 或 Savepoint 数据不完整或处于不一致状态， 仅建议在异常或紧急情况下使用该操作。
 
 ## 配置JVM参数
 

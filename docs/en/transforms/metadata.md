@@ -26,13 +26,42 @@ The Metadata transform plugin is used to extract metadata information from data 
 |  RowKind  |  string  |  Row change type, values: +I (insert), -U (update before), +U (update after), -D (delete)  | All connectors |
 | EventTime |   long   |  Event timestamp of data change (milliseconds)  | CDC connectors; Kafka source (ConsumerRecord.timestamp) |
 |   Delay   |   long   |  Data collection delay time (milliseconds), i.e., the difference between data extraction time and database change time  | CDC connectors |
+| SourceTimestamp | long | Time (epoch ms) at which the change was committed in the source database (`source.ts_ms`). | CDC connectors |
+| BinlogFile | string | Binlog filename (e.g. `mysql-bin-changelog.000123`). `null` for snapshot rows. | MySQL-CDC only |
+| BinlogPos  | long   | Binlog byte offset. `null` for snapshot rows. | MySQL-CDC only |
+| BinlogRow  | int    | Row index (0-based) within the binlog event. `null` for snapshot rows. | MySQL-CDC only |
+| Gtid       | string | Global Transaction ID (`server_uuid:transaction_id`). `null` when GTID is disabled or for snapshot rows. | MySQL-CDC only |
 | Partition |  string  |  Partition information of the data, multiple partition fields separated by commas  | Connectors supporting partitions |
+
+## Knowledge Sync Metadata Fields
+
+Knowledge Sync pipelines can use the following logical metadata keys to carry document and chunk identity. These keys become physical fields only after they are explicitly projected by the `Metadata` transform.
+
+The `Metadata` transform does not generate Knowledge Sync metadata by itself. The upstream source or transform must declare these fields in `CatalogTable.metadataSchema` and write the corresponding values into `SeaTunnelRow.options`.
+
+| Metadata Key | Canonical Physical Field | Output Type | Description |
+|:---:|:---:|:---:|:---|
+| DocumentId | `document_id` | string | Non-null stable document identity for every document lifecycle event. |
+| DocumentHash | `document_hash` | string | Stable document version or content hash. |
+| SourceUri | `source_uri` | string | Credential-free stable source URI or path. |
+| SourceVersion | `source_version` | string | Source-side version, etag, revision, or similar marker. |
+| SourceModifiedAt | `source_modified_at` | long | Source modified time in epoch milliseconds. |
+| MimeType | `mime_type` | string | Source MIME type. |
+| Deleted | `deleted` | boolean | Non-null lifecycle marker: `false` for normal rows and `true` for document tombstones. |
+| ChunkId | `chunk_id` | string | Stable chunk identity. Required for normal chunk rows and nullable for document tombstones. |
+| ChunkHash | `chunk_hash` | string | Stable chunk content hash. Required for normal chunk rows and nullable for document tombstones. |
+| ChunkIndex | `chunk_index` | int | Zero-based chunk index. Required for normal chunk rows and nullable for document tombstones. |
 
 ### Important Notes
 
 1. **Metadata field names are case-sensitive**: Configuration must strictly follow the Key names in the table above (e.g., `Database`, `Table`, `RowKind`, etc.)
-2. **Time fields**: `Delay` is only valid when using CDC connectors (except TiDB-CDC). `EventTime` is provided by CDC connectors and also by the Kafka source via `ConsumerRecord.timestamp` when available.
+2. **Time fields**: `Delay` and `SourceTimestamp` are only available for CDC connectors. `EventTime` is also provided by the Kafka source via `ConsumerRecord.timestamp` when available.
 3. **Kafka event time**: The Kafka source writes `ConsumerRecord.timestamp` (milliseconds) into `EventTime` when it is non-negative, so you can surface it with the `Metadata` transform.
+4. **Binlog/GTID fields**: `BinlogFile`, `BinlogPos`, `BinlogRow`, and `Gtid` are MySQL-CDC specific. For `startup.mode = initial`, snapshot rows return `null` for all four fields.
+5. **Knowledge Sync projection is explicit**: Knowledge Sync metadata fields are projected only when they are configured in `metadata_fields`, declared in the input table metadata schema, and present in row options. This transform reads logical row metadata; it does not read existing physical columns with the same names.
+6. **Markdown RAG compatibility**: Existing Markdown RAG output currently exposes physical fields such as `source_uri`, `document_id`, `chunk_id`, `chunk_index`, and `content_hash`. This transform does not migrate those physical fields into logical Knowledge Sync metadata, and this change does not rename them.
+7. **Source URI security**: Producers must remove URI user info, access tokens, signatures, and other transient authentication material before writing `SourceUri` into row options. Non-sensitive query parameters that are part of the stable resource identity may be retained.
+8. **Knowledge Sync nullability**: `DocumentId` identifies every document lifecycle event. When `Deleted` is declared, producers must write `false` for normal rows and `true` for document tombstones rather than `null`. Normal chunk rows require `ChunkId`, `ChunkHash`, and `ChunkIndex`; compact document tombstones may leave those chunk fields `null`.
 
 ## Options
 
@@ -69,6 +98,28 @@ metadata_fields {
 - The left side must be a supported metadata Key (see table above), and is strictly case-sensitive
 - The right side is a custom output field name, which cannot duplicate existing field names
 - You can select only the metadata fields you need, not all of them must be configured
+
+### Knowledge Sync Projection Example
+
+Project Knowledge Sync logical metadata keys into canonical physical columns. The upstream producer must already provide the metadata values through row options and declare them in the table metadata schema.
+
+```hocon
+transform {
+  Metadata {
+    plugin_input = "knowledge_chunks"
+    plugin_output = "knowledge_chunks_with_meta"
+    metadata_fields = {
+      DocumentId = "document_id"
+      DocumentHash = "document_hash"
+      ChunkId = "chunk_id"
+      ChunkHash = "chunk_hash"
+      ChunkIndex = "chunk_index"
+    }
+  }
+}
+```
+
+After this transform, downstream components can read `document_id`, `chunk_id`, and `chunk_hash` as regular physical fields in the input schema.
 
 ## Complete Examples
 
@@ -240,3 +291,57 @@ sink {
 ```
 
 Here `pt` is derived from the Kafka event time and can be used as a Hive partition column.
+
+### Example 4: Combine Metadata and Sql to extract table suffixes and add a load date
+
+When the upstream CDC source uses sharded tables such as monthly or daily tables, a common pattern
+is to expose the `Table` metadata as a regular field first, then use `Sql` to derive the shard
+suffix and a formatted load date.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+}
+
+source {
+  MySQL-CDC {
+    plugin_output = "orders_cdc"
+    server-id = 5652
+    username = "root"
+    password = "your_password"
+    table-names = ["app.orders_202401", "app.orders_202402"]
+    url = "jdbc:mysql://localhost:3306/app"
+  }
+}
+
+transform {
+  Metadata {
+    plugin_input = "orders_cdc"
+    plugin_output = "orders_with_meta"
+    metadata_fields {
+      Table = source_table
+      EventTime = event_ts
+    }
+  }
+
+  Sql {
+    plugin_input = "orders_with_meta"
+    plugin_output = "orders_normalized"
+    query = "select id, amount, source_table, REGEXP_SUBSTR(source_table, '[0-9]+$') as table_suffix, FROM_UNIXTIME(event_ts / 1000, 'yyyy-MM-dd HH:mm:ss', 'Asia/Shanghai') as event_time_str, FORMATDATETIME(CURRENT_TIMESTAMP, 'yyyyMMdd') as load_date from orders_with_meta"
+  }
+}
+
+sink {
+  Console {
+    plugin_input = "orders_normalized"
+  }
+}
+```
+
+If the current record comes from `orders_202402`, then:
+
+- `source_table = "orders_202402"`
+- `table_suffix = "202402"`
+- `event_time_str` comes from the CDC event time
+- `load_date` is the formatted runtime date string

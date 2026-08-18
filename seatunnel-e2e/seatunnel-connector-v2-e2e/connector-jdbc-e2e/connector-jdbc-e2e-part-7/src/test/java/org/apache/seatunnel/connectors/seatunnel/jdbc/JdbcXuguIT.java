@@ -32,6 +32,7 @@ import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
+import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerLoggerFactory;
 
 import lombok.extern.slf4j.Slf4j;
@@ -40,6 +41,7 @@ import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -175,7 +177,13 @@ public class JdbcXuguIT extends AbstractJdbcIT {
     @Override
     Pair<String[], List<SeaTunnelRow>> initTestData() {
         List<SeaTunnelRow> rows = new ArrayList<>();
+        LocalDate baseDate = LocalDate.of(2024, 1, 1);
+        LocalTime baseTime = LocalTime.of(9, 0, 0);
+        LocalDateTime baseDateTime = LocalDateTime.of(2024, 1, 1, 9, 0, 0);
         for (int i = 0; i < 100; i++) {
+            LocalDate rowDate = baseDate.plusDays(i);
+            LocalTime rowTime = baseTime.plusSeconds(i);
+            LocalDateTime rowDateTime = baseDateTime.plusSeconds(i);
             SeaTunnelRow row =
                     new SeaTunnelRow(
                             new Object[] {
@@ -193,12 +201,12 @@ public class JdbcXuguIT extends AbstractJdbcIT {
                                 String.format("f1_%s", i),
                                 String.format("f1_%s", i),
                                 String.format("f1_%s", i),
-                                Date.valueOf(LocalDate.now()),
-                                Time.valueOf(LocalTime.now()),
-                                new Timestamp(System.currentTimeMillis()),
-                                Timestamp.valueOf(LocalDateTime.now()),
-                                Time.valueOf(LocalTime.now()),
-                                new Timestamp(System.currentTimeMillis()),
+                                Date.valueOf(rowDate),
+                                Time.valueOf(rowTime),
+                                Timestamp.valueOf(rowDateTime),
+                                Timestamp.valueOf(rowDateTime),
+                                Time.valueOf(rowTime),
+                                Timestamp.valueOf(rowDateTime),
                                 null,
                                 null,
                                 null,
@@ -216,9 +224,11 @@ public class JdbcXuguIT extends AbstractJdbcIT {
                 new GenericContainer<>(XUGU_IMAGE)
                         .withNetwork(NETWORK)
                         .withNetworkAliases(XUGU_CONTAINER_HOST)
+                        .waitingFor(
+                                Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(5)))
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(XUGU_IMAGE)));
-        container.setPortBindings(Lists.newArrayList(String.format("%s:%s", XUGU_PORT, XUGU_PORT)));
+        container.addExposedPort(XUGU_PORT);
 
         return container;
     }

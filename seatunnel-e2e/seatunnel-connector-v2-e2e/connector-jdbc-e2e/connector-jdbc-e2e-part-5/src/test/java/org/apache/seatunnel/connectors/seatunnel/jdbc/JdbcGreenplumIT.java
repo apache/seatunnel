@@ -24,9 +24,11 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
+import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -121,14 +123,13 @@ public class JdbcGreenplumIT extends AbstractJdbcIT {
                 new GenericContainer<>(imageName)
                         .withNetwork(NETWORK)
                         .withNetworkAliases(GREENPLUM_CONTAINER_HOST)
+                        .waitingFor(
+                                Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(5)))
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(GREENPLUM_IMAGE)));
 
-        container.setPortBindings(
-                Lists.newArrayList(
-                        String.format(
-                                "%s:%s", GREENPLUM_CONTAINER_PORT, GREENPLUM_CONTAINER_PORT)));
+        container.addExposedPort(GREENPLUM_CONTAINER_PORT);
         return container;
     }
 

@@ -42,17 +42,19 @@ public class MaxcomputeSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(
+                .required(MaxcomputeSourceOptions.ENDPOINT)
+                .optional(
                         MaxcomputeSourceOptions.ACCESS_ID,
                         MaxcomputeSourceOptions.ACCESS_KEY,
-                        MaxcomputeSourceOptions.ENDPOINT)
-                .optional(
+                        MaxcomputeSourceOptions.STS_TOKEN,
                         MaxcomputeSourceOptions.PARTITION_SPEC,
                         MaxcomputeSourceOptions.SPLIT_ROW,
+                        MaxcomputeSourceOptions.SCHEMA_NAME,
                         ConnectorCommonOptions.SCHEMA,
                         MaxcomputeSourceOptions.PROJECT,
                         MaxcomputeSourceOptions.READ_COLUMNS,
-                        MaxcomputeSourceOptions.TUNNEL_ENDPOINT)
+                        MaxcomputeSourceOptions.TUNNEL_ENDPOINT,
+                        MaxcomputeSourceOptions.TUNNEL_NAME)
                 .exclusive(CatalogOptions.TABLE_LIST, MaxcomputeSourceOptions.TABLE_NAME)
                 .build();
     }

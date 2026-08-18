@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
-
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.e2e.common.TestResource;
@@ -35,6 +33,7 @@ import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
+import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.shaded.org.apache.commons.io.IOUtils;
 import org.testcontainers.utility.DockerLoggerFactory;
@@ -54,6 +53,7 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -72,9 +72,8 @@ public class JdbcDorisIT extends TestSuiteBase implements TestResource {
     private static final String DRIVER_CLASS = "com.mysql.cj.jdbc.Driver";
     private static final String HOST = "doris_e2e";
     private static final int DOCKER_PORT = 9030;
-    private static final int PORT = 8961;
 
-    private static final String URL = "jdbc:mysql://%s:" + PORT;
+    private static final String URL = "jdbc:mysql://%s:%s";
     private static final String USERNAME = "root";
     private static final String PASSWORD = "";
     private static final String DATABASE = "test";
@@ -187,10 +186,12 @@ public class JdbcDorisIT extends TestSuiteBase implements TestResource {
                 new GenericContainer<>(DOCKER_IMAGE)
                         .withNetwork(TestSuiteBase.NETWORK)
                         .withNetworkAliases(HOST)
+                        .withExposedPorts(DOCKER_PORT)
                         .withPrivilegedMode(true)
+                        .waitingFor(
+                                Wait.forListeningPort().withStartupTimeout(Duration.ofMinutes(5)))
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(DOCKER_IMAGE)));
-        dorisServer.setPortBindings(Lists.newArrayList(String.format("%s:%s", PORT, DOCKER_PORT)));
         Startables.deepStart(Stream.of(dorisServer)).join();
         log.info("Doris container started");
 
@@ -300,7 +301,11 @@ public class JdbcDorisIT extends TestSuiteBase implements TestResource {
         Properties props = new Properties();
         props.put("user", USERNAME);
         props.put("password", PASSWORD);
-        jdbcConnection = driver.connect(String.format(URL, dorisServer.getHost()), props);
+        jdbcConnection =
+                driver.connect(
+                        String.format(
+                                URL, dorisServer.getHost(), dorisServer.getMappedPort(DOCKER_PORT)),
+                        props);
         try (Statement statement = jdbcConnection.createStatement()) {
             statement.execute(CREATE_DATABASE);
             statement.execute(DDL_SOURCE);

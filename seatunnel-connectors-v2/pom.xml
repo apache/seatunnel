@@ -57,11 +57,14 @@
         <module>connector-datahub</module>
         <module>connector-sentry</module>
         <module>connector-mongodb</module>
+        <module>connector-couchbase</module>
+        <module>connector-mqtt</module>
         <module>connector-iceberg</module>
         <module>connector-influxdb</module>
         <module>connector-amazondynamodb</module>
         <module>connector-tablestore</module>
         <module>connector-cassandra</module>
+        <module>connector-salesforce</module>
         <module>connector-s3-redshift</module>
         <module>connector-starrocks</module>
         <module>connector-google-sheets</module>
@@ -75,6 +78,7 @@
         <module>connector-tdengine</module>
         <module>connector-selectdb-cloud</module>
         <module>connector-hbase</module>
+        <module>connector-google-bigtable</module>
         <module>connector-rocketmq</module>
         <module>connector-amazonsqs</module>
         <module>connector-paimon</module>
@@ -91,6 +95,9 @@
         <module>connector-sensorsdata</module>
         <module>connector-fluss</module>
         <module>connector-lance</module>
+        <module>connector-bigquery</module>
+        <module>connector-edge-socket</module>
+        <module>connector-nats-jetstream</module>
     </modules>
 
     <dependencyManagement>

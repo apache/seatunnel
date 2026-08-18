@@ -21,12 +21,41 @@ import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.format.text.constant.TextFormatConstant;
 
+import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
 public class FileBaseSourceOptions extends FileBaseOptions {
     public static final String DEFAULT_ROW_DELIMITER = "\n";
+    public static final long DEFAULT_POI_EXCEL_MAX_FILE_SIZE = 50L * 1024L * 1024L;
+
+    public static final Option<FileDiscoveryMode> DISCOVERY_MODE =
+            Options.key("discovery_mode")
+                    .singleChoice(
+                            FileDiscoveryMode.class,
+                            Arrays.asList(FileDiscoveryMode.ONCE, FileDiscoveryMode.CONTINUOUS))
+                    .defaultValue(FileDiscoveryMode.ONCE)
+                    .withDescription(
+                            "File discovery mode. Supported values: once (default), continuous. "
+                                    + "When set to continuous, the source keeps scanning the path and processes new/changed files at runtime.");
+
+    public static final Option<Duration> SCAN_INTERVAL =
+            Options.key("scan_interval")
+                    .durationType()
+                    .defaultValue(Duration.ofSeconds(10))
+                    .withDescription(
+                            "Scan interval for discovery_mode=continuous. Recommended shorthand format is 10S; ISO-8601 format PT10S is also supported. Default is 10S.");
+
+    public static final Option<FileStartMode> START_MODE =
+            Options.key("start_mode")
+                    .singleChoice(
+                            FileStartMode.class,
+                            Arrays.asList(FileStartMode.EARLIEST, FileStartMode.LATEST))
+                    .defaultValue(FileStartMode.EARLIEST)
+                    .withDescription(
+                            "Start mode for discovery_mode=continuous. Supported values: earliest (default), latest. "
+                                    + "earliest reads existing files on startup; latest only processes files modified after the job starts.");
 
     public static final Option<FileFormat> FILE_FORMAT_TYPE =
             Options.key("file_format_type")
@@ -80,11 +109,34 @@ public class FileBaseSourceOptions extends FileBaseOptions {
                     .noDefaultValue()
                     .withDescription("The columns list that the user want to read");
 
+    public static final Option<Boolean> MARKDOWN_RAG_METADATA_ENABLED =
+            Options.key("markdown_rag_metadata_enabled")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Whether to append RAG-oriented metadata columns when reading markdown files. "
+                                    + "Only valid when file_format_type is markdown.");
+
+    public static final Option<Boolean> PDF_RAG_METADATA_ENABLED =
+            Options.key("pdf_rag_metadata_enabled")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Whether to append RAG-oriented metadata columns when reading PDF files. "
+                                    + "Only valid when file_format_type is pdf.");
+
     public static final Option<ExcelEngine> EXCEL_ENGINE =
             Options.key("excel_engine")
                     .enumType(ExcelEngine.class)
                     .defaultValue(ExcelEngine.POI)
-                    .withDescription("To switch excel read engine,  e.g. POI , EasyExcel");
+                    .withDescription("To switch excel read engine, e.g. POI, EasyExcel");
+
+    public static final Option<Long> POI_EXCEL_MAX_FILE_SIZE =
+            Options.key("poi_excel_max_file_size")
+                    .longType()
+                    .defaultValue(DEFAULT_POI_EXCEL_MAX_FILE_SIZE)
+                    .withDescription(
+                            "Maximum Excel file size in bytes allowed by POI engine. Use EasyExcel for larger Excel files.");
 
     public static final Option<String> XML_ROW_TAG =
             Options.key("xml_row_tag")
@@ -175,6 +227,68 @@ public class FileBaseSourceOptions extends FileBaseOptions {
                     .withDescription(
                             "Compare mode when sync_mode=update. Supported values: len_mtime, checksum. "
                                     + "checksum uses Hadoop FileSystem#getFileChecksum, only valid when update_strategy=strict.");
+
+    public static final Option<Integer> UPDATE_COMPARE_PARALLELISM =
+            Options.key("update_compare_parallelism")
+                    .intType()
+                    .defaultValue(8)
+                    .withDescription(
+                            "Maximum parallelism for sparse target metadata lookups in sync_mode=update. "
+                                    + "The valid range is 1 to 64.");
+
+    public static final Option<Integer> UPDATE_COMPARE_BULK_THRESHOLD =
+            Options.key("update_compare_bulk_threshold")
+                    .intType()
+                    .defaultValue(0)
+                    .withDescription(
+                            "Number of candidates under one target parent directory that switches "
+                                    + "sync_mode=update comparison from point lookups to one directory listing. "
+                                    + "The default 0 disables automatic bulk listing for non-FTP/SFTP targets; "
+                                    + "positive values enable it.");
+
+    public static final Option<FilePostSyncAction> POST_SYNC_ACTION =
+            Options.key("post_sync_action")
+                    .singleChoice(
+                            FilePostSyncAction.class,
+                            Arrays.asList(
+                                    FilePostSyncAction.NONE,
+                                    FilePostSyncAction.DELETE,
+                                    FilePostSyncAction.BACKUP))
+                    .defaultValue(FilePostSyncAction.NONE)
+                    .withDescription(
+                            "Post-sync action after successful processing in discovery_mode=continuous. "
+                                    + "Supported values: none (default), delete, backup. "
+                                    + "The default none preserves existing behavior and performs no source-side file operation.");
+
+    public static final Option<String> BACKUP_PATH =
+            Options.key("backup_path")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Backup base path for post_sync_action=backup. "
+                                    + "Used as the destination path when moving processed source files. "
+                                    + "It must not overlap with path.");
+
+    public static final Option<Duration> RETENTION_MAX_AGE =
+            Options.key("retention_max_age")
+                    .durationType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Maximum age for SeaTunnel backup files in backup_path before cleanup. "
+                                    + "Only valid when post_sync_action=backup. "
+                                    + "Duration suffixes are case-insensitive: MS (milliseconds), S (seconds), M (minutes), H (hours), D (days). "
+                                    + "M always means minutes, never months. ISO-8601 durations like PT1H30M are also supported. "
+                                    + "Invalid values (e.g., PT7D, P1M) fail config validation with an error.");
+
+    public static final Option<Duration> RETENTION_CHECK_INTERVAL =
+            Options.key("retention_check_interval")
+                    .durationType()
+                    .defaultValue(Duration.ofHours(1))
+                    .withDescription(
+                            "Retention scan interval for backup cleanup. "
+                                    + "Only effective when post_sync_action=backup and retention_max_age is configured. "
+                                    + "Duration suffixes are case-insensitive: MS, S, M, H, D. "
+                                    + "M always means minutes, never months. Invalid values fail config validation.");
     public static final Option<String> QUOTE_CHAR =
             Options.key("quote_char")
                     .stringType()
@@ -188,4 +302,21 @@ public class FileBaseSourceOptions extends FileBaseOptions {
                     .noDefaultValue()
                     .withDescription(
                             "A single character that allows the quote or other special characters to appear inside a CSV field without ending the field.");
+
+    public static final Option<Boolean> RECURSIVE_FILE_SCAN =
+            Options.key("recursive_file_scan")
+                    .booleanType()
+                    .defaultValue(true)
+                    .withDescription(
+                            "Whether to recursively scan subdirectories. "
+                                    + "If false, subdirectories will be ignored.");
+
+    public static final Option<Boolean> SORT_FILES_BY_MOD_TIME =
+            Options.key("sort_files_by_modification_time")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Sort files by modification time in descending order. "
+                                    + "Enable this when reading evolving schemas to ensure schema inference uses the latest file. "
+                                    + "Disabled by default to avoid performance overhead for large file directories.");
 }
