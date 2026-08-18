@@ -108,11 +108,13 @@ public class CastFunctionTypeTest {
         Assertions.assertEquals(
                 BasicType.STRING_TYPE, castType(SqlType.BIGINT, CastFunction.STRING));
 
-        // BYTES / BINARY always map to PrimitiveByteArrayType
+        // BYTES / BINARY / VARBINARY always map to PrimitiveByteArrayType
         Assertions.assertEquals(
                 PrimitiveByteArrayType.INSTANCE, castType(SqlType.STRING, CastFunction.BYTES));
         Assertions.assertEquals(
                 PrimitiveByteArrayType.INSTANCE, castType(SqlType.INT, CastFunction.BINARY));
+        Assertions.assertEquals(
+                PrimitiveByteArrayType.INSTANCE, castType(SqlType.STRING, CastFunction.VARBINARY));
     }
 
     @Test

@@ -186,7 +186,6 @@ public class JsonToRowConverters implements Serializable {
                     }
                 };
             case BYTES:
-            case VARBINARY:
                 return new JsonToObjectConverter() {
                     @Override
                     public Object convert(JsonNode jsonNode, String fieldName) {
