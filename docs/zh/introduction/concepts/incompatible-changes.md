@@ -6,6 +6,12 @@
 
 ### JDBC Connector
 
+- **破坏性变更：JDBC XA restore 改为基于 recovery 顺序证据并对缺口 fail-closed**
+  - **影响范围**：`seatunnel-connectors-v2/connector-jdbc` sink 的 exactly-once XA 路径
+  - **变更说明**：SeaTunnel 现在会在单次 aggregated-commit 或 restore 调用内消耗完 `max_commit_attempts`。恢复时，只会从 XA recovery scan 中第一个仍然存在的 checkpoint XID 开始，严格回放其后的 prepared 事务后缀。位于该边界之前、且在 recovery scan 中缺失的 XID，只有在后缀严格提交成功之后才会被视为已经完成；如果 recovery scan 中一个 checkpoint XID 都不存在，或者在第一个 recovered checkpoint XID 之后又出现缺失 XID，restore 会直接 fail-closed，而不是仅凭 `XAER_NOTA` 这类“事务不存在”结果去推断已经提交成功。
+  - **影响**：以前依赖“XA 分支缺失即视为成功”的任务，在升级后可能会在恢复阶段收到明确的 XA restore 错误。另外，`max_commit_attempts` 现在会在一次 restore/commit 调用内耗尽，而不是分散到多次任务重启中。
+  - **迁移指南**：升级前请先检查资源管理器中是否还残留 prepared XA 事务，例如 MySQL 可使用 `XA RECOVER`，PostgreSQL 可检查 `pg_prepared_xacts`。如果升级后 restore 进入 fail-closed，请先确认缺失 XID 到底是已经提交、被回滚、超时过期，还是被外部清理，再决定后续恢复操作。
+
 - **破坏性变更：带时区的时间戳列映射为 `TIMESTAMP_TZ` 类型**
   - **影响范围**：`seatunnel-connectors-v2/connector-jdbc`、`seatunnel-connectors-v2/connector-iceberg`、`seatunnel-connectors-v2/connector-cdc-base`、`seatunnel-connectors-v2/connector-cdc-tidb`、`seatunnel-connectors-v2/connector-starrocks`、`seatunnel-connectors-v2/connector-hudi`、`seatunnel-connectors-v2/connector-snowflake`（通过 JDBC 方言）
   - **变更说明**：以前，JDBC Source 将无时区（如 MySQL `DATETIME`）和带时区（如 MySQL `TIMESTAMP`）的时间戳列都映射为 SeaTunnel 内部的 `TIMESTAMP` 类型。现在，带时区的列（如 MySQL `TIMESTAMP`、PostgreSQL `timestamptz`、Oracle `TIMESTAMP WITH LOCAL TIME ZONE`、SQL Server `datetimeoffset`、Snowflake `TIMESTAMP_LTZ/TZ` 等）被显式映射为 `TIMESTAMP_TZ`。这确保了在写入 Iceberg 等格式时，时区语义得到准确保留（在 Iceberg 中 `TIMESTAMP` 存为无时区的 `timestamp`，`TIMESTAMP_TZ` 存为带时区的 `timestamptz`）。
