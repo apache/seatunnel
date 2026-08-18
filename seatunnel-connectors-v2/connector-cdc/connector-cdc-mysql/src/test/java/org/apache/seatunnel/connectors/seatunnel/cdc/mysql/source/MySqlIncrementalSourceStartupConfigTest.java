@@ -63,6 +63,33 @@ public class MySqlIncrementalSourceStartupConfigTest {
     }
 
     @Test
+    public void testCreateStartupConfigAllowsSnapshotOnlyWithDefaultStopMode() {
+        StartupConfig startupConfig =
+                MySqlIncrementalSource.createStartupConfig(
+                        config(SourceOptions.STARTUP_MODE_KEY, "snapshot-only"));
+
+        Assertions.assertEquals(
+                org.apache.seatunnel.connectors.cdc.base.option.StartupMode.SNAPSHOT_ONLY,
+                startupConfig.getStartupMode());
+    }
+
+    @Test
+    public void testCreateStartupConfigRejectsSnapshotOnlyWithStopMode() {
+        IllegalArgumentException exception =
+                Assertions.assertThrows(
+                        IllegalArgumentException.class,
+                        () ->
+                                MySqlIncrementalSource.createStartupConfig(
+                                        config(
+                                                SourceOptions.STARTUP_MODE_KEY,
+                                                "snapshot-only",
+                                                SourceOptions.STOP_MODE_KEY,
+                                                "latest")));
+
+        Assertions.assertTrue(exception.getMessage().contains("snapshot-only"));
+    }
+
+    @Test
     public void testCreateStartupConfigWithGtidSetAndSkipFields() {
         StartupConfig startupConfig =
                 MySqlIncrementalSource.createStartupConfig(
