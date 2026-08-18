@@ -208,7 +208,8 @@ public class OracleCDCWithSchemaChangeIT extends AbstractOracleCDCIT implements 
             String sinkTableName,
             boolean oracle2Mysql)
             throws Exception {
-        await().atMost(300, TimeUnit.SECONDS)
+        await().ignoreExceptions()
+                .atMost(300, TimeUnit.SECONDS)
                 .untilAsserted(
                         () ->
                                 checkData(

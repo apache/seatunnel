@@ -168,7 +168,7 @@ public class EasysearchIT extends TestSuiteBase implements TestResource {
 
         // Verify the index was created with the correct schema
         String indexName = "st_index_save_mode";
-        awaitIndexDocsCount(indexName, testDataset.size());
+        awaitIndexDocsCount(indexName, mapTestDatasetForDSL().size());
         try {
             List<IndexDocsCount> indexDocsCounts = easysearchClient.getIndexDocsCount(indexName);
             Assertions.assertFalse(indexDocsCounts.isEmpty(), "Index should exist");
@@ -183,7 +183,7 @@ public class EasysearchIT extends TestSuiteBase implements TestResource {
     }
 
     private List<String> readSinkDataFromIndex(String indexName) throws InterruptedException {
-        awaitIndexDocsCount(indexName, testDataset.size());
+        awaitIndexDocsCount(indexName, mapTestDatasetForDSL().size());
         List<String> source =
                 Lists.newArrayList(
                         "c_map",
@@ -324,7 +324,7 @@ public class EasysearchIT extends TestSuiteBase implements TestResource {
     }
 
     private List<String> readSinkData() throws InterruptedException {
-        awaitIndexDocsCount("st_index2", testDataset.size());
+        awaitIndexDocsCount("st_index2", mapTestDatasetForDSL().size());
         List<String> source =
                 Lists.newArrayList(
                         "c_map",

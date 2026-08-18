@@ -908,8 +908,10 @@ public class MilvusIT extends TestSuiteBase implements TestResource {
         Awaitility.await()
                 .atMost(2, TimeUnit.MINUTES)
                 .pollInterval(2, TimeUnit.SECONDS)
-                .until(() -> countCollectionEntities(database, collection) >= 9);
-        Assertions.assertEquals(9, countCollectionEntities(database, collection));
+                .untilAsserted(
+                        () ->
+                                Assertions.assertEquals(
+                                        9, countCollectionEntities(database, collection)));
         Awaitility.await()
                 .atMost(5, TimeUnit.MINUTES)
                 .pollInterval(2, TimeUnit.SECONDS)

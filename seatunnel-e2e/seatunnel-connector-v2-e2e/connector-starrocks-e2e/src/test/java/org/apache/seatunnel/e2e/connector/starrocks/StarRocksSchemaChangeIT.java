@@ -276,7 +276,8 @@ public class StarRocksSchemaChangeIT extends TestSuiteBase implements TestResour
     }
 
     private void verifyDataConsistency(String tableName) {
-        await().atMost(2, TimeUnit.MINUTES)
+        await().ignoreExceptions()
+                .atMost(2, TimeUnit.MINUTES)
                 .pollInterval(1, TimeUnit.SECONDS)
                 .untilAsserted(
                         () ->
