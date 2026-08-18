@@ -927,6 +927,31 @@ public class MultiTableSinkWriterTest {
         Assertions.assertTrue(restored.getFailedTables().isEmpty());
     }
 
+    @Test
+    public void testHashRoutingWithIntegerMinValuePrimaryKey() throws IOException {
+        // Verifies that when primary key hashCode() returns Integer.MIN_VALUE,
+        // the hash-based routing does not produce a negative index.
+        // Math.abs(Integer.MIN_VALUE) overflows to a negative value,
+        // but (hashCode & Integer.MAX_VALUE) always yields a non-negative result.
+        int queueSize = 3; // non-power-of-two, triggers negative index with Math.abs
+        Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters = new HashMap<>();
+        Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
+        RecordingSinkWriter writer = new RecordingSinkWriter(false);
+        SinkIdentifier sinkIdentifier = SinkIdentifier.of(TablePath.DEFAULT.toString(), 0);
+        sinkWriters.put(sinkIdentifier, writer);
+        sinkWritersContext.put(sinkIdentifier, new TestSinkWriterContext());
+
+        MultiTableSinkWriter multiTableSinkWriter =
+                new MultiTableSinkWriter(sinkWriters, queueSize, sinkWritersContext);
+
+        // Integer.MIN_VALUE.hashCode() == Integer.MIN_VALUE
+        SeaTunnelRow row = buildRow(TablePath.DEFAULT.toString(), Integer.MIN_VALUE);
+
+        // Should not throw IndexOutOfBoundsException
+        Assertions.assertDoesNotThrow(() -> multiTableSinkWriter.write(row));
+        multiTableSinkWriter.close();
+    }
+
     private SeaTunnelRow buildRow(String tableId, int value) {
         SeaTunnelRow row = new SeaTunnelRow(new Object[] {value});
         row.setTableId(tableId);
