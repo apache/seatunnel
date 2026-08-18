@@ -9,7 +9,7 @@ You need to check this document before you upgrade to related version.
 
 - **Breaking Change: Minimum Java runtime raised from Java 8 to Java 11**
   - **Affected component**: every module — the whole distribution, the Zeta engine, all connectors, and the published Docker image
-  - **Description**: The build now targets Java 11 (`maven.compiler.source` and `maven.compiler.target` are `11`), so every published jar contains class file version 55. GitHub CI compiles and tests on JDK 17 against this Java 11 baseline, and the published Docker image moved from `seatunnelhub/openjdk:8u342` to `eclipse-temurin:11-jre`.
+  - **Description**: The build now targets Java 11 (`maven.compiler.source` and `maven.compiler.target` are `11`), so every published jar contains class file version 55. GitHub CI compiles and tests on JDK 17 against this Java 11 baseline, and the published Docker image moved from `seatunnelhub/openjdk:8u342` to `eclipse-temurin:11-jdk`, keeping a full JDK rather than a JRE so `jps`/`jstack`/`jmap` stay available for diagnosing a running node.
   - **Impact**:
     - A Java 8 JVM can no longer load SeaTunnel classes. Startup fails with `java.lang.UnsupportedClassVersionError: ... has been compiled by a more recent version of the Java Runtime (class file version 55.0)`. This applies to the client, to the Zeta master and worker nodes, and to any process that loads connector jars.
     - **Flink**: the JobManager and TaskManager JVMs load SeaTunnel connector classes, so the whole Flink cluster must run Java 11 or later, not just the submitting client. Flink supports Java 11 from 1.13 onward, and the official Flink images publish `-java11` tags.

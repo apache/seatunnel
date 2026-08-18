@@ -94,10 +94,17 @@ public final class EngineImageJdkUpgrader {
                         + JDK_INSTALL_PATH
                         + "\n"
                         // Fail the build loudly rather than silently keeping Java 8 if the source
-                        // image does not declare JAVA_HOME.
+                        // image does not declare JAVA_HOME. The trailing java -version check closes
+                        // a gap the JAVA_HOME test alone does not: some base images resolve the
+                        // bare
+                        // `java` on PATH through /usr/bin/java -> /etc/alternatives/java rather
+                        // than
+                        // through $JAVA_HOME/bin, so the symlink swap above can succeed while the
+                        // java a caller actually invokes is still the original Java 8 one.
                         + "RUN test -n \"$JAVA_HOME\" && rm -rf \"$JAVA_HOME\" && ln -s "
                         + JDK_INSTALL_PATH
-                        + " \"$JAVA_HOME\"\n";
+                        + " \"$JAVA_HOME\""
+                        + " && java -version 2>&1 | grep -q 'version \"11'\n";
         return new ImageFromDockerfile(derivedImageName(sourceImage), false)
                 .withFileFromString("Dockerfile", dockerfile)
                 .get();

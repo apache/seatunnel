@@ -8,7 +8,7 @@
 
 - **破坏性变更：最低 Java 运行时从 Java 8 提升到 Java 11**
   - **影响范围**：所有模块——整个发行包、Zeta 引擎、全部连接器，以及发布的 Docker 镜像
-  - **变更说明**：构建目标改为 Java 11（`maven.compiler.source` 与 `maven.compiler.target` 均为 `11`），因此发布的每个 jar 的 class 文件版本都是 55。GitHub CI 基于该 Java 11 基线在 JDK 17 上编译和测试，发布的 Docker 镜像也从 `seatunnelhub/openjdk:8u342` 改为 `eclipse-temurin:11-jre`。
+  - **变更说明**：构建目标改为 Java 11（`maven.compiler.source` 与 `maven.compiler.target` 均为 `11`），因此发布的每个 jar 的 class 文件版本都是 55。GitHub CI 基于该 Java 11 基线在 JDK 17 上编译和测试，发布的 Docker 镜像也从 `seatunnelhub/openjdk:8u342` 改为 `eclipse-temurin:11-jdk`——仍保留完整 JDK 而非 JRE，以便 `jps`/`jstack`/`jmap` 继续可用于诊断运行中的节点。
   - **影响**：
     - Java 8 JVM 无法再加载 SeaTunnel 的类，启动时会抛出 `java.lang.UnsupportedClassVersionError: ... has been compiled by a more recent version of the Java Runtime (class file version 55.0)`。客户端、Zeta master 与 worker 节点，以及任何会加载连接器 jar 的进程都受此影响。
     - **Flink**：JobManager 和 TaskManager 的 JVM 会加载 SeaTunnel 连接器类，因此整个 Flink 集群都必须运行 Java 11 及以上，而不只是提交作业的客户端。Flink 从 1.13 起支持 Java 11，官方 Flink 镜像提供 `-java11` 标签。
