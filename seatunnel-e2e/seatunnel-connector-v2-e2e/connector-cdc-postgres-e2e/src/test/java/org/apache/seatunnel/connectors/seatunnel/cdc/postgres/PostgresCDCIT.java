@@ -86,6 +86,8 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicReference;
@@ -455,6 +457,11 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
         CompletableFuture<Void> job = null;
         Connection snapshotGate = null;
         List<CompletableFuture<Void>> sourceChanges = Collections.emptyList();
+        // The blocking job future plus three gate-blocked DML futures need four workers at once.
+        // ForkJoinPool.commonPool() only has three workers on the 4-vCPU GitHub runners, so a
+        // dedicated pool is required or the third DML never starts and the lock-wait assertion
+        // below can never observe all three concurrent changes.
+        ExecutorService asyncTaskExecutor = Executors.newFixedThreadPool(4);
 
         try {
             clearTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_1);
@@ -482,7 +489,8 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                                 } catch (Exception e) {
                                     throw new RuntimeException("PostgreSQL CDC job failed", e);
                                 }
-                            });
+                            },
+                            asyncTaskExecutor);
 
             snapshotGate = waitForBackfillSlotAndLockSourceTable(slotName, SOURCE_TABLE_1);
             await().pollInterval(10, TimeUnit.MILLISECONDS)
@@ -502,7 +510,8 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                                                             + POSTGRESQL_SCHEMA
                                                             + "."
                                                             + SOURCE_TABLE_1
-                                                            + " (id, f_big, f_text) VALUES (20001, 20001, 'concurrent-insert')")),
+                                                            + " (id, f_big, f_text) VALUES (20001, 20001, 'concurrent-insert')"),
+                                    asyncTaskExecutor),
                             CompletableFuture.runAsync(
                                     () ->
                                             executeSql(
@@ -510,7 +519,8 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                                                             + POSTGRESQL_SCHEMA
                                                             + "."
                                                             + SOURCE_TABLE_1
-                                                            + " SET f_big = 500000, f_text = 'concurrent-update' WHERE id = 5000")),
+                                                            + " SET f_big = 500000, f_text = 'concurrent-update' WHERE id = 5000"),
+                                    asyncTaskExecutor),
                             CompletableFuture.runAsync(
                                     () ->
                                             executeSql(
@@ -518,7 +528,8 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                                                             + POSTGRESQL_SCHEMA
                                                             + "."
                                                             + SOURCE_TABLE_1
-                                                            + " WHERE id = 6000")));
+                                                            + " WHERE id = 6000"),
+                                    asyncTaskExecutor));
 
             await().pollInterval(10, TimeUnit.MILLISECONDS)
                     .atMost(30, TimeUnit.SECONDS)
@@ -581,6 +592,10 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                     }
                 }
             }
+            // Source-change futures were awaited above and the job was either awaited or
+            // cancelled, so interrupting any leftover job wait here cannot fail an assertion; it
+            // only prevents a hung container exec from leaking the pool thread.
+            asyncTaskExecutor.shutdownNow();
             clearTable(POSTGRESQL_SCHEMA, SOURCE_TABLE_1);
             clearTable(POSTGRESQL_SCHEMA, SINK_TABLE_1);
         }
