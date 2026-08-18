@@ -492,6 +492,8 @@ public class ClusterFaultToleranceTwoPipelineIT {
                                         JobStatus.RUNNING, clientJobProxy.getJobStatus());
                                 Assertions.assertTrue(lineNumberFromDir > 1);
                             });
+            FaultToleranceFakeSourceAssertions.awaitCompletedCheckpoint(
+                    engineClient, clientJobProxy.getJobId(), 2);
             // In the restore case, ensure that JabStatus is in the RUNNING state before calling
             // waitForJobComplete.
             CompletableFuture<JobStatus> objectCompletableFuture =

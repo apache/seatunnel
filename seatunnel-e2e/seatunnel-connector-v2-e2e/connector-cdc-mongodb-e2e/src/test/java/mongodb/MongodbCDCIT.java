@@ -176,6 +176,10 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
                     }
                     return null;
                 });
+        // Flink and Spark do not expose a portable job/source-ready signal here. Keep the startup
+        // window so the following writes are captured as incremental change-stream events instead
+        // of being folded into the initial snapshot.
+        TimeUnit.SECONDS.sleep(10);
         // insert update delete
         upsertDeleteSourceTable();
         assertionsSourceAndSink(MONGODB_COLLECTION_1, SINK_SQL_PRODUCTS);
@@ -198,6 +202,9 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
                     }
                     return null;
                 });
+        // Preserve the incremental-CDC phase across all supported engines; final data convergence
+        // alone cannot distinguish an initial snapshot from change-stream capture.
+        TimeUnit.SECONDS.sleep(20);
         // insert update delete
         upsertDeleteSourceTable();
         assertionsSourceAndSink(MONGODB_COLLECTION_1, SINK_SQL_PRODUCTS);
@@ -259,6 +266,9 @@ public class MongodbCDCIT extends TestSuiteBase implements TestResource {
                             return null;
                         });
 
+        // Neither cross-engine submission exposes a portable source-ready signal. Wait until both
+        // CDC readers have had the same startup window as the original test before publishing DML.
+        TimeUnit.SECONDS.sleep(20);
         assertTaskNotCompletedExceptionally(task1, "products");
         assertTaskNotCompletedExceptionally(task2, "orders");
 

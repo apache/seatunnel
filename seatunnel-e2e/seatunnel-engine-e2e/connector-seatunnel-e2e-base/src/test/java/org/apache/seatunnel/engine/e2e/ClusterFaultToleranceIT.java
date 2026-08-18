@@ -453,6 +453,8 @@ public class ClusterFaultToleranceIT {
                                         JobStatus.RUNNING, clientJobProxy.getJobStatus());
                                 Assertions.assertTrue(lineNumberFromDir > 1);
                             });
+            FaultToleranceFakeSourceAssertions.awaitCompletedCheckpoint(
+                    engineClient, clientJobProxy.getJobId());
             // In the restore case, ensure that JabStatus is in the RUNNING state before calling
             // waitForJobComplete.
             CompletableFuture<JobStatus> waitForCompletableFuture =
@@ -846,6 +848,7 @@ public class ClusterFaultToleranceIT {
                                 Assertions.assertTrue(lineNumberFromDir > 1);
                             });
 
+            FaultToleranceFakeSourceAssertions.awaitCompletedCheckpoint(engineClient, jobId);
             // shutdown all node
             node1.shutdown();
             node2.shutdown();
@@ -1066,6 +1069,7 @@ public class ClusterFaultToleranceIT {
                                 Assertions.assertTrue(lineNumberFromDir > 1);
                             });
 
+            FaultToleranceFakeSourceAssertions.awaitCompletedCheckpoint(engineClient, jobId);
             // shutdown all node
             node1.shutdown();
             node2.shutdown();

@@ -511,6 +511,8 @@ public class SplitClusterFaultToleranceIT {
                                         JobStatus.RUNNING.equals(clientJobProxy.getJobStatus())
                                                 && fileLineNumberFromDir > 1);
                             });
+            FaultToleranceFakeSourceAssertions.awaitCompletedCheckpoint(
+                    engineClient, clientJobProxy.getJobId());
             CompletableFuture<JobStatus> objectCompletableFuture =
                     CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
 
@@ -962,6 +964,7 @@ public class SplitClusterFaultToleranceIT {
                                 Assertions.assertTrue(fileLineNumberFromDir > 1);
                             });
 
+            FaultToleranceFakeSourceAssertions.awaitCompletedCheckpoint(engineClient, jobId);
             // shutdown all node
             workerNode1.shutdown();
             workerNode2.shutdown();

@@ -18,7 +18,10 @@
 package org.apache.seatunnel.engine.e2e;
 
 import org.apache.seatunnel.common.utils.FileUtils;
+import org.apache.seatunnel.engine.client.SeaTunnelClient;
+import org.apache.seatunnel.engine.core.checkpoint.CheckpointOverview;
 
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.Assertions;
 
 import java.util.concurrent.TimeUnit;
@@ -39,6 +42,31 @@ final class FaultToleranceFakeSourceAssertions {
     private static final long DEFAULT_STABLE_WINDOW_MILLIS = 10_000L;
 
     private FaultToleranceFakeSourceAssertions() {}
+
+    /** Waits for a durable recovery point before a test deliberately terminates cluster nodes. */
+    static void awaitCompletedCheckpoint(SeaTunnelClient engineClient, long jobId) {
+        awaitCompletedCheckpoint(engineClient, jobId, 1);
+    }
+
+    /** Waits until every expected pipeline has completed at least one durable checkpoint. */
+    static void awaitCompletedCheckpoint(
+            SeaTunnelClient engineClient, long jobId, int expectedPipelineCount) {
+        Awaitility.await()
+                .atMost(2, TimeUnit.MINUTES)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .ignoreExceptions()
+                .until(
+                        () -> {
+                            CheckpointOverview overview =
+                                    engineClient.createJobClient().getCheckpointOverview(jobId);
+                            return overview.getPipelines().size() >= expectedPipelineCount
+                                    && overview.getPipelines().values().stream()
+                                            .allMatch(
+                                                    pipeline ->
+                                                            pipeline.getCounts().getCompleted()
+                                                                    > 0L);
+                        });
+    }
 
     /**
      * Waits until restore output reaches the expected logical size and stops growing.

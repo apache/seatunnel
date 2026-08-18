@@ -216,6 +216,10 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
 
         // send data to source queue before executeJob start in every testContainer
         initSourceData(sourceClient);
+        Assertions.assertTrue(
+                sourceClient.getChannel().queueDeclarePassive(sourceQueueName).getMessageCount()
+                        >= TEST_DATASET.getValue().size(),
+                "Source messages must be visible to the broker before the job starts");
 
         // init consumer client before executeJob start in every testContainer
         RabbitmqClient sinkRabbitmqClient = getRabbitmqClient(sinkQueueName);
@@ -382,6 +386,10 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
                                 com.rabbitmq.client.MessageProperties.PERSISTENT_TEXT_PLAIN,
                                 message);
             }
+            Assertions.assertTrue(
+                    rabbitmqClient.getChannel().queueDeclarePassive(queueName).getMessageCount()
+                            >= count,
+                    "Published messages must be visible before starting the multi-table job");
             log.info("Successfully sent {} messages to queue {}", count, queueName);
         } finally {
             // Always close the client to prevent connection leaks

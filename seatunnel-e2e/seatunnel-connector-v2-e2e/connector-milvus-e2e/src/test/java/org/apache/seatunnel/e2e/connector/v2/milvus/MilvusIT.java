@@ -906,14 +906,14 @@ public class MilvusIT extends TestSuiteBase implements TestResource {
         // count write records
         waitCollectionReady(database, collection, vectorField);
         Awaitility.await()
-                .atMost(2, TimeUnit.MINUTES)
+                .atMost(60, TimeUnit.SECONDS)
                 .pollInterval(2, TimeUnit.SECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertEquals(
                                         9, countCollectionEntities(database, collection)));
         Awaitility.await()
-                .atMost(5, TimeUnit.MINUTES)
+                .atMost(2, TimeUnit.MINUTES)
                 .pollInterval(2, TimeUnit.SECONDS)
                 .untilAsserted(
                         () ->

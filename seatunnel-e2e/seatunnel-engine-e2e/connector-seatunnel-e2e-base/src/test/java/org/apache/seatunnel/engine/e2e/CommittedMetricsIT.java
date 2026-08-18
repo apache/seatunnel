@@ -105,22 +105,14 @@ public class CommittedMetricsIT {
 
         log.info("Job is running, job id: {}", streamJobProxy.getJobId());
 
+        // This assertion intentionally samples the transient interval after writes begin but before
+        // the first 10-second checkpoint. A condition that waits for both values can miss that
+        // interval once the first checkpoint has committed, so preserve the original sampling
+        // window and use adaptive waits only for the later completed-checkpoint states.
+        Thread.sleep(5000);
+        Response responseBeforeCheckpoint = getJobInfo();
+
         AtomicReference<Response> responseReference = new AtomicReference<>();
-        Awaitility.await()
-                .atMost(30, TimeUnit.SECONDS)
-                .pollInterval(500, TimeUnit.MILLISECONDS)
-                .untilAsserted(
-                        () -> {
-                            Response response = getJobInfo();
-                            String writeCount = response.path("metrics.SinkWriteCount");
-                            String committedCount = response.path("metrics.SinkCommittedCount");
-                            Assertions.assertNotNull(writeCount);
-                            Assertions.assertTrue(Long.parseLong(writeCount) > 0);
-                            Assertions.assertTrue(
-                                    committedCount == null || Long.parseLong(committedCount) == 0);
-                            responseReference.set(response);
-                        });
-        Response responseBeforeCheckpoint = responseReference.get();
 
         log.info("Metrics before checkpoint: {}", responseBeforeCheckpoint.prettyPrint());
 
