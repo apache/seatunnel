@@ -73,13 +73,18 @@ public class PostgresWalFetchTask implements FetchTask<SourceSplitBase> {
                 split.getStartupOffset().toString());
         streamingChangeEventSource.execute(
                 changeEventSourceContext, sourceFetchContext.getPartition(), offsetContext);
+
+        Throwable producerThrowable = sourceFetchContext.getErrorHandler().getProducerThrowable();
+        if (producerThrowable != null) {
+            throw new RuntimeException("Postgres WAL streaming failed", producerThrowable);
+        }
     }
 
     public void commitCurrentOffset(LsnOffset offset) {
         if (streamingChangeEventSource != null && offset != null) {
 
             // only extracting and storing the lsn of the last commit
-            Long commitLsn = offset.getLsn().asLong();
+            Long commitLsn = offset.getLsnCommit().asLong();
             if (commitLsn != null
                     && (lastCommitLsn == null
                             || Lsn.valueOf(commitLsn).compareTo(Lsn.valueOf(lastCommitLsn)) > 0)) {

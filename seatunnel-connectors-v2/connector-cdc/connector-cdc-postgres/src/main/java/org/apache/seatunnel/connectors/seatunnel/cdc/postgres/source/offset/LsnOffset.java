@@ -84,6 +84,16 @@ public class LsnOffset extends Offset {
         return Lsn.valueOf(Long.valueOf(offset.get(SourceInfo.LSN_KEY)));
     }
 
+    public Lsn getLsnCommit() {
+        String lsnCommitStr =
+                offset.get(
+                        io.debezium.connector.postgresql.PostgresOffsetContext.LAST_COMMIT_LSN_KEY);
+        if (lsnCommitStr != null) {
+            return Lsn.valueOf(Long.valueOf(lsnCommitStr));
+        }
+        return getLsn();
+    }
+
     public Long getTxId() {
         return Long.parseLong(offset.get(SourceInfo.TXID_KEY));
     }
