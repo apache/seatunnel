@@ -141,12 +141,12 @@ If write to `csv`, `text` file type, All column will be string.
 | parquet_avro_write_timestamp_as_int96 | boolean | no       | false                                                 | Only used when file_format is parquet.                                                                                                                                          |
 | parquet_avro_write_fixed_as_int96     | array   | no       | -                                                     | Only used when file_format is parquet.                                                                                                                                          |
 | hadoop_s3_properties                  | map     | no       |                                                       | If you need to add a other option, you could add it here and refer to this [link](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html)                 |
+| schema_evolution_enabled              | boolean | no       | false                                                 | Enable schema evolution support for CDC pipelines. When true, ADD/DROP/RENAME/MODIFY column events from the source are applied to the sink without a job restart. Not supported for binary format. |
 | schema_save_mode                      | Enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST                          | Before turning on the synchronous task, do different treatment of the target path                                                                                               |
 | data_save_mode                        | Enum    | no       | APPEND_DATA                                           | Before opening the synchronous task, the data file in the target path is differently processed                                                                                  |
 | enable_header_write                   | boolean | no       | false                                                 | Only used when file_format_type is text,csv.<br/> false:don't write header,true:write header.                                                                                   |
 | encoding                              | string  | no       | "UTF-8"                                               | Only used when file_format_type is json,text,csv,xml.                                                                                                                           |
 | merge_update_event                    | boolean | no       | false                                                 | Only used when file_format_type is canal_json,debezium_json or maxwell_json. When value is true, the UPDATE_AFTER and UPDATE_BEFORE event will be merged into UPDATE event data |
-| schema_evolution_enabled              | boolean | no       | false                                      | Enable schema evolution support for CDC pipelines. When true, ADD/DROP/RENAME/MODIFY column events from the source are applied to the sink without a job restart. Not supported for binary format. |
 
 ### path [string]
 
@@ -530,7 +530,6 @@ sink {
 
 Only used when file_format_type is text,csv.false:don't write header,true:write header.
 
-
 ### schema_evolution_enabled [boolean]
 
 When set to `true`, the file sink handles CDC schema change events (ADD COLUMN, DROP COLUMN, RENAME COLUMN, MODIFY COLUMN type) at runtime without requiring a job restart. On each schema change the current output file is closed and a new file is opened with the updated schema.
@@ -549,15 +548,41 @@ Users on the default CDC source config (`schema-changes.enabled = false`) are co
 Example usage in a CDC pipeline:
 
 ```hocon
-LocalFile {
-    path = "/tmp/cdc/${table_name}"
+S3File {
+    path = "/test/cdc/${table_name}"
+    fs.s3a.endpoint = "s3.cn-north-1.amazonaws.com.cn"
+    access_key = "xxxxxxxxxxxxxxxxx"
+    secret_key = "xxxxxxxxxxxxxxxxx"
     file_format_type = "parquet"
     schema_evolution_enabled = true
-    have_partition = true
-    partition_by = ["updated_at_month"]
 }
 ```
 
+For production jobs, avoid hardcoding long-lived keys in job files. Prefer an IAM-based provider such as `fs.s3a.aws.credentials.provider = com.amazonaws.auth.InstanceProfileCredentialsProvider`, or inject `access_key` and `secret_key` with SeaTunnel variable substitution.
+
+### Writing with STS AssumeRole (cross-account writes)
+
+For sinks that must write to a bucket owned by a different AWS account, assume an IAM role and pass the temporary session credentials through `hadoop_s3_properties`. The temporary credentials are issued by `sts:AssumeRole` and used via `TemporaryAWSCredentialsProvider`.
+
+```hocon
+sink {
+  S3File {
+    path = "/cross-account/prefix"
+    bucket = "s3a://target-bucket"
+    fs.s3a.endpoint = "s3.cn-north-1.amazonaws.com.cn"
+    fs.s3a.aws.credentials.provider = "org.apache.hadoop.fs.s3a.TemporaryAWSCredentialsProvider"
+    hadoop_s3_properties = {
+      "fs.s3a.access.key"    = "<assumed-role-access-key>"
+      "fs.s3a.secret.key"    = "<assumed-role-secret-key>"
+      "fs.s3a.session.token" = "<assumed-role-session-token>"
+    }
+    file_format_type = "parquet"
+    schema_evolution_enabled = true
+  }
+}
+```
+
+For AWS SSO/Profile-based roles, swap the provider class (for example `com.amazonaws.auth.profile.ProfileCredentialsProvider` with `fs.s3a.profile` and `fs.s3a.credentialsFile`) and pass the provider-specific keys under `hadoop_s3_properties`. See the [Hadoop AWS](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html) documentation for the full set of supported `fs.s3a.*` keys.
 
 ## Changelog
 

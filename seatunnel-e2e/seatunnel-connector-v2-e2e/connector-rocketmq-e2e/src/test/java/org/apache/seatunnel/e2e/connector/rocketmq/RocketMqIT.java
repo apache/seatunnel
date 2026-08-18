@@ -91,8 +91,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 
-import static org.apache.seatunnel.e2e.connector.rocketmq.RocketMqContainer.NAMESRV_PORT;
-
 @Slf4j
 public class RocketMqIT extends TestSuiteBase implements TestResource {
 
@@ -151,8 +149,6 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
                         .waitingFor(
                                 new HostPortWaitStrategy()
                                         .withStartupTimeout(Duration.ofMinutes(2)));
-        rocketMqContainer.setPortBindings(
-                Lists.newArrayList(String.format("%s:%s", NAMESRV_PORT, NAMESRV_PORT)));
         rocketMqContainer.start();
         log.info("RocketMq container started");
         initProducer();

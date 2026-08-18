@@ -201,8 +201,6 @@ public class JdbcDb2IT extends AbstractJdbcIT {
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(DB2_IMAGE)))
                         .acceptLicense();
-        container.setPortBindings(Lists.newArrayList(String.format("%s:%s", LOCAL_PORT, PORT)));
-
         return container;
     }
 

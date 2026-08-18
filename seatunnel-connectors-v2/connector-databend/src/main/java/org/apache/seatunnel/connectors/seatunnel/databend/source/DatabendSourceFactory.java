@@ -39,6 +39,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.Collections;
 
+import static org.apache.seatunnel.api.configuration.util.Conditions.startsWith;
 import static org.apache.seatunnel.connectors.seatunnel.databend.config.DatabendOptions.DATABASE;
 
 /** Databend source factory that creates Databend source connector. */
@@ -53,7 +54,8 @@ public class DatabendSourceFactory implements TableSourceFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(DatabendOptions.URL, DatabendOptions.USERNAME, DatabendOptions.PASSWORD)
+                .required(DatabendOptions.URL, startsWith(DatabendOptions.URL, "jdbc:databend://"))
+                .required(DatabendOptions.USERNAME, DatabendOptions.PASSWORD)
                 .optional(
                         DATABASE,
                         DatabendOptions.TABLE,
@@ -74,12 +76,6 @@ public class DatabendSourceFactory implements TableSourceFactory {
     public TableSource createSource(TableSourceFactoryContext context) {
         return () -> {
             ReadonlyConfig options = context.getOptions();
-
-            if (!options.get(DatabendOptions.URL).startsWith("jdbc:databend://")) {
-                throw new DatabendConnectorException(
-                        DatabendConnectorErrorCode.CONNECT_FAILED,
-                        "Databend URL should start with 'jdbc:databend://'");
-            }
 
             String url = options.get(DatabendOptions.URL);
             Boolean ssl = options.get(DatabendOptions.SSL);

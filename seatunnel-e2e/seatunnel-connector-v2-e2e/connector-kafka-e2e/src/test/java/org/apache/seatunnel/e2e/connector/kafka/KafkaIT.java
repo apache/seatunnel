@@ -1998,10 +1998,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         final String jobId = Long.toUnsignedString(System.nanoTime());
         long sinkStartOffset = endOffsetOnP0(consumerTopic);
         for (int i = 0; i < 10; i++) {
-            ProducerRecord<byte[], byte[]> record =
-                    new ProducerRecord<>(producerTopic, null, sourceData.getBytes());
-            producer.send(record);
-            producer.flush();
+            sendTextRecordAndWait(producerTopic, sourceData);
         }
         // async execute
         CompletableFuture.supplyAsync(
@@ -2033,10 +2030,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         long restoreStartOffset = endOffsetOnP0(consumerTopic);
 
         for (int i = 0; i < 10; i++) {
-            ProducerRecord<byte[], byte[]> record =
-                    new ProducerRecord<>(producerTopic, null, sourceDataRestore.getBytes());
-            producer.send(record);
-            producer.flush();
+            sendTextRecordAndWait(producerTopic, sourceDataRestore);
         }
 
         CompletableFuture.runAsync(
@@ -2064,6 +2058,15 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                                                 sourceDataRestore)));
     }
 
+    /**
+     * Regression guard for issue #11534: under EXACTLY_ONCE semantics a checkpoint could capture
+     * the transaction state before the first record's asynchronous send had registered its
+     * partitions with the broker, causing the committer to skip EndTxn and drop that record
+     * permanently. The checkData assertion below fails on both a lost record (matched &lt; 10) and
+     * a duplicate (matched &gt; 10), so it exercises the exactly-once guarantee in both directions
+     * once the send is flushed before the transaction state is captured in
+     * KafkaTransactionSender#prepareCommit.
+     */
     @TestTemplate
     @DisabledOnContainer(
             type = EngineType.SPARK,
@@ -2121,10 +2124,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         String sourceData = "Seatunnel Exactly Once Example";
         long sinkStartOffset = endOffsetOnP0(consumerTopic);
         for (int i = 0; i < 10; i++) {
-            ProducerRecord<byte[], byte[]> record =
-                    new ProducerRecord<>(producerTopic, null, sourceData.getBytes());
-            producer.send(record);
-            producer.flush();
+            sendTextRecordAndWait(producerTopic, sourceData);
         }
         Long endOffset;
         KafkaConsumer<String, String> consumer = null;

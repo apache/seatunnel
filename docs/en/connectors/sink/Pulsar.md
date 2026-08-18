@@ -213,6 +213,56 @@ sink {
 }
 ```
 
+### Write Text Messages With a Custom Delimiter
+
+Set `format = text` and configure `field_delimiter` to serialize each row into a delimited text payload. Useful when the downstream consumer expects a simple flat format.
+
+```hocon
+sink {
+  Pulsar {
+    topic = "text_events"
+    client.service-url = "pulsar://localhost:6650"
+    admin.service-url = "http://localhost:8080"
+    format = text
+    field_delimiter = "|"
+  }
+}
+```
+
+### Write Avro Messages
+
+Set `format = avro`. The connector derives the Avro schema from the upstream row type, so no sink-side `schema` option is required.
+
+```hocon
+sink {
+  Pulsar {
+    topic = "test_avro_topic_fake_source"
+    client.service-url = "pulsar://localhost:6650"
+    admin.service-url = "http://localhost:8080"
+    format = avro
+  }
+}
+```
+
+### Write With Pulsar Producer Properties
+
+Pass extra producer properties via `pulsar.config`. This is forwarded to the Pulsar producer client and can be used for tuning (timeouts, batching, compression, etc.).
+
+```hocon
+sink {
+  Pulsar {
+    topic = "topic_test"
+    client.service-url = "pulsar://localhost:6650"
+    admin.service-url = "http://localhost:8080"
+    format = json
+    pulsar.config = {
+      sendTimeoutMs = 30000
+      batchingMaxMessages = 1000
+    }
+  }
+}
+```
+
 ## Changelog
 
 <ChangeLog />
