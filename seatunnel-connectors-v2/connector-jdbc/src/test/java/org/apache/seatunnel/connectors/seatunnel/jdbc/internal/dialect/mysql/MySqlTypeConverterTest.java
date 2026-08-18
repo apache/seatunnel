@@ -1141,11 +1141,7 @@ public class MySqlTypeConverterTest {
     @Test
     public void testConvertYear() {
         BasicTypeDefine<Object> typeDefine =
-                BasicTypeDefine.builder()
-                        .name("test")
-                        .columnType("year")
-                        .dataType("year")
-                        .build();
+                BasicTypeDefine.builder().name("test").columnType("year").dataType("year").build();
         Column column = MySqlTypeConverter.DEFAULT_INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.INT_TYPE, column.getDataType());
@@ -1166,11 +1162,7 @@ public class MySqlTypeConverterTest {
     @Test
     public void testConvertCharWithNullLength() {
         BasicTypeDefine<Object> typeDefine =
-                BasicTypeDefine.builder()
-                        .name("test")
-                        .columnType("char")
-                        .dataType("char")
-                        .build();
+                BasicTypeDefine.builder().name("test").columnType("char").dataType("char").build();
         Column column = MySqlTypeConverter.DEFAULT_INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
@@ -1252,11 +1244,7 @@ public class MySqlTypeConverterTest {
         // BIT with null length and intTypeNarrowing=false
         MySqlTypeConverter converter = new MySqlTypeConverter(MySqlVersion.V_8, false);
         BasicTypeDefine<Object> typeDefine =
-                BasicTypeDefine.builder()
-                        .name("test")
-                        .columnType("bit")
-                        .dataType("bit")
-                        .build();
+                BasicTypeDefine.builder().name("test").columnType("bit").dataType("bit").build();
         Column column = converter.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(PrimitiveByteArrayType.INSTANCE, column.getDataType());
@@ -1323,10 +1311,7 @@ public class MySqlTypeConverterTest {
     public void testReconvertDecimalEdgeCases() {
         // Precision > MAX_PRECISION (65) should be capped
         Column column =
-                PhysicalColumn.builder()
-                        .name("test")
-                        .dataType(new DecimalType(70, 15))
-                        .build();
+                PhysicalColumn.builder().name("test").dataType(new DecimalType(70, 15)).build();
         BasicTypeDefine<MysqlType> typeDefine =
                 MySqlTypeConverter.DEFAULT_INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
@@ -1337,11 +1322,7 @@ public class MySqlTypeConverterTest {
         Assertions.assertEquals(MySqlTypeConverter.MYSQL_DECIMAL, typeDefine.getDataType());
 
         // Scale > MAX_SCALE (30) should be capped
-        column =
-                PhysicalColumn.builder()
-                        .name("test")
-                        .dataType(new DecimalType(10, 35))
-                        .build();
+        column = PhysicalColumn.builder().name("test").dataType(new DecimalType(10, 35)).build();
         typeDefine = MySqlTypeConverter.DEFAULT_INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(MysqlType.DECIMAL, typeDefine.getNativeType());
