@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.master;
 
 import org.apache.seatunnel.api.options.EnvCommonOptions;
+import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
@@ -62,6 +63,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -375,6 +377,34 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
     }
 
     @Test
+    void testSavepointFailureExceptionPrefersNonPreconditionFailure() {
+        long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+        JobMaster jobMaster =
+                newJobMaster(
+                        jobId,
+                        "stream_fakesource_to_file.conf",
+                        "test_savepoint_mixed_failure_exception",
+                        false);
+
+        Object savepointCompletionResult =
+                waitSavepointCompleted(
+                        jobMaster,
+                        savepointFutures(
+                                failedSavepointFuture(
+                                        CheckpointCloseReason.TASK_NOT_ALL_READY_WHEN_SAVEPOINT),
+                                failedSavepointFuture(CheckpointCloseReason.CHECKPOINT_EXPIRED)));
+
+        Optional<Exception> failureException =
+                getSavepointFailureException(jobMaster, savepointCompletionResult);
+        Assertions.assertTrue(failureException.isPresent());
+        Throwable rootException = ExceptionUtils.getRootException(failureException.get());
+        Assertions.assertInstanceOf(CheckpointException.class, rootException);
+        Assertions.assertEquals(
+                CheckpointCloseReason.CHECKPOINT_EXPIRED,
+                ((CheckpointException) rootException).getCheckpointFailureReason());
+    }
+
+    @Test
     void testSavepointPreconditionClassificationAcceptsAllPreStartFailures() {
         long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
         JobMaster jobMaster =
@@ -569,6 +599,13 @@ public class JobMasterTest extends AbstractSeaTunnelServerTest {
                         jobMaster,
                         "isSavepointStartPreconditionFailure",
                         savepointCompletionResult);
+    }
+
+    private Optional<Exception> getSavepointFailureException(
+            JobMaster jobMaster, Object savepointCompletionResult) {
+        return (Optional<Exception>)
+                ReflectionUtils.invoke(
+                        jobMaster, "getSavepointFailureException", savepointCompletionResult);
     }
 
     @SafeVarargs

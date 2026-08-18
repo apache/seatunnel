@@ -1299,9 +1299,10 @@ public class JobMaster {
                         savepointCompletionResult =
                                 waitSavepointCompleted(passiveCompletableFutures);
                         savepointCompleted = savepointCompletionResult.isCompleted();
-                        if (savepointCompletionResult.getFirstException().isPresent()) {
-                            throw new SeaTunnelEngineException(
-                                    savepointCompletionResult.getFirstException().get());
+                        Optional<Exception> failureException =
+                                getSavepointFailureException(savepointCompletionResult);
+                        if (failureException.isPresent()) {
+                            throw new SeaTunnelEngineException(failureException.get());
                         }
                         return savepointCompleted;
                     } finally {
@@ -1323,6 +1324,17 @@ public class JobMaster {
                         }
                     }
                 });
+    }
+
+    private Optional<Exception> getSavepointFailureException(
+            SavepointCompletionResult savepointCompletionResult) {
+        Optional<Exception> nonPreconditionFailure =
+                savepointCompletionResult.getExceptions().stream()
+                        .filter(exception -> !isSavepointStartPreconditionException(exception))
+                        .findFirst();
+        return nonPreconditionFailure.isPresent()
+                ? nonPreconditionFailure
+                : savepointCompletionResult.getFirstException();
     }
 
     private void restoreRunningAfterSavepointStartFailure() {
@@ -1398,6 +1410,10 @@ public class JobMaster {
                 .allMatch(this::isSavepointStartPreconditionException);
     }
 
+    /**
+     * Returns true for checkpoint coordinator failures that happen before a savepoint checkpoint is
+     * created.
+     */
     private boolean isSavepointStartPreconditionException(Exception exception) {
         Throwable rootException = ExceptionUtils.getRootException(exception);
         if (!(rootException instanceof CheckpointException)) {
