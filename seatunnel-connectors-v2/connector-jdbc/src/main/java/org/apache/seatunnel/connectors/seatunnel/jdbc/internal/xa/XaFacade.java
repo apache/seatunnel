@@ -102,7 +102,7 @@ public interface XaFacade extends JdbcConnectionProvider, Serializable, AutoClos
      * XA_RETRY}, {@link XAException#XAER_RMFAIL XAER_RMFAIL}).
      */
     class TransientXaException extends RuntimeException {
-        TransientXaException(XAException cause) {
+        public TransientXaException(XAException cause) {
             super(cause);
         }
     }
