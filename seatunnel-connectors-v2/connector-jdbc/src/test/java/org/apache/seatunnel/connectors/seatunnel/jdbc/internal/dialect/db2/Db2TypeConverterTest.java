@@ -370,6 +370,54 @@ public class Db2TypeConverterTest {
     }
 
     @Test
+    public void testConvertInt() {
+        BasicTypeDefine<Object> typeDefine =
+                BasicTypeDefine.builder()
+                        .name("test")
+                        .columnType("INT")
+                        .dataType("INT")
+                        .build();
+        Column column = DB2TypeConverter.INSTANCE.convert(typeDefine);
+        Assertions.assertEquals(typeDefine.getName(), column.getName());
+        Assertions.assertEquals(BasicType.INT_TYPE, column.getDataType());
+        Assertions.assertEquals(DB2TypeConverter.DB2_INT, column.getSourceType());
+    }
+
+    @Test
+    public void testConvertChar() {
+        BasicTypeDefine<Object> typeDefine =
+                BasicTypeDefine.builder()
+                        .name("test")
+                        .columnType("CHAR")
+                        .dataType("CHAR")
+                        .length(10L)
+                        .build();
+        Column column = DB2TypeConverter.INSTANCE.convert(typeDefine);
+        Assertions.assertEquals(typeDefine.getName(), column.getName());
+        Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
+        Assertions.assertEquals(typeDefine.getLength(), column.getColumnLength());
+        Assertions.assertEquals("CHAR(10)", column.getSourceType());
+    }
+
+    @Test
+    public void testConvertTimestampDefaultScale() {
+        BasicTypeDefine<Object> typeDefine =
+                BasicTypeDefine.builder()
+                        .name("test")
+                        .columnType("TIMESTAMP")
+                        .dataType("TIMESTAMP")
+                        .scale(0)
+                        .build();
+        Column column = DB2TypeConverter.INSTANCE.convert(typeDefine);
+        Assertions.assertEquals(typeDefine.getName(), column.getName());
+        Assertions.assertEquals(LocalTimeType.LOCAL_DATE_TIME_TYPE, column.getDataType());
+        Assertions.assertEquals(0, column.getScale());
+        Assertions.assertEquals(
+                String.format("%s(%s)", DB2TypeConverter.DB2_TIMESTAMP, 0),
+                column.getSourceType());
+    }
+
+    @Test
     public void testReconvertUnsupported() {
         Column column =
                 PhysicalColumn.of(
