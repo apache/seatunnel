@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.e2e.connector.bigquery;
 
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
-
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 
@@ -51,8 +49,7 @@ public abstract class AbstractBigqueryIT extends TestSuiteBase implements TestRe
     public static final String TABLE_NAME = "test_table";
     public static final String PROJECT_NAME = "test-project";
     public static final int HOST_PORT = 9050;
-    public static final int LOCAL_PORT = 9050;
-
+    private static final String EMULATOR_HOST = "bigquery-emulator";
     protected BigQueryEmulatorContainer container;
     protected BigQuery bigquery;
     protected TableId tableId;
@@ -60,9 +57,11 @@ public abstract class AbstractBigqueryIT extends TestSuiteBase implements TestRe
     @BeforeAll
     @Override
     public void startUp() {
-        container = new BigQueryEmulatorContainer(DOCKER_IMAGE).withExposedPorts(HOST_PORT);
-        container.setPortBindings(
-                Lists.newArrayList(String.format("%s:%s", LOCAL_PORT, HOST_PORT)));
+        container =
+                new BigQueryEmulatorContainer(DOCKER_IMAGE)
+                        .withNetwork(NETWORK)
+                        .withNetworkAliases(EMULATOR_HOST)
+                        .withExposedPorts(HOST_PORT);
 
         Startables.deepStart(Stream.of(container)).join();
         log.info("BigQuery emulator container started");
@@ -72,7 +71,9 @@ public abstract class AbstractBigqueryIT extends TestSuiteBase implements TestRe
     }
 
     private void initialize() {
-        String endpoint = "http://localhost:" + LOCAL_PORT;
+        String endpoint =
+                String.format(
+                        "http://%s:%s", container.getHost(), container.getMappedPort(HOST_PORT));
         this.bigquery =
                 BigQueryOptions.newBuilder()
                         .setHost(endpoint)

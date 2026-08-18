@@ -35,4 +35,10 @@ class LsnOffsetTest {
         Lsn commitLsn = initial.getCommitLsn();
         Assertions.assertFalse(commitLsn.isAvailable());
     }
+
+    @Test
+    void testNoStoppingOffsetIsNeverStop() {
+        Assertions.assertTrue(LsnOffset.NO_STOPPING_OFFSET.isNeverStop());
+        Assertions.assertFalse(LsnOffset.INITIAL_OFFSET.isNeverStop());
+    }
 }

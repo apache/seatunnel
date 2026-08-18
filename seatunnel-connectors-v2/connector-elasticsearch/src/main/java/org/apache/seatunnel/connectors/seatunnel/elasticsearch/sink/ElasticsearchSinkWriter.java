@@ -27,9 +27,11 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
+import org.apache.seatunnel.api.table.schema.event.AlterColumnCommentEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnsEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableCommentEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.schema.handler.TableSchemaChangeEventDispatcher;
 import org.apache.seatunnel.api.table.schema.handler.TableSchemaChangeEventHandler;
@@ -182,7 +184,9 @@ public class ElasticsearchSinkWriter
 
     @Override
     public void applySchemaChange(SchemaChangeEvent event) throws IOException {
-        if (event instanceof AlterTableColumnsEvent) {
+        if (isCommentOnlyEvent(event)) {
+            log.debug("Ignore comment-only schema change event: {}", event);
+        } else if (event instanceof AlterTableColumnsEvent) {
             for (AlterTableColumnEvent columnEvent : ((AlterTableColumnsEvent) event).getEvents()) {
                 applySingleSchemaChangeEvent(columnEvent);
             }
@@ -197,8 +201,14 @@ public class ElasticsearchSinkWriter
         initializeSerializer(tableSchema.toPhysicalRowDataType());
     }
 
+    static boolean isCommentOnlyEvent(SchemaChangeEvent event) {
+        return event instanceof AlterTableCommentEvent || event instanceof AlterColumnCommentEvent;
+    }
+
     private void applySingleSchemaChangeEvent(SchemaChangeEvent event) {
-        if (event instanceof AlterTableAddColumnEvent) {
+        if (isCommentOnlyEvent(event)) {
+            log.debug("Ignore comment-only schema change event: {}", event);
+        } else if (event instanceof AlterTableAddColumnEvent) {
             AlterTableAddColumnEvent addColumnEvent = (AlterTableAddColumnEvent) event;
             Column column = addColumnEvent.getColumn();
             BasicTypeDefine<EsType> reconvert =

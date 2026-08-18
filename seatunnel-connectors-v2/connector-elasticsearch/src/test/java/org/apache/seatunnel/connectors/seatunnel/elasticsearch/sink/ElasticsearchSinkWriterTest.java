@@ -22,14 +22,20 @@ import org.apache.seatunnel.api.sink.MultiTableResourceManager;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.multitablesink.SinkContextProxy;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.schema.event.AlterColumnCommentEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableCommentEvent;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsRestClient;
 import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.ElasticsearchClusterInfo;
 
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.MockedStatic;
 
@@ -51,9 +57,13 @@ import static org.mockito.Mockito.when;
 /**
  * Verifies Elasticsearch REST client ownership for standalone and multi-table sink writers.
  *
- * <p>The tests guard both resource reduction and table-specific connection isolation.
+ * <p>The tests guard resource reduction, table-specific connection isolation, and the comment-only
+ * schema-change no-op behavior of the writer.
  */
 class ElasticsearchSinkWriterTest {
+
+    private static final TableIdentifier TABLE_IDENTIFIER =
+            TableIdentifier.of("", TablePath.DEFAULT);
 
     /**
      * Multi-table writers must share one client and release it only after the last writer closes.
@@ -242,6 +252,30 @@ class ElasticsearchSinkWriterTest {
             writer.close();
             verify(standaloneClient, times(1)).close();
         }
+    }
+
+    /** Comment-only schema changes must not trigger any Elasticsearch mapping update. */
+    @Test
+    void commentOnlySchemaChangeEventsAreNoOpForElasticsearch() {
+        Assertions.assertTrue(
+                ElasticsearchSinkWriter.isCommentOnlyEvent(
+                        AlterTableCommentEvent.of(TABLE_IDENTIFIER, "old", "new")));
+        Assertions.assertTrue(
+                ElasticsearchSinkWriter.isCommentOnlyEvent(
+                        AlterColumnCommentEvent.of(TABLE_IDENTIFIER, "name", "old", "new")));
+    }
+
+    /** Physical schema changes still require an Elasticsearch mapping change. */
+    @Test
+    void physicalSchemaChangeEventsStillRequireElasticsearchMappingChanges() {
+        Assertions.assertFalse(
+                ElasticsearchSinkWriter.isCommentOnlyEvent(
+                        AlterTableAddColumnEvent.add(
+                                TABLE_IDENTIFIER,
+                                PhysicalColumn.builder()
+                                        .name("name")
+                                        .dataType(BasicType.STRING_TYPE)
+                                        .build())));
     }
 
     /**
