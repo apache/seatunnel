@@ -353,6 +353,10 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         return taskGroupContext;
     }
 
+    public ClassLoaderService getClassLoaderService() {
+        return classLoaderService;
+    }
+
     /**
      * Submits tasks to the thread-share queue for cooperative execution. Each task is wrapped in a
      * TaskTracker and initialized before being added to the queue.

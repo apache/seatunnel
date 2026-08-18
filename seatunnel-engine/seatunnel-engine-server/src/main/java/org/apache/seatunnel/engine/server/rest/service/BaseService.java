@@ -41,6 +41,7 @@ import org.apache.seatunnel.engine.core.job.ExecutionAddress;
 import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobInfo;
+import org.apache.seatunnel.engine.core.job.RestoreMode;
 import org.apache.seatunnel.engine.core.job.VertexInfo;
 import org.apache.seatunnel.engine.server.CoordinatorService;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
@@ -1282,13 +1283,31 @@ public abstract class BaseService {
                         ? jobName
                         : requestParams.get(RestConstant.JOB_NAME));
 
-        boolean startWithSavePoint =
-                Boolean.parseBoolean(requestParams.get(RestConstant.IS_START_WITH_SAVE_POINT));
+        RestoreMode restoreMode = resolveRestoreMode(requestParams);
         String jobIdStr = requestParams.get(RestConstant.JOB_ID);
         Long finalJobId = StringUtils.isNotBlank(jobIdStr) ? Long.parseLong(jobIdStr) : null;
+        Long restoreSourceJobId =
+                StringUtils.isNotBlank(requestParams.get(RestConstant.RESTORE_SOURCE_JOB_ID))
+                        ? Long.parseLong(requestParams.get(RestConstant.RESTORE_SOURCE_JOB_ID))
+                        : null;
+        // Keep the legacy savepoint REST contract where jobId also identifies the restore source.
+        if (restoreMode == RestoreMode.SAVEPOINT && restoreSourceJobId == null) {
+            if (finalJobId != null) {
+                restoreSourceJobId = finalJobId;
+            } else {
+                throw new IllegalArgumentException(
+                        "restoreSourceJobId is required when restoreMode=" + restoreMode);
+            }
+        }
         RestJobExecutionEnvironment restJobExecutionEnvironment =
                 new RestJobExecutionEnvironment(
-                        seaTunnelServer, jobConfig, config, node, startWithSavePoint, finalJobId);
+                        seaTunnelServer,
+                        jobConfig,
+                        config,
+                        node,
+                        restoreMode,
+                        restoreSourceJobId,
+                        finalJobId);
         JobImmutableInformation jobImmutableInformation = restJobExecutionEnvironment.build();
         long jobId = jobImmutableInformation.getJobId();
         if (!seaTunnelServer.isMasterNode()) {
@@ -1308,6 +1327,17 @@ public abstract class BaseService {
         return new JsonObject()
                 .add(RestConstant.JOB_ID, String.valueOf(jobId))
                 .add(RestConstant.JOB_NAME, jobConfig.getName());
+    }
+
+    private RestoreMode resolveRestoreMode(Map<String, String> requestParams) {
+        String restoreModeValue = requestParams.get(RestConstant.RESTORE_MODE);
+        if (StringUtils.isNotBlank(restoreModeValue)) {
+            return RestoreMode.valueOf(restoreModeValue.toUpperCase());
+        }
+        if (Boolean.parseBoolean(requestParams.get(RestConstant.IS_START_WITH_SAVE_POINT))) {
+            return RestoreMode.SAVEPOINT;
+        }
+        return RestoreMode.NONE;
     }
 
     private void submitJob(

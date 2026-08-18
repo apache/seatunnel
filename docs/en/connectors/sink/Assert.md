@@ -17,8 +17,11 @@ Assert is a sink connector used to validate pipeline output. It checks row count
 ## Key Features
 
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
-- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
+- [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [x] [batch](../../introduction/concepts/connector-v2-features.md)
+- [x] [stream](../../introduction/concepts/connector-v2-features.md)
 - [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Options
 
@@ -134,6 +137,16 @@ Sink plugin common parameters, please refer to [Sink Common Options](../common-o
 - `field_rules` checks field values in every received row.
 - `tables_configs` is used for multi-table jobs. The `table_path` value must match the table path carried by the upstream source.
 - `equals_to` compares the actual field value with the configured expected value. For complex values such as array, map, and row, use the same HOCON value shape as the source data.
+
+:::tip
+
+The Assert sink is a terminal sink — it has no external system to write to. Use it to validate intermediate results without needing a downstream database. The connector does not interpret `UPDATE` or `DELETE` row kinds as CDC operations; every received row is asserted against the configured rules. If the configured row range, field value, or catalog metadata check fails, the job fails with the matching error message.
+
+:::
+
+## Streaming Validation
+
+Assert works in both `BATCH` and `STREAMING` job modes. Field rules (`NOT_NULL`, `MIN_LENGTH`, `MAX_LENGTH`, etc.) are checked on every row as it arrives at the sink writer. Row count rules (`MIN_ROW` / `MAX_ROW`) are evaluated **exactly once** when the sink writer closes (at job shutdown, savepoint, or failure), against the cumulative row count observed by that writer instance since it was created — not per checkpoint window, and not reset between checkpoints. If you need per-checkpoint-window row-count validation, that requires a source code change (out of scope for a docs update).
 
 ## Example
 
@@ -629,6 +642,67 @@ sink {
   }
 }
 
+```
+
+### Stream Validation With Checkpoint Window
+
+The example below shows a streaming job that ends with the row count satisfying the cumulative `MIN_ROW` / `MAX_ROW` window (`50 ≤ total rows ≤ 5000`). The check runs once at writer close against the cumulative count, not per checkpoint window.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 60000
+}
+
+source {
+  FakeSource {
+    row.num = 1000
+    schema {
+      fields {
+        name = string
+        age = int
+      }
+    }
+    plugin_output = "stream_data"
+  }
+}
+
+sink {
+  Assert {
+    plugin_input = "stream_data"
+    rules =
+      {
+        row_rules = [
+          {
+            rule_type = MIN_ROW
+            rule_value = 50
+          },
+          {
+            rule_type = MAX_ROW
+            rule_value = 5000
+          }
+        ],
+        field_rules = [{
+          field_name = age
+          field_type = int
+          field_value = [
+            {
+              rule_type = NOT_NULL
+            },
+            {
+              rule_type = MIN
+              rule_value = 0
+            },
+            {
+              rule_type = MAX
+              rule_value = 150
+            }
+          ]
+        }]
+      }
+  }
+}
 ```
 
 ## Changelog
