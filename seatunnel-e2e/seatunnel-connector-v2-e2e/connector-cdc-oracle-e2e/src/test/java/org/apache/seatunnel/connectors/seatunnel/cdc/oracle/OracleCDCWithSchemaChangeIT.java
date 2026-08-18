@@ -234,7 +234,8 @@ public class OracleCDCWithSchemaChangeIT extends AbstractOracleCDCIT implements 
                                             sinkSchemaName,
                                             sinkTableName));
             // verify the data
-            with().pollInterval(TWO_SECONDS)
+            with().ignoreExceptions()
+                    .pollInterval(TWO_SECONDS)
                     .and()
                     .await()
                     .atMost(20, TimeUnit.MINUTES)

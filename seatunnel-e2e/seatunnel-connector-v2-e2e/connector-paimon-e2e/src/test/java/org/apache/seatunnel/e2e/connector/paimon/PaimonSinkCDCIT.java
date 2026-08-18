@@ -559,6 +559,7 @@ public class PaimonSinkCDCIT extends AbstractPaimonIT implements TestResource {
                             }
                         }));
         Awaitility.await()
+                .ignoreExceptions()
                 .atMost(5, TimeUnit.MINUTES)
                 .pollInterval(1, TimeUnit.SECONDS)
                 .untilAsserted(
@@ -581,6 +582,7 @@ public class PaimonSinkCDCIT extends AbstractPaimonIT implements TestResource {
                         }));
         changeLogEnabled = true;
         Awaitility.await()
+                .ignoreExceptions()
                 .atMost(5, TimeUnit.MINUTES)
                 .pollInterval(1, TimeUnit.SECONDS)
                 .untilAsserted(
@@ -643,6 +645,7 @@ public class PaimonSinkCDCIT extends AbstractPaimonIT implements TestResource {
                         });
         changeLogEnabled = true;
         Awaitility.await()
+                .ignoreExceptions()
                 .atMost(5, TimeUnit.MINUTES)
                 .pollInterval(1, TimeUnit.SECONDS)
                 .untilAsserted(

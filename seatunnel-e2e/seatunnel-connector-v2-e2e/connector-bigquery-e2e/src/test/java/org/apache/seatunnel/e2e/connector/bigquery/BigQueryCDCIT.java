@@ -240,7 +240,12 @@ public class BigQueryCDCIT extends AbstractBigqueryIT {
             bigquery.delete(cdcTableId);
             log.info("BigQuery CDC table deleted: {}", cdcTableId);
         }
-        initializeBigQueryCDCTable();
+        try {
+            initializeBigQueryCDCTable();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("BigQuery table initialization interrupted", e);
+        }
         await().atMost(5, TimeUnit.MINUTES)
                 .pollInterval(1, TimeUnit.SECONDS)
                 .until(() -> bigquery.getTable(cdcTableId) != null);
