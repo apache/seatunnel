@@ -942,10 +942,7 @@ public class DmdbTypeConverterTest {
     @Test
     public void testReconvertDecimalBoundary() {
         Column column =
-                PhysicalColumn.builder()
-                        .name("test")
-                        .dataType(new DecimalType(40, 5))
-                        .build();
+                PhysicalColumn.builder().name("test").dataType(new DecimalType(40, 5)).build();
         BasicTypeDefine typeDefine = DmdbTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(
@@ -953,11 +950,7 @@ public class DmdbTypeConverterTest {
                 typeDefine.getColumnType());
         Assertions.assertEquals(DmdbTypeConverter.DM_DECIMAL, typeDefine.getDataType());
 
-        column =
-                PhysicalColumn.builder()
-                        .name("test")
-                        .dataType(new DecimalType(10, -2))
-                        .build();
+        column = PhysicalColumn.builder().name("test").dataType(new DecimalType(10, -2)).build();
         typeDefine = DmdbTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(
@@ -965,11 +958,7 @@ public class DmdbTypeConverterTest {
                 typeDefine.getColumnType());
         Assertions.assertEquals(DmdbTypeConverter.DM_DECIMAL, typeDefine.getDataType());
 
-        column =
-                PhysicalColumn.builder()
-                        .name("test")
-                        .dataType(new DecimalType(38, 38))
-                        .build();
+        column = PhysicalColumn.builder().name("test").dataType(new DecimalType(38, 38)).build();
         typeDefine = DmdbTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(
@@ -990,10 +979,10 @@ public class DmdbTypeConverterTest {
         BasicTypeDefine typeDefine = DmdbTypeConverter.INSTANCE.reconvert(column);
         Assertions.assertEquals(column.getName(), typeDefine.getName());
         Assertions.assertEquals(
-                String.format("%s(%s)", DmdbTypeConverter.DM_TIME, DmdbTypeConverter.MAX_TIME_SCALE),
+                String.format(
+                        "%s(%s)", DmdbTypeConverter.DM_TIME, DmdbTypeConverter.MAX_TIME_SCALE),
                 typeDefine.getColumnType());
-        Assertions.assertEquals(
-                DmdbTypeConverter.MAX_TIME_SCALE, typeDefine.getScale().intValue());
+        Assertions.assertEquals(DmdbTypeConverter.MAX_TIME_SCALE, typeDefine.getScale().intValue());
         Assertions.assertEquals(DmdbTypeConverter.DM_TIME, typeDefine.getDataType());
     }
 
@@ -1017,5 +1006,4 @@ public class DmdbTypeConverterTest {
                 DmdbTypeConverter.MAX_TIMESTAMP_SCALE, typeDefine.getScale().intValue());
         Assertions.assertEquals(DmdbTypeConverter.DM_TIMESTAMP, typeDefine.getDataType());
     }
-
 }
