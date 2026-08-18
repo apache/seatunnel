@@ -36,7 +36,6 @@ import io.restassured.config.HttpClientConfig;
 import io.restassured.config.RestAssuredConfig;
 import io.restassured.response.Response;
 
-import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 
 import static io.restassured.RestAssured.given;
@@ -55,11 +54,13 @@ public class MetricsApiTest {
     private static final long READY_TIMEOUT_SECONDS = 60;
 
     /**
-     * Per-request connect/read timeout, well under {@link #READY_TIMEOUT_SECONDS}. Without an
-     * explicit timeout a listener that accepts a connection but stalls mid-response blocks the
-     * poll's evaluation thread indefinitely: Awaitility's atMost bound is only checked between poll
-     * attempts, so a hung request never returns to be retried and never surfaces the diagnostic
-     * body this test exists to capture.
+     * Per-request connect/read timeout, well under {@link #READY_TIMEOUT_SECONDS}. Awaitility still
+     * enforces its overall bound on the awaiting thread even while an attempt hangs in a socket
+     * read, but without a per-request timeout one stalled attempt silently consumes the whole
+     * budget: the poll never gets another try, the abandoned evaluation thread stays blocked past
+     * cancellation, and the run ends in a bare timeout with no response body. Bounding each request
+     * keeps every attempt short enough to be retried within the budget and keeps the eventual
+     * failure a diagnostic-bearing assertion instead.
      */
     private static final int REQUEST_TIMEOUT_MILLIS = 5_000;
 
@@ -88,22 +89,21 @@ public class MetricsApiTest {
         // moment. Querying immediately made CI observe a transient 500 from a collector that ran
         // before its backing service was available. Poll until the endpoint answers, so a slow
         // start costs a few extra seconds instead of failing the whole unit-test job, while an
-        // endpoint that never recovers still fails the test.
+        // endpoint that never recovers still fails the test. This poll is only the test-side
+        // mitigation; the production-side startup window it tolerates is tracked in
+        // https://github.com/apache/seatunnel/issues/11846.
         //
         // pollDelay is set explicitly to zero: Awaitility otherwise defaults a fixed poll delay to
         // the poll interval, which would silently push the first request out by a second.
-        // ignoreExceptionsInstanceOf(IOException.class) covers a transient connection failure from
-        // the HTTP call itself (connect refused/reset, read timeout), not just an assertion
-        // failure on its response, so a one-off socket error is retried under the same bound
-        // instead of aborting the poll on the first occurrence. Scoped to IOException rather than
-        // every Throwable so a genuine bug in assertMetricsExposed() still fails fast with its own
-        // stack trace instead of being retried for the full budget and reported as a generic
-        // timeout.
+        // Transport failures are converted to AssertionError inside assertMetricsExposed() rather
+        // than suppressed with ignoreExceptions: untilAsserted retries AssertionError under the
+        // same bound, and Awaitility records only AssertionError messages into its timeout
+        // diagnostic, so this keeps the last connection error visible in the final report instead
+        // of timing out with no cause at all.
         Awaitility.await()
                 .pollDelay(0, TimeUnit.SECONDS)
                 .pollInterval(1, TimeUnit.SECONDS)
                 .atMost(READY_TIMEOUT_SECONDS, TimeUnit.SECONDS)
-                .ignoreExceptionsInstanceOf(IOException.class)
                 .untilAsserted(MetricsApiTest::assertMetricsExposed);
     }
 
@@ -125,33 +125,46 @@ public class MetricsApiTest {
      * tens of KB, which would otherwise flood CI logs across every retried poll.
      */
     private static void assertMetricsExposed() {
-        Response response =
-                given().config(
-                                RestAssuredConfig.config()
-                                        .httpClient(
-                                                HttpClientConfig.httpClientConfig()
-                                                        .setParam(
-                                                                "http.connection.timeout",
-                                                                REQUEST_TIMEOUT_MILLIS)
-                                                        .setParam(
-                                                                "http.socket.timeout",
-                                                                REQUEST_TIMEOUT_MILLIS)))
-                        .get(METRICS_URL);
+        Response response;
+        try {
+            response =
+                    given().config(
+                                    RestAssuredConfig.config()
+                                            .httpClient(
+                                                    HttpClientConfig.httpClientConfig()
+                                                            .setParam(
+                                                                    "http.connection.timeout",
+                                                                    REQUEST_TIMEOUT_MILLIS)
+                                                            .setParam(
+                                                                    "http.socket.timeout",
+                                                                    REQUEST_TIMEOUT_MILLIS)))
+                            .get(METRICS_URL);
+        } catch (Exception e) {
+            // Rethrow transport-level failures as AssertionError: the poll retries them under the
+            // same overall bound, and the last connection error stays visible in Awaitility's
+            // timeout message instead of the run ending in a timeout with no diagnostic.
+            throw new AssertionError("GET " + METRICS_URL + " was not reachable: " + e, e);
+        }
         String body = response.getBody().asString();
         Assertions.assertEquals(
-                200, response.getStatusCode(), "GET " + METRICS_URL + " failed, response: " + body);
+                200,
+                response.getStatusCode(),
+                () -> "GET " + METRICS_URL + " failed, response: " + body);
         assertContains(body, "process_start_time_seconds");
         assertContains(body, "engine_state_store_local_owned_entries");
         assertContains(body, "engine_state_store_checkpoint_monitor_jobs");
     }
 
     private static void assertContains(String body, String expectedMetric) {
+        // Message suppliers keep both failure texts unbuilt on the passing path; the multi-KB
+        // exposition body is only concatenated when an assertion actually fails.
         Assertions.assertTrue(
                 body.contains(expectedMetric),
-                "Metric "
-                        + expectedMetric
-                        + " is missing from /metrics, response: "
-                        + truncateForLogging(body));
+                () ->
+                        "Metric "
+                                + expectedMetric
+                                + " is missing from /metrics, response: "
+                                + truncateForLogging(body));
     }
 
     private static String truncateForLogging(String body) {
