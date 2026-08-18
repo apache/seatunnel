@@ -112,12 +112,9 @@ class XaGroupOpsImplTest {
         Assertions.assertTrue(exception.getMessage().contains("reached max number"));
     }
 
-    /**
-     * Verifies that grouped commits require an explicit resource-manager result for unknown
-     * transactions.
-     */
+    /** Verifies that the three-argument overload delegates with strict unknown-XID handling. */
     @Test
-    void testCommitRequiresExplicitResourceManagerResult() {
+    void testThreeArgCommitDelegatesWithStrictUnknownHandling() {
         XaFacade xaFacade = mock(XaFacade.class);
         Xid xid = createXid();
         XaGroupOps xaGroupOps = new XaGroupOpsImpl(xaFacade);

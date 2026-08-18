@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.xa.GroupXaOperationResult;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.xa.XaFacade;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.xa.XaGroupOps;
@@ -28,6 +29,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.state.XidInfo;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import javax.transaction.xa.XAException;
 import javax.transaction.xa.Xid;
 
 import java.lang.reflect.Field;
@@ -88,45 +90,63 @@ class JdbcSinkAggregatedCommitterTest {
     }
 
     /**
-     * Verifies that an XID absent from the recovery scan succeeds only when strict replay receives
-     * an explicit successful resource-manager result.
+     * Verifies that a missing prefix is skipped only after the still-prepared suffix commits
+     * strictly.
      */
     @Test
-    void testRestoreCommitAcceptsMissingTransactionAfterStrictSuccess() throws Exception {
+    void testRestoreCommitSkipsMissingPrefixAfterRecoveredSuffixCommits() throws Exception {
         JdbcSinkAggregatedCommitter committer = createCommitter();
         XaFacade xaFacade = mock(XaFacade.class);
         XaGroupOps xaGroupOps = mock(XaGroupOps.class);
+        Xid alreadyResolvedXid = createXid(1, new byte[] {1}, new byte[] {1});
+        Xid stillPreparedXid = createXid(2, new byte[] {2}, new byte[] {2});
+        Xid recoveredStillPreparedXid = createXid(2, new byte[] {2}, new byte[] {2});
         when(xaFacade.isOpen()).thenReturn(true);
-        when(xaFacade.recover()).thenReturn(Collections.emptyList());
-        when(xaGroupOps.commit(anyList(), eq(false), eq(3), eq(true)))
+        when(xaFacade.recover()).thenReturn(Collections.singletonList(recoveredStillPreparedXid));
+        when(xaGroupOps.commit(anyList(), eq(false), eq(3), eq(false)))
                 .thenReturn(new GroupXaOperationResult<>());
         setPrivateField(committer, "xaFacade", xaFacade);
         setPrivateField(committer, "xaGroupOps", xaGroupOps);
         JdbcAggregatedCommitInfo commitInfo =
                 new JdbcAggregatedCommitInfo(
-                        Collections.singletonList(
-                                new XidInfo(createXid(1, new byte[] {1}, new byte[] {2}), 0)));
+                        Arrays.asList(
+                                new XidInfo(alreadyResolvedXid, 0),
+                                new XidInfo(stillPreparedXid, 0)));
 
         Assertions.assertDoesNotThrow(
                 () -> committer.restoreCommit(Collections.singletonList(commitInfo)));
 
-        verify(xaGroupOps).commit(anyList(), eq(false), eq(3), eq(true));
+        verify(xaGroupOps)
+                .commit(
+                        argThat(
+                                xids ->
+                                        xids.size() == 1
+                                                && xids.get(0).getXid() == stillPreparedXid),
+                        eq(false),
+                        eq(3),
+                        eq(false));
+        verify(xaGroupOps, never())
+                .commit(
+                        argThat(
+                                xids ->
+                                        xids.size() == 1
+                                                && xids.get(0).getXid() == alreadyResolvedXid),
+                        eq(false),
+                        eq(3),
+                        eq(true));
     }
 
     /**
-     * Verifies that an unknown restored XID propagates the strict commit failure instead of being
-     * silently reported as committed.
+     * Verifies that restore fails closed when none of the checkpoint XIDs remain in the recovery
+     * scan.
      */
     @Test
-    void testRestoreCommitPropagatesUnknownTransactionFailure() throws Exception {
+    void testRestoreCommitFailsClosedWhenRecoveryScanHasNoCheckpointXid() throws Exception {
         JdbcSinkAggregatedCommitter committer = createCommitter();
         XaFacade xaFacade = mock(XaFacade.class);
         XaGroupOps xaGroupOps = mock(XaGroupOps.class);
-        RuntimeException unknownTransaction = new RuntimeException("unknown transaction");
         when(xaFacade.isOpen()).thenReturn(true);
         when(xaFacade.recover()).thenReturn(Collections.emptyList());
-        when(xaGroupOps.commit(anyList(), eq(false), eq(3), eq(true)))
-                .thenThrow(unknownTransaction);
         setPrivateField(committer, "xaFacade", xaFacade);
         setPrivateField(committer, "xaGroupOps", xaGroupOps);
         JdbcAggregatedCommitInfo commitInfo =
@@ -134,12 +154,13 @@ class JdbcSinkAggregatedCommitterTest {
                         Collections.singletonList(
                                 new XidInfo(createXid(1, new byte[] {1}, new byte[] {2}), 0)));
 
-        RuntimeException exception =
+        JdbcConnectorException exception =
                 Assertions.assertThrows(
-                        RuntimeException.class,
+                        JdbcConnectorException.class,
                         () -> committer.restoreCommit(Collections.singletonList(commitInfo)));
 
-        Assertions.assertSame(unknownTransaction, exception);
+        Assertions.assertTrue(exception.getMessage().contains("none of the restored checkpoint"));
+        verify(xaGroupOps, never()).commit(anyList(), eq(false), eq(3), eq(false));
     }
 
     /**
@@ -201,6 +222,71 @@ class JdbcSinkAggregatedCommitterTest {
     }
 
     /**
+     * Verifies that a missing XID after the first still-prepared transaction fails closed because
+     * the batch order cannot explain it as an earlier successful commit.
+     */
+    @Test
+    void testRestoreCommitFailsClosedOnMissingGapAfterRecoveredTransaction() throws Exception {
+        JdbcSinkAggregatedCommitter committer = createCommitter();
+        XaFacade xaFacade = mock(XaFacade.class);
+        XaGroupOps xaGroupOps = mock(XaGroupOps.class);
+        Xid stillPreparedXid = createXid(1, new byte[] {1}, new byte[] {1});
+        Xid missingTailXid = createXid(2, new byte[] {2}, new byte[] {2});
+        Xid recoveredStillPreparedXid = createXid(1, new byte[] {1}, new byte[] {1});
+        when(xaFacade.isOpen()).thenReturn(true);
+        when(xaFacade.recover()).thenReturn(Collections.singletonList(recoveredStillPreparedXid));
+        setPrivateField(committer, "xaFacade", xaFacade);
+        setPrivateField(committer, "xaGroupOps", xaGroupOps);
+        JdbcAggregatedCommitInfo commitInfo =
+                new JdbcAggregatedCommitInfo(
+                        Arrays.asList(
+                                new XidInfo(stillPreparedXid, 0), new XidInfo(missingTailXid, 0)));
+
+        JdbcConnectorException exception =
+                Assertions.assertThrows(
+                        JdbcConnectorException.class,
+                        () -> committer.restoreCommit(Collections.singletonList(commitInfo)));
+
+        Assertions.assertTrue(
+                exception
+                        .getMessage()
+                        .contains(
+                                "is absent from the XA recovery scan after still-prepared transactions"));
+        verify(xaGroupOps, never()).commit(anyList(), eq(false), eq(3), eq(false));
+    }
+
+    /**
+     * Verifies that restore retries a transient recovery-scan failure before replaying the
+     * checkpoint transactions.
+     */
+    @Test
+    void testRestoreCommitRetriesTransientRecoveryScanFailure() throws Exception {
+        JdbcSinkAggregatedCommitter committer = createCommitter();
+        XaFacade xaFacade = mock(XaFacade.class);
+        XaGroupOps xaGroupOps = mock(XaGroupOps.class);
+        XAException transientCause = new XAException(XAException.XAER_RMFAIL);
+        Xid checkpointXid = createXid(1, new byte[] {1}, new byte[] {1});
+        Xid recoveredXid = createXid(1, new byte[] {1}, new byte[] {1});
+        when(xaFacade.isOpen()).thenReturn(true);
+        when(xaFacade.recover())
+                .thenThrow(new XaFacade.TransientXaException(transientCause))
+                .thenReturn(Collections.singletonList(recoveredXid));
+        when(xaGroupOps.commit(anyList(), eq(false), eq(3), eq(false)))
+                .thenReturn(new GroupXaOperationResult<>());
+        setPrivateField(committer, "xaFacade", xaFacade);
+        setPrivateField(committer, "xaGroupOps", xaGroupOps);
+        JdbcAggregatedCommitInfo commitInfo =
+                new JdbcAggregatedCommitInfo(
+                        Collections.singletonList(new XidInfo(checkpointXid, 0)));
+
+        Assertions.assertDoesNotThrow(
+                () -> committer.restoreCommit(Collections.singletonList(commitInfo)));
+
+        verify(xaFacade, times(2)).recover();
+        verify(xaGroupOps).commit(anyList(), eq(false), eq(3), eq(false));
+    }
+
+    /**
      * Verifies that Zeta retries are completed while the incremented attempt state is available.
      */
     @Test
@@ -231,6 +317,38 @@ class JdbcSinkAggregatedCommitterTest {
 
         committer.commit(Collections.singletonList(commitInfo));
 
+        verify(xaGroupOps, times(3)).commit(anyList(), eq(false), eq(3), eq(false));
+    }
+
+    /**
+     * Verifies that the committer fails fast if an alternative XaGroupOps implementation never
+     * drains or escalates the retry list.
+     */
+    @Test
+    void testCommitFailsWhenRetryRoundsNeverDrain() throws Exception {
+        JdbcSinkAggregatedCommitter committer = createCommitter();
+        XaFacade xaFacade = mock(XaFacade.class);
+        XaGroupOps xaGroupOps = mock(XaGroupOps.class);
+        Xid xid = mock(Xid.class);
+        when(xaFacade.isOpen()).thenReturn(true);
+        when(xaGroupOps.commit(anyList(), eq(false), eq(3), eq(false)))
+                .thenAnswer(
+                        invocation -> {
+                            GroupXaOperationResult<XidInfo> result = new GroupXaOperationResult<>();
+                            result.getForRetry().addAll(invocation.getArgument(0));
+                            return result;
+                        });
+        setPrivateField(committer, "xaFacade", xaFacade);
+        setPrivateField(committer, "xaGroupOps", xaGroupOps);
+        JdbcAggregatedCommitInfo commitInfo =
+                new JdbcAggregatedCommitInfo(Collections.singletonList(new XidInfo(xid, 0)));
+
+        JdbcConnectorException exception =
+                Assertions.assertThrows(
+                        JdbcConnectorException.class,
+                        () -> committer.commit(Collections.singletonList(commitInfo)));
+
+        Assertions.assertTrue(exception.getMessage().contains("did not terminate"));
         verify(xaGroupOps, times(3)).commit(anyList(), eq(false), eq(3), eq(false));
     }
 

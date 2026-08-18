@@ -81,32 +81,18 @@ public class JdbcSinkAggregatedCommitter
     }
 
     /**
-     * Reconciles checkpoint XIDs with the resource manager and replays only checkpoint-owned
-     * transactions. XIDs still present in the recovery scan are committed strictly. XIDs absent
-     * from the recovery scan are replayed with XAER_NOTA tolerance because a previous aborted
-     * restore attempt may have already committed them before failing on a later XID.
+     * Reconciles checkpoint XIDs with the resource manager using commit-order evidence. Checkpoint
+     * XIDs from the first still-prepared transaction onward must all be present in the recovery
+     * scan and are replayed strictly. An absent prefix before that boundary is treated as already
+     * resolved only after the still-prepared suffix commits successfully.
      */
     @Override
     public List<JdbcAggregatedCommitInfo> restoreCommit(
             List<JdbcAggregatedCommitInfo> aggregatedCommitInfos) throws IOException {
         tryOpen();
-        Set<XidKey> recoveredXids = normalizeXids(xaFacade.recover());
         for (JdbcAggregatedCommitInfo aggregatedCommitInfo : aggregatedCommitInfos) {
-            List<XidInfo> recovered = new ArrayList<>();
-            List<XidInfo> alreadyResolved = new ArrayList<>();
-            for (XidInfo xidInfo : aggregatedCommitInfo.getXidInfoList()) {
-                if (containsEquivalentXid(recoveredXids, xidInfo.getXid())) {
-                    recovered.add(xidInfo);
-                } else {
-                    log.warn(
-                            "Checkpoint transaction {} is absent from the XA recovery scan; "
-                                    + "allowing XAER_NOTA only for this restore replay",
-                            xidInfo.getXid());
-                    alreadyResolved.add(xidInfo);
-                }
-            }
-            commitXidInfos(recovered, false);
-            commitXidInfos(alreadyResolved, true);
+            replayRecoveredCheckpoint(
+                    aggregatedCommitInfo.getXidInfoList(), recoverCheckpointTransactions());
         }
         return Collections.emptyList();
     }
@@ -137,13 +123,18 @@ public class JdbcSinkAggregatedCommitter
      */
     private void commitXidInfos(List<XidInfo> xidInfos, boolean ignoreUnknown) {
         List<XidInfo> pending = new ArrayList<>(xidInfos);
+        int maxCommitAttempts = jdbcSinkConfig.getJdbcConnectionConfig().getMaxCommitAttempts();
+        int remainingRounds = Math.max(1, maxCommitAttempts);
         while (!pending.isEmpty()) {
+            if (remainingRounds-- == 0) {
+                throw new JdbcConnectorException(
+                        CommonErrorCodeDeprecated.WRITER_OPERATION_FAILED,
+                        String.format(
+                                "XA commit retry loop did not terminate within %d rounds for transactions: %s",
+                                Math.max(1, maxCommitAttempts), pending));
+            }
             GroupXaOperationResult<XidInfo> result =
-                    xaGroupOps.commit(
-                            pending,
-                            false,
-                            jdbcSinkConfig.getJdbcConnectionConfig().getMaxCommitAttempts(),
-                            ignoreUnknown);
+                    xaGroupOps.commit(pending, false, maxCommitAttempts, ignoreUnknown);
             // Zeta does not persist the returned committables before restarting a failed
             // checkpoint, so complete bounded retries in this invocation.
             pending = new ArrayList<>(result.getForRetry());
@@ -190,6 +181,93 @@ public class JdbcSinkAggregatedCommitter
             normalized.add(XidKey.from(xid));
         }
         return normalized;
+    }
+
+    /**
+     * Replays one restored checkpoint using the recovery scan as evidence for which transactions
+     * can still be committed safely.
+     *
+     * @param checkpointXids checkpoint-owned prepared transactions in original commit order
+     * @param recoveredXids canonical values returned by the resource manager recovery scan
+     */
+    private void replayRecoveredCheckpoint(
+            List<XidInfo> checkpointXids, Set<XidKey> recoveredXids) {
+        if (checkpointXids.isEmpty()) {
+            return;
+        }
+        int firstRecoveredIndex = findFirstRecoveredIndex(checkpointXids, recoveredXids);
+        if (firstRecoveredIndex < 0) {
+            throw new JdbcConnectorException(
+                    CommonErrorCodeDeprecated.WRITER_OPERATION_FAILED,
+                    String.format(
+                            "none of the restored checkpoint transactions are present in the XA recovery scan: %s",
+                            checkpointXids));
+        }
+        List<XidInfo> stillPrepared = new ArrayList<>();
+        for (int i = firstRecoveredIndex; i < checkpointXids.size(); i++) {
+            XidInfo xidInfo = checkpointXids.get(i);
+            if (!containsEquivalentXid(recoveredXids, xidInfo.getXid())) {
+                throw new JdbcConnectorException(
+                        CommonErrorCodeDeprecated.WRITER_OPERATION_FAILED,
+                        String.format(
+                                "checkpoint transaction %s is absent from the XA recovery scan after still-prepared transactions in the same commit batch: %s",
+                                xidInfo.getXid(), checkpointXids));
+            }
+            stillPrepared.add(xidInfo);
+        }
+        commitXidInfos(stillPrepared, false);
+        if (firstRecoveredIndex > 0) {
+            List<XidInfo> alreadyResolved = checkpointXids.subList(0, firstRecoveredIndex);
+            log.warn(
+                    "Skipping {} checkpoint transactions that are absent from the XA recovery scan but precede the first still-prepared transaction: {}",
+                    alreadyResolved.size(),
+                    alreadyResolved);
+        }
+    }
+
+    /**
+     * Retries the recovery scan with the same bounded budget as XA commit so transient RM outages
+     * do not fail restore immediately.
+     *
+     * @return canonical values returned by the recovery scan
+     */
+    private Set<XidKey> recoverCheckpointTransactions() {
+        int maxCommitAttempts = jdbcSinkConfig.getJdbcConnectionConfig().getMaxCommitAttempts();
+        XaFacade.TransientXaException lastTransientFailure = null;
+        for (int attempt = 1; attempt <= Math.max(1, maxCommitAttempts); attempt++) {
+            try {
+                return normalizeXids(xaFacade.recover());
+            } catch (XaFacade.TransientXaException e) {
+                lastTransientFailure = e;
+                log.warn(
+                        "Transient XA recovery-scan failure on attempt {}/{}",
+                        attempt,
+                        Math.max(1, maxCommitAttempts),
+                        e);
+            }
+        }
+        throw new JdbcConnectorException(
+                CommonErrorCodeDeprecated.WRITER_OPERATION_FAILED,
+                String.format(
+                        "unable to complete the XA recovery scan within %d attempts",
+                        Math.max(1, maxCommitAttempts)),
+                lastTransientFailure);
+    }
+
+    /**
+     * Finds the first checkpoint transaction that is still prepared in the resource manager.
+     *
+     * @param checkpointXids checkpoint-owned prepared transactions in original commit order
+     * @param recoveredXids canonical values returned by the recovery scan
+     * @return the first still-prepared checkpoint transaction index, or {@code -1} if none remain
+     */
+    private int findFirstRecoveredIndex(List<XidInfo> checkpointXids, Set<XidKey> recoveredXids) {
+        for (int i = 0; i < checkpointXids.size(); i++) {
+            if (containsEquivalentXid(recoveredXids, checkpointXids.get(i).getXid())) {
+                return i;
+            }
+        }
+        return -1;
     }
 
     /**

@@ -36,7 +36,8 @@ public interface XaGroupOps extends Serializable {
      * @param allowOutOfOrderCommits whether transactions after a failed transaction may be
      *     committed
      * @param maxCommitAttempts maximum number of transient commit attempts
-     * @return commit result containing transactions that need another attempt
+     * @return commit result containing transactions that need another attempt; implementations must
+     *     eventually return an empty retry list or throw once the retry budget is exhausted
      */
     GroupXaOperationResult<XidInfo> commit(
             List<XidInfo> xids, boolean allowOutOfOrderCommits, int maxCommitAttempts);
@@ -50,7 +51,8 @@ public interface XaGroupOps extends Serializable {
      * @param maxCommitAttempts maximum number of transient commit attempts
      * @param ignoreUnknown whether XAER_NOTA is accepted as an idempotent restore replay result;
      *     implementations that do not override this method keep the strict commit behavior
-     * @return commit result containing transactions that need another attempt
+     * @return commit result containing transactions that need another attempt; implementations must
+     *     eventually return an empty retry list or throw once the retry budget is exhausted
      */
     default GroupXaOperationResult<XidInfo> commit(
             List<XidInfo> xids,
