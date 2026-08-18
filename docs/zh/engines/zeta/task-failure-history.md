@@ -84,7 +84,7 @@ attempt 递增与失败记录更新使用同一个作业级 `EntryProcessor` 串
 
 `TaskExecutionState` 仍然是 worker 到 master 的结构化失败传输，但它不是 task group 失败的唯一路径。对于 worker 上报的终态失败，统一捕获点是 `PhysicalVertex` 在 `updateStateByExecutionService` 接受 `FAILED` 状态后的状态转换。该路径同时覆盖正常 worker 上报和直接路由到 physical vertex 的节点丢失状态更新。
 
-部署失败没有 `TaskExecutionState`，而是通过 `makeTaskGroupFailing` 进入状态机。该路径必须使用部署异常以及已知的 pipeline、task group、slot 和 worker 元数据创建失败记录。`TaskDeployState` 必须在原始 `Throwable` 仍然可用时保留失败类名、消息和有界堆栈。需要包装异常时，必须使用现有的 `TaskGroupDeployException(String, Throwable)` 构造方法保留 cause，不能只保留消息。当原始 cause 可用时，记录中的 `exceptionType` 必须表示原始原因，而不是通用包装异常。同一个去重键可以防止该 attempt 后续的终态上报生成重复记录。没有失败原因的取消不记录为异常。
+部署失败没有 `TaskExecutionState`，而是通过 `makeTaskGroupFailing` 进入状态机。该路径必须使用部署异常以及已知的 pipeline、task group、slot 和 worker 元数据创建失败记录。`TaskDeployState.failed(Throwable)` 必须在原始 `Throwable` 仍然可用时，将失败类名、消息和有界堆栈提取为字符串。对于 `deployOnRemote`，这些字符串必须在 worker 端、响应跨越 Hazelcast RPC 边界之前完成提取；不能携带原始 `Throwable`，因为 master 端可能无法加载 connector 特有的异常类。失败记录直接读取这些结构化字段，因此 `exceptionType` 表示原始原因，而不是 `TaskGroupDeployException`。同一个去重键可以防止该 attempt 后续的终态上报生成重复记录。没有失败原因的取消不记录为异常。
 
 异常内容必须在这些捕获边界完成脱敏和长度限制，再写入 HA 或 finished-job 历史。实现应将 `DryRunConnectFailureMessageSanitizer` 中的脱敏规则抽取为共享工具，不能持久化未经处理的 connector 消息或堆栈。失败历史仍使用自己的 4 KiB 消息上限、64 KiB 堆栈上限和截断标记，不能继承 dry-run 工具的 2 KiB 展示上限。
 
