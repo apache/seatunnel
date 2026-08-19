@@ -92,6 +92,7 @@ public class SeaTunnelRowStreamingRecordDeserializer
         }
         ByteString value = row.getValue();
         if (value != null && !value.isEmpty()) {
+            // Prefer an available row image before falling back to a PK-only delete row.
             return decodeObjects(value.toByteArray(), handle, tableInfo);
         }
         return decodeDeleteValuesFromHandle(row, handle);

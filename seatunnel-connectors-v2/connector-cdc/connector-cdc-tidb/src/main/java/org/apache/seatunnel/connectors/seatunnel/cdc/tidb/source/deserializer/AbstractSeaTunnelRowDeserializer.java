@@ -35,6 +35,10 @@ public abstract class AbstractSeaTunnelRowDeserializer<Input> {
         this.catalogTable = catalogTable;
     }
 
+    /**
+     * Attach the source table identity before emitting rows so downstream multi-table sinks can
+     * route TiDB CDC records by table.
+     */
     protected void collect(SeaTunnelRow row, Collector<SeaTunnelRow> output) {
         row.setTableId(catalogTable.getTablePath().getFullName());
         output.collect(row);

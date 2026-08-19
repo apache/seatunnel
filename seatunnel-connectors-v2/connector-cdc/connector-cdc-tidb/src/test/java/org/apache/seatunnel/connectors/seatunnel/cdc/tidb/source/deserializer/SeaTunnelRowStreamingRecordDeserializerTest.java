@@ -35,6 +35,7 @@ import org.tikv.common.meta.TiTableInfo;
 import org.tikv.common.types.IntegerType;
 import org.tikv.common.types.StringType;
 import org.tikv.kvproto.Cdcpb;
+import org.tikv.kvproto.Kvrpcpb;
 import org.tikv.shade.com.google.protobuf.ByteString;
 
 import java.util.ArrayList;
@@ -81,8 +82,51 @@ class SeaTunnelRowStreamingRecordDeserializerTest {
 
         SeaTunnelRow row = collector.rows.get(0);
         assertEquals(RowKind.DELETE, row.getRowKind());
+        assertEquals("test_db.test_table", row.getTableId());
         assertEquals(HANDLE, row.getField(0));
         assertNull(row.getField(1));
+    }
+
+    @Test
+    void deserializePutShouldSetTableId() throws Exception {
+        TiTableInfo tableInfo = tableInfo(true);
+        SeaTunnelRowStreamingRecordDeserializer deserializer =
+                new SeaTunnelRowStreamingRecordDeserializer(tableInfo, catalogTable());
+        byte[] encodedRow =
+                TableCodec.encodeRow(
+                        tableInfo.getColumns(), new Object[] {HANDLE, "Alice"}, true, false);
+        TestCollector collector = new TestCollector();
+
+        deserializer.deserialize(putRow(ByteString.copyFrom(encodedRow)), collector);
+
+        SeaTunnelRow row = collector.rows.get(0);
+        assertEquals(RowKind.INSERT, row.getRowKind());
+        assertEquals("test_db.test_table", row.getTableId());
+        assertEquals(HANDLE, row.getField(0));
+        assertEquals("Alice", row.getField(1));
+    }
+
+    @Test
+    void deserializeSnapshotShouldSetTableId() throws Exception {
+        TiTableInfo tableInfo = tableInfo(true);
+        SeaTunnelRowSnapshotRecordDeserializer deserializer =
+                new SeaTunnelRowSnapshotRecordDeserializer(tableInfo, catalogTable());
+        byte[] encodedRow =
+                TableCodec.encodeRow(
+                        tableInfo.getColumns(), new Object[] {HANDLE, "Alice"}, true, false);
+        TestCollector collector = new TestCollector();
+
+        deserializer.deserialize(
+                Kvrpcpb.KvPair.newBuilder()
+                        .setKey(RowKey.toRowKey(TABLE_ID, HANDLE).toByteString())
+                        .setValue(ByteString.copyFrom(encodedRow))
+                        .build(),
+                collector);
+
+        SeaTunnelRow row = collector.rows.get(0);
+        assertEquals("test_db.test_table", row.getTableId());
+        assertEquals(HANDLE, row.getField(0));
+        assertEquals("Alice", row.getField(1));
     }
 
     @Test
@@ -103,6 +147,15 @@ class SeaTunnelRowStreamingRecordDeserializerTest {
         return Cdcpb.Event.Row.newBuilder()
                 .setType(Cdcpb.Event.LogType.PREWRITE)
                 .setOpType(Cdcpb.Event.Row.OpType.DELETE)
+                .setKey(RowKey.toRowKey(TABLE_ID, HANDLE).toByteString())
+                .setValue(value)
+                .build();
+    }
+
+    private static Cdcpb.Event.Row putRow(ByteString value) {
+        return Cdcpb.Event.Row.newBuilder()
+                .setType(Cdcpb.Event.LogType.PREWRITE)
+                .setOpType(Cdcpb.Event.Row.OpType.PUT)
                 .setKey(RowKey.toRowKey(TABLE_ID, HANDLE).toByteString())
                 .setValue(value)
                 .build();
