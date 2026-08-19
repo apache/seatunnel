@@ -84,6 +84,9 @@ public class RabbitmqSplitEnumerator
             RabbitmqSplitEnumeratorState checkpointState) {
         this(context, rabbitmqConfig, queues);
 
+        if (checkpointState instanceof RabbitmqSourceState) {
+            log.info("Restoring RabbitMQ source from legacy checkpoint state");
+        }
         if (checkpointState != null && checkpointState.getAssignedSplits() != null) {
             this.assignedSplits.putAll(checkpointState.getAssignedSplits());
             for (String assignedSplitId : checkpointState.getAssignedSplits().keySet()) {
