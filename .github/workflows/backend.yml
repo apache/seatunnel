@@ -838,7 +838,7 @@ jobs:
 
   edge-agent-it:
     needs: [ changes, sanity-check ]
-    if: needs.changes.outputs.edge-agent == 'true' || needs.changes.outputs.edge-agent-e2e == 'true'
+    if: needs.changes.outputs.edge-agent == 'true' || needs.changes.outputs.edge-agent-e2e == 'true' || contains(needs.changes.outputs.it-modules, 'seatunnel-edge-agent-e2e')
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false

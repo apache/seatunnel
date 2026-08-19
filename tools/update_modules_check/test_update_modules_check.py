@@ -99,6 +99,7 @@ class ConnectorItShardingTest(unittest.TestCase):
             "connector-seatunnel-e2e-base",
             "connector-console-seatunnel-e2e",
             "seatunnel-engine-k8s-e2e",
+            "seatunnel-edge-agent-e2e",
         ]
 
         full_output = io.StringIO()
