@@ -60,7 +60,9 @@ public final class JdbcConnectionValidationUtils {
 
     /**
      * Returns an optional validation query for drivers that need SQL-based liveness checks instead
-     * of {@link Connection#isValid(int)}.
+     * of {@link Connection#isValid(int)}. Checks the driver-specific hook first, then falls back to
+     * the user-configured {@code connectionTestQuery} / {@code connection-test-query} from the
+     * {@code properties} block.
      */
     public static Optional<String> getConnectionValidationQuery(JdbcConnectionConfig jdbcConfig) {
         if (jdbcConfig == null) {
@@ -73,6 +75,14 @@ public final class JdbcConnectionValidationUtils {
             return Optional.of(XUGU_VALIDATION_QUERY);
         }
 
-        return Optional.empty();
+        // Honor user-specified connection test query from the properties config.
+        // This is essential for environments (proxies, NATs, firewalls) where
+        // Connection.isValid() returns false positives and the MySQL server
+        // closes idle connections due to wait_timeout.
+        String testQuery = jdbcConfig.getProperties().get("connectionTestQuery");
+        if (testQuery == null) {
+            testQuery = jdbcConfig.getProperties().get("connection-test-query");
+        }
+        return Optional.ofNullable(testQuery);
     }
 }
