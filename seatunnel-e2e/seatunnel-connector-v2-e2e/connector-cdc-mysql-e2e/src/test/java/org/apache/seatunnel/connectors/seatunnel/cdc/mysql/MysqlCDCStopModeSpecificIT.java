@@ -306,6 +306,101 @@ public class MysqlCDCStopModeSpecificIT extends TestSuiteBase implements TestRes
                         });
     }
 
+    @TestTemplate
+    public void testMysqlCdcInitialStartupWithLatestStop(TestContainer container) throws Exception {
+        runLatestStopStartupMode(container, "initial");
+    }
+
+    @TestTemplate
+    public void testMysqlCdcEarliestStartupWithLatestStop(TestContainer container)
+            throws Exception {
+        runLatestStopStartupMode(container, "earliest");
+    }
+
+    @TestTemplate
+    public void testMysqlCdcLatestStartupWithLatestStop(TestContainer container) throws Exception {
+        runLatestStopStartupMode(container, "latest");
+    }
+
+    @TestTemplate
+    public void testMysqlCdcSpecificStartupWithLatestStop(TestContainer container)
+            throws Exception {
+        runLatestStopStartupMode(container, "specific");
+    }
+
+    @TestTemplate
+    public void testMysqlCdcTimestampStartupWithLatestStop(TestContainer container)
+            throws Exception {
+        runLatestStopStartupMode(container, "timestamp");
+    }
+
+    private void runLatestStopStartupMode(TestContainer container, String startupMode)
+            throws Exception {
+        clearTable(MYSQL_DATABASE, SOURCE_TABLE);
+        clearTable(MYSQL_DATABASE, SINK_TABLE);
+
+        executeSql(
+                String.format("INSERT INTO %s.%s (id) VALUES (21)", MYSQL_DATABASE, SOURCE_TABLE));
+
+        List<String> variables = new ArrayList<>();
+        variables.add("startup_mode=" + startupMode);
+        String jobConfigFile = "/mysqlcdc_stop_mode_latest.conf";
+        if ("specific".equals(startupMode)) {
+            BinlogOffset startOffset = getCurrentBinlogOffset();
+            jobConfigFile = "/mysqlcdc_stop_mode_latest_specific.conf";
+            variables.add("specific_offset_file=" + startOffset.getFilename());
+            variables.add("specific_offset_pos=" + startOffset.getPosition());
+        }
+        if ("timestamp".equals(startupMode)) {
+            jobConfigFile = "/mysqlcdc_stop_mode_latest_timestamp.conf";
+            variables.add("timestamp=" + (getCurrentBinlogTimestamp() - 1000L));
+        }
+        final String configFile = jobConfigFile;
+
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
+        CompletableFuture<Container.ExecResult> jobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.executeJob(
+                                        configFile, jobId, variables.toArray(new String[0]));
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+
+        await().atMost(60, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> Assertions.assertEquals("RUNNING", container.getJobStatus(jobId)));
+
+        // Issue a change while the job is running. For snapshot-taking startups
+        // (initial/earliest) the update happens while the snapshot phase is still in
+        // progress, so it must be picked up by the binlog phase: with the stale
+        // split-creation stop offset the binlog phase would terminate immediately
+        // past it and this row would be silently dropped. The other startup modes
+        // (latest/specific/timestamp) have no snapshot window, so the update lands
+        // after the stop offset is resolved and is not read — which is expected.
+        executeSql(
+                String.format(
+                        "UPDATE %s.%s SET f_varchar = 'latest-stop' WHERE id = 21",
+                        MYSQL_DATABASE, SOURCE_TABLE));
+
+        if ("initial".equals(startupMode) || "earliest".equals(startupMode)) {
+            await().atMost(60, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            "latest-stop",
+                                            queryVarcharById(21),
+                                            "post-snapshot update must be synced"));
+        }
+
+        await().atMost(120, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> Assertions.assertEquals("FINISHED", container.getJobStatus(jobId)));
+        Assertions.assertEquals(0, jobFuture.get(30, TimeUnit.SECONDS).getExitCode());
+    }
+
     private long getCurrentBinlogTimestamp() {
         BinlogOffset binlogOffset = getCurrentBinlogOffset();
 
@@ -403,6 +498,23 @@ public class MysqlCDCStopModeSpecificIT extends TestSuiteBase implements TestRes
     private void executeSql(String sql) {
         try (Connection connection = getJdbcConnection()) {
             connection.createStatement().execute(sql);
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private String queryVarcharById(int id) {
+        try (Connection connection = getJdbcConnection();
+                Statement statement = connection.createStatement();
+                ResultSet resultSet =
+                        statement.executeQuery(
+                                String.format(
+                                        "select f_varchar from %s.%s where id = %d",
+                                        MYSQL_DATABASE, SINK_TABLE, id))) {
+            if (resultSet.next()) {
+                return resultSet.getString(1);
+            }
+            return null;
         } catch (SQLException e) {
             throw new RuntimeException(e);
         }
