@@ -244,6 +244,7 @@ public class SavePointBusySourceTest extends AbstractSeaTunnelServerTest<SavePoi
                                         server.getCoordinatorService().getJobStatus(jobId)));
 
         JobMaster jobMaster = server.getCoordinatorService().getJobMaster(jobId);
+        awaitCheckpointCoordinatorsReady(jobMaster);
         setCheckpointCoordinatorsReady(jobMaster, false);
 
         PassiveCompletableFuture<Void> savepointFuture =
@@ -295,6 +296,7 @@ public class SavePointBusySourceTest extends AbstractSeaTunnelServerTest<SavePoi
                                         server.getCoordinatorService().getJobStatus(jobId)));
 
         JobMaster jobMaster = server.getCoordinatorService().getJobMaster(jobId);
+        awaitCheckpointCoordinatorsReady(jobMaster);
         setCheckpointCoordinatorsReady(jobMaster, false);
 
         PassiveCompletableFuture<Void> savepointFuture =

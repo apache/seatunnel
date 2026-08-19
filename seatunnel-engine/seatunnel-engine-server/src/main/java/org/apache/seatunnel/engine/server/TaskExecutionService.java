@@ -1188,7 +1188,6 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 TaskGroupExecutionTracker taskGroupExecutionTracker =
                         taskTracker.taskGroupExecutionTracker;
                 if (taskGroupExecutionTracker.executionCompletedExceptionally()) {
-                    closeTaskAfterFailedCooperativeExecution(taskTracker);
                     taskGroupExecutionTracker.taskDone(taskTracker.task);
                     if (null != exclusiveTaskTracker.get()) {
                         // If it's exclusive need to end the work
@@ -1221,8 +1220,6 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                             && !taskGroupExecutionTracker.isCancel.get()) {
                         taskGroupExecutionTracker.exception(e);
                     }
-                    timer.timerStop();
-                    closeTaskAfterFailedCooperativeExecution(taskTracker);
                     taskGroupExecutionTracker.taskDone(taskTracker.task);
                     logger.warning("Exception in " + taskTracker.task, e);
                     if (null != exclusiveTaskTracker.get()) {
@@ -1231,8 +1228,6 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 } catch (Throwable e) {
                     // task Failure and complete
                     taskGroupExecutionTracker.exception(e);
-                    timer.timerStop();
-                    closeTaskAfterFailedCooperativeExecution(taskTracker);
                     taskGroupExecutionTracker.taskDone(taskTracker.task);
                     // If it's exclusive need to end the work
                     logger.warning("Exception in " + taskTracker.task, e);
@@ -1261,28 +1256,6 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                         }
                     }
                 }
-            }
-        }
-
-        private void closeTaskAfterFailedCooperativeExecution(TaskTracker taskTracker) {
-            ClassLoader oldClassLoader = myThread.getContextClassLoader();
-            try {
-                TaskGroupContext taskGroupContext =
-                        executionContexts.get(
-                                taskTracker.taskGroupExecutionTracker.taskGroup
-                                        .getTaskGroupLocation());
-                if (taskGroupContext != null && taskGroupContext.getClassLoaders() != null) {
-                    ClassLoader classLoader =
-                            taskGroupContext.getClassLoaders().get(taskTracker.task.getTaskID());
-                    if (classLoader != null) {
-                        myThread.setContextClassLoader(classLoader);
-                    }
-                }
-                taskTracker.task.close();
-            } catch (IOException e) {
-                logger.severe("Close task error", e);
-            } finally {
-                myThread.setContextClassLoader(oldClassLoader);
             }
         }
     }
