@@ -120,6 +120,20 @@ You need to check this document before you upgrade to related version.
   - **Impact**: Existing jobs that read POI-engine Excel files larger than 50 MB - which previously succeeded at the cost of heavy memory pressure - will now fail fast with a `FileConnectorException` instead of potentially OOMing the worker.
   - **Migration Guide**: For POI jobs that must read large Excel files and have sufficient worker memory, raise the limit with `poi_excel_max_file_size = <bytes>`. Otherwise switch to `excel_engine = EasyExcel`, which streams rows lazily and is not subject to the limit.
 
+- **Breaking Change: Prometheus Sink `flush_interval` option removed**
+  - **Affected component**: `seatunnel-connectors-v2/connector-prometheus`
+  - **Description**: The Prometheus Sink no longer starts its own background flush thread. The connector-level `flush_interval` option has been removed. Timer-based flushing is now driven by the engine through `sink.flush.interval` in the job `env` block, which is **supported only by the Zeta engine**.
+  - **Impact**:
+    - **Spark and Flink lose periodic timer-based flushing.** The removed `flush_interval` scheduler was a plain connector-owned thread that ran on all engines. Its replacement, `sink.flush.interval`, is a Zeta engine primitive; the Spark and Flink sink writer contexts do not implement it, so there is no periodic flush on those engines. On Spark and Flink the buffer is now flushed only when it reaches `batch_size` and when the writer is closed (it is not flushed on checkpoint). A low-throughput streaming job can therefore hold buffered points in memory until it stops; tune `batch_size` accordingly.
+    - A leftover `flush_interval` key in the `Prometheus` sink block is rejected only when the config is validated with `--check` / `--dry-run=static` / `--dry-run=connect` (which run `validateUnknownKeys`). A directly submitted job silently ignores the stray key; the connector logs a warning once per sink writer at startup instead (so a job with parallelism N, multiple tables, or replicas logs it multiple times).
+  - **Migration Guide**: Remove `flush_interval` from the `Prometheus` sink block. To keep timer-based flushing on Zeta, set `sink.flush.interval` (milliseconds) in the job `env` block. On Spark and Flink, rely on `batch_size`. The `batch_size` trigger and the final flush on writer close are unchanged on all engines.
+
+- **Breaking Change: File connectors reject `DOCTYPE` declarations in XML input (XXE hardening)**
+  - **Affected component**: `seatunnel-connectors-v2/connector-file/connector-file-base` (`XmlReadStrategy`), and every file source built on it: LocalFile, HdfsFile, S3File, OssFile, OssJindoFile, CosFile, FtpFile, SftpFile (`file_format_type = xml`)
+  - **Description**: The XML reader previously parsed user-supplied files with a default dom4j `SAXReader`, leaving DTD processing and external entity resolution at their JAXP defaults. A crafted `DOCTYPE`/external-entity payload could disclose local worker-node files, trigger SSRF-style fetches, or exhaust memory via entity expansion ("billion laughs"). `XmlReadStrategy` now routes every parse through a hardened reader that enables JAXP secure processing, rejects any `<!DOCTYPE ...>` declaration outright, disables external general/parameter entities and external DTD loading, and installs a deny-all `EntityResolver` as a parser-agnostic backstop.
+  - **Impact**: XML files that previously parsed successfully only because they carried a `<!DOCTYPE ...>` declaration — even a benign one with no external `SYSTEM`/`PUBLIC` reference — now fail with `FileConnectorException(FILE_READ_FAILED)`. There is no configuration option to opt back into the previous behavior.
+  - **Migration Guide**: Remove the `DOCTYPE` declaration from XML files before ingesting them with SeaTunnel, or pre-process/re-export the file without it. Well-formed XML without a `DOCTYPE` declaration is unaffected. (#11250)
+
 ### Transform Changes
 
 - **[BREAKING]** SQL Transform `PARSEDATETIME`, `TO_DATE`, and `IS_DATE` functions now only accept whitelisted datetime format patterns. Custom format patterns that were previously accepted will now fail at runtime. The supported patterns are:
@@ -145,6 +159,25 @@ You need to check this document before you upgrade to related version.
 - Adjusted SQL Transform date & time functions:
   - `DATEDIFF(<start>, <end>, 'MONTH')` now returns the total number of months between the two dates across years (for example, from `2023-01-01` to `2024-03-01` returns `14` instead of `15`).
   - `WEEK(<datetime>)` now returns the ISO week number directly (previous behavior added an extra `+1` to the ISO week value).
+- **[BREAKING]** SQL Transform `CEIL` / `CEILING`, `FLOOR` and `TRUNC` / `TRUNCATE` now return the data type of their
+  argument, as their documentation has always specified. Previously `CEIL` and `FLOOR` declared `INT` and `TRUNC`
+  declared `DOUBLE` regardless of the input type, which silently produced wrong values:
+
+  | Expression | Input | Previous result | Current result |
+  |------------|-------|-----------------|----------------|
+  | `CEIL(bigint_col)` | `9007199254740993` | `1` | `9007199254740993` |
+  | `FLOOR(double_col)` | `1.0E18` | `2147483647` | `1.0E18` |
+  | `TRUNC(bigint_col)` | `9007199254740993` | declared `DOUBLE`, returned a `Long` | `9007199254740993` |
+
+  **Migration Guide**: If a downstream sink column was created against the old `INT` / `DOUBLE` output type, widen it to
+  match the source column type (for example `BIGINT` for `CEIL(bigint_col)`), or wrap the expression in an explicit
+  `CAST(... AS INT)` to keep the previous schema. Expressions over `INT` columns are unaffected.
+- **[BREAKING]** SQL Transform `ROUND`, `TRUNC` / `TRUNCATE` and `MOD` no longer round-trip their arguments through
+  `double`, so `DECIMAL` and large `BIGINT` values keep full precision. For example
+  `ROUND(CAST('12345678901234567890.987654321' AS DECIMAL(38,9)), 2)` previously returned
+  `12345678901234567000.00` and now returns `12345678901234567890.99`, and `MOD(9007199254740993, 2)` previously
+  returned `0` and now returns `1`. Jobs that (intentionally or not) depended on the old lossy values will see
+  different — now correct — output.
 
 ### Engine Behavior Changes
 

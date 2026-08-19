@@ -83,45 +83,103 @@ jobs:
               return sameStatus && sameConclusion && sameDetailsUrl;
             }
 
-            async function getEffectiveWorkflowRun(workflowRunParams, workflowRun) {
-              const effectiveWorkflowRun = {
-                status: workflowRun.status,
-                conclusion: workflowRun.conclusion,
-                details_url: workflowRun.html_url || workflowRun.details_url
-              };
-              const waitingStatuses = ['queued', 'requested', 'pending', 'waiting'];
+            function deriveCompletedConclusion(jobs, fallbackConclusion) {
+              const conclusions = jobs
+                .map((job) => job.conclusion)
+                .filter((conclusion) => typeof conclusion === 'string' && conclusion.length > 0);
 
-              if (!waitingStatuses.includes(effectiveWorkflowRun.status)) {
-                return effectiveWorkflowRun;
+              if (conclusions.length === 0) {
+                return fallbackConclusion;
               }
 
-              try {
-                const jobs = await github.paginate(
+              if (
+                conclusions.includes('failure')
+                || conclusions.includes('startup_failure')
+              ) {
+                return 'failure';
+              }
+              if (conclusions.includes('timed_out')) {
+                return 'timed_out';
+              }
+              if (conclusions.includes('action_required')) {
+                return 'action_required';
+              }
+              if (conclusions.includes('cancelled')) {
+                return 'cancelled';
+              }
+              if (conclusions.every((conclusion) => conclusion === 'skipped')) {
+                return 'skipped';
+              }
+              if (
+                conclusions.includes('neutral')
+                && conclusions.every(
+                  (conclusion) => conclusion === 'neutral' || conclusion === 'skipped'
+                )
+              ) {
+                return 'neutral';
+              }
+
+              return 'success';
+            }
+
+            async function listWorkflowJobs(workflowRunParams) {
+              const jobs = [];
+              let page = 1;
+
+              while (true) {
+                const response = await github.request(
                   'GET /repos/{owner}/{repo}/actions/runs/{run_id}/jobs',
                   {
                     ...workflowRunParams,
-                    filter: 'latest',
-                    per_page: 100
+                    per_page: 100,
+                    page
                   }
                 );
-                const childWorkStarted = jobs.some(
-                  (job) =>
-                    job.status === 'in_progress' ||
-                    (job.status === 'completed' && job.conclusion !== 'skipped')
-                );
+                const pageJobs = response.data.jobs || [];
 
-                if (childWorkStarted) {
-                  effectiveWorkflowRun.status = 'in_progress';
-                  effectiveWorkflowRun.conclusion = null;
+                jobs.push(...pageJobs);
+
+                if (pageJobs.length < 100) {
+                  break;
                 }
-              } catch (error) {
-                console.error(
-                  `Unable to inspect child jobs for run ${workflowRunParams.run_id}`,
-                  error
-                );
+                page += 1;
               }
 
-              return effectiveWorkflowRun;
+              return jobs;
+            }
+
+            async function normalizeWorkflowRun(workflowRunParams, workflowRun) {
+              const normalizedWorkflowRun = {
+                status: workflowRun.status,
+                conclusion: workflowRun.conclusion,
+                details_url: workflowRun.html_url
+              };
+
+              if (workflowRun.status !== 'queued') {
+                return normalizedWorkflowRun;
+              }
+
+              // Reusable workflow runs can stay queued at the top level on GitHub while
+              // child jobs are already running or finished, so derive a more accurate state
+              // from the real job list before syncing the PR check run.
+              const jobs = await listWorkflowJobs(workflowRunParams);
+
+              if (jobs.length === 0 || jobs.every((job) => job.status === 'queued')) {
+                return normalizedWorkflowRun;
+              }
+
+              if (jobs.every((job) => job.status === 'completed')) {
+                normalizedWorkflowRun.status = 'completed';
+                normalizedWorkflowRun.conclusion = deriveCompletedConclusion(
+                  jobs,
+                  workflowRun.conclusion
+                );
+                return normalizedWorkflowRun;
+              }
+
+              normalizedWorkflowRun.status = 'in_progress';
+              normalizedWorkflowRun.conclusion = null;
+              return normalizedWorkflowRun;
             }
 
             async function processPullRequest(searchItem) {
@@ -185,14 +243,20 @@ jobs:
                   return;
                 }
 
-                const effectiveWorkflowRun = await getEffectiveWorkflowRun(
-                  workflowRunParams,
-                  workflowRun
-                );
+                let normalizedWorkflowRun;
+                try {
+                  normalizedWorkflowRun = await normalizeWorkflowRun(
+                    workflowRunParams,
+                    workflowRun
+                  );
+                } catch (error) {
+                  console.error(`  Skip PR #${pr.number}: workflow jobs lookup failed`, error);
+                  return;
+                }
 
-                if (shouldSkipPatch(buildCheckRun, effectiveWorkflowRun)) {
+                if (shouldSkipPatch(buildCheckRun, normalizedWorkflowRun)) {
                   console.log(
-                    `  Skip PR #${pr.number}: Build check run ${buildCheckRun.id} already matches ${effectiveWorkflowRun.status}/${effectiveWorkflowRun.conclusion}`
+                    `  Skip PR #${pr.number}: Build check run ${buildCheckRun.id} already matches ${normalizedWorkflowRun.status}/${normalizedWorkflowRun.conclusion}`
                   );
                   return;
                 }
@@ -202,18 +266,18 @@ jobs:
                   repo: context.repo.repo,
                   check_run_id: buildCheckRun.id,
                   output: buildCheckRun.output,
-                  status: effectiveWorkflowRun.status,
-                  details_url: effectiveWorkflowRun.details_url
+                  status: normalizedWorkflowRun.status,
+                  details_url: normalizedWorkflowRun.details_url
                 };
 
-                if (effectiveWorkflowRun.status === 'completed') {
-                  patchParams.conclusion = effectiveWorkflowRun.conclusion;
+                if (normalizedWorkflowRun.status === 'completed') {
+                  patchParams.conclusion = normalizedWorkflowRun.conclusion;
                   console.log(
-                    `  Patch PR #${pr.number} check run ${buildCheckRun.id}: ${buildCheckRun.status}/${buildCheckRun.conclusion} -> ${effectiveWorkflowRun.status}/${effectiveWorkflowRun.conclusion}`
+                    `  Patch PR #${pr.number} check run ${buildCheckRun.id}: ${buildCheckRun.status}/${buildCheckRun.conclusion} -> ${normalizedWorkflowRun.status}/${normalizedWorkflowRun.conclusion}`
                   );
                 } else {
                   console.log(
-                    `  Patch PR #${pr.number} check run ${buildCheckRun.id}: ${buildCheckRun.status} -> ${effectiveWorkflowRun.status}`
+                    `  Patch PR #${pr.number} check run ${buildCheckRun.id}: ${buildCheckRun.status} -> ${normalizedWorkflowRun.status}`
                   );
                 }
 

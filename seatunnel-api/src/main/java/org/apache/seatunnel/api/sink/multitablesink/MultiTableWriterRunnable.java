@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.api.sink.multitablesink;
 
+import org.apache.seatunnel.api.common.error.RowErrorHandlingFatalException;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
@@ -26,7 +27,9 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
+import java.util.function.Consumer;
 
 /**
  * Consumes ordered queue requests for one sink queue. Both row writes and schema-change barriers
@@ -54,10 +57,16 @@ public class MultiTableWriterRunnable implements Runnable {
     private volatile Throwable throwable;
     /** Table currently being written, used in fail-fast diagnostics. */
     private volatile String currentTableId;
+    /** Handles row-level write errors before the worker escalates to table failure. */
+    private volatile MultiTableRowErrorHandler rowErrorHandler;
+    /** Invoked after rows are successfully persisted and no collected-row error consumed them. */
+    private volatile Consumer<SeaTunnelRow> writeSuccessHandler = row -> {};
     /** Marks that this worker is actively writing a data row. */
     private volatile boolean processingRow;
     /** Marks that this worker is still inside the failure-handler callback. */
     private volatile boolean handlingTableFailure;
+    /** Counts queued or dequeued row requests until their write path has fully finished. */
+    private final AtomicInteger pendingRowRequests = new AtomicInteger();
 
     public MultiTableWriterRunnable(
             Map<String, SinkWriter<SeaTunnelRow, ?, ?>> tableIdWriterMap,
@@ -89,6 +98,14 @@ public class MultiTableWriterRunnable implements Runnable {
         this.tableRetryIntervalSeconds = Math.max(0, tableRetryIntervalSeconds);
     }
 
+    public void setRowErrorHandler(MultiTableRowErrorHandler rowErrorHandler) {
+        this.rowErrorHandler = rowErrorHandler;
+    }
+
+    public void setWriteSuccessHandler(Consumer<SeaTunnelRow> writeSuccessHandler) {
+        this.writeSuccessHandler = writeSuccessHandler == null ? row -> {} : writeSuccessHandler;
+    }
+
     @Override
     public void run() {
         while (true) {
@@ -111,15 +128,20 @@ public class MultiTableWriterRunnable implements Runnable {
                 break;
             } catch (Throwable error) {
                 if (queueElement instanceof RowWriteRequest) {
-                    tableFailure = handleWriteFailure(((RowWriteRequest) queueElement).row, error);
-                    if (tableFailure != null) {
-                        if (notifyTableFailure(tableFailure)) {
-                            continue;
-                        }
-                        failPendingSchemaChangeRequests(
-                                queueElement, throwable != null ? throwable : error);
-                    } else {
+                    if (throwable == error) {
                         failPendingSchemaChangeRequests(queueElement, error);
+                    } else {
+                        tableFailure =
+                                handleWriteFailure(((RowWriteRequest) queueElement).row, error);
+                        if (tableFailure != null) {
+                            if (notifyTableFailure(tableFailure)) {
+                                continue;
+                            }
+                            failPendingSchemaChangeRequests(
+                                    queueElement, throwable != null ? throwable : error);
+                        } else {
+                            failPendingSchemaChangeRequests(queueElement, error);
+                        }
                     }
                 } else {
                     log.error(
@@ -132,6 +154,10 @@ public class MultiTableWriterRunnable implements Runnable {
                 }
                 processingRow = false;
                 break;
+            } finally {
+                if (queueElement != null && queueElement.isCountedRowRequest()) {
+                    pendingRowRequests.decrementAndGet();
+                }
             }
         }
     }
@@ -169,6 +195,7 @@ public class MultiTableWriterRunnable implements Runnable {
                 log.debug("Skip row for quarantined table {}", row.getTableId());
                 return;
             } else {
+                currentTableId = row.getTableId();
                 throw new RuntimeException(
                         "MultiTableWriterRunnable can't find writer for tableId: "
                                 + row.getTableId());
@@ -176,7 +203,27 @@ public class MultiTableWriterRunnable implements Runnable {
         } else {
             currentTableId = row.getTableId();
         }
-        writeWithRetry(writer, row, currentTableId);
+        try {
+            beginCollectedRowErrorOutcomeProbe(row);
+            writeWithRetry(writer, row, currentTableId);
+            if (!consumeCollectedRowErrorOutcome(row)) {
+                writeSuccessHandler.accept(row);
+            }
+        } catch (InterruptedException interruptedException) {
+            clearCollectedRowErrorOutcomeProbe(row);
+            throw interruptedException;
+        } catch (Throwable error) {
+            clearCollectedRowErrorOutcomeProbe(row);
+            try {
+                if (tryHandleRowError(writer, row, error)) {
+                    return;
+                }
+            } catch (Throwable handlerException) {
+                throwable = handlerException;
+                throw handlerException;
+            }
+            throw error;
+        }
     }
 
     /**
@@ -187,8 +234,36 @@ public class MultiTableWriterRunnable implements Runnable {
         schemaChangeBarrier.reachBarrier();
     }
 
+    private boolean tryHandleRowError(
+            SinkWriter<SeaTunnelRow, ?, ?> writer, SeaTunnelRow row, Throwable error)
+            throws Throwable {
+        if (containsFatalRowErrorHandlingFailure(error)) {
+            throw error;
+        }
+        if (row == null || rowErrorHandler == null || writer == null) {
+            return false;
+        }
+        try {
+            boolean handled = rowErrorHandler.handleRowError(writer, currentTableId, row, error);
+            if (handled) {
+                return true;
+            }
+            return false;
+        } catch (Throwable handlerException) {
+            log.error(
+                    String.format("RowErrorHandler threw exception when handling row %s", row),
+                    handlerException);
+            handlerException.addSuppressed(error);
+            throw handlerException;
+        }
+    }
+
     private TableFailure handleWriteFailure(SeaTunnelRow row, Throwable error) {
         log.error(String.format("MultiTableWriterRunnable error when write row %s", row), error);
+        if (containsFatalRowErrorHandlingFailure(error)) {
+            throwable = error;
+            return null;
+        }
         String failedTableId =
                 currentTableId != null ? currentTableId : row == null ? null : row.getTableId();
         if (continueOnTableFailure && failedTableId != null && !failedTableId.trim().isEmpty()) {
@@ -199,6 +274,33 @@ public class MultiTableWriterRunnable implements Runnable {
         }
         throwable = error;
         return null;
+    }
+
+    private boolean consumeCollectedRowErrorOutcome(SeaTunnelRow row) {
+        return rowErrorHandler != null && rowErrorHandler.consumeCollectedRowErrorOutcome(row);
+    }
+
+    private void beginCollectedRowErrorOutcomeProbe(SeaTunnelRow row) {
+        if (rowErrorHandler != null) {
+            rowErrorHandler.beginCollectedRowErrorOutcomeProbe(row);
+        }
+    }
+
+    private void clearCollectedRowErrorOutcomeProbe(SeaTunnelRow row) {
+        if (rowErrorHandler != null) {
+            rowErrorHandler.clearCollectedRowErrorOutcomeProbe(row);
+        }
+    }
+
+    private boolean containsFatalRowErrorHandlingFailure(Throwable error) {
+        Throwable current = error;
+        while (current != null) {
+            if (current instanceof RowErrorHandlingFatalException) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 
     private boolean notifyTableFailure(TableFailure tableFailure) {
@@ -266,13 +368,28 @@ public class MultiTableWriterRunnable implements Runnable {
         return handlingTableFailure;
     }
 
+    public boolean hasPendingRowRequests() {
+        return pendingRowRequests.get() > 0;
+    }
+
+    QueueElement countedRowRequest(SeaTunnelRow row) {
+        pendingRowRequests.incrementAndGet();
+        return new RowWriteRequest(row, true);
+    }
+
+    void cancelCountedRowRequest(QueueElement queueElement) {
+        if (queueElement.isCountedRowRequest()) {
+            pendingRowRequests.decrementAndGet();
+        }
+    }
+
     public synchronized void removeTableWriter(String tableId) {
         tableIdWriterMap.remove(tableId);
     }
 
     /** Creates one ordered queue element that writes a data row. */
     static QueueElement rowRequest(SeaTunnelRow row) {
-        return new RowWriteRequest(row);
+        return new RowWriteRequest(row, false);
     }
 
     /** Creates one ordered queue element that blocks on the shared schema-change barrier. */
@@ -292,14 +409,21 @@ public class MultiTableWriterRunnable implements Runnable {
         default boolean isRowRequest() {
             return false;
         }
+
+        /** Whether this row request was counted by {@link #pendingRowRequests}. */
+        default boolean isCountedRowRequest() {
+            return false;
+        }
     }
 
     private static class RowWriteRequest implements QueueElement {
 
         private final SeaTunnelRow row;
+        private final boolean counted;
 
-        private RowWriteRequest(SeaTunnelRow row) {
+        private RowWriteRequest(SeaTunnelRow row, boolean counted) {
             this.row = row;
+            this.counted = counted;
         }
 
         @Override
@@ -310,6 +434,11 @@ public class MultiTableWriterRunnable implements Runnable {
         @Override
         public boolean isRowRequest() {
             return true;
+        }
+
+        @Override
+        public boolean isCountedRowRequest() {
+            return counted;
         }
 
         @Override
