@@ -21,6 +21,18 @@ import org.apache.seatunnel.api.configuration.Option;
 
 import java.util.Objects;
 
+/**
+ * A compatibility wrapper for composing a chain of {@link Condition conditions}.
+ *
+ * @deprecated {@link Condition} already provides the same condition-chain composition through
+ *     {@link Condition#and(Condition)} and {@link Condition#or(Condition)}. Maintaining both models
+ *     requires callers to wrap a {@code Condition} in an {@code Expression} and later unwrap it
+ *     without adding any semantics. Use {@link Condition} directly for new code. This class is
+ *     retained temporarily so that downstream extensions using the public API can migrate without a
+ *     source-incompatible change, and it may be removed in a future API cleanup after the
+ *     compatibility window.
+ */
+@Deprecated
 public class Expression {
     private final Condition<?> condition;
     private Boolean and = null;
