@@ -112,6 +112,10 @@ If `sequence_number_column` is not configured, `_CHANGE_SEQUENCE_NUMBER` is not 
 
 ### Simple Batch Example
 
+This example shows a local end-to-end batch test against the BigQuery emulator.
+Production jobs should provide a real service-account key (or rely on default
+application credentials) and target a real GCP project.
+
 ```hocon
 env {
   parallelism = 1
@@ -200,6 +204,27 @@ sink {
 }
 ```
 
+When the upstream CDC source already produces a monotonically increasing column
+(such as an `updated_at` epoch millis or a row version), wire it to
+`sequence_number_column` so BigQuery can dedup retried batches. The target
+table must define a primary key (the example above uses `PRIMARY KEY (uuid)
+NOT ENFORCED`), otherwise BigQuery treats every write as an append and skips
+deduplication.
+
+```hocon
+sink {
+  BigQuery {
+    project_id = "my-gcp-project"
+    dataset_id = "cdc_dataset"
+    table_id = "orders"
+    service_account_key_path = "/path/to/key.json"
+    write_mode = "streaming"
+    sequence_number_column = "updated_at"
+    batch_size = 500
+  }
+}
+```
+
 ### Complex Data Types Example
 
 ```hocon
@@ -227,6 +252,24 @@ sink {
     dataset_id = "orders"
     table_id = "customer_orders"
     service_account_key_path = "/path/to/key.json"
+    batch_size = 500
+  }
+}
+```
+
+### Inline Service Account Key
+
+For environments where a key file is inconvenient (CI runners, Kubernetes
+secrets mounted as env vars), inline the JSON content with
+`service_account_key_json`.
+
+```hocon
+sink {
+  BigQuery {
+    project_id = "my-gcp-project"
+    dataset_id = "orders"
+    table_id = "customer_orders"
+    service_account_key_json = "${GCP_SA_KEY_JSON}"
     batch_size = 500
   }
 }

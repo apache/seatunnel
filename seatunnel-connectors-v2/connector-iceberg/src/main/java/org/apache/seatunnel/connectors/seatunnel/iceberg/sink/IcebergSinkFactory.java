@@ -46,12 +46,11 @@ public class IcebergSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(
+                .required(IcebergSinkOptions.CATALOG_PROPS)
+                .optional(
                         IcebergCommonOptions.KEY_CATALOG_NAME,
                         IcebergSinkOptions.KEY_NAMESPACE,
                         IcebergSinkOptions.KEY_TABLE,
-                        IcebergSinkOptions.CATALOG_PROPS)
-                .optional(
                         IcebergSinkOptions.HADOOP_PROPS,
                         IcebergSinkOptions.HADOOP_CONF_PATH_PROP,
                         IcebergSinkOptions.KEY_CASE_SENSITIVE,

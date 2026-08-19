@@ -28,6 +28,7 @@ import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.common.utils.DateUtils;
 import org.apache.seatunnel.common.utils.TimeUtils;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
+import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ExcelReadStrategy;
 
 import org.junit.jupiter.api.Assertions;
@@ -36,10 +37,12 @@ import org.junit.jupiter.api.Test;
 import lombok.Getter;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -47,6 +50,9 @@ import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.zip.CRC32;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.FS_DEFAULT_NAME_DEFAULT;
 
@@ -235,6 +241,204 @@ public class ExcelReadStrategyTest {
                 1);
         testLargeExcelRead("/excel/e2e.xls", "/excel/e2exls.conf", 5);
         testLargeExcelRead("/excel/e2e.xlsx", "/excel/e2exls.conf", 5);
+    }
+
+    @Test
+    public void testEasyExcelIgnoresPoiFileSizeLimit() throws IOException, URISyntaxException {
+        URL excelFile = ExcelReadStrategyTest.class.getResource("/excel/e2e.xlsx");
+        URL conf = ExcelReadStrategyTest.class.getResource("/excel/e2exls.conf");
+
+        Assertions.assertNotNull(excelFile);
+        Assertions.assertNotNull(conf);
+        String excelFilePath = Paths.get(excelFile.toURI()).toString();
+        String confPath = Paths.get(conf.toURI()).toString();
+        Config pluginConfig =
+                ConfigFactory.parseString("poi_excel_max_file_size = 1")
+                        .withFallback(ConfigFactory.parseFile(new File(confPath)));
+        ExcelReadStrategy excelReadStrategy = new ExcelReadStrategy();
+        LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        excelReadStrategy.setPluginConfig(pluginConfig);
+        excelReadStrategy.init(localConf);
+
+        List<String> fileNamesByPath = excelReadStrategy.getFileNamesByPath(excelFilePath);
+        CatalogTable userDefinedCatalogTable = CatalogTableUtil.buildWithConfig(pluginConfig);
+        excelReadStrategy.setCatalogTable(userDefinedCatalogTable);
+
+        TestCollector testCollector = new TestCollector();
+        excelReadStrategy.read(fileNamesByPath.get(0), "", testCollector);
+
+        Assertions.assertEquals(5, testCollector.getRows().size());
+    }
+
+    @Test
+    public void testPoiRejectsExcelLargerThanConfiguredLimit()
+            throws IOException, URISyntaxException {
+        URL excelFile = ExcelReadStrategyTest.class.getResource("/excel/e2e.xlsx");
+        URL conf = ExcelReadStrategyTest.class.getResource("/excel/e2exls.conf");
+
+        Assertions.assertNotNull(excelFile);
+        Assertions.assertNotNull(conf);
+        String excelFilePath = Paths.get(excelFile.toURI()).toString();
+        String confPath = Paths.get(conf.toURI()).toString();
+        Config pluginConfig =
+                ConfigFactory.parseString("poi_excel_max_file_size = 1")
+                        .withFallback(ConfigFactory.parseFile(new File(confPath)))
+                        .withoutPath("excel_engine");
+        ExcelReadStrategy excelReadStrategy = new ExcelReadStrategy();
+        LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        excelReadStrategy.setPluginConfig(pluginConfig);
+        excelReadStrategy.init(localConf);
+
+        List<String> fileNamesByPath = excelReadStrategy.getFileNamesByPath(excelFilePath);
+        CatalogTable userDefinedCatalogTable = CatalogTableUtil.buildWithConfig(pluginConfig);
+        excelReadStrategy.setCatalogTable(userDefinedCatalogTable);
+
+        FileConnectorException exception =
+                Assertions.assertThrows(
+                        FileConnectorException.class,
+                        () ->
+                                excelReadStrategy.read(
+                                        fileNamesByPath.get(0), "", new TestCollector()));
+        Assertions.assertTrue(exception.getMessage().contains("larger than POI limit"));
+        Assertions.assertTrue(exception.getMessage().contains("excel_engine = EasyExcel"));
+    }
+
+    @Test
+    public void testPoiRejectsArchivedExcelEntryLargerThanConfiguredLimit()
+            throws IOException, URISyntaxException {
+        URL zipFile = ExcelReadStrategyTest.class.getResource("/excel/archive_zip/e2e_in_zip.zip");
+        URL conf = ExcelReadStrategyTest.class.getResource("/excel/e2exls.conf");
+
+        Assertions.assertNotNull(zipFile);
+        Assertions.assertNotNull(conf);
+        String zipFilePath = Paths.get(zipFile.toURI()).toString();
+        String confPath = Paths.get(conf.toURI()).toString();
+        Config pluginConfig =
+                ConfigFactory.parseString(
+                                "poi_excel_max_file_size = 1\narchive_compress_codec = \"ZIP\"")
+                        .withFallback(ConfigFactory.parseFile(new File(confPath)))
+                        .withoutPath("excel_engine");
+        ExcelReadStrategy excelReadStrategy = new ExcelReadStrategy();
+        LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        excelReadStrategy.setPluginConfig(pluginConfig);
+        excelReadStrategy.init(localConf);
+
+        List<String> fileNamesByPath = excelReadStrategy.getFileNamesByPath(zipFilePath);
+        CatalogTable userDefinedCatalogTable = CatalogTableUtil.buildWithConfig(pluginConfig);
+        excelReadStrategy.setCatalogTable(userDefinedCatalogTable);
+
+        FileConnectorException exception =
+                Assertions.assertThrows(
+                        FileConnectorException.class,
+                        () ->
+                                excelReadStrategy.read(
+                                        fileNamesByPath.get(0), "", new TestCollector()));
+        Assertions.assertTrue(
+                exception.getMessage().contains("larger than POI limit")
+                        || exception.getMessage().contains("is %,d bytes, larger than POI limit"),
+                "Expected archived entry guard error, got: " + exception.getMessage());
+    }
+
+    @Test
+    public void testEasyExcelReadsArchivedExcelEntryAbovePoiLimit()
+            throws IOException, URISyntaxException {
+        URL zipFile = ExcelReadStrategyTest.class.getResource("/excel/archive_zip/e2e_in_zip.zip");
+        URL conf = ExcelReadStrategyTest.class.getResource("/excel/e2exls.conf");
+
+        Assertions.assertNotNull(zipFile);
+        Assertions.assertNotNull(conf);
+        String zipFilePath = Paths.get(zipFile.toURI()).toString();
+        String confPath = Paths.get(conf.toURI()).toString();
+        Config pluginConfig =
+                ConfigFactory.parseString(
+                                "poi_excel_max_file_size = 1\narchive_compress_codec = \"ZIP\"")
+                        .withFallback(ConfigFactory.parseFile(new File(confPath)));
+        ExcelReadStrategy excelReadStrategy = new ExcelReadStrategy();
+        LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        excelReadStrategy.setPluginConfig(pluginConfig);
+        excelReadStrategy.init(localConf);
+
+        List<String> fileNamesByPath = excelReadStrategy.getFileNamesByPath(zipFilePath);
+        CatalogTable userDefinedCatalogTable = CatalogTableUtil.buildWithConfig(pluginConfig);
+        excelReadStrategy.setCatalogTable(userDefinedCatalogTable);
+
+        TestCollector testCollector = new TestCollector();
+        // EasyExcel streams rows lazily, so the POI size guard must NOT apply
+        // to archived entries even when the configured limit is below the entry size.
+        excelReadStrategy.read(fileNamesByPath.get(0), "", testCollector);
+
+        Assertions.assertEquals(5, testCollector.getRows().size());
+    }
+
+    @Test
+    public void testPoiAcceptsSmallExcelEntryInsideLargerArchive()
+            throws IOException, URISyntaxException {
+        // Regression for the archived-path size guard: the on-disk size of the
+        // archive must NOT be used to judge an Excel entry bundled inside it. Build
+        // a zip that is far larger than the configured POI limit on disk but whose
+        // only Excel entry is well below the limit, then verify POI still reads it.
+        // Previously the redundant POI-level guard re-statted the archive path and
+        // falsely rejected such a small entry.
+        URL excelFile = ExcelReadStrategyTest.class.getResource("/excel/e2e.xlsx");
+        URL conf = ExcelReadStrategyTest.class.getResource("/excel/e2exls.conf");
+        Assertions.assertNotNull(excelFile);
+        Assertions.assertNotNull(conf);
+
+        byte[] excelBytes = Files.readAllBytes(Paths.get(excelFile.toURI()));
+        long entrySize = excelBytes.length;
+        // Limit above the Excel entry, but below the padded archive on disk.
+        long poiLimit = entrySize + 1024L;
+
+        File archive = File.createTempFile("e2e_padded_", ".zip");
+        archive.deleteOnExit();
+        // STORED (uncompressed) padding so the archive's on-disk size is reliably
+        // larger than the limit regardless of how the Excel entry compresses.
+        byte[] padding = new byte[(int) (poiLimit * 4)];
+        CRC32 crc = new CRC32();
+        crc.update(padding);
+        try (ZipOutputStream zos = new ZipOutputStream(new FileOutputStream(archive))) {
+            ZipEntry excelEntry = new ZipEntry("e2e.xlsx");
+            zos.putNextEntry(excelEntry);
+            zos.write(excelBytes);
+            zos.closeEntry();
+
+            ZipEntry paddingEntry = new ZipEntry("padding.bin");
+            paddingEntry.setMethod(ZipEntry.STORED);
+            paddingEntry.setSize(padding.length);
+            paddingEntry.setCompressedSize(padding.length);
+            paddingEntry.setCrc(crc.getValue());
+            zos.putNextEntry(paddingEntry);
+            zos.write(padding);
+            zos.closeEntry();
+        }
+
+        Assertions.assertTrue(archive.length() > poiLimit, "archive must exceed the limit");
+        Assertions.assertTrue(entrySize < poiLimit, "entry must be below the limit");
+
+        String confPath = Paths.get(conf.toURI()).toString();
+        Config pluginConfig =
+                ConfigFactory.parseString(
+                                "poi_excel_max_file_size = "
+                                        + poiLimit
+                                        + "\narchive_compress_codec = \"ZIP\"")
+                        .withFallback(ConfigFactory.parseFile(new File(confPath)))
+                        .withoutPath("excel_engine");
+        ExcelReadStrategy excelReadStrategy = new ExcelReadStrategy();
+        LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        excelReadStrategy.setPluginConfig(pluginConfig);
+        excelReadStrategy.init(localConf);
+
+        List<String> fileNamesByPath =
+                excelReadStrategy.getFileNamesByPath(archive.getAbsolutePath());
+        CatalogTable userDefinedCatalogTable = CatalogTableUtil.buildWithConfig(pluginConfig);
+        excelReadStrategy.setCatalogTable(userDefinedCatalogTable);
+
+        TestCollector testCollector = new TestCollector();
+        // POI engine (default). The archive exceeds the limit, but the Excel entry
+        // is below it, so the read must succeed rather than be falsely rejected.
+        excelReadStrategy.read(fileNamesByPath.get(0), "", testCollector);
+
+        Assertions.assertEquals(5, testCollector.getRows().size());
     }
 
     private void testLargeExcelRead(String filePath, String configPath, int rowCount)
