@@ -48,6 +48,9 @@ import java.util.Collections;
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 public abstract class AbstractSeaTunnelServerTest<T extends AbstractSeaTunnelServerTest> {
 
+    private static final int HAZELCAST_PORT_COUNT = 100;
+    private static final int HAZELCAST_TCP_JOIN_PORT_TRY_COUNT = HAZELCAST_PORT_COUNT;
+
     protected SeaTunnelServer server;
 
     protected NodeEngine nodeEngine;
@@ -56,7 +59,7 @@ public abstract class AbstractSeaTunnelServerTest<T extends AbstractSeaTunnelSer
 
     protected static ILogger LOGGER;
 
-    private final int hazelcastPort = TestUtils.getAvailablePort(100);
+    private final int hazelcastPort = TestUtils.getAvailablePort(HAZELCAST_PORT_COUNT);
 
     @BeforeAll
     public void before() {
@@ -74,6 +77,7 @@ public abstract class AbstractSeaTunnelServerTest<T extends AbstractSeaTunnelSer
     }
 
     protected String getHazelcastConfig() {
+        assertHazelcastJoinPortTryCount(HAZELCAST_PORT_COUNT, HAZELCAST_TCP_JOIN_PORT_TRY_COUNT);
         return "hazelcast:\n"
                 + "  cluster-name: seatunnel\n"
                 + "  network:\n"
@@ -89,18 +93,31 @@ public abstract class AbstractSeaTunnelServerTest<T extends AbstractSeaTunnelSer
                 + "          - localhost\n"
                 + "    port:\n"
                 + "      auto-increment: true\n"
-                + "      port-count: 100\n"
+                + "      port-count: "
+                + HAZELCAST_PORT_COUNT
+                + "\n"
                 + "      port: "
                 + getHazelcastPort()
                 + "\n"
                 + "\n"
                 + "  properties:\n"
                 + "    hazelcast.invocation.max.retry.count: 200\n"
-                + "    hazelcast.tcp.join.port.try.count: 100\n"
+                + "    hazelcast.tcp.join.port.try.count: "
+                + HAZELCAST_TCP_JOIN_PORT_TRY_COUNT
+                + "\n"
                 + "    hazelcast.invocation.retry.pause.millis: 2000\n"
                 + "    hazelcast.slow.operation.detector.stacktrace.logging.enabled: true\n"
                 + "    hazelcast.logging.type: log4j2\n"
                 + "    hazelcast.operation.generic.thread.count: 200\n";
+    }
+
+    public static void assertHazelcastJoinPortTryCount(int portCount, int joinPortTryCount) {
+        if (joinPortTryCount < portCount) {
+            throw new IllegalArgumentException(
+                    String.format(
+                            "hazelcast.tcp.join.port.try.count (%d) must be >= port-count (%d)",
+                            joinPortTryCount, portCount));
+        }
     }
 
     protected int getHazelcastPort() {

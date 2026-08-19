@@ -27,6 +27,8 @@ hazelcast:
       auto-increment: true
       port-count: 100
       port: 5801
+  properties:
+    hazelcast.tcp.join.port.try.count: 100
   map:
     map-name-template:
       map-store:
