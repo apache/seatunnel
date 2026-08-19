@@ -164,6 +164,12 @@ You need to check this document before you upgrade to related version.
     - A leftover `flush_interval` key in the `Prometheus` sink block is rejected only when the config is validated with `--check` / `--dry-run=static` / `--dry-run=connect` (which run `validateUnknownKeys`). A directly submitted job silently ignores the stray key; the connector logs a warning once per sink writer at startup instead (so a job with parallelism N, multiple tables, or replicas logs it multiple times).
   - **Migration Guide**: Remove `flush_interval` from the `Prometheus` sink block. To keep timer-based flushing on Zeta, set `sink.flush.interval` (milliseconds) in the job `env` block. On Spark and Flink, rely on `batch_size`. The `batch_size` trigger and the final flush on writer close are unchanged on all engines.
 
+- **Breaking Change: File connectors reject `DOCTYPE` declarations in XML input (XXE hardening)**
+  - **Affected component**: `seatunnel-connectors-v2/connector-file/connector-file-base` (`XmlReadStrategy`), and every file source built on it: LocalFile, HdfsFile, S3File, OssFile, OssJindoFile, CosFile, FtpFile, SftpFile (`file_format_type = xml`)
+  - **Description**: The XML reader previously parsed user-supplied files with a default dom4j `SAXReader`, leaving DTD processing and external entity resolution at their JAXP defaults. A crafted `DOCTYPE`/external-entity payload could disclose local worker-node files, trigger SSRF-style fetches, or exhaust memory via entity expansion ("billion laughs"). `XmlReadStrategy` now routes every parse through a hardened reader that enables JAXP secure processing, rejects any `<!DOCTYPE ...>` declaration outright, disables external general/parameter entities and external DTD loading, and installs a deny-all `EntityResolver` as a parser-agnostic backstop.
+  - **Impact**: XML files that previously parsed successfully only because they carried a `<!DOCTYPE ...>` declaration — even a benign one with no external `SYSTEM`/`PUBLIC` reference — now fail with `FileConnectorException(FILE_READ_FAILED)`. There is no configuration option to opt back into the previous behavior.
+  - **Migration Guide**: Remove the `DOCTYPE` declaration from XML files before ingesting them with SeaTunnel, or pre-process/re-export the file without it. Well-formed XML without a `DOCTYPE` declaration is unaffected. (#11250)
+
 ### Transform Changes
 
 - **[BREAKING]** SQL Transform `PARSEDATETIME`, `TO_DATE`, and `IS_DATE` functions now only accept whitelisted datetime format patterns. Custom format patterns that were previously accepted will now fail at runtime. The supported patterns are:
@@ -208,6 +214,14 @@ You need to check this document before you upgrade to related version.
   `12345678901234567000.00` and now returns `12345678901234567890.99`, and `MOD(9007199254740993, 2)` previously
   returned `0` and now returns `1`. Jobs that (intentionally or not) depended on the old lossy values will see
   different — now correct — output.
+- **[BREAKING]** SQL Transform arithmetic on `DECIMAL` columns is now exact, and division rounds to nearest:
+  - Operands of `+`, `-`, `*` and `/` were previously converted with `BigDecimal.valueOf(value.doubleValue())`, which collapsed them to a `double` and discarded everything beyond ~17 significant digits. Values now keep full precision — for example, on `DECIMAL(38,2)` columns `123456789012345678.99 + 0.01` returns `123456789012345679.00` instead of `123456789012345680.01`.
+  - Division now uses `RoundingMode.HALF_UP` instead of `RoundingMode.UP`. `UP` always rounded away from zero, so at scale 2 `10 / 3` returned `3.34` instead of `3.33`, and `1 / 1000` returned `0.01` instead of `0.00`.
+  - `%` (`MOD`) is unaffected; it already delegated to the `MOD` function rather than converting operands itself.
+  - `*` now rounds its result to the scale declared for the output column (`HALF_UP`), the same way `/` already did. Exact multiplication produces a result whose scale is the sum of the operand scales, while the column is declared as `DECIMAL(max(precision), max(scale))`; emitting the wider value would break sinks that encode against the declared schema. On `DECIMAL(38,2)` columns `10.25 * 3.75` returns `38.44`, where the old lossy conversion happened to return `38.4375` for these particular values.
+  - Dividing by a zero `DECIMAL` now fails with a `TransformException` naming the operation, where the underlying cause was previously `java.lang.ArithmeticException("/ by zero")`. The failing expression was already reported either way, since the SQL engine wraps anything thrown while evaluating an expression; only the cause type changed. This matches how `MOD` by zero has always been reported.
+
+  **Migration Guide**: Results that were previously inflated by the old rounding mode, or truncated by the `double` conversion, will change. Multiplication results may now carry *fewer* decimal places than before: the old conversion sometimes emitted a value wider than the declared column scale, and that value is now rounded down to it, so a job reading `38.4375` from a `DECIMAL(38,2)` column will read `38.44` after upgrading. Any code that inspects the *cause* of a division failure and matches on `ArithmeticException` should be updated to expect `TransformException`. If a downstream system was reconciled against the old values, re-baseline it after upgrading. Any workaround that compensated for the old behavior (for example subtracting a correction term after a division) should be removed.
 
 ### Engine Behavior Changes
 

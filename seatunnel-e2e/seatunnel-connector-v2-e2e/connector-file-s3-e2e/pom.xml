@@ -24,6 +24,11 @@
 
     <artifactId>connector-file-s3-e2e</artifactId>
     <name>SeaTunnel : E2E : Connector V2 : File S3</name>
+
+    <properties>
+        <s3.aws-java-sdk-bundle.version>1.12.692</s3.aws-java-sdk-bundle.version>
+    </properties>
+
     <dependencies>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
@@ -38,6 +43,12 @@
             <scope>test</scope>
         </dependency>
         <dependency>
+            <groupId>com.amazonaws</groupId>
+            <artifactId>aws-java-sdk-bundle</artifactId>
+            <version>${s3.aws-java-sdk-bundle.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>seatunnel-hadoop-aws</artifactId>
             <version>${project.version}</version>
@@ -49,12 +60,6 @@
                     <artifactId>jdk.tools</artifactId>
                 </exclusion>
             </exclusions>
-        </dependency>
-        <dependency>
-            <groupId>com.amazonaws</groupId>
-            <artifactId>aws-java-sdk-bundle</artifactId>
-            <version>1.12.692</version>
-            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
@@ -76,5 +81,46 @@
             <scope>test</scope>
         </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>stage-s3-e2e-dependency</id>
+                        <goals>
+                            <goal>copy</goal>
+                        </goals>
+                        <phase>process-test-resources</phase>
+                        <configuration>
+                            <skip>false</skip>
+                            <overWriteReleases>true</overWriteReleases>
+                            <artifactItems>
+                                <!--
+                                    S3A reaches the container as the shaded seatunnel-hadoop-aws
+                                    jar, which is what lib/seatunnel-hadoop-aws.jar is in a real
+                                    distribution: it carries hadoop-aws together with the AWS SDK
+                                    version hadoop-aws is compiled against. It replaces the
+                                    hadoop-aws + aws-java-sdk-bundle pair used here previously,
+                                    which was SDK v1 and hadoop-aws 3.1.4 - neither links against
+                                    the hadoop-common the 3.4.3 uber jar now ships.
+                                -->
+                                <artifactItem>
+                                    <groupId>org.apache.seatunnel</groupId>
+                                    <artifactId>seatunnel-hadoop-aws</artifactId>
+                                    <version>${project.version}</version>
+                                    <classifier>optional</classifier>
+                                    <destFileName>seatunnel-hadoop-aws.jar</destFileName>
+                                </artifactItem>
+                            </artifactItems>
+                            <outputDirectory>${project.build.testOutputDirectory}/e2e-dependencies</outputDirectory>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
 
 </project>

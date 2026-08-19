@@ -22,21 +22,15 @@ import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.TestHelper;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
-import org.apache.seatunnel.e2e.common.util.ContainerUtil;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.TestTemplate;
-import org.testcontainers.containers.Container;
-import org.testcontainers.utility.MountableFile;
 
 import java.io.IOException;
 
 @Disabled("have no s3 environment to run this test")
 public class S3FileWithMultipleTableIT extends TestSuiteBase {
-
-    private static final String SHADED_HADOOP_AWS_JAR =
-            "/seatunnel-shade/seatunnel-hadoop-aws/target/seatunnel-hadoop-aws.jar";
 
     /**
      * Put S3A on the container's classpath the same way the distribution does, with the shaded
@@ -46,23 +40,15 @@ public class S3FileWithMultipleTableIT extends TestSuiteBase {
      * Central into both the plugin dir and {@code lib/}. Both are incompatible with the {@code
      * hadoop-common} the uber jar now ships. The shaded jar carries {@code hadoop-aws} together
      * with its own SDK, which is what {@code lib/seatunnel-hadoop-aws.jar} is in a real
-     * distribution.
+     * distribution, and it is staged into the test classpath by the maven-dependency-plugin rather
+     * than downloaded.
      */
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
             container -> {
-                Container.ExecResult mkdir =
-                        container.execInContainer(
-                                "bash", "-c", "mkdir -p /tmp/seatunnel/plugins/s3/lib");
-                Assertions.assertEquals(0, mkdir.getExitCode());
-
-                MountableFile shadedHadoopAws =
-                        MountableFile.forHostPath(
-                                ContainerUtil.PROJECT_ROOT_PATH + SHADED_HADOOP_AWS_JAR);
-                container.copyFileToContainer(
-                        shadedHadoopAws, "/tmp/seatunnel/plugins/s3/lib/seatunnel-hadoop-aws.jar");
-                container.copyFileToContainer(
-                        shadedHadoopAws, "/tmp/seatunnel/lib/seatunnel-hadoop-aws.jar");
+                DependencyJar shadedHadoopAws = DependencyJar.staged("seatunnel-hadoop-aws.jar");
+                shadedHadoopAws.copyTo(container, "/tmp/seatunnel/plugins/s3/lib");
+                shadedHadoopAws.copyTo(container, "/tmp/seatunnel/lib");
             };
 
     /** Copy data files to s3 */

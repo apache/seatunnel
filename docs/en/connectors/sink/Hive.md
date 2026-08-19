@@ -4,9 +4,15 @@ import ChangeLog from '../changelog/connector-hive.md';
 
 > Hive sink connector
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Description
 
-Write data to Hive.
+Write data to Apache Hive tables. The connector uses Hive Metastore for table management and writes data files (text, CSV, parquet, ORC, JSON) to HDFS (or S3/OSS when configured). By default it uses two-phase commit so each checkpoint either commits the whole batch or rolls it back.
 
 :::tip
 
@@ -33,26 +39,26 @@ By default, we use 2PC commit to ensure `exactly-once`
 
 ## Options
 
-| name                                  | type    | required | default value  |
-|---------------------------------------|---------|----------|----------------|
-| table_name                            | string  | yes      | -              |
-| metastore_uri                         | string  | yes      | -              |
-| compress_codec                        | string  | no       | none           |
-| hdfs_site_path                        | string  | no       | -              |
-| hive_site_path                        | string  | no       | -              |
-| hive.hadoop.conf                      | Map     | no       | -              |
-| hive.hadoop.conf-path                 | string  | no       | -              |
-| remote_user                           | string  | no       | -              |
-| krb5_path                             | string  | no       | /etc/krb5.conf |
-| kerberos_principal                    | string  | no       | -              |
-| kerberos_keytab_path                  | string  | no       | -              |
-| abort_drop_partition_metadata         | boolean | no       | false          |
-| parquet_avro_write_timestamp_as_int96 | boolean | no       | false          |
-| overwrite                             | boolean | no       | false          |
-| data_save_mode                        | enum    | no       | APPEND_DATA    |
-| schema_save_mode                      | enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST |
-| save_mode_create_template             | string  | no       | -              |
-| common-options                        |         | no       | -              |
+| name                                  | type    | required | default value  | description |
+|---------------------------------------|---------|----------|----------------|-------------|
+| table_name                            | string  | yes      | -              | Target Hive table name, e.g. `db1.table1`. For multi-table mode, you can use `${database_name}.${table_name}` and SeaTunnel will substitute the upstream values. |
+| metastore_uri                         | string  | yes      | -              | Hive metastore URI. Comma-separated values enable HA failover. |
+| compress_codec                        | string  | no       | none           | Output compression codec. `lzo` and `none` are supported. Parquet / ORC auto-detect compression. |
+| hdfs_site_path                        | string  | no       | -              | Local path of `hdfs-site.xml`. Deprecated for new jobs — prefer `hive.hadoop.conf` or `hive.hadoop.conf-path`. |
+| hive_site_path                        | string  | no       | -              | Local path of `hive-site.xml`. |
+| hive.hadoop.conf                      | Map     | no       | -              | Inline Hadoop configuration properties. |
+| hive.hadoop.conf-path                 | string  | no       | -              | Directory that contains `core-site.xml`, `hdfs-site.xml`, and `hive-site.xml`. |
+| remote_user                           | string  | no       | -              | Hadoop remote user name used when connecting without Kerberos. |
+| krb5_path                             | string  | no       | /etc/krb5.conf | Path to `krb5.conf` for Kerberos authentication. |
+| kerberos_principal                    | string  | no       | -              | Principal for Kerberos authentication. |
+| kerberos_keytab_path                  | string  | no       | -              | Path to the keytab file paired with `kerberos_principal`. |
+| abort_drop_partition_metadata         | boolean | no       | false          | If true, drop partition metadata from Hive Metastore on abort. The data files in the partition are still removed. |
+| parquet_avro_write_timestamp_as_int96 | boolean | no       | false          | Write Parquet `INT96` from a timestamp. Only valid for parquet output. |
+| overwrite                             | boolean | no       | false          | Replace existing data before commit. Equivalent to `data_save_mode = "DROP_DATA"`. |
+| data_save_mode                        | enum    | no       | APPEND_DATA    | How to handle existing data before writing. `APPEND_DATA` (default), `DROP_DATA`, `CUSTOM_PROCESSING`, `ERROR_WHEN_DATA_EXISTS`. |
+| schema_save_mode                      | enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST | How to handle the target table schema before writing. `RECREATE_SCHEMA`, `CREATE_SCHEMA_WHEN_NOT_EXIST`, `ERROR_WHEN_SCHEMA_NOT_EXIST`, `IGNORE`. |
+| save_mode_create_template             | string  | no       | -              | Custom DDL template used when auto-creating the target Hive table. Variables: `${database}`, `${table}`, `${rowtype_fields}`, `${rowtype_partition_fields}`, `${table_location}`. |
+| common-options                        |         | no       | -              | Sink plugin common parameters. See [Sink Common Options](../common-options/sink-common-options.md). |
 
 ### table_name [string]
 

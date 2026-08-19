@@ -19,6 +19,7 @@ package org.apache.seatunnel.e2e.connector.hudi;
 
 import org.apache.seatunnel.common.utils.FileUtils;
 import org.apache.seatunnel.e2e.common.container.seatunnel.SeaTunnelContainer;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.LocalFileSystem;
@@ -103,14 +104,14 @@ public class HudiSeatunnelS3MultiTableIT extends SeaTunnelContainer {
      * S3AFileSystem.create} fails with {@code NoSuchMethodError} on {@code
      * SemaphoredDelegatingExecutor.<init>(ListeningExecutorService,int,boolean)}, whose guava-typed
      * constructor was removed. The shaded jar carries {@code hadoop-aws} with its own SDK, which is
-     * what {@code lib/seatunnel-hadoop-aws.jar} is in a real distribution, and it removes two
-     * network downloads from the test.
+     * what {@code lib/seatunnel-hadoop-aws.jar} is in a real distribution, and it is staged into
+     * the test classpath by the maven-dependency-plugin rather than downloaded.
      */
     @Override
-    protected void executeExtraCommands(GenericContainer<?> container)
+    protected void executeExtraCommands(GenericContainer<?> server)
             throws IOException, InterruptedException {
-        copyHadoopAwsToContainerLib(container);
-        super.executeExtraCommands(container);
+        super.executeExtraCommands(server);
+        DependencyJar.staged("seatunnel-hadoop-aws.jar").addTo(server, SEATUNNEL_HOME + "lib");
     }
 
     @Override

@@ -92,7 +92,6 @@
                 </exclusion>
             </exclusions>
         </dependency>
-
         <!-- Add Hive MetaStore dependency for E2E tests -->
         <dependency>
             <groupId>org.apache.hive</groupId>
@@ -133,6 +132,104 @@
             <version>${thrift.version}</version>
             <scope>test</scope>
         </dependency>
+
+        <!--
+            HiveDependencies copies seatunnel-hadoop-aws.jar into the container, which is where a
+            real distribution carries S3A. The jar is staged into the test classpath by the
+            maven-dependency-plugin execution below; this dependency is what makes
+            `-pl :connector-hive-e2e -am` build it in the same reactor, so that staging resolves.
+            The jar is only ever read from the filesystem, never linked against here, so its
+            transitive hadoop-aws and AWS SDK are excluded.
+        -->
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-hadoop-aws</artifactId>
+            <version>${project.version}</version>
+            <classifier>optional</classifier>
+            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>*</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>copy-hive-e2e-dependencies</id>
+                        <goals>
+                            <goal>copy</goal>
+                        </goals>
+                        <phase>process-test-resources</phase>
+                        <configuration>
+                            <skip>false</skip>
+                            <overWriteReleases>true</overWriteReleases>
+                            <artifactItems>
+                                <artifactItem>
+                                    <groupId>org.apache.hive</groupId>
+                                    <artifactId>hive-exec</artifactId>
+                                    <version>${hive.version}</version>
+                                    <destFileName>hive-exec.jar</destFileName>
+                                </artifactItem>
+                                <artifactItem>
+                                    <groupId>org.apache.thrift</groupId>
+                                    <artifactId>libfb303</artifactId>
+                                    <version>${thrift.version}</version>
+                                    <destFileName>libfb303.jar</destFileName>
+                                </artifactItem>
+                                <!--
+                                    S3A reaches the container as the shaded seatunnel-hadoop-aws
+                                    jar, which is what lib/seatunnel-hadoop-aws.jar is in a real
+                                    distribution: it carries hadoop-aws together with the AWS SDK
+                                    version hadoop-aws is compiled against. Staging hadoop-aws on
+                                    its own, as this did before, leaves the container without any
+                                    AWS SDK at all.
+                                -->
+                                <artifactItem>
+                                    <groupId>org.apache.seatunnel</groupId>
+                                    <artifactId>seatunnel-hadoop-aws</artifactId>
+                                    <version>${project.version}</version>
+                                    <classifier>optional</classifier>
+                                    <destFileName>seatunnel-hadoop-aws.jar</destFileName>
+                                </artifactItem>
+                                <artifactItem>
+                                    <groupId>com.aliyun.oss</groupId>
+                                    <artifactId>aliyun-sdk-oss</artifactId>
+                                    <version>${aliyun.sdk.oss.version}</version>
+                                    <destFileName>aliyun-sdk-oss.jar</destFileName>
+                                </artifactItem>
+                                <artifactItem>
+                                    <groupId>org.jdom</groupId>
+                                    <artifactId>jdom2</artifactId>
+                                    <version>${jdom2.version}</version>
+                                    <destFileName>jdom2.jar</destFileName>
+                                </artifactItem>
+                                <artifactItem>
+                                    <groupId>org.apache.hadoop</groupId>
+                                    <artifactId>hadoop-aliyun</artifactId>
+                                    <version>${hadoop-aliyun.version}</version>
+                                    <destFileName>hadoop-aliyun.jar</destFileName>
+                                </artifactItem>
+                                <artifactItem>
+                                    <groupId>com.qcloud.cos</groupId>
+                                    <artifactId>hadoop-cos</artifactId>
+                                    <version>${hadoop-cos.version}</version>
+                                    <destFileName>hadoop-cos.jar</destFileName>
+                                </artifactItem>
+                            </artifactItems>
+                            <outputDirectory>${project.build.testOutputDirectory}/e2e-dependencies</outputDirectory>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
 
 </project>

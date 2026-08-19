@@ -109,31 +109,19 @@ public class PaimonWithS3IT extends SeaTunnelContainer {
     }
 
     @Override
+    protected void executeExtraCommands(GenericContainer<?> server)
+            throws IOException, InterruptedException {
+        super.executeExtraCommands(server);
+        PaimonDependencies.addS3To(server, SEATUNNEL_HOME + "lib");
+    }
+
+    @Override
     @AfterAll
     public void tearDown() throws Exception {
         super.tearDown();
         if (container != null) {
             container.close();
         }
-    }
-
-    /**
-     * Put S3A on the container's classpath the same way the distribution does, with the shaded
-     * {@code seatunnel-hadoop-aws} jar in {@code lib/}.
-     *
-     * <p>This used to {@code wget} {@code hadoop-aws} 3.1.4 and the AWS SDK v1 bundle from Maven
-     * Central. Against the {@code hadoop-common} the uber jar now ships, 3.1.4's {@code
-     * S3AFileSystem.create} fails with {@code NoSuchMethodError} on {@code
-     * SemaphoredDelegatingExecutor.<init>(ListeningExecutorService,int,boolean)}, whose guava-typed
-     * constructor was removed - so every write through {@code org.apache.paimon.s3
-     * .HadoopCompliantFileIO} failed. The shaded jar carries {@code hadoop-aws} with its own SDK,
-     * which is what {@code lib/seatunnel-hadoop-aws.jar} is in a real distribution.
-     */
-    @Override
-    protected void executeExtraCommands(GenericContainer<?> container)
-            throws IOException, InterruptedException {
-        copyHadoopAwsToContainerLib(container);
-        super.executeExtraCommands(container);
     }
 
     @Override

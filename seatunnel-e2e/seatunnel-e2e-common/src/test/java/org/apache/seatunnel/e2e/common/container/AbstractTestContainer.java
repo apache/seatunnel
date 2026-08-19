@@ -25,12 +25,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.utility.MountableFile;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
@@ -137,37 +134,6 @@ public abstract class AbstractTestContainer implements TestContainer {
     protected void copySeaTunnelStarterLoggingToContainer(GenericContainer<?> container) {
         ContainerUtil.copySeaTunnelStarterLoggingToContainer(
                 container, this.startModuleFullPath, SEATUNNEL_HOME);
-    }
-
-    /**
-     * Puts the shaded {@code seatunnel-hadoop-aws} jar in the container's {@code lib/}, which is
-     * where a real distribution carries S3A support. Call it from {@code executeExtraCommands}.
-     *
-     * <p>The module that calls this MUST also declare a dependency on {@code seatunnel-hadoop-aws},
-     * because a per-connector CI job builds with {@code -pl <module> -am} and would otherwise never
-     * build the jar. Getting that wrong is silent: Testcontainers copies a missing host path as a
-     * zero-byte file instead of failing, and the container only complains much later, far from the
-     * cause, with {@code ClassNotFoundException: org.apache.hadoop.fs.s3a.S3AFileSystem}. Hence the
-     * explicit check below.
-     */
-    protected void copyHadoopAwsToContainerLib(GenericContainer<?> container) {
-        Path jar =
-                Paths.get(
-                        PROJECT_ROOT_PATH,
-                        "seatunnel-shade",
-                        "seatunnel-hadoop-aws",
-                        "target",
-                        "seatunnel-hadoop-aws.jar");
-        if (!Files.isRegularFile(jar)) {
-            throw new IllegalStateException(
-                    jar
-                            + " does not exist. Declare a dependency on"
-                            + " org.apache.seatunnel:seatunnel-hadoop-aws in this module's pom.xml"
-                            + " so that the jar is built together with it.");
-        }
-        container.withCopyFileToContainer(
-                MountableFile.forHostPath(jar),
-                Paths.get(SEATUNNEL_HOME, "lib/seatunnel-hadoop-aws.jar").toString());
     }
 
     protected Container.ExecResult executeJob(GenericContainer<?> container, String confFile)

@@ -23,12 +23,10 @@ import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.TestHelper;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
-import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.TestTemplate;
-import org.testcontainers.containers.Container;
-import org.testcontainers.utility.MountableFile;
 
 import io.airlift.compress.lzo.LzopCodec;
 
@@ -42,9 +40,6 @@ import java.nio.file.Paths;
 @Disabled("have no s3 environment to run this test")
 public class S3FileIT extends TestSuiteBase {
 
-    private static final String SHADED_HADOOP_AWS_JAR =
-            "/seatunnel-shade/seatunnel-hadoop-aws/target/seatunnel-hadoop-aws.jar";
-
     /**
      * Put S3A on the container's classpath the same way the distribution does, with the shaded
      * {@code seatunnel-hadoop-aws} jar.
@@ -52,20 +47,14 @@ public class S3FileIT extends TestSuiteBase {
      * <p>This used to {@code curl} {@code hadoop-aws} 3.1.4 and the AWS SDK v1 bundle from Maven
      * Central. Both are incompatible with the {@code hadoop-common} the uber jar now ships. The
      * shaded jar carries {@code hadoop-aws} together with its own SDK, which is what {@code
-     * lib/seatunnel-hadoop-aws.jar} is in a real distribution.
+     * lib/seatunnel-hadoop-aws.jar} is in a real distribution, and it is staged into the test
+     * classpath by the maven-dependency-plugin rather than downloaded.
      */
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
             container -> {
-                Container.ExecResult mkdir =
-                        container.execInContainer(
-                                "bash", "-c", "mkdir -p /tmp/seatunnel/plugins/s3/lib");
-                Assertions.assertEquals(0, mkdir.getExitCode());
-
-                container.copyFileToContainer(
-                        MountableFile.forHostPath(
-                                ContainerUtil.PROJECT_ROOT_PATH + SHADED_HADOOP_AWS_JAR),
-                        "/tmp/seatunnel/plugins/s3/lib/seatunnel-hadoop-aws.jar");
+                DependencyJar.staged("seatunnel-hadoop-aws.jar")
+                        .copyTo(container, "/tmp/seatunnel/plugins/s3/lib");
             };
 
     /** Copy data files to s3 */

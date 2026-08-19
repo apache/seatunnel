@@ -18,6 +18,7 @@
 package org.apache.seatunnel.e2e.connector.file.s3;
 
 import org.apache.seatunnel.e2e.common.container.seatunnel.SeaTunnelContainer;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
 
 import org.awaitility.Awaitility;
@@ -78,6 +79,24 @@ public class S3FileWithFilterIT extends SeaTunnelContainer {
         super.startUp();
     }
 
+    /**
+     * Put S3A in the container's {@code lib/} the same way the distribution does, with the shaded
+     * {@code seatunnel-hadoop-aws} jar.
+     *
+     * <p>This used to add {@code hadoop-aws} and the AWS SDK v1 bundle separately. Both are
+     * incompatible with the {@code hadoop-common} the uber jar now ships: {@code hadoop-aws}
+     * 3.1.4's {@code SimpleAWSCredentialsProvider} implements the SDK v1 {@code
+     * AWSCredentialsProvider}, so the job failed at source creation. The shaded jar carries {@code
+     * hadoop-aws} together with its own SDK, which is what {@code lib/seatunnel-hadoop-aws.jar} is
+     * in a real distribution.
+     */
+    @Override
+    protected void executeExtraCommands(GenericContainer<?> server)
+            throws IOException, InterruptedException {
+        super.executeExtraCommands(server);
+        DependencyJar.staged("seatunnel-hadoop-aws.jar").addTo(server, SEATUNNEL_HOME + "lib");
+    }
+
     @Override
     @AfterAll
     public void tearDown() throws Exception {
@@ -85,24 +104,6 @@ public class S3FileWithFilterIT extends SeaTunnelContainer {
         if (s3Container != null) {
             s3Container.close();
         }
-    }
-
-    /**
-     * Put S3A on the container's classpath the same way the distribution does, with the shaded
-     * {@code seatunnel-hadoop-aws} jar in {@code lib/}.
-     *
-     * <p>This used to {@code wget} {@code hadoop-aws} 3.1.4 and the AWS SDK v1 bundle from Maven
-     * Central into {@code lib/}. Both are incompatible with the {@code hadoop-common} the uber jar
-     * now ships: 3.1.4's {@code SimpleAWSCredentialsProvider} implements the SDK v1 {@code
-     * AWSCredentialsProvider}, so the job failed at source creation. The shaded jar carries {@code
-     * hadoop-aws} together with its own SDK, which is what {@code lib/seatunnel-hadoop-aws.jar} is
-     * in a real distribution, and it removes two network downloads from the test.
-     */
-    @Override
-    protected void executeExtraCommands(GenericContainer<?> container)
-            throws IOException, InterruptedException {
-        copyHadoopAwsToContainerLib(container);
-        super.executeExtraCommands(container);
     }
 
     @Test
