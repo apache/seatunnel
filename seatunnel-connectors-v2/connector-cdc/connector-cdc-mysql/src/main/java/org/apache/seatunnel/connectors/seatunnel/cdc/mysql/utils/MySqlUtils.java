@@ -225,6 +225,117 @@ public class MySqlUtils {
                 });
     }
 
+    // ------------------------------------------------------------------------------------------
+    // Multi-column composite primary key query methods
+    // ------------------------------------------------------------------------------------------
+
+    /** Query the maximum tuple of the next chunk for composite primary key. */
+    public static Object[] queryNextChunkMaxMulti(
+            JdbcConnection jdbc,
+            TableId tableId,
+            List<Column> splitColumns,
+            int chunkSize,
+            Object[] includedLowerBound)
+            throws SQLException {
+        String orderBy = buildOrderByClause(splitColumns);
+        String lowerBoundCondition = buildLexicographicLowerBoundCondition(splitColumns, true);
+        String query =
+                String.format(
+                        "SELECT %s FROM %s WHERE %s ORDER BY %s LIMIT 1 OFFSET %d",
+                        buildColumnList(splitColumns),
+                        quote(tableId),
+                        lowerBoundCondition,
+                        orderBy,
+                        chunkSize - 1);
+        return jdbc.prepareQueryAndMap(
+                query,
+                ps ->
+                        bindLexicographicLowerBoundParams(
+                                ps, 1, includedLowerBound, splitColumns.size()),
+                rs -> {
+                    if (!rs.next()) {
+                        return null;
+                    }
+                    Object[] result = new Object[splitColumns.size()];
+                    for (int i = 0; i < splitColumns.size(); i++) {
+                        result[i] = rs.getObject(i + 1);
+                    }
+                    return result;
+                });
+    }
+
+    /** Query the minimum and maximum tuple of the split columns. */
+    public static Object[] queryMinMaxMulti(
+            JdbcConnection jdbc, TableId tableId, List<Column> splitColumns) throws SQLException {
+        String columnList = buildColumnList(splitColumns);
+        String orderByAsc = buildOrderByClause(splitColumns);
+        String orderByDesc = buildOrderByClauseDesc(splitColumns);
+        String query =
+                String.format(
+                        "(SELECT %s FROM %s ORDER BY %s LIMIT 1) UNION ALL "
+                                + "(SELECT %s FROM %s ORDER BY %s LIMIT 1)",
+                        columnList,
+                        quote(tableId),
+                        orderByAsc,
+                        columnList,
+                        quote(tableId),
+                        orderByDesc);
+        return jdbc.queryAndMap(
+                query,
+                rs -> {
+                    Object[] minTuple = null;
+                    Object[] maxTuple = null;
+                    if (rs.next()) {
+                        minTuple = new Object[splitColumns.size()];
+                        for (int i = 0; i < splitColumns.size(); i++) {
+                            minTuple[i] = rs.getObject(i + 1);
+                        }
+                    }
+                    if (rs.next()) {
+                        maxTuple = new Object[splitColumns.size()];
+                        for (int i = 0; i < splitColumns.size(); i++) {
+                            maxTuple[i] = rs.getObject(i + 1);
+                        }
+                    }
+                    return new Object[] {minTuple, maxTuple};
+                });
+    }
+
+    /** Query the minimum tuple greater than the excluded lower bound. */
+    public static Object[] queryMinMulti(
+            JdbcConnection jdbc,
+            TableId tableId,
+            List<Column> splitColumns,
+            Object[] excludedLowerBound)
+            throws SQLException {
+        String columnList = buildColumnList(splitColumns);
+        String orderBy = buildOrderByClause(splitColumns);
+        String condition = buildLexicographicLowerBoundCondition(splitColumns, false);
+        String query =
+                String.format(
+                        "SELECT %s FROM %s WHERE %s ORDER BY %s LIMIT 1",
+                        columnList, quote(tableId), condition, orderBy);
+        return jdbc.prepareQueryAndMap(
+                query,
+                ps ->
+                        bindLexicographicLowerBoundParams(
+                                ps, 1, excludedLowerBound, splitColumns.size()),
+                rs -> {
+                    if (!rs.next()) {
+                        return null;
+                    }
+                    Object[] result = new Object[splitColumns.size()];
+                    for (int i = 0; i < splitColumns.size(); i++) {
+                        result[i] = rs.getObject(i + 1);
+                    }
+                    return result;
+                });
+    }
+
+    // ------------------------------------------------------------------------------------------
+    // Split scan query building
+    // ------------------------------------------------------------------------------------------
+
     public static String buildSplitScanQuery(
             TableId tableId, SeaTunnelRowType rowType, boolean isFirstSplit, boolean isLastSplit) {
         return buildSplitQuery(tableId, rowType, isFirstSplit, isLastSplit, -1, true);
@@ -238,33 +349,67 @@ public class MySqlUtils {
             int limitSize,
             boolean isScanningData) {
         final String condition;
+        int numColumns = rowType.getTotalFields();
 
         if (isFirstSplit && isLastSplit) {
             condition = null;
-        } else if (isFirstSplit) {
-            final StringBuilder sql = new StringBuilder();
-            addPrimaryKeyColumnsToCondition(rowType, sql, " <= ?");
-            if (isScanningData) {
-                sql.append(" AND NOT (");
-                addPrimaryKeyColumnsToCondition(rowType, sql, " = ?");
-                sql.append(")");
+        } else if (numColumns == 1) {
+            // Single column: use existing simple per-column predicates
+            if (isFirstSplit) {
+                final StringBuilder sql = new StringBuilder();
+                addPrimaryKeyColumnsToCondition(rowType, sql, " <= ?");
+                if (isScanningData) {
+                    sql.append(" AND NOT (");
+                    addPrimaryKeyColumnsToCondition(rowType, sql, " = ?");
+                    sql.append(")");
+                }
+                condition = sql.toString();
+            } else if (isLastSplit) {
+                final StringBuilder sql = new StringBuilder();
+                addPrimaryKeyColumnsToCondition(rowType, sql, " >= ?");
+                condition = sql.toString();
+            } else {
+                final StringBuilder sql = new StringBuilder();
+                addPrimaryKeyColumnsToCondition(rowType, sql, " >= ?");
+                if (isScanningData) {
+                    sql.append(" AND NOT (");
+                    addPrimaryKeyColumnsToCondition(rowType, sql, " = ?");
+                    sql.append(")");
+                }
+                sql.append(" AND ");
+                addPrimaryKeyColumnsToCondition(rowType, sql, " <= ?");
+                condition = sql.toString();
             }
-            condition = sql.toString();
-        } else if (isLastSplit) {
-            final StringBuilder sql = new StringBuilder();
-            addPrimaryKeyColumnsToCondition(rowType, sql, " >= ?");
-            condition = sql.toString();
         } else {
-            final StringBuilder sql = new StringBuilder();
-            addPrimaryKeyColumnsToCondition(rowType, sql, " >= ?");
-            if (isScanningData) {
-                sql.append(" AND NOT (");
-                addPrimaryKeyColumnsToCondition(rowType, sql, " = ?");
-                sql.append(")");
+            // Multi-column: use lexicographic tuple comparison
+            List<Column> columns = new ArrayList<>();
+            for (String fieldName : rowType.getFieldNames()) {
+                columns.add(Column.editor().name(fieldName).create());
             }
-            sql.append(" AND ");
-            addPrimaryKeyColumnsToCondition(rowType, sql, " <= ?");
-            condition = sql.toString();
+            if (isFirstSplit) {
+                final StringBuilder sql = new StringBuilder();
+                sql.append(buildLexicographicUpperBoundCondition(columns, true));
+                if (isScanningData) {
+                    sql.append(" AND ");
+                    sql.append(buildLexicographicNotEqualCondition(columns));
+                }
+                condition = sql.toString();
+            } else if (isLastSplit) {
+                final StringBuilder sql = new StringBuilder();
+                sql.append(buildLexicographicLowerBoundCondition(columns, true));
+                condition = sql.toString();
+            } else {
+                final StringBuilder sql = new StringBuilder();
+                sql.append(buildLexicographicLowerBoundCondition(columns, true));
+                if (isScanningData) {
+                    sql.append(" AND ");
+                    sql.append(buildLexicographicNotEqualCondition(columns));
+                }
+                sql.append(" AND (");
+                sql.append(buildLexicographicUpperBoundCondition(columns, true));
+                sql.append(")");
+                condition = sql.toString();
+            }
         }
 
         if (isScanningData) {
@@ -282,6 +427,10 @@ public class MySqlUtils {
         }
     }
 
+    // ------------------------------------------------------------------------------------------
+    // Read table split data statement (parameter binding)
+    // ------------------------------------------------------------------------------------------
+
     public static PreparedStatement readTableSplitDataStatement(
             JdbcConnection jdbc,
             String sql,
@@ -297,20 +446,40 @@ public class MySqlUtils {
                 return statement;
             }
             int primaryKeyNum = splitKeyType.getTotalFields();
-            if (isFirstSplit) {
-                for (int i = 0; i < primaryKeyNum; i++) {
-                    statement.setObject(i + 1, splitEnd[i]);
-                    statement.setObject(i + 1 + primaryKeyNum, splitEnd[i]);
-                }
-            } else if (isLastSplit) {
-                for (int i = 0; i < primaryKeyNum; i++) {
-                    statement.setObject(i + 1, splitStart[i]);
+            if (primaryKeyNum == 1) {
+                // Single column: existing simple parameter binding
+                if (isFirstSplit) {
+                    for (int i = 0; i < primaryKeyNum; i++) {
+                        statement.setObject(i + 1, splitEnd[i]);
+                        statement.setObject(i + 1 + primaryKeyNum, splitEnd[i]);
+                    }
+                } else if (isLastSplit) {
+                    for (int i = 0; i < primaryKeyNum; i++) {
+                        statement.setObject(i + 1, splitStart[i]);
+                    }
+                } else {
+                    for (int i = 0; i < primaryKeyNum; i++) {
+                        statement.setObject(i + 1, splitStart[i]);
+                        statement.setObject(i + 1 + primaryKeyNum, splitEnd[i]);
+                        statement.setObject(i + 1 + 2 * primaryKeyNum, splitEnd[i]);
+                    }
                 }
             } else {
-                for (int i = 0; i < primaryKeyNum; i++) {
-                    statement.setObject(i + 1, splitStart[i]);
-                    statement.setObject(i + 1 + primaryKeyNum, splitEnd[i]);
-                    statement.setObject(i + 1 + 2 * primaryKeyNum, splitEnd[i]);
+                // Multi-column: lexicographic comparison parameter binding
+                int lbParamCount = getLexicographicLowerBoundParamCount(primaryKeyNum);
+                int ubParamCount = getLexicographicUpperBoundParamCount(primaryKeyNum);
+                if (isFirstSplit) {
+                    bindLexicographicUpperBoundParams(statement, 1, splitEnd, primaryKeyNum);
+                    bindLexicographicNotEqualParams(
+                            statement, 1 + ubParamCount, splitEnd, primaryKeyNum);
+                } else if (isLastSplit) {
+                    bindLexicographicLowerBoundParams(statement, 1, splitStart, primaryKeyNum);
+                } else {
+                    bindLexicographicLowerBoundParams(statement, 1, splitStart, primaryKeyNum);
+                    bindLexicographicNotEqualParams(
+                            statement, 1 + lbParamCount, splitEnd, primaryKeyNum);
+                    bindLexicographicUpperBoundParams(
+                            statement, 1 + lbParamCount + primaryKeyNum, splitEnd, primaryKeyNum);
                 }
             }
             return statement;
@@ -318,6 +487,10 @@ public class MySqlUtils {
             throw new RuntimeException("Failed to build the split data read statement.", e);
         }
     }
+
+    // ------------------------------------------------------------------------------------------
+    // Split key type methods
+    // ------------------------------------------------------------------------------------------
 
     public static SeaTunnelRowType getSplitType(
             Table table, RelationalDatabaseConnectorConfig dbzConnectorConfig) {
@@ -329,9 +502,20 @@ public class MySqlUtils {
                                     + " but table %s doesn't have primary key.",
                             table.id()));
         }
+        // use all primary key columns as split key for composite primary key
+        return getSplitType(primaryKeys, dbzConnectorConfig);
+    }
 
-        // use first field in primary key as the split key
-        return getSplitType(primaryKeys.get(0), dbzConnectorConfig);
+    public static SeaTunnelRowType getSplitType(
+            List<Column> splitColumns, RelationalDatabaseConnectorConfig dbzConnectorConfig) {
+        String[] fieldNames = new String[splitColumns.size()];
+        SeaTunnelDataType<?>[] fieldTypes = new SeaTunnelDataType[splitColumns.size()];
+        for (int i = 0; i < splitColumns.size(); i++) {
+            fieldNames[i] = splitColumns.get(i).name();
+            fieldTypes[i] =
+                    MySqlTypeUtils.convertFromColumn(splitColumns.get(i), dbzConnectorConfig);
+        }
+        return new SeaTunnelRowType(fieldNames, fieldTypes);
     }
 
     public static BinlogOffset getBinlogPosition(SourceRecord dataRecord) {
@@ -370,6 +554,15 @@ public class MySqlUtils {
         return primaryKeys.get(0);
     }
 
+    /** Get all primary key columns as split columns for composite primary key support. */
+    public static List<Column> getSplitColumns(Table table) {
+        return table.primaryKeyColumns();
+    }
+
+    // ------------------------------------------------------------------------------------------
+    // Quote helpers
+    // ------------------------------------------------------------------------------------------
+
     public static String quote(String dbOrTableName) {
         return "`" + dbOrTableName + "`";
     }
@@ -377,6 +570,152 @@ public class MySqlUtils {
     public static String quote(TableId tableId) {
         return tableId.toQuotedString('`');
     }
+
+    // ------------------------------------------------------------------------------------------
+    // SQL clause builders for composite keys
+    // ------------------------------------------------------------------------------------------
+
+    private static String buildColumnList(List<Column> columns) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < columns.size(); i++) {
+            if (i > 0) {
+                sb.append(", ");
+            }
+            sb.append(quote(columns.get(i).name()));
+        }
+        return sb.toString();
+    }
+
+    private static String buildOrderByClause(List<Column> columns) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < columns.size(); i++) {
+            if (i > 0) {
+                sb.append(", ");
+            }
+            sb.append(quote(columns.get(i).name())).append(" ASC");
+        }
+        return sb.toString();
+    }
+
+    private static String buildOrderByClauseDesc(List<Column> columns) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < columns.size(); i++) {
+            if (i > 0) {
+                sb.append(", ");
+            }
+            sb.append(quote(columns.get(i).name())).append(" DESC");
+        }
+        return sb.toString();
+    }
+
+    /**
+     * Build a lexicographic lower bound condition for composite keys. For (col1, col2, ..., colN)
+     * >= (v1, v2, ..., vN): col1 > v1 OR (col1 = v1 AND col2 > v2) OR ... OR (col1 = v1 AND ... AND
+     * colN >= vN)
+     */
+    private static String buildLexicographicLowerBoundCondition(
+            List<Column> columns, boolean inclusive) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < columns.size(); i++) {
+            if (i > 0) {
+                sb.append(" OR ");
+            }
+            sb.append("(");
+            for (int j = 0; j < i; j++) {
+                sb.append(quote(columns.get(j).name())).append(" = ? AND ");
+            }
+            boolean isLast = (i == columns.size() - 1);
+            String operator;
+            if (isLast) {
+                operator = inclusive ? " >= ?" : " > ?";
+            } else {
+                operator = " > ?";
+            }
+            sb.append(quote(columns.get(i).name())).append(operator);
+            sb.append(")");
+        }
+        return sb.toString();
+    }
+
+    /**
+     * Build a lexicographic upper bound condition for composite keys. For (col1, col2, ..., colN)
+     * <= (v1, v2, ..., vN): col1 < v1 OR (col1 = v1 AND col2 < v2) OR ... OR (col1 = v1 AND ... AND
+     * colN <= vN)
+     */
+    private static String buildLexicographicUpperBoundCondition(
+            List<Column> columns, boolean inclusive) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < columns.size(); i++) {
+            if (i > 0) {
+                sb.append(" OR ");
+            }
+            sb.append("(");
+            for (int j = 0; j < i; j++) {
+                sb.append(quote(columns.get(j).name())).append(" = ? AND ");
+            }
+            boolean isLast = (i == columns.size() - 1);
+            String operator;
+            if (isLast) {
+                operator = inclusive ? " <= ?" : " < ?";
+            } else {
+                operator = " < ?";
+            }
+            sb.append(quote(columns.get(i).name())).append(operator);
+            sb.append(")");
+        }
+        return sb.toString();
+    }
+
+    private static String buildLexicographicNotEqualCondition(List<Column> columns) {
+        StringBuilder sb = new StringBuilder("NOT (");
+        for (int i = 0; i < columns.size(); i++) {
+            if (i > 0) {
+                sb.append(" AND ");
+            }
+            sb.append(quote(columns.get(i).name())).append(" = ?");
+        }
+        sb.append(")");
+        return sb.toString();
+    }
+
+    private static int getLexicographicLowerBoundParamCount(int numColumns) {
+        return 2 * numColumns - 1;
+    }
+
+    private static int getLexicographicUpperBoundParamCount(int numColumns) {
+        return 2 * numColumns - 1;
+    }
+
+    /** Bind lexicographic lower bound parameters to a PreparedStatement. */
+    private static void bindLexicographicLowerBoundParams(
+            PreparedStatement ps, int startIdx, Object[] values, int numColumns)
+            throws SQLException {
+        int idx = startIdx;
+        for (int i = 0; i < numColumns; i++) {
+            if (i < numColumns - 1) {
+                ps.setObject(idx++, values[i]);
+            }
+            ps.setObject(idx++, values[i]);
+        }
+    }
+
+    private static void bindLexicographicUpperBoundParams(
+            PreparedStatement ps, int startIdx, Object[] values, int numColumns)
+            throws SQLException {
+        bindLexicographicLowerBoundParams(ps, startIdx, values, numColumns);
+    }
+
+    private static void bindLexicographicNotEqualParams(
+            PreparedStatement ps, int startIdx, Object[] values, int numColumns)
+            throws SQLException {
+        for (int i = 0; i < numColumns; i++) {
+            ps.setObject(startIdx + i, values[i]);
+        }
+    }
+
+    // ------------------------------------------------------------------------------------------
+    // SQL statement building helpers
+    // ------------------------------------------------------------------------------------------
 
     private static PreparedStatement initStatement(JdbcConnection jdbc, String sql, int fetchSize)
             throws SQLException {
