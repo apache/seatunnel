@@ -224,6 +224,11 @@ maxcompute:
       - changed-files:
           - any-glob-to-any-file: seatunnel-connectors-v2/connector-maxcompute/**
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(maxcompute)/**'
+couchbase:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-couchbase/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(couchbase)/**'
 mongodb:
   - all:
       - changed-files:
@@ -254,6 +259,11 @@ pulsar:
       - changed-files:
           - any-glob-to-any-file: seatunnel-connectors-v2/connector-pulsar/**
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(pulsar)/**'
+python:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-python/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(python)/**'
 rabbitmq:
   - all:
       - changed-files:
@@ -360,3 +370,13 @@ bigquery:
       - changed-files:
           - any-glob-to-any-file: seatunnel-connectors-v2/connector-bigquery/**
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(bigquery)/**'
+
+nats-jetstream:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file:
+              - seatunnel-connectors-v2/connector-nats-jetstream/**
+              - seatunnel-e2e/seatunnel-connector-v2-e2e/connector-nats-jetstream-e2e/**
+          - all-globs-to-all-files:
+              - '!seatunnel-connectors-v2/connector-!(nats-jetstream)/**'
+              - '!seatunnel-e2e/seatunnel-connector-v2-e2e/connector-!(nats-jetstream)-e2e/**'

@@ -99,6 +99,8 @@ import ChangeLog from '../changelog/connector-file-sftp.md';
 | skip_header_row_number     | Long    | 否    | 0                   | 跳过前几行，但仅适用于txt和csv。<br/> 例如，设置如下：<br/> `skip_header_row_number = 2` <br/> 然后SeaTunnel将跳过源文件的前2行                                                                                                                                                    |
 | read_columns               | list    | 否    | -                   | 数据源的读取列列表，用户可以使用它来实现字段投影。                                                                                                                                                                                                                          |
 | sheet_name                 | String  | 否    | -                   | 读取工作簿的工作表，仅在file_format为excel时使用。                                                                                                                                                                                                                  |
+| excel_engine               | string  | 否    | POI                | 仅在 `file_format` 为 excel 时使用。支持的引擎包括 `POI` 和 `EasyExcel`。                                                                                                                                                                                                |
+| poi_excel_max_file_size    | long    | 否    | 52428800           | 仅在 `file_format` 为 excel 且 `excel_engine` 为 POI 时使用。POI 引擎允许读取的最大 Excel 文件大小（默认 50 MB）。                                                                                                                                                                                                |
 | xml_row_tag                | string  | 否    | -                   | 指定XML文件中数据行的标签名称，仅在file_format为xml时使用。                                                                                                                                                                                                             |
 | xml_use_attr_format        | boolean | 否    | -                   | 指定是否使用标签属性格式处理数据，仅在file_format为xml时使用。                                                                                                                                                                                                             |
 | csv_use_header_line        | boolean | 否    | false               | 是否使用标题行来解析文件，仅在file_format为`csv`且文件包含符合RFC 4180的标题行时使用                                                                                                                                                                                             |
@@ -189,6 +191,13 @@ abc.*
 
 文件类型，支持以下文件类型：
 `text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf`
+
+:::caution
+
+出于安全考虑(XXE 加固), 包含 `<!DOCTYPE ...>` 声明的 XML 文件(`file_format_type = xml`)——即使是仅定义内部实体、不引用外部资源的良性声明——现在会被拒绝并抛出 `FILE_READ_FAILED` 错误。该行为没有配置项可以恢复为旧版本的处理方式。如果您的 XML 文件由某些工具导出并带有 `DOCTYPE` 头，请在使用 SeaTunnel 读取前将其移除或做预处理。
+
+:::
+
 如果您将文件类型指定为`json`，您还应该指定schema选项来告诉连接器如何将数据解析为您想要的行。
 例如：
 上游数据如下：

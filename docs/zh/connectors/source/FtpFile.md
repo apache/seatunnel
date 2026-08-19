@@ -68,6 +68,8 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 | skip_header_row_number      | long    | 否    | 0                   |
 | schema                      | config  | 否    | -                   |
 | sheet_name                  | string  | 否    | -                   |
+| excel_engine                | string  | 否    | POI                |
+| poi_excel_max_file_size     | long    | 否    | 52428800           |
 | xml_row_tag                 | string  | 否    | -                   |
 | xml_use_attr_format         | boolean | 否    | -                   |
 | csv_use_header_line         | boolean | 否    | false               |
@@ -415,6 +417,22 @@ SeaTunnel 将从源文件中跳过前 2 行。
 
 读取工作簿中的工作表，仅在文件格式类型为 excel 时使用。
 
+### excel_engine [string]
+
+仅在 `file_format` 为 excel 时使用。
+
+支持的引擎包括 `POI` 和 `EasyExcel`。默认值为 `POI`。
+
+默认的 Excel 读取引擎是 POI。POI 会保留历史读取行为，包括 POI 特有的公式和格式处理能力，但读取大 Excel 文件时可能占用大量内存。
+
+如果需要读取大 Excel 文件，可以设置 `excel_engine = EasyExcel` 使用流式读取。
+
+### poi_excel_max_file_size [long]
+
+仅在 `file_format` 为 excel 且 `excel_engine` 为 POI 时使用。
+
+POI 引擎允许读取的最大 Excel 文件大小，单位为字节。默认值为 `52428800` 字节（50 MB）。当文件超过该限制时，连接器会提前失败，并提示使用 EasyExcel。
+
 ### xml_row_tag [string]
 
 仅在文件格式为 xml 时需要配置。
@@ -426,6 +444,12 @@ SeaTunnel 将从源文件中跳过前 2 行。
 仅在文件格式为 xml 时需要配置。
 
 指定是否使用标签属性格式处理数据。
+
+:::caution
+
+出于安全考虑(XXE 加固), 包含 `<!DOCTYPE ...>` 声明的 XML 文件(`file_format_type = xml`)——即使是仅定义内部实体、不引用外部资源的良性声明——现在会被拒绝并抛出 `FILE_READ_FAILED` 错误。该行为没有配置项可以恢复为旧版本的处理方式。如果您的 XML 文件由某些工具导出并带有 `DOCTYPE` 头，请在使用 SeaTunnel 读取前将其移除或做预处理。
+
+:::
 
 ### csv_use_header_line [boolean]
 
@@ -851,6 +875,31 @@ sink {
   }
 }
 ```
+
+### 通过 SFTP 读取（SSH 文件传输）
+
+`FtpFile` 通过统一的 Hadoop FileSystem URI 同时支持 FTP 和 SFTP；将 URI 协议改为 `sftp://` 即切换到 SSH 通道。SFTP 需要 SSH 密钥（或密码）认证，且 host key 必须被运行中的 JVM 信任（通过 `~/.ssh/known_hosts` 或通过 `ftp_properties` 显式指定的 `known_hosts` 文件）。
+
+```hocon
+source {
+  FtpFile {
+    fs.defaultFS = "sftp://sftp.example.example.com:22"
+    path = "/upload/landing/"
+    user = "seatunnel"
+    file_format_type = "csv"
+    delimiter = ","
+    ftp_properties = {
+      "fs.sftp.user." = "seatunnel"
+      "fs.sftp.keyfile" = "/etc/seatunnel/id_rsa"
+      "fs.sftp.host"   = "sftp.example.example.com"
+      "fs.sftp.port"   = "22"
+      "fs.sftp.knownHosts" = "/etc/seatunnel/known_hosts"
+    }
+  }
+}
+```
+
+如果 SFTP 服务器使用的是自签 host key，请提前把它加进 `known_hosts`——否则第一次读取会抛出 `SftpException` 并提示 host 校验未通过。连接器本身不缓存或刷新 `known_hosts`，更新文件后重启作业即可生效。
 
 ## 变更日志
 

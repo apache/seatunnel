@@ -72,6 +72,9 @@ import ChangeLog from '../changelog/connector-file-obs.md';
 | access_secret             | string  | 是  | -                   | OBS 文件系统的访问密钥                           |
 | endpoint                  | string  | 是  | -                   | OBS 文件系统的端点                             |
 | read_columns              | list    | 否  | -                   | 数据源的读取列列表                               |
+| sheet_name                | string  | 否  | -                   | 读取工作簿的工作表，仅在 file_format 为 excel 时使用。                                                                                                                                            |
+| excel_engine              | string  | 否  | POI                | 仅在 `file_format` 为 excel 时使用。支持的引擎包括 `POI` 和 `EasyExcel`。                                                                                                                                            |
+| poi_excel_max_file_size   | long    | 否  | 52428800           | 仅在 `file_format` 为 excel 且 `excel_engine` 为 POI 时使用。POI 引擎允许读取的最大 Excel 文件大小（默认 50 MB）。                                                                                                                                            |
 | delimiter                 | string  | 否  | \001                | 字段分隔符                                   |
 | row_delimiter             | string  | 否  | \n                  | 行分隔符                                    |
 | parse_partition_from_path | boolean | 否  | true                | 控制是否从文件路径解析分区键和值                        |
@@ -153,6 +156,28 @@ PDF 特有的解析行为如下：
 启用后，文件将按修改时间排序（最新的在前）。适用于以下场景：
 - 读取具有不断演化的 schema 的文件，且希望 schema 推断使用最新的文件
 - 需要按时间顺序处理文件
+
+### 使用 OBS STS 临时安全凭证读取
+
+生产环境建议通过 [OBS STS](https://support.huaweicloud.com/intl/zh-cn/api-obs/obs_04_0081.html) 颁发临时 AK/SK，并配合细粒度自定义策略限制只能访问指定 bucket 前缀，再通过 `hadoop_obs_properties` 传给连接器。
+
+```hocon
+source {
+  ObsFile {
+    path = "/staging/prefix"
+    bucket = "obs://target-bucket"
+    endpoint = "obs.ap-southeast-1.myhuaweicloud.com"
+    hadoop_obs_properties = {
+      "fs.obs.access.key"    = "<临时-access-key>"
+      "fs.obs.secret.key"    = "<临时-secret-key>"
+      "fs.obs.session.token" = "<临时-security-token>"
+    }
+    file_format_type = "parquet"
+  }
+}
+```
+
+provider 的 jar 必须放在每个运行节点的 classpath（`${SEATUNNEL_HOME}/lib`）上。生产环境应避免在作业配置中硬编码长期 AK/SK；运行在华为云内时推荐使用 ECS 委托（Agency）或 STS 临时凭证。
 
 ## 变更日志
 

@@ -71,6 +71,8 @@ import ChangeLog from '../changelog/connector-file-cos.md';
 | time_format                | string  | 否  | HH:mm:ss            |
 | schema                     | config  | 否  | -                   |
 | sheet_name                 | string  | 否  | -                   |
+| excel_engine               | string  | 否  | POI                |
+| poi_excel_max_file_size    | long    | 否  | 52428800           |
 | xml_row_tag                | string  | 否  | -                   |
 | xml_use_attr_format        | boolean | 否  | -                   |
 | csv_use_header_line        | boolean | 否  | false               |
@@ -242,15 +244,15 @@ Cos文件系统的bucket地址，例如: `cos://tyrantlucifer-image-bed`
 
 ### secret_id [string]
 
-Cos文件系统的秘密id。
+Cos 文件系统的 SecretId。在 [腾讯云 CAM 控制台](https://console.cloud.tencent.com/cam/capi) 创建。生产环境建议为作业分配一个绑定细粒度策略（如 `QcloudCOSReadOnlyAccess`）的 CAM 角色，并通过 STS 颁发临时密钥，避免长期密钥出现在作业配置里。
 
 ### secret_key [string]
 
-Cos文件系统的密钥。
+Cos 文件系统的 SecretKey，与 `secret_id` 成对使用。生产建议参考 `secret_id`，改用 STS 临时密钥。
 
 ### region [string]
 
-cos文件系统的region。
+Cos 文件系统所在 region。请填入与 bucket 实际所在地域一致的 region（如 `ap-guangzhou`、`ap-shanghai`、`ap-chengdu`）。跨 region 访问虽然可行，但会产生跨地域传输费用和时延。
 
 ### read_columns [list]
 
@@ -336,6 +338,22 @@ default `HH:mm:ss`
 
 阅读工作簿的纸张。
 
+### excel_engine [string]
+
+仅在 `file_format` 为 excel 时使用。
+
+支持的引擎包括 `POI` 和 `EasyExcel`。默认值为 `POI`。
+
+默认的 Excel 读取引擎是 POI。POI 会保留历史读取行为，包括 POI 特有的公式和格式处理能力，但读取大 Excel 文件时可能占用大量内存。
+
+如果需要读取大 Excel 文件，可以设置 `excel_engine = EasyExcel` 使用流式读取。
+
+### poi_excel_max_file_size [long]
+
+仅在 `file_format` 为 excel 且 `excel_engine` 为 POI 时使用。
+
+POI 引擎允许读取的最大 Excel 文件大小，单位为字节。默认值为 `52428800` 字节（50 MB）。当文件超过该限制时，连接器会提前失败，并提示使用 EasyExcel。
+
 ### xml_row_tag [string]
 
 仅当file_format为xml时才需要配置。
@@ -346,6 +364,12 @@ default `HH:mm:ss`
 
 仅当file_format为xml时才需要配置。
 指定是否使用标记属性格式处理数据。
+
+:::caution
+
+出于安全考虑(XXE 加固), 包含 `<!DOCTYPE ...>` 声明的 XML 文件(`file_format_type = xml`)——即使是仅定义内部实体、不引用外部资源的良性声明——现在会被拒绝并抛出 `FILE_READ_FAILED` 错误。该行为没有配置项可以恢复为旧版本的处理方式。如果您的 XML 文件由某些工具导出并带有 `DOCTYPE` 头，请在使用 SeaTunnel 读取前将其移除或做预处理。
+
+:::
 
 ### csv_use_header_line [boolean]
 

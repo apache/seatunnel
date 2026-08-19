@@ -65,7 +65,8 @@ import ChangeLog from '../changelog/connector-file-local.md';
 | skip_header_row_number     | long    | 否    | 0                   |
 | schema                     | config  | 否    | -                   |
 | sheet_name                 | string  | 否    | -                   |
-| excel_engine               | string  | 否    | POI                 |                                             
+| excel_engine               | string  | 否    | POI                 |
+| poi_excel_max_file_size    | long    | 否    | 52428800            |
 | xml_row_tag                | string  | 否    | -                   |
 | xml_use_attr_format        | boolean | 否    | -                   |
 | csv_use_header_line        | boolean | 否    | false               |
@@ -351,7 +352,15 @@ PDF 特有的解析行为如下：
 支持以下文件类型：
 `POI` `EasyExcel`
 
-默认的 excel 读取引擎是 POI，但当读取超过 65,000 行的 Excel 时，POI 容易导致内存溢出，因此您可以切换到 EasyExcel 作为读取引擎。
+默认的 Excel 读取引擎是 POI。POI 会保留历史读取行为，包括 POI 特有的公式和格式处理能力，但读取大 Excel 文件时可能占用大量内存。
+
+如果需要读取大 Excel 文件，可以设置 `excel_engine = EasyExcel` 使用流式读取。
+
+### poi_excel_max_file_size [long]
+
+仅在 `file_format` 为 excel 且 `excel_engine` 为 POI 时使用。
+
+POI 引擎允许读取的最大 Excel 文件大小，单位为字节。默认值为 `52428800` 字节（50 MB）。当文件超过该限制时，连接器会提前失败，并提示使用 EasyExcel。
 
 
 ### xml_row_tag [string]
@@ -365,6 +374,12 @@ PDF 特有的解析行为如下：
 仅在 file_format 为 xml 时需要配置。
 
 指定是否使用标签属性格式处理数据。
+
+:::caution
+
+出于安全考虑(XXE 加固), 包含 `<!DOCTYPE ...>` 声明的 XML 文件(`file_format_type = xml`)——即使是仅定义内部实体、不引用外部资源的良性声明——现在会被拒绝并抛出 `FILE_READ_FAILED` 错误。该行为没有配置项可以恢复为旧版本的处理方式。如果您的 XML 文件由某些工具导出并带有 `DOCTYPE` 头，请在使用 SeaTunnel 读取前将其移除或做预处理。
+
+:::
 
 ### csv_use_header_line [boolean]
 
