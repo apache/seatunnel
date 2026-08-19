@@ -174,6 +174,22 @@ sink {
 }
 ```
 
+如果上游 CDC 源能产生单调递增的列（例如 `updated_at` 毫秒时间戳或行版本号），可以把它配到 `sequence_number_column`，让 BigQuery 端对重试批次做去重。目标表必须定义主键（上例使用 `PRIMARY KEY (uuid) NOT ENFORCED`），否则 BigQuery 会把每次写入都当作 append，跳过去重。
+
+```hocon
+sink {
+  BigQuery {
+    project_id = "my-gcp-project"
+    dataset_id = "cdc_dataset"
+    table_id = "orders"
+    service_account_key_path = "/path/to/key.json"
+    write_mode = "streaming"
+    sequence_number_column = "updated_at"
+    batch_size = 500
+  }
+}
+```
+
 ### 复杂数据类型示例
 
 ```hocon
@@ -201,6 +217,22 @@ sink {
     dataset_id = "orders"
     table_id = "customer_orders"
     service_account_key_path = "/path/to/key.json"
+    batch_size = 500
+  }
+}
+```
+
+### 内联服务账号密钥
+
+如果不便挂载密钥文件（例如 CI runner、把密钥放在 Kubernetes Secret 中以环境变量形式注入），可以直接把 JSON 内容放到 `service_account_key_json` 中。
+
+```hocon
+sink {
+  BigQuery {
+    project_id = "my-gcp-project"
+    dataset_id = "orders"
+    table_id = "customer_orders"
+    service_account_key_json = "${GCP_SA_KEY_JSON}"
     batch_size = 500
   }
 }

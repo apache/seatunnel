@@ -56,6 +56,15 @@ Amazon SQS 源连接器用于从一个 Amazon SQS 队列 URL 读取消息。连�
 - `access_key_id` 和 `secret_access_key` 是可选项；如果使用静态 AWS 凭证，需要两个一起配置。
 - 该源连接器只执行一次 receive 请求，最多读取 10 条消息，然后结束这个有界任务。
 
+## 认证
+
+连接器按以下顺序解析 AWS 凭证：
+
+1. 如果同时配置了 `access_key_id` 和 `secret_access_key`，则使用这对静态凭证。
+2. 否则，回退到 AWS 默认凭证链（环境变量、实例角色等）。
+
+针对 LocalStack、ElasticMQ 等 SQS 兼容本地服务进行测试时，把 `url` 指向本地端点（例如 `http://sqs-host:4566/...`），并提供任意非空的 `access_key_id` / `secret_access_key` 即可。SQS 兼容的测试服务通常不会校验请求里的 SigV4 签名，因此任意一对静态凭证都会被接受。
+
 ## 任务示例
 
 ### 在本地兼容队列之间复制消息
@@ -139,6 +148,28 @@ source {
 
 sink {
   Console {}
+}
+```
+
+### 读取 Debezium JSON 消息
+
+当上游系统（例如 Debezium 或其他 CDC 源）以 Debezium 信封形式发布变更事件时，把 `format` 设为 `debezium_json`，并通过 `debezium_record_include_schema` 控制消息中是否包含 schema 字段。
+
+```hocon
+source {
+  AmazonSqs {
+    url = "https://sqs.us-east-1.amazonaws.com/123456789012/cdc_events"
+    region = "us-east-1"
+    format = debezium_json
+    debezium_record_include_schema = true
+    schema = {
+      fields {
+        id = bigint
+        name = string
+        score = double
+      }
+    }
+  }
 }
 ```
 
