@@ -147,8 +147,7 @@ public class MultiTableSink
                                     }
                                 });
 
-                SinkWriter.Context ctx =
-                        destinationContexts.computeIfAbsent(destKey, k -> context);
+                SinkWriter.Context ctx = destinationContexts.computeIfAbsent(destKey, k -> context);
 
                 writers.put(SinkIdentifier.of(tableIdentifier, index), writer);
                 sinkWritersContext.put(SinkIdentifier.of(tableIdentifier, index), ctx);
@@ -220,8 +219,7 @@ public class MultiTableSink
                                     }
                                 });
 
-                SinkWriter.Context ctx =
-                        destinationContexts.computeIfAbsent(destKey, k -> context);
+                SinkWriter.Context ctx = destinationContexts.computeIfAbsent(destKey, k -> context);
 
                 writers.put(sinkIdentifier, writer);
                 sinkWritersContext.put(sinkIdentifier, ctx);
@@ -240,8 +238,7 @@ public class MultiTableSink
     }
 
     /**
-     * Builds a unique key for a destination table and replica index, used for writer
-     * deduplication.
+     * Builds a unique key for a destination table and replica index, used for writer deduplication.
      */
     private String getDestinationKey(TablePath tablePath, int replicaIndex) {
         SeaTunnelSink sink = sinks.get(tablePath);

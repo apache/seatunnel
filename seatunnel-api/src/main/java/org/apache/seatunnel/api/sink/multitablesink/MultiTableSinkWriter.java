@@ -217,16 +217,19 @@ public class MultiTableSinkWriter
             int queueIndex = i;
             sinkWriters.entrySet().stream()
                     .filter(entry -> entry.getKey().getIndex() % queueSize == queueIndex)
-                    .forEach(entry -> {
-                        String destKey = entry.getKey().getTableIdentifier();
-                        tableIdWriterMap.put(destKey, entry.getValue());
-                        sinkIdentifierMap.put(entry.getKey(), entry.getValue());
-                        sinkIdentifiersByTable
-                                .computeIfAbsent(
-                                        destKey,
-                                        key -> Collections.synchronizedList(new ArrayList<>()))
-                                .add(entry.getKey());
-                    });
+                    .forEach(
+                            entry -> {
+                                String destKey = entry.getKey().getTableIdentifier();
+                                tableIdWriterMap.put(destKey, entry.getValue());
+                                sinkIdentifierMap.put(entry.getKey(), entry.getValue());
+                                sinkIdentifiersByTable
+                                        .computeIfAbsent(
+                                                destKey,
+                                                key ->
+                                                        Collections.synchronizedList(
+                                                                new ArrayList<>()))
+                                        .add(entry.getKey());
+                            });
 
             sinkWritersWithIndex.add(sinkIdentifierMap);
             blockingQueues.add(queue);
@@ -275,8 +278,7 @@ public class MultiTableSinkWriter
             if (writerRunnable.getThrowable() != null) {
                 throw new RuntimeException(
                         String.format(
-                                "table %s sink throw error",
-                                writerRunnable.getCurrentTableId()),
+                                "table %s sink throw error", writerRunnable.getCurrentTableId()),
                         writerRunnable.getThrowable());
             }
         }
@@ -318,8 +320,7 @@ public class MultiTableSinkWriter
                                                             sinkWriterEntry.getValue())
                                                     .applySchemaChange(event);
                                         } else {
-                                            sinkWriterEntry.getValue()
-                                                    .applySchemaChange(event);
+                                            sinkWriterEntry.getValue().applySchemaChange(event);
                                         }
                                         return null;
                                     });
@@ -351,9 +352,7 @@ public class MultiTableSinkWriter
         if (element != null && element.getOptions() != null) {
             if (element.getOptions().containsKey("flush_event")
                     || element.getOptions().containsKey("schema_change_event")) {
-                log.debug(
-                        "Skipping schema change event row: {}",
-                        element.getOptions().keySet());
+                log.debug("Skipping schema change event row: {}", element.getOptions().keySet());
                 return;
             }
         }
@@ -368,8 +367,7 @@ public class MultiTableSinkWriter
             log.debug("Skip row for quarantined table {}", tableId);
             return;
         }
-        Optional<Integer> primaryKey =
-                tableId == null ? null : sinkPrimaryKeys.get(tableId);
+        Optional<Integer> primaryKey = tableId == null ? null : sinkPrimaryKeys.get(tableId);
         try {
             if ((primaryKey == null && sinkPrimaryKeys.size() == 1)
                     || (primaryKey != null && !primaryKey.isPresent())) {
@@ -387,8 +385,7 @@ public class MultiTableSinkWriter
                                     "No active sink writer found for table " + tableId));
                     return;
                 }
-                throw new RuntimeException(
-                        "multi table sink can not write table: " + tableId);
+                throw new RuntimeException("multi table sink can not write table: " + tableId);
             } else {
                 Object object = element.getField(primaryKey.get());
                 int index = 0;
@@ -424,9 +421,7 @@ public class MultiTableSinkWriter
                                                 sinkWriterEntry
                                                         .getValue()
                                                         .snapshotState(checkpointId));
-                        multiTableState
-                                .getStates()
-                                .put(sinkWriterEntry.getKey(), states);
+                        multiTableState.getStates().put(sinkWriterEntry.getKey(), states);
                     } catch (InterruptedException error) {
                         Thread.currentThread().interrupt();
                         throwAsIOException(error);
@@ -455,8 +450,7 @@ public class MultiTableSinkWriter
     }
 
     @Override
-    public Optional<MultiTableCommitInfo> prepareCommit(long checkpointId)
-            throws IOException {
+    public Optional<MultiTableCommitInfo> prepareCommit(long checkpointId) throws IOException {
         checkQueueRemain();
         subSinkErrorCheck();
         MultiTableCommitInfo multiTableCommitInfo =
@@ -468,9 +462,7 @@ public class MultiTableSinkWriter
                     executorService.submit(
                             () -> {
                                 synchronized (runnable.get(subWriterIndex)) {
-                                    for (Map.Entry<
-                                                    SinkIdentifier,
-                                                    SinkWriter<SeaTunnelRow, ?, ?>>
+                                    for (Map.Entry<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>>
                                             sinkWriterEntry :
                                                     new ArrayList<>(
                                                             sinkWritersWithIndex
@@ -485,12 +477,10 @@ public class MultiTableSinkWriter
                                                             sinkWriterEntry
                                                                     .getKey()
                                                                     .getTableIdentifier(),
-                                                            MultiTableFailurePhase
-                                                                    .CHECKPOINT,
+                                                            MultiTableFailurePhase.CHECKPOINT,
                                                             () ->
-                                                                    sinkWriter
-                                                                            .prepareCommit(
-                                                                                    checkpointId));
+                                                                    sinkWriter.prepareCommit(
+                                                                            checkpointId));
                                         } catch (InterruptedException error) {
                                             Thread.currentThread().interrupt();
                                             throw new RuntimeException(error);
@@ -500,8 +490,7 @@ public class MultiTableSinkWriter
                                                         sinkWriterEntry
                                                                 .getKey()
                                                                 .getTableIdentifier(),
-                                                        MultiTableFailurePhase
-                                                                .CHECKPOINT,
+                                                        MultiTableFailurePhase.CHECKPOINT,
                                                         error);
                                                 continue;
                                             }
@@ -511,10 +500,7 @@ public class MultiTableSinkWriter
                                                 o ->
                                                         multiTableCommitInfo
                                                                 .getCommitInfo()
-                                                                .put(
-                                                                        sinkWriterEntry
-                                                                                .getKey(),
-                                                                        o));
+                                                                .put(sinkWriterEntry.getKey(), o));
                                     }
                                 }
                             }));
@@ -637,8 +623,7 @@ public class MultiTableSinkWriter
             }
         }
         for (MultiTableWriterRunnable writerRunnable : runnable) {
-            if (writerRunnable.isProcessingRow()
-                    || writerRunnable.isHandlingTableFailure()) {
+            if (writerRunnable.isProcessingRow() || writerRunnable.isHandlingTableFailure()) {
                 return true;
             }
         }
@@ -665,8 +650,7 @@ public class MultiTableSinkWriter
             return;
         }
         MultiTableFailedTable failedTable =
-                MultiTableFailureHelper.buildFailedTable(
-                        tableId, phase, "MultiTableSink", error);
+                MultiTableFailureHelper.buildFailedTable(tableId, phase, "MultiTableSink", error);
         registerFailedTable(failedTable, true);
     }
 
@@ -681,8 +665,7 @@ public class MultiTableSinkWriter
                 Thread.currentThread().interrupt();
                 throw error;
             } catch (Throwable error) {
-                if (!failurePolicy.continueOtherTables()
-                        || retriedTimes >= tableRetryTimes) {
+                if (!failurePolicy.continueOtherTables() || retriedTimes >= tableRetryTimes) {
                     throw error;
                 }
                 retriedTimes++;
@@ -744,8 +727,7 @@ public class MultiTableSinkWriter
                         () ->
                                 fatalThrowable != null
                                         ? fatalThrowable
-                                        : new IllegalStateException(
-                                                buildFailureSummary()));
+                                        : new IllegalStateException(buildFailureSummary()));
     }
 
     private String buildFailureSummary() {
@@ -753,8 +735,7 @@ public class MultiTableSinkWriter
                 failedTables.values().stream()
                         .sorted(
                                 (left, right) ->
-                                        left.getTablePath()
-                                                .compareTo(right.getTablePath()))
+                                        left.getTablePath().compareTo(right.getTablePath()))
                         .collect(Collectors.toList());
         String title =
                 fatalTableId == null
@@ -766,8 +747,7 @@ public class MultiTableSinkWriter
     }
 
     private String buildIsolatedFailureSummary() {
-        return MultiTableFailureHelper.withIsolatedFailureMarker(
-                buildFailureSummary());
+        return MultiTableFailureHelper.withIsolatedFailureMarker(buildFailureSummary());
     }
 
     private void throwAsIOException(Throwable error) throws IOException {
@@ -785,16 +765,13 @@ public class MultiTableSinkWriter
         if (initialFailedTables == null || initialFailedTables.isEmpty()) {
             return;
         }
-        initialFailedTables.forEach(
-                failedTable -> registerFailedTable(failedTable, false));
+        initialFailedTables.forEach(failedTable -> registerFailedTable(failedTable, false));
     }
 
     private synchronized void registerFailedTable(
             MultiTableFailedTable failedTable, boolean printLog) {
         String tableId = failedTable.getTablePath();
-        if (tableId == null
-                || tableId.trim().isEmpty()
-                || failedTables.containsKey(tableId)) {
+        if (tableId == null || tableId.trim().isEmpty() || failedTables.containsKey(tableId)) {
             return;
         }
         failedTables.put(tableId, failedTable);
