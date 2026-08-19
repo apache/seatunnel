@@ -18,6 +18,8 @@
 package org.apache.seatunnel.connectors.seatunnel.jdbc.config;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.options.MultiTableCommonOptions;
+import org.apache.seatunnel.api.options.MultiTableFailurePolicy;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.StringSplitMode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.StringSplitStrategy;
 
@@ -47,6 +49,13 @@ public class JdbcSourceConfig implements Serializable {
     private boolean splitSampleShardingAllow;
     private boolean decimalTypeNarrowing;
     private boolean handleBlobAsString;
+    private MultiTableFailurePolicy multiTableFailurePolicy;
+
+    /**
+     * When false, the splitter skips split analysis and returns a single full-table split. Defaults
+     * to true to preserve existing behavior.
+     */
+    private boolean enableConcurrentRead;
 
     private StringSplitMode stringSplitMode;
 
@@ -81,17 +90,12 @@ public class JdbcSourceConfig implements Serializable {
 
         builder.decimalTypeNarrowing(config.get(JdbcSourceOptions.DECIMAL_TYPE_NARROWING));
         builder.handleBlobAsString(config.get(JdbcSourceOptions.HANDLE_BLOB_AS_STRING));
+        builder.multiTableFailurePolicy(
+                config.get(MultiTableCommonOptions.MULTI_TABLE_FAILURE_POLICY));
+        builder.enableConcurrentRead(config.get(JdbcSourceOptions.ENABLE_CONCURRENT_READ));
 
         config.getOptional(JdbcSourceOptions.WHERE_CONDITION)
-                .ifPresent(
-                        whereConditionClause -> {
-                            if (!whereConditionClause.toLowerCase().startsWith("where")) {
-                                throw new IllegalArgumentException(
-                                        "The where condition clause must start with 'where'. value: "
-                                                + whereConditionClause);
-                            }
-                            builder.whereConditionClause(whereConditionClause);
-                        });
+                .ifPresent(builder::whereConditionClause);
 
         return builder.build();
     }

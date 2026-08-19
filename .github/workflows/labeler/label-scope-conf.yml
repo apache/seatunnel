@@ -19,6 +19,12 @@ CI&CD:
   - changed-files:
       - any-glob-to-any-file:
           - .github/**
+benchmarks:
+  - changed-files:
+      - any-glob-to-any-file:
+          - seatunnel-benchmarks/**
+          - tools/benchmarks/**
+          - .github/workflows/benchmarks.yml
 Zeta:
   - changed-files:
       - any-glob-to-any-file: seatunnel-engine/**
@@ -83,6 +89,11 @@ cassandra:
       - changed-files:
           - any-glob-to-any-file: seatunnel-connectors-v2/connector-cassandra/**
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(cassandra)/**'
+salesforce:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-salesforce/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(salesforce)/**'
 cdc:
   - all:
       - changed-files:
@@ -138,6 +149,11 @@ file:
       - changed-files:
           - any-glob-to-any-file: seatunnel-connectors-v2/connector-file/**
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(file)/**'
+fluss:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-fluss/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(fluss)/**'
 google-firestore:
   - all:
       - changed-files:
@@ -208,6 +224,11 @@ maxcompute:
       - changed-files:
           - any-glob-to-any-file: seatunnel-connectors-v2/connector-maxcompute/**
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(maxcompute)/**'
+couchbase:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-couchbase/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(couchbase)/**'
 mongodb:
   - all:
       - changed-files:
@@ -217,7 +238,7 @@ mqtt:
   - all:
       - changed-files:
           - any-glob-to-any-file: seatunnel-connectors-v2/connector-mqtt/**
-          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(mqtt)/**'          
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(mqtt)/**'
 neo4j:
   - all:
       - changed-files:
@@ -238,6 +259,11 @@ pulsar:
       - changed-files:
           - any-glob-to-any-file: seatunnel-connectors-v2/connector-pulsar/**
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(pulsar)/**'
+python:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-python/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(python)/**'
 rabbitmq:
   - all:
       - changed-files:
@@ -338,3 +364,19 @@ hugegraph:
       - changed-files:
           - any-glob-to-any-file: seatunnel-connectors-v2/connector-hugegraph/**
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(hugegraph)/**'
+
+bigquery:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-bigquery/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(bigquery)/**'
+
+nats-jetstream:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file:
+              - seatunnel-connectors-v2/connector-nats-jetstream/**
+              - seatunnel-e2e/seatunnel-connector-v2-e2e/connector-nats-jetstream-e2e/**
+          - all-globs-to-all-files:
+              - '!seatunnel-connectors-v2/connector-!(nats-jetstream)/**'
+              - '!seatunnel-e2e/seatunnel-connector-v2-e2e/connector-!(nats-jetstream)-e2e/**'

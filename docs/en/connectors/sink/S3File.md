@@ -35,6 +35,7 @@ import ChangeLog from '../changelog/connector-file-s3.md';
   - [x] canal_json
   - [x] debezium_json
   - [x] maxwell_json
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Description
 
@@ -109,7 +110,7 @@ If write to `csv`, `text` file type, All column will be string.
 | tmp_path                              | string  | no       | /tmp/seatunnel                                        | The result file will write to a tmp path first and then use `mv` to submit tmp dir to target dir. Need a S3 dir.                                                                |
 | bucket                                | string  | yes      | -                                                     |                                                                                                                                                                                 |
 | fs.s3a.endpoint                       | string  | yes      | -                                                     |                                                                                                                                                                                 |
-| fs.s3a.aws.credentials.provider       | string  | yes      | com.amazonaws.auth.InstanceProfileCredentialsProvider | The way to authenticate s3a. We only support `org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider` and `com.amazonaws.auth.InstanceProfileCredentialsProvider` now.           |
+| fs.s3a.aws.credentials.provider       | string  | yes      | com.amazonaws.auth.InstanceProfileCredentialsProvider | The fully-qualified class name of the S3A credentials provider passed through to Hadoop. Besides the two well-known values `org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider` (static `access_key`/`secret_key`) and `com.amazonaws.auth.InstanceProfileCredentialsProvider` (default), any S3A credentials provider class available on the classpath is accepted, for example container-based providers such as `com.amazonaws.auth.ContainerCredentialsProvider` or a custom provider. The class must implement `com.amazonaws.auth.AWSCredentialsProvider` and expose one of Hadoop 3.1.4's supported creation mechanisms: a public `(java.net.URI, org.apache.hadoop.conf.Configuration)` constructor, a public `(org.apache.hadoop.conf.Configuration)` constructor, a public static no-arg `getInstance()` factory method returning `AWSCredentialsProvider`, or a public no-arg constructor. Hadoop-style comma- or newline-separated provider chains are accepted and each class is validated independently. The provider jar must be present on the runtime classpath of **every** cluster node (for example under `${SEATUNNEL_HOME}/lib`), not just the submitting node. Note for operators of shared/multi-tenant clusters: this option lets job authors load classes by name, so restrict who can submit jobs accordingly. |
 | access_key                            | string  | no       | -                                                     | Only used when fs.s3a.aws.credentials.provider = org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider                                                                          |
 | secret_key                            | string  | no       | -                                                     | Only used when fs.s3a.aws.credentials.provider = org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider                                                                          |
 | custom_filename                       | boolean | no       | false                                                 | Whether you need custom the filename                                                                                                                                            |
@@ -140,6 +141,7 @@ If write to `csv`, `text` file type, All column will be string.
 | parquet_avro_write_timestamp_as_int96 | boolean | no       | false                                                 | Only used when file_format is parquet.                                                                                                                                          |
 | parquet_avro_write_fixed_as_int96     | array   | no       | -                                                     | Only used when file_format is parquet.                                                                                                                                          |
 | hadoop_s3_properties                  | map     | no       |                                                       | If you need to add a other option, you could add it here and refer to this [link](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html)                 |
+| schema_evolution_enabled              | boolean | no       | false                                                 | Enable schema evolution support for CDC pipelines. When true, ADD/DROP/RENAME/MODIFY column events from the source are applied to the sink without a job restart. Not supported for binary format. |
 | schema_save_mode                      | Enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST                          | Before turning on the synchronous task, do different treatment of the target path                                                                                               |
 | data_save_mode                        | Enum    | no       | APPEND_DATA                                           | Before opening the synchronous task, the data file in the target path is differently processed                                                                                  |
 | enable_header_write                   | boolean | no       | false                                                 | Only used when file_format_type is text,csv.<br/> false:don't write header,true:write header.                                                                                   |
@@ -372,12 +374,12 @@ source {
     }
   }
   # If you would like to get more information about how to configure seatunnel and see full list of source plugins,
-  # please go to https://seatunnel.apache.org/docs/connector-v2/source
+  # please go to https://seatunnel.apache.org/docs/connectors/source
 }
 
 transform {
   # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
-    # please go to https://seatunnel.apache.org/docs/transform-v2
+    # please go to https://seatunnel.apache.org/docs/transforms
 }
 
 sink {
@@ -405,7 +407,7 @@ sink {
       }
   }
   # If you would like to get more information about how to configure seatunnel and see full list of sink plugins,
-  # please go to https://seatunnel.apache.org/docs/connector-v2/sink
+  # please go to https://seatunnel.apache.org/docs/connectors/sink
 }
 ```
 
@@ -527,6 +529,60 @@ sink {
 ### enable_header_write [boolean]
 
 Only used when file_format_type is text,csv.false:don't write header,true:write header.
+
+### schema_evolution_enabled [boolean]
+
+When set to `true`, the file sink handles CDC schema change events (ADD COLUMN, DROP COLUMN, RENAME COLUMN, MODIFY COLUMN type) at runtime without requiring a job restart. On each schema change the current output file is closed and a new file is opened with the updated schema.
+
+**Supported formats:** All file formats except `binary`. Enabling this option with `file_format_type = binary` will fail at job startup with a config validation error.
+
+**Partition constraint:** When `have_partition = true`, dropping a column listed in `partition_by` is not allowed and will fail fast. Partition columns must remain stable across schema changes.
+
+**When `schema_evolution_enabled = false` (default):** If the upstream CDC source has `schema-changes.enabled = true` and an `AlterTableEvent` arrives at the sink, the job will throw immediately with an actionable error:
+> `Received AlterTableEvent but schema_evolution_enabled=false at this sink. Either set schema_evolution_enabled=true to handle schema changes, or set schema-changes.enabled=false at the CDC source to suppress them.`
+
+Users on the default CDC source config (`schema-changes.enabled = false`) are completely unaffected.
+
+**Known limitation:** Schema changes are not atomic with checkpointing. If the job crashes in the narrow window between file rotation and schema metadata update, rows written after restore may use the pre-change schema. This is a known architectural gap shared across other SeaTunnel sinks. For full restart-with-DDL correctness, a follow-up CDC source fix is required (tracked separately).
+
+Example usage in a CDC pipeline:
+
+```hocon
+S3File {
+    path = "/test/cdc/${table_name}"
+    fs.s3a.endpoint = "s3.cn-north-1.amazonaws.com.cn"
+    access_key = "xxxxxxxxxxxxxxxxx"
+    secret_key = "xxxxxxxxxxxxxxxxx"
+    file_format_type = "parquet"
+    schema_evolution_enabled = true
+}
+```
+
+For production jobs, avoid hardcoding long-lived keys in job files. Prefer an IAM-based provider such as `fs.s3a.aws.credentials.provider = com.amazonaws.auth.InstanceProfileCredentialsProvider`, or inject `access_key` and `secret_key` with SeaTunnel variable substitution.
+
+### Writing with STS AssumeRole (cross-account writes)
+
+For sinks that must write to a bucket owned by a different AWS account, assume an IAM role and pass the temporary session credentials through `hadoop_s3_properties`. The temporary credentials are issued by `sts:AssumeRole` and used via `TemporaryAWSCredentialsProvider`.
+
+```hocon
+sink {
+  S3File {
+    path = "/cross-account/prefix"
+    bucket = "s3a://target-bucket"
+    fs.s3a.endpoint = "s3.cn-north-1.amazonaws.com.cn"
+    fs.s3a.aws.credentials.provider = "org.apache.hadoop.fs.s3a.TemporaryAWSCredentialsProvider"
+    hadoop_s3_properties = {
+      "fs.s3a.access.key"    = "<assumed-role-access-key>"
+      "fs.s3a.secret.key"    = "<assumed-role-secret-key>"
+      "fs.s3a.session.token" = "<assumed-role-session-token>"
+    }
+    file_format_type = "parquet"
+    schema_evolution_enabled = true
+  }
+}
+```
+
+For AWS SSO/Profile-based roles, swap the provider class (for example `com.amazonaws.auth.profile.ProfileCredentialsProvider` with `fs.s3a.profile` and `fs.s3a.credentialsFile`) and pass the provider-specific keys under `hadoop_s3_properties`. See the [Hadoop AWS](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html) documentation for the full set of supported `fs.s3a.*` keys.
 
 ## Changelog
 

@@ -28,6 +28,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.OrcWriteStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.OrcReadStrategy;
+import org.apache.seatunnel.connectors.seatunnel.file.util.LocalFileSystemConf;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -50,6 +51,49 @@ public class OrcWriteStrategyTest {
 
     @DisabledOnOs(OS.WINDOWS)
     @Test
+    public void testCloseWriterWhenRollingFile() throws Exception {
+        String tmpPath = "file:///tmp/seatunnel/orc/rolling/test-" + System.nanoTime();
+        Map<String, Object> writeConfig = new HashMap<>();
+        writeConfig.put("tmp_path", tmpPath);
+        writeConfig.put("path", "file:///tmp/seatunnel/orc/rolling");
+        writeConfig.put("file_format_type", FileFormat.ORC.name());
+        writeConfig.put("batch_size", 1);
+
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"value"}, new SeaTunnelDataType[] {BasicType.STRING_TYPE});
+        OrcWriteStrategy writeStrategy =
+                new OrcWriteStrategy(
+                        new FileSinkConfig(ReadonlyConfig.fromMap(writeConfig), rowType));
+        LocalFileSystemConf.LocalConf hadoopConf =
+                new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        writeStrategy.setCatalogTable(
+                CatalogTableUtil.getCatalogTable("test", null, null, "test", rowType));
+        writeStrategy.init(hadoopConf, "rolling-test", "rolling-test", 0);
+        writeStrategy.beginTransaction(1L);
+
+        writeStrategy.write(new SeaTunnelRow(new Object[] {"first"}));
+        writeStrategy.write(new SeaTunnelRow(new Object[] {"second"}));
+
+        OrcReadStrategy readStrategy = new OrcReadStrategy();
+        readStrategy.init(hadoopConf);
+        List<String> readFiles = readStrategy.getFileNamesByPath(tmpPath);
+        Assertions.assertEquals(1, readFiles.size());
+        String rolledFile = readFiles.get(0);
+        Assertions.assertTrue(rolledFile.endsWith("_0.orc"));
+        readStrategy.getSeaTunnelRowTypeInfo(rolledFile);
+        List<String> values = new ArrayList<>();
+        readStrategy.read(rolledFile, "test", collectorForFirstField(values));
+        Assertions.assertEquals(java.util.Arrays.asList("first"), values);
+
+        writeStrategy.finishAndCloseFile();
+        writeStrategy.close();
+        Assertions.assertEquals(2, readStrategy.getFileNamesByPath(tmpPath).size());
+        readStrategy.close();
+    }
+
+    @DisabledOnOs(OS.WINDOWS)
+    @Test
     public void testOrcWriteWithBatch() throws Exception {
         Map<String, Object> writeConfig = new HashMap<>();
         writeConfig.put("tmp_path", TMP_PATH);
@@ -66,8 +110,8 @@ public class OrcWriteStrategyTest {
                 new FileSinkConfig(ReadonlyConfig.fromMap(writeConfig), writeRowType);
         OrcWriteStrategy writeStrategy = new OrcWriteStrategy(writeSinkConfig);
 
-        OrcReadStrategyTest.LocalConf hadoopConf =
-                new OrcReadStrategyTest.LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        LocalFileSystemConf.LocalConf hadoopConf =
+                new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
         writeStrategy.setCatalogTable(
                 CatalogTableUtil.getCatalogTable("test", null, null, "test", writeRowType));
         writeStrategy.init(hadoopConf, "test1", "test1", 0);
@@ -104,5 +148,19 @@ public class OrcWriteStrategyTest {
         readStrategy.read(readFilePath, "test", readCollector);
         Assertions.assertEquals(ORC_WRITE_NUMBER, readRows.size());
         readStrategy.close();
+    }
+
+    private static Collector<SeaTunnelRow> collectorForFirstField(List<String> values) {
+        return new Collector<SeaTunnelRow>() {
+            @Override
+            public void collect(SeaTunnelRow record) {
+                values.add((String) record.getField(0));
+            }
+
+            @Override
+            public Object getCheckpointLock() {
+                return null;
+            }
+        };
     }
 }

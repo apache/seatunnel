@@ -21,6 +21,9 @@ import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTestin
 
 import org.apache.seatunnel.api.common.metrics.JobMetrics;
 import org.apache.seatunnel.api.common.metrics.RawJobMetrics;
+import org.apache.seatunnel.api.common.multitable.MultiTableFailedTable;
+import org.apache.seatunnel.api.common.multitable.MultiTableFailureHelper;
+import org.apache.seatunnel.api.common.multitable.MultiTableFailurePhase;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.options.EnvCommonOptions;
 import org.apache.seatunnel.api.sink.SaveModeExecuteLocation;
@@ -34,6 +37,8 @@ import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
+import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
+import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.common.config.JobConfig;
@@ -145,7 +150,7 @@ public class JobMaster {
 
     private LogicalDag logicalDag;
 
-    private JobDAGInfo jobDAGInfo;
+    private volatile JobDAGInfo jobDAGInfo;
 
     private SeaTunnelServer seaTunnelServer;
 
@@ -322,18 +327,107 @@ public class JobMaster {
     }
 
     public void initCheckPointManager(boolean restart) {
+        CheckpointStorage checkpointStorage = resolveCheckpointStorageOrFallback(restart);
         this.checkpointManager =
                 new CheckpointManager(
                         jobImmutableInformation.getJobId(),
-                        jobImmutableInformation.isStartWithSavePoint() || restart,
+                        jobImmutableInformation.isRestoreJob() || restart,
+                        jobImmutableInformation.getRestoreMode(),
+                        jobImmutableInformation.getRestoreSourceJobId(),
                         nodeEngine,
                         this,
                         checkpointPlanMap,
                         jobCheckpointConfig,
-                        seaTunnelServer.getCheckpointService().getCheckpointStorage(),
+                        checkpointStorage,
                         executorService,
                         runningJobStateIMap,
+                        seaTunnelServer.getEngineContext(),
                         seaTunnelServer.getCheckpointMonitorService());
+    }
+
+    private CheckpointStorage resolveCheckpointStorageOrFallback(boolean restart) {
+        if (seaTunnelServer != null && seaTunnelServer.getCheckpointService() != null) {
+            CheckpointStorage storage =
+                    seaTunnelServer.getCheckpointService().getCheckpointStorage();
+            if (storage != null) {
+                return storage;
+            }
+        }
+
+        boolean checkpointEnabled =
+                jobCheckpointConfig != null && jobCheckpointConfig.isCheckpointEnable();
+        boolean startWithSavePoint =
+                jobImmutableInformation != null
+                        && (jobImmutableInformation.isRestoreJob() || restart);
+
+        if (checkpointEnabled && startWithSavePoint) {
+            throw new IllegalStateException(
+                    "Checkpoint is enabled and job starts with savepoint, but checkpoint storage is not available");
+        }
+
+        // When checkpoint is disabled, CheckpointManager will not touch the storage. We still need
+        // a non-null placeholder to avoid NPEs during job initialization (especially in local
+        // example runs where SeaTunnelServer components may initialize asynchronously).
+        return new UnsupportedCheckpointStorage();
+    }
+
+    private static final class UnsupportedCheckpointStorage implements CheckpointStorage {
+        private static UnsupportedOperationException unavailable() {
+            return new UnsupportedOperationException("Checkpoint storage is unavailable");
+        }
+
+        @Override
+        public String storeCheckPoint(PipelineState state) {
+            throw unavailable();
+        }
+
+        @Override
+        public void asyncStoreCheckPoint(PipelineState state) {
+            throw unavailable();
+        }
+
+        @Override
+        public List<PipelineState> getAllCheckpoints(String jobId) {
+            throw unavailable();
+        }
+
+        @Override
+        public List<PipelineState> getLatestCheckpoint(String jobId) {
+            throw unavailable();
+        }
+
+        @Override
+        public PipelineState getLatestCheckpointByJobIdAndPipelineId(
+                String jobId, String pipelineId) {
+            throw unavailable();
+        }
+
+        @Override
+        public List<PipelineState> getCheckpointsByJobIdAndPipelineId(
+                String jobId, String pipelineId) {
+            throw unavailable();
+        }
+
+        @Override
+        public void deleteCheckpoint(String jobId) {
+            throw unavailable();
+        }
+
+        @Override
+        public PipelineState getCheckpoint(String jobId, String pipelineId, String checkpointId) {
+            throw unavailable();
+        }
+
+        @Override
+        public void deleteCheckpoint(String jobId, String pipelineId, String checkpointId) {
+            throw unavailable();
+        }
+
+        @Override
+        public void deleteCheckpoint(
+                String jobId, String pipelineId, List<String> checkpointIdList) {
+            throw unavailable();
+        }
     }
 
     // TODO replace it after ReadableConfig Support parse yaml format, then use only one config to
@@ -345,6 +439,8 @@ public class JobMaster {
         jobCheckpointConfig.setCheckpointTimeout(defaultCheckpointConfig.getCheckpointTimeout());
         jobCheckpointConfig.setCheckpointInterval(defaultCheckpointConfig.getCheckpointInterval());
         jobCheckpointConfig.setCheckpointMinPause(defaultCheckpointConfig.getCheckpointMinPause());
+        jobCheckpointConfig.setRetainAfterJobCancelled(
+                defaultCheckpointConfig.isRetainAfterJobCancelled());
 
         CheckpointStorageConfig jobCheckpointStorageConfig = new CheckpointStorageConfig();
         jobCheckpointStorageConfig.setStorage(defaultCheckpointConfig.getStorage().getStorage());
@@ -373,6 +469,12 @@ public class JobMaster {
             jobCheckpointConfig.setCheckpointMinPause(
                     Long.parseLong(
                             jobEnv.get(EnvCommonOptions.CHECKPOINT_MIN_PAUSE.key()).toString()));
+        }
+        if (jobEnv.containsKey(EnvCommonOptions.CHECKPOINT_RETAIN_AFTER_JOB_CANCELLED.key())) {
+            jobCheckpointConfig.setRetainAfterJobCancelled(
+                    Boolean.parseBoolean(
+                            jobEnv.get(EnvCommonOptions.CHECKPOINT_RETAIN_AFTER_JOB_CANCELLED.key())
+                                    .toString()));
         }
         return jobCheckpointConfig;
     }
@@ -613,9 +715,48 @@ public class JobMaster {
                 }
             }
         } else if (sink instanceof MultiTableSink) {
-            Map<TablePath, SeaTunnelSink> sinks = ((MultiTableSink) sink).getSinks();
-            for (SeaTunnelSink seaTunnelSink : sinks.values()) {
-                handleSaveMode(seaTunnelSink, isStartWithSavePoint);
+            MultiTableSink multiTableSink = (MultiTableSink) sink;
+            Map<TablePath, SeaTunnelSink> sinks = multiTableSink.getSinks();
+            if (!multiTableSink.getFailurePolicy().continueOtherTables()) {
+                for (SeaTunnelSink seaTunnelSink : sinks.values()) {
+                    handleSaveMode(seaTunnelSink, isStartWithSavePoint);
+                }
+                return;
+            }
+
+            List<MultiTableFailedTable> failedTables = new ArrayList<>();
+            for (Map.Entry<TablePath, SeaTunnelSink> entry : new ArrayList<>(sinks.entrySet())) {
+                try {
+                    handleSaveMode(entry.getValue(), isStartWithSavePoint);
+                } catch (RuntimeException error) {
+                    MultiTableFailedTable failedTable =
+                            MultiTableFailureHelper.buildFailedTable(
+                                    entry.getKey().getFullName(),
+                                    MultiTableFailurePhase.SAVE_MODE,
+                                    entry.getValue().getPluginName(),
+                                    error);
+                    failedTables.add(failedTable);
+                    LOGGER.warning(
+                            "Skip failed sink table during cluster save mode: "
+                                    + MultiTableFailureHelper.formatFailedTableLine(failedTable),
+                            error);
+                }
+            }
+            if (failedTables.isEmpty()) {
+                return;
+            }
+
+            failedTables.forEach(
+                    failedTable ->
+                            multiTableSink.removeSink(TablePath.of(failedTable.getTablePath())));
+            multiTableSink.registerInitialFailedTables(failedTables);
+            if (multiTableSink.getSinks().isEmpty()) {
+                throw new SeaTunnelRuntimeException(
+                        HANDLE_SAVE_MODE_FAILED,
+                        new IllegalStateException(
+                                MultiTableFailureHelper.formatFailedTableSummary(
+                                        "All candidate sink tables were skipped during cluster save mode.",
+                                        failedTables)));
             }
         }
     }
@@ -693,20 +834,43 @@ public class JobMaster {
         coordinatorService.schedulePendingJobCleanup(jobId, cleanupRecord);
     }
 
+    /**
+     * Lazily build and cache {@link JobDAGInfo} for REST/UI callers.
+     *
+     * <p>This uses the classic double-check locking pattern with a {@code volatile} field to avoid
+     * repeated expensive DAG reconstruction while keeping the hot path lock-free after
+     * initialization.
+     *
+     * <p>Thread-safety notes:
+     *
+     * <ul>
+     *   <li>{@code jobDAGInfo} is {@code volatile}, so once assigned, all threads will observe the
+     *       fully constructed reference.
+     *   <li>The initialization is guarded by {@code synchronized (this)} to ensure at most one
+     *       build happens.
+     * </ul>
+     */
     public JobDAGInfo getJobDAGInfo() {
-        if (jobDAGInfo == null) {
-            jobDAGInfo =
-                    DAGUtils.getJobDAGInfo(
-                            logicalDag,
-                            jobImmutableInformation,
-                            engineConfig,
-                            isPhysicalDAGInfo,
-                            new ExecutionAddress(
-                                    this.nodeEngine.getThisAddress().getHost(),
-                                    this.nodeEngine.getThisAddress().getPort()),
-                            historyExecutionAddress);
+        JobDAGInfo local = jobDAGInfo;
+        if (local == null) {
+            synchronized (this) {
+                local = jobDAGInfo;
+                if (local == null) {
+                    local =
+                            DAGUtils.getJobDAGInfo(
+                                    logicalDag,
+                                    jobImmutableInformation,
+                                    engineConfig,
+                                    isPhysicalDAGInfo,
+                                    new ExecutionAddress(
+                                            this.nodeEngine.getThisAddress().getHost(),
+                                            this.nodeEngine.getThisAddress().getPort()),
+                                    historyExecutionAddress);
+                    jobDAGInfo = local;
+                }
+            }
         }
-        return jobDAGInfo;
+        return local;
     }
 
     public void releaseTaskGroupResource(
@@ -960,8 +1124,11 @@ public class JobMaster {
                 PipelineStatus.FINISHED.equals(pipelineStatus)
                         && checkpointManager != null
                         && checkpointManager.isPipelineSavePointEnd(pipelineLocation);
+        // Failed pipelines also need cleanup so their distributed metrics do not leak into later
+        // task recovery or re-submission flows.
         boolean shouldCleanup =
-                PipelineStatus.CANCELED.equals(pipelineStatus)
+                PipelineStatus.FAILED.equals(pipelineStatus)
+                        || PipelineStatus.CANCELED.equals(pipelineStatus)
                         || (PipelineStatus.FINISHED.equals(pipelineStatus) && !savepointEnd);
         if (!shouldCleanup) {
             return;
@@ -1018,7 +1185,8 @@ public class JobMaster {
 
     public void removeMetricsContext(
             PipelineLocation pipelineLocation, PipelineStatus pipelineStatus) {
-        if ((pipelineStatus.equals(PipelineStatus.FINISHED)
+        if (pipelineStatus.equals(PipelineStatus.FAILED)
+                || (pipelineStatus.equals(PipelineStatus.FINISHED)
                         && !checkpointManager.isPipelineSavePointEnd(pipelineLocation))
                 || pipelineStatus.equals(PipelineStatus.CANCELED)) {
 

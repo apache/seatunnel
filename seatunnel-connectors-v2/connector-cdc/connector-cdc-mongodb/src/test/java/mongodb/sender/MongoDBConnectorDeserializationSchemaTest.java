@@ -17,6 +17,7 @@
 
 package mongodb.sender;
 
+import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
@@ -24,11 +25,16 @@ import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
+import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.exception.MongodbConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.sender.MongoDBConnectorDeserializationSchema;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbRecordUtils;
 
+import org.apache.kafka.connect.data.Schema;
+import org.apache.kafka.connect.data.SchemaBuilder;
+import org.apache.kafka.connect.data.Struct;
 import org.apache.kafka.connect.source.SourceRecord;
 
 import org.bson.BsonDateTime;
@@ -49,7 +55,10 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.IntStream;
@@ -58,6 +67,7 @@ import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.Mongo
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.DB_FIELD;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.DOCUMENT_KEY;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.FULL_DOCUMENT;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.HEARTBEAT_KEY_FIELD;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.ID_FIELD;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.NS_FIELD;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.OPERATION_TYPE;
@@ -166,6 +176,48 @@ public class MongoDBConnectorDeserializationSchemaTest {
     }
 
     @Test
+    public void deserializeSnapshotRecordWithoutOperationType() throws Exception {
+        MongoDBConnectorDeserializationSchema schema =
+                new MongoDBConnectorDeserializationSchema(Collections.singletonList(catalogTable));
+        SourceRecord sourceRecord = createSnapshotRecordWithoutOperationType();
+        List<SeaTunnelRow> rows = new ArrayList<>();
+
+        schema.deserialize(sourceRecord, new ListCollector(rows));
+
+        Assertions.assertEquals(1, rows.size());
+        SeaTunnelRow row = rows.get(0);
+        Assertions.assertEquals(RowKind.INSERT, row.getRowKind());
+        Assertions.assertEquals("database.table", row.getTableId());
+        Assertions.assertEquals("snapshot-value", row.getField(4));
+    }
+
+    @Test
+    public void skipHeartbeatRecordWithoutOperationType() throws Exception {
+        MongoDBConnectorDeserializationSchema schema =
+                new MongoDBConnectorDeserializationSchema(Collections.singletonList(catalogTable));
+        SourceRecord heartbeatRecord = createRecordWithoutOperationType(true);
+        List<SeaTunnelRow> rows = new ArrayList<>();
+
+        schema.deserialize(heartbeatRecord, new ListCollector(rows));
+
+        Assertions.assertTrue(rows.isEmpty());
+    }
+
+    @Test
+    public void throwReadableExceptionWhenOperationTypeMissing() {
+        MongoDBConnectorDeserializationSchema schema =
+                new MongoDBConnectorDeserializationSchema(Collections.singletonList(catalogTable));
+        SourceRecord record = createRecordWithoutOperationType(false);
+
+        MongodbConnectorException exception =
+                Assertions.assertThrows(
+                        MongodbConnectorException.class,
+                        () -> schema.deserialize(record, new ListCollector(new ArrayList<>())));
+
+        Assertions.assertTrue(exception.getMessage().contains(OPERATION_TYPE));
+    }
+
+    @Test
     public void testBsonConvert() {
         MongoDBConnectorDeserializationSchema schema =
                 new MongoDBConnectorDeserializationSchema(Collections.singletonList(catalogTable));
@@ -266,5 +318,98 @@ public class MongoDBConnectorDeserializationSchemaTest {
                 .filter(Objects::nonNull)
                 .findFirst()
                 .orElseThrow(() -> new RuntimeException("not found field"));
+    }
+
+    private SourceRecord createSnapshotRecordWithoutOperationType() {
+        Schema keySchema = SchemaBuilder.struct().field(ID_FIELD, Schema.STRING_SCHEMA).build();
+        Struct key = new Struct(keySchema).put(ID_FIELD, "12");
+        Schema sourceSchema =
+                SchemaBuilder.struct()
+                        .name("source")
+                        .field(TS_MS_FIELD, Schema.INT64_SCHEMA)
+                        .field("table", Schema.OPTIONAL_STRING_SCHEMA)
+                        .field(DB_FIELD, Schema.OPTIONAL_STRING_SCHEMA)
+                        .field(SNAPSHOT_FIELD, Schema.OPTIONAL_STRING_SCHEMA)
+                        .build();
+        Schema nsSchema =
+                SchemaBuilder.struct()
+                        .name("ns")
+                        .field(DB_FIELD, Schema.STRING_SCHEMA)
+                        .field(COLL_FIELD, Schema.OPTIONAL_STRING_SCHEMA)
+                        .build();
+        Schema valueSchema =
+                SchemaBuilder.struct()
+                        .name("ChangeStreamWithoutOperationType")
+                        .field(ID_FIELD, Schema.STRING_SCHEMA)
+                        .field(FULL_DOCUMENT, Schema.OPTIONAL_STRING_SCHEMA)
+                        .field(SOURCE_FIELD, sourceSchema)
+                        .field(TS_MS_FIELD, Schema.OPTIONAL_INT64_SCHEMA)
+                        .field(NS_FIELD, nsSchema)
+                        .field(DOCUMENT_KEY, Schema.OPTIONAL_STRING_SCHEMA)
+                        .build();
+
+        Struct source =
+                new Struct(sourceSchema)
+                        .put(TS_MS_FIELD, 0L)
+                        .put("table", "table")
+                        .put(DB_FIELD, "database")
+                        .put(SNAPSHOT_FIELD, SNAPSHOT_TRUE);
+        Struct ns = new Struct(nsSchema).put(DB_FIELD, "database").put(COLL_FIELD, "table");
+        BsonDocument documentKey = new BsonDocument(ID_FIELD, new BsonString("12"));
+        BsonDocument fullDocument = new BsonDocument("string", new BsonString("snapshot-value"));
+        Struct value =
+                new Struct(valueSchema)
+                        .put(ID_FIELD, documentKey.toJson())
+                        .put(FULL_DOCUMENT, fullDocument.toJson())
+                        .put(SOURCE_FIELD, source)
+                        .put(TS_MS_FIELD, System.currentTimeMillis())
+                        .put(NS_FIELD, ns)
+                        .put(DOCUMENT_KEY, documentKey.toJson());
+
+        return new SourceRecord(
+                MongodbRecordUtils.createPartitionMap("localhost:27017", "database", "table"),
+                createSourceOffsetMap(documentKey, true),
+                "database.table",
+                keySchema,
+                key,
+                valueSchema,
+                value);
+    }
+
+    private SourceRecord createRecordWithoutOperationType(boolean heartbeat) {
+        Schema valueSchema = SchemaBuilder.struct().field(TS_MS_FIELD, Schema.INT64_SCHEMA).build();
+        Struct value = new Struct(valueSchema).put(TS_MS_FIELD, System.currentTimeMillis());
+        Map<String, String> sourceOffset = new HashMap<>();
+        if (heartbeat) {
+            sourceOffset.put(HEARTBEAT_KEY_FIELD, "true");
+        }
+
+        return new SourceRecord(
+                Collections.singletonMap(
+                        NS_FIELD, "mongodb://localhost:27017/__mongodb_heartbeats"),
+                sourceOffset,
+                "__mongodb_heartbeats",
+                null,
+                null,
+                valueSchema,
+                value);
+    }
+
+    private static class ListCollector implements Collector<SeaTunnelRow> {
+        private final List<SeaTunnelRow> rows;
+
+        private ListCollector(List<SeaTunnelRow> rows) {
+            this.rows = rows;
+        }
+
+        @Override
+        public void collect(SeaTunnelRow record) {
+            rows.add(record);
+        }
+
+        @Override
+        public Object getCheckpointLock() {
+            return this;
+        }
     }
 }

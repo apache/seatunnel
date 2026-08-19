@@ -70,7 +70,7 @@ Generate Apache SeaTunnel configs with natural language.
   [bold]/save <path>[/bold]     — Save config to custom path (auto-saved to .data/last_job.conf)
   [bold]/check[/bold]           — Dry-run validate last config (auto-fixes on failure)
   [bold]/run[/bold]             — Execute last config with SeaTunnel
-  [bold]/connectors[/bold]      — List available connectors
+  [bold]/connectors[/bold]      — List available sources, sinks, and transforms
   [bold]/config[/bold]          — Show/change LLM provider settings
   [bold]/sessions[/bold]        — List recent sessions
   [bold]/resume [id][/bold]     — Resume a previous session
@@ -511,19 +511,23 @@ class SeaTunnelCLI:
         console.print("    [bold]3[/bold]. bedrock    — AWS Bedrock (Claude via AWS)")
         console.print("       Requires: AWS credentials (aws configure / env vars / IAM role)")
         console.print("       Docs: https://docs.aws.amazon.com/bedrock/\n")
+        console.print("    [bold]4[/bold]. bedrock-mantle — OpenAI-family models on Bedrock (GPT-5.6 Terra/Sol)")
+        console.print("       Requires: AWS credentials + pip install \".[bedrock-mantle]\"")
+        console.print("       Note: Responses-API-only models on the bedrock-mantle endpoint\n")
 
         try:
-            choice = pt_prompt("  Enter your choice (1/2/3): ").strip().lower()
+            choice = pt_prompt("  Enter your choice (1/2/3/4): ").strip().lower()
         except (EOFError, KeyboardInterrupt):
             console.print("\n  Setup cancelled.", style="warning")
             return
 
-        choice_map = {"1": "anthropic", "2": "openai", "3": "bedrock"}
+        choice_map = {"1": "anthropic", "2": "openai", "3": "bedrock",
+                      "4": "bedrock-mantle"}
         choice = choice_map.get(choice, choice)
 
         if not choice or choice not in _PROVIDERS:
             console.print(
-                f"  [error]Invalid choice: '{choice}'. Please enter 1, 2, or 3.[/error]"
+                f"  [error]Invalid choice: '{choice}'. Please enter 1, 2, 3, or 4.[/error]"
             )
             return
 
@@ -599,8 +603,14 @@ class SeaTunnelCLI:
                     config.setdefault("settings", {})["openai_base_url"] = base_url
                     console.print(f"  Base URL set: [bold]{base_url}[/bold]")
 
-        elif choice == "bedrock":
+        elif choice in ("bedrock", "bedrock-mantle"):
             console.print("  AWS Bedrock requires AWS credentials.\n")
+            if choice == "bedrock-mantle":
+                console.print(
+                    "  [dim]bedrock-mantle also requires the optional extra:[/dim]\n"
+                    "    pip install \".[bedrock-mantle]\"   "
+                    "[dim](openai SDK + aws-bedrock-token-generator)[/dim]\n"
+                )
             console.print(
                 "  [dim]Options:[/dim]\n"
                 "    - aws configure           (interactive setup)\n"
@@ -653,6 +663,11 @@ class SeaTunnelCLI:
         elif choice == "openai":
             default_model = "gpt-4o"
             default_fast = "gpt-4o-mini"
+            model_env = "OPENAI_MODEL"
+            fast_env = "OPENAI_SMALL_FAST_MODEL"
+        elif choice == "bedrock-mantle":
+            default_model = "openai.gpt-5.6-terra"
+            default_fast = "openai.gpt-5.6-terra"
             model_env = "OPENAI_MODEL"
             fast_env = "OPENAI_SMALL_FAST_MODEL"
         else:  # bedrock
@@ -1066,6 +1081,7 @@ class SeaTunnelCLI:
             self.console.print(f"  [bold]Sources:[/bold] {', '.join(names['sources'])}")
             self.console.print(f"  [bold]Sinks:[/bold]   {', '.join(names['sinks'])}")
             self.console.print(f"  [bold]Transforms:[/bold] {', '.join(names['transforms'])}")
+            self.console.print("  Transform option rules and value constraints are supported during generation.")
 
         elif command == "/config":
             self._cmd_config(arg.strip())
@@ -1511,7 +1527,7 @@ def main():
     )
     parser.add_argument(
         "--provider",
-        choices=["bedrock", "anthropic", "openai"],
+        choices=["bedrock", "bedrock-mantle", "anthropic", "openai"],
         help="LLM provider (overrides AI_PROVIDER env var and config.json)",
     )
     parser.add_argument(
@@ -1562,15 +1578,18 @@ def main():
     # Override provider if specified via CLI flags
     if args.provider:
         os.environ["AI_PROVIDER"] = args.provider
+    # Providers speaking the OpenAI protocol read OPENAI_MODEL*;
+    # bedrock/anthropic read ANTHROPIC_MODEL*.
+    _OPENAI_FAMILY = ("openai", "bedrock-mantle")
     if args.model:
         provider = os.environ.get("AI_PROVIDER", "").lower()
-        if provider == "openai":
+        if provider in _OPENAI_FAMILY:
             os.environ["OPENAI_MODEL"] = args.model
         else:
             os.environ["ANTHROPIC_MODEL"] = args.model
     if args.fast_model:
         provider = os.environ.get("AI_PROVIDER", "").lower()
-        if provider == "openai":
+        if provider in _OPENAI_FAMILY:
             os.environ["OPENAI_SMALL_FAST_MODEL"] = args.fast_model
         else:
             os.environ["ANTHROPIC_SMALL_FAST_MODEL"] = args.fast_model

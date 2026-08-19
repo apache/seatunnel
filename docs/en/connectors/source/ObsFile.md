@@ -35,6 +35,7 @@ import ChangeLog from '../changelog/connector-file-obs.md';
   - [x] json
   - [x] excel
   - [x] markdown
+  - [x] pdf
 
 ## Description
 
@@ -70,7 +71,7 @@ It only supports hadoop version **2.9.X+**.
 | access_key                 | string  | yes      | -                   | The access key of obs file system                                                                                                                                                    |
 | access_secret              | string  | yes      | -                   | The access secret of obs file system                                                                                                                                                 |
 | endpoint                   | string  | yes      | -                   | The endpoint of obs file system                                                                                                                                                      |
-| read_columns               | list    | yes      | -                   | The read column list of the data source, user can use it to implement field projection.[Tips](#read_columns)                                                                         |
+| read_columns               | list    | no       | -                   | The read column list of the data source, user can use it to implement field projection.[Tips](#read_columns)                                                                         |
 | delimiter                  | string  | no       | \001                | Field delimiter, used to tell connector how to slice and dice fields when reading text files                                                                                         |
 | row_delimiter              | string  | no       | \n                  | Row delimiter, used to tell connector how to slice and dice rows when reading text files. Default is `\n` for text files.                                                            |
 | parse_partition_from_path  | boolean | no       | true                | Control whether parse the partition keys and values from file path. [Tips](#parse_partition_from_path)                                                                               |
@@ -82,10 +83,14 @@ It only supports hadoop version **2.9.X+**.
 | schema                     | config  | no       | -                   | [Tips](#schema)                                                                                                                                                                      |
 | common-options             |         | no       | -                   | [Tips](#common_options)                                                                                                                                                              |
 | sheet_name                 | string  | no       | -                   | Reader the sheet of the workbook,Only used when file_format is excel.                                                                                                                |
+| excel_engine               | string  | no       | POI                 | Only used when `file_format` is excel. Supported engines are `POI` and `EasyExcel`.                                                                                                                                                                |
+| poi_excel_max_file_size    | long    | no       | 52428800            | Only used when `file_format` is excel and `excel_engine` is POI. The maximum Excel file size in bytes that the POI engine can read (default 50 MB).                                                                                                |
 | file_filter_modified_start | string  | no       | -                   | File modification time filter. The connector will filter some files base on the last modification start time (include start time). The default data format is `yyyy-MM-dd HH:mm:ss`. |
 | file_filter_modified_end   | string  | no       | -                   | File modification time filter. The connector will filter some files base on the last modification end time (not include end time). The default data format is `yyyy-MM-dd HH:mm:ss`. |
 | quote_char                 | string  | no       | "                   | A single character that encloses CSV fields, allowing fields with commas, line breaks, or quotes to be read correctly.                                                               |
 | escape_char                | string  | no       | -                   | A single character that allows the quote or other special characters to appear inside a CSV field without ending the field.                                                          |
+| recursive_file_scan        | boolean | no       | true                | Whether to scan subdirectories recursively. If `false`, subdirectories will be ignored.                                                                                              |
+| sort_files_by_modification_time | boolean | no       | false               | Sort files by modification time in descending order. Enable this when reading evolving schemas to ensure schema inference uses the latest file.                                                                                                               |
 
 ### Tips
 
@@ -141,19 +146,15 @@ It only supports hadoop version **2.9.X+**.
 
 > File type, supported as the following file types:
 >
-> `text` `csv` `parquet` `orc` `json` `excel` `markdown`
+> `text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf`
 >
 > If you assign file type to `json`, you should also assign schema option to tell the connector how to parse data to the row you want.
 >
-> For example,upstream data is the following:
+> For example, upstream data is the following:
 >
 > ```json
->
+> {"code": 200, "data": "get success", "success": true}
 > ```
-
-{"code":  200, "data":  "get success", "success":  true}
-
-```
 
 > You can also save multiple pieces of data in one file and split them by one newline:
 
@@ -227,7 +228,7 @@ schema {
 
 > If you assign file type to `markdown`, SeaTunnel can parse markdown files and extract structured data.
 > The markdown parser extracts various elements including headings, paragraphs, lists, code blocks, tables, and more.
-> Each element is converted to a row with the following schema:
+> Each extracted element is converted to a document-element row with the following schema:
 > - `element_id`: Unique identifier for the element
 > - `element_type`: Type of the element (Heading, Paragraph, ListItem, etc.)
 > - `heading_level`: Level of heading (1-6, null for non-heading elements)
@@ -237,16 +238,30 @@ schema {
 > - `parent_id`: ID of the parent element
 > - `child_ids`: Comma-separated list of child element IDs
 >
-> When `markdown_rag_metadata_enabled` is set to `true`, SeaTunnel appends the following RAG metadata fields after `child_ids`:
+> When either `markdown_rag_metadata_enabled` or `pdf_rag_metadata_enabled` is set to `true`, SeaTunnel appends the following RAG metadata fields after `child_ids` for the corresponding file type:
 > - `source_uri`: Source file path or URI
 > - `document_id`: Stable document identifier derived from `source_uri`
 > - `chunk_id`: Stable chunk identifier derived from document identity, chunk order, and content hash
 > - `chunk_index`: One-based chunk order in the parsed document
 > - `content_hash`: SHA-256 hash of the emitted `text` value
 >
+> When this option is enabled for bounded Markdown file sources, the source enumerator assigns each whole-file split by the same `document_id` hash so all rows derived from one document stay in the same source route bucket. The default round-robin split assignment is unchanged when the option is disabled.
+>
 > The option defaults to `false`, so the original Markdown schema is unchanged unless you enable it.
 >
 > Note: Markdown format only supports reading, not writing.
+>
+> If you assign file type to `pdf`, SeaTunnel can parse PDF files and extract structured document elements.
+> PDF uses the same document-element row schema described above.
+> For PDF input, enable `pdf_rag_metadata_enabled` to append the RAG metadata fields described above.
+>
+> The main PDF-specific behaviors are:
+>
+> - **With outline**: Extracts `heading`, `paragraph`, `image`, and `link` elements. Headings are derived from the outline structure, and elements are organized into a parent-child hierarchy reflecting the document's logical structure.
+> - **Without outline**: Extracts only `paragraph` and `image` elements in a flat structure without hierarchy.
+> - `element_type` values for PDF are `heading`, `paragraph`, `image`, and `link`.
+>
+> Note: Only single-column (top-to-bottom) PDF layouts are supported. Multi-column layouts (e.g., side-by-side two-column documents) are not supported and may produce incorrect text ordering.
 
 #### <span id="schema"> schema  </span>
 
@@ -272,6 +287,14 @@ schema {
 #### <span id="common_options "> common options </span>
 
 > Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details.
+
+#### <span id="sort_files_by_modification_time"> sort_files_by_modification_time </span>
+
+> Whether to sort files by modification time in descending order. Default is `false`.
+>
+> When enabled, files will be sorted by their modification time (newest first). This is useful when:
+> - Reading files with evolving schemas and you want schema inference to use the latest file
+> - You need to process files in chronological order
 
 ## Task Example
 
@@ -378,7 +401,28 @@ schema {
 
 ```
 
+### Reading with Temporary Security Credentials (OBS STS)
+
+For production jobs that need scoped, short-lived access, generate temporary AK/SK via [OBS STS](https://support.huaweicloud.com/intl/en-us/api-obs/obs_04_0081.html) and pass them through `hadoop_obs_properties`. The temporary credentials can carry a fine-grained custom policy that limits access to a specific bucket prefix.
+
+```hocon
+source {
+  ObsFile {
+    path = "/staging/prefix"
+    bucket = "obs://target-bucket"
+    endpoint = "obs.ap-southeast-1.myhuaweicloud.com"
+    hadoop_obs_properties = {
+      "fs.obs.access.key"    = "<temp-access-key>"
+      "fs.obs.secret.key"    = "<temp-secret-key>"
+      "fs.obs.session.token" = "<temp-security-token>"
+    }
+    file_format_type = "parquet"
+  }
+}
+```
+
+The provider jar must be on the runtime classpath of every node (`${SEATUNNEL_HOME}/lib`). Avoid long-lived AK/SK in job files; prefer STS-issued temporary credentials or an ECS Agency when running inside Huawei Cloud.
+
 ## Changelog
 
 <ChangeLog />
-

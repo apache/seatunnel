@@ -26,6 +26,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import io.milvus.client.MilvusServiceClient;
+import io.milvus.grpc.ListDatabasesResponse;
 import io.milvus.grpc.ShowPartitionsResponse;
 import io.milvus.param.R;
 import io.milvus.param.RpcStatus;
@@ -46,6 +47,21 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 class MilvusCatalogTest {
+
+    @Test
+    void tableExistsReturnsFalseWhenDatabaseDoesNotExist() throws Exception {
+        MilvusServiceClient client = mock(MilvusServiceClient.class);
+        @SuppressWarnings("unchecked")
+        R<ListDatabasesResponse> listDatabasesR = mock(R.class);
+        when(listDatabasesR.getData())
+                .thenReturn(ListDatabasesResponse.newBuilder().addDbNames("default").build());
+        when(client.listDatabases()).thenReturn(listDatabasesR);
+
+        MilvusCatalog catalog = createCatalogWithClient(client);
+        Assertions.assertFalse(catalog.tableExists(TablePath.of("missing_db", null, "coll")));
+
+        verify(client, never()).hasCollection(any());
+    }
 
     @Test
     void createPartitionInternalSkipsEmptyString() throws Exception {

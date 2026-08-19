@@ -34,15 +34,16 @@ semantics (using XA transaction guarantee).
 - [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
+- [x] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 > Use `Xa transactions` to ensure `exactly-once`. So only support `exactly-once` for the database which is
-> support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
+> support `Xa transactions`. You can set `is_exactly_once=true` and `max_retries=0` to enable it.
 
 ## Supported DataSource Info
 
 | Datasource |                    Supported Versions                    |          Driver          |                  Url                  |                                   Maven                                   |
 |------------|----------------------------------------------------------|--------------------------|---------------------------------------|---------------------------------------------------------------------------|
-| Mysql      | Different dependency version has different driver class. | com.mysql.cj.jdbc.Driver | jdbc:mysql://localhost:3306:3306/test | [Download](https://mvnrepository.com/artifact/mysql/mysql-connector-java) |
+| Mysql      | Different dependency version has different driver class. | com.mysql.cj.jdbc.Driver | jdbc:mysql://localhost:3306/test | [Download](https://mvnrepository.com/artifact/mysql/mysql-connector-java) |
 
 ## Data Type Mapping
 
@@ -68,7 +69,7 @@ semantics (using XA transaction guarantee).
 
 |                   Name                    |  Type   | Required |           Default            |                                                                                                                  Description                                                                                                                   |
 |-------------------------------------------|---------|----------|------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| url                                       | String  | Yes      | -                            | The URL of the JDBC connection. Refer to a case: jdbc:mysql://localhost:3306:3306/test                                                                                                                                                         |
+| url                                       | String  | Yes      | -                            | The URL of the JDBC connection. Refer to a case: jdbc:mysql://localhost:3306/test                                                                                                                                                              |
 | driver                                    | String  | Yes      | -                            | The jdbc class name used to connect to the remote data source,<br/> if you use MySQL the value is `com.mysql.cj.jdbc.Driver`.                                                                                                                  |
 | username                                      | String  | No       | -                            | Connection instance user name                                                                                                                                                                                                                  |
 | password                                  | String  | No       | -                            | Connection instance password                                                                                                                                                                                                                   |
@@ -78,7 +79,8 @@ semantics (using XA transaction guarantee).
 | primary_keys                              | Array   | No       | -                            | This option is used to support operations such as `insert`, `delete`, and `update` when automatically generate sql.                                                                                                                            |
 | connection_check_timeout_sec              | Int     | No       | 30                           | The time in seconds to wait for the database operation used to validate the connection to complete.                                                                                                                                            |
 | max_retries                               | Int     | No       | 0                            | The number of retries to submit failed (executeBatch)                                                                                                                                                                                          |
-| batch_size                                | Int     | No       | 1000                         | For batch writing, when the number of buffered records reaches the number of `batch_size` or the time reaches `checkpoint.interval`<br/>, the data will be flushed into the database                                                           |
+| batch_size                                | Int     | No       | 1000                         | For batch writing, when the number of buffered records reaches `batch_size`, the data will be flushed into the database. If `batch_interval_ms` is greater than 0, elapsed time can also trigger a flush.                                      |
+| batch_interval_ms                         | Long    | No       | 0                            | Write-triggered flush interval in milliseconds. `0` disables time-based flushing. When greater than 0, the writer checks elapsed time on each record and flushes synchronously when the interval is reached.                                    |
 | is_exactly_once                           | Boolean | No       | false                        | Whether to enable exactly-once semantics, which will use Xa transactions. If on, you need to<br/>set `xa_data_source_class_name`.                                                                                                              |
 | generate_sink_sql                         | Boolean | No       | false                        | Generate sql statements based on the database table you want to write to                                                                                                                                                                       |
 | xa_data_source_class_name                 | String  | No       | -                            | The xa data source class name of the database Driver, for example, mysql is `com.mysql.cj.jdbc.MysqlXADataSource`, and<br/>please refer to appendix for other data sources                                                                     |
@@ -92,6 +94,7 @@ semantics (using XA transaction guarantee).
 | data_save_mode                            | Enum    | No       | APPEND_DATA                  | Before the synchronous task is turned on, different processing schemes are selected for data existing data on the target side.                                                                                                                 |
 | custom_sql                                | String  | No       | -                            | When data_save_mode selects CUSTOM_PROCESSING, you should fill in the CUSTOM_SQL parameter. This parameter usually fills in a SQL that can be executed. SQL will be executed before synchronization tasks.                                     |
 | enable_upsert                             | Boolean | No       | true                         | Enable upsert by primary_keys exist, If the task only has `insert`, setting this parameter to `false` can speed up data import                                                                                                                 |
+| multi_table_sink_replica                  | Int     | No       | 1                            | The number of sink writer replicas used when writing multiple tables.                                                                                                                                                                          |
 
 ### Tips
 
@@ -103,7 +106,7 @@ semantics (using XA transaction guarantee).
 
 > This example defines a SeaTunnel synchronization task that automatically generates data through FakeSource and sends it to JDBC Sink. FakeSource generates a total of 16 rows of data (row.num=16), with each row having two fields, name (string type) and age (int type). The final target table is test_table will also be 16 rows of data in the table. Before run this job, you need create database test and table test_table in your mysql. And if you have not yet installed and deployed SeaTunnel, you need to follow the instructions in [Install SeaTunnel](../../getting-started/locally/deployment.md) to install and deploy SeaTunnel. And then follow the instructions in [Quick Start With SeaTunnel Engine](../../getting-started/locally/quick-start-seatunnel-engine.md) to run this job.
 
-```
+```hocon
 # Defining the runtime environment
 env {
   parallelism = 1
@@ -124,12 +127,12 @@ source {
     }
   }
   # If you would like to get more information about how to configure seatunnel and see full list of source plugins,
-  # please go to https://seatunnel.apache.org/docs/connector-v2/source
+  # please go to https://seatunnel.apache.org/docs/connectors/source
 }
 
 transform {
   # If you would like to get more information about how to configure seatunnel and see full list of transform plugins,
-    # please go to https://seatunnel.apache.org/docs/transform-v2
+    # please go to https://seatunnel.apache.org/docs/transforms
 }
 
 sink {
@@ -141,7 +144,7 @@ sink {
         query = "insert into test_table(name,age) values(?,?)"
         }
   # If you would like to get more information about how to configure seatunnel and see full list of sink plugins,
-  # please go to https://seatunnel.apache.org/docs/connector-v2/sink
+  # please go to https://seatunnel.apache.org/docs/connectors/sink
 }
 ```
 
@@ -149,7 +152,7 @@ sink {
 
 > This example  not need to write complex sql statements, you can configure the database name table name to automatically generate add statements for you
 
-```
+```hocon
 sink {
     jdbc {
         url = "jdbc:mysql://localhost:3306/test?useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true"
@@ -168,7 +171,7 @@ sink {
 
 > For accurate write scene we guarantee accurate once
 
-```
+```hocon
 sink {
     jdbc {
         url = "jdbc:mysql://localhost:3306/test?useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true"
@@ -187,7 +190,7 @@ sink {
 
 > CDC change data is also supported by us In this case, you need config database, table and primary_keys.
 
-```
+```hocon
 sink {
     jdbc {
         url = "jdbc:mysql://localhost:3306/test?useUnicode=true&characterEncoding=UTF-8&rewriteBatchedStatements=true"
@@ -212,7 +215,7 @@ sink {
 
 > Sync multiple tables from MySQL CDC to target MySQL database, using placeholders for dynamic table name mapping
 
-```
+```hocon
 env {
   parallelism = 1
   job.mode = "STREAMING"
@@ -249,7 +252,7 @@ sink {
 
 > Batch sync multiple tables from MySQL using JDBC Source to another MySQL database
 
-```
+```hocon
 env {
   parallelism = 1
   job.mode = "BATCH"

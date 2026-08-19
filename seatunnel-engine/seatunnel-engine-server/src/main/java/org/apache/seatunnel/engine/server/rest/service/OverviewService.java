@@ -44,11 +44,17 @@ public class OverviewService extends BaseService {
         SeaTunnelServer seaTunnelServer = getSeaTunnelServer(true);
 
         if (seaTunnelServer == null) {
-            overviewInfo =
-                    (OverviewInfo)
-                            NodeEngineUtil.sendOperationToMasterNode(
-                                            nodeEngine, new GetOverviewOperation(tags))
-                                    .join();
+            // Master election may not be finished yet (e.g. right after local engine startup).
+            // Avoid sending operation to a null master address which will trigger NPE.
+            if (nodeEngine.getMasterAddress() == null) {
+                overviewInfo = new OverviewInfo();
+            } else {
+                overviewInfo =
+                        (OverviewInfo)
+                                NodeEngineUtil.sendOperationToMasterNode(
+                                                nodeEngine, new GetOverviewOperation(tags))
+                                        .join();
+            }
         } else {
             overviewInfo = GetOverviewOperation.getOverviewInfo(seaTunnelServer, nodeEngine, tags);
         }

@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.transform.sql;
 
+import org.apache.seatunnel.api.common.error.RowErrorClassification;
+import org.apache.seatunnel.api.common.error.SupportRowLevelErrorClassifier;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
@@ -27,10 +29,17 @@ import org.apache.seatunnel.api.table.catalog.ConstraintKey;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.schema.event.AlterTableEvent;
+import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
+import org.apache.seatunnel.api.table.schema.handler.AlterTableSchemaEventHandler;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.transform.common.AbstractCatalogSupportFlatMapTransform;
+import org.apache.seatunnel.transform.exception.TransformCommonErrorCode;
+import org.apache.seatunnel.transform.exception.TransformException;
 import org.apache.seatunnel.transform.sql.SQLEngineFactory.EngineType;
 
 import lombok.NonNull;
@@ -44,7 +53,8 @@ import java.util.stream.Collectors;
 import static org.apache.seatunnel.transform.sql.SQLEngineFactory.EngineType.ZETA;
 
 @Slf4j
-public class SQLTransform extends AbstractCatalogSupportFlatMapTransform {
+public class SQLTransform extends AbstractCatalogSupportFlatMapTransform
+        implements SupportRowLevelErrorClassifier<SeaTunnelRow> {
     public static final String PLUGIN_NAME = "Sql";
 
     public static final Option<String> KEY_QUERY =
@@ -108,6 +118,48 @@ public class SQLTransform extends AbstractCatalogSupportFlatMapTransform {
     public List<SeaTunnelRow> transformRow(SeaTunnelRow inputRow) {
         tryOpen();
         return sqlEngine.transformBySQL(inputRow, outRowType);
+    }
+
+    @Override
+    public RowErrorClassification classifyRowError(Throwable t, SeaTunnelRow row) {
+        TransformException transformException = findTransformException(t);
+        if (transformException == null) {
+            return RowErrorClassification.SYSTEM_ERROR;
+        }
+        if (transformException.getSeaTunnelErrorCode()
+                == TransformCommonErrorCode.EXPRESSION_EXECUTE_ERROR) {
+            return RowErrorClassification.ROW_ERROR;
+        }
+        if (transformException.getSeaTunnelErrorCode()
+                        == TransformCommonErrorCode.WHERE_STATEMENT_ERROR
+                && !hasUnsupportedOperationCause(transformException)) {
+            return RowErrorClassification.ROW_ERROR;
+        }
+        return RowErrorClassification.SYSTEM_ERROR;
+    }
+
+    static boolean hasUnsupportedOperationCause(Throwable t) {
+        Throwable current = t.getCause();
+        while (current != null) {
+            if (current instanceof SeaTunnelRuntimeException
+                    && ((SeaTunnelRuntimeException) current).getSeaTunnelErrorCode()
+                            == CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
+    }
+
+    private TransformException findTransformException(Throwable t) {
+        Throwable current = t;
+        while (current != null) {
+            if (current instanceof TransformException) {
+                return (TransformException) current;
+            }
+            current = current.getCause();
+        }
+        return null;
     }
 
     @Override
@@ -182,7 +234,44 @@ public class SQLTransform extends AbstractCatalogSupportFlatMapTransform {
     }
 
     @Override
+    public SchemaChangeEvent mapSchemaChangeEvent(SchemaChangeEvent event) {
+        if (event instanceof AlterTableEvent) {
+            TableSchema newSchema =
+                    new AlterTableSchemaEventHandler()
+                            .reset(inputCatalogTable.getTableSchema())
+                            .apply(event);
+            inputCatalogTable =
+                    CatalogTable.of(
+                            inputCatalogTable.getTableId(),
+                            newSchema,
+                            inputCatalogTable.getOptions(),
+                            inputCatalogTable.getPartitionKeys(),
+                            inputCatalogTable.getComment(),
+                            inputCatalogTable.getTableId().getCatalogName(),
+                            inputCatalogTable.getMetadataSchema());
+            // Force re-initialization: sqlEngine caches allColumnsCount and outRowType based on
+            // the old inputRowType. After a schema change (e.g. ADD COLUMN), select * would
+            // produce an ArrayIndexOutOfBoundsException because the cached output size is stale.
+            sqlEngine = null;
+            outputCatalogTable = null;
+        }
+        return event;
+    }
+
+    /**
+     * Replace input schema from upstream and invalidate the cached SQL engine so the next {@code
+     * transformRow} re-initializes against the new schema.
+     */
+    @Override
+    public void setInputCatalogTable(@NonNull CatalogTable inputCatalogTable) {
+        super.setInputCatalogTable(inputCatalogTable);
+        this.sqlEngine = null;
+    }
+
+    @Override
     public void close() {
-        sqlEngine.close();
+        if (sqlEngine != null) {
+            sqlEngine.close();
+        }
     }
 }

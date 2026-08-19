@@ -67,6 +67,7 @@ public class CheckpointPlanTest extends AbstractSeaTunnelServerTest {
         final IdGenerator idGenerator = new IdGenerator();
         JobConfig config = new JobConfig();
         config.setName("test");
+        config.getEnvOptions().put("engine.observability.split_sink_io", true);
         final LogicalDag logicalDag = new LogicalDag(config, idGenerator);
         fillVirtualVertex(idGenerator, logicalDag, 2);
         fillVirtualVertex(idGenerator, logicalDag, 3);

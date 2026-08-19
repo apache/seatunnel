@@ -21,28 +21,24 @@ import ChangeLog from '../changelog/connector-socket.md';
 
 ## Description
 
-Used to read data from Socket.
+Used to read newline-delimited text data from a socket server. Each line received from the socket
+becomes one SeaTunnel row of type `STRING`. In streaming mode the source stays connected to the
+socket and reads lines as they arrive; in batch mode the reader performs a single read of whatever
+data is currently available on the socket, emits any complete newline-terminated lines from that read
+(plus any trailing partial line as a final row), and then finishes — it does not wait for the
+connection to close and there is no read-timeout setting.
+
+The connector uses a single split (source parallelism is fixed at 1). `host` and `port` refer to the
+*server* endpoint that SeaTunnel connects to; configure a sink, transformer, or peer like `nc -l`
+on the other side.
 
 ## Data Type Mapping
 
-The File does not have a specific type list, and we can indicate which SeaTunnel data type the corresponding data needs to be converted to by specifying the Schema in the config.
+Socket source reads each incoming line as a string record.
 
 | SeaTunnel Data type |
 |---------------------|
 | STRING              |
-| SHORT               |
-| INT                 |
-| BIGINT              |
-| BOOLEAN             |
-| DOUBLE              |
-| DECIMAL             |
-| FLOAT               |
-| DATE                |
-| TIME                |
-| TIMESTAMP           |
-| BYTES               |
-| ARRAY               |
-| MAP                 |
 
 ## Options
 
@@ -51,6 +47,13 @@ The File does not have a specific type list, and we can indicate which SeaTunnel
 | host           | String  | Yes      | _       | socket server host                                                                                                 |
 | port           | Integer | Yes      | _       | socket server port                                                                                                 |
 | common-options |         | no       | -       | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details. |
+
+:::tip
+
+Socket source is mainly used for local debugging and simple text streams. It does not checkpoint socket-server offsets, so it should not be used when replayable, exactly-once reads are required. Each line
+is treated as one record. Empty lines produce a row with an empty-string payload; they are not skipped.
+
+:::
 
 ## How to Create a Socket Data Synchronization Jobs
 
@@ -106,6 +109,32 @@ spark
 [hello]
 [flink]
 [spark]
+```
+
+### Streaming Mode
+
+In streaming mode the source keeps the socket open and reads new lines continuously. Pair it with a
+downstream sink that can buffer events or checkpoint them:
+
+```bash
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 10000
+}
+
+source {
+  Socket {
+    host = "localhost"
+    port = 9999
+  }
+}
+
+sink {
+  Console {
+    parallelism = 1
+  }
+}
 ```
 
 ## Changelog

@@ -25,17 +25,18 @@ Usage: seatunnel.sh [options]
     -cj, --close, --close-job                   Close the client and the task will also be closed (default: true).
     -cn, --cluster                              The name of the cluster.
     -c, --config                                Config file.
-    --decrypt                                   Decrypt the config file. When both --decrypt and --encrypt are specified, only --encrypt will take effect (default: false). 
-    -d, --dry-run                               Run the job in dry-run mode (Currently only 'static' is supported).
+    --decrypt                                   Decrypt the config file. When both --decrypt and --encrypt are specified, only --encrypt will take effect (default: false).
+    -d, --dry-run                               Run the job in dry-run mode, support [static, connect].
     -m, --master, -e, --deploy-mode             SeaTunnel job submit master, support [local, cluster] (default: cluster).
-    --encrypt                                   Encrypt the config file. When both --decrypt and --encrypt are specified, only --encrypt will take effect (default: false). 
+    --encrypt                                   Encrypt the config file. When both --decrypt and --encrypt are specified, only --encrypt will take effect (default: false).
     --get_running_job_metrics                   Get metrics for running jobs (default: false).
     -h, --help                                  Show the usage message.
     -j, --job-id                                Get the job status by JobId.
     -l, --list                                  List the job status (default: false).
     --metrics                                   Get the job metrics by JobId.
     -n, --name                                  The SeaTunnel job name (default: SeaTunnel).
-    -r, --restore, --restore-job                Restore with savepoint by jobId.
+    -r, --restore, --restore-job                Restore from the latest savepoint by jobId.
+    --restore-with-checkpoint                   Restore from the latest completed checkpoint by jobId.
     -s, --savepoint, --savepoint-job            Savepoint the job by jobId.
     -i, --variable                              Variable substitution, such as -i city=beijing, or -i date=20190318. We use ',' as a separator. When inside "", ',' are treated as normal characters instead of delimiters. (default: []).
 
@@ -65,7 +66,25 @@ sh bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template --a
 sh bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template --dry-run static
 ```
 
-The `--dry-run static` (or `--check`) option validates the configuration file **without submitting a job** (for example HOCON/YAML syntax, plugin loadability, DAG topology, missing required options, and unknown connector keys). It does not run the full data pipeline. Plugin loading may read local JARs, and some connectors might still open outbound connections while parsing or preparing configuration, so this is not a strict zero-network sandbox. Please note that this validation feature is provided exclusively via the CLI.
+The `--dry-run static` (or `--check`) option validates the configuration file **without submitting a job** (for example HOCON/YAML syntax, plugin loadability, DAG topology, missing required options, and unknown connector keys). It does not run the full data pipeline. Plugin loading may read local JARs, so this is offline validation of the configuration file, not a strict zero-I/O sandbox.
+
+```shell
+sh bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template --dry-run connect
+```
+
+The `--dry-run connect` option runs the static checks first, then uses connector dry-run hooks to infer source schemas, validate sink schema compatibility, and check connector connectivity. It may connect to external systems to validate credentials, permissions, and source or sink existence, but the framework does not create source/sink runtime instances, submit a job, read source records, create sink writers, execute save-mode logic, or write target data. Please note that dry-run validation is provided exclusively via the CLI.
+
+**Connectivity validation is connector opt-in.** Only connectors that implement the `SupportSourceDryRunValidation` / `SupportSinkDryRunValidation` interfaces are actually validated against their external systems. Currently supported connectors:
+
+| Connector | Source | Sink |
+|-----------|--------|------|
+| Jdbc      | Yes (connectivity + schema inference) | Yes (connectivity + table existence + field compatibility) |
+| FakeSource | Yes (schema inference only, no external system) | - |
+
+Every plugin in the job is reported in a validation summary with one of two statuses:
+
+- `VALIDATED` – the connector performed real connectivity and/or schema validation.
+- `SKIPPED` – the connector does not support connect dry-run validation. **A successful `--dry-run connect` result does NOT verify credentials or reachability for `SKIPPED` plugins.** For sources without dry-run support, the schema fields declared in the config (`schema` / `tableConfigs` / `table_list` with `fields` or `columns`) are still used for downstream schema checks; if the config does not declare schema fields either, downstream transform/sink schema checks for that pipeline are also reported as `SKIPPED` instead of being validated against a placeholder schema.
 
 ## Viewing The Job List
 

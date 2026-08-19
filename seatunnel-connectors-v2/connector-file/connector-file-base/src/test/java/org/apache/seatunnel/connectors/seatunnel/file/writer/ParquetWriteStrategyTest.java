@@ -30,6 +30,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.FileFormat;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.ParquetWriteStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ParquetReadStrategy;
+import org.apache.seatunnel.connectors.seatunnel.file.util.LocalFileSystemConf;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.parquet.hadoop.ParquetFileReader;
@@ -61,6 +62,49 @@ public class ParquetWriteStrategyTest {
 
     @DisabledOnOs(OS.WINDOWS)
     @Test
+    public void testCloseWriterWhenRollingFile() throws Exception {
+        String tmpPath = "file:///tmp/seatunnel/parquet/rolling/test-" + System.nanoTime();
+        Map<String, Object> writeConfig = new HashMap<>();
+        writeConfig.put("tmp_path", tmpPath);
+        writeConfig.put("path", "file:///tmp/seatunnel/parquet/rolling");
+        writeConfig.put("file_format_type", FileFormat.PARQUET.name());
+        writeConfig.put("batch_size", 1);
+
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"value"}, new SeaTunnelDataType[] {BasicType.STRING_TYPE});
+        ParquetWriteStrategy writeStrategy =
+                new ParquetWriteStrategy(
+                        new FileSinkConfig(ReadonlyConfig.fromMap(writeConfig), rowType));
+        LocalFileSystemConf.LocalConf hadoopConf =
+                new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        writeStrategy.setCatalogTable(
+                CatalogTableUtil.getCatalogTable("test", null, null, "test", rowType));
+        writeStrategy.init(hadoopConf, "rolling-test", "rolling-test", 0);
+        writeStrategy.beginTransaction(1L);
+
+        writeStrategy.write(new SeaTunnelRow(new Object[] {"first"}));
+        writeStrategy.write(new SeaTunnelRow(new Object[] {"second"}));
+
+        ParquetReadStrategy readStrategy = new ParquetReadStrategy();
+        readStrategy.init(hadoopConf);
+        List<String> readFiles = readStrategy.getFileNamesByPath(tmpPath);
+        Assertions.assertEquals(1, readFiles.size());
+        String rolledFile = readFiles.get(0);
+        Assertions.assertTrue(rolledFile.endsWith("_0.parquet"));
+        readStrategy.getSeaTunnelRowTypeInfo(rolledFile);
+        List<String> values = new ArrayList<>();
+        readStrategy.read(rolledFile, "test", collectorForFirstField(values));
+        Assertions.assertEquals(Arrays.asList("first"), values);
+
+        writeStrategy.finishAndCloseFile();
+        writeStrategy.close();
+        Assertions.assertEquals(2, readStrategy.getFileNamesByPath(tmpPath).size());
+        readStrategy.close();
+    }
+
+    @DisabledOnOs(OS.WINDOWS)
+    @Test
     public void testParquetWriteInt96() throws Exception {
         Map<String, Object> writeConfig = new HashMap<>();
         writeConfig.put("tmp_path", TMP_PATH);
@@ -81,8 +125,8 @@ public class ParquetWriteStrategyTest {
         FileSinkConfig writeSinkConfig =
                 new FileSinkConfig(ReadonlyConfig.fromMap(writeConfig), writeRowType);
         ParquetWriteStrategy writeStrategy = new ParquetWriteStrategy(writeSinkConfig);
-        ParquetReadStrategyTest.LocalConf hadoopConf =
-                new ParquetReadStrategyTest.LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        LocalFileSystemConf.LocalConf hadoopConf =
+                new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
         writeStrategy.setCatalogTable(
                 CatalogTableUtil.getCatalogTable("test", null, null, "test", writeRowType));
         writeStrategy.init(hadoopConf, "test1", "test1", 0);
@@ -159,5 +203,63 @@ public class ParquetWriteStrategyTest {
         readStrategy.read(readFilePath, "test", readCollector);
         Assertions.assertEquals(1, readRows.size());
         readStrategy.close();
+    }
+
+    @DisabledOnOs(OS.WINDOWS)
+    @Test
+    public void testParquetWriteInt96WithMixedCaseTimestampColumn() throws Exception {
+        Map<String, Object> writeConfig = new HashMap<>();
+        writeConfig.put("tmp_path", TMP_PATH + "-mixed-case");
+        writeConfig.put("path", "file:///tmp/seatunnel/parquet/int96-mixed-case");
+        writeConfig.put("file_format_type", FileFormat.PARQUET.name());
+        writeConfig.put("parquet_avro_write_timestamp_as_int96", "true");
+
+        SeaTunnelRowType writeRowType =
+                new SeaTunnelRowType(
+                        new String[] {"createTime"},
+                        new SeaTunnelDataType[] {LocalTimeType.LOCAL_DATE_TIME_TYPE});
+        FileSinkConfig writeSinkConfig =
+                new FileSinkConfig(ReadonlyConfig.fromMap(writeConfig), writeRowType);
+        ParquetWriteStrategy writeStrategy = new ParquetWriteStrategy(writeSinkConfig);
+        LocalFileSystemConf.LocalConf hadoopConf =
+                new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        writeStrategy.setCatalogTable(
+                CatalogTableUtil.getCatalogTable("test", null, null, "test", writeRowType));
+        writeStrategy.init(hadoopConf, "test1", "test1", 0);
+        writeStrategy.beginTransaction(1L);
+        writeStrategy.write(new SeaTunnelRow(new Object[] {LocalDateTime.now()}));
+        writeStrategy.finishAndCloseFile();
+        writeStrategy.close();
+
+        ParquetReadStrategy readStrategy = new ParquetReadStrategy();
+        readStrategy.init(hadoopConf);
+        List<String> readFiles = readStrategy.getFileNamesByPath(TMP_PATH + "-mixed-case");
+        Assertions.assertEquals(1, readFiles.size());
+        try (ParquetFileReader reader =
+                ParquetFileReader.open(
+                        HadoopInputFile.fromPath(
+                                new org.apache.hadoop.fs.Path(readFiles.get(0)),
+                                new Configuration()))) {
+            FileMetaData metadata = reader.getFooter().getFileMetaData();
+            Type createTimeType = metadata.getSchema().getType("createtime");
+            Assertions.assertEquals(
+                    PrimitiveType.PrimitiveTypeName.INT96,
+                    createTimeType.asPrimitiveType().getPrimitiveTypeName());
+        }
+        readStrategy.close();
+    }
+
+    private static Collector<SeaTunnelRow> collectorForFirstField(List<String> values) {
+        return new Collector<SeaTunnelRow>() {
+            @Override
+            public void collect(SeaTunnelRow record) {
+                values.add((String) record.getField(0));
+            }
+
+            @Override
+            public Object getCheckpointLock() {
+                return null;
+            }
+        };
     }
 }

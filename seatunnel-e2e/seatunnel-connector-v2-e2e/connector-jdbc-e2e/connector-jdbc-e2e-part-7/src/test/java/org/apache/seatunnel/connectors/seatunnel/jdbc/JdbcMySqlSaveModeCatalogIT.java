@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
-
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TablePath;
@@ -28,12 +26,12 @@ import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
-import org.testcontainers.containers.Container;
 import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.containers.wait.strategy.Wait;
@@ -50,13 +48,13 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.time.Duration;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
+
+import static org.awaitility.Awaitility.given;
 
 @Slf4j
 public class JdbcMySqlSaveModeCatalogIT extends TestSuiteBase implements TestResource {
-
-    private static final String MYSQL_DRIVER_JAR =
-            "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
 
     private static final String MYSQL_IMAGE = "mysql:8.0.43";
     private static final String MYSQL_CONTAINER_HOST = "mysql-e2e";
@@ -64,10 +62,11 @@ public class JdbcMySqlSaveModeCatalogIT extends TestSuiteBase implements TestRes
 
     private static final String MYSQL_USERNAME = "root";
     private static final String MYSQL_PASSWORD = "Abc!@#135_seatunnel";
-    private static final int MYSQL_PORT = 3308;
+    private static final int MYSQL_CONTAINER_PORT = 3306;
     private static final String TABLE_COMMENT = "test table's \\ comment";
 
     private MySQLContainer<?> mysql_container;
+    private JdbcUrlUtil.UrlInfo mysqlUrlInfo;
 
     private static final String CREATE_TABLE_SQL =
             "CREATE TABLE IF NOT EXISTS mysql_auto_create\n"
@@ -119,15 +118,9 @@ public class JdbcMySqlSaveModeCatalogIT extends TestSuiteBase implements TestRes
 
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
-            container -> {
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/MySQL-CDC/lib && cd /tmp/seatunnel/plugins/MySQL-CDC/lib && wget "
-                                        + MYSQL_DRIVER_JAR);
-                Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
-            };
+            container ->
+                    DependencyJar.ofClassName("com.mysql.cj.jdbc.Driver")
+                            .copyTo(container, "/tmp/seatunnel/plugins/MySQL-CDC/lib");
 
     void initContainer() throws ClassNotFoundException {
         // ============= mysql
@@ -140,32 +133,32 @@ public class JdbcMySqlSaveModeCatalogIT extends TestSuiteBase implements TestRes
                         .withDatabaseName(MYSQL_DATABASE)
                         .withNetwork(NETWORK)
                         .withNetworkAliases(MYSQL_CONTAINER_HOST)
-                        .withExposedPorts(MYSQL_PORT)
+                        .withExposedPorts(MYSQL_CONTAINER_PORT)
                         .waitingFor(Wait.forHealthcheck())
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(MYSQL_IMAGE)));
-        mysql_container.setPortBindings(
-                Lists.newArrayList(String.format("%s:%s", MYSQL_PORT, 3306)));
-
         Startables.deepStart(Stream.of(mysql_container)).join();
+        mysqlUrlInfo = JdbcUrlUtil.getUrlInfo(mysql_container.getJdbcUrl());
     }
 
     @Override
     @BeforeAll
     public void startUp() throws Exception {
         initContainer();
+        given().ignoreExceptions()
+                .await()
+                .pollInterval(500, TimeUnit.MILLISECONDS)
+                .atMost(2, TimeUnit.MINUTES)
+                .untilAsserted(this::assertMySqlReady);
         initializeJdbcTable();
     }
-
-    static JdbcUrlUtil.UrlInfo MysqlUrlInfo =
-            JdbcUrlUtil.getUrlInfo("jdbc:mysql://localhost:3308/auto?useSSL=false");
 
     @Test
     public void testCatalog() throws SQLException {
         TablePath tablePathMySql = TablePath.of("auto", "mysql_auto_create");
         TablePath tablePathMySqlSink = TablePath.of("auto", "mysql_auto_create_sink");
         MySqlCatalog mySqlCatalog =
-                new MySqlCatalog("mysql", "root", MYSQL_PASSWORD, MysqlUrlInfo, null);
+                new MySqlCatalog("mysql", "root", MYSQL_PASSWORD, mysqlUrlInfo, null);
         mySqlCatalog.open();
         CatalogTable catalogTable = mySqlCatalog.getTable(tablePathMySql);
         // source table comment
@@ -274,6 +267,13 @@ public class JdbcMySqlSaveModeCatalogIT extends TestSuiteBase implements TestRes
                 mysql_container.getJdbcUrl(),
                 mysql_container.getUsername(),
                 mysql_container.getPassword());
+    }
+
+    private void assertMySqlReady() throws SQLException {
+        try (Connection connection = getJdbcMySqlConnection();
+                Statement statement = connection.createStatement()) {
+            statement.executeQuery("SELECT 1");
+        }
     }
 
     private void initializeJdbcTable() {

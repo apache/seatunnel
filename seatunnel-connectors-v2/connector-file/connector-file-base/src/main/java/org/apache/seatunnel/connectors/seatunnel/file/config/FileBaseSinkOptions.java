@@ -336,4 +336,14 @@ public class FileBaseSinkOptions extends FileBaseOptions {
                     .defaultValue(false)
                     .withDescription(
                             "Only used when file_format_type is canal_json,debezium_json,maxwell_json. set true,then when serialize data,UPDATE_AFTER and UPDATE_BEFORE event will merge into UPDATE data;if set false, when serialize data will get UPDATE_AFTER and UPDATE_BEFORE event ");
+
+    public static final Option<Boolean> SCHEMA_EVOLUTION_ENABLED =
+            Options.key("schema_evolution_enabled")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Whether to enable schema evolution for the file sink. "
+                                    + "When true, ALTER TABLE events (ADD/DROP/RENAME/UPDATE column) "
+                                    + "from CDC sources are applied to the sink schema at runtime. "
+                                    + "Files are rotated at each schema change boundary. Default: false.");
 }

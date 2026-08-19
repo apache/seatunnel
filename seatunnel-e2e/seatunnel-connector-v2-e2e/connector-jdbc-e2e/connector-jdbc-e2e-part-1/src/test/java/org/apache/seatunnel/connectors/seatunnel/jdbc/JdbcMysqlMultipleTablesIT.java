@@ -26,6 +26,7 @@ import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -133,15 +134,9 @@ public class JdbcMysqlMultipleTablesIT extends TestSuiteBase implements TestReso
 
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
-            container -> {
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && wget "
-                                        + "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar");
-                Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
-            };
+            container ->
+                    DependencyJar.ofClassName("com.mysql.cj.jdbc.Driver")
+                            .copyTo(container, "/tmp/seatunnel/plugins/Jdbc/lib");
 
     @BeforeAll
     @Override
@@ -234,6 +229,40 @@ public class JdbcMysqlMultipleTablesIT extends TestSuiteBase implements TestReso
         Assertions.assertAll(asserts);
     }
 
+    @TestTemplate
+    public void testMysqlJdbcContinueOtherTablesWhenSinkSchemaMissing(TestContainer container)
+            throws IOException, InterruptedException, SQLException {
+        clearSinkTables();
+        dropTable(SINK_DATABASE, "table2");
+
+        try {
+            Container.ExecResult execResult =
+                    container.executeJob(
+                            "/jdbc_mysql_source_and_sink_with_missing_sink_table_continue_other_tables.conf");
+
+            String errorOutput =
+                    String.valueOf(execResult.getStderr())
+                            + String.valueOf(execResult.getStdout())
+                            + container.getServerLogs();
+            Assertions.assertTrue(
+                    errorOutput.contains("sink.table2") || errorOutput.contains("table2"),
+                    "job output should contain the failed sink table, but was: " + errorOutput);
+            Assertions.assertTrue(
+                    errorOutput.contains("phase=save_mode")
+                            || errorOutput.contains("save_mode")
+                            || errorOutput.contains("The sink table not exist"),
+                    "job output should contain the save-mode failure detail, but was: "
+                            + errorOutput);
+
+            Assertions.assertIterableEquals(
+                    query(String.format("SELECT * FROM %s.%s", SOURCE_DATABASE, "table1")),
+                    query(String.format("SELECT * FROM %s.%s", SINK_DATABASE, "table1")));
+        } finally {
+            createTables(SINK_DATABASE, Arrays.asList("table2"));
+            clearSinkTables();
+        }
+    }
+
     @AfterAll
     @Override
     public void tearDown() throws Exception {
@@ -324,6 +353,12 @@ public class JdbcMysqlMultipleTablesIT extends TestSuiteBase implements TestReso
             try (Statement statement = connection.createStatement()) {
                 statement.execute(sql);
             }
+        }
+    }
+
+    private void dropTable(String database, String table) throws SQLException {
+        try (Statement statement = connection.createStatement()) {
+            statement.execute(String.format("drop table if exists %s.%s", database, table));
         }
     }
 

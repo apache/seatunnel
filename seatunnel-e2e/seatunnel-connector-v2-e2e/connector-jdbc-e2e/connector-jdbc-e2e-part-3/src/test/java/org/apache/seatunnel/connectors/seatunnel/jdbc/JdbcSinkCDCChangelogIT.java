@@ -24,6 +24,7 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -61,21 +62,13 @@ import static org.awaitility.Awaitility.given;
 @Slf4j
 public class JdbcSinkCDCChangelogIT extends TestSuiteBase implements TestResource {
     private static final String PG_IMAGE = "postgres:14-alpine";
-    private static final String PG_DRIVER_JAR =
-            "https://repo1.maven.org/maven2/org/postgresql/postgresql/42.3.3/postgresql-42.3.3.jar";
     private PostgreSQLContainer<?> postgreSQLContainer;
 
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
-            container -> {
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && curl -O "
-                                        + PG_DRIVER_JAR);
-                Assertions.assertEquals(0, extraCommands.getExitCode());
-            };
+            container ->
+                    DependencyJar.ofClassName("org.postgresql.Driver")
+                            .copyTo(container, "/tmp/seatunnel/plugins/Jdbc/lib");
 
     @BeforeAll
     @Override
@@ -111,7 +104,9 @@ public class JdbcSinkCDCChangelogIT extends TestSuiteBase implements TestResourc
                         postgreSQLContainer.getUsername(),
                         postgreSQLContainer.getPassword())) {
             try (Statement statement = connection.createStatement();
-                    ResultSet resultSet = statement.executeQuery("select * from sink")) {
+                    ResultSet resultSet =
+                            statement.executeQuery(
+                                    "select pk_id, name, score from sink order by pk_id")) {
                 while (resultSet.next()) {
                     List<Object> row =
                             Arrays.asList(
@@ -125,7 +120,7 @@ public class JdbcSinkCDCChangelogIT extends TestSuiteBase implements TestResourc
         Set<List<Object>> expected =
                 Stream.<List<Object>>of(Arrays.asList(1L, "A_1", 100), Arrays.asList(3L, "C", 100))
                         .collect(Collectors.toSet());
-        Assertions.assertIterableEquals(expected, actual);
+        Assertions.assertEquals(expected, actual);
         try (Connection connection =
                 DriverManager.getConnection(
                         postgreSQLContainer.getJdbcUrl(),

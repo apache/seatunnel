@@ -2,19 +2,25 @@ import ChangeLog from '../changelog/connector-file-cos.md';
 
 # CosFile
 
-> Cos file sink connector
+> COS file sink connector
+
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
 
 ## Description
 
-Output data to cos file system.
+Output data to Tencent Cloud COS (Cloud Object Storage) file system using the Hadoop COS connector.
 
 :::tip
 
-If you use spark/flink, In order to use this connector, You must ensure your spark/flink cluster already integrated hadoop. The tested hadoop version is 2.x.
+If you use Spark/Flink, in order to use this connector you must ensure your Spark/Flink cluster already integrated Hadoop. The tested Hadoop version is 2.x.
 
-If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you download and install SeaTunnel Engine. You can check the jar package under ${SEATUNNEL_HOME}/lib to confirm this.
+If you use SeaTunnel Engine, the Hadoop jar is automatically integrated when you download and install SeaTunnel Engine. You can check the jar package under `${SEATUNNEL_HOME}/lib` to confirm this.
 
-To use this connector you need put hadoop-cos-{hadoop.version}-{version}.jar and cos_api-bundle-{version}.jar in ${SEATUNNEL_HOME}/lib dir, download: [Hadoop-Cos-release](https://github.com/tencentyun/hadoop-cos/releases). It only supports hadoop version 2.6.5+ and version 8.0.2+.
+To use this connector you need to put `hadoop-cos-{hadoop.version}-{version}.jar` and `cos_api-bundle-{version}.jar` into `${SEATUNNEL_HOME}/lib` dir. Download: [Hadoop-Cos-release](https://github.com/tencentyun/hadoop-cos/releases). It only supports Hadoop version 2.6.5+ and COS API version 8.0.2+.
 
 :::
 
@@ -27,6 +33,10 @@ To use this connector you need put hadoop-cos-{hadoop.version}-{version}.jar and
 - [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 
   By default, we use 2PC commit to ensure `exactly-once`
+
+- [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 - [x] file format type
   - [x] text
@@ -45,31 +55,31 @@ To use this connector you need put hadoop-cos-{hadoop.version}-{version}.jar and
 
 | Name                                  | Type    | Required | Default                                    | Description                                                                                                                                                                     |
 |---------------------------------------|---------|----------|--------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| path                                  | string  | yes      | -                                          |                                                                                                                                                                                 |
-| tmp_path                              | string  | no       | /tmp/seatunnel                             | The result file will write to a tmp path first and then use `mv` to submit tmp dir to target dir. Need a COS dir.                                                               |
-| bucket                                | string  | yes      | -                                          |                                                                                                                                                                                 |
-| secret_id                             | string  | yes      | -                                          |                                                                                                                                                                                 |
-| secret_key                            | string  | yes      | -                                          |                                                                                                                                                                                 |
-| region                                | string  | yes      | -                                          |                                                                                                                                                                                 |
-| custom_filename                       | boolean | no       | false                                      | Whether you need custom the filename                                                                                                                                            |
-| file_name_expression                  | string  | no       | "${transactionId}"                         | Only used when custom_filename is true                                                                                                                                          |
-| filename_time_format                  | string  | no       | "yyyy.MM.dd"                               | Only used when custom_filename is true                                                                                                                                          |
-| file_format_type                      | string  | no       | "csv"                                      |                                                                                                                                                                                 |
+| path                                  | string  | yes      | -                                          | The target directory the sink writes to inside the bucket.                                                                                                                       |
+| tmp_path                              | string  | no       | /tmp/seatunnel                             | The result file will write to a tmp path first and then use `mv` to submit tmp dir to target dir. Needs a COS dir.                                                                |
+| bucket                                | string  | yes      | -                                          | The COS bucket address, for example `cosn://seatunnel-test-1259587829`.                                                                                                         |
+| secret_id                             | string  | yes      | -                                          | The Tencent Cloud COS secret id.                                                                                                                                                 |
+| secret_key                            | string  | yes      | -                                          | The Tencent Cloud COS secret key.                                                                                                                                               |
+| region                                | string  | yes      | -                                          | The COS bucket region, for example `ap-chengdu`.                                                                                                                                 |
+| custom_filename                       | boolean | no       | false                                      | Whether you need custom the filename.                                                                                                                                            |
+| file_name_expression                  | string  | no       | "${transactionId}"                         | Only used when custom_filename is true.                                                                                                                                          |
+| filename_time_format                  | string  | no       | "yyyy.MM.dd"                               | Only used when custom_filename is true.                                                                                                                                          |
+| file_format_type                      | string  | no       | "csv"                                      | File format type, supported: `text`, `csv`, `parquet`, `orc`, `json`, `excel`, `xml`, `binary`, `canal_json`, `debezium_json`, `maxwell_json`.                                    |
 | filename_extension                    | string  | no       | -                                          | Override the default file name extensions with custom file name extensions. E.g. `.xml`, `.json`, `dat`, `.customtype`                                                          |
-| field_delimiter                       | string  | no       | '\001' for text and ',' for csv            | Only used when file_format is text and csv                                                                                                                                      |
-| row_delimiter                         | string  | no       | "\n"                                       | Only used when file_format is `text`, `csv` and `json`                                                                                                                          |
+| field_delimiter                       | string  | no       | '\001' for text and ',' for csv            | Only used when file_format_type is text and csv.                                                                                                                                |
+| row_delimiter                         | string  | no       | "\n"                                       | Only used when file_format_type is `text`, `csv` and `json`.                                                                                                                    |
 | have_partition                        | boolean | no       | false                                      | Whether you need processing partitions.                                                                                                                                         |
-| partition_by                          | array   | no       | -                                          | Only used then have_partition is true                                                                                                                                           |
-| partition_dir_expression              | string  | no       | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/" | Only used then have_partition is true                                                                                                                                           |
-| is_partition_field_write_in_file      | boolean | no       | false                                      | Only used then have_partition is true                                                                                                                                           |
-| sink_columns                          | array   | no       |                                            | When this parameter is empty, all fields are sink columns                                                                                                                       |
-| is_enable_transaction                 | boolean | no       | true                                       |                                                                                                                                                                                 |
-| batch_size                            | int     | no       | 1000000                                    |                                                                                                                                                                                 |
-| compress_codec                        | string  | no       | none                                       |                                                                                                                                                                                 |
-| common-options                        | object  | no       | -                                          |                                                                                                                                                                                 |
-| max_rows_in_memory                    | int     | no       | -                                          | Only used when file_format is excel.                                                                                                                                            |
-| sheet_max_rows                        | int     | no       | 1048576                                    | Only used when file_format is excel.                                                                                                                                            |
-| sheet_name                            | string  | no       | Sheet${Random number}                      | Only used when file_format is excel.                                                                                                                                            |
+| partition_by                          | array   | no       | -                                          | Only used when have_partition is true.                                                                                                                                          |
+| partition_dir_expression              | string  | no       | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/" | Only used when have_partition is true.                                                                                                                                          |
+| is_partition_field_write_in_file      | boolean | no       | false                                      | Only used when have_partition is true.                                                                                                                                          |
+| sink_columns                          | array   | no       |                                            | When this parameter is empty, all fields are sink columns.                                                                                                                      |
+| is_enable_transaction                 | boolean | no       | true                                       | If `true`, data will not be lost or duplicated when written to the target directory. When `true`, `${transactionId}_` is automatically prefixed to the file name.                |
+| batch_size                            | int     | no       | 1000000                                    | The maximum number of rows in a file. For SeaTunnel Engine the file row count is jointly decided by `batch_size` and `checkpoint.interval`.                                       |
+| compress_codec                        | string  | no       | none                                       | The compress codec of files. Excel does not support any compression format.                                                                                                     |
+| common-options                        | object  | no       | -                                          | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details.                                                      |
+| max_rows_in_memory                    | int     | no       | -                                          | Only used when file_format_type is excel.                                                                                                                                       |
+| sheet_max_rows                        | int     | no       | 1048576                                    | Only used when file_format_type is excel.                                                                                                                                       |
+| sheet_name                            | string  | no       | Sheet${Random number}                      | Only used when file_format_type is excel.                                                                                                                                       |
 | csv_string_quote_mode                 | enum    | no       | MINIMAL                                    | Only used when file_format is csv.                                                                                                                                              |
 | xml_root_tag                          | string  | no       | RECORDS                                    | Only used when file_format is xml.                                                                                                                                              |
 | xml_row_tag                           | string  | no       | RECORD                                     | Only used when file_format is xml.                                                                                                                                              |
@@ -80,34 +90,35 @@ To use this connector you need put hadoop-cos-{hadoop.version}-{version}.jar and
 | parquet_avro_write_fixed_as_int96     | array   | no       | -                                          | Only used when file_format is parquet.                                                                                                                                          |
 | encoding                              | string  | no       | "UTF-8"                                    | Only used when file_format_type is json,text,csv,xml.                                                                                                                           |
 | merge_update_event                    | boolean | no       | false                                      | Only used when file_format_type is canal_json,debezium_json or maxwell_json. When value is true, the UPDATE_AFTER and UPDATE_BEFORE event will be merged into UPDATE event data |
+| schema_evolution_enabled              | boolean | no       | false                                      | Enable schema evolution support for CDC pipelines. When true, ADD/DROP/RENAME/MODIFY column events from the source are applied to the sink without a job restart. Not supported for binary format. |
 
 ### path [string]
 
-The target dir path is required.
+The target directory the sink writes to. Combined with `bucket`, the actual COS path is `cosn://<bucket><path>`.
 
 ### bucket [string]
 
-The bucket address of cos file system, for example: `cosn://seatunnel-test-1259587829`
+The bucket address of COS file system, for example: `cosn://seatunnel-test-1259587829`.
 
 ### secret_id [string]
 
-The secret id of cos file system.
+The secret id of COS file system.
 
 ### secret_key [string]
 
-The secret key of cos file system.
+The secret key of COS file system.
 
 ### region [string]
 
-The region of cos file system.
+The COS bucket region, for example `ap-chengdu`.
 
 ### custom_filename [boolean]
 
-Whether custom the filename
+Whether custom the filename.
 
 ### file_name_expression [string]
 
-Only used when `custom_filename` is `true`
+Only used when `custom_filename` is `true`.
 
 `file_name_expression` describes the file expression which will be created into the `path`. We can add the variable `${now}` or `${uuid}` in the `file_name_expression`, like `test_${uuid}_${now}`,
 `${now}` represents the current time, and its format can be defined by specifying the option `filename_time_format`.
@@ -116,9 +127,9 @@ Please note that, If `is_enable_transaction` is `true`, we will auto add `${tran
 
 ### filename_time_format [string]
 
-Only used when `custom_filename` is `true`
+Only used when `custom_filename` is `true`.
 
-When the format in the `file_name_expression` parameter is `xxxx-${now}` , `filename_time_format` can specify the time format of the path, and the default value is `yyyy.MM.dd` . The commonly used time formats are listed as follows:
+When the format in the `file_name_expression` parameter is `xxxx-${now}` , `filename_time_format` can specify the time format of the path, and the default value is `yyyy.MM.dd`. The commonly used time formats are listed as follows:
 
 | Symbol | Description        |
 |--------|--------------------|
@@ -135,7 +146,7 @@ We supported as the following file types:
 
 `text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `canal_json` `debezium_json` `maxwell_json`
 
-Please note that, The final file name will end with the file_format's suffix, the suffix of the text file is `txt`.
+Please note that, The final file name will end with the file_format_type's suffix, the suffix of the text file is `txt`.
 
 ### field_delimiter [string]
 
@@ -198,7 +209,7 @@ The compress codec of files and the details that supported as the following show
 - orc: `lzo` `snappy` `lz4` `zlib` `none`
 - parquet: `lzo` `snappy` `lz4` `gzip` `brotli` `zstd` `none`
 
-Tips: excel type does not support any compression format
+Tips: excel type does not support any compression format.
 
 ### common options
 
@@ -206,7 +217,7 @@ Sink plugin common parameters, please refer to [Sink Common Options](../common-o
 
 ### max_rows_in_memory [int]
 
-When File Format is Excel,The maximum number of data items that can be cached in the memory.
+When File Format is Excel, the maximum number of data items that can be cached in the memory.
 
 ### sheet_max_rows [int]
 
@@ -214,11 +225,11 @@ When file format is Excel, the maximum number of rows per sheet.
 
 ### sheet_name [string]
 
-Writer the sheet of the workbook
+Writer the sheet of the workbook.
 
 ### csv_string_quote_mode [string]
 
-When File Format is CSV,The string quote mode of CSV.
+When File Format is CSV, the string quote mode of CSV.
 
 - ALL: All String fields will be quoted.
 - MINIMAL: Quotes fields which contain special characters such as a the field delimiter, quote character or any of the characters in the line separator string.
@@ -234,7 +245,7 @@ Specifies the tag name of the data rows within the XML file.
 
 ### xml_use_attr_format [boolean]
 
-Specifies Whether to process data using the tag attribute format.
+Specifies whether to process data using the tag attribute format.
 
 ### parquet_avro_write_timestamp_as_int96 [boolean]
 
@@ -251,15 +262,51 @@ The encoding of the file to write. This param will be parsed by `Charset.forName
 
 ### merge_update_event [boolean]
 
-Only used when file_format_type is canal_json,debezium_json or maxwell_json. 
-When value is true, the UPDATE_AFTER and UPDATE_BEFORE event will be merged into UPDATE event data
+Only used when file_format_type is canal_json, debezium_json or maxwell_json.
+When value is true, the UPDATE_AFTER and UPDATE_BEFORE event will be merged into UPDATE event data.
+
+### schema_evolution_enabled [boolean]
+
+When set to `true`, the file sink handles CDC schema change events (ADD COLUMN, DROP COLUMN, RENAME COLUMN, MODIFY COLUMN type) at runtime without requiring a job restart. On each schema change the current output file is closed and a new file is opened with the updated schema.
+
+**Supported formats:** All file formats except `binary`. Enabling this option with `file_format_type = binary` will fail at job startup with a config validation error.
+
+**Partition constraint:** When `have_partition = true`, dropping a column listed in `partition_by` is not allowed and will fail fast. Partition columns must remain stable across schema changes.
+
+**When `schema_evolution_enabled = false` (default):** If the upstream CDC source has `schema-changes.enabled = true` and an `AlterTableEvent` arrives at the sink, the job will throw immediately with an actionable error:
+> `Received AlterTableEvent but schema_evolution_enabled=false at this sink. Either set schema_evolution_enabled=true to handle schema changes, or set schema-changes.enabled=false at the CDC source to suppress them.`
+
+Users on the default CDC source config (`schema-changes.enabled = false`) are completely unaffected.
+
+**Known limitation:** Schema changes are not atomic with checkpointing. If the job crashes in the narrow window between file rotation and schema metadata update, rows written after restore may use the pre-change schema. This is a known architectural gap shared across other SeaTunnel sinks. For full restart-with-DDL correctness, a follow-up CDC source fix is required (tracked separately).
+
+Example usage in a CDC pipeline:
+
+```hocon
+CosFile {
+    path = "/tmp/cdc/${table_name}"
+    bucket = "cosn://seatunnel-test-1259587829"
+    secret_id = "xxxxxxxxxxxxxxxxxxx"
+    secret_key = "xxxxxxxxxxxxxxxxxxx"
+    region = "ap-chengdu"
+    file_format_type = "parquet"
+    schema_evolution_enabled = true
+    have_partition = true
+    partition_by = ["updated_at_month"]
+}
+```
 
 ## Example
 
-For text file format with `have_partition` and `custom_filename` and `sink_columns`
+For text file format with `have_partition`, `custom_filename` and `sink_columns`:
 
 ```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
 
+sink {
   CosFile {
     path="/sink"
     bucket = "cosn://seatunnel-test-1259587829"
@@ -279,13 +326,18 @@ For text file format with `have_partition` and `custom_filename` and `sink_colum
     sink_columns = ["name","age"]
     is_enable_transaction = true
   }
-
+}
 ```
 
-For parquet file format with `have_partition` and `sink_columns`
+For parquet file format with `have_partition` and `sink_columns`:
 
 ```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
 
+sink {
   CosFile {
     path="/sink"
     bucket = "cosn://seatunnel-test-1259587829"
@@ -299,13 +351,18 @@ For parquet file format with `have_partition` and `sink_columns`
     file_format_type = "parquet"
     sink_columns = ["name","age"]
   }
-
+}
 ```
 
-For orc file format simple config
+For orc file format simple config:
 
-```bash
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
 
+sink {
   CosFile {
     path="/sink"
     bucket = "cosn://seatunnel-test-1259587829"
@@ -314,11 +371,30 @@ For orc file format simple config
     region = "ap-chengdu"
     file_format_type = "orc"
   }
+}
+```
 
+For canal_json format with `merge_update_event` (consolidating CDC updates):
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+sink {
+  CosFile {
+    path="/sink"
+    bucket = "cosn://seatunnel-test-1259587829"
+    secret_id = "xxxxxxxxxxxxxxxxxxx"
+    secret_key = "xxxxxxxxxxxxxxxxxxx"
+    region = "ap-chengdu"
+    file_format_type = "canal_json"
+    merge_update_event = true
+  }
+}
 ```
 
 ## Changelog
 
 <ChangeLog />
-
-

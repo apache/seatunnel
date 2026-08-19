@@ -79,6 +79,7 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy<ParquetWriter<Ge
     private AvroSchemaConverter schemaConverter;
     private Schema schema;
     private Set<String> writePathsAsInt96;
+
     public static final int[] PRECISION_TO_BYTE_COUNT = new int[38];
 
     static {
@@ -127,7 +128,7 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy<ParquetWriter<Ge
         for (Integer integer : sinkColumnsIndexInRow) {
             String fieldName = seaTunnelRowType.getFieldName(integer);
             String parquetFieldName = normalizeFieldName(fieldName);
-            Object field = seaTunnelRow.getField(integer);
+            Object field = getFieldSafe(seaTunnelRow, integer);
             recordBuilder.set(
                     parquetFieldName,
                     resolveObject(parquetFieldName, field, seaTunnelRowType.getFieldType(integer)));
@@ -141,22 +142,34 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy<ParquetWriter<Ge
     }
 
     @Override
+    public synchronized void newFilePart() {
+        finishAndCloseFile();
+        super.newFilePart();
+    }
+
+    @Override
     public void finishAndCloseFile() {
+        List<FileConnectorException> closeErrors = new ArrayList<>();
         this.beingWrittenWriter.forEach(
                 (k, v) -> {
                     try {
                         v.close();
+                        needMoveFiles.put(k, getTargetLocation(k));
                     } catch (IOException e) {
-                        String errorMsg =
-                                String.format(
-                                        "Close file [%s] parquet writer failed, error msg: [%s]",
-                                        k, e.getMessage());
-                        throw new FileConnectorException(
-                                CommonErrorCodeDeprecated.WRITER_OPERATION_FAILED, errorMsg, e);
+                        closeErrors.add(
+                                new FileConnectorException(
+                                        CommonErrorCodeDeprecated.WRITER_OPERATION_FAILED,
+                                        String.format(
+                                                "Close file [%s] parquet writer failed, error"
+                                                        + " msg: [%s]",
+                                                k, e.getMessage()),
+                                        e));
                     }
-                    needMoveFiles.put(k, getTargetLocation(k));
                 });
         this.beingWrittenWriter.clear();
+        if (!closeErrors.isEmpty()) {
+            throw closeErrors.get(0);
+        }
     }
 
     @Override
@@ -168,7 +181,13 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy<ParquetWriter<Ge
         GenericData dataModel = new GenericData();
         dataModel.addLogicalTypeConversion(new Conversions.DecimalConversion());
         dataModel.addLogicalTypeConversion(new TimeConversions.DateConversion());
-        dataModel.addLogicalTypeConversion(new TimeConversions.LocalTimestampMillisConversion());
+        // LocalTimestampMillisConversion is not needed here because
+        // seaTunnelDataType2ParquetDataType maps TIMESTAMP to
+        // INT64.as(OriginalType.TIMESTAMP_MILLIS), which AvroSchemaConverter
+        // converts to Avro's timestamp-millis (not local-timestamp-millis).
+        // resolveObject also handles TIMESTAMP values manually (converting to
+        // epoch millis), bypassing the data model entirely.
+        // See https://github.com/apache/seatunnel/issues/11743
         if (writer == null) {
             Path path = new Path(filePath);
             // initialize the kerberos login
@@ -225,6 +244,11 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy<ParquetWriter<Ge
             case MAP:
             case STRING:
             case BOOLEAN:
+                // CDC maps tinyint(1) to BOOLEAN but sends Byte — coerce to Boolean for Avro
+                if (data instanceof Byte) {
+                    return ((Byte) data) != 0;
+                }
+                return data;
             case TINYINT:
             case SMALLINT:
             case INT:
@@ -236,7 +260,7 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy<ParquetWriter<Ge
             case DATE:
                 return data;
             case TIMESTAMP:
-                if (writePathsAsInt96.contains(name)) {
+                if (writePathsAsInt96.contains(normalizeFieldName(name))) {
                     LocalDateTime localDateTime = (LocalDateTime) data;
                     Calendar calendar = Calendar.getInstance(TimeZone.getTimeZone("UTC"));
                     calendar.setTime(
@@ -256,15 +280,17 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy<ParquetWriter<Ge
                                             calendar.get(Calendar.MILLISECOND));
                     NanoTime nanoTime = new NanoTime(julianDays, timeOfDayNanos);
                     return new GenericData.Fixed(
-                            schema.getField(name).schema(), nanoTime.toBinary().getBytes());
+                            schema.getField(normalizeFieldName(name)).schema(),
+                            nanoTime.toBinary().getBytes());
                 }
                 return ((LocalDateTime) data)
                         .atZone(ZoneId.systemDefault())
                         .toInstant()
                         .toEpochMilli();
             case BYTES:
-                if (writePathsAsInt96.contains(name)) {
-                    return new GenericData.Fixed(schema.getField(name).schema(), (byte[]) data);
+                if (writePathsAsInt96.contains(normalizeFieldName(name))) {
+                    return new GenericData.Fixed(
+                            schema.getField(normalizeFieldName(name)).schema(), (byte[]) data);
                 }
                 return ByteBuffer.wrap((byte[]) data);
             case ROW:
@@ -281,9 +307,11 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy<ParquetWriter<Ge
                                 (SeaTunnelRowType) seaTunnelDataType, sinkColumnsIndex);
                 GenericRecordBuilder recordBuilder = new GenericRecordBuilder(recordSchema);
                 for (int i = 0; i < fieldNames.length; i++) {
+                    String parquetFieldName = normalizeFieldName(fieldNames[i]);
                     recordBuilder.set(
-                            fieldNames[i].toLowerCase(),
-                            resolveObject(fieldNames[i], seaTunnelRow.getField(i), fieldTypes[i]));
+                            parquetFieldName,
+                            resolveObject(
+                                    parquetFieldName, seaTunnelRow.getField(i), fieldTypes[i]));
                 }
                 return recordBuilder.build();
             default:
@@ -359,7 +387,7 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy<ParquetWriter<Ge
                                 PrimitiveType.PrimitiveTypeName.INT64, Type.Repetition.OPTIONAL)
                         .named(fieldName);
             case TIMESTAMP:
-                if (writePathsAsInt96.contains(fieldName)) {
+                if (writePathsAsInt96.contains(normalizeFieldName(fieldName))) {
                     return Types.primitive(
                                     PrimitiveType.PrimitiveTypeName.INT96, Type.Repetition.OPTIONAL)
                             .named(fieldName);
@@ -386,7 +414,7 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy<ParquetWriter<Ge
                         .scale(scale)
                         .named(fieldName);
             case BYTES:
-                if (writePathsAsInt96.contains(fieldName)) {
+                if (writePathsAsInt96.contains(normalizeFieldName(fieldName))) {
                     return Types.primitive(
                                     PrimitiveType.PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY,
                                     Type.Repetition.OPTIONAL)
@@ -415,6 +443,27 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy<ParquetWriter<Ge
                 throw new FileConnectorException(
                         CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE, errorMsg);
         }
+    }
+
+    @Override
+    protected void onSchemaChanged() {
+        this.schema = null;
+        // Rebuild writePathsAsInt96 so that any TIMESTAMP columns added via schema evolution
+        // are included. Without this, new TIMESTAMP columns get INT64 encoding instead of INT96
+        // when parquetWriteTimestampAsInt96=true — silent data corruption.
+        if (fileSinkConfig.getParquetWriteTimestampAsInt96()) {
+            writePathsAsInt96 =
+                    fileSinkConfig.getParquetAvroWriteFixedAsInt96().stream()
+                            .map(ParquetWriteStrategy::normalizeFieldName)
+                            .collect(Collectors.toSet());
+            for (int i = 0; i < seaTunnelRowType.getTotalFields(); i++) {
+                if (SqlType.TIMESTAMP.equals(seaTunnelRowType.getFieldType(i).getSqlType())) {
+                    writePathsAsInt96.add(normalizeFieldName(seaTunnelRowType.getFieldName(i)));
+                }
+            }
+        }
+        // Note: if only parquetAvroWriteFixedAsInt96 (BYTES columns) is configured,
+        // those are static column names from config and don't need rebuilding.
     }
 
     private Schema buildAvroSchemaWithRowType(
