@@ -54,9 +54,6 @@ import java.util.List;
 import java.util.Properties;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
-import java.util.function.BiFunction;
-import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 @DisabledOnContainer(
@@ -69,7 +66,7 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
 
     private static final String FTP_IMAGE = "fauria/vsftpd:latest";
 
-    private static final String ftp_CONTAINER_HOST = "ftp";
+    private static final String FTP_CONTAINER_HOST = "ftp";
 
     private static final int FTP_PORT = 21;
 
@@ -92,18 +89,6 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
 
     private String ftpHomeDir;
 
-    private String ftpPassiveAddress;
-
-    private BiFunction<Integer, Integer, Integer[]> generateExposedPorts =
-            (startPort, endPort) ->
-                    IntStream.rangeClosed(startPort, endPort).boxed().toArray(Integer[]::new);
-
-    private BiFunction<Integer, Integer, List<String>> generatePortBindings =
-            (startPort, endPort) ->
-                    IntStream.rangeClosed(startPort, endPort)
-                            .mapToObj(i -> i + ":" + i)
-                            .collect(Collectors.toList());
-
     @BeforeAll
     @Override
     public void startUp() throws Exception {
@@ -113,9 +98,7 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
                 new GenericContainer<>(FTP_IMAGE)
                         .withNetwork(NETWORK)
                         .withExposedPorts(FTP_PORT)
-                        .withExposedPorts(
-                                generateExposedPorts.apply(passiveStartPort, passiveEndPort))
-                        .withNetworkAliases(ftp_CONTAINER_HOST)
+                        .withNetworkAliases(FTP_CONTAINER_HOST)
                         .withEnv("FILE_OPEN_MODE", "0666")
                         .withEnv("WRITE_ENABLE", "YES")
                         .withEnv("ALLOW_WRITEABLE_CHROOT", "YES")
@@ -124,6 +107,8 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
                         .withEnv("LOCAL_UMASK", "000")
                         .withEnv("FTP_USER", USERNAME)
                         .withEnv("FTP_PASS", PASSWORD)
+                        .withEnv("PASV_ADDRESS", FTP_CONTAINER_HOST)
+                        .withEnv("PASV_ADDR_RESOLVE", "YES")
                         .withEnv("PASV_MIN_PORT", String.valueOf(passiveStartPort))
                         .withEnv("PASV_MAX_PORT", String.valueOf(passiveEndPort))
                         .withLogConsumer(new Slf4jLogConsumer(log))
@@ -132,22 +117,8 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
                         .waitingFor(Wait.forLogMessage(".*", 1))
                         .withPrivilegedMode(true);
 
-        List<String> portBind = new ArrayList<>();
-        portBind.add("21:21");
-        portBind.addAll(generatePortBindings.apply(passiveStartPort, passiveEndPort));
-
-        ftpContainer.setPortBindings(portBind);
         ftpContainer.start();
         Startables.deepStart(Stream.of(ftpContainer)).join();
-
-        // Get the passive mode address of the FTP container
-        Properties properties = new Properties();
-        properties.load(
-                new StringReader(
-                        ftpContainer
-                                .execInContainer("sh", "-c", "cat /etc/vsftpd/vsftpd.conf")
-                                .getStdout()));
-        ftpPassiveAddress = properties.getProperty("pasv_address");
 
         log.info("ftp container started");
 
@@ -209,7 +180,7 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testFtpFileReadAndWriteForPassive(TestContainer container)
             throws IOException, InterruptedException {
-        List<String> configParams = Collections.singletonList("ftpHost=" + ftpPassiveAddress);
+        List<String> configParams = Collections.singletonList("ftpHost=" + FTP_CONTAINER_HOST);
         // Test passive mode
         assertJobExecution(
                 container, "/text/ftp_file_text_to_assert_for_passive.conf", configParams);
@@ -292,7 +263,7 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
                                     return container.executeJob(
                                             "/text/ftp_binary_update_distcp_continuous.conf",
                                             jobId,
-                                            "ftpHost=" + ftpPassiveAddress);
+                                            "ftpHost=" + FTP_CONTAINER_HOST);
                                 } catch (Exception e) {
                                     throw new RuntimeException(e);
                                 }
@@ -356,7 +327,7 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
                                     return container.executeJob(
                                             "/text/ftp_binary_update_distcp_continuous_post_sync_delete.conf",
                                             jobId,
-                                            "ftpHost=" + ftpPassiveAddress);
+                                            "ftpHost=" + FTP_CONTAINER_HOST);
                                 } catch (Exception e) {
                                     throw new RuntimeException(e);
                                 }
@@ -412,7 +383,7 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
                                     return container.executeJob(
                                             "/text/ftp_binary_update_distcp_continuous_post_sync_backup.conf",
                                             jobId,
-                                            "ftpHost=" + ftpPassiveAddress);
+                                            "ftpHost=" + FTP_CONTAINER_HOST);
                                 } catch (Exception e) {
                                     throw new RuntimeException(e);
                                 }
@@ -484,7 +455,7 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
                                     return container.executeJob(
                                             "/text/ftp_binary_update_distcp_continuous_post_sync_backup_retention.conf",
                                             jobId,
-                                            "ftpHost=" + ftpPassiveAddress);
+                                            "ftpHost=" + FTP_CONTAINER_HOST);
                                 } catch (Exception e) {
                                     throw new RuntimeException(e);
                                 }
@@ -533,7 +504,7 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
                                     return container.executeJob(
                                             "/text/ftp_binary_update_distcp_continuous_non_recursive.conf",
                                             jobId,
-                                            "ftpHost=" + ftpPassiveAddress);
+                                            "ftpHost=" + FTP_CONTAINER_HOST);
                                 } catch (Exception e) {
                                     throw new RuntimeException(e);
                                 }

@@ -97,6 +97,12 @@ public class OrcWriteStrategy extends AbstractWriteStrategy<Writer> {
     }
 
     @Override
+    public synchronized void newFilePart() {
+        finishAndCloseFile();
+        super.newFilePart();
+    }
+
+    @Override
     public void finishAndCloseFile() {
         List<FileConnectorException> closeErrors = new ArrayList<>();
         this.beingWrittenWriter.forEach(

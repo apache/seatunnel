@@ -116,6 +116,11 @@ public class JdbcGBase8aIT extends AbstractJdbcIT {
     }
 
     @Override
+    protected boolean useMavenRepositoryDriver() {
+        return false;
+    }
+
+    @Override
     Pair<String[], List<SeaTunnelRow>> initTestData() {
         String[] fieldNames =
                 new String[] {
@@ -177,8 +182,7 @@ public class JdbcGBase8aIT extends AbstractJdbcIT {
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(GBASE_IMAGE)));
 
-        container.setPortBindings(
-                Lists.newArrayList(String.format("%s:%s", GBASE_PORT, GBASE_PORT)));
+        container.addExposedPort(GBASE_PORT);
 
         return container;
     }
