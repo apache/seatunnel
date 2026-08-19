@@ -141,7 +141,7 @@ This section provides a practical step-by-step guide for diagnosing and resolvin
 
 ### 1. Understanding `SlowOperationDetector` Warnings
 
-Hazelcast's `SlowOperationDetector` monitors the execution time of operations on partition threads. When an operation takes longer than the configured threshold (default: 5 seconds), a warning is logged:
+Hazelcast's `SlowOperationDetector` monitors the execution time of operations on partition threads. When an operation takes longer than the configured threshold (default: 10 seconds), a warning is logged:
 
 ```log
 2024-09-03 06:15:45,807 WARN  [.s.i.o.s.SlowOperationDetector] [hz.main.SlowOperationDetectorThread] -
@@ -208,7 +208,7 @@ free -h
 
 **Checkpoint storage latency:**
 - Symptom: Slow operations align with checkpoint intervals, and checkpoint duration exceeds the configured timeout.
-- Check: `grep "checkpoint.*completed" $SEATUNNEL_HOME/logs/seatunnel-server.log` to see checkpoint durations.
+- Check: Enable DEBUG logging for `org.apache.seatunnel.engine.server.checkpoint.CheckpointCoordinator`, then `grep "pending checkpoint completed" $SEATUNNEL_HOME/logs/seatunnel-server.log | grep -oP 'cost: \d+ms'` to see checkpoint durations.
 - If using S3: Run `aws s3api head-object --bucket <bucket> --key <checkpoint-path>` to measure latency, or check CloudWatch S3 metrics (`FirstByteLatency`, `TotalRequestLatency`).
 - Common cause: High network latency to S3/HDFS, small files causing many round trips, or S3 throttling.
 - Mitigation: See [Section 6](#6-s3-checkpointstate-storage-latency).
@@ -227,10 +227,8 @@ The `hazelcast.operation.generic.thread.count` parameter controls the number of 
 
 ```yaml
 hazelcast:
-  operation:
-    generic:
-      thread:
-        count: <number>
+  properties:
+    hazelcast.operation.generic.thread.count: <number>
 ```
 
 #### Hybrid Mode (Master + Worker on same node)
@@ -309,8 +307,7 @@ SeaTunnel outputs health monitor logs periodically (every 60 seconds by default)
 
 ```bash
 # Extract slow operation warnings with their durations
-grep "SlowOperationDetector" $SEATUNNEL_HOME/logs/seatunnel-server.log | \
-  grep -oP 'duration=\d+ms' | sort -t= -k2 -nr | head -20
+grep "SlowOperationDetector" $SEATUNNEL_HOME/logs/seatunnel-server.log | tail -20
 ```
 
 #### 4.3 Node Resource Metrics
@@ -332,9 +329,6 @@ netstat -i
 #### 4.4 Cluster Overview
 
 ```bash
-# Check cluster member status
-curl http://<master>:8080/hazelcast/rest/cluster
-
 # Check running jobs
 curl http://<master>:8080/running-jobs
 
@@ -350,13 +344,10 @@ Not all configuration changes take effect immediately. Use this reference to det
 |---|---|---|---|
 | `hazelcast.operation.generic.thread.count` | `hazelcast.yaml` | **Yes** (full cluster restart) | Hazelcast thread pools are initialized at startup |
 | `hazelcast.operation.call.timeout.millis` | `hazelcast.yaml` | **Yes** (full cluster restart) | Operation timeout is read at member initialization |
-| `hazelcast.fs.write-behind-delay-seconds` | `hazelcast.yaml` | **Yes** (node restart) | MapStore configuration is loaded at startup |
-| `hazelcast.fs.compaction-threshold` | `hazelcast.yaml` | **Yes** (node restart) | WAL compaction threshold is initialized at startup |
-| `hazelcast.fs.base-dir` | `hazelcast.yaml` | **Yes** (node restart) | Changing the directory requires process restart |
-| `seatunnel.engine.checkpoint.interval` | `seatunnel.yaml` | **No** (hot reload) | Takes effect on the next job submission |
-| `seatunnel.engine.checkpoint.timeout` | `seatunnel.yaml` | **No** (hot reload) | Takes effect on the next job submission |
-| `seatunnel.engine.checkpoint.storage.*` | `seatunnel.yaml` | **No** (hot reload) | Takes effect on the next job submission |
-| `seatunnel.engine.history-job-expire-minutes` | `seatunnel.yaml` | **No** (hot reload) | Expiration scanner picks up changes |
+| `seatunnel.engine.checkpoint.interval` | `seatunnel.yaml` | **Yes** (node restart) | Takes effect after node restart |
+| `seatunnel.engine.checkpoint.timeout` | `seatunnel.yaml` | **Yes** (node restart) | Takes effect after node restart |
+| `seatunnel.engine.checkpoint.storage.*` | `seatunnel.yaml` | **Yes** (node restart) | Takes effect after node restart |
+| `seatunnel.engine.history-job-expire-minutes` | `seatunnel.yaml` | **Yes** (node restart) | Takes effect after node restart |
 | JVM heap size (`-Xmx`, `-Xms`) | JVM options | **Yes** (process restart) | JVM heap is allocated at process start |
 | `hazelcast.initial.min.cluster.size` | `hazelcast.yaml` | **Yes** (full cluster restart) | Cluster formation parameters are read at startup |
 
@@ -381,9 +372,9 @@ curl -w "DNS: %{time_namelookup}s, Connect: %{time_connect}s, TTFB: %{time_start
 
 **Check checkpoint write performance:**
 ```bash
-# Monitor checkpoint duration from logs
-grep "checkpoint.*completed" $SEATUNNEL_HOME/logs/seatunnel-server.log | \
-  grep -oP 'duration=\d+ms' | sort -t= -k2 -nr | head -20
+# Monitor checkpoint duration from logs (requires DEBUG logging for CheckpointCoordinator)
+grep "pending checkpoint completed" $SEATUNNEL_HOME/logs/seatunnel-server.log | \
+  grep -oP 'cost: \d+ms' | sort -t: -k2 -nr | head -20
 ```
 
 **Check S3 throttling (AWS):**
@@ -410,6 +401,7 @@ seatunnel:
         type: hdfs
         plugin-config:
           namespace: /seatunnel/checkpoint/
+          s3.bucket: s3a://<your-bucket>
           fs.s3a.endpoint: s3.<region>.amazonaws.com
 ```
 
@@ -422,6 +414,7 @@ seatunnel:
         type: hdfs
         plugin-config:
           fs.s3a.fast.upload: true
+          s3.bucket: s3a://<your-bucket>
           fs.s3a.fast.upload.buffer: disk
           fs.s3a.connection.maximum: 100
           fs.s3a.threads.max: 20
@@ -436,6 +429,7 @@ seatunnel:
         type: hdfs
         plugin-config:
           fs.s3a.attempts.maximum: 10
+          s3.bucket: s3a://<your-bucket>
           fs.s3a.connection.timeout: 30000
           fs.s3a.socket.timeout: 60000
           fs.s3a.connection.establish.timeout: 30000
@@ -483,12 +477,12 @@ resources:
 
 #### 7.3 Readiness Probes
 
-Configure readiness probes that verify Hazelcast cluster membership:
+Configure readiness probes that verify the SeaTunnel REST API is accessible:
 
 ```yaml
 readinessProbe:
   httpGet:
-    path: /hazelcast/rest/cluster
+    path: /running-jobs
     port: 8080
   initialDelaySeconds: 30
   periodSeconds: 10
@@ -517,7 +511,7 @@ Ensure slow operation logs are captured by your log aggregation system:
 ```yaml
 # In your logging configuration
 loggers:
-  - name: com.hazelcast.internal.diagnostics.SlowOperationDetector
+  - name: com.hazelcast.spi.impl.operationexecutor.slowoperationdetector.SlowOperationDetector
     level: WARN
 ```
 
@@ -552,4 +546,4 @@ kubectl exec <pod> -- du -sh /tmp/seatunnel/imap/
 | `executor.q.operations.size` > 0 | Operation thread pool saturated | Increase `generic.thread.count` |
 | `operations.pending.invocations.percentage` > 10% | Remote invocation backlog | Check network, increase `generic.thread.count` |
 | WAL directory growing, slow IMap operations | MapStore write pressure | Increase `write-behind-delay-seconds`, add disk IOPS |
-| Checkpoint duration > 60s | Large state or slow storage | Reduce checkpoint state size, optimize storage | 
+| Checkpoint duration > 60s | Large state or slow storage | Reduce checkpoint state size, optimize storage |

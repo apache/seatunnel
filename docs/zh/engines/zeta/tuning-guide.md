@@ -141,7 +141,7 @@ Hazelcast相关的配置也是影响 SeaTunnel Engine 性能的重要因素。�
 
 ### 1. 理解 `SlowOperationDetector` 告警
 
-Hazelcast 的 `SlowOperationDetector` 监控分区线程上的操作执行时间。当某个操作的执行时间超过配置的阈值（默认 5 秒）时，会记录一条告警日志：
+Hazelcast 的 `SlowOperationDetector` 监控分区线程上的操作执行时间。当某个操作的执行时间超过配置的阈值（默认 10 秒）时，会记录一条告警日志：
 
 ```log
 2024-09-03 06:15:45,807 WARN  [.s.i.o.s.SlowOperationDetector] [hz.main.SlowOperationDetectorThread] -
@@ -208,7 +208,7 @@ free -h
 
 **Checkpoint 存储延迟：**
 - 症状：慢操作与 Checkpoint 间隔对齐，且 Checkpoint 耗时超过配置的超时。
-- 检查：`grep "checkpoint.*completed" $SEATUNNEL_HOME/logs/seatunnel-server.log` 查看 Checkpoint 耗时。
+- 检查：为 `org.apache.seatunnel.engine.server.checkpoint.CheckpointCoordinator` 启用 DEBUG 日志，然后执行 `grep "pending checkpoint completed" $SEATUNNEL_HOME/logs/seatunnel-server.log | grep -oP 'cost: \d+ms'` 查看 Checkpoint 耗时。
 - 如果使用 S3：运行 `aws s3api head-object --bucket <bucket> --key <checkpoint-path>` 测量延迟，或查看 CloudWatch S3 指标（`FirstByteLatency`、`TotalRequestLatency`）。
 - 常见原因：到 S3/HDFS 的网络延迟高、小文件导致多次往返、或 S3 限流。
 - 缓解：参见[第 6 节](#6-s3-checkpoint状态存储延迟)。
@@ -227,10 +227,8 @@ free -h
 
 ```yaml
 hazelcast:
-  operation:
-    generic:
-      thread:
-        count: <number>
+  properties:
+    hazelcast.operation.generic.thread.count: <number>
 ```
 
 #### 混合模式（Master + Worker 在同一节点）
@@ -309,8 +307,7 @@ SeaTunnel 定期输出健康监控日志（默认每 60 秒一次）。这些日
 
 ```bash
 # 提取慢操作告警及其耗时
-grep "SlowOperationDetector" $SEATUNNEL_HOME/logs/seatunnel-server.log | \
-  grep -oP 'duration=\d+ms' | sort -t= -k2 -nr | head -20
+grep "SlowOperationDetector" $SEATUNNEL_HOME/logs/seatunnel-server.log | tail -20
 ```
 
 #### 4.3 节点资源指标
@@ -332,9 +329,6 @@ netstat -i
 #### 4.4 集群概览
 
 ```bash
-# 检查集群成员状态
-curl http://<master>:8080/hazelcast/rest/cluster
-
 # 检查运行中的作业
 curl http://<master>:8080/running-jobs
 
@@ -350,13 +344,10 @@ curl "http://<master>:8080/finished-jobs/FINISHED?page=1&rows=100"
 |---|---|---|---|
 | `hazelcast.operation.generic.thread.count` | `hazelcast.yaml` | **是**（全集群重启） | Hazelcast 线程池在启动时初始化 |
 | `hazelcast.operation.call.timeout.millis` | `hazelcast.yaml` | **是**（全集群重启） | 操作超时在成员初始化时读取 |
-| `hazelcast.fs.write-behind-delay-seconds` | `hazelcast.yaml` | **是**（节点重启） | MapStore 配置在启动时加载 |
-| `hazelcast.fs.compaction-threshold` | `hazelcast.yaml` | **是**（节点重启） | WAL 压缩阈值在启动时初始化 |
-| `hazelcast.fs.base-dir` | `hazelcast.yaml` | **是**（节点重启） | 更改目录需要进程重启 |
-| `seatunnel.engine.checkpoint.interval` | `seatunnel.yaml` | **否**（热加载） | 在下一次作业提交时生效 |
-| `seatunnel.engine.checkpoint.timeout` | `seatunnel.yaml` | **否**（热加载） | 在下一次作业提交时生效 |
-| `seatunnel.engine.checkpoint.storage.*` | `seatunnel.yaml` | **否**（热加载） | 在下一次作业提交时生效 |
-| `seatunnel.engine.history-job-expire-minutes` | `seatunnel.yaml` | **否**（热加载） | 过期扫描器会获取变更 |
+| `seatunnel.engine.checkpoint.interval` | `seatunnel.yaml` | **是**（节点重启） | 重启后生效 |
+| `seatunnel.engine.checkpoint.timeout` | `seatunnel.yaml` | **是**（节点重启） | 重启后生效 |
+| `seatunnel.engine.checkpoint.storage.*` | `seatunnel.yaml` | **是**（节点重启） | 重启后生效 |
+| `seatunnel.engine.history-job-expire-minutes` | `seatunnel.yaml` | **是**（节点重启） | 重启后生效 |
 | JVM 堆大小（`-Xmx`、`-Xms`） | JVM 选项 | **是**（进程重启） | JVM 堆在进程启动时分配 |
 | `hazelcast.initial.min.cluster.size` | `hazelcast.yaml` | **是**（全集群重启） | 集群组建参数在启动时读取 |
 
@@ -381,9 +372,8 @@ curl -w "DNS: %{time_namelookup}s, Connect: %{time_connect}s, TTFB: %{time_start
 
 **检查 Checkpoint 写入性能：**
 ```bash
-# 从日志中监控 Checkpoint 耗时
-grep "checkpoint.*completed" $SEATUNNEL_HOME/logs/seatunnel-server.log | \
-  grep -oP 'duration=\d+ms' | sort -t= -k2 -nr | head -20
+# 监控 Checkpoint 耗时 —— 需要为 CheckpointCoordinator 启用 DEBUG 日志以查看 cost: 字段
+# 或者使用健康监控指标来评估 Checkpoint 负载
 ```
 
 **检查 S3 限流（AWS）：**
@@ -410,6 +400,7 @@ seatunnel:
         type: hdfs
         plugin-config:
           namespace: /seatunnel/checkpoint/
+          s3.bucket: s3a://<your-bucket>
           fs.s3a.endpoint: s3.<region>.amazonaws.com
 ```
 
@@ -422,6 +413,7 @@ seatunnel:
         type: hdfs
         plugin-config:
           fs.s3a.fast.upload: true
+          s3.bucket: s3a://<your-bucket>
           fs.s3a.fast.upload.buffer: disk
           fs.s3a.connection.maximum: 100
           fs.s3a.threads.max: 20
@@ -436,6 +428,7 @@ seatunnel:
         type: hdfs
         plugin-config:
           fs.s3a.attempts.maximum: 10
+          s3.bucket: s3a://<your-bucket>
           fs.s3a.connection.timeout: 30000
           fs.s3a.socket.timeout: 60000
           fs.s3a.connection.establish.timeout: 30000
@@ -483,12 +476,12 @@ resources:
 
 #### 7.3 就绪探针
 
-配置验证 Hazelcast 集群成员状态的就绪探针：
+配置验证 SeaTunnel REST API 可访问的就绪探针：
 
 ```yaml
 readinessProbe:
   httpGet:
-    path: /hazelcast/rest/cluster
+    path: /running-jobs
     port: 8080
   initialDelaySeconds: 30
   periodSeconds: 10
@@ -517,7 +510,7 @@ hazelcast:
 ```yaml
 # 在日志配置中
 loggers:
-  - name: com.hazelcast.internal.diagnostics.SlowOperationDetector
+  - name: com.hazelcast.spi.impl.operationexecutor.slowoperationdetector.SlowOperationDetector
     level: WARN
 ```
 
