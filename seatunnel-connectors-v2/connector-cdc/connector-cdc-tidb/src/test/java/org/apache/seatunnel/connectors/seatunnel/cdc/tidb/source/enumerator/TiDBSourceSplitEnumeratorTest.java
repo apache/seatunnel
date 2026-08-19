@@ -183,22 +183,6 @@ class TiDBSourceSplitEnumeratorTest {
         Assertions.assertEquals(expected.isSnapshotCompleted(), actual.isSnapshotCompleted());
     }
 
-    private static void assertSplitsEqualIgnoringOrder(
-            List<TiDBSourceSplit> expected, List<TiDBSourceSplit> actual) {
-        Assertions.assertEquals(expected.size(), actual.size());
-        List<String> expectedStarts = new ArrayList<>();
-        for (TiDBSourceSplit split : expected) {
-            expectedStarts.add(split.getKeyRange().getStart().toStringUtf8());
-        }
-        List<String> actualStarts = new ArrayList<>();
-        for (TiDBSourceSplit split : actual) {
-            actualStarts.add(split.getKeyRange().getStart().toStringUtf8());
-        }
-        Collections.sort(expectedStarts);
-        Collections.sort(actualStarts);
-        Assertions.assertEquals(expectedStarts, actualStarts);
-    }
-
     private static class TestingEnumeratorContext
             implements SourceSplitEnumerator.Context<TiDBSourceSplit> {
         private final int parallelism;

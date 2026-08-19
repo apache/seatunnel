@@ -48,6 +48,8 @@ public class TiDBSourceSplitEnumerator
 
     private final TiDBSourceConfig sourceConfig;
     private final Map<Integer, List<TiDBSourceSplit>> pendingSplit;
+    // Persist the round-robin cursor so restored enumerators keep assigning newly discovered
+    // splits in the same sequence instead of skewing ownership after a checkpoint restore.
     private final AtomicInteger assignCount = new AtomicInteger(0);
     private final Context<TiDBSourceSplit> context;
     private TiSession tiSession;
