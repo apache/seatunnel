@@ -210,7 +210,11 @@ public class OracleCDCWithSchemaChangeIT extends AbstractOracleCDCIT implements 
             String sinkTableName,
             boolean oracle2Mysql)
             throws Exception {
+        // Matching snapshot rows alone does not guarantee that Oracle LogMiner has entered the
+        // streaming phase. Keep the initial state stable before issuing the first DDL batch so
+        // changes made between snapshot completion and streaming startup are not missed.
         await().ignoreExceptions()
+                .during(10, TimeUnit.SECONDS)
                 .atMost(300, TimeUnit.SECONDS)
                 .untilAsserted(
                         () ->

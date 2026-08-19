@@ -34,6 +34,7 @@ import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.format.json.JsonSerializationSchema;
 
+import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
@@ -216,10 +217,18 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
 
         // send data to source queue before executeJob start in every testContainer
         initSourceData(sourceClient);
-        Assertions.assertTrue(
-                sourceClient.getChannel().queueDeclarePassive(sourceQueueName).getMessageCount()
-                        >= TEST_DATASET.getValue().size(),
-                "Source messages must be visible to the broker before the job starts");
+        Awaitility.await()
+                .atMost(Duration.ofSeconds(30))
+                .pollInterval(Duration.ofMillis(200))
+                .untilAsserted(
+                        () ->
+                                Assertions.assertTrue(
+                                        sourceClient
+                                                        .getChannel()
+                                                        .queueDeclarePassive(sourceQueueName)
+                                                        .getMessageCount()
+                                                >= TEST_DATASET.getValue().size(),
+                                        "Source messages must be visible to the broker before the job starts"));
 
         // init consumer client before executeJob start in every testContainer
         RabbitmqClient sinkRabbitmqClient = getRabbitmqClient(sinkQueueName);
@@ -386,10 +395,18 @@ public class RabbitmqIT extends TestSuiteBase implements TestResource {
                                 com.rabbitmq.client.MessageProperties.PERSISTENT_TEXT_PLAIN,
                                 message);
             }
-            Assertions.assertTrue(
-                    rabbitmqClient.getChannel().queueDeclarePassive(queueName).getMessageCount()
-                            >= count,
-                    "Published messages must be visible before starting the multi-table job");
+            Awaitility.await()
+                    .atMost(Duration.ofSeconds(30))
+                    .pollInterval(Duration.ofMillis(200))
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertTrue(
+                                            rabbitmqClient
+                                                            .getChannel()
+                                                            .queueDeclarePassive(queueName)
+                                                            .getMessageCount()
+                                                    >= count,
+                                            "Published messages must be visible before starting the multi-table job"));
             log.info("Successfully sent {} messages to queue {}", count, queueName);
         } finally {
             // Always close the client to prevent connection leaks
