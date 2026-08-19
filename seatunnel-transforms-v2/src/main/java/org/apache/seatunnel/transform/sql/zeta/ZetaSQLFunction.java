@@ -761,22 +761,38 @@ public class ZetaSQLFunction {
             }
         }
         if (resultType.getSqlType() == SqlType.DECIMAL) {
-            BigDecimal bigDecimal = BigDecimal.valueOf(leftValue.doubleValue());
+            BigDecimal leftBigDecimal = toBigDecimal(leftValue);
+            BigDecimal rightBigDecimal = toBigDecimal(rightValue);
             if (binaryExpression instanceof Addition) {
-                return bigDecimal.add(BigDecimal.valueOf(rightValue.doubleValue()));
+                return leftBigDecimal.add(rightBigDecimal);
             }
             if (binaryExpression instanceof Subtraction) {
-                return bigDecimal.subtract(BigDecimal.valueOf(rightValue.doubleValue()));
+                return leftBigDecimal.subtract(rightBigDecimal);
             }
             if (binaryExpression instanceof Multiplication) {
-                return bigDecimal.multiply(BigDecimal.valueOf(rightValue.doubleValue()));
+                // BigDecimal.multiply returns a value whose scale is leftScale + rightScale,
+                // but the column type declared for this expression is
+                // DECIMAL(max(precision), max(scale)). Normalise to the declared scale, as
+                // Division already does, so the emitted value matches the schema the transform
+                // advertises: a sink that encodes against that schema (Parquet through Avro,
+                // for example) rejects a value whose scale differs from the declared one.
+                DecimalType decimalType = (DecimalType) resultType;
+                return leftBigDecimal
+                        .multiply(rightBigDecimal)
+                        .setScale(decimalType.getScale(), RoundingMode.HALF_UP);
             }
             if (binaryExpression instanceof Division) {
+                if (rightBigDecimal.signum() == 0) {
+                    // BigDecimal.divide would throw a bare ArithmeticException("/ by zero") with
+                    // no indication of which expression produced it. MOD already reports this as
+                    // a TransformException; do the same here, and name the expression.
+                    throw new TransformException(
+                            CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                            String.format("Division by zero in expression: %s", binaryExpression));
+                }
                 DecimalType decimalType = (DecimalType) resultType;
-                return bigDecimal.divide(
-                        BigDecimal.valueOf(rightValue.doubleValue()),
-                        decimalType.getScale(),
-                        RoundingMode.UP);
+                return leftBigDecimal.divide(
+                        rightBigDecimal, decimalType.getScale(), RoundingMode.HALF_UP);
             }
             if (binaryExpression instanceof Modulo) {
                 List<Object> args = new ArrayList<>();
@@ -822,6 +838,32 @@ public class ZetaSQLFunction {
         throw new TransformException(
                 CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
                 String.format("Unsupported SQL Expression: %s ", binaryExpression));
+    }
+
+    /**
+     * Converts a numeric operand of a DECIMAL expression to {@link BigDecimal} without routing it
+     * through {@code double}.
+
+     * <p>{@code BigDecimal.valueOf(value.doubleValue())} would collapse the operand to a {@code
+     * double} first, discarding everything beyond ~17 significant digits before the arithmetic even
+     * starts, which defeats the purpose of the DECIMAL type.
+
+     * @param value operand of a binary DECIMAL expression
+     * @return the operand as an exact BigDecimal
+     */
+    private static BigDecimal toBigDecimal(Number value) {
+        if (value instanceof BigDecimal) {
+            return (BigDecimal) value;
+        }
+        if (value instanceof Byte
+                || value instanceof Short
+                || value instanceof Integer
+                || value instanceof Long) {
+            return BigDecimal.valueOf(value.longValue());
+        }
+        // Float/Double have no exact decimal form; valueOf uses the canonical shortest
+        // representation, which is the closest thing to the value the user wrote.
+        return BigDecimal.valueOf(value.doubleValue());
     }
 
     public List<SeaTunnelRow> lateralView(
