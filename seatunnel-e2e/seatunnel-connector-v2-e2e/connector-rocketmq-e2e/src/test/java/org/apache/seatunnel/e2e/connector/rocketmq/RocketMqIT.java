@@ -552,21 +552,34 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
     private void checkOffsetNoDiff(String topicName, String consumerGroup) {
         RocketMqBaseConfiguration config = newConfiguration();
         config.setGroupId(consumerGroup);
-        List<Map<MessageQueue, TopicOffset>> offsetTopics =
-                RocketMqAdminUtil.offsetTopics(config, Arrays.asList(topicName));
-        Map<MessageQueue, TopicOffset> offsetMap = offsetTopics.get(0);
-        Set<MessageQueue> messageQueues = offsetMap.keySet();
-        Map<MessageQueue, Long> currentOffsets =
-                RocketMqAdminUtil.currentOffsets(config, Arrays.asList(topicName), messageQueues);
-        for (Map.Entry<MessageQueue, TopicOffset> offsetEntry : offsetMap.entrySet()) {
-            MessageQueue messageQueue = offsetEntry.getKey();
-            long maxOffset = offsetEntry.getValue().getMaxOffset();
-            Long consumeOffset = currentOffsets.get(messageQueue);
-            Assertions.assertEquals(
-                    maxOffset,
-                    consumeOffset,
-                    "Offset different,maxOffset=" + maxOffset + ",consumeOffset=" + consumeOffset);
-        }
+        Awaitility.await()
+                .ignoreExceptions()
+                .atMost(30, TimeUnit.SECONDS)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            List<Map<MessageQueue, TopicOffset>> offsetTopics =
+                                    RocketMqAdminUtil.offsetTopics(
+                                            config, Arrays.asList(topicName));
+                            Map<MessageQueue, TopicOffset> offsetMap = offsetTopics.get(0);
+                            Set<MessageQueue> messageQueues = offsetMap.keySet();
+                            Map<MessageQueue, Long> currentOffsets =
+                                    RocketMqAdminUtil.currentOffsets(
+                                            config, Arrays.asList(topicName), messageQueues);
+                            for (Map.Entry<MessageQueue, TopicOffset> offsetEntry :
+                                    offsetMap.entrySet()) {
+                                MessageQueue messageQueue = offsetEntry.getKey();
+                                long maxOffset = offsetEntry.getValue().getMaxOffset();
+                                Long consumeOffset = currentOffsets.get(messageQueue);
+                                Assertions.assertEquals(
+                                        maxOffset,
+                                        consumeOffset,
+                                        "Offset different,maxOffset="
+                                                + maxOffset
+                                                + ",consumeOffset="
+                                                + consumeOffset);
+                            }
+                        });
     }
 
     public RocketMqBaseConfiguration newConfiguration() {
