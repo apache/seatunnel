@@ -34,18 +34,21 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * 为并行读取枚举 {@link BigtableSourceSplit}。
+ * Enumerates {@link BigtableSourceSplit}s for parallel reading.
  *
- * <p>主流程：
+ * <p>Main workflow:
  *
  * <ol>
- *   <li>通过 {@link BigtableClient#sampleRowKeys()} 按 tablet 近似等大小切分 key range
- *   <li>与用户配置的 {@code start_rowkey}/{@code end_rowkey} 求交
- *   <li>按 splitId 哈希取模分配给已注册 Reader
+ *   <li>Use {@link BigtableClient#sampleRowKeys()} to split the key range into approximately
+ *       equal-size tablet boundaries.
+ *   <li>Intersect each tablet range with the user-configured {@code start_rowkey}/{@code
+ *       end_rowkey}.
+ *   <li>Assign splits to registered readers by hashing the split ID modulo parallelism.
  * </ol>
  *
- * <p>切分失败（采样异常、空采样、求交为空）时回退为覆盖用户 range 的单 split，保证作业仍能跑。 Checkpoint 仍同时持久化 {@code assignedSplits} 与
- * {@code pendingSplits}（#11144）。
+ * <p>If split generation fails (sampling exception, empty samples, or empty intersection), falls
+ * back to a single split covering the full user range so the job can still proceed. Checkpoint
+ * persists both {@code assignedSplits} and {@code pendingSplits} (#11144).
  */
 @Slf4j
 public class BigtableSourceSplitEnumerator
@@ -57,7 +60,7 @@ public class BigtableSourceSplitEnumerator
     private Set<BigtableSourceSplit> pendingSplits;
     private boolean initialized = false;
 
-    /** Enumerator 侧懒创建的 Data API client，仅用于 sampleRowKeys；单测可注入。 */
+    /** Lazily-initialized Data API client used only for sampleRowKeys; injectable in unit tests. */
     private BigtableClient bigtableClient;
 
     /**
@@ -80,12 +83,13 @@ public class BigtableSourceSplitEnumerator
     }
 
     /**
-     * 包可见构造器，供单测注入 {@link BigtableClient}，避免真实连云。
+     * Package-private constructor for injecting a {@link BigtableClient} in unit tests to avoid
+     * real cloud connections.
      *
-     * @param context 引擎分配上下文
-     * @param parameters 连接与扫描参数
-     * @param sourceState checkpoint 恢复状态，首次启动为 {@code null}
-     * @param bigtableClient 预置 client；为 {@code null} 时在首次切分时懒创建
+     * @param context engine split-assignment context
+     * @param parameters connection and scan parameters
+     * @param sourceState checkpoint recovery state; {@code null} on first start
+     * @param bigtableClient pre-built client; lazily created on first split if {@code null}
      */
     BigtableSourceSplitEnumerator(
             Context<BigtableSourceSplit> context,
@@ -189,12 +193,15 @@ public class BigtableSourceSplitEnumerator
     }
 
     /**
-     * 通过 {@link BigtableClient#sampleRowKeys()} 生成多 split；失败则回退单 split。
+     * Generates multiple splits via {@link BigtableClient#sampleRowKeys()}; falls back to a single
+     * split on failure.
      *
-     * <p>采样点按字典序切成半开区间 {@code [prev, current)}，再与用户 range 求交。若最后一个采样 key 不是空（表尾），额外补一段 {@code
-     * [lastSample, "")} 以免漏扫表尾。
+     * <p>Sample keys are turned into half-open intervals {@code [prev, current)} in lexicographic
+     * order, then intersected with the user range. If the last sample key is non-empty (i.e. not
+     * the table-end sentinel), an extra segment {@code [lastSample, "")} is appended to cover the
+     * table tail.
      *
-     * @return 至少一个 split；切分失败时为覆盖用户 range 的单 split
+     * @return at least one split; a single split covering the user range when splitting fails
      */
     Set<BigtableSourceSplit> buildSplits() {
         String userStart = parameters.getStartRowkey() != null ? parameters.getStartRowkey() : "";
@@ -224,7 +231,8 @@ public class BigtableSourceSplitEnumerator
             rangeStart = rangeEnd;
         }
 
-        // 最后一个 sample 不是空 key 时，API 未给出表尾哨兵，补齐 [lastSample, 表尾)
+        // If the last sample key is not empty the API did not emit a table-end sentinel;
+        // append [lastSample, "") to avoid missing the table tail.
         if (!rangeStart.isEmpty()) {
             addIntersectedSplit(splits, index, rangeStart, "", userStart, userEnd);
         }
@@ -240,9 +248,9 @@ public class BigtableSourceSplitEnumerator
     }
 
     /**
-     * 把 tablet 区间与用户 range 求交后加入结果集。
+     * Intersects a tablet range with the user range and adds the result to the split set.
      *
-     * @return 若加入了 split 则返回 {@code index + 1}，否则原 {@code index}
+     * @return {@code index + 1} if a split was added, otherwise the original {@code index}
      */
     private static int addIntersectedSplit(
             Set<BigtableSourceSplit> splits,
@@ -260,7 +268,7 @@ public class BigtableSourceSplitEnumerator
         return index;
     }
 
-    /** 将采样点 key 转为 UTF-8；null / 空 ByteString 表示表尾。 */
+    /** Converts a sample key to a UTF-8 string; null or empty ByteString represents the table end. */
     private static String keyToUtf8(KeyOffset sample) {
         if (sample == null || sample.getKey() == null) {
             return "";
@@ -268,7 +276,7 @@ public class BigtableSourceSplitEnumerator
         return sample.getKey().toStringUtf8();
     }
 
-    /** start 取较大者（空表示表头，视为最小）。 */
+    /** Returns the lexicographically larger start key; empty string means table-begin (minimum). */
     private static String maxStart(String a, String b) {
         if (a.isEmpty()) {
             return b;
@@ -279,7 +287,7 @@ public class BigtableSourceSplitEnumerator
         return a.compareTo(b) >= 0 ? a : b;
     }
 
-    /** end 取较小者（空表示表尾，视为最大）。 */
+    /** Returns the lexicographically smaller end key; empty string means table-end (maximum). */
     private static String minEnd(String a, String b) {
         if (a.isEmpty()) {
             return b;
@@ -290,7 +298,7 @@ public class BigtableSourceSplitEnumerator
         return a.compareTo(b) <= 0 ? a : b;
     }
 
-    /** {@code [start, end)} 是否非空；end 为空表示直到表尾，只要区间不反向即合法。 */
+    /** Returns true if {@code [start, end)} is non-empty; empty end means until table-end. */
     private static boolean isValidRange(String start, String end) {
         if (end.isEmpty()) {
             return true;
