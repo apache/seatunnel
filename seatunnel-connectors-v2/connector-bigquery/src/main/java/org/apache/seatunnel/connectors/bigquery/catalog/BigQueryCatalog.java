@@ -64,6 +64,11 @@ import java.util.List;
 import static org.apache.seatunnel.connectors.bigquery.sink.writer.BigQueryStreamWriter.CHANGE_TYPE;
 import static org.apache.seatunnel.connectors.bigquery.sink.writer.BigQueryStreamWriter.SEQUENCE_NUM;
 
+/**
+ * Catalog implementation for Google Cloud BigQuery. This class provides standard catalog operations
+ * such as listing databases/datasets, creating and deleting tables, checking table existence, and
+ * reading metadata.
+ */
 @Slf4j
 public class BigQueryCatalog implements Catalog {
 
@@ -71,11 +76,22 @@ public class BigQueryCatalog implements Catalog {
     private final ReadonlyConfig config;
     private BigQuery bigquery;
 
+    /**
+     * Constructs a new BigQueryCatalog.
+     *
+     * @param catalogName the name of this catalog
+     * @param config the readonly configuration options containing BigQuery connection info
+     */
     public BigQueryCatalog(String catalogName, ReadonlyConfig config) {
         this.catalogName = catalogName;
         this.config = config;
     }
 
+    /**
+     * Opens the catalog and initializes the BigQuery client.
+     *
+     * @throws CatalogException if the BigQuery client fails to initialize
+     */
     @Override
     public void open() throws CatalogException {
         try {
@@ -86,6 +102,11 @@ public class BigQueryCatalog implements Catalog {
         }
     }
 
+    /**
+     * Closes the catalog.
+     *
+     * @throws CatalogException if any resources fail to close
+     */
     @Override
     public void close() throws CatalogException {
         // BigQuery service client doesn't hold open TCP sockets directly; it's a stateless HTTP
@@ -93,6 +114,11 @@ public class BigQueryCatalog implements Catalog {
         log.info("BigQueryCatalog '{}' closed successfully.", catalogName);
     }
 
+    /**
+     * Returns the catalog name.
+     *
+     * @return the name of this catalog
+     */
     @Override
     public String name() {
         return catalogName;
@@ -106,6 +132,12 @@ public class BigQueryCatalog implements Catalog {
         return db;
     }
 
+    /**
+     * Returns the default database (dataset ID) configured for the BigQuery connector.
+     *
+     * @return the configured default dataset ID
+     * @throws CatalogException if default dataset info cannot be retrieved
+     */
     @Override
     public String getDefaultDatabase() throws CatalogException {
         return config.get(BigQuerySinkOptions.DATASET_ID);

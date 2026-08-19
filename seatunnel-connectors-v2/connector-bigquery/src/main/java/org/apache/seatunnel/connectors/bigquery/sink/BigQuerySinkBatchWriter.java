@@ -197,7 +197,7 @@ public class BigQuerySinkBatchWriter extends AbstractBigQuerySinkWriter {
         // Batch mode uses BigQuery buffered streams and stores streamName + nextOffset
         // in checkpoint state. Flushing during close could append rows outside the
         // latest checkpoint state and make the external stream offset move ahead of
-        // the restored nextOffset.
+        // the restored nextOffset, breaking 2PC state recovery contract.
         return false;
     }
 }

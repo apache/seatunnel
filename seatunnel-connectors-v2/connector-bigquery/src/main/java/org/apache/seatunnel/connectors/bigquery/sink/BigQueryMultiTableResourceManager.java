@@ -24,16 +24,30 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.Optional;
 
+/**
+ * Resource manager for coordinating and sharing a single {@link BigQueryWriteClient} across
+ * multiple sink writers to optimize connection usage and simplify resource cleanup.
+ */
 @Slf4j
 public class BigQueryMultiTableResourceManager
         implements MultiTableResourceManager<BigQueryWriteClient> {
 
     private final BigQueryWriteClient client;
 
+    /**
+     * Constructs a BigQueryMultiTableResourceManager with the specified shared client.
+     *
+     * @param client the shared {@link BigQueryWriteClient} instance
+     */
     public BigQueryMultiTableResourceManager(BigQueryWriteClient client) {
         this.client = client;
     }
 
+    /**
+     * Retrieves the shared {@link BigQueryWriteClient} resource.
+     *
+     * @return an {@link Optional} containing the shared client if present
+     */
     @Override
     public Optional<BigQueryWriteClient> getSharedResource() {
         return Optional.ofNullable(client);

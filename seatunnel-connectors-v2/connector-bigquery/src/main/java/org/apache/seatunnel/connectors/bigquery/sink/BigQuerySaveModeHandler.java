@@ -25,15 +25,32 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
+import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
 import org.apache.seatunnel.api.table.type.SqlType;
+import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.Optional;
 
+/**
+ * Handler for managing BigQuery schema and data save modes. This class validates schema coherence
+ * between local schemas and remote BigQuery schemas, and handles database/table life cycle based on
+ * configurations.
+ */
 @Slf4j
 public class BigQuerySaveModeHandler extends DefaultSaveModeHandler {
 
+    /**
+     * Constructs a new BigQuerySaveModeHandler.
+     *
+     * @param schemaSaveMode the schema save mode configuration
+     * @param dataSaveMode the data save mode configuration
+     * @param catalog the BigQuery catalog instance
+     * @param tablePath the path of the target table
+     * @param catalogTable the local catalog table schema representation
+     * @param customSql optional custom SQL script to run during save mode handling
+     */
     public BigQuerySaveModeHandler(
             SchemaSaveMode schemaSaveMode,
             DataSaveMode dataSaveMode,
@@ -44,6 +61,10 @@ public class BigQuerySaveModeHandler extends DefaultSaveModeHandler {
         super(schemaSaveMode, dataSaveMode, catalog, tablePath, catalogTable, customSql);
     }
 
+    /**
+     * Executes the schema save mode operations (e.g., table deletion, creation, recreation) and
+     * performs schema coherence check to ensure the target table is compatible.
+     */
     @Override
     public void handleSchemaSaveMode() {
         // 1. Let the default handler execute table creation / recreation / deletion
@@ -53,6 +74,14 @@ public class BigQuerySaveModeHandler extends DefaultSaveModeHandler {
         validateSchemaCoherence();
     }
 
+    /**
+     * Validates that the schema of the local table matches or is compatible with the remote
+     * BigQuery table's schema.
+     *
+     * @throws CatalogException if schema coherence validation fails or Google SDK exception is
+     *     caught
+     * @throws SeaTunnelRuntimeException if any system runtime exception is encountered
+     */
     private void validateSchemaCoherence() {
         if (schemaSaveMode == SchemaSaveMode.RECREATE_SCHEMA
                 || schemaSaveMode == SchemaSaveMode.IGNORE) {
@@ -94,9 +123,21 @@ public class BigQuerySaveModeHandler extends DefaultSaveModeHandler {
             log.info(
                     "BigQuery schema coherence check passed successfully for table: {}",
                     tablePath.getFullName());
+        } catch (TableNotExistException e) {
+            log.info(
+                    "Target BigQuery table '{}' does not exist yet. Skipping schema coherence check.",
+                    tablePath.getFullName());
+            return;
         } catch (Exception e) {
             if (e instanceof CatalogException) {
                 throw (CatalogException) e;
+            }
+            if (e instanceof SeaTunnelRuntimeException) {
+                throw (SeaTunnelRuntimeException) e;
+            }
+            String className = e.getClass().getName();
+            if (className.contains("BigQueryException") || className.contains("StorageException")) {
+                throw new CatalogException("Failed to validate BigQuery schema coherence", e);
             }
             log.warn("Schema validation check ignored due to exception: {}", e.getMessage());
         }

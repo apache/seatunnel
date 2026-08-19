@@ -328,8 +328,20 @@ public class BigQueryCatalogAndSaveModeTest {
 
         // Mock target table behavior based on the testing state
         if (tableState == TableState.NOT_EXIST) {
-            // Sequential stubbing to mock deletion/recreation states
-            when(mockBigQuery.getTable(tableId)).thenReturn(null);
+            if (schemaSaveMode == SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST) {
+                Table mockTable = mock(Table.class);
+                TableDefinition mockDef = mock(TableDefinition.class);
+                when(mockTable.getDefinition()).thenReturn(mockDef);
+                when(mockTable.getNumRows()).thenReturn(java.math.BigInteger.ZERO);
+                com.google.cloud.bigquery.Schema correctSchema =
+                        com.google.cloud.bigquery.Schema.of(
+                                Field.of("id", StandardSQLTypeName.INT64));
+                when(mockDef.getSchema()).thenReturn(correctSchema);
+
+                when(mockBigQuery.getTable(tableId)).thenReturn(null).thenReturn(mockTable);
+            } else {
+                when(mockBigQuery.getTable(tableId)).thenReturn(null);
+            }
         } else {
             Table mockTable = mock(Table.class);
             TableDefinition mockDef = mock(TableDefinition.class);
@@ -361,9 +373,28 @@ public class BigQueryCatalogAndSaveModeTest {
         // Mock deletion success
         when(mockBigQuery.delete(tableId)).thenReturn(true);
 
+        // Dynamically construct a new BigQueryCatalog for each test run using isBatch
+        Map<String, Object> localConfigMap = new HashMap<>();
+        localConfigMap.put("project_id", "test-project");
+        localConfigMap.put("dataset_id", "test-dataset");
+        localConfigMap.put("write_mode", isBatch ? "batch" : "streaming");
+        ReadonlyConfig localConfig = ReadonlyConfig.fromMap(localConfigMap);
+
+        BigQueryCatalog localCatalog = new BigQueryCatalog("test-catalog", localConfig);
+
+        // Inject the mocked BigQuery client into this localized catalog using reflection
+        java.lang.reflect.Field clientField = BigQueryCatalog.class.getDeclaredField("bigquery");
+        clientField.setAccessible(true);
+        clientField.set(localCatalog, mockBigQuery);
+
         BigQuerySaveModeHandler handler =
                 new BigQuerySaveModeHandler(
-                        schemaSaveMode, dataSaveMode, catalog, tablePath, catalogTable, "SELECT 1");
+                        schemaSaveMode,
+                        dataSaveMode,
+                        localCatalog,
+                        tablePath,
+                        catalogTable,
+                        "SELECT 1");
 
         // Run assertions according to expected outcomes
         if (expected == ExpectedOutcome.THROWS_TABLE_NOT_EXIST) {
@@ -398,6 +429,9 @@ public class BigQueryCatalogAndSaveModeTest {
     private CatalogTable createMockCatalogTable(TablePath tablePath) {
         TableSchema.Builder builder = TableSchema.builder();
         builder.column(PhysicalColumn.of("id", BasicType.INT_TYPE, 0, false, null, "Primary key"));
+        builder.primaryKey(
+                org.apache.seatunnel.api.table.catalog.PrimaryKey.of(
+                        "id_pk", Collections.singletonList("id")));
         return CatalogTable.of(
                 TableIdentifier.of("test-catalog", tablePath),
                 builder.build(),

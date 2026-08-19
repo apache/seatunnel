@@ -75,7 +75,7 @@ public abstract class AbstractBigQuerySinkWriter
     }
 
     protected void flush() {
-        if (buffer.length() == 0) return;
+        if (streamWriter == null || buffer.length() == 0) return;
 
         JSONArray dataToSend = buffer;
         buffer = new JSONArray();
@@ -107,7 +107,9 @@ public abstract class AbstractBigQuerySinkWriter
             }
         } finally {
             try {
-                streamWriter.close();
+                if (streamWriter != null) {
+                    streamWriter.close();
+                }
             } catch (Exception e) {
                 log.warn("Failed to close streamWriter", e);
             }
