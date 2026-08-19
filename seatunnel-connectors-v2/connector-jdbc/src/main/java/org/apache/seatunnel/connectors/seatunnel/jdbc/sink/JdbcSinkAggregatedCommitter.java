@@ -83,8 +83,9 @@ public class JdbcSinkAggregatedCommitter
     /**
      * Reconciles checkpoint XIDs with the resource manager using commit-order evidence. Checkpoint
      * XIDs from the first still-prepared transaction onward must all be present in the recovery
-     * scan and are replayed strictly. An absent prefix before that boundary is treated as already
-     * resolved only after the still-prepared suffix commits successfully.
+     * scan and are replayed strictly. An all-absent batch is treated as already resolved, while an
+     * absent prefix before a still-prepared suffix is treated as already resolved only after that
+     * suffix commits successfully.
      */
     @Override
     public List<JdbcAggregatedCommitInfo> restoreCommit(
@@ -197,11 +198,10 @@ public class JdbcSinkAggregatedCommitter
         }
         int firstRecoveredIndex = findFirstRecoveredIndex(checkpointXids, recoveredXids);
         if (firstRecoveredIndex < 0) {
-            throw new JdbcConnectorException(
-                    CommonErrorCodeDeprecated.WRITER_OPERATION_FAILED,
-                    String.format(
-                            "none of the restored checkpoint transactions are present in the XA recovery scan: %s",
-                            checkpointXids));
+            log.warn(
+                    "Skipping checkpoint batch because none of its transactions remain in the XA recovery scan; treating it as already resolved: {}",
+                    checkpointXids);
+            return;
         }
         List<XidInfo> stillPrepared = new ArrayList<>();
         for (int i = firstRecoveredIndex; i < checkpointXids.size(); i++) {

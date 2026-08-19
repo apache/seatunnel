@@ -338,9 +338,9 @@ JDBC `executeBatch` 失败后的重试次数。Exactly-once 模式要求设置�
 在 exactly-once 的 XA 模式下，这个重试预算会在单次 aggregated-commit 或 restore 调用内消耗完。
 恢复时，SeaTunnel 会从 XA recovery scan 中第一个仍然处于 prepared 状态的 checkpoint XID 开始，
 严格回放其后的事务后缀。位于该边界之前、且在 recovery scan 中缺失的 XID，只有在后缀严格提交
-成功之后才会被视为已经解析完成。如果 recovery scan 中一个 checkpoint XID 都不存在，或者在第
-一个 recovered checkpoint XID 之后又出现缺口，恢复会直接 fail-closed，而不是把结果推断成已
-经成功提交。
+成功之后才会被视为已经解析完成。如果 recovery scan 中一个 checkpoint XID 都不存在，SeaTunnel
+会把整个批次视为已经完成，不再重复回放。只有在第一个 recovered checkpoint XID 之后又出现缺
+口时，恢复才会直接 fail-closed，而不是把结果推断成已经成功提交。
 
 ### transaction_timeout_sec [int]
 

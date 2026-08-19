@@ -340,8 +340,9 @@ In exactly-once XA mode, this retry budget is consumed within a single aggregate
 restore invocation. During restore, SeaTunnel replays the still-prepared suffix starting from the
 first checkpoint XID that remains in the XA recovery scan. Missing XIDs before that boundary are
 treated as already resolved only after the still-prepared suffix commits successfully. If none of
-the checkpoint XIDs remain in the recovery scan, or if a gap appears after the first recovered
-checkpoint XID, recovery fails closed instead of inferring a successful commit.
+the checkpoint XIDs remain in the recovery scan, SeaTunnel treats the whole batch as already
+resolved and does not replay it. If a gap appears after the first recovered checkpoint XID,
+recovery still fails closed instead of inferring a successful commit.
 
 ### transaction_timeout_sec [int]
 

@@ -137,11 +137,12 @@ class JdbcSinkAggregatedCommitterTest {
     }
 
     /**
-     * Verifies that restore fails closed when none of the checkpoint XIDs remain in the recovery
-     * scan.
+     * Verifies that restore treats an all-absent checkpoint batch as already resolved instead of
+     * replaying or failing it again.
      */
     @Test
-    void testRestoreCommitFailsClosedWhenRecoveryScanHasNoCheckpointXid() throws Exception {
+    void testRestoreCommitSkipsAlreadyResolvedBatchWhenRecoveryScanHasNoCheckpointXid()
+            throws Exception {
         JdbcSinkAggregatedCommitter committer = createCommitter();
         XaFacade xaFacade = mock(XaFacade.class);
         XaGroupOps xaGroupOps = mock(XaGroupOps.class);
@@ -151,15 +152,13 @@ class JdbcSinkAggregatedCommitterTest {
         setPrivateField(committer, "xaGroupOps", xaGroupOps);
         JdbcAggregatedCommitInfo commitInfo =
                 new JdbcAggregatedCommitInfo(
-                        Collections.singletonList(
-                                new XidInfo(createXid(1, new byte[] {1}, new byte[] {2}), 0)));
+                        Arrays.asList(
+                                new XidInfo(createXid(1, new byte[] {1}, new byte[] {2}), 0),
+                                new XidInfo(createXid(2, new byte[] {3}, new byte[] {4}), 0)));
 
-        JdbcConnectorException exception =
-                Assertions.assertThrows(
-                        JdbcConnectorException.class,
-                        () -> committer.restoreCommit(Collections.singletonList(commitInfo)));
+        Assertions.assertDoesNotThrow(
+                () -> committer.restoreCommit(Collections.singletonList(commitInfo)));
 
-        Assertions.assertTrue(exception.getMessage().contains("none of the restored checkpoint"));
         verify(xaGroupOps, never()).commit(anyList(), eq(false), eq(3), eq(false));
     }
 
