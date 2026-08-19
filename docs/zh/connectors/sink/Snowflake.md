@@ -2,150 +2,140 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 # Snowflake
 
-> JDBC Snowflake Sink连接器
+> JDBC Snowflake Sink 连接器
 
-## 支持的引擎
+## 支持以下引擎
 
 > Spark<br/>
 > Flink<br/>
 > SeaTunnel Zeta<br/>
 
-## 主要特性
-
-- [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
-- [x] [CDC](../../introduction/concepts/connector-v2-features.md)
-- [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
-
 ## 描述
 
-通过JDBC写入数据。支持批处理模式和流处理模式，支持并发写入。
-
-## 支持的数据源列表
-
-| 数据源     | 支持的版本                                                   | 驱动类                                      | URL                                                          | Maven                                                                 |
-|------------|--------------------------------------------------------------|---------------------------------------------|--------------------------------------------------------------|---------------------------------------------------------------------------|
-| Snowflake  | 不同依赖版本对应不同的驱动类。                                 | net.snowflake.client.jdbc.SnowflakeDriver   | jdbc:snowflake://<account_name>.snowflakecomputing.com   | [下载](https://mvnrepository.com/artifact/net.snowflake/snowflake-jdbc)   |
+通过 JDBC 向 Snowflake 写入数据。Sink 支持批处理和流式作业、并发写入，以及 CDC 事件。当缓冲行数达到 `batch_size`、定时刷新间隔 `batch_interval_ms` 到达或触发 checkpoint 时，批次会被刷新。
 
 ## 数据库依赖
 
-> 请下载支持列表中对应的'Maven'依赖，并将其复制到'$SEATUNNEL_HOME/plugins/jdbc/lib/'工作目录下<br/>
-> 例如Snowflake数据源：cp snowflake-connector-java-xxx.jar $SEATUNNEL_HOME/plugins/jdbc/lib/
+> 请下载 "Maven" 对应的支持列表，并将其复制到 `$SEATUNNEL_HOME/plugins/jdbc/lib/` 工作目录下<br/>
+> 例如 Snowflake 数据源：cp snowflake-connector-java-xxx.jar $SEATUNNEL_HOME/plugins/jdbc/lib/
+
+## 关键特性
+
+- [x] [批处理](../../introduction/concepts/connector-v2-features.md)
+- [x] [流处理](../../introduction/concepts/connector-v2-features.md)
+- [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [x] [cdc](../../introduction/concepts/connector-v2-features.md)（通过主键 upsert / merge SQL）
+- [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
+- [x] [定时刷新](../../introduction/concepts/connector-v2-features.md)
+
+## 支持的数据源信息
+
+| 数据源 | 支持版本                                  | 驱动                                       | Url                                          | Maven                                                          |
+|--------|-------------------------------------------|--------------------------------------------|----------------------------------------------|----------------------------------------------------------------|
+| Snowflake | 不同的依赖版本有不同的驱动程序类。    | net.snowflake.client.jdbc.SnowflakeDriver | jdbc:snowflake://<account_name>.snowflakecomputing.com | [下载](https://mvnrepository.com/artifact/net.snowflake/snowflake-jdbc) |
 
 ## 数据类型映射
 
-| Snowflake 数据类型                                                       | SeaTunnel 数据类型 |
-|--------------------------------------------------------------------------|--------------------|
-| BOOLEAN                                                                  | BOOLEAN            |
-| TINYINT<br/>SMALLINT<br/>BYTEINT<br/>                                    | SHORT_TYPE         |
-| INT<br/>INTEGER<br/>                                                     | INT                |
-| BIGINT                                                                   | LONG               |
-| DECIMAL<br/>NUMERIC<br/>NUMBER<br/>                                      | DECIMAL(x,y)       |
-| DECIMAL(x,y)（获取指定列的大小>38）                                       | DECIMAL(38,18)     |
-| REAL<br/>FLOAT4                                                          | FLOAT              |
-| DOUBLE<br/>DOUBLE PRECISION<br/>FLOAT8<br/>FLOAT<br/>                    | DOUBLE             |
-| CHAR<br/>CHARACTER<br/>VARCHAR<br/>STRING<br/>TEXT<br/>VARIANT<br/>OBJECT| STRING             |
-| DATE                                                                     | DATE               |
-| TIME                                                                     | TIME               |
+|                             Snowflake 数据类型                            | SeaTunnel 数据类型 |
+|-----------------------------------------------------------------------------|--------------------|
+| BOOLEAN                                                                     | BOOLEAN            |
+| TINYINT<br/>SMALLINT<br/>BYTEINT                                            | SHORT              |
+| INT<br/>INTEGER                                                             | INT                |
+| BIGINT                                                                      | LONG               |
+| DECIMAL<br/>NUMERIC<br/>NUMBER<br/>                                         | DECIMAL(p, s)      |
+| DECIMAL(p, s)（p > 38 时）                                                  | DECIMAL(38, 18)    |
+| REAL<br/>FLOAT4                                                             | FLOAT              |
+| DOUBLE<br/>DOUBLE PRECISION<br/>FLOAT8<br/>FLOAT                            | DOUBLE             |
+| CHAR<br/>CHARACTER<br/>VARCHAR<br/>STRING<br/>TEXT<br/>VARIANT<br/>OBJECT   | STRING             |
+| DATE                                                                        | DATE               |
+| TIME                                                                        | TIME               |
 | DATETIME<br/>TIMESTAMP<br/>TIMESTAMP_LTZ<br/>TIMESTAMP_NTZ<br/>TIMESTAMP_TZ | TIMESTAMP          |
-| BINARY<br/>VARBINARY<br/>GEOGRAPHY<br/>GEOMETRY                          | BYTES              |
+| BINARY<br/>VARBINARY<br/>GEOGRAPHY<br/>GEOMETRY                             | BYTES              |
 
-## 配置选项
+## 选项
 
-| 名称                           | 类型    | 必填 | 默认值 | 描述                                                                                                                                                                                                 |
-|------------------------------|---------|------|--------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| url                          | String  | 是   | -      | JDBC连接的URL。参考示例：jdbc&#58;snowflake://<account_name>.snowflakecomputing.com                                                                                                                 |
-| driver                       | String  | 是   | -      | 用于连接远程数据源的JDBC类名，<br/>如果使用Snowflake，值为`net.snowflake.client.jdbc.SnowflakeDriver`。                                                                                             |
-| username                     | String  | 否   | -      | 连接实例的用户名                                                                                                                                                                                     |
-| password                     | String  | 否   | -      | 连接实例的密码                                                                                                                                                                                       |
-| query                        | String  | 否   | -      | 使用此SQL将上游输入数据写入数据库。例如`INSERT ...`，`query`具有更高的优先级                                                                                                                         |
-| database                     | String  | 否   | -      | 使用此`database`和`table-name`自动生成SQL并接收上游输入数据写入数据库。<br/>此选项与`query`互斥，且具有更高的优先级。                                                                               |
-| table                        | String  | 否   | -      | 使用`database`和此`table-name`自动生成SQL并接收上游输入数据写入数据库。<br/>此选项与`query`互斥，且具有更高的优先级。                                                                               |
-| primary_keys                 | Array    | 否   | -      | 此选项用于在自动生成SQL时支持`insert`、`delete`和`update`等操作。                                                                                                                                    |
-| connection_check_timeout_sec | Int    | 否   | 30     | 用于验证连接的操作的等待时间（秒）。                                                                                                                                                                 |
-| max_retries                  | Int    | 否   | 0      | 提交失败（executeBatch）的重试次数                                                                                                                                                                   |
-| batch_size                   | Int    | 否   | 1000   | 对于批处理写入，当缓冲的记录数达到`batch_size`或时间达到`checkpoint.interval`时，<br/>数据将被刷新到数据库中                                                                                         |
-| max_commit_attempts          | Int    | 否   | 3      | 事务提交失败的重试次数                                                                                                                                                                               |
-| transaction_timeout_sec      | Int    | 否   | -1     | 事务打开后的超时时间，默认为-1（永不超时）。注意，设置超时可能会影响<br/>精确一次语义                                                                                                                |
-| auto_commit                  | Boolean  | 否   | true   | 默认启用自动事务提交                                                                                                                                                                                 |
-| properties                   | Map    | 否   | -      | 额外的连接配置参数，当properties和URL中有相同参数时，优先级由驱动程序的<br/>具体实现决定。例如，在MySQL中，properties优先于URL。                                                                     |
-| common-options               |         | 否   | -      | 接收器插件通用参数，详情请参考[接收器通用选项](../common-options/sink-common-options.md)                                                                                                                           |
-| enable_upsert                | Boolean  | 否   | true   | 通过主键存在启用upsert，如果任务没有键重复数据，将此参数设置为`false`可以加快数据导入速度                                                                                                             |
+| 名称                          |  类型   | 是否必填 | 默认值 | 描述                                                                                                                                                                                |
+|-------------------------------|---------|----------|---------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| url                           | String  | 是       | -       | JDBC 连接 URL，例如 `jdbc:snowflake://<account_name>.snowflakecomputing.com`。                                                                                                       |
+| driver                        | String  | 是       | -       | JDBC 驱动类名，Snowflake 使用 `net.snowflake.client.jdbc.SnowflakeDriver`。                                                                                                          |
+| username                      | String  | 否       | -       | Snowflake 账户用户名。                                                                                                                                                              |
+| password                      | String  | 否       | -       | Snowflake 账户密码。                                                                                                                                                                |
+| query                         | String  | 否       | -       | 写入上游数据的 SQL。优先级高于 `database`/`table` 自动生成的 SQL；设置后会关闭基于目录的优化（无法生成 `MERGE` upsert）。                                                          |
+| database                      | String  | 否       | -       | 数据库名。`generate_sink_sql = true` 时与 `table` 一起用于生成 `INSERT`/`MERGE` SQL；与 `query` 互斥，同时设置时 `query` 优先生。                          |
+| table                         | String  | 否       | -       | 目标表名。与 `database` 一起配合 `generate_sink_sql` 生成写入语句。                                                                                                                  |
+| primary_keys                  | Array   | 否       | -       | 主键列。`generate_sink_sql = true` 且 `enable_upsert = true` 时用于构建 `MERGE` upsert 语句。                                                                                       |
+| connection_check_timeout_sec  | Int     | 否       | 30      | 连接校验超时时间（秒）。                                                                                                                                                            |
+| max_retries                   | Int     | 否       | 0       | `executeBatch` 失败的重试次数。                                                                                                                                                    |
+| batch_size                    | Int     | 否       | 1000    | 触发 flush 的缓冲行数；同时在 `checkpoint.interval` 时也会 flush。                                                                                                                  |
+| batch_interval_ms             | Long    | 否       | 0       | 两次 flush 之间的最大时间间隔（毫秒）。`0` 关闭按时间间隔的 flush。                                                                                                                  |
+| max_commit_attempts           | Int     | 否       | 3       | 事务提交失败的重试次数。                                                                                                                                                            |
+| transaction_timeout_sec       | Int     | 否       | -1      | 事务超时时间（秒），`-1` 表示永不超时。                                                                                                                                              |
+| auto_commit                   | Boolean | 否       | true    | 是否自动提交每个批次。                                                                                                                                                              |
+| properties                    | Map     | 否       | -       | 额外的 JDBC 连接参数。`properties` 与 `url` 包含相同键时优先级由驱动决定。                                                                                                          |
+| common-options                |         | 否       | -       | Sink 插件通用参数，详见 [Sink 通用选项](../common-options/sink-common-options.md)。                                                                                                |
+| enable_upsert                 | Boolean | 否       | true    | 在 `primary_keys` 已配置且 `generate_sink_sql = true` 时，生成 `MERGE` upsert 语句；若输入无重复主键，可设为 `false` 使用更快的纯插入路径。                                          |
 
-## 提示
+## 说明
 
-> 如果未设置`partition_column`，将以单并发运行，如果设置了`partition_column`，将根据任务的并发度并行执行。
-
-## 注意事项
-
-- 需要完全控制 INSERT 语句和参数顺序时，使用 `query`。
-- 希望 SeaTunnel 为插入、更新、删除事件自动生成写入 SQL 时，使用 `database`、`table` 和 `primary_keys`。
-- Snowflake sink 使用普通 JDBC 批量写入，不提供 Snowflake 的精确一次保证。
-- 不要把真实 Snowflake 密码写进共享示例、日志或截图。
+- 想完全控制 `INSERT` 语句和参数顺序时使用 `query`。
+- 让 SeaTunnel 自动生成 insert、update、delete SQL 时，使用 `database`、`table` 和 `primary_keys`（配合 `generate_sink_sql = true`）。
+- Snowflake sink 使用普通 JDBC 批量写入，不提供精确一次保证。
+- 不要把 Snowflake 凭据写在共享示例、日志或截图中。
 
 ## 任务示例
 
 ### 简单示例
 
-> 此示例定义了一个SeaTunnel同步任务，通过FakeSource自动生成数据并发送到JDBC Sink。FakeSource总共生成16行数据（row.num=16），每行有两个字段，name（字符串类型）和age（int类型）。最终目标表`test_table`中也将有16行数据。在运行此作业之前，您需要在Snowflake数据库中创建数据库`test`和表`test_table`。如果您尚未安装和部署SeaTunnel，请按照[安装SeaTunnel](../../getting-started/locally/deployment.md)中的说明进行安装和部署。然后按照[使用SeaTunnel Engine快速入门](../../getting-started/locally/quick-start-seatunnel-engine.md)中的说明运行此作业。
+此示例从 `FakeSource` 读取 16 行数据并插入到 Snowflake 的 `test_table` 表中。
 
-```
-# 定义运行时环境
+```hocon
 env {
-    parallelism = 1
-    job.mode = "BATCH"
+  parallelism = 1
+  job.mode = "BATCH"
 }
+
 source {
-    # 这是一个示例源插件，**仅用于测试和演示功能源插件**
-    FakeSource {
-        parallelism = 1
-        plugin_output = "fake"
-        row.num = 16
-        schema = {
-            fields {
-                name = "string"
-                age = "int"
-            }
-        }
+  FakeSource {
+    parallelism = 1
+    plugin_output = "fake"
+    row.num = 16
+    schema = {
+      fields {
+        name = "string"
+        age = "int"
+      }
     }
-    # 如果您想了解更多关于如何配置SeaTunnel的信息，并查看完整的源插件列表，
-    # 请访问 https://seatunnel.apache.org/docs/connectors/source
+  }
 }
-transform {
 
-    # 如果您想了解更多关于如何配置SeaTunnel的信息，并查看完整的转换插件列表，
-    # 请访问 https://seatunnel.apache.org/docs/transforms
-}
 sink {
-    jdbc {
-        url = "jdbc:snowflake://<account_name>.snowflakecomputing.com"
-        driver = "net.snowflake.client.jdbc.SnowflakeDriver"
-        username = "root"
-        password = "123456"
-        query = "insert into test_table(name,age) values(?,?)"
-    }
-    # 如果您想了解更多关于如何配置SeaTunnel的信息，并查看完整的接收器插件列表，
-    # 请访问 https://seatunnel.apache.org/docs/connectors/sink
+  Jdbc {
+    url = "jdbc:snowflake://<account_name>.snowflakecomputing.com"
+    driver = "net.snowflake.client.jdbc.SnowflakeDriver"
+    username = "USER"
+    password = "PASSWORD"
+    query = "insert into test_table(name, age) values(?, ?)"
+  }
 }
 ```
 
-### CDC（变更数据捕获）事件
+运行作业前，请先在 Snowflake 中创建目标数据库和表。
 
-> 我们也支持CDC变更数据。在这种情况下，您需要配置`database`、`table`和`primary_keys`。
+### CDC 事件
 
-```
+配置 `database`、`table` 和 `primary_keys`，SeaTunnel 就能为 CDC 事件生成对应的 `INSERT`/`UPDATE`/`DELETE` SQL。
+
+```hocon
 sink {
-   jdbc {
-   url = "jdbc:snowflake://<account_name>.snowflakecomputing.com"
-   driver = "net.snowflake.client.jdbc.SnowflakeDriver"
-   username = "root"
-   password = "123456"
-   generate_sink_sql = true
-   
-   
-   # 您需要同时配置database和table
-   database = test
-   table = sink_table
-   primary_keys = ["id","name"]
+  Jdbc {
+    url = "jdbc:snowflake://<account_name>.snowflakecomputing.com"
+    driver = "net.snowflake.client.jdbc.SnowflakeDriver"
+    username = "USER"
+    password = "PASSWORD"
+    generate_sink_sql = true
+    database = "test"
+    table = "sink_table"
+    primary_keys = ["id", "name"]
   }
 }
 ```

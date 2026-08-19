@@ -1090,6 +1090,15 @@
                 <activeByDefault>false</activeByDefault>
             </activation>
         </profile>
+        <profile>
+            <id>benchmark</id>
+            <activation>
+                <activeByDefault>false</activeByDefault>
+            </activation>
+            <modules>
+                <module>seatunnel-benchmarks</module>
+            </modules>
+        </profile>
     </profiles>
 
 </project>
