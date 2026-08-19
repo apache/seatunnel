@@ -31,6 +31,7 @@ import org.apache.seatunnel.engine.server.execution.TaskExecutionContext;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.context.SeaTunnelSplitEnumeratorContext;
+import org.apache.seatunnel.engine.server.task.operation.checkpoint.BarrierFlowOperation;
 import org.apache.seatunnel.engine.server.task.operation.source.AssignSplitOperation;
 
 import org.junit.jupiter.api.Assertions;
@@ -316,11 +317,6 @@ public class SourceSplitEnumeratorTaskTest {
             assertEnumeratorCallWaitsForContextLock(
                     enumeratorContext,
                     executorService,
-                    enumerator.runCalled,
-                    () -> enumeratorTask.call());
-            assertEnumeratorCallWaitsForContextLock(
-                    enumeratorContext,
-                    executorService,
                     enumerator.splitRequestCalled,
                     () -> enumeratorTask.requestSplit(readerLocation.getTaskIndex()));
             assertEnumeratorCallWaitsForContextLock(
@@ -346,6 +342,99 @@ public class SourceSplitEnumeratorTaskTest {
                     executorService,
                     enumerator.checkpointAbortedCalled,
                     () -> enumeratorTask.notifyCheckpointAborted(1L));
+        } finally {
+            executorService.shutdownNow();
+        }
+    }
+
+    @Test
+    void testLongRunningEnumeratorRunDoesNotBlockCheckpoint() throws Exception {
+        SeaTunnelSource<?, DummySplit, Serializable> source = Mockito.mock(SeaTunnelSource.class);
+        LongRunningEnumerator enumerator = new LongRunningEnumerator();
+        Serializer<Serializable> stateSerializer = Mockito.mock(Serializer.class);
+        Mockito.when(source.createEnumerator(Mockito.any())).thenReturn(enumerator);
+        Mockito.when(source.getEnumeratorStateSerializer()).thenReturn(stateSerializer);
+        Mockito.when(stateSerializer.serialize("state")).thenReturn(new byte[] {1});
+
+        SourceAction<?, DummySplit, Serializable> action =
+                new SourceAction<>(1, "fake", source, new HashSet<>(), Collections.emptySet());
+        SourceSplitEnumeratorTask<DummySplit> enumeratorTask =
+                new SourceSplitEnumeratorTask<>(
+                        1, new TaskLocation(new TaskGroupLocation(1, 1, 1), 1, 1), action);
+
+        TaskExecutionContext context = Mockito.mock(TaskExecutionContext.class);
+        InvocationFuture<Object> future = Mockito.mock(InvocationFuture.class);
+        Mockito.when(context.getOrCreateMetricsContext(Mockito.any())).thenReturn(null);
+        Mockito.when(context.sendToMaster(Mockito.any())).thenReturn(future);
+        Mockito.when(context.sendToMember(Mockito.any(), Mockito.any())).thenReturn(future);
+        Mockito.when(future.join()).thenReturn(null);
+        mockSuccessfulDelivery(future);
+        TaskExecutionService taskExecutionService = Mockito.mock(TaskExecutionService.class);
+        Mockito.when(context.getTaskExecutionService()).thenReturn(taskExecutionService);
+
+        enumeratorTask.setTaskExecutionContext(context);
+        enumeratorTask.init();
+        enumeratorTask.restoreState(new ArrayList<>());
+
+        TaskLocation readerLocation = new TaskLocation(new TaskGroupLocation(1, 1, 1), 1, 1);
+        Address address = Address.createUnresolvedAddress("localhost", 5701);
+        enumeratorTask.receivedReader(readerLocation, address);
+        enumeratorTask.startCall();
+
+        ExecutorService executorService = Executors.newSingleThreadExecutor();
+        try {
+            Future<?> runningEnumerator =
+                    executorService.submit(
+                            () -> {
+                                enumeratorTask.call();
+                                enumeratorTask.call();
+                                enumeratorTask.call();
+                                enumeratorTask.call();
+                                return null;
+                            });
+            Assertions.assertTrue(enumerator.runStarted.await(1, TimeUnit.SECONDS));
+
+            Assertions.assertTimeoutPreemptively(
+                    java.time.Duration.ofSeconds(1),
+                    () ->
+                            enumeratorTask.triggerBarrier(
+                                    new CheckpointBarrier(
+                                            1,
+                                            System.currentTimeMillis(),
+                                            CheckpointType.CHECKPOINT_TYPE)));
+            Assertions.assertTrue(enumerator.snapshotCalled.await(1, TimeUnit.SECONDS));
+
+            enumerator.finishRun.countDown();
+            runningEnumerator.get(1, TimeUnit.SECONDS);
+        } finally {
+            executorService.shutdownNow();
+        }
+    }
+
+    @Test
+    void testSplitDeliveryDoesNotWaitForEnumeratorContextMonitor() throws Exception {
+        SourceSplitEnumeratorTask<DummySplit> task = Mockito.mock(SourceSplitEnumeratorTask.class);
+        TaskExecutionContext executionContext = Mockito.mock(TaskExecutionContext.class);
+        InvocationFuture<Object> future = Mockito.mock(InvocationFuture.class);
+        Mockito.when(task.getExecutionContext()).thenReturn(executionContext);
+        Mockito.when(task.getTaskMemberLocationByIndex(0))
+                .thenReturn(new TaskLocation(new TaskGroupLocation(1, 1, 1), 1, 0));
+        Mockito.when(task.getTaskMemberAddressByIndex(0))
+                .thenReturn(Address.createUnresolvedAddress("localhost", 5701));
+        Mockito.when(executionContext.sendToMember(Mockito.any(), Mockito.any()))
+                .thenReturn(future);
+        mockSuccessfulDelivery(future);
+
+        SeaTunnelSplitEnumeratorContext<DummySplit> enumeratorContext =
+                new SeaTunnelSplitEnumeratorContext<>(1, task, null, null);
+
+        ExecutorService executorService = Executors.newSingleThreadExecutor();
+        try {
+            synchronized (enumeratorContext) {
+                Future<?> splitDelivery =
+                        executorService.submit(() -> enumeratorContext.signalNoMoreSplits(0));
+                splitDelivery.get(1, TimeUnit.SECONDS);
+            }
         } finally {
             executorService.shutdownNow();
         }
@@ -608,11 +697,11 @@ public class SourceSplitEnumeratorTaskTest {
     }
 
     /**
-     * Verifies that a delivery started while a checkpoint waits for the previous acknowledgement
-     * cannot enter before the enumerator state snapshot.
+     * Verifies that a split delivery can be enqueued while a checkpoint is waiting for previous
+     * acknowledgements without waiting for the enumerator-context monitor.
      */
     @Test
-    void testCheckpointSnapshotExcludesDeliveryBlockedByCheckpointMonitor() throws Exception {
+    void testSplitDeliveryReturnsWhileCheckpointWaitsForPendingAcknowledgement() throws Exception {
         SeaTunnelSource<?, DummySplit, Serializable> source = Mockito.mock(SeaTunnelSource.class);
         SourceSplitEnumerator<DummySplit, Serializable> enumerator =
                 Mockito.mock(SourceSplitEnumerator.class);
@@ -711,14 +800,128 @@ public class SourceSplitEnumeratorTaskTest {
                                 enumeratorContext.signalNoMoreSplits(readerLocation.getTaskIndex());
                             });
             Assertions.assertTrue(secondDeliveryStarted.await(5, TimeUnit.SECONDS));
+            secondDelivery.get(1, TimeUnit.SECONDS);
             Assertions.assertEquals(1, assignSplitSendCount.get());
 
             firstDeliveryCallback.get().accept(null, null);
             checkpoint.get(5, TimeUnit.SECONDS);
-            secondDelivery.get(5, TimeUnit.SECONDS);
+            await().atMost(5, TimeUnit.SECONDS).until(() -> assignSplitSendCount.get() == 2);
 
             Assertions.assertEquals(2, assignSplitSendCount.get());
-            Assertions.assertEquals(java.util.Arrays.asList("snapshot", "second-send"), sequence);
+            Assertions.assertTrue(sequence.contains("snapshot"));
+            Assertions.assertTrue(sequence.contains("second-send"));
+        } finally {
+            executorService.shutdownNow();
+        }
+    }
+
+    @Test
+    void testCheckpointWaitsForDeliveryEnqueuedDuringSnapshotBeforeReaderBarrier()
+            throws Exception {
+        SeaTunnelSource<?, DummySplit, Serializable> source = Mockito.mock(SeaTunnelSource.class);
+        SourceSplitEnumerator<DummySplit, Serializable> enumerator =
+                Mockito.mock(SourceSplitEnumerator.class);
+        Serializer<Serializable> stateSerializer = Mockito.mock(Serializer.class);
+        AtomicReference<SeaTunnelSplitEnumeratorContext<DummySplit>> enumeratorContextRef =
+                new AtomicReference<>();
+        CountDownLatch snapshotStarted = new CountDownLatch(1);
+        CountDownLatch deliverySendStarted = new CountDownLatch(1);
+        AtomicReference<BiConsumer<Object, Throwable>> deliveryCallback = new AtomicReference<>();
+        AtomicInteger barrierSendCount = new AtomicInteger();
+        List<String> sequence = new CopyOnWriteArrayList<>();
+        Mockito.when(source.createEnumerator(Mockito.any()))
+                .thenAnswer(
+                        invocation -> {
+                            enumeratorContextRef.set(invocation.getArgument(0));
+                            return enumerator;
+                        });
+        Mockito.when(source.getEnumeratorStateSerializer()).thenReturn(stateSerializer);
+        Mockito.when(enumerator.snapshotState(1L))
+                .thenAnswer(
+                        invocation -> {
+                            snapshotStarted.countDown();
+                            Assertions.assertTrue(deliverySendStarted.await(5, TimeUnit.SECONDS));
+                            sequence.add("snapshot");
+                            return "state";
+                        });
+        Mockito.when(stateSerializer.serialize("state")).thenReturn(new byte[] {1});
+
+        SourceAction<?, DummySplit, Serializable> action =
+                new SourceAction<>(1, "fake", source, new HashSet<>(), Collections.emptySet());
+        SourceSplitEnumeratorTask<DummySplit> enumeratorTask =
+                new SourceSplitEnumeratorTask<>(
+                        1, new TaskLocation(new TaskGroupLocation(1, 1, 1), 1, 1), action);
+        TaskExecutionContext executionContext = Mockito.mock(TaskExecutionContext.class);
+        InvocationFuture<Object> pendingDelivery = Mockito.mock(InvocationFuture.class);
+        InvocationFuture<Object> successfulDelivery = Mockito.mock(InvocationFuture.class);
+        Mockito.when(executionContext.getOrCreateMetricsContext(Mockito.any())).thenReturn(null);
+        Mockito.when(executionContext.sendToMaster(Mockito.any())).thenReturn(successfulDelivery);
+        Mockito.when(successfulDelivery.join()).thenReturn(null);
+        mockSuccessfulDelivery(successfulDelivery);
+        Mockito.doAnswer(
+                        invocation -> {
+                            deliveryCallback.set(invocation.getArgument(0));
+                            return pendingDelivery;
+                        })
+                .when(pendingDelivery)
+                .whenComplete(Mockito.any());
+        Mockito.when(executionContext.sendToMember(Mockito.any(), Mockito.any()))
+                .thenAnswer(
+                        invocation -> {
+                            Operation operation = invocation.getArgument(0);
+                            if (operation instanceof AssignSplitOperation) {
+                                deliverySendStarted.countDown();
+                                return pendingDelivery;
+                            }
+                            if (operation instanceof BarrierFlowOperation) {
+                                sequence.add("barrier");
+                                barrierSendCount.incrementAndGet();
+                            }
+                            return successfulDelivery;
+                        });
+        TaskExecutionService taskExecutionService = Mockito.mock(TaskExecutionService.class);
+        Mockito.when(executionContext.getTaskExecutionService()).thenReturn(taskExecutionService);
+        enumeratorTask.setTaskExecutionContext(executionContext);
+        enumeratorTask.init();
+        enumeratorTask.restoreState(new ArrayList<>());
+
+        TaskLocation readerLocation = new TaskLocation(new TaskGroupLocation(1, 1, 1), 1, 1);
+        enumeratorTask.receivedReader(
+                readerLocation, Address.createUnresolvedAddress("localhost", 5701));
+        SeaTunnelSplitEnumeratorContext<DummySplit> enumeratorContext = enumeratorContextRef.get();
+
+        ExecutorService executorService = Executors.newFixedThreadPool(2);
+        try {
+            Future<?> checkpoint =
+                    executorService.submit(
+                            () -> {
+                                enumeratorTask.triggerBarrier(
+                                        new CheckpointBarrier(
+                                                1,
+                                                System.currentTimeMillis(),
+                                                CheckpointType.CHECKPOINT_TYPE));
+                                return null;
+                            });
+            Assertions.assertTrue(snapshotStarted.await(5, TimeUnit.SECONDS));
+
+            Future<?> splitDelivery =
+                    executorService.submit(
+                            () -> {
+                                enumeratorContext.signalNoMoreSplits(readerLocation.getTaskIndex());
+                                return null;
+                            });
+            splitDelivery.get(5, TimeUnit.SECONDS);
+            await().atMost(5, TimeUnit.SECONDS).until(() -> deliveryCallback.get() != null);
+
+            Assertions.assertFalse(checkpoint.isDone());
+            Assertions.assertEquals(0, barrierSendCount.get());
+
+            sequence.add("delivery-ack");
+            deliveryCallback.get().accept(null, null);
+            checkpoint.get(5, TimeUnit.SECONDS);
+
+            Assertions.assertEquals(1, barrierSendCount.get());
+            Assertions.assertTrue(sequence.indexOf("delivery-ack") < sequence.indexOf("barrier"));
         } finally {
             executorService.shutdownNow();
         }
@@ -807,7 +1010,6 @@ public class SourceSplitEnumeratorTaskTest {
             implements SourceSplitEnumerator<DummySplit, Serializable> {
 
         private final CountDownLatch registerReaderCalled = new CountDownLatch(1);
-        private final CountDownLatch runCalled = new CountDownLatch(1);
         private final CountDownLatch addSplitsBackCalled = new CountDownLatch(1);
         private final CountDownLatch splitRequestCalled = new CountDownLatch(1);
         private final CountDownLatch sourceEventCalled = new CountDownLatch(1);
@@ -818,9 +1020,7 @@ public class SourceSplitEnumeratorTaskTest {
         public void open() {}
 
         @Override
-        public void run() {
-            runCalled.countDown();
-        }
+        public void run() {}
 
         @Override
         public void close() {}
@@ -864,5 +1064,54 @@ public class SourceSplitEnumeratorTaskTest {
         public void notifyCheckpointAborted(long checkpointId) {
             checkpointAbortedCalled.countDown();
         }
+    }
+
+    private static final class LongRunningEnumerator
+            implements SourceSplitEnumerator<DummySplit, Serializable> {
+
+        private final CountDownLatch runStarted = new CountDownLatch(1);
+        private final CountDownLatch finishRun = new CountDownLatch(1);
+        private final CountDownLatch snapshotCalled = new CountDownLatch(1);
+
+        @Override
+        public void open() {}
+
+        @Override
+        public void run() throws Exception {
+            runStarted.countDown();
+            finishRun.await();
+        }
+
+        @Override
+        public void close() {}
+
+        @Override
+        public void addSplitsBack(List<DummySplit> splits, int subtaskId) {}
+
+        @Override
+        public int currentUnassignedSplitSize() {
+            return 0;
+        }
+
+        @Override
+        public void handleSplitRequest(int subtaskId) {}
+
+        @Override
+        public void registerReader(int subtaskId) {}
+
+        @Override
+        public void handleSourceEvent(int subtaskId, SourceEvent sourceEvent) {}
+
+        @Override
+        public Serializable snapshotState(long checkpointId) {
+            snapshotCalled.countDown();
+            return "state";
+        }
+
+        @Override
+        public void notifyCheckpointComplete(long checkpointId) {}
+
+        @Override
+        public void notifyCheckpointAborted(long checkpointId) {}
     }
 }

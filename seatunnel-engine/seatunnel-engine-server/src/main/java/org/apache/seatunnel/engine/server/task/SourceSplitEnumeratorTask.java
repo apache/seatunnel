@@ -161,9 +161,23 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
             if (barrier.snapshot()) {
                 snapshotState = enumerator.snapshotState(barrierId);
                 serialize = enumeratorStateSerializer.serialize(snapshotState);
+                enumeratorContext.blockSplitDeliveryUntilReaderBarrierSent();
             }
-            log.debug("source split enumerator send state [{}] to master", snapshotState);
-            sendToActiveReader(barrier);
+            try {
+                if (barrier.snapshot()) {
+                    // Split deliveries that were enqueued while snapshotState waited for
+                    // connector-owned locks must be acknowledged before readers receive this
+                    // barrier. Later deliveries wait until the barrier is sent, preserving
+                    // checkpoint ownership without reintroducing the run() monitor deadlock.
+                    enumeratorContext.awaitPendingSplitDeliveries();
+                }
+                log.debug("source split enumerator send state [{}] to master", snapshotState);
+                sendToActiveReader(barrier);
+            } finally {
+                if (barrier.snapshot()) {
+                    enumeratorContext.unblockSplitDeliveryAfterReaderBarrierSent();
+                }
+            }
         }
         if (barrier.snapshot()) {
             this.getExecutionContext()
@@ -342,12 +356,10 @@ public class SourceSplitEnumeratorTask<SplitT extends SourceSplit> extends Coord
             case STARTING:
                 currState = RUNNING;
                 log.info("received enough reader, starting enumerator...");
-                synchronized (enumeratorContext) {
-                    // Connector enumerators often remove splits from their own pending state before
-                    // calling Context.assignSplit. Use the checkpoint monitor here so snapshots
-                    // cannot observe that intermediate ownership gap.
-                    enumerator.run();
-                }
+                // Some streaming enumerators keep run() alive until close or interruption. Do not
+                // hold the checkpoint monitor across this call, otherwise periodic checkpoints can
+                // never acquire the monitor after the source starts.
+                enumerator.run();
                 break;
             case RUNNING:
                 // The reader closes automatically after reading

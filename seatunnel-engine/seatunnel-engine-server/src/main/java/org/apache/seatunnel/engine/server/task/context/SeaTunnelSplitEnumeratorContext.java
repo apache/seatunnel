@@ -71,6 +71,10 @@ public class SeaTunnelSplitEnumeratorContext<SplitT extends SourceSplit>
     private final AtomicReference<IllegalStateException> splitDeliveryFailure =
             new AtomicReference<>();
 
+    private final Object checkpointReaderBarrierLock = new Object();
+
+    private boolean checkpointReaderBarrierSending;
+
     public SeaTunnelSplitEnumeratorContext(
             int parallelism,
             SourceSplitEnumeratorTask<SplitT> task,
@@ -161,10 +165,8 @@ public class SeaTunnelSplitEnumeratorContext<SplitT extends SourceSplit>
      * snapshot. This keeps enumerator state snapshots consistent with acknowledged split delivery.
      */
     public void awaitPendingSplitDeliveries() throws InterruptedException, ExecutionException {
-        List<CompletableFuture<Void>> pendingDeliveries;
-        synchronized (this) {
-            pendingDeliveries = new ArrayList<>(splitDeliveryChains.values());
-        }
+        List<CompletableFuture<Void>> pendingDeliveries =
+                new ArrayList<>(splitDeliveryChains.values());
         for (CompletableFuture<Void> splitDeliveryChain : pendingDeliveries) {
             splitDeliveryChain.get();
         }
@@ -183,6 +185,29 @@ public class SeaTunnelSplitEnumeratorContext<SplitT extends SourceSplit>
     }
 
     /**
+     * Defers split delivery until the checkpoint barrier has reached all active source readers.
+     *
+     * <p>The checkpoint thread enables this only after the enumerator state has been snapshotted,
+     * so it never waits for connector-owned state locks while connector code waits for this gate.
+     */
+    public void blockSplitDeliveryUntilReaderBarrierSent() {
+        synchronized (checkpointReaderBarrierLock) {
+            checkpointReaderBarrierSending = true;
+        }
+    }
+
+    /**
+     * Allows split delivery to continue after the checkpoint barrier has reached all active source
+     * readers.
+     */
+    public void unblockSplitDeliveryAfterReaderBarrierSent() {
+        synchronized (checkpointReaderBarrierLock) {
+            checkpointReaderBarrierSending = false;
+            checkpointReaderBarrierLock.notifyAll();
+        }
+    }
+
+    /**
      * Chains split-delivery operations per reader so assign/no-more-splits events keep their
      * original ordering without blocking the enumerator task thread.
      */
@@ -190,25 +215,47 @@ public class SeaTunnelSplitEnumeratorContext<SplitT extends SourceSplit>
             int subtaskIndex,
             String action,
             Supplier<CompletableFuture<Void>> splitDeliverySupplier) {
-        // SourceSplitEnumeratorTask holds this same context monitor while taking a checkpoint
-        // snapshot, so no delivery can be accepted between the tail snapshot and state snapshot.
-        synchronized (this) {
+        // Do not synchronize on this context here. Some connectors call assignSplit while holding
+        // their own state lock, and checkpoint snapshots may call back into that same connector
+        // lock. Updating only the per-reader chain avoids the AB/BA order
+        // connector-state-lock -> enumerator-context and enumerator-context ->
+        // connector-state-lock.
+        CompletableFuture<Void> currentDelivery = new CompletableFuture<>();
+        CompletableFuture<Void> previousDelivery;
+        synchronized (checkpointReaderBarrierLock) {
+            awaitReaderBarrierSendFinishedLocked();
             throwIfSplitDeliveryFailed();
-            splitDeliveryChains.compute(
-                    subtaskIndex,
-                    (ignored, previousDelivery) -> {
-                        CompletableFuture<Void> orderedDelivery =
-                                previousDelivery == null
-                                        ? CompletableFuture.completedFuture(null)
-                                        : previousDelivery;
-                        return new CompletableFuture<>(
-                                orderedDelivery.thenCompose(
-                                        unused ->
-                                                invokeSplitDelivery(
-                                                        splitDeliverySupplier,
-                                                        subtaskIndex,
-                                                        action)));
-                    });
+            // Register the placeholder while holding the gate lock. A checkpoint that starts the
+            // reader-barrier phase immediately afterwards will still see and wait for this
+            // delivery.
+            previousDelivery = splitDeliveryChains.put(subtaskIndex, currentDelivery);
+        }
+        CompletableFuture<Void> orderedDelivery =
+                previousDelivery == null
+                        ? CompletableFuture.completedFuture(null)
+                        : previousDelivery;
+        orderedDelivery
+                .thenCompose(
+                        unused -> invokeSplitDelivery(splitDeliverySupplier, subtaskIndex, action))
+                .whenComplete(
+                        (unused, throwable) -> {
+                            if (throwable == null) {
+                                currentDelivery.complete(null);
+                            } else {
+                                currentDelivery.completeExceptionally(throwable);
+                            }
+                        });
+    }
+
+    private void awaitReaderBarrierSendFinishedLocked() {
+        while (checkpointReaderBarrierSending) {
+            try {
+                checkpointReaderBarrierLock.wait();
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new IllegalStateException(
+                        "Interrupted while waiting for checkpoint reader barrier to finish", e);
+            }
         }
     }
 
