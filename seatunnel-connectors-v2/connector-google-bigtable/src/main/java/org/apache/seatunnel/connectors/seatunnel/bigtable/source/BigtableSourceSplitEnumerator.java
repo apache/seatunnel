@@ -18,24 +18,34 @@
 package org.apache.seatunnel.connectors.seatunnel.bigtable.source;
 
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.connectors.seatunnel.bigtable.client.BigtableClient;
 import org.apache.seatunnel.connectors.seatunnel.bigtable.config.BigtableParameters;
 
+import com.google.cloud.bigtable.data.v2.models.KeyOffset;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * Enumerates {@link BigtableSourceSplit} instances for parallel reading.
+ * 为并行读取枚举 {@link BigtableSourceSplit}。
  *
- * <p>Currently produces a single split covering the full table (or the user-defined row-key range).
- * The split is assigned to whichever reader registers first. Future work can partition by Bigtable
- * tablet boundaries using the Admin API.
+ * <p>主流程：
+ *
+ * <ol>
+ *   <li>通过 {@link BigtableClient#sampleRowKeys()} 按 tablet 近似等大小切分 key range
+ *   <li>与用户配置的 {@code start_rowkey}/{@code end_rowkey} 求交
+ *   <li>按 splitId 哈希取模分配给已注册 Reader
+ * </ol>
+ *
+ * <p>切分失败（采样异常、空采样、求交为空）时回退为覆盖用户 range 的单 split，保证作业仍能跑。 Checkpoint 仍同时持久化 {@code assignedSplits} 与
+ * {@code pendingSplits}（#11144）。
  */
 @Slf4j
 public class BigtableSourceSplitEnumerator
@@ -47,6 +57,9 @@ public class BigtableSourceSplitEnumerator
     private Set<BigtableSourceSplit> pendingSplits;
     private boolean initialized = false;
 
+    /** Enumerator 侧懒创建的 Data API client，仅用于 sampleRowKeys；单测可注入。 */
+    private BigtableClient bigtableClient;
+
     /**
      * Guards the shared assignment state ({@code assignedSplits}, {@code pendingSplits}, {@code
      * initialized}) against concurrent enumerator callbacks. {@link #initializePendingSplits()} and
@@ -56,15 +69,32 @@ public class BigtableSourceSplitEnumerator
 
     public BigtableSourceSplitEnumerator(
             Context<BigtableSourceSplit> context, BigtableParameters parameters) {
-        this(context, parameters, null);
+        this(context, parameters, null, null);
     }
 
     public BigtableSourceSplitEnumerator(
             Context<BigtableSourceSplit> context,
             BigtableParameters parameters,
             BigtableSourceState sourceState) {
+        this(context, parameters, sourceState, null);
+    }
+
+    /**
+     * 包可见构造器，供单测注入 {@link BigtableClient}，避免真实连云。
+     *
+     * @param context 引擎分配上下文
+     * @param parameters 连接与扫描参数
+     * @param sourceState checkpoint 恢复状态，首次启动为 {@code null}
+     * @param bigtableClient 预置 client；为 {@code null} 时在首次切分时懒创建
+     */
+    BigtableSourceSplitEnumerator(
+            Context<BigtableSourceSplit> context,
+            BigtableParameters parameters,
+            BigtableSourceState sourceState,
+            BigtableClient bigtableClient) {
         this.context = context;
         this.parameters = parameters;
+        this.bigtableClient = bigtableClient;
         if (sourceState == null) {
             this.assignedSplits = new HashSet<>();
             this.pendingSplits = new HashSet<>();
@@ -93,7 +123,10 @@ public class BigtableSourceSplitEnumerator
 
     @Override
     public void close() throws IOException {
-        // Nothing to close – no persistent connection held here.
+        if (bigtableClient != null) {
+            bigtableClient.close();
+            bigtableClient = null;
+        }
     }
 
     @Override
@@ -110,7 +143,9 @@ public class BigtableSourceSplitEnumerator
 
     @Override
     public int currentUnassignedSplitSize() {
-        return pendingSplits.size();
+        synchronized (stateLock) {
+            return pendingSplits.size();
+        }
     }
 
     @Override
@@ -154,16 +189,116 @@ public class BigtableSourceSplitEnumerator
     }
 
     /**
-     * Builds the set of splits.
+     * 通过 {@link BigtableClient#sampleRowKeys()} 生成多 split；失败则回退单 split。
      *
-     * <p>For now a single split spanning the requested row-key range is produced. This is
-     * sufficient for bounded batch reads. Parallel multi-split support can be added later by
-     * querying Bigtable tablet boundary information.
+     * <p>采样点按字典序切成半开区间 {@code [prev, current)}，再与用户 range 求交。若最后一个采样 key 不是空（表尾），额外补一段 {@code
+     * [lastSample, "")} 以免漏扫表尾。
+     *
+     * @return 至少一个 split；切分失败时为覆盖用户 range 的单 split
      */
-    private Set<BigtableSourceSplit> buildSplits() {
-        String startKey = parameters.getStartRowkey() != null ? parameters.getStartRowkey() : "";
-        String endKey = parameters.getEndRowkey() != null ? parameters.getEndRowkey() : "";
-        return Collections.singleton(new BigtableSourceSplit(0, startKey, endKey));
+    Set<BigtableSourceSplit> buildSplits() {
+        String userStart = parameters.getStartRowkey() != null ? parameters.getStartRowkey() : "";
+        String userEnd = parameters.getEndRowkey() != null ? parameters.getEndRowkey() : "";
+
+        List<KeyOffset> samples;
+        try {
+            samples = getBigtableClient().sampleRowKeys();
+        } catch (Exception e) {
+            log.warn(
+                    "sampleRowKeys failed for table [{}], fallback to single split",
+                    parameters.getTable(),
+                    e);
+            return Collections.singleton(new BigtableSourceSplit(0, userStart, userEnd));
+        }
+
+        if (samples == null || samples.isEmpty()) {
+            return Collections.singleton(new BigtableSourceSplit(0, userStart, userEnd));
+        }
+
+        Set<BigtableSourceSplit> splits = new LinkedHashSet<>();
+        String rangeStart = "";
+        int index = 0;
+        for (KeyOffset sample : samples) {
+            String rangeEnd = keyToUtf8(sample);
+            index = addIntersectedSplit(splits, index, rangeStart, rangeEnd, userStart, userEnd);
+            rangeStart = rangeEnd;
+        }
+
+        // 最后一个 sample 不是空 key 时，API 未给出表尾哨兵，补齐 [lastSample, 表尾)
+        if (!rangeStart.isEmpty()) {
+            addIntersectedSplit(splits, index, rangeStart, "", userStart, userEnd);
+        }
+
+        if (splits.isEmpty()) {
+            return Collections.singleton(new BigtableSourceSplit(0, userStart, userEnd));
+        }
+        log.info(
+                "Enumerated {} Bigtable splits for table [{}]",
+                splits.size(),
+                parameters.getTable());
+        return splits;
+    }
+
+    /**
+     * 把 tablet 区间与用户 range 求交后加入结果集。
+     *
+     * @return 若加入了 split 则返回 {@code index + 1}，否则原 {@code index}
+     */
+    private static int addIntersectedSplit(
+            Set<BigtableSourceSplit> splits,
+            int index,
+            String rangeStart,
+            String rangeEnd,
+            String userStart,
+            String userEnd) {
+        String splitStart = maxStart(rangeStart, userStart);
+        String splitEnd = minEnd(rangeEnd, userEnd);
+        if (isValidRange(splitStart, splitEnd)) {
+            splits.add(new BigtableSourceSplit(index, splitStart, splitEnd));
+            return index + 1;
+        }
+        return index;
+    }
+
+    /** 将采样点 key 转为 UTF-8；null / 空 ByteString 表示表尾。 */
+    private static String keyToUtf8(KeyOffset sample) {
+        if (sample == null || sample.getKey() == null) {
+            return "";
+        }
+        return sample.getKey().toStringUtf8();
+    }
+
+    /** start 取较大者（空表示表头，视为最小）。 */
+    private static String maxStart(String a, String b) {
+        if (a.isEmpty()) {
+            return b;
+        }
+        if (b.isEmpty()) {
+            return a;
+        }
+        return a.compareTo(b) >= 0 ? a : b;
+    }
+
+    /** end 取较小者（空表示表尾，视为最大）。 */
+    private static String minEnd(String a, String b) {
+        if (a.isEmpty()) {
+            return b;
+        }
+        if (b.isEmpty()) {
+            return a;
+        }
+        return a.compareTo(b) <= 0 ? a : b;
+    }
+
+    /** {@code [start, end)} 是否非空；end 为空表示直到表尾，只要区间不反向即合法。 */
+    private static boolean isValidRange(String start, String end) {
+        if (end.isEmpty()) {
+            return true;
+        }
+        if (start.isEmpty()) {
+            return true;
+        }
+        return start.compareTo(end) < 0;
     }
 
     private void assignSplit(int taskId) {
@@ -190,5 +325,12 @@ public class BigtableSourceSplitEnumerator
                         .map(BigtableSourceSplit::splitId)
                         .collect(Collectors.joining(",")));
         context.signalNoMoreSplits(taskId);
+    }
+
+    private BigtableClient getBigtableClient() {
+        if (bigtableClient == null) {
+            bigtableClient = BigtableClient.createInstance(parameters);
+        }
+        return bigtableClient;
     }
 }

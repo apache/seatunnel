@@ -26,6 +26,7 @@ import com.google.auth.oauth2.ServiceAccountCredentials;
 import com.google.cloud.bigtable.data.v2.BigtableDataClient;
 import com.google.cloud.bigtable.data.v2.BigtableDataSettings;
 import com.google.cloud.bigtable.data.v2.models.BulkMutation;
+import com.google.cloud.bigtable.data.v2.models.KeyOffset;
 import com.google.cloud.bigtable.data.v2.models.Mutation;
 import com.google.cloud.bigtable.data.v2.models.RowMutation;
 import com.google.protobuf.ByteString;
@@ -138,6 +139,24 @@ public class BigtableClient implements Serializable, AutoCloseable {
      */
     public BigtableDataClient getDataClient() {
         return dataClient;
+    }
+
+    /**
+     * 采样表内 row key 边界，用于 Enumerator 生成并行 Source Split。
+     *
+     * <p>返回值是近似等大小区间的分隔 key 列表；最后一个 key 通常为空，表示表尾。
+     *
+     * @return tablet 边界采样点；调用失败时抛出 {@link BigtableConnectorException}
+     */
+    public List<KeyOffset> sampleRowKeys() {
+        try {
+            return dataClient.sampleRowKeys(parameters.getTable());
+        } catch (Exception e) {
+            throw new BigtableConnectorException(
+                    BigtableConnectorErrorCode.TABLE_QUERY_FAILED,
+                    "Failed to sample row keys for table " + parameters.getTable(),
+                    e);
+        }
     }
 
     @Override

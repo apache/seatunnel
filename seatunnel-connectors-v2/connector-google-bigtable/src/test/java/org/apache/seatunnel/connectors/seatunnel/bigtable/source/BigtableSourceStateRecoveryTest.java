@@ -89,16 +89,14 @@ class BigtableSourceStateRecoveryTest {
     @Test
     void testEmptyEnumeratorCheckpointStillDiscoversSplitsOnRestore() throws Exception {
         TestingContext context = new TestingContext(1);
-        BigtableSourceSplitEnumerator enumerator =
-                new BigtableSourceSplitEnumerator(context, PARAMETERS);
+        BigtableSourceSplitEnumerator enumerator = newEnumerator(context);
         enumerator.open();
 
         BigtableSourceState emptyCheckpoint = enumerator.snapshotState(1L);
         assertTrue(emptyCheckpoint.getAssignedSplits().isEmpty());
         assertTrue(emptyCheckpoint.getPendingSplits().isEmpty());
 
-        BigtableSourceSplitEnumerator restored =
-                new BigtableSourceSplitEnumerator(context, PARAMETERS, emptyCheckpoint);
+        BigtableSourceSplitEnumerator restored = restoreEnumerator(context, emptyCheckpoint);
         restored.open();
 
         context.registerReaderForTest(0);
@@ -115,8 +113,7 @@ class BigtableSourceStateRecoveryTest {
     @Test
     void testReturnedSplitDroppedWhenCheckpointOmitsPending() throws Exception {
         TestingContext context = new TestingContext(1);
-        BigtableSourceSplitEnumerator enumerator =
-                new BigtableSourceSplitEnumerator(context, PARAMETERS);
+        BigtableSourceSplitEnumerator enumerator = newEnumerator(context);
         enumerator.open();
 
         context.registerReaderForTest(0);
@@ -133,8 +130,7 @@ class BigtableSourceStateRecoveryTest {
                         new HashSet<>(Collections.singleton(split)), Collections.emptySet());
 
         TestingContext restoreContext = new TestingContext(1);
-        BigtableSourceSplitEnumerator restored =
-                new BigtableSourceSplitEnumerator(restoreContext, PARAMETERS, buggyCheckpoint);
+        BigtableSourceSplitEnumerator restored = restoreEnumerator(restoreContext, buggyCheckpoint);
         restored.open();
 
         restoreContext.registerReaderForTest(0);
@@ -164,8 +160,7 @@ class BigtableSourceStateRecoveryTest {
         assertTrue(legacyState.getPendingSplits().isEmpty());
 
         TestingContext context = new TestingContext(1);
-        BigtableSourceSplitEnumerator restored =
-                new BigtableSourceSplitEnumerator(context, PARAMETERS, legacyState);
+        BigtableSourceSplitEnumerator restored = restoreEnumerator(context, legacyState);
         restored.open();
 
         context.registerReaderForTest(0);
@@ -191,8 +186,7 @@ class BigtableSourceStateRecoveryTest {
         assertTrue(deserialized.getPendingSplits().isEmpty());
 
         TestingContext context = new TestingContext(1);
-        BigtableSourceSplitEnumerator restored =
-                new BigtableSourceSplitEnumerator(context, PARAMETERS, deserialized);
+        BigtableSourceSplitEnumerator restored = restoreEnumerator(context, deserialized);
         restored.open();
 
         context.registerReaderForTest(0);
@@ -207,8 +201,7 @@ class BigtableSourceStateRecoveryTest {
     @Test
     void testReaderEnumeratorFailoverHandoff() throws Exception {
         TestingContext enumContext = new TestingContext(1);
-        BigtableSourceSplitEnumerator enumerator =
-                new BigtableSourceSplitEnumerator(enumContext, PARAMETERS);
+        BigtableSourceSplitEnumerator enumerator = newEnumerator(enumContext);
         enumerator.open();
         enumContext.registerReaderForTest(0);
         enumerator.registerReader(0);
@@ -236,7 +229,7 @@ class BigtableSourceStateRecoveryTest {
 
         TestingContext restoreContext = new TestingContext(1);
         BigtableSourceSplitEnumerator restoredEnum =
-                new BigtableSourceSplitEnumerator(restoreContext, PARAMETERS, enumCheckpoint);
+                restoreEnumerator(restoreContext, enumCheckpoint);
         restoredEnum.open();
         restoreContext.registerReaderForTest(0);
         restoredEnum.registerReader(0);
@@ -320,8 +313,7 @@ class BigtableSourceStateRecoveryTest {
     @Test
     void testAddSplitsBackWithRegisteredReaderImmediatelyReassigns() throws Exception {
         TestingContext context = new TestingContext(1);
-        BigtableSourceSplitEnumerator enumerator =
-                new BigtableSourceSplitEnumerator(context, PARAMETERS);
+        BigtableSourceSplitEnumerator enumerator = newEnumerator(context);
         enumerator.open();
 
         context.registerReaderForTest(0);
@@ -337,6 +329,25 @@ class BigtableSourceStateRecoveryTest {
         BigtableSourceState checkpoint = enumerator.snapshotState(1L);
         assertTrue(checkpoint.getPendingSplits().isEmpty());
         assertTrue(checkpoint.getAssignedSplits().contains(split));
+    }
+
+    private static BigtableSourceSplitEnumerator newEnumerator(
+            SourceSplitEnumerator.Context<BigtableSourceSplit> context) {
+        return new BigtableSourceSplitEnumerator(context, PARAMETERS, null, emptySampleClient());
+    }
+
+    private static BigtableSourceSplitEnumerator restoreEnumerator(
+            SourceSplitEnumerator.Context<BigtableSourceSplit> context,
+            BigtableSourceState sourceState) {
+        return new BigtableSourceSplitEnumerator(
+                context, PARAMETERS, sourceState, emptySampleClient());
+    }
+
+    /** 空采样触发单 split 降级，保持本类原有「一张表一个 split」的恢复断言。 */
+    private static BigtableClient emptySampleClient() {
+        BigtableClient client = mock(BigtableClient.class);
+        when(client.sampleRowKeys()).thenReturn(Collections.emptyList());
+        return client;
     }
 
     @SuppressWarnings("unchecked")
