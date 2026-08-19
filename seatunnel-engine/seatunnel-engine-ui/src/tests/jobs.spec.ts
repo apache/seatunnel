@@ -75,12 +75,12 @@ describe('jobs', () => {
     expect(wrapper.text()).toContain('SeaTunnel_Job')
   })
 
-  test('Finished Jobs service requests the finished state endpoint', () => {
+  test('Finished Jobs service requests all terminal jobs by default', () => {
     const getMock = vi.mocked(get)
     getMock.mockClear()
 
     getFinishedJobs(1, 10)
 
-    expect(getMock).toHaveBeenCalledWith('/finished-jobs/finished', {page: 1, rows: 10})
+    expect(getMock).toHaveBeenCalledWith('/finished-jobs', {page: 1, rows: 10})
   })
 })
