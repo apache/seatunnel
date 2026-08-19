@@ -21,10 +21,15 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.MapType;
 import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.neo4j.exception.Neo4jConnectorException;
 
 import org.junit.jupiter.api.Test;
+import org.neo4j.driver.Value;
 import org.neo4j.driver.exceptions.value.LossyCoercion;
+import org.neo4j.driver.internal.InternalRecord;
 import org.neo4j.driver.internal.value.BooleanValue;
 import org.neo4j.driver.internal.value.BytesValue;
 import org.neo4j.driver.internal.value.DateValue;
@@ -49,6 +54,45 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class Neo4jSourceReaderTest {
+
+    @Test
+    void mapsRowsUsingTableSpecificSchemaAndTableId() {
+        SeaTunnelRowType peopleRowType =
+                new SeaTunnelRowType(
+                        new String[] {"name"}, new SeaTunnelDataType<?>[] {BasicType.STRING_TYPE});
+        Neo4jSourceTableConfig peopleConfig =
+                new Neo4jSourceTableConfig("people query", peopleRowType, "people");
+        InternalRecord peopleRecord =
+                new InternalRecord(
+                        Collections.singletonList("name"), new Value[] {new StringValue("Alice")});
+
+        SeaTunnelRow peopleRow = Neo4jSourceReader.convertRecord(peopleRecord, peopleConfig);
+
+        assertEquals("Alice", peopleRow.getField(0));
+        assertEquals("people", peopleRow.getTableId());
+
+        SeaTunnelRowType companiesRowType =
+                new SeaTunnelRowType(
+                        new String[] {"id"}, new SeaTunnelDataType<?>[] {BasicType.INT_TYPE});
+        Neo4jSourceTableConfig companiesConfig =
+                new Neo4jSourceTableConfig("companies query", companiesRowType, "companies");
+        InternalRecord companiesRecord =
+                new InternalRecord(
+                        Collections.singletonList("id"), new Value[] {new IntegerValue(7)});
+
+        SeaTunnelRow companiesRow =
+                Neo4jSourceReader.convertRecord(companiesRecord, companiesConfig);
+
+        assertEquals(7, companiesRow.getField(0));
+        assertEquals("companies", companiesRow.getTableId());
+
+        Neo4jSourceTableConfig singleTableConfig =
+                new Neo4jSourceTableConfig("single query", peopleRowType, null);
+        SeaTunnelRow singleTableRow =
+                Neo4jSourceReader.convertRecord(peopleRecord, singleTableConfig);
+        assertEquals("", singleTableRow.getTableId());
+    }
+
     @Test
     void convertType() {
         assertEquals(
