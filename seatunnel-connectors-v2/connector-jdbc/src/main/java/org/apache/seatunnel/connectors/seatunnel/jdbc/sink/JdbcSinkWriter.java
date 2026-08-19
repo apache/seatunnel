@@ -152,18 +152,123 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
         }
         ds.setAutoCommit(jdbcSinkConfig.getJdbcConnectionConfig().isAutoCommit());
         applyConnectionValidation(ds, jdbcSinkConfig.getJdbcConnectionConfig());
-        jdbcSinkConfig.getJdbcConnectionConfig().getProperties().forEach(ds::addDataSourceProperty);
+        // Forward remaining properties to the JDBC DataSource, excluding HikariCP pool-level
+        // properties that were already applied in applyConnectionValidation() above.
+        jdbcSinkConfig
+                .getJdbcConnectionConfig()
+                .getProperties()
+                .forEach(
+                        (key, value) -> {
+                            if (!isHikariPoolProperty(key)) {
+                                ds.addDataSourceProperty(key, value);
+                            }
+                        });
         return new JdbcMultiTableResourceManager(new ConnectionPoolManager(ds));
     }
 
     /**
      * Configures pool-level validation for JDBC drivers that cannot pass Hikari's default
-     * Connection.isValid(timeout) probe.
+     * Connection.isValid(timeout) probe, and applies user-specified HikariCP pool-level properties
+     * from the {@code properties} configuration block.
+     *
+     * <p>HikariCP pool-level properties (e.g. {@code maxLifetime}, {@code keepaliveTime}, {@code
+     * validationTimeout}) must be set via {@code HikariDataSource} setter methods. Passing them
+     * through {@code addDataSourceProperty()} routes them to the underlying JDBC {@code
+     * DataSource}, where they are silently ignored. This method ensures all user-configured
+     * pool-level properties are properly applied.
      */
     static void applyConnectionValidation(
             HikariDataSource dataSource, JdbcConnectionConfig jdbcConnectionConfig) {
         JdbcConnectionValidationUtils.getConnectionValidationQuery(jdbcConnectionConfig)
                 .ifPresent(dataSource::setConnectionTestQuery);
+
+        // Apply HikariCP pool-level properties from the user's properties config.
+        // These properties are silently ignored when passed via addDataSourceProperty(),
+        // so they must be set explicitly on the HikariDataSource.
+        java.util.Map<String, String> props = jdbcConnectionConfig.getProperties();
+        if (props != null && !props.isEmpty()) {
+            applyHikariIntProperty(
+                    props, "maximumPoolSize", "maximum-pool-size", dataSource::setMaximumPoolSize);
+            applyHikariIntProperty(
+                    props, "minimumIdle", "minimum-idle", dataSource::setMinimumIdle);
+            applyHikariLongProperty(
+                    props,
+                    "connectionTimeout",
+                    "connection-timeout",
+                    dataSource::setConnectionTimeout);
+            applyHikariLongProperty(
+                    props, "idleTimeout", "idle-timeout", dataSource::setIdleTimeout);
+            applyHikariLongProperty(
+                    props, "maxLifetime", "max-lifetime", dataSource::setMaxLifetime);
+            applyHikariLongProperty(
+                    props, "keepaliveTime", "keepalive-time", dataSource::setKeepaliveTime);
+            applyHikariLongProperty(
+                    props,
+                    "validationTimeout",
+                    "validation-timeout",
+                    dataSource::setValidationTimeout);
+        }
+    }
+
+    private static void applyHikariIntProperty(
+            java.util.Map<String, String> props,
+            String camelKey,
+            String kebabKey,
+            java.util.function.IntConsumer setter) {
+        String value = props.get(camelKey);
+        if (value == null) {
+            value = props.get(kebabKey);
+        }
+        if (value != null) {
+            try {
+                setter.accept(Integer.parseInt(value));
+            } catch (NumberFormatException e) {
+                log.warn("Invalid integer value for HikariCP property '{}': {}", camelKey, value);
+            }
+        }
+    }
+
+    private static void applyHikariLongProperty(
+            java.util.Map<String, String> props,
+            String camelKey,
+            String kebabKey,
+            java.util.function.LongConsumer setter) {
+        String value = props.get(camelKey);
+        if (value == null) {
+            value = props.get(kebabKey);
+        }
+        if (value != null) {
+            try {
+                setter.accept(Long.parseLong(value));
+            } catch (NumberFormatException e) {
+                log.warn("Invalid long value for HikariCP property '{}': {}", camelKey, value);
+            }
+        }
+    }
+
+    private static final java.util.Set<String> HIKARI_POOL_PROPERTIES =
+            java.util.Collections.unmodifiableSet(
+                    new java.util.HashSet<>(
+                            java.util.Arrays.asList(
+                                    "connectionTestQuery",
+                                    "connection-test-query",
+                                    "maximumPoolSize",
+                                    "maximum-pool-size",
+                                    "minimumIdle",
+                                    "minimum-idle",
+                                    "connectionTimeout",
+                                    "connection-timeout",
+                                    "idleTimeout",
+                                    "idle-timeout",
+                                    "maxLifetime",
+                                    "max-lifetime",
+                                    "keepaliveTime",
+                                    "keepalive-time",
+                                    "validationTimeout",
+                                    "validation-timeout")));
+
+    private static boolean isHikariPoolProperty(String key) {
+        return HIKARI_POOL_PROPERTIES.contains(key);
     }
 
     @Override
