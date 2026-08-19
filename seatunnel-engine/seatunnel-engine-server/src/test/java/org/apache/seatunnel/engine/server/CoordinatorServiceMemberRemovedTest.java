@@ -30,7 +30,7 @@ import com.hazelcast.cluster.Address;
 class CoordinatorServiceMemberRemovedTest {
 
     @Test
-    void shouldUsePlainOfflineMessageForGracefulMemberRemoval() {
+    void shouldUsePlainOfflineMessageForGracefulMemberRemoval() throws Exception {
         TaskGroupLocation taskGroupLocation = new TaskGroupLocation(1L, 2, 3L);
         Address address = new Address("127.0.0.1", 5801);
 
@@ -44,7 +44,7 @@ class CoordinatorServiceMemberRemovedTest {
     }
 
     @Test
-    void shouldKeepThrowableStackTraceForUnexpectedMemberRemoval() {
+    void shouldKeepThrowableStackTraceForUnexpectedMemberRemoval() throws Exception {
         TaskGroupLocation taskGroupLocation = new TaskGroupLocation(1L, 2, 3L);
         Address address = new Address("127.0.0.1", 5801);
 
