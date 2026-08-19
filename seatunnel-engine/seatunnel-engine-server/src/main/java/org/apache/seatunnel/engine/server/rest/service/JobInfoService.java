@@ -30,6 +30,7 @@ import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobInfo;
+import org.apache.seatunnel.engine.core.job.RestoreMode;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.master.JobHistoryService.JobState;
 import org.apache.seatunnel.engine.server.operation.GetJobStatusOperation;
@@ -389,6 +390,7 @@ public class JobInfoService extends BaseService {
                 && requestParams.get(RestConstant.JOB_ID) == null) {
             throw new IllegalArgumentException("Please provide jobId when start with save point.");
         }
+        validateCheckpointRestoreRequest(requestParams);
         Config config;
         ConfigFormat configFormat = ConfigFormat.fromString(requestParams.get(CONFIG_FORMAT));
 
@@ -421,6 +423,7 @@ public class JobInfoService extends BaseService {
                 && requestParams.get(RestConstant.JOB_ID) == null) {
             throw new IllegalArgumentException("Please provide jobId when start with save point.");
         }
+        validateCheckpointRestoreRequest(requestParams);
         SeaTunnelServer seaTunnelServer = getSeaTunnelServer(false);
         return submitJobInternal(config, requestParams, seaTunnelServer, nodeEngine.getNode());
     }
@@ -440,6 +443,7 @@ public class JobInfoService extends BaseService {
                                 throw new IllegalArgumentException(
                                         "Dry-run is only supported via CLI");
                             }
+                            validateCheckpointRestoreRequest(requestParams);
                             SeaTunnelServer seaTunnelServer = getSeaTunnelServer(false);
                             Config decryptConfig = ConfigShadeUtils.decryptConfig(tuple._2);
                             return submitJobInternal(
@@ -449,5 +453,16 @@ public class JobInfoService extends BaseService {
                                     nodeEngine.getNode());
                         })
                 .collect(JsonArray::new, JsonArray::add, JsonArray::add);
+    }
+
+    private void validateCheckpointRestoreRequest(Map<String, String> requestParams) {
+        String restoreModeValue = requestParams.get(RestConstant.RESTORE_MODE);
+        RestoreMode restoreMode =
+                restoreModeValue == null ? RestoreMode.NONE : RestoreMode.valueOf(restoreModeValue);
+        if (restoreMode.isRestore()
+                && requestParams.get(RestConstant.RESTORE_SOURCE_JOB_ID) == null) {
+            throw new IllegalArgumentException(
+                    "restoreSourceJobId is required when restoreMode=" + restoreMode);
+        }
     }
 }

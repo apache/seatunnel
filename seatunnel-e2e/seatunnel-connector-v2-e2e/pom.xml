@@ -96,7 +96,23 @@
         <module>connector-fluss-e2e</module>
         <module>connector-lance-e2e</module>
         <module>connector-bigquery-e2e</module>
+        <module>connector-nats-jetstream-e2e</module>
+        <module>connector-couchbase-e2e</module>
     </modules>
+
+    <properties>
+        <dns-cache-manipulator.version>1.8.0</dns-cache-manipulator.version>
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>com.alibaba</groupId>
+                <artifactId>dns-cache-manipulator</artifactId>
+                <version>${dns-cache-manipulator.version}</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <dependencies>
         <dependency>

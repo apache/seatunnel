@@ -130,4 +130,9 @@ public class LsnOffset extends Offset {
         LsnOffset that = (LsnOffset) o;
         return offset.equals(that.offset);
     }
+
+    @Override
+    public boolean isNeverStop() {
+        return NO_STOPPING_OFFSET.equals(this);
+    }
 }
