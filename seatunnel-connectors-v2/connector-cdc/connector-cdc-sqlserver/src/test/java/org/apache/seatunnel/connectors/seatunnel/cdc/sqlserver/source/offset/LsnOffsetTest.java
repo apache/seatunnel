@@ -144,4 +144,10 @@ class LsnOffsetTest {
         Assertions.assertTrue(boundary.getChangeLsn().isAvailable());
         Assertions.assertNotNull(boundary.getEventSerialNo());
     }
+
+    @Test
+    void testNoStoppingOffsetIsNeverStop() {
+        Assertions.assertTrue(LsnOffset.NO_STOPPING_OFFSET.isNeverStop());
+        Assertions.assertFalse(LsnOffset.INITIAL_OFFSET.isNeverStop());
+    }
 }

@@ -52,6 +52,7 @@ import java.sql.Timestamp;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -266,8 +267,9 @@ public class JdbcOracleIT extends AbstractJdbcIT {
     }
 
     @Override
-    String driverUrl() {
-        return "https://repo1.maven.org/maven2/com/oracle/database/jdbc/ojdbc8/12.2.0.1/ojdbc8-12.2.0.1.jar && wget https://repo1.maven.org/maven2/com/oracle/database/xml/xdb6/12.2.0.1/xdb6-12.2.0.1.jar && wget https://repo1.maven.org/maven2/com/oracle/database/xml/xmlparserv2/12.2.0.1/xmlparserv2-12.2.0.1.jar";
+    protected List<String> driverDependencyClassNames() {
+        return Arrays.asList(
+                "oracle.jdbc.OracleDriver", "oracle.xdb.XMLType", "oracle.xml.parser.v2.XMLParser");
     }
 
     @Override
@@ -321,9 +323,6 @@ public class JdbcOracleIT extends AbstractJdbcIT {
                         .withExposedPorts(ORACLE_PORT)
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(ORACLE_IMAGE)));
-
-        container.setPortBindings(
-                Lists.newArrayList(String.format("%s:%s", ORACLE_PORT, ORACLE_PORT)));
 
         return container;
     }
