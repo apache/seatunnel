@@ -124,20 +124,34 @@ public class Neo4jSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
 
     @Override
     public void internalPollNext(Collector<SeaTunnelRow> output) throws Exception {
-        for (Neo4jSourceTableConfig tableConfig : tableConfigs) {
-            readTable(output, tableConfig);
+        try {
+            for (Neo4jSourceTableConfig tableConfig : tableConfigs) {
+                readTable(output, tableConfig);
+            }
+        } finally {
+            this.context.signalNoMoreElement();
         }
-        this.context.signalNoMoreElement();
     }
 
     private void readTable(Collector<SeaTunnelRow> output, Neo4jSourceTableConfig tableConfig) {
         final Query query = new Query(tableConfig.getQuery());
-        session.readTransaction(
-                tx -> {
-                    final Result result = tx.run(query);
-                    result.stream().forEach(row -> output.collect(convertRecord(row, tableConfig)));
-                    return null;
-                });
+        try {
+            session.readTransaction(
+                    tx -> {
+                        final Result result = tx.run(query);
+                        result.stream()
+                                .forEach(row -> output.collect(convertRecord(row, tableConfig)));
+                        return null;
+                    });
+        } catch (RuntimeException exception) {
+            if (tableConfig.getTableId() == null) {
+                throw exception;
+            }
+            throw new Neo4jConnectorException(
+                    CommonErrorCodeDeprecated.READER_OPERATION_FAILED,
+                    "Failed to read Neo4j table '" + tableConfig.getTableId() + "'.",
+                    exception);
+        }
     }
 
     static SeaTunnelRow convertRecord(Record record, Neo4jSourceTableConfig tableConfig) {

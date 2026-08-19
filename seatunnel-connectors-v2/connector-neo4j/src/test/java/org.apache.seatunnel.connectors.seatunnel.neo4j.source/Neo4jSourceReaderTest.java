@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.neo4j.source;
 
+import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.MapType;
@@ -24,10 +25,18 @@ import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
+import org.apache.seatunnel.connectors.seatunnel.neo4j.config.DriverBuilder;
+import org.apache.seatunnel.connectors.seatunnel.neo4j.config.Neo4jSourceQueryInfo;
 import org.apache.seatunnel.connectors.seatunnel.neo4j.exception.Neo4jConnectorException;
 
 import org.junit.jupiter.api.Test;
+import org.neo4j.driver.Driver;
+import org.neo4j.driver.Session;
+import org.neo4j.driver.SessionConfig;
+import org.neo4j.driver.TransactionWork;
 import org.neo4j.driver.Value;
+import org.neo4j.driver.exceptions.ServiceUnavailableException;
 import org.neo4j.driver.exceptions.value.LossyCoercion;
 import org.neo4j.driver.internal.InternalRecord;
 import org.neo4j.driver.internal.value.BooleanValue;
@@ -51,7 +60,13 @@ import static org.apache.seatunnel.api.table.type.ArrayType.STRING_ARRAY_TYPE;
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 class Neo4jSourceReaderTest {
 
@@ -91,6 +106,48 @@ class Neo4jSourceReaderTest {
         SeaTunnelRow singleTableRow =
                 Neo4jSourceReader.convertRecord(peopleRecord, singleTableConfig);
         assertEquals("", singleTableRow.getTableId());
+    }
+
+    @Test
+    void includesTableIdAndSignalsCompletionWhenMultiTableReadFails() throws Exception {
+        SingleSplitReaderContext context = mock(SingleSplitReaderContext.class);
+        Session session = mock(Session.class);
+        ServiceUnavailableException failure = new ServiceUnavailableException("connection refused");
+        when(session.readTransaction(any(TransactionWork.class))).thenThrow(failure);
+        Neo4jSourceTableConfig tableConfig =
+                new Neo4jSourceTableConfig("MATCH (n) RETURN n", rowType(), "people");
+        Neo4jSourceReader reader = reader(context, session, tableConfig);
+        Collector<SeaTunnelRow> collector = mock(Collector.class);
+
+        reader.open();
+        Neo4jConnectorException thrown =
+                assertThrows(
+                        Neo4jConnectorException.class, () -> reader.internalPollNext(collector));
+
+        assertTrue(thrown.getMessage().contains("people"));
+        assertSame(failure, thrown.getCause());
+        verify(context).signalNoMoreElement();
+    }
+
+    @Test
+    void keepsOriginalFailureForSingleTableRead() throws Exception {
+        SingleSplitReaderContext context = mock(SingleSplitReaderContext.class);
+        Session session = mock(Session.class);
+        ServiceUnavailableException failure = new ServiceUnavailableException("connection refused");
+        when(session.readTransaction(any(TransactionWork.class))).thenThrow(failure);
+        Neo4jSourceTableConfig tableConfig =
+                new Neo4jSourceTableConfig("MATCH (n) RETURN n", rowType(), null);
+        Neo4jSourceReader reader = reader(context, session, tableConfig);
+        Collector<SeaTunnelRow> collector = mock(Collector.class);
+
+        reader.open();
+        ServiceUnavailableException thrown =
+                assertThrows(
+                        ServiceUnavailableException.class,
+                        () -> reader.internalPollNext(collector));
+
+        assertSame(failure, thrown);
+        verify(context).signalNoMoreElement();
     }
 
     @Test
@@ -153,5 +210,22 @@ class Neo4jSourceReaderTest {
                         Neo4jSourceReader.convertType(
                                 new MapType<>(BasicType.INT_TYPE, BasicType.BOOLEAN_TYPE),
                                 new MapValue(Collections.singletonMap("1", BooleanValue.FALSE))));
+    }
+
+    private Neo4jSourceReader reader(
+            SingleSplitReaderContext context, Session session, Neo4jSourceTableConfig tableConfig) {
+        Driver driver = mock(Driver.class);
+        DriverBuilder driverBuilder = mock(DriverBuilder.class);
+        Neo4jSourceQueryInfo queryInfo = mock(Neo4jSourceQueryInfo.class);
+        when(driverBuilder.build()).thenReturn(driver);
+        when(driverBuilder.getDatabase()).thenReturn("neo4j");
+        when(driver.session(any(SessionConfig.class))).thenReturn(session);
+        when(queryInfo.getDriverBuilder()).thenReturn(driverBuilder);
+        return new Neo4jSourceReader(context, queryInfo, Collections.singletonList(tableConfig));
+    }
+
+    private SeaTunnelRowType rowType() {
+        return new SeaTunnelRowType(
+                new String[] {"name"}, new SeaTunnelDataType<?>[] {BasicType.STRING_TYPE});
     }
 }
