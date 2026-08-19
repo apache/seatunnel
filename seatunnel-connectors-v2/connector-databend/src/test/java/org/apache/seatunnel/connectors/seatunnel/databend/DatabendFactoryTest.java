@@ -18,7 +18,9 @@
 package org.apache.seatunnel.connectors.seatunnel.databend;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.ConfigValidator;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
@@ -28,6 +30,7 @@ import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.connectors.seatunnel.databend.config.DatabendOptions;
 import org.apache.seatunnel.connectors.seatunnel.databend.sink.DatabendSinkFactory;
 import org.apache.seatunnel.connectors.seatunnel.databend.source.DatabendSourceFactory;
 
@@ -70,6 +73,20 @@ public class DatabendFactoryTest {
     }
 
     @Test
+    public void testSourceOptionRuleWithValidDatabendUrl() {
+        Assertions.assertDoesNotThrow(() -> validateSourceOptionRule(getSourceOptions()));
+    }
+
+    @Test
+    public void testSourceOptionRuleWithInvalidDatabendUrl() {
+        Map<String, Object> options = getSourceOptions();
+        options.put(DatabendOptions.URL.key(), "jdbc:mysql://localhost:3306");
+
+        Assertions.assertThrows(
+                OptionValidationException.class, () -> validateSourceOptionRule(options));
+    }
+
+    @Test
     public void testCreateSink() {
         DatabendSinkFactory sinkFactory = new DatabendSinkFactory();
 
@@ -90,6 +107,19 @@ public class DatabendFactoryTest {
         ReadonlyConfig config = ReadonlyConfig.fromMap(options);
         return new TableSourceFactoryContext(
                 config, Thread.currentThread().getContextClassLoader());
+    }
+
+    private Map<String, Object> getSourceOptions() {
+        Map<String, Object> options = new HashMap<>();
+        options.put(DatabendOptions.URL.key(), "jdbc:databend://localhost:8000");
+        options.put(DatabendOptions.USERNAME.key(), "root");
+        options.put(DatabendOptions.PASSWORD.key(), "");
+        return options;
+    }
+
+    private void validateSourceOptionRule(Map<String, Object> options) {
+        ConfigValidator.of(ReadonlyConfig.fromMap(options))
+                .validate(new DatabendSourceFactory().optionRule());
     }
 
     private TableSinkFactoryContext getTableSinkFactoryContext(Map<String, Object> options) {

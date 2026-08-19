@@ -117,6 +117,7 @@ public abstract class SeaTunnelTask extends AbstractTask {
 
     protected volatile SeaTunnelTaskState currState;
     private final Flow executionFlow;
+    private final Map<String, Object> envOptions;
 
     protected FlowLifeCycle startFlowLifeCycle;
 
@@ -139,11 +140,21 @@ public abstract class SeaTunnelTask extends AbstractTask {
 
     private transient boolean observabilityEnabled;
 
-    public SeaTunnelTask(long jobID, TaskLocation taskID, int indexID, Flow executionFlow) {
+    public SeaTunnelTask(
+            long jobID,
+            TaskLocation taskID,
+            int indexID,
+            Flow executionFlow,
+            Map<String, Object> envOptions) {
         super(jobID, taskID);
         this.indexID = indexID;
         this.executionFlow = executionFlow;
+        this.envOptions = envOptions;
         this.currState = SeaTunnelTaskState.CREATED;
+    }
+
+    public Map<String, Object> getEnvOptions() {
+        return envOptions;
     }
 
     /**
@@ -434,14 +445,19 @@ public abstract class SeaTunnelTask extends AbstractTask {
      * Performs an ordered teardown of all {@link FlowLifeCycle} objects in this task.
      *
      * <p>Each lifecycle's {@link FlowLifeCycle#close()} is called in iteration order. If any
-     * lifecycle throws an {@link IOException}, the error is logged but does not prevent the
-     * remaining lifecycles from being closed (first-exception-wins logging).
+     * lifecycle throws an {@link IOException}, the error is collected but does not prevent the
+     * remaining lifecycles from being closed.
      *
-     * @throws IOException if the parent {@link AbstractTask#close()} fails
+     * @throws IOException if the parent {@link AbstractTask#close()} or any lifecycle close fails
      */
     @Override
     public void close() throws IOException {
-        super.close();
+        IOException[] closeException = {null};
+        try {
+            super.close();
+        } catch (IOException e) {
+            closeException[0] = e;
+        }
         MDCTracer.tracing(allCycles.stream())
                 .forEach(
                         flowLifeCycle -> {
@@ -449,8 +465,16 @@ public abstract class SeaTunnelTask extends AbstractTask {
                                 flowLifeCycle.close();
                             } catch (IOException e) {
                                 log.error("Close FlowLifeCycle error.", e);
+                                if (closeException[0] == null) {
+                                    closeException[0] = e;
+                                } else {
+                                    closeException[0].addSuppressed(e);
+                                }
                             }
                         });
+        if (closeException[0] != null) {
+            throw closeException[0];
+        }
     }
 
     /**

@@ -297,11 +297,6 @@ public class JdbcSqlServerIT extends AbstractJdbcIT {
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(SQLSERVER_IMAGE)));
 
-        container.setPortBindings(
-                Lists.newArrayList(
-                        String.format(
-                                "%s:%s", SQLSERVER_CONTAINER_PORT, SQLSERVER_CONTAINER_PORT)));
-
         try {
             Class.forName(container.getDriverClassName());
         } catch (ClassNotFoundException e) {
