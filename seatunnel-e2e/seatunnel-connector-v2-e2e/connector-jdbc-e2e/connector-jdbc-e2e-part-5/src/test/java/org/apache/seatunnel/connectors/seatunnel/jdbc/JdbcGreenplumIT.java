@@ -129,10 +129,7 @@ public class JdbcGreenplumIT extends AbstractJdbcIT {
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(GREENPLUM_IMAGE)));
 
-        container.setPortBindings(
-                Lists.newArrayList(
-                        String.format(
-                                "%s:%s", GREENPLUM_CONTAINER_PORT, GREENPLUM_CONTAINER_PORT)));
+        container.addExposedPort(GREENPLUM_CONTAINER_PORT);
         return container;
     }
 

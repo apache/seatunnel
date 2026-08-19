@@ -35,6 +35,7 @@ import java.util.Objects;
 
 import static org.apache.seatunnel.engine.server.common.statestore.EngineStateStoreNames.CHECKPOINT_ID;
 import static org.apache.seatunnel.engine.server.common.statestore.EngineStateStoreNames.CHECKPOINT_MONITOR;
+import static org.apache.seatunnel.engine.server.common.statestore.EngineStateStoreNames.ERROR_HANDLER_COUNTER;
 import static org.apache.seatunnel.engine.server.common.statestore.EngineStateStoreNames.RUNNING_JOB_METRICS;
 
 /**
@@ -72,11 +73,15 @@ public class HazelcastEngineStateStores implements EngineStateStores {
             CounterStateStore<String> checkpointCounterStore =
                     new HazelcastCounterStateStore<>(
                             nodeEngine.getHazelcastInstance().getMap(CHECKPOINT_ID));
+            CounterStateStore<String> errorHandlerCounterStore =
+                    new HazelcastCounterStateStore<>(
+                            nodeEngine.getHazelcastInstance().getMap(ERROR_HANDLER_COUNTER));
             CheckpointOverviewStateStore checkpointOverviewStateStore =
                     new HazelcastCheckpointOverviewStateStore(
                             nodeEngine.getHazelcastInstance().getMap(CHECKPOINT_MONITOR));
             this.authoritativeStateStores =
-                    new DefaultAuthoritativeStateStores(checkpointCounterStore);
+                    new DefaultAuthoritativeStateStores(
+                            checkpointCounterStore, errorHandlerCounterStore);
             this.auxiliaryStateStores =
                     new DefaultAuxiliaryStateStores(
                             metricsSnapshotStore, checkpointOverviewStateStore);

@@ -71,6 +71,8 @@ import ChangeLog from '../changelog/connector-file-hadoop.md';
 | skip_header_row_number     | long    | 否    | 0                   | 跳过前几行，但仅适用于 txt 和 csv。例如，设置如下：`skip_header_row_number = 2`。然后 Seatunnel 将跳过源文件的前 2 行                                                                                             |
 | schema                     | config  | 否    | -                   | 上游数据的 schema 字段。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。                                                                                                                                                                  |
 | sheet_name                 | string  | 否    | -                   | 读取工作簿的工作表，仅在 file_format 为 excel 时使用。                                                                                                                                            |
+| excel_engine               | string  | 否    | POI                | 仅在 `file_format` 为 excel 时使用。支持的引擎包括 `POI` 和 `EasyExcel`。                                                                                                                          |
+| poi_excel_max_file_size    | long    | 否    | 52428800           | 仅在 `file_format` 为 excel 且 `excel_engine` 为 POI 时使用。POI 引擎允许读取的最大 Excel 文件大小（默认 50 MB）。                                                                                                                          |
 | xml_row_tag                | string  | 否    | -                   | 指定 XML 文件中数据行的标签名称，仅在 file_format 为 xml 时使用。                                                                                                                                     |
 | xml_use_attr_format        | boolean | 否    | -                   | 指定是否使用标签属性格式处理数据，仅在 file_format 为 xml 时使用。                                                                                                                                       |
 | csv_use_header_line        | boolean | 否    | false               | 是否使用标题行解析文件，仅在 file_format 为 `csv` 且文件包含符合 RFC 4180 的标题行时使用                                                                                                                      |
@@ -113,6 +115,12 @@ import ChangeLog from '../changelog/connector-file-hadoop.md';
 
 `text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf`
 
+:::caution
+
+出于安全考虑(XXE 加固), 包含 `<!DOCTYPE ...>` 声明的 XML 文件(`file_format_type = xml`)——即使是仅定义内部实体、不引用外部资源的良性声明——现在会被拒绝并抛出 `FILE_READ_FAILED` 错误。该行为没有配置项可以恢复为旧版本的处理方式。如果您的 XML 文件由某些工具导出并带有 `DOCTYPE` 头，请在使用 SeaTunnel 读取前将其移除或做预处理。
+
+:::
+
 如果您将文件类型指定为 `markdown`，SeaTunnel 可以解析 markdown 文件并提取结构化数据。
 markdown 解析器提取各种元素，包括标题、段落、列表、代码块、表格等。
 每个提取出的元素都会转换为一条文档元素结构化记录，schema 如下：
@@ -125,7 +133,7 @@ markdown 解析器提取各种元素，包括标题、段落、列表、代码�
 - `parent_id`：父元素的 ID
 - `child_ids`：子元素 ID 的逗号分隔列表
 
-当 `markdown_rag_metadata_enabled` 设置为 `true` 时，SeaTunnel 会在 `child_ids` 之后追加以下 RAG 元数据字段：
+当 `markdown_rag_metadata_enabled` 或 `pdf_rag_metadata_enabled` 设置为 `true` 时，SeaTunnel 会针对对应文件类型在 `child_ids` 之后追加以下 RAG 元数据字段：
 - `source_uri`：源文件路径或 URI
 - `document_id`：由 `source_uri` 派生的稳定文档标识符
 - `chunk_id`：由文档标识、chunk 顺序和内容哈希派生的稳定 chunk 标识符
@@ -140,6 +148,7 @@ markdown 解析器提取各种元素，包括标题、段落、列表、代码�
 
 如果您将文件类型指定为 `pdf`，SeaTunnel 可以解析 PDF 文件并提取结构化的文档元素。
 PDF 使用与上文相同的文档元素 schema。
+对于 PDF 输入，启用 `pdf_rag_metadata_enabled` 即可追加上文所述的 RAG 元数据字段。
 
 PDF 特有的解析行为如下：
 
@@ -219,6 +228,22 @@ abc.*
 /data/seatunnel/20241002/abcg202410.csv
 /data/seatunnel/20241005/old_data.csv
 ```
+
+### excel_engine [string]
+
+仅在 `file_format` 为 excel 时使用。
+
+支持的引擎包括 `POI` 和 `EasyExcel`。默认值为 `POI`。
+
+默认的 Excel 读取引擎是 POI。POI 会保留历史读取行为，包括 POI 特有的公式和格式处理能力，但读取大 Excel 文件时可能占用大量内存。
+
+如果需要读取大 Excel 文件，可以设置 `excel_engine = EasyExcel` 使用流式读取。
+
+### poi_excel_max_file_size [long]
+
+仅在 `file_format` 为 excel 且 `excel_engine` 为 POI 时使用。
+
+POI 引擎允许读取的最大 Excel 文件大小，单位为字节。默认值为 `52428800` 字节（50 MB）。当文件超过该限制时，连接器会提前失败，并提示使用 EasyExcel。
 
 ### compress_codec [string]
 
@@ -692,6 +717,23 @@ sink {
 }
 
 ```
+
+### 从 HA HDFS 集群（Nameservice）读取
+
+当 HDFS namenode 以 HA 模式部署（多个 namenode 共享一个 nameservice）时，把 `fs.defaultFS` 指向 nameservice URI（而不是单个 namenode），以便客户端在 namenode 故障时自动切换。nameservice ID 必须与 `hdfs-site.xml` 中的 `dfs.nameservices` 一致。
+
+```hocon
+source {
+  HdfsFile {
+    fs.defaultFS = "hdfs://mycluster"
+    path = "/data/orders/dt=2026-08-11"
+    file_format_type = "parquet"
+    hdfs_site_path = "/etc/hadoop/conf/hdfs-site.xml"
+  }
+}
+```
+
+如果集群使用 ViewFS（联邦 HDFS），则 `fs.defaultFS` 应使用 `viewfs://<nameservice-path>` URI——连接器会把 URI 直接交给 Hadoop FileSystem 客户端处理。`hdfs_site_path` 选项用于加载外部 `hdfs-site.xml`（如 `/etc/hadoop/conf/`），这样集群的 HA / 联邦配置无需在作业里重复声明即可生效。
 
 ## 变更日志
 
