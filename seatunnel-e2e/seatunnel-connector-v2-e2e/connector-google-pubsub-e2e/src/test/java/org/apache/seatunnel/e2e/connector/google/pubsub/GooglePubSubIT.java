@@ -93,9 +93,8 @@ public class GooglePubSubIT extends TestSuiteBase implements TestResource {
 
         emulatorEndpoint =
                 "http://" + emulator.getHost() + ":" + emulator.getMappedPort(EMULATOR_PORT);
-        request("PUT", "/v1/projects/" + PROJECT_ID + "/topics/" + TOPIC_ID, "{}");
-        request(
-                "PUT",
+        createResource("/v1/projects/" + PROJECT_ID + "/topics/" + TOPIC_ID, "{}");
+        createResource(
                 "/v1/projects/" + PROJECT_ID + "/subscriptions/" + SUBSCRIPTION_ID,
                 "{\"topic\":\"projects/"
                         + PROJECT_ID
@@ -154,6 +153,13 @@ public class GooglePubSubIT extends TestSuiteBase implements TestResource {
                 "POST",
                 "/v1/projects/" + PROJECT_ID + "/subscriptions/" + SUBSCRIPTION_ID + ":acknowledge",
                 "{\"ackIds\":[\"" + ackId + "\"]}");
+    }
+
+    private void createResource(String path, String body) {
+        await().atMost(30, TimeUnit.SECONDS)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .ignoreExceptions()
+                .untilAsserted(() -> request("PUT", path, body));
     }
 
     private String request(String method, String path, String body) throws IOException {
