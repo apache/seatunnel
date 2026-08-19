@@ -56,7 +56,7 @@ class TiDBSourceSplitEnumeratorTest {
         enumerator.addSplitsBack(splits, 0);
 
         Assertions.assertEquals(0, enumerator.currentUnassignedSplitSize());
-        assertSplitsEqualIgnoringOrder(splits, context.getAssignedSplits(0));
+        Assertions.assertEquals(splits, context.getAssignedSplits(0));
     }
 
     @Test
