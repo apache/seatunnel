@@ -160,8 +160,7 @@ public class NumericFunctionTest {
         BigDecimal bigRight = new BigDecimal("9876543210.987654");
         BigDecimal bigMod = (BigDecimal) NumericFunction.mod(Arrays.asList(bigLeft, bigRight));
         Assertions.assertEquals(
-                bigLeft.remainder(bigRight).stripTrailingZeros(),
-                bigMod.stripTrailingZeros());
+                bigLeft.remainder(bigRight).stripTrailingZeros(), bigMod.stripTrailingZeros());
 
         // Mod by a divisor that underflows to 0.0 in double should not throw (fix for #11696)
         BigDecimal tinyDivisor = new BigDecimal("0.00000000000000000001");
@@ -172,12 +171,15 @@ public class NumericFunctionTest {
 
     @Test
     public void testCeilFloorRoundAndTrunc() {
-        // Double inputs preserve Double return type
-        Assertions.assertEquals(2.0d, NumericFunction.ceil(Arrays.asList(1.2d)));
-        Assertions.assertEquals(-1.0d, NumericFunction.ceil(Arrays.asList(-1.8d)));
+        // CEIL/FLOOR return the type of their argument, so a DOUBLE argument yields a DOUBLE.
+        Assertions.assertEquals(2d, NumericFunction.ceil(Arrays.asList(1.2d)));
+        Assertions.assertEquals(-1d, NumericFunction.ceil(Arrays.asList(-1.8d)));
 
-        Assertions.assertEquals(1.0d, NumericFunction.floor(Arrays.asList(1.8d)));
-        Assertions.assertEquals(-2.0d, NumericFunction.floor(Arrays.asList(-1.2d)));
+        Assertions.assertEquals(1d, NumericFunction.floor(Arrays.asList(1.8d)));
+        Assertions.assertEquals(-2d, NumericFunction.floor(Arrays.asList(-1.2d)));
+
+        Assertions.assertEquals(2, NumericFunction.ceil(Arrays.asList(2)));
+        Assertions.assertEquals(2L, NumericFunction.floor(Arrays.asList(2L)));
 
         Assertions.assertEquals(3L, NumericFunction.round(Arrays.asList(2.6d)).longValue());
         Assertions.assertEquals(2L, NumericFunction.round(Arrays.asList(2.4d)).longValue());
@@ -195,12 +197,9 @@ public class NumericFunctionTest {
 
         // BigDecimal inputs preserve BigDecimal return type (fix for #11696)
         BigDecimal bd = new BigDecimal("12345.6789");
-        Assertions.assertEquals(
-                new BigDecimal("12346"), NumericFunction.ceil(Arrays.asList(bd)));
-        Assertions.assertEquals(
-                new BigDecimal("12345"), NumericFunction.floor(Arrays.asList(bd)));
-        Assertions.assertEquals(
-                new BigDecimal("12345"), NumericFunction.trunc(Arrays.asList(bd)));
+        Assertions.assertEquals(new BigDecimal("12346"), NumericFunction.ceil(Arrays.asList(bd)));
+        Assertions.assertEquals(new BigDecimal("12345"), NumericFunction.floor(Arrays.asList(bd)));
+        Assertions.assertEquals(new BigDecimal("12345"), NumericFunction.trunc(Arrays.asList(bd)));
     }
 
     @Test

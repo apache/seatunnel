@@ -152,6 +152,26 @@ public class NumericFunction {
         return Math.atan2(arg.doubleValue(), arg2.doubleValue());
     }
 
+    /**
+     * Converts a numeric value to {@link BigDecimal} without losing precision.
+     *
+     * <p>{@link BigDecimal} values are used as-is and integral types are widened through {@code
+     * longValue()}. Only the floating point types are read through {@code doubleValue()}, where the
+     * value carries no more precision than a {@code double} to begin with.
+     */
+    private static BigDecimal toBigDecimal(Number value) {
+        if (value instanceof BigDecimal) {
+            return (BigDecimal) value;
+        }
+        if (value instanceof Byte
+                || value instanceof Short
+                || value instanceof Integer
+                || value instanceof Long) {
+            return BigDecimal.valueOf(value.longValue());
+        }
+        return BigDecimal.valueOf(value.doubleValue());
+    }
+
     public static Number mod(List<Object> args) {
         Number leftValue = (Number) args.get(0);
         if (leftValue == null) {
@@ -161,12 +181,12 @@ public class NumericFunction {
         if (rightValue == null) {
             return null;
         }
-        BigDecimal rightBD = new BigDecimal(rightValue.toString());
-        if (rightBD.compareTo(BigDecimal.ZERO) == 0) {
+        BigDecimal leftBD = toBigDecimal(leftValue);
+        BigDecimal rightBD = toBigDecimal(rightValue);
+        if (rightBD.signum() == 0) {
             throw new TransformException(
                     CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION, "Mod by zero");
         }
-        BigDecimal leftBD = new BigDecimal(leftValue.toString());
         BigDecimal[] res = leftBD.divideAndRemainder(rightBD);
         if (rightValue instanceof Integer) {
             return res[1].intValue();
@@ -190,6 +210,13 @@ public class NumericFunction {
                         rightValue.getClass().getName(), ZetaSQLFunction.MOD));
     }
 
+    /**
+     * Returns the smallest value greater than or equal to the argument.
+     *
+     * <p>As documented for {@code CEIL}, the result keeps the data type of the argument. Narrowing
+     * the result to {@code int} would silently corrupt {@code BIGINT}, {@code DOUBLE} and {@code
+     * DECIMAL} inputs whose value does not fit into 32 bits.
+     */
     public static Number ceil(List<Object> args) {
         Number v1 = (Number) args.get(0);
         if (v1 == null) {
@@ -225,8 +252,9 @@ public class NumericFunction {
                 }
             case "BIGDECIMAL":
                 {
-                    BigDecimal bd = (BigDecimal) v1;
-                    v1 = bd.setScale(scale, roundingMode);
+                    // Must not round-trip through double: a DECIMAL carries more digits than a
+                    // double can hold, so doubleValue() would silently drop the low-order ones.
+                    v1 = ((BigDecimal) v1).setScale(scale, roundingMode);
                     break;
                 }
             case "DOUBLE":
@@ -282,6 +310,12 @@ public class NumericFunction {
         return Math.exp(v1.doubleValue());
     }
 
+    /**
+     * Returns the largest value less than or equal to the argument.
+     *
+     * <p>As documented for {@code FLOOR}, the result keeps the data type of the argument. See
+     * {@link #ceil(List)} for why the result must not be narrowed to {@code int}.
+     */
     public static Number floor(List<Object> args) {
         Number v1 = (Number) args.get(0);
         if (v1 == null) {

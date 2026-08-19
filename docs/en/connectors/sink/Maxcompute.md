@@ -4,9 +4,19 @@ import ChangeLog from '../changelog/connector-maxcompute.md';
 
 > Maxcompute sink connector
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Description
 
-Used to write data to Maxcompute.
+Used to write data to Maxcompute. The connector supports AccessKey (`accessId`/`accesskey`)
+authentication, STS-token authentication, and the default Aliyun credentials provider chain. It can
+append to or overwrite a target table or partition, create the target table from a template, and
+uses an upload
+or upsert session selected by `insert_strategy`.
 
 ## Key features
 
@@ -17,26 +27,27 @@ Used to write data to Maxcompute.
 
 ## Options
 
-| name                      | type    | required | default value |
-|---------------------------|---------|----------|---------------|
-| accessId                  | string  | no       | -             |
-| accesskey                 | string  | no       | -             |
-| sts_token                 | string  | no       | -             |
-| endpoint                  | string  | yes      | -             |
-| project                   | string  | yes      | -             |
-| table_name                | string  | yes      | -             |
-| schema_name               | string  | no       | -             |
-| partition_spec            | string  | no       | -             |
-| overwrite                 | boolean | no       | false         |
-| schema_save_mode          | enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST |
-| data_save_mode            | enum    | no       | APPEND_DATA   |
-| custom_sql                | string  | no       | -             |
-| save_mode_create_template | string  | no       | see below     |
-| datetime_format           | string  | no       | yyyy-MM-dd HH:mm:ss |
-| tunnel_endpoint           | string  | no       | -             |
-| insert_strategy           | string  | no       | upload        |
-| multi_table_sink_replica  | int     | no       | 1             |
-| common-options            | string  | no       |               |
+| name                      | type    | required | default value                | description                                                                                                              |
+|---------------------------|---------|----------|------------------------------|--------------------------------------------------------------------------------------------------------------------------|
+| accessId                  | string  | no       | -                            | Aliyun AccessKey ID used to access MaxCompute.                                                                            |
+| accesskey                 | string  | no       | -                            | Aliyun AccessKey secret used to access MaxCompute.                                                                        |
+| sts_token                 | string  | no       | -                            | STS token used for temporary MaxCompute authentication. When `sts_token` is provided, `accessId` and `accesskey` are required. |
+| endpoint                  | string  | yes      | -                            | MaxCompute endpoint, starting with `http`.                                                                                |
+| project                   | string  | yes      | -                            | MaxCompute project created in Alibaba Cloud.                                                                              |
+| table_name                | string  | yes      | -                            | Target MaxCompute table name, for example `fake`.                                                                         |
+| schema_name               | string  | no       | -                            | MaxCompute schema name (namespace between project and table). Required only when the table is in a non-default schema.    |
+| partition_spec            | string  | no       | -                            | Partition spec for a MaxCompute partitioned table, for example `ds='20220101'`.                                           |
+| overwrite                 | boolean | no       | false                        | Whether to overwrite the target table or partition.                                                                       |
+| schema_save_mode          | enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST | How to handle the target table before writing, such as `RECREATE_SCHEMA` or `CREATE_SCHEMA_WHEN_NOT_EXIST`.                |
+| data_save_mode            | enum    | no       | APPEND_DATA                  | How to handle existing target data before writing, such as `DROP_DATA`, `APPEND_DATA`, or `ERROR_WHEN_DATA_EXISTS`.      |
+| custom_sql                | string  | no       | -                            | Custom SQL to execute before writing when `data_save_mode = CUSTOM_PROCESSING`.                                          |
+| save_mode_create_template | string  | no       | see below                    | DDL template used when the sink creates the target table.                                                                 |
+| datetime_format           | string  | no       | yyyy-MM-dd HH:mm:ss          | Format string used to convert `LocalDateTime` fields to strings.                                                         |
+| tunnel_endpoint           | string  | no       | -                            | Custom endpoint URL for the MaxCompute Tunnel service. When not set, the endpoint is auto-inferred from the region.       |
+| tunnel_name               | string  | no       | -                            | Tunnel Quota name used for exclusive resource groups. Requires both `endpoint` and `tunnel_endpoint` to be VPC endpoints. |
+| insert_strategy           | string  | no       | upload                       | Insert session strategy: `upload` uses an upload session, `upsert` uses an upsert session and requires a primary key.    |
+| multi_table_sink_replica  | int     | no       | 1                            | Number of sink writer replicas for each table in a multi-table job.                                                      |
+| common-options            |         | no       | -                            | Sink plugin common parameters, such as `plugin_input`.                                                                   |
 
 ### accessId [string]
 
@@ -178,6 +189,22 @@ Example values:
 - `http://maxcompute:8080`
 
 Default: Not set (auto-inferred from region)
+
+### tunnel_name [String]
+
+`tunnel_name` Specifies the Tunnel Quota name for exclusive resource groups.
+
+Tunnel Quota allows you to use dedicated computing resources for MaxCompute Tunnel data transfer, providing better performance and resource isolation.
+
+**Important**: Tunnel Quota only works with **VPC (Virtual Private Cloud) endpoints**. It is not supported for public network access. You must configure both `endpoint` and `tunnel_endpoint` to use VPC endpoints when using `tunnel_name`.
+
+If not specified, the default Tunnel quota will be used.
+
+Example values:
+
+- `your_tunnel_quota_name`
+
+Default: Not set (use default quota)
 
 ### insert_strategy [string]
 
