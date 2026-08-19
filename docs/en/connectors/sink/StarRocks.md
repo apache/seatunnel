@@ -15,6 +15,7 @@ import ChangeLog from '../changelog/connector-starrocks.md';
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
 - [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
+- [x] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 ## Description
 
@@ -53,6 +54,7 @@ The internal implementation of StarRocks sink connector is cached and imported b
 | http_socket_timeout_ms      | int     | no       | 180000                       | Set http socket timeout, default is 3 minutes.                                                                                                                                                                    |
 | schema_save_mode            | Enum    | no       | CREATE_SCHEMA_WHEN_NOT_EXIST | Before the synchronous task is turned on, different treatment schemes are selected for the existing surface structure of the target side.                                                                         |
 | data_save_mode              | Enum    | no       | APPEND_DATA                  | Before the synchronous task is turned on, different processing schemes are selected for data existing data on the target side.                                                                                    |
+| table_options               | Map     | no       | -                            | Sink-specific table properties merged into CREATE TABLE PROPERTIES during SaveMode auto-create. See below.                                                                                                          |
 | custom_sql                  | String  | no       | -                            | When data_save_mode selects CUSTOM_PROCESSING, you should fill in the CUSTOM_SQL parameter. This parameter usually fills in a SQL that can be executed. SQL will be executed before synchronization tasks.        |
 
 ### save_mode_create_template
@@ -138,6 +140,66 @@ Option introduction：
 ### custom_sql [String]
 
 When data_save_mode selects CUSTOM_PROCESSING, you should fill in the CUSTOM_SQL parameter. This parameter usually fills in a SQL that can be executed. SQL will be executed before synchronization tasks.
+
+### table_options [Map]
+
+Sink-specific table options applied when SaveMode auto-creates the target table (DDL phase). They take effect only when `schema_save_mode` triggers table creation, such as `CREATE_SCHEMA_WHEN_NOT_EXIST` or `RECREATE_SCHEMA`. They do **not** affect Stream Load writes at runtime and do **not** run `ALTER TABLE` on existing tables.
+
+When used with the default `save_mode_create_template` (option omitted, or configured with the same content as the built-in default), `table_options` are merged into the template `PROPERTIES` clause. **Duplicate keys are overridden by `table_options`.** Use property names from the [StarRocks CREATE TABLE documentation](https://docs.starrocks.io/docs/sql-reference/sql-statements/table_bucket_part_index/CREATE_TABLE/#properties); SeaTunnel does not maintain an allowlist—invalid properties fail when StarRocks executes the CREATE TABLE statement.
+
+If you configure a `save_mode_create_template` that **differs from the built-in default**, `table_options` cannot be used together (validation fails at job submission). Put properties directly in the template instead.
+
+Invalid combinations are validated early via `StarRocksSinkFactory` option rules (`--check` and job submission), not only when StarRocks executes CREATE TABLE.
+
+Example:
+
+```hocon
+sink {
+  StarRocks {
+    base-url = "jdbc:mysql://127.0.0.1:9030"
+    nodeUrls = ["127.0.0.1:8030"]
+    username = "root"
+    password = ""
+    database = "test"
+    schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
+    table_options = {
+      replication_num = "3"
+      storage_format = "V2"
+    }
+  }
+}
+```
+
+### Zeta Timer Flush
+
+This engine-level capability is available only in Zeta. Configure `sink.flush.interval` in `env` to periodically write buffered rows through StarRocks Stream Load even when `batch_max_rows` and `batch_max_bytes` have not been reached. Spark and Flink do not trigger this scheduled flush.
+
+:::tip
+
+StarRocks timer flush does not provide 2PC exactly-once semantics. The StarRocks Sink remains at-least-once, and a task restart may submit rows again. When appropriate for the workload, a Primary Key table with deterministic keys can absorb duplicate writes.
+
+:::
+
+```hocon
+env {
+  job.mode = "STREAMING"
+  checkpoint.interval = 300000
+  sink.flush.interval = 5000
+}
+
+sink {
+  StarRocks {
+    nodeUrls = ["starrocks-fe:8030"]
+    base-url = "jdbc:mysql://starrocks-fe:9030/mydb"
+    username = root
+    password = ""
+    database = "mydb"
+    table = "mytable"
+    batch_max_rows = 10000
+    batch_max_bytes = 104857600
+  }
+}
+```
 
 ## Data Type Mapping
 
@@ -241,7 +303,7 @@ sink {
 
 ### Use JSON format to import data
 
-```
+```hocon
 sink {
   StarRocks {
     nodeUrls = ["e2e_starRocksdb:8030"]
@@ -257,12 +319,11 @@ sink {
     }
   }
 }
-
 ```
 
 ### Use CSV format to import data
 
-```
+```hocon
 sink {
   StarRocks {
     nodeUrls = ["e2e_starRocksdb:8030"]
@@ -283,7 +344,7 @@ sink {
 
 ### Use save_mode function
 
-```
+```hocon
 sink {
   StarRocks {
     nodeUrls = ["e2e_starRocksdb:8030"]
@@ -293,12 +354,109 @@ sink {
     database = "test"
     table = "test_${schema_name}_${table_name}"
     schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
-    data_save_mode="APPEND_DATA"
+    data_save_mode = "APPEND_DATA"
     batch_max_rows = 10
     starrocks.config = {
       format = "CSV"
       column_separator = "\\x01"
       row_delimiter = "\\x02"
+    }
+  }
+}
+```
+
+### CDC With Schema Change
+
+This example shows MySQL-CDC streaming into StarRocks with `schema-changes.enabled = true` so that
+upstream MySQL DDL changes (column additions, type widening, etc.) are applied to the target
+StarRocks Primary Key table.
+
+```hocon
+env {
+  job.mode = "STREAMING"
+  checkpoint.interval = 2000
+}
+
+source {
+  MySQL-CDC {
+    username = "st_user_source"
+    password = "mysqlpw"
+    table-names = ["shop.products", "shop.orders", "shop.customers"]
+    url = "jdbc:mysql://mysql_cdc_e2e:3306/shop"
+
+    schema-changes.enabled = true
+  }
+}
+
+sink {
+  StarRocks {
+    nodeUrls = ["starrocks_cdc_e2e:8040"]
+    base-url = "jdbc:mysql://starrocks_cdc_e2e:9030/shop"
+    username = "root"
+    password = ""
+    database = "shop"
+    table = "${table_name}"
+    max_retries = 3
+    enable_upsert_delete = true
+    schema_save_mode = "RECREATE_SCHEMA"
+    data_save_mode = "DROP_DATA"
+    save_mode_create_template = """
+    CREATE TABLE IF NOT EXISTS shop.`${table_name}` (
+        ${rowtype_primary_key},
+        ${rowtype_fields}
+    ) ENGINE=OLAP
+    PRIMARY KEY (${rowtype_primary_key})
+    DISTRIBUTED BY HASH (${rowtype_primary_key})
+    PROPERTIES (
+        "replication_num" = "1",
+        "in_memory" = "false",
+        "enable_persistent_index" = "true",
+        "replicated_storage" = "true",
+        "compression" = "LZ4"
+    )
+    """
+  }
+}
+```
+
+### Timer Flush With MySQL-CDC
+
+This example wires `sink.flush.interval` into the streaming job so that the StarRocks sink flushes
+its buffer every 500 ms, independent of `batch_max_rows` and `batch_max_bytes`.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 300000
+  sink.flush.interval = 500
+}
+
+source {
+  MySQL-CDC {
+    server-id = 5670
+    username = "st_user_source"
+    password = "mysqlpw"
+    table-names = ["shop.products"]
+    url = "jdbc:mysql://mysql_starrocks_timer_flush_e2e:3306/shop"
+  }
+}
+
+sink {
+  StarRocks {
+    nodeUrls = ["starrocks_timer_flush_e2e:8030"]
+    base-url = "jdbc:mysql://starrocks_timer_flush_e2e:9030/timer_flush"
+    username = root
+    password = ""
+    database = "timer_flush"
+    table = "starrocks_timer_flush"
+    labelPrefix = "timer-flush-"
+    batch_max_rows = 100000
+    batch_max_bytes = 104857600
+    schema_save_mode = "IGNORE"
+    data_save_mode = "APPEND_DATA"
+    starrocks.config = {
+      format = "JSON"
     }
   }
 }
@@ -408,9 +566,9 @@ Yes. Enable upsert and DELETE propagation by setting `enable_upsert_delete = tru
 
 ### What is `labelPrefix` used for in StarRocks Sink?
 
-The current StarRocks Sink page does not list exactly-once as a supported connector capability.
-Use `labelPrefix` to control the prefix of the Stream Load labels generated by the sink.
-Keeping this prefix stable and unique helps reduce label collisions across retries or job restarts:
+`labelPrefix` controls the prefix of the Stream Load labels generated by the sink. StarRocks uses
+these labels to deduplicate ingestion requests, so keeping this prefix stable and unique per job
+helps avoid spurious "label already exists" errors across retries or restarts:
 
 ```hocon
 sink {
@@ -426,8 +584,9 @@ sink {
 }
 ```
 
-For the published connector contract, follow the **Key Features** matrix and the `labelPrefix`
-option entry on this page.
+Note that StarRocks Sink does not currently provide exactly-once delivery (see the **Key Features**
+matrix at the top of this page). Using a stable `labelPrefix` reduces label collisions but does not
+by itself give end-to-end exactly-once guarantees.
 
 ### Are StarRocks column names case-sensitive?
 

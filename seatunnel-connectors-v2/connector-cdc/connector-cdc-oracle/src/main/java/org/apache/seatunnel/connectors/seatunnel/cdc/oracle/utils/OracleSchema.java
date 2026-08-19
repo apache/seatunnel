@@ -74,14 +74,15 @@ public class OracleSchema {
                     null,
                     false);
             for (TableId id : tables.tableIds()) {
-                if (tableMap.containsKey(id)) {
+                TableId tableMapId = resolveTableId(id, tableId, tableMap);
+                if (tableMap.containsKey(tableMapId)) {
                     Table table =
                             CatalogTableUtils.mergeCatalogTableConfig(
-                                    tables.forTable(id), tableMap.get(id));
+                                    tables.forTable(id), tableMap.get(tableMapId));
                     TableChanges.TableChange tableChange =
                             new TableChanges.TableChange(
                                     TableChanges.TableChangeType.CREATE, table);
-                    schemasByTableId.put(id, tableChange);
+                    schemasByTableId.put(tableMapId, tableChange);
                 }
             }
         } catch (SQLException e) {
@@ -95,5 +96,20 @@ public class OracleSchema {
         }
 
         return schemasByTableId.get(tableId);
+    }
+
+    static TableId resolveTableId(
+            TableId readTableId, TableId requestedTableId, Map<TableId, ?> tableMap) {
+        if (tableMap.containsKey(readTableId)) {
+            return readTableId;
+        }
+
+        TableId readTableIdWithRequestedCatalog =
+                new TableId(requestedTableId.catalog(), readTableId.schema(), readTableId.table());
+        if (tableMap.containsKey(readTableIdWithRequestedCatalog)) {
+            return readTableIdWithRequestedCatalog;
+        }
+
+        return readTableId;
     }
 }

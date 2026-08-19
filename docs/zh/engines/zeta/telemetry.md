@@ -134,6 +134,8 @@ engine_state_store_connector_jar_total_references{backend="hazelcast"}
 
 ### 线程池状态
 
+以下指标仅由 active master 输出；采集 worker 节点的接口不会返回这些指标。
+
 | MetricName                          | Type    | Labels                                  | 描述                             |
 |-------------------------------------|---------|-----------------------------------------|--------------------------------|
 | job_thread_pool_activeCount         | Gauge   | **address**，服务器实例地址，例如："127.0.0.1:5801" | seatunnel 协调器作业执行器缓存线程池的活动线程数  |
@@ -145,7 +147,38 @@ engine_state_store_connector_jar_total_references{backend="hazelcast"}
 | job_thread_pool_task_total          | Counter | **address**，服务器实例地址，例如："127.0.0.1:5801" | seatunnel 协调器作业执行器缓存线程池的总任务数   |
 | job_thread_pool_rejection_total     | Counter | **address**，服务器实例地址，例如："127.0.0.1:5801" | seatunnel 协调器作业执行器缓存线程池的拒绝任务总数 |
 
+### ReportMetricsOperation 指标
+
+| MetricName                                        | Type    | Labels                                                                                     | 描述                                                                                   |
+|---------------------------------------------------|---------|--------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------|
+| report_metrics_operation_total                    | Counter | **address**，worker 实例地址，例如："127.0.0.1:5801"。**result**，取值包括："success" "failure" "interrupted" | worker 发送的 `ReportMetricsOperation` 调用总次数                                       |
+| report_metrics_operation_last_payload_task_count  | Gauge   | **address**，worker 实例地址，例如："127.0.0.1:5801"                                        | 最近一次 `ReportMetricsOperation` payload 中包含的 task metrics 数量                    |
+| report_metrics_operation_last_invocation_latency_ms | Gauge | **address**，worker 实例地址，例如："127.0.0.1:5801"                                        | worker 侧最近一次 `ReportMetricsOperation` 上报耗时，单位为毫秒，包含本地 metrics 收集和 worker 到 master 的调用时间 |
+| report_metrics_operation_max_invocation_latency_ms  | Gauge | **address**，worker 实例地址，例如："127.0.0.1:5801"                                        | worker 启动以来观测到的 `ReportMetricsOperation` 最大上报耗时，单位为毫秒，包含本地 metrics 收集和 worker 到 master 的调用时间 |
+
+### RequestSlotOperation 指标
+
+这些指标暴露 master 侧的 slot 分配 RPC 路径。当作业需要执行资源时，active master 会选择候选 worker，并向这些
+worker 发送 `RequestSlotOperation` 请求以预留 slot。这些指标用于帮助运维人员区分 slot 分配 RPC 变慢/失败与整体资源不足。
+
+这些指标仅由 active master 输出。它们是聚合信号，不包含 job、worker、slot 或 resource profile 级别的标签。
+
+| MetricName                                        | Type    | Labels                                                                                     | 描述                                                                                   |
+|---------------------------------------------------|---------|--------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------|
+| request_slot_operation_total                      | Counter | **address**，master 实例地址，例如："127.0.0.1:5801"。**result**，取值包括："success" "no_slot" "failure" | master 发送到 worker 的 `RequestSlotOperation` 调用总次数                               |
+| request_slot_operation_last_invocation_latency_ms | Gauge   | **address**，master 实例地址，例如："127.0.0.1:5801"                                        | master 侧最近一次 `RequestSlotOperation` 调用耗时，单位为毫秒，包含 master 到 worker 的调用时间 |
+| request_slot_operation_max_invocation_latency_ms  | Gauge   | **address**，master 实例地址，例如："127.0.0.1:5801"                                        | master 启动以来观测到的 `RequestSlotOperation` 最大调用耗时，单位为毫秒，包含 master 到 worker 的调用时间 |
+
+`result` 标签含义如下：
+
+- `success`：worker 返回了已分配的 slot。
+- `no_slot`：请求到达 worker 并正常完成，但 worker 未返回合适的 slot。若该结果持续增加，可能表示 master 侧的
+  worker 资源视图与 worker 当前 slot 状态存在偏差，或者在 pre-check 与请求执行之间并发分配消耗了 slot。
+- `failure`：master 到 worker 的调用失败，或 operation 异常完成。
+
 ### 作业信息详细
+
+该指标仅由 active master 输出，且只能按状态统计聚合数量，不带按作业区分的标签，因此无法用于针对某个具体作业（按 ID 或名称）的告警，只能用于类似 `job_count{type="failed"}` 这种集群级别的总量告警。
 
 | MetricName | Type  | Labels                                                                                                  | 描述                  |
 |------------|-------|---------------------------------------------------------------------------------------------------------|---------------------|

@@ -70,6 +70,7 @@ public class JdbcMysqlSaveModeHandlerIT extends AbstractJdbcIT {
     private static final String MYSQL_USERNAME = "root";
     private static final String MYSQL_PASSWORD = "Abc!@#135_seatunnel";
     private static final int MYSQL_PORT = 33063;
+    private static final int MYSQL_CONTAINER_PORT = 3306;
     private static final String MYSQL_URL = "jdbc:mysql://" + HOST + ":%s/%s?useSSL=false";
 
     private static final String DRIVER_CLASS = "com.mysql.cj.jdbc.Driver";
@@ -142,7 +143,7 @@ public class JdbcMysqlSaveModeHandlerIT extends AbstractJdbcIT {
                 .containerEnv(containerEnv)
                 .driverClass(DRIVER_CLASS)
                 .host(HOST)
-                .port(MYSQL_PORT)
+                .port(MYSQL_CONTAINER_PORT)
                 .localPort(MYSQL_PORT)
                 .jdbcTemplate(MYSQL_URL)
                 .jdbcUrl(jdbcUrl)
@@ -174,11 +175,6 @@ public class JdbcMysqlSaveModeHandlerIT extends AbstractJdbcIT {
         Assertions.assertIterableEquals(
                 Collections.singletonList("id"),
                 table.getTableSchema().getPrimaryKey().getColumnNames());
-    }
-
-    @Override
-    String driverUrl() {
-        return "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
     }
 
     @Override
@@ -307,12 +303,10 @@ public class JdbcMysqlSaveModeHandlerIT extends AbstractJdbcIT {
                         .withDatabaseName(MYSQL_DATABASE)
                         .withNetwork(NETWORK)
                         .withNetworkAliases(MYSQL_CONTAINER_HOST)
-                        .withExposedPorts(MYSQL_PORT)
+                        .withExposedPorts(MYSQL_CONTAINER_PORT)
                         .waitingFor(Wait.forHealthcheck())
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(MYSQL_IMAGE)));
-
-        container.setPortBindings(Lists.newArrayList(String.format("%s:%s", MYSQL_PORT, 3306)));
 
         return container;
     }

@@ -35,6 +35,8 @@ import java.util.Set;
 @NoArgsConstructor
 @Data
 public class JobDAGInfo implements Serializable {
+    private static final long serialVersionUID = 1L;
+
     Long jobId;
     Map<String, Object> envOptions;
     Map<Integer, List<Edge>> pipelineEdges;

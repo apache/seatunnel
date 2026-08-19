@@ -71,6 +71,7 @@ import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.BsonUt
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbRecordUtils.buildSourceRecord;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbRecordUtils.extractBsonDocument;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbRecordUtils.getDocumentKey;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbRecordUtils.getOperationType;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbRecordUtils.getResumeToken;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbRecordUtils.isHeartbeatEvent;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbUtils.createMongoClient;
@@ -212,9 +213,8 @@ public class MongodbFetchTaskContext implements FetchTask.Context {
         Struct value = (Struct) changeRecord.value();
 
         if (value != null) {
-            String operationType = value.getString(OPERATION_TYPE);
-
-            switch (OperationType.fromString(operationType)) {
+            OperationType operationType = getOperationType(changeRecord);
+            switch (operationType) {
                 case INSERT:
                     outputBuffer.put(key, changeRecord);
                     break;

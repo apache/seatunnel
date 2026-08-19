@@ -85,6 +85,14 @@ public class EnvCommonOptions {
                     .noDefaultValue()
                     .withDescription("The timeout (in milliseconds) for a checkpoint.");
 
+    public static Option<Long> SINK_FLUSH_INTERVAL =
+            Options.key("sink.flush.interval")
+                    .longType()
+                    .defaultValue(0L)
+                    .withDescription(
+                            "Interval (ms) at which the engine injects a FlushSignal into the pipeline to "
+                                    + "drive a flush at the Sink. 0 means disabled. Values below 100ms will log a WARN.");
+
     public static Option<Integer> CHECKPOINT_MIN_PAUSE =
             Options.key("min-pause")
                     .intType()
@@ -92,6 +100,14 @@ public class EnvCommonOptions {
                     .withDescription(
                             "The minimum pause (in milliseconds) between consecutive checkpoints. "
                                     + "This ensures that checkpoints are not triggered too frequently and provides.");
+
+    public static Option<Boolean> CHECKPOINT_RETAIN_AFTER_JOB_CANCELLED =
+            Options.key("checkpoint.retain-after-job-cancelled")
+                    .booleanType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Whether to retain completed checkpoint data after this job is cancelled. "
+                                    + "If configured, this job-level option overrides the cluster default.");
 
     public static Option<SaveModeExecuteLocation> SAVEMODE_EXECUTE_LOCATION =
             Options.key("savemode.execute.location")

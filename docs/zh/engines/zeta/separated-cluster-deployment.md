@@ -48,8 +48,8 @@ Master节点的JVM参数在`$SEATUNNEL_HOME/config/jvm_master_options`文件中�
 
 ```shell
 # JVM Heap
--Xms2g
--Xmx2g
+-Xms16g
+-Xmx16g
 
 # JVM Dump
 -XX:+HeapDumpOnOutOfMemoryError
@@ -67,8 +67,8 @@ Worker节点的JVM参数在`$SEATUNNEL_HOME/config/jvm_worker_options`文件中�
 
 ```shell
 # JVM Heap
--Xms2g
--Xmx2g
+-Xms16g
+-Xmx16g
 
 # JVM Dump
 -XX:+HeapDumpOnOutOfMemoryError
@@ -81,6 +81,8 @@ Worker节点的JVM参数在`$SEATUNNEL_HOME/config/jvm_worker_options`文件中�
 -XX:+UseG1GC
 
 ```
+
+以上示例使用 16 GB JVM 堆内存。对于大规模数据处理场景，建议使用 32 GB JVM 堆内存。
 
 ## 4. 配置 SeaTunnel Engine
 
@@ -284,6 +286,11 @@ map:
         storage.type: hdfs
         fs.defaultFS: file:///
 ```
+
+说明：`engine_runningJobMetrics` 保存的是高频运行时指标快照。即使通过 `map.engine*`
+配置了 `map-store`，它也会被有意排除在持久化 IMAP 存储之外，以避免仅用于可观测性的状态导致
+WAL 持续膨胀。Engine 重启后，running-job metrics 不会延续重启前的 snapshot，而是由后续
+report 重新构建。
 
 如果您使用 OSS，可以像这样配置：
 

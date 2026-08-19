@@ -14,6 +14,7 @@ import ChangeLog from '../changelog/connector-kafka.md';
 
 - [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
 - [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 > 默认情况下，我们将使用 2pc 来保证消息只发送一次到kafka
 
@@ -42,7 +43,7 @@ import ChangeLog from '../changelog/connector-kafka.md';
 | kafka_headers_fields | Array  | 否    | -    | 配置字段用作 kafka 消息的headers。字段值将被转换为字符串并用作 header 值                                                                                                                                                                                                                   |
 | partition            | Int    | 否    | -    | 可以指定分区，所有消息都会发送到此分区                                                                                                                                                                                                                                                |
 | assign_partitions    | Array  | 否    | -    | 可以根据消息的内容决定发送哪个分区,该参数的作用是分发信息                                                                                                                                                                                                                                      |
-| transaction_prefix   | String | 否    | -    | 如果语义指定为EXACTLY_ONCE，生产者将把所有消息写入一个 Kafka 事务中，kafka 通过不同的 transactionId 来区分不同的事务。该参数是kafka transactionId的前缀，确保不同的作业使用不同的前缀                                                                                                                                           |
+| transaction_prefix   | String | 否    | -    | 当 `semantics` 为 `EXACTLY_ONCE` 时，生产者会把消息写入 Kafka 事务。Kafka 通过 transaction id 区分不同事务，因此不同作业应使用不同前缀。                                                                                                                                           |
 | format               | String | 否    | json | 数据格式。默认格式是json。可选 text, canal_json, debezium_json, compatible_debezium_json, ogg_json, maxwell_json, avro, protobuf 和 native。如果使用 json 或 text 格式，默认字段分隔符是 `,`。如果自定义分隔符，请添加 `field_delimiter` 选项。如果使用 canal 格式，请参考 [canal-json](../formats/canal-json.md)。如果使用 debezium 格式，请参阅 [debezium-json](../formats/debezium-json.md) 了解详细信息 |
 | field_delimiter      | String | 否    | ,    | 自定义数据格式的字段分隔符                                                                                                                                                                                                                                                      |
 | common-options       |        | 否    | -    | Sink插件常用参数，请参考 [Sink常用选项 ](../common-options/sink-common-options.md) 了解详情                                                                                                                                                                                                         |
@@ -73,6 +74,8 @@ import ChangeLog from '../changelog/connector-kafka.md';
 在 EXACTLY_ONCE 中，生产者将在 Kafka 事务中写入所有消息，这些消息将在检查点上提交给 Kafka，该模式下能保证数据精确写入kafka一次，即使任务失败重试也不会出现数据重复和丢失
 在 AT_LEAST_ONCE 中，生产者将等待 Kafka 缓冲区中所有未完成的消息在检查点上被 Kafka 生产者确认，该模式下能保证数据至少写入kafka一次，即使任务失败
 NON 不提供任何保证：如果 Kafka 代理出现问题，消息可能会丢失，并且消息可能会重复，该模式下，任务失败重试可能会产生数据丢失或重复。
+
+使用 `EXACTLY_ONCE` 时需要开启 checkpoint，并确保每个运行中的作业使用唯一的 `transaction_prefix`。多个作业复用同一个事务前缀，可能导致 Kafka 事务冲突。
 
 ### 分区关键字段
 
@@ -108,6 +111,7 @@ NON 不提供任何保证：如果 Kafka 代理出现问题，消息可能会丢
 
 注意：
 配置为 Kafka headers 的字段将不会包含在消息的 value（payload）中，而只会存在于 Kafka 消息的 headers 中。
+`format = native` 时不支持 `kafka_headers_fields`。
 
 ### 分区分配
 
@@ -150,6 +154,49 @@ sink {
       topic = "test_topic"
       bootstrap.servers = "localhost:9092"
       format = json
+      semantics = EXACTLY_ONCE
+      kafka.config = {
+        acks = "all"
+        request.timeout.ms = 60000
+        buffer.memory = 33554432
+      }
+  }
+}
+```
+
+### 使用 Kafka Headers
+
+本示例展示如何使用 `kafka_headers_fields` 将上游字段设置为 Kafka 消息头：
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    parallelism = 1
+    plugin_output = "fake"
+    row.num = 16
+    schema = {
+      fields {
+        name = "string"
+        age = "int"
+        source = "string"
+        traceId = "string"
+      }
+    }
+  }
+}
+
+sink {
+  Kafka {
+      topic = "test_topic"
+      bootstrap.servers = "localhost:9092"
+      format = json
+      partition_key_fields = ["name"]
+      kafka_headers_fields = ["source", "traceId"]
       semantics = EXACTLY_ONCE
       kafka.config = {
         acks = "all"
@@ -312,7 +359,7 @@ sink {
     "header1": "header1",
     "header2": "header2"
   },
-  "key": "dGVzdF9ieXRlc19kYXRh",  
+  "key": "dGVzdF9ieXRlc19kYXRh",
   "partition": 3,
   "timestamp": 1672531200000,
   "timestampType": "CREATE_TIME",
@@ -320,6 +367,76 @@ sink {
 }
 ```
 Note：key/value 需要 byte[]类型.
+
+### 流式 EXACTLY_ONCE 与 Checkpoint 协同
+
+长时间运行的流式作业若不能容忍丢失或重复，需要开启 checkpoint 并把 `semantics` 设置为 `EXACTLY_ONCE`。SeaTunnel 会把 Kafka 事务与 checkpoint 协调，保证每个 in-flight 批次和对应的消费 offset 原子提交。
+
+```hocon
+env {
+  parallelism = 2
+  job.mode = "STREAMING"
+  checkpoint.interval = 10000
+}
+
+source {
+  Kafka {
+    topic = "orders"
+    bootstrap.servers = "localhost:9092"
+    consumer.group = "orders_consumer"
+    start_mode = group_offsets
+    format = json
+    schema = {
+      fields {
+        order_id = bigint
+        user_id = bigint
+        amount = double
+      }
+    }
+  }
+}
+
+sink {
+  Kafka {
+    topic = "orders_sink"
+    bootstrap.servers = "localhost:9092"
+    format = json
+    semantics = EXACTLY_ONCE
+    transaction_prefix = "orders_pipeline"
+    kafka.config = {
+      "transaction.timeout.ms" = "900000"
+    }
+    partition_key_fields = ["order_id"]
+  }
+}
+```
+
+注意：每个作业都必须使用唯一的 `transaction_prefix`。Kafka 通过 transactional id 区分事务，跨作业复用相同前缀会导致事务冲突。
+
+### NATIVE 格式下的 Header 转发
+
+当 source 端使用 `format = "NATIVE"`、sink 端同样使用 `format = "NATIVE"` 时，Kafka 的 headers、key、partition、timestamp 等字段会原样回写到下游 topic。这种用法适合在不改写线缆布局的前提下，把已是 Kafka 编码的记录转发到另一个 topic。
+
+```hocon
+source {
+  Kafka {
+    topic = "topic_native_source"
+    bootstrap.servers = "localhost:9092"
+    format = "NATIVE"
+    consumer.group = "native_forwarder"
+  }
+}
+
+sink {
+  Kafka {
+    topic = "topic_native_sink"
+    bootstrap.servers = "localhost:9092"
+    format = "NATIVE"
+  }
+}
+```
+
+注意：上游记录使用 `format = "NATIVE"` 时，`key` 和 `value` 是 `byte[]`。这种情况下请谨慎配置 `kafka_headers_fields`，因为 headers 已经编码在行内。
 
 ## 常见问题
 
@@ -347,12 +464,23 @@ sink {
     bootstrap.servers = "localhost:9092"
     semantics = EXACTLY_ONCE
     transaction_prefix = "SeaTunnelJob"
-    kafka.transaction.timeout.ms = "900000"
+    kafka.config = {
+      "transaction.timeout.ms" = "900000"
+    }
   }
 }
 ```
 
 确保 Kafka Broker 开启了事务支持，且 `transaction.timeout.ms` 与 checkpoint 间隔相匹配。
+
+在 `EXACTLY_ONCE` 语义下，发送失败会让 checkpoint 失败，而不是静默丢弃数据。此时可能出现两种错误：
+
+| 错误码      | 名称                      | 含义                                        | 处理建议                                                             |
+|----------|-------------------------|-------------------------------------------|------------------------------------------------------------------|
+| KAFKA-08 | TRANSACTION_NOT_STARTED | 事务中已有数据，但 Kafka 始终未在 Broker 端完成该事务的注册。    | 检查 Broker 是否可用，以及 `transaction.timeout.ms` 是否小于 checkpoint 间隔。   |
+| KAFKA-09 | PRODUCE_DATA_FAILED     | 事务中的某条数据异步发送失败。                           | 查看异常 cause；可重试的异常通常在 checkpoint 重试后恢复，其他异常需要排查 Broker 端问题。      |
+
+两种错误都会中止当前事务，受影响的数据会从上一个已完成的 checkpoint 重新发送，不会丢失。
 
 ### 如何配置 SASL/Kerberos 认证？
 
