@@ -61,6 +61,7 @@ public class NebulaGraphIT extends TestSuiteBase implements TestResource {
                 new GenericContainer<>(DockerImageName.parse("vesoft/nebula-metad:" + VERSION))
                         .withNetwork(NETWORK)
                         .withNetworkAliases("metad0")
+                        .withExposedPorts(19559)
                         .withCommand(
                                 "--meta_server_addrs=metad0:9559",
                                 "--local_ip=metad0",
@@ -75,6 +76,7 @@ public class NebulaGraphIT extends TestSuiteBase implements TestResource {
                 new GenericContainer<>(DockerImageName.parse("vesoft/nebula-storaged:" + VERSION))
                         .withNetwork(NETWORK)
                         .withNetworkAliases("storaged0")
+                        .withExposedPorts(19779)
                         .withCommand(
                                 "--meta_server_addrs=metad0:9559",
                                 "--local_ip=storaged0",
@@ -89,7 +91,7 @@ public class NebulaGraphIT extends TestSuiteBase implements TestResource {
                 new GenericContainer<>(DockerImageName.parse("vesoft/nebula-graphd:" + VERSION))
                         .withNetwork(NETWORK)
                         .withNetworkAliases("graphd")
-                        .withExposedPorts(9669)
+                        .withExposedPorts(9669, 19669)
                         .withCommand(
                                 "--meta_server_addrs=metad0:9559",
                                 "--local_ip=graphd",
