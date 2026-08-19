@@ -124,11 +124,6 @@ public class JdbcStarRocksdbIT extends AbstractJdbcIT {
     }
 
     @Override
-    String driverUrl() {
-        return "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
-    }
-
-    @Override
     Pair<String[], List<SeaTunnelRow>> initTestData() {
         String[] fieldNames =
                 new String[] {
