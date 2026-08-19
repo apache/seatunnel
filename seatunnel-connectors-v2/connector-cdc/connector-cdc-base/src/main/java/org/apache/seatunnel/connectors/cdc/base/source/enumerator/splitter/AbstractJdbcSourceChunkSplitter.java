@@ -36,6 +36,7 @@ import lombok.extern.slf4j.Slf4j;
 import java.math.BigDecimal;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -76,13 +77,10 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
             log.info("Start splitting table {} into chunks...", tableId);
             long start = System.currentTimeMillis();
 
-            Column splitColumn = getSplitColumn(jdbc, dialect, tableId);
-            log.info(
-                    "Chosen split column {} for table {}",
-                    splitColumn != null ? splitColumn.name() : "null",
-                    tableId);
+            List<Column> splitColumns = getSplitColumns(jdbc, dialect, tableId);
             List<SnapshotSplit> splits = new ArrayList<>();
-            if (splitColumn == null) {
+
+            if (splitColumns.isEmpty()) {
                 if (sourceConfig.isExactlyOnce()) {
                     throw new UnsupportedOperationException(
                             String.format(
@@ -95,7 +93,10 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
                         "No evenly split column found for table {}, use single split {}",
                         tableId,
                         singleSplit);
-            } else {
+            } else if (splitColumns.size() == 1) {
+                // Single-column path (existing behavior)
+                Column splitColumn = splitColumns.get(0);
+                log.info("Chosen split column {} for table {}", splitColumn.name(), tableId);
                 final List<ChunkRange> chunks;
                 try {
                     chunks = splitTableIntoChunks(jdbc, tableId, splitColumn);
@@ -103,7 +104,6 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
                     throw new RuntimeException("Failed to split chunks for table " + tableId, e);
                 }
 
-                // convert chunks into splits
                 SeaTunnelRowType splitType = getSplitType(splitColumn);
                 for (int i = 0; i < chunks.size(); i++) {
                     ChunkRange chunk = chunks.get(i);
@@ -115,6 +115,33 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
                                     splitType,
                                     chunk.getChunkStart(),
                                     chunk.getChunkEnd());
+                    splits.add(split);
+                }
+            } else {
+                // Multi-column composite primary key path
+                log.info(
+                        "Chosen {} split columns {} for table {}",
+                        splitColumns.size(),
+                        splitColumns.stream().map(Column::name).toArray(),
+                        tableId);
+                final List<ChunkRange> chunks;
+                try {
+                    chunks = splitTableIntoChunksMulti(jdbc, tableId, splitColumns);
+                } catch (SQLException e) {
+                    throw new RuntimeException("Failed to split chunks for table " + tableId, e);
+                }
+
+                SeaTunnelRowType splitType = getSplitType(splitColumns);
+                for (int i = 0; i < chunks.size(); i++) {
+                    ChunkRange chunk = chunks.get(i);
+                    SnapshotSplit split =
+                            createSnapshotSplitMulti(
+                                    jdbc,
+                                    tableId,
+                                    i,
+                                    splitType,
+                                    (Object[]) chunk.getChunkStart(),
+                                    (Object[]) chunk.getChunkEnd());
                     splits.add(split);
                 }
             }
@@ -181,12 +208,6 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
                 int shardCount = (int) (approximateRowCnt / chunkSize);
                 int inverseSamplingRate = sourceConfig.getInverseSamplingRate();
                 if (sampleShardingAllow && sampleShardingThreshold < shardCount) {
-                    // It is necessary to ensure that the number of data rows sampled by the
-                    // sampling rate is greater than the number of shards.
-                    // Otherwise, if the sampling rate is too low, it may result in an insufficient
-                    // number of data rows for the shards, leading to an inadequate number of
-                    // shards.
-                    // Therefore, inverseSamplingRate should be less than chunkSize
                     if (inverseSamplingRate > chunkSize) {
                         log.warn(
                                 "The inverseSamplingRate is {}, which is greater than chunkSize {}, so we set inverseSamplingRate to chunkSize",
@@ -212,6 +233,33 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
         } else {
             return splitUnevenlySizedChunks(jdbc, tableId, splitColumn, min, max, chunkSize);
         }
+    }
+
+    /**
+     * Split table into chunks for composite primary key using multi-column lexicographic ordering.
+     */
+    private List<ChunkRange> splitTableIntoChunksMulti(
+            JdbcConnection jdbc, TableId tableId, List<Column> splitColumns) throws Exception {
+        final Object[] minMax = queryMinMaxMulti(jdbc, tableId, splitColumns);
+        final Object[] min = (Object[]) minMax[0];
+        final Object[] max = (Object[]) minMax[1];
+        if (min == null || max == null || Arrays.equals(min, max)) {
+            // empty table, or only one row, return full table scan as a chunk
+            return Collections.singletonList(ChunkRange.all());
+        }
+
+        final int chunkSize = sourceConfig.getSplitSize();
+
+        log.info(
+                "Splitting table {} into chunks with composite key, columns: {}, min: {}, max: {}, chunk size: {}",
+                tableId,
+                splitColumns.stream().map(Column::name).toArray(),
+                Arrays.toString(min),
+                Arrays.toString(max),
+                chunkSize);
+
+        // For composite keys, always use unevenly-sized chunks
+        return splitUnevenlySizedChunksMulti(jdbc, tableId, splitColumns, min, max, chunkSize);
     }
 
     /** Split table into unevenly sized chunks by continuously calculating next chunk max value. */
@@ -398,6 +446,24 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
                 splitId(tableId, chunkId), tableId, splitKeyType, splitStart, splitEnd);
     }
 
+    // ------------------------------------------------------------------------------------------
+    // Multi-column composite primary key abstract methods
+    // ------------------------------------------------------------------------------------------
+
+    /**
+     * Get the split columns for the table. For composite primary keys, returns all PK columns.
+     * Default implementation returns single column from getSplitColumn.
+     */
+    protected List<Column> getSplitColumns(
+            JdbcConnection jdbc, JdbcDataSourceDialect dialect, TableId tableId)
+            throws SQLException {
+        Column splitColumn = getSplitColumn(jdbc, dialect, tableId);
+        if (splitColumn != null) {
+            return Collections.singletonList(splitColumn);
+        }
+        return Collections.emptyList();
+    }
+
     protected Column getSplitColumn(
             JdbcConnection jdbc, JdbcDataSourceDialect dialect, TableId tableId)
             throws SQLException {
@@ -478,6 +544,81 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
 
         log.warn("No evenly split column found for table {}", tableId);
         return null;
+    }
+
+    // ------------------------------------------------------------------------------------------
+    // Multi-column methods to be overridden by database-specific implementations
+    // ------------------------------------------------------------------------------------------
+
+    /**
+     * Query the minimum and maximum tuple for composite primary key.
+     *
+     * @param jdbc JDBC connection.
+     * @param tableId table identity.
+     * @param splitColumns split columns.
+     * @return Object[] where [0] is min tuple, [1] is max tuple.
+     */
+    protected Object[] queryMinMaxMulti(
+            JdbcConnection jdbc, TableId tableId, List<Column> splitColumns) throws SQLException {
+        throw new UnsupportedOperationException(
+                "Multi-column queryMinMax is not implemented for this database");
+    }
+
+    /** Query the next chunk max tuple for composite primary key. */
+    protected Object[] queryNextChunkMaxMulti(
+            JdbcConnection jdbc,
+            TableId tableId,
+            List<Column> splitColumns,
+            int chunkSize,
+            Object[] includedLowerBound)
+            throws SQLException {
+        throw new UnsupportedOperationException(
+                "Multi-column queryNextChunkMax is not implemented for this database");
+    }
+
+    /** Query the minimum tuple greater than the excluded lower bound. */
+    protected Object[] queryMinMulti(
+            JdbcConnection jdbc,
+            TableId tableId,
+            List<Column> splitColumns,
+            Object[] excludedLowerBound)
+            throws SQLException {
+        throw new UnsupportedOperationException(
+                "Multi-column queryMin is not implemented for this database");
+    }
+
+    /** Split table into unevenly sized chunks for composite primary key. */
+    protected List<ChunkRange> splitUnevenlySizedChunksMulti(
+            JdbcConnection jdbc,
+            TableId tableId,
+            List<Column> splitColumns,
+            Object[] min,
+            Object[] max,
+            int chunkSize)
+            throws SQLException {
+        throw new UnsupportedOperationException(
+                "Multi-column splitUnevenlySizedChunks is not implemented for this database");
+    }
+
+    /** Create a snapshot split for multi-column composite primary key. */
+    protected SnapshotSplit createSnapshotSplitMulti(
+            JdbcConnection jdbc,
+            TableId tableId,
+            int chunkId,
+            SeaTunnelRowType splitKeyType,
+            Object[] chunkStart,
+            Object[] chunkEnd) {
+        return new SnapshotSplit(
+                splitId(tableId, chunkId), tableId, splitKeyType, chunkStart, chunkEnd);
+    }
+
+    /** Get the split key type for composite primary key. */
+    protected SeaTunnelRowType getSplitType(List<Column> splitColumns) {
+        return getSplitType(splitColumns.get(0));
+    }
+
+    protected SeaTunnelRowType getSplitType(Table table) {
+        return getSplitType(table.primaryKeyColumns().get(0));
     }
 
     protected String splitId(TableId tableId, int chunkId) {
