@@ -476,7 +476,7 @@ resources:
 
 #### 7.3 就绪探针
 
-配置验证 SeaTunnel REST API 可访问的就绪探针：
+配置验证 SeaTunnel REST API 可达的就绪探针：
 
 ```yaml
 readinessProbe:
