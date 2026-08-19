@@ -82,9 +82,13 @@ class BigtableSourceStateRecoveryTest {
                     .build();
 
     /**
-     * If the enumerator checkpoints before any reader registers, both sets are empty. Restore must
-     * still discover and assign the table split on the next {@link
+     * If the enumerator checkpoints before any reader registers, the assigned set is empty. After
+     * open() splits are discovered and added to pendingSplits; a restore from this checkpoint must
+     * still assign the table split on the next {@link
      * BigtableSourceSplitEnumerator#registerReader(int)}.
+     *
+     * <p>Note: since open() now eagerly calls initializePendingSplits(), pendingSplits will already
+     * contain the discovered split at snapshot time, so getPendingSplits() is non-empty.
      */
     @Test
     void testEmptyEnumeratorCheckpointStillDiscoversSplitsOnRestore() throws Exception {
@@ -94,7 +98,8 @@ class BigtableSourceStateRecoveryTest {
 
         BigtableSourceState emptyCheckpoint = enumerator.snapshotState(1L);
         assertTrue(emptyCheckpoint.getAssignedSplits().isEmpty());
-        assertTrue(emptyCheckpoint.getPendingSplits().isEmpty());
+        // open() eagerly discovers splits, so pendingSplits is non-empty at first snapshot.
+        assertEquals(1, emptyCheckpoint.getPendingSplits().size());
 
         BigtableSourceSplitEnumerator restored = restoreEnumerator(context, emptyCheckpoint);
         restored.open();
@@ -343,7 +348,10 @@ class BigtableSourceStateRecoveryTest {
                 context, PARAMETERS, sourceState, emptySampleClient());
     }
 
-    /** 空采样触发单 split 降级，保持本类原有「一张表一个 split」的恢复断言。 */
+    /**
+     * Empty samples force the single-split fallback so this class keeps its one-split restore
+     * assertions.
+     */
     private static BigtableClient emptySampleClient() {
         BigtableClient client = mock(BigtableClient.class);
         when(client.sampleRowKeys()).thenReturn(Collections.emptyList());

@@ -142,11 +142,14 @@ public class BigtableClient implements Serializable, AutoCloseable {
     }
 
     /**
-     * 采样表内 row key 边界，用于 Enumerator 生成并行 Source Split。
+     * Samples approximate tablet-boundary row keys used by the enumerator to build parallel source
+     * splits.
      *
-     * <p>返回值是近似等大小区间的分隔 key 列表；最后一个 key 通常为空，表示表尾。
+     * <p>The returned keys delimit roughly equal-size ranges; the last key is typically empty,
+     * meaning the table end.
      *
-     * @return tablet 边界采样点；调用失败时抛出 {@link BigtableConnectorException}
+     * @return sampled tablet-boundary keys
+     * @throws BigtableConnectorException if the RPC fails
      */
     public List<KeyOffset> sampleRowKeys() {
         try {

@@ -60,13 +60,18 @@ public class BigtableSourceSplitEnumerator
     private Set<BigtableSourceSplit> pendingSplits;
     private boolean initialized = false;
 
-    /** Lazily-initialized Data API client used only for sampleRowKeys; injectable in unit tests. */
+    /**
+     * Data API client used only for {@code sampleRowKeys}; injectable in unit tests. Written under
+     * {@link #stateLock}; lazily created when split discovery first runs.
+     */
     private BigtableClient bigtableClient;
 
     /**
      * Guards the shared assignment state ({@code assignedSplits}, {@code pendingSplits}, {@code
-     * initialized}) against concurrent enumerator callbacks. {@link #initializePendingSplits()} and
-     * {@link #assignSplit(int)} must only run while this lock is held.
+     * initialized}, {@code bigtableClient}) against concurrent enumerator callbacks. {@link
+     * #assignSplit(int)} must only run while this lock is held. Blocking I/O ({@code
+     * sampleRowKeys()} and client construction) must run <em>outside</em> this lock so it cannot
+     * stall {@link #snapshotState(long)} / checkpoint-barrier processing.
      */
     private final Object stateLock = new Object();
 
@@ -117,7 +122,10 @@ public class BigtableSourceSplitEnumerator
 
     @Override
     public void open() {
-        // State is fully initialized in the constructor; nothing to reset on open().
+        // Discover splits before any reader registers. sampleRowKeys() is a blocking RPC
+        // (plus lazy client construction); running it here avoids holding the engine's
+        // enumeratorContext monitor used by triggerBarrier() during receivedReader().
+        initializePendingSplits();
     }
 
     @Override
@@ -127,9 +135,11 @@ public class BigtableSourceSplitEnumerator
 
     @Override
     public void close() throws IOException {
-        if (bigtableClient != null) {
-            bigtableClient.close();
-            bigtableClient = null;
+        synchronized (stateLock) {
+            if (bigtableClient != null) {
+                bigtableClient.close();
+                bigtableClient = null;
+            }
         }
     }
 
@@ -154,8 +164,8 @@ public class BigtableSourceSplitEnumerator
 
     @Override
     public void registerReader(int subtaskId) {
+        initializePendingSplits();
         synchronized (stateLock) {
-            initializePendingSplits();
             assignSplit(subtaskId);
         }
     }
@@ -173,23 +183,34 @@ public class BigtableSourceSplitEnumerator
     @Override
     public void handleSplitRequest(int subtaskId) {}
 
+    /**
+     * Discovers tablet splits once per job start. The blocking {@code sampleRowKeys} RPC runs
+     * outside {@link #stateLock}; the lock is re-acquired only to mutate {@code pendingSplits}.
+     */
     private void initializePendingSplits() {
-        if (initialized) {
-            return;
+        synchronized (stateLock) {
+            if (initialized) {
+                return;
+            }
         }
         Set<BigtableSourceSplit> tableSplits = buildSplits();
-        Set<String> existingIds =
-                pendingSplits.stream()
-                        .map(BigtableSourceSplit::splitId)
-                        .collect(Collectors.toSet());
-        existingIds.addAll(
-                assignedSplits.stream()
-                        .map(BigtableSourceSplit::splitId)
-                        .collect(Collectors.toSet()));
-        tableSplits.stream()
-                .filter(s -> !existingIds.contains(s.splitId()))
-                .forEach(pendingSplits::add);
-        initialized = true;
+        synchronized (stateLock) {
+            if (initialized) {
+                return;
+            }
+            Set<String> existingIds =
+                    pendingSplits.stream()
+                            .map(BigtableSourceSplit::splitId)
+                            .collect(Collectors.toSet());
+            existingIds.addAll(
+                    assignedSplits.stream()
+                            .map(BigtableSourceSplit::splitId)
+                            .collect(Collectors.toSet()));
+            tableSplits.stream()
+                    .filter(s -> !existingIds.contains(s.splitId()))
+                    .forEach(pendingSplits::add);
+            initialized = true;
+        }
     }
 
     /**
@@ -200,6 +221,9 @@ public class BigtableSourceSplitEnumerator
      * order, then intersected with the user range. If the last sample key is non-empty (i.e. not
      * the table-end sentinel), an extra segment {@code [lastSample, "")} is appended to cover the
      * table tail.
+     *
+     * <p>Performs blocking I/O (client construction and the sampleRowKeys RPC). Callers must not
+     * hold {@link #stateLock} while invoking this method.
      *
      * @return at least one split; a single split covering the user range when splitting fails
      */
@@ -268,7 +292,9 @@ public class BigtableSourceSplitEnumerator
         return index;
     }
 
-    /** Converts a sample key to a UTF-8 string; null or empty ByteString represents the table end. */
+    /**
+     * Converts a sample key to a UTF-8 string; null or empty ByteString represents the table end.
+     */
     private static String keyToUtf8(KeyOffset sample) {
         if (sample == null || sample.getKey() == null) {
             return "";
@@ -336,9 +362,19 @@ public class BigtableSourceSplitEnumerator
     }
 
     private BigtableClient getBigtableClient() {
-        if (bigtableClient == null) {
-            bigtableClient = BigtableClient.createInstance(parameters);
+        synchronized (stateLock) {
+            if (bigtableClient != null) {
+                return bigtableClient;
+            }
         }
-        return bigtableClient;
+        BigtableClient created = BigtableClient.createInstance(parameters);
+        synchronized (stateLock) {
+            if (bigtableClient == null) {
+                bigtableClient = created;
+                return created;
+            }
+            created.close();
+            return bigtableClient;
+        }
     }
 }

@@ -149,7 +149,7 @@ public class BigtableSourceSplitEnumeratorTest {
 
     @Test
     void testUserRangeIntersectsSampledSplits() {
-        // 表切成 ["","c") ["c","f") ["f","")，用户只要 [b,e)
+        // Table tablets: ["","c") ["c","f") ["f",""); user range is [b,e)
         BigtableSourceSplitEnumerator enumerator =
                 enumeratorWithSamples(testParameters("b", "e"), Arrays.asList("c", "f", ""));
 
@@ -197,7 +197,7 @@ public class BigtableSourceSplitEnumeratorTest {
 
     @Test
     void testEmptyIntersectionFallsBackToSingleSplit() {
-        // 倒置用户 range 与所有采样区间都无正向交集
+        // Inverted user range has no forward intersection with any sampled interval
         BigtableSourceSplitEnumerator enumerator =
                 enumeratorWithSamples(testParameters("z", "a"), Arrays.asList("m", "t", ""));
 
@@ -239,6 +239,60 @@ public class BigtableSourceSplitEnumeratorTest {
 
         assertEquals(3, context.getAssignedSplitCount(0));
         assertEquals(0, enumerator.currentUnassignedSplitSize());
+    }
+
+    /**
+     * Verifies that with parallelism N, each produced split is assigned to exactly one reader and
+     * the assignment matches {@code hash(splitId) % N}.
+     *
+     * <p>Samples produce 3 splits (["","m"), ["m","t"), ["t","")). With parallelism 3 every reader
+     * should receive at least one split, the union equals all splits, and no split appears twice.
+     */
+    @Test
+    void testParallelismMultipleReadersEachGetDisjointHashedSplits() throws Exception {
+        int parallelism = 3;
+        TestingContext context = new TestingContext(parallelism);
+        BigtableParameters parameters = testParameters("", "");
+        BigtableClient client = mockClient(Arrays.asList("m", "t", ""));
+        BigtableSourceSplitEnumerator enumerator =
+                new BigtableSourceSplitEnumerator(context, parameters, null, client);
+        enumerator.open();
+
+        for (int i = 0; i < parallelism; i++) {
+            context.registerReaderForTest(i);
+            enumerator.registerReader(i);
+        }
+
+        // All 3 splits should have been assigned and nothing left pending.
+        assertEquals(0, enumerator.currentUnassignedSplitSize());
+
+        // Collect all assigned splits across all readers.
+        List<BigtableSourceSplit> allAssigned = new ArrayList<>();
+        for (int i = 0; i < parallelism; i++) {
+            allAssigned.addAll(context.getAssignedSplits(i));
+        }
+        assertEquals(3, allAssigned.size(), "Total splits across all readers should be 3");
+
+        // No split should appear more than once (no duplicates).
+        Set<String> splitIds =
+                allAssigned.stream().map(BigtableSourceSplit::splitId).collect(Collectors.toSet());
+        assertEquals(3, splitIds.size(), "Each split must be assigned to exactly one reader");
+
+        // Each split's owner must match hash(splitId) % parallelism.
+        for (int i = 0; i < parallelism; i++) {
+            for (BigtableSourceSplit split : context.getAssignedSplits(i)) {
+                int expected = (split.splitId().hashCode() & Integer.MAX_VALUE) % parallelism;
+                assertEquals(
+                        expected,
+                        i,
+                        "Split "
+                                + split.splitId()
+                                + " should belong to reader "
+                                + expected
+                                + " but was assigned to reader "
+                                + i);
+            }
+        }
     }
 
     private static BigtableSourceSplitEnumerator enumeratorWithSamples(
@@ -298,6 +352,11 @@ public class BigtableSourceSplitEnumeratorTest {
 
         int getAssignedSplitCount(int subtaskId) {
             return assignments.getOrDefault(subtaskId, Collections.emptyList()).size();
+        }
+
+        List<BigtableSourceSplit> getAssignedSplits(int subtaskId) {
+            return Collections.unmodifiableList(
+                    assignments.getOrDefault(subtaskId, Collections.emptyList()));
         }
 
         BigtableSourceSplit getLastAssignedSplit(int subtaskId) {
