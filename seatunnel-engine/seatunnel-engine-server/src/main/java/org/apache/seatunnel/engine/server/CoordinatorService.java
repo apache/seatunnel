@@ -199,6 +199,8 @@ public class CoordinatorService {
 
     private IMap<Long, JobCleanupRecord> pendingJobCleanupIMap;
 
+    private IMap<Address, Long> gracefulMemberRemovalIMap;
+
     /** If this node is a master node */
     private volatile boolean isActive = false;
 
@@ -526,6 +528,8 @@ public class CoordinatorService {
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_PENDING_PIPELINE_CLEANUP);
         pendingJobCleanupIMap =
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_PENDING_JOB_CLEANUP);
+        gracefulMemberRemovalIMap =
+                nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_GRACEFUL_MEMBER_REMOVAL);
         jobHistoryService =
                 new JobHistoryService(
                         nodeEngine,
@@ -1974,8 +1978,44 @@ public class CoordinatorService {
         return isActive;
     }
 
+    @VisibleForTesting
+    static String buildMemberRemovedOfflineMessage(
+            @NonNull TaskGroupLocation taskGroupLocation, @NonNull Address lostAddress) {
+        return String.format(
+                "The taskGroup(%s) deployed node(%s) offline", taskGroupLocation, lostAddress);
+    }
+
+    @VisibleForTesting
+    static TaskExecutionState buildMemberRemovedFailureState(
+            @NonNull TaskGroupLocation taskGroupLocation,
+            @NonNull Address lostAddress,
+            boolean gracefulMemberRemoval) {
+        String offlineMessage = buildMemberRemovedOfflineMessage(taskGroupLocation, lostAddress);
+        if (gracefulMemberRemoval) {
+            return new TaskExecutionState(taskGroupLocation, ExecutionState.FAILED, offlineMessage);
+        }
+        return new TaskExecutionState(
+                taskGroupLocation, ExecutionState.FAILED, new JobException(offlineMessage));
+    }
+
+    @VisibleForTesting
+    static boolean isGracefulMemberRemovalMarkerValid(Long markedAt, long nowMillis) {
+        return markedAt != null
+                && Math.abs(nowMillis - markedAt)
+                        <= Constant.GRACEFUL_MEMBER_REMOVAL_MARK_TTL_MILLIS;
+    }
+
+    private boolean consumeGracefulMemberRemovalMarker(@NonNull Address lostAddress) {
+        if (gracefulMemberRemovalIMap == null) {
+            return false;
+        }
+        Long markedAt = gracefulMemberRemovalIMap.remove(lostAddress);
+        return isGracefulMemberRemovalMarkerValid(markedAt, System.currentTimeMillis());
+    }
+
     public void failedTaskOnMemberRemoved(MembershipServiceEvent event) {
         Address lostAddress = event.getMember().getAddress();
+        boolean gracefulMemberRemoval = consumeGracefulMemberRemovalMarker(lostAddress);
         runningJobMasterMap.forEach(
                 (aLong, jobMaster) -> {
                     jobMaster
@@ -1984,15 +2024,21 @@ public class CoordinatorService {
                             .forEach(
                                     subPlan -> {
                                         makeTasksFailed(
-                                                subPlan.getCoordinatorVertexList(), lostAddress);
+                                                subPlan.getCoordinatorVertexList(),
+                                                lostAddress,
+                                                gracefulMemberRemoval);
                                         makeTasksFailed(
-                                                subPlan.getPhysicalVertexList(), lostAddress);
+                                                subPlan.getPhysicalVertexList(),
+                                                lostAddress,
+                                                gracefulMemberRemoval);
                                     });
                 });
     }
 
     private void makeTasksFailed(
-            @NonNull List<PhysicalVertex> physicalVertexList, @NonNull Address lostAddress) {
+            @NonNull List<PhysicalVertex> physicalVertexList,
+            @NonNull Address lostAddress,
+            boolean gracefulMemberRemoval) {
         physicalVertexList.forEach(
                 physicalVertex -> {
                     Address deployAddress = physicalVertex.getCurrentExecutionAddress();
@@ -2004,13 +2050,8 @@ public class CoordinatorService {
                                     || executionState.equals(ExecutionState.CANCELING))) {
                         TaskGroupLocation taskGroupLocation = physicalVertex.getTaskGroupLocation();
                         physicalVertex.updateStateByExecutionService(
-                                new TaskExecutionState(
-                                        taskGroupLocation,
-                                        ExecutionState.FAILED,
-                                        new JobException(
-                                                String.format(
-                                                        "The taskGroup(%s) deployed node(%s) offline",
-                                                        taskGroupLocation, lostAddress))));
+                                buildMemberRemovedFailureState(
+                                        taskGroupLocation, lostAddress, gracefulMemberRemoval));
                     }
                 });
     }

@@ -17,6 +17,11 @@
 
 package org.apache.seatunnel.engine.server.dag.physical;
 
+import org.apache.seatunnel.engine.common.exception.JobException;
+import org.apache.seatunnel.engine.server.execution.ExecutionState;
+import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
+import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -29,12 +34,28 @@ public class PhysicalVertexTest {
      */
     @Test
     public void shouldMatchOnlyCoordinatorOfflineFailureMessage() {
+        TaskGroupLocation taskGroupLocation = new TaskGroupLocation(1L, 2, 3L);
+        String offlineMessage =
+                "The taskGroup(" + taskGroupLocation + ") deployed node(127.0.0.1:5801) offline";
+
+        Assertions.assertTrue(PhysicalVertex.isDeployedNodeOfflineFailure(offlineMessage));
         Assertions.assertTrue(
                 PhysicalVertex.isDeployedNodeOfflineFailure(
-                        "The taskGroup(taskGroupLocation) deployed node(127.0.0.1:5801) offline"));
+                        new TaskExecutionState(
+                                        taskGroupLocation, ExecutionState.FAILED, offlineMessage)
+                                .getThrowableMsg()));
         Assertions.assertFalse(
                 PhysicalVertex.isDeployedNodeOfflineFailure(
-                        "The taskGroup(taskGroupLocation) deployed node(127.0.0.1:5801) restarted"));
+                        new TaskExecutionState(
+                                        taskGroupLocation,
+                                        ExecutionState.FAILED,
+                                        new JobException(offlineMessage))
+                                .getThrowableMsg()));
+        Assertions.assertFalse(
+                PhysicalVertex.isDeployedNodeOfflineFailure(
+                        "The taskGroup("
+                                + taskGroupLocation
+                                + ") deployed node(127.0.0.1:5801) restarted"));
         Assertions.assertFalse(
                 PhysicalVertex.isDeployedNodeOfflineFailure(
                         "deployed node(127.0.0.1:5801) offline"));

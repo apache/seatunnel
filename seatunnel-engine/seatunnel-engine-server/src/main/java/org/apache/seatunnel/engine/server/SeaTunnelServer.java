@@ -46,6 +46,7 @@ import org.apache.seatunnel.engine.server.telemetry.metrics.entity.ThreadPoolSta
 
 import org.apache.hadoop.fs.FileSystem;
 
+import com.hazelcast.cluster.Address;
 import com.hazelcast.internal.services.ManagedService;
 import com.hazelcast.internal.services.MembershipAwareService;
 import com.hazelcast.internal.services.MembershipServiceEvent;
@@ -144,6 +145,7 @@ public class SeaTunnelServer
     @Override
     public void init(NodeEngine engine, Properties hzProperties) {
         this.nodeEngine = (NodeEngineImpl) engine;
+        clearLocalGracefulMemberRemovalMarker();
         BaseService.retainRunningJobDagJsonCache();
         // TODO Determine whether to execute there method on the master node according to the deploy
         // type
@@ -226,6 +228,7 @@ public class SeaTunnelServer
     @Override
     public void shutdown(boolean terminate) {
         isRunning = false;
+        markLocalGracefulMemberRemoval();
 
         if (jettyService != null) {
             jettyService.shutdownJettyServer();
@@ -254,6 +257,36 @@ public class SeaTunnelServer
 
         MetadataProviderManager.closeProviders();
         engineContext.close();
+    }
+
+    private void markLocalGracefulMemberRemoval() {
+        updateLocalGracefulMemberRemovalMarker(true);
+    }
+
+    private void clearLocalGracefulMemberRemovalMarker() {
+        updateLocalGracefulMemberRemovalMarker(false);
+    }
+
+    private void updateLocalGracefulMemberRemovalMarker(boolean gracefulShutdown) {
+        if (nodeEngine == null) {
+            return;
+        }
+        try {
+            Address thisAddress = nodeEngine.getThisAddress();
+            IMap<Address, Long> gracefulMemberRemovalIMap =
+                    nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_GRACEFUL_MEMBER_REMOVAL);
+            if (gracefulShutdown) {
+                gracefulMemberRemovalIMap.put(thisAddress, System.currentTimeMillis());
+            } else {
+                gracefulMemberRemovalIMap.remove(thisAddress);
+            }
+        } catch (Exception e) {
+            LOGGER.warning(
+                    "Failed to "
+                            + (gracefulShutdown ? "mark" : "clear")
+                            + " graceful member removal marker",
+                    e);
+        }
     }
 
     @Override

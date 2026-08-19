@@ -59,6 +59,10 @@ public class Constant {
 
     public static final String IMAP_PENDING_JOB_CLEANUP = "engine_pendingJobCleanup";
 
+    public static final String IMAP_GRACEFUL_MEMBER_REMOVAL = "engine_gracefulMemberRemoval";
+
+    public static final long GRACEFUL_MEMBER_REMOVAL_MARK_TTL_MILLIS = 5 * 60 * 1000L;
+
     public static final String IMAP_CONNECTOR_JAR_REF_COUNTERS = "engine_connectorJarRefCounters";
 
     /**
