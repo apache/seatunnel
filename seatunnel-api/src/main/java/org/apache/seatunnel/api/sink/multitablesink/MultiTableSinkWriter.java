@@ -780,7 +780,7 @@ public class MultiTableSinkWriter
         }
     }
 
-    private void waitUntilTableQueueDrained(String tableId) {
+    private void waitUntilTableQueueDrained(String tableId) throws IOException {
         try {
             while (hasQueuedRows(tableId)) {
                 Thread.sleep(100L);
