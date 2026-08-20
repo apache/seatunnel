@@ -31,13 +31,17 @@ import org.junit.jupiter.api.Test;
 
 import lombok.extern.slf4j.Slf4j;
 
+import java.io.Serializable;
 import java.lang.reflect.InvocationHandler;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.math.BigDecimal;
 import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import java.sql.Time;
+import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -183,6 +187,126 @@ public class FixedChunkSplitterTest {
         assertEquals(Date.valueOf("2024-01-02"), splitter.dateParameters.get(2));
         assertFalse(splitter.bigDecimalParameters.containsKey(1));
         assertFalse(splitter.bigDecimalParameters.containsKey(2));
+    }
+
+    @Test
+    public void testConvertTemporalSplitBoundaries() throws Exception {
+        FixedChunkSplitter splitter = new FixedChunkSplitter(mysqlConfig());
+        Method convertSplitBoundaryMethod =
+                FixedChunkSplitter.class.getDeclaredMethod(
+                        "convertSplitBoundary", SeaTunnelDataType.class, Serializable.class);
+        convertSplitBoundaryMethod.setAccessible(true);
+
+        assertEquals(
+                new Time(1000),
+                convertSplitBoundaryMethod.invoke(
+                        splitter,
+                        LocalTimeType.LOCAL_TIME_TYPE,
+                        BigDecimal.valueOf(1000)));
+        assertEquals(
+                new Timestamp(2000),
+                convertSplitBoundaryMethod.invoke(
+                        splitter,
+                        LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                        BigDecimal.valueOf(2000)));
+        assertEquals(
+                new Timestamp(3000),
+                convertSplitBoundaryMethod.invoke(
+                        splitter,
+                        LocalTimeType.OFFSET_DATE_TIME_TYPE,
+                        BigDecimal.valueOf(3000)));
+    }
+
+    @Test
+    public void testConvertDateMinMaxResultsToEpochDays() throws Exception {
+        FixedChunkSplitter splitter = new FixedChunkSplitter(mysqlConfig());
+        Method convertToBigDecimalMethod =
+                FixedChunkSplitter.class.getDeclaredMethod(
+                        "convertToBigDecimal", Object.class, SeaTunnelDataType.class);
+        convertToBigDecimalMethod.setAccessible(true);
+        BigDecimal expected =
+                BigDecimal.valueOf(Date.valueOf("2024-01-03").toLocalDate().toEpochDay());
+
+        assertEquals(
+                expected,
+                convertToBigDecimalMethod.invoke(
+                        splitter, Date.valueOf("2024-01-03"), LocalTimeType.LOCAL_DATE_TYPE));
+        assertEquals(
+                expected,
+                convertToBigDecimalMethod.invoke(
+                        splitter,
+                        Timestamp.valueOf("2024-01-03 12:34:56"),
+                        LocalTimeType.LOCAL_DATE_TYPE));
+    }
+
+    @Test
+    public void testParseDatePartitionBoundsSupportsIsoAndLegacyEpochDays() throws Exception {
+        FixedChunkSplitter splitter = new FixedChunkSplitter(mysqlConfig());
+        Method parsePartitionBoundMethod =
+                FixedChunkSplitter.class.getDeclaredMethod(
+                        "parsePartitionBound", String.class, SeaTunnelDataType.class);
+        parsePartitionBoundMethod.setAccessible(true);
+        BigDecimal expected =
+                BigDecimal.valueOf(Date.valueOf("2024-01-03").toLocalDate().toEpochDay());
+
+        assertEquals(
+                expected,
+                parsePartitionBoundMethod.invoke(
+                        splitter, "2024-01-03", LocalTimeType.LOCAL_DATE_TYPE));
+        assertEquals(
+                expected,
+                parsePartitionBoundMethod.invoke(
+                        splitter, expected.toPlainString(), LocalTimeType.LOCAL_DATE_TYPE));
+    }
+
+    @Test
+    public void testRejectInvalidDatePartitionBound() throws Exception {
+        FixedChunkSplitter splitter = new FixedChunkSplitter(mysqlConfig());
+        Method parsePartitionBoundMethod =
+                FixedChunkSplitter.class.getDeclaredMethod(
+                        "parsePartitionBound", String.class, SeaTunnelDataType.class);
+        parsePartitionBoundMethod.setAccessible(true);
+
+        InvocationTargetException exception =
+                assertThrows(
+                        InvocationTargetException.class,
+                        () ->
+                                parsePartitionBoundMethod.invoke(
+                                        splitter,
+                                        "2024-01-03 00:00:00",
+                                        LocalTimeType.LOCAL_DATE_TYPE));
+
+        assertTrue(exception.getCause() instanceof JdbcConnectorException);
+        assertTrue(exception.getCause().getMessage().contains("yyyy-MM-dd"));
+    }
+
+    @Test
+    public void testRejectFractionalTemporalPartitionBound() throws Exception {
+        FixedChunkSplitter splitter = new FixedChunkSplitter(mysqlConfig());
+        Method parsePartitionBoundMethod =
+                FixedChunkSplitter.class.getDeclaredMethod(
+                        "parsePartitionBound", String.class, SeaTunnelDataType.class);
+        parsePartitionBoundMethod.setAccessible(true);
+
+        InvocationTargetException exception =
+                assertThrows(
+                        InvocationTargetException.class,
+                        () ->
+                                parsePartitionBoundMethod.invoke(
+                                        splitter, "20000.5", LocalTimeType.LOCAL_DATE_TYPE));
+
+        assertTrue(exception.getCause() instanceof JdbcConnectorException);
+        assertTrue(exception.getCause().getMessage().contains("whole numbers"));
+
+        InvocationTargetException timestampException =
+                assertThrows(
+                        InvocationTargetException.class,
+                        () ->
+                                parsePartitionBoundMethod.invoke(
+                                        splitter, "20000.5", LocalTimeType.LOCAL_DATE_TIME_TYPE));
+
+        assertTrue(timestampException.getCause() instanceof JdbcConnectorException);
+        assertTrue(timestampException.getCause().getMessage().contains("whole numbers"));
     }
 
     @Test
