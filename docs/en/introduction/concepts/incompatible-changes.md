@@ -110,6 +110,12 @@ You need to check this document before you upgrade to related version.
 
 ### Transform Changes
 
+- **Breaking Change: SQL `EXTRACT(EPOCH|MILLISECOND(S)|MICROSECOND(S))` now follows documented semantics**
+  - **Affected component**: `seatunnel-transforms-v2` SQL Transform (`EXTRACT` in Zeta SQL)
+  - **Description**: `EXTRACT(EPOCH FROM ...)` now returns a `BIGINT`-compatible value instead of truncating the epoch seconds to `INT`. `EXTRACT(MILLISECOND(S) FROM ...)` and `EXTRACT(MICROSECOND(S) FROM ...)` now include the whole-seconds field, matching the SQL-standard behavior already documented in `sql-functions.md`, instead of returning only the fractional remainder.
+  - **Impact**: Downstream typed sinks or schema assertions that previously expected `INT` for `EPOCH` may now see `BIGINT`. Pipelines that relied on the old fractional-only millisecond or microsecond value will now receive `seconds * 10^n + fractional_part`.
+  - **Migration Guide**: If your downstream schema still expects an integer-sized epoch value, cast it explicitly after confirming the values fit your range. If you need the old fractional-only millisecond or microsecond behavior, use `MOD(EXTRACT(MILLISECONDS FROM ts), 1000)` or `MOD(EXTRACT(MICROSECONDS FROM ts), 1000000)`.
+
 - **[BREAKING]** SQL Transform `PARSEDATETIME`, `TO_DATE`, and `IS_DATE` functions now only accept whitelisted datetime format patterns. Custom format patterns that were previously accepted will now fail at runtime. The supported patterns are:
   - DateTime: `yyyy-MM-dd HH:mm:ss`, `yyyy-MM-dd HH:mm:ss.SSS`, `yyyy-MM-dd'T'HH:mm:ss`, `yyyy-MM-dd'T'HH:mm:ss.SSS`, `yyyy/MM/dd HH:mm:ss`, `yyyy/MM/dd HH:mm:ss.SSS`, `yyyyMMddHHmmss`
   - Date: `yyyy-MM-dd`, `yyyy/MM/dd`, `yyyyMMdd`

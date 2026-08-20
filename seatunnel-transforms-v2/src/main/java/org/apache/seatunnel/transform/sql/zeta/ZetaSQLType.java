@@ -319,6 +319,12 @@ public class ZetaSQLType {
         return getMaxType(types);
     }
 
+    /**
+     * Returns the runtime type of an EXTRACT expression.
+     *
+     * <p>EPOCH values can exceed 32-bit integer range, so they must stay BIGINT-compatible even
+     * though the other EXTRACT fields still fit in INT.
+     */
     private SeaTunnelDataType<?> getExtractType(ExtractExpression expression) {
         if ("EPOCH".equalsIgnoreCase(expression.getName())) {
             return BasicType.LONG_TYPE;
