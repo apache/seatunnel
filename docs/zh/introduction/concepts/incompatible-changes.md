@@ -123,6 +123,12 @@
     - 只有在使用 `--check` / `--dry-run=static` / `--dry-run=connect` 校验配置时（会执行 `validateUnknownKeys`），`Prometheus` sink 中残留的 `flush_interval` 键才会被拒绝。直接提交的作业会静默忽略该残留键；连接器会在每个 Sink 写入器启动时各打印一次告警作为替代提示（因此并行度为 N、多表或多副本的作业会多次打印）。
   - **迁移指南**：从 `Prometheus` sink 中移除 `flush_interval`。如需在 Zeta 上继续使用定时刷新，请在作业 `env` 中设置 `sink.flush.interval`（毫秒）。在 Spark 和 Flink 上请依赖 `batch_size`。`batch_size` 触发和写入器关闭时的最后一次刷新在所有引擎上保持不变。
 
+- **破坏性变更：File 连接器拒绝 XML 输入中的 `DOCTYPE` 声明（XXE 加固）**
+  - **影响范围**：`seatunnel-connectors-v2/connector-file/connector-file-base`（`XmlReadStrategy`），以及所有基于该模块构建的 File Source：LocalFile、HdfsFile、S3File、OssFile、OssJindoFile、CosFile、FtpFile、SftpFile（`file_format_type = xml`）
+  - **变更说明**：此前 XML 读取器使用默认的 dom4j `SAXReader` 解析用户提供的文件，DTD 处理和外部实体解析均保持 JAXP 默认行为。精心构造的 `DOCTYPE`/外部实体载荷可能导致 worker 节点本地文件泄露、SSRF 式请求，或通过实体展开（"billion laughs"）耗尽内存。现在 `XmlReadStrategy` 的所有解析都会经过加固后的 reader：启用 JAXP 安全处理特性、彻底拒绝任何 `<!DOCTYPE ...>` 声明、禁用外部通用/参数实体及外部 DTD 加载，并额外安装一个拒绝一切解析请求的 `EntityResolver` 作为与具体解析器实现无关的兜底防护。
+  - **影响**：此前仅因携带 `<!DOCTYPE ...>` 声明才能被解析的 XML 文件——即使该声明是不引用任何外部 `SYSTEM`/`PUBLIC` 资源的良性声明——现在会以 `FileConnectorException(FILE_READ_FAILED)` 失败。该行为没有配置项可以恢复为旧版本的处理方式。
+  - **迁移指南**：在使用 SeaTunnel 读取前，移除 XML 文件中的 `DOCTYPE` 声明，或对文件做预处理/重新导出。不带 `DOCTYPE` 声明的合法 XML 文件不受影响。(#11250)
+
 ### 转换变更
 
 - **[BREAKING]** SQL Transform 的 `PARSEDATETIME`、`TO_DATE` 和 `IS_DATE` 函数现在只接受白名单中的日期时间格式模式。以前接受的自定义格式模式现在将在运行时失败。支持的模式有：
@@ -164,6 +170,14 @@
   `ROUND(CAST('12345678901234567890.987654321' AS DECIMAL(38,9)), 2)` 以前返回
   `12345678901234567000.00`，现在返回 `12345678901234567890.99`；`MOD(9007199254740993, 2)` 以前返回 `0`，
   现在返回 `1`。依赖旧的精度丢失结果的作业，其输出会发生变化（现在是正确的）。
+- **[BREAKING]** SQL Transform 对 `DECIMAL` 列的算术运算现在保持精确，并且除法改为四舍五入：
+  - `+`、`-`、`*`、`/` 的操作数之前通过 `BigDecimal.valueOf(value.doubleValue())` 转换，会先退化为 `double`，丢弃约 17 位有效数字之后的全部内容。现在会保留完整精度——例如在 `DECIMAL(38,2)` 列上，`123456789012345678.99 + 0.01` 返回 `123456789012345679.00`，而不是 `123456789012345680.01`。
+  - 除法现在使用 `RoundingMode.HALF_UP` 而不是 `RoundingMode.UP`。`UP` 总是向远离零的方向进位，因此在 scale 为 2 时，`10 / 3` 返回 `3.34` 而不是 `3.33`，`1 / 1000` 返回 `0.01` 而不是 `0.00`。
+  - `%`（`MOD`）不受影响，它本来就委托给 `MOD` 函数，没有自行转换操作数。
+  - `*` 现在会将结果舍入到输出列声明的 scale（`HALF_UP`），与 `/` 的既有行为一致。精确乘法得到的结果 scale 等于两个操作数 scale 之和，而该列声明的类型是 `DECIMAL(max(precision), max(scale))`；若直接输出更宽的值，会导致按声明 schema 编码的 Sink 写入失败。在 `DECIMAL(38,2)` 列上，`10.25 * 3.75` 返回 `38.44`，而旧的有损转换对这组特定的值恰好返回 `38.4375`。
+  - 除数为零的 `DECIMAL` 除法现在抛出标明该运算的 `TransformException`，而此前底层原因是 `java.lang.ArithmeticException("/ by zero")`。两种情况下出错的表达式本来就会被报告（SQL 引擎会包装表达式求值过程中抛出的任何异常），变化的只是 cause 的类型。这与 `MOD` 除零一直以来的报错方式保持一致。
+
+  **迁移指南**：之前被旧舍入模式抬高、或被 `double` 转换截断的结果都会发生变化。乘法结果的小数位数可能比以前*更少*：旧的转换有时会输出比列声明 scale 更宽的值，现在该值会被舍入到声明的 scale，因此原先从 `DECIMAL(38,2)` 列读到 `38.4375` 的作业，升级后会读到 `38.44`。如果下游系统已按旧值对账，升级后需要重新校准。任何为兼容旧行为而做的补偿（例如在除法后减去一个修正值）都应当移除。如果有代码检查除法失败的 cause 并匹配 `ArithmeticException`，需要改为 `TransformException`。
 
 ### 引擎行为变更
 

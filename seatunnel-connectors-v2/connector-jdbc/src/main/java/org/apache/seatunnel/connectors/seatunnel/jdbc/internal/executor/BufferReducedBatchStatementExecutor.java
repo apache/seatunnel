@@ -106,6 +106,13 @@ public class BufferReducedBatchStatementExecutor
         }
     }
 
+    @Override
+    public void clearBatch() throws SQLException {
+        buffer.clear();
+        upsertExecutor.clearBatch();
+        deleteExecutor.clearBatch();
+    }
+
     private boolean changeFlag(RowKind rowKind) {
         switch (rowKind) {
             case INSERT:
