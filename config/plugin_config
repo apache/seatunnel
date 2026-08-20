@@ -72,6 +72,7 @@ connector-jdbc
 connector-kafka
 connector-kudu
 connector-maxcompute
+connector-couchbase
 connector-mongodb
 connector-neo4j
 connector-openmldb
@@ -104,4 +105,6 @@ connector-sensorsdata
 connector-hugegraph
 connector-lance
 connector-mqtt
+connector-python
 connector-bigquery
+connector-nats-jetstream
