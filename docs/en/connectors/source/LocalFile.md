@@ -66,6 +66,7 @@ If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you
 | schema                     | config  | no       | -                                    |
 | sheet_name                 | string  | no       | -                                    |
 | excel_engine               | string  | no       | POI                                  |
+| poi_excel_max_file_size    | long    | no       | 52428800                             |
 | xml_row_tag                | string  | no       | -                                    |
 | xml_use_attr_format        | boolean | no       | -                                    |
 | csv_use_header_line        | boolean | no       | false                                |
@@ -212,7 +213,7 @@ Each extracted element is converted to a document-element row with the following
 - `parent_id`: ID of the parent element
 - `child_ids`: Comma-separated list of child element IDs
 
-When `markdown_rag_metadata_enabled` is set to `true`, SeaTunnel appends the following RAG metadata fields after `child_ids`:
+When either `markdown_rag_metadata_enabled` or `pdf_rag_metadata_enabled` is set to `true`, SeaTunnel appends the following RAG metadata fields after `child_ids` for the corresponding file type:
 - `source_uri`: Source file path or URI
 - `document_id`: Stable document identifier derived from `source_uri`
 - `chunk_id`: Stable chunk identifier derived from document identity, chunk order, and content hash
@@ -227,6 +228,7 @@ Note: Markdown format only supports reading, not writing.
 
 If you assign file type to `pdf`, SeaTunnel can parse PDF files and extract structured document elements.
 PDF uses the same document-element row schema described above.
+For PDF input, enable `pdf_rag_metadata_enabled` to append the RAG metadata fields described above.
 
 The main PDF-specific behaviors are:
 
@@ -337,7 +339,15 @@ Only need to be configured when file_format is excel.
 supported as the following file types:
 `POI` `EasyExcel`
 
-The default excel reading engine is POI, but POI can easily cause memory overflow when reading Excel with more than 65,000 rows, so you can switch to EasyExcel as the reading engine.
+The default Excel reading engine is POI. POI keeps the historical read behavior, including POI-specific formula and formatting handling, but it may use a lot of memory for large Excel files.
+
+You can set `excel_engine = EasyExcel` to use streaming reads for large Excel files.
+
+### poi_excel_max_file_size [long]
+
+Only used when `file_format` is excel and `excel_engine` is POI.
+
+The maximum Excel file size in bytes that the POI engine can read. The default value is `52428800` bytes (50 MB). When the file is larger than this limit, the connector fails fast and suggests using EasyExcel.
 
 
 ### xml_row_tag [string]
@@ -351,6 +361,12 @@ Specifies the tag name of the data rows within the XML file.
 Only need to be configured when file_format is xml.
 
 Specifies Whether to process data using the tag attribute format.
+
+:::caution
+
+For security reasons (XXE hardening), XML files (`file_format_type = xml`) containing a `<!DOCTYPE ...>` declaration — including benign declarations that only define internal, non-external entities — are rejected with a `FILE_READ_FAILED` error. There is no configuration option to restore the previous, less secure behavior. If your XML files are exported by a tool that emits a `DOCTYPE` header, remove it or pre-process the file before ingesting it with SeaTunnel.
+
+:::
 
 ### csv_use_header_line [boolean]
 
