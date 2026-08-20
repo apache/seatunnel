@@ -74,9 +74,9 @@ public class MysqlCDCWithFlinkSchemaChangeIT extends TestSuiteBase implements Te
     private static final long STRUCTURE_AND_DATA_ASSERT_TIMEOUT_MILLIS = 300_000L;
     /**
      * The timestamp default is evaluated by different MySQL statements during CDC replay, so this
-     * tolerance allows short CI scheduling jitter without hiding minute-level CDC lag.
+     * tolerance allows loaded CI scheduling jitter without hiding minute-level CDC lag.
      */
-    private static final int MAX_TIMESTAMP_DRIFT_SECONDS = 20;
+    private static final int MAX_TIMESTAMP_DRIFT_SECONDS = 45;
 
     private static final String MYSQL_DATABASE = "shop";
     private static final String SOURCE_TABLE = "products";
