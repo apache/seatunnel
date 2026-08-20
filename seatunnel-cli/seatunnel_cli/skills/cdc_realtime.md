@@ -54,12 +54,42 @@ Data flows as a never-ending stream of insert/update/delete events.
 - For multi-table CDC, use `table-name` regex or create multiple CDC source blocks.
 - CDC sources need database permissions: REPLICATION SLAVE, REPLICATION CLIENT for MySQL.
 
+### PostgreSQL-CDC specifics (differs from MySQL-CDC)
+
+- PostgreSQL-CDC reads the logical replication stream (WAL), which requires
+  server-side prerequisites: `wal_level = logical` on the server, and a user
+  with the REPLICATION attribute.
+- **`slot.name` should be set explicitly** — a stable replication slot name
+  (e.g. `"seatunnel_slot"`). Each concurrent CDC job needs its own slot.
+- **`decoding.plugin.name`** selects the logical decoding plugin. Use
+  `"pgoutput"` for PostgreSQL 10+ (built-in, no server install needed);
+  `"decoderbufs"` only when that plugin is installed on the server.
+- `table-names` (plural, list-typed) takes schema-qualified entries. The
+  canonical form is TWO-part `"schema.table"` (e.g. `["inventory.orders"]`)
+  — the connector's own error message calls it `schemaName.tableName`.
+  A three-part `"database.schema.table"` entry is also accepted, but the
+  leading database segment is ignored (it does NOT filter by database).
+  Database selection comes from `database-names` (plural, list-typed);
+  the connector connects to the first listed database. Always confirm
+  exact keys with `get_connector_info`.
+- Debezium engine properties (e.g. a custom publication name) are passed
+  through the nested `debezium { }` map option, such as
+  `debezium { publication.name = "my_pub" }` — never as top-level options.
+
+| Option | MySQL-CDC | PostgreSQL-CDC |
+|---|---|---|
+| stream source | binlog | logical replication (WAL) |
+| `slot.name` | n/a | recommended, one per job |
+| `decoding.plugin.name` | n/a | `pgoutput` (PG 10+) |
+| `table-names` entry format | `database.table` | `schema.table` (canonical) |
+| server prerequisite | binlog ROW mode | `wal_level = logical` |
+
 ## SOP
 
 1. **Identify CDC source connector** (MySQL-CDC, PostgreSQL-CDC, etc.) from the plan.
 2. **Identify sink connector** — verify it supports upsert semantics for CDC correctness.
 3. **Set env block**: `job.mode = "STREAMING"`, `checkpoint.interval = 10000`.
-4. **Fill CDC source options**: hostname, port, username, password, database-name, table-name. Use `get_connector_info` for exact option keys.
+4. **Fill CDC source options**: hostname, port, username, password, and the database/table selection keys. Use `get_connector_info` for exact option keys — they vary by connector (e.g. PostgreSQL-CDC uses plural `database-names`/`table-names`).
 5. **Fill sink options**: fetch connector metadata, ensure primary key / upsert config is set.
 6. **Set routing**: `plugin_output` on source, `plugin_input` on sink.
 7. **Apply golden example** if available for this (source, sink) pair.
@@ -69,7 +99,7 @@ Data flows as a never-ending stream of insert/update/delete events.
 
 - MUST use `job.mode = "STREAMING"` — never BATCH for CDC.
 - MUST include `checkpoint.interval` in env block.
-- CDC source option keys use hyphens: `database-name`, `table-name` — NOT underscores.
+- CDC source option keys use hyphens (e.g. `database-name`/`database-names`) — NOT underscores.
 - Do NOT add `query` to CDC sources — they capture changelogs, not arbitrary SQL.
 - Credentials always as `${ENV_VAR}`.
 
@@ -88,8 +118,9 @@ source {
     port = <port>
     username = "${DB_USER}"
     password = "${DB_PASSWORD}"
-    database-name = "<database>"
-    table-name = "<table>"
+    database-names = ["<database>"]
+    # MySQL-CDC entries: "<database>.<table>"; PostgreSQL-CDC: "<schema>.<table>"
+    table-names = ["<database-or-schema-qualified-table>"]
     plugin_output = "<routing_label>"
   }
 }

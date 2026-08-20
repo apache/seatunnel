@@ -75,6 +75,8 @@ import ChangeLog from '../changelog/connector-file-oss-jindo.md';
 | skip_header_row_number    | long    | 否  | 0                           | 跳过前几行                                                                         |
 | schema                    | config  | 否  | -                           | 上游数据的模式信息。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。 |
 | sheet_name                | string  | 否  | -                           | Excel 工作表名称                                                                   |
+| excel_engine              | string  | 否  | POI                         | 仅在 `file_format` 为 excel 时使用。支持的引擎包括 `POI` 和 `EasyExcel`。                                                                                                                                            |
+| poi_excel_max_file_size   | long    | 否  | 52428800                    | 仅在 `file_format` 为 excel 且 `excel_engine` 为 POI 时使用。POI 引擎允许读取的最大 Excel 文件大小（默认 50 MB）。                                                                                                                                            |
 | xml_row_tag               | string  | 否  | -                           | XML 行标签                                                                       |
 | xml_use_attr_format       | boolean | 否  | -                           | 是否使用 XML 属性格式                                                                 |
 | csv_use_header_line       | boolean | 否  | false                       | 是否使用 CSV 标题行                                                                  |
@@ -104,6 +106,12 @@ import ChangeLog from '../changelog/connector-file-oss-jindo.md';
 文件类型，支持以下文件类型：
 
 `text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown`
+
+:::caution
+
+出于安全考虑(XXE 加固), 包含 `<!DOCTYPE ...>` 声明的 XML 文件(`file_format_type = xml`)——即使是仅定义内部实体、不引用外部资源的良性声明——现在会被拒绝并抛出 `FILE_READ_FAILED` 错误。该行为没有配置项可以恢复为旧版本的处理方式。如果您的 XML 文件由某些工具导出并带有 `DOCTYPE` 头，请在使用 SeaTunnel 读取前将其移除或做预处理。
+
+:::
 
 如果您将文件类型指定为 `markdown`，SeaTunnel 可以解析 markdown 文件并提取结构化数据。
 markdown 解析器提取各种元素，包括标题、段落、列表、代码块、表格等。
