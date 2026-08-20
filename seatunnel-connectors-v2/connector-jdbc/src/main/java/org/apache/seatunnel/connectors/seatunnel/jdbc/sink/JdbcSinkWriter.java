@@ -68,6 +68,15 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
     // Marks the last auto-flushed batch inside the open JDBC transaction so a later row-level
     // failure can roll back only the failed batch without moving the durable commit boundary.
     private Savepoint lastSuccessfulBatchSavepoint;
+    // Tracks the Connection instance that owns the current transaction (i.e., the
+    // connection on which auto-flushed batches and savepoints were created since the
+    // last commit). When ConnectionPoolManager silently swaps the underlying connection
+    // (e.g., due to HikariCP eviction), any savepoint becomes invalid per the JDBC
+    // contract and the swapped connection has no pending work to commit — tracking the
+    // connection lets us detect the swap and either fall back to a full rollback
+    // (rollbackIfNeeded) or fail the checkpoint explicitly (commitIfNeeded) so the
+    // framework can retry from the last durable checkpoint.
+    private Connection transactionConnection;
     private Boolean supportsSavepoints;
     private boolean savepointUnsupportedLogged;
 
@@ -498,6 +507,7 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
             Connection connection = connectionProvider.getConnection();
             Savepoint previousSavepoint = lastSuccessfulBatchSavepoint;
             lastSuccessfulBatchSavepoint = connection.setSavepoint();
+            transactionConnection = connection;
             releaseSavepointSilently(connection, previousSavepoint);
             return true;
         } catch (SQLException e) {
@@ -543,7 +553,10 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
             return;
         }
         try {
-            connection.releaseSavepoint(savepoint);
+            Connection currentConnection = connectionProvider.getConnection();
+            if (currentConnection == transactionConnection) {
+                currentConnection.releaseSavepoint(savepoint);
+            }
         } catch (SQLException e) {
             log.debug("Failed to release JDBC savepoint after moving row-error batch boundary.", e);
         }
@@ -603,19 +616,26 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
         if (connection.getAutoCommit()) {
             return;
         }
-        if (lastSuccessfulBatchSavepoint != null) {
+        if (lastSuccessfulBatchSavepoint != null && connection == transactionConnection) {
             connection.rollback(lastSuccessfulBatchSavepoint);
         } else {
             connection.rollback();
         }
         lastSuccessfulBatchSavepoint = null;
+        transactionConnection = null;
     }
 
     private void commitIfNeeded() throws SQLException {
         Connection connection = connectionProvider.getConnection();
         if (!connection.getAutoCommit()) {
+            if (transactionConnection != null && connection != transactionConnection) {
+                throw new SQLException(
+                        "Connection was silently swapped; "
+                                + "uncommitted data from the previous connection may be lost.");
+            }
             connection.commit();
             lastSuccessfulBatchSavepoint = null;
+            transactionConnection = null;
         }
     }
 
