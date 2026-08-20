@@ -92,6 +92,7 @@ PR #11301 提供了重要的第一步，但尚未回答发布级别的核心问�
 ├── plugin_config           # 旧版本所需的连接器构件
 ├── setup.sh                # 可选：外部服务设置（如 Docker）
 ├── teardown.sh             # 可选：外部服务清理
+├── after_restore.sh        # 可选：恢复后插入标记数据的钩子
 └── endless                 # 可选：流式作业标记（保存点后取消）
 ```
 
@@ -130,7 +131,11 @@ on:
       - 'seatunnel-api/**'
       - 'seatunnel-engine/**'
       - 'seatunnel-core/**'
-      - 'seatunnel-connectors-v2/connector-cdc-**/**'
+      - 'seatunnel-connectors-v2/connector-cdc/**'
+      - 'seatunnel-connectors-v2/connector-kafka/**'
+      - 'seatunnel-connectors-v2/connector-jdbc/**'
+      - 'seatunnel-connectors-v2/connector-file/**'
+      - 'seatunnel-connectors-v2/connector-fake/**'
       - 'seatunnel-translation/**'
 ```
 
@@ -163,6 +168,11 @@ on:
 
 > 由 SeaTunnel 版本 N-1（最新稳定版本）创建的保存点可以被当前 `dev` 分支构建恢复，
 > 作业将继续处理并产生经 Assert sink 验证的正确输出。
+
+**流式场景验证**：对于流式（endless）场景，仅靠 Assert sink 无法证明恢复后的作业确实继续处理了数据，
+因为恢复前已存在于 sink 目录中的数据可能满足断言条件。每个流式场景必须包含一个 `after_restore.sh` 钩子，
+在保存点恢复后向源系统插入一个**恢复后标记**（例如一个包含已知值的行）。
+Assert sink 配置必须验证该标记行存在，从而明确证明作业在恢复后继续处理了新数据。
 
 此保证适用于：
 
@@ -223,11 +233,12 @@ on:
 - [ ] 以建议模式运行 4 周
 - [ ] 提升为过滤路径的必选状态检查
 
-### 阶段 2d：失败诊断
+### 阶段 2d：失败诊断和验证加固
 
 - [ ] 在 GitHub Actions 中添加阶段级注解
 - [ ] 添加摘要制品生成
 - [ ] 添加断言差异输出
+- [ ] 为所有流式场景添加 `after_restore.sh` 钩子以验证恢复后处理
 
 ## 考虑的替代方案
 
