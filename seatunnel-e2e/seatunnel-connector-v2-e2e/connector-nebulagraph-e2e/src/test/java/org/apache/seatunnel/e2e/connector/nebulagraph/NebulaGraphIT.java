@@ -76,7 +76,6 @@ public class NebulaGraphIT extends TestSuiteBase implements TestResource {
                 new GenericContainer<>(DockerImageName.parse("vesoft/nebula-storaged:" + VERSION))
                         .withNetwork(NETWORK)
                         .withNetworkAliases("storaged0")
-                        .withExposedPorts(19779)
                         .withCommand(
                                 "--meta_server_addrs=metad0:9559",
                                 "--local_ip=storaged0",
@@ -84,9 +83,7 @@ public class NebulaGraphIT extends TestSuiteBase implements TestResource {
                                 "--port=9779",
                                 "--ws_http_port=19779",
                                 "--data_path=/data/storage",
-                                "--logtostderr=true")
-                        .waitingFor(Wait.forHttp("/status").forPort(19779))
-                        .withStartupTimeout(Duration.ofMinutes(3));
+                                "--logtostderr=true");
         graphd =
                 new GenericContainer<>(DockerImageName.parse("vesoft/nebula-graphd:" + VERSION))
                         .withNetwork(NETWORK)
@@ -103,6 +100,7 @@ public class NebulaGraphIT extends TestSuiteBase implements TestResource {
                         .withStartupTimeout(Duration.ofMinutes(3));
 
         metad.start();
+        // Storaged waits for host registration, so it cannot use an HTTP startup wait here.
         storaged.start();
         graphd.start();
 
