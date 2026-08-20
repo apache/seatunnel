@@ -452,9 +452,8 @@ public class DefaultErrorSinkWriter<T> implements ErrorSinkRowWriter<T> {
     static void validateSupportedErrorSinkLifecycle(
             String pluginName, SeaTunnelSink<SeaTunnelRow, ?, ?, ?> sink) throws Exception {
         List<String> unsupportedFeatures = new ArrayList<>();
-        if (sink.getWriterStateSerializer().isPresent()) {
-            unsupportedFeatures.add("writer state serializer");
-        }
+        // ROUTE error sinks do not checkpoint writer state. A serializer alone does not require a
+        // committer lifecycle and is safe for schema-aware sinks such as JDBC.
         if (sink.getCommitInfoSerializer().isPresent()) {
             unsupportedFeatures.add("commit info serializer");
         }
@@ -476,8 +475,8 @@ public class DefaultErrorSinkWriter<T> implements ErrorSinkRowWriter<T> {
             throw new SeaTunnelRuntimeException(
                     CommonErrorCodeDeprecated.WRITER_OPERATION_FAILED,
                     String.format(
-                            "ROUTE error sink currently supports only sinks that do not require "
-                                    + "writer state or committer lifecycle. pluginName=%s, unsupported=%s. "
+                            "ROUTE error sink currently supports only sinks that do not require a "
+                                    + "committer lifecycle. pluginName=%s, unsupported=%s. "
                                     + "Disable transactional/exactly-once options for the error sink or use a simple error sink.",
                             pluginName, unsupportedFeatures));
         }

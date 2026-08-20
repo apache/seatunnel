@@ -58,15 +58,11 @@ public class DefaultErrorSinkWriterTest {
     }
 
     @Test
-    public void testValidateSupportedErrorSinkLifecycleRejectsStatefulSink() {
-        RuntimeException ex =
-                assertThrows(
-                        RuntimeException.class,
-                        () ->
-                                DefaultErrorSinkWriter.validateSupportedErrorSinkLifecycle(
-                                        "stateful", new TestSink(true, false, false)));
-
-        assertTrue(ex.getMessage().contains("writer state serializer"));
+    public void testValidateSupportedErrorSinkLifecycleAllowsStateSerializerWithoutCommitter() {
+        assertDoesNotThrow(
+                () ->
+                        DefaultErrorSinkWriter.validateSupportedErrorSinkLifecycle(
+                                "stateful", new TestSink(true, false, false)));
     }
 
     @Test

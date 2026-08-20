@@ -15,26 +15,25 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.jdbc.state;
+package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.xa;
 
-import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.serialization.DefaultSerializer;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.state.JdbcSinkState;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
-import javax.transaction.xa.Xid;
+/** Verifies that JDBC checkpoint state preserves XA transaction identifiers. */
+class XidImplTest {
 
-import java.io.Serializable;
+    @Test
+    void testSerializeJdbcSinkStateWithXid() throws Exception {
+        XidImpl xid = new XidImpl(42, new byte[] {1, 2, 3}, new byte[] {4, 5, 6});
+        DefaultSerializer<JdbcSinkState> serializer = new DefaultSerializer<>();
 
-@Data
-@AllArgsConstructor
-public class JdbcSinkState implements Serializable {
-    private static final long serialVersionUID = 4602940529569595559L;
-    private final Xid xid;
-    /** Schema captured with writer state; null for checkpoints created before schema recovery. */
-    private final TableSchema tableSchema;
+        JdbcSinkState restored =
+                serializer.deserialize(serializer.serialize(new JdbcSinkState(xid)));
 
-    public JdbcSinkState(Xid xid) {
-        this(xid, null);
+        Assertions.assertEquals(xid, restored.getXid());
     }
 }

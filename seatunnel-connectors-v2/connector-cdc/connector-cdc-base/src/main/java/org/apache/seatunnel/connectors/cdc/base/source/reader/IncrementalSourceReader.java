@@ -226,7 +226,9 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
             return new SnapshotSplitState(split.asSnapshotSplit());
         } else {
             IncrementalSplit incrementalSplit = split.asIncrementalSplit();
-            if (incrementalSplit.getCheckpointTables() != null) {
+            // Restore the collector only when the deserializer can restore the checkpoint schema.
+            if (incrementalSplit.getCheckpointTables() != null
+                    && debeziumDeserializationSchema.getSchemaChangeResolver() != null) {
                 log.info(
                         "The incremental split[{}] has checkpoint tables {} for restore.",
                         incrementalSplit.splitId(),

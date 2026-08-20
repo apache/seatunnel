@@ -55,6 +55,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.LongSupplier;
+import java.util.stream.Collectors;
 
 import static org.apache.seatunnel.api.common.metrics.MetricNames.FLUSH_SIGNAL_QPS;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.FLUSH_SIGNAL_TOTAL;
@@ -303,7 +304,7 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
                         "Single-table source collector cannot restore multiple table schemas: "
                                 + catalogTables.stream()
                                         .map(CatalogTable::getTablePath)
-                                        .collect(java.util.stream.Collectors.toList()));
+                                        .collect(Collectors.toList()));
             }
             this.rowType = catalogTables.get(0).getTableSchema().toPhysicalRowDataType();
         } else if (rowType instanceof MultipleRowType) {
@@ -320,7 +321,7 @@ public class SeaTunnelSourceCollector<T> implements Collector<T> {
                 "Restored source collector schema from checkpoint for tables: {}",
                 catalogTables.stream()
                         .map(CatalogTable::getTablePath)
-                        .collect(java.util.stream.Collectors.toList()));
+                        .collect(Collectors.toList()));
     }
 
     @Override
