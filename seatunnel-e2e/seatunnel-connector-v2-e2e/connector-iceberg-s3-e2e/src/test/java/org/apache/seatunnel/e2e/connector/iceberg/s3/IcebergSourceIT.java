@@ -94,10 +94,17 @@ public class IcebergSourceIT extends TestSuiteBase implements TestResource {
     private final ContainerExtendedFactory extendedFactory =
             container -> {
                 boolean spark35 = container.getDockerImageName().startsWith("apache/spark:3.5");
-                String dependencyDirectory =
-                        spark35 ? "/opt/spark/jars" : "/tmp/seatunnel/plugins/Iceberg/lib";
-                DependencyJar.of(S3AFileSystem.class).copyTo(container, dependencyDirectory);
-                DependencyJar.of(AmazonS3.class).copyTo(container, dependencyDirectory);
+                if (spark35) {
+                    DependencyJar.staged("spark35-hadoop-aws.jar")
+                            .copyTo(container, "/opt/spark/jars");
+                    DependencyJar.staged("spark35-aws-java-sdk-bundle.jar")
+                            .copyTo(container, "/opt/spark/jars");
+                } else {
+                    DependencyJar.of(S3AFileSystem.class)
+                            .copyTo(container, "/tmp/seatunnel/plugins/Iceberg/lib");
+                    DependencyJar.of(AmazonS3.class)
+                            .copyTo(container, "/tmp/seatunnel/plugins/Iceberg/lib");
+                }
             };
 
     private static final String MINIO_DOCKER_IMAGE = "minio/minio:RELEASE.2024-06-13T22-53-53Z";

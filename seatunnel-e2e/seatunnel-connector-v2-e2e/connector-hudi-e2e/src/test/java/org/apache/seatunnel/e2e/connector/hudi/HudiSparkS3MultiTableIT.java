@@ -20,10 +20,13 @@ package org.apache.seatunnel.e2e.connector.hudi;
 import org.apache.seatunnel.common.utils.FileUtils;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.TestContainerId;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
+import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.LocalFileSystem;
@@ -52,6 +55,17 @@ import static org.awaitility.Awaitility.given;
 
 @Slf4j
 public class HudiSparkS3MultiTableIT extends TestSuiteBase implements TestResource {
+
+    @TestContainerExtension
+    private final ContainerExtendedFactory extendedFactory =
+            container -> {
+                if (container.getDockerImageName().startsWith("apache/spark:3.5")) {
+                    DependencyJar.staged("spark35-hadoop-aws.jar")
+                            .copyTo(container, "/opt/spark/jars");
+                    DependencyJar.staged("spark35-aws-java-sdk-bundle.jar")
+                            .copyTo(container, "/opt/spark/jars");
+                }
+            };
 
     private static final String MINIO_DOCKER_IMAGE = "minio/minio:RELEASE.2024-06-13T22-53-53Z";
     private static final String HOST = "minio";
