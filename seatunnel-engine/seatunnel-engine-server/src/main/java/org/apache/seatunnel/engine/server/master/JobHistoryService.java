@@ -113,8 +113,20 @@ public class JobHistoryService {
 
     private final Map<String, AtomicLong> finishedJobCleanupTotals = new ConcurrentHashMap<>();
 
+    /**
+     * UUID of the entry listener registered on {@link #finishedJobStateImap} for finished job state
+     * expiration.
+     */
     private final UUID finishedJobStateListenerId;
+    /**
+     * UUID of the entry listener registered on {@link #finishedJobMetricsImap} for finished job
+     * metrics expiration.
+     */
     private final UUID finishedJobMetricsListenerId;
+    /**
+     * UUID of the entry listener registered on {@link #finishedJobDAGInfoImap} for finished job DAG
+     * info expiration.
+     */
     private final UUID finishedJobDAGInfoListenerId;
 
     public JobHistoryService(
@@ -376,9 +388,21 @@ public class JobHistoryService {
 
     /** Shutdown the job history service and remove all IMap entry listeners. */
     public void shutdown() {
-        finishedJobStateImap.removeEntryListener(finishedJobStateListenerId);
-        finishedJobMetricsImap.removeEntryListener(finishedJobMetricsListenerId);
-        finishedJobDAGInfoImap.removeEntryListener(finishedJobDAGInfoListenerId);
+        removeEntryListenerQuietly(
+                finishedJobStateImap, finishedJobStateListenerId, "finishedJobState");
+        removeEntryListenerQuietly(
+                finishedJobMetricsImap, finishedJobMetricsListenerId, "finishedJobMetrics");
+        removeEntryListenerQuietly(
+                finishedJobDAGInfoImap, finishedJobDAGInfoListenerId, "finishedJobDAGInfo");
+    }
+
+    private void removeEntryListenerQuietly(IMap<?, ?> imap, UUID listenerId, String listenerName) {
+        try {
+            imap.removeEntryListener(listenerId);
+        } catch (Exception e) {
+            logger.warning(
+                    "Failed to remove " + listenerName + " entry listener: " + e.getMessage(), e);
+        }
     }
 
     private long getFinishedJobCleanupTotal(String storeName) {
