@@ -237,6 +237,38 @@ class PulsarSourceTest {
                                 CatalogTableUtil.buildSimpleTextTable()));
     }
 
+    private CatalogTable createTextCatalogTable() {
+        List<Column> columns = new ArrayList<>();
+        columns.add(
+                PhysicalColumn.builder()
+                        .name("id")
+                        .dataType(BasicType.INT_TYPE)
+                        .nullable(true)
+                        .build());
+        columns.add(
+                PhysicalColumn.builder()
+                        .name("name")
+                        .dataType(BasicType.STRING_TYPE)
+                        .nullable(true)
+                        .build());
+        return CatalogTable.of(
+                TableIdentifier.of("default", "default", "pulsar_table"),
+                TableSchema.builder().columns(columns).build(),
+                new HashMap<>(),
+                new ArrayList<>(),
+                "Pulsar text table");
+    }
+
+    @SuppressWarnings("unchecked")
+    private DeserializationSchema<SeaTunnelRow> getDeserializationSchema(PulsarSource source)
+            throws ReflectiveOperationException {
+        Field field = PulsarSource.class.getDeclaredField("consumerMetadataMap");
+        field.setAccessible(true);
+        Map<TablePath, PulsarConsumerMetadata> consumerMetadataMap =
+                (Map<TablePath, PulsarConsumerMetadata>) field.get(source);
+        return consumerMetadataMap.values().iterator().next().getDeserializationSchema();
+    }
+
     private Map<String, Object> createBaseConfig(String stopMode) {
         Map<String, Object> config = new HashMap<>();
         config.put("subscription.name", "seatunnel-sub");

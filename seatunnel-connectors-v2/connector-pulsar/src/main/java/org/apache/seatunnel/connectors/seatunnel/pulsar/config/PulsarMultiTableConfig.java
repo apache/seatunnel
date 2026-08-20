@@ -325,7 +325,7 @@ public class PulsarMultiTableConfig implements Serializable {
                 throw new PulsarConnectorException(
                         SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
                         String.format(
-                                "%s uses unsupported format '%s' in multi-table mode, "
+                                "%s uses unsupported format '%s' when using tables_configs, "
                                         + "only JSON, CANAL_JSON and AVRO are supported",
                                 configPrefix, format));
             }
