@@ -171,27 +171,7 @@ public class Flink20Container extends AbstractTestFlinkContainer {
         copySeaTunnelStarterToContainer(jobManager);
         copySeaTunnelStarterLoggingToContainer(jobManager);
 
-        taskManager =
-                new org.testcontainers.containers.GenericContainer<>(dockerImage)
-                        .withCommand("sh", "-c", createTaskManagerStartupCommand())
-                        .withNetwork(NETWORK)
-                        .withNetworkAliases("taskmanager")
-                        .withEnv("FLINK_PROPERTIES", properties)
-                        .dependsOn(jobManager)
-                        .withLogConsumer(
-                                new org.testcontainers.containers.output.Slf4jLogConsumer(
-                                        org.testcontainers.utility.DockerLoggerFactory.getLogger(
-                                                dockerImage + ":taskmanager")))
-                        .waitingFor(
-                                new org.testcontainers.containers.wait.strategy
-                                                .LogMessageWaitStrategy()
-                                        .withRegEx(
-                                                ".*Successful registration at resource manager.*")
-                                        .withStartupTimeout(java.time.Duration.ofMinutes(2)))
-                        .withFileSystemBind(
-                                HOST_VOLUME_MOUNT_PATH,
-                                CONTAINER_VOLUME_MOUNT_PATH,
-                                org.testcontainers.containers.BindMode.READ_WRITE);
+        taskManager = createTaskManagerContainer(dockerImage, properties, "taskmanager");
 
         org.testcontainers.lifecycle.Startables.deepStart(java.util.stream.Stream.of(jobManager))
                 .join();
@@ -211,6 +191,29 @@ public class Flink20Container extends AbstractTestFlinkContainer {
                 + "\n"
                 + "echo 'Starting Flink JobManager...'\n"
                 + "exec /docker-entrypoint.sh jobmanager\n";
+    }
+
+    @Override
+    protected org.testcontainers.containers.GenericContainer<?> createTaskManagerContainer(
+            String dockerImage, String properties, String networkAlias) {
+        return new org.testcontainers.containers.GenericContainer<>(dockerImage)
+                .withCommand("sh", "-c", createTaskManagerStartupCommand())
+                .withNetwork(NETWORK)
+                .withNetworkAliases(networkAlias)
+                .withEnv("FLINK_PROPERTIES", properties)
+                .dependsOn(jobManager)
+                .withLogConsumer(
+                        new org.testcontainers.containers.output.Slf4jLogConsumer(
+                                org.testcontainers.utility.DockerLoggerFactory.getLogger(
+                                        dockerImage + ":" + networkAlias)))
+                .waitingFor(
+                        new org.testcontainers.containers.wait.strategy.LogMessageWaitStrategy()
+                                .withRegEx(".*Successful registration at resource manager.*")
+                                .withStartupTimeout(java.time.Duration.ofMinutes(2)))
+                .withFileSystemBind(
+                        HOST_VOLUME_MOUNT_PATH,
+                        CONTAINER_VOLUME_MOUNT_PATH,
+                        org.testcontainers.containers.BindMode.READ_WRITE);
     }
 
     private String createTaskManagerStartupCommand() {

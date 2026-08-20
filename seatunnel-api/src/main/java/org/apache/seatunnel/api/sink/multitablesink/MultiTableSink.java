@@ -26,10 +26,12 @@ import org.apache.seatunnel.api.options.MultiTableFailurePolicy;
 import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.serialization.Serializer;
+import org.apache.seatunnel.api.sink.SchemaChangeApplier;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkAggregatedCommitter;
 import org.apache.seatunnel.api.sink.SinkCommitter;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportCoordinatedSchemaEvolutionSink;
 import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSink;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
@@ -66,7 +68,7 @@ public class MultiTableSink
                         MultiTableState,
                         MultiTableCommitInfo,
                         MultiTableAggregatedCommitInfo>,
-                SupportSchemaEvolutionSink {
+                SupportCoordinatedSchemaEvolutionSink {
 
     @Getter private final Map<TablePath, SeaTunnelSink> sinks;
     private final int replicaNum;
@@ -147,7 +149,8 @@ public class MultiTableSink
                         getJobMode(),
                         initialFailedTables,
                         tableRetryTimes,
-                        tableRetryIntervalSeconds);
+                        tableRetryIntervalSeconds,
+                        createSchemaChangeAppliers());
         registerAggregatedFlushIfNeeded(context, writer, proxyContexts);
         return writer;
     }
@@ -204,10 +207,86 @@ public class MultiTableSink
                         getJobMode(),
                         initialFailedTables,
                         tableRetryTimes,
-                        tableRetryIntervalSeconds);
+                        tableRetryIntervalSeconds,
+                        createSchemaChangeAppliers());
 
         registerAggregatedFlushIfNeeded(context, writer, proxyContexts);
         return writer;
+    }
+
+    /** Creates one external schema applier for every coordinated per-table sink. */
+    private Map<String, SchemaChangeApplier> createSchemaChangeAppliers() throws IOException {
+        Map<String, SchemaChangeApplier> schemaChangeAppliers = new HashMap<>();
+        try {
+            for (Map.Entry<TablePath, SeaTunnelSink> entry : sinks.entrySet()) {
+                SeaTunnelSink sink = entry.getValue();
+                if (!(sink instanceof SupportCoordinatedSchemaEvolutionSink)
+                        || !((SupportCoordinatedSchemaEvolutionSink) sink)
+                                .supportsCoordinatedSchemaEvolution()) {
+                    continue;
+                }
+                Optional<?> writeCatalogTable = sink.getWriteCatalogTable();
+                TablePath physicalSinkTable =
+                        writeCatalogTable.isPresent()
+                                ? ((CatalogTable) writeCatalogTable.get()).getTablePath()
+                                : entry.getKey();
+                schemaChangeAppliers.put(
+                        entry.getKey().getFullName(),
+                        ((SupportCoordinatedSchemaEvolutionSink) sink)
+                                .createSchemaChangeApplier(physicalSinkTable));
+            }
+            return schemaChangeAppliers;
+        } catch (Exception e) {
+            for (SchemaChangeApplier schemaChangeApplier : schemaChangeAppliers.values()) {
+                try {
+                    schemaChangeApplier.close();
+                } catch (Exception closeException) {
+                    e.addSuppressed(closeException);
+                }
+            }
+            if (e instanceof IOException) {
+                throw (IOException) e;
+            }
+            throw new IOException("Failed to create schema change appliers", e);
+        }
+    }
+
+    @Override
+    public boolean supportsCoordinatedSchemaEvolution() {
+        return !sinks.isEmpty()
+                && sinks.values().stream()
+                        .allMatch(
+                                sink ->
+                                        sink instanceof SupportCoordinatedSchemaEvolutionSink
+                                                && ((SupportCoordinatedSchemaEvolutionSink) sink)
+                                                        .supportsCoordinatedSchemaEvolution());
+    }
+
+    @Override
+    public SchemaChangeApplier createSchemaChangeApplier(TablePath requestedTablePath)
+            throws IOException {
+        for (Map.Entry<TablePath, SeaTunnelSink> entry : sinks.entrySet()) {
+            SeaTunnelSink sink = entry.getValue();
+            TablePath physicalSinkTable =
+                    sink.getWriteCatalogTable().isPresent()
+                            ? ((CatalogTable) sink.getWriteCatalogTable().get()).getTablePath()
+                            : entry.getKey();
+            if (!entry.getKey().equals(requestedTablePath)
+                    && !physicalSinkTable.equals(requestedTablePath)) {
+                continue;
+            }
+            if (!(sink instanceof SupportCoordinatedSchemaEvolutionSink)
+                    || !((SupportCoordinatedSchemaEvolutionSink) sink)
+                            .supportsCoordinatedSchemaEvolution()) {
+                throw new IOException(
+                        "Sink for table "
+                                + requestedTablePath
+                                + " does not support coordinated schema evolution");
+            }
+            return ((SupportCoordinatedSchemaEvolutionSink) sink)
+                    .createSchemaChangeApplier(physicalSinkTable);
+        }
+        throw new IOException("No sink found for schema change table " + requestedTablePath);
     }
 
     /**

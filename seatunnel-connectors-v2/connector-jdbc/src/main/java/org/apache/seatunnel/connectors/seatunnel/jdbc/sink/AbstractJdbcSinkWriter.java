@@ -20,14 +20,14 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.sink;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
+import org.apache.seatunnel.api.sink.SupportSchemaRefreshSinkWriter;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.schema.handler.TableSchemaChangeEventDispatcher;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkConfig;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorErrorCode;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.JdbcOutputFormat;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.JdbcOutputFormatBuilder;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
@@ -39,14 +39,14 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.state.XidInfo;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
-import java.sql.Connection;
 import java.util.Optional;
 
 @Slf4j
 public abstract class AbstractJdbcSinkWriter<ResourceT>
         implements SinkWriter<SeaTunnelRow, XidInfo, JdbcSinkState>,
                 SupportMultiTableSinkWriter<ResourceT>,
-                SupportSchemaEvolutionSinkWriter {
+                SupportSchemaEvolutionSinkWriter,
+                SupportSchemaRefreshSinkWriter {
 
     protected JdbcDialect dialect;
     protected TablePath sinkTablePath;
@@ -61,8 +61,16 @@ public abstract class AbstractJdbcSinkWriter<ResourceT>
 
     @Override
     public void applySchemaChange(SchemaChangeEvent event) throws IOException {
-        this.tableSchema = tableSchemaChanger.reset(tableSchema).apply(event);
-        reOpenOutputFormat(event);
+        TableSchema evolvedSchema =
+                event.getChangeAfter() == null
+                        ? tableSchemaChanger.reset(tableSchema).apply(event)
+                        : event.getChangeAfter().getTableSchema();
+        this.prepareCommit();
+        try (JdbcSchemaChangeApplier applier =
+                new JdbcSchemaChangeApplier(dialect, jdbcSinkConfig, sinkTablePath)) {
+            applier.apply(event);
+        }
+        refreshTableSchema(evolvedSchema);
     }
 
     /**
@@ -74,18 +82,19 @@ public abstract class AbstractJdbcSinkWriter<ResourceT>
         return sinkTablePath == null ? Optional.empty() : Optional.of(sinkTablePath.getFullName());
     }
 
-    protected void reOpenOutputFormat(SchemaChangeEvent event) throws IOException {
-        this.prepareCommit();
-        JdbcConnectionProvider refreshTableSchemaConnectionProvider =
-                dialect.getJdbcConnectionProvider(jdbcSinkConfig.getJdbcConnectionConfig());
-        try (Connection connection =
-                refreshTableSchemaConnectionProvider.getOrEstablishConnection()) {
-            dialect.applySchemaChange(connection, sinkTablePath, event);
-        } catch (Throwable e) {
-            throw new JdbcConnectorException(
-                    JdbcConnectorErrorCode.REFRESH_PHYSICAL_TABLESCHEMA_BY_SCHEMA_CHANGE_EVENT, e);
+    @Override
+    public void refreshSchema(CatalogTable evolvedSchema) throws IOException {
+        if (evolvedSchema == null) {
+            throw new IllegalArgumentException("evolvedSchema cannot be null");
         }
+        refreshTableSchema(evolvedSchema.getTableSchema());
+    }
 
+    protected void refreshTableSchema(TableSchema evolvedSchema) throws IOException {
+        if (isOpen) {
+            outputFormat.closeStatements();
+        }
+        this.tableSchema = evolvedSchema;
         this.outputFormat =
                 new JdbcOutputFormatBuilder(
                                 dialect,
@@ -94,6 +103,8 @@ public abstract class AbstractJdbcSinkWriter<ResourceT>
                                 tableSchema,
                                 databaseTableSchema)
                         .build();
-        this.outputFormat.open();
+        if (isOpen) {
+            this.outputFormat.open();
+        }
     }
 }

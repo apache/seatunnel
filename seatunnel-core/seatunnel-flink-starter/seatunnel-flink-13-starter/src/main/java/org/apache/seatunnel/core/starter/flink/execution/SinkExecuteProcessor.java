@@ -46,10 +46,9 @@ import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.core.starter.exception.TaskExecuteException;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelFactoryDiscovery;
 import org.apache.seatunnel.plugin.discovery.seatunnel.SeaTunnelSinkPluginDiscovery;
-import org.apache.seatunnel.translation.flink.schema.BroadcastSchemaSinkOperator;
+import org.apache.seatunnel.translation.flink.schema.SchemaEvolutionSinkFlow;
 import org.apache.seatunnel.translation.flink.sink.FlinkSink;
 
-import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.streaming.api.datastream.DataStream;
 import org.apache.flink.streaming.api.datastream.DataStreamSink;
 
@@ -211,14 +210,7 @@ public class SinkExecuteProcessor
                                     .equalsIgnoreCase(envConfig.getString("job.mode"));
             DataStream<SeaTunnelRow> ds = stream.getDataStream();
             if (isStreaming && sink instanceof SupportSchemaEvolutionSink) {
-                // insert broadcast-based schema operator to handle schema changes
-                ds =
-                        ds.transform(
-                                        "BroadcastSchemaHandler",
-                                        TypeInformation.of(SeaTunnelRow.class),
-                                        new BroadcastSchemaSinkOperator())
-                                .name("BroadcastSchemaHandler")
-                                .setParallelism(parallelism);
+                ds = SchemaEvolutionSinkFlow.coordinate(ds, sink, parallelism);
             }
             DataStreamSink<SeaTunnelRow> dataStreamSink =
                     ds.sinkTo(new FlinkSink<>(sink, stream.getCatalogTables(), parallelism))

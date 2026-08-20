@@ -29,7 +29,6 @@ import org.apache.seatunnel.api.table.schema.exception.SchemaEvolutionErrorCode;
 import org.apache.seatunnel.api.table.schema.exception.SchemaEvolutionException;
 import org.apache.seatunnel.api.table.schema.exception.SchemaValidationException;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.translation.flink.schema.coordinator.LocalSchemaCoordinator;
 
 import org.apache.flink.api.common.state.ListState;
 import org.apache.flink.api.common.state.ListStateDescriptor;
@@ -77,7 +76,6 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
         implements OneInputStreamOperator<SeaTunnelRow, SeaTunnelRow> {
 
     private static final int MAX_BUFFERED_RECORDS = 100000;
-    private static final long SCHEMA_CHANGE_TIMEOUT_MS = 300_000L;
     private static final int CHECKPOINT_WAIT_ROUNDS = 1;
 
     /** Exposed to subclasses so version-specific fallback timers can use the same threshold. */
@@ -91,10 +89,10 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
     private final SupportSchemaEvolution source;
     private final Config pluginConfig;
     private volatile Long lastProcessedEventTime;
-    private transient LocalSchemaCoordinator coordinator;
     private transient Queue<BufferedRecord> pendingQueue;
     private volatile boolean schemaChangePending = false;
     private long firstSeenCheckpointId = -1L;
+    private long schemaChangeDispatchedCheckpointId = -1L;
 
     /**
      * Timestamp of the most recently completed checkpoint. Updated in {@link
@@ -108,6 +106,7 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
     private transient ListState<Boolean> schemaChangePendingState;
     private transient ListState<BufferedRecordEntry> bufferedRecordsState;
     private transient ListState<Long> firstSeenCheckpointIdState;
+    private transient ListState<Long> schemaChangeDispatchedCheckpointIdState;
 
     public SchemaOperator(String jobId, SupportSchemaEvolution source, Config pluginConfig) {
         this.jobId = jobId;
@@ -126,13 +125,13 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
         if (this.pendingQueue == null) {
             this.pendingQueue = new LinkedList<>();
         }
-        this.coordinator = LocalSchemaCoordinator.getInstance(this.jobId);
-
         log.info(
-                "SchemaOperator opened for job: {}, schemaChangePending: {}, pendingQueue size: {}",
+                "SchemaOperator opened for job: {}, schemaChangePending: {}, pendingQueue size: {}, "
+                        + "dispatchedCheckpointId: {}",
                 this.jobId,
                 this.schemaChangePending,
-                this.pendingQueue.size());
+                this.pendingQueue.size(),
+                this.schemaChangeDispatchedCheckpointId);
     }
 
     @Override
@@ -227,6 +226,9 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
      *       from the earlier checkpoint cycle is guaranteed to have finished (at least one
      *       additional checkpoint cycle has completed, which implies the committer ran). The sink's
      *       ALTER TABLE will not encounter MDL lock, it is now safe to broadcast the DDL.
+     *   <li>The next completed checkpoint confirms that every downstream operator processed the
+     *       schema control record before its checkpoint barrier. Only then are buffered rows
+     *       released.
      * </ul>
      */
     @Override
@@ -256,6 +258,15 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
             return;
         }
 
+        if (schemaChangeDispatchedCheckpointId >= 0) {
+            if (checkpointId <= schemaChangeDispatchedCheckpointId) {
+                return;
+            }
+
+            completeNextPendingSchemaChange(checkpointId);
+            return;
+        }
+
         if (checkpointId < firstSeenCheckpointId + CHECKPOINT_WAIT_ROUNDS) {
             log.info(
                     "Checkpoint {} completed. Still waiting for DDL on table {} (epoch {}). "
@@ -282,7 +293,7 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
                 tableId,
                 eventTime);
 
-        applyNextPendingSchemaChange();
+        dispatchNextPendingSchemaChange(checkpointId);
     }
 
     /**
@@ -324,16 +335,18 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
             return;
         }
 
-        log.warn(
-                "Checkpoint stall detected after first post-DDL checkpoint {}. "
-                        + "Applying deferred DDL for table {} (epoch {}) via fallback timer. "
-                        + "Note: data committed via normal Flink checkpoint lifecycle may be "
-                        + "delayed until checkpoints resume.",
-                firstSeenCheckpointId,
-                head.schemaEvent.tableIdentifier(),
-                head.schemaEvent.getCreatedTime());
-
-        applyNextPendingSchemaChange();
+        if (schemaChangeDispatchedCheckpointId < 0) {
+            log.warn(
+                    "Checkpoint stall detected after first post-DDL checkpoint {}. "
+                            + "Dispatching deferred DDL for table {} (epoch {}) via fallback "
+                            + "timer. Buffered rows remain blocked until a later checkpoint "
+                            + "confirms downstream DDL and writer refresh completion.",
+                    firstSeenCheckpointId,
+                    head.schemaEvent.tableIdentifier(),
+                    head.schemaEvent.getCreatedTime());
+            dispatchNextPendingSchemaChange(firstSeenCheckpointId);
+        }
+        scheduleFallbackTimer();
     }
 
     /**
@@ -362,7 +375,7 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
         return head;
     }
 
-    private void applyNextPendingSchemaChange() throws InterruptedException {
+    private void dispatchNextPendingSchemaChange(long checkpointId) {
         BufferedRecord head = pendingQueue.peek();
         if (head == null || !head.isSchemaChange) {
             return;
@@ -379,29 +392,36 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
                     lastProcessedEventTime);
             pendingQueue.poll();
             firstSeenCheckpointId = -1L;
+            schemaChangeDispatchedCheckpointId = -1L;
             drainDataUntilNextSchemaChange();
             return;
         }
 
         sendSchemaChangeEventToDownstream(event);
+        schemaChangeDispatchedCheckpointId = checkpointId;
 
-        boolean success =
-                coordinator.requestSchemaChange(tableId, eventTime, SCHEMA_CHANGE_TIMEOUT_MS);
-        if (!success) {
-            throw new SchemaEvolutionException(
-                    SchemaEvolutionErrorCode.SCHEMA_EVENT_PROCESSING_FAILED,
-                    String.format(
-                            "Schema change for table %s (epoch %d) failed during sink coordination.",
-                            tableId, eventTime),
-                    tableId,
-                    jobId);
-        }
         log.info(
-                "Schema change for table {} (epoch {}) confirmed by all sink subtasks.",
+                "Schema change for table {} (epoch {}) dispatched after checkpoint {}. "
+                        + "Buffered rows remain blocked until a later completed checkpoint "
+                        + "confirms downstream processing.",
                 tableId,
-                eventTime);
+                eventTime,
+                checkpointId);
+    }
+
+    private void completeNextPendingSchemaChange(long checkpointId) {
+        BufferedRecord head = pendingQueue.peek();
+        if (head == null || !head.isSchemaChange) {
+            return;
+        }
+
+        SchemaChangeEvent event = head.schemaEvent;
+        TableIdentifier tableId = event.tableIdentifier();
+        long eventTime = event.getCreatedTime();
+
         pendingQueue.poll();
         firstSeenCheckpointId = -1L;
+        schemaChangeDispatchedCheckpointId = -1L;
 
         CatalogTable newSchema = event.getChangeAfter();
         if (newSchema != null) {
@@ -412,7 +432,9 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
         drainDataUntilNextSchemaChange();
 
         log.info(
-                "Schema change for table {} (epoch {}) processing complete. pendingQueue remaining: {}",
+                "Checkpoint {} confirmed schema change for table {} (epoch {}) across all "
+                        + "downstream tasks. pendingQueue remaining: {}",
+                checkpointId,
                 tableId,
                 eventTime,
                 pendingQueue.size());
@@ -456,6 +478,9 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
         firstSeenCheckpointIdState.clear();
         firstSeenCheckpointIdState.add(firstSeenCheckpointId);
 
+        schemaChangeDispatchedCheckpointIdState.clear();
+        schemaChangeDispatchedCheckpointIdState.add(schemaChangeDispatchedCheckpointId);
+
         localSchemaStateStore.clear();
         for (Map.Entry<TableIdentifier, CatalogTable> entry : localSchemaState.entrySet()) {
             localSchemaStateStore.add(new SchemaStateEntry(entry.getKey(), entry.getValue()));
@@ -473,11 +498,12 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
 
         log.debug(
                 "State snapshot for checkpoint {}: lastEventTime={}, pending={}, "
-                        + "firstSeenCkpt={}, queueSize={}",
+                        + "firstSeenCkpt={}, dispatchedCkpt={}, queueSize={}",
                 context.getCheckpointId(),
                 lastProcessedEventTime,
                 schemaChangePending,
                 firstSeenCheckpointId,
+                schemaChangeDispatchedCheckpointId,
                 pendingQueue.size());
     }
 
@@ -498,6 +524,8 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
                 new ListStateDescriptor<>("bufferedRecords", BufferedRecordEntry.class);
         ListStateDescriptor<Long> firstSeenCkptDescriptor =
                 new ListStateDescriptor<>("firstSeenCheckpointId", Long.class);
+        ListStateDescriptor<Long> dispatchedCkptDescriptor =
+                new ListStateDescriptor<>("schemaChangeDispatchedCheckpointId", Long.class);
 
         this.localSchemaStateStore = context.getOperatorStateStore().getListState(schemaDescriptor);
         this.lastProcessedEventTimeState =
@@ -508,6 +536,8 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
                 context.getOperatorStateStore().getListState(bufferedDescriptor);
         this.firstSeenCheckpointIdState =
                 context.getOperatorStateStore().getListState(firstSeenCkptDescriptor);
+        this.schemaChangeDispatchedCheckpointIdState =
+                context.getOperatorStateStore().getListState(dispatchedCkptDescriptor);
 
         if (context.isRestored()) {
             for (Long t : lastProcessedEventTimeState.get()) {
@@ -522,6 +552,10 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
                 this.firstSeenCheckpointId = ckpt;
                 break;
             }
+            for (Long ckpt : schemaChangeDispatchedCheckpointIdState.get()) {
+                this.schemaChangeDispatchedCheckpointId = ckpt;
+                break;
+            }
             for (SchemaStateEntry entry : localSchemaStateStore.get()) {
                 localSchemaState.put(entry.tableId, entry.catalogTable);
             }
@@ -533,10 +567,12 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
                 }
             }
             log.info(
-                    "State restored: lastEventTime={}, pending={}, firstSeenCkpt={}, queueSize={}",
+                    "State restored: lastEventTime={}, pending={}, firstSeenCkpt={}, "
+                            + "dispatchedCkpt={}, queueSize={}",
                     lastProcessedEventTime,
                     schemaChangePending,
                     firstSeenCheckpointId,
+                    schemaChangeDispatchedCheckpointId,
                     pendingQueue.size());
         }
     }

@@ -22,9 +22,12 @@ import org.apache.seatunnel.api.common.multitable.MultiTableFailureHelper;
 import org.apache.seatunnel.api.common.multitable.MultiTableFailurePhase;
 import org.apache.seatunnel.api.options.MultiTableFailurePolicy;
 import org.apache.seatunnel.api.sink.MultiTableResourceManager;
+import org.apache.seatunnel.api.sink.SchemaChangeApplier;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
+import org.apache.seatunnel.api.sink.SupportSchemaRefreshSinkWriter;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.tracing.MDCTracer;
@@ -71,10 +74,12 @@ import java.util.stream.Collectors;
 @Slf4j
 public class MultiTableSinkWriter
         implements SinkWriter<SeaTunnelRow, MultiTableCommitInfo, MultiTableState>,
-                SupportSchemaEvolutionSinkWriter {
+                SupportSchemaEvolutionSinkWriter,
+                SupportSchemaRefreshSinkWriter {
 
     private final Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters;
     private final Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext;
+    private final Map<String, SchemaChangeApplier> schemaChangeAppliers;
     private final ConcurrentMap<String, Optional<Integer>> sinkPrimaryKeys =
             new ConcurrentHashMap<>();
     private final List<ConcurrentMap<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>>>
@@ -122,7 +127,8 @@ public class MultiTableSinkWriter
                 JobMode.BATCH,
                 Collections.emptyList(),
                 0,
-                0);
+                0,
+                Collections.emptyMap());
     }
 
     public MultiTableSinkWriter(
@@ -139,7 +145,8 @@ public class MultiTableSinkWriter
                 jobMode,
                 Collections.emptyList(),
                 0,
-                0);
+                0,
+                Collections.emptyMap());
     }
 
     public MultiTableSinkWriter(
@@ -158,7 +165,8 @@ public class MultiTableSinkWriter
                 jobMode,
                 Collections.emptyList(),
                 tableRetryTimes,
-                tableRetryIntervalSeconds);
+                tableRetryIntervalSeconds,
+                Collections.emptyMap());
     }
 
     public MultiTableSinkWriter(
@@ -176,7 +184,8 @@ public class MultiTableSinkWriter
                 jobMode,
                 initialFailedTables,
                 0,
-                0);
+                0,
+                Collections.emptyMap());
     }
 
     public MultiTableSinkWriter(
@@ -188,8 +197,31 @@ public class MultiTableSinkWriter
             Collection<MultiTableFailedTable> initialFailedTables,
             int tableRetryTimes,
             int tableRetryIntervalSeconds) {
+        this(
+                sinkWriters,
+                queueSize,
+                sinkWritersContext,
+                failurePolicy,
+                jobMode,
+                initialFailedTables,
+                tableRetryTimes,
+                tableRetryIntervalSeconds,
+                Collections.emptyMap());
+    }
+
+    MultiTableSinkWriter(
+            Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters,
+            int queueSize,
+            Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext,
+            MultiTableFailurePolicy failurePolicy,
+            JobMode jobMode,
+            Collection<MultiTableFailedTable> initialFailedTables,
+            int tableRetryTimes,
+            int tableRetryIntervalSeconds,
+            Map<String, SchemaChangeApplier> schemaChangeAppliers) {
         this.sinkWriters = sinkWriters;
         this.sinkWritersContext = sinkWritersContext;
+        this.schemaChangeAppliers = new HashMap<>(schemaChangeAppliers);
         this.failurePolicy = failurePolicy;
         this.jobMode = jobMode;
         this.tableRetryTimes = Math.max(0, tableRetryTimes);
@@ -351,12 +383,27 @@ public class MultiTableSinkWriter
         enqueueSchemaChangeBarrier(event);
     }
 
+    @Override
+    public void refreshSchema(CatalogTable evolvedSchema) throws IOException {
+        subSinkErrorCheck();
+        String tableId = evolvedSchema.getTablePath().getFullName();
+        if (!hasSourceMatchedWriter(tableId)) {
+            return;
+        }
+        ensureQueueWorkersSubmitted();
+        subSinkErrorCheck();
+        enqueueSchemaRefreshBarrier(evolvedSchema);
+    }
+
     /**
      * Keeps the schema-change path on the legacy source-table contract so unrelated table events
      * can still return immediately without waking queue workers.
      */
     private boolean hasSourceMatchedWriter(SchemaChangeEvent event) {
-        String tableId = event.tablePath().getFullName();
+        return hasSourceMatchedWriter(event.tablePath().getFullName());
+    }
+
+    private boolean hasSourceMatchedWriter(String tableId) {
         for (int i = 0; i < sinkWritersWithIndex.size(); i++) {
             for (Map.Entry<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriterEntry :
                     sinkWritersWithIndex.get(i).entrySet()) {
@@ -375,7 +422,10 @@ public class MultiTableSinkWriter
      */
     private List<SchemaChangeDispatchTarget> collectSchemaChangeDispatchTargets(
             SchemaChangeEvent event) {
-        String tableId = event.tablePath().getFullName();
+        return collectSchemaChangeDispatchTargets(event.tablePath().getFullName());
+    }
+
+    private List<SchemaChangeDispatchTarget> collectSchemaChangeDispatchTargets(String tableId) {
         if (isTableFailed(tableId)) {
             log.warn("Skip schema change for failed table {}", tableId);
             return Collections.emptyList();
@@ -435,11 +485,9 @@ public class MultiTableSinkWriter
                 Collections.synchronizedList(new ArrayList<>());
         SchemaChangeBarrier schemaChangeBarrier =
                 new SchemaChangeBarrier(
-                        event,
+                        event.tablePath().getFullName(),
                         runnable.size(),
-                        schemaChangeEvent ->
-                                dispatchSchemaChangeToTargets(
-                                        schemaChangeEvent, schemaChangeFailures));
+                        () -> dispatchSchemaChangeToTargets(event, schemaChangeFailures));
         try {
             for (BlockingQueue<MultiTableWriterRunnable.QueueElement> blockingQueue :
                     blockingQueues) {
@@ -467,6 +515,46 @@ public class MultiTableSinkWriter
         subSinkErrorCheck();
     }
 
+    /** Drains every internal queue before rebuilding the matching sub-writers' local schemas. */
+    private void enqueueSchemaRefreshBarrier(CatalogTable evolvedSchema) throws IOException {
+        String tableId = evolvedSchema.getTablePath().getFullName();
+        SchemaChangeBarrier schemaChangeBarrier =
+                new SchemaChangeBarrier(
+                        tableId,
+                        runnable.size(),
+                        () -> dispatchSchemaRefreshToTargets(tableId, evolvedSchema));
+        try {
+            for (BlockingQueue<MultiTableWriterRunnable.QueueElement> blockingQueue :
+                    blockingQueues) {
+                offerQueueElement(
+                        blockingQueue,
+                        MultiTableWriterRunnable.schemaChangeRequest(schemaChangeBarrier));
+            }
+            subSinkErrorCheck();
+        } catch (Exception e) {
+            schemaChangeBarrier.fail(e);
+            throwAsIOException(e);
+        }
+        schemaChangeBarrier.awaitCompletion();
+        subSinkErrorCheck();
+    }
+
+    private void dispatchSchemaRefreshToTargets(String tableId, CatalogTable evolvedSchema)
+            throws IOException {
+        List<SchemaChangeDispatchTarget> dispatchTargets =
+                collectSchemaChangeDispatchTargets(tableId);
+        for (SchemaChangeDispatchTarget dispatchTarget : dispatchTargets) {
+            if (!(dispatchTarget.getWriter() instanceof SupportSchemaRefreshSinkWriter)) {
+                throw new IOException(
+                        String.format(
+                                "Sink writer for table %s does not support local schema refresh",
+                                dispatchTarget.getSinkIdentifier().getTableIdentifier()));
+            }
+            ((SupportSchemaRefreshSinkWriter) dispatchTarget.getWriter())
+                    .refreshSchema(evolvedSchema);
+        }
+    }
+
     /**
      * Runs the final schema-change fan-out only after every queue worker has already drained older
      * rows and reached the shared barrier.
@@ -476,9 +564,84 @@ public class MultiTableSinkWriter
             throws IOException {
         List<SchemaChangeDispatchTarget> dispatchTargets =
                 collectSchemaChangeDispatchTargets(event);
+        SchemaChangeApplier schemaChangeApplier =
+                schemaChangeAppliers.get(event.tablePath().getFullName());
+        if (canUseCoordinatedSchemaChange(event, dispatchTargets, schemaChangeApplier)) {
+            applyCoordinatedSchemaChange(
+                    event, dispatchTargets, schemaChangeApplier, schemaChangeFailures);
+            return;
+        }
         for (SchemaChangeDispatchTarget dispatchTarget : dispatchTargets) {
             try {
                 applySchemaChangeToTarget(event, dispatchTarget);
+            } catch (InterruptedException error) {
+                Thread.currentThread().interrupt();
+                throwAsIOException(error);
+            } catch (Throwable error) {
+                if (failurePolicy.continueOtherTables()) {
+                    schemaChangeFailures.add(
+                            new SchemaChangeFailure(
+                                    dispatchTarget.getSinkIdentifier().getTableIdentifier(),
+                                    error));
+                    continue;
+                }
+                throwAsIOException(error);
+            }
+        }
+    }
+
+    private boolean canUseCoordinatedSchemaChange(
+            SchemaChangeEvent event,
+            List<SchemaChangeDispatchTarget> dispatchTargets,
+            SchemaChangeApplier schemaChangeApplier) {
+        return schemaChangeApplier != null
+                && event.getChangeAfter() != null
+                && !dispatchTargets.isEmpty()
+                && dispatchTargets.stream()
+                        .allMatch(
+                                target ->
+                                        target.getWriter()
+                                                instanceof SupportSchemaRefreshSinkWriter);
+    }
+
+    /** Applies external DDL once, then converges every affected sub-writer to the full schema. */
+    private void applyCoordinatedSchemaChange(
+            SchemaChangeEvent event,
+            List<SchemaChangeDispatchTarget> dispatchTargets,
+            SchemaChangeApplier schemaChangeApplier,
+            List<SchemaChangeFailure> schemaChangeFailures)
+            throws IOException {
+        String sourceTableId = event.tablePath().getFullName();
+        CatalogTable evolvedSchema = event.getChangeAfter();
+        try {
+            executeWithTableRetry(
+                    sourceTableId,
+                    MultiTableFailurePhase.CHECKPOINT,
+                    () -> {
+                        schemaChangeApplier.apply(event);
+                        return null;
+                    });
+        } catch (InterruptedException error) {
+            Thread.currentThread().interrupt();
+            throwAsIOException(error);
+        } catch (Throwable error) {
+            if (failurePolicy.continueOtherTables()) {
+                schemaChangeFailures.add(new SchemaChangeFailure(sourceTableId, error));
+                return;
+            }
+            throwAsIOException(error);
+        }
+
+        for (SchemaChangeDispatchTarget dispatchTarget : dispatchTargets) {
+            try {
+                executeWithTableRetry(
+                        dispatchTarget.getSinkIdentifier().getTableIdentifier(),
+                        MultiTableFailurePhase.CHECKPOINT,
+                        () -> {
+                            ((SupportSchemaRefreshSinkWriter) dispatchTarget.getWriter())
+                                    .refreshSchema(evolvedSchema);
+                            return null;
+                        });
             } catch (InterruptedException error) {
                 Thread.currentThread().interrupt();
                 throwAsIOException(error);
@@ -867,6 +1030,16 @@ public class MultiTableSinkWriter
             }
         } catch (Throwable e) {
             log.error("close resourceManager error", e);
+        }
+        for (SchemaChangeApplier schemaChangeApplier : schemaChangeAppliers.values()) {
+            try {
+                schemaChangeApplier.close();
+            } catch (Exception e) {
+                if (firstE[0] == null) {
+                    firstE[0] = e;
+                }
+                log.error("close schema change applier error", e);
+            }
         }
         if (firstE[0] == null
                 && failurePolicy.continueOtherTables()
