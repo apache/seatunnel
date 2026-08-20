@@ -93,4 +93,96 @@ public class NumericFunctionTest {
     public void testSignNullReturnsNull() {
         Assertions.assertNull(NumericFunction.sign(Collections.singletonList(null)));
     }
+
+    /** BIGINT values outside the {@code int} range must survive CEIL/FLOOR unchanged. */
+    @Test
+    public void testCeilAndFloorKeepBigIntValue() {
+        long value = 9007199254740993L;
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"long_v"}, new SeaTunnelDataType[] {BasicType.LONG_TYPE});
+        SeaTunnelRow inputRow = new SeaTunnelRow(new Object[] {value});
+
+        SQLEngine sqlEngine = SQLEngineFactory.getSQLEngine(SQLEngineFactory.EngineType.ZETA);
+        sqlEngine.init(
+                "test",
+                null,
+                rowType,
+                "select CEIL(long_v) as ceil_v, FLOOR(long_v) as floor_v, TRUNC(long_v) as trunc_v from test");
+
+        SeaTunnelRowType outRowType = sqlEngine.typeMapping(null);
+        Assertions.assertEquals(BasicType.LONG_TYPE, outRowType.getFieldType(0));
+        Assertions.assertEquals(BasicType.LONG_TYPE, outRowType.getFieldType(1));
+        Assertions.assertEquals(BasicType.LONG_TYPE, outRowType.getFieldType(2));
+
+        SeaTunnelRow outRow = sqlEngine.transformBySQL(inputRow, rowType).get(0);
+        Assertions.assertEquals(value, outRow.getField(0));
+        Assertions.assertEquals(value, outRow.getField(1));
+        Assertions.assertEquals(value, outRow.getField(2));
+    }
+
+    /** DOUBLE inputs keep their type through CEIL/FLOOR instead of being narrowed to int. */
+    @Test
+    public void testCeilAndFloorKeepDoubleType() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"double_v"}, new SeaTunnelDataType[] {BasicType.DOUBLE_TYPE});
+        SeaTunnelRow inputRow = new SeaTunnelRow(new Object[] {1.0e18d});
+
+        SQLEngine sqlEngine = SQLEngineFactory.getSQLEngine(SQLEngineFactory.EngineType.ZETA);
+        sqlEngine.init(
+                "test",
+                null,
+                rowType,
+                "select CEIL(double_v) as ceil_v, FLOOR(double_v) as floor_v from test");
+
+        SeaTunnelRowType outRowType = sqlEngine.typeMapping(null);
+        Assertions.assertEquals(BasicType.DOUBLE_TYPE, outRowType.getFieldType(0));
+        Assertions.assertEquals(BasicType.DOUBLE_TYPE, outRowType.getFieldType(1));
+
+        SeaTunnelRow outRow = sqlEngine.transformBySQL(inputRow, rowType).get(0);
+        Assertions.assertEquals(1.0e18d, outRow.getField(0));
+        Assertions.assertEquals(1.0e18d, outRow.getField(1));
+    }
+
+    /** DECIMAL values carry more digits than a double, so ROUND/TRUNC must stay exact. */
+    @Test
+    public void testRoundAndTruncKeepDecimalPrecision() {
+        DecimalType decimalType = new DecimalType(38, 9);
+        BigDecimal value = new BigDecimal("12345678901234567890.987654321");
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"decimal_v"}, new SeaTunnelDataType[] {decimalType});
+        SeaTunnelRow inputRow = new SeaTunnelRow(new Object[] {value});
+
+        SQLEngine sqlEngine = SQLEngineFactory.getSQLEngine(SQLEngineFactory.EngineType.ZETA);
+        sqlEngine.init(
+                "test",
+                null,
+                rowType,
+                "select ROUND(decimal_v, 2) as round_v, TRUNC(decimal_v, 2) as trunc_v, CEIL(decimal_v) as ceil_v from test");
+
+        SeaTunnelRowType outRowType = sqlEngine.typeMapping(null);
+        Assertions.assertEquals(decimalType, outRowType.getFieldType(0));
+        Assertions.assertEquals(decimalType, outRowType.getFieldType(1));
+        Assertions.assertEquals(decimalType, outRowType.getFieldType(2));
+
+        SeaTunnelRow outRow = sqlEngine.transformBySQL(inputRow, rowType).get(0);
+        Assertions.assertEquals(new BigDecimal("12345678901234567890.99"), outRow.getField(0));
+        Assertions.assertEquals(new BigDecimal("12345678901234567890.98"), outRow.getField(1));
+        Assertions.assertEquals(new BigDecimal("12345678901234567891"), outRow.getField(2));
+    }
+
+    /** MOD must not lose the low-order bits of a BIGINT dividend. */
+    @Test
+    public void testModKeepsBigIntPrecision() {
+        Assertions.assertEquals(1, NumericFunction.mod(Arrays.asList(9007199254740993L, 2)));
+        Assertions.assertEquals(1L, NumericFunction.mod(Arrays.asList(9007199254740993L, 2L)));
+        Assertions.assertEquals(
+                new BigDecimal("0.987654321"),
+                NumericFunction.mod(
+                        Arrays.asList(
+                                new BigDecimal("12345678901234567890.987654321"),
+                                new BigDecimal("1"))));
+    }
 }

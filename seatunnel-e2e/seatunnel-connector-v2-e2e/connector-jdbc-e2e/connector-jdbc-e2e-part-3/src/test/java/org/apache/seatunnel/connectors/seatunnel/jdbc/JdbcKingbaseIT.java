@@ -121,11 +121,6 @@ public class JdbcKingbaseIT extends AbstractJdbcIT {
     }
 
     @Override
-    String driverUrl() {
-        return "https://repo1.maven.org/maven2/cn/com/kingbase/kingbase8/8.6.0/kingbase8-8.6.0.jar";
-    }
-
-    @Override
     Pair<String[], List<SeaTunnelRow>> initTestData() {
         String[] fieldNames =
                 new String[] {
@@ -174,8 +169,7 @@ public class JdbcKingbaseIT extends AbstractJdbcIT {
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(KINGBASE_IMAGE)));
-        container.setPortBindings(
-                Lists.newArrayList(String.format("%s:%s", KINGBASE_PORT, KINGBASE_PORT)));
+        container.addExposedPort(KINGBASE_PORT);
         return container;
     }
 

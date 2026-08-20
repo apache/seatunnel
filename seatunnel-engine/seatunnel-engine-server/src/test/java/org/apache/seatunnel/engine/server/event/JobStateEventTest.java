@@ -167,7 +167,7 @@ class JobStateEventTest extends AbstractSeaTunnelServerTest {
 
         long jobIdFailed = System.currentTimeMillis();
         startJob(jobIdFailed, STREAM_CONF_WITH_ERROR_PATH, false);
-        await().atMost(60, TimeUnit.SECONDS)
+        await().atMost(FAILED_JOB_EVENT_TIMEOUT_SECONDS, TimeUnit.SECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertEquals(

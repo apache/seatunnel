@@ -23,11 +23,12 @@ import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.TestHelper;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
-import org.junit.jupiter.api.Assertions;
+import org.apache.hadoop.fs.s3a.S3AFileSystem;
+
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.TestTemplate;
-import org.testcontainers.containers.Container;
 
 import io.airlift.compress.lzo.LzopCodec;
 
@@ -41,29 +42,13 @@ import java.nio.file.Paths;
 @Disabled("have no s3 environment to run this test")
 public class S3FileIT extends TestSuiteBase {
 
-    public static final String S3_SDK_DOWNLOAD =
-            "https://repo1.maven.org/maven2/com/amazonaws/aws-java-sdk-bundle/1.11.271/aws-java-sdk-bundle-1.11.271.jar";
-    public static final String HADOOP_S3_DOWNLOAD =
-            "https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/3.1.4/hadoop-aws-3.1.4.jar";
-
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
             container -> {
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/s3/lib && cd /tmp/seatunnel/plugins/s3/lib && curl -O "
-                                        + S3_SDK_DOWNLOAD);
-                Assertions.assertEquals(0, extraCommands.getExitCode());
-
-                extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "cd /tmp/seatunnel/plugins/s3/lib && curl -O "
-                                        + HADOOP_S3_DOWNLOAD);
-                Assertions.assertEquals(0, extraCommands.getExitCode());
+                DependencyJar.staged("aws-java-sdk-bundle.jar")
+                        .copyTo(container, "/tmp/seatunnel/plugins/s3/lib");
+                DependencyJar.of(S3AFileSystem.class)
+                        .copyTo(container, "/tmp/seatunnel/plugins/s3/lib");
             };
 
     /** Copy data files to s3 */
