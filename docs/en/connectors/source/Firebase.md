@@ -26,7 +26,7 @@ The Firebase Source Connector allows reading data from Google Firebase Realtime 
 | `service_account_path` | String | No | - | Absolute path to the Google Service Account JSON key file for OAuth2 service authentication. |
 | `credentials` | String | No | - | Base64-encoded Service Account JSON credentials content. |
 | `database_secret` | String | No | - | Legacy Firebase database secret key or Web API token. |
-| `timeout_ms` | Long | No | `10000` | HTTP request timeout in milliseconds. |
+| `timeout_ms` | Integer | No | `10000` | HTTP request timeout in milliseconds. |
 | `query_params` | Map | No | - | Additional REST API query parameters to pass with requests. |
 | `schema` | Config | Yes | - | The target table schema definition mapping JSON keys to SeaTunnel data types. |
 | `common-options` | Config | No | - | Source common options. Refer to [Source Common Options](../common-options/source-common-options.md) for details. |

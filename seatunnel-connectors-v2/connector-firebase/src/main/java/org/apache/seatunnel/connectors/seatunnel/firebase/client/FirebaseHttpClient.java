@@ -68,7 +68,11 @@ public class FirebaseHttpClient {
     public FirebaseHttpClient(ReadonlyConfig config) {
         this.baseUrl = config.get(FirebaseSourceOptions.URL).replaceAll("/+$", "");
         this.path = config.get(FirebaseSourceOptions.PATH).replaceAll("^/+|/+$", "");
-        this.timeoutMs = config.get(FirebaseSourceOptions.TIMEOUT_MS);
+        int toms = config.get(FirebaseSourceOptions.TIMEOUT_MS);
+        if (toms <= 0) {
+            throw new SeaTunnelException("timeout_ms must be greater than 0");
+        }
+        this.timeoutMs = toms;
         this.extraQueryParams =
                 config.getOptional(FirebaseSourceOptions.QUERY_PARAMS)
                         .orElse(Collections.emptyMap());
@@ -92,6 +96,11 @@ public class FirebaseHttpClient {
     public List<String> fetchShallowKeys() {
         String endpointUrl = buildUrl(this.path, "shallow=true", false);
         String jsonResponse = executeGet(endpointUrl);
+        return parseShallowKeys(jsonResponse);
+    }
+
+    /** Parses the JSON payload returned by a shallow scan query. */
+    List<String> parseShallowKeys(String jsonResponse) {
         if (jsonResponse == null || jsonResponse.trim().equals("null")) {
             return Collections.emptyList();
         }
@@ -122,7 +131,7 @@ public class FirebaseHttpClient {
     }
 
     /** Constructs a full REST URL with .json extension and query string parameters. */
-    private String buildUrl(String subPath, String extraQueryParam, boolean includeExtraParams) {
+    String buildUrl(String subPath, String extraQueryParam, boolean includeExtraParams) {
         StringBuilder urlBuilder = new StringBuilder(baseUrl);
         String cleanSubPath = subPath == null ? "" : subPath.replaceAll("^/+|/+$", "");
         urlBuilder.append("/").append(cleanSubPath);
