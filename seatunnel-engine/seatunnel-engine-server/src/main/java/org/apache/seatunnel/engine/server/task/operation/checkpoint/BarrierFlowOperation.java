@@ -94,7 +94,8 @@ public class BarrierFlowOperation extends TaskOperation {
                                                             new CheckpointErrorReportOperation(
                                                                     taskLocation, e));
                                         }
-                                    });
+                                    })
+                            .join();
                     return null;
                 },
                 new RetryUtils.RetryMaterial(

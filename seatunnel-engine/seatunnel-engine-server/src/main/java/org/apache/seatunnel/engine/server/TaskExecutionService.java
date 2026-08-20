@@ -742,8 +742,10 @@ public class TaskExecutionService implements DynamicMetricsProvider {
      *
      * @param taskGroupLocation the task group location
      * @param task the Runnable to execute
+     * @return the future that completes when the asynchronous function finishes
      */
-    public void asyncExecuteFunction(TaskGroupLocation taskGroupLocation, Runnable task) {
+    public CompletableFuture<?> asyncExecuteFunction(
+            TaskGroupLocation taskGroupLocation, Runnable task) {
         String id = UUID.randomUUID().toString();
         logger.fine("accept async execute function from " + taskGroupLocation + " with id " + id);
         if (!taskAsyncFunctionFuture.containsKey(taskGroupLocation)) {
@@ -761,6 +763,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                                     + " with id "
                                     + id);
                 });
+        return future;
     }
 
     /**
