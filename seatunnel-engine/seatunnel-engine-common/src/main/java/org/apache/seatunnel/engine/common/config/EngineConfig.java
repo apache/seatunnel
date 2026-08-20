@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.common.config;
 
 import org.apache.seatunnel.api.metadata.MetadataConfig;
+import org.apache.seatunnel.engine.common.config.server.AutoscalerConfig;
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.config.server.ConnectorJarStorageConfig;
 import org.apache.seatunnel.engine.common.config.server.CoordinatorServiceConfig;
@@ -132,6 +133,10 @@ public class EngineConfig {
             ServerConfigOptions.STAIN_TRACE_FILE_FLUSH_INTERVAL_SECONDS.defaultValue();
 
     private MetadataConfig metadataConfig = ServerConfigOptions.METADATA.defaultValue();
+
+    private AutoscalerConfig autoscalerConfig =
+            ServerConfigOptions.WorkerServerConfigOptions.AutoscalerOptions.AUTOSCALER
+                    .defaultValue();
 
     public void setBackupCount(int newBackupCount) {
         checkBackupCount(newBackupCount, 0);

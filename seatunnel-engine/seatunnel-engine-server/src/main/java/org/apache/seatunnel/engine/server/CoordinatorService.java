@@ -79,6 +79,7 @@ import org.apache.seatunnel.engine.server.metrics.JobMetricsUtil;
 import org.apache.seatunnel.engine.server.resourcemanager.NoEnoughResourceException;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManagerFactory;
+import org.apache.seatunnel.engine.server.resourcemanager.autoscaler.WorkerAutoscaler;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 import org.apache.seatunnel.engine.server.service.jar.ConnectorPackageService;
 import org.apache.seatunnel.engine.server.task.operation.CleanTaskGroupContextOperation;
@@ -136,6 +137,8 @@ public class CoordinatorService {
     private final ILogger logger;
 
     private volatile ResourceManager resourceManager;
+
+    private volatile WorkerAutoscaler workerAutoscaler;
 
     private JobHistoryService jobHistoryService;
 
@@ -1142,11 +1145,13 @@ public class CoordinatorService {
                 isActive = true;
                 startPendingJobScheduleThread();
                 seaTunnelServer.startRealtimeMetricsService(this);
+                startWorkerAutoscaler();
             } else if (isActive && !this.seaTunnelServer.isMasterNode()) {
                 isActive = false;
                 logger.info(
                         "This node become leave active master node, begin clear coordinator service");
                 seaTunnelServer.stopRealtimeMetricsService();
+                stopWorkerAutoscaler();
                 clearCoordinatorService();
             }
         } catch (Exception e) {
@@ -1233,6 +1238,44 @@ public class CoordinatorService {
             }
         }
         return resourceManager;
+    }
+
+    /** Start the worker autoscaler on the master node. */
+    private void startWorkerAutoscaler() {
+        if (!engineConfig.getAutoscalerConfig().isEnabled()) {
+            logger.info("Worker autoscaler is disabled, not starting.");
+            return;
+        }
+        if (workerAutoscaler == null) {
+            synchronized (this) {
+                if (workerAutoscaler == null) {
+                    workerAutoscaler =
+                            new WorkerAutoscaler(
+                                    engineConfig.getAutoscalerConfig(), getResourceManager());
+                    workerAutoscaler.start();
+                    logger.info("Worker autoscaler started.");
+                }
+            }
+        }
+    }
+
+    /** Stop the worker autoscaler. */
+    private void stopWorkerAutoscaler() {
+        WorkerAutoscaler autoscaler = workerAutoscaler;
+        workerAutoscaler = null;
+        if (autoscaler != null) {
+            autoscaler.shutdown();
+            logger.info("Worker autoscaler stopped.");
+        }
+    }
+
+    /**
+     * Returns the worker autoscaler, or null if autoscaling is not enabled.
+     *
+     * @return the worker autoscaler, or null
+     */
+    public WorkerAutoscaler getWorkerAutoscaler() {
+        return workerAutoscaler;
     }
 
     /**

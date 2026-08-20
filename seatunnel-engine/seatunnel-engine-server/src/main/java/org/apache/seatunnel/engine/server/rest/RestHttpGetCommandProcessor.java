@@ -25,6 +25,7 @@ import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.engine.server.NodeExtension;
 import org.apache.seatunnel.engine.server.log.FormatType;
 import org.apache.seatunnel.engine.server.log.Log4j2HttpGetCommandProcessor;
+import org.apache.seatunnel.engine.server.rest.service.AutoscalerService;
 import org.apache.seatunnel.engine.server.rest.service.JobInfoService;
 import org.apache.seatunnel.engine.server.rest.service.LogService;
 import org.apache.seatunnel.engine.server.rest.service.OptionRulesService;
@@ -59,6 +60,7 @@ import static com.hazelcast.internal.ascii.rest.HttpStatusCode.SC_404;
 import static com.hazelcast.internal.ascii.rest.HttpStatusCode.SC_500;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.CONTEXT_PATH;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.INSTANCE_CONTEXT_PATH;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_AUTOSCALER;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_FINISHED_JOBS;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_GET_ALL_LOG_NAME;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_JOB_INFO;
@@ -92,6 +94,7 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
     private LogService logService;
     private TraceTaskMappingService traceTaskMappingService;
     private OptionRulesService optionRulesService;
+    private AutoscalerService autoscalerService;
 
     public RestHttpGetCommandProcessor(TextCommandService textCommandService) {
 
@@ -105,6 +108,7 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
         this.logService = new LogService(nodeEngine);
         this.traceTaskMappingService = new TraceTaskMappingService(nodeEngine);
         this.optionRulesService = new OptionRulesService(nodeEngine);
+        this.autoscalerService = new AutoscalerService(nodeEngine);
     }
 
     public RestHttpGetCommandProcessor(
@@ -123,6 +127,7 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
         this.logService = new LogService(nodeEngine);
         this.traceTaskMappingService = new TraceTaskMappingService(nodeEngine);
         this.optionRulesService = new OptionRulesService(nodeEngine);
+        this.autoscalerService = new AutoscalerService(nodeEngine);
     }
 
     /**
@@ -164,6 +169,8 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
                 getCurrentNodeLog(httpGetCommand, uri);
             } else if (uri.startsWith(CONTEXT_PATH + REST_URL_TRACE_TASK_MAPPING)) {
                 handleTraceTaskMapping(httpGetCommand, uri);
+            } else if (uri.startsWith(CONTEXT_PATH + REST_URL_AUTOSCALER)) {
+                handleAutoscaler(httpGetCommand);
             } else {
                 original.handle(httpGetCommand);
             }
