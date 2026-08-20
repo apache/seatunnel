@@ -47,6 +47,7 @@ source {
 
 dynamic_lookup {
   orders_with_customer {
+    uid = "orders_customer_lookup_v1"
     plugin_output = "orders_enriched"
 
     fact {
@@ -58,7 +59,7 @@ dynamic_lookup {
 
     dimension {
       input = "customer_dimension"
-      table = "customers"
+      table = "inventory.customers"
       key = ["id"]
       primary-key-update = "FAIL"
       required-capability = [
@@ -116,8 +117,12 @@ Dynamic lookup 支持两种 join 类型：
 投影字段必须使用 `<side>.<field>` 语法，`side` 只能是 `fact` 或 `dimension`。字段别名使用
 `as`，例如 `dimension.name as customer_name`。
 
-输出表 schema 由投影字段生成。字段类型、可空性、精度、scale 以及其他列元数据从被选择的输入
-列复制而来。
+输出表 schema 由投影字段生成。字段类型、精度、scale 以及其他列元数据从被选择的输入列复制而
+来。fact 侧字段的可空性按 fact 列复制；dimension 侧字段在 `LEFT` join 下会变成 nullable，因
+为维表行可能不存在；在 `INNER` join 下保留 dimension 列自身的可空性。
+
+`INNER` join 会丢弃没有匹配 dimension key 的 fact 行。运行时会对第一条 miss 和 2 的幂次 miss
+计数输出节流 WARN，给后续数据核对留下审计线索，同时避免逐行刷日志。
 
 ## 4. 运行时与恢复模型
 
@@ -132,8 +137,14 @@ checkpoint 期间：
 4. fact position 是否 durable 由已提交 checkpoint 内容推导，而不是依赖易失内存回调
 5. durable anchor checkpoint 完成后，fact gate 被打开
 
+`uid` 是这个 dynamic lookup operator 的稳定 checkpoint identity。重启或升级作业时应保持不变；
+如果修改 `uid`，就相当于创建了一个新的 checkpoint identity，已有 lookup state 可能无法再被该
+operator 使用。
+
 恢复时，dynamic lookup state envelope 会通过稳定的 payload length 和 SHA-256 digest 校验后再
-使用。没有新 envelope 的 completed checkpoint 进入严格 legacy 路径。
+使用。普通 completed checkpoint 继续使用 legacy raw payload 格式。只有 dynamic lookup anchor
+checkpoint 才使用 versioned completed-checkpoint envelope；没有 envelope 的 completed checkpoint
+进入严格 legacy 路径。
 
 ## 5. Source 能力要求
 

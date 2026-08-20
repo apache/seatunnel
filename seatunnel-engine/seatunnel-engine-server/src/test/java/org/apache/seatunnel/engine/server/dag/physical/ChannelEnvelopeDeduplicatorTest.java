@@ -59,6 +59,29 @@ public class ChannelEnvelopeDeduplicatorTest {
                                         new byte[] {1, 2, 4})));
     }
 
+    @Test
+    void testNewIdentityFailsFastWhenDedupLimitIsExceeded() {
+        ChannelEnvelopeDeduplicator deduplicator = new ChannelEnvelopeDeduplicator(1);
+        ChannelEnvelope envelope =
+                new ChannelEnvelope(
+                        attemptId(),
+                        1L,
+                        ChannelEnvelope.EnvelopeCategory.DATA,
+                        new byte[] {1, 2, 3});
+
+        Assertions.assertTrue(deduplicator.accept(envelope));
+        Assertions.assertFalse(deduplicator.accept(envelope));
+        Assertions.assertThrows(
+                IllegalStateException.class,
+                () ->
+                        deduplicator.accept(
+                                new ChannelEnvelope(
+                                        attemptId(),
+                                        2L,
+                                        ChannelEnvelope.EnvelopeCategory.DATA,
+                                        new byte[] {4, 5, 6})));
+    }
+
     private static ChannelAttemptId attemptId() {
         return new ChannelAttemptId(
                 1L, new LogicalChannelKey("job", "lookup", "source", 2L, 0, 0, 0), 3L, 4L, 5L);

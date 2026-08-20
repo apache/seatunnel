@@ -47,6 +47,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.io.ObjectStreamClass;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.security.MessageDigest;
@@ -71,6 +72,11 @@ import java.util.concurrent.TimeUnit;
  * planner-declared projection. The implementation deliberately keeps routing local to the existing
  * task-group queue path; cross-worker channel transport and external state handles remain later
  * protocol work.
+ *
+ * <p>Threading contract: {@link #collect(Collector)} and record mutation run on the task thread,
+ * checkpoint completion callbacks may run on the checkpoint callback thread, and restore is invoked
+ * before the task thread opens the lifecycle. {@link #checkpointStateLock} protects only barrier
+ * and fact-gate callback state; dimension rows stay single-threaded by this lifecycle ordering.
  */
 public final class DynamicLookupFlowLifeCycle extends ActionFlowLifeCycle
         implements OneOutputFlowLifeCycle<Record<?>>, InternalCheckpointListener {
@@ -80,9 +86,15 @@ public final class DynamicLookupFlowLifeCycle extends ActionFlowLifeCycle
     /** Per-call fairness quota so a hot dimension queue cannot starve fact processing. */
     private static final int MAX_RECORDS_PER_PORT_DRAIN = 1024;
 
+    /** Conservative per-entry overhead used by the resident-state admission estimate. */
+    private static final long DIMENSION_STATE_ENTRY_RESIDENT_OVERHEAD_BYTES = 64L;
+
     private final DynamicLookupAction action;
     private final DynamicLookupConfig config;
     private final Map<LookupKey, SeaTunnelRow> dimensionState = new HashMap<>();
+    /** Standalone serialized bytes per dimension entry, used to avoid full-map walks per row. */
+    private final Map<LookupKey, Long> dimensionStateEntryBytes = new HashMap<>();
+
     private final Map<Long, BarrierAlignment> barrierAlignments = new HashMap<>();
     private final Map<Integer, Long> blockedPorts = new HashMap<>();
     /** Coordinates task-thread barrier alignment with checkpoint callback release/open events. */
@@ -99,6 +111,9 @@ public final class DynamicLookupFlowLifeCycle extends ActionFlowLifeCycle
     private transient boolean factGateOpening;
 
     private boolean restoredFromDurableLookupState;
+    private long estimatedDimensionLogicalBytes;
+    private long estimatedDimensionResidentBytes;
+    private long innerJoinMissCount;
 
     public DynamicLookupFlowLifeCycle(
             DynamicLookupAction action,
@@ -133,7 +148,7 @@ public final class DynamicLookupFlowLifeCycle extends ActionFlowLifeCycle
 
     @Override
     public void restoreState(List<ActionSubtaskState> actionStateList) throws Exception {
-        dimensionState.clear();
+        clearDimensionState();
         resetCheckpointAlignmentState();
         pendingDimensionUpdateBeforeKey = null;
         restoredFromDurableLookupState = !actionStateList.isEmpty();
@@ -142,7 +157,7 @@ public final class DynamicLookupFlowLifeCycle extends ActionFlowLifeCycle
                 restoreDimensionState(stateBytes);
             }
         }
-        enforceDimensionStateBudget();
+        enforceExactDimensionStateBudget();
         LOG.info(
                 "Restored dynamic lookup state for task {} with {} dimension entries",
                 runningTask.getTaskLocation(),
@@ -151,7 +166,7 @@ public final class DynamicLookupFlowLifeCycle extends ActionFlowLifeCycle
 
     @Override
     public void close() throws IOException {
-        dimensionState.clear();
+        clearDimensionState();
         resetCheckpointAlignmentState();
         pendingDimensionUpdateBeforeKey = null;
         super.close();
@@ -255,9 +270,12 @@ public final class DynamicLookupFlowLifeCycle extends ActionFlowLifeCycle
         if (row.getRowKind() == RowKind.DELETE) {
             rejectDanglingUpdateBefore(row);
             dimensionState.remove(key);
+            removeDimensionStateBudget(key);
         } else if (row.getRowKind() == RowKind.INSERT) {
             rejectDanglingUpdateBefore(row);
-            dimensionState.put(key, row.copy());
+            SeaTunnelRow copiedRow = row.copy();
+            dimensionState.put(key, copiedRow);
+            updateDimensionStateBudget(key, copiedRow);
         } else if (row.getRowKind() == RowKind.UPDATE_BEFORE) {
             if (pendingDimensionUpdateBeforeKey != null) {
                 throw new TaskRuntimeException(
@@ -271,9 +289,11 @@ public final class DynamicLookupFlowLifeCycle extends ActionFlowLifeCycle
                         "Dynamic lookup M0 rejects dimension primary-key updates");
             }
             pendingDimensionUpdateBeforeKey = null;
-            dimensionState.put(key, row.copy());
+            SeaTunnelRow copiedRow = row.copy();
+            dimensionState.put(key, copiedRow);
+            updateDimensionStateBudget(key, copiedRow);
         }
-        enforceDimensionStateBudget();
+        enforceEstimatedDimensionStateBudget();
     }
 
     private void rejectDanglingUpdateBefore(SeaTunnelRow row) {
@@ -296,6 +316,15 @@ public final class DynamicLookupFlowLifeCycle extends ActionFlowLifeCycle
         SeaTunnelRow dimensionRow = dimensionState.get(key);
         if (dimensionRow == null
                 && action.getDescriptor().getJoinType() == DynamicLookupDescriptor.JoinType.INNER) {
+            innerJoinMissCount++;
+            if (innerJoinMissCount == 1 || Long.bitCount(innerJoinMissCount) == 1) {
+                LOG.warn(
+                        "Dynamic lookup task {} dropped {} INNER-join fact rows because the"
+                                + " dimension key was missing. output={}",
+                        runningTask.getTaskLocation(),
+                        innerJoinMissCount,
+                        action.getDescriptor().getOutputId());
+            }
             return null;
         }
         List<DynamicLookupProjectionField> fields = action.getDescriptor().getProjectionFields();
@@ -436,8 +465,8 @@ public final class DynamicLookupFlowLifeCycle extends ActionFlowLifeCycle
             synchronized (checkpointStateLock) {
                 if (offered) {
                     factGateOpened = true;
-                    pendingFactGateOpenCheckpointId = -1L;
                 }
+                pendingFactGateOpenCheckpointId = -1L;
                 factGateOpening = false;
             }
         }
@@ -473,7 +502,8 @@ public final class DynamicLookupFlowLifeCycle extends ActionFlowLifeCycle
 
     private byte[] snapshotDimensionState() throws IOException {
         byte[] payload = serializeDimensionStatePayload();
-        enforceDimensionStateBudget(payload.length);
+        enforceDimensionStateBudget(
+                payload.length, Math.max(payload.length, estimatedDimensionResidentBytes));
         byte[] digest = sha256(payload);
         return ByteBuffer.allocate(Integer.BYTES * 3 + payload.length + digest.length)
                 .putInt(DynamicLookupStateEnvelope.MAGIC)
@@ -503,25 +533,71 @@ public final class DynamicLookupFlowLifeCycle extends ActionFlowLifeCycle
         return payloadStream.toByteArray();
     }
 
-    private void enforceDimensionStateBudget() throws IOException {
-        enforceDimensionStateBudget(serializeDimensionStatePayload().length);
+    private void updateDimensionStateBudget(LookupKey key, SeaTunnelRow row) throws IOException {
+        long serializedEntryBytes = serializeDimensionStateEntry(key, row).length;
+        removeDimensionStateBudget(key);
+        dimensionStateEntryBytes.put(key, serializedEntryBytes);
+        estimatedDimensionLogicalBytes += serializedEntryBytes;
+        estimatedDimensionResidentBytes += estimateResidentEntryBytes(serializedEntryBytes);
     }
 
-    private void enforceDimensionStateBudget(long serializedPayloadBytes) {
-        if (serializedPayloadBytes > config.getMaxLogicalStateBytesPerSubtask()) {
+    private void removeDimensionStateBudget(LookupKey key) {
+        Long previousBytes = dimensionStateEntryBytes.remove(key);
+        if (previousBytes == null) {
+            return;
+        }
+        estimatedDimensionLogicalBytes -= previousBytes;
+        estimatedDimensionResidentBytes -= estimateResidentEntryBytes(previousBytes);
+    }
+
+    private byte[] serializeDimensionStateEntry(LookupKey key, SeaTunnelRow row)
+            throws IOException {
+        ByteArrayOutputStream payloadStream = new ByteArrayOutputStream();
+        try (ObjectOutputStream outputStream = new ObjectOutputStream(payloadStream)) {
+            outputStream.writeObject(key);
+            outputStream.writeObject(row);
+        }
+        return payloadStream.toByteArray();
+    }
+
+    private void enforceEstimatedDimensionStateBudget() {
+        enforceDimensionStateBudget(
+                estimatedDimensionLogicalBytes, estimatedDimensionResidentBytes);
+    }
+
+    private void enforceExactDimensionStateBudget() throws IOException {
+        byte[] payload = serializeDimensionStatePayload();
+        enforceDimensionStateBudget(
+                payload.length, Math.max(payload.length, estimatedDimensionResidentBytes));
+    }
+
+    private void enforceDimensionStateBudget(long logicalStateBytes, long residentStateBytes) {
+        if (logicalStateBytes > config.getMaxLogicalStateBytesPerSubtask()) {
             throw new TaskRuntimeException(
                     "Dynamic lookup dimension state exceeds logical budget. bytes="
-                            + serializedPayloadBytes
+                            + logicalStateBytes
                             + ", max="
                             + config.getMaxLogicalStateBytesPerSubtask());
         }
-        if (serializedPayloadBytes > config.getMaxResidentStateBytesPerSubtask()) {
+        if (residentStateBytes > config.getMaxResidentStateBytesPerSubtask()) {
             throw new TaskRuntimeException(
                     "Dynamic lookup dimension state exceeds resident budget. bytes="
-                            + serializedPayloadBytes
+                            + residentStateBytes
                             + ", max="
                             + config.getMaxResidentStateBytesPerSubtask());
         }
+    }
+
+    private static long estimateResidentEntryBytes(long serializedEntryBytes) {
+        return serializedEntryBytes + DIMENSION_STATE_ENTRY_RESIDENT_OVERHEAD_BYTES;
+    }
+
+    private void clearDimensionState() {
+        dimensionState.clear();
+        dimensionStateEntryBytes.clear();
+        estimatedDimensionLogicalBytes = 0L;
+        estimatedDimensionResidentBytes = 0L;
+        innerJoinMissCount = 0L;
     }
 
     private void restoreDimensionState(byte[] stateBytes)
@@ -555,7 +631,7 @@ public final class DynamicLookupFlowLifeCycle extends ActionFlowLifeCycle
             throw new IOException("Dynamic lookup dimension state SHA-256 digest mismatch");
         }
         try (ObjectInputStream inputStream =
-                new ObjectInputStream(new ByteArrayInputStream(payload))) {
+                new DynamicLookupStateObjectInputStream(new ByteArrayInputStream(payload))) {
             int entryCount = inputStream.readInt();
             if (entryCount < 0) {
                 throw new IOException(
@@ -565,7 +641,60 @@ public final class DynamicLookupFlowLifeCycle extends ActionFlowLifeCycle
                 LookupKey key = (LookupKey) inputStream.readObject();
                 SeaTunnelRow row = (SeaTunnelRow) inputStream.readObject();
                 dimensionState.put(key, row);
+                updateDimensionStateBudget(key, row);
             }
+        }
+    }
+
+    /** Restricts dimension checkpoint payloads to SeaTunnel row values and lookup-key classes. */
+    private static final class DynamicLookupStateObjectInputStream extends ObjectInputStream {
+
+        private DynamicLookupStateObjectInputStream(ByteArrayInputStream input) throws IOException {
+            super(input);
+        }
+
+        @Override
+        protected Class<?> resolveClass(ObjectStreamClass descriptor)
+                throws IOException, ClassNotFoundException {
+            String className = descriptor.getName();
+            if (isAllowedClass(className)) {
+                return super.resolveClass(descriptor);
+            }
+            throw new IOException("Rejected dynamic lookup dimension state class: " + className);
+        }
+
+        private static boolean isAllowedClass(String className) {
+            if (className.startsWith("[L") && className.endsWith(";")) {
+                return isAllowedClass(className.substring(2, className.length() - 1));
+            }
+            if (className.startsWith("[")) {
+                return isPrimitiveArrayClass(className);
+            }
+            return className.startsWith("java.lang.")
+                    || className.startsWith("java.math.")
+                    || className.startsWith("java.sql.")
+                    || className.startsWith("java.time.")
+                    || className.startsWith("java.util.")
+                    || className.startsWith("org.apache.seatunnel.api.table.type.")
+                    || className.equals(LookupKey.class.getName())
+                    || className.equals(ByteArrayKeyPart.class.getName());
+        }
+
+        private static boolean isPrimitiveArrayClass(String className) {
+            for (int index = 0; index < className.length(); index++) {
+                if (className.charAt(index) != '[') {
+                    char descriptor = className.charAt(index);
+                    return descriptor == 'Z'
+                            || descriptor == 'B'
+                            || descriptor == 'C'
+                            || descriptor == 'S'
+                            || descriptor == 'I'
+                            || descriptor == 'J'
+                            || descriptor == 'F'
+                            || descriptor == 'D';
+                }
+            }
+            return false;
         }
     }
 

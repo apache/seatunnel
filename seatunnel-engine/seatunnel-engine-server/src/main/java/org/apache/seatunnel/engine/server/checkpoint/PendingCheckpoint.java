@@ -146,7 +146,11 @@ public class PendingCheckpoint implements Checkpoint {
             if (actionState == null) {
                 continue;
             }
-            stateSize += state.getState().stream().filter(Objects::nonNull).count();
+            stateSize +=
+                    state.getState().stream()
+                            .filter(Objects::nonNull)
+                            .mapToLong(bytes -> bytes.length)
+                            .sum();
             actionState.reportState(state.getIndex(), state);
         }
         statistics.reportSubtaskStatistics(

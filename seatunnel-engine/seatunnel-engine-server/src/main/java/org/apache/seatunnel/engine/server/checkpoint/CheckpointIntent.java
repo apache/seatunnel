@@ -78,6 +78,11 @@ public final class CheckpointIntent implements Serializable {
                 : Arrays.copyOf(anchoredPositionDigest, anchoredPositionDigest.length);
     }
 
+    /** Returns whether this checkpoint keeps the legacy checkpoint persistence format. */
+    public boolean isNormalCheckpoint() {
+        return PURPOSE_NORMAL.equals(checkpointPurpose);
+    }
+
     private static String intentId(long jobId, int pipelineId, long checkpointId) {
         return jobId + "/" + pipelineId + "/" + checkpointId;
     }

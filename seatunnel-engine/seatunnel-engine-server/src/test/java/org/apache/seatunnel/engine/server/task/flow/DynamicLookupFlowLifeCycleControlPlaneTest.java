@@ -23,6 +23,7 @@ import org.apache.seatunnel.engine.core.dag.actions.DynamicLookupAction;
 import org.apache.seatunnel.engine.server.dag.physical.config.DynamicLookupConfig;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
+import org.apache.seatunnel.engine.server.task.TaskRuntimeException;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -70,6 +71,24 @@ public class DynamicLookupFlowLifeCycleControlPlaneTest {
         Mockito.verify(queue)
                 .offer(SourceGateCommand.OPEN, 10, java.util.concurrent.TimeUnit.SECONDS);
         Assertions.assertTrue((boolean) getField(flow, "factGateOpened"));
+        Assertions.assertFalse((boolean) getField(flow, "factGateOpening"));
+        Assertions.assertEquals(-1L, (long) getField(flow, "pendingFactGateOpenCheckpointId"));
+    }
+
+    @Test
+    void notifyCheckpointCompleteShouldClearPendingWhenOpenOfferFails() throws Exception {
+        DynamicLookupFlowLifeCycle flow = newFlow();
+        @SuppressWarnings("unchecked")
+        BlockingQueue<SourceGateCommand> queue = Mockito.mock(BlockingQueue.class);
+        Mockito.when(queue.offer(SourceGateCommand.OPEN, 10, java.util.concurrent.TimeUnit.SECONDS))
+                .thenReturn(false);
+        setField(flow, "factGateCommandQueue", queue);
+        setField(flow, "pendingFactGateOpenCheckpointId", 11L);
+
+        Assertions.assertThrows(
+                TaskRuntimeException.class, () -> flow.notifyCheckpointComplete(11L));
+
+        Assertions.assertFalse((boolean) getField(flow, "factGateOpened"));
         Assertions.assertFalse((boolean) getField(flow, "factGateOpening"));
         Assertions.assertEquals(-1L, (long) getField(flow, "pendingFactGateOpenCheckpointId"));
     }

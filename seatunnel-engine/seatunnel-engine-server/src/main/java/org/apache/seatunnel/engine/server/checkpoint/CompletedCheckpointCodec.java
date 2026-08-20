@@ -41,10 +41,19 @@ public final class CompletedCheckpointCodec {
 
     private CompletedCheckpointCodec() {}
 
-    /** Serializes a checkpoint into a versioned envelope with a SHA-256 payload digest. */
+    /**
+     * Serializes a checkpoint.
+     *
+     * <p>Normal checkpoints keep the legacy raw payload so ordinary jobs remain downgrade-readable.
+     * Dynamic lookup anchor checkpoints use the versioned envelope because their completed metadata
+     * is part of the new fact-position durability protocol.
+     */
     public static byte[] encode(CompletedCheckpoint checkpoint, Serializer serializer)
             throws IOException {
         byte[] payload = serializer.serialize(checkpoint);
+        if (checkpoint.getCheckpointIntent().isNormalCheckpoint()) {
+            return payload;
+        }
         byte[] digest = sha256(payload);
         return ByteBuffer.allocate(Integer.BYTES * 3 + payload.length + digest.length)
                 .putInt(MAGIC)

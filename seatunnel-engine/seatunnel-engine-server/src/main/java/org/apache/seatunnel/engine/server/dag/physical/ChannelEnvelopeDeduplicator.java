@@ -33,17 +33,47 @@ public final class ChannelEnvelopeDeduplicator implements Serializable {
 
     private static final long serialVersionUID = 1L;
 
+    /** Upper bound for remembered envelope identities within one channel attempt. */
+    private static final int DEFAULT_MAX_APPLIED_DIGESTS = 65536;
+
+    /** Max remembered identities before a new envelope must fail fast. */
+    private final int maxAppliedDigests;
+
     private final Map<EnvelopeIdentity, byte[]> appliedDigests = new ConcurrentHashMap<>();
+
+    public ChannelEnvelopeDeduplicator() {
+        this(DEFAULT_MAX_APPLIED_DIGESTS);
+    }
+
+    ChannelEnvelopeDeduplicator(int maxAppliedDigests) {
+        if (maxAppliedDigests <= 0) {
+            throw new IllegalArgumentException("maxAppliedDigests must be positive");
+        }
+        this.maxAppliedDigests = maxAppliedDigests;
+    }
 
     /** Records an envelope and returns {@code true} when this is the first observation. */
     public boolean accept(ChannelEnvelope envelope) {
         EnvelopeIdentity identity =
                 new EnvelopeIdentity(envelope.getAttemptId(), envelope.getSequence());
         byte[] digest = envelope.getCanonicalDigest();
+        byte[] existing = appliedDigests.get(identity);
+        if (existing != null) {
+            return validateDuplicate(envelope, existing, digest);
+        }
+        if (appliedDigests.size() >= maxAppliedDigests) {
+            throw new IllegalStateException(
+                    "CHANNEL_ENVELOPE_DEDUP_LIMIT_EXCEEDED: max=" + maxAppliedDigests);
+        }
         byte[] previous = appliedDigests.putIfAbsent(identity, digest);
         if (previous == null) {
             return true;
         }
+        return validateDuplicate(envelope, previous, digest);
+    }
+
+    private static boolean validateDuplicate(
+            ChannelEnvelope envelope, byte[] previous, byte[] digest) {
         if (!Arrays.equals(previous, digest)) {
             throw new IllegalStateException(
                     "CHANNEL_ENVELOPE_IDENTITY_DIGEST_CONFLICT: attempt="

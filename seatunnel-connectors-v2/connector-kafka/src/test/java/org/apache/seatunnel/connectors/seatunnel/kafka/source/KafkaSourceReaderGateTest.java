@@ -100,6 +100,24 @@ class KafkaSourceReaderGateTest {
         Assertions.assertEquals(20L, restoredSplit.getStartOffset());
     }
 
+    @Test
+    void snapshotGateAfterOpenShouldPreserveActivatedSplitsAndNoMoreSplits() throws Exception {
+        KafkaSourceReader reader = newReader(false);
+        reader.prepareClosedGate();
+        reader.addSplits(Collections.singletonList(split(30L)));
+        reader.handleNoMoreSplits();
+
+        reader.applyGateCommand(org.apache.seatunnel.api.source.SourceGateCommand.OPEN);
+        SourceGateState gateState = reader.snapshotGate(2L);
+
+        Assertions.assertTrue(gateState.isGateOpen());
+        Assertions.assertTrue(gateState.isNoMoreSplits());
+        Assertions.assertEquals(1, gateState.getPreparedSplits().size());
+        KafkaSourceSplit restoredSplit =
+                deserializeSplit(gateState.getPreparedSplits().get(0).getSerializedSplit());
+        Assertions.assertEquals(30L, restoredSplit.getStartOffset());
+    }
+
     private static KafkaSourceReader newReader(boolean commitOnCheckpoint) {
         BlockingQueue<RecordsWithSplitIds<ConsumerRecord<byte[], byte[]>>> elementsQueue =
                 new ArrayBlockingQueue<>(4);

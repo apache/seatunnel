@@ -91,6 +91,29 @@ public class PendingCheckpointFinalizeTest {
                         completedCheckpoint.getCheckpointIntent().getAnchoredPositionDigest()));
     }
 
+    @Test
+    void testSubtaskStateSizeCountsSerializedBytes() {
+        TaskLocation taskLocation = new TaskLocation(new TaskGroupLocation(1L, 1, 1), 1, 0);
+        ActionStateKey stateKey = new ActionStateKey("ActionStateKey - byte-size");
+        HashMap<ActionStateKey, ActionState> actionStates = new HashMap<>();
+        actionStates.put(stateKey, new ActionState(stateKey, 1));
+        PendingCheckpoint pendingCheckpoint = checkpoint(taskLocation, actionStates);
+
+        pendingCheckpoint.acknowledgeTask(
+                taskLocation,
+                Collections.singletonList(
+                        new ActionSubtaskState(
+                                stateKey,
+                                0,
+                                Arrays.asList(new byte[] {1, 2, 3}, new byte[] {4, 5}))),
+                SubtaskStatus.RUNNING);
+
+        TaskStatistics statistics =
+                pendingCheckpoint.getTaskStatistics().get(taskLocation.getTaskVertexId());
+        Assertions.assertEquals(
+                5L, statistics.getLatestAcknowledgedSubtaskStatistics().getStateSize());
+    }
+
     private static PendingCheckpoint checkpoint(TaskLocation taskLocation) {
         return checkpoint(taskLocation, new HashMap<>());
     }

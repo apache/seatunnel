@@ -49,6 +49,7 @@ source {
 
 dynamic_lookup {
   orders_with_customer {
+    uid = "orders_customer_lookup_v1"
     plugin_output = "orders_enriched"
 
     fact {
@@ -60,7 +61,7 @@ dynamic_lookup {
 
     dimension {
       input = "customer_dimension"
-      table = "customers"
+      table = "inventory.customers"
       key = ["id"]
       primary-key-update = "FAIL"
       required-capability = [
@@ -118,8 +119,13 @@ Dynamic lookup supports two join types:
 Projection fields must use the `<side>.<field>` syntax. The side must be `fact` or `dimension`.
 Aliases use `as`, for example `dimension.name as customer_name`.
 
-The output table schema is built from the selected projection fields. Field types, nullability,
-precision, scale, and other column metadata are copied from the selected input columns.
+The output table schema is built from the selected projection fields. Field types, precision, scale,
+and other column metadata are copied from the selected input columns. Fact-side nullability is
+copied from the fact column. Dimension-side fields are nullable for `LEFT` joins because the
+dimension row can be missing; for `INNER` joins they keep the dimension column nullability.
+
+`INNER` joins drop fact rows that do not find a matching dimension key. The runtime logs the first
+miss and powers-of-two miss counts so reconciliation has an audit trail without logging every row.
 
 ## 4. Runtime and Recovery Model
 
@@ -135,9 +141,14 @@ During checkpointing:
 4. fact positions become durable from committed checkpoint contents, not from a volatile callback
 5. the fact gate is opened after the durable anchor is completed
 
+The `uid` value is the stable checkpoint identity of this dynamic lookup operator. Keep it stable
+across restarts and job upgrades; changing it creates a different checkpoint identity and can make
+existing lookup state unavailable to the operator.
+
 On restore, the dynamic lookup state envelope is verified with a stable payload length and
-SHA-256 digest before it is used. Completed checkpoints without the new envelope use the strict
-legacy path.
+SHA-256 digest before it is used. Ordinary completed checkpoints keep the legacy raw payload format.
+Only dynamic lookup anchor checkpoints use the versioned completed-checkpoint envelope; completed
+checkpoints without the envelope use the strict legacy path.
 
 ## 5. Source Capability Requirements
 

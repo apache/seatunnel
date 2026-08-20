@@ -68,6 +68,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
+import java.io.ObjectStreamClass;
 import java.io.Serializable;
 import java.nio.ByteBuffer;
 import java.security.MessageDigest;
@@ -793,13 +794,42 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
             throw new IOException("Dynamic lookup fact gate state SHA-256 digest mismatch");
         }
         try (ObjectInputStream objectInputStream =
-                new ObjectInputStream(new ByteArrayInputStream(payload))) {
+                new SourceGateObjectInputStream(new ByteArrayInputStream(payload))) {
             Object gateState = objectInputStream.readObject();
             if (!(gateState instanceof SourceGateState)) {
                 throw new IOException(
                         "Unexpected dynamic lookup fact gate state type: " + gateState);
             }
             return (SourceGateState) gateState;
+        }
+    }
+
+    /** Restricts fact-gate checkpoint payloads to the SourceGateState object graph. */
+    private static final class SourceGateObjectInputStream extends ObjectInputStream {
+
+        private SourceGateObjectInputStream(ByteArrayInputStream input) throws IOException {
+            super(input);
+        }
+
+        @Override
+        protected Class<?> resolveClass(ObjectStreamClass descriptor)
+                throws IOException, ClassNotFoundException {
+            String className = descriptor.getName();
+            if (isAllowedClass(className)) {
+                return super.resolveClass(descriptor);
+            }
+            throw new IOException("Rejected dynamic lookup fact gate state class: " + className);
+        }
+
+        private static boolean isAllowedClass(String className) {
+            return className.equals("[B")
+                    || className.equals("java.lang.String")
+                    || className.equals("java.util.ArrayList")
+                    || className.equals("java.util.Collections$UnmodifiableCollection")
+                    || className.equals("java.util.Collections$UnmodifiableList")
+                    || className.equals("java.util.Collections$UnmodifiableRandomAccessList")
+                    || className.equals(SourceGateState.class.getName())
+                    || className.equals(SourceGateState.PreparedSplit.class.getName());
         }
     }
 

@@ -25,6 +25,10 @@ import java.io.Serializable;
  * <p>A gate-capable reader must keep ownership of prepared split bytes while closed, snapshot that
  * ownership into a versioned state, restore it exactly once, and only activate the restored reader
  * after the lookup coordinator opens the fact gate.
+ *
+ * <p>Threading contract: command application runs on the source task thread, while checkpoint
+ * snapshot and restore can be invoked from engine checkpoint/recovery threads. Implementations must
+ * snapshot all gate flags and prepared split ownership as one atomic reader state.
  */
 public interface FactSourceGateCapability extends Serializable {
 
