@@ -49,7 +49,7 @@ import ChangeLog from '../changelog/connector-file-hadoop.md';
 
 | 名称                               | 类型      | 是否必须 | 默认值                                        | 描述                                                                                                                                                                                                                                                                                               |
 |----------------------------------|---------|------|--------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| fs.defaultFS                     | string  | 是    | -                                          | Hadoop 集群地址。支持以下格式：<br/>- 标准 HDFS：`hdfs://hadoopcluster` 或 `hdfs://namenode:9000`<br/>- ViewFS（联邦 HDFS）：`viewfs://mycluster`<br/>详见下方 ViewFS 配置示例。                                                                                                                                                      |
+| fs.defaultFS                     | string  | 是    | -                                          | Hadoop 文件系统地址。支持标准 HDFS（`hdfs://hadoopcluster` 或 `hdfs://namenode:9000`）、ViewFS（`viewfs://mycluster`）和 Azure Blob FileSystem（`abfs://` 或 `abfss://`）。                                                                                                                                              |
 | path                             | string  | 是    | -                                          | 目标目录路径是必需的。                                                                                                                                                                                                                                                                                      |
 | tmp_path                         | string  | 是    | /tmp/seatunnel                             | 结果文件将首先写入临时路径，然后使用 `mv` 命令将临时目录提交到目标目录。需要一个Hdfs路径。                                                                                                                                                                                                                                               |
 | hdfs_site_path                   | string  | 否    | -                                          | `hdfs-site.xml` 的路径，用于加载 namenodes 的 ha 配置。                                                                                                                                                                                                                                                      |
@@ -91,6 +91,21 @@ import ChangeLog from '../changelog/connector-file-hadoop.md';
 > 如果您使用 spark/flink，为了使用此连接器，您必须确保您的 spark/flink 集群已经集成了 hadoop。测试过的 hadoop 版本是
 > 2.x。如果您使用 SeaTunnel Engine，则在下载和安装 SeaTunnel Engine 时会自动集成 hadoop
 > jar。您可以检查 `${SEATUNNEL_HOME}/lib` 下的 jar 包来确认这一点。
+
+### Azure Blob FileSystem
+
+`HdfsFile` 可以通过 Hadoop 的 `abfs` 和 `abfss` 文件系统向 Azure Data Lake Storage Gen2 写入数据。将 `fs.defaultFS` 设置为文件系统 URI，并使用该文件系统内的相对路径作为 `path`，例如：
+
+```hocon
+HdfsFile {
+    fs.defaultFS = "abfss://container@account.dfs.core.windows.net"
+    path = "/data/output"
+    file_format_type = "parquet"
+    hdfs_site_path = "/etc/hadoop/conf/hdfs-site.xml"
+}
+```
+
+请在 `hdfs-site.xml` 中使用 Hadoop Azure 的标准属性配置认证。`hdfs_site_path` 指向的文件必须以相同路径存在于每个工作节点上。请勿将账户密钥、OAuth 密钥或其他凭据直接写入作业配置。
 
 ### schema_save_mode [string]
 

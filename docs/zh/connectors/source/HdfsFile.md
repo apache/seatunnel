@@ -55,7 +55,7 @@ import ChangeLog from '../changelog/connector-file-hadoop.md';
 | path                       | string  | 是    | -                   | 源文件路径。                                                                                                                                                                           |
 | tables_configs             | list    | 否    | -                   | 在一个 Source 块中配置多张 HDFS 源表。每一项都使用与单表 `HdfsFile` Source 相同的参数，并可通过 `schema.table` 设置传递给下游的表名。                                                                 |
 | file_format_type           | string  | 是    | -                   | 我们支持以下文件类型：`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf`。请注意，最终文件名将以文件格式的后缀结束，文本文件的后缀是 `txt`。                                                            |
-| fs.defaultFS               | string  | 是    | -                   | 以 `hdfs://` 开头的 hadoop 集群地址，例如：`hdfs://hadoopcluster`                                                                                                                            |
+| fs.defaultFS               | string  | 是    | -                   | Hadoop 文件系统地址。支持 HDFS（`hdfs://`）、ViewFS（`viewfs://`）和 Azure Blob FileSystem（`abfs://` 或 `abfss://`）。                                                                     |
 | read_columns               | list    | 否    | -                   | 数据源的读取列列表，用户可以使用它来实现字段投影。支持列投影的文件类型如下所示：[text,json,csv,orc,parquet,excel,xml]。提示：如果用户想在读取 `text` `json` `csv` 文件时使用此功能，必须配置 schema 选项。                                           |
 | hdfs_site_path             | string  | 否    | -                   | `hdfs-site.xml` 的路径，用于加载 namenodes 的 ha 配置                                                                                                                                       |
 | delimiter/field_delimiter  | string  | 否    | \001                | 字段分隔符，用于告诉连接器在读取文本文件时如何分割字段。默认 `\001`，与 hive 的默认分隔符相同                                                                                                                            |
@@ -449,6 +449,21 @@ POI 引擎允许读取的最大 Excel 文件大小，单位为字节。默认值
 ### 提示
 
 > 如果您使用 spark/flink，为了使用此连接器，您必须确保您的 spark/flink 集群已经集成了 hadoop。测试过的 hadoop 版本是 2.x。如果您使用 SeaTunnel Engine，则在下载和安装 SeaTunnel Engine 时会自动集成 hadoop jar。您可以检查 `${SEATUNNEL_HOME}/lib` 下的 jar 包来确认这一点。
+
+### Azure Blob FileSystem
+
+`HdfsFile` 可以通过 Hadoop 的 `abfs` 和 `abfss` 文件系统从 Azure Data Lake Storage Gen2 读取数据。将 `fs.defaultFS` 设置为文件系统 URI，并使用该文件系统内的相对路径作为 `path`，例如：
+
+```hocon
+HdfsFile {
+    fs.defaultFS = "abfss://container@account.dfs.core.windows.net"
+    path = "/data/input"
+    file_format_type = "parquet"
+    hdfs_site_path = "/etc/hadoop/conf/hdfs-site.xml"
+}
+```
+
+请在 `hdfs-site.xml` 中使用 Hadoop Azure 的标准属性配置认证。`hdfs_site_path` 指向的文件必须以相同路径存在于每个工作节点上。请勿将账户密钥、OAuth 密钥或其他凭据直接写入作业配置。
 
 ## 任务示例
 

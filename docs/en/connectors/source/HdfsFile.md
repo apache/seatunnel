@@ -55,7 +55,7 @@ Read data from hdfs file system.
 | path                       | string  | yes      | -                           | The source file path.                                                                                                                                                                                                                                                                                                                         |
 | tables_configs             | list    | no       | -                           | Configure multiple HDFS source tables in one source block. Each item has the same options as a single-table `HdfsFile` source, and can set its downstream table name through `schema.table`.                                                                                                                                                 |
 | file_format_type           | string  | yes      | -                           | We supported as the following file types:`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf`.Please note that, The final file name will end with the file_format's suffix, the suffix of the text file is `txt`.                                                                                                            |
-| fs.defaultFS               | string  | yes      | -                           | The hadoop cluster address that start with `hdfs://`, for example: `hdfs://hadoopcluster`                                                                                                                                                                                                                                                     |
+| fs.defaultFS               | string  | yes      | -                           | Hadoop filesystem address. Supports HDFS (`hdfs://`), ViewFS (`viewfs://`), and Azure Blob FileSystem (`abfs://` or `abfss://`).                                                                                                                                                                                                              |
 | read_columns               | list    | no       | -                           | The read column list of the data source, user can use it to implement field projection.The file type supported column projection as the following shown:[text,json,csv,orc,parquet,excel,xml].Tips: If the user wants to use this feature when reading `text` `json` `csv` files, the schema option must be configured.                       |
 | hdfs_site_path             | string  | no       | -                           | The path of `hdfs-site.xml`, used to load ha configuration of namenodes                                                                                                                                                                                                                                                                       |
 | delimiter/field_delimiter  | string  | no       | \001 for text and , for csv | Field delimiter, used to tell connector how to slice and dice fields when reading text files. default `\001`, the same as hive's default delimiter                                                                                                                                                                                            |
@@ -432,6 +432,21 @@ When enabled, files will be sorted by their modification time (newest first). Th
 ### Tips
 
 > If you use spark/flink, In order to use this connector, You must ensure your spark/flink cluster already integrated hadoop. The tested hadoop version is 2.x. If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you download and install SeaTunnel Engine. You can check the jar package under ${SEATUNNEL_HOME}/lib to confirm this.
+
+### Azure Blob FileSystem
+
+`HdfsFile` can read from Azure Data Lake Storage Gen2 through Hadoop's `abfs` and `abfss` filesystems. Set `fs.defaultFS` to the filesystem URI and keep `path` relative to that filesystem, for example:
+
+```hocon
+HdfsFile {
+    fs.defaultFS = "abfss://container@account.dfs.core.windows.net"
+    path = "/data/input"
+    file_format_type = "parquet"
+    hdfs_site_path = "/etc/hadoop/conf/hdfs-site.xml"
+}
+```
+
+Configure authentication with the standard Hadoop Azure properties in `hdfs-site.xml`. The file referenced by `hdfs_site_path` must be available at the same path on every worker. Keep account keys, OAuth secrets, and other credentials out of the job configuration.
 
 ## Task Example
 

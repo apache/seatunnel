@@ -37,8 +37,13 @@ import static org.apache.parquet.avro.AvroWriteSupport.WRITE_OLD_LIST_STRUCTURE;
 public class HadoopConf implements Serializable {
     private static final String HDFS_IMPL = "org.apache.hadoop.hdfs.DistributedFileSystem";
     private static final String VIEWFS_IMPL = "org.apache.hadoop.fs.viewfs.ViewFileSystem";
+    private static final String ABFS_IMPL = "org.apache.hadoop.fs.azurebfs.AzureBlobFileSystem";
+    private static final String ABFSS_IMPL =
+            "org.apache.hadoop.fs.azurebfs.SecureAzureBlobFileSystem";
     private static final String SCHEMA = "hdfs";
     private static final String VIEWFS_SCHEMA = "viewfs";
+    private static final String ABFS_SCHEMA = "abfs";
+    private static final String ABFSS_SCHEMA = "abfss";
     protected Map<String, String> extraOptions = new HashMap<>();
     protected String hdfsNameKey;
     protected String hdfsSitePath;
@@ -54,15 +59,41 @@ public class HadoopConf implements Serializable {
     }
 
     public String getFsHdfsImpl() {
-        return isViewFs() ? VIEWFS_IMPL : HDFS_IMPL;
+        if (isViewFs()) {
+            return VIEWFS_IMPL;
+        }
+        if (isAbfs()) {
+            return ABFS_IMPL;
+        }
+        if (isAbfss()) {
+            return ABFSS_IMPL;
+        }
+        return HDFS_IMPL;
     }
 
     public String getSchema() {
-        return isViewFs() ? VIEWFS_SCHEMA : SCHEMA;
+        if (isViewFs()) {
+            return VIEWFS_SCHEMA;
+        }
+        if (isAbfs()) {
+            return ABFS_SCHEMA;
+        }
+        if (isAbfss()) {
+            return ABFSS_SCHEMA;
+        }
+        return SCHEMA;
     }
 
     protected boolean isViewFs() {
         return hdfsNameKey != null && hdfsNameKey.startsWith("viewfs://");
+    }
+
+    protected boolean isAbfs() {
+        return hdfsNameKey != null && hdfsNameKey.startsWith("abfs://");
+    }
+
+    protected boolean isAbfss() {
+        return hdfsNameKey != null && hdfsNameKey.startsWith("abfss://");
     }
 
     public void setExtraOptionsForConfiguration(Configuration configuration) {
