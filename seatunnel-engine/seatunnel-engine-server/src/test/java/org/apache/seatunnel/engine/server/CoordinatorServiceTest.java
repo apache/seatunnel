@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server;
 
+import org.apache.seatunnel.api.common.metrics.JobMetrics;
 import org.apache.seatunnel.api.event.Event;
 import org.apache.seatunnel.api.event.EventProcessor;
 import org.apache.seatunnel.common.utils.ReflectionUtils;
@@ -62,6 +63,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junitpioneer.jupiter.SetEnvironmentVariable;
+import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 
 import com.hazelcast.cluster.Address;
@@ -82,6 +84,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -544,6 +547,9 @@ public class CoordinatorServiceTest {
                 .map(ScheduledExecutorService.class::cast)
                 .ifPresent(ScheduledExecutorService::shutdownNow);
         ReflectionUtils.getField(coordinatorService, "pipelineCleanupScheduler")
+                .map(ScheduledExecutorService.class::cast)
+                .ifPresent(ScheduledExecutorService::shutdownNow);
+        ReflectionUtils.getField(coordinatorService, "metricsLoggingScheduler")
                 .map(ScheduledExecutorService.class::cast)
                 .ifPresent(ScheduledExecutorService::shutdownNow);
     }
@@ -1650,6 +1656,70 @@ public class CoordinatorServiceTest {
                                         JobStatus.CANCELED,
                                         server2.getCoordinatorService().getJobStatus(jobId)));
         instance2.shutdown();
+    }
+
+    @Test
+    void testPeriodicJobMetricsLoggingCanBeDisabledWithZeroInterval() {
+        EngineConfig engineConfig = new EngineConfig();
+        Assertions.assertDoesNotThrow(() -> engineConfig.setPrintJobMetricsInfoInterval(0));
+        Assertions.assertEquals(0, engineConfig.getPrintJobMetricsInfoInterval());
+    }
+
+    @Test
+    void testPeriodicJobMetricsLoggingContinuesWhenSingleJobLoggingFails() throws Exception {
+        SeaTunnelServer server = Mockito.mock(SeaTunnelServer.class);
+        CoordinatorService coordinatorService = newMockCoordinatorService(server);
+        try {
+            ReflectionUtils.setField(coordinatorService, "isActive", true);
+
+            @SuppressWarnings("unchecked")
+            Map<Long, JobMaster> runningJobMasterMap = getRunningJobMasterMap(coordinatorService);
+            runningJobMasterMap.put(1L, Mockito.mock(JobMaster.class));
+            runningJobMasterMap.put(2L, Mockito.mock(JobMaster.class));
+
+            CoordinatorService coordinatorSpy = Mockito.spy(coordinatorService);
+            Map<Long, JobMetrics> jobMetricsMap = new LinkedHashMap<>();
+            jobMetricsMap.put(1L, JobMetrics.empty());
+            jobMetricsMap.put(2L, JobMetrics.empty());
+            Mockito.doReturn(jobMetricsMap)
+                    .when(coordinatorSpy)
+                    .getRunningJobMetricsForPeriodicLogging(Mockito.anySet(), Mockito.anyLong());
+
+            AtomicInteger loggedJobs = new AtomicInteger();
+            try (MockedStatic<org.apache.seatunnel.engine.server.metrics.PeriodicJobMetricsLogger>
+                    mockedLogger =
+                            Mockito.mockStatic(
+                                    org.apache.seatunnel.engine.server.metrics
+                                            .PeriodicJobMetricsLogger.class)) {
+                mockedLogger
+                        .when(
+                                () ->
+                                        org.apache.seatunnel.engine.server.metrics
+                                                .PeriodicJobMetricsLogger.logJobMetrics(
+                                                Mockito.eq(1L), Mockito.any(JobMetrics.class)))
+                        .thenThrow(new RuntimeException("boom"));
+                mockedLogger
+                        .when(
+                                () ->
+                                        org.apache.seatunnel.engine.server.metrics
+                                                .PeriodicJobMetricsLogger.logJobMetrics(
+                                                Mockito.eq(2L), Mockito.any(JobMetrics.class)))
+                        .thenAnswer(
+                                invocation -> {
+                                    loggedJobs.incrementAndGet();
+                                    return null;
+                                });
+
+                Assertions.assertDoesNotThrow(coordinatorSpy::runPeriodicJobMetricsLoggingOnce);
+            }
+
+            Assertions.assertEquals(
+                    1,
+                    loggedJobs.get(),
+                    "A failure logging one job must not prevent later jobs from being logged");
+        } finally {
+            coordinatorService.shutdown();
+        }
     }
 
     @Test

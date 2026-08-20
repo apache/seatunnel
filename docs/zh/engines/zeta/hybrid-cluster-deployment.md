@@ -108,6 +108,10 @@ seatunnel:
             min-pause: 5000
 ```
 
+**print-job-metrics-info-interval**
+
+master 节点将每个运行中任务的综合指标周期性写入 `seatunnel.logs.path`（默认 `<SEATUNNEL_HOME>/logs`）下独立日志文件 `seatunnel-metrics.log` 的间隔（秒）。每条记录包含任务 id、本地时间戳，以及从各 task 汇总的 `SourceReceivedCount` / `SourceReceivedBytes` / `SinkWriteCount` / `SinkCommittedCount` 等指标的排序快照。设为 `0` 可关闭此功能。默认值：`60`。
+
 **checkpoint storage**
 
 检查点是一种容错恢复机制。这种机制确保程序在运行时，即使突然遇到异常，也能自行恢复。检查点定时触发，每次检查点进行时每个Task都会被要求将自身的状态信息（比如读取kafka时读取到了哪个offset）上报给检查点线程，由该线程写入一个分布式存储（或共享存储）。当任务失败然后自动容错恢复时，或者通过seatunnel.sh -r 指令恢复之前被暂停的任务时，会从检查点存储中加载对应作业的状态信息，并基于这些状态信息进行作业的恢复。
