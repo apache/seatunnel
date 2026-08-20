@@ -2086,6 +2086,9 @@ public class CoordinatorService {
         if (pipelineCleanupScheduler != null) {
             pipelineCleanupScheduler.shutdown();
         }
+        if (jobHistoryService != null) {
+            jobHistoryService.shutdown();
+        }
         clearCoordinatorService();
         awaitSchedulerTermination("master active listener", masterActiveListener);
         awaitSchedulerTermination("pipeline cleanup scheduler", pipelineCleanupScheduler);
