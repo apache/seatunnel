@@ -249,6 +249,65 @@ seatunnel:
 
 ------------------------------------------------------------------------------------------
 
+### 查询 Worker 资源
+
+<details>
+ <summary><code>GET</code> <code><b>/resource/workers</b></code> <code>(返回已注册 Worker 的当前资源快照。)</code></summary>
+
+#### 参数
+
+无。
+
+#### 响应
+
+```json
+{
+  "available": true,
+  "collectedAt": 1723017600000,
+  "workers": [
+    {
+      "address": "10.0.0.8:5801",
+      "tags": {"region": "us-west"},
+      "totalSlots": 4,
+      "freeSlots": 1,
+      "usedSlots": 3,
+      "dynamicSlot": false,
+      "totalCpuCores": 8,
+      "availableCpuCores": 2,
+      "totalHeapMemoryBytes": 17179869184,
+      "availableHeapMemoryBytes": 4294967296,
+      "cpuUsage": 0.42,
+      "memUsage": 0.58,
+      "runningJobIds": [123456789]
+    },
+    {
+      "address": "10.0.0.9:5801",
+      "tags": {},
+      "usedSlots": 2,
+      "dynamicSlot": true,
+      "totalCpuCores": 8,
+      "availableCpuCores": 4,
+      "totalHeapMemoryBytes": 17179869184,
+      "availableHeapMemoryBytes": 8589934592,
+      "cpuUsage": 0.35,
+      "memUsage": 0.41,
+      "runningJobIds": [123456789]
+    }
+  ]
+}
+```
+
+**说明：**
+
+- 固定 Slot 模式的 Worker 返回 `totalSlots`、`usedSlots` 和 `freeSlots`。
+- 动态 Slot 模式的 Worker 返回 `usedSlots` 以及 CPU 和堆内存的总量与可用量。由于动态模式没有固定的 Slot 容量，因此不返回 `totalSlots` 和 `freeSlots`。
+- 当无法读取 Master 端的资源快照时（包括 Master 选举期间），`available` 为 `false`。此时 `workers` 为空，客户端应重试，而不应将该响应解释为空集群。
+- `collectedAt` 是 Master 收集该快照时的毫秒时间戳。
+
+</details>
+
+------------------------------------------------------------------------------------------
+
 ### 查询作业及其当前状态的概览
 
 <details>
@@ -337,7 +396,12 @@ seatunnel:
         },
         "totalSlots": 4,
         "freeSlots": 0,
+        "usedSlots": 4,
         "dynamicSlot": false,
+        "totalCpuCores": 8,
+        "availableCpuCores": 2,
+        "totalHeapMemoryBytes": 17179869184,
+        "availableHeapMemoryBytes": 4294967296,
         "cpuUsage": 0.83,
         "memUsage": 0.64,
         "runningJobIds": [

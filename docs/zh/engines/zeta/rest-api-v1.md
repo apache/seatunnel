@@ -165,6 +165,51 @@ network:
 
 ------------------------------------------------------------------------------------------
 
+### 查询 Worker 资源
+
+<details>
+ <summary><code>GET</code> <code><b>/hazelcast/rest/maps/resource/workers</b></code> <code>(返回已注册 Worker 的当前资源快照。)</code></summary>
+
+#### 参数
+
+无。
+
+#### 响应
+
+```json
+{
+  "available": true,
+  "collectedAt": 1723017600000,
+  "workers": [
+    {
+      "address": "10.0.0.8:5801",
+      "tags": {"region": "us-west"},
+      "totalSlots": 4,
+      "freeSlots": 1,
+      "usedSlots": 3,
+      "dynamicSlot": false,
+      "totalCpuCores": 8,
+      "availableCpuCores": 2,
+      "totalHeapMemoryBytes": 17179869184,
+      "availableHeapMemoryBytes": 4294967296,
+      "cpuUsage": 0.42,
+      "memUsage": 0.58,
+      "runningJobIds": [123456789]
+    }
+  ]
+}
+```
+
+**说明：**
+
+- 固定 Slot 模式的 Worker 返回 `totalSlots`、`usedSlots` 和 `freeSlots`。
+- 动态 Slot 模式的 Worker 不返回 `totalSlots` 和 `freeSlots`，而是返回 `usedSlots` 以及 CPU 和堆内存的总量与可用量。
+- 当 `available` 为 `false` 时，表示当前无法读取 Master 资源快照，`workers` 为空。客户端应重试，而不应将该响应解释为空集群。
+
+</details>
+
+------------------------------------------------------------------------------------------
+
 ###  返回当前节点的线程堆栈信息。
 
 <details>

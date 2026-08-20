@@ -253,6 +253,65 @@ Please refer [security](security.md)
 
 ------------------------------------------------------------------------------------------
 
+### Query Worker Resources
+
+<details>
+ <summary><code>GET</code> <code><b>/resource/workers</b></code> <code>(Returns the current resource snapshot for registered workers.)</code></summary>
+
+#### Parameters
+
+None.
+
+#### Responses
+
+```json
+{
+  "available": true,
+  "collectedAt": 1723017600000,
+  "workers": [
+    {
+      "address": "10.0.0.8:5801",
+      "tags": {"region": "us-west"},
+      "totalSlots": 4,
+      "freeSlots": 1,
+      "usedSlots": 3,
+      "dynamicSlot": false,
+      "totalCpuCores": 8,
+      "availableCpuCores": 2,
+      "totalHeapMemoryBytes": 17179869184,
+      "availableHeapMemoryBytes": 4294967296,
+      "cpuUsage": 0.42,
+      "memUsage": 0.58,
+      "runningJobIds": [123456789]
+    },
+    {
+      "address": "10.0.0.9:5801",
+      "tags": {},
+      "usedSlots": 2,
+      "dynamicSlot": true,
+      "totalCpuCores": 8,
+      "availableCpuCores": 4,
+      "totalHeapMemoryBytes": 17179869184,
+      "availableHeapMemoryBytes": 8589934592,
+      "cpuUsage": 0.35,
+      "memUsage": 0.41,
+      "runningJobIds": [123456789]
+    }
+  ]
+}
+```
+
+**Notes:**
+
+- Fixed-slot workers return `totalSlots`, `usedSlots`, and `freeSlots`.
+- Dynamic-slot workers return `usedSlots` together with their total and available CPU and heap resources. `totalSlots` and `freeSlots` are omitted because dynamic workers do not have a fixed slot capacity.
+- `available` is `false` when the master resource snapshot cannot be read, including the master-election window. In that case, `workers` is empty and clients should retry instead of interpreting the response as an empty cluster.
+- `collectedAt` is the timestamp in milliseconds when the master collected the snapshot.
+
+</details>
+
+------------------------------------------------------------------------------------------
+
 ### Query An Overview And State Of Running Jobs
 
 <details>
@@ -343,7 +402,12 @@ Please refer [security](security.md)
         },
         "totalSlots": 4,
         "freeSlots": 0,
+        "usedSlots": 4,
         "dynamicSlot": false,
+        "totalCpuCores": 8,
+        "availableCpuCores": 2,
+        "totalHeapMemoryBytes": 17179869184,
+        "availableHeapMemoryBytes": 4294967296,
         "cpuUsage": 0.83,
         "memUsage": 0.64,
         "runningJobIds": [
