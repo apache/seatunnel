@@ -1179,6 +1179,10 @@ public class CoordinatorService {
         if (!coordinatorServiceCleared.compareAndSet(false, true)) {
             return;
         }
+        // Stop the autoscaler before tearing down the resource manager, in case
+        // this node is still the active master during full shutdown (e.g. single-node
+        // deployment or graceful shutdown while master).
+        stopWorkerAutoscaler();
         // interrupt all JobMaster
         runningJobMasterMap.values().forEach(JobMaster::interrupt);
         if (isWaitStrategy) {

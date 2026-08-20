@@ -28,9 +28,6 @@ import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 
 import java.time.Instant;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Map;
 import java.util.OptionalDouble;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
@@ -62,10 +59,12 @@ public class WorkerAutoscaler {
     private final AtomicReference<Instant> lastScaleInTime = new AtomicReference<>();
 
     // Metric history for stabilization windows
-    private final ConcurrentMap<MetricType, SlidingWindow> metricWindows = new ConcurrentHashMap<>();
+    private final ConcurrentMap<MetricType, SlidingWindow> metricWindows =
+            new ConcurrentHashMap<>();
 
     // Current recommendation
-    @Getter private volatile AutoscalerRecommendation currentRecommendation =
+    @Getter
+    private volatile AutoscalerRecommendation currentRecommendation =
             AutoscalerRecommendation.noAction();
 
     @Getter private volatile AutoscalerState autoscalerState = new AutoscalerState();
@@ -174,21 +173,26 @@ public class WorkerAutoscaler {
 
             // Create recommendation
             AutoscalerRecommendation recommendation =
-                    buildRecommendation(decision, currentWorkerCount, workers, slotUsageRatio,
-                            avgCpu, avgMemory);
+                    buildRecommendation(
+                            decision,
+                            currentWorkerCount,
+                            workers,
+                            slotUsageRatio,
+                            avgCpu,
+                            avgMemory);
             currentRecommendation = recommendation;
 
             if (recommendation.getAction() != ScalingAction.NO_ACTION) {
                 log.info(
                         "Autoscaler recommendation: action={}, reason={}, targetWorkers={}, "
-                                + "currentWorkers={}, slotUsage={:.2f}, avgCpu={:.2f}, avgMem={:.2f}",
+                                + "currentWorkers={}, slotUsage={}, avgCpu={}, avgMem={}",
                         recommendation.getAction(),
                         recommendation.getReason(),
                         recommendation.getTargetWorkerCount(),
                         currentWorkerCount,
-                        slotUsageRatio,
-                        avgCpu,
-                        avgMemory);
+                        String.format("%.2f", slotUsageRatio),
+                        String.format("%.2f", avgCpu),
+                        String.format("%.2f", avgMemory));
             }
         } catch (Exception e) {
             log.warn("Error during autoscaler evaluation: {}", e.getMessage(), e);
@@ -211,8 +215,13 @@ public class WorkerAutoscaler {
                 && currentWorkerCount < config.getMaxWorkers()) {
             int targetWorkers = Math.min(currentWorkerCount + 1, config.getMaxWorkers());
             String reason =
-                    buildScaleOutReason(cpuScaleOut, memoryScaleOut, slotScaleOut, avgCpu,
-                            avgMemory, avgSlotUsage);
+                    buildScaleOutReason(
+                            cpuScaleOut,
+                            memoryScaleOut,
+                            slotScaleOut,
+                            avgCpu,
+                            avgMemory,
+                            avgSlotUsage);
             return new ScalingDecision(ScalingAction.SCALE_OUT, targetWorkers, reason);
         }
 
@@ -221,11 +230,12 @@ public class WorkerAutoscaler {
         boolean memoryScaleIn = avgMemory < config.getMemoryScaleInThreshold();
         boolean slotScaleIn = avgSlotUsage < config.getSlotUsageScaleInThreshold();
 
-        if (cpuScaleIn && memoryScaleIn && slotScaleIn
+        if (cpuScaleIn
+                && memoryScaleIn
+                && slotScaleIn
                 && currentWorkerCount > config.getMinWorkers()) {
             int targetWorkers = Math.max(currentWorkerCount - 1, config.getMinWorkers());
-            String reason =
-                    buildScaleInReason(avgCpu, avgMemory, avgSlotUsage);
+            String reason = buildScaleInReason(avgCpu, avgMemory, avgSlotUsage);
             return new ScalingDecision(ScalingAction.SCALE_IN, targetWorkers, reason);
         }
 
@@ -233,20 +243,30 @@ public class WorkerAutoscaler {
     }
 
     private String buildScaleOutReason(
-            boolean cpu, boolean memory, boolean slot, double avgCpu, double avgMem,
+            boolean cpu,
+            boolean memory,
+            boolean slot,
+            double avgCpu,
+            double avgMem,
             double avgSlot) {
         StringBuilder sb = new StringBuilder("Scale-out triggered by: ");
         if (cpu) {
-            sb.append(String.format("CPU=%.2f (threshold=%.2f) ", avgCpu,
-                    config.getCpuScaleOutThreshold()));
+            sb.append(
+                    String.format(
+                            "CPU=%.2f (threshold=%.2f) ",
+                            avgCpu, config.getCpuScaleOutThreshold()));
         }
         if (memory) {
-            sb.append(String.format("Memory=%.2f (threshold=%.2f) ", avgMem,
-                    config.getMemoryScaleOutThreshold()));
+            sb.append(
+                    String.format(
+                            "Memory=%.2f (threshold=%.2f) ",
+                            avgMem, config.getMemoryScaleOutThreshold()));
         }
         if (slot) {
-            sb.append(String.format("SlotUsage=%.2f (threshold=%.2f) ", avgSlot,
-                    config.getSlotUsageScaleOutThreshold()));
+            sb.append(
+                    String.format(
+                            "SlotUsage=%.2f (threshold=%.2f) ",
+                            avgSlot, config.getSlotUsageScaleOutThreshold()));
         }
         return sb.toString().trim();
     }

@@ -135,8 +135,7 @@ public class EngineConfig {
     private MetadataConfig metadataConfig = ServerConfigOptions.METADATA.defaultValue();
 
     private AutoscalerConfig autoscalerConfig =
-            ServerConfigOptions.WorkerServerConfigOptions.AutoscalerOptions.AUTOSCALER
-                    .defaultValue();
+            ServerConfigOptions.AutoscalerOptions.AUTOSCALER.defaultValue();
 
     public void setBackupCount(int newBackupCount) {
         checkBackupCount(newBackupCount, 0);

@@ -516,117 +516,117 @@ public class ServerConfigOptions {
         /////////////////////////////////////////////////
 
         public static final Option<Integer> TIMER_FLUSH_POOL_SIZE =
-                    Options.key("timer-flush-pool-size")
-                            .intType()
-                            .defaultValue(1)
-                            .withDescription(
-                                    "The number of threads in the timer flush worker pool used to inject FlushSignals into the pipeline.");
-            }
+                Options.key("timer-flush-pool-size")
+                        .intType()
+                        .defaultValue(1)
+                        .withDescription(
+                                "The number of threads in the timer flush worker pool used to inject FlushSignals into the pipeline.");
+    }
 
-            /** The options for autoscaler. */
-            public static class AutoscalerOptions {
+    /** The options for autoscaler. */
+    public static class AutoscalerOptions {
 
-                public static final Option<Boolean> AUTOSCALER_ENABLED =
-                        Options.key("enabled")
-                                .booleanType()
-                                .defaultValue(false)
-                                .withDescription(
-                                        "Whether to enable worker autoscaling. When enabled, the autoscaler will monitor cluster metrics and make scaling recommendations.");
+        public static final Option<Boolean> AUTOSCALER_ENABLED =
+                Options.key("enabled")
+                        .booleanType()
+                        .defaultValue(false)
+                        .withDescription(
+                                "Whether to enable worker autoscaling. When enabled, the autoscaler will monitor cluster metrics and make scaling recommendations.");
 
-                public static final Option<Integer> AUTOSCALER_MIN_WORKERS =
-                        Options.key("min-workers")
-                                .intType()
-                                .defaultValue(1)
-                                .withDescription("Minimum number of workers in the cluster.");
+        public static final Option<Integer> AUTOSCALER_MIN_WORKERS =
+                Options.key("min-workers")
+                        .intType()
+                        .defaultValue(1)
+                        .withDescription("Minimum number of workers in the cluster.");
 
-                public static final Option<Integer> AUTOSCALER_MAX_WORKERS =
-                        Options.key("max-workers")
-                                .intType()
-                                .defaultValue(10)
-                                .withDescription("Maximum number of workers in the cluster.");
+        public static final Option<Integer> AUTOSCALER_MAX_WORKERS =
+                Options.key("max-workers")
+                        .intType()
+                        .defaultValue(10)
+                        .withDescription("Maximum number of workers in the cluster.");
 
-                public static final Option<Integer> AUTOSCALER_SCALE_OUT_COOLDOWN_SECONDS =
-                        Options.key("scale-out-cooldown-seconds")
-                                .intType()
-                                .defaultValue(300)
-                                .withDescription(
-                                        "Cooldown period in seconds after a scale-out before another scale-out can happen.");
+        public static final Option<Integer> AUTOSCALER_SCALE_OUT_COOLDOWN_SECONDS =
+                Options.key("scale-out-cooldown-seconds")
+                        .intType()
+                        .defaultValue(300)
+                        .withDescription(
+                                "Cooldown period in seconds after a scale-out before another scale-out can happen.");
 
-                public static final Option<Integer> AUTOSCALER_SCALE_IN_COOLDOWN_SECONDS =
-                        Options.key("scale-in-cooldown-seconds")
-                                .intType()
-                                .defaultValue(600)
-                                .withDescription(
-                                        "Cooldown period in seconds after a scale-in before another scale-in can happen.");
+        public static final Option<Integer> AUTOSCALER_SCALE_IN_COOLDOWN_SECONDS =
+                Options.key("scale-in-cooldown-seconds")
+                        .intType()
+                        .defaultValue(600)
+                        .withDescription(
+                                "Cooldown period in seconds after a scale-in before another scale-in can happen.");
 
-                public static final Option<Integer> AUTOSCALER_STABILIZATION_WINDOW_SECONDS =
-                        Options.key("stabilization-window-seconds")
-                                .intType()
-                                .defaultValue(120)
-                                .withDescription(
-                                        "Stabilization window in seconds: metrics must stay above/below threshold for this duration before a scaling recommendation is made.");
+        public static final Option<Integer> AUTOSCALER_STABILIZATION_WINDOW_SECONDS =
+                Options.key("stabilization-window-seconds")
+                        .intType()
+                        .defaultValue(120)
+                        .withDescription(
+                                "Stabilization window in seconds: metrics must stay above/below threshold for this duration before a scaling recommendation is made.");
 
-                public static final Option<Double> AUTOSCALER_CPU_SCALE_OUT_THRESHOLD =
-                        Options.key("cpu-scale-out-threshold")
-                                .doubleType()
-                                .defaultValue(0.75)
-                                .withDescription(
-                                        "CPU utilization threshold (0.0-1.0) above which scale-out is recommended.");
+        public static final Option<Double> AUTOSCALER_CPU_SCALE_OUT_THRESHOLD =
+                Options.key("cpu-scale-out-threshold")
+                        .doubleType()
+                        .defaultValue(0.75)
+                        .withDescription(
+                                "CPU utilization threshold (0.0-1.0) above which scale-out is recommended.");
 
-                public static final Option<Double> AUTOSCALER_CPU_SCALE_IN_THRESHOLD =
-                        Options.key("cpu-scale-in-threshold")
-                                .doubleType()
-                                .defaultValue(0.25)
-                                .withDescription(
-                                        "CPU utilization threshold (0.0-1.0) below which scale-in is recommended.");
+        public static final Option<Double> AUTOSCALER_CPU_SCALE_IN_THRESHOLD =
+                Options.key("cpu-scale-in-threshold")
+                        .doubleType()
+                        .defaultValue(0.25)
+                        .withDescription(
+                                "CPU utilization threshold (0.0-1.0) below which scale-in is recommended.");
 
-                public static final Option<Double> AUTOSCALER_MEMORY_SCALE_OUT_THRESHOLD =
-                        Options.key("memory-scale-out-threshold")
-                                .doubleType()
-                                .defaultValue(0.80)
-                                .withDescription(
-                                        "Memory utilization threshold (0.0-1.0) above which scale-out is recommended.");
+        public static final Option<Double> AUTOSCALER_MEMORY_SCALE_OUT_THRESHOLD =
+                Options.key("memory-scale-out-threshold")
+                        .doubleType()
+                        .defaultValue(0.80)
+                        .withDescription(
+                                "Memory utilization threshold (0.0-1.0) above which scale-out is recommended.");
 
-                public static final Option<Double> AUTOSCALER_MEMORY_SCALE_IN_THRESHOLD =
-                        Options.key("memory-scale-in-threshold")
-                                .doubleType()
-                                .defaultValue(0.30)
-                                .withDescription(
-                                        "Memory utilization threshold (0.0-1.0) below which scale-in is recommended.");
+        public static final Option<Double> AUTOSCALER_MEMORY_SCALE_IN_THRESHOLD =
+                Options.key("memory-scale-in-threshold")
+                        .doubleType()
+                        .defaultValue(0.30)
+                        .withDescription(
+                                "Memory utilization threshold (0.0-1.0) below which scale-in is recommended.");
 
-                public static final Option<Double> AUTOSCALER_SLOT_USAGE_SCALE_OUT_THRESHOLD =
-                        Options.key("slot-usage-scale-out-threshold")
-                                .doubleType()
-                                .defaultValue(0.80)
-                                .withDescription(
-                                        "Slot usage ratio threshold (0.0-1.0) above which scale-out is recommended.");
+        public static final Option<Double> AUTOSCALER_SLOT_USAGE_SCALE_OUT_THRESHOLD =
+                Options.key("slot-usage-scale-out-threshold")
+                        .doubleType()
+                        .defaultValue(0.80)
+                        .withDescription(
+                                "Slot usage ratio threshold (0.0-1.0) above which scale-out is recommended.");
 
-                public static final Option<Double> AUTOSCALER_SLOT_USAGE_SCALE_IN_THRESHOLD =
-                        Options.key("slot-usage-scale-in-threshold")
-                                .doubleType()
-                                .defaultValue(0.20)
-                                .withDescription(
-                                        "Slot usage ratio threshold (0.0-1.0) below which scale-in is recommended.");
+        public static final Option<Double> AUTOSCALER_SLOT_USAGE_SCALE_IN_THRESHOLD =
+                Options.key("slot-usage-scale-in-threshold")
+                        .doubleType()
+                        .defaultValue(0.20)
+                        .withDescription(
+                                "Slot usage ratio threshold (0.0-1.0) below which scale-in is recommended.");
 
-                public static final Option<Boolean> AUTOSCALER_RECOMMENDATION_ONLY =
-                        Options.key("recommendation-only")
-                                .booleanType()
-                                .defaultValue(true)
-                                .withDescription(
-                                        "Whether the autoscaler only emits recommendations (true) or also performs actual scaling actions (false). "
-                                                + "Set to true for phase 1: recommendation-only mode.");
+        public static final Option<Boolean> AUTOSCALER_RECOMMENDATION_ONLY =
+                Options.key("recommendation-only")
+                        .booleanType()
+                        .defaultValue(true)
+                        .withDescription(
+                                "Whether the autoscaler only emits recommendations (true) or also performs actual scaling actions (false). "
+                                        + "Set to true for phase 1: recommendation-only mode.");
 
-                public static final Option<Integer> AUTOSCALER_EVALUATION_INTERVAL_SECONDS =
-                        Options.key("evaluation-interval-seconds")
-                                .intType()
-                                .defaultValue(30)
-                                .withDescription(
-                                        "Evaluation interval in seconds for the autoscaler control loop.");
+        public static final Option<Integer> AUTOSCALER_EVALUATION_INTERVAL_SECONDS =
+                Options.key("evaluation-interval-seconds")
+                        .intType()
+                        .defaultValue(30)
+                        .withDescription(
+                                "Evaluation interval in seconds for the autoscaler control loop.");
 
-                public static final Option<AutoscalerConfig> AUTOSCALER =
-                        Options.key("autoscaler")
-                                .type(new TypeReference<AutoscalerConfig>() {})
-                                .defaultValue(new AutoscalerConfig())
-                                .withDescription("The autoscaler configuration.");
-            }
-        }
+        public static final Option<AutoscalerConfig> AUTOSCALER =
+                Options.key("autoscaler")
+                        .type(new TypeReference<AutoscalerConfig>() {})
+                        .defaultValue(new AutoscalerConfig())
+                        .withDescription("The autoscaler configuration.");
+    }
+}

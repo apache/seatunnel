@@ -38,7 +38,9 @@ public class AutoscalerConfig implements Serializable {
     /** Cooldown period in seconds after a scale-in before another scale-in can happen. */
     private int scaleInCooldownSeconds = 600;
 
-    /** Stabilization window in seconds: metrics must stay above/below threshold for this duration. */
+    /**
+     * Stabilization window in seconds: metrics must stay above/below threshold for this duration.
+     */
     private int stabilizationWindowSeconds = 120;
 
     /**

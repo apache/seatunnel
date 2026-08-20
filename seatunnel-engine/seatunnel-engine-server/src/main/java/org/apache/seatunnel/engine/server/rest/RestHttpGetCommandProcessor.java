@@ -286,6 +286,10 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
         this.prepareResponse(command, traceTaskMappingService.getJobTaskMappingJson(jobId));
     }
 
+    private void handleAutoscaler(HttpGetCommand httpGetCommand) {
+        this.prepareResponse(httpGetCommand, autoscalerService.getAutoscalerInfo());
+    }
+
     private void handleMetrics(HttpGetCommand httpGetCommand, String contentType) {
         log.info("Metrics request received");
         StringWriter stringWriter = new StringWriter();
