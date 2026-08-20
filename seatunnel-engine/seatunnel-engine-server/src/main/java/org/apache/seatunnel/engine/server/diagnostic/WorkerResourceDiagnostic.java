@@ -28,17 +28,21 @@ import java.util.Map;
 /**
  * Read-only projection of the latest resource-manager heartbeat for one worker.
  *
- * <p>{@code totalSlots} and {@code freeSlots} are null for dynamic-slot workers because those
- * workers do not have a fixed slot capacity.
+ * <p>{@code totalSlots} and {@code freeSlots} are zero for dynamic-slot workers because those
+ * workers do not have a fixed slot capacity. Callers should use {@code dynamicSlot} to interpret
+ * the slot fields.
  */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
 public class WorkerResourceDiagnostic implements Serializable {
+    // Preserve compatibility with diagnostics serialized before resource fields were added.
+    private static final long serialVersionUID = 1347570277332453777L;
+
     private String address;
     private Map<String, String> tags;
-    private Integer totalSlots;
-    private Integer freeSlots;
+    private int totalSlots;
+    private int freeSlots;
     private int usedSlots;
     private boolean dynamicSlot;
     private Integer totalCpuCores;

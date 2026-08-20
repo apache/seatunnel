@@ -287,6 +287,8 @@ None.
     {
       "address": "10.0.0.9:5801",
       "tags": {},
+      "totalSlots": 0,
+      "freeSlots": 0,
       "usedSlots": 2,
       "dynamicSlot": true,
       "totalCpuCores": 8,
@@ -304,7 +306,7 @@ None.
 **Notes:**
 
 - Fixed-slot workers return `totalSlots`, `usedSlots`, and `freeSlots`.
-- Dynamic-slot workers return `usedSlots` together with their total and available CPU and heap resources. `totalSlots` and `freeSlots` are omitted because dynamic workers do not have a fixed slot capacity.
+- Dynamic-slot workers return `totalSlots` and `freeSlots` as `0` because they do not have a fixed slot capacity. Use `dynamicSlot` to interpret these fields; `usedSlots` and the total and available CPU and heap resources describe current usage.
 - `available` is `false` when the master resource snapshot cannot be read, including the master-election window. In that case, `workers` is empty and clients should retry instead of interpreting the response as an empty cluster.
 - `collectedAt` is the timestamp in milliseconds when the master built this response. Worker values come from the latest resource-manager heartbeat and are not an atomic sample with `/system-monitoring-information`.
 - Resource and usage fields are omitted until the worker heartbeat contains those values.

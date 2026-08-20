@@ -22,6 +22,11 @@ import org.apache.seatunnel.engine.server.diagnostic.WorkerResourceSnapshot;
 import org.apache.seatunnel.engine.server.resourcemanager.opeartion.GetWorkerResourcesOperation;
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
+import com.hazelcast.cluster.Address;
+import com.hazelcast.core.HazelcastInstanceNotActiveException;
+import com.hazelcast.core.MemberLeftException;
+import com.hazelcast.spi.exception.TargetDisconnectedException;
+import com.hazelcast.spi.exception.TargetNotMemberException;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 
 import java.util.Collections;
@@ -38,17 +43,43 @@ public class WorkerResourceService extends BaseService {
         if (seaTunnelServer != null) {
             return GetWorkerResourcesOperation.getWorkerResourceSnapshot(seaTunnelServer);
         }
-        if (nodeEngine.getMasterAddress() == null) {
+        Address masterAddress = nodeEngine.getMasterAddress();
+        if (masterAddress == null) {
             return unavailableSnapshot();
         }
+        try {
+            return invokeOnMaster(masterAddress);
+        } catch (RuntimeException e) {
+            if (isTransientMasterFailure(e)) {
+                return unavailableSnapshot();
+            }
+            throw e;
+        }
+    }
+
+    protected WorkerResourceSnapshot invokeOnMaster(Address masterAddress) {
         return (WorkerResourceSnapshot)
-                NodeEngineUtil.sendOperationToMasterNode(
-                                nodeEngine, new GetWorkerResourcesOperation())
+                NodeEngineUtil.sendOperationToMemberNode(
+                                nodeEngine, new GetWorkerResourcesOperation(), masterAddress)
                         .join();
     }
 
     private WorkerResourceSnapshot unavailableSnapshot() {
         return new WorkerResourceSnapshot(
                 false, System.currentTimeMillis(), Collections.emptyList());
+    }
+
+    private boolean isTransientMasterFailure(Throwable error) {
+        Throwable current = error;
+        while (current != null) {
+            if (current instanceof TargetNotMemberException
+                    || current instanceof TargetDisconnectedException
+                    || current instanceof MemberLeftException
+                    || current instanceof HazelcastInstanceNotActiveException) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 }

@@ -96,8 +96,8 @@ public class PendingDiagnosticsCollectorTest {
         Assertions.assertEquals(dynamicAddress.toString(), dynamic.getAddress());
         Assertions.assertTrue(dynamic.isDynamicSlot());
         Assertions.assertEquals(1, dynamic.getUsedSlots());
-        Assertions.assertNull(dynamic.getTotalSlots());
-        Assertions.assertNull(dynamic.getFreeSlots());
+        Assertions.assertEquals(0, dynamic.getTotalSlots());
+        Assertions.assertEquals(0, dynamic.getFreeSlots());
         Assertions.assertEquals(8, dynamic.getTotalCpuCores());
         Assertions.assertEquals(3, dynamic.getAvailableCpuCores());
         Assertions.assertEquals(8192L, dynamic.getTotalHeapMemoryBytes());
@@ -147,6 +147,53 @@ public class PendingDiagnosticsCollectorTest {
         Assertions.assertNull(diagnostic.getAvailableHeapMemoryBytes());
         Assertions.assertEquals(Collections.emptyMap(), diagnostic.getTags());
         Assertions.assertEquals(Collections.emptyList(), diagnostic.getRunningJobIds());
+    }
+
+    @Test
+    public void testCollectWorkerResourceSnapshotAfterSlotReleaseAndReuse()
+            throws UnknownHostException {
+        ResourceManager resourceManager = Mockito.mock(ResourceManager.class);
+        Address address = new Address("localhost", 5801);
+        SlotProfile retained = slot(address, 0, 100L);
+        SlotProfile released = slot(address, 1, 200L);
+        SlotProfile free = slot(address, 2, 0L);
+        WorkerProfile worker =
+                worker(
+                        address,
+                        false,
+                        new ResourceProfile(CPU.of(8), Memory.of(8192)),
+                        new ResourceProfile(CPU.of(4), Memory.of(4096)),
+                        new SlotProfile[] {retained, released},
+                        new SlotProfile[] {free});
+        ConcurrentMap<Address, WorkerProfile> workers = new ConcurrentHashMap<>();
+        workers.put(address, worker);
+        Mockito.when(resourceManager.getRegisterWorker()).thenReturn(workers);
+
+        released.unassigned();
+        worker.setAssignedSlots(new SlotProfile[] {retained});
+        worker.setUnassignedSlots(new SlotProfile[] {released, free});
+
+        WorkerResourceDiagnostic afterRelease =
+                PendingDiagnosticsCollector.collectWorkerResourceSnapshot(resourceManager)
+                        .getWorkers()
+                        .get(0);
+        Assertions.assertEquals(1, afterRelease.getUsedSlots());
+        Assertions.assertEquals(3, afterRelease.getTotalSlots());
+        Assertions.assertEquals(2, afterRelease.getFreeSlots());
+        Assertions.assertEquals(Collections.singletonList(100L), afterRelease.getRunningJobIds());
+
+        released.assign(300L);
+        worker.setAssignedSlots(new SlotProfile[] {retained, released});
+        worker.setUnassignedSlots(new SlotProfile[] {free});
+
+        WorkerResourceDiagnostic afterReuse =
+                PendingDiagnosticsCollector.collectWorkerResourceSnapshot(resourceManager)
+                        .getWorkers()
+                        .get(0);
+        Assertions.assertEquals(2, afterReuse.getUsedSlots());
+        Assertions.assertEquals(3, afterReuse.getTotalSlots());
+        Assertions.assertEquals(1, afterReuse.getFreeSlots());
+        Assertions.assertEquals(Arrays.asList(100L, 300L), afterReuse.getRunningJobIds());
     }
 
     @Test

@@ -30,6 +30,8 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class WorkerResourceSnapshot implements Serializable {
+    private static final long serialVersionUID = 1L;
+
     private boolean available;
     private long collectedAt;
     private List<WorkerResourceDiagnostic> workers = new ArrayList<>();

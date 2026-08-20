@@ -22,10 +22,16 @@ import org.apache.seatunnel.engine.server.diagnostic.WorkerResourceSnapshot;
 
 import org.junit.jupiter.api.Test;
 
+import com.hazelcast.cluster.Address;
+import com.hazelcast.spi.exception.TargetNotMemberException;
 import com.hazelcast.spi.impl.NodeEngineImpl;
+
+import java.net.UnknownHostException;
+import java.util.concurrent.CompletionException;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -36,7 +42,7 @@ class WorkerResourceServiceTest {
     void shouldReturnUnavailableSnapshotBeforeMasterElectionCompletes() {
         NodeEngineImpl nodeEngine = mock(NodeEngineImpl.class);
         when(nodeEngine.getMasterAddress()).thenReturn(null);
-        WorkerResourceService service = new TestWorkerResourceService(nodeEngine, null);
+        WorkerResourceService service = new TestWorkerResourceService(nodeEngine, null, null);
 
         WorkerResourceSnapshot snapshot = service.getWorkerResources();
 
@@ -46,18 +52,52 @@ class WorkerResourceServiceTest {
         assertTrue(snapshot.getWorkers().isEmpty());
     }
 
+    @Test
+    void shouldReturnUnavailableSnapshotWhenMasterLeavesDuringForwarding()
+            throws UnknownHostException {
+        NodeEngineImpl nodeEngine = mock(NodeEngineImpl.class);
+        when(nodeEngine.getMasterAddress()).thenReturn(new Address("localhost", 5801));
+        RuntimeException failure =
+                new CompletionException(new TargetNotMemberException("master left"));
+        WorkerResourceService service = new TestWorkerResourceService(nodeEngine, null, failure);
+
+        WorkerResourceSnapshot snapshot = service.getWorkerResources();
+
+        assertFalse(snapshot.isAvailable());
+        assertTrue(snapshot.getWorkers().isEmpty());
+    }
+
+    @Test
+    void shouldPropagateUnrelatedForwardingFailure() throws UnknownHostException {
+        NodeEngineImpl nodeEngine = mock(NodeEngineImpl.class);
+        when(nodeEngine.getMasterAddress()).thenReturn(new Address("localhost", 5801));
+        RuntimeException failure = new IllegalStateException("unexpected failure");
+        WorkerResourceService service = new TestWorkerResourceService(nodeEngine, null, failure);
+
+        assertThrows(IllegalStateException.class, service::getWorkerResources);
+    }
+
     private static class TestWorkerResourceService extends WorkerResourceService {
         private final SeaTunnelServer seaTunnelServer;
+        private final RuntimeException invocationFailure;
 
         private TestWorkerResourceService(
-                NodeEngineImpl nodeEngine, SeaTunnelServer seaTunnelServer) {
+                NodeEngineImpl nodeEngine,
+                SeaTunnelServer seaTunnelServer,
+                RuntimeException invocationFailure) {
             super(nodeEngine);
             this.seaTunnelServer = seaTunnelServer;
+            this.invocationFailure = invocationFailure;
         }
 
         @Override
         protected SeaTunnelServer getSeaTunnelServer(boolean shouldBeMaster) {
             return seaTunnelServer;
+        }
+
+        @Override
+        protected WorkerResourceSnapshot invokeOnMaster(Address masterAddress) {
+            throw invocationFailure;
         }
     }
 }
