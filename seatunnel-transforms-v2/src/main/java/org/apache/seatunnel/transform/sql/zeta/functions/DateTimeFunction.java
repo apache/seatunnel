@@ -615,10 +615,22 @@ public class DateTimeFunction {
         return null;
     }
 
+    /**
+     * Converts the EXTRACT milliseconds field to the SQL-standard whole-seconds-based value.
+     *
+     * <p>This keeps the seconds component in the result instead of returning only the fractional
+     * remainder.
+     */
     private static int extractMilliseconds(int second, int nano) {
         return second * 1000 + nano / 1000_000;
     }
 
+    /**
+     * Converts the EXTRACT microseconds field to the SQL-standard whole-seconds-based value.
+     *
+     * <p>This keeps the seconds component in the result instead of returning only the fractional
+     * remainder.
+     */
     private static int extractMicroseconds(int second, int nano) {
         return second * 1000_000 + nano / 1000;
     }
