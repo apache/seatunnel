@@ -86,19 +86,25 @@ describe('jobs', () => {
     expect(wrapper.text()).toContain('Cancel')
     const confirmations = wrapper.findAllComponents(NPopconfirm)
     expect(confirmations).toHaveLength(3)
-    await confirmations[0].props('onPositiveClick')()
+    const clickConfirmation = async (index: number) => {
+      const onPositiveClick = confirmations[index].props('onPositiveClick') as (
+        event: MouseEvent
+      ) => Promise<void> | void
+      await onPositiveClick(new MouseEvent('click'))
+    }
+    await clickConfirmation(0)
     expect(stopJobSpy).toHaveBeenCalledWith({
       jobId: '888413907541032961',
       isStopWithSavePoint: false,
       force: false
     })
-    await confirmations[1].props('onPositiveClick')()
+    await clickConfirmation(1)
     expect(stopJobSpy).toHaveBeenCalledWith({
       jobId: '888413907541032961',
       isStopWithSavePoint: true,
       force: false
     })
-    await confirmations[2].props('onPositiveClick')()
+    await clickConfirmation(2)
     expect(stopJobSpy).toHaveBeenCalledWith({
       jobId: '888413907541032961',
       isStopWithSavePoint: false,
