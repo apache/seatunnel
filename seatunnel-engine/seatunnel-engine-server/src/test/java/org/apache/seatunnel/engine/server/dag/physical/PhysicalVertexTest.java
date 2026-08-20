@@ -17,6 +17,11 @@
 
 package org.apache.seatunnel.engine.server.dag.physical;
 
+import org.apache.seatunnel.engine.common.exception.JobException;
+import org.apache.seatunnel.engine.server.execution.ExecutionState;
+import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
+import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
@@ -38,5 +43,26 @@ public class PhysicalVertexTest {
         Assertions.assertFalse(
                 PhysicalVertex.isDeployedNodeOfflineFailure(
                         "deployed node(127.0.0.1:5801) offline"));
+        Assertions.assertFalse(
+                PhysicalVertex.isDeployedNodeOfflineFailure(
+                        "The taskGroup(taskGroupLocation) deployed node(127.0.0.1:5801) offline"
+                                + " while retrying"));
+    }
+
+    @Test
+    public void shouldMatchCoordinatorOfflineFailureAfterExceptionFlattening() {
+        TaskGroupLocation taskGroupLocation = new TaskGroupLocation(1L, 2, 3L);
+        String deployedAddress = "127.0.0.1:5801";
+        String throwableMsg =
+                new TaskExecutionState(
+                                taskGroupLocation,
+                                ExecutionState.FAILED,
+                                new JobException(
+                                        String.format(
+                                                "The taskGroup(%s) deployed node(%s) offline",
+                                                taskGroupLocation, deployedAddress)))
+                        .getThrowableMsg();
+
+        Assertions.assertTrue(PhysicalVertex.isDeployedNodeOfflineFailure(throwableMsg));
     }
 }

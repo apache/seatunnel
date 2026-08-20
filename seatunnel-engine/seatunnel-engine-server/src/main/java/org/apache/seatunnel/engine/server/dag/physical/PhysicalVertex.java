@@ -75,11 +75,14 @@ import java.util.stream.Collectors;
 public class PhysicalVertex {
 
     /**
-     * Matches the exact failure message emitted when a deployed worker leaves the cluster and the
-     * coordinator fails the affected task group.
+     * Matches the exact failure message emitted when a deployed worker leaves the cluster. The
+     * message may be flattened by ExceptionUtils, so it can appear as the message of an exception
+     * stack-trace line instead of as a bare string.
      */
     private static final Pattern DEPLOYED_NODE_OFFLINE_ERROR_PATTERN =
-            Pattern.compile("^The taskGroup\\(.+\\) deployed node\\(.+\\) offline$");
+            Pattern.compile(
+                    "(?m)^(?:(?:Caused by: )?[\\w.$]+(?:Exception|Error): )?"
+                            + "The taskGroup\\([^\\r\\n]+\\) deployed node\\([^\\r\\n]+\\) offline\\r?$");
 
     private final TaskGroupLocation taskGroupLocation;
 
@@ -691,6 +694,6 @@ public class PhysicalVertex {
      */
     @VisibleForTesting
     static boolean isDeployedNodeOfflineFailure(String errorMsg) {
-        return errorMsg != null && DEPLOYED_NODE_OFFLINE_ERROR_PATTERN.matcher(errorMsg).matches();
+        return errorMsg != null && DEPLOYED_NODE_OFFLINE_ERROR_PATTERN.matcher(errorMsg).find();
     }
 }
