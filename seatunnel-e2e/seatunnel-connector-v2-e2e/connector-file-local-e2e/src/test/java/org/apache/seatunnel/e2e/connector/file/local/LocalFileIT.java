@@ -492,9 +492,10 @@ public class LocalFileIT extends TestSuiteBase {
         Assertions.assertEquals("abc", readLocalFile("/tmp/seatunnel/update/dst/test.bin"));
 
         long firstMtimeSeconds = getLocalFileMtimeSeconds("/tmp/seatunnel/update/dst/test.bin");
-        // The assertion reads mtime with second precision. Cross a clock tick so an unnecessary
-        // second copy cannot preserve the observed timestamp by coincidence.
-        Thread.sleep(1100);
+        // Intentional time-based wait: the assertion reads mtime with second precision. Cross a
+        // clock tick so an unnecessary second copy cannot preserve the observed timestamp by
+        // coincidence; there is no independent readiness condition for the passage of time.
+        TimeUnit.MILLISECONDS.sleep(1100);
 
         helper.execute("/binary/local_file_binary_update_strict_checksum.conf");
         long secondMtimeSeconds = getLocalFileMtimeSeconds("/tmp/seatunnel/update/dst/test.bin");

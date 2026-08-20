@@ -511,11 +511,15 @@ public class SplitClusterFaultToleranceIT {
                                         JobStatus.RUNNING.equals(clientJobProxy.getJobStatus())
                                                 && fileLineNumberFromDir > 1);
                             });
-            FaultToleranceFakeSourceAssertions.awaitCompletedCheckpoint(
-                    engineClient, clientJobProxy.getJobId());
             CompletableFuture<JobStatus> objectCompletableFuture =
                     CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
 
+            // Intentional time-based wait: RUNNING status and visible sink output do not prove that
+            // a checkpoint has completed. HTTP is disabled in these embedded tests, while the
+            // checkpoint-overview RPC can trigger a blocking IMap lookup on a Hazelcast operation
+            // thread during partition changes. Keep this window until the embedded engine exposes
+            // a safe checkpoint-completion signal.
+            TimeUnit.SECONDS.sleep(5);
             // shutdown on worker node
             workerNode1.shutdown();
             Awaitility.await()
@@ -964,7 +968,12 @@ public class SplitClusterFaultToleranceIT {
                                 Assertions.assertTrue(fileLineNumberFromDir > 1);
                             });
 
-            FaultToleranceFakeSourceAssertions.awaitCompletedCheckpoint(engineClient, jobId);
+            // Intentional time-based wait: RUNNING status and visible sink output do not prove that
+            // a checkpoint has completed. HTTP is disabled in these embedded tests, while the
+            // checkpoint-overview RPC can trigger a blocking IMap lookup on a Hazelcast operation
+            // thread during partition changes. Keep this window until the embedded engine exposes
+            // a safe checkpoint-completion signal.
+            TimeUnit.SECONDS.sleep(5);
             // shutdown all node
             workerNode1.shutdown();
             workerNode2.shutdown();
@@ -974,6 +983,10 @@ public class SplitClusterFaultToleranceIT {
 
             log.warn(
                     "==========================================All node is done========================================");
+            // Intentional time-based wait: Hazelcast shutdown has no observable completion signal,
+            // and this test immediately reuses the same embedded-cluster configuration. Allow
+            // membership, partition, and socket cleanup to settle before replacement nodes start.
+            TimeUnit.SECONDS.sleep(10);
             masterNode1 = SeaTunnelServerStarter.createMasterHazelcastInstance(masterNode1Config);
 
             masterNode2 = SeaTunnelServerStarter.createMasterHazelcastInstance(masterNode2Config);

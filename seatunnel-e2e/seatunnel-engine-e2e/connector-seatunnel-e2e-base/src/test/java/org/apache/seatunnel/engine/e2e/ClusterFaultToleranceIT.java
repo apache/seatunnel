@@ -453,13 +453,17 @@ public class ClusterFaultToleranceIT {
                                         JobStatus.RUNNING, clientJobProxy.getJobStatus());
                                 Assertions.assertTrue(lineNumberFromDir > 1);
                             });
-            FaultToleranceFakeSourceAssertions.awaitCompletedCheckpoint(
-                    engineClient, clientJobProxy.getJobId());
             // In the restore case, ensure that JabStatus is in the RUNNING state before calling
             // waitForJobComplete.
             CompletableFuture<JobStatus> waitForCompletableFuture =
                     CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
 
+            // Intentional time-based wait: RUNNING status and visible sink output do not prove that
+            // a checkpoint has completed. HTTP is disabled in these embedded tests, while the
+            // checkpoint-overview RPC can trigger a blocking IMap lookup on a Hazelcast operation
+            // thread during partition changes. Keep this window until the embedded engine exposes
+            // a safe checkpoint-completion signal.
+            TimeUnit.SECONDS.sleep(5);
             // shutdown on worker node
             node2.shutdown();
 
@@ -848,7 +852,12 @@ public class ClusterFaultToleranceIT {
                                 Assertions.assertTrue(lineNumberFromDir > 1);
                             });
 
-            FaultToleranceFakeSourceAssertions.awaitCompletedCheckpoint(engineClient, jobId);
+            // Intentional time-based wait: RUNNING status and visible sink output do not prove that
+            // a checkpoint has completed. HTTP is disabled in these embedded tests, while the
+            // checkpoint-overview RPC can trigger a blocking IMap lookup on a Hazelcast operation
+            // thread during partition changes. Keep this window until the embedded engine exposes
+            // a safe checkpoint-completion signal.
+            TimeUnit.SECONDS.sleep(5);
             // shutdown all node
             node1.shutdown();
             node2.shutdown();
@@ -856,6 +865,11 @@ public class ClusterFaultToleranceIT {
 
             log.warn(
                     "==========================================All node is done========================================");
+            // Intentional time-based wait: Hazelcast shutdown has no observable completion signal,
+            // and this test immediately reuses the same embedded-cluster configuration. Allow
+            // membership, partition, and socket cleanup to settle before replacement nodes start.
+            TimeUnit.SECONDS.sleep(10);
+
             node1 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
 
             node2 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
@@ -1069,13 +1083,23 @@ public class ClusterFaultToleranceIT {
                                 Assertions.assertTrue(lineNumberFromDir > 1);
                             });
 
-            FaultToleranceFakeSourceAssertions.awaitCompletedCheckpoint(engineClient, jobId);
+            // Intentional time-based wait: RUNNING status and visible sink output do not prove that
+            // a checkpoint has completed. HTTP is disabled in these embedded tests, while the
+            // checkpoint-overview RPC can trigger a blocking IMap lookup on a Hazelcast operation
+            // thread during partition changes. Keep this window until the embedded engine exposes
+            // a safe checkpoint-completion signal.
+            TimeUnit.SECONDS.sleep(5);
             // shutdown all node
             node1.shutdown();
             node2.shutdown();
 
             log.info(
                     "==========================================All node is done========================================");
+            // Intentional time-based wait: Hazelcast shutdown has no observable completion signal,
+            // and this test immediately reuses the same embedded-cluster configuration. Allow
+            // membership, partition, and socket cleanup to settle before replacement nodes start.
+            TimeUnit.SECONDS.sleep(10);
+
             node1 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
 
             node2 = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);

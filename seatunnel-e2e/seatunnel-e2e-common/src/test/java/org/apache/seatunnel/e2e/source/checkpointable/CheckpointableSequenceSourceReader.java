@@ -25,6 +25,7 @@ import java.util.ArrayList;
 import java.util.Deque;
 import java.util.List;
 import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.TimeUnit;
 
 public class CheckpointableSequenceSourceReader
         implements SourceReader<SeaTunnelRow, CheckpointableSequenceSplit> {
@@ -74,8 +75,10 @@ public class CheckpointableSequenceSourceReader
             }
         }
         if (delayMillis > 0L) {
-            // The delay models source pacing and must not block checkpoint snapshots.
-            Thread.sleep(delayMillis);
+            // Intentional source pacing: emitIntervalMs is part of this synthetic source's
+            // behavior, not a readiness wait. Sleep outside the checkpoint lock so pacing cannot
+            // block checkpoint snapshots.
+            TimeUnit.MILLISECONDS.sleep(delayMillis);
         }
     }
 

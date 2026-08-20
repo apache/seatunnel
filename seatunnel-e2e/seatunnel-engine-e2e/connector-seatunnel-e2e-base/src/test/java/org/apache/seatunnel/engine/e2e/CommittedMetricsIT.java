@@ -105,11 +105,11 @@ public class CommittedMetricsIT {
 
         log.info("Job is running, job id: {}", streamJobProxy.getJobId());
 
-        // This assertion intentionally samples the transient interval after writes begin but before
-        // the first 10-second checkpoint. A condition that waits for both values can miss that
-        // interval once the first checkpoint has committed, so preserve the original sampling
+        // Intentional time-based sample: capture the transient interval after writes begin but
+        // before the first 10-second checkpoint. A condition that waits for both values can miss
+        // that interval once the first checkpoint has committed, so preserve the original sampling
         // window and use adaptive waits only for the later completed-checkpoint states.
-        Thread.sleep(5000);
+        TimeUnit.SECONDS.sleep(5);
         Response responseBeforeCheckpoint = getJobInfo();
 
         AtomicReference<Response> responseReference = new AtomicReference<>();

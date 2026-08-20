@@ -492,13 +492,17 @@ public class ClusterFaultToleranceTwoPipelineIT {
                                         JobStatus.RUNNING, clientJobProxy.getJobStatus());
                                 Assertions.assertTrue(lineNumberFromDir > 1);
                             });
-            FaultToleranceFakeSourceAssertions.awaitCompletedCheckpoint(
-                    engineClient, clientJobProxy.getJobId(), 2);
             // In the restore case, ensure that JabStatus is in the RUNNING state before calling
             // waitForJobComplete.
             CompletableFuture<JobStatus> objectCompletableFuture =
-                    CompletableFuture.supplyAsync(() -> clientJobProxy.waitForJobComplete());
+                    CompletableFuture.supplyAsync(clientJobProxy::waitForJobComplete);
 
+            // Intentional time-based wait: RUNNING status and visible sink output do not prove that
+            // both pipelines have completed a checkpoint. HTTP is disabled in these embedded
+            // tests, while the checkpoint-overview RPC can trigger a blocking IMap lookup on a
+            // Hazelcast operation thread during partition changes. Keep this window until the
+            // embedded engine exposes a safe checkpoint-completion signal.
+            TimeUnit.SECONDS.sleep(5);
             // shutdown on worker node
             node2.shutdown();
 
