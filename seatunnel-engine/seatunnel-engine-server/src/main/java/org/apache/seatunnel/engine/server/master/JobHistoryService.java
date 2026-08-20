@@ -58,6 +58,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
@@ -112,6 +113,10 @@ public class JobHistoryService {
 
     private final Map<String, AtomicLong> finishedJobCleanupTotals = new ConcurrentHashMap<>();
 
+    private final UUID finishedJobStateListenerId;
+    private final UUID finishedJobMetricsListenerId;
+    private final UUID finishedJobDAGInfoListenerId;
+
     public JobHistoryService(
             NodeEngine nodeEngine,
             IMap<Object, Object> runningJobStateIMap,
@@ -130,12 +135,15 @@ public class JobHistoryService {
         this.finishedJobStateImap = finishedJobStateImap;
         this.finishedJobMetricsImap = finishedJobMetricsImap;
         this.finishedJobDAGInfoImap = finishedJobVertexInfoImap;
-        this.finishedJobStateImap.addEntryListener(
-                new FinishedJobExpiredListener<>(Constant.IMAP_FINISHED_JOB_STATE), true);
-        this.finishedJobMetricsImap.addEntryListener(
-                new FinishedJobExpiredListener<>(Constant.IMAP_FINISHED_JOB_METRICS), true);
-        this.finishedJobDAGInfoImap.addEntryListener(
-                new JobInfoExpiredListener(Constant.IMAP_FINISHED_JOB_VERTEX_INFO), true);
+        this.finishedJobStateListenerId =
+                this.finishedJobStateImap.addEntryListener(
+                        new FinishedJobExpiredListener<>(Constant.IMAP_FINISHED_JOB_STATE), true);
+        this.finishedJobMetricsListenerId =
+                this.finishedJobMetricsImap.addEntryListener(
+                        new FinishedJobExpiredListener<>(Constant.IMAP_FINISHED_JOB_METRICS), true);
+        this.finishedJobDAGInfoListenerId =
+                this.finishedJobDAGInfoImap.addEntryListener(
+                        new JobInfoExpiredListener(Constant.IMAP_FINISHED_JOB_VERTEX_INFO), true);
         this.objectMapper = new ObjectMapper();
         this.objectMapper.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
         this.finishedJobExpireTime = finishedJobExpireTime;
@@ -364,6 +372,13 @@ public class JobHistoryService {
                 Constant.IMAP_FINISHED_JOB_VERTEX_INFO,
                 getFinishedJobCleanupTotal(Constant.IMAP_FINISHED_JOB_VERTEX_INFO));
         return counts;
+    }
+
+    /** Shutdown the job history service and remove all IMap entry listeners. */
+    public void shutdown() {
+        finishedJobStateImap.removeEntryListener(finishedJobStateListenerId);
+        finishedJobMetricsImap.removeEntryListener(finishedJobMetricsListenerId);
+        finishedJobDAGInfoImap.removeEntryListener(finishedJobDAGInfoListenerId);
     }
 
     private long getFinishedJobCleanupTotal(String storeName) {
