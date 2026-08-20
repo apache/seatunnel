@@ -1339,6 +1339,10 @@ public class CoordinatorService {
         } catch (Exception e) {
             throw new SeaTunnelEngineException("close event processor error", e);
         }
+
+        if (jobHistoryService != null) {
+            jobHistoryService.shutdown();
+        }
     }
 
     /** Lazy load for resource manager */
@@ -2085,9 +2089,6 @@ public class CoordinatorService {
         }
         if (pipelineCleanupScheduler != null) {
             pipelineCleanupScheduler.shutdown();
-        }
-        if (jobHistoryService != null) {
-            jobHistoryService.shutdown();
         }
         clearCoordinatorService();
         awaitSchedulerTermination("master active listener", masterActiveListener);
