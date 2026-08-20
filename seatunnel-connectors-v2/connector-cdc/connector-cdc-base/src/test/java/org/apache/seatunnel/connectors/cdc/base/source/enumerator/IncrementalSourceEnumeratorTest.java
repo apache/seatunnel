@@ -56,8 +56,7 @@ class IncrementalSourceEnumeratorTest {
         SnapshotSplit restoredSplit =
                 new SnapshotSplit("test-split-1", TableId.parse("db1.table1"), null, null, null);
 
-        when(splitAssigner.getNext())
-                .thenReturn(Optional.empty(), Optional.of(restoredSplit));
+        when(splitAssigner.getNext()).thenReturn(Optional.empty(), Optional.of(restoredSplit));
         when(splitAssigner.waitingForCompletedSplits()).thenReturn(true, false);
 
         IncrementalSourceEnumerator enumerator =

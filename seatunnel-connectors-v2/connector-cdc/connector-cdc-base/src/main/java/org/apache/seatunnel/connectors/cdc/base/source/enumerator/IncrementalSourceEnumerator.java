@@ -88,7 +88,17 @@ public class IncrementalSourceEnumerator
         LOG.debug("Incremental Source Enumerator adds splits back: {}", splits);
         splitAssigner.addSplits(splits);
         if (running) {
+            int awaitingBefore = readersAwaitingSplit.size();
             assignSplits();
+            int dispatched = awaitingBefore - readersAwaitingSplit.size();
+            LOG.info(
+                    "Restored {} split(s), re-dispatched to {} waiting reader(s)",
+                    splits.size(),
+                    dispatched);
+        } else {
+            LOG.debug(
+                    "Enumerator not running yet, {} restored split(s) queued for later assignment",
+                    splits.size());
         }
     }
 
