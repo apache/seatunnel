@@ -126,9 +126,10 @@ public class PrometheusWriter extends HttpSinkWriter {
         //
         // flush() throws on failure, so a failed checkpoint flush fails the checkpoint instead of
         // silently dropping the batch. On restart the source replays from the last successful
-        // checkpoint and re-sends the buffered samples. That is safe because Prometheus
-        // remote-write is an idempotent upsert keyed by (labels, timestamp), so replaying an
-        // identical sample is a no-op rather than a duplicate.
+        // checkpoint and re-sends the buffered samples. Whether that replay is harmless depends on
+        // the receiver: one that treats a repeated (labels, timestamp) sample as an idempotent
+        // upsert absorbs it, but one that rejects duplicate or out-of-order samples may fail the
+        // replayed flush, so the delivery guarantee here is at-least-once, not exactly-once.
         flush();
         return Optional.empty();
     }

@@ -180,6 +180,12 @@ class PrometheusWriterTest {
             // prepareCommit() must flush the buffered row so it reaches Prometheus at checkpoint.
             verify(writer.httpClient, times(1))
                     .doPost(anyString(), any(), any(ByteArrayEntity.class));
+
+            // The buffer must be cleared after the flush, so a later checkpoint with no new rows
+            // does not re-deliver the same row: a second prepareCommit() sends nothing more.
+            Assertions.assertEquals(Optional.empty(), writer.prepareCommit());
+            verify(writer.httpClient, times(1))
+                    .doPost(anyString(), any(), any(ByteArrayEntity.class));
         }
     }
 
