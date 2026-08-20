@@ -96,6 +96,7 @@ Each scenario lives under `tools/upgrade_compatibility/scenarios/<name>/` with:
 ├── plugin_config           # Connector artifacts for old release
 ├── setup.sh                # Optional: external service setup (e.g., Docker)
 ├── teardown.sh             # Optional: external service teardown
+├── after_restore.sh        # Optional: hook to insert post-restore marker data
 └── endless                 # Optional: marker for streaming (cancel-after-savepoint)
 ```
 
@@ -135,7 +136,11 @@ on:
       - 'seatunnel-api/**'
       - 'seatunnel-engine/**'
       - 'seatunnel-core/**'
-      - 'seatunnel-connectors-v2/connector-cdc-**/**'
+      - 'seatunnel-connectors-v2/connector-cdc/**'
+      - 'seatunnel-connectors-v2/connector-kafka/**'
+      - 'seatunnel-connectors-v2/connector-jdbc/**'
+      - 'seatunnel-connectors-v2/connector-file/**'
+      - 'seatunnel-connectors-v2/connector-fake/**'
       - 'seatunnel-translation/**'
 ```
 
@@ -172,6 +177,14 @@ The workflow asserts the following compatibility guarantee:
 > A savepoint created by SeaTunnel version N-1 (latest stable release) can be restored
 > by the current `dev` branch build, and the job will resume processing and produce
 > correct output as verified by the Assert sink.
+
+**Endless scenario verification**: For endless (streaming) scenarios, the Assert sink
+alone is insufficient to prove that the restored job actually resumed processing, because
+pre-restore data already in the sink directory may satisfy the assertion. Each endless
+scenario MUST include an `after_restore.sh` hook that inserts a **post-restore marker**
+(e.g., a row with a known value) into the source system after the savepoint is restored.
+The Assert sink configuration must then verify that the marker row is present, providing
+unambiguous proof that the job resumed and processed new data after restore.
 
 This guarantee applies to:
 
@@ -232,11 +245,12 @@ the compatibility workflow owner must file a blocker issue and escalate to the d
 - [ ] Run in advisory mode for 4 weeks
 - [ ] Promote to required status check for filtered paths
 
-### Phase 2d: Failure Diagnostics
+### Phase 2d: Failure Diagnostics and Verification Hardening
 
 - [ ] Add stage-level annotations in GitHub Actions
 - [ ] Add summary artifact generation
 - [ ] Add assert diff output
+- [ ] Add `after_restore.sh` hooks to all endless scenarios to verify post-restore processing
 
 ## Alternatives Considered
 
