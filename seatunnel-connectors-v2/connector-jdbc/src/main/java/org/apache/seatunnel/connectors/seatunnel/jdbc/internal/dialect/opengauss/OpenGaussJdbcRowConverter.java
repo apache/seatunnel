@@ -15,20 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dsql;
+package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.opengauss;
 
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresJdbcRowConverter;
 
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 
-public class DsqlJdbcRowConverter extends PostgresJdbcRowConverter {
-
-    @Override
-    public String converterName() {
-        return DatabaseIdentifier.DSQL;
-    }
+public class OpenGaussJdbcRowConverter extends PostgresJdbcRowConverter {
 
     @Override
     protected void setJsonOrUuid(

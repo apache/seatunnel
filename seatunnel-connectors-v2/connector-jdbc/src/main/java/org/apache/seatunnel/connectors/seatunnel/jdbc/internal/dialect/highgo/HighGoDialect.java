@@ -15,25 +15,19 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dsql;
+package org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.highgo;
 
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
-import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresJdbcRowConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRowConverter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.psql.PostgresDialect;
 
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
+public class HighGoDialect extends PostgresDialect {
 
-public class DsqlJdbcRowConverter extends PostgresJdbcRowConverter {
-
-    @Override
-    public String converterName() {
-        return DatabaseIdentifier.DSQL;
+    public HighGoDialect(String fieldIde) {
+        super(fieldIde);
     }
 
     @Override
-    protected void setJsonOrUuid(
-            PreparedStatement statement, int index, String sourceType, String value)
-            throws SQLException {
-        statement.setString(index, value);
+    public JdbcRowConverter getRowConverter() {
+        return new HighGoJdbcRowConverter();
     }
 }
