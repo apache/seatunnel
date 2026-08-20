@@ -20,11 +20,49 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.offset;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import io.debezium.connector.postgresql.PostgresOffsetContext;
+import io.debezium.connector.postgresql.SourceInfo;
+import io.debezium.connector.postgresql.connection.Lsn;
+
+import java.util.HashMap;
+import java.util.Map;
+
 class LsnOffsetTest {
 
     @Test
     void testNoStoppingOffsetIsNeverStop() {
         Assertions.assertTrue(LsnOffset.NO_STOPPING_OFFSET.isNeverStop());
         Assertions.assertFalse(LsnOffset.INITIAL_OFFSET.isNeverStop());
+    }
+
+    @Test
+    void testGetLsnCommitWhenLsnCommitKeyExists() {
+        Map<String, String> offsetMap = new HashMap<>();
+        offsetMap.put(SourceInfo.LSN_KEY, "12345");
+        offsetMap.put(PostgresOffsetContext.LAST_COMMIT_LSN_KEY, "67890");
+        LsnOffset offset = new LsnOffset(offsetMap);
+
+        Lsn lsnCommit = offset.getLsnCommit();
+        Assertions.assertEquals(Lsn.valueOf(67890L), lsnCommit);
+    }
+
+    @Test
+    void testGetLsnCommitFallbackToLsnWhenLsnCommitKeyMissing() {
+        Map<String, String> offsetMap = new HashMap<>();
+        offsetMap.put(SourceInfo.LSN_KEY, "12345");
+        LsnOffset offset = new LsnOffset(offsetMap);
+
+        Lsn lsnCommit = offset.getLsnCommit();
+        Assertions.assertEquals(Lsn.valueOf(12345L), lsnCommit);
+    }
+
+    @Test
+    void testConstructorStoresLastCommitLsnKey() {
+        // Verify that the (Long, Long, Instant) constructor stores
+        // LAST_COMMIT_LSN_KEY so that savepoint recovery has a valid
+        // commit LSN even before the first commitCurrentOffset call.
+        LsnOffset offset = new LsnOffset(12345L, null, null);
+        Lsn lsnCommit = offset.getLsnCommit();
+        Assertions.assertEquals(Lsn.valueOf(12345L), lsnCommit);
     }
 }

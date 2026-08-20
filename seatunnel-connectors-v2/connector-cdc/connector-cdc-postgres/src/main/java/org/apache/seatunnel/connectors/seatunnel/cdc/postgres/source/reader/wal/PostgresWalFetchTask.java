@@ -37,7 +37,7 @@ import java.util.Map;
 public class PostgresWalFetchTask implements FetchTask<SourceSplitBase> {
     private final IncrementalSplit split;
     private volatile boolean taskRunning = false;
-    private Long lastCommitLsn;
+    private volatile Long lastCommitLsn;
     private PostgresStreamingChangeEventSource streamingChangeEventSource;
     private PostgresOffsetContext offsetContext;
 
@@ -76,7 +76,12 @@ public class PostgresWalFetchTask implements FetchTask<SourceSplitBase> {
 
         Throwable producerThrowable = sourceFetchContext.getErrorHandler().getProducerThrowable();
         if (producerThrowable != null) {
-            throw new RuntimeException("Postgres WAL streaming failed", producerThrowable);
+            throw new RuntimeException(
+                    "Postgres WAL streaming failed for split "
+                            + split.splitId()
+                            + ", last committed LSN: "
+                            + (lastCommitLsn != null ? Lsn.valueOf(lastCommitLsn) : "none"),
+                    producerThrowable);
         }
     }
 

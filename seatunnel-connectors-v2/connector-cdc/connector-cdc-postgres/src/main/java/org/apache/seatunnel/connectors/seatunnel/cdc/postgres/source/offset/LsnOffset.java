@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.postgres.source.offset;
 
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 
+import io.debezium.connector.postgresql.PostgresOffsetContext;
 import io.debezium.connector.postgresql.SourceInfo;
 import io.debezium.connector.postgresql.connection.Lsn;
 import io.debezium.time.Conversions;
@@ -59,6 +60,11 @@ public class LsnOffset extends Offset {
         Map<String, String> offsetMap = new HashMap<>();
         // keys are from io.debezium.connector.postgresql.PostgresOffsetContext.Loader.load
         offsetMap.put(SourceInfo.LSN_KEY, lsn.toString());
+        // Store LAST_COMMIT_LSN_KEY as a fallback so that savepoint recovery
+        // has a valid commit LSN even before the first commitCurrentOffset call.
+        // This is safe because at the start of streaming, the committed LSN
+        // equals the current LSN.
+        offsetMap.put(PostgresOffsetContext.LAST_COMMIT_LSN_KEY, lsn.toString());
         if (txId != null) {
             offsetMap.put(SourceInfo.TXID_KEY, txId.toString());
         }
@@ -85,9 +91,7 @@ public class LsnOffset extends Offset {
     }
 
     public Lsn getLsnCommit() {
-        String lsnCommitStr =
-                offset.get(
-                        io.debezium.connector.postgresql.PostgresOffsetContext.LAST_COMMIT_LSN_KEY);
+        String lsnCommitStr = offset.get(PostgresOffsetContext.LAST_COMMIT_LSN_KEY);
         if (lsnCommitStr != null) {
             return Lsn.valueOf(Long.valueOf(lsnCommitStr));
         }
