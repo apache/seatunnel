@@ -61,17 +61,25 @@ public class BigtableSourceSplitEnumerator
     private boolean initialized = false;
 
     /**
-     * Data API client used only for {@code sampleRowKeys}; injectable in unit tests. Written under
-     * {@link #stateLock}; lazily created when split discovery first runs.
+     * Data API client used only for {@code sampleRowKeys}; injectable in unit tests. Lazily created
+     * when split discovery first runs. The field itself is only published under {@link #stateLock};
+     * construction may run outside the lock, but {@link #getBigtableClient()} never publishes a
+     * client after {@link #closed} is set (see close/create race handling there).
      */
     private BigtableClient bigtableClient;
 
     /**
+     * Set under {@link #stateLock} by {@link #close()}. Prevents a client constructed outside the
+     * lock from being published after shutdown has already completed.
+     */
+    private boolean closed = false;
+
+    /**
      * Guards the shared assignment state ({@code assignedSplits}, {@code pendingSplits}, {@code
-     * initialized}, {@code bigtableClient}) against concurrent enumerator callbacks. {@link
-     * #assignSplit(int)} must only run while this lock is held. Blocking I/O ({@code
-     * sampleRowKeys()} and client construction) must run <em>outside</em> this lock so it cannot
-     * stall {@link #snapshotState(long)} / checkpoint-barrier processing.
+     * initialized}, {@code bigtableClient}, {@code closed}) against concurrent enumerator
+     * callbacks. {@link #assignSplit(int)} must only run while this lock is held. Blocking I/O
+     * ({@code sampleRowKeys()} and client construction) must run <em>outside</em> this lock so it
+     * cannot stall {@link #snapshotState(long)} / checkpoint-barrier processing.
      */
     private final Object stateLock = new Object();
 
@@ -125,6 +133,8 @@ public class BigtableSourceSplitEnumerator
         // Discover splits before any reader registers. sampleRowKeys() is a blocking RPC
         // (plus lazy client construction); running it here avoids holding the engine's
         // enumeratorContext monitor used by triggerBarrier() during receivedReader().
+        // Across Zeta/Flink/Spark, open() always completes before registerReader() is called,
+        // so discovery is guaranteed to have finished by the time any reader registers.
         initializePendingSplits();
     }
 
@@ -136,6 +146,7 @@ public class BigtableSourceSplitEnumerator
     @Override
     public void close() throws IOException {
         synchronized (stateLock) {
+            closed = true;
             if (bigtableClient != null) {
                 bigtableClient.close();
                 bigtableClient = null;
@@ -164,7 +175,7 @@ public class BigtableSourceSplitEnumerator
 
     @Override
     public void registerReader(int subtaskId) {
-        initializePendingSplits();
+        // Discovery already ran in open(); assign under stateLock only.
         synchronized (stateLock) {
             assignSplit(subtaskId);
         }
@@ -361,14 +372,31 @@ public class BigtableSourceSplitEnumerator
         context.signalNoMoreSplits(taskId);
     }
 
+    /**
+     * Returns the shared client, creating it outside {@link #stateLock} when needed.
+     *
+     * <p>Construction is unlocked so a slow gRPC channel / credential load does not stall
+     * checkpoint snapshotting. Before publishing the new instance, this method re-checks under the
+     * lock: if another thread already published a client, or if {@link #close()} has already set
+     * {@code closed}, the just-built instance is closed immediately and never leaked.
+     */
     private BigtableClient getBigtableClient() {
         synchronized (stateLock) {
             if (bigtableClient != null) {
                 return bigtableClient;
             }
+            if (closed) {
+                throw new IllegalStateException(
+                        "BigtableSourceSplitEnumerator already closed; cannot create client");
+            }
         }
         BigtableClient created = BigtableClient.createInstance(parameters);
         synchronized (stateLock) {
+            if (closed) {
+                created.close();
+                throw new IllegalStateException(
+                        "BigtableSourceSplitEnumerator closed during client creation");
+            }
             if (bigtableClient == null) {
                 bigtableClient = created;
                 return created;

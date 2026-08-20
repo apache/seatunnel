@@ -82,26 +82,22 @@ class BigtableSourceStateRecoveryTest {
                     .build();
 
     /**
-     * If the enumerator checkpoints before any reader registers, the assigned set is empty. After
-     * open() splits are discovered and added to pendingSplits; a restore from this checkpoint must
-     * still assign the table split on the next {@link
-     * BigtableSourceSplitEnumerator#registerReader(int)}.
-     *
-     * <p>Note: since open() now eagerly calls initializePendingSplits(), pendingSplits will already
-     * contain the discovered split at snapshot time, so getPendingSplits() is non-empty.
+     * After eager open(), the first snapshot already contains discovered pending splits (assigned
+     * still empty). Restoring that state must reassign the pending split without re-running
+     * discovery.
      */
     @Test
-    void testEmptyEnumeratorCheckpointStillDiscoversSplitsOnRestore() throws Exception {
+    void testCheckpointAfterEagerOpenRestoresPendingSplitsWithoutRediscovery() throws Exception {
         TestingContext context = new TestingContext(1);
         BigtableSourceSplitEnumerator enumerator = newEnumerator(context);
         enumerator.open();
 
-        BigtableSourceState emptyCheckpoint = enumerator.snapshotState(1L);
-        assertTrue(emptyCheckpoint.getAssignedSplits().isEmpty());
+        BigtableSourceState checkpoint = enumerator.snapshotState(1L);
+        assertTrue(checkpoint.getAssignedSplits().isEmpty());
         // open() eagerly discovers splits, so pendingSplits is non-empty at first snapshot.
-        assertEquals(1, emptyCheckpoint.getPendingSplits().size());
+        assertEquals(1, checkpoint.getPendingSplits().size());
 
-        BigtableSourceSplitEnumerator restored = restoreEnumerator(context, emptyCheckpoint);
+        BigtableSourceSplitEnumerator restored = restoreEnumerator(context, checkpoint);
         restored.open();
 
         context.registerReaderForTest(0);
@@ -109,6 +105,30 @@ class BigtableSourceStateRecoveryTest {
 
         assertEquals(1, context.getAssignedSplitCount(0));
         assertEquals("bigtable_source_split_0", context.getLastAssignedSplit(0).splitId());
+    }
+
+    /**
+     * Restoring a genuinely empty enumerator checkpoint (both assigned and pending empty) must
+     * still discover splits on {@code open()}. This covers a barrier that raced open()'s RPC and
+     * produced an empty snapshot, as well as restore from a pre-discovery historical checkpoint.
+     */
+    @Test
+    void testTrulyEmptyCheckpointRestoreStillDiscoversSplitsOnOpen() throws Exception {
+        TestingContext context = new TestingContext(1);
+        BigtableSourceState emptyState =
+                new BigtableSourceState(Collections.emptySet(), Collections.emptySet());
+
+        BigtableSourceSplitEnumerator restored = restoreEnumerator(context, emptyState);
+        // Constructor must treat empty-empty as not initialized so open() rediscovers.
+        restored.open();
+        assertEquals(1, restored.currentUnassignedSplitSize());
+
+        context.registerReaderForTest(0);
+        restored.registerReader(0);
+
+        assertEquals(1, context.getAssignedSplitCount(0));
+        assertEquals("bigtable_source_split_0", context.getLastAssignedSplit(0).splitId());
+        assertEquals(0, restored.currentUnassignedSplitSize());
     }
 
     /**
