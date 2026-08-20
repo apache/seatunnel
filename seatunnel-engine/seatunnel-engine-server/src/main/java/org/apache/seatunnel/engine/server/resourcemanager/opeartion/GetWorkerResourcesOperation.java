@@ -25,6 +25,7 @@ import org.apache.seatunnel.engine.server.serializable.ResourceDataSerializerHoo
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
 import com.hazelcast.spi.impl.operationservice.Operation;
 
+/** Collects the current worker resource snapshot on the master node. */
 public class GetWorkerResourcesOperation extends Operation implements IdentifiedDataSerializable {
 
     private WorkerResourceSnapshot snapshot;

@@ -342,6 +342,7 @@ public final class PendingDiagnosticsCollector {
                                 .filter(slot -> slot != null && slot.getOwnerJobID() > 0)
                                 .map(SlotProfile::getOwnerJobID)
                                 .distinct()
+                                .sorted()
                                 .collect(Collectors.toList());
         diagnostic.setRunningJobIds(runningJobs);
         return diagnostic;

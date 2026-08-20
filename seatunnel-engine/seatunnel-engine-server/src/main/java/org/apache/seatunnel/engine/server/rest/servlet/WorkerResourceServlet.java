@@ -27,6 +27,7 @@ import javax.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
 
+/** Serves the read-only worker resource snapshot. */
 public class WorkerResourceServlet extends BaseServlet {
 
     private final WorkerResourceService workerResourceService;

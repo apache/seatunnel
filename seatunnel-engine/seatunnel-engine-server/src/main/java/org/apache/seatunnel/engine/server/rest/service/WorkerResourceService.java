@@ -26,6 +26,7 @@ import com.hazelcast.spi.impl.NodeEngineImpl;
 
 import java.util.Collections;
 
+/** Resolves the worker resource snapshot locally on the master or forwards the read to it. */
 public class WorkerResourceService extends BaseService {
 
     public WorkerResourceService(NodeEngineImpl nodeEngine) {

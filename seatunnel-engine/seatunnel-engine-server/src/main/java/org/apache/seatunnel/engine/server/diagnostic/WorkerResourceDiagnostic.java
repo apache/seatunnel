@@ -25,6 +25,12 @@ import java.io.Serializable;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Read-only projection of the latest resource-manager heartbeat for one worker.
+ *
+ * <p>{@code totalSlots} and {@code freeSlots} are null for dynamic-slot workers because those
+ * workers do not have a fixed slot capacity.
+ */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

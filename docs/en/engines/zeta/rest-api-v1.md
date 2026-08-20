@@ -206,6 +206,8 @@ None.
 - Fixed-slot workers return `totalSlots`, `usedSlots`, and `freeSlots`.
 - Dynamic-slot workers omit `totalSlots` and `freeSlots` and return `usedSlots` with their total and available CPU and heap resources.
 - When `available` is `false`, `workers` is empty because the master snapshot cannot currently be read. Clients should retry instead of interpreting the response as an empty cluster.
+- `collectedAt` records when the master built this response. Worker values come from the latest resource-manager heartbeat and are not an atomic sample with `/system-monitoring-information`.
+- Resource and usage fields are omitted until the worker heartbeat contains those values.
 
 </details>
 

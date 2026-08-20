@@ -25,6 +25,7 @@ import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;
 
+/** Point-in-time master projection of the latest registered worker heartbeats. */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
