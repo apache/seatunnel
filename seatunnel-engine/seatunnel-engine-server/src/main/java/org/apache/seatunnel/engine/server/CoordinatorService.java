@@ -199,6 +199,10 @@ public class CoordinatorService {
 
     private IMap<Long, JobCleanupRecord> pendingJobCleanupIMap;
 
+    /**
+     * Stores one-time graceful-shutdown markers; a missing or stale marker keeps member removal at
+     * ERROR.
+     */
     private IMap<Address, Long> gracefulMemberRemovalIMap;
 
     /** If this node is a master node */
@@ -1978,6 +1982,10 @@ public class CoordinatorService {
         return isActive;
     }
 
+    /**
+     * Builds the plain message for an explicitly graceful departure so PhysicalVertex can emit WARN
+     * without parsing a Throwable stack trace.
+     */
     @VisibleForTesting
     static String buildMemberRemovedOfflineMessage(
             @NonNull TaskGroupLocation taskGroupLocation, @NonNull Address lostAddress) {
@@ -1985,6 +1993,10 @@ public class CoordinatorService {
                 "The taskGroup(%s) deployed node(%s) offline", taskGroupLocation, lostAddress);
     }
 
+    /**
+     * Keeps ERROR diagnostics for unproven departures by retaining a JobException stack trace. The
+     * fallback must remain distinguishable from an expected member removal.
+     */
     @VisibleForTesting
     static TaskExecutionState buildMemberRemovedFailureState(
             @NonNull TaskGroupLocation taskGroupLocation,
@@ -1998,6 +2010,9 @@ public class CoordinatorService {
                 taskGroupLocation, ExecutionState.FAILED, new JobException(offlineMessage));
     }
 
+    /**
+     * Rejects absent and stale markers so address reuse cannot silently downgrade a later failure.
+     */
     @VisibleForTesting
     static boolean isGracefulMemberRemovalMarkerValid(Long markedAt, long nowMillis) {
         return markedAt != null
@@ -2005,6 +2020,9 @@ public class CoordinatorService {
                         <= Constant.GRACEFUL_MEMBER_REMOVAL_MARK_TTL_MILLIS;
     }
 
+    /**
+     * Consumes the marker once because each member-removed event must be classified independently.
+     */
     private boolean consumeGracefulMemberRemovalMarker(@NonNull Address lostAddress) {
         if (gracefulMemberRemovalIMap == null) {
             return false;

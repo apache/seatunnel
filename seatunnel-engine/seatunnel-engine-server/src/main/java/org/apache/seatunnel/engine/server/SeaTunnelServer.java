@@ -228,7 +228,10 @@ public class SeaTunnelServer
     @Override
     public void shutdown(boolean terminate) {
         isRunning = false;
-        markLocalGracefulMemberRemoval();
+        // Forced termination cannot prove an operator-initiated graceful shutdown.
+        if (!terminate) {
+            markLocalGracefulMemberRemoval();
+        }
 
         if (jettyService != null) {
             jettyService.shutdownJettyServer();
@@ -259,14 +262,26 @@ public class SeaTunnelServer
         engineContext.close();
     }
 
+    /**
+     * Publishes a best-effort marker before a graceful shutdown so the coordinator can downgrade
+     * only it.
+     */
     private void markLocalGracefulMemberRemoval() {
         updateLocalGracefulMemberRemovalMarker(true);
     }
 
+    /**
+     * Removes a stale marker when a member restarts with the same address so a later unproven
+     * removal cannot appear graceful.
+     */
     private void clearLocalGracefulMemberRemovalMarker() {
         updateLocalGracefulMemberRemovalMarker(false);
     }
 
+    /**
+     * Updates a best-effort marker without allowing Hazelcast shutdown failures to block service
+     * cleanup.
+     */
     private void updateLocalGracefulMemberRemovalMarker(boolean gracefulShutdown) {
         if (nodeEngine == null) {
             return;
