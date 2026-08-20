@@ -47,7 +47,7 @@ public class JdbcSourceState implements Serializable {
 
     public JdbcSourceState(
             List<TablePath> pendingTables, Map<Integer, List<JdbcSourceSplit>> pendingSplits) {
-        this(pendingTables, pendingSplits, new HashMap<>(), new HashMap<>());
+        this(pendingTables, pendingSplits, null, null);
     }
 
     public JdbcSourceState(
@@ -67,5 +67,10 @@ public class JdbcSourceState implements Serializable {
 
     public Map<TablePath, Integer> getUnfinishedSplitsPerTableOrEmpty() {
         return unfinishedSplitsPerTable == null ? new HashMap<>() : unfinishedSplitsPerTable;
+    }
+
+    /** Returns true when the checkpoint was written before close-table tracking fields existed. */
+    public boolean isLegacyTableState() {
+        return unfinishedSplitsPerTable == null && readersPerTable == null;
     }
 }

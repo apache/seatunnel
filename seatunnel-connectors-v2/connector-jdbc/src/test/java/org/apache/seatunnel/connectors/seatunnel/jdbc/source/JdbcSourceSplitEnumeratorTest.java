@@ -504,6 +504,157 @@ class JdbcSourceSplitEnumeratorTest {
     }
 
     @Test
+    void testLegacyRestoreCountsReaderStateSplitsBeforeTableFinishedEvent() {
+        TablePath tablePath = TablePath.of("db", "schema", "table");
+        Map<TablePath, JdbcSourceTable> tables = new HashMap<>();
+        tables.put(tablePath, createJdbcSourceTable(tablePath));
+
+        Map<Integer, List<SourceEvent>> readerEvents = new HashMap<>();
+        SourceSplitEnumerator.Context<JdbcSourceSplit> context =
+                new SourceSplitEnumerator.Context<JdbcSourceSplit>() {
+                    @Override
+                    public int currentParallelism() {
+                        return 2;
+                    }
+
+                    @Override
+                    public Set<Integer> registeredReaders() {
+                        return new HashSet<>(java.util.Arrays.asList(0, 1));
+                    }
+
+                    @Override
+                    public void assignSplit(int subtaskId, List<JdbcSourceSplit> splits) {}
+
+                    @Override
+                    public void signalNoMoreSplits(int subtask) {}
+
+                    @Override
+                    public void sendEventToSourceReader(int subtaskId, SourceEvent event) {
+                        readerEvents
+                                .computeIfAbsent(subtaskId, key -> new ArrayList<>())
+                                .add(event);
+                    }
+
+                    @Override
+                    public MetricsContext getMetricsContext() {
+                        return null;
+                    }
+
+                    @Override
+                    public EventListener getEventListener() {
+                        return null;
+                    }
+                };
+
+        JdbcSourceConfig sourceConfig =
+                JdbcSourceConfig.builder()
+                        .jdbcConnectionConfig(
+                                JdbcConnectionConfig.builder()
+                                        .url("jdbc:generic://localhost:0/test")
+                                        .driverName("org.example.Driver")
+                                        .build())
+                        .build();
+        Map<Integer, List<JdbcSourceSplit>> pendingSplits = new HashMap<>();
+        pendingSplits.put(0, Collections.singletonList(createSplit(tablePath, "pending-split")));
+
+        JdbcSourceSplitEnumerator enumerator =
+                new JdbcSourceSplitEnumerator(
+                        context,
+                        sourceConfig,
+                        tables,
+                        new JdbcSourceState(Collections.emptyList(), pendingSplits));
+        enumerator.addSplitsBack(
+                Collections.singletonList(createSplit(tablePath, "reader-state-split")), 1);
+
+        enumerator.handleSourceEvent(0, new JdbcSplitFinishedEvent(tablePath));
+        Assertions.assertTrue(readerEvents.isEmpty());
+
+        enumerator.handleSourceEvent(1, new JdbcSplitFinishedEvent(tablePath));
+
+        Assertions.assertEquals(2, readerEvents.size());
+        Assertions.assertEquals(1, readerEvents.get(0).size());
+        Assertions.assertEquals(1, readerEvents.get(1).size());
+        Assertions.assertEquals(
+                2,
+                ((JdbcTableFinishedEvent) readerEvents.get(0).get(0)).getExpectedCloseEventCount());
+        Assertions.assertEquals(
+                2,
+                ((JdbcTableFinishedEvent) readerEvents.get(1).get(0)).getExpectedCloseEventCount());
+    }
+
+    @Test
+    void testLegacyRestoreUnknownFinishedSplitBroadcastsToRegisteredReaders() {
+        TablePath tablePath = TablePath.of("db", "schema", "table");
+        Map<TablePath, JdbcSourceTable> tables = new HashMap<>();
+        tables.put(tablePath, createJdbcSourceTable(tablePath));
+
+        Map<Integer, List<SourceEvent>> readerEvents = new HashMap<>();
+        SourceSplitEnumerator.Context<JdbcSourceSplit> context =
+                new SourceSplitEnumerator.Context<JdbcSourceSplit>() {
+                    @Override
+                    public int currentParallelism() {
+                        return 2;
+                    }
+
+                    @Override
+                    public Set<Integer> registeredReaders() {
+                        return new HashSet<>(java.util.Arrays.asList(0, 1));
+                    }
+
+                    @Override
+                    public void assignSplit(int subtaskId, List<JdbcSourceSplit> splits) {}
+
+                    @Override
+                    public void signalNoMoreSplits(int subtask) {}
+
+                    @Override
+                    public void sendEventToSourceReader(int subtaskId, SourceEvent event) {
+                        readerEvents
+                                .computeIfAbsent(subtaskId, key -> new ArrayList<>())
+                                .add(event);
+                    }
+
+                    @Override
+                    public MetricsContext getMetricsContext() {
+                        return null;
+                    }
+
+                    @Override
+                    public EventListener getEventListener() {
+                        return null;
+                    }
+                };
+
+        JdbcSourceConfig sourceConfig =
+                JdbcSourceConfig.builder()
+                        .jdbcConnectionConfig(
+                                JdbcConnectionConfig.builder()
+                                        .url("jdbc:generic://localhost:0/test")
+                                        .driverName("org.example.Driver")
+                                        .build())
+                        .build();
+
+        JdbcSourceSplitEnumerator enumerator =
+                new JdbcSourceSplitEnumerator(
+                        context,
+                        sourceConfig,
+                        tables,
+                        new JdbcSourceState(Collections.emptyList(), Collections.emptyMap()));
+
+        enumerator.handleSourceEvent(0, new JdbcSplitFinishedEvent(tablePath));
+
+        Assertions.assertEquals(2, readerEvents.size());
+        Assertions.assertEquals(1, readerEvents.get(0).size());
+        Assertions.assertEquals(1, readerEvents.get(1).size());
+        Assertions.assertEquals(
+                2,
+                ((JdbcTableFinishedEvent) readerEvents.get(0).get(0)).getExpectedCloseEventCount());
+        Assertions.assertEquals(
+                2,
+                ((JdbcTableFinishedEvent) readerEvents.get(1).get(0)).getExpectedCloseEventCount());
+    }
+
+    @Test
     void testRegisterReaderResendsFinishedTableEventAfterRestore() {
         TablePath tablePath = TablePath.of("db", "schema", "table");
         Map<TablePath, JdbcSourceTable> tables = new HashMap<>();
