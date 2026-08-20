@@ -25,6 +25,7 @@ import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
 import org.apache.seatunnel.engine.server.TestUtils;
 
 import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.core.LoggerContext;
 
 import org.junit.jupiter.api.AfterAll;
@@ -34,6 +35,11 @@ import org.junit.jupiter.api.Test;
 import com.hazelcast.config.Config;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 
+import java.io.IOException;
+import java.net.DatagramSocket;
+import java.net.ServerSocket;
+import java.util.Map;
+
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.equalTo;
@@ -41,6 +47,7 @@ import static org.hamcrest.Matchers.hasItem;
 
 class OptionRulesApiTest {
 
+    private static final Logger LOG = LogManager.getLogger(OptionRulesApiTest.class);
     private static final int HTTP_PORT = 18082;
     private static final int HAZELCAST_PORT = TestUtils.getAvailablePort(100);
 
@@ -61,8 +68,10 @@ class OptionRulesApiTest {
         originalEnableDynamicPort = httpConfig.isEnableDynamicPort();
         originalExecutionMode = seaTunnelConfig.getEngineConfig().getMode();
 
-        Config hazelcastConfig = Config.loadFromString(getHazelcastConfig());
-        hazelcastConfig.setClusterName(TestUtils.getClusterName("OptionRulesApiTest"));
+        String hazelcastYaml = getHazelcastConfig();
+        Config hazelcastConfig = Config.loadFromString(hazelcastYaml);
+        String clusterName = TestUtils.getClusterName("OptionRulesApiTest");
+        hazelcastConfig.setClusterName(clusterName);
         seaTunnelConfig.setHazelcastConfig(hazelcastConfig);
         seaTunnelConfig.getEngineConfig().setMode(ExecutionMode.LOCAL);
 
@@ -70,7 +79,31 @@ class OptionRulesApiTest {
         httpConfig.setPort(HTTP_PORT);
         httpConfig.setEnableDynamicPort(false);
 
-        instance = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
+        logStartupContext(clusterName, hazelcastYaml, httpConfig);
+
+        try {
+            instance = SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
+            LOG.info(
+                    "OptionRulesApiTest started successfully. clusterName={}, localMemberAddress={},"
+                            + " actualHazelcastPort={}, clusterSize={}",
+                    clusterName,
+                    instance.getCluster().getLocalMember().getAddress(),
+                    instance.getCluster().getLocalMember().getAddress().getPort(),
+                    instance.getCluster().getMembers().size());
+        } catch (Throwable t) {
+            LOG.error(
+                    "OptionRulesApiTest failed to start. clusterName={}, hazelcastBasePort={}, httpPort={},"
+                            + " hazelcastPortInUse={}, httpPortInUse={}",
+                    clusterName,
+                    HAZELCAST_PORT,
+                    HTTP_PORT,
+                    isPortInUse(HAZELCAST_PORT),
+                    isPortInUse(HTTP_PORT),
+                    t);
+            logCauseChain(t);
+            logThreadDump();
+            throw t;
+        }
     }
 
     @Test
@@ -176,5 +209,61 @@ class OptionRulesApiTest {
                 + "    hazelcast.slow.operation.detector.stacktrace.logging.enabled: true\n"
                 + "    hazelcast.logging.type: log4j2\n"
                 + "    hazelcast.operation.generic.thread.count: 200\n";
+    }
+
+    private static void logStartupContext(
+            String clusterName, String hazelcastYaml, HttpConfig httpConfig) {
+        LOG.info(
+                "OptionRulesApiTest startup context: clusterName={}, hazelcastBasePort={},"
+                        + " hazelcastPortCount=100, hazelcastJoinPortTryCount=100, httpPort={},"
+                        + " httpDynamicPortEnabled={}, hazelcastBasePortInUse={}, httpPortInUse={}",
+                clusterName,
+                HAZELCAST_PORT,
+                HTTP_PORT,
+                httpConfig.isEnableDynamicPort(),
+                isPortInUse(HAZELCAST_PORT),
+                isPortInUse(HTTP_PORT));
+        LOG.info("OptionRulesApiTest Hazelcast YAML:\n{}", hazelcastYaml);
+    }
+
+    private static void logCauseChain(Throwable throwable) {
+        Throwable current = throwable;
+        int depth = 0;
+        while (current != null) {
+            LOG.error(
+                    "OptionRulesApiTest startup failure cause[{}]: {}: {}",
+                    depth,
+                    current.getClass().getName(),
+                    current.getMessage());
+            current = current.getCause();
+            depth++;
+        }
+    }
+
+    private static void logThreadDump() {
+        LOG.error("OptionRulesApiTest thread dump start");
+        for (Map.Entry<Thread, StackTraceElement[]> entry : Thread.getAllStackTraces().entrySet()) {
+            Thread thread = entry.getKey();
+            StackTraceElement[] stackTrace = entry.getValue();
+            LOG.error(
+                    "Thread dump: name='{}', state={}, daemon={}, interrupted={}",
+                    thread.getName(),
+                    thread.getState(),
+                    thread.isDaemon(),
+                    thread.isInterrupted());
+            for (StackTraceElement stackTraceElement : stackTrace) {
+                LOG.error("    at {}", stackTraceElement);
+            }
+        }
+        LOG.error("OptionRulesApiTest thread dump end");
+    }
+
+    private static boolean isPortInUse(int port) {
+        try (ServerSocket serverSocket = new ServerSocket(port);
+                DatagramSocket datagramSocket = new DatagramSocket(port)) {
+            return false;
+        } catch (IOException e) {
+            return true;
+        }
     }
 }
