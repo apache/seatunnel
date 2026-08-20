@@ -69,8 +69,9 @@ public class BigtableSourceSplitEnumerator
     private BigtableClient bigtableClient;
 
     /**
-     * Set under {@link #stateLock} by {@link #close()}. Prevents a client constructed outside the
-     * lock from being published after shutdown has already completed.
+     * Set under {@link #stateLock} by {@link #close()}. After this flag is set, discovery must not
+     * publish a client, commit {@code pendingSplits}/{@code initialized}, or fall back to a
+     * fabricated single split — shutdown wins over in-flight open().
      */
     private boolean closed = false;
 
@@ -197,16 +198,21 @@ public class BigtableSourceSplitEnumerator
     /**
      * Discovers tablet splits once per job start. The blocking {@code sampleRowKeys} RPC runs
      * outside {@link #stateLock}; the lock is re-acquired only to mutate {@code pendingSplits}.
+     *
+     * <p>If {@link #close()} wins a race against discovery, this method returns without committing
+     * {@code pendingSplits} or {@code initialized}, so a fabricated fallback split cannot be
+     * checkpointed after shutdown.
      */
     private void initializePendingSplits() {
         synchronized (stateLock) {
-            if (initialized) {
+            if (initialized || closed) {
                 return;
             }
         }
         Set<BigtableSourceSplit> tableSplits = buildSplits();
         synchronized (stateLock) {
-            if (initialized) {
+            // closed may have flipped while buildSplits() ran unlocked; do not mutate after close.
+            if (initialized || closed) {
                 return;
             }
             Set<String> existingIds =
@@ -236,7 +242,8 @@ public class BigtableSourceSplitEnumerator
      * <p>Performs blocking I/O (client construction and the sampleRowKeys RPC). Callers must not
      * hold {@link #stateLock} while invoking this method.
      *
-     * @return at least one split; a single split covering the user range when splitting fails
+     * @return discovered splits; a single split covering the user range when sampling fails; an
+     *     empty set when the enumerator was closed during discovery (caller must not commit that)
      */
     Set<BigtableSourceSplit> buildSplits() {
         String userStart = parameters.getStartRowkey() != null ? parameters.getStartRowkey() : "";
@@ -245,12 +252,29 @@ public class BigtableSourceSplitEnumerator
         List<KeyOffset> samples;
         try {
             samples = getBigtableClient().sampleRowKeys();
+        } catch (EnumeratorClosedException e) {
+            // close() raced discovery — not a Bigtable API failure; do not log as sampleRowKeys
+            // failed and do not fabricate a whole-range fallback split.
+            log.info(
+                    "Enumerator closed during split discovery for table [{}]; skipping discovery",
+                    parameters.getTable());
+            return Collections.emptySet();
         } catch (Exception e) {
+            if (isClosed()) {
+                log.info(
+                        "Enumerator closed during split discovery for table [{}]; skipping discovery",
+                        parameters.getTable());
+                return Collections.emptySet();
+            }
             log.warn(
                     "sampleRowKeys failed for table [{}], fallback to single split",
                     parameters.getTable(),
                     e);
             return Collections.singleton(new BigtableSourceSplit(0, userStart, userEnd));
+        }
+
+        if (isClosed()) {
+            return Collections.emptySet();
         }
 
         if (samples == null || samples.isEmpty()) {
@@ -346,6 +370,12 @@ public class BigtableSourceSplitEnumerator
         return start.compareTo(end) < 0;
     }
 
+    private boolean isClosed() {
+        synchronized (stateLock) {
+            return closed;
+        }
+    }
+
     private void assignSplit(int taskId) {
         List<BigtableSourceSplit> toAssign = new ArrayList<>();
         if (context.currentParallelism() == 1) {
@@ -379,6 +409,9 @@ public class BigtableSourceSplitEnumerator
      * checkpoint snapshotting. Before publishing the new instance, this method re-checks under the
      * lock: if another thread already published a client, or if {@link #close()} has already set
      * {@code closed}, the just-built instance is closed immediately and never leaked.
+     *
+     * @throws EnumeratorClosedException if the enumerator is already closed (or closes during
+     *     construction), so callers can distinguish shutdown from a real sampleRowKeys failure
      */
     private BigtableClient getBigtableClient() {
         synchronized (stateLock) {
@@ -386,7 +419,7 @@ public class BigtableSourceSplitEnumerator
                 return bigtableClient;
             }
             if (closed) {
-                throw new IllegalStateException(
+                throw new EnumeratorClosedException(
                         "BigtableSourceSplitEnumerator already closed; cannot create client");
             }
         }
@@ -394,7 +427,7 @@ public class BigtableSourceSplitEnumerator
         synchronized (stateLock) {
             if (closed) {
                 created.close();
-                throw new IllegalStateException(
+                throw new EnumeratorClosedException(
                         "BigtableSourceSplitEnumerator closed during client creation");
             }
             if (bigtableClient == null) {
@@ -403,6 +436,18 @@ public class BigtableSourceSplitEnumerator
             }
             created.close();
             return bigtableClient;
+        }
+    }
+
+    /**
+     * Thrown when discovery/client creation observes that {@link #close()} has already run. Not a
+     * Bigtable API failure — callers must not treat it as {@code sampleRowKeys} failure.
+     */
+    static final class EnumeratorClosedException extends IllegalStateException {
+        private static final long serialVersionUID = 1L;
+
+        EnumeratorClosedException(String message) {
+            super(message);
         }
     }
 }

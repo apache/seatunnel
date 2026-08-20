@@ -39,11 +39,17 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 public class BigtableSourceSplitEnumeratorTest {
@@ -293,6 +299,76 @@ public class BigtableSourceSplitEnumeratorTest {
                                 + i);
             }
         }
+    }
+
+    /**
+     * close() before open() must not fabricate a whole-range fallback split or commit pending
+     * state. getBigtableClient() observes closed and discovery aborts without a misleading
+     * sampleRowKeys-failure fallback.
+     */
+    @Test
+    void testCloseBeforeOpenDoesNotCommitDiscoveryState() throws Exception {
+        TestingContext context = new TestingContext(1);
+        BigtableClient client = mockClient(Arrays.asList("m", "t", ""));
+        BigtableSourceSplitEnumerator enumerator =
+                new BigtableSourceSplitEnumerator(context, testParameters("", ""), null, client);
+
+        enumerator.close();
+        enumerator.open();
+
+        assertEquals(0, enumerator.currentUnassignedSplitSize());
+        BigtableSourceState state = enumerator.snapshotState(1L);
+        assertTrue(state.getAssignedSplits().isEmpty());
+        assertTrue(state.getPendingSplits().isEmpty());
+        verify(client).close();
+    }
+
+    /**
+     * close() racing an in-flight sampleRowKeys() must not commit pendingSplits/initialized after
+     * the RPC returns. Without the closed check in initializePendingSplits(), empty samples would
+     * fall back to a fabricated whole-range split and persist it.
+     */
+    @Test
+    void testCloseDuringSampleRowKeysDoesNotCommitPendingSplits() throws Exception {
+        CountDownLatch sampleStarted = new CountDownLatch(1);
+        CountDownLatch allowSampleToFinish = new CountDownLatch(1);
+
+        BigtableClient client = mock(BigtableClient.class);
+        when(client.sampleRowKeys())
+                .thenAnswer(
+                        invocation -> {
+                            sampleStarted.countDown();
+                            assertTrue(allowSampleToFinish.await(10, TimeUnit.SECONDS));
+                            // Would normally trigger the single-split empty-sample fallback.
+                            return Collections.emptyList();
+                        });
+
+        TestingContext context = new TestingContext(1);
+        BigtableSourceSplitEnumerator enumerator =
+                new BigtableSourceSplitEnumerator(context, testParameters("", ""), null, client);
+
+        ExecutorService pool = Executors.newSingleThreadExecutor();
+        Future<?> openFuture =
+                pool.submit(
+                        () -> {
+                            enumerator.open();
+                            return null;
+                        });
+
+        assertTrue(sampleStarted.await(10, TimeUnit.SECONDS));
+        enumerator.close();
+        allowSampleToFinish.countDown();
+        openFuture.get(10, TimeUnit.SECONDS);
+        pool.shutdown();
+        assertTrue(pool.awaitTermination(5, TimeUnit.SECONDS));
+
+        assertEquals(0, enumerator.currentUnassignedSplitSize());
+        BigtableSourceState state = enumerator.snapshotState(1L);
+        assertTrue(state.getAssignedSplits().isEmpty());
+        assertTrue(
+                state.getPendingSplits().isEmpty(),
+                "close() during discovery must not commit a fabricated fallback split");
+        verify(client).close();
     }
 
     private static BigtableSourceSplitEnumerator enumeratorWithSamples(
