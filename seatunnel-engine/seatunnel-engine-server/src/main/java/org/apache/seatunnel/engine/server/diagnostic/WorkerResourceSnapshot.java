@@ -22,24 +22,14 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class WorkerResourceDiagnostic implements Serializable {
-    private String address;
-    private Map<String, String> tags;
-    private Integer totalSlots;
-    private Integer freeSlots;
-    private int usedSlots;
-    private boolean dynamicSlot;
-    private Integer totalCpuCores;
-    private Integer availableCpuCores;
-    private Long totalHeapMemoryBytes;
-    private Long availableHeapMemoryBytes;
-    private Double cpuUsage;
-    private Double memUsage;
-    private List<Long> runningJobIds;
+public class WorkerResourceSnapshot implements Serializable {
+    private boolean available;
+    private long collectedAt;
+    private List<WorkerResourceDiagnostic> workers = new ArrayList<>();
 }
