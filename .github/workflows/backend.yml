@@ -467,6 +467,7 @@ jobs:
     if: needs.changes.outputs.api == 'true' || (needs.changes.outputs.api == 'false' && needs.changes.outputs.ut-modules != '')
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest', 'windows-latest' ]
@@ -533,6 +534,7 @@ jobs:
     if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != ''
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
@@ -564,6 +566,7 @@ jobs:
     if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != ''
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
@@ -595,6 +598,7 @@ jobs:
     if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != ''
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
@@ -626,6 +630,7 @@ jobs:
     if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != ''
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
@@ -656,6 +661,7 @@ jobs:
     if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != ''
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
@@ -686,6 +692,7 @@ jobs:
     if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != ''
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
@@ -716,6 +723,7 @@ jobs:
     if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != ''
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
@@ -747,6 +755,7 @@ jobs:
     if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && needs.changes.outputs.it-modules != ''
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
@@ -778,6 +787,7 @@ jobs:
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || needs.changes.outputs.engine-e2e == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
@@ -803,6 +813,7 @@ jobs:
     if: needs.changes.outputs.edge-agent == 'true' || needs.changes.outputs.edge-agent-e2e == 'true'
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
@@ -828,6 +839,7 @@ jobs:
     if: needs.changes.outputs.api == 'true' || contains(needs.changes.outputs.it-modules, 'seatunnel-engine-k8s-e2e')
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
@@ -865,6 +877,7 @@ jobs:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
       RUN_ZETA_CONTAINER: ${{ needs.changes.outputs.engine }}
     strategy:
+      fail-fast: false
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
@@ -893,6 +906,7 @@ jobs:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
       RUN_ZETA_CONTAINER: ${{ needs.changes.outputs.engine }}
     strategy:
+      fail-fast: false
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
@@ -921,6 +935,7 @@ jobs:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
       RUN_ZETA_CONTAINER: ${{ needs.changes.outputs.engine }}
     strategy:
+      fail-fast: false
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
@@ -952,6 +967,7 @@ jobs:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
       RUN_ZETA_CONTAINER: ${{ needs.changes.outputs.engine }}
     strategy:
+      fail-fast: false
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
@@ -971,13 +987,6 @@ jobs:
           ./mvnw help:evaluate -Dexpression=project.modules -q -DforceStdout -pl :seatunnel-connector-v2-e2e >> /tmp/sub_module.txt
           sub_modules=`python tools/update_modules_check/update_modules_check.py sub /tmp/sub_module.txt`
           run_it_modules=`python tools/update_modules_check/update_modules_check.py sub_it_module "$sub_modules" 7 1`
-          # Keep the longest Iceberg and HBase suites in a dedicated shard so this hosted runner
-          # does not lose heartbeat before the rest of the part-2 modules finish.
-          # Handle both first-position (no leading comma) and mid/last-position (leading comma).
-          run_it_modules=${run_it_modules//:connector-iceberg-e2e,/}
-          run_it_modules=${run_it_modules//,:connector-iceberg-e2e/}
-          run_it_modules=${run_it_modules//:connector-hbase-e2e,/}
-          run_it_modules=${run_it_modules//,:connector-hbase-e2e/}
           ./mvnw -B -T 1 verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl $run_it_modules -am -Pci
         env:
           MAVEN_OPTS: -Xmx4096m
@@ -990,6 +999,7 @@ jobs:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
       RUN_ZETA_CONTAINER: ${{ needs.changes.outputs.engine }}
     strategy:
+      fail-fast: false
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
@@ -1021,6 +1031,7 @@ jobs:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
       RUN_ZETA_CONTAINER: ${{ needs.changes.outputs.engine }}
     strategy:
+      fail-fast: false
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
@@ -1052,6 +1063,7 @@ jobs:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
       RUN_ZETA_CONTAINER: ${{ needs.changes.outputs.engine }}
     strategy:
+      fail-fast: false
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
@@ -1083,6 +1095,7 @@ jobs:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
       RUN_ZETA_CONTAINER: ${{ needs.changes.outputs.engine }}
     strategy:
+      fail-fast: false
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
@@ -1114,6 +1127,7 @@ jobs:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
       RUN_ZETA_CONTAINER: ${{ needs.changes.outputs.engine }}
     strategy:
+      fail-fast: false
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
@@ -1145,6 +1159,7 @@ jobs:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
       RUN_ZETA_CONTAINER: ${{ needs.changes.outputs.engine }}
     strategy:
+      fail-fast: false
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
@@ -1174,6 +1189,7 @@ jobs:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
       RUN_ZETA_CONTAINER: ${{ needs.changes.outputs.engine }}
     strategy:
+      fail-fast: false
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
@@ -1202,6 +1218,7 @@ jobs:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
       RUN_ZETA_CONTAINER: ${{ needs.changes.outputs.engine }}
     strategy:
+      fail-fast: false
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
@@ -1230,6 +1247,7 @@ jobs:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
       RUN_ZETA_CONTAINER: ${{ needs.changes.outputs.engine }}
     strategy:
+      fail-fast: false
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
@@ -1258,6 +1276,7 @@ jobs:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
       RUN_ZETA_CONTAINER: ${{ needs.changes.outputs.engine }}
     strategy:
+      fail-fast: false
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
@@ -1286,6 +1305,7 @@ jobs:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
       RUN_ZETA_CONTAINER: ${{ needs.changes.outputs.engine }}
     strategy:
+      fail-fast: false
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
@@ -1314,6 +1334,7 @@ jobs:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
       RUN_ZETA_CONTAINER: ${{ needs.changes.outputs.engine }}
     strategy:
+      fail-fast: false
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
@@ -1342,6 +1363,7 @@ jobs:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
       RUN_ZETA_CONTAINER: ${{ needs.changes.outputs.engine }}
     strategy:
+      fail-fast: false
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
@@ -1370,6 +1392,7 @@ jobs:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
       RUN_ZETA_CONTAINER: ${{ needs.changes.outputs.engine }}
     strategy:
+      fail-fast: false
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
@@ -1395,6 +1418,7 @@ jobs:
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(needs.changes.outputs.it-modules, 'connector-kudu-e2e')
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
@@ -1421,6 +1445,7 @@ jobs:
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(needs.changes.outputs.it-modules, 'connector-amazonsqs-e2e')
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
@@ -1446,6 +1471,7 @@ jobs:
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(needs.changes.outputs.it-modules, 'connector-kafka-e2e')
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
@@ -1471,6 +1497,7 @@ jobs:
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(needs.changes.outputs.it-modules, 'connector-rocketmq-e2e')
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
@@ -1496,6 +1523,7 @@ jobs:
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(needs.changes.outputs.it-modules, 'connector-elasticsearch-e2e')
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
@@ -1521,6 +1549,7 @@ jobs:
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(needs.changes.outputs.it-modules, 'connector-cdc-mysql-e2e')
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
@@ -1547,6 +1576,7 @@ jobs:
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(needs.changes.outputs.it-modules, 'connector-doris-e2e')
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
@@ -1572,6 +1602,7 @@ jobs:
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(needs.changes.outputs.it-modules, 'connector-paimon-e2e')
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
@@ -1597,6 +1628,7 @@ jobs:
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(needs.changes.outputs.it-modules, 'connector-cdc-oracle-e2e')
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
@@ -1627,6 +1659,7 @@ jobs:
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(needs.changes.outputs.it-modules, 'connector-file-local-e2e')
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
@@ -1652,6 +1685,7 @@ jobs:
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(needs.changes.outputs.it-modules, 'connector-file-sftp-e2e')
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
@@ -1677,6 +1711,7 @@ jobs:
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true' || contains(needs.changes.outputs.it-modules, 'connector-redis-e2e')
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
@@ -1702,6 +1737,7 @@ jobs:
     if: needs.changes.outputs.api == 'true' || contains(needs.changes.outputs.it-modules, 'connector-sensorsdata-e2e')
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
