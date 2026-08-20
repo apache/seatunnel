@@ -33,6 +33,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.source.reader.ReadStrategy
 
 import org.apache.commons.collections4.CollectionUtils;
 
+import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
@@ -59,6 +60,9 @@ public abstract class BaseFileSourceConfig implements Serializable {
     private final ReadonlyConfig baseFileSourceConfig;
     private final CatalogTable catalogTableFromConfig;
     private final boolean fileDiscoveryDeferred;
+    /** Credential-safe root path rendered in file-discovery logs and exceptions. */
+    @Getter(AccessLevel.NONE)
+    private final String safeDiscoveryRootContext;
 
     public abstract HadoopConf getHadoopConfig();
 
@@ -70,11 +74,13 @@ public abstract class BaseFileSourceConfig implements Serializable {
         this.fileFormat = readonlyConfig.get(FileBaseSourceOptions.FILE_FORMAT_TYPE);
         this.readStrategy = ReadStrategyFactory.of(readonlyConfig, getHadoopConfig());
         this.fileDiscoveryDeferred = shouldDeferFileDiscovery(readonlyConfig);
-        if (isMarkdownKnowledgeSyncMetadataEnabled(readonlyConfig)) {
-            // Fail fast without replacing the logical identity of each discovered file.
-            MarkdownKnowledgeSyncMetadata.canonicalizeSourceUri(
-                    readonlyConfig.get(FileBaseSourceOptions.FILE_PATH));
-        }
+        String rootPath = readonlyConfig.get(FileBaseSourceOptions.FILE_PATH);
+        // Fail fast and retain the sanitized root for diagnostics without replacing the logical
+        // identity that MarkdownReadStrategy derives for each discovered file.
+        this.safeDiscoveryRootContext =
+                isMarkdownKnowledgeSyncMetadataEnabled(readonlyConfig)
+                        ? MarkdownKnowledgeSyncMetadata.canonicalizeSourceUri(rootPath)
+                        : maskUriUserInfo(rootPath);
         this.filePaths = parseFilePaths(readonlyConfig);
         this.catalogTableFromConfig = catalogTableFromConfig;
         CatalogTable parsedCatalogTable = parseCatalogTable(readonlyConfig);
@@ -132,15 +138,14 @@ public abstract class BaseFileSourceConfig implements Serializable {
             log.info(
                     "File source discovery finished: plugin={}, path={}, files={}, cost={}ms",
                     getPluginName(),
-                    safeSourceContext(rootPath),
+                    safeDiscoveryRootContext,
                     discoveredFilePaths.size(),
                     System.currentTimeMillis() - startTime);
             return discoveredFilePaths;
         } catch (Exception ex) {
             String errorMsg =
                     String.format(
-                            "Get file list from this path [%s] failed",
-                            safeSourceContext(rootPath));
+                            "Get file list from this path [%s] failed", safeDiscoveryRootContext);
             if (isMarkdownKnowledgeSyncMetadataEnabled(baseFileSourceConfig)) {
                 throw new FileConnectorException(
                         FileConnectorErrorCode.FILE_LIST_GET_FAILED,
@@ -193,6 +198,7 @@ public abstract class BaseFileSourceConfig implements Serializable {
         }
     }
 
+    /** Returns whether Markdown document routing and Knowledge Sync metadata are enabled. */
     private boolean isMarkdownKnowledgeSyncMetadataEnabled(ReadonlyConfig readonlyConfig) {
         return fileFormat == FileFormat.MARKDOWN
                 && readonlyConfig.get(FileBaseSourceOptions.MARKDOWN_RAG_METADATA_ENABLED);
@@ -223,15 +229,6 @@ public abstract class BaseFileSourceConfig implements Serializable {
         } catch (Exception e) {
             return rawPath;
         }
-    }
-
-    private String safeSourceContext(String rawPath) {
-        // Knowledge Sync requires a credential-free logical URI; legacy formats keep their
-        // existing user-info masking behavior.
-        if (isMarkdownKnowledgeSyncMetadataEnabled(baseFileSourceConfig)) {
-            return MarkdownKnowledgeSyncMetadata.safeSourceContext(rawPath);
-        }
-        return maskUriUserInfo(rawPath);
     }
 
     private CatalogTable newCatalogTable(

@@ -77,18 +77,18 @@ public abstract class BaseFileSource
         this.readStrategy.setPluginConfig(pluginConfig.toConfig());
         this.readStrategy.init(hadoopConf);
         String path = pluginConfig.get(FileBaseSourceOptions.FILE_PATH);
-        if (documentRoutingEnabled) {
-            // Fail fast without replacing the logical identity of each discovered file.
-            MarkdownKnowledgeSyncMetadata.canonicalizeSourceUri(path);
-        }
+        // Fail fast and retain the sanitized root for diagnostics without replacing the logical
+        // identity that MarkdownReadStrategy derives for each discovered file.
+        String safeDiscoveryRootContext =
+                documentRoutingEnabled
+                        ? MarkdownKnowledgeSyncMetadata.canonicalizeSourceUri(path)
+                        : path;
         try {
             filePaths = readStrategy.getFileNamesByPath(path);
         } catch (IOException e) {
-            String safePath =
-                    documentRoutingEnabled
-                            ? MarkdownKnowledgeSyncMetadata.safeSourceContext(path)
-                            : path;
-            String errorMsg = String.format("Get file list from this path [%s] failed", safePath);
+            String errorMsg =
+                    String.format(
+                            "Get file list from this path [%s] failed", safeDiscoveryRootContext);
             if (documentRoutingEnabled) {
                 throw new FileConnectorException(
                         FileConnectorErrorCode.FILE_LIST_GET_FAILED,
