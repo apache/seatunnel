@@ -140,6 +140,9 @@ public class MultiTableSink
         for (int i = 0; i < replicaNum; i++) {
             int index = context.getIndexOfSubtask() * replicaNum + i;
             for (TablePath tablePath : sinks.keySet()) {
+                if (shouldSkipFailedTable(initialFailedTables, tablePath)) {
+                    continue;
+                }
                 SeaTunnelSink sink = sinks.get(tablePath);
                 SinkIdentifier id = SinkIdentifier.of(tablePath.toString(), index);
                 SinkContextProxy proxy = new SinkContextProxy(index, replicaNum, context);
@@ -171,7 +174,7 @@ public class MultiTableSink
                         sinkWriterTemplates,
                         this::createRuntimeSinkWriter,
                         proxyContexts);
-        registerAggregatedFlush(context, writer);
+        registerAggregatedFlushIfNeeded(context, writer, proxyContexts);
         return writer;
     }
 
@@ -195,10 +198,35 @@ public class MultiTableSink
         Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
         Map<SinkIdentifier, SinkContextProxy> proxyContexts = new HashMap<>();
         List<MultiTableSinkWriter.SinkWriterTemplate> sinkWriterTemplates = new ArrayList<>();
+        List<MultiTableFailedTable> restoredFailedTables =
+                states.stream()
+                        .map(MultiTableState::getFailedTables)
+                        .filter(Objects::nonNull)
+                        .flatMap(Collection::stream)
+                        .collect(Collectors.toList());
+        List<MultiTableFailedTable> effectiveFailedTables = new ArrayList<>(initialFailedTables);
+        effectiveFailedTables.addAll(restoredFailedTables);
+        List<CatalogTable> restoredRuntimeTables =
+                states.stream()
+                        .map(MultiTableState::getRuntimeCreatedTables)
+                        .filter(Objects::nonNull)
+                        .flatMap(Collection::stream)
+                        .collect(
+                                Collectors.toMap(
+                                        CatalogTable::getTablePath,
+                                        table -> table,
+                                        (left, right) -> left,
+                                        LinkedHashMap::new))
+                        .values()
+                        .stream()
+                        .collect(Collectors.toList());
 
         for (int i = 0; i < replicaNum; i++) {
             int index = context.getIndexOfSubtask() * replicaNum + i;
             for (TablePath tablePath : sinks.keySet()) {
+                if (shouldSkipFailedTable(effectiveFailedTables, tablePath)) {
+                    continue;
+                }
                 SeaTunnelSink sink = sinks.get(tablePath);
                 SinkIdentifier sinkIdentifier = SinkIdentifier.of(tablePath.toString(), index);
                 SinkContextProxy proxy = new SinkContextProxy(index, replicaNum, context);
@@ -223,6 +251,25 @@ public class MultiTableSink
                 proxyContexts.put(sinkIdentifier, proxy);
                 sinkWritersContext.put(sinkIdentifier, context);
             }
+            for (CatalogTable catalogTable : restoredRuntimeTables) {
+                TablePath tablePath = catalogTable.getTablePath();
+                if (sinks.containsKey(tablePath)
+                        || shouldSkipFailedTable(effectiveFailedTables, tablePath)) {
+                    continue;
+                }
+                SinkIdentifier sinkIdentifier = SinkIdentifier.of(tablePath.getFullName(), index);
+                SinkContextProxy proxy = new SinkContextProxy(index, replicaNum, context);
+                SinkWriter<SeaTunnelRow, ?, ?> sinkWriter =
+                        createRuntimeSinkWriter(catalogTable, proxy);
+                writers.put(sinkIdentifier, sinkWriter);
+                if (sinkWriterTemplates.size() == i) {
+                    sinkWriterTemplates.add(
+                            new MultiTableSinkWriter.SinkWriterTemplate(
+                                    (SupportMultiTableSinkWriter<?>) sinkWriter, context, index));
+                }
+                proxyContexts.put(sinkIdentifier, proxy);
+                sinkWritersContext.put(sinkIdentifier, context);
+            }
             if (sinkWriterTemplates.size() == i) {
                 sinkWriterTemplates.add(
                         new MultiTableSinkWriter.SinkWriterTemplate(null, context, index));
@@ -235,15 +282,34 @@ public class MultiTableSink
                         sinkWritersContext,
                         failurePolicy,
                         getJobMode(),
-                        initialFailedTables,
+                        effectiveFailedTables,
                         tableRetryTimes,
                         tableRetryIntervalSeconds,
                         sinkWriterTemplates,
                         this::createRuntimeSinkWriter,
                         proxyContexts);
+        writer.registerRestoredRuntimeCreatedTables(restoredRuntimeTables);
 
-        registerAggregatedFlush(context, writer);
+        registerAggregatedFlushIfNeeded(context, writer, proxyContexts);
         return writer;
+    }
+
+    private boolean shouldSkipFailedTable(
+            Collection<MultiTableFailedTable> failedTables, TablePath tablePath) {
+        if (!failurePolicy.continueOtherTables()
+                || failedTables == null
+                || failedTables.isEmpty()
+                || tablePath == null) {
+            return false;
+        }
+        String tablePathText = tablePath.toString();
+        String fullName = tablePath.getFullName();
+        return failedTables.stream()
+                .map(MultiTableFailedTable::getTablePath)
+                .filter(Objects::nonNull)
+                .anyMatch(
+                        failedTable ->
+                                failedTable.equals(tablePathText) || failedTable.equals(fullName));
     }
 
     /**
@@ -281,15 +347,20 @@ public class MultiTableSink
     }
 
     /**
-     * Registers an aggregated flush action on the parent context.
+     * Registers an aggregated flush action on the parent context if a sub-writer needs timer flush.
      *
      * <p>The registered action drains all blocking queues and then calls each sub-writer's flush
      * action under the corresponding lock, ensuring safe execution from the engine timer thread.
-     * Runtime-created writers can register their own flush action after startup, so the parent
-     * action must not depend only on the initially created writer set.
      */
-    private void registerAggregatedFlush(SinkWriter.Context context, MultiTableSinkWriter writer) {
-        context.registerFlushAction(writer::aggregatedFlush);
+    private void registerAggregatedFlushIfNeeded(
+            SinkWriter.Context context,
+            MultiTableSinkWriter writer,
+            Map<SinkIdentifier, SinkContextProxy> proxyContexts) {
+        boolean anyFlush =
+                proxyContexts.values().stream().anyMatch(proxy -> proxy.getFlushAction() != null);
+        if (anyFlush) {
+            context.registerFlushAction(writer::aggregatedFlush);
+        }
     }
 
     @Override

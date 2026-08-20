@@ -21,6 +21,7 @@ import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.OptionValidationException;
 import org.apache.seatunnel.api.source.SupportParallelism;
 import org.apache.seatunnel.api.source.SupportSchemaEvolution;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
@@ -230,6 +231,7 @@ public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceCo
 
     @Override
     public SourceConfig.Factory<JdbcSourceConfig> createSourceConfigFactory(ReadonlyConfig config) {
+        validateBinlogNewlyAddedTableConfig(config);
         MySqlSourceConfigFactory configFactory = new MySqlSourceConfigFactory();
         configFactory.serverId(config.get(JdbcSourceOptions.SERVER_ID));
         configFactory.scanBinlogNewlyAddedTableEnabled(
@@ -280,17 +282,35 @@ public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceCo
                         .setSchemaChangeResolver(
                                 new MySqlSchemaChangeResolver(createSourceConfigFactory(config)))
                         .setSchemaChangeEventFilter(SchemaChangeEventFilter.fromConfig(config))
-                        .setSchemaChangeEventFilter(SchemaChangeEventFilter.fromConfig(config))
                         .setScanBinlogNewlyAddedTableEnabled(
                                 config.get(
                                         MySqlIncrementalSourceOptions
                                                 .SCAN_BINLOG_NEWLY_ADDED_TABLE_ENABLED))
                         .setTableChangeCatalogTableConverter(
                                 tableChange ->
-                                        MySqlCatalogTableUtils.toCatalogTable(
-                                                tableChange.getTable(),
-                                                sourceConfig.getDbzConnectorConfig()))
+                                        sourceConfig
+                                                        .getTableFilters()
+                                                        .dataCollectionFilter()
+                                                        .isIncluded(tableChange.getTable().id())
+                                                ? MySqlCatalogTableUtils.toCatalogTable(
+                                                        tableChange.getTable(),
+                                                        sourceConfig.getDbzConnectorConfig())
+                                                : null)
                         .build();
+    }
+
+    private void validateBinlogNewlyAddedTableConfig(ReadonlyConfig config) {
+        boolean scanBinlogNewlyAddedTableEnabled =
+                config.get(MySqlIncrementalSourceOptions.SCAN_BINLOG_NEWLY_ADDED_TABLE_ENABLED);
+        if (scanBinlogNewlyAddedTableEnabled
+                && config.getOptional(MySqlIncrementalSourceOptions.TABLE_NAMES).isPresent()) {
+            throw new OptionValidationException(
+                    "%s can only be used with %s/%s, not fixed %s.",
+                    MySqlIncrementalSourceOptions.SCAN_BINLOG_NEWLY_ADDED_TABLE_ENABLED.key(),
+                    MySqlIncrementalSourceOptions.DATABASE_PATTERN.key(),
+                    MySqlIncrementalSourceOptions.TABLE_PATTERN.key(),
+                    MySqlIncrementalSourceOptions.TABLE_NAMES.key());
+        }
     }
 
     @Override

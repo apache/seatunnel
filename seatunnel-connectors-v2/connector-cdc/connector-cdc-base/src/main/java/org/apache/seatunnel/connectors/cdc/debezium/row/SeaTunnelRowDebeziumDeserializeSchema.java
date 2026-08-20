@@ -138,6 +138,9 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
                     }
                     CatalogTable catalogTable =
                             tableChangeCatalogTableConverter.convert(tableChange);
+                    if (catalogTable == null) {
+                        return;
+                    }
                     if (containsTable(catalogTable.getTablePath())) {
                         return;
                     }
@@ -301,7 +304,17 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
                     new CreateTableEvent(catalogTable.getTableId(), catalogTable);
             createTableEvent.setStatement(ddl);
             createTableEvent.setSourceDialectName(catalogTable.getTableId().getCatalogName());
-            collector.collect(createTableEvent);
+            SchemaChangeEvent schemaChangeEvent = createTableEvent;
+            if (schemaChangeEventFilter != null) {
+                schemaChangeEvent = schemaChangeEventFilter.filter(schemaChangeEvent);
+            }
+            if (schemaChangeEvent == null) {
+                log.debug(
+                        "Create table event {} is filtered out by schema-changes.include/exclude.",
+                        catalogTable.getTablePath());
+                continue;
+            }
+            collector.collect(schemaChangeEvent);
         }
         return true;
     }
@@ -331,6 +344,13 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
                 return;
             }
         } else {
+            if (tables.isEmpty() || !tables.get(0).getTablePath().equals(tablePath)) {
+                log.debug(
+                        "Ignore table {} because the single-table deserializer is initialized for {}",
+                        tablePath,
+                        tables.isEmpty() ? "<empty>" : tables.get(0).getTablePath());
+                return;
+            }
             converters = tableRowConverters.get(DEFAULT_TABLE_NAME_KEY);
         }
         Long fetchTimestamp = SourceRecordUtils.getFetchTimestamp(record);
