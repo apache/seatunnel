@@ -352,8 +352,8 @@ public class JdbcSinkWriter extends AbstractJdbcSinkWriter<ConnectionPoolManager
         }
 
         tryOpen();
-        outputFormat.flush();
         try {
+            outputFormat.flush();
             if (!connectionProvider.getConnection().getAutoCommit()) {
                 connectionProvider.getConnection().commit();
             }

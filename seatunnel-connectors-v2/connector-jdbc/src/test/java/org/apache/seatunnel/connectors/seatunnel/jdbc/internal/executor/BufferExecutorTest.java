@@ -43,17 +43,17 @@ public abstract class BufferExecutorTest {
         SQLException exception =
                 Assertions.assertThrows(SQLException.class, executor::executeBatch);
         Assertions.assertEquals("test", exception.getMessage());
-        // the main point of this test is to check if the buffer is cleared after closeStatements
-        // and prepareStatements when executeBatch failed
-        Assertions.assertThrows(SQLException.class, executor::closeStatements);
+        // The failed buffer should survive statement close/reopen, but closeStatements itself
+        // must not execute it again.
+        executor.closeStatements();
         executor.prepareStatements(new TestConnection());
         SQLException exception2 =
                 Assertions.assertThrows(SQLException.class, executor::executeBatch);
         Assertions.assertEquals("test", exception2.getMessage());
 
-        // three times of addToBatch, 1. executeBatch, 2. closeStatements, 3. executeBatch
-        Assertions.assertEquals(3, recorder.size());
+        // two times of addToBatch, 1. executeBatch, 2. executeBatch after reopening
+        Assertions.assertEquals(2, recorder.size());
         // same row to executeBatch
-        Assertions.assertEquals(recorder.get(0), recorder.get(2));
+        Assertions.assertEquals(recorder.get(0), recorder.get(1));
     }
 }
