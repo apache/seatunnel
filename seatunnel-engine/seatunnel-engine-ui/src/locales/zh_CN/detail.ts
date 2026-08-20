@@ -53,4 +53,11 @@ export default {
     bpRatio: '下游等待占比',
     queueFillRatio: '队列填充率',
   },
+  pinnedMetrics: {
+    title: '已固定指标',
+    clearAll: '清除全部',
+    pinButton: '固定',
+    limitReached: '已达到最多 6 个固定指标',
+    noData: '固定指标以查看实时图表',
+  },
 }

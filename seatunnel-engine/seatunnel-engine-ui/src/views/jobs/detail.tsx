@@ -23,9 +23,11 @@ import {
   NDataTable,
   type DataTableColumns,
   NDrawer,
-  NDrawerContent
+  NDrawerContent,
+  NButton,
+  NSpace
 } from 'naive-ui'
-import {computed, defineComponent, onUnmounted, reactive, ref, watch} from 'vue'
+import { computed, defineComponent, onUnmounted, reactive, ref, watch } from 'vue'
 import { getJobInfo } from '@/service/job'
 import { useRoute } from 'vue-router'
 import type { Job, Vertex } from '@/service/job/types'
@@ -37,6 +39,7 @@ import { getColorFromStatus } from '@/utils/getTypeFromStatus'
 import './detail.scss'
 import Configuration from '@/components/configuration'
 import JobLog from '@/components/job-log'
+import LiveMetricsChart from '@/components/live-metrics-chart'
 import { formatPercentFromRatio } from '@/utils/format'
 import {
   getRealtimeJobEdges,
@@ -47,6 +50,7 @@ import {
   type RealtimeVertexPoint
 } from '@/service/realtime-metrics'
 import { readVertexMetricValue, collectVertexMetrics, extractVertexIdentifier } from './detail-metrics'
+import { usePinnedMetrics, type PinnedMetric } from './usePinnedMetrics'
 
 export default defineComponent({
   setup() {
@@ -89,10 +93,11 @@ export default defineComponent({
       clearInterval(timer)
       clearTimeout(fetchTimer)
       clearInterval(realtimeTimer)
+      pinnedMetrics.clearPins()
     })
 
     const isTerminalState = (status: string) => {
-      return ['FINISHED', 'FAILED', 'CANCELED','SAVEPOINT_DONE'].includes(status)
+      return ['FINISHED', 'FAILED', 'CANCELED', 'SAVEPOINT_DONE'].includes(status)
     }
 
     const isRunningState = (status: string) => {
@@ -557,21 +562,175 @@ export default defineComponent({
       // Fallback: show a minimal common view.
       return base
     })
+
+    // --- Pinned Metrics ---
+    const pinnedMetrics = usePinnedMetrics()
+
+    const vertexNameMap = computed(() => {
+      const map = new Map<number, string>()
+      job.jobDag?.vertexInfoMap?.forEach((v) => {
+        map.set(v.vertexId, v.vertexName || `Vertex-${v.vertexId}`)
+      })
+      return map
+    })
+
+    const pinnedSeriesData = computed(() =>
+      pinnedMetrics.getPinnedSeriesData(
+        realtimeVertices.value,
+        realtimeEdges.value,
+        vertexNameMap.value
+      )
+    )
+
+    const pinMetricLabel = (metricKey: string): string => {
+      const labels: Record<string, string> = {
+        // Vertex - Source
+        sourceReadRatio: t('detail.observability.sourceReadRatio'),
+        sourceIdleRatio: t('detail.observability.sourceIdleRatio'),
+        // Vertex - Transform
+        transformBusyRatio: t('detail.observability.transformBusyRatio'),
+        transformProcessNsPerRecord: t('detail.observability.processMsPerRecord'),
+        transformRecordsIn: t('detail.observability.recordsIn'),
+        transformRecordsOut: t('detail.observability.recordsOut'),
+        // Vertex - Sink
+        sinkBusyRatio: t('detail.observability.sinkBusyRatio'),
+        sinkWriteNsPerRecord: t('detail.observability.writeMsPerRecord'),
+        sinkRecordsIn: t('detail.observability.recordsIn'),
+        // Edge
+        bpRatio: t('detail.observability.bpRatio'),
+        queueFillRatio: t('detail.observability.queueFillRatio')
+      }
+      return labels[metricKey] || metricKey
+    }
+
+    const pinVertexMetric = (metricKey: string) => {
+      const vertex = focusedVertex.value
+      if (!vertex) return
+      const id = `vertex-${vertex.vertexId}-${metricKey}`
+      pinnedMetrics.addPin({
+        id,
+        label: `${vertex.vertexName || `Vertex-${vertex.vertexId}`} - ${pinMetricLabel(metricKey)}`,
+        sourceType: 'vertex',
+        sourceId: vertex.vertexId,
+        metricKey,
+        metricLabel: pinMetricLabel(metricKey),
+        vertexType: vertex.type as 'source' | 'transform' | 'sink'
+      })
+    }
+
+    const pinEdgeMetric = (metricKey: string) => {
+      const edge = focusedEdge.value
+      if (!edge) return
+      const target = job.jobDag?.vertexInfoMap?.find((v) => v.vertexId === edge.targetVertexId)
+      const id = `edge-${edge.edgeId}-${metricKey}`
+      pinnedMetrics.addPin({
+        id,
+        label: `${target?.vertexName || `Edge-${edge.edgeId}`} - ${pinMetricLabel(metricKey)}`,
+        sourceType: 'edge',
+        sourceId: edge.targetVertexId,
+        metricKey,
+        metricLabel: pinMetricLabel(metricKey)
+      })
+    }
+
+    // --- Chart series for the drawer ---
+    const drawerChartSeries = computed(() => {
+      const series: { name: string; data: [number, number][] }[] = []
+
+      if (focusedEdge.value) {
+        const points = focusedEdgeSeries.value
+        if (points.length > 0) {
+          const bpData = points
+            .map((p) => [p.ts, p.bpRatio] as [number, number])
+            .filter(([, v]) => typeof v === 'number' && Number.isFinite(v))
+            .sort((a, b) => a[0] - b[0])
+          const qfData = points
+            .map((p) => [p.ts, p.queueFillRatio] as [number, number])
+            .filter(([, v]) => typeof v === 'number' && Number.isFinite(v))
+            .sort((a, b) => a[0] - b[0])
+          if (bpData.length > 0) {
+            series.push({ name: t('detail.observability.bpRatio'), data: bpData })
+          }
+          if (qfData.length > 0) {
+            series.push({ name: t('detail.observability.queueFillRatio'), data: qfData })
+          }
+        }
+      } else if (focusedId.value) {
+        const points = focusedVertexSeries.value
+        const v = focusedVertex.value as any
+        const type = v?.type
+        if (type === 'source' && points.length > 0) {
+          const readData = points
+            .map((p) => [p.ts, p.sourceReadRatio] as [number, number])
+            .filter(([, v]) => typeof v === 'number' && Number.isFinite(v))
+            .sort((a, b) => a[0] - b[0])
+          const idleData = points
+            .map((p) => [p.ts, p.sourceIdleRatio] as [number, number])
+            .filter(([, v]) => typeof v === 'number' && Number.isFinite(v))
+            .sort((a, b) => a[0] - b[0])
+          if (readData.length > 0) {
+            series.push({ name: t('detail.observability.sourceReadRatio'), data: readData })
+          }
+          if (idleData.length > 0) {
+            series.push({ name: t('detail.observability.sourceIdleRatio'), data: idleData })
+          }
+        } else if (type === 'sink' && points.length > 0) {
+          const busyData = points
+            .map((p) => [p.ts, p.sinkBusyRatio] as [number, number])
+            .filter(([, v]) => typeof v === 'number' && Number.isFinite(v))
+            .sort((a, b) => a[0] - b[0])
+          const writeData = points
+            .map((p) => [p.ts, p.sinkWriteNsPerRecord / 1_000_000] as [number, number])
+            .filter(([, v]) => typeof v === 'number' && Number.isFinite(v))
+            .sort((a, b) => a[0] - b[0])
+          const recordsData = points
+            .map((p) => [p.ts, p.sinkRecordsIn] as [number, number])
+            .filter(([, v]) => typeof v === 'number' && Number.isFinite(v))
+            .sort((a, b) => a[0] - b[0])
+          if (busyData.length > 0) {
+            series.push({ name: t('detail.observability.sinkBusyRatio'), data: busyData })
+          }
+          if (writeData.length > 0) {
+            series.push({ name: t('detail.observability.writeMsPerRecord'), data: writeData })
+          }
+          if (recordsData.length > 0) {
+            series.push({ name: t('detail.observability.recordsIn'), data: recordsData })
+          }
+        } else if (type === 'transform' && points.length > 0) {
+          const busyData = points
+            .map((p) => [p.ts, p.transformBusyRatio] as [number, number])
+            .filter(([, v]) => typeof v === 'number' && Number.isFinite(v))
+            .sort((a, b) => a[0] - b[0])
+          const procData = points
+            .map((p) => [p.ts, p.transformProcessNsPerRecord / 1_000_000] as [number, number])
+            .filter(([, v]) => typeof v === 'number' && Number.isFinite(v))
+            .sort((a, b) => a[0] - b[0])
+          if (busyData.length > 0) {
+            series.push({ name: t('detail.observability.transformBusyRatio'), data: busyData })
+          }
+          if (procData.length > 0) {
+            series.push({ name: t('detail.observability.processMsPerRecord'), data: procData })
+          }
+        }
+      }
+      return series
+    })
+
     return () => (
       <div class="w-full bg-white px-12 pt-6 pb-12 border border-gray-100 rounded-xl">
-	        <div class="font-bold text-xl">
-	          {job.jobName}
-	          <NTag bordered={false} color={getColorFromStatus(job.jobStatus)} class="ml-3">
-	            {job.jobStatus}
-	          </NTag>
-	          {realtimeError.value ? (
-	            <span title={realtimeError.value}>
-	              <NTag bordered={false} type="warning" class="ml-3">
-	                Realtime metrics unavailable
-	              </NTag>
-	            </span>
-	          ) : null}
-	        </div>
+        <div class="font-bold text-xl">
+          {job.jobName}
+          <NTag bordered={false} color={getColorFromStatus(job.jobStatus)} class="ml-3">
+            {job.jobStatus}
+          </NTag>
+          {realtimeError.value ? (
+            <span title={realtimeError.value}>
+              <NTag bordered={false} type="warning" class="ml-3">
+                Realtime metrics unavailable
+              </NTag>
+            </span>
+          ) : null}
+        </div>
         <div class="mt-3 flex items-center gap-3">
           <span>{t('detail.id')}:</span>
           <span class="font-bold">{job.jobId}</span>
@@ -594,6 +753,36 @@ export default defineComponent({
                 realtimeVertexStats={realtimeVertexStats.value}
                 realtimeTick={realtimeTick.value}
               />
+              {/* Pinned Metrics Panel */}
+              {pinnedMetrics.hasPins.value && (
+                <div class="pinned-metrics-panel mt-4 mb-4 p-4 border border-gray-200 rounded-lg">
+                  <div class="flex items-center justify-between mb-2">
+                    <span class="font-bold text-sm">
+                      {t('detail.pinnedMetrics.title')} ({pinnedMetrics.pinCount.value}/{pinnedMetrics.MAX_PINS})
+                    </span>
+                    <NButton size="tiny" type="error" quaternary onClick={pinnedMetrics.clearPins}>
+                      {t('detail.pinnedMetrics.clearAll')}
+                    </NButton>
+                  </div>
+                  <div class="pinned-chips flex flex-wrap gap-2 mb-3">
+                    {pinnedMetrics.pins.value.map((pin) => (
+                      <NTag
+                        key={pin.id}
+                        closable
+                        size="small"
+                        onClose={() => pinnedMetrics.removePin(pin.id)}
+                      >
+                        {pin.label}
+                      </NTag>
+                    ))}
+                  </div>
+                  <LiveMetricsChart
+                    series={pinnedSeriesData.value}
+                    height="280px"
+                    emptyText={t('detail.pinnedMetrics.noData')}
+                  />
+                </div>
+              )}
               <NDataTable
                 columns={columns}
                 data={tableData.value}
@@ -630,6 +819,39 @@ export default defineComponent({
               <NDrawerContent title={focusedEdgeInfo.value?.['edge.id']} closable>
                 <Configuration data={focusedEdgeInfo.value}></Configuration>
                 <NDivider />
+                <div class="mb-2">
+                  <NSpace>
+                    <NButton
+                      size="tiny"
+                      type="primary"
+                      ghost
+                      disabled={pinnedMetrics.pinLimitReached.value}
+                      onClick={() => pinEdgeMetric('bpRatio')}
+                    >
+                      {t('detail.pinnedMetrics.pinButton')} {t('detail.observability.bpRatio')}
+                    </NButton>
+                    <NButton
+                      size="tiny"
+                      type="primary"
+                      ghost
+                      disabled={pinnedMetrics.pinLimitReached.value}
+                      onClick={() => pinEdgeMetric('queueFillRatio')}
+                    >
+                      {t('detail.pinnedMetrics.pinButton')} {t('detail.observability.queueFillRatio')}
+                    </NButton>
+                  </NSpace>
+                  {pinnedMetrics.pinLimitReached.value && (
+                    <span class="text-xs text-gray-400 ml-2">
+                      {t('detail.pinnedMetrics.limitReached')}
+                    </span>
+                  )}
+                </div>
+                <LiveMetricsChart
+                  series={drawerChartSeries.value}
+                  height="260px"
+                  emptyText={t('detail.pinnedMetrics.noData')}
+                />
+                <NDivider />
                 <NDataTable
                   columns={edgePointColumns}
                   data={focusedEdgeSeries.value}
@@ -640,6 +862,87 @@ export default defineComponent({
             ) : (
               <NDrawerContent title={focusedVertex.value?.vertexName} closable>
                 <Configuration data={focusedVertex.value}></Configuration>
+                <NDivider />
+                <div class="mb-2">
+                  <NSpace>
+                    {focusedVertex.value?.type === 'source' && (
+                      <>
+                        <NButton
+                          size="tiny"
+                          type="primary"
+                          ghost
+                          disabled={pinnedMetrics.pinLimitReached.value}
+                          onClick={() => pinVertexMetric('sourceReadRatio')}
+                        >
+                          {t('detail.pinnedMetrics.pinButton')} {t('detail.observability.sourceReadRatio')}
+                        </NButton>
+                        <NButton
+                          size="tiny"
+                          type="primary"
+                          ghost
+                          disabled={pinnedMetrics.pinLimitReached.value}
+                          onClick={() => pinVertexMetric('sourceIdleRatio')}
+                        >
+                          {t('detail.pinnedMetrics.pinButton')} {t('detail.observability.sourceIdleRatio')}
+                        </NButton>
+                      </>
+                    )}
+                    {focusedVertex.value?.type === 'transform' && (
+                      <>
+                        <NButton
+                          size="tiny"
+                          type="primary"
+                          ghost
+                          disabled={pinnedMetrics.pinLimitReached.value}
+                          onClick={() => pinVertexMetric('transformBusyRatio')}
+                        >
+                          {t('detail.pinnedMetrics.pinButton')} {t('detail.observability.transformBusyRatio')}
+                        </NButton>
+                        <NButton
+                          size="tiny"
+                          type="primary"
+                          ghost
+                          disabled={pinnedMetrics.pinLimitReached.value}
+                          onClick={() => pinVertexMetric('transformProcessNsPerRecord')}
+                        >
+                          {t('detail.pinnedMetrics.pinButton')} {t('detail.observability.processMsPerRecord')}
+                        </NButton>
+                      </>
+                    )}
+                    {focusedVertex.value?.type === 'sink' && (
+                      <>
+                        <NButton
+                          size="tiny"
+                          type="primary"
+                          ghost
+                          disabled={pinnedMetrics.pinLimitReached.value}
+                          onClick={() => pinVertexMetric('sinkBusyRatio')}
+                        >
+                          {t('detail.pinnedMetrics.pinButton')} {t('detail.observability.sinkBusyRatio')}
+                        </NButton>
+                        <NButton
+                          size="tiny"
+                          type="primary"
+                          ghost
+                          disabled={pinnedMetrics.pinLimitReached.value}
+                          onClick={() => pinVertexMetric('sinkWriteNsPerRecord')}
+                        >
+                          {t('detail.pinnedMetrics.pinButton')} {t('detail.observability.writeMsPerRecord')}
+                        </NButton>
+                      </>
+                    )}
+                  </NSpace>
+                  {pinnedMetrics.pinLimitReached.value && (
+                    <span class="text-xs text-gray-400 ml-2">
+                      {t('detail.pinnedMetrics.limitReached')}
+                    </span>
+                  )}
+                </div>
+                <LiveMetricsChart
+                  series={drawerChartSeries.value}
+                  height="260px"
+                  emptyText={t('detail.pinnedMetrics.noData')}
+                />
                 <NDivider />
                 <NDataTable
                   columns={vertexPointColumns.value}

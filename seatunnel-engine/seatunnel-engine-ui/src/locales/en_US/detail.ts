@@ -53,4 +53,11 @@ export default {
     bpRatio: 'Downstream Wait Ratio',
     queueFillRatio: 'Queue Fill Ratio',
   },
+  pinnedMetrics: {
+    title: 'Pinned Metrics',
+    clearAll: 'Clear All',
+    pinButton: 'Pin',
+    limitReached: 'Max 6 pins reached',
+    noData: 'Pin a metric to see live chart',
+  },
 }
