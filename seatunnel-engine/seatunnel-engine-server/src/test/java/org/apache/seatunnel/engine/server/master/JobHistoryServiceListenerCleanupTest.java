@@ -19,6 +19,8 @@ package org.apache.seatunnel.engine.server.master;
 
 import org.apache.seatunnel.api.common.metrics.JobMetrics;
 import org.apache.seatunnel.engine.common.Constant;
+import org.apache.seatunnel.engine.common.config.ConfigProvider;
+import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.server.AbstractSeaTunnelServerTest;
 import org.apache.seatunnel.engine.server.CoordinatorService;
@@ -29,12 +31,17 @@ import org.apache.seatunnel.engine.server.TestUtils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import com.hazelcast.config.Config;
 import com.hazelcast.instance.impl.HazelcastInstanceImpl;
 import com.hazelcast.map.IMap;
 
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
+
+import static org.awaitility.Awaitility.await;
 
 /**
  * Regression test for the finished-job IMap listener leak across master role switches.
@@ -102,7 +109,7 @@ public class JobHistoryServiceListenerCleanupTest extends AbstractSeaTunnelServe
     @Test
     public void testClearCoordinatorServiceDeregistersJobHistoryListeners() {
         HazelcastInstanceImpl coordinatorInstance =
-                SeaTunnelServerStarter.createHazelcastInstance(
+                createIsolatedHazelcastInstance(
                         TestUtils.getClusterName(
                                 "JobHistoryServiceListenerCleanupTest_clearCoordinatorService"));
         try {
@@ -111,7 +118,7 @@ public class JobHistoryServiceListenerCleanupTest extends AbstractSeaTunnelServe
                             .node
                             .getNodeEngine()
                             .getService(SeaTunnelServer.SERVICE_NAME);
-            CoordinatorService coordinatorService = seaTunnelServer.getCoordinatorService();
+            CoordinatorService coordinatorService = awaitActiveCoordinatorService(seaTunnelServer);
             JobHistoryService jobHistoryService = coordinatorService.getJobHistoryService();
             List<UUID> registrationIds = jobHistoryService.getEntryListenerRegistrationIds();
             Assertions.assertEquals(3, registrationIds.size());
@@ -154,5 +161,59 @@ public class JobHistoryServiceListenerCleanupTest extends AbstractSeaTunnelServe
                 instance.getMap(Constant.IMAP_FINISHED_JOB_METRICS),
                 instance.getMap(Constant.IMAP_FINISHED_JOB_VERTEX_INFO),
                 1);
+    }
+
+    /**
+     * Waits until the isolated test node exposes an active coordinator service. The lookup itself
+     * can throw while active-master initialization is still running, so the retry must wrap the
+     * service lookup rather than only the active-state assertion.
+     */
+    private CoordinatorService awaitActiveCoordinatorService(SeaTunnelServer seaTunnelServer) {
+        AtomicReference<CoordinatorService> coordinatorServiceRef = new AtomicReference<>();
+        await().ignoreExceptions()
+                .atMost(30, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            CoordinatorService coordinatorService =
+                                    seaTunnelServer.getCoordinatorService();
+                            Assertions.assertTrue(coordinatorService.isCoordinatorActive());
+                            coordinatorServiceRef.set(coordinatorService);
+                        });
+        return coordinatorServiceRef.get();
+    }
+
+    /**
+     * Creates the extra Hazelcast node with an allocated port range so this test does not compete
+     * for Hazelcast's default 5701 range when other engine-server tests run in the same CI job.
+     */
+    private HazelcastInstanceImpl createIsolatedHazelcastInstance(String clusterName) {
+        int hazelcastPort = TestUtils.getAvailablePort(100);
+        SeaTunnelConfig seaTunnelConfig = ConfigProvider.locateAndGetSeaTunnelConfig();
+        seaTunnelConfig.setHazelcastConfig(
+                Config.loadFromString(buildHazelcastConfig(clusterName, hazelcastPort)));
+        return SeaTunnelServerStarter.createHazelcastInstance(seaTunnelConfig);
+    }
+
+    private String buildHazelcastConfig(String clusterName, int hazelcastPort) {
+        return "hazelcast:\n"
+                + "  cluster-name: "
+                + clusterName
+                + "\n"
+                + "  network:\n"
+                + "    join:\n"
+                + "      tcp-ip:\n"
+                + "        enabled: true\n"
+                + "        member-list:\n"
+                + "          - 127.0.0.1:"
+                + hazelcastPort
+                + "\n"
+                + "    port:\n"
+                + "      auto-increment: true\n"
+                + "      port-count: 100\n"
+                + "      port: "
+                + hazelcastPort
+                + "\n"
+                + "  properties:\n"
+                + "    hazelcast.tcp.join.port.try.count: 100\n";
     }
 }
