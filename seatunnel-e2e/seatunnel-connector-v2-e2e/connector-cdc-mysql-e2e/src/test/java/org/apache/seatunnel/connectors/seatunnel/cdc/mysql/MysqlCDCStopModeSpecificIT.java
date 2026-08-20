@@ -339,8 +339,23 @@ public class MysqlCDCStopModeSpecificIT extends TestSuiteBase implements TestRes
         clearTable(MYSQL_DATABASE, SOURCE_TABLE);
         clearTable(MYSQL_DATABASE, SINK_TABLE);
 
-        executeSql(
-                String.format("INSERT INTO %s.%s (id) VALUES (21)", MYSQL_DATABASE, SOURCE_TABLE));
+        // Bulk-insert enough rows so that, for snapshot-taking startups (initial/earliest),
+        // the snapshot phase takes a measurably non-trivial amount of time. Without this,
+        // the snapshot of a single-row table can complete before the RUNNING readiness
+        // signal is observed, and the post-readiness UPDATE below would land after the
+        // (snapshot-completion-time) stop offset and be silently dropped — a flaky race.
+        StringBuilder bulkInsert =
+                new StringBuilder(
+                        String.format(
+                                "INSERT INTO %s.%s (id, f_varchar) VALUES ",
+                                MYSQL_DATABASE, SOURCE_TABLE));
+        for (int i = 1; i <= 200; i++) {
+            if (i > 1) {
+                bulkInsert.append(", ");
+            }
+            bulkInsert.append("(").append(i).append(", 'bulk')");
+        }
+        executeSql(bulkInsert.toString());
 
         List<String> variables = new ArrayList<>();
         variables.add("startup_mode=" + startupMode);
@@ -375,11 +390,11 @@ public class MysqlCDCStopModeSpecificIT extends TestSuiteBase implements TestRes
 
         // Issue a change while the job is running. For snapshot-taking startups
         // (initial/earliest) the update happens while the snapshot phase is still in
-        // progress, so it must be picked up by the binlog phase: with the stale
-        // split-creation stop offset the binlog phase would terminate immediately
-        // past it and this row would be silently dropped. The other startup modes
-        // (latest/specific/timestamp) have no snapshot window, so the update lands
-        // after the stop offset is resolved and is not read — which is expected.
+        // progress (guaranteed by the bulk-insert above), so it must be picked up by the
+        // binlog phase: with the stale split-creation stop offset the binlog phase would
+        // terminate immediately past it and this row would be silently dropped. The other
+        // startup modes (latest/specific/timestamp) have no snapshot window, so the update
+        // lands after the stop offset is resolved and is not read — which is expected.
         executeSql(
                 String.format(
                         "UPDATE %s.%s SET f_varchar = 'latest-stop' WHERE id = 21",

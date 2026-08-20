@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.config.StartupConfig;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
+import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.state.IncrementalPhaseState;
 import org.apache.seatunnel.connectors.cdc.base.source.event.SnapshotSplitWatermark;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
@@ -85,6 +86,12 @@ public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAs
      */
     private Offset startupOffset;
 
+    /**
+     * The stop offset resolved once when the snapshot phase completes ({@code stop.mode = latest}),
+     * reused after checkpoint restore so that a restart does not re-resolve (and drift) it.
+     */
+    private Offset resolvedStopOffset;
+
     private final boolean restoredFromCheckpoint;
 
     public IncrementalSplitAssigner(
@@ -113,6 +120,7 @@ public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAs
         this.offsetFactory = offsetFactory;
         this.restoredFromCheckpoint = true;
         this.startupOffset = checkpointState == null ? null : checkpointState.getStartupOffset();
+        this.resolvedStopOffset = checkpointState == null ? null : checkpointState.getStopOffset();
     }
 
     @Override
@@ -200,7 +208,7 @@ public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAs
 
     @Override
     public IncrementalPhaseState snapshotState(long checkpointId) {
-        return new IncrementalPhaseState(startupOffset);
+        return new IncrementalPhaseState(startupOffset, resolvedStopOffset);
     }
 
     @Override
@@ -290,11 +298,18 @@ public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAs
             startupOffset = sourceConfig.getStartupConfig().getStartupOffset(offsetFactory);
         }
         Offset incrementalSplitStartOffset = minOffset != null ? minOffset : startupOffset;
+        // stop.mode=latest: use the offset resolved once when the snapshot phase completed
+        // (see completedSnapshotPhase), so the split stops at the post-snapshot position;
+        // other stop modes keep the split's configured offset from StopConfig.
+        Offset incrementalSplitStopOffset =
+                resolvedStopOffset != null
+                        ? resolvedStopOffset
+                        : sourceConfig.getStopConfig().getStopOffset(offsetFactory);
         return new IncrementalSplit(
                 String.format(INCREMENTAL_SPLIT_ID, index),
                 capturedTables,
                 incrementalSplitStartOffset,
-                sourceConfig.getStopConfig().getStopOffset(offsetFactory),
+                incrementalSplitStopOffset,
                 completedSnapshotSplitInfos,
                 checkpointTables,
                 historyTableChanges);
@@ -315,8 +330,22 @@ public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAs
                 context.getSplitCompletedOffsets().remove(assignedSplit.splitId());
             }
         }
-        return context.getAssignedSnapshotSplit().isEmpty()
-                && context.getSplitCompletedOffsets().isEmpty();
+        boolean completed =
+                context.getAssignedSnapshotSplit().isEmpty()
+                        && context.getSplitCompletedOffsets().isEmpty();
+        if (completed
+                && resolvedStopOffset == null
+                && context.getSourceConfig().getStopConfig().getStopMode() == StopMode.LATEST) {
+            // stop.mode=latest: resolve the stop offset once, now that the snapshot phase is
+            // confirmed complete, so the incremental phase captures every change written while
+            // the snapshot was running. Stored in the checkpoint (see snapshotState) so a
+            // restart reuses the same value instead of re-resolving (and drifting) it.
+            resolvedStopOffset = offsetFactory.latest();
+            LOG.info(
+                    "stop.mode=latest: snapshot phase completed, resolved stop offset {}",
+                    resolvedStopOffset);
+        }
+        return completed;
     }
 
     public boolean waitingForAssignedSplits() {

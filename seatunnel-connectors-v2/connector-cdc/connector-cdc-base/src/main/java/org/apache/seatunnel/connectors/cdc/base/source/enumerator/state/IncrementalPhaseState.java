@@ -30,11 +30,24 @@ public class IncrementalPhaseState implements PendingSplitsState {
 
     private final Offset startupOffset;
 
+    /**
+     * The stop offset resolved once at the enumerator when the snapshot phase completes ({@code
+     * stop.mode = latest}). Stored in the checkpoint so that a restart reuses the same value
+     * instead of re-resolving (and drifting) it. {@code null} for other stop modes and for
+     * checkpoints written before this field existed.
+     */
+    private final Offset stopOffset;
+
     public IncrementalPhaseState() {
-        this(null);
+        this(null, null);
     }
 
     public IncrementalPhaseState(Offset startupOffset) {
+        this(startupOffset, null);
+    }
+
+    public IncrementalPhaseState(Offset startupOffset, Offset stopOffset) {
         this.startupOffset = startupOffset;
+        this.stopOffset = stopOffset;
     }
 }

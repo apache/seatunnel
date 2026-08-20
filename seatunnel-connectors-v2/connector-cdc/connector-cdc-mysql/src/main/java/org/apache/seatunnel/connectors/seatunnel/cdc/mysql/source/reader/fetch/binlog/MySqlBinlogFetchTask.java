@@ -19,7 +19,6 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.reader.fetch.
 
 import org.apache.seatunnel.connectors.cdc.base.config.StartupConfig;
 import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
-import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
 import org.apache.seatunnel.connectors.cdc.base.relational.JdbcSourceEventDispatcher;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 import org.apache.seatunnel.connectors.cdc.base.source.reader.external.FetchTask;
@@ -29,7 +28,6 @@ import org.apache.seatunnel.connectors.cdc.base.source.split.wartermark.Watermar
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.offset.BinlogOffset;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.reader.fetch.MySqlSourceFetchTaskContext;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.reader.fetch.scan.MySqlSnapshotFetchTask;
-import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.utils.MySqlConnectionUtils;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -73,26 +71,10 @@ public class MySqlBinlogFetchTask implements FetchTask<SourceSplitBase> {
         MySqlStreamingChangeEventSource mySqlStreamingChangeEventSource;
 
         StartupConfig startupConfig = sourceFetchContext.getSourceConfig().getStartupConfig();
-        StopMode stopMode = sourceFetchContext.getSourceConfig().getStopConfig().getStopMode();
 
         StartupMode startupMode = startupConfig.getStartupMode();
         // Check if we need bounded read (stop at specific position or timestamp)
         boolean isBoundedRead = !NO_STOPPING_OFFSET.equals(split.getStopOffset());
-
-        // stop.mode=latest: the stop offset must reflect the binlog position when the
-        // incremental (binlog) phase actually starts — after the snapshot phase — not the
-        // position captured when the split was created. Otherwise, on a snapshot-taking
-        // startup (e.g. initial/earliest), the binlog phase would start past the stale
-        // stop offset and terminate immediately, silently dropping all changes written
-        // while the snapshot was running.
-        BinlogOffset effectiveStopOffset = null;
-        if (stopMode == StopMode.LATEST) {
-            effectiveStopOffset =
-                    MySqlConnectionUtils.currentBinlogOffset(sourceFetchContext.getConnection());
-            log.info(
-                    "stop.mode=latest: resolving stop offset at binlog phase start: {}",
-                    effectiveStopOffset);
-        }
 
         if (shouldFilterByTimestamp(startupMode, split.getStartupOffset())) {
             if (isBoundedRead) {
@@ -113,8 +95,7 @@ public class MySqlBinlogFetchTask implements FetchTask<SourceSplitBase> {
                                 sourceFetchContext.getTaskContext(),
                                 sourceFetchContext.getStreamingChangeEventSourceMetrics(),
                                 split,
-                                startupConfig.getTimestamp(),
-                                effectiveStopOffset);
+                                startupConfig.getTimestamp());
             } else {
                 log.info(
                         "Starting MySQL binlog reader,with timestamp filter {}",
@@ -146,8 +127,7 @@ public class MySqlBinlogFetchTask implements FetchTask<SourceSplitBase> {
                             sourceFetchContext.getTaskContext(),
                             sourceFetchContext.getStreamingChangeEventSourceMetrics(),
                             split,
-                            null,
-                            effectiveStopOffset);
+                            null);
         } else {
             mySqlStreamingChangeEventSource =
                     new MySqlStreamingChangeEventSource(
@@ -431,12 +411,6 @@ public class MySqlBinlogFetchTask implements FetchTask<SourceSplitBase> {
         private final JdbcSourceEventDispatcher<MySqlPartition> dispatcher;
         private final ErrorHandler errorHandler;
         private final Long targetTimestamp;
-        /**
-         * Effective stop offset resolved when the binlog phase starts (stop.mode=latest); {@code
-         * null} otherwise.
-         */
-        private final BinlogOffset effectiveStopOffset;
-
         private BoundedBinlogChangeEventSourceContext boundedContext;
         private long eventCount = 0;
         private long lastLogTime = System.currentTimeMillis();
@@ -454,8 +428,7 @@ public class MySqlBinlogFetchTask implements FetchTask<SourceSplitBase> {
                 MySqlTaskContext taskContext,
                 MySqlStreamingChangeEventSourceMetrics metrics,
                 IncrementalSplit binlogSplit,
-                Long targetTimestamp,
-                BinlogOffset effectiveStopOffset) {
+                Long targetTimestamp) {
             super(
                     connectorConfig,
                     connection,
@@ -468,7 +441,6 @@ public class MySqlBinlogFetchTask implements FetchTask<SourceSplitBase> {
             this.dispatcher = dispatcher;
             this.errorHandler = errorHandler;
             this.targetTimestamp = targetTimestamp;
-            this.effectiveStopOffset = effectiveStopOffset;
         }
 
         @Override
@@ -547,15 +519,11 @@ public class MySqlBinlogFetchTask implements FetchTask<SourceSplitBase> {
         private void checkStopOffset(MySqlPartition partition, MySqlOffsetContext offsetContext) {
             final BinlogOffset currentBinlogOffset =
                     MySqlBinlogSplitReadTask.getBinlogPosition(offsetContext.getOffset());
-            // stop.mode=latest resolves the stop offset when the binlog phase starts
-            // (effectiveStopOffset); specific/timestamp keep the split's configured offset.
-            final Offset stopOffset =
-                    effectiveStopOffset != null ? effectiveStopOffset : binlogSplit.getStopOffset();
 
-            if (currentBinlogOffset.isAtOrAfter(stopOffset)) {
+            if (currentBinlogOffset.isAtOrAfter(binlogSplit.getStopOffset())) {
                 log.info(
                         "Reached stop offset {} at current position {}. Stopping binlog reader.",
-                        stopOffset,
+                        binlogSplit.getStopOffset(),
                         currentBinlogOffset);
 
                 // Send end watermark event
