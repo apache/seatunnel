@@ -70,14 +70,8 @@ public class ConnectionPoolManager {
         // obtain a fresh connection from the pool. This prevents "No operations allowed
         // after statement closed" errors in long-running streaming jobs.
         Connection cached = connectionMap.get(index);
-        if (cached != null) {
-            try {
-                if (!cached.isClosed()) {
-                    return cached;
-                }
-            } catch (SQLException e) {
-                // ignore, will fall through to compute
-            }
+        if (cached != null && isUsable(cached)) {
+            return cached;
         }
         return connectionMap.compute(
                 index,
