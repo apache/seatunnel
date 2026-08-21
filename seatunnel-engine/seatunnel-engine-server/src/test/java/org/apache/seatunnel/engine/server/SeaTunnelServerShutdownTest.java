@@ -29,6 +29,7 @@ import com.hazelcast.map.IMap;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 
 import java.lang.reflect.Field;
+import java.util.concurrent.TimeUnit;
 
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
@@ -38,10 +39,12 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+/** Covers graceful member-removal marker writes around the Hazelcast shutdown lifecycle. */
 class SeaTunnelServerShutdownTest {
 
+    /** Verifies the marker is published from Hazelcast's pre-PASSIVE graceful shutdown hook. */
     @Test
-    void shouldMarkGracefulMemberRemovalOnGracefulShutdown() throws Exception {
+    void shouldMarkGracefulMemberRemovalOnGracefulShutdownHook() throws Exception {
         NodeEngineImpl nodeEngine = mock(NodeEngineImpl.class);
         HazelcastInstance hazelcastInstance = mock(HazelcastInstance.class);
         IMap<Address, Long> gracefulMemberRemovalIMap = mock(IMap.class);
@@ -51,12 +54,25 @@ class SeaTunnelServerShutdownTest {
         when(hazelcastInstance.getMap(Constant.IMAP_GRACEFUL_MEMBER_REMOVAL))
                 .thenReturn(gracefulMemberRemovalIMap);
 
-        createServer(nodeEngine).shutdown(false);
+        SeaTunnelServer seaTunnelServer = createServer(nodeEngine);
+
+        seaTunnelServer.onShutdown(30, TimeUnit.SECONDS);
 
         verify(gracefulMemberRemovalIMap).put(eq(address), anyLong());
         verify(gracefulMemberRemovalIMap, never()).remove(address);
     }
 
+    /** Ensures ManagedService.shutdown no longer tries to publish the graceful marker too late. */
+    @Test
+    void shouldNotMarkGracefulMemberRemovalDuringManagedServiceShutdown() throws Exception {
+        NodeEngineImpl nodeEngine = mock(NodeEngineImpl.class);
+
+        createServer(nodeEngine).shutdown(false);
+
+        verifyNoInteractions(nodeEngine);
+    }
+
+    /** Forced termination still skips the graceful-shutdown marker path entirely. */
     @Test
     void shouldNotMarkGracefulMemberRemovalOnForcedShutdown() throws Exception {
         NodeEngineImpl nodeEngine = mock(NodeEngineImpl.class);

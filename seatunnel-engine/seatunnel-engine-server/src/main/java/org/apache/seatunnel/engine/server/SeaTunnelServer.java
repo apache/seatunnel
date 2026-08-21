@@ -47,6 +47,7 @@ import org.apache.seatunnel.engine.server.telemetry.metrics.entity.ThreadPoolSta
 import org.apache.hadoop.fs.FileSystem;
 
 import com.hazelcast.cluster.Address;
+import com.hazelcast.internal.services.GracefulShutdownAwareService;
 import com.hazelcast.internal.services.ManagedService;
 import com.hazelcast.internal.services.MembershipAwareService;
 import com.hazelcast.internal.services.MembershipServiceEvent;
@@ -71,7 +72,10 @@ import java.util.concurrent.TimeUnit;
 
 @Slf4j
 public class SeaTunnelServer
-        implements ManagedService, MembershipAwareService, LiveOperationsTracker {
+        implements ManagedService,
+                MembershipAwareService,
+                GracefulShutdownAwareService,
+                LiveOperationsTracker {
 
     static {
         // Load DriverManager first to avoid deadlock between DriverManager's
@@ -226,12 +230,15 @@ public class SeaTunnelServer
     public void reset() {}
 
     @Override
+    public boolean onShutdown(long timeout, TimeUnit unit) {
+        // Hazelcast invokes graceful-shutdown-aware services before ManagedService.shutdown()
+        // and before the node becomes PASSIVE, so the marker is still writable here.
+        return markLocalGracefulMemberRemoval();
+    }
+
+    @Override
     public void shutdown(boolean terminate) {
         isRunning = false;
-        // Forced termination cannot prove an operator-initiated graceful shutdown.
-        if (!terminate) {
-            markLocalGracefulMemberRemoval();
-        }
 
         if (jettyService != null) {
             jettyService.shutdownJettyServer();
@@ -266,8 +273,8 @@ public class SeaTunnelServer
      * Publishes a best-effort marker before a graceful shutdown so the coordinator can downgrade
      * only it.
      */
-    private void markLocalGracefulMemberRemoval() {
-        updateLocalGracefulMemberRemovalMarker(true);
+    private boolean markLocalGracefulMemberRemoval() {
+        return updateLocalGracefulMemberRemovalMarker(true);
     }
 
     /**
@@ -279,12 +286,12 @@ public class SeaTunnelServer
     }
 
     /**
-     * Updates a best-effort marker without allowing Hazelcast shutdown failures to block service
-     * cleanup.
+     * Updates a best-effort marker without allowing Hazelcast cleanup failures to block service
+     * shutdown or startup.
      */
-    private void updateLocalGracefulMemberRemovalMarker(boolean gracefulShutdown) {
+    private boolean updateLocalGracefulMemberRemovalMarker(boolean gracefulShutdown) {
         if (nodeEngine == null) {
-            return;
+            return false;
         }
         try {
             Address thisAddress = nodeEngine.getThisAddress();
@@ -295,12 +302,14 @@ public class SeaTunnelServer
             } else {
                 gracefulMemberRemovalIMap.remove(thisAddress);
             }
+            return true;
         } catch (Exception e) {
             LOGGER.warning(
                     "Failed to "
                             + (gracefulShutdown ? "mark" : "clear")
                             + " graceful member removal marker",
                     e);
+            return false;
         }
     }
 
