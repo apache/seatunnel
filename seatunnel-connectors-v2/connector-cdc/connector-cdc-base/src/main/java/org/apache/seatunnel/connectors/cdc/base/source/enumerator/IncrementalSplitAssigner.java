@@ -146,6 +146,7 @@ public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAs
     private Set<TableId> getRemainingTables() {
         Set<TableId> allTables = new HashSet<>(context.getCapturedTables());
         assignedSplits.values().forEach(split -> split.getTableIds().forEach(allTables::remove));
+        allTables.removeAll(tableWatermarks.keySet());
         return allTables;
     }
 
@@ -213,6 +214,7 @@ public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAs
     public List<IncrementalSplit> createIncrementalSplits(boolean startWithSnapshotMinimumOffset) {
         Set<TableId> allTables = new HashSet<>(context.getCapturedTables());
         assignedSplits.values().forEach(split -> split.getTableIds().forEach(allTables::remove));
+        allTables.removeAll(tableWatermarks.keySet());
         List<TableId>[] capturedTables = new List[incrementalParallelism];
         int i = 0;
         for (TableId tableId : allTables) {

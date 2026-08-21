@@ -121,6 +121,33 @@ class IncrementalSplitAssignerTest {
         assertTrue(assigner.noMoreSplits());
     }
 
+    @Test
+    void shouldNotReassignTablesRestoredFromCheckpoint() {
+        SourceConfig sourceConfig = mock(SourceConfig.class);
+        OffsetFactory offsetFactory = mock(OffsetFactory.class);
+        Offset startupOffset = mock(Offset.class);
+        Offset stoppingOffset = mock(Offset.class);
+        when(sourceConfig.getStartupConfig())
+                .thenReturn(new StartupConfig(StartupMode.INITIAL, null, null, null));
+        when(sourceConfig.getStopConfig())
+                .thenReturn(new StopConfig(StopMode.NEVER, null, null, null));
+
+        TableId tableId = TableId.parse("database.schema.table");
+        IncrementalSplit restoredSplit =
+                new IncrementalSplit(
+                        "incremental-split-0",
+                        Collections.singletonList(tableId),
+                        startupOffset,
+                        stoppingOffset,
+                        Collections.emptyList());
+        IncrementalSplitAssigner<SourceConfig> assigner =
+                new IncrementalSplitAssigner<>(createContext(sourceConfig), 1, offsetFactory);
+        assigner.addSplits(Collections.singletonList(restoredSplit));
+
+        assertFalse(assigner.getNext().isPresent());
+        assertTrue(assigner.noMoreSplits());
+    }
+
     private SplitAssigner.Context<SourceConfig> createContext(SourceConfig sourceConfig) {
         return createContext(
                 sourceConfig, Collections.singleton(TableId.parse("database.schema.table")));
