@@ -461,11 +461,6 @@ public class ZetaSQLType {
                 // documented that way as well; declaring INT/DOUBLE for them would truncate BIGINT
                 // and DECIMAL results.
             case ZetaSQLFunction.ABS:
-            case ZetaSQLFunction.CEIL:
-            case ZetaSQLFunction.CEILING:
-            case ZetaSQLFunction.FLOOR:
-            case ZetaSQLFunction.TRUNC:
-            case ZetaSQLFunction.TRUNCATE:
             case ZetaSQLFunction.DATEADD:
             case ZetaSQLFunction.TIMESTAMPADD:
             case ZetaSQLFunction.ROUND:
