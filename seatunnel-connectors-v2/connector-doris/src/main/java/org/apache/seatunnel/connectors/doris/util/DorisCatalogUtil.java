@@ -102,6 +102,23 @@ public class DorisCatalogUtil {
         return "TRUNCATE TABLE " + tablePath.getFullName();
     }
 
+    public static String getTruncateTableQuery(TablePath tablePath, List<String> partitions) {
+        String query = getTruncateTableQuery(tablePath);
+        if (partitions == null || partitions.isEmpty()) {
+            return query;
+        }
+        return query
+                + " PARTITION ("
+                + partitions.stream()
+                        .map(DorisCatalogUtil::quoteIdentifier)
+                        .collect(Collectors.joining(", "))
+                + ")";
+    }
+
+    private static String quoteIdentifier(String identifier) {
+        return "`" + identifier.replace("`", "``") + "`";
+    }
+
     /**
      * @param createTableTemplate create table template
      * @param catalogTable catalog table

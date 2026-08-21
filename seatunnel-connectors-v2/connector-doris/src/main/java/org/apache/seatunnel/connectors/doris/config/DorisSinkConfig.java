@@ -22,6 +22,7 @@ import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.connectors.doris.exception.DorisConnectorException;
 
 import lombok.Getter;
@@ -30,8 +31,13 @@ import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 
 import static org.apache.seatunnel.connectors.doris.config.DorisBaseOptions.DATABASE;
 import static org.apache.seatunnel.connectors.doris.config.DorisBaseOptions.DORIS_BATCH_SIZE;
@@ -42,6 +48,7 @@ import static org.apache.seatunnel.connectors.doris.config.DorisBaseOptions.TABL
 import static org.apache.seatunnel.connectors.doris.config.DorisBaseOptions.USERNAME;
 import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.BENODES;
 import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.CASE_SENSITIVE;
+import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.DATA_SAVE_MODE;
 import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.DIRECT_TO_BE;
 import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.DORIS_SINK_CONFIG_PREFIX;
 import static org.apache.seatunnel.connectors.doris.config.DorisSinkOptions.NEEDS_UNSUPPORTED_TYPE_CASTING;
@@ -79,6 +86,7 @@ public class DorisSinkConfig implements Serializable {
     private Integer bufferSize;
     private Integer bufferCount;
     private Properties streamLoadProps;
+    private List<String> partitions = Collections.emptyList();
     private boolean directToBe;
     private boolean needsUnsupportedTypeCasting;
     private boolean caseSensitive;
@@ -106,6 +114,15 @@ public class DorisSinkConfig implements Serializable {
         dorisSinkConfig.setPassword(config.get(PASSWORD));
         dorisSinkConfig.setQueryPort(config.get(QUERY_PORT));
         dorisSinkConfig.setStreamLoadProps(parseStreamLoadProperties(config));
+        if (config.get(DATA_SAVE_MODE) == DataSaveMode.DROP_DATA) {
+            List<String> partitions = parseDropDataPartitions(dorisSinkConfig.getStreamLoadProps());
+            dorisSinkConfig.setPartitions(partitions);
+            if (!partitions.isEmpty()) {
+                dorisSinkConfig
+                        .getStreamLoadProps()
+                        .setProperty("partitions", String.join(",", partitions));
+            }
+        }
         dorisSinkConfig.setDatabase(config.get(DATABASE));
         dorisSinkConfig.setTable(config.get(TABLE));
         dorisSinkConfig.setBatchSize(config.get(DORIS_BATCH_SIZE));
@@ -139,6 +156,32 @@ public class DorisSinkConfig implements Serializable {
                     });
         }
         return streamLoadProps;
+    }
+
+    private static List<String> parseDropDataPartitions(Properties streamLoadProperties) {
+        String configuredPartitions = streamLoadProperties.getProperty("partitions");
+        if (configuredPartitions == null) {
+            return Collections.emptyList();
+        }
+
+        String[] values = configuredPartitions.split(",", -1);
+        List<String> partitions = new ArrayList<>(values.length);
+        Set<String> uniquePartitions = new HashSet<>();
+        for (String value : values) {
+            String partition = value.trim();
+            if (partition.isEmpty()) {
+                throw new DorisConnectorException(
+                        SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                        "PluginName: Doris, Message: 'doris.config.partitions' cannot contain blank partition names.");
+            }
+            if (!uniquePartitions.add(partition)) {
+                throw new DorisConnectorException(
+                        SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                        "PluginName: Doris, Message: 'doris.config.partitions' cannot contain duplicate partition names.");
+            }
+            partitions.add(partition);
+        }
+        return Collections.unmodifiableList(partitions);
     }
 
     private static void validateDirectWriteOptions(

@@ -23,11 +23,85 @@ import org.apache.seatunnel.connectors.doris.exception.DorisConnectorException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
 public class DorisSinkConfigTest {
+
+    @Test
+    void testDropDataPartitionsAreNormalized() {
+        DorisSinkConfig sinkConfig =
+                DorisSinkConfig.of(
+                        createConfig(
+                                new HashMap<String, Object>() {
+                                    {
+                                        put("data_save_mode", "DROP_DATA");
+                                        put(
+                                                "doris.config",
+                                                Collections.singletonMap(
+                                                        "partitions", " p1 , p2 "));
+                                    }
+                                }));
+
+        Assertions.assertEquals(Arrays.asList("p1", "p2"), sinkConfig.getPartitions());
+        Assertions.assertEquals("p1,p2", sinkConfig.getStreamLoadProps().getProperty("partitions"));
+    }
+
+    @Test
+    void testDropDataRejectsBlankPartitionNames() {
+        ReadonlyConfig config =
+                createConfig(
+                        new HashMap<String, Object>() {
+                            {
+                                put("data_save_mode", "DROP_DATA");
+                                put(
+                                        "doris.config",
+                                        Collections.singletonMap("partitions", "p1,,p2"));
+                            }
+                        });
+
+        DorisConnectorException exception =
+                Assertions.assertThrows(
+                        DorisConnectorException.class, () -> DorisSinkConfig.of(config));
+
+        Assertions.assertTrue(exception.getMessage().contains("blank partition names"));
+    }
+
+    @Test
+    void testDropDataRejectsDuplicatePartitionNames() {
+        ReadonlyConfig config =
+                createConfig(
+                        new HashMap<String, Object>() {
+                            {
+                                put("data_save_mode", "DROP_DATA");
+                                put(
+                                        "doris.config",
+                                        Collections.singletonMap("partitions", "p1,p1"));
+                            }
+                        });
+
+        DorisConnectorException exception =
+                Assertions.assertThrows(
+                        DorisConnectorException.class, () -> DorisSinkConfig.of(config));
+
+        Assertions.assertTrue(exception.getMessage().contains("duplicate partition names"));
+    }
+
+    @Test
+    void testAppendDataDoesNotInterpretStreamLoadPartitions() {
+        DorisSinkConfig sinkConfig =
+                DorisSinkConfig.of(
+                        createConfig(
+                                Collections.singletonMap(
+                                        "doris.config",
+                                        Collections.singletonMap("partitions", "p1,,p2"))));
+
+        Assertions.assertTrue(sinkConfig.getPartitions().isEmpty());
+        Assertions.assertEquals(
+                "p1,,p2", sinkConfig.getStreamLoadProps().getProperty("partitions"));
+    }
 
     @Test
     void testDirectToBeRequiresBenodes() {
