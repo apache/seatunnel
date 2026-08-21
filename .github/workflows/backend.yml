@@ -289,7 +289,6 @@ jobs:
           modules=`python tools/update_modules_check/update_modules_check.py delete "$update_files"`
           echo $modules
           echo "modules=$modules" >> $GITHUB_OUTPUT      
-
       - name: Make unit test modules
         id: ut-modules
         timeout-minutes: 60
