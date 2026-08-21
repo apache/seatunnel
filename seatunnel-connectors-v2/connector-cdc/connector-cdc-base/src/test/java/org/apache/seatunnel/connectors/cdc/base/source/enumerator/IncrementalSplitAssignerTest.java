@@ -122,7 +122,7 @@ class IncrementalSplitAssignerTest {
     }
 
     @Test
-    void shouldNotReassignTablesRestoredFromCheckpoint() {
+    void shouldReassignTablesRestoredFromCheckpointWithTheirWatermark() {
         SourceConfig sourceConfig = mock(SourceConfig.class);
         OffsetFactory offsetFactory = mock(OffsetFactory.class);
         Offset startupOffset = mock(Offset.class);
@@ -144,8 +144,12 @@ class IncrementalSplitAssignerTest {
                 new IncrementalSplitAssigner<>(createContext(sourceConfig), 1, offsetFactory);
         assigner.addSplits(Collections.singletonList(restoredSplit));
 
-        assertFalse(assigner.getNext().isPresent());
-        assertTrue(assigner.noMoreSplits());
+        Optional<IncrementalSplit> reassignedSplit =
+                assigner.getNext().map(split -> split.asIncrementalSplit());
+
+        assertTrue(reassignedSplit.isPresent());
+        assertEquals(Collections.singletonList(tableId), reassignedSplit.get().getTableIds());
+        assertSame(startupOffset, reassignedSplit.get().getStartupOffset());
     }
 
     private SplitAssigner.Context<SourceConfig> createContext(SourceConfig sourceConfig) {
