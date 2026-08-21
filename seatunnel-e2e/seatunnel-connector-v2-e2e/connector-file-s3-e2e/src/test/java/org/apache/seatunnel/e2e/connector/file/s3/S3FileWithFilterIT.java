@@ -21,8 +21,6 @@ import org.apache.seatunnel.e2e.common.container.seatunnel.SeaTunnelContainer;
 import org.apache.seatunnel.e2e.common.util.DependencyJar;
 import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
 
-import org.apache.hadoop.fs.s3a.S3AFileSystem;
-
 import org.awaitility.Awaitility;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -81,12 +79,22 @@ public class S3FileWithFilterIT extends SeaTunnelContainer {
         super.startUp();
     }
 
+    /**
+     * Put S3A in the container's {@code lib/} the same way the distribution does, with the shaded
+     * {@code seatunnel-hadoop-aws} jar.
+     *
+     * <p>This used to add {@code hadoop-aws} and the AWS SDK v1 bundle separately. Both are
+     * incompatible with the {@code hadoop-common} the uber jar now ships: {@code hadoop-aws}
+     * 3.1.4's {@code SimpleAWSCredentialsProvider} implements the SDK v1 {@code
+     * AWSCredentialsProvider}, so the job failed at source creation. The shaded jar carries {@code
+     * hadoop-aws} together with its own SDK, which is what {@code lib/seatunnel-hadoop-aws.jar} is
+     * in a real distribution.
+     */
     @Override
     protected void executeExtraCommands(GenericContainer<?> server)
             throws IOException, InterruptedException {
         super.executeExtraCommands(server);
-        DependencyJar.staged("aws-java-sdk-bundle.jar").addTo(server, SEATUNNEL_HOME + "lib");
-        DependencyJar.of(S3AFileSystem.class).addTo(server, SEATUNNEL_HOME + "lib");
+        DependencyJar.staged("seatunnel-hadoop-aws.jar").addTo(server, SEATUNNEL_HOME + "lib");
     }
 
     @Override

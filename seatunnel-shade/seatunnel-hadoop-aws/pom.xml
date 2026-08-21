@@ -61,7 +61,125 @@
                                         <exclude>META-INF/*.SF</exclude>
                                         <exclude>META-INF/*.DSA</exclude>
                                         <exclude>META-INF/*.RSA</exclude>
+                                        <!--
+                                            DO NOT REMOVE. Same invariant as
+                                            seatunnel-hadoop3-*-uber: this jar also lands in lib/ on
+                                            the runtime classpath, so a binding here would be picked
+                                            up just as readily, and seatunnel-starter.jar's log4j2
+                                            binding must remain the only one.
+
+                                            Vacuous today only because hadoop-aws declares
+                                            hadoop-common as provided, so slf4j-reload4j never
+                                            reaches this module. That is hadoop-aws's choice, not
+                                            ours - if it ever ships a binding, or this module gains a
+                                            dependency that does, SLF4J would bind to an
+                                            unconfigured log4j 1.x whose root logger defaults to
+                                            DEBUG, Parquet would install
+                                            RecordConsumerLoggingWrapper, and every writer thread in
+                                            the JVM would serialise on Category.callAppenders.
+
+                                            Only the binding is excluded, never the SLF4J API: keep
+                                            this as org/slf4j/impl/**, not org/slf4j/**. Note the
+                                            pattern is anchored at the jar root, so it deliberately
+                                            does not touch the AWS SDK's own relocated copy under
+                                            software/amazon/awssdk/thirdparty/org/slf4j/**, which is
+                                            a different set of fully-qualified names, is inert for
+                                            SLF4J binding resolution, and must be kept for the SDK's
+                                            internal logging to work.
+                                        -->
+                                        <exclude>org/slf4j/impl/**</exclude>
                                     </excludes>
+                                </filter>
+                                <filter>
+                                    <artifact>software.amazon.awssdk:bundle</artifact>
+                                    <!--
+                                        hadoop-aws only ever touches a handful of AWS services, but
+                                        it depends on software.amazon.awssdk:bundle, which carries
+                                        all 411 of them. Resolving every software/amazon/awssdk
+                                        reference in the 466 classes of hadoop-aws 3.4.3 - as type
+                                        references and again as dotted strings, to catch reflective
+                                        lookups - yields exactly three: s3, sts, and kms (the latter
+                                        only KmsClient and KmsClientBuilder, from
+                                        EncryptionS3ClientFactory). There is no dynamodb reference;
+                                        S3Guard was removed in Hadoop 3.4.0.
+
+                                        Keeping the other 408 services costs 564,461,442 compressed
+                                        bytes across 384,436 entries. Dropping them leaves
+                                        16,585,287 bytes of this dependency, which is the difference
+                                        between a ~658 MB jar and a ~25 MB one in a distribution
+                                        that ASF mirrors and archives indefinitely.
+
+                                        Two deliberate choices here:
+
+                                        1. This is an allowlist, not a denylist. maven-shade's
+                                           SimpleFilter is !(isIncluded && !isExcluded), so an
+                                           exclude can never be re-included and "everything except
+                                           these services" is not expressible as excludes. An
+                                           allowlist also fails safe: a class we wrongly dropped
+                                           surfaces as an error a test can catch, and the jar cannot
+                                           silently grow again as AWS adds new services.
+
+                                        2. The bundle is filtered rather than replaced by the
+                                           individual s3/sts/kms/apache-client modules, because
+                                           hadoop-aws is compiled against the bundle's *relocated*
+                                           Apache HTTP classes.
+                                           org.apache.hadoop.fs.s3a.impl.ConfigureShadedAWSSocketFactory
+                                           references
+                                           software/amazon/awssdk/thirdparty/org/apache/http/conn/socket/ConnectionSocketFactory
+                                           and .../conn/ssl/SSLConnectionSocketFactory, which exist
+                                           only inside the bundle - the standalone apache-client
+                                           module brings plain org.apache.http instead. NetworkBinding
+                                           loads that class reflectively and swallows the failure, so
+                                           switching to individual modules would not fail the build
+                                           or the job; it would quietly turn fs.s3a.ssl.channel.mode
+                                           into a no-op.
+
+                                        All 25 non-service packages are kept on purpose. They are
+                                        only 4.3 MB together, and hand-picking a closure risks
+                                        missing a lazily or reflectively loaded core class - imds,
+                                        for instance, is reached by IAMInstanceCredentialsProvider
+                                        through the EC2 instance metadata service. The entire saving
+                                        above comes from services/, so there is nothing to gain by
+                                        pruning the core.
+                                    -->
+                                    <includes>
+                                        <include>software/amazon/awssdk/annotations/**</include>
+                                        <include>software/amazon/awssdk/arns/**</include>
+                                        <include>software/amazon/awssdk/auth/**</include>
+                                        <include>software/amazon/awssdk/awscore/**</include>
+                                        <include>software/amazon/awssdk/checksums/**</include>
+                                        <include>software/amazon/awssdk/core/**</include>
+                                        <include>software/amazon/awssdk/crtcore/**</include>
+                                        <include>software/amazon/awssdk/endpoints/**</include>
+                                        <include>software/amazon/awssdk/enhanced/**</include>
+                                        <include>software/amazon/awssdk/eventnotifications/**</include>
+                                        <include>software/amazon/awssdk/http/**</include>
+                                        <include>software/amazon/awssdk/identity/**</include>
+                                        <include>software/amazon/awssdk/imds/**</include>
+                                        <include>software/amazon/awssdk/internal/**</include>
+                                        <include>software/amazon/awssdk/metrics/**</include>
+                                        <include>software/amazon/awssdk/policybuilder/**</include>
+                                        <include>software/amazon/awssdk/profiles/**</include>
+                                        <include>software/amazon/awssdk/protocols/**</include>
+                                        <include>software/amazon/awssdk/regions/**</include>
+                                        <include>software/amazon/awssdk/retries/**</include>
+                                        <include>software/amazon/awssdk/s3accessgrants/**</include>
+                                        <include>software/amazon/awssdk/thirdparty/**</include>
+                                        <include>software/amazon/awssdk/transfer/**</include>
+                                        <include>software/amazon/awssdk/utils/**</include>
+                                        <include>software/amazon/awssdk/utilslite/**</include>
+                                        <!-- the only three services hadoop-aws 3.4.3 references -->
+                                        <include>software/amazon/awssdk/services/s3/**</include>
+                                        <include>software/amazon/awssdk/services/sts/**</include>
+                                        <include>software/amazon/awssdk/services/kms/**</include>
+                                        <!-- non-awssdk entries the bundle also carries -->
+                                        <include>org/reactivestreams/**</include>
+                                        <include>software/amazon/eventstream/**</include>
+                                        <include>mozilla/**</include>
+                                        <include>mime.types</include>
+                                        <include>VersionInfo.java</include>
+                                        <include>META-INF/**</include>
+                                    </includes>
                                 </filter>
                             </filters>
                             <relocations>

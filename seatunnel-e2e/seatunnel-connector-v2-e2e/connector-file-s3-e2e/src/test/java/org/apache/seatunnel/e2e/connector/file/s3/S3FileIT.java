@@ -25,8 +25,6 @@ import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
-import org.apache.hadoop.fs.s3a.S3AFileSystem;
-
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.TestTemplate;
 
@@ -42,12 +40,20 @@ import java.nio.file.Paths;
 @Disabled("have no s3 environment to run this test")
 public class S3FileIT extends TestSuiteBase {
 
+    /**
+     * Put S3A on the container's classpath the same way the distribution does, with the shaded
+     * {@code seatunnel-hadoop-aws} jar.
+     *
+     * <p>This used to {@code curl} {@code hadoop-aws} 3.1.4 and the AWS SDK v1 bundle from Maven
+     * Central. Both are incompatible with the {@code hadoop-common} the uber jar now ships. The
+     * shaded jar carries {@code hadoop-aws} together with its own SDK, which is what {@code
+     * lib/seatunnel-hadoop-aws.jar} is in a real distribution, and it is staged into the test
+     * classpath by the maven-dependency-plugin rather than downloaded.
+     */
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
             container -> {
-                DependencyJar.staged("aws-java-sdk-bundle.jar")
-                        .copyTo(container, "/tmp/seatunnel/plugins/s3/lib");
-                DependencyJar.of(S3AFileSystem.class)
+                DependencyJar.staged("seatunnel-hadoop-aws.jar")
                         .copyTo(container, "/tmp/seatunnel/plugins/s3/lib");
             };
 

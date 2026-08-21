@@ -116,7 +116,7 @@ Please add the following jar to the lib directory:
 S3 based hdfs-file you can refer [hadoop s3 docs](https://hadoop.apache.org/docs/stable/hadoop-aws/tools/hadoop-aws/index.html) to config s3.
 
 Except when interacting with public S3 buckets, the S3A client needs the credentials needed to interact with buckets.
-The client supports multiple authentication mechanisms and can be configured as to which mechanisms to use, and their order of use. Custom implementations of com.amazonaws.auth.AWSCredentialsProvider may also be used.
+The client supports multiple authentication mechanisms and can be configured as to which mechanisms to use, and their order of use. Custom implementations of software.amazon.awssdk.auth.credentials.AwsCredentialsProvider may also be used.
 If you used SimpleAWSCredentialsProvider (can be obtained from the Amazon Security Token Service), these consist of an access key, a secret key.
 You can config like this:
 

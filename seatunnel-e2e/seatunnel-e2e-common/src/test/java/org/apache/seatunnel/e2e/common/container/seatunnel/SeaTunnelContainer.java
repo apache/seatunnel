@@ -136,8 +136,8 @@ public class SeaTunnelContainer extends AbstractTestContainer {
         server.withCopyFileToContainer(
                 MountableFile.forHostPath(
                         PROJECT_ROOT_PATH
-                                + "/seatunnel-shade/seatunnel-hadoop3-3.1.4-uber/target/seatunnel-hadoop3-3.1.4-uber.jar"),
-                Paths.get(SEATUNNEL_HOME, "lib/seatunnel-hadoop3-3.1.4-uber.jar").toString());
+                                + "/seatunnel-shade/seatunnel-hadoop3-3.4.3-uber/target/seatunnel-hadoop3-3.4.3-uber.jar"),
+                Paths.get(SEATUNNEL_HOME, "lib/seatunnel-hadoop3-3.4.3-uber.jar").toString());
         // execute extra commands
         executeExtraCommands(server);
 
@@ -183,8 +183,8 @@ public class SeaTunnelContainer extends AbstractTestContainer {
         server.withCopyFileToContainer(
                 MountableFile.forHostPath(
                         PROJECT_ROOT_PATH
-                                + "/seatunnel-shade/seatunnel-hadoop3-3.1.4-uber/target/seatunnel-hadoop3-3.1.4-uber.jar"),
-                Paths.get(SEATUNNEL_HOME, "lib/seatunnel-hadoop3-3.1.4-uber.jar").toString());
+                                + "/seatunnel-shade/seatunnel-hadoop3-3.4.3-uber/target/seatunnel-hadoop3-3.4.3-uber.jar"),
+                Paths.get(SEATUNNEL_HOME, "lib/seatunnel-hadoop3-3.4.3-uber.jar").toString());
 
         server.start();
         // execute extra commands
@@ -431,6 +431,24 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                 // The read of hdfs which has the thread that is all in running status
                 || s.startsWith("org.apache.hadoop.hdfs.PeerCache")
                 || s.startsWith("java-sdk-progress-listener-callback-thread")
+                // AWS SDK v2 daemon schedulers. Both are created lazily and are not owned by an
+                // SdkClient, so closing the filesystem does not shut them down; they park idle on
+                // a ScheduledThreadPoolExecutor delay queue and do not hold the JVM open.
+                // software/amazon/awssdk/core/ResponseInputStream$TimeoutScheduler
+                || s.startsWith("response-input-stream-timeout-scheduler")
+                // the Failsafe delayer that the shaded S3 Access Grants plugin creates,
+                // software/amazon/s3/shaded/dev/failsafe/internal/util/DelegatingScheduler
+                || s.startsWith("FailsafeDelayScheduler")
+                // The remaining AWS SDK v2 pools behind S3A, all daemon threads left parked on an
+                // empty work queue after the job ends. hadoop-aws builds one client per
+                // S3AFileSystem instance, so a multi-table job leaves a batch of them rather than
+                // one: HudiSeatunnelS3MultiTableIT ends with 187 sdk-ScheduledExecutor-* and 33
+                // s3-analytics-accelerator-* threads. The Apache connection reaper identifies
+                // itself in its stack as
+                // software/amazon/awssdk/http/apache/internal/conn/IdleConnectionReaper$ReaperTask.
+                || s.startsWith("sdk-ScheduledExecutor-")
+                || s.startsWith("s3-analytics-accelerator-")
+                || s.startsWith("idle-connection-reaper")
                 // redis pool evictor daemon thread
                 || s.startsWith("commons-pool-evictor")
                 // MySQL JDBC driver abandoned connection cleanup thread

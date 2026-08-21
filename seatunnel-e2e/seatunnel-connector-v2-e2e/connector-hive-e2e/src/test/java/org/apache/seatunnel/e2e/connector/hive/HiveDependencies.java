@@ -28,9 +28,9 @@ final class HiveDependencies {
     private static final String[] HIVE_DEPENDENCIES = {
         "hive-exec.jar",
         "libfb303.jar",
-        "hadoop-aws.jar",
+        "seatunnel-hadoop-aws.jar",
         "aliyun-sdk-oss.jar",
-        "jdom.jar",
+        "jdom2.jar",
         "hadoop-aliyun.jar",
         "hadoop-cos.jar"
     };

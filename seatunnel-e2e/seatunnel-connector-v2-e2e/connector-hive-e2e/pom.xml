@@ -51,7 +51,7 @@
         </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-hadoop3-3.1.4-uber</artifactId>
+            <artifactId>seatunnel-hadoop3-3.4.3-uber</artifactId>
             <version>${project.version}</version>
             <classifier>optional</classifier>
             <scope>test</scope>
@@ -132,6 +132,28 @@
             <version>${thrift.version}</version>
             <scope>test</scope>
         </dependency>
+
+        <!--
+            HiveDependencies copies seatunnel-hadoop-aws.jar into the container, which is where a
+            real distribution carries S3A. The jar is staged into the test classpath by the
+            maven-dependency-plugin execution below; this dependency is what makes
+            `-pl :connector-hive-e2e -am` build it in the same reactor, so that staging resolves.
+            The jar is only ever read from the filesystem, never linked against here, so its
+            transitive hadoop-aws and AWS SDK are excluded.
+        -->
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-hadoop-aws</artifactId>
+            <version>${project.version}</version>
+            <classifier>optional</classifier>
+            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>*</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
     </dependencies>
 
     <build>
@@ -162,11 +184,20 @@
                                     <version>${thrift.version}</version>
                                     <destFileName>libfb303.jar</destFileName>
                                 </artifactItem>
+                                <!--
+                                    S3A reaches the container as the shaded seatunnel-hadoop-aws
+                                    jar, which is what lib/seatunnel-hadoop-aws.jar is in a real
+                                    distribution: it carries hadoop-aws together with the AWS SDK
+                                    version hadoop-aws is compiled against. Staging hadoop-aws on
+                                    its own, as this did before, leaves the container without any
+                                    AWS SDK at all.
+                                -->
                                 <artifactItem>
-                                    <groupId>org.apache.hadoop</groupId>
-                                    <artifactId>hadoop-aws</artifactId>
-                                    <version>${hadoop-aws.version}</version>
-                                    <destFileName>hadoop-aws.jar</destFileName>
+                                    <groupId>org.apache.seatunnel</groupId>
+                                    <artifactId>seatunnel-hadoop-aws</artifactId>
+                                    <version>${project.version}</version>
+                                    <classifier>optional</classifier>
+                                    <destFileName>seatunnel-hadoop-aws.jar</destFileName>
                                 </artifactItem>
                                 <artifactItem>
                                     <groupId>com.aliyun.oss</groupId>
@@ -176,9 +207,9 @@
                                 </artifactItem>
                                 <artifactItem>
                                     <groupId>org.jdom</groupId>
-                                    <artifactId>jdom</artifactId>
-                                    <version>${jdom.version}</version>
-                                    <destFileName>jdom.jar</destFileName>
+                                    <artifactId>jdom2</artifactId>
+                                    <version>${jdom2.version}</version>
+                                    <destFileName>jdom2.jar</destFileName>
                                 </artifactItem>
                                 <artifactItem>
                                     <groupId>org.apache.hadoop</groupId>

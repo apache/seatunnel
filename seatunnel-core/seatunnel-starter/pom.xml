@@ -134,9 +134,29 @@
                             <exclude>commons-logging:*</exclude>
                             <exclude>ch.qos.logback:*</exclude>
                             <exclude>org.apache.logging.log4j:log4j-to-slf4j</exclude>
-                            <exclude>org.apache.seatunnel:seatunnel-hadoop3-3.1.4-uber</exclude>
+                            <exclude>org.apache.seatunnel:seatunnel-hadoop3-3.4.3-uber</exclude>
                         </excludes>
                     </artifactSet>
+                    <relocations>
+                        <!--
+                            seatunnel-engine-server declares com.squareup.okhttp:okhttp 2.7.5 for
+                            JobEventHttpReportHandler, which drags in com.squareup.okio:okio 1.6.0,
+                            so this jar bundles the okio package. okio 1.x is plain Java while okio
+                            3.x - what com.squareup.okhttp3:okhttp 4.12.0 is compiled against - is
+                            Kotlin, and the two share the package name. Wherever this jar sits on a
+                            classpath next to okio 3.x, class loading order decides which okio.*
+                            wins, and okhttp3 resolving the Java okio fails with NoSuchFieldError:
+                            Companion (this broke seatunnel-engine-k8s-e2e, whose Kubernetes client
+                            uses okhttp3). Relocating keeps the legacy okio private to this jar.
+                            okhttp 2.x itself needs no relocation: com.squareup.okhttp is its own
+                            package, distinct from okhttp3.
+                        -->
+                        <relocation>
+                            <pattern>okio</pattern>
+                            <!--suppress UnresolvedMavenProperty -->
+                            <shadedPattern>${seatunnel.shade.package}.okio</shadedPattern>
+                        </relocation>
+                    </relocations>
                     <transformers>
                         <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer" />
                     </transformers>

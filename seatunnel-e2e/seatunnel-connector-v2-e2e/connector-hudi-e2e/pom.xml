@@ -57,19 +57,8 @@
             <scope>test</scope>
         </dependency>
         <dependency>
-            <groupId>com.amazonaws</groupId>
-            <artifactId>aws-java-sdk-bundle</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.hadoop</groupId>
-            <artifactId>hadoop-aws</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-hadoop3-3.1.4-uber</artifactId>
+            <artifactId>seatunnel-hadoop3-3.4.3-uber</artifactId>
             <version>${project.version}</version>
             <classifier>optional</classifier>
             <scope>test</scope>
@@ -107,5 +96,68 @@
             <artifactId>mysql-connector-j</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <!--
+            HudiSeatunnelS3MultiTableIT copies seatunnel-hadoop-aws.jar into the container's lib/,
+            which is where a real distribution carries S3A. The jar is staged into the test
+            classpath by the maven-dependency-plugin execution below; this dependency is what makes
+            `-pl :connector-hudi-e2e -am` build it in the same reactor, so that staging resolves.
+            The jar is only ever read from the filesystem, never linked against here, so its
+            transitive hadoop-aws and AWS SDK are excluded.
+        -->
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-hadoop-aws</artifactId>
+            <version>${project.version}</version>
+            <classifier>optional</classifier>
+            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>*</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>copy-hudi-e2e-dependencies</id>
+                        <goals>
+                            <goal>copy</goal>
+                        </goals>
+                        <phase>process-test-resources</phase>
+                        <configuration>
+                            <skip>false</skip>
+                            <overWriteReleases>true</overWriteReleases>
+                            <artifactItems>
+                                <!--
+                                    S3A reaches the container as the shaded seatunnel-hadoop-aws
+                                    jar, which is what lib/seatunnel-hadoop-aws.jar is in a real
+                                    distribution. It carries hadoop-aws together with the AWS SDK
+                                    version that hadoop-aws is compiled against, so it replaces the
+                                    hadoop-aws + aws-java-sdk-bundle pair used here previously:
+                                    that pair was SDK v1 and hadoop-aws 3.1.4, neither of which
+                                    links against the hadoop-common the 3.4.3 uber jar now ships.
+                                -->
+                                <artifactItem>
+                                    <groupId>org.apache.seatunnel</groupId>
+                                    <artifactId>seatunnel-hadoop-aws</artifactId>
+                                    <version>${project.version}</version>
+                                    <classifier>optional</classifier>
+                                    <destFileName>seatunnel-hadoop-aws.jar</destFileName>
+                                </artifactItem>
+                            </artifactItems>
+                            <outputDirectory>${project.build.testOutputDirectory}/e2e-dependencies</outputDirectory>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
 </project>

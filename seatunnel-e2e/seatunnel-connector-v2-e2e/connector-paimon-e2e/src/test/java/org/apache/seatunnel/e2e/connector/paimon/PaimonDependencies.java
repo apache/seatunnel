@@ -33,8 +33,20 @@ final class PaimonDependencies {
         DependencyJar.staged("libfb303.jar").copyTo(container, targetDirectory);
     }
 
+    /**
+     * Put S3A in the container's {@code lib/} the same way the distribution does, with the shaded
+     * {@code seatunnel-hadoop-aws} jar.
+     *
+     * <p>This used to add {@code hadoop-aws} and the AWS SDK v1 bundle separately. Against the
+     * {@code hadoop-common} the uber jar now ships, {@code hadoop-aws} 3.1.4's {@code
+     * S3AFileSystem.create} fails with {@code NoSuchMethodError} on {@code
+     * SemaphoredDelegatingExecutor.<init>(ListeningExecutorService,int,boolean)}, whose guava-typed
+     * constructor was removed - so every write through {@code
+     * org.apache.paimon.s3.HadoopCompliantFileIO} failed. The shaded jar carries {@code hadoop-aws}
+     * together with its own SDK, which is what {@code lib/seatunnel-hadoop-aws.jar} is in a real
+     * distribution.
+     */
     static void addS3To(GenericContainer<?> container, String targetDirectory) {
-        DependencyJar.staged("aws-java-sdk-bundle.jar").addTo(container, targetDirectory);
-        DependencyJar.staged("hadoop-aws.jar").addTo(container, targetDirectory);
+        DependencyJar.staged("seatunnel-hadoop-aws.jar").addTo(container, targetDirectory);
     }
 }

@@ -123,7 +123,7 @@
         </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-hadoop3-3.1.4-uber</artifactId>
+            <artifactId>seatunnel-hadoop3-3.4.3-uber</artifactId>
             <version>${project.version}</version>
             <classifier>optional</classifier>
             <scope>provided</scope>
@@ -147,6 +147,22 @@
             <version>${project.version}</version>
             <type>test-jar</type>
             <scope>test</scope>
+        </dependency>
+        <!--
+            JobEventHttpReportHandler is written against the legacy okhttp 2.x API
+            (com.squareup.okhttp.*), which is a different groupId and Java package from the
+            com.squareup.okhttp3:okhttp 4.x managed in the root pom. This module never declared that
+            dependency: the classes arrived transitively from hadoop-hdfs-client, which depended on
+            com.squareup.okhttp:okhttp 2.7.5 up to Hadoop 3.1.4, moved to com.squareup.okhttp3:okhttp
+            in 3.3.6, and ships neither in 3.4.x. Declaring it explicitly keeps this module compiling
+            - and its HTTP event reporting loadable at runtime - independently of the Hadoop version
+            the uber jar is built against. Version matches the mockwebserver below, which is the
+            test-scoped counterpart of the same library.
+        -->
+        <dependency>
+            <groupId>com.squareup.okhttp</groupId>
+            <artifactId>okhttp</artifactId>
+            <version>2.7.5</version>
         </dependency>
         <dependency>
             <groupId>com.squareup.okhttp</groupId>

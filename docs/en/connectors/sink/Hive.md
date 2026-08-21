@@ -18,7 +18,7 @@ Write data to Apache Hive tables. The connector uses Hive Metastore for table ma
 
 In order to use this connector, You must ensure your spark/flink cluster already integrated hive. The tested hive version is 2.3.9 and 3.1.3 .
 
-If you use SeaTunnel Engine, You need put seatunnel-hadoop3-3.1.4-uber.jar and hive-exec-3.1.3.jar and libfb303-0.9.3.jar in $SEATUNNEL_HOME/lib/ dir.
+If you use SeaTunnel Engine, You need put seatunnel-hadoop3-3.4.3-uber.jar and hive-exec-3.1.3.jar and libfb303-0.9.3.jar in $SEATUNNEL_HOME/lib/ dir.
 :::
 
 ## Key features
@@ -256,7 +256,7 @@ sink {
     metastore_uri = "thrift://ctyun7:9083"
     hive.hadoop.conf = {
       bucket = "s3a://mybucket"
-      fs.s3a.aws.credentials.provider="com.amazonaws.auth.InstanceProfileCredentialsProvider"
+      fs.s3a.aws.credentials.provider="org.apache.hadoop.fs.s3a.auth.IAMInstanceCredentialsProvider"
     }
 }
 ```
@@ -411,7 +411,7 @@ sink {
     hive.hadoop.conf-path = "/home/ec2-user/hadoop-conf"
     hive.hadoop.conf = {
        bucket="s3://ws-package"
-       fs.s3a.aws.credentials.provider="com.amazonaws.auth.InstanceProfileCredentialsProvider"
+       fs.s3a.aws.credentials.provider="org.apache.hadoop.fs.s3a.auth.IAMInstanceCredentialsProvider"
     }
   }
 }

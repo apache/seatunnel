@@ -32,9 +32,20 @@
 
     <properties>
         <!-- Imap storage dependency package  -->
-        <hadoop-aliyun.version>3.0.0</hadoop-aliyun.version>
+        <!--
+            hadoop-aliyun.version is inherited from the root pom, in lockstep with hadoop3.version.
+            It used to be pinned here at 3.0.0.
+        -->
         <json-smart.version>2.4.7</json-smart.version>
-        <hadoop-aws.version>3.1.4</hadoop-aws.version>
+        <!--
+            hadoop-aws.version is deliberately not overridden here. It used to pin 3.1.4 locally,
+            which silently diverged from the version the shaded seatunnel-hadoop-aws.jar on the
+            runtime classpath actually ships. Inheriting the root property keeps compile and runtime
+            on the same hadoop-aws, the same way checkpoint-storage-hdfs now does. This module holds
+            no compiled reference to a hadoop-aws type at all - S3Configuration names
+            org.apache.hadoop.fs.s3a.S3AFileSystem as a string - so the dependency only has to
+            resolve.
+        -->
         <netty-buffer.version>4.1.60.Final</netty-buffer.version>
     </properties>
 
@@ -47,7 +58,7 @@
         <!-- hadoop jar -->
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-hadoop3-3.1.4-uber</artifactId>
+            <artifactId>seatunnel-hadoop3-3.4.3-uber</artifactId>
             <version>${project.version}</version>
             <classifier>optional</classifier>
             <scope>provided</scope>
@@ -107,6 +118,22 @@
             <artifactId>netty-buffer</artifactId>
             <version>${netty-buffer.version}</version>
             <scope>provided</scope>
+        </dependency>
+
+        <!--
+            WALReader and DefaultReader use CollectionUtils.isEmpty/isNotEmpty. They previously
+            got commons-collections 3.x for free: hadoop-aliyun declares hadoop-common at
+            *compile* scope, and hadoop-common up to 3.1.4 declared commons-collections, so the
+            3.x package arrived here transitively and org/apache/commons/collections/ was also
+            present inside the hadoop3 uber jar at runtime. hadoop-common 3.4.3 replaced that
+            dependency with commons-collections4, so neither the compile classpath nor the uber
+            jar carries the 3.x package any more. Declared explicitly here, at the version the
+            root pom manages, rather than relying on a transitive that can vanish again - the
+            sibling checkpoint-storage-local-file module declares it the same way.
+        -->
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-collections4</artifactId>
         </dependency>
 
     </dependencies>

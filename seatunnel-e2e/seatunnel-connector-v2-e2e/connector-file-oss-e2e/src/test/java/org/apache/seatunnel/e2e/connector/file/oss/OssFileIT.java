@@ -27,7 +27,7 @@ import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
 import org.apache.hadoop.fs.aliyun.oss.AliyunOSSFileSystem;
 
-import org.jdom.Document;
+import org.jdom2.Document;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.TestTemplate;
 

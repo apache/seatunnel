@@ -29,7 +29,7 @@
 
     <properties>
         <maven-jar-plugin.version>2.4</maven-jar-plugin.version>
-        <hadoop-aliyun.version>3.0.0</hadoop-aliyun.version>
+        <!-- hadoop-aliyun.version is inherited from the root pom, in lockstep with hadoop3.version -->
         <netty-buffer.version>4.1.89.Final</netty-buffer.version>
     </properties>
 
@@ -72,7 +72,7 @@
         </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-hadoop3-3.1.4-uber</artifactId>
+            <artifactId>seatunnel-hadoop3-3.4.3-uber</artifactId>
             <version>${project.version}</version>
             <classifier>optional</classifier>
             <scope>test</scope>

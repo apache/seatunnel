@@ -24,8 +24,6 @@ import org.apache.seatunnel.e2e.common.container.TestHelper;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
-import org.apache.hadoop.fs.s3a.S3AFileSystem;
-
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.TestTemplate;
 
@@ -34,16 +32,23 @@ import java.io.IOException;
 @Disabled("have no s3 environment to run this test")
 public class S3FileWithMultipleTableIT extends TestSuiteBase {
 
+    /**
+     * Put S3A on the container's classpath the same way the distribution does, with the shaded
+     * {@code seatunnel-hadoop-aws} jar.
+     *
+     * <p>This used to {@code curl} {@code hadoop-aws} 3.1.4 and the AWS SDK v1 bundle from Maven
+     * Central into both the plugin dir and {@code lib/}. Both are incompatible with the {@code
+     * hadoop-common} the uber jar now ships. The shaded jar carries {@code hadoop-aws} together
+     * with its own SDK, which is what {@code lib/seatunnel-hadoop-aws.jar} is in a real
+     * distribution, and it is staged into the test classpath by the maven-dependency-plugin rather
+     * than downloaded.
+     */
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
             container -> {
-                DependencyJar.staged("aws-java-sdk-bundle.jar")
-                        .copyTo(container, "/tmp/seatunnel/plugins/s3/lib");
-                DependencyJar.of(S3AFileSystem.class)
-                        .copyTo(container, "/tmp/seatunnel/plugins/s3/lib");
-                DependencyJar.staged("aws-java-sdk-bundle.jar")
-                        .copyTo(container, "/tmp/seatunnel/lib");
-                DependencyJar.of(S3AFileSystem.class).copyTo(container, "/tmp/seatunnel/lib");
+                DependencyJar shadedHadoopAws = DependencyJar.staged("seatunnel-hadoop-aws.jar");
+                shadedHadoopAws.copyTo(container, "/tmp/seatunnel/plugins/s3/lib");
+                shadedHadoopAws.copyTo(container, "/tmp/seatunnel/lib");
             };
 
     /** Copy data files to s3 */

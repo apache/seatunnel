@@ -243,7 +243,7 @@ hazelcast:
 如果希望通过 Kubernetes Secret 注入环境变量，不要在 ConfigMap 中写 `secretKeyRef`。需要在 Pod 中注入 AWS SDK 约定的环境变量，并且不要把 `fs.s3a.aws.credentials.provider` 固定为 `SimpleAWSCredentialsProvider`。
 :::
 
-当前 Hadoop AWS 3.1.4 在未显式配置 provider 时，默认认证链已经会读取 AWS 环境变量；如果希望只允许环境变量认证，也可以显式配置 `com.amazonaws.auth.EnvironmentVariableCredentialsProvider`：
+当前 Hadoop AWS 3.4.3 在未显式配置 provider 时，默认认证链已经会读取 AWS 环境变量；如果希望只允许环境变量认证，也可以显式配置 `software.amazon.awssdk.auth.credentials.EnvironmentVariableCredentialsProvider`：
 
 ```yaml
 env:
@@ -266,7 +266,7 @@ properties:
   clusterName: seatunnel-cluster
   storage.type: s3
   s3.bucket: s3a://seatunnel-bucket
-  fs.s3a.aws.credentials.provider: com.amazonaws.auth.EnvironmentVariableCredentialsProvider
+  fs.s3a.aws.credentials.provider: software.amazon.awssdk.auth.credentials.EnvironmentVariableCredentialsProvider
 ```
 
 临时凭据还可以额外注入 `AWS_SESSION_TOKEN`。AWS SDK 也兼容 `AWS_ACCESS_KEY` 和 `AWS_SECRET_KEY`，但推荐使用 `AWS_ACCESS_KEY_ID` 和 `AWS_SECRET_ACCESS_KEY`。

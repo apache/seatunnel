@@ -211,13 +211,23 @@
                 <include>org.tikv:tikv-client-java:jar</include>
                 <include>org.opengauss:opengauss-jdbc:jar</include>
                 <include>org.duckdb:duckdb_jdbc:jar</include>
-                <include>com.amazonaws:aws-java-sdk-bundle:jar</include>
-                <include>org.apache.seatunnel:seatunnel-hadoop3-3.1.4-uber:jar:*:optional</include>
+                <!--
+                    com.amazonaws:aws-java-sdk-bundle:jar used to be included here. It was already
+                    redundant: seatunnel-hadoop-aws shades hadoop-aws together with its whole SDK
+                    (the released 2.3.13 jar carries 42,579 com/amazonaws/ classes, unrelocated),
+                    which is why assembly-seatunnel-bin.xml - the descriptor that builds the actual
+                    release tarball - never shipped a standalone SDK bundle at all. Carrying the v2
+                    equivalent here would put a second, differently-filtered copy of
+                    software/amazon/awssdk/** on the same classpath for 686,119,507 bytes, so it is
+                    dropped rather than swapped. Nothing in the distribution can depend on a v2 SDK
+                    arriving from lib/, because lib/ never contained one.
+                -->
+                <include>org.apache.seatunnel:seatunnel-hadoop3-3.4.3-uber:jar:*:optional</include>
                 <include>org.apache.seatunnel:seatunnel-hadoop-aws:jar:*:optional</include>
                 <!--Add hadoop aliyun jar -->
                 <include>org.apache.hadoop:hadoop-aliyun:jar</include>
                 <include>com.aliyun.oss:aliyun-sdk-oss:jar</include>
-                <include>org.jdom:jdom:jar</include>
+                <include>org.jdom:jdom2:jar</include>
                 <!--Add netty buffer jar -->
                 <include>io.netty:netty-buffer:jar</include>
                 <include>io.netty:netty-common:jar</include>

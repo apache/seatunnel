@@ -110,7 +110,7 @@ If write to `csv`, `text` file type, All column will be string.
 | tmp_path                              | string  | no       | /tmp/seatunnel                                        | The result file will write to a tmp path first and then use `mv` to submit tmp dir to target dir. Need a S3 dir.                                                                |
 | bucket                                | string  | yes      | -                                                     |                                                                                                                                                                                 |
 | fs.s3a.endpoint                       | string  | yes      | -                                                     |                                                                                                                                                                                 |
-| fs.s3a.aws.credentials.provider       | string  | yes      | com.amazonaws.auth.InstanceProfileCredentialsProvider | The fully-qualified class name of the S3A credentials provider passed through to Hadoop. Besides the two well-known values `org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider` (static `access_key`/`secret_key`) and `com.amazonaws.auth.InstanceProfileCredentialsProvider` (default), any S3A credentials provider class available on the classpath is accepted, for example container-based providers such as `com.amazonaws.auth.ContainerCredentialsProvider` or a custom provider. The class must implement `com.amazonaws.auth.AWSCredentialsProvider` and expose one of Hadoop 3.1.4's supported creation mechanisms: a public `(java.net.URI, org.apache.hadoop.conf.Configuration)` constructor, a public `(org.apache.hadoop.conf.Configuration)` constructor, a public static no-arg `getInstance()` factory method returning `AWSCredentialsProvider`, or a public no-arg constructor. Hadoop-style comma- or newline-separated provider chains are accepted and each class is validated independently. The provider jar must be present on the runtime classpath of **every** cluster node (for example under `${SEATUNNEL_HOME}/lib`), not just the submitting node. Note for operators of shared/multi-tenant clusters: this option lets job authors load classes by name, so restrict who can submit jobs accordingly. |
+| fs.s3a.aws.credentials.provider       | string  | yes      | org.apache.hadoop.fs.s3a.auth.IAMInstanceCredentialsProvider | The fully-qualified class name of the S3A credentials provider passed through to Hadoop. Besides the two well-known values `org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider` (static `access_key`/`secret_key`) and `org.apache.hadoop.fs.s3a.auth.IAMInstanceCredentialsProvider` (default), any S3A credentials provider class available on the classpath is accepted, for example container-based providers such as `software.amazon.awssdk.auth.credentials.ContainerCredentialsProvider` or a custom provider. The class must implement `software.amazon.awssdk.auth.credentials.AwsCredentialsProvider` and expose one of Hadoop 3.4.3's supported creation mechanisms: a public `(java.net.URI, org.apache.hadoop.conf.Configuration)` constructor, a public `(org.apache.hadoop.conf.Configuration)` constructor, a public static no-arg `getInstance()` factory method returning `AWSCredentialsProvider`, or a public no-arg constructor. Note that the `getInstance()` mechanism is Hadoop's AWS SDK v1 fallback and is only attempted when an AWS SDK v1 jar is on the classpath; the shaded Hadoop 3.4.3 uber jar ships SDK v2 only, so a provider that relies on it needs a v1 SDK jar supplied separately. Hadoop-style comma- or newline-separated provider chains are accepted and each class is validated independently. The provider jar must be present on the runtime classpath of **every** cluster node (for example under `${SEATUNNEL_HOME}/lib`), not just the submitting node. Note for operators of shared/multi-tenant clusters: this option lets job authors load classes by name, so restrict who can submit jobs accordingly. |
 | access_key                            | string  | no       | -                                                     | Only used when fs.s3a.aws.credentials.provider = org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider                                                                          |
 | secret_key                            | string  | no       | -                                                     | Only used when fs.s3a.aws.credentials.provider = org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider                                                                          |
 | custom_filename                       | boolean | no       | false                                                 | Whether you need custom the filename                                                                                                                                            |
@@ -388,7 +388,7 @@ sink {
       tmp_path = "/tmp/seatunnel"
       path="/seatunnel/text"
       fs.s3a.endpoint="s3.cn-north-1.amazonaws.com.cn"
-      fs.s3a.aws.credentials.provider="com.amazonaws.auth.InstanceProfileCredentialsProvider"
+      fs.s3a.aws.credentials.provider="org.apache.hadoop.fs.s3a.auth.IAMInstanceCredentialsProvider"
       file_format_type = "text"
       field_delimiter = "\t"
       row_delimiter = "\n"
@@ -412,7 +412,7 @@ sink {
 ```
 
 For text file format with `have_partition` and `custom_filename` and `sink_columns`
-and `com.amazonaws.auth.InstanceProfileCredentialsProvider`
+and `org.apache.hadoop.fs.s3a.auth.IAMInstanceCredentialsProvider`
 
 ```hocon
 
@@ -421,7 +421,7 @@ and `com.amazonaws.auth.InstanceProfileCredentialsProvider`
     tmp_path = "/tmp/seatunnel"
     path="/seatunnel/text"
     fs.s3a.endpoint="s3.cn-north-1.amazonaws.com.cn"
-    fs.s3a.aws.credentials.provider="com.amazonaws.auth.InstanceProfileCredentialsProvider"
+    fs.s3a.aws.credentials.provider="org.apache.hadoop.fs.s3a.auth.IAMInstanceCredentialsProvider"
     file_format_type = "text"
     field_delimiter = "\t"
     row_delimiter = "\n"
@@ -558,7 +558,7 @@ S3File {
 }
 ```
 
-For production jobs, avoid hardcoding long-lived keys in job files. Prefer an IAM-based provider such as `fs.s3a.aws.credentials.provider = com.amazonaws.auth.InstanceProfileCredentialsProvider`, or inject `access_key` and `secret_key` with SeaTunnel variable substitution.
+For production jobs, avoid hardcoding long-lived keys in job files. Prefer an IAM-based provider such as `fs.s3a.aws.credentials.provider = org.apache.hadoop.fs.s3a.auth.IAMInstanceCredentialsProvider`, or inject `access_key` and `secret_key` with SeaTunnel variable substitution.
 
 ### Writing with STS AssumeRole (cross-account writes)
 

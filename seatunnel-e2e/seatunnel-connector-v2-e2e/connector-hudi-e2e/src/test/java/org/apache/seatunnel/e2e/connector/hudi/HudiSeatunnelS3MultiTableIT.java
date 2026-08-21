@@ -24,7 +24,6 @@ import org.apache.seatunnel.e2e.common.util.DependencyJar;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.LocalFileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.fs.s3a.S3AFileSystem;
 import org.apache.parquet.example.data.Group;
 import org.apache.parquet.hadoop.ParquetReader;
 import org.apache.parquet.hadoop.example.GroupReadSupport;
@@ -38,7 +37,6 @@ import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.MinIOContainer;
 
-import com.amazonaws.services.s3.AmazonS3;
 import io.minio.BucketExistsArgs;
 import io.minio.MakeBucketArgs;
 import io.minio.MinioClient;
@@ -97,12 +95,23 @@ public class HudiSeatunnelS3MultiTableIT extends SeaTunnelContainer {
         super.startUp();
     }
 
+    /**
+     * Put S3A on the container's classpath the same way the distribution does, with the shaded
+     * {@code seatunnel-hadoop-aws} jar in {@code lib/}.
+     *
+     * <p>This used to {@code wget} {@code hadoop-aws} 3.1.4 and the AWS SDK v1 bundle from Maven
+     * Central. Against the {@code hadoop-common} the uber jar now ships, 3.1.4's {@code
+     * S3AFileSystem.create} fails with {@code NoSuchMethodError} on {@code
+     * SemaphoredDelegatingExecutor.<init>(ListeningExecutorService,int,boolean)}, whose guava-typed
+     * constructor was removed. The shaded jar carries {@code hadoop-aws} with its own SDK, which is
+     * what {@code lib/seatunnel-hadoop-aws.jar} is in a real distribution, and it is staged into
+     * the test classpath by the maven-dependency-plugin rather than downloaded.
+     */
     @Override
     protected void executeExtraCommands(GenericContainer<?> server)
             throws IOException, InterruptedException {
         super.executeExtraCommands(server);
-        DependencyJar.of(AmazonS3.class).addTo(server, SEATUNNEL_HOME + "lib");
-        DependencyJar.of(S3AFileSystem.class).addTo(server, SEATUNNEL_HOME + "lib");
+        DependencyJar.staged("seatunnel-hadoop-aws.jar").addTo(server, SEATUNNEL_HOME + "lib");
     }
 
     @Override

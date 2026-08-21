@@ -243,7 +243,7 @@ hazelcast:
 If you want to inject credentials from Kubernetes Secret as environment variables, do not put `secretKeyRef` inside the ConfigMap content. Inject the AWS SDK environment variables into the Pod, and do not pin `fs.s3a.aws.credentials.provider` to `SimpleAWSCredentialsProvider`.
 :::
 
-The current Hadoop AWS 3.1.4 default credential chain already reads AWS environment variables when no provider is configured explicitly. If you want to allow only environment-variable authentication, set the S3A provider to `com.amazonaws.auth.EnvironmentVariableCredentialsProvider`:
+The current Hadoop AWS 3.4.3 default credential chain already reads AWS environment variables when no provider is configured explicitly. If you want to allow only environment-variable authentication, set the S3A provider to `software.amazon.awssdk.auth.credentials.EnvironmentVariableCredentialsProvider`:
 
 ```yaml
 env:
@@ -266,7 +266,7 @@ properties:
   clusterName: seatunnel-cluster
   storage.type: s3
   s3.bucket: s3a://seatunnel-bucket
-  fs.s3a.aws.credentials.provider: com.amazonaws.auth.EnvironmentVariableCredentialsProvider
+  fs.s3a.aws.credentials.provider: software.amazon.awssdk.auth.credentials.EnvironmentVariableCredentialsProvider
 ```
 
 For temporary credentials, also inject `AWS_SESSION_TOKEN`. The AWS SDK also accepts `AWS_ACCESS_KEY` and `AWS_SECRET_KEY`, but `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` are recommended.

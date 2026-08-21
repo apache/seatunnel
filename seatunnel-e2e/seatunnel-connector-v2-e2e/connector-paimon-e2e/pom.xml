@@ -64,7 +64,7 @@
             <version>${project.version}</version>
             <scope>test</scope>
         </dependency>
-        <!-- To ensure the SemaphoredDelegatingExecutor class in paimon-s3-impl.jar is loaded first, place the connector-paimon dependency before seatunnel-hadoop3-3.1.4-uber -->
+        <!-- To ensure the SemaphoredDelegatingExecutor class in paimon-s3-impl.jar is loaded first, place the connector-paimon dependency before seatunnel-hadoop3-3.4.3-uber -->
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
             <artifactId>connector-paimon</artifactId>
@@ -95,7 +95,7 @@
 
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-hadoop3-3.1.4-uber</artifactId>
+            <artifactId>seatunnel-hadoop3-3.4.3-uber</artifactId>
             <classifier>optional</classifier>
             <scope>test</scope>
         </dependency>
@@ -110,6 +110,28 @@
             <groupId>com.mysql</groupId>
             <artifactId>mysql-connector-j</artifactId>
             <scope>test</scope>
+        </dependency>
+
+        <!--
+            PaimonWithS3IT copies seatunnel-hadoop-aws.jar into the container's lib/, which is
+            where a real distribution carries S3A. The jar is staged into the test classpath by the
+            maven-dependency-plugin execution below; this dependency is what makes
+            `-pl :connector-paimon-e2e -am` build it in the same reactor, so that staging resolves.
+            The jar is only ever read from the filesystem, never linked against here, so its
+            transitive hadoop-aws and AWS SDK are excluded.
+        -->
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-hadoop-aws</artifactId>
+            <version>${project.version}</version>
+            <classifier>optional</classifier>
+            <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>*</groupId>
+                    <artifactId>*</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
     </dependencies>
 
@@ -129,17 +151,21 @@
                             <skip>false</skip>
                             <overWriteReleases>true</overWriteReleases>
                             <artifactItems>
+                                <!--
+                                    S3A reaches the container as the shaded seatunnel-hadoop-aws
+                                    jar, which is what lib/seatunnel-hadoop-aws.jar is in a real
+                                    distribution. It carries hadoop-aws together with the AWS SDK
+                                    version that hadoop-aws is compiled against, so it replaces the
+                                    hadoop-aws + aws-java-sdk-bundle pair staged here previously:
+                                    that pair was SDK v1 and hadoop-aws 3.1.4, neither of which
+                                    links against the hadoop-common the 3.4.3 uber jar now ships.
+                                -->
                                 <artifactItem>
-                                    <groupId>com.amazonaws</groupId>
-                                    <artifactId>aws-java-sdk-bundle</artifactId>
-                                    <version>${aws-java-sdk.version}</version>
-                                    <destFileName>aws-java-sdk-bundle.jar</destFileName>
-                                </artifactItem>
-                                <artifactItem>
-                                    <groupId>org.apache.hadoop</groupId>
-                                    <artifactId>hadoop-aws</artifactId>
-                                    <version>${hadoop-aws.version}</version>
-                                    <destFileName>hadoop-aws.jar</destFileName>
+                                    <groupId>org.apache.seatunnel</groupId>
+                                    <artifactId>seatunnel-hadoop-aws</artifactId>
+                                    <version>${project.version}</version>
+                                    <classifier>optional</classifier>
+                                    <destFileName>seatunnel-hadoop-aws.jar</destFileName>
                                 </artifactItem>
                                 <artifactItem>
                                     <groupId>org.apache.hive</groupId>
