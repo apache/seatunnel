@@ -33,7 +33,10 @@ import org.apache.seatunnel.api.serialization.DefaultSerializer;
 import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.factory.MultiTableFactoryContext;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.constants.JobMode;
@@ -47,6 +50,7 @@ import lombok.Data;
 import java.io.IOException;
 import java.io.Serializable;
 import java.lang.reflect.Field;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
@@ -567,6 +571,84 @@ public class MultiTableSinkWriterTest {
 
         Assertions.assertFalse(MultiTableFailureHelper.isIsolatedFailure(exception.getMessage()));
         Assertions.assertEquals(1, fatalWriter.getSnapshotAttemptCount());
+    }
+
+    @Test
+    public void testSharedDeduplicatedWriterLifecycleInvokedOnce() throws IOException {
+        Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters = new HashMap<>();
+        Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
+        CountingSinkWriter sharedWriter = new CountingSinkWriter();
+        SinkIdentifier firstIdentifier = SinkIdentifier.of("test.a", 0);
+        SinkIdentifier secondIdentifier = SinkIdentifier.of("test.b", 0);
+        // Both identifiers alias the same deduplicated writer instance.
+        sinkWriters.put(firstIdentifier, sharedWriter);
+        sinkWriters.put(secondIdentifier, sharedWriter);
+        sinkWritersContext.put(firstIdentifier, new TestSinkWriterContext());
+        sinkWritersContext.put(secondIdentifier, new TestSinkWriterContext());
+
+        MultiTableSinkWriter multiTableSinkWriter =
+                new MultiTableSinkWriter(sinkWriters, 1, sinkWritersContext);
+
+        List<MultiTableState> states = multiTableSinkWriter.snapshotState(1L);
+
+        Assertions.assertEquals(1, states.size());
+        Assertions.assertSame(
+                states.get(0).getStates().get(firstIdentifier),
+                states.get(0).getStates().get(secondIdentifier));
+        Assertions.assertEquals(1, sharedWriter.getSnapshotCount());
+
+        Optional<MultiTableCommitInfo> commitInfo = multiTableSinkWriter.prepareCommit(1L);
+
+        Assertions.assertTrue(commitInfo.isPresent());
+        Assertions.assertEquals(2, commitInfo.get().getCommitInfo().size());
+        Assertions.assertTrue(commitInfo.get().getCommitInfo().containsKey(firstIdentifier));
+        Assertions.assertTrue(commitInfo.get().getCommitInfo().containsKey(secondIdentifier));
+        Assertions.assertEquals(1, sharedWriter.getPrepareCommitCount());
+
+        multiTableSinkWriter.abortPrepare();
+        Assertions.assertEquals(1, sharedWriter.getAbortPrepareCount());
+
+        multiTableSinkWriter.close();
+        Assertions.assertEquals(1, sharedWriter.getCloseCount());
+    }
+
+    @Test
+    public void testRestoreMergesStateFromAllAliasedTables() throws IOException {
+        StateCapturingRestoreSink sharedSink =
+                new StateCapturingRestoreSink(TablePath.of("dest.db.shared"));
+        Map<TablePath, SeaTunnelSink> restoredSinks = new HashMap<>();
+        restoredSinks.put(TablePath.of("src.db.t1"), sharedSink);
+        restoredSinks.put(TablePath.of("src.db.t2"), sharedSink);
+        Map<String, Object> options = new HashMap<>();
+        options.put(SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA.key(), 1);
+        options.put(
+                MultiTableCommonOptions.MULTI_TABLE_FAILURE_POLICY.key(),
+                MultiTableFailurePolicy.FAIL_FAST.name());
+        MultiTableSink multiTableSink =
+                new MultiTableSink(
+                        new MultiTableFactoryContext(
+                                ReadonlyConfig.fromMap(options),
+                                Thread.currentThread().getContextClassLoader(),
+                                restoredSinks));
+
+        TestSinkState firstState = new TestSinkState("state-t1");
+        TestSinkState secondState = new TestSinkState("state-t2");
+        Map<SinkIdentifier, List<?>> checkpointStates = new HashMap<>();
+        checkpointStates.put(
+                SinkIdentifier.of("src.db.t1", 0), Collections.singletonList(firstState));
+        checkpointStates.put(
+                SinkIdentifier.of("src.db.t2", 0), Collections.singletonList(secondState));
+        MultiTableState state = new MultiTableState(checkpointStates, Collections.emptyList());
+
+        multiTableSink.restoreWriter(new TestSinkWriterContext(), Collections.singletonList(state));
+
+        Assertions.assertEquals(
+                0, sharedSink.getCreateWriterCount(), "restore path must not create fresh writers");
+        Assertions.assertEquals(1, sharedSink.getCapturedRestoredStates().size());
+        List<?> mergedStates = sharedSink.getCapturedRestoredStates().get(0);
+        Assertions.assertEquals(2, mergedStates.size());
+        Assertions.assertTrue(mergedStates.contains(firstState));
+        Assertions.assertTrue(mergedStates.contains(secondState));
     }
 
     @Test
@@ -1142,6 +1224,101 @@ public class MultiTableSinkWriterTest {
 
         int getSnapshotAttemptCount() {
             return snapshotAttemptCount.get();
+        }
+    }
+
+    static class CountingSinkWriter extends TestSinkWriter {
+        private final AtomicInteger snapshotCount = new AtomicInteger();
+        private final AtomicInteger prepareCommitCount = new AtomicInteger();
+        private final AtomicInteger abortPrepareCount = new AtomicInteger();
+        private final AtomicInteger closeCount = new AtomicInteger();
+
+        @Override
+        public List<Object> snapshotState(long checkpointId) throws IOException {
+            snapshotCount.incrementAndGet();
+            return Collections.singletonList(new TestSinkState("shared"));
+        }
+
+        @Override
+        public Optional<TestSinkState> prepareCommit(long checkpointId) throws IOException {
+            prepareCommitCount.incrementAndGet();
+            return Optional.of(new TestSinkState("shared"));
+        }
+
+        @Override
+        public void abortPrepare() {
+            abortPrepareCount.incrementAndGet();
+        }
+
+        @Override
+        public void close() throws IOException {
+            closeCount.incrementAndGet();
+        }
+
+        int getSnapshotCount() {
+            return snapshotCount.get();
+        }
+
+        int getPrepareCommitCount() {
+            return prepareCommitCount.get();
+        }
+
+        int getAbortPrepareCount() {
+            return abortPrepareCount.get();
+        }
+
+        int getCloseCount() {
+            return closeCount.get();
+        }
+    }
+
+    static class StateCapturingRestoreSink
+            implements SeaTunnelSink<SeaTunnelRow, Object, TestSinkState, Object> {
+
+        private final TablePath destinationTablePath;
+        private final List<List<?>> capturedRestoredStates = new ArrayList<>();
+        private final AtomicInteger createWriterCount = new AtomicInteger();
+
+        StateCapturingRestoreSink(TablePath destinationTablePath) {
+            this.destinationTablePath = destinationTablePath;
+        }
+
+        @Override
+        public String getPluginName() {
+            return "test";
+        }
+
+        @Override
+        public SinkWriter<SeaTunnelRow, TestSinkState, Object> createWriter(
+                SinkWriter.Context context) {
+            createWriterCount.incrementAndGet();
+            return new TestSinkWriter();
+        }
+
+        @Override
+        public SinkWriter<SeaTunnelRow, TestSinkState, Object> restoreWriter(
+                SinkWriter.Context context, List<Object> states) {
+            capturedRestoredStates.add(new ArrayList<>(states));
+            return new TestSinkWriter();
+        }
+
+        @Override
+        public Optional<CatalogTable> getWriteCatalogTable() {
+            return Optional.of(
+                    CatalogTable.of(
+                            TableIdentifier.of("test", destinationTablePath),
+                            TableSchema.builder().build(),
+                            Collections.emptyMap(),
+                            Collections.emptyList(),
+                            "test"));
+        }
+
+        int getCreateWriterCount() {
+            return createWriterCount.get();
+        }
+
+        List<List<?>> getCapturedRestoredStates() {
+            return capturedRestoredStates;
         }
     }
 

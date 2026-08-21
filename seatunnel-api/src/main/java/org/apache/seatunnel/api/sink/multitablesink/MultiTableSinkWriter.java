@@ -39,6 +39,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -206,6 +207,9 @@ public class MultiTableSinkWriter
         executorService =
                 MDCTracer.tracing(
                         Executors.newFixedThreadPool(
+                                // we use it in `MultiTableWriterRunnable` and `prepare commit
+                                // task`, so it
+                                // should be double.
                                 queueSize * 2,
                                 runnable -> {
                                     Thread thread = new Thread(runnable);
@@ -302,6 +306,31 @@ public class MultiTableSinkWriter
                 sinkPrimaryKeys.put(entry.getKey().getTableIdentifier(), sink.primaryKey());
             }
         }
+    }
+
+    /**
+     * Groups queue entries by writer instance identity so lifecycle operations drive each distinct
+     * {@link SinkWriter} exactly once.
+     *
+     * <p>When multiple source tables are deduplicated into one shared destination writer upstream
+     * in {@link MultiTableSink}, several {@link SinkIdentifier}s map to the same writer instance.
+     * Iterating per identifier would call {@code snapshotState}/{@code prepareCommit}/ {@code
+     * close} on that writer N times; grouping by identity lets callers invoke it once and fan
+     * results back to every aliased identifier.
+     *
+     * @param writers the identifier-to-writer entries of a single queue
+     * @return writer instances mapped to all identifiers aliasing them, in first-seen order
+     */
+    private static Map<SinkWriter<SeaTunnelRow, ?, ?>, List<SinkIdentifier>> groupByIdentity(
+            Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> writers) {
+        Map<SinkWriter<SeaTunnelRow, ?, ?>, List<SinkIdentifier>> groupedWriters =
+                new IdentityHashMap<>();
+        for (Map.Entry<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> entry : writers.entrySet()) {
+            groupedWriters
+                    .computeIfAbsent(entry.getValue(), key -> new ArrayList<>())
+                    .add(entry.getKey());
+        }
+        return groupedWriters;
     }
 
     /**
@@ -553,6 +582,33 @@ public class MultiTableSinkWriter
         return Optional.empty();
     }
 
+    /**
+     * Routes a row to the appropriate blocking queue for async writing.
+     *
+     * <p>On the first call, lazily starts all {@link MultiTableWriterRunnable} consumer threads via
+     * the executor service (controlled by the {@code submitted} flag).
+     *
+     * <p>Row routing strategy:
+     *
+     * <ul>
+     *   <li>If the table's primary key information is present and the primary key field value is
+     *       non-null, the row is routed by {@code Math.abs(primaryKeyValue.hashCode()) %
+     *       queueSize}, guaranteeing that rows with the same primary key always go to the same
+     *       queue for ordered delivery.
+     *   <li>If the table's primary key information is present but the actual field value is {@code
+     *       null}, the row is routed to queue 0.
+     *   <li>If the table has no primary key or this is a single-table sink, the row is sent to a
+     *       randomly selected queue for load balancing.
+     *   <li>If the table's primary key metadata is missing (not initialized) in multi-table mode, a
+     *       {@link RuntimeException} is thrown.
+     * </ul>
+     *
+     * <p>If the target queue is full, blocks with 500ms timeout retries, checking for sub-sink
+     * errors between attempts.
+     *
+     * @param element the row to write
+     * @throws IOException if interrupted while waiting for queue capacity
+     */
     @Override
     public void write(SeaTunnelRow element) throws IOException {
         if (element != null && element.getOptions() != null) {
@@ -654,28 +710,35 @@ public class MultiTableSinkWriter
         List<MultiTableState> multiTableStates = new ArrayList<>();
         Map<SinkIdentifier, List<?>> snapshotStates = new HashMap<>();
         for (int i = 0; i < sinkWritersWithIndex.size(); i++) {
-            for (Map.Entry<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriterEntry :
-                    new ArrayList<>(sinkWritersWithIndex.get(i).entrySet())) {
-                synchronized (runnable.get(i)) {
+            // Aliased identifiers may share one writer instance; snapshot it exactly once and fan
+            // the result back to every identifier so restore can merge state from all of them.
+            Map<SinkWriter<SeaTunnelRow, ?, ?>, List<SinkIdentifier>> groupedWriters =
+                    groupByIdentity(sinkWritersWithIndex.get(i));
+            synchronized (runnable.get(i)) {
+                for (Map.Entry<SinkWriter<SeaTunnelRow, ?, ?>, List<SinkIdentifier>> groupedEntry :
+                        groupedWriters.entrySet()) {
+                    List<SinkIdentifier> aliasedIdentifiers = groupedEntry.getValue();
+                    SinkIdentifier primaryIdentifier = aliasedIdentifiers.get(0);
                     try {
                         List states =
                                 executeWithTableRetry(
-                                        sinkWriterEntry.getKey().getTableIdentifier(),
+                                        primaryIdentifier.getTableIdentifier(),
                                         MultiTableFailurePhase.CHECKPOINT,
-                                        () ->
-                                                sinkWriterEntry
-                                                        .getValue()
-                                                        .snapshotState(checkpointId));
-                        snapshotStates.put(sinkWriterEntry.getKey(), states);
+                                        () -> groupedEntry.getKey().snapshotState(checkpointId));
+                        for (SinkIdentifier aliasedIdentifier : aliasedIdentifiers) {
+                            snapshotStates.put(aliasedIdentifier, states);
+                        }
                     } catch (InterruptedException error) {
                         Thread.currentThread().interrupt();
                         throwAsIOException(error);
                     } catch (Throwable error) {
                         if (failurePolicy.continueOtherTables()) {
-                            handleTableFailure(
-                                    sinkWriterEntry.getKey().getTableIdentifier(),
-                                    MultiTableFailurePhase.CHECKPOINT,
-                                    error);
+                            for (SinkIdentifier aliasedIdentifier : aliasedIdentifiers) {
+                                handleTableFailure(
+                                        aliasedIdentifier.getTableIdentifier(),
+                                        MultiTableFailurePhase.CHECKPOINT,
+                                        error);
+                            }
                             continue;
                         }
                         throwAsIOException(error);
@@ -695,6 +758,22 @@ public class MultiTableSinkWriter
         return Optional.empty();
     }
 
+    /**
+     * Prepares commit info for all sub-writers in parallel.
+     *
+     * <p>After draining all queues via {@link #checkQueueRemain()} and checking for errors, submits
+     * one task per queue to the executor service. Each task acquires the corresponding {@link
+     * MultiTableWriterRunnable} lock and calls {@code prepareCommit} on every sub-writer assigned
+     * to that queue. Results are aggregated into a single {@link MultiTableCommitInfo} using a
+     * {@link ConcurrentHashMap}.
+     *
+     * <p>Blocks until all futures complete, then returns the aggregated commit info (or empty if no
+     * sub-writer produced commit info).
+     *
+     * @param checkpointId the checkpoint identifier
+     * @return commit info aggregated from all sub-writers, or empty if none
+     * @throws IOException if a sub-writer fails during prepare commit
+     */
     @Override
     public Optional<MultiTableCommitInfo> prepareCommit(long checkpointId) throws IOException {
         checkQueueRemain();
@@ -708,45 +787,55 @@ public class MultiTableSinkWriter
                     executorService.submit(
                             () -> {
                                 synchronized (runnable.get(subWriterIndex)) {
-                                    for (Map.Entry<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>>
-                                            sinkWriterEntry :
-                                                    new ArrayList<>(
-                                                            sinkWritersWithIndex
-                                                                    .get(subWriterIndex)
-                                                                    .entrySet())) {
+                                    // Aliased identifiers may share one writer instance; prepare
+                                    // commit exactly once and fan the result back to all of them.
+                                    for (Map.Entry<
+                                                    SinkWriter<SeaTunnelRow, ?, ?>,
+                                                    List<SinkIdentifier>>
+                                            groupedEntry :
+                                                    groupByIdentity(
+                                                                    sinkWritersWithIndex.get(
+                                                                            subWriterIndex))
+                                                            .entrySet()) {
+                                        List<SinkIdentifier> aliasedIdentifiers =
+                                                groupedEntry.getValue();
+                                        SinkIdentifier primaryIdentifier =
+                                                aliasedIdentifiers.get(0);
                                         Optional<?> commit;
                                         try {
-                                            SinkWriter<SeaTunnelRow, ?, ?> sinkWriter =
-                                                    sinkWriterEntry.getValue();
                                             commit =
                                                     executeWithTableRetry(
-                                                            sinkWriterEntry
-                                                                    .getKey()
-                                                                    .getTableIdentifier(),
+                                                            primaryIdentifier.getTableIdentifier(),
                                                             MultiTableFailurePhase.CHECKPOINT,
                                                             () ->
-                                                                    sinkWriter.prepareCommit(
-                                                                            checkpointId));
+                                                                    groupedEntry
+                                                                            .getKey()
+                                                                            .prepareCommit(
+                                                                                    checkpointId));
                                         } catch (InterruptedException error) {
                                             Thread.currentThread().interrupt();
                                             throw new RuntimeException(error);
                                         } catch (Throwable error) {
                                             if (failurePolicy.continueOtherTables()) {
-                                                handleTableFailure(
-                                                        sinkWriterEntry
-                                                                .getKey()
-                                                                .getTableIdentifier(),
-                                                        MultiTableFailurePhase.CHECKPOINT,
-                                                        error);
+                                                for (SinkIdentifier aliasedIdentifier :
+                                                        aliasedIdentifiers) {
+                                                    handleTableFailure(
+                                                            aliasedIdentifier.getTableIdentifier(),
+                                                            MultiTableFailurePhase.CHECKPOINT,
+                                                            error);
+                                                }
                                                 continue;
                                             }
                                             throw new RuntimeException(error);
                                         }
-                                        commit.ifPresent(
-                                                o ->
-                                                        multiTableCommitInfo
-                                                                .getCommitInfo()
-                                                                .put(sinkWriterEntry.getKey(), o));
+                                        if (commit.isPresent()) {
+                                            for (SinkIdentifier aliasedIdentifier :
+                                                    aliasedIdentifiers) {
+                                                multiTableCommitInfo
+                                                        .getCommitInfo()
+                                                        .put(aliasedIdentifier, commit.get());
+                                            }
+                                        }
                                     }
                                 }
                             }));
@@ -766,6 +855,14 @@ public class MultiTableSinkWriter
         return Optional.of(multiTableCommitInfo);
     }
 
+    /**
+     * Aborts the prepare phase for all sub-writers.
+     *
+     * <p>Drains remaining queues, then iterates over all sub-writers under their respective {@link
+     * MultiTableWriterRunnable} locks, calling {@code abortPrepare()} on each. Uses a
+     * first-exception-wins strategy: if multiple sub-writers throw, only the first exception is
+     * propagated; subsequent errors are logged.
+     */
     @Override
     public void abortPrepare() {
         Throwable firstE = null;
@@ -777,7 +874,7 @@ public class MultiTableSinkWriter
         for (int i = 0; i < sinkWritersWithIndex.size(); i++) {
             synchronized (runnable.get(i)) {
                 for (SinkWriter<SeaTunnelRow, ?, ?> sinkWriter :
-                        sinkWritersWithIndex.get(i).values()) {
+                        groupByIdentity(sinkWritersWithIndex.get(i)).keySet()) {
                     try {
                         sinkWriter.abortPrepare();
                     } catch (Throwable e) {
@@ -812,6 +909,8 @@ public class MultiTableSinkWriter
      */
     @Override
     public void close() throws IOException {
+        // The variables used in lambda expressions should be final or valid final, so they are
+        // modified to arrays
         final Throwable[] firstE = {null};
         boolean failedTableReportOnly = false;
         try {
@@ -823,7 +922,7 @@ public class MultiTableSinkWriter
         for (int i = 0; i < sinkWritersWithIndex.size(); i++) {
             synchronized (runnable.get(i)) {
                 for (SinkWriter<SeaTunnelRow, ?, ?> sinkWriter :
-                        sinkWritersWithIndex.get(i).values()) {
+                        groupByIdentity(sinkWritersWithIndex.get(i)).keySet()) {
                     try {
                         sinkWriter.close();
                     } catch (Throwable e) {
