@@ -110,6 +110,24 @@ The checkpoint flush runs on all engines, including Zeta. So on Zeta the buffer 
 `sink.flush.interval`, flushes happen more often (in smaller batches) than the timer alone. This is
 expected; tune `sink.flush.interval` and the checkpoint interval together if request cadence matters.
 
+### Checkpoint Flush and Failure Handling
+
+The checkpoint flush is a single remote-write request, and a failed flush fails the checkpoint rather
+than dropping the batch. Two consequences are worth knowing:
+
+- **Transient failures fail the checkpoint.** A network blip, a receiver restart, or a `5xx` response
+  fails the current checkpoint. On Flink the default `tolerableCheckpointFailureNumber` is `0`, so a
+  single failure restarts the job; on Spark and Flink you may want to raise the engine's tolerable
+  checkpoint failure setting for a low-throughput job. A bounded retry with backoff inside the flush
+  is tracked as a follow-up in [#11911](https://github.com/apache/seatunnel/issues/11911).
+- **Replay safety depends on the receiver.** After a failed checkpoint the job restarts and the source
+  replays from the last successful checkpoint, so the buffered samples are re-sent. This is safe only
+  when the remote-write receiver accepts an exact duplicate (same labels, timestamp, and value). A
+  receiver that rejects a same-timestamp sample with a different value, or an out-of-order sample
+  (Prometheus TSDB, and receivers such as Cortex, Mimir, and Thanos, return `400` for these), can fail
+  the replayed flush and keep failing the checkpoint. Enable the receiver's out-of-order window, or
+  ensure replays are exact duplicates, if this matters for your deployment.
+
 ## Example
 
 ```hocon
