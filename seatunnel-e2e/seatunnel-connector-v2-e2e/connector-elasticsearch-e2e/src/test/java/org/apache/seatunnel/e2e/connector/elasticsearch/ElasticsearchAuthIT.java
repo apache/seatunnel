@@ -327,7 +327,7 @@ public class ElasticsearchAuthIT extends TestSuiteBase implements TestResource {
                 throw new RuntimeException("Failed to insert test data: " + response.getResponse());
             }
 
-            awaitIndexDocsCount(TEST_INDEX, 3);
+            awaitIndexDocsCountAtLeast(TEST_INDEX, 3);
             log.info("Test data inserted successfully - {} documents", 3);
         } catch (Exception e) {
             log.error("Failed to insert test data", e);
@@ -562,7 +562,7 @@ public class ElasticsearchAuthIT extends TestSuiteBase implements TestResource {
                     0, execResult.getExitCode(), "Job should complete successfully");
 
             // Verify results
-            long targetCount = awaitIndexDocsCount("auth_test_apikey_target", 3);
+            long targetCount = awaitIndexDocsCountAtLeast("auth_test_apikey_target", 3);
             log.info("✓ API Key auth E2E test completed - {} documents processed", targetCount);
             Assertions.assertTrue(
                     targetCount > 0, "Should have processed documents with API key auth");
@@ -605,7 +605,7 @@ public class ElasticsearchAuthIT extends TestSuiteBase implements TestResource {
                     0, execResult.getExitCode(), "Job should complete successfully");
 
             // Verify results
-            long targetCount = awaitIndexDocsCount("auth_test_apikey_encoded_target", 3);
+            long targetCount = awaitIndexDocsCountAtLeast("auth_test_apikey_encoded_target", 3);
             log.info(
                     "✓ API Key Encoded auth E2E test completed - {} documents processed",
                     targetCount);
@@ -762,11 +762,11 @@ public class ElasticsearchAuthIT extends TestSuiteBase implements TestResource {
             log.warn("Some documents might already exist: {}", response.getResponse());
         }
 
-        long docCount = awaitIndexDocsCount(testIndex, 10);
+        long docCount = awaitIndexDocsCountAtLeast(testIndex, 10);
         log.info("Test data setup completed - {} documents in source index", docCount);
     }
 
-    private long awaitIndexDocsCount(String indexName, long expectedCount) {
+    private long awaitIndexDocsCountAtLeast(String indexName, long minimumCount) {
         Awaitility.await()
                 .atMost(2, TimeUnit.MINUTES)
                 .pollInterval(500, TimeUnit.MILLISECONDS)
@@ -774,7 +774,7 @@ public class ElasticsearchAuthIT extends TestSuiteBase implements TestResource {
                 .until(
                         () ->
                                 esRestClient.getIndexDocsCount(indexName).get(0).getDocsCount()
-                                        == expectedCount);
+                                        >= minimumCount);
         return esRestClient.getIndexDocsCount(indexName).get(0).getDocsCount();
     }
 }

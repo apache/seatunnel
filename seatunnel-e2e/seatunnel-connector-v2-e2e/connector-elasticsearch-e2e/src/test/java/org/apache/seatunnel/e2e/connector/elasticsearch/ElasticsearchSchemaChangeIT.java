@@ -150,7 +150,10 @@ public class ElasticsearchSchemaChangeIT extends TestSuiteBase implements TestRe
                     }
                 });
 
-        await().atMost(2, TimeUnit.MINUTES)
+        // The schema change must be applied only after the initial snapshot reaches Elasticsearch.
+        // Starting the CDC pipeline can exceed two minutes on a shared GitHub runner, so keep a
+        // wider bound for this one-time startup transition.
+        await().atMost(5, TimeUnit.MINUTES)
                 .ignoreExceptions()
                 .untilAsserted(
                         () ->

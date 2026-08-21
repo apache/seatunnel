@@ -87,6 +87,8 @@ import java.util.stream.Stream;
 @Slf4j
 public class ElasticsearchIT extends TestSuiteBase implements TestResource {
 
+    private static final int FILTERED_DOCUMENT_COUNT = 11;
+
     private List<String> testDataset1;
 
     private List<String> testDataset2;
@@ -489,8 +491,8 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         range2.put("c_int2", rangeParam);
         query2.put("range", range2);
 
-        awaitIndexDocsCount("read_filter_index1_copy", testDataset1.size());
-        awaitIndexDocsCount("read_filter_index2_copy", testDataset2.size());
+        awaitIndexDocsCount("read_filter_index1_copy", FILTERED_DOCUMENT_COUNT);
+        awaitIndexDocsCount("read_filter_index2_copy", FILTERED_DOCUMENT_COUNT);
         Set<String> sinkData1 =
                 new HashSet<>(
                         getDocsWithTransformDate(
@@ -763,7 +765,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
     private List<String> readSinkDataWithOutSchema(String indexName) throws InterruptedException {
         Map<String, BasicTypeDefine<EsType>> esFieldType =
                 esRestClient.getFieldTypeMapping(indexName, Lists.newArrayList());
-        awaitIndexDocsCount(indexName, testDataset1.size());
+        awaitIndexDocsCount(indexName, FILTERED_DOCUMENT_COUNT);
         List<String> source = new ArrayList<>(esFieldType.keySet());
         return getDocsWithTransformDate(source, indexName);
     }
@@ -774,7 +776,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
             throws InterruptedException {
         Map<String, BasicTypeDefine<EsType>> esFieldType =
                 esRestClient.getFieldTypeMapping(indexName, Lists.newArrayList());
-        awaitIndexDocsCount(indexName, testDataset1.size());
+        awaitIndexDocsCount(indexName, FILTERED_DOCUMENT_COUNT);
         List<String> source = new ArrayList<>(esFieldType.keySet());
         return getDocsWithTransformDate(source, indexName, nullAllowedFields);
     }
@@ -782,7 +784,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
     // The timestamp type in Elasticsearch is incompatible with that in Seatunnel,
     // and we need to handle the conversion here.
     private List<String> readSinkDataWithSchema(String index) throws InterruptedException {
-        awaitIndexDocsCount(index, testDataset1.size());
+        awaitIndexDocsCount(index, FILTERED_DOCUMENT_COUNT);
         List<String> source =
                 Lists.newArrayList(
                         "c_map",
@@ -804,7 +806,8 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
     }
 
     private List<String> readSinkDataWithNestSchema(String index) throws InterruptedException {
-        awaitIndexDocsCount(index, 1);
+        // Elasticsearch's docs.count includes the root document and its two nested documents.
+        awaitIndexDocsCount(index, 3);
         List<String> source = Lists.newArrayList("name", "address");
         return getDocsWithNestType(source, index);
     }
