@@ -28,32 +28,43 @@ import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.sink.SchemaSaveMode;
+import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.ConstraintKey;
 import org.apache.seatunnel.api.table.catalog.PrimaryKey;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.connector.TableSink;
 import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.api.table.factory.SupportSinkDryRunValidation;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkOptions;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectLoader;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dialectenum.FieldIdeEnum;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.utils.JdbcCatalogUtils;
 
 import org.apache.commons.collections4.CollectionUtils;
 
 import com.google.auto.service.AutoService;
 
+import java.sql.Connection;
 import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @AutoService(Factory.class)
-public class JdbcSinkFactory implements TableSinkFactory {
+public class JdbcSinkFactory implements TableSinkFactory, SupportSinkDryRunValidation {
     @Override
     public String factoryIdentifier() {
         return "Jdbc";
@@ -76,46 +87,17 @@ public class JdbcSinkFactory implements TableSinkFactory {
         Map<String, String> sinkTableOptions = config.get(SinkConnectorCommonOptions.TABLE_OPTIONS);
         CatalogTable catalogTable = context.getCatalogTable();
         ReadonlyConfig catalogOptions = getCatalogOptions(context);
-        Optional<String> optionalTable = config.getOptional(JdbcSinkOptions.TABLE);
-        Optional<String> optionalDatabase = config.getOptional(JdbcSinkOptions.DATABASE);
         // source table info
         TableIdentifier tableId = catalogTable.getTableId();
         // sink table info
-        String sinkDatabaseName =
-                optionalDatabase.orElse(catalogTable.getTablePath().getDatabaseName());
-        String sinkTableNameBefore =
-                optionalTable.orElse(catalogTable.getTablePath().getTableName());
-        String[] sinkTableSplitArray = sinkTableNameBefore.split("\\.");
-        String sinkTableName = sinkTableSplitArray[sinkTableSplitArray.length - 1];
-        String sinkSchemaName;
-        if (sinkTableSplitArray.length > 1) {
-            sinkSchemaName = sinkTableSplitArray[sinkTableSplitArray.length - 2];
-        } else {
-            sinkSchemaName = null;
-        }
-        if (StringUtils.isNotBlank(catalogOptions.get(JdbcSinkOptions.SCHEMA))) {
-            sinkSchemaName = catalogOptions.get(JdbcSinkOptions.SCHEMA);
-        }
-        // prefix / suffix
-        String tempTableName;
-        String prefix = catalogOptions.get(JdbcSinkOptions.TABLE_PREFIX);
-        String suffix = catalogOptions.get(JdbcSinkOptions.TABLE_SUFFIX);
-        if (StringUtils.isNotEmpty(prefix) || StringUtils.isNotEmpty(suffix)) {
-            tempTableName = StringUtils.isNotEmpty(prefix) ? prefix + sinkTableName : sinkTableName;
-            tempTableName = StringUtils.isNotEmpty(suffix) ? tempTableName + suffix : tempTableName;
-        } else {
-            tempTableName = sinkTableName;
-        }
-        // without replace, keep original directly
-        String finalSchemaName = sinkSchemaName;
-        String finalTableName = tempTableName;
+        TablePath sinkTablePath = resolveSinkTablePath(config, catalogOptions, catalogTable);
         // rebuild identifier
         TableIdentifier newTableId =
                 TableIdentifier.of(
                         tableId.getCatalogName(),
-                        sinkDatabaseName,
-                        finalSchemaName,
-                        finalTableName);
+                        sinkTablePath.getDatabaseName(),
+                        sinkTablePath.getSchemaName(),
+                        sinkTablePath.getTableName());
         catalogTable =
                 CatalogTable.of(
                         newTableId,
@@ -267,6 +249,142 @@ public class JdbcSinkFactory implements TableSinkFactory {
                         DataSaveMode.CUSTOM_PROCESSING,
                         JdbcSinkOptions.CUSTOM_SQL)
                 .build();
+    }
+
+    /**
+     * Validates sink connectivity and schema compatibility for {@code --dry-run connect} without
+     * creating writers, committers, or save-mode handlers, and without executing any DDL/DML.
+     *
+     * <p>Checks performed:
+     *
+     * <ul>
+     *   <li>Connectivity and credentials, by opening the same catalog (or raw connection) used at
+     *       runtime
+     *   <li>Target table existence; a missing table only fails when {@code schema_save_mode} is
+     *       {@link SchemaSaveMode#ERROR_WHEN_SCHEMA_NOT_EXIST}, because other save modes create it
+     *       at runtime
+     *   <li>Field compatibility: every upstream field must exist in the target table when it
+     *       already exists
+     * </ul>
+     */
+    @Override
+    public void validateConnectionForDryRun(TableSinkFactoryContext context) throws Exception {
+        ReadonlyConfig config = context.getOptions();
+        JdbcSinkConfig sinkConfig = JdbcSinkConfig.of(config);
+        FieldIdeEnum fieldIdeEnum = config.get(JdbcSinkOptions.FIELD_IDE);
+        JdbcDialect dialect =
+                JdbcDialectLoader.load(
+                        sinkConfig.getJdbcConnectionConfig().getUrl(),
+                        sinkConfig.getJdbcConnectionConfig().getCompatibleMode(),
+                        sinkConfig.getJdbcConnectionConfig().getDialect(),
+                        fieldIdeEnum == null ? null : fieldIdeEnum.getValue());
+        dialect.connectionUrlParse(
+                sinkConfig.getJdbcConnectionConfig().getUrl(),
+                sinkConfig.getJdbcConnectionConfig().getProperties(),
+                dialect.defaultParameter());
+
+        Optional<Catalog> optionalCatalog =
+                JdbcCatalogUtils.findCatalog(sinkConfig.getJdbcConnectionConfig(), dialect);
+        if (!optionalCatalog.isPresent()) {
+            // No catalog implementation for this dialect: validate connectivity and credentials
+            // with a plain connection, table-level checks are not possible.
+            try (Connection connection =
+                    dialect.getJdbcConnectionProvider(sinkConfig.getJdbcConnectionConfig())
+                            .getOrEstablishConnection()) {
+                return;
+            }
+        }
+
+        try (Catalog catalog = optionalCatalog.get()) {
+            catalog.open();
+
+            TablePath targetTablePath = resolveDryRunTargetTablePath(context);
+            if (targetTablePath == null) {
+                // Custom-query sink or unresolvable table name: connectivity is all we can check.
+                return;
+            }
+
+            if (!catalog.tableExists(targetTablePath)) {
+                if (config.get(JdbcSinkOptions.SCHEMA_SAVE_MODE)
+                        == SchemaSaveMode.ERROR_WHEN_SCHEMA_NOT_EXIST) {
+                    throw new JdbcConnectorException(
+                            JdbcConnectorErrorCode.CONNECT_DATABASE_FAILED,
+                            String.format(
+                                    "Sink table %s does not exist and schema_save_mode is %s.",
+                                    targetTablePath.getFullName(),
+                                    SchemaSaveMode.ERROR_WHEN_SCHEMA_NOT_EXIST));
+                }
+                // Table will be created by save mode at runtime; nothing more to validate.
+                return;
+            }
+
+            CatalogTable targetTable = catalog.getTable(targetTablePath);
+            Set<String> targetColumns =
+                    targetTable.getTableSchema().getColumns().stream()
+                            .map(column -> column.getName().toLowerCase(Locale.ROOT))
+                            .collect(Collectors.toSet());
+            List<String> missingColumns =
+                    context.getCatalogTable().getTableSchema().getColumns().stream()
+                            .map(Column::getName)
+                            .filter(name -> !targetColumns.contains(name.toLowerCase(Locale.ROOT)))
+                            .collect(Collectors.toList());
+            if (!missingColumns.isEmpty()) {
+                throw new JdbcConnectorException(
+                        JdbcConnectorErrorCode.CONNECT_DATABASE_FAILED,
+                        String.format(
+                                "Sink table %s is missing upstream fields %s.",
+                                targetTablePath.getFullName(), missingColumns));
+            }
+        }
+    }
+
+    /**
+     * Resolves the sink table naming shared by {@link #createSink} and dry-run validation:
+     * database/table overrides, dotted table name split, schema option, and prefix/suffix. Keeping
+     * a single implementation guarantees dry-run validates exactly the table the runtime writes to.
+     */
+    private TablePath resolveSinkTablePath(
+            ReadonlyConfig config, ReadonlyConfig catalogOptions, CatalogTable upstreamTable) {
+        String databaseName =
+                config.getOptional(JdbcSinkOptions.DATABASE)
+                        .orElse(upstreamTable.getTablePath().getDatabaseName());
+        String tableNameBefore =
+                config.getOptional(JdbcSinkOptions.TABLE)
+                        .orElse(upstreamTable.getTablePath().getTableName());
+        String[] tableSplitArray = tableNameBefore.split("\\.");
+        String tableName = tableSplitArray[tableSplitArray.length - 1];
+        String schemaName =
+                tableSplitArray.length > 1 ? tableSplitArray[tableSplitArray.length - 2] : null;
+        if (StringUtils.isNotBlank(catalogOptions.get(JdbcSinkOptions.SCHEMA))) {
+            schemaName = catalogOptions.get(JdbcSinkOptions.SCHEMA);
+        }
+        String prefix = catalogOptions.get(JdbcSinkOptions.TABLE_PREFIX);
+        String suffix = catalogOptions.get(JdbcSinkOptions.TABLE_SUFFIX);
+        if (StringUtils.isNotEmpty(prefix)) {
+            tableName = prefix + tableName;
+        }
+        if (StringUtils.isNotEmpty(suffix)) {
+            tableName = tableName + suffix;
+        }
+        return TablePath.of(databaseName, schemaName, tableName);
+    }
+
+    /**
+     * Resolves the target table path for dry-run validation. Returns {@code null} when the sink
+     * writes through a custom query or the table name cannot be determined.
+     */
+    private TablePath resolveDryRunTargetTablePath(TableSinkFactoryContext context) {
+        ReadonlyConfig config = context.getOptions();
+        if (config.getOptional(JdbcSinkOptions.QUERY).isPresent()) {
+            return null;
+        }
+        TablePath tablePath =
+                resolveSinkTablePath(config, getCatalogOptions(context), context.getCatalogTable());
+        if (StringUtils.isBlank(tablePath.getDatabaseName())
+                || StringUtils.isBlank(tablePath.getTableName())) {
+            return null;
+        }
+        return tablePath;
     }
 
     /**

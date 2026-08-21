@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.common.metrics.JobMetrics;
 import org.apache.seatunnel.api.common.metrics.RawJobMetrics;
 import org.apache.seatunnel.api.event.EventHandler;
 import org.apache.seatunnel.api.event.EventProcessor;
+import org.apache.seatunnel.api.options.EnvCommonOptions;
 import org.apache.seatunnel.api.tracing.MDCExecutorService;
 import org.apache.seatunnel.api.tracing.MDCTracer;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
@@ -602,71 +603,94 @@ public class CoordinatorService {
         }
     }
 
-    private void processPendingPipelineCleanup(
+    @VisibleForTesting
+    void processPendingPipelineCleanup(
             PipelineLocation pipelineLocation, PipelineCleanupRecord record) {
         if (pipelineLocation == null || record == null) {
             return;
         }
-        if (!shouldCleanup(record)) {
-            removePendingCleanupRecord(pipelineLocation, record);
+        IMap<PipelineLocation, PipelineCleanupRecord> pendingCleanupIMap =
+                pendingPipelineCleanupIMap;
+        if (pendingCleanupIMap == null) {
             return;
         }
 
-        PipelineStatus currentStatus = getPipelineStatusFromIMap(pipelineLocation);
-        if (currentStatus != null && !currentStatus.isEndState()) {
-            return;
-        }
+        boolean locked = false;
+        try {
+            pendingCleanupIMap.lock(pipelineLocation);
+            locked = true;
 
-        long now = System.currentTimeMillis();
-        PipelineCleanupRecord updated = copy(record);
-        updated.setLastAttemptTimeMillis(now);
-        updated.setAttemptCount(record.getAttemptCount() + 1);
+            // entrySet() is a snapshot. Revalidate it while holding the same key lock used by
+            // restore invalidation so an old execution round cannot clean a newer round.
+            PipelineCleanupRecord currentRecord = pendingCleanupIMap.get(pipelineLocation);
+            if (!record.equals(currentRecord)) {
+                return;
+            }
+            if (!shouldCleanup(record)) {
+                removePendingCleanupRecord(pipelineLocation, record);
+                return;
+            }
 
-        if (!updated.isMetricsImapCleaned() && cleanupPipelineMetrics(pipelineLocation)) {
-            updated.setMetricsImapCleaned(true);
-        }
+            PipelineStatus currentStatus = getPipelineStatusFromIMap(pipelineLocation);
+            if (currentStatus != null && !currentStatus.isEndState()) {
+                return;
+            }
 
-        Map<TaskGroupLocation, Address> taskGroups = updated.getTaskGroups();
-        if (taskGroups != null && !taskGroups.isEmpty()) {
-            for (Map.Entry<TaskGroupLocation, Address> taskGroup : taskGroups.entrySet()) {
-                TaskGroupLocation taskGroupLocation = taskGroup.getKey();
-                if (updated.getCleanedTaskGroups() != null
-                        && updated.getCleanedTaskGroups().contains(taskGroupLocation)) {
-                    continue;
-                }
-                Address workerAddress = taskGroup.getValue();
-                if (workerAddress == null
-                        || nodeEngine.getClusterService().getMember(workerAddress) == null) {
-                    continue;
-                }
-                try {
-                    NodeEngineUtil.sendOperationToMemberNode(
-                                    nodeEngine,
-                                    new CleanTaskGroupContextOperation(taskGroupLocation),
-                                    workerAddress)
-                            .get();
-                    updated.getCleanedTaskGroups().add(taskGroupLocation);
-                } catch (HazelcastInstanceNotActiveException e) {
-                    logger.warning(
-                            String.format(
-                                    "%s clean TaskGroupContext failed: %s",
-                                    taskGroupLocation, ExceptionUtils.getMessage(e)));
-                } catch (Exception e) {
-                    logger.warning(
-                            String.format(
-                                    "%s clean TaskGroupContext failed: %s",
-                                    taskGroupLocation, ExceptionUtils.getMessage(e)),
-                            e);
+            long now = System.currentTimeMillis();
+            PipelineCleanupRecord updated = copy(record);
+            updated.setLastAttemptTimeMillis(now);
+            updated.setAttemptCount(record.getAttemptCount() + 1);
+
+            if (!updated.isMetricsImapCleaned() && cleanupPipelineMetrics(pipelineLocation)) {
+                updated.setMetricsImapCleaned(true);
+            }
+
+            Map<TaskGroupLocation, Address> taskGroups = updated.getTaskGroups();
+            if (taskGroups != null && !taskGroups.isEmpty()) {
+                for (Map.Entry<TaskGroupLocation, Address> taskGroup : taskGroups.entrySet()) {
+                    TaskGroupLocation taskGroupLocation = taskGroup.getKey();
+                    if (updated.getCleanedTaskGroups() != null
+                            && updated.getCleanedTaskGroups().contains(taskGroupLocation)) {
+                        continue;
+                    }
+                    Address workerAddress = taskGroup.getValue();
+                    if (workerAddress == null
+                            || nodeEngine.getClusterService().getMember(workerAddress) == null) {
+                        continue;
+                    }
+                    try {
+                        NodeEngineUtil.sendOperationToMemberNode(
+                                        nodeEngine,
+                                        new CleanTaskGroupContextOperation(taskGroupLocation),
+                                        workerAddress)
+                                .get();
+                        updated.getCleanedTaskGroups().add(taskGroupLocation);
+                    } catch (HazelcastInstanceNotActiveException e) {
+                        logger.warning(
+                                String.format(
+                                        "%s clean TaskGroupContext failed: %s",
+                                        taskGroupLocation, ExceptionUtils.getMessage(e)));
+                    } catch (Exception e) {
+                        logger.warning(
+                                String.format(
+                                        "%s clean TaskGroupContext failed: %s",
+                                        taskGroupLocation, ExceptionUtils.getMessage(e)),
+                                e);
+                    }
                 }
             }
-        }
 
-        boolean replaced = pendingPipelineCleanupIMap.replace(pipelineLocation, record, updated);
-        if (!replaced) {
-            return;
-        }
-        if (updated.isCleaned()) {
-            pendingPipelineCleanupIMap.remove(pipelineLocation, updated);
+            boolean replaced = pendingCleanupIMap.replace(pipelineLocation, record, updated);
+            if (!replaced) {
+                return;
+            }
+            if (updated.isCleaned()) {
+                pendingCleanupIMap.remove(pipelineLocation, updated);
+            }
+        } finally {
+            if (locked) {
+                pendingCleanupIMap.unlock(pipelineLocation);
+            }
         }
     }
 
@@ -690,7 +714,8 @@ public class CoordinatorService {
         if (record.isSavepointEnd()) {
             return false;
         }
-        return PipelineStatus.CANCELED.equals(record.getFinalStatus())
+        return PipelineStatus.FAILED.equals(record.getFinalStatus())
+                || PipelineStatus.CANCELED.equals(record.getFinalStatus())
                 || PipelineStatus.FINISHED.equals(record.getFinalStatus());
     }
 
@@ -1055,6 +1080,50 @@ public class CoordinatorService {
     }
 
     /**
+     * Removes pending pipeline cleanup records from an older execution round of the same job.
+     *
+     * <p>A savepoint-start submission reuses the same job id and pipeline ids, while pipeline
+     * cleanup records are keyed only by {@link PipelineLocation}. If a previous FAILED record
+     * survives into the restored round, it can delete metrics that the later savepoint-end round
+     * must retain.
+     *
+     * @param jobId job id that is entering a new savepoint-start execution round
+     */
+    @VisibleForTesting
+    void cleanupPendingPipelineCleanupForRestore(long jobId) {
+        IMap<PipelineLocation, PipelineCleanupRecord> pendingCleanupIMap =
+                pendingPipelineCleanupIMap;
+        if (pendingCleanupIMap == null || pendingCleanupIMap.isEmpty()) {
+            return;
+        }
+        for (Map.Entry<PipelineLocation, PipelineCleanupRecord> entry :
+                pendingCleanupIMap.entrySet()) {
+            PipelineLocation pipelineLocation = entry.getKey();
+            if (pipelineLocation == null) {
+                continue;
+            }
+            boolean locked = false;
+            try {
+                pendingCleanupIMap.lock(pipelineLocation);
+                locked = true;
+                PipelineCleanupRecord currentRecord = pendingCleanupIMap.get(pipelineLocation);
+                boolean sameJob =
+                        pipelineLocation.getJobId() == jobId
+                                || (currentRecord != null
+                                        && currentRecord.getPipelineLocation() != null
+                                        && currentRecord.getPipelineLocation().getJobId() == jobId);
+                if (sameJob) {
+                    pendingCleanupIMap.remove(pipelineLocation);
+                }
+            } finally {
+                if (locked) {
+                    pendingCleanupIMap.unlock(pipelineLocation);
+                }
+            }
+        }
+    }
+
+    /**
      * Polls master ownership and reconciles the local coordinator lifecycle with cluster state.
      *
      * <p>When this node becomes the active master, the coordinator initializes distributed services
@@ -1166,6 +1235,19 @@ public class CoordinatorService {
         return resourceManager;
     }
 
+    /**
+     * Returns the resource manager only when it has already been initialized.
+     *
+     * <p>Unlike {@link #getResourceManager()}, this method never creates or initializes runtime
+     * state. Read-only paths such as telemetry collection should use this method to avoid
+     * triggering cluster RPCs.
+     *
+     * @return the initialized resource manager, or {@code null} when it has not been initialized
+     */
+    public ResourceManager getInitializedResourceManager() {
+        return resourceManager;
+    }
+
     /** call by client to submit job */
     public PassiveCompletableFuture<Void> submitJob(
             long jobId, Data jobImmutableInformation, boolean isStartWithSavePoint) {
@@ -1188,6 +1270,13 @@ public class CoordinatorService {
                     JobMaster jobMaster = null;
                     JobInfo submittedJobInfo = null;
                     try {
+                        JobImmutableInformation submittedJobImmutableInformation =
+                                deserializeJobImmutableInformation(jobImmutableInformation);
+                        validateCheckpointRestoreSourceJobIsTerminal(
+                                submittedJobImmutableInformation, jobId);
+                        if (isStartWithSavePoint) {
+                            cleanupPendingPipelineCleanupForRestore(jobId);
+                        }
                         JobCleanupRecord pendingCleanupRecord =
                                 pendingJobCleanupIMap != null
                                         ? pendingJobCleanupIMap.get(jobId)
@@ -1260,6 +1349,30 @@ public class CoordinatorService {
                     }
                 });
         return new PassiveCompletableFuture<>(jobSubmitFuture);
+    }
+
+    private void validateCheckpointRestoreSourceJobIsTerminal(
+            JobImmutableInformation jobImmutableInformation, long destinationJobId) {
+        CheckpointRestoreValidator.validate(
+                jobImmutableInformation, destinationJobId, this::resolveSourceJobStatusForRestore);
+    }
+
+    private JobImmutableInformation deserializeJobImmutableInformation(
+            Data jobImmutableInformation) {
+        return nodeEngine.getSerializationService().toObject(jobImmutableInformation);
+    }
+
+    private JobStatus resolveSourceJobStatusForRestore(long sourceJobId) {
+        if (pendingJobQueue.contains(sourceJobId)) {
+            return JobStatus.PENDING;
+        }
+        JobMaster runningSourceJobMaster = runningJobMasterMap.get(sourceJobId);
+        if (runningSourceJobMaster != null) {
+            JobStatus runningStatus = runningSourceJobMaster.getJobStatus();
+            return runningStatus == null ? JobStatus.RUNNING : runningStatus;
+        }
+        Object state = runningJobStateIMap.get(sourceJobId);
+        return state instanceof JobStatus ? (JobStatus) state : null;
     }
 
     public PassiveCompletableFuture<Void> savePoint(long jobId) {
@@ -1699,14 +1812,38 @@ public class CoordinatorService {
         }
         if (isCheckpointEnabled(jobImmutableInformation.getJobConfig())
                 && seaTunnelServer.getCheckpointService() != null) {
-            seaTunnelServer
-                    .getCheckpointService()
-                    .getCheckpointStorage()
-                    .deleteCheckpoint(jobId + "");
+            if (finalStatus == JobStatus.CANCELED
+                    && shouldRetainCheckpointAfterJobCancelled(jobImmutableInformation)) {
+                logger.info(
+                        String.format(
+                                "Job %d has retain-after-job-cancelled enabled, retaining checkpoint data",
+                                jobId));
+            } else {
+                seaTunnelServer
+                        .getCheckpointService()
+                        .getCheckpointStorage()
+                        .deleteCheckpoint(jobId + "");
+            }
         }
         if (seaTunnelServer.getCheckpointMonitorService() != null) {
             seaTunnelServer.getCheckpointMonitorService().cleanupJob(jobId);
         }
+    }
+
+    private boolean shouldRetainCheckpointAfterJobCancelled(
+            JobImmutableInformation jobImmutableInformation) {
+        if (jobImmutableInformation == null || jobImmutableInformation.getJobConfig() == null) {
+            return engineConfig.getCheckpointConfig().isRetainAfterJobCancelled();
+        }
+        Map<String, Object> jobEnv = jobImmutableInformation.getJobConfig().getEnvOptions();
+        if (jobEnv != null
+                && jobEnv.containsKey(
+                        EnvCommonOptions.CHECKPOINT_RETAIN_AFTER_JOB_CANCELLED.key())) {
+            return Boolean.parseBoolean(
+                    jobEnv.get(EnvCommonOptions.CHECKPOINT_RETAIN_AFTER_JOB_CANCELLED.key())
+                            .toString());
+        }
+        return engineConfig.getCheckpointConfig().isRetainAfterJobCancelled();
     }
 
     private boolean isCheckpointEnabled(JobConfig jobConfig) {

@@ -23,6 +23,7 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.TestTemplate;
@@ -47,15 +48,9 @@ public class DorisErrorIT extends AbstractDorisIT {
 
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
-            container -> {
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/jdbc/lib && cd /tmp/seatunnel/plugins/jdbc/lib && wget "
-                                        + DRIVER_JAR);
-                Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
-            };
+            container ->
+                    DependencyJar.of(com.mysql.cj.jdbc.Driver.class)
+                            .copyTo(container, "/tmp/seatunnel/plugins/jdbc/lib");
 
     @TestTemplate
     @DisabledOnContainer(
@@ -74,8 +69,13 @@ public class DorisErrorIT extends AbstractDorisIT {
                                 throw new RuntimeException(e);
                             }
                         });
-        // wait for the job to start
-        Thread.sleep(10 * 1000);
+        // Keep the Doris sink job running before stopping Doris so this test exercises the
+        // stream-load failure path instead of an early submission failure.
+        given().pollInterval(1, TimeUnit.SECONDS)
+                .await()
+                .during(10, TimeUnit.SECONDS)
+                .atMost(15, TimeUnit.SECONDS)
+                .until(() -> !future.isDone());
         super.container.stop();
         Assertions.assertNotEquals(0, future.get().getExitCode());
         Assertions.assertTrue(
