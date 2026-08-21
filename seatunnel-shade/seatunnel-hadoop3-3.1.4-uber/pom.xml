@@ -27,6 +27,7 @@
 
     <properties>
         <hadoop3.version>3.1.4</hadoop3.version>
+        <hadoop.azure.version>3.2.0</hadoop.azure.version>
         <guava.version>27.0-jre</guava.version>
     </properties>
 
@@ -46,6 +47,21 @@
             <groupId>org.apache.hadoop</groupId>
             <artifactId>hadoop-client</artifactId>
             <version>${hadoop3.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.hadoop</groupId>
+            <artifactId>hadoop-azure</artifactId>
+            <version>${hadoop.azure.version}</version>
+            <exclusions>
+                <exclusion>
+                    <groupId>com.microsoft.azure</groupId>
+                    <artifactId>azure-storage</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>org.eclipse.jetty</groupId>
+                    <artifactId>jetty-util-ajax</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>org.xerial.snappy</groupId>
@@ -72,6 +88,12 @@
                             <shadedArtifactAttached>false</shadedArtifactAttached>
                             <createDependencyReducedPom>false</createDependencyReducedPom>
                             <filters>
+                                <filter>
+                                    <artifact>org.apache.hadoop:hadoop-azure</artifact>
+                                    <includes>
+                                        <include>org/apache/hadoop/fs/azurebfs/**</include>
+                                    </includes>
+                                </filter>
                                 <filter>
                                     <artifact>*:*</artifact>
                                     <excludes>

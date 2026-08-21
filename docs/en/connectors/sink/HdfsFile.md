@@ -51,7 +51,7 @@ Output data to hdfs file
 
 | Name                                  | Type    | Required | Default                                    | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 |---------------------------------------|---------|----------|--------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| fs.defaultFS                          | string  | yes      | -                                          | Hadoop cluster address. Supports the following formats:<br/>- Standard HDFS: `hdfs://hadoopcluster` or `hdfs://namenode:9000`<br/>- ViewFS (Federated HDFS): `viewfs://mycluster`<br/>See ViewFS configuration example below.                                                                                                                                                                                                                                                            |
+| fs.defaultFS                          | string  | yes      | -                                          | Hadoop filesystem address. Supports standard HDFS (`hdfs://hadoopcluster` or `hdfs://namenode:9000`), ViewFS (`viewfs://mycluster`), and Azure Blob FileSystem (`abfs://` or `abfss://`).                                                                                                                                                                                                                           |
 | path                                  | string  | yes      | -                                          | The target dir path is required.                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | tmp_path                              | string  | yes      | /tmp/seatunnel                             | The result file will write to a tmp path first and then use `mv` to submit tmp dir to target dir. Need a hdfs path.                                                                                                                                                                                                                                                                                                                                                                      |
 | hdfs_site_path                        | string  | no       | -                                          | The path of `hdfs-site.xml`, used to load ha configuration of namenodes                                                                                                                                                                                                                                                                                                                                                                                                                  |
@@ -98,6 +98,21 @@ Output data to hdfs file
 ### Tips
 
 > If you use spark/flink, In order to use this connector, You must ensure your spark/flink cluster already integrated hadoop. The tested hadoop version is 2.x. If you use SeaTunnel Engine, It automatically integrated the hadoop jar when you download and install SeaTunnel Engine. You can check the jar package under ${SEATUNNEL_HOME}/lib to confirm this.
+
+### Azure Blob FileSystem
+
+`HdfsFile` can write to Azure Data Lake Storage Gen2 through Hadoop's `abfs` and `abfss` filesystems. Set `fs.defaultFS` to the filesystem URI and keep `path` relative to that filesystem, for example:
+
+```hocon
+HdfsFile {
+    fs.defaultFS = "abfss://container@account.dfs.core.windows.net"
+    path = "/data/output"
+    file_format_type = "parquet"
+    hdfs_site_path = "/etc/hadoop/conf/hdfs-site.xml"
+}
+```
+
+Configure authentication with the standard Hadoop Azure properties in `hdfs-site.xml`. The file referenced by `hdfs_site_path` must be available at the same path on every worker. Keep account keys, OAuth secrets, and other credentials out of the job configuration.
 
 ### schema_save_mode [string]
 
