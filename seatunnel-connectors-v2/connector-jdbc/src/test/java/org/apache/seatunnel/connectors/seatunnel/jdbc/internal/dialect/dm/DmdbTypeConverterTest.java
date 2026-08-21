@@ -347,6 +347,22 @@ public class DmdbTypeConverterTest {
     }
 
     @Test
+    public void testNchar() {
+        BasicTypeDefine<Object> typeDefine =
+                BasicTypeDefine.builder()
+                        .name("test")
+                        .columnType("nchar(2)")
+                        .dataType("nchar")
+                        .length(2L)
+                        .build();
+        Column column = DmdbTypeConverter.INSTANCE.convert(typeDefine);
+        Assertions.assertEquals(typeDefine.getName(), column.getName());
+        Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
+        Assertions.assertEquals(8, column.getColumnLength());
+        Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType().toLowerCase());
+    }
+
+    @Test
     public void testNvarchar() {
         BasicTypeDefine<Object> typeDefine =
                 BasicTypeDefine.builder()
@@ -356,6 +372,19 @@ public class DmdbTypeConverterTest {
                         .length(2L)
                         .build();
         Column column = DmdbTypeConverter.INSTANCE.convert(typeDefine);
+        Assertions.assertEquals(typeDefine.getName(), column.getName());
+        Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
+        Assertions.assertEquals(8, column.getColumnLength());
+        Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType().toLowerCase());
+
+        typeDefine =
+                BasicTypeDefine.builder()
+                        .name("test")
+                        .columnType("nvarchar2(2)")
+                        .dataType("nvarchar2")
+                        .length(2L)
+                        .build();
+        column = DmdbTypeConverter.INSTANCE.convert(typeDefine);
         Assertions.assertEquals(typeDefine.getName(), column.getName());
         Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
         Assertions.assertEquals(8, column.getColumnLength());
