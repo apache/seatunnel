@@ -388,19 +388,40 @@ public class MysqlCDCStopModeSpecificIT extends TestSuiteBase implements TestRes
                 .untilAsserted(
                         () -> Assertions.assertEquals("RUNNING", container.getJobStatus(jobId)));
 
-        // Issue a change while the job is running. For snapshot-taking startups
-        // (initial/earliest) the update happens while the snapshot phase is still in
-        // progress (guaranteed by the bulk-insert above), so it must be picked up by the
-        // binlog phase: with the stale split-creation stop offset the binlog phase would
-        // terminate immediately past it and this row would be silently dropped. The other
-        // startup modes (latest/specific/timestamp) have no snapshot window, so the update
-        // lands after the stop offset is resolved and is not read — which is expected.
+        if ("initial".equals(startupMode)) {
+            // Structural readiness gate for snapshot-taking startups: wait until the first
+            // bulk row (id=1) has reached the sink. With snapshot.split.size=20 the 200-row
+            // table is read in 10 splits, so this signal can only fire while the snapshot is
+            // still reading the remaining splits — the UPDATE below is therefore guaranteed
+            // to land inside the snapshot window and be picked up by the binlog phase. A
+            // bare RUNNING status is not sufficient (a small table's snapshot can complete
+            // before RUNNING is observed), and a raw timing margin is probabilistic.
+            await().atMost(60, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertEquals(
+                                            "bulk",
+                                            queryVarcharById(1),
+                                            "snapshot phase must have started reading"));
+        }
+
+        // Issue a change while the job is running.
+        // - initial: the sink-readiness gate above guarantees the snapshot phase is still in
+        //   progress, so the update must be picked up by the binlog phase; with the stale
+        //   split-creation stop offset the binlog phase would terminate immediately past it
+        //   and this row would be silently dropped.
+        // - earliest: there is no snapshot phase (binlog replay starts from the earliest
+        //   position, completedSnapshotSplitInfos is empty), so whether the update is
+        //   captured depends on the enumerator's stop-offset resolution timing versus the
+        //   update — not a deterministic contract, therefore not asserted.
+        // - latest/specific/timestamp: no snapshot window, the update lands after the stop
+        //   offset is resolved and is not read — which is expected.
         executeSql(
                 String.format(
                         "UPDATE %s.%s SET f_varchar = 'latest-stop' WHERE id = 21",
                         MYSQL_DATABASE, SOURCE_TABLE));
 
-        if ("initial".equals(startupMode) || "earliest".equals(startupMode)) {
+        if ("initial".equals(startupMode)) {
             await().atMost(60, TimeUnit.SECONDS)
                     .untilAsserted(
                             () ->
