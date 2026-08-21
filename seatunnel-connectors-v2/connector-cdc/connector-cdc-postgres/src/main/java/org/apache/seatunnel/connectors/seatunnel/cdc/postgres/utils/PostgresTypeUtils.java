@@ -27,17 +27,21 @@ public class PostgresTypeUtils {
     private PostgresTypeUtils() {}
 
     public static SeaTunnelDataType<?> convertFromColumn(Column column) {
-        BasicTypeDefine typeDefine =
-                BasicTypeDefine.builder()
-                        .name(column.name())
-                        .columnType(column.typeName())
-                        .dataType(column.typeName())
-                        .length((long) column.length())
-                        .precision((long) column.length())
-                        .scale(column.scale().orElse(0))
-                        .build();
-        org.apache.seatunnel.api.table.catalog.Column seaTunnelColumn =
-                PostgresTypeConverter.INSTANCE.convert(typeDefine);
-        return seaTunnelColumn.getDataType();
+        return PostgresTypeConverter.INSTANCE.convert(convertToTypeDefine(column)).getDataType();
+    }
+
+    public static BasicTypeDefine convertToTypeDefine(Column column) {
+        return BasicTypeDefine.builder()
+                .name(column.name())
+                .columnType(column.typeName())
+                .dataType(column.typeName())
+                .sqlType(column.jdbcType())
+                .length(column.length() < 0 ? null : (long) column.length())
+                .precision(column.length() < 0 ? null : (long) column.length())
+                .scale(column.scale().orElse(0))
+                .nullable(column.isOptional())
+                .defaultValue(column.defaultValueExpression().orElse(null))
+                .comment(column.comment())
+                .build();
     }
 }
