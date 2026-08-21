@@ -794,8 +794,6 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    # P95_success ≈ 68 min, max_success ≈ 76 min, 2 confirmed timeouts at 150 min.
-    # 90 min covers the slow tail while still capping the runaway case.
     timeout-minutes: 150
     steps:
       - uses: actions/checkout@v4
@@ -846,8 +844,6 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    # P95_success ≈ 9 min, max_success ≈ 14 min, but 2 confirmed timeouts at 45 min.
-    # K3s install + Helm chart rollout occasionally takes 20-30 min on cold runners.
     timeout-minutes: 45
     steps:
       - name: install k8s
@@ -885,8 +881,6 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    # P95_success ≈ 90 min, max_success ≈ 91 min, 2 confirmed timeouts at 150 min.
-    # 100 min keeps buffer for slow runners without inviting 150 min stalls.
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
@@ -943,8 +937,6 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    # P95_success ≈ 105 min, max_success ≈ 170 min, 10 confirmed timeouts at 210 min.
-    # 150 min covers the long tail but still bounds the worst case.
     timeout-minutes: 210
     steps:
       - uses: actions/checkout@v4
@@ -977,8 +969,6 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    # P95_success ≈ 157 min (j11) / 124 min (j8), max_success ≈ 165 min / 164 min, 3 confirmed timeouts (1+2).
-    # Gap to cfg is only 15-16 min, runs are genuinely逼近cfg; increase to 195.
     timeout-minutes: 180
     steps:
       - uses: actions/checkout@v4
@@ -1011,7 +1001,6 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    # P95_success ≈ 132 min, max_success ≈ 155 min, 2 confirmed timeouts at 210 min.
     timeout-minutes: 240
     steps:
       - uses: actions/checkout@v4
@@ -1232,7 +1221,6 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    # P95_success ≈ 26 min, max_success ≈ 48 min, 1 confirmed timeout at 120 min.
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
@@ -1449,8 +1437,6 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    # P95_success ≈ 53 min (j11) / 55 min (j8), max_success ≈ 55 min / 57 min, 2 confirmed timeouts at 360 min.
-    # Real configured timeout is 120 min; keep unchanged.
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
@@ -1600,10 +1586,7 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    # P95_success ≈ 48 min, max_success ≈ 50 min, but 10 confirmed timeouts at 90 min
-    # (Paimon Kudu @TestTemplate fan-out is bimodal: ~50 min normally, sometimes > 90).
-    # 100 min covers the slow fan-out while still catching the stuck-run tail.
-    timeout-minutes: 180
+    timeout-minutes: 100
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK ${{ matrix.java }}
@@ -1660,8 +1643,6 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    # P95_success ≈ 40 min, max_success ≈ 45 min; 60 min covers @TestTemplate
-    # matrix expansion without the previous 40 min cliff.
     timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
@@ -1687,7 +1668,6 @@ jobs:
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]
-    # P95_success ≈ 12 min, max_success ≈ 14 min; 20 min absorbs LocalStack cold start.
     timeout-minutes: 180
     steps:
       - uses: actions/checkout@v4
