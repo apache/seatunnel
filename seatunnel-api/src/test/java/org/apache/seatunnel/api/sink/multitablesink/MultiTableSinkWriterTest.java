@@ -937,11 +937,18 @@ public class MultiTableSinkWriterTest {
     public void testMinValuePrimaryKeyHashRoutesToValidQueue() throws IOException {
         // 3 is not a power of two, so Integer.MIN_VALUE % 3 == -2 under the old routing
         int replicaNum = 3;
+        // Under the fix both rows route to (Integer.MIN_VALUE & Integer.MAX_VALUE) % 3 == 0.
+        int expectedIndex = (Integer.MIN_VALUE & Integer.MAX_VALUE) % replicaNum;
+        Assertions.assertEquals(0, expectedIndex);
+
         Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters = new HashMap<>();
         Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
+        RecordingSinkWriter[] writersByIndex = new RecordingSinkWriter[replicaNum];
         for (int i = 0; i < replicaNum; i++) {
             SinkIdentifier identifier = SinkIdentifier.of("test.table", i);
-            sinkWriters.put(identifier, new RecordingSinkWriter(false));
+            RecordingSinkWriter writer = new RecordingSinkWriter(false);
+            writersByIndex[i] = writer;
+            sinkWriters.put(identifier, writer);
             sinkWritersContext.put(identifier, new TestSinkWriterContext());
         }
 
@@ -965,6 +972,16 @@ public class MultiTableSinkWriterTest {
                         .mapToInt(writer -> ((RecordingSinkWriter) writer).getWriteCount())
                         .sum();
         Assertions.assertEquals(2, totalWrites);
+
+        // Pin the target queue exactly rather than only asserting no-throw: both rows must land
+        // in queue 0 and nowhere else, so this fails if the routing regresses, not merely if it
+        // throws.
+        Assertions.assertEquals(2, writersByIndex[expectedIndex].getWriteCount());
+        for (int i = 0; i < replicaNum; i++) {
+            if (i != expectedIndex) {
+                Assertions.assertEquals(0, writersByIndex[i].getWriteCount());
+            }
+        }
     }
 
     @Test
