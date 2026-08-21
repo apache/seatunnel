@@ -26,6 +26,8 @@ import org.apache.seatunnel.transform.validator.ValidationResult;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.math.BigDecimal;
+
 /** Validation rule to check if a numeric value is within a specified range. */
 @Data
 @NoArgsConstructor
@@ -62,7 +64,7 @@ public class RangeValidationRule implements ValidationRule {
 
         // Check minimum value
         if (minValue != null) {
-            int minComparison = comparableValue.compareTo(minValue);
+            int minComparison = compare(comparableValue, minValue);
             if (minInclusive ? minComparison < 0 : minComparison <= 0) {
                 return ValidationResult.failure(
                         customMessage != null
@@ -73,7 +75,7 @@ public class RangeValidationRule implements ValidationRule {
 
         // Check maximum value
         if (maxValue != null) {
-            int maxComparison = comparableValue.compareTo(maxValue);
+            int maxComparison = compare(comparableValue, maxValue);
             if (maxInclusive ? maxComparison > 0 : maxComparison >= 0) {
                 return ValidationResult.failure(
                         customMessage != null
@@ -83,6 +85,13 @@ public class RangeValidationRule implements ValidationRule {
         }
 
         return ValidationResult.success();
+    }
+
+    private int compare(Comparable value, Comparable bound) {
+        if (value instanceof BigDecimal && bound instanceof Number) {
+            return ((BigDecimal) value).compareTo(new BigDecimal(bound.toString()));
+        }
+        return value.compareTo(bound);
     }
 
     @Override

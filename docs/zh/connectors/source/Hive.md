@@ -24,7 +24,7 @@ import ChangeLog from '../changelog/connector-hive.md';
 
 为了使用此连接器，您必须确保您的 Spark/Flink 集群已经集成了 Hive。测试过的 Hive 版本是 2.3.9 和 3.1.3。
 
-如果您使用 SeaTunnel 引擎，您需要将 `seatunnel-hadoop3-3.1.4-uber.jar`、`hive-exec-3.1.3.jar` 和 `libfb303-0.9.3.jar` 放在 `$SEATUNNEL_HOME/lib/` 目录中。
+如果您使用 SeaTunnel 引擎，您需要将 `seatunnel-shade-hadoop3-uber-3.1.4-3.0.0.jar`、`hive-exec-3.1.3.jar` 和 `libfb303-0.9.3.jar` 放在 `$SEATUNNEL_HOME/lib/` 目录中。
 :::
 
 ## 关键特性
@@ -51,8 +51,8 @@ import ChangeLog from '../changelog/connector-hive.md';
 |         名称          |  类型  | 必需 | 默认值  |
 |-----------------------|--------|------|---------|
 | table_name            | string | 否   | 单表模式必填 |
-| table_list            | array  | 否   | -       |
-| tables_configs        | array  | 否   | 已废弃，请使用 `table_list` |
+| table_list            | array  | 否   | 已废弃，请使用 `tables_configs` |
+| tables_configs        | array  | 否   | 多表读取时使用的 Hive 表配置列表，每项可覆盖根配置中的任意选项。 |
 | use_regex             | boolean| 否   | false   |
 | metastore_uri         | string | 否   | 单表模式必填 |
 | krb5_path             | string | 否   | /etc/krb5.conf |
@@ -72,15 +72,15 @@ import ChangeLog from '../changelog/connector-hive.md';
 
 目标 Hive 表名，例如：`db1.table1`。当 `use_regex = true` 时，该字段支持 `数据库正则.表正则`（Hive 没有 schema）来匹配 Hive 元存储中的多张表。
 
-单表读取时，在根配置中填写 `table_name` 和 `metastore_uri`。多表读取时，建议使用 `table_list`。`tables_configs` 仍兼容旧配置，但新作业建议使用 `table_list`。
+单表读取时，在根配置中填写 `table_name` 和 `metastore_uri`。多表读取时，建议使用 `tables_configs`。`table_list` 仍可作为向后兼容的旧配置，但新作业建议使用 `tables_configs`。
 
 ### table_list [array]
 
-Hive 多表读取配置列表。每个元素可以包含 `table_name`、`metastore_uri`、`use_regex`、`read_partitions`、`read_columns`，以及与根配置相同的认证和 Hadoop 配置。
+已废弃的多表读取配置列表，仅为向后兼容保留。新作业请使用 `tables_configs`。
 
 ### tables_configs [array]
 
-已废弃的多表配置列表。新作业请使用 `table_list`。
+Hive 多表读取配置列表。每个元素可以包含 `table_name`、`metastore_uri`、`use_regex`、`read_partitions`、`read_columns`，以及与根配置相同的认证和 Hadoop 配置。
 
 ### use_regex [boolean]
 
@@ -172,23 +172,8 @@ Kerberos 认证的 keytab 文件路径
 ```
 
 ### 示例 3：多表
-> 注意：Hive 是结构化数据源，应使用 `table_list`，`tables_configs` 将在未来移除。
+> 注意：Hive 是结构化数据源，应使用 `tables_configs`，`table_list` 已在新的 API 中废弃，并将在未来移除。
 > 也支持在每个表配置中设置 `use_regex = true` 来按正则匹配多表。
-
-```bash
-  Hive {
-    table_list = [
-        {
-          table_name = "default.seatunnel_orc_1"
-          metastore_uri = "thrift://namenode001:9083"
-        },
-        {
-          table_name = "default.seatunnel_orc_2"
-          metastore_uri = "thrift://namenode001:9083"
-        }
-    ]
-  }
-```
 
 ```bash
   Hive {
