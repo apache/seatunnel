@@ -49,15 +49,6 @@ public class XaGroupOpsImpl implements XaGroupOps {
     @Override
     public GroupXaOperationResult<XidInfo> commit(
             List<XidInfo> xids, boolean allowOutOfOrderCommits, int maxCommitAttempts) {
-        return commit(xids, allowOutOfOrderCommits, maxCommitAttempts, false);
-    }
-
-    @Override
-    public GroupXaOperationResult<XidInfo> commit(
-            List<XidInfo> xids,
-            boolean allowOutOfOrderCommits,
-            int maxCommitAttempts,
-            boolean ignoreUnknown) {
         GroupXaOperationResult<XidInfo> result = new GroupXaOperationResult<>();
         int origSize = xids.size();
         LOG.info("commit {} transactions", origSize);
@@ -67,7 +58,7 @@ public class XaGroupOpsImpl implements XaGroupOps {
             i.remove();
             try {
                 LOG.info("committing {} transaction", x.getXid());
-                xaFacade.commit(x.getXid(), ignoreUnknown);
+                xaFacade.commit(x.getXid(), false);
                 result.succeeded(x);
             } catch (XaFacade.TransientXaException e) {
                 result.failedTransiently(x.withAttemptsIncremented(), e);

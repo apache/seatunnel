@@ -31,10 +31,11 @@ import java.util.Collections;
 
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
 
 /**
- * Tests grouped XA commit failure propagation, retry accounting, and strict unknown-XID handling.
+ * Tests grouped XA commit failure propagation and retry accounting.
+ *
+ * <p>Each case verifies strict resource-manager commit handling for prepared transaction batches.
  */
 class XaGroupOpsImplTest {
 
@@ -110,32 +111,6 @@ class XaGroupOpsImplTest {
                                         3));
 
         Assertions.assertTrue(exception.getMessage().contains("reached max number"));
-    }
-
-    /** Verifies that the three-argument overload delegates with strict unknown-XID handling. */
-    @Test
-    void testThreeArgCommitDelegatesWithStrictUnknownHandling() {
-        XaFacade xaFacade = mock(XaFacade.class);
-        Xid xid = createXid();
-        XaGroupOps xaGroupOps = new XaGroupOpsImpl(xaFacade);
-
-        xaGroupOps.commit(
-                new ArrayList<>(Collections.singletonList(new XidInfo(xid, 0))), false, 3);
-
-        verify(xaFacade).commit(xid, false);
-    }
-
-    /** Verifies that restore replay can opt into XAER_NOTA tolerance for selected XIDs. */
-    @Test
-    void testCommitCanIgnoreUnknownForRestoreReplay() {
-        XaFacade xaFacade = mock(XaFacade.class);
-        Xid xid = createXid();
-        XaGroupOps xaGroupOps = new XaGroupOpsImpl(xaFacade);
-
-        xaGroupOps.commit(
-                new ArrayList<>(Collections.singletonList(new XidInfo(xid, 0))), false, 3, true);
-
-        verify(xaFacade).commit(xid, true);
     }
 
     /**

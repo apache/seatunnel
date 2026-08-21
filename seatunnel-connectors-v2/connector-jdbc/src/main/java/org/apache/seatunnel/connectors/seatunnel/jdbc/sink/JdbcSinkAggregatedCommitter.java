@@ -92,6 +92,8 @@ public class JdbcSinkAggregatedCommitter
             List<JdbcAggregatedCommitInfo> aggregatedCommitInfos) throws IOException {
         tryOpen();
         for (JdbcAggregatedCommitInfo aggregatedCommitInfo : aggregatedCommitInfos) {
+            // Refresh RM evidence for every batch because transactions may be resolved concurrently
+            // during failover while earlier restored batches are being replayed.
             replayRecoveredCheckpoint(
                     aggregatedCommitInfo.getXidInfoList(), recoverCheckpointTransactions());
         }
@@ -110,7 +112,7 @@ public class JdbcSinkAggregatedCommitter
         tryOpen();
         for (JdbcAggregatedCommitInfo aggregatedCommitInfo : aggregatedCommitInfos) {
             log.info("commit xid: " + aggregatedCommitInfo.getXidInfoList());
-            commitXidInfos(aggregatedCommitInfo.getXidInfoList(), false);
+            commitXidInfos(aggregatedCommitInfo.getXidInfoList());
         }
         return Collections.emptyList();
     }
@@ -120,9 +122,8 @@ public class JdbcSinkAggregatedCommitter
      * still available in memory.
      *
      * @param xidInfos prepared transactions to commit
-     * @param ignoreUnknown whether XAER_NOTA is accepted as an idempotent restore replay result
      */
-    private void commitXidInfos(List<XidInfo> xidInfos, boolean ignoreUnknown) {
+    private void commitXidInfos(List<XidInfo> xidInfos) {
         List<XidInfo> pending = new ArrayList<>(xidInfos);
         int maxCommitAttempts = jdbcSinkConfig.getJdbcConnectionConfig().getMaxCommitAttempts();
         int remainingRounds = Math.max(1, maxCommitAttempts);
@@ -135,7 +136,7 @@ public class JdbcSinkAggregatedCommitter
                                 Math.max(1, maxCommitAttempts), pending));
             }
             GroupXaOperationResult<XidInfo> result =
-                    xaGroupOps.commit(pending, false, maxCommitAttempts, ignoreUnknown);
+                    xaGroupOps.commit(pending, false, maxCommitAttempts);
             // Zeta does not persist the returned committables before restarting a failed
             // checkpoint, so complete bounded retries in this invocation.
             pending = new ArrayList<>(result.getForRetry());
@@ -215,7 +216,7 @@ public class JdbcSinkAggregatedCommitter
             }
             stillPrepared.add(xidInfo);
         }
-        commitXidInfos(stillPrepared, false);
+        commitXidInfos(stillPrepared);
         if (firstRecoveredIndex > 0) {
             List<XidInfo> alreadyResolved = checkpointXids.subList(0, firstRecoveredIndex);
             log.warn(
