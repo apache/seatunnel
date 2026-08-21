@@ -608,9 +608,11 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
                                 }
                             });
             CompletableFuture<Void> restoredCommittedOffsetJob = committedOffsetJob;
-            // Restoring the checkpoint and reconnecting the existing replication slot can take
-            // longer on shared GitHub runners than the initial CDC startup.
-            await().atMost(120, TimeUnit.SECONDS)
+            // A savepoint restore must rebuild the Zeta pipeline before the CDC reader can
+            // reconnect to the existing replication slot. On a shared GitHub runner the
+            // replication connection may not be established until after two minutes, so keep a
+            // wider bound for this restore-only lifecycle transition.
+            await().atMost(5, TimeUnit.MINUTES)
                     .untilAsserted(
                             () -> {
                                 assertJobHasNoAsyncFailure(restoredCommittedOffsetJob);
