@@ -200,21 +200,15 @@ public class FixedChunkSplitterTest {
         assertEquals(
                 new Time(1000),
                 convertSplitBoundaryMethod.invoke(
-                        splitter,
-                        LocalTimeType.LOCAL_TIME_TYPE,
-                        BigDecimal.valueOf(1000)));
+                        splitter, LocalTimeType.LOCAL_TIME_TYPE, BigDecimal.valueOf(1000)));
         assertEquals(
                 new Timestamp(2000),
                 convertSplitBoundaryMethod.invoke(
-                        splitter,
-                        LocalTimeType.LOCAL_DATE_TIME_TYPE,
-                        BigDecimal.valueOf(2000)));
+                        splitter, LocalTimeType.LOCAL_DATE_TIME_TYPE, BigDecimal.valueOf(2000)));
         assertEquals(
                 new Timestamp(3000),
                 convertSplitBoundaryMethod.invoke(
-                        splitter,
-                        LocalTimeType.OFFSET_DATE_TIME_TYPE,
-                        BigDecimal.valueOf(3000)));
+                        splitter, LocalTimeType.OFFSET_DATE_TIME_TYPE, BigDecimal.valueOf(3000)));
     }
 
     @Test

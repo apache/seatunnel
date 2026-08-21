@@ -578,8 +578,8 @@ public class FixedChunkSplitter extends ChunkSplitter {
     }
 
     /**
-     * Converts numeric split boundaries back to JDBC temporal values before parameter binding.
-     * DATE uses epoch days; TIME and TIMESTAMP use epoch milliseconds.
+     * Converts numeric split boundaries back to JDBC temporal values before parameter binding. DATE
+     * uses epoch days; TIME and TIMESTAMP use epoch milliseconds.
      */
     private Serializable convertSplitBoundary(
             SeaTunnelDataType splitKeyType, Serializable splitBoundary) {
