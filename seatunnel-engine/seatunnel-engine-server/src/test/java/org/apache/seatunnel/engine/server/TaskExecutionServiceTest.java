@@ -458,6 +458,44 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         taskExecutionService.cancelTaskGroup(location);
     }
 
+    @Test
+    public void testStaleTaskCompletionKeepsNewExecutionContext() {
+        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
+        TaskGroupLocation location =
+                new TaskGroupLocation(jobId, pipeLineId, FLAKE_ID_GENERATOR.newId());
+
+        AtomicBoolean oldTaskStop = new AtomicBoolean(false);
+        CompletableFuture<TaskExecutionState> oldTaskFuture =
+                deployLocalTask(
+                        taskExecutionService,
+                        new TaskGroupDefaultImpl(
+                                location,
+                                "old-generation",
+                                Lists.newArrayList(new TestTask(oldTaskStop, 50, false))));
+
+        AtomicBoolean newTaskStop = new AtomicBoolean(false);
+        deployLocalTask(
+                taskExecutionService,
+                new TaskGroupDefaultImpl(
+                        location,
+                        "new-generation",
+                        Lists.newArrayList(new TestTask(newTaskStop, 50, false))));
+        TaskGroupContext newTaskContext = taskExecutionService.getActiveExecutionContext(location);
+
+        oldTaskStop.set(true);
+        await().atMost(10, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> assertEquals(FINISHED, oldTaskFuture.get().getExecutionState()));
+
+        Assertions.assertSame(
+                newTaskContext,
+                taskExecutionService.getActiveExecutionContext(location),
+                "a stale task completion must not remove the newer execution context");
+
+        newTaskStop.set(true);
+        taskExecutionService.cancelTaskGroup(location);
+    }
+
     public List<Task> buildFixedTestTask(
             long callTime, long count, AtomicBoolean stopMart, CopyOnWriteArrayList<Long> lagList) {
         List<Task> taskQueue = new ArrayList<>();

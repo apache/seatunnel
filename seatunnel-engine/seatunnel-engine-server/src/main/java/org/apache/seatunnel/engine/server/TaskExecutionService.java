@@ -555,8 +555,10 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                             taskGroup.getTaskGroupLocation()));
             Collection<Task> tasks = taskGroup.getTasks();
             CompletableFuture<Void> cancellationFuture = new CompletableFuture<>();
+            TaskGroupContext taskGroupContext = new TaskGroupContext(taskGroup, classLoaders, jars);
             TaskGroupExecutionTracker executionTracker =
-                    new TaskGroupExecutionTracker(cancellationFuture, taskGroup, resultFuture);
+                    new TaskGroupExecutionTracker(
+                            cancellationFuture, taskGroup, taskGroupContext, resultFuture);
             ConcurrentMap<Long, TaskExecutionContext> taskExecutionContextMap =
                     new ConcurrentHashMap<>();
             final Map<Boolean, List<Task>> byCooperation =
@@ -588,9 +590,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                                                 }
                                                 return true;
                                             }));
-            executionContexts.put(
-                    taskGroup.getTaskGroupLocation(),
-                    new TaskGroupContext(taskGroup, classLoaders, jars));
+            executionContexts.put(taskGroup.getTaskGroupLocation(), taskGroupContext);
             cancellationFutures.put(taskGroup.getTaskGroupLocation(), cancellationFuture);
             submitThreadShareTask(executionTracker, byCooperation.get(true));
             submitBlockingTask(executionTracker, byCooperation.get(false));
@@ -1302,6 +1302,8 @@ public class TaskExecutionService implements DynamicMetricsProvider {
     public final class TaskGroupExecutionTracker {
 
         private final TaskGroup taskGroup;
+        private final TaskGroupContext taskGroupContext;
+        private final CompletableFuture<Void> cancellationFuture;
         final CompletableFuture<TaskExecutionState> future;
         volatile List<Future<?>> blockingFutures = emptyList();
 
@@ -1315,10 +1317,13 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         TaskGroupExecutionTracker(
                 @NonNull CompletableFuture<Void> cancellationFuture,
                 @NonNull TaskGroup taskGroup,
+                @NonNull TaskGroupContext taskGroupContext,
                 @NonNull CompletableFuture<TaskExecutionState> future) {
             this.future = future;
             this.completionLatch = new AtomicInteger(taskGroup.getTasks().size());
             this.taskGroup = taskGroup;
+            this.taskGroupContext = taskGroupContext;
+            this.cancellationFuture = cancellationFuture;
             cancellationFuture.whenComplete(
                     withTryCatch(
                             logger,
@@ -1393,24 +1398,25 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                             task.getTaskID(), taskGroupLocation));
             Throwable ex = executionException.get();
             if (completionLatch.decrementAndGet() == 0) {
-                recycleClassLoader(taskGroupLocation);
-                finishedExecutionContexts.put(
-                        taskGroupLocation, executionContexts.remove(taskGroupLocation));
-                cancellationFutures.remove(taskGroupLocation);
-                try {
-                    cancelAsyncFunction(taskGroupLocation);
-                } catch (Throwable t) {
-                    logger.severe("cancel async function failed", t);
-                }
-                try {
-                    cancelTimerFlushForTaskGroup(taskGroupLocation);
-                } catch (Throwable t) {
-                    logger.severe("cancel timer-flush tasks failed", t);
-                }
-                try {
-                    updateMetricsContextInImap();
-                } catch (Throwable t) {
-                    logger.severe("update metrics context in imap failed", t);
+                recycleClassLoader(taskGroupLocation, taskGroupContext);
+                if (executionContexts.remove(taskGroupLocation, taskGroupContext)) {
+                    finishedExecutionContexts.put(taskGroupLocation, taskGroupContext);
+                    cancellationFutures.remove(taskGroupLocation, cancellationFuture);
+                    try {
+                        cancelAsyncFunction(taskGroupLocation);
+                    } catch (Throwable t) {
+                        logger.severe("cancel async function failed", t);
+                    }
+                    try {
+                        cancelTimerFlushForTaskGroup(taskGroupLocation);
+                    } catch (Throwable t) {
+                        logger.severe("cancel timer-flush tasks failed", t);
+                    }
+                    try {
+                        updateMetricsContextInImap();
+                    } catch (Throwable t) {
+                        logger.severe("update metrics context in imap failed", t);
+                    }
                 }
                 if (ex == null) {
                     logger.info(
@@ -1442,10 +1448,10 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             }
         }
 
-        private void recycleClassLoader(TaskGroupLocation taskGroupLocation) {
-            TaskGroupContext context = executionContexts.get(taskGroupLocation);
-            executionContexts.get(taskGroupLocation).setClassLoaders(null);
-            for (Collection<URL> jars : context.getJars().values()) {
+        private void recycleClassLoader(
+                TaskGroupLocation taskGroupLocation, TaskGroupContext taskGroupContext) {
+            taskGroupContext.setClassLoaders(null);
+            for (Collection<URL> jars : taskGroupContext.getJars().values()) {
                 classLoaderService.releaseClassLoader(taskGroupLocation.getJobId(), jars);
             }
         }
