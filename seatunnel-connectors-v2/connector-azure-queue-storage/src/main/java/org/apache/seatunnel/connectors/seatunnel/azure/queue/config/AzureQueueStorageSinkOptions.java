@@ -21,7 +21,7 @@ import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 
-public class AzureQueueSinkOptions extends ConnectorCommonOptions {
+public class AzureQueueStorageSinkOptions extends ConnectorCommonOptions {
 
     public static final Option<String> QUEUE_NAME =
             Options.key("queue_name")
@@ -104,5 +104,5 @@ public class AzureQueueSinkOptions extends ConnectorCommonOptions {
                     .withDescription(
                             "Maximum time in milliseconds to wait for send capacity or checkpoint-time flushing.");
 
-    private AzureQueueSinkOptions() {}
+    private AzureQueueStorageSinkOptions() {}
 }

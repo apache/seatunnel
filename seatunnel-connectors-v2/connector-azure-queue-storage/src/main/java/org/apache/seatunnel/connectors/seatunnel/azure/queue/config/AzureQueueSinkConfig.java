@@ -48,26 +48,28 @@ public class AzureQueueSinkConfig implements Serializable {
     public static AzureQueueSinkConfig from(ReadonlyConfig config) {
         AzureQueueSinkConfig sinkConfig =
                 AzureQueueSinkConfig.builder()
-                        .queueName(config.get(AzureQueueSinkOptions.QUEUE_NAME))
-                        .authenticationType(config.get(AzureQueueSinkOptions.AUTHENTICATION_TYPE))
-                        .connectionString(config.get(AzureQueueSinkOptions.CONNECTION_STRING))
-                        .endpoint(config.get(AzureQueueSinkOptions.ENDPOINT))
-                        .accountName(config.get(AzureQueueSinkOptions.ACCOUNT_NAME))
-                        .accountKey(config.get(AzureQueueSinkOptions.ACCOUNT_KEY))
-                        .sasToken(config.get(AzureQueueSinkOptions.SAS_TOKEN))
-                        .format(config.get(AzureQueueSinkOptions.FORMAT))
-                        .fieldDelimiter(config.get(AzureQueueSinkOptions.FIELD_DELIMITER))
-                        .messageEncoding(config.get(AzureQueueSinkOptions.MESSAGE_ENCODING))
-                        .maxInFlight(config.get(AzureQueueSinkOptions.MAX_IN_FLIGHT))
+                        .queueName(config.get(AzureQueueStorageSinkOptions.QUEUE_NAME))
+                        .authenticationType(
+                                config.get(AzureQueueStorageSinkOptions.AUTHENTICATION_TYPE))
+                        .connectionString(
+                                config.get(AzureQueueStorageSinkOptions.CONNECTION_STRING))
+                        .endpoint(config.get(AzureQueueStorageSinkOptions.ENDPOINT))
+                        .accountName(config.get(AzureQueueStorageSinkOptions.ACCOUNT_NAME))
+                        .accountKey(config.get(AzureQueueStorageSinkOptions.ACCOUNT_KEY))
+                        .sasToken(config.get(AzureQueueStorageSinkOptions.SAS_TOKEN))
+                        .format(config.get(AzureQueueStorageSinkOptions.FORMAT))
+                        .fieldDelimiter(config.get(AzureQueueStorageSinkOptions.FIELD_DELIMITER))
+                        .messageEncoding(config.get(AzureQueueStorageSinkOptions.MESSAGE_ENCODING))
+                        .maxInFlight(config.get(AzureQueueStorageSinkOptions.MAX_IN_FLIGHT))
                         .operationTimeoutMillis(
-                                config.get(AzureQueueSinkOptions.OPERATION_TIMEOUT_MS))
+                                config.get(AzureQueueStorageSinkOptions.OPERATION_TIMEOUT_MS))
                         .build();
         sinkConfig.validate();
         return sinkConfig;
     }
 
     private void validate() {
-        requireNonBlank(queueName, AzureQueueSinkOptions.QUEUE_NAME.key());
+        requireNonBlank(queueName, AzureQueueStorageSinkOptions.QUEUE_NAME.key());
         if (queueName.length() < 3
                 || queueName.length() > 63
                 || !QUEUE_NAME_PATTERN.matcher(queueName).matches()
@@ -81,37 +83,38 @@ public class AzureQueueSinkConfig implements Serializable {
 
         switch (authenticationType) {
             case CONNECTION_STRING:
-                requireNonBlank(connectionString, AzureQueueSinkOptions.CONNECTION_STRING.key());
+                requireNonBlank(
+                        connectionString, AzureQueueStorageSinkOptions.CONNECTION_STRING.key());
                 rejectPresent(
                         endpoint,
-                        AzureQueueSinkOptions.ENDPOINT.key(),
+                        AzureQueueStorageSinkOptions.ENDPOINT.key(),
                         accountName,
-                        AzureQueueSinkOptions.ACCOUNT_NAME.key(),
+                        AzureQueueStorageSinkOptions.ACCOUNT_NAME.key(),
                         accountKey,
-                        AzureQueueSinkOptions.ACCOUNT_KEY.key(),
+                        AzureQueueStorageSinkOptions.ACCOUNT_KEY.key(),
                         sasToken,
-                        AzureQueueSinkOptions.SAS_TOKEN.key());
+                        AzureQueueStorageSinkOptions.SAS_TOKEN.key());
                 break;
             case SHARED_KEY:
-                requireNonBlank(endpoint, AzureQueueSinkOptions.ENDPOINT.key());
-                requireNonBlank(accountName, AzureQueueSinkOptions.ACCOUNT_NAME.key());
-                requireNonBlank(accountKey, AzureQueueSinkOptions.ACCOUNT_KEY.key());
+                requireNonBlank(endpoint, AzureQueueStorageSinkOptions.ENDPOINT.key());
+                requireNonBlank(accountName, AzureQueueStorageSinkOptions.ACCOUNT_NAME.key());
+                requireNonBlank(accountKey, AzureQueueStorageSinkOptions.ACCOUNT_KEY.key());
                 rejectPresent(
                         connectionString,
-                        AzureQueueSinkOptions.CONNECTION_STRING.key(),
+                        AzureQueueStorageSinkOptions.CONNECTION_STRING.key(),
                         sasToken,
-                        AzureQueueSinkOptions.SAS_TOKEN.key());
+                        AzureQueueStorageSinkOptions.SAS_TOKEN.key());
                 break;
             case SAS_TOKEN:
-                requireNonBlank(endpoint, AzureQueueSinkOptions.ENDPOINT.key());
-                requireNonBlank(sasToken, AzureQueueSinkOptions.SAS_TOKEN.key());
+                requireNonBlank(endpoint, AzureQueueStorageSinkOptions.ENDPOINT.key());
+                requireNonBlank(sasToken, AzureQueueStorageSinkOptions.SAS_TOKEN.key());
                 rejectPresent(
                         connectionString,
-                        AzureQueueSinkOptions.CONNECTION_STRING.key(),
+                        AzureQueueStorageSinkOptions.CONNECTION_STRING.key(),
                         accountName,
-                        AzureQueueSinkOptions.ACCOUNT_NAME.key(),
+                        AzureQueueStorageSinkOptions.ACCOUNT_NAME.key(),
                         accountKey,
-                        AzureQueueSinkOptions.ACCOUNT_KEY.key());
+                        AzureQueueStorageSinkOptions.ACCOUNT_KEY.key());
                 break;
             default:
                 throw new IllegalArgumentException(

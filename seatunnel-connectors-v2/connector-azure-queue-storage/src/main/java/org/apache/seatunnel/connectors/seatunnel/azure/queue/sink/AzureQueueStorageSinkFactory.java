@@ -25,7 +25,7 @@ import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.connectors.seatunnel.azure.queue.config.AuthenticationType;
 import org.apache.seatunnel.connectors.seatunnel.azure.queue.config.AzureQueueSinkConfig;
-import org.apache.seatunnel.connectors.seatunnel.azure.queue.config.AzureQueueSinkOptions;
+import org.apache.seatunnel.connectors.seatunnel.azure.queue.config.AzureQueueStorageSinkOptions;
 
 import com.google.auto.service.AutoService;
 
@@ -41,32 +41,34 @@ public class AzureQueueStorageSinkFactory implements TableSinkFactory {
     public OptionRule optionRule() {
         return OptionRule.builder()
                 .required(
-                        AzureQueueSinkOptions.QUEUE_NAME, AzureQueueSinkOptions.AUTHENTICATION_TYPE)
+                        AzureQueueStorageSinkOptions.QUEUE_NAME,
+                        AzureQueueStorageSinkOptions.AUTHENTICATION_TYPE)
                 .conditional(
-                        AzureQueueSinkOptions.AUTHENTICATION_TYPE,
+                        AzureQueueStorageSinkOptions.AUTHENTICATION_TYPE,
                         AuthenticationType.CONNECTION_STRING,
-                        AzureQueueSinkOptions.CONNECTION_STRING)
+                        AzureQueueStorageSinkOptions.CONNECTION_STRING)
                 .conditional(
-                        AzureQueueSinkOptions.AUTHENTICATION_TYPE,
+                        AzureQueueStorageSinkOptions.AUTHENTICATION_TYPE,
                         AuthenticationType.SHARED_KEY,
-                        AzureQueueSinkOptions.ENDPOINT,
-                        AzureQueueSinkOptions.ACCOUNT_NAME,
-                        AzureQueueSinkOptions.ACCOUNT_KEY)
+                        AzureQueueStorageSinkOptions.ENDPOINT,
+                        AzureQueueStorageSinkOptions.ACCOUNT_NAME,
+                        AzureQueueStorageSinkOptions.ACCOUNT_KEY)
                 .conditional(
-                        AzureQueueSinkOptions.AUTHENTICATION_TYPE,
+                        AzureQueueStorageSinkOptions.AUTHENTICATION_TYPE,
                         AuthenticationType.SAS_TOKEN,
-                        AzureQueueSinkOptions.ENDPOINT,
-                        AzureQueueSinkOptions.SAS_TOKEN)
+                        AzureQueueStorageSinkOptions.ENDPOINT,
+                        AzureQueueStorageSinkOptions.SAS_TOKEN)
                 .optional(
-                        AzureQueueSinkOptions.FORMAT,
-                        AzureQueueSinkOptions.FIELD_DELIMITER,
-                        AzureQueueSinkOptions.MESSAGE_ENCODING)
+                        AzureQueueStorageSinkOptions.FORMAT,
+                        AzureQueueStorageSinkOptions.FIELD_DELIMITER,
+                        AzureQueueStorageSinkOptions.MESSAGE_ENCODING)
                 .optional(
-                        AzureQueueSinkOptions.MAX_IN_FLIGHT,
-                        Conditions.greaterThan(AzureQueueSinkOptions.MAX_IN_FLIGHT, 0))
+                        AzureQueueStorageSinkOptions.MAX_IN_FLIGHT,
+                        Conditions.greaterThan(AzureQueueStorageSinkOptions.MAX_IN_FLIGHT, 0))
                 .optional(
-                        AzureQueueSinkOptions.OPERATION_TIMEOUT_MS,
-                        Conditions.greaterThan(AzureQueueSinkOptions.OPERATION_TIMEOUT_MS, 0L))
+                        AzureQueueStorageSinkOptions.OPERATION_TIMEOUT_MS,
+                        Conditions.greaterThan(
+                                AzureQueueStorageSinkOptions.OPERATION_TIMEOUT_MS, 0L))
                 .build();
     }
 
