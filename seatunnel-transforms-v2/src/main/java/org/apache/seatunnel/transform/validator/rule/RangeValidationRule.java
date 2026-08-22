@@ -88,10 +88,43 @@ public class RangeValidationRule implements ValidationRule {
     }
 
     private int compare(Comparable value, Comparable bound) {
-        if (value instanceof BigDecimal && bound instanceof Number) {
-            return ((BigDecimal) value).compareTo(new BigDecimal(bound.toString()));
+        if (value instanceof Number && bound instanceof Number) {
+            return compareNumbers((Number) value, (Number) bound);
         }
-        return value.compareTo(bound);
+        return compareAsNumberOrString(value, bound);
+    }
+
+    /**
+     * Compares two numeric values. The field value type (e.g. BIGINT/DOUBLE) may differ from the
+     * parsed bound type (Integer/Long/Double), so finite values are compared as {@link BigDecimal}
+     * to avoid {@link ClassCastException}. Non-finite values (NaN, Infinity) cannot be represented
+     * as {@link BigDecimal}, so they are compared as double - {@link Double#compare} sorts them
+     * beyond all finite values, so they are treated as out of range instead of crashing.
+     */
+    private int compareNumbers(Number value, Number bound) {
+        double valueAsDouble = value.doubleValue();
+        double boundAsDouble = bound.doubleValue();
+        if (Double.isNaN(valueAsDouble)
+                || Double.isInfinite(valueAsDouble)
+                || Double.isNaN(boundAsDouble)
+                || Double.isInfinite(boundAsDouble)) {
+            return Double.compare(valueAsDouble, boundAsDouble);
+        }
+        return new BigDecimal(value.toString()).compareTo(new BigDecimal(bound.toString()));
+    }
+
+    /**
+     * Compares a value and a bound of different types (e.g. a STRING field against a numeric bound,
+     * or a numeric field against a string bound) without throwing {@link ClassCastException}.
+     * Values are compared numerically when both can be parsed as {@link BigDecimal}, otherwise by
+     * their string representation.
+     */
+    private int compareAsNumberOrString(Comparable value, Comparable bound) {
+        try {
+            return new BigDecimal(value.toString()).compareTo(new BigDecimal(bound.toString()));
+        } catch (NumberFormatException e) {
+            return value.toString().compareTo(bound.toString());
+        }
     }
 
     @Override
