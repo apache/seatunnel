@@ -129,6 +129,11 @@ public abstract class BaseMultipleTableFileSink
     }
 
     @Override
+    public Optional<String> getPhysicalDestinationIdentifier() {
+        return Optional.ofNullable(fileSinkConfig.getPath());
+    }
+
+    @Override
     public List<SchemaChangeType> supports() {
         if (!fileSinkConfig.isSchemaEvolutionEnabled()) {
             return Collections.emptyList();

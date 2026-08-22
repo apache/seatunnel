@@ -345,11 +345,14 @@ public class MultiTableSink
      */
     private String getDestinationKey(TablePath tablePath, int replicaIndex) {
         SeaTunnelSink<?, ?, ?, ?> sink = sinks.get(tablePath);
-        String destTable =
-                sink.getWriteCatalogTable()
-                        .map(t -> t.getTablePath().toString())
-                        .orElse(tablePath.toString());
-        return destTable + "_" + replicaIndex;
+        String destinationIdentifier =
+                sink.getPhysicalDestinationIdentifier()
+                        .orElseGet(
+                                () ->
+                                        sink.getClass().getName()
+                                                + "@"
+                                                + System.identityHashCode(sink));
+        return destinationIdentifier + "_" + replicaIndex;
     }
 
     @Override

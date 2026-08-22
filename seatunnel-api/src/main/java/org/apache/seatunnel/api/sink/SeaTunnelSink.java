@@ -145,4 +145,16 @@ public interface SeaTunnelSink<IN, StateT, CommitInfoT, AggregatedCommitInfoT>
     default Optional<CatalogTable> getWriteCatalogTable() {
         return Optional.empty();
     }
+
+    /**
+     * Returns a stable identifier for the physical destination that this sink instance writes to
+     * when multi-table mode wants to reuse a single writer across aliased upstream tables.
+     *
+     * <p>The default implementation returns {@link Optional#empty()} so the coordinator falls back
+     * to sink-instance-level isolation and avoids merging distinct physical destinations
+     * accidentally.
+     */
+    default Optional<String> getPhysicalDestinationIdentifier() {
+        return Optional.empty();
+    }
 }
