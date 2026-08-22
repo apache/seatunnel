@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.table.type.DecimalType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.transform.exception.TransformException;
 import org.apache.seatunnel.transform.sql.SQLEngine;
 import org.apache.seatunnel.transform.sql.SQLEngineFactory;
 
@@ -275,5 +276,89 @@ public class NumericFunctionTest {
                 0,
                 NumericFunction.sign(Collections.singletonList(new BigDecimal("0.0000")))
                         .intValue());
+    }
+
+    @Test
+    public void testAbsRejectsMinValueInsteadOfReturningItUnchanged() {
+        // Math.abs(MIN_VALUE) == MIN_VALUE, so ABS used to hand back a negative "absolute value".
+        TransformException intError =
+                Assertions.assertThrows(
+                        TransformException.class,
+                        () -> NumericFunction.abs(Collections.singletonList(Integer.MIN_VALUE)));
+        Assertions.assertTrue(intError.getMessage().contains("INT"), intError.getMessage());
+        Assertions.assertTrue(intError.getMessage().contains("-2147483648"), intError.getMessage());
+
+        TransformException longError =
+                Assertions.assertThrows(
+                        TransformException.class,
+                        () -> NumericFunction.abs(Collections.singletonList(Long.MIN_VALUE)));
+        Assertions.assertTrue(longError.getMessage().contains("BIGINT"), longError.getMessage());
+
+        // Everything one step inside the boundary is representable and must still work.
+        Assertions.assertEquals(
+                Integer.MAX_VALUE,
+                NumericFunction.abs(Collections.singletonList(Integer.MIN_VALUE + 1)));
+        Assertions.assertEquals(
+                Long.MAX_VALUE, NumericFunction.abs(Collections.singletonList(Long.MIN_VALUE + 1)));
+    }
+
+    @Test
+    public void testNegativeScaleRoundingRejectsResultsThatDoNotFit() {
+        // ROUND(2147483647, -1) is 2147483650. Narrowing that through intValue() used to wrap it
+        // to -2147483646, turning the largest INT into a negative number.
+        TransformException roundInt =
+                Assertions.assertThrows(
+                        TransformException.class,
+                        () -> NumericFunction.round(Arrays.asList(Integer.MAX_VALUE, -1)));
+        Assertions.assertTrue(roundInt.getMessage().contains("ROUND"), roundInt.getMessage());
+        Assertions.assertTrue(roundInt.getMessage().contains("INT"), roundInt.getMessage());
+        Assertions.assertTrue(roundInt.getMessage().contains("2147483650"), roundInt.getMessage());
+
+        // CEIL overflows at the top of the range, FLOOR at the bottom.
+        TransformException ceilInt =
+                Assertions.assertThrows(
+                        TransformException.class,
+                        () -> NumericFunction.ceil(Arrays.asList(Integer.MAX_VALUE, -1)));
+        Assertions.assertTrue(ceilInt.getMessage().contains("CEIL"), ceilInt.getMessage());
+
+        TransformException floorInt =
+                Assertions.assertThrows(
+                        TransformException.class,
+                        () -> NumericFunction.floor(Arrays.asList(Integer.MIN_VALUE, -1)));
+        Assertions.assertTrue(floorInt.getMessage().contains("FLOOR"), floorInt.getMessage());
+
+        // BIGINT overflows in BigDecimal.longValue() itself, before any narrowing cast.
+        TransformException roundLong =
+                Assertions.assertThrows(
+                        TransformException.class,
+                        () -> NumericFunction.round(Arrays.asList(Long.MAX_VALUE, -1)));
+        Assertions.assertTrue(roundLong.getMessage().contains("BIGINT"), roundLong.getMessage());
+
+        // SMALLINT is narrowed by shortValue(), which wraps the same way.
+        TransformException roundShort =
+                Assertions.assertThrows(
+                        TransformException.class,
+                        () -> NumericFunction.round(Arrays.asList(Short.MAX_VALUE, -1)));
+        Assertions.assertTrue(
+                roundShort.getMessage().contains("SMALLINT"), roundShort.getMessage());
+
+        // TRUNC rounds toward zero, so it can never grow a value out of its own range.
+        Assertions.assertEquals(
+                2147483640, NumericFunction.trunc(Arrays.asList(Integer.MAX_VALUE, -1)));
+    }
+
+    @Test
+    public void testNegativeScaleRoundingKeepsArgumentTypeWhenResultFits() {
+        Number roundedInt = NumericFunction.round(Arrays.asList(1234, -2));
+        Assertions.assertEquals(Integer.valueOf(1200), roundedInt);
+
+        Number roundedShort = NumericFunction.round(Arrays.asList(Short.valueOf((short) 1234), -2));
+        Assertions.assertEquals(Short.valueOf((short) 1200), roundedShort);
+
+        Number roundedLong = NumericFunction.round(Arrays.asList(1234L, -2));
+        Assertions.assertEquals(Long.valueOf(1200L), roundedLong);
+
+        // Rounding away every significant digit yields zero rather than an out-of-range error.
+        Assertions.assertEquals(Integer.valueOf(0), NumericFunction.round(Arrays.asList(1234, -9)));
     }
 }

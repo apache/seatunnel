@@ -33,10 +33,18 @@ public class NumericFunction {
             return null;
         }
         if (arg instanceof Integer) {
-            return Math.abs(arg.intValue());
+            int value = arg.intValue();
+            if (value == Integer.MIN_VALUE) {
+                throw absOverflow("INT", value, Integer.MIN_VALUE, Integer.MAX_VALUE);
+            }
+            return Math.abs(value);
         }
         if (arg instanceof Long) {
-            return Math.abs(arg.longValue());
+            long value = arg.longValue();
+            if (value == Long.MIN_VALUE) {
+                throw absOverflow("BIGINT", value, Long.MIN_VALUE, Long.MAX_VALUE);
+            }
+            return Math.abs(value);
         }
         if (arg instanceof Float) {
             return Math.abs(arg.floatValue());
@@ -236,10 +244,10 @@ public class NumericFunction {
         if (args.size() >= 2) {
             v2 = (Number) args.get(1);
         }
-        return round(v1, v2, RoundingMode.CEILING);
+        return round(v1, v2, RoundingMode.CEILING, ZetaSQLFunction.CEIL);
     }
 
-    private static Number round(Number v1, Number v2, RoundingMode roundingMode) {
+    private static Number round(Number v1, Number v2, RoundingMode roundingMode, String function) {
         int scale = v2 != null ? v2.intValue() : 0;
         String t = v1.getClass().getSimpleName();
         c:
@@ -249,14 +257,13 @@ public class NumericFunction {
             case "LONG":
                 {
                     if (scale < 0) {
-                        long original = v1.longValue();
-                        long scaled =
-                                BigDecimal.valueOf(original)
-                                        .setScale(scale, roundingMode)
-                                        .longValue();
-                        if (original != scaled) {
-                            v1 = convertTo(t, scaled);
-                        }
+                        // Round in BigDecimal and narrow only after checking the result fits.
+                        // BigDecimal.longValue() keeps just the low-order 64 bits, and
+                        // intValue()/shortValue() truncate the same way, so narrowing an
+                        // out-of-range result used to turn a positive value negative.
+                        BigDecimal rounded =
+                                BigDecimal.valueOf(v1.longValue()).setScale(scale, roundingMode);
+                        v1 = convertTo(t, rounded, function);
                     }
                     break;
                 }
@@ -299,17 +306,60 @@ public class NumericFunction {
         return v1;
     }
 
-    private static Number convertTo(String valueType, Number column) {
+    /**
+     * Narrows an already-rounded integral value back to the argument's own type.
+     *
+     * @param valueType simple class name of the original argument
+     * @param value the rounded value, exact
+     * @param function SQL function name, used only for the error message
+     * @return the value in the original type
+     * @throws TransformException if the value does not fit that type
+     */
+    private static Number convertTo(String valueType, BigDecimal value, String function) {
         switch (valueType.toUpperCase()) {
             case "INTEGER":
-                return column.intValue();
+                return (int)
+                        checkIntegralRange(
+                                value, Integer.MIN_VALUE, Integer.MAX_VALUE, "INT", function);
             case "SHORT":
-                return column.shortValue();
+                return (short)
+                        checkIntegralRange(
+                                value, Short.MIN_VALUE, Short.MAX_VALUE, "SMALLINT", function);
             case "LONG":
-                return column.longValue();
+                return checkIntegralRange(
+                        value, Long.MIN_VALUE, Long.MAX_VALUE, "BIGINT", function);
             default:
                 throw new IllegalArgumentException();
         }
+    }
+
+    /**
+     * Fails loudly when a rounded result cannot be represented in the argument's own type, rather
+     * than silently truncating it to a wrong (often negative) value.
+     */
+    private static long checkIntegralRange(
+            BigDecimal value, long min, long max, String sqlType, String function) {
+        if (value.compareTo(BigDecimal.valueOf(min)) < 0
+                || value.compareTo(BigDecimal.valueOf(max)) > 0) {
+            throw new TransformException(
+                    CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                    String.format(
+                            "Function %s produced %s, which is out of range for %s (%s to %s). "
+                                    + "Cast the argument to a wider data type to avoid this.",
+                            function, value.toPlainString(), sqlType, min, max));
+        }
+        return value.longValue();
+    }
+
+    /** Mirrors the documented ABS contract: the minimum negative value has no absolute value. */
+    private static TransformException absOverflow(String sqlType, long value, long min, long max) {
+        return new TransformException(
+                CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                String.format(
+                        "Function %s cannot represent the absolute value of %s: %s allows %s to "
+                                + "%s, so the result does not fit. Cast the argument to a wider "
+                                + "data type to avoid this.",
+                        ZetaSQLFunction.ABS, value, sqlType, min, max));
     }
 
     public static Double exp(List<Object> args) {
@@ -335,7 +385,7 @@ public class NumericFunction {
         if (args.size() >= 2) {
             v2 = (Number) args.get(1);
         }
-        return round(v1, v2, RoundingMode.FLOOR);
+        return round(v1, v2, RoundingMode.FLOOR, ZetaSQLFunction.FLOOR);
     }
 
     public static Double ln(List<Object> args) {
@@ -444,7 +494,7 @@ public class NumericFunction {
         if (args.size() >= 2) {
             v2 = (Number) args.get(1);
         }
-        return round(v1, v2, RoundingMode.HALF_UP);
+        return round(v1, v2, RoundingMode.HALF_UP, ZetaSQLFunction.ROUND);
     }
 
     public static Integer sign(List<Object> args) {
@@ -485,7 +535,7 @@ public class NumericFunction {
         if (args.size() >= 2) {
             v2 = (Number) args.get(1);
         }
-        return round(v1, v2, RoundingMode.DOWN);
+        return round(v1, v2, RoundingMode.DOWN, ZetaSQLFunction.TRUNC);
     }
 
     public static String trimScale(List<Object> args) {
