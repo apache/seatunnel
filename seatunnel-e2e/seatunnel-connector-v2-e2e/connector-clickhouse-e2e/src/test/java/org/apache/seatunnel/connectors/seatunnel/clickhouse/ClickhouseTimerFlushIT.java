@@ -27,6 +27,7 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
 
 import org.junit.jupiter.api.AfterAll;
@@ -35,19 +36,13 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.ClickHouseContainer;
 import org.testcontainers.containers.Container;
-import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
-import org.testcontainers.utility.MountableFile;
 
 import com.mysql.cj.jdbc.Driver;
 import lombok.extern.slf4j.Slf4j;
 
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -84,7 +79,8 @@ public class ClickhouseTimerFlushIT extends TestSuiteBase implements TestResourc
     private Connection clickhouseConnection;
 
     @TestContainerExtension
-    private final ContainerExtendedFactory extendedFactory = this::copyMySQLDriverToContainer;
+    private final ContainerExtendedFactory extendedFactory =
+            container -> DependencyJar.of(Driver.class).copyTo(container, MYSQL_CDC_PLUGIN_LIB);
 
     @BeforeAll
     @Override
@@ -212,31 +208,6 @@ public class ClickhouseTimerFlushIT extends TestSuiteBase implements TestResourc
                                         + CLICKHOUSE_TABLE)) {
             Assertions.assertTrue(resultSet.next());
             return resultSet.getInt(1);
-        }
-    }
-
-    private void copyMySQLDriverToContainer(GenericContainer<?> container)
-            throws IOException, InterruptedException {
-        Path driverJarPath = mysqlDriverJarPath();
-        Assertions.assertTrue(
-                Files.isRegularFile(driverJarPath),
-                "MySQL JDBC driver should be resolved from the test classpath before E2E runs: "
-                        + driverJarPath);
-        Container.ExecResult extraCommands =
-                container.execInContainer("bash", "-c", "mkdir -p " + MYSQL_CDC_PLUGIN_LIB);
-        Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
-        container.copyFileToContainer(
-                MountableFile.forHostPath(driverJarPath),
-                MYSQL_CDC_PLUGIN_LIB + "/" + driverJarPath.getFileName());
-    }
-
-    private Path mysqlDriverJarPath() {
-        try {
-            return Paths.get(
-                    Driver.class.getProtectionDomain().getCodeSource().getLocation().toURI());
-        } catch (Exception e) {
-            throw new RuntimeException(
-                    "Failed to resolve MySQL JDBC driver jar from the test classpath", e);
         }
     }
 

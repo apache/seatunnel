@@ -19,7 +19,7 @@ import ChangeLog from '../changelog/connector-file-oss.md';
 
 ### For SeaTunnel Zeta Engine
 
-1. You must ensure `seatunnel-hadoop3-3.1.4-uber.jar`, `aliyun-sdk-oss-3.4.1.jar`, `hadoop-aliyun-3.1.4.jar` and `jdom-1.1.jar` in `${SEATUNNEL_HOME}/lib/` dir.
+1. You must ensure `seatunnel-shade-hadoop3-uber-3.1.4-3.0.0.jar`, `aliyun-sdk-oss-3.4.1.jar`, `hadoop-aliyun-3.1.4.jar` and `jdom-1.1.jar` in `${SEATUNNEL_HOME}/lib/` dir.
 
 ## Key features
 
@@ -279,6 +279,12 @@ The main PDF-specific behaviors are:
 - `element_type` values for PDF are `heading`, `paragraph`, `image`, and `link`.
 
 Note: Only single-column (top-to-bottom) PDF layouts are supported. Multi-column layouts (e.g., side-by-side two-column documents) are not supported and may produce incorrect text ordering.
+
+:::caution
+
+For security reasons (XXE hardening), XML files (`file_format_type = xml`) containing a `<!DOCTYPE ...>` declaration — including benign declarations that only define internal, non-external entities — are rejected with a `FILE_READ_FAILED` error. There is no configuration option to restore the previous, less secure behavior. If your XML files are exported by a tool that emits a `DOCTYPE` header, remove it or pre-process the file before ingesting it with SeaTunnel.
+
+:::
 
 ### compress_codec [string]
 
