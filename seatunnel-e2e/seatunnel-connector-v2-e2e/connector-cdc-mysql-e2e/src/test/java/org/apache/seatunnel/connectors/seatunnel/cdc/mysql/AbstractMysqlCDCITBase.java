@@ -97,13 +97,6 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
     private static final String SOURCE_TABLE_2_CUSTOM_PRIMARY_KEY =
             "mysql_cdc_e2e_source_table_2_custom_primary_key";
     private static final String SINK_TABLE = "mysql_cdc_e2e_sink_table";
-    /** Source table created after the wildcard CDC job has already started. */
-    private static final String NEWLY_ADDED_WILDCARD_SOURCE_TABLE = "payments";
-    /**
-     * Sink table name resolved from `${database_name}_${table_name}` for the runtime source table.
-     */
-    private static final String NEWLY_ADDED_WILDCARD_SINK_TABLE = "source_payments";
-
     private static final String SINK_TABLE_COLUMN_INCLUDE =
             "mysql_cdc_e2e_sink_table_column_include";
 
@@ -850,8 +843,10 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
             disabledReason = "Currently SPARK do not support cdc")
     public void testMysqlCdcByWildcardsConfigWithNewlyAddedTable(TestContainer container)
             throws IOException, InterruptedException {
+        String newlyAddedWildcardSourceTable = buildNewlyAddedWildcardSourceTableName();
+        String newlyAddedWildcardSinkTable = "source_" + newlyAddedWildcardSourceTable;
         inventoryDatabase.setTemplateName("wildcards").createAndInitialize();
-        resetWildcardRuntimeTableState();
+        resetWildcardRuntimeTableState(newlyAddedWildcardSourceTable, newlyAddedWildcardSinkTable);
         CompletableFuture.runAsync(
                 () -> {
                     try {
@@ -863,43 +858,40 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                 });
         assertWildcardTablesSynced();
         TimeUnit.SECONDS.sleep(5);
-        createNewlyAddedWildcardTable();
+        createNewlyAddedWildcardTable(newlyAddedWildcardSourceTable);
         await().atMost(120000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertIterableEquals(
-                                        query(
-                                                getQuerySQL(
-                                                        "source",
-                                                        NEWLY_ADDED_WILDCARD_SOURCE_TABLE)),
-                                        queryNewlyAddedWildcardSinkTable()));
+                                        query(getQuerySQL("source", newlyAddedWildcardSourceTable)),
+                                        queryNewlyAddedWildcardSinkTable(
+                                                newlyAddedWildcardSinkTable)));
 
-        updateNewlyAddedWildcardTable();
+        updateNewlyAddedWildcardTable(newlyAddedWildcardSourceTable);
         await().atMost(120000, TimeUnit.MILLISECONDS)
                 .untilAsserted(
                         () ->
                                 Assertions.assertIterableEquals(
-                                        query(
-                                                getQuerySQL(
-                                                        "source",
-                                                        NEWLY_ADDED_WILDCARD_SOURCE_TABLE)),
-                                        queryNewlyAddedWildcardSinkTable()));
+                                        query(getQuerySQL("source", newlyAddedWildcardSourceTable)),
+                                        queryNewlyAddedWildcardSinkTable(
+                                                newlyAddedWildcardSinkTable)));
     }
 
     /**
      * Polls the newly added wildcard sink table during the runtime-created-table assertions.
      *
-     * <p>The test drops {@code sink.source_payments} in {@code resetWildcardRuntimeTableState()}
-     * and the sink re-creates it at runtime via schema save mode only after the CDC source
-     * discovers the new table, so a poll issued inside that window legitimately hits {@code Table
-     * 'sink.source_payments' doesn't exist}. {@code query} wraps that {@link SQLException} in a
-     * {@link RuntimeException}, and {@code untilAsserted} only retries {@link AssertionError}, so
-     * without this translation the very first early poll aborts the whole await instead of
-     * retrying. Non-SQL failures still propagate unchanged.
+     * <p>The test drops the dynamically generated sink table in {@code
+     * resetWildcardRuntimeTableState(...)} and the sink re-creates it at runtime via schema save
+     * mode only after the CDC source discovers the new table, so a poll issued inside that window
+     * legitimately hits {@code Table 'sink.<generated>' doesn't exist}. {@code query} wraps that
+     * {@link SQLException} in a {@link RuntimeException}, and {@code untilAsserted} only retries
+     * {@link AssertionError}, so without this translation the very first early poll aborts the
+     * whole await instead of retrying. Non-SQL failures still propagate unchanged.
      */
-    private List<List<Object>> queryNewlyAddedWildcardSinkTable() {
+    private List<List<Object>> queryNewlyAddedWildcardSinkTable(
+            String newlyAddedWildcardSinkTable) {
         try {
-            return query(getQuerySQL("sink", NEWLY_ADDED_WILDCARD_SINK_TABLE));
+            return query(getQuerySQL("sink", newlyAddedWildcardSinkTable));
         } catch (RuntimeException e) {
             if (e.getCause() instanceof SQLException) {
                 return Assertions.fail(
@@ -1566,17 +1558,26 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                         });
     }
 
+    /**
+     * Uses a per-run table suffix so concurrent or previously leaked wildcard jobs cannot
+     * reintroduce the same runtime table before the new job starts.
+     */
+    private String buildNewlyAddedWildcardSourceTableName() {
+        return "payments_rt_" + Long.toUnsignedString(System.nanoTime(), 36);
+    }
+
     /** Drops the runtime test tables so repeated local runs do not keep stale state. */
-    private void resetWildcardRuntimeTableState() {
-        executeSql("DROP TABLE IF EXISTS sink." + NEWLY_ADDED_WILDCARD_SINK_TABLE);
-        executeSql("DROP TABLE IF EXISTS source." + NEWLY_ADDED_WILDCARD_SOURCE_TABLE);
+    private void resetWildcardRuntimeTableState(
+            String newlyAddedWildcardSourceTable, String newlyAddedWildcardSinkTable) {
+        executeSql("DROP TABLE IF EXISTS sink." + newlyAddedWildcardSinkTable);
+        executeSql("DROP TABLE IF EXISTS source." + newlyAddedWildcardSourceTable);
     }
 
     /** Creates a source table after job startup and inserts initial rows for CDC capture. */
-    private void createNewlyAddedWildcardTable() {
+    private void createNewlyAddedWildcardTable(String newlyAddedWildcardSourceTable) {
         executeSql(
                 "CREATE TABLE source."
-                        + NEWLY_ADDED_WILDCARD_SOURCE_TABLE
+                        + newlyAddedWildcardSourceTable
                         + " ("
                         + "id INTEGER NOT NULL AUTO_INCREMENT PRIMARY KEY,"
                         + "order_number INTEGER NOT NULL,"
@@ -1585,7 +1586,7 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
                         + ") AUTO_INCREMENT = 2001");
         executeSql(
                 "INSERT INTO source."
-                        + NEWLY_ADDED_WILDCARD_SOURCE_TABLE
+                        + newlyAddedWildcardSourceTable
                         + " VALUES "
                         + "(2001, 10001, 1850, 'CREATED'),"
                         + "(2002, 10002, 4200, 'PAID')");
@@ -1594,12 +1595,12 @@ public abstract class AbstractMysqlCDCITBase extends TestSuiteBase implements Te
     /**
      * Applies update and delete mutations to confirm the runtime table keeps streaming normally.
      */
-    private void updateNewlyAddedWildcardTable() {
+    private void updateNewlyAddedWildcardTable(String newlyAddedWildcardSourceTable) {
         executeSql(
                 "UPDATE source."
-                        + NEWLY_ADDED_WILDCARD_SOURCE_TABLE
+                        + newlyAddedWildcardSourceTable
                         + " SET status = 'SETTLED' WHERE id = 2002");
-        executeSql("DELETE FROM source." + NEWLY_ADDED_WILDCARD_SOURCE_TABLE + " WHERE id = 2001");
+        executeSql("DELETE FROM source." + newlyAddedWildcardSourceTable + " WHERE id = 2001");
     }
 
     private List<List<Object>> getConnectionStatus(String user) {
