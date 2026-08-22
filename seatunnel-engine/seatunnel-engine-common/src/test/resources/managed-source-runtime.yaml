@@ -19,9 +19,6 @@ seatunnel:
     engine:
         managed-source-runtime:
             enabled: true
-            connector-allowlist:
-                - FakeSource
-                - Kafka
             runtime-protocol-version: 1
             reader-mailbox-max-commands: 256
             reader-mailbox-max-bytes: 2097152

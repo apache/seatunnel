@@ -25,14 +25,14 @@ limitations under the License.
 引入的实验性 Zeta 执行通道。它把 Reader 和 Split Enumerator 的 checkpoint 可见状态统一放入
 引擎拥有的事件循环中串行执行，使连接器不再需要自行用 checkpoint lock 协调引擎回调。
 
-该功能默认关闭。只有以下条件同时满足，现有作业才会在新部署时进入受管通道：
+该功能默认关闭。保持关闭时，现有作业继续走 Legacy 通道。只有在开启后以下条件同时满足时，
+Source 才会在新部署时进入受管通道：
 
 1. `managed-source-runtime.enabled` 为 `true`。
-2. 连接器名称在 `connector-allowlist` 中。
-3. 连接器声明了兼容的 `ManagedSourceCapability`。
-4. 运行时协议与恢复 checkpoint 中的元数据一致。
+2. 连接器声明了兼容的 `ManagedSourceCapability`。
+3. 运行时协议与恢复 checkpoint 中的元数据一致。
 
-任何已配置 gate 不满足时，部署都会 fail-closed，不会静默改变执行语义。
+一旦功能已开启而任一兼容性 gate 不满足，部署都会 fail-closed，不会静默改变执行语义。
 
 ## 运行模型
 
@@ -52,7 +52,8 @@ limitations under the License.
 - Mailbox、outbound command、scheduler callback、async queue 和 assignment history 都有 count
   或 byte 硬上限，并为 barrier 与 terminal control 保留容量。
 
-引擎不会自动删除旧连接器内部的锁。未通过受管契约认证的连接器继续走 Legacy 通道。
+引擎不会自动删除旧连接器内部的锁。功能关闭时，连接器继续走 Legacy 通道；功能开启后，
+未通过受管契约认证的连接器会在部署期被直接拒绝。
 Capability 按组件生效：Iceberg coordinator-only 灰度只把 discovery 和 coordinator state 迁入受管
 owner，Reader transport 与 Reader 锁仍明确保留在 Legacy 通道。只有 Reader 与 coordinator
 capability 同时启用时，“operation thread 不执行 connector code”才是端到端保证。
@@ -66,8 +67,6 @@ seatunnel:
   engine:
     managed-source-runtime:
       enabled: true
-      connector-allowlist:
-        - FakeSource
       runtime-protocol-version: 1
 ```
 
@@ -82,7 +81,7 @@ seatunnel:
 | Kafka | 后台 fetcher 隔离、异步 commit 回调、split discovery 与 assignment |
 | Iceberg | 通过 coordinator scheduler 执行阻塞式流发现 |
 
-只有白名单并不足以启用受管通道。连接器未声明兼容 capability 时，部署会直接失败。
+仅开启功能并不足以启用受管通道。连接器未声明兼容 capability 时，部署会直接失败。
 
 ## 安全配置
 
@@ -90,8 +89,7 @@ seatunnel:
 
 | 配置项 | 默认值 | 作用 |
 |---|---:|---|
-| `enabled` | `false` | 是否允许新 physical plan 选择受管通道 |
-| `connector-allowlist` | `[]` | 可进入受管通道的精确连接器插件名；拒绝通配符 |
+| `enabled` | `false` | 是否允许新 physical plan 选择受管通道；开启后，不兼容的 Source 连接器会在部署期直接失败 |
 | `runtime-protocol-version` | `1` | 引擎与连接器必须一致的协议版本 |
 | `reader-mailbox-max-commands` | `1024` | 单 Reader command 总容量 |
 | `reader-mailbox-max-bytes` | `4194304` | 单 Reader command 字节容量 |
@@ -191,14 +189,14 @@ assignment 不出现无界增长。Reader 与 coordinator 全量认证时必须�
 ## 灰度与回滚
 
 1. 保持 `enabled: false`，先冻结 Legacy 基线。
-2. 在非生产集群只开启 `FakeSource`，完成恢复、rescale 和 mailbox saturation 测试。
+2. 先只在承载 `FakeSource` workload 的非生产集群开启功能，完成恢复、rescale 和 mailbox saturation 测试。
 3. Kafka 或 Iceberg 通过 conformance 与性能 gate 后，只灰度一个真实 workload。
-4. 每次只扩大一个连接器和一种 workload。
+4. 每次只扩大一种 workload；未支持的连接器仍留在 `enabled: false` 的集群。
 5. 触发停止条件时，立即禁止新部署选择受管通道。
 
 不要把受管 checkpoint 恢复到 Legacy 通道。需要可恢复回滚时，应维持同一受管 selection 直到灰度
 作业 drain 完成，或者从更早的兼容 Legacy checkpoint、savepoint 或初始 source position 启动。
-运行中作业及其持久化 physical plan 的 failover，不会因为集群白名单变化而自动切换通道。
+运行中作业及其持久化 physical plan 的 failover，不会因为集群功能开关变化而自动切换通道。
 
 协议版本 1 明确拒绝任意自定义 `SourceEvent` payload。依赖该能力的连接器必须继续留在 Legacy
 通道，直到引擎提供版本化 event codec。因此每个受管 capability 都必须显式声明

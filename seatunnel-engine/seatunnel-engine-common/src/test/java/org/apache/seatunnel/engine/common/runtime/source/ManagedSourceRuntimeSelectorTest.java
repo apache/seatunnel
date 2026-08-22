@@ -25,12 +25,10 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
-import java.util.Arrays;
-
 class ManagedSourceRuntimeSelectorTest {
 
     @Test
-    void shouldKeepLegacyAsTheDefaultAndRequireBothGates() {
+    void shouldKeepLegacyAsTheDefaultWhenFeatureIsDisabled() {
         SeaTunnelSource<?, ?, ?> source = Mockito.mock(SeaTunnelSource.class);
         Mockito.when(source.getPluginName()).thenReturn("FakeSource");
         ManagedSourceRuntimeConfig config = new ManagedSourceRuntimeConfig();
@@ -38,15 +36,10 @@ class ManagedSourceRuntimeSelectorTest {
         Assertions.assertEquals(
                 ManagedSourceRuntimeMode.LEGACY,
                 ManagedSourceRuntimeSelector.select(source, config).getMode());
-
-        config.setEnabled(true);
-        Assertions.assertEquals(
-                ManagedSourceRuntimeMode.LEGACY,
-                ManagedSourceRuntimeSelector.select(source, config).getMode());
     }
 
     @Test
-    void shouldSelectOnlyAnAllowlistedCompatibleCapability() {
+    void shouldSelectCompatibleCapabilityWhenFeatureEnabled() {
         SeaTunnelSource<?, ?, ?> source = Mockito.mock(SeaTunnelSource.class);
         Mockito.when(source.getPluginName()).thenReturn("FakeSource");
         Mockito.when(source.getManagedSourceCapability())
@@ -63,25 +56,22 @@ class ManagedSourceRuntimeSelectorTest {
                                 .build());
         ManagedSourceRuntimeConfig config = new ManagedSourceRuntimeConfig();
         config.setEnabled(true);
-        config.setConnectorAllowlist(Arrays.asList(" fakesource ", "FAKESOURCE"));
 
         ManagedSourceRuntimeSelection selection =
                 ManagedSourceRuntimeSelector.select(source, config);
 
         Assertions.assertEquals(
                 ManagedSourceRuntimeMode.MANAGED_READER_AND_COORDINATOR, selection.getMode());
-        Assertions.assertEquals(1, config.normalizedConnectorAllowlist().size());
     }
 
     @Test
-    void shouldFailClosedWhenAllowlistedConnectorDeclaresNoCapability() {
+    void shouldFailClosedWhenEnabledConnectorDeclaresNoCapability() {
         SeaTunnelSource<?, ?, ?> source = Mockito.mock(SeaTunnelSource.class);
         Mockito.when(source.getPluginName()).thenReturn("FakeSource");
         Mockito.when(source.getManagedSourceCapability())
                 .thenReturn(ManagedSourceCapability.legacy());
         ManagedSourceRuntimeConfig config = new ManagedSourceRuntimeConfig();
         config.setEnabled(true);
-        config.setConnectorAllowlist(Arrays.asList("fakesource"));
 
         Assertions.assertThrows(
                 IllegalStateException.class,
@@ -101,7 +91,6 @@ class ManagedSourceRuntimeSelectorTest {
                                 .build());
         ManagedSourceRuntimeConfig config = new ManagedSourceRuntimeConfig();
         config.setEnabled(true);
-        config.setConnectorAllowlist(Arrays.asList("fakesource"));
 
         Assertions.assertThrows(
                 IllegalStateException.class,
@@ -120,7 +109,6 @@ class ManagedSourceRuntimeSelectorTest {
                                 .build());
         ManagedSourceRuntimeConfig config = new ManagedSourceRuntimeConfig();
         config.setEnabled(true);
-        config.setConnectorAllowlist(Arrays.asList("fakesource"));
 
         Assertions.assertThrows(
                 IllegalStateException.class,

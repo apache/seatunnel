@@ -361,8 +361,8 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                     config.setEnabled(getBooleanValue(value));
                     break;
                 case "connector-allowlist":
-                    config.setConnectorAllowlist(parseStringList(node));
-                    break;
+                    throw new IllegalArgumentException(
+                            "managed-source-runtime no longer accepts connector-allowlist; connectors must declare ManagedSourceCapability instead");
                 case "runtime-protocol-version":
                     config.setRuntimeProtocolVersion(
                             getIntegerValue("runtime-protocol-version", value));

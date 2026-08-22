@@ -15,8 +15,8 @@
 # limitations under the License.
 #
 
-# Enables the engine-managed Source runtime for FakeSource only, so the E2E exercises the
-# managed lane while every other connector stays on the legacy compatibility lane.
+# Enables the engine-managed Source runtime for this FakeSource-only E2E cluster so the suite
+# exercises the managed lane without mixing unsupported connectors into the deployment.
 seatunnel:
   engine:
     history-job-expire-minutes: 1
@@ -37,8 +37,6 @@ seatunnel:
           namespace: /tmp/seatunnel/checkpoint_snapshot/
     managed-source-runtime:
       enabled: true
-      connector-allowlist:
-        - FakeSource
       runtime-protocol-version: 1
     http:
       enable-http: true

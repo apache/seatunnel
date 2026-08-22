@@ -126,8 +126,8 @@ public interface SeaTunnelSource<T, SplitT extends SourceSplit, StateT extends S
      * Returns the versioned behavioral contract supported by this source.
      *
      * <p>The default keeps every existing connector on the legacy compatibility lane. Declaring a
-     * capability does not activate the managed runtime by itself; the engine feature flag,
-     * connector allowlist, protocol negotiation, and conformance gate must also succeed.
+     * capability does not activate the managed runtime by itself; the engine feature flag, protocol
+     * negotiation, and conformance gate must also succeed.
      */
     default ManagedSourceCapability getManagedSourceCapability() {
         return ManagedSourceCapability.legacy();

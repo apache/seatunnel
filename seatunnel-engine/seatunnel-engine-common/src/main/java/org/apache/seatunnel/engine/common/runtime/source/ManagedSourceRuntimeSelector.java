@@ -21,9 +21,6 @@ import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.managed.ManagedSourceCapability;
 import org.apache.seatunnel.engine.common.config.server.ManagedSourceRuntimeConfig;
 
-import java.util.List;
-import java.util.Locale;
-
 /** Selects the Source execution lane once, before task deployment. */
 public final class ManagedSourceRuntimeSelector {
 
@@ -32,8 +29,7 @@ public final class ManagedSourceRuntimeSelector {
     public static ManagedSourceRuntimeSelection select(
             SeaTunnelSource<?, ?, ?> source, ManagedSourceRuntimeConfig config) {
         config.validate();
-        List<String> allowlist = config.normalizedConnectorAllowlist();
-        if (!config.isEnabled() || allowlist.isEmpty()) {
+        if (!config.isEnabled()) {
             return ManagedSourceRuntimeSelection.legacy();
         }
         String pluginName = source.getPluginName();
@@ -41,22 +37,18 @@ public final class ManagedSourceRuntimeSelector {
             throw new IllegalStateException(
                     "Managed Source connector plugin name must not be blank");
         }
-        String connectorName = pluginName.trim().toLowerCase(Locale.ROOT);
-        if (!allowlist.contains(connectorName)) {
-            return ManagedSourceRuntimeSelection.legacy();
-        }
 
         ManagedSourceCapability capability = source.getManagedSourceCapability();
         if (capability == null || capability.isLegacy()) {
             throw new IllegalStateException(
                     "Connector "
-                            + source.getPluginName()
-                            + " is allowlisted for the managed Source runtime but declares no managed capability");
+                            + pluginName
+                            + " does not declare a managed Source capability while managed-source-runtime.enabled=true");
         }
         if (capability.getRuntimeProtocolVersion() != config.getRuntimeProtocolVersion()) {
             throw new IllegalStateException(
                     "Managed Source protocol mismatch for connector "
-                            + source.getPluginName()
+                            + pluginName
                             + ": engine="
                             + config.getRuntimeProtocolVersion()
                             + ", connector="
@@ -65,13 +57,13 @@ public final class ManagedSourceRuntimeSelector {
         if (capability.usesSourceEvents()) {
             throw new IllegalStateException(
                     "Connector "
-                            + source.getPluginName()
+                            + pluginName
                             + " uses SourceEvents, which are not supported by managed Source protocol version 1");
         }
         if (capability.supportsManagedCoordinator() && !capability.supportsAsyncEnumerator()) {
             throw new IllegalStateException(
                     "Connector "
-                            + source.getPluginName()
+                            + pluginName
                             + " declares a managed coordinator but does not opt into the event-loop-safe enumerator contract");
         }
 
@@ -85,7 +77,7 @@ public final class ManagedSourceRuntimeSelector {
         } else {
             throw new IllegalStateException(
                     "Managed Source capability for "
-                            + source.getPluginName()
+                            + pluginName
                             + " does not enable a runtime component");
         }
         return new ManagedSourceRuntimeSelection(

@@ -26,16 +26,15 @@ The engine-managed Source runtime is an experimental Zeta execution lane introdu
 Reader and Split Enumerator state in engine-owned event loops, so connector implementations do
 not need to coordinate engine callbacks with checkpoint locks.
 
-The feature is disabled by default. Existing connectors and jobs continue to use the legacy lane
-unless all of the following gates pass:
+The feature is disabled by default. Existing jobs continue to use the legacy lane while it remains
+off. Once enabled, a Source can enter the managed lane only when all of the following gates pass:
 
 1. `managed-source-runtime.enabled` is `true`.
-2. The connector name is in `connector-allowlist`.
-3. The connector declares a compatible `ManagedSourceCapability`.
-4. The runtime protocol and restored checkpoint metadata match.
+2. The connector declares a compatible `ManagedSourceCapability`.
+3. The runtime protocol and restored checkpoint metadata match.
 
-If any configured gate is invalid, deployment fails closed instead of silently changing execution
-semantics.
+If the feature is enabled and any compatibility gate is invalid, deployment fails closed instead of
+silently changing execution semantics.
 
 ## Runtime Model
 
@@ -58,8 +57,9 @@ The managed lane provides these guarantees:
 - Mailboxes, outbound commands, scheduler callbacks, async queues, and assignment history all have
   hard count or byte limits. Reserved capacity is kept for barriers and terminal control.
 
-Existing connector locks are not removed automatically. Connectors not certified for the managed
-contract remain on the legacy lane.
+Existing connector locks are not removed automatically. When the feature stays disabled, connectors
+remain on the legacy lane. Once enabled, connectors that are not certified for the managed
+contract are rejected at deployment time.
 Capability is component-scoped: an Iceberg coordinator-only canary moves discovery and coordinator
 state to the managed owner but deliberately leaves its Reader transport and Reader locking on the
 legacy lane. The no-operation-thread-connector-code guarantee applies end to end only when both
@@ -74,8 +74,6 @@ seatunnel:
   engine:
     managed-source-runtime:
       enabled: true
-      connector-allowlist:
-        - FakeSource
       runtime-protocol-version: 1
 ```
 
@@ -90,8 +88,8 @@ The initial certification pilots are:
 | Kafka | Background fetcher confinement, async commit completion, split discovery, and assignment |
 | Iceberg | Blocking streaming discovery through the coordinator scheduler |
 
-An allowlist entry is not sufficient by itself. A connector without a compatible capability causes
-deployment to fail.
+Enabling the feature is not sufficient by itself. A connector without a compatible capability
+causes deployment to fail.
 
 ## Safety Configuration
 
@@ -99,8 +97,7 @@ Byte values are raw bytes and duration values are milliseconds.
 
 | Option | Default | Purpose |
 |---|---:|---|
-| `enabled` | `false` | Enables selection for new physical plans |
-| `connector-allowlist` | `[]` | Explicit connector plugin names allowed to enter the managed lane; wildcards are rejected |
+| `enabled` | `false` | Enables managed-lane selection for new physical plans and fails deployment for unsupported Source connectors |
 | `runtime-protocol-version` | `1` | Required engine/connector wire protocol |
 | `reader-mailbox-max-commands` | `1024` | Total Reader command capacity |
 | `reader-mailbox-max-bytes` | `4194304` | Per-Reader command bytes |
@@ -203,16 +200,17 @@ Reader-and-coordinator certification must satisfy the operation-thread criterion
 ## Rollout And Rollback
 
 1. Keep `enabled: false` while collecting the legacy baseline.
-2. Enable only `FakeSource` in a non-production cluster and run recovery, rescale, and mailbox
-   saturation tests.
+2. Turn it on only in a non-production cluster that runs `FakeSource` workloads and complete
+   recovery, rescale, and mailbox saturation tests there first.
 3. Canary one Kafka or Iceberg workload after its conformance and performance gates pass.
-4. Expand one connector and one workload class at a time.
+4. Expand one workload class at a time, and keep unsupported connectors on clusters where
+   `enabled` remains `false`.
 5. Disable selection for new deployments immediately when a stop condition is reached.
 
 Do not restore a managed checkpoint into the legacy lane. For a recoverable rollback, keep the same
 managed selection until the canary is drained, or restart from an earlier compatible legacy
 checkpoint or fresh source position. Running jobs and failover from their persisted physical plan
-do not switch lanes merely because the cluster allowlist changes.
+do not switch lanes merely because the cluster feature flag changes.
 
 Protocol version 1 intentionally rejects arbitrary custom `SourceEvent` payloads. Such connectors
 must remain on the legacy lane until a versioned event codec is introduced. Every managed

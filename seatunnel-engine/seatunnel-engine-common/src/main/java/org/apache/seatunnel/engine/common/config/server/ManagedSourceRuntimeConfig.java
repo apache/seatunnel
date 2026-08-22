@@ -20,17 +20,12 @@ package org.apache.seatunnel.engine.common.config.server;
 import lombok.Data;
 
 import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Locale;
-import java.util.stream.Collectors;
 
 /**
  * Production safety limits and rollout gates for the engine-managed Source runtime.
  *
- * <p>The feature is disabled and the connector allowlist is empty by default. A running job never
- * changes lane when this configuration is reloaded.
+ * <p>The feature is disabled by default. A running job never changes lane when this configuration
+ * is reloaded.
  */
 @Data
 public class ManagedSourceRuntimeConfig implements Serializable {
@@ -40,7 +35,6 @@ public class ManagedSourceRuntimeConfig implements Serializable {
     public static final int KIBIBYTE = 1024;
 
     private boolean enabled;
-    private List<String> connectorAllowlist = new ArrayList<>();
     private int runtimeProtocolVersion = 1;
 
     private int readerMailboxMaxCommands = 1024;
@@ -69,28 +63,8 @@ public class ManagedSourceRuntimeConfig implements Serializable {
     private int assignmentTrackerMaxEntries = 100_000;
     private long assignmentTrackerMaxBytes = 64L * MEBIBYTE;
 
-    /** Returns a normalized, immutable connector allowlist. */
-    public List<String> normalizedConnectorAllowlist() {
-        if (connectorAllowlist == null) {
-            return Collections.emptyList();
-        }
-        if (connectorAllowlist.stream().anyMatch(value -> value == null)) {
-            throw new IllegalArgumentException("connector-allowlist entries must not be null");
-        }
-        return Collections.unmodifiableList(
-                connectorAllowlist.stream()
-                        .map(value -> value.trim().toLowerCase(Locale.ROOT))
-                        .filter(value -> !value.isEmpty())
-                        .distinct()
-                        .collect(Collectors.toList()));
-    }
-
     /** Validates limits before physical plan generation or task deployment. */
     public void validate() {
-        if (normalizedConnectorAllowlist().contains("*")) {
-            throw new IllegalArgumentException(
-                    "connector-allowlist requires explicit connector names; wildcard is not supported");
-        }
         positive(runtimeProtocolVersion, "runtime-protocol-version");
         positive(readerMailboxMaxCommands, "reader-mailbox-max-commands");
         positive(readerMailboxMaxBytes, "reader-mailbox-max-bytes");

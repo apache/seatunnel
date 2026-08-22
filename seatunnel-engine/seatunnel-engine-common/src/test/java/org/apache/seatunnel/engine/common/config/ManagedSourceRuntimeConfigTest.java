@@ -22,9 +22,10 @@ import org.apache.seatunnel.engine.common.config.server.ManagedSourceRuntimeConf
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.io.ByteArrayInputStream;
 import java.io.FileInputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Paths;
-import java.util.Arrays;
 
 class ManagedSourceRuntimeConfigTest {
 
@@ -43,8 +44,6 @@ class ManagedSourceRuntimeConfigTest {
                 seaTunnelConfig.getEngineConfig().getManagedSourceRuntimeConfig();
 
         Assertions.assertTrue(config.isEnabled());
-        Assertions.assertEquals(
-                Arrays.asList("fakesource", "kafka"), config.normalizedConnectorAllowlist());
         Assertions.assertEquals(256, config.getReaderMailboxMaxCommands());
         Assertions.assertEquals(2_097_152L, config.getReaderMailboxMaxBytes());
         Assertions.assertEquals(8, config.getCoordinatorAsyncIoThreads());
@@ -64,13 +63,24 @@ class ManagedSourceRuntimeConfigTest {
     }
 
     @Test
-    void shouldRejectWildcardAllowlist() {
-        ManagedSourceRuntimeConfig config = new ManagedSourceRuntimeConfig();
-        config.setConnectorAllowlist(Arrays.asList("*"));
+    void shouldRejectRemovedConnectorAllowlistOption() {
+        String yaml =
+                "seatunnel:\n"
+                        + "  engine:\n"
+                        + "    managed-source-runtime:\n"
+                        + "      enabled: true\n"
+                        + "      connector-allowlist:\n"
+                        + "        - FakeSource\n";
 
         IllegalArgumentException failure =
-                Assertions.assertThrows(IllegalArgumentException.class, config::validate);
+                Assertions.assertThrows(
+                        IllegalArgumentException.class,
+                        () ->
+                                new YamlSeaTunnelConfigBuilder(
+                                                new ByteArrayInputStream(
+                                                        yaml.getBytes(StandardCharsets.UTF_8)))
+                                        .build());
 
-        Assertions.assertTrue(failure.getMessage().contains("wildcard"));
+        Assertions.assertTrue(failure.getMessage().contains("connector-allowlist"));
     }
 }
