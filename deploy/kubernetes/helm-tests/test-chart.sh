@@ -23,7 +23,6 @@ readonly CHART_DIR="${SCRIPT_DIR}/../seatunnel"
 readonly RELEASE_NAME="seatunnel-e2e"
 readonly RELEASE_NAMESPACE="seatunnel-e2e"
 readonly REST_RESPONSE="${TMPDIR:-/tmp}/seatunnel-helm-rest-response.json"
-PORT_FORWARD_PID=""
 
 render_chart() {
     helm lint --strict "${CHART_DIR}"
@@ -55,10 +54,6 @@ cleanup() {
     local exit_code=$?
     trap - EXIT
 
-    if [[ -n "${PORT_FORWARD_PID}" ]]; then
-        kill "${PORT_FORWARD_PID}" 2>/dev/null || true
-        wait "${PORT_FORWARD_PID}" 2>/dev/null || true
-    fi
     if [[ ${exit_code} -ne 0 ]]; then
         print_diagnostics
     fi
@@ -69,15 +64,13 @@ cleanup() {
 
 verify_rest_api() {
     rm -f "${REST_RESPONSE}"
-    kubectl --namespace "${RELEASE_NAMESPACE}" port-forward \
-        "service/${RELEASE_NAME}-master" 18080:8080 \
-        > "${TMPDIR:-/tmp}/seatunnel-helm-port-forward.log" 2>&1 &
-    PORT_FORWARD_PID=$!
 
     for _ in $(seq 1 60); do
-        if curl --fail --silent --show-error \
-            --output "${REST_RESPONSE}" \
-            http://127.0.0.1:18080/system-monitoring-information \
+        if kubectl --namespace "${RELEASE_NAMESPACE}" exec \
+            "deployment/${RELEASE_NAME}-master" -- \
+            curl --fail --silent --show-error --max-time 5 \
+            http://127.0.0.1:8080/system-monitoring-information \
+            > "${REST_RESPONSE}" \
             && response_has_expected_members; then
             return
         fi
