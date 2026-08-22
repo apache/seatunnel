@@ -108,10 +108,12 @@ seatunnel:
     telemetry:
       logs:
         scheduled-deletion-enable: true
+        job-log-prune-interval-minutes: 60
 ```
 
 - `history-job-expire-minutes`: Sets the retention time for historical job data and logs (in minutes). The system will automatically clear expired job information and log files after the specified period.
 - `scheduled-deletion-enable`: Enable scheduled cleanup, with default value of `true`. The system will automatically delete relevant log files when job expiration time, as defined by `history-job-expire-minutes`, is reached. If this feature is disabled, logs will remain permanently on disk, requiring manual management, which may affect disk space usage. It is recommended to configure this setting based on specific needs.
+- `job-log-prune-interval-minutes`: Interval, in minutes, at which the local job log pruner scans the log directory and removes rolled segments (produced by the Log4j2 `RollingFile` policy for the per-job appender) whose last-modified age exceeds the configured `file_ttl`. Defaults to `60`. Set to a non-positive value to disable pruning. This setting only takes effect when `scheduled-deletion-enable` is also `true`. The active `job-<id>.log` file and the `job-<id>.log.unclassified` sidecar are never touched by the pruner; only the date-indexed rolled job segments (e.g. `job-<id>.log.yyyy-MM-dd-N`) are eligible.
 
 ## Best practices for developers
 
