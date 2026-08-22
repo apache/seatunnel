@@ -293,7 +293,7 @@ public class ConfigBuilder {
             Config sourceConfig = userConfig.withFallback(systemConfig);
 
             List<String> placeholders = new ArrayList<>();
-            processPlaceholders(config.root(), sourceConfig, placeholders);
+            config = processPlaceholders(config.root(), sourceConfig, placeholders);
 
             Config cleanSourceConfig =
                     filterSourceConfig(sourceConfig, userConfigMap, placeholders);
@@ -413,7 +413,7 @@ public class ConfigBuilder {
 
         if (value.startsWith("\"") && value.endsWith("\"") && value.length() > 1) {
             value = StringUtils.unwrap(value, "\"");
-            //            return ConfigValueFactory.fromAnyRef(value);
+            return ConfigValueFactory.fromAnyRef(value);
         }
 
         if (value.startsWith("[") && value.endsWith("]")) {
