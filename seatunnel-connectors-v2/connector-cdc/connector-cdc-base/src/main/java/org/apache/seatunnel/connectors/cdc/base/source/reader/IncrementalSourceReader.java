@@ -233,7 +233,11 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
                         incrementalSplit.getCheckpointTables());
                 debeziumDeserializationSchema.restoreCheckpointProducedType(
                         incrementalSplit.getCheckpointTables());
-                restoredCheckpointTables = incrementalSplit.getCheckpointTables();
+                // Only roll the collector back to checkpointed tables when the dialect can also
+                // restore the deserializer's produced type from the same checkpoint snapshot.
+                if (debeziumDeserializationSchema.getSchemaChangeResolver() != null) {
+                    restoredCheckpointTables = incrementalSplit.getCheckpointTables();
+                }
             }
             IncrementalSplitState splitState = new IncrementalSplitState(incrementalSplit);
             if (splitState.autoEnterPureIncrementPhaseIfAllowed()) {
