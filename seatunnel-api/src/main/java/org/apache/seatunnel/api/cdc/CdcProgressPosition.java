@@ -29,7 +29,8 @@ import java.util.Objects;
  *
  * <p>The map keys are defined by the position family and schema version. Consumers should not
  * assume that keys from one connector family apply to another. Values are copied at construction
- * time and exposed as an unmodifiable map.
+ * time and exposed as an unmodifiable map. Position values must contain only offset coordinates;
+ * credentials, connection URLs, and other authentication material are forbidden.
  */
 @Experimental
 public final class CdcProgressPosition {

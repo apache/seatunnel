@@ -22,7 +22,7 @@ import org.apache.seatunnel.api.annotation.Experimental;
 /** Current lifecycle stage observed and reported by a CDC reader. */
 @Experimental
 public enum CdcProgressLifecycle {
-    /** Snapshot splits are being discovered, assigned, or read. */
+    /** The reader is reading snapshot splits. */
     SNAPSHOT,
 
     /** Incremental consumption is catching up with snapshot high watermarks. */

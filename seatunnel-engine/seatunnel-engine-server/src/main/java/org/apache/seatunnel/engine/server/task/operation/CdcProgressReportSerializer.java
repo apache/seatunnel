@@ -112,6 +112,7 @@ final class CdcProgressReportSerializer {
         writeIntegerValue(out, report.getRunningSplitCount());
         writeIntegerValue(out, report.getPreparedRemainingSplitCount());
         writeIntegerValue(out, report.getRemainingUnchunkedTableCount());
+        out.writeBoolean(report.isActiveSplitsTruncated());
         out.writeInt(report.getActiveSplits().size());
         for (CdcSnapshotSplitProgress splitProgress : report.getActiveSplits()) {
             out.writeString(splitProgress.getSplitId());
@@ -131,6 +132,7 @@ final class CdcProgressReportSerializer {
         CdcProgressValue<Integer> runningSplitCount = readIntegerValue(in);
         CdcProgressValue<Integer> preparedRemainingSplitCount = readIntegerValue(in);
         CdcProgressValue<Integer> remainingUnchunkedTableCount = readIntegerValue(in);
+        boolean activeSplitsTruncated = in.readBoolean();
         int activeSplitCount = readSize(in, "active split");
         List<CdcSnapshotSplitProgress> activeSplits = new ArrayList<>(activeSplitCount);
         for (int i = 0; i < activeSplitCount; i++) {
@@ -149,7 +151,8 @@ final class CdcProgressReportSerializer {
                 runningSplitCount,
                 preparedRemainingSplitCount,
                 remainingUnchunkedTableCount,
-                activeSplits);
+                activeSplits,
+                activeSplitsTruncated);
     }
 
     private static void writePositionValue(

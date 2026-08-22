@@ -30,14 +30,16 @@ Enumerator 不应推断 Reader 的生命周期。尤其是，split 分配完成�
 | `UNAVAILABLE` | 支持该值，但本次观测时暂不可用。 |
 
 受支持的值必须包含非空 payload，`UNSUPPORTED` 和 `UNAVAILABLE` 不包含 payload。Connector 原生
-位置会保留明确的位置类型和 schema 版本，消费者不能假设不同 Connector 使用相同字段。
+位置会保留明确的位置类型和 schema 版本，消费者不能假设不同 Connector 使用相同字段。位置
+payload 只能包含 binlog position、GTID、LSN 或时间戳等 offset 坐标，禁止包含凭证、连接 URL 或
+其他认证信息。
 
 ## 运行时采集
 
 Reader 报告在执行节点上定期采样、批量发送到活动 Coordinator。Enumerator 报告使用独立的
-Coordinator 所有采集路径。活动 Coordinator 根据当前 Job 和 slot 状态确定 Enumerator Task 的
-位置，向实际运行该 Enumerator 的节点请求报告，并将通过校验的报告写入 Coordinator 侧的最新值
-存储。
+Coordinator 所有采集路径。部署 Coordinator Task Group 时会注册 Enumerator 报告源。活动
+Coordinator 向已注册的节点请求报告；如果 Enumerator 运行在 Master 上，则直接更新 Coordinator
+本地报告。通过校验的报告会写入 Coordinator 侧的最新值存储。
 
 Enumerator Task 可能运行在活动 Coordinator 之外的节点上。这一传输细节不会把所有权交给 Worker
 采样器：由 Coordinator 选择要轮询的 Enumerator、发起采集并负责排序和存储。Master 故障转移后，
@@ -59,6 +61,11 @@ Reader 生命周期包括 `SNAPSHOT`、`CATCH_UP`、`INCREMENTAL` 和 `UNKNOWN`�
 ## 当前限制
 
 - 该契约和报告类型仍为实验性。
+- 当前基于 `connector-cdc-base` 的 CDC Source 会提供报告。MySQL 使用明确的 `MYSQL_BINLOG`
+  位置类型；其他 base Connector 在定义更具体的位置类型前使用 Plugin 名称。未接入该 Provider 的
+  CDC Source 不会返回报告。
+- Enumerator 报告最多保留 100 条活动 split 明细。`activeSplitsTruncated` 表示还有活动 split 被
+  省略，聚合 split 数量仍描述完整状态。
 - 当前实现不会通过 REST、CLI 或 metrics 暴露进度。
 - 已完成 checkpoint 位置和恢复位置在对应引擎生命周期回调接入前保持 `UNSUPPORTED`。
 - 位置不变化本身不能证明源端延迟、反压或数据源停滞。

@@ -99,7 +99,8 @@ class ReportCdcProgressOperationSerializationTest {
                                                 "snapshot-split-1",
                                                 "inventory.orders",
                                                 CdcProgressValue.exact(position),
-                                                CdcProgressValue.unavailable()))));
+                                                CdcProgressValue.unavailable())),
+                                true));
         ReportCdcProgressOperation original =
                 new ReportCdcProgressOperation(java.util.Arrays.asList(reader, enumerator));
 
@@ -142,6 +143,9 @@ class ReportCdcProgressOperationSerializationTest {
                         .getLowWatermark()
                         .getValue()
                         .getType());
+        Assertions.assertTrue(
+                ((CdcEnumeratorProgressReport) restoredEnumerator.getReport())
+                        .isActiveSplitsTruncated());
 
         CdcProgressReportBatch batch =
                 new CdcProgressReportBatch(java.util.Arrays.asList(reader, enumerator));

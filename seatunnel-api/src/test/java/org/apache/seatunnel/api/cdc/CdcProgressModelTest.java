@@ -70,6 +70,57 @@ class CdcProgressModelTest {
     }
 
     @Test
+    void testEnumeratorReportBoundsActiveSplitDetails() {
+        List<CdcSnapshotSplitProgress> activeSplits = new ArrayList<>();
+        for (int i = 0; i <= CdcEnumeratorProgressReport.MAX_ACTIVE_SPLITS; i++) {
+            activeSplits.add(activeSplit("split-" + i));
+        }
+
+        CdcEnumeratorProgressReport report =
+                new CdcEnumeratorProgressReport(
+                        "MySQL-CDC",
+                        CdcSnapshotAssignmentStatus.ASSIGNING,
+                        CdcProgressValue.exact(activeSplits.size()),
+                        CdcProgressValue.exact(0),
+                        CdcProgressValue.exact(activeSplits.size()),
+                        CdcProgressValue.exact(0),
+                        CdcProgressValue.exact(0),
+                        activeSplits);
+
+        Assertions.assertEquals(
+                CdcEnumeratorProgressReport.MAX_ACTIVE_SPLITS, report.getActiveSplits().size());
+        Assertions.assertTrue(report.isActiveSplitsTruncated());
+    }
+
+    @Test
+    void testEnumeratorReportRejectsInvalidCounts() {
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        new CdcEnumeratorProgressReport(
+                                "MySQL-CDC",
+                                CdcSnapshotAssignmentStatus.ASSIGNING,
+                                CdcProgressValue.exact(-1),
+                                CdcProgressValue.exact(0),
+                                CdcProgressValue.exact(-1),
+                                CdcProgressValue.exact(0),
+                                CdcProgressValue.exact(0),
+                                Collections.emptyList()));
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () ->
+                        new CdcEnumeratorProgressReport(
+                                "MySQL-CDC",
+                                CdcSnapshotAssignmentStatus.ASSIGNING,
+                                CdcProgressValue.exact(2),
+                                CdcProgressValue.exact(0),
+                                CdcProgressValue.exact(1),
+                                CdcProgressValue.exact(0),
+                                CdcProgressValue.exact(0),
+                                Collections.singletonList(activeSplit("split-1"))));
+    }
+
+    @Test
     void testUnsupportedAndUnavailableValuesCarryNoPayload() {
         CdcProgressValue<Integer> unsupported = CdcProgressValue.unsupported();
         CdcProgressValue<Integer> unavailable = CdcProgressValue.unavailable();
@@ -85,5 +136,13 @@ class CdcProgressModelTest {
         Object value = new Object();
 
         Assertions.assertSame(value, CdcProgressValue.exact(value).getValue());
+    }
+
+    private static CdcSnapshotSplitProgress activeSplit(String splitId) {
+        return new CdcSnapshotSplitProgress(
+                splitId,
+                "inventory.orders",
+                CdcProgressValue.unavailable(),
+                CdcProgressValue.unavailable());
     }
 }

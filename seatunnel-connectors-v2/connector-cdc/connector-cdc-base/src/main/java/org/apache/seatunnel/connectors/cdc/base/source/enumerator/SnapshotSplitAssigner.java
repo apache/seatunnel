@@ -299,9 +299,11 @@ public class SnapshotSplitAssigner<C extends SourceConfig>
     @Override
     public CdcEnumeratorProgressReport getCdcEnumeratorProgress(
             String connectorType, String positionType) {
+        int activeSplitCount = activeSplits.size();
         List<CdcSnapshotSplitProgress> activeSplitProgress =
                 activeSplits.entrySet().stream()
                         .sorted(Map.Entry.comparingByKey())
+                        .limit(CdcEnumeratorProgressReport.MAX_ACTIVE_SPLITS)
                         .map(entry -> activeSplitProgress(entry.getValue(), positionType))
                         .collect(Collectors.toList());
         return new CdcEnumeratorProgressReport(
@@ -309,10 +311,11 @@ public class SnapshotSplitAssigner<C extends SourceConfig>
                 snapshotAssignmentStatus(),
                 CdcProgressValue.exact(assignedSplits.size()),
                 CdcProgressValue.exact(splitCompletedOffsets.size()),
-                CdcProgressValue.exact(activeSplitProgress.size()),
+                CdcProgressValue.exact(activeSplitCount),
                 CdcProgressValue.exact(remainingSplits.size()),
                 CdcProgressValue.exact(remainingTables.size()),
-                activeSplitProgress);
+                activeSplitProgress,
+                activeSplitCount > activeSplitProgress.size());
     }
 
     private CdcSnapshotAssignmentStatus snapshotAssignmentStatus() {

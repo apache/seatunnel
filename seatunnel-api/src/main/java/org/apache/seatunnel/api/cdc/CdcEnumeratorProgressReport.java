@@ -35,6 +35,9 @@ import java.util.Objects;
 @Experimental
 public final class CdcEnumeratorProgressReport implements CdcProgressReport {
 
+    /** Maximum number of active split details retained in one report. */
+    public static final int MAX_ACTIVE_SPLITS = 100;
+
     /** Connector identifier returned by the source plugin. */
     private final String connectorType;
 
@@ -59,6 +62,9 @@ public final class CdcEnumeratorProgressReport implements CdcProgressReport {
     /** Immutable per-split details for assigned splits that are not completed. */
     private final List<CdcSnapshotSplitProgress> activeSplits;
 
+    /** Whether active split details were truncated to {@link #MAX_ACTIVE_SPLITS}. */
+    private final boolean activeSplitsTruncated;
+
     public CdcEnumeratorProgressReport(
             String connectorType,
             CdcSnapshotAssignmentStatus snapshotAssignmentStatus,
@@ -68,6 +74,28 @@ public final class CdcEnumeratorProgressReport implements CdcProgressReport {
             CdcProgressValue<Integer> preparedRemainingSplitCount,
             CdcProgressValue<Integer> remainingUnchunkedTableCount,
             List<CdcSnapshotSplitProgress> activeSplits) {
+        this(
+                connectorType,
+                snapshotAssignmentStatus,
+                assignedSplitCount,
+                completedSplitCount,
+                runningSplitCount,
+                preparedRemainingSplitCount,
+                remainingUnchunkedTableCount,
+                activeSplits,
+                activeSplits != null && activeSplits.size() > MAX_ACTIVE_SPLITS);
+    }
+
+    public CdcEnumeratorProgressReport(
+            String connectorType,
+            CdcSnapshotAssignmentStatus snapshotAssignmentStatus,
+            CdcProgressValue<Integer> assignedSplitCount,
+            CdcProgressValue<Integer> completedSplitCount,
+            CdcProgressValue<Integer> runningSplitCount,
+            CdcProgressValue<Integer> preparedRemainingSplitCount,
+            CdcProgressValue<Integer> remainingUnchunkedTableCount,
+            List<CdcSnapshotSplitProgress> activeSplits,
+            boolean activeSplitsTruncated) {
         this.connectorType =
                 Objects.requireNonNull(connectorType, "connectorType must not be null");
         this.snapshotAssignmentStatus =
@@ -87,11 +115,20 @@ public final class CdcEnumeratorProgressReport implements CdcProgressReport {
                 Objects.requireNonNull(
                         remainingUnchunkedTableCount,
                         "remainingUnchunkedTableCount must not be null");
+        validateCount("assignedSplitCount", assignedSplitCount);
+        validateCount("completedSplitCount", completedSplitCount);
+        validateCount("runningSplitCount", runningSplitCount);
+        validateCount("preparedRemainingSplitCount", preparedRemainingSplitCount);
+        validateCount("remainingUnchunkedTableCount", remainingUnchunkedTableCount);
+        validateExactSplitCounts(assignedSplitCount, completedSplitCount, runningSplitCount);
+        List<CdcSnapshotSplitProgress> splitDetails =
+                Objects.requireNonNull(activeSplits, "activeSplits must not be null");
+        int retainedSplitCount = Math.min(splitDetails.size(), MAX_ACTIVE_SPLITS);
         this.activeSplits =
                 Collections.unmodifiableList(
-                        new ArrayList<>(
-                                Objects.requireNonNull(
-                                        activeSplits, "activeSplits must not be null")));
+                        new ArrayList<>(splitDetails.subList(0, retainedSplitCount)));
+        this.activeSplitsTruncated =
+                activeSplitsTruncated || splitDetails.size() > MAX_ACTIVE_SPLITS;
     }
 
     public String getConnectorType() {
@@ -124,5 +161,29 @@ public final class CdcEnumeratorProgressReport implements CdcProgressReport {
 
     public List<CdcSnapshotSplitProgress> getActiveSplits() {
         return activeSplits;
+    }
+
+    public boolean isActiveSplitsTruncated() {
+        return activeSplitsTruncated;
+    }
+
+    private static void validateCount(String name, CdcProgressValue<Integer> count) {
+        if (count.getValue() != null && count.getValue() < 0) {
+            throw new IllegalArgumentException(name + " must not be negative");
+        }
+    }
+
+    private static void validateExactSplitCounts(
+            CdcProgressValue<Integer> assigned,
+            CdcProgressValue<Integer> completed,
+            CdcProgressValue<Integer> running) {
+        if (assigned.getAccuracy() == CdcProgressAccuracy.EXACT
+                && completed.getAccuracy() == CdcProgressAccuracy.EXACT
+                && running.getAccuracy() == CdcProgressAccuracy.EXACT
+                && assigned.getValue().longValue()
+                        != completed.getValue().longValue() + running.getValue().longValue()) {
+            throw new IllegalArgumentException(
+                    "assignedSplitCount must equal completedSplitCount plus runningSplitCount");
+        }
     }
 }

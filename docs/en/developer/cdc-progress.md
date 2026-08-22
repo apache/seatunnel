@@ -33,14 +33,17 @@ Each `CdcProgressValue` describes one fact independently:
 
 Supported values carry a non-null payload. Unsupported and unavailable values do not carry a
 payload. Connector-native positions keep an explicit position family and schema version; consumers
-must not assume that fields from one connector apply to another.
+must not assume that fields from one connector apply to another. Position payloads must contain
+only offset coordinates such as binlog positions, GTIDs, LSNs, or timestamps. They must never
+contain credentials, connection URLs, or other authentication material.
 
 ## Runtime collection
 
 Reader reports are sampled on execution members, batched, and sent to the active coordinator.
-Enumerator reports use a separate coordinator-owned collection path. The active coordinator derives
-enumerator task placement from the current job and slot state, requests reports from the member that
-runs each enumerator, and writes accepted reports to the coordinator-side latest-only store.
+Enumerator reports use a separate coordinator-owned collection path. Enumerator report sources are
+registered when coordinator task groups are deployed. The active coordinator requests reports from
+the registered member, or updates the coordinator-local report directly when the enumerator runs on
+the master, and writes accepted reports to the coordinator-side latest-only store.
 
 Enumerator tasks can be placed on a member other than the active coordinator. This transport detail
 does not transfer ownership to the worker sampler: the coordinator selects the enumerators to poll,
@@ -65,6 +68,11 @@ does not prove restore origin.
 ## Current limitations
 
 - The contract and report types are experimental.
+- CDC sources based on `connector-cdc-base` currently provide reports. MySQL uses an explicit
+  `MYSQL_BINLOG` position family; other base connectors use their plugin name until a more specific
+  position family is defined. CDC sources without this provider wiring return no report.
+- Enumerator reports retain at most 100 active-split details. `activeSplitsTruncated` indicates that
+  additional active splits were omitted; aggregate split counts still describe the complete state.
 - This slice does not expose progress through REST, the CLI, or metrics.
 - Completed-checkpoint and restored positions remain unsupported until their engine lifecycle
   callbacks are connected.
