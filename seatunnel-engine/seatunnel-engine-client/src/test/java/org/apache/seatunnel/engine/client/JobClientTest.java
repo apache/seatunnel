@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.client;
 
+import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.engine.client.job.JobClient;
 import org.apache.seatunnel.engine.client.job.JobMetricsRunner;
 
@@ -26,6 +27,7 @@ import org.junit.jupiter.api.Test;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 public class JobClientTest {
@@ -231,5 +233,78 @@ public class JobClientTest {
         Assertions.assertEquals(0L, summary.getSourceReadCount());
         Assertions.assertEquals(0L, summary.getSinkWriteCount());
         Assertions.assertEquals(0L, summary.getSinkCommittedCount());
+    }
+
+    @Test
+    public void testJobMetricsRunnerFirstRunDoesNotDivideByZero() {
+        SeaTunnelClient seaTunnelClient = mock(SeaTunnelClient.class);
+        JobMetricsRunner jobMetricsRunner = new JobMetricsRunner(seaTunnelClient, 1L);
+        when(seaTunnelClient.getJobMetricsSummary(1L))
+                .thenReturn(new JobMetricsRunner.JobMetricsSummary(100L, 90L, 80L));
+
+        // The first run starts immediately (initialDelay=0), so the elapsed time is ~0 ms.
+        // Overwrite the private monotonic base right before the run so the zero-elapsed path is
+        // exercised deterministically instead of depending on how fast the test executes.
+        ReflectionUtils.setField(jobMetricsRunner, "lastRunTimeNanos", System.nanoTime());
+        // Previously the 0 ms elapsed time divided by zero and the run was swallowed by the
+        // catch-all handler, leaving the counters untouched.
+        Assertions.assertDoesNotThrow(jobMetricsRunner::run);
+        Assertions.assertDoesNotThrow(jobMetricsRunner::run);
+
+        Assertions.assertEquals(
+                100L,
+                ReflectionUtils.getField(jobMetricsRunner, "lastReadCount")
+                        .orElseThrow(
+                                () ->
+                                        new AssertionError(
+                                                "field lastReadCount not found on JobMetricsRunner")));
+        Assertions.assertEquals(
+                90L,
+                ReflectionUtils.getField(jobMetricsRunner, "lastWriteCount")
+                        .orElseThrow(
+                                () ->
+                                        new AssertionError(
+                                                "field lastWriteCount not found on JobMetricsRunner")));
+        Assertions.assertEquals(
+                80L,
+                ReflectionUtils.getField(jobMetricsRunner, "lastCommittedCount")
+                        .orElseThrow(
+                                () ->
+                                        new AssertionError(
+                                                "field lastCommittedCount not found on JobMetricsRunner")));
+    }
+
+    @Test
+    public void testJobMetricsRunnerWhenMetricsNotReadyDoesNotThrow() {
+        SeaTunnelClient seaTunnelClient = mock(SeaTunnelClient.class);
+        JobMetricsRunner jobMetricsRunner = new JobMetricsRunner(seaTunnelClient, 1L);
+        when(seaTunnelClient.getJobMetricsSummary(1L))
+                .thenThrow(new RuntimeException("job metrics not ready yet"));
+
+        // Metrics may not be available right after job submission; the failure must be swallowed
+        // without touching the baseline counters the next run's deltas are computed from.
+        Assertions.assertDoesNotThrow(jobMetricsRunner::run);
+        Assertions.assertEquals(
+                0L,
+                ReflectionUtils.getField(jobMetricsRunner, "lastReadCount")
+                        .orElseThrow(
+                                () ->
+                                        new AssertionError(
+                                                "field lastReadCount not found on JobMetricsRunner")));
+        Assertions.assertEquals(
+                0L,
+                ReflectionUtils.getField(jobMetricsRunner, "lastWriteCount")
+                        .orElseThrow(
+                                () ->
+                                        new AssertionError(
+                                                "field lastWriteCount not found on JobMetricsRunner")));
+        Assertions.assertEquals(
+                0L,
+                ReflectionUtils.getField(jobMetricsRunner, "lastCommittedCount")
+                        .orElseThrow(
+                                () ->
+                                        new AssertionError(
+                                                "field lastCommittedCount not found on JobMetricsRunner")));
+        verify(seaTunnelClient).getJobMetricsSummary(1L);
     }
 }

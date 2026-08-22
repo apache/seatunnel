@@ -25,8 +25,8 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 
-import java.time.Duration;
 import java.time.LocalDateTime;
+import java.util.concurrent.TimeUnit;
 
 @Slf4j
 public class JobMetricsRunner implements Runnable {
@@ -36,6 +36,8 @@ public class JobMetricsRunner implements Runnable {
     private Long lastReadCount = 0L;
     private Long lastWriteCount = 0L;
     private Long lastCommittedCount = 0L;
+    /** Monotonic clock base for the elapsed-time calculation of the average rates. */
+    private long lastRunTimeNanos = System.nanoTime();
 
     public JobMetricsRunner(SeaTunnelClient seaTunnelClient, Long jobId) {
         this.seaTunnelClient = seaTunnelClient;
@@ -48,11 +50,23 @@ public class JobMetricsRunner implements Runnable {
         try {
             JobMetricsSummary jobMetricsSummary = seaTunnelClient.getJobMetricsSummary(jobId);
             LocalDateTime now = LocalDateTime.now();
-            long seconds = Duration.between(lastRunTime, now).getSeconds();
-            long averageRead = (jobMetricsSummary.getSourceReadCount() - lastReadCount) / seconds;
-            long averageWrite = (jobMetricsSummary.getSinkWriteCount() - lastWriteCount) / seconds;
+            // The first run starts immediately (initialDelay=0), so the elapsed time is close to
+            // 0 ms. Compute the average rates over milliseconds (clamped to at least 1 ms to avoid
+            // division by zero) so the first printed rate is accurate instead of reporting the
+            // absolute counts as "per second". The elapsed time is measured with a monotonic clock
+            // so a wall-clock rollback cannot produce a wrong (or negative) rate.
+            long elapsedMillis =
+                    Math.max(
+                            1L,
+                            TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - lastRunTimeNanos));
+            long averageRead =
+                    (jobMetricsSummary.getSourceReadCount() - lastReadCount) * 1000 / elapsedMillis;
+            long averageWrite =
+                    (jobMetricsSummary.getSinkWriteCount() - lastWriteCount) * 1000 / elapsedMillis;
             long averageCommitted =
-                    (jobMetricsSummary.getSinkCommittedCount() - lastCommittedCount) / seconds;
+                    (jobMetricsSummary.getSinkCommittedCount() - lastCommittedCount)
+                            * 1000
+                            / elapsedMillis;
 
             String commitRate = "N/A";
             if (jobMetricsSummary.getSinkWriteCount() > 0
@@ -92,6 +106,7 @@ public class JobMetricsRunner implements Runnable {
                             DateTimeUtils.toString(
                                     now, DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS)));
             lastRunTime = now;
+            lastRunTimeNanos = System.nanoTime();
             lastReadCount = jobMetricsSummary.getSourceReadCount();
             lastWriteCount = jobMetricsSummary.getSinkWriteCount();
             lastCommittedCount = jobMetricsSummary.getSinkCommittedCount();
