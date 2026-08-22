@@ -195,9 +195,17 @@ sink {
 
 要点:
 - 以主键（或业务唯一键）做哈希，将同一键稳定映射到同一副本
-- 典型映射: $replica = (hash(pk) \mathbin{\&} \mathrm{Integer.MAX\_VALUE}) \bmod replicaNum$
-- 必须先把哈希值掩码为非负数，而不是使用 `Math.abs`：`Math.abs(Integer.MIN_VALUE)` 仍返回
-  `Integer.MIN_VALUE`（负数），当副本数不是 2 的幂时会得到负的下标
+- 当前实现: $replica = \mathrm{Math.abs}(hash(pk)) \bmod replicaNum$
+
+:::caution 已知问题
+
+`Math.abs(Integer.MIN_VALUE)` 仍返回 `Integer.MIN_VALUE`（负数），因此当主键哈希恰好为
+`Integer.MIN_VALUE` 且副本数不是 2 的幂时会得到负的下标，随后的
+`blockingQueues.get(index)` 会抛出 `IndexOutOfBoundsException`。本页描述的是 `dev`
+分支当前的实际行为；该缺陷记录在
+[#11720](https://github.com/apache/seatunnel/issues/11720)，修复合入后需同步更新本节。
+
+:::
 
 **随机（无主键兜底）**:
 

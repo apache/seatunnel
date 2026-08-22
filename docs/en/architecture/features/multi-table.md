@@ -306,10 +306,10 @@ public class MultiTableSinkWriter
             Object object = element.getField(primaryKey.get());
             int index = 0;
             if (object != null) {
-                // Mask with Integer.MAX_VALUE rather than Math.abs: Math.abs returns
-                // Integer.MIN_VALUE unchanged (still negative), which yields a negative
-                // queue index whenever the queue count is not a power of two.
-                index = (object.hashCode() & Integer.MAX_VALUE) % blockingQueues.size();
+                // Known issue: Math.abs(Integer.MIN_VALUE) returns Integer.MIN_VALUE
+                // unchanged (still negative), so a key hashing to it yields a negative
+                // queue index. See section 5.3.
+                index = Math.abs(object.hashCode()) % blockingQueues.size();
             }
             offerRowElement(index, element);
         }
@@ -403,11 +403,19 @@ Both strategies select a queue index in `[0, blockingQueues.size())`. See
 which is what preserves ordering for that key:
 
 ```java
-// Mask with Integer.MAX_VALUE rather than Math.abs: Math.abs(Integer.MIN_VALUE) is
-// Integer.MIN_VALUE, still negative, so a key hashing to it would produce a negative
-// index whenever the queue count is not a power of two.
-int index = (object.hashCode() & Integer.MAX_VALUE) % blockingQueues.size();
+int index = Math.abs(object.hashCode()) % blockingQueues.size();
 ```
+
+:::caution Known issue
+
+`Math.abs(Integer.MIN_VALUE)` returns `Integer.MIN_VALUE`, which is still negative, so a
+key whose hash is exactly `Integer.MIN_VALUE` produces a negative index whenever the queue
+count is not a power of two, and the subsequent `blockingQueues.get(index)` throws
+`IndexOutOfBoundsException`. This page documents the behaviour currently on `dev`; the
+defect is tracked in [#11720](https://github.com/apache/seatunnel/issues/11720), and this
+section should be updated when a fix lands.
+
+:::
 
 **Random (no primary key available)** — spreads load, with no stable routing guarantee:
 
