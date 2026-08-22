@@ -110,6 +110,30 @@ sink {
 }
 ```
 
+### Project Specific Columns With A Predicate
+
+Combine column projection with a `WHERE` clause to narrow the rows that flow downstream. This
+example only fetches rows whose `name` starts with `A`:
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Jdbc {
+    driver = org.apache.phoenix.jdbc.PhoenixDriver
+    url = "jdbc:phoenix:localhost:2182/hbase"
+    query = "select name, score from test.source where name like 'A%'"
+  }
+}
+
+sink {
+  Console {}
+}
+```
+
 ## Changelog
 
 <ChangeLog />
