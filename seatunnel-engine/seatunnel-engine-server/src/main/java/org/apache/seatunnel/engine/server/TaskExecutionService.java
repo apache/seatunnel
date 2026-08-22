@@ -1459,6 +1459,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                                     "Skip stale taskDone cleanup for %s because the active context "
                                             + "is no longer owned by this tracker.",
                                     taskGroupLocation));
+                    recycleClassLoader(taskGroupLocation, ownedContext);
                     return;
                 }
                 recycleClassLoader(taskGroupLocation, ownedContext);
