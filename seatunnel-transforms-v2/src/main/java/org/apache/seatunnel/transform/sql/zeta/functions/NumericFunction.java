@@ -33,9 +33,19 @@ public class NumericFunction {
             return null;
         }
         if (arg instanceof Integer) {
+            if (arg.intValue() == Integer.MIN_VALUE) {
+                throw new TransformException(
+                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                        "ABS overflow for Integer.MIN_VALUE");
+            }
             return Math.abs(arg.intValue());
         }
         if (arg instanceof Long) {
+            if (arg.longValue() == Long.MIN_VALUE) {
+                throw new TransformException(
+                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                        "ABS overflow for Long.MIN_VALUE");
+            }
             return Math.abs(arg.longValue());
         }
         if (arg instanceof Float) {
@@ -240,11 +250,11 @@ public class NumericFunction {
                 {
                     if (scale < 0) {
                         long original = v1.longValue();
-                        long scaled =
+                        BigDecimal scaled =
                                 BigDecimal.valueOf(original)
                                         .setScale(scale, roundingMode)
-                                        .longValue();
-                        if (original != scaled) {
+                                        .stripTrailingZeros();
+                        if (BigDecimal.valueOf(original).compareTo(scaled) != 0) {
                             v1 = convertTo(t, scaled);
                         }
                     }
@@ -289,14 +299,14 @@ public class NumericFunction {
         return v1;
     }
 
-    private static Number convertTo(String valueType, Number column) {
+    private static Number convertTo(String valueType, BigDecimal column) {
         switch (valueType.toUpperCase()) {
             case "INTEGER":
-                return column.intValue();
+                return column.intValueExact();
             case "SHORT":
-                return column.shortValue();
+                return column.shortValueExact();
             case "LONG":
-                return column.longValue();
+                return column.longValueExact();
             default:
                 throw new IllegalArgumentException();
         }

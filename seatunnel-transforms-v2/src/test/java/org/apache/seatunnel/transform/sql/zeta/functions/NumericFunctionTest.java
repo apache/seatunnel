@@ -105,6 +105,13 @@ public class NumericFunctionTest {
                 () ->
                         NumericFunction.abs(
                                 Collections.singletonList(new java.math.BigInteger("1"))));
+
+        Assertions.assertThrows(
+                org.apache.seatunnel.transform.exception.TransformException.class,
+                () -> NumericFunction.abs(Collections.singletonList(Integer.MIN_VALUE)));
+        Assertions.assertThrows(
+                org.apache.seatunnel.transform.exception.TransformException.class,
+                () -> NumericFunction.abs(Collections.singletonList(Long.MIN_VALUE)));
     }
 
     @Test
@@ -176,6 +183,22 @@ public class NumericFunctionTest {
 
         // negative scale for integer rounding
         Assertions.assertEquals(1200, NumericFunction.round(Arrays.asList(1234, -2)).intValue());
+
+        Assertions.assertThrows(
+                ArithmeticException.class,
+                () -> NumericFunction.round(Arrays.asList(Integer.MAX_VALUE, -1)));
+        Assertions.assertThrows(
+                ArithmeticException.class,
+                () -> NumericFunction.round(Arrays.asList(Short.MAX_VALUE, -1)));
+        Assertions.assertThrows(
+                ArithmeticException.class,
+                () -> NumericFunction.round(Arrays.asList(Long.MAX_VALUE, -1)));
+        Assertions.assertThrows(
+                ArithmeticException.class,
+                () -> NumericFunction.ceil(Arrays.asList(Integer.MAX_VALUE, -1)));
+        Assertions.assertThrows(
+                ArithmeticException.class,
+                () -> NumericFunction.floor(Arrays.asList(Integer.MIN_VALUE, -1)));
     }
 
     @Test
