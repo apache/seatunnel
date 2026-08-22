@@ -96,8 +96,8 @@ public class PendingDiagnosticsCollectorTest {
         Assertions.assertEquals(dynamicAddress.toString(), dynamic.getAddress());
         Assertions.assertTrue(dynamic.isDynamicSlot());
         Assertions.assertEquals(1, dynamic.getUsedSlots());
-        Assertions.assertEquals(0, dynamic.getTotalSlots());
-        Assertions.assertEquals(0, dynamic.getFreeSlots());
+        Assertions.assertEquals(2, dynamic.getTotalSlots());
+        Assertions.assertEquals(1, dynamic.getFreeSlots());
         Assertions.assertEquals(8, dynamic.getTotalCpuCores());
         Assertions.assertEquals(3, dynamic.getAvailableCpuCores());
         Assertions.assertEquals(8192L, dynamic.getTotalHeapMemoryBytes());

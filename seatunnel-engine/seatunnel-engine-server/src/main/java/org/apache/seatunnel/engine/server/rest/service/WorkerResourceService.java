@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.rest.service;
 
+import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.diagnostic.WorkerResourceSnapshot;
 import org.apache.seatunnel.engine.server.resourcemanager.opeartion.GetWorkerResourcesOperation;
@@ -38,6 +39,7 @@ public class WorkerResourceService extends BaseService {
         super(nodeEngine);
     }
 
+    /** Returns the local master's snapshot or forwards the request to the current master. */
     public WorkerResourceSnapshot getWorkerResources() {
         SeaTunnelServer seaTunnelServer = getSeaTunnelServer(true);
         if (seaTunnelServer != null) {
@@ -69,13 +71,15 @@ public class WorkerResourceService extends BaseService {
                 false, System.currentTimeMillis(), Collections.emptyList());
     }
 
+    /** Identifies failures caused by a master transition while the request is in flight. */
     private boolean isTransientMasterFailure(Throwable error) {
         Throwable current = error;
         while (current != null) {
             if (current instanceof TargetNotMemberException
                     || current instanceof TargetDisconnectedException
                     || current instanceof MemberLeftException
-                    || current instanceof HazelcastInstanceNotActiveException) {
+                    || current instanceof HazelcastInstanceNotActiveException
+                    || current instanceof SeaTunnelEngineException) {
                 return true;
             }
             current = current.getCause();

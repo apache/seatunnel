@@ -28,9 +28,9 @@ import java.util.Map;
 /**
  * Read-only projection of the latest resource-manager heartbeat for one worker.
  *
- * <p>{@code totalSlots} and {@code freeSlots} are zero for dynamic-slot workers because those
- * workers do not have a fixed slot capacity. Callers should use {@code dynamicSlot} to interpret
- * the slot fields.
+ * <p>For dynamic-slot workers, {@code totalSlots} is the number of currently tracked assigned and
+ * unassigned slots rather than a fixed capacity. Callers should use {@code dynamicSlot} to
+ * interpret the slot fields.
  */
 @Data
 @NoArgsConstructor

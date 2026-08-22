@@ -203,7 +203,7 @@ network:
 **说明：**
 
 - 固定 Slot 模式的 Worker 返回 `totalSlots`、`usedSlots` 和 `freeSlots`。
-- 动态 Slot 模式的 Worker 没有固定的 Slot 容量，因此 `totalSlots` 和 `freeSlots` 返回 `0`。请结合 `dynamicSlot` 解释这些字段；`usedSlots` 以及 CPU 和堆内存的总量与可用量表示当前资源使用情况。
+- 动态 Slot 模式的 Worker 没有固定的 Slot 容量。此时，`totalSlots` 表示当前已跟踪的已分配和未分配 Slot 总数，`freeSlots` 表示当前未分配数量。解释容量时，请结合 `dynamicSlot` 以及 CPU 和堆内存字段。
 - 当 `available` 为 `false` 时，表示当前无法读取 Master 资源快照，`workers` 为空。客户端应重试，而不应将该响应解释为空集群。
 - `collectedAt` 表示 Master 构建本次响应的时间。Worker 字段来自资源管理器收到的最近一次心跳，并不与 `/system-monitoring-information` 构成原子快照。
 - 如果最近一次 Worker 心跳尚未包含资源或使用率数据，对应字段不会返回。

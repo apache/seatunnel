@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.rest.service;
 
+import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.diagnostic.WorkerResourceSnapshot;
 
@@ -75,6 +76,21 @@ class WorkerResourceServiceTest {
         WorkerResourceService service = new TestWorkerResourceService(nodeEngine, null, failure);
 
         assertThrows(IllegalStateException.class, service::getWorkerResources);
+    }
+
+    @Test
+    void shouldReturnUnavailableSnapshotWhenTargetLosesMastership() throws UnknownHostException {
+        NodeEngineImpl nodeEngine = mock(NodeEngineImpl.class);
+        when(nodeEngine.getMasterAddress()).thenReturn(new Address("localhost", 5801));
+        RuntimeException failure =
+                new CompletionException(
+                        new SeaTunnelEngineException("This is not a master node now."));
+        WorkerResourceService service = new TestWorkerResourceService(nodeEngine, null, failure);
+
+        WorkerResourceSnapshot snapshot = service.getWorkerResources();
+
+        assertFalse(snapshot.isAvailable());
+        assertTrue(snapshot.getWorkers().isEmpty());
     }
 
     private static class TestWorkerResourceService extends WorkerResourceService {

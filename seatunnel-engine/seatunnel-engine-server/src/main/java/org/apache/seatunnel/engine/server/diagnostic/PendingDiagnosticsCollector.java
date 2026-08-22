@@ -324,10 +324,8 @@ public final class PendingDiagnosticsCollector {
                         ? 0
                         : workerProfile.getUnassignedSlots().length;
         diagnostic.setUsedSlots(assignedSlots);
-        if (!workerProfile.isDynamicSlot()) {
-            diagnostic.setTotalSlots(assignedSlots + unassignedSlots);
-            diagnostic.setFreeSlots(unassignedSlots);
-        }
+        diagnostic.setTotalSlots(assignedSlots + unassignedSlots);
+        diagnostic.setFreeSlots(unassignedSlots);
         setResourceValues(diagnostic, workerProfile.getProfile(), true);
         setResourceValues(diagnostic, workerProfile.getUnassignedResource(), false);
         SystemLoadInfo systemLoadInfo = workerProfile.getSystemLoadInfo();
