@@ -22,12 +22,16 @@ import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.sink.DefaultSinkWriterContext;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSinkConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.DataSourceUtils;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.sink.JdbcSinkAggregatedCommitter;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.state.JdbcAggregatedCommitInfo;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.state.XidInfo;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.testcontainers.containers.MySQLContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
@@ -42,13 +46,13 @@ import javax.transaction.xa.XAException;
 import javax.transaction.xa.XAResource;
 import javax.transaction.xa.Xid;
 
+import java.lang.reflect.Field;
+import java.util.Collections;
 import java.util.stream.Stream;
 
 import static javax.transaction.xa.XAResource.TMSTARTRSCAN;
 
 @Slf4j
-@Disabled(
-        "Temporary fast fix, reason: JdbcDatabaseContainer: ClassNotFoundException: com.mysql.jdbc.Driver")
 class XaGroupOpsImplIT {
 
     private static final String MYSQL_DOCKER_IMAGE = "mysql:8.0.43";
@@ -114,6 +118,33 @@ class XaGroupOpsImplIT {
         Assertions.assertTrue(checkPreparedXid(xid2));
     }
 
+    /**
+     * Verifies that a real MySQL XA commit failure bubbles up through the aggregated committer
+     * instead of being silently swallowed when the resource manager becomes unavailable.
+     */
+    @Test
+    void testCommitFailurePropagatesThroughAggregatedCommitter() throws Exception {
+        JobContext jobContext = new JobContext();
+        SinkWriter.Context writerContext = new DefaultSinkWriterContext(1, 1);
+        Xid preparedXid =
+                xidGenerator.generateXid(jobContext, writerContext, System.currentTimeMillis());
+
+        xaFacade.start(preparedXid);
+        xaFacade.endAndPrepare(preparedXid);
+        Assertions.assertTrue(checkPreparedXid(preparedXid));
+
+        JdbcSinkAggregatedCommitter committer = createCommitterWithCurrentXaFacade();
+
+        mc.stop();
+
+        JdbcAggregatedCommitInfo commitInfo =
+                new JdbcAggregatedCommitInfo(
+                        Collections.singletonList(new XidInfo(preparedXid, 0)));
+        Assertions.assertThrows(
+                JdbcConnectorException.class,
+                () -> committer.commit(Collections.singletonList(commitInfo)));
+    }
+
     private boolean checkPreparedXid(Xid xidCrr) throws XAException {
         Xid[] recover = xaResource.recover(TMSTARTRSCAN);
         for (Xid value : recover) {
@@ -129,8 +160,35 @@ class XaGroupOpsImplIT {
         return false;
     }
 
+    /**
+     * Reuses the prepared, already-open XA facade so the test can verify failure propagation on the
+     * exact commit path that handles checkpoint-owned prepared transactions.
+     */
+    private JdbcSinkAggregatedCommitter createCommitterWithCurrentXaFacade() throws Exception {
+        JdbcSinkConfig sinkConfig =
+                JdbcSinkConfig.builder().jdbcConnectionConfig(jdbcConnectionConfig).build();
+        JdbcSinkAggregatedCommitter committer = new JdbcSinkAggregatedCommitter(sinkConfig);
+        setPrivateField(committer, "xaFacade", xaFacade);
+        setPrivateField(committer, "xaGroupOps", new XaGroupOpsImpl(xaFacade));
+        return committer;
+    }
+
+    /** Injects an integration-test collaborator without widening the production constructor API. */
+    private void setPrivateField(Object target, String fieldName, Object value) throws Exception {
+        Field field = target.getClass().getDeclaredField(fieldName);
+        field.setAccessible(true);
+        field.set(target, value);
+    }
+
     @AfterEach
-    public void closePostgreSqlContainer() {
+    public void closeResources() {
+        if (xaFacade != null && xaFacade.isOpen()) {
+            try {
+                xaFacade.close();
+            } catch (Exception e) {
+                log.warn("Unable to close XA facade after test", e);
+            }
+        }
         if (mc != null) {
             mc.stop();
         }

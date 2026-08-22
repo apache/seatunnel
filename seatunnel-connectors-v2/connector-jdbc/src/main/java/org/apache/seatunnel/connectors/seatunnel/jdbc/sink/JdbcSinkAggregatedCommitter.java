@@ -41,10 +41,13 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 @Slf4j
 public class JdbcSinkAggregatedCommitter
         implements SinkAggregatedCommitter<XidInfo, JdbcAggregatedCommitInfo> {
+
+    private static final long XA_RETRY_BACKOFF_MILLIS = TimeUnit.SECONDS.toMillis(1);
 
     private XaFacade xaFacade;
     private XaGroupOps xaGroupOps;
@@ -140,6 +143,12 @@ public class JdbcSinkAggregatedCommitter
             // Zeta does not persist the returned committables before restarting a failed
             // checkpoint, so complete bounded retries in this invocation.
             pending = new ArrayList<>(result.getForRetry());
+            if (!pending.isEmpty() && remainingRounds > 0) {
+                backoffBeforeRetry(
+                        "commit",
+                        Math.max(1, maxCommitAttempts) - remainingRounds + 1,
+                        Math.max(1, maxCommitAttempts));
+            }
         }
     }
 
@@ -245,6 +254,10 @@ public class JdbcSinkAggregatedCommitter
                         attempt,
                         Math.max(1, maxCommitAttempts),
                         e);
+                if (attempt < Math.max(1, maxCommitAttempts)) {
+                    backoffBeforeRetry(
+                            "recovery scan", attempt + 1, Math.max(1, maxCommitAttempts));
+                }
             }
         }
         throw new JdbcConnectorException(
@@ -280,6 +293,28 @@ public class JdbcSinkAggregatedCommitter
      */
     private boolean containsEquivalentXid(Set<XidKey> recoveredXids, Xid checkpointXid) {
         return recoveredXids.contains(XidKey.from(checkpointXid));
+    }
+
+    /**
+     * Adds a bounded pause between synchronous retry rounds so transient RM outages do not consume
+     * the whole retry budget immediately.
+     *
+     * @param operation operation being retried
+     * @param nextAttempt 1-based retry attempt number that will run after the pause
+     * @param maxAttempts bounded retry budget
+     */
+    private void backoffBeforeRetry(String operation, int nextAttempt, int maxAttempts) {
+        try {
+            Thread.sleep(XA_RETRY_BACKOFF_MILLIS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new JdbcConnectorException(
+                    CommonErrorCodeDeprecated.WRITER_OPERATION_FAILED,
+                    String.format(
+                            "Interrupted while waiting to retry XA %s on attempt %d/%d",
+                            operation, nextAttempt, maxAttempts),
+                    e);
+        }
     }
 
     /** Canonical XID value used to compare driver-specific {@link Xid} implementations. */
