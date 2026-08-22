@@ -102,6 +102,7 @@ public class DorisCatalogUtil {
         return "TRUNCATE TABLE " + tablePath.getFullName();
     }
 
+    /** Builds a table-wide or partition-scoped Doris TRUNCATE TABLE statement. */
     public static String getTruncateTableQuery(TablePath tablePath, List<String> partitions) {
         String query = getTruncateTableQuery(tablePath);
         if (partitions == null || partitions.isEmpty()) {
@@ -115,6 +116,7 @@ public class DorisCatalogUtil {
                 + ")";
     }
 
+    /** Quotes a Doris identifier and escapes embedded backticks. */
     private static String quoteIdentifier(String identifier) {
         return "`" + identifier.replace("`", "``") + "`";
     }

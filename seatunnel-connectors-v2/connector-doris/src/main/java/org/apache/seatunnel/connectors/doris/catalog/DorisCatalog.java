@@ -474,6 +474,9 @@ public class DorisCatalog implements Catalog {
         truncateTable(tablePath, ignoreIfNotExists, Collections.emptyList());
     }
 
+    /**
+     * Truncates the requested partitions, or the complete table when no partitions are supplied.
+     */
     public void truncateTable(
             TablePath tablePath, boolean ignoreIfNotExists, List<String> partitions)
             throws TableNotExistException, CatalogException {

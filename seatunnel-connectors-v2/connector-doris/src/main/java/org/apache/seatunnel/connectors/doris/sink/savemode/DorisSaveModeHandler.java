@@ -27,6 +27,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
 
+/** Applies Doris-specific partition cleanup for the DROP_DATA save mode. */
 @Slf4j
 public class DorisSaveModeHandler extends DefaultSaveModeHandler {
 

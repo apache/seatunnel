@@ -158,6 +158,7 @@ public class DorisSinkConfig implements Serializable {
         return streamLoadProps;
     }
 
+    /** Returns the validated partitions configured for partition-scoped DROP_DATA cleanup. */
     private static List<String> parseDropDataPartitions(Properties streamLoadProperties) {
         String configuredPartitions = streamLoadProperties.getProperty("partitions");
         if (configuredPartitions == null) {
