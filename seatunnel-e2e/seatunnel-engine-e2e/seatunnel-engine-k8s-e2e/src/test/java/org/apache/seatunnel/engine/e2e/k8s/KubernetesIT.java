@@ -17,7 +17,6 @@
 
 package org.apache.seatunnel.engine.e2e.k8s;
 
-import com.github.dockerjava.api.model.Image;
 import org.apache.seatunnel.e2e.common.util.MavenJarUtil;
 
 import org.apache.maven.model.Model;
@@ -33,6 +32,7 @@ import org.testcontainers.shaded.org.awaitility.core.ConditionTimeoutException;
 
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.command.BuildImageCmd;
+import com.github.dockerjava.api.model.Image;
 import com.github.dockerjava.api.model.Info;
 import io.kubernetes.client.openapi.ApiClient;
 import io.kubernetes.client.openapi.ApiException;
@@ -106,8 +106,7 @@ public class KubernetesIT {
                 matchedImages.size(),
                 matchedImages.isEmpty());
         if (matchedImages.isEmpty()) {
-            log.info(
-                    "Image '{}' not found in Docker daemon, starting manual docker build...", tag);
+            log.info("Image '{}' not found in Docker daemon, starting manual docker build...", tag);
             copyFileToCurrentResources(hazelCastConfigFile, targetPath);
             File file =
                     new File(
