@@ -59,6 +59,7 @@ connector-http-gitlab
 connector-http-github
 connector-http-jira
 connector-http-klaviyo
+connector-http-stripe
 connector-http-lemlist
 connector-http-myhours
 connector-http-notion
