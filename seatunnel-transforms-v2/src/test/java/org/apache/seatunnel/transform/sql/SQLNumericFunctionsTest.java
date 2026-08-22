@@ -373,4 +373,33 @@ public class SQLNumericFunctionsTest {
         Assertions.assertEquals(1230, outRow.getField(0));
         Assertions.assertEquals(5L, outRow.getField(1));
     }
+
+    @Test
+    public void testTinyIntAndSmallIntFlowThroughNumericFunctions() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"tiny_v", "small_v"},
+                        new SeaTunnelDataType[] {BasicType.BYTE_TYPE, BasicType.SHORT_TYPE});
+
+        // ROUND on a TINYINT column used to fall through the type switch and return the input
+        // unchanged, while the identical expression one type up rounded correctly.
+        SeaTunnelRow rounded =
+                runSql(
+                        "select ROUND(tiny_v, -1) as r_tiny, ROUND(small_v, -2) as r_small from dual",
+                        rowType,
+                        (byte) 44,
+                        (short) 1234);
+        Assertions.assertEquals((byte) 40, rounded.getField(0));
+        Assertions.assertEquals((short) 1200, rounded.getField(1));
+
+        // ABS and SIGN used to reject both column types outright.
+        SeaTunnelRow signed =
+                runSql(
+                        "select ABS(tiny_v) as a, SIGN(small_v) as s from dual",
+                        rowType,
+                        (byte) -44,
+                        (short) -1234);
+        Assertions.assertEquals((byte) 44, signed.getField(0));
+        Assertions.assertEquals(-1, signed.getField(1));
+    }
 }

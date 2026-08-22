@@ -361,4 +361,109 @@ public class NumericFunctionTest {
         // Rounding away every significant digit yields zero rather than an out-of-range error.
         Assertions.assertEquals(Integer.valueOf(0), NumericFunction.round(Arrays.asList(1234, -9)));
     }
+
+    @Test
+    public void testRoundingFamilyHandlesTinyInt() {
+        // round()'s switch had no BYTE case, so a TINYINT argument fell straight through and
+        // was returned unrounded - no exception, no log line.
+        Assertions.assertEquals(
+                Byte.valueOf((byte) 40), NumericFunction.round(Arrays.asList((byte) 44, -1)));
+        Assertions.assertEquals(
+                Byte.valueOf((byte) 50), NumericFunction.ceil(Arrays.asList((byte) 44, -1)));
+        Assertions.assertEquals(
+                Byte.valueOf((byte) 40), NumericFunction.floor(Arrays.asList((byte) 44, -1)));
+        Assertions.assertEquals(
+                Byte.valueOf((byte) 40), NumericFunction.trunc(Arrays.asList((byte) 44, -1)));
+
+        // Scale 0 leaves an integral argument alone, as it does for the other integral types.
+        Assertions.assertEquals(
+                Byte.valueOf((byte) 44), NumericFunction.round(Arrays.asList((byte) 44)));
+
+        // Rounding away every significant digit yields zero rather than an out-of-range error.
+        Assertions.assertEquals(
+                Byte.valueOf((byte) 0), NumericFunction.round(Arrays.asList((byte) 44, -9)));
+    }
+
+    @Test
+    public void testTinyIntRoundingRejectsResultsThatDoNotFit() {
+        // ROUND(127, -1) is 130, which does not fit a TINYINT.
+        TransformException error =
+                Assertions.assertThrows(
+                        TransformException.class,
+                        () -> NumericFunction.round(Arrays.asList(Byte.MAX_VALUE, -1)));
+        Assertions.assertTrue(error.getMessage().contains("TINYINT"), error.getMessage());
+        Assertions.assertTrue(error.getMessage().contains("130"), error.getMessage());
+
+        // TRUNC moves toward zero, so it can never grow a value out of its own range.
+        Assertions.assertEquals(
+                Byte.valueOf((byte) 120), NumericFunction.trunc(Arrays.asList(Byte.MAX_VALUE, -1)));
+    }
+
+    @Test
+    public void testRoundingRejectsUnhandledNumericTypes() {
+        // The switch had no default, so an unhandled Number was returned unrounded instead of
+        // failing. BigInteger is the same type the ABS test uses for this purpose.
+        TransformException error =
+                Assertions.assertThrows(
+                        TransformException.class,
+                        () ->
+                                NumericFunction.round(
+                                        Arrays.asList(new java.math.BigInteger("12"), -1)));
+        Assertions.assertTrue(error.getMessage().contains("ROUND"), error.getMessage());
+        Assertions.assertTrue(
+                error.getMessage().contains("java.math.BigInteger"), error.getMessage());
+    }
+
+    @Test
+    public void testAbsAndSignAcceptTinyIntAndSmallInt() {
+        // Both used to throw "Unsupported arg type" on these two documented types.
+        Assertions.assertEquals(
+                Byte.valueOf((byte) 10),
+                NumericFunction.abs(Collections.singletonList((byte) -10)));
+        Assertions.assertEquals(
+                Short.valueOf((short) 300),
+                NumericFunction.abs(Collections.singletonList((short) -300)));
+
+        Assertions.assertEquals(-1, NumericFunction.sign(Collections.singletonList((byte) -10)));
+        Assertions.assertEquals(1, NumericFunction.sign(Collections.singletonList((short) 300)));
+        Assertions.assertEquals(0, NumericFunction.sign(Collections.singletonList((byte) 0)));
+    }
+
+    @Test
+    public void testAbsRejectsTinyIntAndSmallIntMinValue() {
+        // Math.abs promotes to int, so (byte) -128 would come back as 128 and no longer fit.
+        TransformException tinyError =
+                Assertions.assertThrows(
+                        TransformException.class,
+                        () -> NumericFunction.abs(Collections.singletonList(Byte.MIN_VALUE)));
+        Assertions.assertTrue(tinyError.getMessage().contains("TINYINT"), tinyError.getMessage());
+        Assertions.assertTrue(tinyError.getMessage().contains("-128"), tinyError.getMessage());
+
+        TransformException smallError =
+                Assertions.assertThrows(
+                        TransformException.class,
+                        () -> NumericFunction.abs(Collections.singletonList(Short.MIN_VALUE)));
+        Assertions.assertTrue(
+                smallError.getMessage().contains("SMALLINT"), smallError.getMessage());
+
+        // Everything one step inside the boundary is representable and must still work.
+        Assertions.assertEquals(
+                Byte.valueOf(Byte.MAX_VALUE),
+                NumericFunction.abs(Collections.singletonList((byte) (Byte.MIN_VALUE + 1))));
+        Assertions.assertEquals(
+                Short.valueOf(Short.MAX_VALUE),
+                NumericFunction.abs(Collections.singletonList((short) (Short.MIN_VALUE + 1))));
+    }
+
+    @Test
+    public void testSignIsExactForDecimalsBelowDoubleRange() {
+        // doubleValue() underflows to 0.0 below Double.MIN_VALUE, so a non-zero decimal used to
+        // report as zero. signum() is exact.
+        Assertions.assertEquals(
+                1, NumericFunction.sign(Collections.singletonList(new BigDecimal("1E-400"))));
+        Assertions.assertEquals(
+                -1, NumericFunction.sign(Collections.singletonList(new BigDecimal("-1E-400"))));
+        Assertions.assertEquals(
+                0, NumericFunction.sign(Collections.singletonList(new BigDecimal("0.0000"))));
+    }
 }

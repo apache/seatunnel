@@ -242,6 +242,32 @@ You need to check this document before you upgrade to related version.
   `ROUND(CAST(int_col AS BIGINT), -1)` — or filter the offending rows out upstream. If a downstream system was
   reconciled against the old wrapped values, re-baseline it after upgrading.
 
+- **[BREAKING]** SQL Transform now dispatches `TINYINT` and `SMALLINT` arguments correctly in the numeric
+  functions that previously omitted them. `ROUND` / `CEIL` / `CEILING` / `FLOOR` / `TRUNC` / `TRUNCATE` had no
+  `TINYINT` branch, so a `TINYINT` argument fell through the type switch and was returned unrounded, with no
+  exception and no log line. `ABS` and `SIGN` had no `TINYINT` or `SMALLINT` branch and rejected those columns
+  outright:
+
+  | Expression | Argument type | Previous result | Current result |
+  |------------|---------------|-----------------|----------------|
+  | `ROUND(44, -1)` | `TINYINT` | `44`, silently not rounded | `40` |
+  | `CEIL(44, -1)` | `TINYINT` | `44`, silently not rounded | `50` |
+  | `ROUND(127, -1)` | `TINYINT` | `127`, silently not rounded | `TransformException`, `130` exceeds `TINYINT` |
+  | `ABS(-44)` | `TINYINT` | `TransformException`, "Unsupported arg type" | `44` |
+  | `ABS(-300)` | `SMALLINT` | `TransformException`, "Unsupported arg type" | `300` |
+  | `SIGN(-44)` | `TINYINT` | `TransformException`, "Unsupported arg type" | `-1` |
+
+  The same type switch also gained a `default` branch, so any numeric type it does not handle now fails with a
+  `TransformException` instead of being returned unrounded. `SIGN` on a `DECIMAL` argument now uses
+  `BigDecimal.signum()` rather than a `double` conversion, so a value smaller than `Double.MIN_VALUE` reports its
+  true sign instead of `0`.
+
+  **Migration Guide**: A job with a `TINYINT` column that silently skipped rounding now receives the rounded value;
+  if a downstream system was reconciled against the old unrounded output, re-baseline it after upgrading. If a
+  rounded `TINYINT` no longer fits its own type, cast the argument to a wider type — `ROUND(CAST(tiny_col AS INT), -1)`
+  — or filter the offending rows out upstream. Queries that worked around the `ABS` / `SIGN` rejection by casting
+  (`ABS(CAST(tiny_col AS INT))`) continue to work unchanged and can be simplified at your convenience.
+
 ### Engine Behavior Changes
 
 ### Dependency Upgrades

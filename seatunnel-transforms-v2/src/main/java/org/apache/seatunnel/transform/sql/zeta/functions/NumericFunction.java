@@ -32,6 +32,20 @@ public class NumericFunction {
         if (arg == null) {
             return null;
         }
+        if (arg instanceof Byte) {
+            byte value = arg.byteValue();
+            if (value == Byte.MIN_VALUE) {
+                throw absOverflow("TINYINT", value, Byte.MIN_VALUE, Byte.MAX_VALUE);
+            }
+            return (byte) Math.abs(value);
+        }
+        if (arg instanceof Short) {
+            short value = arg.shortValue();
+            if (value == Short.MIN_VALUE) {
+                throw absOverflow("SMALLINT", value, Short.MIN_VALUE, Short.MAX_VALUE);
+            }
+            return (short) Math.abs(value);
+        }
         if (arg instanceof Integer) {
             int value = arg.intValue();
             if (value == Integer.MIN_VALUE) {
@@ -252,6 +266,7 @@ public class NumericFunction {
         String t = v1.getClass().getSimpleName();
         c:
         switch (t.toUpperCase()) {
+            case "BYTE":
             case "INTEGER":
             case "SHORT":
             case "LONG":
@@ -302,6 +317,14 @@ public class NumericFunction {
                     v1 = t.equals("FLOAT") ? bd.floatValue() : bd.doubleValue();
                     break;
                 }
+            default:
+                // Without this, an unhandled numeric type fell through the switch and was
+                // returned unrounded, with no exception and no log line.
+                throw new TransformException(
+                        CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                        String.format(
+                                "Unsupported arg type %s of function %s",
+                                v1.getClass().getName(), function));
         }
         return v1;
     }
@@ -317,6 +340,10 @@ public class NumericFunction {
      */
     private static Number convertTo(String valueType, BigDecimal value, String function) {
         switch (valueType.toUpperCase()) {
+            case "BYTE":
+                return (byte)
+                        checkIntegralRange(
+                                value, Byte.MIN_VALUE, Byte.MAX_VALUE, "TINYINT", function);
             case "INTEGER":
                 return (int)
                         checkIntegralRange(
@@ -502,6 +529,9 @@ public class NumericFunction {
         if (v1 == null) {
             return null;
         }
+        if (v1 instanceof Byte || v1 instanceof Short) {
+            return Integer.signum(v1.intValue());
+        }
         if (v1 instanceof Integer) {
             return Integer.signum((Integer) v1);
         }
@@ -517,8 +547,9 @@ public class NumericFunction {
             return value == 0 || Float.isNaN(value) ? 0 : value < 0 ? -1 : 1;
         }
         if (v1 instanceof BigDecimal) {
-            double value = v1.doubleValue();
-            return value == 0 || Double.isNaN(value) ? 0 : value < 0 ? -1 : 1;
+            // signum() is exact: doubleValue() underflows to 0.0 for magnitudes below
+            // Double.MIN_VALUE, which reported a non-zero decimal as zero.
+            return ((BigDecimal) v1).signum();
         }
         throw new TransformException(
                 CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
