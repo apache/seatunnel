@@ -51,7 +51,7 @@ class SeaTunnelServerShutdownTest {
         Address address = new Address("127.0.0.1", 5801);
         when(nodeEngine.getThisAddress()).thenReturn(address);
         when(nodeEngine.getHazelcastInstance()).thenReturn(hazelcastInstance);
-        when(hazelcastInstance.getMap(Constant.IMAP_GRACEFUL_MEMBER_REMOVAL))
+        when(hazelcastInstance.<Address, Long>getMap(Constant.IMAP_GRACEFUL_MEMBER_REMOVAL))
                 .thenReturn(gracefulMemberRemovalIMap);
 
         SeaTunnelServer seaTunnelServer = createServer(nodeEngine);
