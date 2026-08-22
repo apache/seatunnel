@@ -22,6 +22,7 @@ import org.apache.seatunnel.core.starter.command.ParameterSplitter;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 public class ParameterSplitterTest {
@@ -51,6 +52,41 @@ public class ParameterSplitterTest {
             "next=2"
         };
         assertArrayEquals(expected, parameterSplitter.split(input).toArray());
+    }
+
+    @Test
+    public void testEscapedQuoteFollowedByComma() {
+        String input = "{\"note\":\"he said,\\\"stop,\\\", then left\"}";
+
+        assertEquals(input, parameterSplitter.split(input).toArray()[0]);
+    }
+
+    @Test
+    public void testEscapedQuoteFollowedByBrace() {
+        String input = "{\"note\":\"he said \\\"}stop{\\\"} then left\"}";
+
+        assertEquals(input, parameterSplitter.split(input).toArray()[0]);
+    }
+
+    @Test
+    public void testEscapedQuoteFollowedByBracket() {
+        String input = "{\"note\":\"he said \\\"]stop]\\\"[ then left\"}";
+
+        assertEquals(input, parameterSplitter.split(input).toArray()[0]);
+    }
+
+    @Test
+    public void testEscapedQuoteFollowedByEqual() {
+        String input = "{\"note\":\"he said \\\"=stop=\\\" then left\"}";
+
+        assertEquals(input, parameterSplitter.split(input).toArray()[0]);
+    }
+
+    @Test
+    public void testEscapedQuoteFollowedByColon() {
+        String input = "{\"note\":\"he said: \\\":stop:\\\" then left\"}";
+
+        assertEquals(input, parameterSplitter.split(input).toArray()[0]);
     }
 
     @Test
