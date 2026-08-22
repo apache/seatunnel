@@ -17,6 +17,39 @@
 import json
 import sys
 
+# E2E suites that have their own dedicated workflow job in .github/workflows/backend.yml.
+# The trailing comment records which job runs each module, so the sub-task <-> module
+# mapping is visible at a glance. Keeping these out of the round-robin integration-test
+# shards avoids running the same suite twice under the 20-job concurrency limit.
+EXCLUDED_E2E_MODULES = {
+    # --- individual connector suites -> their dedicated connector-*-it job ---
+    "connector-redis-e2e",            # connector-redis-it
+    "connector-file-local-e2e",       # connector-file-local-it
+    "connector-file-sftp-e2e",        # connector-file-sftp-it
+    "connector-amazonsqs-e2e",        # connector-amazonSqs-it
+    "connector-kafka-e2e",            # connector-kafka-it
+    "connector-rocketmq-e2e",         # connector-rocketmq-it
+    "connector-doris-e2e",            # connector-doris-it
+    "connector-paimon-e2e",           # connector-paimon-it
+    "connector-cdc-oracle-e2e",       # connector-oracle-cdc-it
+    "connector-kudu-e2e",             # connector-kudu-it
+    "connector-sensorsdata-e2e",      # connector-sensorsdata-it
+    "connector-http-e2e",             # connector-http-it
+    "connector-hbase-e2e",            # connector-hbase-it
+    "connector-mongodb-e2e",          # connector-mongodb-it
+    "connector-cdc-mysql-e2e",        # connector-mysql-cdc-it
+    "connector-elasticsearch-e2e",    # connector-elasticsearch-it
+    "connector-clickhouse-e2e",       # connector-clickhouse-it
+    # --- three iceberg suites -> one consolidated connector-iceberg-it job ---
+    "connector-iceberg-e2e",          # connector-iceberg-it
+    "connector-iceberg-hadoop3-e2e",  # connector-iceberg-it
+    "connector-iceberg-s3-e2e",       # connector-iceberg-it
+    # --- engine / edge-agent e2e bases and suites ---
+    "connector-seatunnel-e2e-base",   # engine-v2-it
+    "connector-console-seatunnel-e2e",# engine-v2-it
+    "seatunnel-edge-agent-e2e",       # edge-agent-it
+}
+
 
 def get_cv2_modules(files):
     get_modules(files, 1, "connector-", "seatunnel-connectors-v2")
@@ -149,32 +182,10 @@ def build_sub_it_modules(modules, total_num, current_num):
     round-robin shards, otherwise CI runs them twice and wastes runner time.
     """
     modules_arr = list(dict.fromkeys(modules.split(",")))
-    modules_arr.remove("connector-jdbc-e2e")
-    modules_arr.remove("connector-kafka-e2e")
-    modules_arr.remove("connector-rocketmq-e2e")
-    modules_arr.remove("connector-kudu-e2e")
-    modules_arr.remove("connector-amazonsqs-e2e")
-    modules_arr.remove("connector-doris-e2e")
-    modules_arr.remove("connector-paimon-e2e")
-    modules_arr.remove("connector-cdc-oracle-e2e")
-    modules_arr.remove("connector-file-local-e2e")
-    modules_arr.remove("connector-file-sftp-e2e")
-    modules_arr.remove("connector-redis-e2e")
-    modules_arr.remove("connector-sensorsdata-e2e")
-    if "connector-elasticsearch-e2e" in modules_arr:
-        modules_arr.remove("connector-elasticsearch-e2e")
-    if "connector-cdc-mysql-e2e" in modules_arr:
-        modules_arr.remove("connector-cdc-mysql-e2e")
-    if "connector-iceberg-e2e" in modules_arr:
-        modules_arr.remove("connector-iceberg-e2e")
-    if "connector-hbase-e2e" in modules_arr:
-        modules_arr.remove("connector-hbase-e2e")
-    if "connector-seatunnel-e2e-base" in modules_arr:
-        modules_arr.remove("connector-seatunnel-e2e-base")
-    if "connector-console-seatunnel-e2e" in modules_arr:
-        modules_arr.remove("connector-console-seatunnel-e2e")
-    if "seatunnel-edge-agent-e2e" in modules_arr:
-        modules_arr.remove("seatunnel-edge-agent-e2e")
+    # The whole connector-jdbc-e2e module is split across the dedicated
+    # jdbc-connectors-it-part-* jobs, so drop it here as well.
+    excluded = EXCLUDED_E2E_MODULES | {"connector-jdbc-e2e"}
+    modules_arr = [m for m in modules_arr if m not in excluded]
     output = ""
     for i, module in enumerate(modules_arr):
         if len(module) > 0 and i % int(total_num) == int(current_num):
@@ -193,42 +204,9 @@ def get_sub_update_it_modules(modules, total_num, current_num):
     modules = modules[1:]
     # connector-jdbc-e2e-common,:connector-jdbc-e2e-part-1 --> [connector-jdbc-e2e-common, connector-jdbc-e2e-part-1]
     module_list = list(dict.fromkeys(modules.split(",:")))
-    if "connector-kudu-e2e" in module_list:
-        module_list.remove("connector-kudu-e2e")
-    if "connector-amazonsqs-e2e" in module_list:
-        module_list.remove("connector-amazonsqs-e2e")
-    if "connector-kafka-e2e" in module_list:
-        module_list.remove("connector-kafka-e2e")
-    if "connector-rocketmq-e2e" in module_list:
-        module_list.remove("connector-rocketmq-e2e")
-    if "seatunnel-engine-k8s-e2e" in module_list:
-        module_list.remove("seatunnel-engine-k8s-e2e")
-    if "connector-seatunnel-e2e-base" in module_list:
-        module_list.remove("connector-seatunnel-e2e-base")
-    if "connector-console-seatunnel-e2e" in module_list:
-        module_list.remove("connector-console-seatunnel-e2e")
-    if "connector-doris-e2e" in module_list:
-        module_list.remove("connector-doris-e2e")
-    if "connector-paimon-e2e" in module_list:
-        module_list.remove("connector-paimon-e2e")
-    if "connector-cdc-oracle-e2e" in module_list:
-        module_list.remove("connector-cdc-oracle-e2e")
-    if "connector-file-local-e2e" in module_list:
-        module_list.remove("connector-file-local-e2e")
-    if "connector-file-sftp-e2e" in module_list:
-        module_list.remove("connector-file-sftp-e2e")
-    if "connector-redis-e2e" in module_list:
-        module_list.remove("connector-redis-e2e")
-    if "connector-elasticsearch-e2e" in module_list:
-        module_list.remove("connector-elasticsearch-e2e")
-    if "connector-cdc-mysql-e2e" in module_list:
-        module_list.remove("connector-cdc-mysql-e2e")
-    if "connector-seatunnel-e2e-base" in module_list:
-        module_list.remove("connector-seatunnel-e2e-base")
-    if "connector-console-seatunnel-e2e" in module_list:
-        module_list.remove("connector-console-seatunnel-e2e")
-    if "seatunnel-edge-agent-e2e" in module_list:
-        module_list.remove("seatunnel-edge-agent-e2e")
+    # The engine-k8s e2e suite has its own engine-k8s-it job.
+    excluded = EXCLUDED_E2E_MODULES | {"seatunnel-engine-k8s-e2e"}
+    module_list = [m for m in module_list if m not in excluded]
     for i, module in enumerate(module_list):
         if len(module) > 0 and i % int(total_num) == int(current_num):
             final_modules.append(":" + module)
