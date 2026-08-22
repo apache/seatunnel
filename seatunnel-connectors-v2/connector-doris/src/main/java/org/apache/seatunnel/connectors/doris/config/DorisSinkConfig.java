@@ -20,9 +20,7 @@ package org.apache.seatunnel.connectors.doris.config;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
-import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.connectors.doris.exception.DorisConnectorException;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -90,11 +88,6 @@ public class DorisSinkConfig implements Serializable {
         return of(ReadonlyConfig.fromConfig(pluginConfig));
     }
 
-    public static void validate(ReadonlyConfig config) {
-        validateDirectWriteOptions(
-                config.get(DIRECT_TO_BE), config.getOptional(BENODES).orElse(null), false);
-    }
-
     public static DorisSinkConfig of(ReadonlyConfig config) {
 
         DorisSinkConfig dorisSinkConfig = new DorisSinkConfig();
@@ -123,8 +116,11 @@ public class DorisSinkConfig implements Serializable {
         dorisSinkConfig.setCaseSensitive(config.get(CASE_SENSITIVE));
         // create table option
         dorisSinkConfig.setCreateTableTemplate(config.get(SAVE_MODE_CREATE_TEMPLATE));
-        validateDirectWriteOptions(
-                dorisSinkConfig.isDirectToBe(), dorisSinkConfig.getBackends(), true);
+
+        if (!dorisSinkConfig.isDirectToBe()
+                && StringUtils.isNotBlank(dorisSinkConfig.getBackends())) {
+            log.info("Option 'benodes' is configured but inactive because 'direct_to_be=false'.");
+        }
 
         return dorisSinkConfig;
     }
@@ -139,17 +135,5 @@ public class DorisSinkConfig implements Serializable {
                     });
         }
         return streamLoadProps;
-    }
-
-    private static void validateDirectWriteOptions(
-            boolean directToBe, String backends, boolean logInactiveBenodes) {
-        if (directToBe && StringUtils.isBlank(backends)) {
-            throw new DorisConnectorException(
-                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
-                    "PluginName: Doris, Message: Option 'benodes' must be configured when 'direct_to_be=true'.");
-        }
-        if (logInactiveBenodes && !directToBe && StringUtils.isNotBlank(backends)) {
-            log.info("Option 'benodes' is configured but inactive because 'direct_to_be=false'.");
-        }
     }
 }
