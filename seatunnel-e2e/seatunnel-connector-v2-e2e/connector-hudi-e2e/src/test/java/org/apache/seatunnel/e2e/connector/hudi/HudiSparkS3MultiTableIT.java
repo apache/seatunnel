@@ -48,7 +48,8 @@ import io.minio.MinioClient;
 import lombok.extern.slf4j.Slf4j;
 import okhttp3.OkHttpClient;
 
-import java.io.IOException;
+import java.util.Collections;
+import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
 import static org.awaitility.Awaitility.given;
@@ -72,7 +73,7 @@ public class HudiSparkS3MultiTableIT extends TestSuiteBase implements TestResour
     private static final int MINIO_PORT = 9000;
     private static final String MINIO_USER_NAME = "minio";
     private static final String MINIO_USER_PASSWORD = "miniominio";
-    private static final String BUCKET = "hudi";
+    private static final String BUCKET_PREFIX = "hudi-";
 
     private MinIOContainer container;
     private MinioClient minioClient;
@@ -107,12 +108,6 @@ public class HudiSparkS3MultiTableIT extends TestSuiteBase implements TestResour
                         .credentials(container.getUserName(), container.getPassword())
                         .httpClient(builder.build())
                         .build();
-
-        // create bucket
-        minioClient.makeBucket(MakeBucketArgs.builder().bucket(BUCKET).build());
-
-        BucketExistsArgs existsArgs = BucketExistsArgs.builder().bucket(BUCKET).build();
-        Assertions.assertTrue(minioClient.bucketExists(existsArgs));
     }
 
     @AfterAll
@@ -129,9 +124,19 @@ public class HudiSparkS3MultiTableIT extends TestSuiteBase implements TestResour
             type = {EngineType.FLINK, EngineType.SEATUNNEL},
             disabledReason =
                     "The hadoop version in current flink image is not compatible with the aws version and default container of seatunnel not support s3.")
-    public void testS3MultiWrite(TestContainer container) throws IOException, InterruptedException {
+    public void testS3MultiWrite(TestContainer container) throws Exception {
+        String bucket =
+                BUCKET_PREFIX
+                        + container.identifier().name().toLowerCase(Locale.ROOT).replace('_', '-');
+        minioClient.makeBucket(MakeBucketArgs.builder().bucket(bucket).build());
+        Assertions.assertTrue(
+                minioClient.bucketExists(BucketExistsArgs.builder().bucket(bucket).build()));
+
         container.copyFileToContainer("/hudi/core-site.xml", "/tmp/seatunnel/config/core-site.xml");
-        Container.ExecResult textWriteResult = container.executeJob("/hudi/s3_fake_to_hudi.conf");
+        Container.ExecResult textWriteResult =
+                container.executeJob(
+                        "/hudi/s3_fake_to_hudi.conf",
+                        Collections.singletonList("bucket=" + bucket));
         Assertions.assertEquals(0, textWriteResult.getExitCode());
         Configuration configuration = new Configuration();
         configuration.set("fs.defaultFS", LocalFileSystem.DEFAULT_FS);
@@ -151,7 +156,7 @@ public class HudiSparkS3MultiTableIT extends TestSuiteBase implements TestResour
                                         new Path(
                                                 MinIoUtils.downloadNewestCommitFile(
                                                         minioClient,
-                                                        BUCKET,
+                                                        bucket,
                                                         String.format(
                                                                 "%s/%s/", DATABASE_1, TABLE_NAME_1),
                                                         DOWNLOAD_PATH));
@@ -162,7 +167,7 @@ public class HudiSparkS3MultiTableIT extends TestSuiteBase implements TestResour
                                         new Path(
                                                 MinIoUtils.downloadNewestCommitFile(
                                                         minioClient,
-                                                        BUCKET,
+                                                        bucket,
                                                         String.format(
                                                                 "%s/%s/", DATABASE_2, TABLE_NAME_2),
                                                         DOWNLOAD_PATH));
