@@ -42,6 +42,10 @@ public class ParameterSplitter implements IParameterSplitter {
             char c = value.charAt(i);
 
             if (c == '"') {
+                if (isEscapedQuote(value, i)) {
+                    currentToken.append(c);
+                    continue;
+                }
                 char prev = (i > 0) ? value.charAt(i - 1) : 0;
                 char beforePrev = (i > 1) ? value.charAt(i - 2) : 0;
                 char next = (i + 1 < value.length()) ? value.charAt(i + 1) : 0;
@@ -104,5 +108,15 @@ public class ParameterSplitter implements IParameterSplitter {
         }
 
         return result;
+    }
+
+    private boolean isEscapedQuote(String value, int quoteIndex) {
+        int backslashCount = 0;
+        int i = quoteIndex - 1;
+        while (i >= 0 && value.charAt(i) == '\\') {
+            backslashCount++;
+            i--;
+        }
+        return backslashCount % 2 == 1;
     }
 }
