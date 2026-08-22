@@ -5,6 +5,18 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### MySQL CDC Schema-Change Parsing
+
+- **Behavior change: DDL parser listener errors are propagated**
+  - **Affected component**: `connector-cdc-mysql`
+  - **Description**: Errors raised while processing a parsed DDL are no longer swallowed and
+    treated as a no-op. They are now propagated as parsing failures so that a CDC job cannot
+    silently skip a schema change.
+  - **Impact**: A job may fail on a DDL statement that was previously ignored after an internal
+    parser/listener error. Review the source DDL and update it to syntax supported by the
+    connector before restarting the job. This change does not alter checkpoint or savepoint
+    formats.
+
 ### JDBC Connector
 
 - **Breaking Change: Mapping of timezone-aware timestamp columns to `TIMESTAMP_TZ` type**
@@ -93,6 +105,14 @@ You need to check this document before you upgrade to related version.
 
 ### Connector Changes
 
+- **Breaking Change: ORC file sink preserves case of nested struct field names**
+  - **Affected component**: `seatunnel-connectors-v2/connector-file/connector-file-base` (used by all File/HDFS/S3/OSS ORC sinks that share `OrcWriteStrategy`)
+  - **Description**: Previously, `OrcWriteStrategy.buildFieldWithRowType(...)` forced every nested `ROW` (struct) field name to lowercase when building the ORC schema, so a nested field declared as `MD5` was persisted as `md5` in the file footer. Downstream consumers that read the column by its declared original-case name received null/missing values. The `.toLowerCase()` call has been removed from the recursive nested-field branch, so nested struct field names are now written verbatim in the file schema.
+  - **Impact**: ORC files written by SeaTunnel after this change embed the original-case nested field names in their schema footer. Users that adapted to the old behavior (for example, case-sensitive ORC readers with `orc.schema.evolution.case.sensitive=true`, Spark with `spark.sql.caseSensitive=true`, or pipelines that expected `md5` rather than `MD5`) will see the inverse problem: null values or schema mismatches when reading new files. Directories that mix pre-upgrade files (lowercase nested names) with post-upgrade files (original case) will contain inconsistent nested-schema shapes for the same logical column, which case-sensitive schema merging cannot reconcile.
+  - **Migration Guide**:
+    - **Mixed-version directories**: Re-materialize the directory so every file is produced by the new version, or write pre- and post-upgrade files into separate directories and read them independently.
+    - **Case-sensitive consumers**: Configure the reader for case-insensitive schema evolution where supported, or remap the column at read time.
+    - **Case-only sibling fields** (for example `MD5` and `md5` in the same struct): now representable; case-insensitive downstream consumers (such as Hive) may treat them as ambiguous — disambiguate at the source if needed.
 - **Breaking Change: Iceberg Connector — source table primary key is no longer silently inherited**
   - **Affected component**: `seatunnel-connectors-v2/connector-iceberg`
   - **Description**: `SchemaUtils.toIcebergSchema()` previously fell back to the CDC source

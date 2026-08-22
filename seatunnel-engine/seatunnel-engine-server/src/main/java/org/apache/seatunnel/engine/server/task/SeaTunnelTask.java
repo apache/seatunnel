@@ -195,41 +195,36 @@ public abstract class SeaTunnelTask extends AbstractTask {
         return observabilityEnabled;
     }
 
-    private boolean resolveObservabilityEnabled() {
+    public Map<String, Object> getJobEnvOptions() {
         try {
-            if (executionContext == null) {
-                return false;
-            }
-            if (executionContext.getTaskExecutionService() == null) {
-                return false;
+            if (executionContext == null
+                    || executionContext.getTaskExecutionService() == null
+                    || executionContext.getTaskExecutionService().getNodeEngine() == null) {
+                return Collections.emptyMap();
             }
             NodeEngineImpl nodeEngine = executionContext.getTaskExecutionService().getNodeEngine();
-            if (nodeEngine == null) {
-                return false;
-            }
             IMap<Long, JobInfo> jobInfoMap =
                     nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_INFO);
             JobInfo jobInfo = jobInfoMap.get(jobID);
             if (jobInfo == null || jobInfo.getJobImmutableInformation() == null) {
-                return false;
+                return Collections.emptyMap();
             }
             JobImmutableInformation immutable =
                     nodeEngine
                             .getSerializationService()
                             .toObject(jobInfo.getJobImmutableInformation());
             if (immutable == null || immutable.getJobConfig() == null) {
-                return false;
+                return Collections.emptyMap();
             }
-            Map<String, Object> envOptions = immutable.getJobConfig().getEnvOptions();
-            return ObservabilityConfig.resolveEnabled(envOptions);
+            return immutable.getJobConfig().getEnvOptions();
         } catch (Throwable t) {
-            log.debug(
-                    "Resolve observability enabled failed, jobId={}, taskLocation={}, err={}",
-                    jobID,
-                    taskLocation,
-                    t.getMessage());
-            return false;
+            log.debug("Resolve job env options failed, jobId={}", jobID, t);
+            return Collections.emptyMap();
         }
+    }
+
+    private boolean resolveObservabilityEnabled() {
+        return ObservabilityConfig.resolveEnabled(getJobEnvOptions());
     }
 
     /**
