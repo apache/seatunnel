@@ -18,7 +18,6 @@
 
 package org.apache.seatunnel.connectors.seatunnel.jdbc;
 
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.Pair;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
@@ -84,7 +83,7 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
 
     private static final String MYSQL_USERNAME = "root";
     private static final String MYSQL_PASSWORD = "Abc!@#135_seatunnel";
-    private static final int MYSQL_PORT = 3312;
+    private static final int MYSQL_CONTAINER_PORT = 3306;
 
     private MySQLContainer<?> mysql_container;
 
@@ -155,14 +154,12 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
                         .withDatabaseName(MYSQL_DATABASE)
                         .withNetwork(NETWORK)
                         .withNetworkAliases(MYSQL_CONTAINER_HOST)
-                        .withExposedPorts(MYSQL_PORT)
+                        .withExposedPorts(MYSQL_CONTAINER_PORT)
                         .waitingFor(Wait.forHealthcheck())
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(MYSQL_IMAGE)));
-        mysql_container.setPortBindings(
-                Lists.newArrayList(String.format("%s:%s", MYSQL_PORT, 3306)));
-
         Startables.deepStart(Stream.of(mysql_container)).join();
+        mysqlUrlInfo = JdbcUrlUtil.getUrlInfo(mysql_container.getJdbcUrl());
     }
 
     @BeforeAll
@@ -352,9 +349,7 @@ public class JdbcMysqlSplitIT extends TestSuiteBase implements TestResource {
         return Pair.of(fieldNames, rows);
     }
 
-    static JdbcUrlUtil.UrlInfo mysqlUrlInfo =
-            JdbcUrlUtil.getUrlInfo(
-                    String.format("jdbc:mysql://localhost:%s/auto?useSSL=false", MYSQL_PORT));
+    private JdbcUrlUtil.UrlInfo mysqlUrlInfo;
 
     @Test
     public void testSplit() throws Exception {

@@ -33,7 +33,10 @@ import org.apache.seatunnel.connectors.seatunnel.milvus.exception.MilvusConnecto
 
 import org.junit.jupiter.api.Test;
 
+import com.google.gson.JsonArray;
 import com.google.gson.JsonNull;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonPrimitive;
 import io.milvus.grpc.DataType;
 import io.milvus.param.collection.FieldType;
 
@@ -216,6 +219,59 @@ public class MilvusSinkConverterTest {
                                                 row));
 
         assertEquals("MILVUS-10", exception.getSeaTunnelErrorCode().getCode());
+    }
+
+    @Test
+    void convertsJsonFieldWithObjectRootToJsonObject() {
+        Object converted =
+                new MilvusSinkConverter()
+                        .convertBySeaTunnelType(
+                                BasicType.STRING_TYPE, true, "{\"a\":1,\"b\":\"x\"}");
+
+        assertTrue(converted instanceof JsonObject);
+        JsonObject object = (JsonObject) converted;
+        assertEquals(1, object.get("a").getAsInt());
+        assertEquals("x", object.get("b").getAsString());
+    }
+
+    @Test
+    void convertsJsonFieldWithPrimitiveRootWithoutFailing() {
+        // Issue #9677: a Milvus JSON field may hold any JSON root; forcing
+        // JsonObject throws "Expected a com.google.gson.JsonObject but was
+        // com.google.gson.JsonPrimitive" for non-object values.
+        MilvusSinkConverter converter = new MilvusSinkConverter();
+
+        Object stringRoot =
+                converter.convertBySeaTunnelType(BasicType.STRING_TYPE, true, "\"abc\"");
+        assertTrue(stringRoot instanceof JsonPrimitive);
+        assertEquals("abc", ((JsonPrimitive) stringRoot).getAsString());
+
+        Object numberRoot = converter.convertBySeaTunnelType(BasicType.STRING_TYPE, true, "123");
+        assertTrue(numberRoot instanceof JsonPrimitive);
+        assertEquals(123, ((JsonPrimitive) numberRoot).getAsInt());
+
+        Object boolRoot = converter.convertBySeaTunnelType(BasicType.STRING_TYPE, true, "true");
+        assertTrue(boolRoot instanceof JsonPrimitive);
+        assertTrue(((JsonPrimitive) boolRoot).isBoolean());
+    }
+
+    @Test
+    void convertsJsonFieldWithArrayRootWithoutFailing() {
+        Object converted =
+                new MilvusSinkConverter()
+                        .convertBySeaTunnelType(BasicType.STRING_TYPE, true, "[1,2,3]");
+
+        assertTrue(converted instanceof JsonArray);
+        assertEquals(3, ((JsonArray) converted).size());
+    }
+
+    @Test
+    void keepsNonJsonStringAsIs() {
+        Object converted =
+                new MilvusSinkConverter()
+                        .convertBySeaTunnelType(BasicType.STRING_TYPE, false, "plain");
+
+        assertEquals("plain", converted);
     }
 
     private CatalogTable catalogTable() {
