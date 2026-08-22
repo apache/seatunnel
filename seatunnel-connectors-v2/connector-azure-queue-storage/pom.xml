@@ -74,6 +74,10 @@
                                     <shadedPattern>${seatunnel.shade.package}.azure.queue.com.azure</shadedPattern>
                                 </relocation>
                                 <relocation>
+                                    <pattern>com.fasterxml.jackson</pattern>
+                                    <shadedPattern>${seatunnel.shade.package}.azure.queue.com.fasterxml.jackson</shadedPattern>
+                                </relocation>
+                                <relocation>
                                     <pattern>reactor</pattern>
                                     <shadedPattern>${seatunnel.shade.package}.azure.queue.reactor</shadedPattern>
                                 </relocation>
