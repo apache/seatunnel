@@ -59,6 +59,38 @@ class RestoreTableSchemaEventTest {
         Assertions.assertSame(restoredTable, event.getChangeAfter());
     }
 
+    @Test
+    void restoreEventRejectsNullCatalogTable() {
+        Assertions.assertThrows(
+                NullPointerException.class, () -> new RestoreTableSchemaEvent(null));
+    }
+
+    @Test
+    void dispatchersFailFastWhenRestoreEventLosesChangeAfter() {
+        CatalogTable initialTable = table(false);
+        RestoreTableSchemaEvent event = new RestoreTableSchemaEvent(table(true));
+        event.setChangeAfter(null);
+
+        Assertions.assertThrows(
+                IllegalStateException.class,
+                () ->
+                        new DataTypeChangeEventDispatcher()
+                                .reset(initialTable.getSeaTunnelRowType())
+                                .apply(event));
+        Assertions.assertThrows(
+                IllegalStateException.class,
+                () ->
+                        new TableSchemaChangeEventDispatcher()
+                                .reset(initialTable.getTableSchema())
+                                .apply(event));
+        Assertions.assertThrows(
+                IllegalStateException.class,
+                () ->
+                        new AlterTableSchemaEventHandler()
+                                .reset(initialTable.getTableSchema())
+                                .apply(event));
+    }
+
     private static CatalogTable table(boolean includeEmail) {
         TableSchema.Builder schema =
                 TableSchema.builder()

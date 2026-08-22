@@ -58,8 +58,8 @@ public class TableSchemaChangeEventDispatcher implements TableSchemaChangeEventH
 
     @Override
     public TableSchema apply(SchemaChangeEvent event) {
-        if (event instanceof RestoreTableSchemaEvent && event.getChangeAfter() != null) {
-            return event.getChangeAfter().getTableSchema();
+        if (event instanceof RestoreTableSchemaEvent) {
+            return ((RestoreTableSchemaEvent) event).getRestoredTable().getTableSchema();
         }
         TableSchemaChangeEventHandler handler = handlers.get(event.getClass());
         if (handler == null) {

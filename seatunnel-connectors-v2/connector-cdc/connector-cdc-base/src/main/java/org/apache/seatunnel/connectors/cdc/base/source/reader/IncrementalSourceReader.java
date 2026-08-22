@@ -21,6 +21,8 @@ import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.type.MultipleRowType;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.source.event.CompletedSnapshotPhaseEvent;
@@ -46,6 +48,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -239,19 +242,27 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
         List<CatalogTable> checkpointTables = incrementalSplit.getCheckpointTables();
         if (checkpointTables != null && !checkpointTables.isEmpty()) {
             log.info(
-                    "The incremental split[{}] has checkpoint tables {} for restore.",
+                    "The incremental split[{}] has {} checkpoint table(s) for restore: {}.",
                     incrementalSplit.splitId(),
-                    checkpointTables);
+                    checkpointTables.size(),
+                    toCheckpointTablePaths(checkpointTables));
             debeziumDeserializationSchema.restoreCheckpointProducedType(checkpointTables);
         } else if (incrementalSplit.getCheckpointDataType() != null) {
             // Keep reading checkpoints written before checkpoint tables were introduced.
             List<CatalogTable> legacyCheckpointTables =
-                    CatalogTableUtil.convertDataTypeToCatalogTables(
-                            incrementalSplit.getCheckpointDataType(), "default.default");
-            log.info(
-                    "The incremental split[{}] has a legacy checkpoint data type for restore.",
-                    incrementalSplit.splitId());
-            debeziumDeserializationSchema.restoreCheckpointProducedType(legacyCheckpointTables);
+                    restoreLegacyCheckpointTables(incrementalSplit);
+            if (legacyCheckpointTables.isEmpty()) {
+                log.warn(
+                        "Skip restoring the legacy checkpoint data type for incremental split[{}] because the table identity cannot be recovered from split state.",
+                        incrementalSplit.splitId());
+            } else {
+                log.info(
+                        "The incremental split[{}] restores {} legacy checkpoint table(s): {}.",
+                        incrementalSplit.splitId(),
+                        legacyCheckpointTables.size(),
+                        toCheckpointTablePaths(legacyCheckpointTables));
+                debeziumDeserializationSchema.restoreCheckpointProducedType(legacyCheckpointTables);
+            }
         }
 
         Map<TableId, byte[]> historyTableChanges = incrementalSplit.getHistoryTableChanges();
@@ -261,6 +272,33 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
                     incrementalSplit.splitId());
             debeziumDeserializationSchema.restoreCheckpointHistoryTableChanges(historyTableChanges);
         }
+    }
+
+    private static List<CatalogTable> restoreLegacyCheckpointTables(
+            IncrementalSplit incrementalSplit) {
+        if (incrementalSplit.getCheckpointDataType() instanceof MultipleRowType) {
+            return CatalogTableUtil.convertDataTypeToCatalogTables(
+                    incrementalSplit.getCheckpointDataType(), TablePath.DEFAULT.getFullName());
+        }
+
+        List<TableId> tableIds = incrementalSplit.getTableIds();
+        if (tableIds == null || tableIds.size() != 1) {
+            return Collections.emptyList();
+        }
+
+        return CatalogTableUtil.convertDataTypeToCatalogTables(
+                incrementalSplit.getCheckpointDataType(),
+                TablePath.of(
+                                tableIds.get(0).catalog(),
+                                tableIds.get(0).schema(),
+                                tableIds.get(0).table())
+                        .getFullName());
+    }
+
+    private static List<String> toCheckpointTablePaths(List<CatalogTable> checkpointTables) {
+        return checkpointTables.stream()
+                .map(table -> table.getTablePath().getFullName())
+                .collect(Collectors.toList());
     }
 
     @Override

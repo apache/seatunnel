@@ -58,8 +58,8 @@ public class DataTypeChangeEventDispatcher implements DataTypeChangeEventHandler
 
     @Override
     public SeaTunnelRowType apply(SchemaChangeEvent event) {
-        if (event instanceof RestoreTableSchemaEvent && event.getChangeAfter() != null) {
-            return event.getChangeAfter().getSeaTunnelRowType();
+        if (event instanceof RestoreTableSchemaEvent) {
+            return ((RestoreTableSchemaEvent) event).getRestoredTable().getSeaTunnelRowType();
         }
         DataTypeChangeEventHandler handler = handlers.get(event.getClass());
         if (handler == null) {

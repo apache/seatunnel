@@ -97,7 +97,7 @@ class IncrementalSourceReaderTest {
         IncrementalSplit split =
                 new IncrementalSplit(
                         "incremental-split-0",
-                        Collections.emptyList(),
+                        Collections.singletonList(new TableId("catalog", "database", "customers")),
                         Mockito.mock(Offset.class),
                         Mockito.mock(Offset.class),
                         Collections.emptyList(),
@@ -113,5 +113,32 @@ class IncrementalSourceReaderTest {
         assertArrayEquals(
                 checkpointRowType.getFieldNames(),
                 restoredTables.get(0).getSeaTunnelRowType().getFieldNames());
+        assertEquals(
+                "catalog.database.customers", restoredTables.get(0).getTablePath().getFullName());
+    }
+
+    @Test
+    void restoreCheckpointStateSkipsLegacyCheckpointDataTypeWithoutRecoverableTableIdentity() {
+        @SuppressWarnings("unchecked")
+        DebeziumDeserializationSchema<Object> schema =
+                Mockito.mock(DebeziumDeserializationSchema.class);
+        SeaTunnelRowType checkpointRowType =
+                new SeaTunnelRowType(
+                        new String[] {"id"},
+                        new org.apache.seatunnel.api.table.type.SeaTunnelDataType[] {
+                            BasicType.INT_TYPE
+                        });
+        IncrementalSplit split =
+                new IncrementalSplit(
+                        "incremental-split-0",
+                        Collections.emptyList(),
+                        Mockito.mock(Offset.class),
+                        Mockito.mock(Offset.class),
+                        Collections.emptyList(),
+                        checkpointRowType);
+
+        IncrementalSourceReader.restoreCheckpointState(split, schema);
+
+        Mockito.verifyNoInteractions(schema);
     }
 }

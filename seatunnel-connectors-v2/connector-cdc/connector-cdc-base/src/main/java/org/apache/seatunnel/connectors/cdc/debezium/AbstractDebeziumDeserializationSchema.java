@@ -59,7 +59,9 @@ public abstract class AbstractDebeziumDeserializationSchema<T>
 
     @Override
     public Map<TableId, byte[]> getHistoryTableChanges() {
-        return new HashMap<>(tableChangesStructMap);
+        synchronized (tableChangesStructMap) {
+            return new HashMap<>(tableChangesStructMap);
+        }
     }
 
     @Override
@@ -68,8 +70,10 @@ public abstract class AbstractDebeziumDeserializationSchema<T>
         if (checkpointHistoryTableChanges == null || checkpointHistoryTableChanges.isEmpty()) {
             return;
         }
-        tableChangesStructMap.clear();
-        tableChangesStructMap.putAll(checkpointHistoryTableChanges);
+        synchronized (tableChangesStructMap) {
+            tableChangesStructMap.clear();
+            tableChangesStructMap.putAll(checkpointHistoryTableChanges);
+        }
     }
 
     public void deserialize(SourceRecord record, Collector<T> out) throws Exception {
@@ -77,12 +81,14 @@ public abstract class AbstractDebeziumDeserializationSchema<T>
             Struct recordValue = (Struct) record.value();
             List<Struct> tableChangesStruct =
                     (List<Struct>) recordValue.get(HistoryRecord.Fields.TABLE_CHANGES);
-            tableChangesStruct.forEach(
-                    tableChangeStruct -> {
-                        tableChangesStructMap.put(
-                                TableId.parse(tableChangeStruct.getString("id")),
-                                serializeStruct(tableChangeStruct));
-                    });
+            synchronized (tableChangesStructMap) {
+                tableChangesStruct.forEach(
+                        tableChangeStruct -> {
+                            tableChangesStructMap.put(
+                                    TableId.parse(tableChangeStruct.getString("id")),
+                                    serializeStruct(tableChangeStruct));
+                        });
+            }
         }
     }
 

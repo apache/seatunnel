@@ -27,8 +27,19 @@ import lombok.ToString;
 public class RestoreTableSchemaEvent extends AlterTableEvent {
 
     public RestoreTableSchemaEvent(CatalogTable restoredTable) {
-        super(restoredTable.getTableId());
+        super(
+                java.util.Objects.requireNonNull(restoredTable, "restoredTable cannot be null")
+                        .getTableId());
         setChangeAfter(restoredTable);
+    }
+
+    public CatalogTable getRestoredTable() {
+        CatalogTable restoredTable = getChangeAfter();
+        if (restoredTable == null) {
+            throw new IllegalStateException(
+                    "RestoreTableSchemaEvent requires changeAfter to be present.");
+        }
+        return restoredTable;
     }
 
     @Override

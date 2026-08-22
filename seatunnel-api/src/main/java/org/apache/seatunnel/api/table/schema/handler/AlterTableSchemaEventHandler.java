@@ -61,9 +61,8 @@ public class AlterTableSchemaEventHandler implements TableSchemaChangeEventHandl
     }
 
     private TableSchema apply(TableSchema schema, AlterTableEvent alterTableEvent) {
-        if (alterTableEvent instanceof RestoreTableSchemaEvent
-                && alterTableEvent.getChangeAfter() != null) {
-            return alterTableEvent.getChangeAfter().getTableSchema();
+        if (alterTableEvent instanceof RestoreTableSchemaEvent) {
+            return ((RestoreTableSchemaEvent) alterTableEvent).getRestoredTable().getTableSchema();
         }
         if (alterTableEvent instanceof AlterTableNameEvent) {
             return schema;

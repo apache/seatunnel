@@ -44,6 +44,14 @@ public interface DebeziumDeserializationSchema<T> extends Serializable {
 
     default void restoreCheckpointProducedType(List<CatalogTable> checkpointDataType) {}
 
+    /**
+     * Restores serialized Debezium table-history entries from checkpoint state after split
+     * recovery.
+     *
+     * <p>The map values are serialized Debezium {@code TableChanges} structs. Implementations
+     * should replace the stale in-memory history with the checkpoint snapshot before consuming new
+     * schema-change records.
+     */
     default void restoreCheckpointHistoryTableChanges(
             Map<TableId, byte[]> checkpointHistoryTableChanges) {}
 
