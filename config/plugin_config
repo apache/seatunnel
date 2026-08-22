@@ -49,6 +49,7 @@ connector-file-obs
 connector-fluss
 connector-google-sheets
 connector-google-firestore
+connector-google-pubsub
 connector-google-bigtable
 connector-graphql
 connector-hive
