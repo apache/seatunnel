@@ -39,11 +39,13 @@ import org.apache.seatunnel.engine.server.telemetry.log.operation.CleanLogOperat
 import org.apache.seatunnel.engine.server.utils.NodeEngineUtil;
 
 import com.hazelcast.cluster.Address;
+import com.hazelcast.collection.IQueue;
 import com.hazelcast.core.EntryEvent;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.map.IMap;
 import com.hazelcast.map.listener.EntryExpiredListener;
 import com.hazelcast.spi.impl.NodeEngine;
+import com.hazelcast.spi.impl.executionservice.ExecutionService;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.Getter;
@@ -60,6 +62,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -104,6 +107,40 @@ public class JobHistoryService {
      */
     @Getter private final IMap<Long, JobState> finishedJobStateImap;
 
+    private static final int MAX_MONITORING_JOB_NAME_LENGTH = 256;
+
+    private static final int MAX_MONITORING_ERROR_SUMMARY_LENGTH = 1024;
+
+    private static final int MAX_MONITORING_DRAIN_BATCH_SIZE = 1000;
+
+    private static final long MONITORING_RETRY_DELAY_SECONDS = 5L;
+
+    private static final long MONITORING_CAPACITY_OR_LOCK_WAIT_MILLIS = 100L;
+
+    private static final int MAX_LOCAL_MONITORING_RETRY_RECORDS = 1000;
+
+    // TTL-bound sequence ledger queried by the monitoring REST endpoint.
+    private final IMap<Long, JobMonitoringRecord> finishedJobMonitoringImap;
+
+    // Durable sequence, retention-head, and job-to-sequence watermarks.
+    private final IMap<String, Long> finishedJobMonitoringMetadataImap;
+
+    // Durable sidecar outbox; entries are removed only after ledger commit.
+    private final IQueue<JobMonitoringRecord> pendingJobMonitoringQueue;
+
+    // Bounded durable overflow used when the primary queue cannot accept a record.
+    private final IMap<Long, JobMonitoringRecord> overflowJobMonitoringImap;
+
+    // Last-resort retry buffer used only when the distributed outbox is temporarily unavailable.
+    private final Map<Long, JobMonitoringRecord> localPendingJobMonitoringRecords =
+            new ConcurrentHashMap<>();
+
+    // Prevents concurrent drain workers in one coordinator.
+    private final AtomicBoolean monitoringDrainScheduled = new AtomicBoolean(false);
+
+    // Node-local delta retained until it can be merged into the distributed dropped counter.
+    private final AtomicLong pendingDroppedJobMonitoringRecords = new AtomicLong();
+
     private final IMap<Long, JobMetrics> finishedJobMetricsImap;
 
     private final ObjectMapper objectMapper;
@@ -119,6 +156,10 @@ public class JobHistoryService {
             Map<Long, PendingJobInfo> pendingJobMasterMap,
             Map<Long, JobMaster> runningJobMasterMap,
             IMap<Long, JobState> finishedJobStateImap,
+            IMap<Long, JobMonitoringRecord> finishedJobMonitoringImap,
+            IMap<String, Long> finishedJobMonitoringMetadataImap,
+            IQueue<JobMonitoringRecord> pendingJobMonitoringQueue,
+            IMap<Long, JobMonitoringRecord> overflowJobMonitoringImap,
             IMap<Long, JobMetrics> finishedJobMetricsImap,
             IMap<Long, JobDAGInfo> finishedJobVertexInfoImap,
             int finishedJobExpireTime) {
@@ -128,10 +169,16 @@ public class JobHistoryService {
         this.pendingJobInfoMap = pendingJobMasterMap;
         this.runningJobMasterMap = runningJobMasterMap;
         this.finishedJobStateImap = finishedJobStateImap;
+        this.finishedJobMonitoringImap = finishedJobMonitoringImap;
+        this.finishedJobMonitoringMetadataImap = finishedJobMonitoringMetadataImap;
+        this.pendingJobMonitoringQueue = pendingJobMonitoringQueue;
+        this.overflowJobMonitoringImap = overflowJobMonitoringImap;
         this.finishedJobMetricsImap = finishedJobMetricsImap;
         this.finishedJobDAGInfoImap = finishedJobVertexInfoImap;
         this.finishedJobStateImap.addEntryListener(
                 new FinishedJobExpiredListener<>(Constant.IMAP_FINISHED_JOB_STATE), true);
+        this.finishedJobMonitoringImap.addEntryListener(
+                new FinishedJobExpiredListener<>(Constant.IMAP_FINISHED_JOB_MONITORING), true);
         this.finishedJobMetricsImap.addEntryListener(
                 new FinishedJobExpiredListener<>(Constant.IMAP_FINISHED_JOB_METRICS), true);
         this.finishedJobDAGInfoImap.addEntryListener(
@@ -139,6 +186,7 @@ public class JobHistoryService {
         this.objectMapper = new ObjectMapper();
         this.objectMapper.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
         this.finishedJobExpireTime = finishedJobExpireTime;
+        safelyScheduleMonitoringDrain(0L);
     }
 
     // Gets the status of a running and completed job.
@@ -257,11 +305,420 @@ public class JobHistoryService {
     public void storeFinishedJobState(JobMaster jobMaster) {
         JobState jobState = toJobStateMapper(jobMaster, false);
         jobState.setErrorMessage(jobMaster.getErrorMessage());
-        finishedJobStateImap.put(jobState.jobId, jobState, finishedJobExpireTime, TimeUnit.MINUTES);
+        storeFinishedJobState(jobState);
     }
 
     public void storeFinishedJobState(JobState jobState) {
         finishedJobStateImap.put(jobState.jobId, jobState, finishedJobExpireTime, TimeUnit.MINUTES);
+        tryEnqueueFinishedJobMonitoringRecord(jobState);
+    }
+
+    /**
+     * Appends one compact monitoring record under a cluster-wide sequence lock.
+     *
+     * <p>The record is stored before the committed watermark advances. Readers therefore never
+     * advance past a sequence whose value is not yet visible. A record left immediately after the
+     * watermark by a member failure is reconciled by the next drain writer.
+     *
+     * @param record pending terminal state to expose to monitoring clients
+     */
+    private void storeFinishedJobMonitoringRecord(JobMonitoringRecord record) {
+        finishedJobMonitoringMetadataImap.lock(
+                Constant.FINISHED_JOB_MONITORING_COMMITTED_SEQUENCE_KEY);
+        try {
+            long committedSequence = reconcileMonitoringSequence();
+            String jobSequenceKey = monitoringJobSequenceKey(record.getJobId());
+            Long existingSequence = finishedJobMonitoringMetadataImap.get(jobSequenceKey);
+            if (existingSequence != null
+                    && finishedJobMonitoringImap.containsKey(existingSequence)) {
+                return;
+            }
+            if (committedSequence == Long.MAX_VALUE) {
+                throw new SeaTunnelEngineException(
+                        "The finished-job monitoring sequence is exhausted.");
+            }
+            long nextSequence = committedSequence + 1;
+            putMonitoringRecord(nextSequence, record);
+            finishedJobMonitoringMetadataImap.put(
+                    jobSequenceKey, nextSequence, finishedJobExpireTime, TimeUnit.MINUTES);
+            finishedJobMonitoringMetadataImap.putIfAbsent(
+                    Constant.FINISHED_JOB_MONITORING_HEAD_SEQUENCE_KEY, nextSequence);
+            finishedJobMonitoringMetadataImap.put(
+                    Constant.FINISHED_JOB_MONITORING_COMMITTED_SEQUENCE_KEY, nextSequence);
+        } finally {
+            finishedJobMonitoringMetadataImap.unlock(
+                    Constant.FINISHED_JOB_MONITORING_COMMITTED_SEQUENCE_KEY);
+        }
+    }
+
+    private long reconcileMonitoringSequence() {
+        long committedSequence =
+                finishedJobMonitoringMetadataImap.getOrDefault(
+                        Constant.FINISHED_JOB_MONITORING_COMMITTED_SEQUENCE_KEY, 0L);
+        long headSequence =
+                finishedJobMonitoringMetadataImap.getOrDefault(
+                        Constant.FINISHED_JOB_MONITORING_HEAD_SEQUENCE_KEY, 1L);
+        if (committedSequence == Long.MAX_VALUE) {
+            return committedSequence;
+        }
+        if (headSequence > committedSequence + 1) {
+            committedSequence = headSequence - 1;
+            finishedJobMonitoringMetadataImap.put(
+                    Constant.FINISHED_JOB_MONITORING_COMMITTED_SEQUENCE_KEY, committedSequence);
+        }
+        JobMonitoringRecord uncommittedRecord =
+                finishedJobMonitoringImap.get(committedSequence + 1);
+        if (uncommittedRecord == null) {
+            return committedSequence;
+        }
+        long reconciledSequence = committedSequence + 1;
+        finishedJobMonitoringMetadataImap.put(
+                monitoringJobSequenceKey(uncommittedRecord.getJobId()),
+                reconciledSequence,
+                finishedJobExpireTime,
+                TimeUnit.MINUTES);
+        finishedJobMonitoringMetadataImap.putIfAbsent(
+                Constant.FINISHED_JOB_MONITORING_HEAD_SEQUENCE_KEY, reconciledSequence);
+        finishedJobMonitoringMetadataImap.put(
+                Constant.FINISHED_JOB_MONITORING_COMMITTED_SEQUENCE_KEY, reconciledSequence);
+        return reconciledSequence;
+    }
+
+    private void putMonitoringRecord(long sequence, JobMonitoringRecord pendingRecord) {
+        JobMonitoringRecord storedRecord =
+                new JobMonitoringRecord(
+                        sequence,
+                        pendingRecord.getJobId(),
+                        pendingRecord.getJobName(),
+                        pendingRecord.getJobStatus(),
+                        pendingRecord.getSubmitTime(),
+                        pendingRecord.getStartTime(),
+                        pendingRecord.getFinishTime(),
+                        pendingRecord.getObservedTime(),
+                        pendingRecord.getErrorSummary());
+        finishedJobMonitoringImap.put(
+                sequence, storedRecord, finishedJobExpireTime, TimeUnit.MINUTES);
+    }
+
+    private JobMonitoringRecord toMonitoringRecord(JobState jobState) {
+        return new JobMonitoringRecord(
+                0L,
+                jobState.getJobId(),
+                truncate(jobState.getJobName(), MAX_MONITORING_JOB_NAME_LENGTH),
+                jobState.getJobStatus(),
+                jobState.getSubmitTime(),
+                jobState.getStartTime(),
+                jobState.getFinishTime(),
+                System.currentTimeMillis(),
+                truncate(jobState.getErrorMessage(), MAX_MONITORING_ERROR_SUMMARY_LENGTH));
+    }
+
+    private String monitoringJobSequenceKey(Long jobId) {
+        return Constant.FINISHED_JOB_MONITORING_JOB_SEQUENCE_KEY_PREFIX + jobId;
+    }
+
+    /**
+     * Persists the sidecar after authoritative history is already visible.
+     *
+     * <p>The 100 ms argument bounds queue-capacity and lock waiting only. Hazelcast RPC failures
+     * can still wait for the configured operation timeout. Such failures are isolated and cannot
+     * undo the authoritative finished-state write.
+     */
+    private void enqueueFinishedJobMonitoringRecord(JobMonitoringRecord record) {
+        long jobId = record.getJobId();
+        try {
+            boolean persisted =
+                    pendingJobMonitoringQueue.offer(
+                            record, MONITORING_CAPACITY_OR_LOCK_WAIT_MILLIS, TimeUnit.MILLISECONDS);
+            if (!persisted) {
+                retainMonitoringRetry(jobId, record);
+                logger.warning(
+                        String.format(
+                                "Timed out persisting the monitoring outbox record for job %s",
+                                jobId));
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            retainMonitoringRetry(jobId, record);
+            logger.warning(
+                    String.format(
+                            "Interrupted while persisting the monitoring outbox record for job %s",
+                            jobId),
+                    e);
+        } catch (RuntimeException e) {
+            retainMonitoringRetry(jobId, record);
+            logger.warning(
+                    String.format(
+                            "Failed to persist the monitoring outbox record for job %s", jobId),
+                    e);
+        }
+        safelyScheduleMonitoringDrain(0L);
+    }
+
+    private void retainMonitoringRetry(long jobId, JobMonitoringRecord record) {
+        boolean overflowLockAcquired = false;
+        try {
+            overflowLockAcquired =
+                    finishedJobMonitoringMetadataImap.tryLock(
+                            Constant.FINISHED_JOB_MONITORING_OVERFLOW_LOCK_KEY,
+                            MONITORING_CAPACITY_OR_LOCK_WAIT_MILLIS,
+                            TimeUnit.MILLISECONDS);
+            if (!overflowLockAcquired) {
+                retainLocalMonitoringRetry(jobId, record);
+                return;
+            }
+            if (overflowJobMonitoringImap.containsKey(jobId)
+                    || overflowJobMonitoringImap.size() < MAX_LOCAL_MONITORING_RETRY_RECORDS) {
+                overflowJobMonitoringImap.put(jobId, record);
+                return;
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            logger.warning(
+                    String.format(
+                            "Interrupted while persisting the monitoring overflow record for job %s",
+                            jobId),
+                    e);
+        } catch (RuntimeException e) {
+            logger.warning(
+                    String.format(
+                            "Failed to persist the monitoring overflow record for job %s", jobId),
+                    e);
+        } finally {
+            if (overflowLockAcquired) {
+                try {
+                    finishedJobMonitoringMetadataImap.unlock(
+                            Constant.FINISHED_JOB_MONITORING_OVERFLOW_LOCK_KEY);
+                } catch (RuntimeException e) {
+                    logger.warning("Failed to release the monitoring overflow lock", e);
+                }
+            }
+        }
+        retainLocalMonitoringRetry(jobId, record);
+    }
+
+    private void retainLocalMonitoringRetry(long jobId, JobMonitoringRecord record) {
+        synchronized (localPendingJobMonitoringRecords) {
+            if (localPendingJobMonitoringRecords.size() < MAX_LOCAL_MONITORING_RETRY_RECORDS
+                    || localPendingJobMonitoringRecords.containsKey(jobId)) {
+                localPendingJobMonitoringRecords.put(jobId, record);
+                return;
+            }
+        }
+        long droppedRecords = incrementDroppedJobMonitoringRecords();
+        logger.severe(
+                String.format(
+                        "Dropped the monitoring sidecar for job %s because the durable outbox and "
+                                + "the bounded local retry buffer are unavailable; dropped total: %s",
+                        jobId, droppedRecords));
+    }
+
+    /** Returns monitoring records dropped after both bounded outbox tiers were unavailable. */
+    public long getDroppedJobMonitoringRecords() {
+        synchronized (pendingDroppedJobMonitoringRecords) {
+            long pendingDelta = pendingDroppedJobMonitoringRecords.get();
+            try {
+                return finishedJobMonitoringMetadataImap.getOrDefault(
+                                Constant.FINISHED_JOB_MONITORING_DROPPED_RECORDS_KEY, 0L)
+                        + pendingDelta;
+            } catch (RuntimeException e) {
+                return pendingDelta;
+            }
+        }
+    }
+
+    long incrementDroppedJobMonitoringRecords() {
+        synchronized (pendingDroppedJobMonitoringRecords) {
+            pendingDroppedJobMonitoringRecords.incrementAndGet();
+            return flushPendingDroppedJobMonitoringRecords();
+        }
+    }
+
+    /**
+     * Atomically merges this coordinator's pending delta into the distributed dropped counter.
+     *
+     * <p>The caller must hold the {@link #pendingDroppedJobMonitoringRecords} monitor. The delta is
+     * cleared only after the distributed put succeeds, so a temporary metadata failure can be
+     * retried without losing or double-counting records.
+     */
+    private long flushPendingDroppedJobMonitoringRecords() {
+        long pendingDelta = pendingDroppedJobMonitoringRecords.get();
+        boolean lockAcquired = false;
+        try {
+            lockAcquired =
+                    finishedJobMonitoringMetadataImap.tryLock(
+                            Constant.FINISHED_JOB_MONITORING_DROPPED_RECORDS_KEY,
+                            MONITORING_CAPACITY_OR_LOCK_WAIT_MILLIS,
+                            TimeUnit.MILLISECONDS);
+            if (!lockAcquired) {
+                return pendingDelta;
+            }
+            long persistentTotal =
+                    finishedJobMonitoringMetadataImap.getOrDefault(
+                            Constant.FINISHED_JOB_MONITORING_DROPPED_RECORDS_KEY, 0L);
+            if (pendingDelta > 0L) {
+                persistentTotal += pendingDelta;
+                finishedJobMonitoringMetadataImap.put(
+                        Constant.FINISHED_JOB_MONITORING_DROPPED_RECORDS_KEY, persistentTotal);
+                pendingDroppedJobMonitoringRecords.addAndGet(-pendingDelta);
+            }
+            return persistentTotal;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return pendingDelta;
+        } catch (RuntimeException e) {
+            return pendingDelta;
+        } finally {
+            if (lockAcquired) {
+                try {
+                    finishedJobMonitoringMetadataImap.unlock(
+                            Constant.FINISHED_JOB_MONITORING_DROPPED_RECORDS_KEY);
+                } catch (RuntimeException e) {
+                    logger.warning("Failed to release the monitoring dropped-records lock", e);
+                }
+            }
+        }
+    }
+
+    private void tryEnqueueFinishedJobMonitoringRecord(JobState jobState) {
+        try {
+            enqueueFinishedJobMonitoringRecord(toMonitoringRecord(jobState));
+        } catch (RuntimeException e) {
+            logger.warning(
+                    String.format(
+                            "Failed to enqueue the monitoring sidecar for finished job %s",
+                            jobState.getJobId()),
+                    e);
+        }
+    }
+
+    /** Schedules an outbox drain while isolating executor failures from job completion. */
+    private void safelyScheduleMonitoringDrain(long delaySeconds) {
+        try {
+            scheduleMonitoringDrain(delaySeconds);
+        } catch (RuntimeException e) {
+            monitoringDrainScheduled.set(false);
+            logger.warning("Failed to schedule the job monitoring outbox drain", e);
+        }
+    }
+
+    /** Periodic coordinator hook that wakes a durable outbox left by executor rejection. */
+    public void retryPendingJobMonitoringRecords() {
+        synchronized (pendingDroppedJobMonitoringRecords) {
+            flushPendingDroppedJobMonitoringRecords();
+        }
+        safelyScheduleMonitoringDrain(0L);
+    }
+
+    /** Ensures at most one drain worker is submitted by this service instance. */
+    private void scheduleMonitoringDrain(long delaySeconds) {
+        if (!monitoringDrainScheduled.compareAndSet(false, true)) {
+            return;
+        }
+        Runnable drainTask = this::drainPendingJobMonitoringRecords;
+        if (delaySeconds == 0L) {
+            nodeEngine.getExecutionService().execute(ExecutionService.ASYNC_EXECUTOR, drainTask);
+        } else {
+            nodeEngine.getExecutionService().schedule(drainTask, delaySeconds, TimeUnit.SECONDS);
+        }
+    }
+
+    /**
+     * Moves at most one bounded batch from the durable outbox into the sequence ledger.
+     *
+     * <p>The ledger append is idempotent by job id. The outbox entry is removed only after the
+     * committed sequence is visible, so a coordinator failure can cause a retry but not a lost
+     * terminal job.
+     */
+    private void drainPendingJobMonitoringRecords() {
+        boolean retryRequired = false;
+        boolean drainLockAcquired = false;
+        try {
+            int processedRecords = 0;
+            for (Map.Entry<Long, JobMonitoringRecord> entry :
+                    overflowJobMonitoringImap.entrySet()) {
+                if (processedRecords >= MAX_MONITORING_DRAIN_BATCH_SIZE) {
+                    break;
+                }
+                if (!pendingJobMonitoringQueue.offer(entry.getValue())) {
+                    retryRequired = true;
+                    break;
+                }
+                overflowJobMonitoringImap.remove(entry.getKey(), entry.getValue());
+                processedRecords++;
+            }
+            for (Map.Entry<Long, JobMonitoringRecord> entry :
+                    localPendingJobMonitoringRecords.entrySet()) {
+                if (processedRecords >= MAX_MONITORING_DRAIN_BATCH_SIZE) {
+                    break;
+                }
+                if (!pendingJobMonitoringQueue.offer(entry.getValue())) {
+                    retryRequired = true;
+                    break;
+                }
+                localPendingJobMonitoringRecords.remove(entry.getKey(), entry.getValue());
+                processedRecords++;
+            }
+
+            drainLockAcquired =
+                    finishedJobMonitoringMetadataImap.tryLock(
+                            Constant.FINISHED_JOB_MONITORING_DRAIN_LOCK_KEY,
+                            MONITORING_CAPACITY_OR_LOCK_WAIT_MILLIS,
+                            TimeUnit.MILLISECONDS);
+            if (!drainLockAcquired) {
+                retryRequired = true;
+            } else {
+                while (processedRecords < MAX_MONITORING_DRAIN_BATCH_SIZE) {
+                    JobMonitoringRecord record = pendingJobMonitoringQueue.peek();
+                    if (record == null) {
+                        break;
+                    }
+                    storeFinishedJobMonitoringRecord(record);
+                    pendingJobMonitoringQueue.poll();
+                    processedRecords++;
+                }
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            retryRequired = true;
+            logger.warning("Interrupted while draining pending job monitoring records", e);
+        } catch (RuntimeException e) {
+            retryRequired = true;
+            logger.warning("Failed to drain pending job monitoring records", e);
+        } finally {
+            if (drainLockAcquired) {
+                try {
+                    finishedJobMonitoringMetadataImap.unlock(
+                            Constant.FINISHED_JOB_MONITORING_DRAIN_LOCK_KEY);
+                } catch (RuntimeException e) {
+                    logger.warning("Failed to release the job monitoring drain lock", e);
+                }
+            }
+            monitoringDrainScheduled.set(false);
+        }
+        boolean pendingRecordsRemain = retryRequired;
+        if (!pendingRecordsRemain) {
+            try {
+                pendingRecordsRemain =
+                        !pendingJobMonitoringQueue.isEmpty()
+                                || !overflowJobMonitoringImap.isEmpty()
+                                || !localPendingJobMonitoringRecords.isEmpty();
+            } catch (RuntimeException e) {
+                retryRequired = true;
+                pendingRecordsRemain = true;
+                logger.warning("Failed to inspect the job monitoring outbox", e);
+            }
+        }
+        if (pendingRecordsRemain) {
+            safelyScheduleMonitoringDrain(retryRequired ? MONITORING_RETRY_DELAY_SECONDS : 0L);
+        }
+    }
+
+    private String truncate(String value, int maximumLength) {
+        if (value == null || value.length() <= maximumLength) {
+            return value;
+        }
+        return value.substring(0, maximumLength);
     }
 
     public void storeFinishedPipelineMetrics(long jobId, JobMetrics metrics) {
@@ -347,6 +804,13 @@ public class JobHistoryService {
     public Map<String, Long> getFinishedJobRecordCounts() {
         Map<String, Long> counts = new HashMap<>();
         counts.put(Constant.IMAP_FINISHED_JOB_STATE, (long) finishedJobStateImap.size());
+        counts.put(Constant.IMAP_FINISHED_JOB_MONITORING, (long) finishedJobMonitoringImap.size());
+        counts.put(
+                Constant.IMAP_FINISHED_JOB_MONITORING_PENDING,
+                (long) pendingJobMonitoringQueue.size());
+        counts.put(
+                Constant.IMAP_FINISHED_JOB_MONITORING_OVERFLOW,
+                (long) overflowJobMonitoringImap.size());
         counts.put(Constant.IMAP_FINISHED_JOB_METRICS, (long) finishedJobMetricsImap.size());
         counts.put(Constant.IMAP_FINISHED_JOB_VERTEX_INFO, (long) finishedJobDAGInfoImap.size());
         return counts;
@@ -357,6 +821,9 @@ public class JobHistoryService {
         counts.put(
                 Constant.IMAP_FINISHED_JOB_STATE,
                 getFinishedJobCleanupTotal(Constant.IMAP_FINISHED_JOB_STATE));
+        counts.put(
+                Constant.IMAP_FINISHED_JOB_MONITORING,
+                getFinishedJobCleanupTotal(Constant.IMAP_FINISHED_JOB_MONITORING));
         counts.put(
                 Constant.IMAP_FINISHED_JOB_METRICS,
                 getFinishedJobCleanupTotal(Constant.IMAP_FINISHED_JOB_METRICS));
@@ -409,6 +876,35 @@ public class JobHistoryService {
         @Override
         public void entryExpired(EntryEvent<Long, T> event) {
             incrementFinishedJobCleanupTotal(storeName);
+            if (Constant.IMAP_FINISHED_JOB_MONITORING.equals(storeName)) {
+                try {
+                    advanceMonitoringHead(event.getKey() + 1);
+                } catch (RuntimeException e) {
+                    logger.warning("Failed to advance the job monitoring retention head", e);
+                }
+            }
+        }
+    }
+
+    /**
+     * Advances the retained-sequence head monotonically when ledger entries expire.
+     *
+     * <p>Expiration callbacks can arrive out of order. Taking the maximum is safe because a later
+     * sequence can expire only after every earlier record's TTL has elapsed.
+     */
+    private void advanceMonitoringHead(long candidateHeadSequence) {
+        finishedJobMonitoringMetadataImap.lock(Constant.FINISHED_JOB_MONITORING_HEAD_SEQUENCE_KEY);
+        try {
+            long currentHeadSequence =
+                    finishedJobMonitoringMetadataImap.getOrDefault(
+                            Constant.FINISHED_JOB_MONITORING_HEAD_SEQUENCE_KEY, 1L);
+            if (candidateHeadSequence > currentHeadSequence) {
+                finishedJobMonitoringMetadataImap.put(
+                        Constant.FINISHED_JOB_MONITORING_HEAD_SEQUENCE_KEY, candidateHeadSequence);
+            }
+        } finally {
+            finishedJobMonitoringMetadataImap.unlock(
+                    Constant.FINISHED_JOB_MONITORING_HEAD_SEQUENCE_KEY);
         }
     }
 

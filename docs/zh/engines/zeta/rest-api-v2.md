@@ -673,6 +673,94 @@ seatunnel:
 
 ------------------------------------------------------------------------------------------
 
+### 增量查询终态作业变化
+
+<details>
+ <summary><code>GET</code> <code><b>/jobs?status=FAILED&start=latest&limit=100</b></code> <code>(面向监控系统返回轻量的终态作业增量数据。)</code></summary>
+
+该接口用于作业失败轮询和告警补偿对账。与 `/finished-jobs` 不同，它不会加载作业
+DAG 和 metrics。持久化 sidecar outbox 将监控写入与权威 finished-job 状态解耦，
+后台 drain 会为每个作业分配单调递增的 sequence。每次请求最多对 `limit` 个 sequence
+做精确 key 查询，因此服务端查询开销不会随历史作业总量增长。
+
+#### 参数
+
+> | 参数名称 | 是否必传 | 参数类型 | 参数描述 |
+> |---------|----------|----------|----------|
+> | status | 否 | string | 过滤一个终态作业状态，例如 `FAILED`、`FINISHED`、`CANCELED`、`SAVEPOINT_DONE` 或 `UNKNOWABLE`。 |
+> | start | 首次请求必传 | string | `latest` 从当前已提交 sequence 之后开始；`beginning` 从当前最早保留的监控 sequence 开始。不能与 `cursor` 同时传入。 |
+> | cursor | 后续请求必传 | string | 上一次响应返回的不透明游标；不能与 `start` 同时传入。 |
+> | limit | 否 | int | 本次最多检查的 sequence 数量，默认值为 `100`，有效范围为 `1` 到 `1000`。经过状态过滤或保留期清理后，实际返回记录数可能更少。 |
+
+#### 响应
+
+```json
+{
+  "data": [
+    {
+      "sequence": 42,
+      "jobId": "123456",
+      "jobName": "mysql_cdc_to_doris",
+      "jobStatus": "FAILED",
+      "createTime": 1717499900000,
+      "startTime": 1717499910000,
+      "finishTime": 1717500010000,
+      "observedTime": 1717500010100,
+      "errorSummary": "Doris stream load failed"
+    }
+  ],
+  "hasMore": false,
+  "limit": 100,
+  "scanned": 1,
+  "headSequence": 42,
+  "cursorReset": false,
+  "nextCursor": "Mnw0MnxGQUlMRUQ"
+}
+```
+
+结果按照 `sequence` 升序排列。`nextCursor` 指向本次已检查 sequence 窗口的末尾，
+不一定是最后一条返回记录。即使 `data` 为空，也必须持久化本次返回的新游标；这样才能
+安全越过被状态条件过滤的记录。游标会保留首次请求的状态条件，传入冲突的状态会被拒绝。
+
+`headSequence` 表示当前最早保留的 sequence。`start=beginning` 会直接从该位置开始，
+不会逐个扫描已过期的 sequence 空洞。如果 cursor 已落后于 `headSequence`，服务端会
+自动前移到保留水位并返回 `cursorReset=true`；已经被保留策略删除的记录无法恢复。
+outbox 由后台异步 drain，因此刚结束的作业可能在短暂延迟后出现。同一个仍在保留期内的
+作业若重复写入终态，会按 `jobId` 去重。
+
+持久 outbox 最多保留 100,000 条记录，另有 1,000 个作业的持久 overflow 和 1,000 个
+作业的本地最后重试缓冲，避免 ledger 长期异常耗尽堆内存。如果所有缓冲层都不可用，
+SeaTunnel 仍会保留权威 finished-job 状态，同时记录错误日志并递增
+`engine_state_store_finished_job_monitoring_dropped_total`。该指标非零表示对应异常窗口
+内的监控增量流不完整。
+
+权威 finished-job 状态会先于监控 sidecar 写入。outbox 的 100 ms 只限制容量等待和
+加锁等待，不是网络 RPC 的墙钟超时；Hazelcast 分区异常时，完成回调仍可能等待已配置的
+Hazelcast operation timeout，但 sidecar 异常不会回滚 finished-job 状态。
+
+异常恢复记录的 `finishTime` 可能为 `null`；`observedTime` 是 SeaTunnel 写入监控
+记录时生成的非空时间。`jobName` 和 `errorSummary` 分别最多返回 256 和 1024 个字符；
+需要完整详情时使用 `/job-info/{jobId}`。
+
+监控记录与 finished-job history 使用相同保留时间，由
+`history-job-expire-minutes` 控制。升级前已存在的历史记录不会回填。升级后可使用
+`start=latest` 建立新的监控水位，或使用 `start=beginning` 回放新版本写入且仍在保留期
+内的记录。需要低延迟告警时，应使用作业事件 HTTP 回调，并用本接口进行周期性补偿对账。
+
+轮询示例：
+
+```bash
+# 建立水位，不回放已有记录
+curl "http://localhost:5801/jobs?status=FAILED&start=latest&limit=100"
+
+# 使用上一次响应中的 nextCursor 继续查询
+curl "http://localhost:5801/jobs?cursor=Mnw0MnxGQUlMRUQ&limit=100"
+```
+
+</details>
+
+------------------------------------------------------------------------------------------
+
 ### 返回系统监控信息
 
 <details>

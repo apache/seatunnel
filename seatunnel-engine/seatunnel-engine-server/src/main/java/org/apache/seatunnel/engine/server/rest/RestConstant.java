@@ -87,6 +87,10 @@ public class RestConstant {
     @Deprecated public static final String REST_URL_RUNNING_JOB = "/running-job";
     public static final String REST_URL_JOB_INFO = "/job-info";
     public static final String REST_URL_FINISHED_JOBS = "/finished-jobs";
+
+    // Lightweight incremental terminal-job endpoint for monitoring clients.
+    public static final String REST_URL_JOBS = "/jobs";
+
     public static final String REST_URL_ENCRYPT_CONFIG = "/encrypt-config";
     public static final String REST_URL_THREAD_DUMP = "/thread-dump";
     // only for test use

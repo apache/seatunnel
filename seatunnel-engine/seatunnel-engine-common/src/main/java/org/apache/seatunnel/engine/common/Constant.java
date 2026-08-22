@@ -47,6 +47,31 @@ public class Constant {
 
     public static final String IMAP_FINISHED_JOB_STATE = "engine_finishedJobState";
 
+    public static final String IMAP_FINISHED_JOB_MONITORING = "engine_finishedJobMonitoring";
+
+    public static final String IMAP_FINISHED_JOB_MONITORING_METADATA =
+            "engine_finishedJobMonitoringMetadata";
+
+    public static final String IMAP_FINISHED_JOB_MONITORING_PENDING =
+            "engine_finishedJobMonitoringPending";
+
+    public static final String IMAP_FINISHED_JOB_MONITORING_OVERFLOW =
+            "engine_finishedJobMonitoringOverflow";
+
+    public static final int FINISHED_JOB_MONITORING_PENDING_CAPACITY = 100000;
+
+    public static final String FINISHED_JOB_MONITORING_COMMITTED_SEQUENCE_KEY = "committedSequence";
+
+    public static final String FINISHED_JOB_MONITORING_HEAD_SEQUENCE_KEY = "headSequence";
+
+    public static final String FINISHED_JOB_MONITORING_JOB_SEQUENCE_KEY_PREFIX = "job:";
+
+    public static final String FINISHED_JOB_MONITORING_DRAIN_LOCK_KEY = "drainLock";
+
+    public static final String FINISHED_JOB_MONITORING_OVERFLOW_LOCK_KEY = "overflowLock";
+
+    public static final String FINISHED_JOB_MONITORING_DROPPED_RECORDS_KEY = "droppedRecords";
+
     public static final String IMAP_FINISHED_JOB_METRICS = "engine_finishedJobMetrics";
 
     public static final String IMAP_FINISHED_JOB_VERTEX_INFO = "engine_finishedJobVertexInfo";

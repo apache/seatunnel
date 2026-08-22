@@ -696,6 +696,100 @@ When we can't get the job info, the response will be:
 
 ------------------------------------------------------------------------------------------
 
+### Incrementally Query Terminal Job Changes
+
+<details>
+ <summary><code>GET</code> <code><b>/jobs?status=FAILED&start=latest&limit=100</b></code> <code>(Returns lightweight terminal-job changes for monitoring systems.)</code></summary>
+
+This endpoint is intended for polling and alert reconciliation. Unlike `/finished-jobs`, it does
+not load job DAGs or metrics. A durable sidecar outbox decouples monitoring from authoritative
+finished-job persistence. The background drain assigns each job a monotonically increasing
+sequence. One request performs exact-key lookups for at most `limit` sequence slots, so server-side
+query work is bounded independently of the total retained job count.
+
+#### Parameters
+
+> | name | type | data type | description |
+> |------|------|-----------|-------------|
+> | status | optional | string | Filters one terminal job status, such as `FAILED`, `FINISHED`, `CANCELED`, `SAVEPOINT_DONE`, or `UNKNOWABLE`. |
+> | start | required for the first request | string | `latest` starts after the current committed sequence. `beginning` starts at the earliest retained monitoring sequence. It cannot be combined with `cursor`. |
+> | cursor | required for subsequent requests | string | Opaque cursor returned by the previous response. It cannot be combined with `start`. |
+> | limit | optional | int | Maximum sequence slots examined. The default is `100`; the valid range is `1` through `1000`. The number of returned records can be smaller after status filtering or retention expiry. |
+
+#### Responses
+
+```json
+{
+  "data": [
+    {
+      "sequence": 42,
+      "jobId": "123456",
+      "jobName": "mysql_cdc_to_doris",
+      "jobStatus": "FAILED",
+      "createTime": 1717499900000,
+      "startTime": 1717499910000,
+      "finishTime": 1717500010000,
+      "observedTime": 1717500010100,
+      "errorSummary": "Doris stream load failed"
+    }
+  ],
+  "hasMore": false,
+  "limit": 100,
+  "scanned": 1,
+  "headSequence": 42,
+  "cursorReset": false,
+  "nextCursor": "Mnw0MnxGQUlMRUQ"
+}
+```
+
+Results are ordered by `sequence`. `nextCursor` points after the sequence window examined by this
+request, not necessarily after the last returned job. Always persist the returned cursor, including
+when `data` is empty. This safely advances across records excluded by the status filter. The cursor
+preserves the initial status filter; a conflicting status is rejected.
+
+`headSequence` is the earliest retained sequence. `start=beginning` starts there instead of scanning
+expired sequence gaps. When a cursor is older than `headSequence`, the server advances it to the
+retention head and returns `cursorReset=true`; records already removed by retention cannot be
+recovered. The outbox is drained asynchronously, so a just-finished job can appear after a short
+delay. Repeated terminal-state persistence for the same retained job is deduplicated by `jobId`.
+
+The durable outbox is capped at 100,000 records, with a 1,000-job durable overflow and a 1,000-job
+local last-resort buffer. These bounds prevent an extended ledger outage from exhausting heap
+memory. If all tiers are unavailable, SeaTunnel keeps the authoritative finished-job state, logs
+an error, and increments
+`engine_state_store_finished_job_monitoring_dropped_total`. A non-zero value means the monitoring
+stream must be treated as incomplete for that outage window.
+
+The authoritative finished-job state is written before the monitoring sidecar. The 100 ms outbox
+setting limits capacity and lock waiting; it is not a network RPC deadline. During a Hazelcast
+partition outage, the completion callback can still wait for the configured Hazelcast operation
+timeout, but a sidecar exception cannot roll back the finished-job state.
+
+`finishTime` can be `null` for abnormal recovery records; `observedTime` is always populated when
+SeaTunnel stores the monitoring record. `jobName` and `errorSummary` are capped at 256 and 1024
+characters respectively. Use `/job-info/{jobId}` when full job details are required.
+
+Monitoring records use the same retention period as finished-job history, controlled by
+`history-job-expire-minutes`. Records that existed before upgrading to a version containing this
+endpoint are not backfilled. Use `start=latest` to establish a monitoring watermark after upgrade,
+or `start=beginning` to replay records created by the new version that are still retained. For
+low-latency alerts, use the job event HTTP reporter and use this endpoint for periodic
+reconciliation.
+
+Example polling sequence:
+
+```bash
+# Establish a watermark without replaying older records
+curl "http://localhost:5801/jobs?status=FAILED&start=latest&limit=100"
+
+# Continue from nextCursor returned by the previous response
+curl "http://localhost:5801/jobs?cursor=Mnw0MnxGQUlMRUQ&limit=100"
+```
+
+</details>
+
+------------------------------------------------------------------------------------------
+
 ### Returns System Monitoring Information
 
 <details>
