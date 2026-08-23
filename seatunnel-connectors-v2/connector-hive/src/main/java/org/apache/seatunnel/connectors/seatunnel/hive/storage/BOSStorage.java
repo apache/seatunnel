@@ -31,10 +31,11 @@ import org.apache.hadoop.conf.Configuration;
 import java.util.Map;
 
 /**
- * Hive 表存储位置为 BOS（{@code bos://}）时的 Hadoop 配置构建器。
+ * Builds Hadoop configuration for Hive tables stored on BOS ({@code bos://}).
  *
- * <p>从 {@code hive-site.xml}/{@code core-site.xml} 或 {@code hive.hadoop.conf} 读取 bucket 与 BOS
- * 认证信息后，委托 {@link BosConf} 生成 {@link HadoopConf}，供 Hive Source/Sink 访问 BOS 数据路径。
+ * <p>Loads bucket and BOS credentials from {@code hive-site.xml}/{@code core-site.xml} or {@code
+ * hive.hadoop.conf}, then delegates to {@link BosConf} for {@link HadoopConf} used by Hive
+ * source/sink file access.
  */
 public class BOSStorage extends AbstractStorage {
 

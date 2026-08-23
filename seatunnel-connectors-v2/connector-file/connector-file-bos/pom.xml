@@ -29,10 +29,6 @@
     <artifactId>connector-file-bos</artifactId>
     <name>SeaTunnel : Connectors V2 : File : Bos</name>
 
-    <properties>
-        <bos-hdfs-sdk.version>1.0.4-community</bos-hdfs-sdk.version>
-    </properties>
-
     <dependencies>
 
         <dependency>
@@ -50,12 +46,6 @@
                     <artifactId>avro</artifactId>
                 </exclusion>
             </exclusions>
-        </dependency>
-        <dependency>
-            <groupId>com.baidubce</groupId>
-            <artifactId>bos-hdfs-sdk</artifactId>
-            <version>${bos-hdfs-sdk.version}</version>
-            <scope>provided</scope>
         </dependency>
 
     </dependencies>
