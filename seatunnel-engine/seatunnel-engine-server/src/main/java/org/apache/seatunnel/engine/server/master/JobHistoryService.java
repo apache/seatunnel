@@ -51,6 +51,7 @@ import lombok.Getter;
 import java.io.Serializable;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -58,6 +59,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
@@ -112,6 +114,25 @@ public class JobHistoryService {
 
     private final Map<String, AtomicLong> finishedJobCleanupTotals = new ConcurrentHashMap<>();
 
+    /**
+     * Registration id of the expiration listener added on {@link #finishedJobStateImap} in the
+     * constructor. The finished-job IMaps are cluster-wide structures, so listener registrations
+     * survive this service instance and must be removed explicitly by {@link #close()}.
+     */
+    private final UUID finishedJobStateListenerId;
+
+    /**
+     * Registration id of the expiration listener added on {@link #finishedJobMetricsImap} in the
+     * constructor, kept so that {@link #close()} can deregister it.
+     */
+    private final UUID finishedJobMetricsListenerId;
+
+    /**
+     * Registration id of the expiration listener added on {@link #finishedJobDAGInfoImap} in the
+     * constructor, kept so that {@link #close()} can deregister it.
+     */
+    private final UUID finishedJobDAGInfoListenerId;
+
     public JobHistoryService(
             NodeEngine nodeEngine,
             IMap<Object, Object> runningJobStateIMap,
@@ -130,15 +151,59 @@ public class JobHistoryService {
         this.finishedJobStateImap = finishedJobStateImap;
         this.finishedJobMetricsImap = finishedJobMetricsImap;
         this.finishedJobDAGInfoImap = finishedJobVertexInfoImap;
-        this.finishedJobStateImap.addEntryListener(
-                new FinishedJobExpiredListener<>(Constant.IMAP_FINISHED_JOB_STATE), true);
-        this.finishedJobMetricsImap.addEntryListener(
-                new FinishedJobExpiredListener<>(Constant.IMAP_FINISHED_JOB_METRICS), true);
-        this.finishedJobDAGInfoImap.addEntryListener(
-                new JobInfoExpiredListener(Constant.IMAP_FINISHED_JOB_VERTEX_INFO), true);
+        this.finishedJobStateListenerId =
+                this.finishedJobStateImap.addEntryListener(
+                        new FinishedJobExpiredListener<>(Constant.IMAP_FINISHED_JOB_STATE), true);
+        this.finishedJobMetricsListenerId =
+                this.finishedJobMetricsImap.addEntryListener(
+                        new FinishedJobExpiredListener<>(Constant.IMAP_FINISHED_JOB_METRICS), true);
+        this.finishedJobDAGInfoListenerId =
+                this.finishedJobDAGInfoImap.addEntryListener(
+                        new JobInfoExpiredListener(Constant.IMAP_FINISHED_JOB_VERTEX_INFO), true);
         this.objectMapper = new ObjectMapper();
         this.objectMapper.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
         this.finishedJobExpireTime = finishedJobExpireTime;
+    }
+
+    /**
+     * Deregisters the finished-job expiration listeners registered by this instance.
+     *
+     * <p>{@link org.apache.seatunnel.engine.server.CoordinatorService} creates a new
+     * JobHistoryService every time this node becomes the active master, while the finished-job
+     * IMaps and their listener registrations are cluster-wide and outlive the coordinator
+     * lifecycle. This method must be called when the coordinator runtime is cleared, otherwise
+     * every master role switch leaks the previous listeners, keeps the old service instance
+     * reachable from the IMap listener registry and duplicates expiration side effects such as
+     * {@link CleanLogOperation} fan-out and cleanup counters.
+     *
+     * <p>Only listener registrations are removed here. Read methods of this instance keep working
+     * after close, so callers that still hold a reference, for example REST handlers on a node that
+     * just left the active master role, are not affected. Calling close more than once is safe
+     * because removing an already removed registration is a no-op.
+     */
+    public void close() {
+        removeEntryListenerQuietly(
+                finishedJobStateImap, finishedJobStateListenerId, Constant.IMAP_FINISHED_JOB_STATE);
+        removeEntryListenerQuietly(
+                finishedJobMetricsImap,
+                finishedJobMetricsListenerId,
+                Constant.IMAP_FINISHED_JOB_METRICS);
+        removeEntryListenerQuietly(
+                finishedJobDAGInfoImap,
+                finishedJobDAGInfoListenerId,
+                Constant.IMAP_FINISHED_JOB_VERTEX_INFO);
+    }
+
+    /**
+     * Returns the registration ids of the entry listeners owned by this instance, in the order
+     * state map, metrics map, DAG info map. Package-private and only intended for tests that verify
+     * the listeners are deregistered on close.
+     */
+    List<UUID> getEntryListenerRegistrationIds() {
+        return Arrays.asList(
+                finishedJobStateListenerId,
+                finishedJobMetricsListenerId,
+                finishedJobDAGInfoListenerId);
     }
 
     // Gets the status of a running and completed job.
@@ -375,6 +440,20 @@ public class JobHistoryService {
         finishedJobCleanupTotals
                 .computeIfAbsent(storeName, key -> new AtomicLong())
                 .incrementAndGet();
+    }
+
+    /**
+     * Removes one entry listener registration from the given IMap without propagating failures.
+     * Listener cleanup is best effort and must not break the master switch or shutdown flow, for
+     * example when the Hazelcast instance is already shutting down together with the coordinator.
+     */
+    private void removeEntryListenerQuietly(
+            IMap<?, ?> imap, UUID registrationId, String storeName) {
+        try {
+            imap.removeEntryListener(registrationId);
+        } catch (Exception e) {
+            logger.warning("Failed to remove finished job expiration listener of " + storeName, e);
+        }
     }
 
     @AllArgsConstructor
