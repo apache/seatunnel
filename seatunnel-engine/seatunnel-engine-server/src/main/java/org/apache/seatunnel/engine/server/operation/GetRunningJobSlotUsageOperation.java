@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.operation;
 
 import org.apache.seatunnel.common.utils.JsonUtils;
+import org.apache.seatunnel.engine.common.utils.ExceptionUtil;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.serializable.ClientToServerOperationDataSerializerHook;
@@ -58,10 +59,17 @@ public class GetRunningJobSlotUsageOperation extends Operation
                                 .getExecutionService()
                                 .getExecutor("get_running_job_slot_usage_operation"));
 
+        response = awaitResponse(future);
+    }
+
+    static String awaitResponse(CompletableFuture<String> future) {
         try {
-            response = future.get();
-        } catch (InterruptedException | ExecutionException e) {
+            return future.get();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
             throw new RuntimeException(e);
+        } catch (ExecutionException e) {
+            throw ExceptionUtil.rethrow(e.getCause());
         }
     }
 
