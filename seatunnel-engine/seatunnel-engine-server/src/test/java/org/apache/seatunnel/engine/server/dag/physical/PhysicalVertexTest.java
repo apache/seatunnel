@@ -17,47 +17,19 @@
 
 package org.apache.seatunnel.engine.server.dag.physical;
 
-import org.apache.seatunnel.engine.common.exception.JobException;
-import org.apache.seatunnel.engine.server.execution.ExecutionState;
-import org.apache.seatunnel.engine.server.execution.TaskExecutionState;
-import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
-
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-/** Tests the failure-message classification in {@link PhysicalVertex}. */
+/** Tests the graceful member-removal classification in {@link PhysicalVertex}. */
 public class PhysicalVertexTest {
 
     /**
-     * Only the coordinator's exact offline-node message should be treated as an expected scale-down
-     * failure.
+     * Only the structured graceful-member-removal classification should downgrade the failure log
+     * level.
      */
     @Test
-    public void shouldMatchOnlyCoordinatorOfflineFailureMessage() {
-        TaskGroupLocation taskGroupLocation = new TaskGroupLocation(1L, 2, 3L);
-        String offlineMessage =
-                "The taskGroup(" + taskGroupLocation + ") deployed node(127.0.0.1:5801) offline";
-
-        Assertions.assertTrue(PhysicalVertex.isDeployedNodeOfflineFailure(offlineMessage));
-        Assertions.assertTrue(
-                PhysicalVertex.isDeployedNodeOfflineFailure(
-                        new TaskExecutionState(
-                                        taskGroupLocation, ExecutionState.FAILED, offlineMessage)
-                                .getThrowableMsg()));
-        Assertions.assertFalse(
-                PhysicalVertex.isDeployedNodeOfflineFailure(
-                        new TaskExecutionState(
-                                        taskGroupLocation,
-                                        ExecutionState.FAILED,
-                                        new JobException(offlineMessage))
-                                .getThrowableMsg()));
-        Assertions.assertFalse(
-                PhysicalVertex.isDeployedNodeOfflineFailure(
-                        "The taskGroup("
-                                + taskGroupLocation
-                                + ") deployed node(127.0.0.1:5801) restarted"));
-        Assertions.assertFalse(
-                PhysicalVertex.isDeployedNodeOfflineFailure(
-                        "deployed node(127.0.0.1:5801) offline"));
+    public void shouldWarnOnlyForGracefulMemberRemovalFailureType() {
+        Assertions.assertTrue(PhysicalVertex.shouldLogFailureAsWarn(true));
+        Assertions.assertFalse(PhysicalVertex.shouldLogFailureAsWarn(false));
     }
 }

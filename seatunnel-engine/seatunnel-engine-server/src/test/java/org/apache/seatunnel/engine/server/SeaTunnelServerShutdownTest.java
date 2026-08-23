@@ -42,7 +42,10 @@ import static org.mockito.Mockito.when;
 /** Covers graceful member-removal marker writes around the Hazelcast shutdown lifecycle. */
 class SeaTunnelServerShutdownTest {
 
-    /** Verifies the marker is published from Hazelcast's pre-PASSIVE graceful shutdown hook. */
+    /**
+     * Verifies the marker is published from Hazelcast's graceful shutdown hook before map access is
+     * torn down.
+     */
     @Test
     void shouldMarkGracefulMemberRemovalOnGracefulShutdownHook() throws Exception {
         NodeEngineImpl nodeEngine = mock(NodeEngineImpl.class);
@@ -58,7 +61,12 @@ class SeaTunnelServerShutdownTest {
 
         seaTunnelServer.onShutdown(30, TimeUnit.SECONDS);
 
-        verify(gracefulMemberRemovalIMap).put(eq(address), anyLong());
+        verify(gracefulMemberRemovalIMap)
+                .put(
+                        eq(address),
+                        anyLong(),
+                        eq(Constant.GRACEFUL_MEMBER_REMOVAL_MARK_TTL_MILLIS),
+                        eq(TimeUnit.MILLISECONDS));
         verify(gracefulMemberRemovalIMap, never()).remove(address);
     }
 

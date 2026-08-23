@@ -60,9 +60,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
@@ -73,13 +73,6 @@ import java.util.stream.Collectors;
  */
 @Slf4j
 public class PhysicalVertex {
-
-    /**
-     * Matches the exact failure message emitted when a deployed worker leaves the cluster and the
-     * coordinator fails the affected task group.
-     */
-    private static final Pattern DEPLOYED_NODE_OFFLINE_ERROR_PATTERN =
-            Pattern.compile("^The taskGroup\\(.+\\) deployed node\\(.+\\) offline$");
 
     private final TaskGroupLocation taskGroupLocation;
 
@@ -131,6 +124,9 @@ public class PhysicalVertex {
 
     /** The error throw by physicalVertex, should be set when physicalVertex throw error. */
     private AtomicReference<String> errorByPhysicalVertex = new AtomicReference<>();
+
+    /** Tracks whether the current failure came from a graceful member-removal classification. */
+    private AtomicBoolean gracefulMemberRemovalFailureByPhysicalVertex = new AtomicBoolean(false);
 
     public PhysicalVertex(
             int subTaskGroupIndex,
@@ -509,6 +505,7 @@ public class PhysicalVertex {
                             runningJobStateIMap.set(taskGroupLocation, ExecutionState.CREATED);
                             // reset the errorByPhysicalVertex
                             errorByPhysicalVertex = new AtomicReference<>();
+                            gracefulMemberRemovalFailureByPhysicalVertex = new AtomicBoolean(false);
                             return null;
                         },
                         new RetryUtils.RetryMaterial(
@@ -539,6 +536,15 @@ public class PhysicalVertex {
     }
 
     public void updateStateByExecutionService(TaskExecutionState taskExecutionState) {
+        updateStateByExecutionService(taskExecutionState, false);
+    }
+
+    /**
+     * Receives a coordinator-classified graceful member-removal flag without changing the task
+     * state's serialized payload.
+     */
+    public void updateStateByExecutionService(
+            TaskExecutionState taskExecutionState, boolean gracefulMemberRemovalFailure) {
         if (!taskExecutionState.getExecutionState().isEndState()) {
             throw new SeaTunnelEngineException(
                     String.format(
@@ -546,6 +552,7 @@ public class PhysicalVertex {
                             taskExecutionState.getExecutionState()));
         }
         errorByPhysicalVertex.compareAndSet(null, taskExecutionState.getThrowableMsg());
+        gracefulMemberRemovalFailureByPhysicalVertex.set(gracefulMemberRemovalFailure);
         updateTaskState(taskExecutionState.getExecutionState());
     }
 
@@ -623,7 +630,9 @@ public class PhysicalVertex {
             case FAILED:
                 stopPhysicalVertex();
                 String errorMsg = errorByPhysicalVertex.get();
-                if (isDeployedNodeOfflineFailure(errorMsg)) {
+                boolean gracefulMemberRemovalFailure =
+                        gracefulMemberRemovalFailureByPhysicalVertex.get();
+                if (shouldLogFailureAsWarn(gracefulMemberRemovalFailure)) {
                     log.warn(
                             String.format(
                                     "%s end with state %s due to node offline: %s",
@@ -653,15 +662,13 @@ public class PhysicalVertex {
 
     public void makeTaskGroupFailing(Throwable err) {
         errorByPhysicalVertex.compareAndSet(null, ExceptionUtils.getMessage(err));
+        gracefulMemberRemovalFailureByPhysicalVertex.set(false);
         updateTaskState(ExecutionState.FAILING);
     }
 
-    /**
-     * Uses the coordinator's exact offline-node message template so only expected scale-down
-     * failures are downgraded to warn logs.
-     */
+    /** Only coordinator-classified graceful member removals should be downgraded to warn logs. */
     @VisibleForTesting
-    static boolean isDeployedNodeOfflineFailure(String errorMsg) {
-        return errorMsg != null && DEPLOYED_NODE_OFFLINE_ERROR_PATTERN.matcher(errorMsg).matches();
+    static boolean shouldLogFailureAsWarn(boolean gracefulMemberRemovalFailure) {
+        return gracefulMemberRemovalFailure;
     }
 }

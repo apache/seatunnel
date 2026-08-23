@@ -30,27 +30,12 @@ import com.hazelcast.cluster.Address;
 class CoordinatorServiceMemberRemovedTest {
 
     @Test
-    void shouldUsePlainOfflineMessageForGracefulMemberRemoval() throws Exception {
+    void shouldKeepThrowablePayloadForMemberRemovedFailureState() throws Exception {
         TaskGroupLocation taskGroupLocation = new TaskGroupLocation(1L, 2, 3L);
         Address address = new Address("127.0.0.1", 5801);
 
         TaskExecutionState taskExecutionState =
-                CoordinatorService.buildMemberRemovedFailureState(taskGroupLocation, address, true);
-
-        Assertions.assertEquals(ExecutionState.FAILED, taskExecutionState.getExecutionState());
-        Assertions.assertEquals(
-                CoordinatorService.buildMemberRemovedOfflineMessage(taskGroupLocation, address),
-                taskExecutionState.getThrowableMsg());
-    }
-
-    @Test
-    void shouldKeepThrowableStackTraceForUnexpectedMemberRemoval() throws Exception {
-        TaskGroupLocation taskGroupLocation = new TaskGroupLocation(1L, 2, 3L);
-        Address address = new Address("127.0.0.1", 5801);
-
-        TaskExecutionState taskExecutionState =
-                CoordinatorService.buildMemberRemovedFailureState(
-                        taskGroupLocation, address, false);
+                CoordinatorService.buildMemberRemovedFailureState(taskGroupLocation, address);
 
         Assertions.assertEquals(ExecutionState.FAILED, taskExecutionState.getExecutionState());
         Assertions.assertTrue(taskExecutionState.getThrowableMsg().contains("JobException"));

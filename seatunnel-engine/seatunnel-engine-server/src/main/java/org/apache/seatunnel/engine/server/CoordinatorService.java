@@ -1982,10 +1982,7 @@ public class CoordinatorService {
         return isActive;
     }
 
-    /**
-     * Builds the plain message for an explicitly graceful departure so PhysicalVertex can emit WARN
-     * without parsing a Throwable stack trace.
-     */
+    /** Builds the shared offline-node message used when a deployed worker leaves the cluster. */
     @VisibleForTesting
     static String buildMemberRemovedOfflineMessage(
             @NonNull TaskGroupLocation taskGroupLocation, @NonNull Address lostAddress) {
@@ -1994,18 +1991,13 @@ public class CoordinatorService {
     }
 
     /**
-     * Keeps ERROR diagnostics for unproven departures by retaining a JobException stack trace. The
-     * fallback must remain distinguishable from an expected member removal.
+     * Preserves the original JobException payload shape for both graceful and unproven member
+     * removals.
      */
     @VisibleForTesting
     static TaskExecutionState buildMemberRemovedFailureState(
-            @NonNull TaskGroupLocation taskGroupLocation,
-            @NonNull Address lostAddress,
-            boolean gracefulMemberRemoval) {
+            @NonNull TaskGroupLocation taskGroupLocation, @NonNull Address lostAddress) {
         String offlineMessage = buildMemberRemovedOfflineMessage(taskGroupLocation, lostAddress);
-        if (gracefulMemberRemoval) {
-            return new TaskExecutionState(taskGroupLocation, ExecutionState.FAILED, offlineMessage);
-        }
         return new TaskExecutionState(
                 taskGroupLocation, ExecutionState.FAILED, new JobException(offlineMessage));
     }
@@ -2020,20 +2012,26 @@ public class CoordinatorService {
                         <= Constant.GRACEFUL_MEMBER_REMOVAL_MARK_TTL_MILLIS;
     }
 
-    /**
-     * Consumes the marker once because each member-removed event must be classified independently.
-     */
-    private boolean consumeGracefulMemberRemovalMarker(@NonNull Address lostAddress) {
+    /** Reads the marker without clearing it so a failover can still reclassify the same event. */
+    private Long getGracefulMemberRemovalMarker(@NonNull Address lostAddress) {
         if (gracefulMemberRemovalIMap == null) {
-            return false;
+            return null;
         }
-        Long markedAt = gracefulMemberRemovalIMap.remove(lostAddress);
-        return isGracefulMemberRemovalMarkerValid(markedAt, System.currentTimeMillis());
+        return gracefulMemberRemovalIMap.get(lostAddress);
+    }
+
+    /** Clears the marker after classification so later failures on the same address start clean. */
+    private void clearGracefulMemberRemovalMarker(@NonNull Address lostAddress) {
+        if (gracefulMemberRemovalIMap != null) {
+            gracefulMemberRemovalIMap.remove(lostAddress);
+        }
     }
 
     public void failedTaskOnMemberRemoved(MembershipServiceEvent event) {
         Address lostAddress = event.getMember().getAddress();
-        boolean gracefulMemberRemoval = consumeGracefulMemberRemovalMarker(lostAddress);
+        Long markedAt = getGracefulMemberRemovalMarker(lostAddress);
+        boolean gracefulMemberRemoval =
+                isGracefulMemberRemovalMarkerValid(markedAt, System.currentTimeMillis());
         runningJobMasterMap.forEach(
                 (aLong, jobMaster) -> {
                     jobMaster
@@ -2051,6 +2049,9 @@ public class CoordinatorService {
                                                 gracefulMemberRemoval);
                                     });
                 });
+        if (markedAt != null) {
+            clearGracefulMemberRemovalMarker(lostAddress);
+        }
     }
 
     private void makeTasksFailed(
@@ -2068,8 +2069,8 @@ public class CoordinatorService {
                                     || executionState.equals(ExecutionState.CANCELING))) {
                         TaskGroupLocation taskGroupLocation = physicalVertex.getTaskGroupLocation();
                         physicalVertex.updateStateByExecutionService(
-                                buildMemberRemovedFailureState(
-                                        taskGroupLocation, lostAddress, gracefulMemberRemoval));
+                                buildMemberRemovedFailureState(taskGroupLocation, lostAddress),
+                                gracefulMemberRemoval);
                     }
                 });
     }

@@ -231,8 +231,8 @@ public class SeaTunnelServer
 
     @Override
     public boolean onShutdown(long timeout, TimeUnit unit) {
-        // Hazelcast invokes graceful-shutdown-aware services before ManagedService.shutdown()
-        // and before the node becomes PASSIVE, so the marker is still writable here.
+        // Hazelcast invokes graceful-shutdown-aware services before NodeEngine shutdown tears down
+        // the proxy and operation services that back getMap(), so the marker is still writable.
         return markLocalGracefulMemberRemoval();
     }
 
@@ -298,7 +298,11 @@ public class SeaTunnelServer
             IMap<Address, Long> gracefulMemberRemovalIMap =
                     nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_GRACEFUL_MEMBER_REMOVAL);
             if (gracefulShutdown) {
-                gracefulMemberRemovalIMap.put(thisAddress, System.currentTimeMillis());
+                gracefulMemberRemovalIMap.put(
+                        thisAddress,
+                        System.currentTimeMillis(),
+                        Constant.GRACEFUL_MEMBER_REMOVAL_MARK_TTL_MILLIS,
+                        TimeUnit.MILLISECONDS);
             } else {
                 gracefulMemberRemovalIMap.remove(thisAddress);
             }
