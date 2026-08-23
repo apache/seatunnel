@@ -27,26 +27,15 @@ import com.azure.storage.common.StorageSharedKeyCredential;
 import com.azure.storage.queue.QueueAsyncClient;
 import com.azure.storage.queue.QueueClientBuilder;
 import com.azure.storage.queue.QueueMessageEncoding;
-import reactor.core.scheduler.Schedulers;
-import reactor.netty.http.HttpResources;
 
-import java.io.IOException;
-import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
 
 class AzureQueueStorageSender implements AzureQueueSender {
 
-    private static final Duration RESOURCE_SHUTDOWN_TIMEOUT = Duration.ofSeconds(10);
-
-    // The shaded Azure SDK shares its Reactor resources across clients in this connector.
-    private static int activeSenders;
-
     private final QueueAsyncClient queueClient;
-    private boolean closed;
 
     private AzureQueueStorageSender(QueueAsyncClient queueClient) {
         this.queueClient = queueClient;
-        retainResources();
     }
 
     static AzureQueueSender create(AzureQueueSinkConfig config) {
@@ -91,12 +80,8 @@ class AzureQueueStorageSender implements AzureQueueSender {
     }
 
     @Override
-    public synchronized void close() throws IOException {
-        if (closed) {
-            return;
-        }
-        closed = true;
-        releaseResources();
+    public void close() {
+        // QueueAsyncClient has no close contract; its Reactor resources are process-wide.
     }
 
     private static QueueMessageEncoding toAzureEncoding(MessageEncoding messageEncoding) {
@@ -107,25 +92,5 @@ class AzureQueueStorageSender implements AzureQueueSender {
 
     private static String normalizeSasToken(String sasToken) {
         return sasToken.startsWith("?") ? sasToken.substring(1) : sasToken;
-    }
-
-    private static synchronized void retainResources() {
-        activeSenders++;
-    }
-
-    private static synchronized void releaseResources() throws IOException {
-        activeSenders--;
-        if (activeSenders > 0) {
-            return;
-        }
-
-        try {
-            HttpResources.disposeLoopsAndConnectionsLater(Duration.ZERO, RESOURCE_SHUTDOWN_TIMEOUT)
-                    .block(RESOURCE_SHUTDOWN_TIMEOUT.plusSeconds(1));
-        } catch (RuntimeException e) {
-            throw new IOException("Failed to close Azure Queue Storage HTTP resources", e);
-        } finally {
-            Schedulers.shutdownNow();
-        }
     }
 }
