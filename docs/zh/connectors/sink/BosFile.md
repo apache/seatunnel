@@ -87,6 +87,27 @@ import ChangeLog from '../changelog/connector-file-bos.md';
 
 ## 示例
 
+分区写入 text 文件：
+
+```hocon
+sink {
+  BosFile {
+    path = "/sink"
+    bucket = "bos://sink-bucket"
+    access_key = "your-access-key"
+    secret_key = "your-secret-key"
+    endpoint = "http://bj.bcebos.com"
+    file_format_type = "text"
+    have_partition = true
+    partition_by = ["age"]
+    partition_dir_expression = "${k0}=${v0}"
+    is_enable_transaction = true
+  }
+}
+```
+
+简单 text 写入：
+
 ```hocon
 sink {
   BosFile {

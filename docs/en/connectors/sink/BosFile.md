@@ -84,8 +84,58 @@ To use this connector you need to put `bos-hdfs-sdk` (>= 1.0.4-community) into `
 | parquet_avro_write_timestamp_as_int96 | boolean | no       | false                                      | Only used when file_format is parquet.                                                                                                                                          |
 | parquet_avro_write_fixed_as_int96     | array   | no       | -                                          | Only used when file_format is parquet.                                                                                                                                          |
 | encoding                              | string  | no       | "UTF-8"                                    | Only used when file_format_type is json,text,csv,xml.                                                                                                                           |
+| common-options                        | object  | no       | -                                          | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details.                                                      |
 
 ## Example
+
+For text file format with `have_partition`, `custom_filename` and `sink_columns`:
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+sink {
+  BosFile {
+    path = "/sink"
+    bucket = "bos://sink-bucket"
+    access_key = "your-access-key"
+    secret_key = "your-secret-key"
+    endpoint = "http://bj.bcebos.com"
+    file_format_type = "text"
+    field_delimiter = "\t"
+    row_delimiter = "\n"
+    have_partition = true
+    partition_by = ["age"]
+    partition_dir_expression = "${k0}=${v0}"
+    is_partition_field_write_in_file = true
+    custom_filename = true
+    file_name_expression = "${transactionId}_${now}"
+    filename_time_format = "yyyy.MM.dd"
+    sink_columns = ["name", "age"]
+    is_enable_transaction = true
+  }
+}
+```
+
+For parquet file format:
+
+```hocon
+sink {
+  BosFile {
+    path = "/sink"
+    bucket = "bos://sink-bucket"
+    access_key = "your-access-key"
+    secret_key = "your-secret-key"
+    endpoint = "http://bj.bcebos.com"
+    file_format_type = "parquet"
+    is_enable_transaction = true
+  }
+}
+```
+
+Simple text sink:
 
 ```hocon
 sink {

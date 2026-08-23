@@ -77,12 +77,20 @@ import ChangeLog from '../changelog/connector-file-bos.md';
 | poi_excel_max_file_size    | long    | 否   | 52428800                    |
 | xml_row_tag                | string  | 否   | -                           |
 | xml_use_attr_format        | boolean | 否   | -                           |
+| csv_use_header_line        | boolean | 否   | false                       |
 | file_filter_pattern        | string  | 否   | -                           |
 | filename_extension         | string  | 否   | -                           |
 | compress_codec             | string  | 否   | none                        |
-| archive_compress_codec     | string  | 否   | -                           |
+| archive_compress_codec     | string  | 否   | none                        |
 | encoding                   | string  | 否   | UTF-8                       |
+| binary_chunk_size          | int     | 否   | 1024                        |
+| binary_complete_file_mode  | boolean | 否   | false                       |
+| file_filter_modified_start | string  | 否   | -                           |
+| file_filter_modified_end   | string  | 否   | -                           |
+| quote_char                 | string  | 否   | "                           |
+| escape_char                | string  | 否   | -                           |
 | recursive_file_scan        | boolean | 否   | true                        |
+| sort_files_by_modification_time | boolean | 否   | false                       |
 
 ## 示例
 
@@ -91,16 +99,36 @@ source {
   BosFile {
     bucket = "bos://source-bucket"
     path = "/warehouse/table/"
-    file_format_type = "text"
+    file_format_type = "orc"
     access_key = "your-access-key"
     secret_key = "your-secret-key"
     endpoint = "http://bj.bcebos.com"
-    schema {
-      fields {
-        id = int
-        name = string
-      }
-    }
+  }
+}
+```
+
+### 二进制文件同步
+
+```hocon
+source {
+  BosFile {
+    bucket = "bos://source-bucket"
+    path = "/read/binary/"
+    file_format_type = "binary"
+    access_key = "your-access-key"
+    secret_key = "your-secret-key"
+    endpoint = "http://bj.bcebos.com"
+  }
+}
+
+sink {
+  BosFile {
+    bucket = "bos://sink-bucket"
+    path = "/write/binary/"
+    file_format_type = "binary"
+    access_key = "your-access-key"
+    secret_key = "your-secret-key"
+    endpoint = "http://bj.bcebos.com"
   }
 }
 ```
