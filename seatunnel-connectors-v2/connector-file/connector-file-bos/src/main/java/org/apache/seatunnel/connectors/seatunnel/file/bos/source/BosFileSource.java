@@ -15,29 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.seatunnel.file.config;
+package org.apache.seatunnel.connectors.seatunnel.file.bos.source;
 
-import java.io.Serializable;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.connectors.seatunnel.file.bos.config.BosConf;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
+import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
+import org.apache.seatunnel.connectors.seatunnel.file.source.BaseFileSource;
 
-public enum FileSystemType implements Serializable {
-    HDFS("HdfsFile"),
-    LOCAL("LocalFile"),
-    OSS("OssFile"),
-    OSS_JINDO("OssJindoFile"),
-    COS("CosFile"),
-    FTP("FtpFile"),
-    SFTP("SftpFile"),
-    S3("S3File"),
-    OBS("ObsFile"),
-    BOS("BosFile");
+public class BosFileSource extends BaseFileSource {
 
-    private final String fileSystemPluginName;
-
-    FileSystemType(String fileSystemPluginName) {
-        this.fileSystemPluginName = fileSystemPluginName;
+    public BosFileSource(ReadonlyConfig pluginConfig) {
+        super(pluginConfig);
     }
 
-    public String getFileSystemPluginName() {
-        return fileSystemPluginName;
+    @Override
+    protected HadoopConf initHadoopConf() {
+        return BosConf.buildWithReadonlyConfig(pluginConfig);
+    }
+
+    @Override
+    public String getPluginName() {
+        return FileSystemType.BOS.getFileSystemPluginName();
     }
 }
