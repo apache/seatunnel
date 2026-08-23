@@ -4,13 +4,13 @@ import ChangeLog from '../changelog/connector-file-bos.md';
 
 > BOS 文件 Source 连接器
 
-## 支持的引擎
+## 支持引擎
 
 > Spark<br/>
 > Flink<br/>
 > SeaTunnel Zeta<br/>
 
-## 主要特性
+## 关键特性
 
 - [x] [批处理](../../introduction/concepts/connector-v2-features.md)
 - [ ] [流处理](../../introduction/concepts/connector-v2-features.md)

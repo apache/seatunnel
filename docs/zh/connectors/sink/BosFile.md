@@ -4,7 +4,7 @@ import ChangeLog from '../changelog/connector-file-bos.md';
 
 > BOS 文件 Sink 连接器
 
-## 支持的引擎
+## 支持引擎
 
 > Spark<br/>
 > Flink<br/>

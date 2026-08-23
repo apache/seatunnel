@@ -55,6 +55,7 @@
             <groupId>com.baidubce</groupId>
             <artifactId>bos-hdfs-sdk</artifactId>
             <version>${bos-hdfs-sdk.version}</version>
+            <scope>provided</scope>
         </dependency>
 
     </dependencies>
