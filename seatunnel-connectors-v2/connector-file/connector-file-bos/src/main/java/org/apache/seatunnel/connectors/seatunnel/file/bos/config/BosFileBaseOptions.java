@@ -19,9 +19,9 @@ package org.apache.seatunnel.connectors.seatunnel.file.bos.config;
 
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
-import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
 
-public class BosFileBaseOptions extends FileBaseOptions {
+public class BosFileBaseOptions extends FileBaseSourceOptions {
     public static final Option<String> ACCESS_KEY =
             Options.key("access_key")
                     .stringType()

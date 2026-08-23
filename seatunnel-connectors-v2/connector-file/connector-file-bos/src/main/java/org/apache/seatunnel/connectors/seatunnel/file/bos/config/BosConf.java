@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.connectors.seatunnel.file.bos.config;
 
+import org.apache.seatunnel.shade.com.typesafe.config.Config;
+
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 
@@ -42,6 +44,17 @@ public class BosConf extends HadoopConf {
 
     public BosConf(String hdfsNameKey) {
         super(hdfsNameKey);
+    }
+
+    public static HadoopConf buildWithConfig(Config config) {
+        HadoopConf hadoopConf = new BosConf(config.getString(BosFileBaseOptions.BUCKET.key()));
+        HashMap<String, String> bosOptions = new HashMap<>();
+        bosOptions.put(ACCESS_KEY, config.getString(BosFileBaseOptions.ACCESS_KEY.key()));
+        bosOptions.put(SECRET_KEY, config.getString(BosFileBaseOptions.SECRET_KEY.key()));
+        bosOptions.put(ENDPOINT, config.getString(BosFileBaseOptions.ENDPOINT.key()));
+        bosOptions.put(BUCKET_HIERARCHY, "false");
+        hadoopConf.setExtraOptions(bosOptions);
+        return hadoopConf;
     }
 
     public static HadoopConf buildWithReadonlyConfig(ReadonlyConfig readonlyConfig) {

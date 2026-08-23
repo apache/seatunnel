@@ -30,6 +30,8 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 
 import com.google.auto.service.AutoService;
 
+import java.util.Arrays;
+
 @AutoService(Factory.class)
 public class BosFileSinkFactory implements TableSinkFactory {
     @Override
@@ -51,12 +53,14 @@ public class BosFileSinkFactory implements TableSinkFactory {
                         FileFormat.TEXT,
                         FileBaseSinkOptions.ROW_DELIMITER,
                         FileBaseSinkOptions.FIELD_DELIMITER,
-                        FileBaseSinkOptions.TXT_COMPRESS)
+                        FileBaseSinkOptions.TXT_COMPRESS,
+                        FileBaseSinkOptions.ENABLE_HEADER_WRITE)
                 .conditional(
                         FileBaseSinkOptions.FILE_FORMAT_TYPE,
                         FileFormat.CSV,
                         FileBaseSinkOptions.ROW_DELIMITER,
-                        FileBaseSinkOptions.TXT_COMPRESS)
+                        FileBaseSinkOptions.TXT_COMPRESS,
+                        FileBaseSinkOptions.ENABLE_HEADER_WRITE)
                 .conditional(
                         FileBaseSinkOptions.FILE_FORMAT_TYPE,
                         FileFormat.JSON,
@@ -69,7 +73,15 @@ public class BosFileSinkFactory implements TableSinkFactory {
                 .conditional(
                         FileBaseSinkOptions.FILE_FORMAT_TYPE,
                         FileFormat.PARQUET,
-                        FileBaseSinkOptions.PARQUET_COMPRESS)
+                        FileBaseSinkOptions.PARQUET_COMPRESS,
+                        FileBaseSinkOptions.PARQUET_AVRO_WRITE_FIXED_AS_INT96,
+                        FileBaseSinkOptions.PARQUET_AVRO_WRITE_TIMESTAMP_AS_INT96)
+                .conditional(
+                        FileBaseSinkOptions.FILE_FORMAT_TYPE,
+                        FileFormat.XML,
+                        FileBaseSinkOptions.XML_USE_ATTR_FORMAT,
+                        FileBaseSinkOptions.XML_ROOT_TAG,
+                        FileBaseSinkOptions.XML_ROW_TAG)
                 .optional(FileBaseSinkOptions.CUSTOM_FILENAME)
                 .conditional(
                         FileBaseSinkOptions.CUSTOM_FILENAME,
@@ -83,6 +95,11 @@ public class BosFileSinkFactory implements TableSinkFactory {
                         FileBaseSinkOptions.PARTITION_BY,
                         FileBaseSinkOptions.PARTITION_DIR_EXPRESSION,
                         FileBaseSinkOptions.IS_PARTITION_FIELD_WRITE_IN_FILE)
+                .conditional(
+                        FileBaseSinkOptions.FILE_FORMAT_TYPE,
+                        Arrays.asList(
+                                FileFormat.TEXT, FileFormat.JSON, FileFormat.CSV, FileFormat.XML),
+                        FileBaseSinkOptions.ENCODING)
                 .optional(FileBaseSinkOptions.SINK_COLUMNS)
                 .optional(FileBaseSinkOptions.IS_ENABLE_TRANSACTION)
                 .optional(FileBaseSinkOptions.DATE_FORMAT_LEGACY)
@@ -92,6 +109,7 @@ public class BosFileSinkFactory implements TableSinkFactory {
                 .optional(FileBaseSinkOptions.BATCH_SIZE)
                 .optional(FileBaseSinkOptions.CREATE_EMPTY_FILE_WHEN_NO_DATA)
                 .optional(FileBaseSinkOptions.FILENAME_EXTENSION)
+                .optional(FileBaseSinkOptions.TMP_PATH)
                 .build();
     }
 

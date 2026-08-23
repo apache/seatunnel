@@ -60,12 +60,21 @@ public class BosFileSourceFactory implements TableSourceFactory {
                         FileBaseSourceOptions.SKIP_HEADER_ROW_NUMBER)
                 .conditional(
                         FileBaseSourceOptions.FILE_FORMAT_TYPE,
+                        FileFormat.XML,
+                        FileBaseSourceOptions.XML_ROW_TAG,
+                        FileBaseSourceOptions.XML_USE_ATTR_FORMAT)
+                .conditional(
+                        FileBaseSourceOptions.FILE_FORMAT_TYPE,
                         FileFormat.CSV,
                         FileBaseSourceOptions.SKIP_HEADER_ROW_NUMBER)
                 .conditional(
                         FileBaseSourceOptions.FILE_FORMAT_TYPE,
                         Arrays.asList(
-                                FileFormat.TEXT, FileFormat.JSON, FileFormat.EXCEL, FileFormat.CSV),
+                                FileFormat.TEXT,
+                                FileFormat.JSON,
+                                FileFormat.EXCEL,
+                                FileFormat.CSV,
+                                FileFormat.XML),
                         ConnectorCommonOptions.SCHEMA)
                 .conditional(
                         FileBaseSourceOptions.FILE_FORMAT_TYPE,
@@ -76,6 +85,9 @@ public class BosFileSourceFactory implements TableSourceFactory {
                 .optional(FileBaseSourceOptions.DATE_FORMAT_LEGACY)
                 .optional(FileBaseSourceOptions.DATETIME_FORMAT_LEGACY)
                 .optional(FileBaseSourceOptions.TIME_FORMAT_LEGACY)
+                .optional(FileBaseSourceOptions.FILE_FILTER_PATTERN)
+                .optional(FileBaseSourceOptions.COMPRESS_CODEC)
+                .optional(FileBaseSourceOptions.ARCHIVE_COMPRESS_CODEC)
                 .optional(FileBaseSourceOptions.NULL_FORMAT)
                 .optional(FileBaseSourceOptions.FILENAME_EXTENSION)
                 .optional(FileBaseSourceOptions.READ_COLUMNS)

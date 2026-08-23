@@ -6,52 +6,83 @@ import ChangeLog from '../changelog/connector-file-bos.md';
 
 ## 支持的引擎
 
-> Spark
->
-> Flink
->
-> SeaTunnel Zeta
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
 
 ## 主要特性
 
 - [x] [批处理](../../introduction/concepts/connector-v2-features.md)
 - [ ] [流处理](../../introduction/concepts/connector-v2-features.md)
+- [x] [多模态](../../introduction/concepts/connector-v2-features.md#multimodal)
+
+  使用 binary 格式读写任意类型文件（视频、图片等），可将任意文件同步到目标位置。
+
+- [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
+
+  一次 pollNext 读取 split 内全部数据，已读 split 会保存在 checkpoint 快照中。
+
 - [x] [列投影](../../introduction/concepts/connector-v2-features.md)
 - [x] [并行度](../../introduction/concepts/connector-v2-features.md)
+- [ ] [支持用户自定义 split](../../introduction/concepts/connector-v2-features.md)
 - [x] 文件格式
   - [x] text
   - [x] csv
   - [x] parquet
   - [x] orc
   - [x] json
+  - [x] excel
+  - [x] xml
+  - [x] binary
+  - [x] markdown
+  - [x] pdf
 
 ## 描述
 
 通过 BOS HDFS SDK 从百度智能云 BOS 读取文件数据。
 
-## 依赖 Jar
+:::tip
 
-| jar | 版本 | 下载 |
-|-----|------|------|
-| bos-hdfs-sdk | >= 1.0.4-community | [下载](https://sdk.bce.baidu.com/console-sdk/bos-hdfs-sdk-1.0.4-community.jar.zip) |
+使用 Spark/Flink 时，需确保集群已集成 Hadoop 2.x。
 
-> 源码构建前需将 `bos-hdfs-sdk` 安装到本地 Maven 仓库，参见 `connector-file-bos/lib/README.md`。
+使用 SeaTunnel Engine 时，Hadoop 相关 jar 已包含在 `${SEATUNNEL_HOME}/lib` 中。
+
+使用本连接器需将 `bos-hdfs-sdk`（>= 1.0.4-community）放入 `${SEATUNNEL_HOME}/lib`。下载：[bos-hdfs-sdk-1.0.4-community.jar.zip](https://sdk.bce.baidu.com/console-sdk/bos-hdfs-sdk-1.0.4-community.jar.zip)。
+
+源码构建前需将 SDK 安装到本地 Maven 仓库，参见 `connector-file-bos/lib/README.md`。
+
+:::
 
 ## 配置项
 
-| 名称 | 类型 | 必填 | 默认值 | 描述 |
-|------|------|------|--------|------|
-| path | string | 是 | - | bucket 下的目录路径 |
-| file_format_type | string | 是 | - | 文件格式：text、csv、json、parquet、orc |
-| bucket | string | 是 | - | BOS bucket，例如 `bos://my-bucket` |
-| access_key | string | 是 | - | BOS Access Key |
-| secret_key | string | 是 | - | BOS Secret Key |
-| endpoint | string | 是 | - | BOS Endpoint，例如 `http://bj.bcebos.com` |
-| schema | config | 条件必填 | - | text/csv/json 读取时需要 |
-| row_delimiter | string | 否 | `\n` | 文本行分隔符 |
-| field_delimiter | string | 否 | `\001` | 文本列分隔符 |
-| parse_partition_from_path | boolean | 否 | true | 从路径解析分区 |
-| recursive_file_scan | boolean | 否 | true | 递归扫描子目录 |
+| 名称                       | 类型    | 必填 | 默认值                      |
+|----------------------------|---------|------|-----------------------------|
+| path                       | string  | 是   | -                           |
+| file_format_type           | string  | 是   | -                           |
+| bucket                     | string  | 是   | -                           |
+| access_key                 | string  | 是   | -                           |
+| secret_key                 | string  | 是   | -                           |
+| endpoint                   | string  | 是   | -                           |
+| read_columns               | list    | 否   | -                           |
+| delimiter/field_delimiter  | string  | 否   | text 为 \001，csv 为 ,      |
+| row_delimiter              | string  | 否   | \n                          |
+| parse_partition_from_path  | boolean | 否   | true                        |
+| skip_header_row_number     | long    | 否   | 0                           |
+| date_format                | string  | 否   | yyyy-MM-dd                  |
+| datetime_format            | string  | 否   | yyyy-MM-dd HH:mm:ss         |
+| time_format                | string  | 否   | HH:mm:ss                    |
+| schema                     | config  | 否   | -                           |
+| sheet_name                 | string  | 否   | -                           |
+| excel_engine               | string  | 否   | POI                         |
+| poi_excel_max_file_size    | long    | 否   | 52428800                    |
+| xml_row_tag                | string  | 否   | -                           |
+| xml_use_attr_format        | boolean | 否   | -                           |
+| file_filter_pattern        | string  | 否   | -                           |
+| filename_extension         | string  | 否   | -                           |
+| compress_codec             | string  | 否   | none                        |
+| archive_compress_codec     | string  | 否   | -                           |
+| encoding                   | string  | 否   | UTF-8                       |
+| recursive_file_scan        | boolean | 否   | true                        |
 
 ## 示例
 
@@ -73,3 +104,7 @@ source {
   }
 }
 ```
+
+## 变更日志
+
+<ChangeLog />
