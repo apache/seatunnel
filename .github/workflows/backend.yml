@@ -143,6 +143,9 @@ jobs:
       edge-agent-e2e: ${{ steps.filter.outputs.edge-agent-e2e }}
       benchmarks: ${{ steps.filter.outputs.benchmarks }}
       docs: ${{ steps.filter.outputs.docs }}
+      ui: ${{ steps.filter.outputs.ui }}
+      dependency: ${{ steps.filter.outputs.dependency }}
+      backend-workflow: ${{ steps.filter.outputs.backend-workflow }}
       ut-modules: ${{ steps.ut-modules.outputs.modules }}
       it-modules: ${{ steps.it-modules.outputs.modules }}
     steps:
@@ -180,22 +183,49 @@ jobs:
           echo "cv2-e2e_files=$file_list" >> $GITHUB_OUTPUT
           
           engine_files=`python tools/update_modules_check/check_file_updates.py ua $workspace apache/dev origin/$current_branch "seatunnel-engine/**"`
-          true_or_false=${engine_files%%$'\n'*}
           file_list=${engine_files#*$'\n'}
+          file_list=`python -c 'import json, sys; print(json.dumps([path for path in json.loads(sys.argv[1]) if not path.startswith("seatunnel-engine/seatunnel-engine-ui/")]))' "$file_list"`
+          if [[ "$file_list" == "[]" ]];then
+            true_or_false='false'
+          else
+            true_or_false='true'
+          fi
           echo "engine=$true_or_false" >> $GITHUB_OUTPUT
           echo "engine_files=$file_list" >> $GITHUB_OUTPUT
           
           deleted_poms_files=`python tools/update_modules_check/check_file_updates.py d $workspace apache/dev origin/$current_branch "**/pom.xml"`
           true_or_false=${deleted_poms_files%%$'\n'*}
+          deleted_poms_changed=$true_or_false
           file_list=${deleted_poms_files#*$'\n'}
           echo "deleted-poms=$true_or_false" >> $GITHUB_OUTPUT
           echo "deleted-poms_files=$file_list" >> $GITHUB_OUTPUT
           
-          doc_files=`python tools/update_modules_check/check_file_updates.py ua $workspace apache/dev origin/$current_branch "docs/**"`
+          doc_files=`python tools/update_modules_check/check_file_updates.py ua $workspace apache/dev origin/$current_branch "docs/**" "tools/documents/**"`
           true_or_false=${doc_files%%$'\n'*}
           file_list=${doc_files#*$'\n'}
           echo "docs=$true_or_false" >> $GITHUB_OUTPUT
           echo "docs_files=$file_list" >> $GITHUB_OUTPUT
+
+          ui_files=`python tools/update_modules_check/check_file_updates.py ua $workspace apache/dev origin/$current_branch "seatunnel-engine/seatunnel-engine-ui/**"`
+          true_or_false=${ui_files%%$'\n'*}
+          file_list=${ui_files#*$'\n'}
+          echo "ui=$true_or_false" >> $GITHUB_OUTPUT
+          echo "ui_files=$file_list" >> $GITHUB_OUTPUT
+
+          dependency_files=`python tools/update_modules_check/check_file_updates.py ua $workspace apache/dev origin/$current_branch "pom.xml" "**/pom.xml" ".mvn/**" "tools/dependencies/**" "**/*.jar" "LICENSE" "NOTICE" ".licenserc.yaml"`
+          true_or_false=${dependency_files%%$'\n'*}
+          if [[ "$deleted_poms_changed" == "true" ]];then
+            true_or_false='true'
+          fi
+          file_list=${dependency_files#*$'\n'}
+          echo "dependency=$true_or_false" >> $GITHUB_OUTPUT
+          echo "dependency_files=$file_list" >> $GITHUB_OUTPUT
+
+          backend_workflow_files=`python tools/update_modules_check/check_file_updates.py ua $workspace apache/dev origin/$current_branch ".github/workflows/backend.yml"`
+          true_or_false=${backend_workflow_files%%$'\n'*}
+          file_list=${backend_workflow_files#*$'\n'}
+          echo "backend-workflow=$true_or_false" >> $GITHUB_OUTPUT
+          echo "backend-workflow_files=$file_list" >> $GITHUB_OUTPUT
 
           benchmark_files=`python tools/update_modules_check/check_file_updates.py ua $workspace apache/dev origin/$current_branch "seatunnel-benchmarks/**" "tools/benchmarks/**" ".github/workflows/benchmarks.yml"`
           true_or_false=${benchmark_files%%$'\n'*}
@@ -378,7 +408,7 @@ jobs:
           echo "modules=$build_modules" >> $GITHUB_OUTPUT
 
   dependency-license:
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
+    if: needs.changes.outputs.dependency == 'true' || needs.changes.outputs.backend-workflow == 'true'
     name: Dependency licenses
     needs: [ changes, sanity-check ]
     runs-on: ubuntu-latest
@@ -404,7 +434,7 @@ jobs:
         run: tools/dependencies/checkLicense.sh
 
   document:
-    if: needs.changes.outputs.api == 'true' || needs.changes.outputs.docs == 'true'
+    if: needs.changes.outputs.docs == 'true' || needs.changes.outputs.backend-workflow == 'true'
     needs: [ changes, sanity-check ]
     name: Build website
     runs-on: ubuntu-latest
@@ -425,6 +455,8 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 18.20.7
+          cache: 'npm'
+          cache-dependency-path: seatunnel-website/package-lock.json
       - name: Run docusaurus build
         env:
           GITHUB_TOKEN: ${{ github.token }}
@@ -432,11 +464,11 @@ jobs:
         run: |
           cd seatunnel-website
           npm set strict-ssl false
-          npm install
+          npm ci
           npm run build
 
   seatunnel-ui:
-    if: needs.changes.outputs.api == 'true'
+    if: needs.changes.outputs.ui == 'true' || needs.changes.outputs.backend-workflow == 'true'
     needs: [ changes, sanity-check ]
     name: Build SeaTunnel UI
     runs-on: ubuntu-latest
@@ -447,10 +479,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20.x
+          cache: 'npm'
+          cache-dependency-path: seatunnel-engine/seatunnel-engine-ui/package-lock.json
       - name: Install Dependencies and Check Code Style
         run: |
           cd seatunnel-engine/seatunnel-engine-ui/
-          npm install
+          npm ci
           npm run lint
       - name: Run unit tests
         run: |
@@ -484,13 +518,25 @@ jobs:
         env:
           MAVEN_OPTS: -Xmx1536m -Dfile.encoding=UTF-8
           SUREFIRE_JVM_ARGS: -Xmx3072m -XX:MaxMetaspaceSize=512m -Dfile.encoding=UTF-8
-        if: runner.os != 'Windows'
+        if: (needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true') && runner.os != 'Windows'
       - name: run all modules unit test (Windows)
         run: ./mvnw -B -T 1 clean verify -DskipUT=false -DskipIT=true -D"license.skipAddThirdParty"=true -D"skip.ui"=true "-Dsurefire.jvm.args=$env:SUREFIRE_JVM_ARGS" --no-snapshot-updates
         env:
           MAVEN_OPTS: -Xmx1536m -Dfile.encoding=UTF-8
           SUREFIRE_JVM_ARGS: -Xmx3072m -XX:MaxMetaspaceSize=512m -Dfile.encoding=UTF-8
-        if: runner.os == 'Windows'
+        if: (needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true') && runner.os == 'Windows'
+      - name: run impacted modules unit test
+        run: ./mvnw -B -T 1 clean verify -DskipUT=false -DskipIT=true -D"license.skipAddThirdParty"=true -D"skip.ui"=true "-Dsurefire.jvm.args=$SUREFIRE_JVM_ARGS" --no-snapshot-updates -pl '${{ needs.changes.outputs.ut-modules }}' -am
+        env:
+          MAVEN_OPTS: -Xmx1536m -Dfile.encoding=UTF-8
+          SUREFIRE_JVM_ARGS: -Xmx3072m -XX:MaxMetaspaceSize=512m -Dfile.encoding=UTF-8
+        if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && runner.os != 'Windows'
+      - name: run impacted modules unit test (Windows)
+        run: ./mvnw -B -T 1 clean verify -DskipUT=false -DskipIT=true -D"license.skipAddThirdParty"=true -D"skip.ui"=true "-Dsurefire.jvm.args=$env:SUREFIRE_JVM_ARGS" --no-snapshot-updates -pl '${{ needs.changes.outputs.ut-modules }}' -am
+        env:
+          MAVEN_OPTS: -Xmx1536m -Dfile.encoding=UTF-8
+          SUREFIRE_JVM_ARGS: -Xmx3072m -XX:MaxMetaspaceSize=512m -Dfile.encoding=UTF-8
+        if: needs.changes.outputs.api == 'false' && needs.changes.outputs.engine == 'false' && runner.os == 'Windows'
 
   benchmark-test:
     needs: [ changes, sanity-check ]

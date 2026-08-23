@@ -32,7 +32,7 @@ jobs:
       checks: write
     steps:
       - name: "Update build status"
-        uses: actions/github-script@v6
+        uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
@@ -238,7 +238,8 @@ jobs:
                   {
                     owner: context.repo.owner,
                     repo: context.repo.repo,
-                    ref: pr.head.sha
+                    ref: pr.head.sha,
+                    per_page: 100
                   }
                 );
 
