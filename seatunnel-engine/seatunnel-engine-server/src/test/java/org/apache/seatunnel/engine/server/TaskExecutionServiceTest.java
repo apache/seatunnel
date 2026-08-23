@@ -474,26 +474,35 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
                                 Lists.newArrayList(new TestTask(oldTaskStop, 50, false))));
 
         AtomicBoolean newTaskStop = new AtomicBoolean(false);
-        deployLocalTask(
-                taskExecutionService,
-                new TaskGroupDefaultImpl(
-                        location,
-                        "new-generation",
-                        Lists.newArrayList(new TestTask(newTaskStop, 50, false))));
-        TaskGroupContext newTaskContext = taskExecutionService.getActiveExecutionContext(location);
+        CompletableFuture<TaskExecutionState> newTaskFuture =
+                deployLocalTask(
+                        taskExecutionService,
+                        new TaskGroupDefaultImpl(
+                                location,
+                                "new-generation",
+                                Lists.newArrayList(new TestTask(newTaskStop, 50, false))));
+        try {
+            TaskGroupContext newTaskContext =
+                    taskExecutionService.getActiveExecutionContext(location);
 
-        oldTaskStop.set(true);
-        await().atMost(10, TimeUnit.SECONDS)
-                .untilAsserted(
-                        () -> assertEquals(FINISHED, oldTaskFuture.get().getExecutionState()));
+            oldTaskStop.set(true);
+            await().atMost(10, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> assertEquals(FINISHED, oldTaskFuture.get().getExecutionState()));
 
-        Assertions.assertSame(
-                newTaskContext,
-                taskExecutionService.getActiveExecutionContext(location),
-                "a stale task completion must not remove the newer execution context");
+            Assertions.assertSame(
+                    newTaskContext,
+                    taskExecutionService.getActiveExecutionContext(location),
+                    "a stale task completion must not remove the newer execution context");
 
-        newTaskStop.set(true);
-        taskExecutionService.cancelTaskGroup(location);
+            taskExecutionService.cancelTaskGroup(location);
+            await().atMost(10, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> assertEquals(CANCELED, newTaskFuture.get().getExecutionState()));
+        } finally {
+            newTaskStop.set(true);
+            taskExecutionService.cancelTaskGroup(location);
+        }
     }
 
     public List<Task> buildFixedTestTask(

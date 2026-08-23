@@ -1302,8 +1302,14 @@ public class TaskExecutionService implements DynamicMetricsProvider {
     public final class TaskGroupExecutionTracker {
 
         private final TaskGroup taskGroup;
+        /**
+         * Captured when this tracker is created so completion only cleans up the execution
+         * generation it installed, even if a newer redeploy reuses the same TaskGroupLocation.
+         */
         private final TaskGroupContext taskGroupContext;
+        /** Cancellation future owned by this execution generation. */
         private final CompletableFuture<Void> cancellationFuture;
+
         final CompletableFuture<TaskExecutionState> future;
         volatile List<Future<?>> blockingFutures = emptyList();
 
@@ -1379,11 +1385,16 @@ public class TaskExecutionService implements DynamicMetricsProvider {
          * <p>When the last task completes (completionLatch reaches zero):
          *
          * <ol>
-         *   <li>Recycle the class loader
-         *   <li>Move execution context from active to finished
-         *   <li>Cancel async functions and update metrics
+         *   <li>Recycle this execution generation's class loader
+         *   <li>If this tracker still owns the active context, move it from active to finished
+         *   <li>If this tracker still owns the active context, cancel async functions and update
+         *       metrics
          *   <li>Complete the future with final state (FINISHED, CANCELED, or FAILED)
          * </ol>
+         *
+         * <p>The active-context cleanup is guarded by object identity so a stale generation cannot
+         * remove the context or cancellation future installed by a newer redeploy to the same
+         * TaskGroupLocation.
          *
          * <p>If an exception occurred and the task group is not cancelled, cancels all remaining
          * tasks in the group.
@@ -1399,7 +1410,17 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             Throwable ex = executionException.get();
             if (completionLatch.decrementAndGet() == 0) {
                 recycleClassLoader(taskGroupLocation, taskGroupContext);
-                if (executionContexts.remove(taskGroupLocation, taskGroupContext)) {
+                AtomicBoolean activeContextRemoved = new AtomicBoolean(false);
+                executionContexts.computeIfPresent(
+                        taskGroupLocation,
+                        (location, activeContext) -> {
+                            if (activeContext == taskGroupContext) {
+                                activeContextRemoved.set(true);
+                                return null;
+                            }
+                            return activeContext;
+                        });
+                if (activeContextRemoved.get()) {
                     finishedExecutionContexts.put(taskGroupLocation, taskGroupContext);
                     cancellationFutures.remove(taskGroupLocation, cancellationFuture);
                     try {
@@ -1417,6 +1438,12 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                     } catch (Throwable t) {
                         logger.severe("update metrics context in imap failed", t);
                     }
+                } else {
+                    logger.info(
+                            String.format(
+                                    "skip cleanup for stale taskGroup %s because active context "
+                                            + "has been replaced by a newer execution generation",
+                                    taskGroupLocation));
                 }
                 if (ex == null) {
                     logger.info(
