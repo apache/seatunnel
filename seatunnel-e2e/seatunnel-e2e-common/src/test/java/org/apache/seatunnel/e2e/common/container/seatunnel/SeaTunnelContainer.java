@@ -79,6 +79,11 @@ import static org.apache.seatunnel.e2e.common.util.ContainerUtil.copyAllConnecto
 @Slf4j
 @AutoService(TestContainer.class)
 public class SeaTunnelContainer extends AbstractTestContainer {
+    public static final String SERVER_JVM_OPTION_PROPERTY =
+            "seatunnel.e2e.seatunnel.server.jvm.option";
+    public static final String CLIENT_JVM_OPTION_PROPERTY =
+            "seatunnel.e2e.seatunnel.client.jvm.option";
+
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final String REST_STOP_JOB_PATH = "/stop-job";
     private static final String REST_CHECKPOINT_OVERVIEW_PATH = "/jobs/checkpoints";
@@ -146,9 +151,15 @@ public class SeaTunnelContainer extends AbstractTestContainer {
     }
 
     protected String[] buildStartCommand() {
-        return new String[] {
-            ContainerUtil.adaptPathForWin(Paths.get(SEATUNNEL_HOME, "bin", SERVER_SHELL).toString())
-        };
+        List<String> command = new ArrayList<>();
+        command.add(
+                ContainerUtil.adaptPathForWin(
+                        Paths.get(SEATUNNEL_HOME, "bin", SERVER_SHELL).toString()));
+        String serverJvmOption = System.getProperty(SERVER_JVM_OPTION_PROPERTY);
+        if (!isBlank(serverJvmOption)) {
+            command.add("-DJvmOption=" + serverJvmOption);
+        }
+        return command.toArray(new String[0]);
     }
 
     protected GenericContainer<?> createSeaTunnelContainerWithFakeSourceAndInMemorySink(
@@ -257,7 +268,15 @@ public class SeaTunnelContainer extends AbstractTestContainer {
 
     @Override
     protected List<String> getExtraStartShellCommands() {
-        return Collections.emptyList();
+        String clientJvmOption = System.getProperty(CLIENT_JVM_OPTION_PROPERTY);
+        if (isBlank(clientJvmOption)) {
+            return Collections.emptyList();
+        }
+        return Collections.singletonList("-DJvmOption=" + clientJvmOption);
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.trim().isEmpty();
     }
 
     @Override
