@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server.trace;
 
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.core.job.JobInfo;
+import org.apache.seatunnel.engine.server.CoordinatorService;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
@@ -54,24 +55,26 @@ public final class RunningJobSlotUsageBuilder {
                 server.getNodeEngine()
                         .getHazelcastInstance()
                         .getMap(Constant.IMAP_OWNED_SLOT_PROFILES);
+        CoordinatorService coordinatorService = server.getCoordinatorService();
 
         Set<Long> runningJobIds = new TreeSet<>();
         runningJobInfo
                 .keySet()
                 .forEach(
                         jobId -> {
-                            if (server.getCoordinatorService().shouldShowAsRunningJob(jobId)) {
+                            if (coordinatorService.shouldShowAsRunningJob(jobId)) {
                                 runningJobIds.add(jobId);
                             }
                         });
 
-        ResourceManager resourceManager =
-                server.getCoordinatorService().getInitializedResourceManager();
+        ResourceManager resourceManager = coordinatorService.getInitializedResourceManager();
+        boolean assignedSlotSourceInitialized = resourceManager != null;
         List<SlotProfile> assignedSlots =
-                resourceManager == null
+                !assignedSlotSourceInitialized
                         ? Collections.emptyList()
                         : resourceManager.getAssignedSlots(Collections.emptyMap());
-        return build(ownedSlotProfiles, runningJobIds, assignedSlots);
+        return build(
+                ownedSlotProfiles, runningJobIds, assignedSlots, assignedSlotSourceInitialized);
     }
 
     /**
@@ -81,20 +84,55 @@ public final class RunningJobSlotUsageBuilder {
             Map<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfiles,
             Set<Long> runningJobIds,
             List<SlotProfile> assignedSlots) {
+        return build(ownedSlotProfiles, runningJobIds, assignedSlots, true);
+    }
+
+    static List<Map<String, Object>> build(
+            Map<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfiles,
+            Set<Long> runningJobIds,
+            List<SlotProfile> assignedSlots,
+            boolean assignedSlotSourceInitialized) {
         Map<Long, SlotUsage> usageByJob = new TreeMap<>();
         runningJobIds.forEach(jobId -> usageByJob.put(jobId, new SlotUsage(jobId)));
         Set<SlotKey> assignedSlotSet = buildAssignedSlotSet(assignedSlots);
-
-        if (ownedSlotProfiles != null && !ownedSlotProfiles.isEmpty()) {
-            ownedSlotProfiles.forEach(
-                    (pipelineLocation, taskGroupSlots) ->
-                            aggregatePipelineSlots(
-                                    usageByJob, pipelineLocation, taskGroupSlots, assignedSlotSet));
-        }
+        boolean slotSourceAvailable =
+                aggregateSlotUsage(
+                        usageByJob,
+                        ownedSlotProfiles,
+                        assignedSlotSet,
+                        assignedSlotSourceInitialized);
 
         List<Map<String, Object>> result = new ArrayList<>();
-        usageByJob.values().forEach(usage -> result.add(usage.toResponse()));
+        usageByJob.values().forEach(usage -> result.add(usage.toResponse(slotSourceAvailable)));
         return result;
+    }
+
+    private static boolean aggregateSlotUsage(
+            Map<Long, SlotUsage> usageByJob,
+            Map<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfiles,
+            Set<SlotKey> assignedSlotSet,
+            boolean assignedSlotSourceInitialized) {
+        boolean hasOwnedSlotsForRunningJobs = false;
+        boolean slotSourceRequiresVerification =
+                assignedSlotSourceInitialized && assignedSlotSet.isEmpty();
+
+        if (ownedSlotProfiles != null && !ownedSlotProfiles.isEmpty()) {
+            final boolean[] ownedSlotsObserved = {false};
+            ownedSlotProfiles.forEach(
+                    (pipelineLocation, taskGroupSlots) -> {
+                        if (slotSourceRequiresVerification
+                                && belongsToRunningJob(usageByJob, pipelineLocation)
+                                && containsOwnedSlots(taskGroupSlots)) {
+                            ownedSlotsObserved[0] = true;
+                        }
+                        aggregatePipelineSlots(
+                                usageByJob, pipelineLocation, taskGroupSlots, assignedSlotSet);
+                    });
+            hasOwnedSlotsForRunningJobs = ownedSlotsObserved[0];
+        }
+
+        return assignedSlotSourceInitialized
+                && !(slotSourceRequiresVerification && hasOwnedSlotsForRunningJobs);
     }
 
     private static void aggregatePipelineSlots(
@@ -116,6 +154,17 @@ public final class RunningJobSlotUsageBuilder {
                 .forEach(
                         slotProfile ->
                                 usage.addSlot(pipelineLocation.getPipelineId(), slotProfile));
+    }
+
+    private static boolean belongsToRunningJob(
+            Map<Long, SlotUsage> usageByJob, PipelineLocation pipelineLocation) {
+        return pipelineLocation != null && usageByJob.containsKey(pipelineLocation.getJobId());
+    }
+
+    private static boolean containsOwnedSlots(Map<TaskGroupLocation, SlotProfile> taskGroupSlots) {
+        return taskGroupSlots != null
+                && !taskGroupSlots.isEmpty()
+                && taskGroupSlots.values().stream().anyMatch(Objects::nonNull);
     }
 
     private static Set<SlotKey> buildAssignedSlotSet(List<SlotProfile> assignedSlots) {
@@ -194,10 +243,11 @@ public final class RunningJobSlotUsageBuilder {
             }
         }
 
-        private Map<String, Object> toResponse() {
+        private Map<String, Object> toResponse(boolean slotSourceAvailable) {
             Map<String, Object> response = new LinkedHashMap<>();
             response.put("jobId", String.valueOf(jobId));
             response.put("slotCount", slotCount);
+            response.put("slotSourceAvailable", slotSourceAvailable);
             response.put("pipelineSlotCounts", new LinkedHashMap<>(pipelineSlotCounts));
             response.put("workerSlotCounts", new LinkedHashMap<>(workerSlotCounts));
             return response;

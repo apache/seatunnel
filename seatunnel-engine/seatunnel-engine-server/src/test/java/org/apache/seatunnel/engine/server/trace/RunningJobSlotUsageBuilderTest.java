@@ -17,23 +17,35 @@
 
 package org.apache.seatunnel.engine.server.trace;
 
+import org.apache.seatunnel.engine.common.Constant;
+import org.apache.seatunnel.engine.core.job.JobInfo;
+import org.apache.seatunnel.engine.server.CoordinatorService;
+import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
+import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
 import com.hazelcast.cluster.Address;
+import com.hazelcast.instance.impl.HazelcastInstanceImpl;
+import com.hazelcast.map.IMap;
+import com.hazelcast.spi.impl.NodeEngineImpl;
 
 import java.net.UnknownHostException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.function.BiConsumer;
 
 class RunningJobSlotUsageBuilderTest {
 
@@ -73,10 +85,45 @@ class RunningJobSlotUsageBuilderTest {
         Assertions.assertFalse(firstPipelineSlotCounts.containsKey(2));
         Assertions.assertEquals(1, firstWorkerSlotCounts.get(firstWorker.toString()));
         Assertions.assertEquals(1, firstWorkerSlotCounts.get(secondWorker.toString()));
+        Assertions.assertTrue(slotSourceAvailable(result.get(0)));
         Assertions.assertEquals("2", result.get(1).get("jobId"));
         Assertions.assertEquals(0, result.get(1).get("slotCount"));
         Assertions.assertTrue(pipelineSlotCounts(result.get(1)).isEmpty());
         Assertions.assertTrue(workerSlotCounts(result.get(1)).isEmpty());
+        Assertions.assertTrue(slotSourceAvailable(result.get(1)));
+    }
+
+    @Test
+    void shouldMarkSlotSourceUnavailableWhenResourceManagerIsNotInitialized()
+            throws UnknownHostException {
+        SeaTunnelServer server =
+                mockServer(
+                        Collections.singleton(1L), ownedSlotProfilesForRunningJob(), null, false);
+
+        List<Map<String, Object>> result = RunningJobSlotUsageBuilder.build(server);
+
+        Assertions.assertEquals(1, result.size());
+        Assertions.assertEquals("1", result.get(0).get("jobId"));
+        Assertions.assertEquals(0, result.get(0).get("slotCount"));
+        Assertions.assertFalse(slotSourceAvailable(result.get(0)));
+    }
+
+    @Test
+    void shouldMarkSlotSourceUnavailableWhenAssignedSlotsLagBehindOwnedSlots()
+            throws UnknownHostException {
+        SeaTunnelServer server =
+                mockServer(
+                        Collections.singleton(1L),
+                        ownedSlotProfilesForRunningJob(),
+                        Collections.emptyList(),
+                        true);
+
+        List<Map<String, Object>> result = RunningJobSlotUsageBuilder.build(server);
+
+        Assertions.assertEquals(1, result.size());
+        Assertions.assertEquals("1", result.get(0).get("jobId"));
+        Assertions.assertEquals(0, result.get(0).get("slotCount"));
+        Assertions.assertFalse(slotSourceAvailable(result.get(0)));
     }
 
     private Map<TaskGroupLocation, SlotProfile> taskGroupSlots(SlotProfile... slots) {
@@ -95,6 +142,66 @@ class RunningJobSlotUsageBuilderTest {
         return slotProfile;
     }
 
+    private Map<PipelineLocation, Map<TaskGroupLocation, SlotProfile>>
+            ownedSlotProfilesForRunningJob() throws UnknownHostException {
+        Address worker = new Address("127.0.0.1", 5801);
+        Map<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfiles =
+                new HashMap<>();
+        ownedSlotProfiles.put(new PipelineLocation(1L, 1), taskGroupSlots(slot(1L, worker, 1)));
+        return ownedSlotProfiles;
+    }
+
+    @SuppressWarnings("unchecked")
+    private SeaTunnelServer mockServer(
+            Set<Long> runningJobIds,
+            Map<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfiles,
+            List<SlotProfile> assignedSlots,
+            boolean resourceManagerInitialized) {
+        SeaTunnelServer server = Mockito.mock(SeaTunnelServer.class);
+        NodeEngineImpl nodeEngine = Mockito.mock(NodeEngineImpl.class);
+        HazelcastInstanceImpl hazelcastInstance = Mockito.mock(HazelcastInstanceImpl.class);
+        CoordinatorService coordinatorService = Mockito.mock(CoordinatorService.class);
+        IMap<Long, JobInfo> runningJobInfo = Mockito.mock(IMap.class);
+        IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfilesMap =
+                Mockito.mock(IMap.class);
+
+        Mockito.when(server.getNodeEngine()).thenReturn(nodeEngine);
+        Mockito.when(nodeEngine.getHazelcastInstance()).thenReturn(hazelcastInstance);
+        Mockito.when(server.getCoordinatorService()).thenReturn(coordinatorService);
+        Mockito.when(runningJobInfo.keySet()).thenReturn(runningJobIds);
+        runningJobIds.forEach(
+                jobId ->
+                        Mockito.when(coordinatorService.shouldShowAsRunningJob(jobId))
+                                .thenReturn(true));
+
+        if (resourceManagerInitialized) {
+            ResourceManager resourceManager = Mockito.mock(ResourceManager.class);
+            Mockito.when(coordinatorService.getInitializedResourceManager())
+                    .thenReturn(resourceManager);
+            Mockito.when(resourceManager.getAssignedSlots(Mockito.anyMap()))
+                    .thenReturn(assignedSlots);
+        } else {
+            Mockito.when(coordinatorService.getInitializedResourceManager()).thenReturn(null);
+        }
+
+        Mockito.when(ownedSlotProfilesMap.isEmpty()).thenReturn(ownedSlotProfiles.isEmpty());
+        Mockito.doAnswer(
+                        invocation -> {
+                            BiConsumer<PipelineLocation, Map<TaskGroupLocation, SlotProfile>>
+                                    consumer = invocation.getArgument(0);
+                            ownedSlotProfiles.forEach(consumer);
+                            return null;
+                        })
+                .when(ownedSlotProfilesMap)
+                .forEach(Mockito.any());
+
+        Mockito.when(hazelcastInstance.getMap(Constant.IMAP_RUNNING_JOB_INFO))
+                .thenReturn((IMap) runningJobInfo);
+        Mockito.when(hazelcastInstance.getMap(Constant.IMAP_OWNED_SLOT_PROFILES))
+                .thenReturn((IMap) ownedSlotProfilesMap);
+        return server;
+    }
+
     @SuppressWarnings("unchecked")
     private Map<Integer, Integer> pipelineSlotCounts(Map<String, Object> usage) {
         return (Map<Integer, Integer>) usage.get("pipelineSlotCounts");
@@ -103,5 +210,9 @@ class RunningJobSlotUsageBuilderTest {
     @SuppressWarnings("unchecked")
     private Map<String, Integer> workerSlotCounts(Map<String, Object> usage) {
         return (Map<String, Integer>) usage.get("workerSlotCounts");
+    }
+
+    private boolean slotSourceAvailable(Map<String, Object> usage) {
+        return Boolean.TRUE.equals(usage.get("slotSourceAvailable"));
     }
 }

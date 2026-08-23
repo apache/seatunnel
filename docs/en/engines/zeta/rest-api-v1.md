@@ -255,6 +255,7 @@ network:
   {
     "jobId": "733584788375093248",
     "slotCount": 3,
+    "slotSourceAvailable": true,
     "pipelineSlotCounts": {
       "1": 2,
       "2": 1
@@ -268,10 +269,12 @@ network:
 ```
 
 **Notes:**
+- `jobId` is returned as a string to avoid precision loss in JavaScript clients.
 - `slotCount` is the number of assigned task group slots owned by the running job.
+- `slotSourceAvailable` indicates whether the master-side assigned-slot snapshot was available for this response. When it is `false`, `slotCount = 0` may mean the slot source is not ready yet rather than that the job truly owns no slots.
 - `pipelineSlotCounts` groups the same slot count by pipeline id.
 - `workerSlotCounts` groups the same slot count by worker address.
-- A running job that has not received any slot yet is returned with `slotCount` set to `0`.
+- A running job that has not received any slot yet is returned with `slotCount` set to `0` while `slotSourceAvailable` remains `true`.
 
 </details>
 

@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.operation;
 
 import org.apache.seatunnel.common.utils.JsonUtils;
+import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.serializable.ClientToServerOperationDataSerializerHook;
 import org.apache.seatunnel.engine.server.trace.RunningJobSlotUsageBuilder;
@@ -25,6 +26,8 @@ import org.apache.seatunnel.engine.server.trace.RunningJobSlotUsageBuilder;
 import com.hazelcast.nio.serialization.IdentifiedDataSerializable;
 import com.hazelcast.spi.impl.AllowedDuringPassiveState;
 import com.hazelcast.spi.impl.operationservice.Operation;
+
+import java.util.concurrent.ExecutionException;
 
 /** Master operation that returns slot ownership summaries for all running jobs. */
 public class GetRunningJobSlotUsageOperation extends Operation
@@ -48,7 +51,18 @@ public class GetRunningJobSlotUsageOperation extends Operation
     @Override
     public void run() {
         SeaTunnelServer service = getService();
-        response = JsonUtils.toJsonString(RunningJobSlotUsageBuilder.build(service));
+        CompletableFuture<String> future =
+                CompletableFuture.supplyAsync(
+                        () -> JsonUtils.toJsonString(RunningJobSlotUsageBuilder.build(service)),
+                        getNodeEngine()
+                                .getExecutionService()
+                                .getExecutor("get_running_job_slot_usage_operation"));
+
+        try {
+            response = future.get();
+        } catch (InterruptedException | ExecutionException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Override
