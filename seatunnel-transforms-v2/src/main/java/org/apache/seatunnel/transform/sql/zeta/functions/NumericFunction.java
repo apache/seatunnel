@@ -153,13 +153,21 @@ public class NumericFunction {
     }
 
     /**
-     * Converts a numeric value to {@link BigDecimal} without losing precision.
+     * Converts a numeric value to {@link BigDecimal} without routing it through {@code double}.
      *
      * <p>{@link BigDecimal} values are used as-is and integral types are widened through {@code
-     * longValue()}. Only the floating point types are read through {@code doubleValue()}, where the
-     * value carries no more precision than a {@code double} to begin with.
+     * longValue()}. Reading them through {@code doubleValue()} instead would collapse the value to
+     * a {@code double} first, discarding everything beyond ~17 significant digits before any
+     * arithmetic runs, which defeats the purpose of the DECIMAL type.
+     *
+     * <p>Shared by the numeric functions in this class and by the DECIMAL branch of {@code
+     * ZetaSQLFunction#executeBinaryExpr}, so that a value is converted the same way regardless of
+     * which of the two evaluates it.
+     *
+     * @param value the numeric value to convert
+     * @return the value as an exact BigDecimal
      */
-    private static BigDecimal toBigDecimal(Number value) {
+    public static BigDecimal toBigDecimal(Number value) {
         if (value instanceof BigDecimal) {
             return (BigDecimal) value;
         }
@@ -169,6 +177,8 @@ public class NumericFunction {
                 || value instanceof Long) {
             return BigDecimal.valueOf(value.longValue());
         }
+        // Float/Double have no exact decimal form; valueOf uses the canonical shortest
+        // representation, which is the closest thing to the value the user wrote.
         return BigDecimal.valueOf(value.doubleValue());
     }
 
