@@ -13,5 +13,8 @@ RUN cd /opt && \
     cp seatunnel/config/hazelcast-master.yaml seatunnel/config/hazelcast-worker.yaml
 
 FROM eclipse-temurin:11-jdk
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends python3 \
+    && rm -rf /var/lib/apt/lists/*
 COPY --from=builder /opt/seatunnel /opt/seatunnel
 WORKDIR /opt/seatunnel
