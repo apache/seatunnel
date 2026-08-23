@@ -131,8 +131,7 @@ class IncrementalSourceReaderTest {
         rowTypeMap.put(
                 "orders",
                 new SeaTunnelRowType(
-                        new String[] {"order_id"},
-                        new SeaTunnelDataType[] {BasicType.BIGINT_TYPE}));
+                        new String[] {"order_id"}, new SeaTunnelDataType[] {BasicType.LONG_TYPE}));
         MultipleRowType checkpointRowType = new MultipleRowType(rowTypeMap);
         IncrementalSplit split =
                 new IncrementalSplit(
