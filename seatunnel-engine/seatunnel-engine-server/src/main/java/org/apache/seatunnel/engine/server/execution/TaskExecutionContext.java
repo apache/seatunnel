@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server.execution;
 
 import org.apache.seatunnel.engine.core.classloader.ClassLoaderService;
 import org.apache.seatunnel.engine.server.TaskExecutionService;
+import org.apache.seatunnel.engine.server.TaskExecutionService.ExecutionGeneration;
 import org.apache.seatunnel.engine.server.common.SeaTunnelEngineContext;
 import org.apache.seatunnel.engine.server.common.statestore.EngineStateStores;
 import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
@@ -37,16 +38,19 @@ public class TaskExecutionContext {
     private final NodeEngineImpl nodeEngine;
     private final SeaTunnelEngineContext engineContext;
     private final TaskExecutionService taskExecutionService;
+    private final ExecutionGeneration executionGeneration;
 
     public TaskExecutionContext(
             Task task,
             NodeEngineImpl nodeEngine,
             SeaTunnelEngineContext engineContext,
-            TaskExecutionService taskExecutionService) {
+            TaskExecutionService taskExecutionService,
+            ExecutionGeneration executionGeneration) {
         this.task = task;
         this.nodeEngine = nodeEngine;
         this.engineContext = engineContext;
         this.taskExecutionService = taskExecutionService;
+        this.executionGeneration = executionGeneration;
     }
 
     public <E> InvocationFuture<E> sendToMaster(Operation operation) {
@@ -78,6 +82,20 @@ public class TaskExecutionContext {
 
     public TaskExecutionService getTaskExecutionService() {
         return taskExecutionService;
+    }
+
+    public void asyncExecuteFunction(TaskGroupLocation taskGroupLocation, Runnable task) {
+        taskExecutionService.asyncExecuteFunction(taskGroupLocation, task, executionGeneration);
+    }
+
+    public java.util.concurrent.ScheduledFuture<?> registerTimerFlushTask(
+            TaskLocation taskLocation, Runnable callback, long intervalMs) {
+        return taskExecutionService.registerTimerFlushTask(
+                taskLocation, callback, intervalMs, executionGeneration);
+    }
+
+    public void closeTimerFlushTask(TaskLocation taskLocation) {
+        taskExecutionService.closeTimerFlushTask(taskLocation, executionGeneration);
     }
 
     public ClassLoaderService getClassLoaderService() {
