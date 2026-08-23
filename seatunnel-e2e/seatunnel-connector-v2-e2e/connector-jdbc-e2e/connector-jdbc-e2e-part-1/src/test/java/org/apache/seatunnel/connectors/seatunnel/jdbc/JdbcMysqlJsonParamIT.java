@@ -21,7 +21,6 @@ import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
-import org.apache.seatunnel.e2e.common.container.seatunnel.SeaTunnelContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 
 import org.junit.jupiter.api.AfterAll;
@@ -164,10 +163,13 @@ public class JdbcMysqlJsonParamIT extends TestSuiteBase implements TestResource 
      * @throws InterruptedException
      */
     @TestTemplate
-    public void testMysqlJsonParam(SeaTunnelContainer container)
+    public void testMysqlJsonParam(TestContainer container)
             throws IOException, InterruptedException {
 
         List<String> variables = new ArrayList<>();
+        // filter UTC+8 timestamp, variable with space must be set as environment variable
+        variables.add("export ts='2026-07-16 12:00:00' && ");
+        variables.add("/opt/seatunnel/bin/seatunnel.sh");
         variables.add("-e local");
         variables.add("-c /jdbc_mysql_json_param.conf");
         variables.add("-i mysql_host=" + MYSQL_HOST);
@@ -175,17 +177,16 @@ public class JdbcMysqlJsonParamIT extends TestSuiteBase implements TestResource 
         variables.add("-i mysql_db=" + MYSQL_DATABASE);
         variables.add(
                 "-i mysql_props=\\{"
-                        + "\\\"useSSL\":\"false\\\","
+                        + "\\\"useSSL\\\":\\\"false\\\","
                         + "\\\"connectionTimeZone\\\":\\\"Asia/Shanghai\\\","
                         + "\\\"serverTimezone\\\":\\\"UTC\\\","
                         + "\\\"allowPublicKeyRetrieval\\\":\\\"true\\\"\\}");
         variables.add("-i mysql_user=" + MYSQL_USER);
         variables.add("-i mysql_password=" + MYSQL_PASSWORD);
         variables.add("-i mysql_table=" + JSON_COL_TEST_TABLE);
-        // filter UTC+8 timestamp
-        variables.add("-i ts='2026-07-16 12:00:00'");
+
         // shell: -i
-        // json_data='\{\"a:\"}\",\"b\":\"{xyz}\",\"c\":[{\"k1\":\"v1\"},{\"k2\":\"v2\",\"k3\":\"v3\"}],\"d\":{\"list\":[{\"k1\":\"v1\"},{\"k2\":\"v2\",\"k3\":\"v3\"}]}\}'
+        // json_data='{\"a:\"}\",\"b\":\"{xyz}\",\"c\":[{\"k1\":\"v1\"},{\"k2\":\"v2\",\"k3\":\"v3\"}],\"d\":{\"list\":[{\"k1\":\"v1\"},{\"k2\":\"v2\",\"k3\":\"v3\"}]}}'
         variables.add(
                 "-i json_data='{\"a\":\"}\",\"b\":\"{xyz}\",\"c\":[{\"k1\":\"v1\"},{\"k2\":\"v2\",\"k3\":\"v3\"}],\"d\":{\"list\":[{\"k1\":\"v1\"},{\"k2\":\"v2\",\"k3\":\"v3\"}]}}'");
 
@@ -201,15 +202,16 @@ public class JdbcMysqlJsonParamIT extends TestSuiteBase implements TestResource 
     public void testMysqlArrayWithNestedJsonParam(TestContainer container)
             throws IOException, InterruptedException {
         List<String> variables = new ArrayList<>();
+        variables.add("/opt/seatunnel/bin/seatunnel.sh");
         variables.add("-e local");
         variables.add("-c /jdbc_mysql_json_in_array_param.conf");
         variables.add("-i mysql_host=" + MYSQL_HOST);
         variables.add("-i mysql_port=3306");
         variables.add("-i mysql_db=" + MYSQL_DATABASE);
         variables.add(
-                "-i mysql_props={"
+                "-i mysql_props='{"
                         + "\"useSSL\":\"false\","
-                        + "\"allowPublicKeyRetrieval\":\"true\"}");
+                        + "\"allowPublicKeyRetrieval\":\"true\"}'");
         variables.add("-i mysql_user=" + MYSQL_USER);
         variables.add("-i mysql_password=" + MYSQL_PASSWORD);
         variables.add(
@@ -228,6 +230,7 @@ public class JdbcMysqlJsonParamIT extends TestSuiteBase implements TestResource 
     public void testMysqlJsonWithNestedArrayParam(TestContainer container)
             throws IOException, InterruptedException {
         List<String> variables = new ArrayList<>();
+        variables.add("/opt/seatunnel/bin/seatunnel.sh");
         variables.add("-e local");
         variables.add("-c /jdbc_mysql_array_in_json_param.conf");
         variables.add("-i mysql_host=" + MYSQL_HOST);
