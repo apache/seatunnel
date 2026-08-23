@@ -76,9 +76,9 @@ It only supports hadoop version **2.9.X+**.
 | row_delimiter              | string  | no       | \n                  | Row delimiter, used to tell connector how to slice and dice rows when reading text files. Default is `\n` for text files.                                                            |
 | parse_partition_from_path  | boolean | no       | true                | Control whether parse the partition keys and values from file path. [Tips](#parse_partition_from_path)                                                                               |
 | skip_header_row_number     | long    | no       | 0                   | Skip the first few lines, but only for the txt and csv.                                                                                                                              |
-| date_format                | string  | no       | yyyy-MM-dd          | Date type format, used to tell the connector how to convert string to date.[Tips](#date_format)                                                                                      |
-| datetime_format            | string  | no       | yyyy-MM-dd HH:mm:ss | Datetime type format, used to tell the connector how to convert string to datetime.[Tips](#datetime_format)                                                                          |
-| time_format                | string  | no       | HH:mm:ss            | Time type format, used to tell the connector how to convert string to time.[Tips](#time_format)                                                                                      |
+| date_format | string | no | - | Date type format, used to tell the connector how to convert string to date. When not configured, the connector auto-detects the format.[Tips](#date_format) |
+| datetime_format | string | no | - | Datetime type format, used to tell the connector how to convert string to datetime. When not configured, the connector auto-detects the format.[Tips](#datetime_format) |
+| time_format | string | no | - | Time type format, used to tell the connector how to convert string to time. When not configured, the connector auto-detects the format.[Tips](#time_format) |
 | filename_extension         | string  | no       | -                   | Filter filename extension, which used for filtering files with specific extension. Example: `csv` `.txt` `json` `.xml`.                                                              |
 | schema                     | config  | no       | -                   | [Tips](#schema)                                                                                                                                                                      |
 | common-options             |         | no       | -                   | [Tips](#common_options)                                                                                                                                                              |
@@ -114,13 +114,13 @@ It only supports hadoop version **2.9.X+**.
 >
 > When explicitly configured, only the specified format is used. Supported formats:
 >
-> `yyyy-MM-dd` `yyyy.MM.dd` `yyyy/MM/dd`
+> `yyyy-MM-dd` `yyyy.MM.dd` `yyyy/MM/dd` `yyyy-M-d` `yyyy.M.d` `yyyy/M/d` `M/d/yyyy` `M-d-yyyy`
 >
-> When not configured, the system auto-detects the format from the following candidates:
+> When not configured, the system auto-detects the format from the following unambiguous candidates:
 >
-> `yyyy-MM-dd` `yyyy.MM.dd` `yyyy/MM/dd` `yyyyMMdd` `M/d/yyyy` `M-d-yyyy`
+> `yyyy-MM-dd` `yyyy.MM.dd` `yyyy/MM/dd` `yyyyMMdd`
 >
-> default `yyyy-MM-dd`
+> Note: `M/d/yyyy` and `M-d-yyyy` are ambiguous because the month/day order depends on the locale convention, so they are only honored when explicitly configured and are never auto-detected.
 
 ### <span id="datetime_format"> datetime_format </span>
 
@@ -128,9 +128,9 @@ It only supports hadoop version **2.9.X+**.
 >
 > When explicitly configured, only the specified format is used. Supported formats:
 >
-> `yyyy-MM-dd HH:mm:ss` `yyyy.MM.dd HH:mm:ss` `yyyy/MM/dd HH:mm:ss` `yyyyMMddHHmmss` `yyyy-MM-dd'T'HH:mm:ss`
+> `yyyy-MM-dd HH:mm:ss` `yyyy.MM.dd HH:mm:ss` `yyyy/MM/dd HH:mm:ss` `yyyyMMddHHmmss` `yyyy-MM-dd'T'HH:mm:ss` `M/d/yyyy HH:mm:ss` `M-d-yyyy HH:mm:ss`
 >
-> When not configured, the system auto-detects the format from a wider set of candidates, including:
+> When not configured, the system auto-detects the format from a wider set of year-first candidates, including:
 >
 > - Standard: `yyyy-MM-dd HH:mm:ss`, `yyyy-MM-dd'T'HH:mm:ss`
 > - Slash: `yyyy/MM/dd HH:mm:ss`
@@ -138,11 +138,10 @@ It only supports hadoop version **2.9.X+**.
 > - Compact: `yyyyMMddHHmmss`
 > - Single-digit month/day: `yyyy-M-d HH:mm`, `yyyy-M-d H:mm:ss`
 > - Chinese: `yyyy年MM月dd日HH时mm分ss秒`
-> - Reverse: `M/d/yyyy HH:mm:ss`, `M-d-yyyy HH:mm:ss`
-> - With milliseconds (1-9 digits): `yyyy-MM-dd HH:mm:ss.SSS`
-> - With time zone: `yyyy-MM-dd HH:mm:ss+HH:mm`, `yyyy-MM-dd HH:mm:ssZ`
+> - With milliseconds: `yyyy-MM-dd HH:mm:ss.SSS` (auto-detection also accepts 1–9 fractional digits)
+> - With time zone: pattern `yyyy-MM-dd HH:mm:ssXX` matches e.g. `2024-05-20 12:34:56+09:00` or `2024-05-20 12:34:56Z`. The offset is not preserved when parsed into a `TIMESTAMP` column; use a `TIMESTAMP_TZ` column to keep it.
 >
-> default `yyyy-MM-dd HH:mm:ss`
+> Note: `M/d/yyyy HH:mm:ss` and `M-d-yyyy HH:mm:ss` are ambiguous (the month/day order depends on locale), so they are only honored when explicitly configured and are never auto-detected.
 
 ### <span id="time_format"> time_format </span>
 
@@ -155,8 +154,6 @@ It only supports hadoop version **2.9.X+**.
 > When not configured, the system auto-detects the format from the following candidates:
 >
 > `HH:mm:ss` `HH:mm:ss.SSS` `H:mm:ss` `H:mm`
->
-> default `HH:mm:ss`
 
 ### <span id="skip_header_row_number"> skip_header_row_number </span>
 

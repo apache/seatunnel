@@ -26,7 +26,9 @@ import java.time.format.SignStyle;
 import java.time.temporal.TemporalAccessor;
 import java.time.temporal.TemporalQueries;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Pattern;
 
 import static java.time.temporal.ChronoField.HOUR_OF_DAY;
@@ -108,6 +110,31 @@ public class TimeUtils {
             this.pattern = Pattern.compile(regex);
             this.formatter = timeFormatter;
         }
+    }
+
+    // -------------------------------------------------------------------------
+    // Deprecated public API compatibility shims.
+    //
+    // Retained (deprecated) solely for binary compatibility with existing
+    // consumers of the historical public fields. Will be removed in a future
+    // major release. Prefer {@link #matchTimeFormatter(String)} /
+    // {@link #parse(String, Formatter)}.
+    // -------------------------------------------------------------------------
+
+    /** @deprecated internal implementation detail; use {@link #matchTimeFormatter(String)} */
+    @Deprecated
+    public static final Pattern[] PATTERN_ARRAY =
+            new Pattern[] {
+                Pattern.compile("\\d{2}:\\d{2}:\\d{2}"),
+                Pattern.compile("\\d{2}:\\d{2}:\\d{2}\\.\\d{3}"),
+            };
+
+    /** @deprecated internal implementation detail; use {@link #matchTimeFormatter(String)} */
+    @Deprecated public static final Map<Pattern, Formatter> Time_FORMATTER_MAP = new HashMap<>();
+
+    static {
+        Time_FORMATTER_MAP.put(PATTERN_ARRAY[0], Formatter.parse(Formatter.HH_MM_SS.value));
+        Time_FORMATTER_MAP.put(PATTERN_ARRAY[1], Formatter.parse(Formatter.HH_MM_SS_SSS.value));
     }
 
     /**

@@ -70,7 +70,7 @@ public class JsonReadStrategyTest {
             jsonReadStrategy.read(jsonPath, "", tempCollector);
         }
         final List<SeaTunnelRow> rows = tempCollector.getRows();
-        Assertions.assertEquals(11, rows.size());
+        Assertions.assertEquals(10, rows.size());
         for (SeaTunnelRow row : rows) {
             LocalDate date = (LocalDate) row.getField(0);
             LocalDateTime datetime = (LocalDateTime) row.getField(1);

@@ -69,9 +69,9 @@ import ChangeLog from '../changelog/connector-file-oss-jindo.md';
 | delimiter/field_delimiter | string  | 否  | \001 for text and , for csv | 字段分隔符                                                                         |
 | row_delimiter             | string  | 否  | \n                          | 行分隔符                                                                          |
 | parse_partition_from_path | boolean | 否  | true                        | 控制是否从文件路径解析分区键和值                                                              |
-| date_format               | string  | 否  | yyyy-MM-dd                  | 日期类型格式                                                                        |
-| datetime_format           | string  | 否  | yyyy-MM-dd HH:mm:ss         | 日期时间类型格式                                                                      |
-| time_format               | string  | 否  | HH:mm:ss                    | 时间类型格式                                                                        |
+| date_format | string | 否 | - | 日期类型格式，用于告诉连接器如何将字符串转换为日期。未配置时自动检测，支持 `yyyy-MM-dd`、`yyyy.MM.dd`、`yyyy/MM/dd`、`yyyyMMdd` 等无歧义格式。 |
+| datetime_format | string | 否 | - | 日期时间类型格式，用于告诉连接器如何将字符串转换为日期时间。未配置时自动检测年份在前的常见格式，如 `yyyy-MM-dd HH:mm:ss`、`yyyy/MM/dd HH:mm:ss`、`yyyyMMddHHmmss`。 |
+| time_format | string | 否 | - | 时间类型格式，用于告诉连接器如何将字符串转换为时间。未配置时自动检测，支持 `HH:mm:ss`、`HH:mm:ss.SSS`、`H:mm:ss`、`H:mm`。 |
 | skip_header_row_number    | long    | 否  | 0                           | 跳过前几行                                                                         |
 | schema                    | config  | 否  | -                           | 上游数据的模式信息。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。 |
 | sheet_name                | string  | 否  | -                           | Excel 工作表名称                                                                   |

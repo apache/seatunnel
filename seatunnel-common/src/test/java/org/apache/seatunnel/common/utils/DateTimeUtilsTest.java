@@ -558,7 +558,9 @@ public class DateTimeUtilsTest {
 
     @Test
     public void testReverseFormatter() {
-        LocalDateTime dateTime1 = DateTimeUtils.parse("1/2/2026 12:01:30");
+        // Ambiguous M/d/yyyy datetime is only supported via explicit configuration
+        LocalDateTime dateTime1 =
+                DateTimeUtils.parse("1/2/2026 12:01:30", DateTimeUtils.Formatter.M_D_YYYY_HH_MM_SS);
         assertEquals(2026, dateTime1.getYear());
         assertEquals(1, dateTime1.getMonthValue());
         assertEquals(2, dateTime1.getDayOfMonth());
@@ -566,7 +568,9 @@ public class DateTimeUtilsTest {
         assertEquals(1, dateTime1.getMinute());
         assertEquals(30, dateTime1.getSecond());
 
-        LocalDateTime dateTime2 = DateTimeUtils.parse("12/2/2026 12:01:30");
+        LocalDateTime dateTime2 =
+                DateTimeUtils.parse(
+                        "12/2/2026 12:01:30", DateTimeUtils.Formatter.M_D_YYYY_HH_MM_SS);
         assertEquals(2026, dateTime2.getYear());
         assertEquals(12, dateTime2.getMonthValue());
         assertEquals(2, dateTime2.getDayOfMonth());
@@ -574,30 +578,15 @@ public class DateTimeUtilsTest {
         assertEquals(1, dateTime2.getMinute());
         assertEquals(30, dateTime2.getSecond());
 
-        LocalDateTime dateTime3 = DateTimeUtils.parse("1/2/2026 1:2:3");
-        assertEquals(2026, dateTime3.getYear());
-        assertEquals(1, dateTime3.getMonthValue());
-        assertEquals(2, dateTime3.getDayOfMonth());
-        assertEquals(1, dateTime3.getHour());
-        assertEquals(2, dateTime3.getMinute());
-        assertEquals(3, dateTime3.getSecond());
-
-        LocalDateTime dateTime4 = DateTimeUtils.parse("01/02/2026 01:02:03");
+        LocalDateTime dateTime4 =
+                DateTimeUtils.parse(
+                        "01/02/2026 01:02:03", DateTimeUtils.Formatter.M_D_YYYY_HH_MM_SS);
         assertEquals(2026, dateTime4.getYear());
         assertEquals(1, dateTime4.getMonthValue());
         assertEquals(2, dateTime4.getDayOfMonth());
         assertEquals(1, dateTime4.getHour());
         assertEquals(2, dateTime4.getMinute());
         assertEquals(3, dateTime4.getSecond());
-
-        // T separator should also work
-        LocalDateTime dateTime5 = DateTimeUtils.parse("1/2/2026T12:01:30");
-        assertEquals(2026, dateTime5.getYear());
-        assertEquals(1, dateTime5.getMonthValue());
-        assertEquals(2, dateTime5.getDayOfMonth());
-        assertEquals(12, dateTime5.getHour());
-        assertEquals(1, dateTime5.getMinute());
-        assertEquals(30, dateTime5.getSecond());
     }
 
     @Test
@@ -632,16 +621,25 @@ public class DateTimeUtilsTest {
 
     @Test
     public void testReverseDateTimeWithTSeparator() {
-        // Regression: reverse datetime pattern should accept both T and space as separator
-        LocalDateTime withT = DateTimeUtils.parse("1/2/2026T12:01:30");
-        LocalDateTime withSpace = DateTimeUtils.parse("1/2/2026 12:01:30");
-        assertEquals(withSpace, withT);
-        assertEquals(2026, withT.getYear());
-        assertEquals(1, withT.getMonthValue());
-        assertEquals(2, withT.getDayOfMonth());
-        assertEquals(12, withT.getHour());
-        assertEquals(1, withT.getMinute());
-        assertEquals(30, withT.getSecond());
+        // Ambiguous M/d/yyyy datetime is only supported via explicit configuration,
+        // never auto-detected.
+        LocalDateTime withSpace =
+                DateTimeUtils.parse("1/2/2026 12:01:30", DateTimeUtils.Formatter.M_D_YYYY_HH_MM_SS);
+        assertEquals(2026, withSpace.getYear());
+        assertEquals(1, withSpace.getMonthValue());
+        assertEquals(2, withSpace.getDayOfMonth());
+        assertEquals(12, withSpace.getHour());
+        assertEquals(1, withSpace.getMinute());
+        assertEquals(30, withSpace.getSecond());
+    }
+
+    @Test
+    public void testReverseDateTimeNotAutoDetected() {
+        // Auto-detection must NOT match the ambiguous M/d/yyyy datetime form
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> DateTimeUtils.parse("1/2/2026 12:01:30"),
+                "Unsupported datetime format: 1/2/2026 12:01:30");
     }
 
     @Test

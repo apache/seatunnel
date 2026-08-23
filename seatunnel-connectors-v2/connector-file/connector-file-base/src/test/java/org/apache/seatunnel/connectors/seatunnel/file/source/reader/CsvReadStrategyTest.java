@@ -204,7 +204,8 @@ public class CsvReadStrategyTest {
         String path = Paths.get(resource.toURI()).toString();
         TempCollector TempCollector = new TempCollector();
         try (CsvReadStrategy csvReadStrategy = new CsvReadStrategy()) {
-            LocalConf localConf = new LocalConf(FS_DEFAULT_NAME_DEFAULT);
+            LocalFileSystemConf.LocalConf localConf =
+                    new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
             csvReadStrategy.init(localConf);
             csvReadStrategy.getFileNamesByPath(path);
             csvReadStrategy.setPluginConfig(
@@ -222,7 +223,7 @@ public class CsvReadStrategyTest {
             csvReadStrategy.read(path, "", TempCollector);
         }
         final List<SeaTunnelRow> rows = TempCollector.getRows();
-        Assertions.assertEquals(11, rows.size());
+        Assertions.assertEquals(10, rows.size());
         for (SeaTunnelRow row : rows) {
             LocalDate date = (LocalDate) row.getField(0);
             LocalDateTime datetime = (LocalDateTime) row.getField(1);

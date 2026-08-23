@@ -196,9 +196,9 @@ schema {
 | delimiter                  | string  | 否    | \001               | 字段分隔符，用于告诉连接器在读取文本文件时如何切分字段。默认`\001`，与hive的默认分隔符相同。                                                                                                  |
 | row_delimiter              | string  | 否    | \n                 | 行分隔符，用于告诉连接器在读取文本文件时如何切分行。默认`\n`。                                                                                                                    |
 | parse_partition_from_path  | boolean | 否    | true               | 控制是否从文件路径解析分区键和值。例如，如果您从路径`oss://hadoop-cluster/tmp/seatunnel/parquet/name=tyrantlucifer/age=26`读取文件。文件中的每条记录数据都将添加这两个字段：name="tyrantlucifer"，age=16 |
-| date_format                | string  | 否    | yyyy-MM-dd         | 日期类型格式，用于告诉连接器如何将字符串转换为日期，支持以下格式：`yyyy-MM-dd` `yyyy.MM.dd` `yyyy/MM/dd`。默认`yyyy-MM-dd`                                                               |
-| datetime_format            | string  | 否    | yyyy-MM-dd HH:mm:ss | 日期时间类型格式，用于告诉连接器如何将字符串转换为日期时间，支持以下格式：`yyyy-MM-dd HH:mm:ss` `yyyy.MM.dd HH:mm:ss` `yyyy/MM/dd HH:mm:ss` `yyyyMMddHHmmss`                              |
-| time_format                | string  | 否    | HH:mm:ss           | 时间类型格式，用于告诉连接器如何将字符串转换为时间，支持以下格式：`HH:mm:ss` `HH:mm:ss.SSS`                                                                                           |
+| date_format | string | 否 | - | 日期类型格式，用于告诉连接器如何将字符串转换为日期。未配置时自动检测，支持 `yyyy-MM-dd`、`yyyy.MM.dd`、`yyyy/MM/dd`、`yyyyMMdd` 等无歧义格式。 |
+| datetime_format | string | 否 | - | 日期时间类型格式，用于告诉连接器如何将字符串转换为日期时间。未配置时自动检测年份在前的常见格式，如 `yyyy-MM-dd HH:mm:ss`、`yyyy/MM/dd HH:mm:ss`、`yyyyMMddHHmmss`。 |
+| time_format | string | 否 | - | 时间类型格式，用于告诉连接器如何将字符串转换为时间。未配置时自动检测，支持 `HH:mm:ss`、`HH:mm:ss.SSS`、`H:mm:ss`、`H:mm`。 |
 | filename_extension         | string  | 否    | -                  | 过滤文件名扩展名，用于过滤具有特定扩展名的文件。例如：`csv` `.txt` `json` `.xml`。                                                                                               |
 | skip_header_row_number     | long    | 否    | 0                  | 跳过前几行，但仅适用于txt和csv。例如，设置如下：`skip_header_row_number = 2`。然后SeaTunnel将跳过源文件的前2行                                                                        |
 | csv_use_header_line        | boolean | 否    | false              | 是否使用标题行来解析文件，仅在file_format为`csv`且文件包含符合RFC 4180的标题行时使用                                                                                               |

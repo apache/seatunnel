@@ -280,13 +280,13 @@ PDF 特有的解析行为如下：
 
 当显式配置时，仅使用指定的格式。支持的格式：
 
-`yyyy-MM-dd` `yyyy.MM.dd` `yyyy/MM/dd`
+`yyyy-MM-dd` `yyyy.MM.dd` `yyyy/MM/dd` `yyyy-M-d` `yyyy.M.d` `yyyy/M/d` `M/d/yyyy` `M-d-yyyy`
 
-当未配置时，系统会从以下候选格式中自动检测：
+当未配置时，系统会从以下无歧义的候选格式中自动检测：
 
-`yyyy-MM-dd` `yyyy.MM.dd` `yyyy/MM/dd` `yyyyMMdd` `M/d/yyyy` `M-d-yyyy`
+`yyyy-MM-dd` `yyyy.MM.dd` `yyyy/MM/dd` `yyyyMMdd`
 
-默认 `yyyy-MM-dd`
+> 注意：`M/d/yyyy` 和 `M-d-yyyy` 存在歧义（月/日顺序取决于地区约定），因此仅在显式配置时生效，绝不自动检测。
 
 ### datetime_format [string]
 
@@ -294,9 +294,9 @@ PDF 特有的解析行为如下：
 
 当显式配置时，仅使用指定的格式。支持的格式：
 
-`yyyy-MM-dd HH:mm:ss` `yyyy.MM.dd HH:mm:ss` `yyyy/MM/dd HH:mm:ss` `yyyyMMddHHmmss` `yyyy-MM-dd'T'HH:mm:ss`
+`yyyy-MM-dd HH:mm:ss` `yyyy.MM.dd HH:mm:ss` `yyyy/MM/dd HH:mm:ss` `yyyyMMddHHmmss` `yyyy-MM-dd'T'HH:mm:ss` `M/d/yyyy HH:mm:ss` `M-d-yyyy HH:mm:ss`
 
-当未配置时，系统会从更广泛的候选格式中自动检测，包括：
+当未配置时，系统会从更广泛的年份在前候选格式中自动检测，包括：
 
 - 标准格式：`yyyy-MM-dd HH:mm:ss`、`yyyy-MM-dd'T'HH:mm:ss`
 - 斜杠分隔：`yyyy/MM/dd HH:mm:ss`
@@ -304,11 +304,10 @@ PDF 特有的解析行为如下：
 - 紧凑格式：`yyyyMMddHHmmss`
 - 单数字月/日：`yyyy-M-d HH:mm`、`yyyy-M-d H:mm:ss`
 - 中文格式：`yyyy年MM月dd日HH时mm分ss秒`
-- 反转格式：`M/d/yyyy HH:mm:ss`、`M-d-yyyy HH:mm:ss`
-- 带毫秒（1-9位）：`yyyy-MM-dd HH:mm:ss.SSS`
-- 带时区：`yyyy-MM-dd HH:mm:ss+HH:mm`、`yyyy-MM-dd HH:mm:ssZ`
+- 带毫秒：`yyyy-MM-dd HH:mm:ss.SSS`（自动检测同时支持 1-9 位小数）
+- 带时区：模式 `yyyy-MM-dd HH:mm:ssXX` 可匹配如 `2024-05-20 12:34:56+09:00` 或 `2024-05-20 12:34:56Z`。解析为 `TIMESTAMP` 列时偏移会被丢弃；如需保留偏移请使用 `TIMESTAMP_TZ` 列。
 
-默认 `yyyy-MM-dd HH:mm:ss`
+> `M/d/yyyy HH:mm:ss` 和 `M-d-yyyy HH:mm:ss` 存在歧义（月/日顺序取决于地区约定），因此仅在显式配置时生效，绝不自动检测。
 
 ### time_format [string]
 
@@ -321,8 +320,6 @@ PDF 特有的解析行为如下：
 当未配置时，系统会从以下候选格式中自动检测：
 
 `HH:mm:ss` `HH:mm:ss.SSS` `H:mm:ss` `H:mm`
-
-默认 `HH:mm:ss`
 
 ### skip_header_row_number [long]
 

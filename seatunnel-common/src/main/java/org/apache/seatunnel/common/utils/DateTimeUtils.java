@@ -33,9 +33,12 @@ import java.time.temporal.Temporal;
 import java.time.temporal.TemporalAccessor;
 import java.time.temporal.TemporalQueries;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Pattern;
 
 import static java.time.temporal.ChronoField.NANO_OF_SECOND;
@@ -67,36 +70,6 @@ public class DateTimeUtils {
     private static void initPatternMap() {
         // Clear the map to avoid repeated initialization when the class is reloaded
         DATETIME_PATTERN_MAP.clear();
-        String reversePattern = "^\\d{1,2}[-/]\\d{1,2}[-/]\\d{4}[T ]\\d{1,2}:\\d{1,2}:\\d{1,2}";
-        DateTimeFormatter reverseFormatter =
-                new DateTimeFormatterBuilder()
-                        .parseCaseInsensitive()
-                        .appendValue(ChronoField.MONTH_OF_YEAR, 1, 2, SignStyle.NEVER)
-                        .appendOptional(
-                                new DateTimeFormatterBuilder().appendLiteral('/').toFormatter())
-                        .appendOptional(
-                                new DateTimeFormatterBuilder().appendLiteral('-').toFormatter())
-                        .appendValue(ChronoField.DAY_OF_MONTH, 1, 2, SignStyle.NEVER)
-                        .appendOptional(
-                                new DateTimeFormatterBuilder().appendLiteral('/').toFormatter())
-                        .appendOptional(
-                                new DateTimeFormatterBuilder().appendLiteral('-').toFormatter())
-                        .appendValue(ChronoField.YEAR, 4)
-                        .appendOptional(
-                                new DateTimeFormatterBuilder().appendLiteral('T').toFormatter())
-                        .appendOptional(
-                                new DateTimeFormatterBuilder().appendLiteral(' ').toFormatter())
-                        .appendValue(ChronoField.HOUR_OF_DAY, 1, 2, SignStyle.NEVER)
-                        .appendLiteral(':')
-                        .appendValue(ChronoField.MINUTE_OF_HOUR, 1, 2, SignStyle.NEVER)
-                        .optionalStart()
-                        .appendLiteral(':')
-                        .appendValue(ChronoField.SECOND_OF_MINUTE, 1, 2, SignStyle.NEVER)
-                        .optionalEnd()
-                        .toFormatter();
-        DateTimePattern reverseDateTimePattern =
-                new DateTimePattern(reversePattern, reverseFormatter);
-
         String chinesePattern = "\\d{4}年\\d{1,2}月\\d{1,2}日 {0,1}\\d{1,2}[时点]\\d{1,2}分\\d{1,2}秒";
         DateTimeFormatter chineseFormatter =
                 new DateTimeFormatterBuilder()
@@ -140,7 +113,6 @@ public class DateTimeUtils {
                 new DateTimePattern(
                         "\\d{4}/\\d{1,2}/\\d{1,2}\\s\\d{2}:\\d{2}",
                         Formatter.YYYY_M_D_HH_MM_SLASH.value));
-        length14Patterns.add(reverseDateTimePattern);
         length14Patterns.add(chineseDateTimePattern);
         DATETIME_PATTERN_MAP.put(14, length14Patterns);
 
@@ -156,7 +128,6 @@ public class DateTimeUtils {
                 new DateTimePattern(
                         "\\d{4}/\\d{1,2}/\\d{1,2}\\s\\d{2}:\\d{2}",
                         Formatter.YYYY_M_D_HH_MM_SLASH.value));
-        length15Patterns.add(reverseDateTimePattern);
         length15Patterns.add(chineseDateTimePattern);
         DATETIME_PATTERN_MAP.put(15, length15Patterns);
 
@@ -181,7 +152,6 @@ public class DateTimeUtils {
                 new DateTimePattern(
                         "\\d{4}/\\d{1,2}/\\d{1,2}\\s\\d{1,2}:\\d{2}:\\d{2}",
                         Formatter.YYYY_M_D_H_MM_SS_SLASH.value));
-        length16Patterns.add(reverseDateTimePattern);
         length16Patterns.add(chineseDateTimePattern);
         DATETIME_PATTERN_MAP.put(16, length16Patterns);
 
@@ -197,7 +167,6 @@ public class DateTimeUtils {
                 new DateTimePattern(
                         "\\d{4}/\\d{1,2}/\\d{1,2}\\s\\d{1,2}:\\d{2}:\\d{2}",
                         Formatter.YYYY_M_D_H_MM_SS_SLASH.value));
-        length17Patterns.add(reverseDateTimePattern);
         length17Patterns.add(chineseDateTimePattern);
         DATETIME_PATTERN_MAP.put(17, length17Patterns);
 
@@ -213,7 +182,6 @@ public class DateTimeUtils {
                 new DateTimePattern(
                         "\\d{4}/\\d{1,2}/\\d{1,2}\\s\\d{1,2}:\\d{2}:\\d{2}",
                         Formatter.YYYY_M_D_H_MM_SS_SLASH.value));
-        length18Patterns.add(reverseDateTimePattern);
         length18Patterns.add(chineseDateTimePattern);
         DATETIME_PATTERN_MAP.put(18, length18Patterns);
 
@@ -241,7 +209,6 @@ public class DateTimeUtils {
                 new DateTimePattern(
                         "\\d{4}\\.\\d{2}\\.\\d{2}\\s\\d{2}:\\d{2}:\\d{2}",
                         Formatter.YYYY_MM_DD_HH_MM_SS_SPOT.value));
-        length19Patterns.add(reverseDateTimePattern);
         length19Patterns.add(chineseDateTimePattern);
         DATETIME_PATTERN_MAP.put(19, length19Patterns);
 
@@ -392,6 +359,76 @@ public class DateTimeUtils {
         DATETIME_PATTERN_MAP.put(HAS_TIME_ZONE, hasTimeZonePatterns);
     }
 
+    // -------------------------------------------------------------------------
+    // Deprecated public API compatibility shims.
+    //
+    // The fields below were part of the historical public surface of this class
+    // and are retained (deprecated) solely for binary compatibility with
+    // existing consumers. They are backed by DATETIME_PATTERN_MAP and will be
+    // removed in a future major release. Prefer the length/format based API:
+    // {@link #matchDateTimeFormatter(String)}, {@link #parse(String, Formatter)}.
+    // -------------------------------------------------------------------------
+
+    /** @deprecated internal implementation detail; use {@link #matchDateTimeFormatter(String)} */
+    @Deprecated
+    public static final DateTimeFormatter YYYY_MM_DD_HH_MM_SS_14_FORMATTER =
+            Formatter.YYYY_MM_DD_HH_MM_SS_NO_SPLIT.getDateTimeFormatter();
+
+    /** @deprecated internal implementation detail; use {@link #matchDateTimeFormatter(String)} */
+    @Deprecated
+    public static final Map<Pattern, DateTimeFormatter> YYYY_M_D_HH_MM_SS_17_FORMATTER_MAP =
+            legacyFormatterMap(17);
+
+    /** @deprecated internal implementation detail; use {@link #matchDateTimeFormatter(String)} */
+    @Deprecated
+    public static final Map<Pattern, DateTimeFormatter> YYYY_M_D_HH_MM_15_FORMATTER_MAP =
+            legacyFormatterMap(15);
+
+    /** @deprecated internal implementation detail; use {@link #matchDateTimeFormatter(String)} */
+    @Deprecated
+    public static final Map<Pattern, DateTimeFormatter> YYYY_MM_DD_HH_MM_SS_19_FORMATTER_MAP =
+            legacyFormatterMap(19);
+
+    /** @deprecated internal implementation detail; use {@link #matchDateTimeFormatter(String)} */
+    @Deprecated
+    public static final Map<Pattern, DateTimeFormatter> YYYY_MM_DD_HH_MM_SS_M19_FORMATTER_MAP =
+            legacyFormatterMap(OVER_LENGTH_KEY);
+
+    /** @deprecated internal implementation detail; use {@link #matchDateTimeFormatter(String)} */
+    @Deprecated
+    public static Set<Map.Entry<Pattern, DateTimeFormatter>>
+            YYYY_M_D_HH_MM_SS_17_FORMATTER_MAP_ENTRY_SET =
+                    YYYY_M_D_HH_MM_SS_17_FORMATTER_MAP.entrySet();
+
+    /** @deprecated internal implementation detail; use {@link #matchDateTimeFormatter(String)} */
+    @Deprecated
+    public static Set<Map.Entry<Pattern, DateTimeFormatter>>
+            YYYY_M_D_HH_MM_15_FORMATTER_MAP_ENTRY_SET = YYYY_M_D_HH_MM_15_FORMATTER_MAP.entrySet();
+
+    /** @deprecated internal implementation detail; use {@link #matchDateTimeFormatter(String)} */
+    @Deprecated
+    public static Set<Map.Entry<Pattern, DateTimeFormatter>>
+            YYYY_MM_DD_HH_MM_SS_19_FORMATTER_MAP_ENTRY_SET =
+                    YYYY_MM_DD_HH_MM_SS_19_FORMATTER_MAP.entrySet();
+
+    /** @deprecated internal implementation detail; use {@link #matchDateTimeFormatter(String)} */
+    @Deprecated
+    public static Set<Map.Entry<Pattern, DateTimeFormatter>>
+            YYYY_MM_DD_HH_MM_SS_M19_FORMATTER_MAP_ENTRY_SET =
+                    YYYY_MM_DD_HH_MM_SS_M19_FORMATTER_MAP.entrySet();
+
+    private static Map<Pattern, DateTimeFormatter> legacyFormatterMap(int lengthKey) {
+        List<DateTimePattern> patterns = DATETIME_PATTERN_MAP.get(lengthKey);
+        if (patterns == null || patterns.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        Map<Pattern, DateTimeFormatter> map = new LinkedHashMap<>();
+        for (DateTimePattern pattern : patterns) {
+            map.put(pattern.getPattern(), pattern.getDateTimeFormatter());
+        }
+        return map;
+    }
+
     // Define date-time format pattern, containing regex and corresponding formatter
     @Getter
     private static class DateTimePattern {
@@ -471,6 +508,15 @@ public class DateTimeUtils {
      *   <li>Compact: 20231225153045
      *   <li>With milliseconds: 2023-12-25 15:30:45.123 (supports 1-9 digits)
      * </ul>
+     *
+     * <p><strong>Time zone / offset handling:</strong>
+     *
+     * <p>This method parses into a {@link LocalDateTime}, which has no zone or offset. When the
+     * input string carries an offset (e.g. {@code 2023-12-25 15:30:45+08:00} or a trailing {@code
+     * Z}), only the local wall-clock time is retained and the offset is <b>discarded</b> — it is
+     * neither shifted to UTC nor preserved. This mirrors the semantics of a {@code TIMESTAMP}
+     * (wall-clock) column. If the offset must be preserved, use {@link java.time.OffsetDateTime}
+     * handling instead (e.g. the connector's {@code TIMESTAMP_TZ} support) rather than this method.
      *
      * <p><strong>Performance characteristics:</strong>
      *
@@ -630,7 +676,9 @@ public class DateTimeUtils {
         YYYY_MM_DD_HH_MM_SS_ISO8601("yyyy-MM-dd'T'HH:mm:ss"),
         YYYY_MM_DD_HH_MM_SS_SSS_ISO8601("yyyy-MM-dd'T'HH:mm:ss.SSS"),
         YYYY_MM_DD_HH_MM_SS_SSSSSS_ISO8601("yyyy-MM-dd'T'HH:mm:ss.SSSSSS"),
-        YYYY_MM_DD_HH_MM_SS_SSSSSSSSS_ISO8601("yyyy-MM-dd'T'HH:mm:ss.SSSSSSSSS");
+        YYYY_MM_DD_HH_MM_SS_SSSSSSSSS_ISO8601("yyyy-MM-dd'T'HH:mm:ss.SSSSSSSSS"),
+        M_D_YYYY_HH_MM_SS("M/d/yyyy HH:mm:ss"),
+        M_D_YYYY_HH_MM_SS_DASH("M-d-yyyy HH:mm:ss");
 
         private final String value;
         private final int length;

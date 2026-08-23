@@ -329,7 +329,8 @@ public class TextDeserializationSchema
                 } catch (DateTimeParseException ignored) {
                     // Fallback: data written by old SeaTunnel (wall-clock, no offset).
                     // Parse as LocalDateTime and attach UTC — offset info is already lost.
-                    DateTimeFormatter fallbackFmt = DateTimeUtils.matchDateTimeFormatter(fieldValue);
+                    DateTimeFormatter fallbackFmt =
+                            DateTimeUtils.matchDateTimeFormatter(fieldValue);
                     if (fallbackFmt == null) {
                         throw CommonError.formatDateTimeError(fieldValue, fieldName);
                     }

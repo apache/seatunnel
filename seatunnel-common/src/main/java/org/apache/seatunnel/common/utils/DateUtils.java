@@ -23,12 +23,13 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.time.format.SignStyle;
-import java.time.temporal.ChronoField;
 import java.time.temporal.Temporal;
 import java.time.temporal.TemporalAccessor;
 import java.time.temporal.TemporalQueries;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Pattern;
 
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
@@ -81,31 +82,6 @@ public class DateUtils {
                 new DatePattern("\\d{4}\\.\\d{1,2}\\.\\d{1,2}", Formatter.YYYY_M_D_SPOT.value));
         PATTERN_LIST.add(
                 new DatePattern(
-                        "^\\d{1,2}[-/]\\d{1,2}[-/]\\d{4}",
-                        new DateTimeFormatterBuilder()
-                                .parseCaseInsensitive()
-                                .appendValue(ChronoField.MONTH_OF_YEAR, 1, 2, SignStyle.NEVER)
-                                .appendOptional(
-                                        new DateTimeFormatterBuilder()
-                                                .appendLiteral('/')
-                                                .toFormatter())
-                                .appendOptional(
-                                        new DateTimeFormatterBuilder()
-                                                .appendLiteral('-')
-                                                .toFormatter())
-                                .appendValue(ChronoField.DAY_OF_MONTH, 1, 2, SignStyle.NEVER)
-                                .appendOptional(
-                                        new DateTimeFormatterBuilder()
-                                                .appendLiteral('/')
-                                                .toFormatter())
-                                .appendOptional(
-                                        new DateTimeFormatterBuilder()
-                                                .appendLiteral('-')
-                                                .toFormatter())
-                                .appendValue(ChronoField.YEAR, 4)
-                                .toFormatter()));
-        PATTERN_LIST.add(
-                new DatePattern(
                         "\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d{1,9})?Z?",
                         new DateTimeFormatterBuilder()
                                 .parseCaseInsensitive()
@@ -141,6 +117,32 @@ public class DateUtils {
                                                 .appendLiteral("日")
                                                 .toFormatter())
                                 .toFormatter()));
+    }
+
+    // -------------------------------------------------------------------------
+    // Deprecated public API compatibility shims.
+    //
+    // Retained (deprecated) solely for binary compatibility with existing
+    // consumers of the historical public fields. Backed by PATTERN_LIST and will
+    // be removed in a future major release. Prefer
+    // {@link #matchDateFormatter(String)} / {@link #parse(String, Formatter)}.
+    // -------------------------------------------------------------------------
+
+    /** @deprecated internal implementation detail; use {@link #matchDateFormatter(String)} */
+    @Deprecated
+    public static final Pattern[] PATTERN_ARRAY =
+            PATTERN_LIST.stream().map(p -> p.pattern).toArray(Pattern[]::new);
+
+    /** @deprecated internal implementation detail; use {@link #matchDateFormatter(String)} */
+    @Deprecated
+    public static final Map<Pattern, DateTimeFormatter> DATE_FORMATTER_MAP = legacyFormatterMap();
+
+    private static Map<Pattern, DateTimeFormatter> legacyFormatterMap() {
+        Map<Pattern, DateTimeFormatter> map = new HashMap<>();
+        for (DatePattern pattern : PATTERN_LIST) {
+            map.put(pattern.pattern, pattern.formatter);
+        }
+        return map;
     }
 
     /**
@@ -248,7 +250,9 @@ public class DateUtils {
         YYYY_MM_DD_SLASH("yyyy/MM/dd"),
         YYYY_M_D("yyyy-M-d"),
         YYYY_M_D_SPOT("yyyy.M.d"),
-        YYYY_M_D_SLASH("yyyy/M/d");
+        YYYY_M_D_SLASH("yyyy/M/d"),
+        M_D_YYYY("M/d/yyyy"),
+        M_D_YYYY_DASH("M-d-yyyy");
         private final String value;
         private final DateTimeFormatter dateTimeFormatter;
 

@@ -23,6 +23,7 @@ import org.junit.jupiter.api.Test;
 import java.time.LocalDate;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 public class DateUtilsTest {
@@ -121,20 +122,31 @@ public class DateUtilsTest {
 
     @Test
     public void testReverseFormatter() {
-        LocalDate dateTime1 = DateUtils.parse("1/2/2026");
+        // Ambiguous M/d/yyyy is only supported via explicit configuration, never auto-detected
+        LocalDate dateTime1 = DateUtils.parse("1/2/2026", DateUtils.Formatter.M_D_YYYY);
         assertEquals(2026, dateTime1.getYear());
         assertEquals(1, dateTime1.getMonthValue());
         assertEquals(2, dateTime1.getDayOfMonth());
 
-        LocalDate dateTime2 = DateUtils.parse("12/2/2026");
+        LocalDate dateTime2 = DateUtils.parse("12/2/2026", DateUtils.Formatter.M_D_YYYY);
         assertEquals(2026, dateTime2.getYear());
         assertEquals(12, dateTime2.getMonthValue());
         assertEquals(2, dateTime2.getDayOfMonth());
 
-        LocalDate dateTime3 = DateUtils.parse("01/02/2026");
+        LocalDate dateTime3 = DateUtils.parse("01/02/2026", DateUtils.Formatter.M_D_YYYY);
         assertEquals(2026, dateTime3.getYear());
         assertEquals(1, dateTime3.getMonthValue());
         assertEquals(2, dateTime3.getDayOfMonth());
+    }
+
+    @Test
+    public void testReverseFormatNotAutoDetected() {
+        // Auto-detection must NOT match the ambiguous M/d/yyyy form (data would be misread)
+        assertNull(DateUtils.matchDateFormatter("1/2/2026"));
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> DateUtils.parse("1/2/2026"),
+                "Unsupported date format: 1/2/2026");
     }
 
     @Test
