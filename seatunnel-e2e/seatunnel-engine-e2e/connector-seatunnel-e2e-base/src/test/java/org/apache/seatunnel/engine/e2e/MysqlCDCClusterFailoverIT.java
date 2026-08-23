@@ -181,6 +181,49 @@ public class MysqlCDCClusterFailoverIT {
     }
 
     /**
+     * Verifies that a two-pipeline CDC job can recover after every node in the default cluster
+     * restarts from persistent state.
+     */
+    @Test
+    public void testMysqlCdcTwoPipelineStreamJobRestoreInAllNodeDown() throws Exception {
+        runTwoPipelineRegularAllNodeDownTest(
+                "testMysqlCdcTwoPipelineStreamJobRestoreInAllNodeDown");
+    }
+
+    /**
+     * Verifies that a split master/worker cluster keeps both CDC pipelines consistent after a
+     * worker failover.
+     */
+    @Test
+    public void testMysqlCdcSplitClusterTwoPipelineStreamJobRestoreInWorkerDown() throws Exception {
+        runTwoPipelineSplitClusterFailoverTest(
+                "testMysqlCdcSplitClusterTwoPipelineStreamJobRestoreInWorkerDown",
+                FailoverTarget.WORKER);
+    }
+
+    /**
+     * Verifies that a split master/worker cluster keeps both CDC pipelines consistent after a
+     * master failover.
+     */
+    @Test
+    public void testMysqlCdcSplitClusterTwoPipelineStreamJobRestoreInMasterDown() throws Exception {
+        runTwoPipelineSplitClusterFailoverTest(
+                "testMysqlCdcSplitClusterTwoPipelineStreamJobRestoreInMasterDown",
+                FailoverTarget.MASTER);
+    }
+
+    /**
+     * Verifies that a split master/worker cluster can recover both CDC pipelines after every member
+     * restarts from persistent state.
+     */
+    @Test
+    public void testMysqlCdcSplitClusterTwoPipelineStreamJobRestoreInAllNodeDown()
+            throws Exception {
+        runTwoPipelineSplitClusterAllNodeDownTest(
+                "testMysqlCdcSplitClusterTwoPipelineStreamJobRestoreInAllNodeDown");
+    }
+
+    /**
      * Runs the regular two-node streaming CDC failover test for a single pipeline.
      *
      * @param testCaseName stable test case name used for config files and database names
@@ -562,6 +605,272 @@ public class MysqlCDCClusterFailoverIT {
             closeClient(engineClient);
             shutdownNode(node1);
             shutdownNode(node2);
+        }
+    }
+
+    /**
+     * Runs the regular two-node all-node-down recovery test for a two-pipeline CDC job.
+     *
+     * @param testCaseName stable test case name used for config files and database names
+     */
+    private void runTwoPipelineRegularAllNodeDownTest(String testCaseName) throws Exception {
+        String clusterName =
+                TestUtils.getClusterName(testCaseName + "_" + System.currentTimeMillis());
+        TwoTableBinding tableBinding = createTwoPipelineBinding(testCaseName);
+        insertRows(tableBinding.first, 1, 2, 3);
+        insertRows(tableBinding.second, 101, 102, 103);
+
+        HazelcastInstanceImpl node1 = null;
+        HazelcastInstanceImpl node2 = null;
+        SeaTunnelClient engineClient = null;
+        try {
+            SeaTunnelConfig config1 = createPersistentSeaTunnelConfig(clusterName);
+            SeaTunnelConfig config2 = createPersistentSeaTunnelConfig(clusterName);
+            node1 = SeaTunnelServerStarter.createHazelcastInstance(config1);
+            node2 = SeaTunnelServerStarter.createHazelcastInstance(config2);
+            awaitClusterSize(node1, 2);
+
+            String configPath = createTwoPipelineConfig(testCaseName, tableBinding);
+            engineClient = createEngineClient(clusterName);
+            ClientJobProxy clientJobProxy =
+                    submitJob(engineClient, config1, configPath, testCaseName);
+            long jobId = clientJobProxy.getJobId();
+
+            awaitJobStatus(clientJobProxy, JobStatus.RUNNING);
+            awaitSourceAndSinkConsistent(tableBinding);
+            insertRows(tableBinding.first, 11, 12);
+            insertRows(tableBinding.second, 111, 112);
+            awaitSourceAndSinkConsistent(tableBinding);
+            Map<Integer, Long> checkpointBefore =
+                    awaitCheckpointIds(checkpointCounterStore(node1), jobId, 2);
+
+            node1.shutdown();
+            node2.shutdown();
+            node1 = null;
+            node2 = null;
+            closeClient(engineClient);
+            engineClient = null;
+
+            insertRows(tableBinding.first, 21, 22);
+            insertRows(tableBinding.second, 121, 122);
+
+            config1 = createPersistentSeaTunnelConfig(clusterName);
+            config2 = createPersistentSeaTunnelConfig(clusterName);
+            SeaTunnelConfig restartedConfig1 = config1;
+            SeaTunnelConfig restartedConfig2 = config2;
+            node1 =
+                    startNodeWithRetry(
+                            "regular-two-pipeline-master-1",
+                            () -> SeaTunnelServerStarter.createHazelcastInstance(restartedConfig1));
+            node2 =
+                    startNodeWithRetry(
+                            "regular-two-pipeline-master-2",
+                            () -> SeaTunnelServerStarter.createHazelcastInstance(restartedConfig2));
+            awaitClusterSize(node1, 2);
+
+            engineClient = createEngineClient(clusterName);
+            ClientJobProxy restoredJobProxy = engineClient.createJobClient().getJobProxy(jobId);
+            awaitJobStatus(restoredJobProxy, JobStatus.RUNNING);
+            assertCheckpointIdsGrow(checkpointCounterStore(node1), jobId, checkpointBefore);
+
+            insertRows(tableBinding.first, 31, 32);
+            insertRows(tableBinding.second, 131, 132);
+            awaitSourceAndSinkConsistent(tableBinding);
+
+            restoredJobProxy.cancelJob();
+            awaitJobStatus(restoredJobProxy, JobStatus.CANCELED);
+        } finally {
+            closeClient(engineClient);
+            shutdownNode(node1);
+            shutdownNode(node2);
+        }
+    }
+
+    /**
+     * Runs the split-cluster streaming CDC failover test for a two-pipeline job.
+     *
+     * @param testCaseName stable test case name used for config files and database names
+     * @param failoverTarget whether to fail the worker-side node or the initial master node
+     */
+    private void runTwoPipelineSplitClusterFailoverTest(
+            String testCaseName, FailoverTarget failoverTarget) throws Exception {
+        String clusterName =
+                TestUtils.getClusterName(testCaseName + "_" + System.currentTimeMillis());
+        TwoTableBinding tableBinding = createTwoPipelineBinding(testCaseName);
+        insertRows(tableBinding.first, 1, 2, 3);
+        insertRows(tableBinding.second, 101, 102, 103);
+
+        HazelcastInstanceImpl masterNode1 = null;
+        HazelcastInstanceImpl masterNode2 = null;
+        HazelcastInstanceImpl workerNode1 = null;
+        HazelcastInstanceImpl workerNode2 = null;
+        SeaTunnelClient engineClient = null;
+        try {
+            SeaTunnelConfig masterConfig1 = createSeaTunnelConfig(clusterName);
+            SeaTunnelConfig masterConfig2 = createSeaTunnelConfig(clusterName);
+            SeaTunnelConfig workerConfig1 = createSeaTunnelConfig(clusterName);
+            SeaTunnelConfig workerConfig2 = createSeaTunnelConfig(clusterName);
+
+            masterNode1 = SeaTunnelServerStarter.createMasterHazelcastInstance(masterConfig1);
+            masterNode2 = SeaTunnelServerStarter.createMasterHazelcastInstance(masterConfig2);
+            workerNode1 = SeaTunnelServerStarter.createWorkerHazelcastInstance(workerConfig1);
+            workerNode2 = SeaTunnelServerStarter.createWorkerHazelcastInstance(workerConfig2);
+            awaitClusterSize(masterNode1, 4);
+
+            String configPath = createTwoPipelineConfig(testCaseName, tableBinding);
+            engineClient = createEngineClient(clusterName);
+            ClientJobProxy clientJobProxy =
+                    submitJob(engineClient, masterConfig1, configPath, testCaseName);
+            long jobId = clientJobProxy.getJobId();
+
+            awaitJobStatus(clientJobProxy, JobStatus.RUNNING);
+            awaitSourceAndSinkConsistent(tableBinding);
+            insertRows(tableBinding.first, 11, 12);
+            insertRows(tableBinding.second, 111, 112);
+            awaitSourceAndSinkConsistent(tableBinding);
+            Map<Integer, Long> checkpointBefore =
+                    awaitCheckpointIds(checkpointCounterStore(masterNode1), jobId, 2);
+
+            HazelcastInstanceImpl survivingMaster;
+            if (failoverTarget == FailoverTarget.MASTER) {
+                masterNode1.shutdown();
+                masterNode1 = null;
+                survivingMaster = masterNode2;
+            } else {
+                workerNode1.shutdown();
+                workerNode1 = null;
+                survivingMaster = masterNode1;
+            }
+
+            awaitClusterSize(survivingMaster, 3);
+            awaitJobStatus(clientJobProxy, JobStatus.RUNNING);
+            assertCheckpointIdsGrow(
+                    checkpointCounterStore(survivingMaster), jobId, checkpointBefore);
+
+            insertRows(tableBinding.first, 21, 22);
+            insertRows(tableBinding.second, 121, 122);
+            awaitSourceAndSinkConsistent(tableBinding);
+
+            clientJobProxy.cancelJob();
+            awaitJobStatus(clientJobProxy, JobStatus.CANCELED);
+        } finally {
+            closeClient(engineClient);
+            shutdownNode(masterNode1);
+            shutdownNode(masterNode2);
+            shutdownNode(workerNode1);
+            shutdownNode(workerNode2);
+        }
+    }
+
+    /**
+     * Runs the split-cluster all-node-down recovery test for a two-pipeline CDC job.
+     *
+     * @param testCaseName stable test case name used for config files and database names
+     */
+    private void runTwoPipelineSplitClusterAllNodeDownTest(String testCaseName) throws Exception {
+        String clusterName =
+                TestUtils.getClusterName(testCaseName + "_" + System.currentTimeMillis());
+        TwoTableBinding tableBinding = createTwoPipelineBinding(testCaseName);
+        insertRows(tableBinding.first, 1, 2, 3);
+        insertRows(tableBinding.second, 101, 102, 103);
+
+        HazelcastInstanceImpl masterNode1 = null;
+        HazelcastInstanceImpl masterNode2 = null;
+        HazelcastInstanceImpl workerNode1 = null;
+        HazelcastInstanceImpl workerNode2 = null;
+        SeaTunnelClient engineClient = null;
+        try {
+            SeaTunnelConfig masterConfig1 = createPersistentSeaTunnelConfig(clusterName);
+            SeaTunnelConfig masterConfig2 = createPersistentSeaTunnelConfig(clusterName);
+            SeaTunnelConfig workerConfig1 = createPersistentSeaTunnelConfig(clusterName);
+            SeaTunnelConfig workerConfig2 = createPersistentSeaTunnelConfig(clusterName);
+
+            masterNode1 = SeaTunnelServerStarter.createMasterHazelcastInstance(masterConfig1);
+            masterNode2 = SeaTunnelServerStarter.createMasterHazelcastInstance(masterConfig2);
+            workerNode1 = SeaTunnelServerStarter.createWorkerHazelcastInstance(workerConfig1);
+            workerNode2 = SeaTunnelServerStarter.createWorkerHazelcastInstance(workerConfig2);
+            awaitClusterSize(masterNode1, 4);
+
+            String configPath = createTwoPipelineConfig(testCaseName, tableBinding);
+            engineClient = createEngineClient(clusterName);
+            ClientJobProxy clientJobProxy =
+                    submitJob(engineClient, masterConfig1, configPath, testCaseName);
+            long jobId = clientJobProxy.getJobId();
+
+            awaitJobStatus(clientJobProxy, JobStatus.RUNNING);
+            awaitSourceAndSinkConsistent(tableBinding);
+            insertRows(tableBinding.first, 11, 12);
+            insertRows(tableBinding.second, 111, 112);
+            awaitSourceAndSinkConsistent(tableBinding);
+            Map<Integer, Long> checkpointBefore =
+                    awaitCheckpointIds(checkpointCounterStore(masterNode1), jobId, 2);
+
+            masterNode1.shutdown();
+            masterNode2.shutdown();
+            workerNode1.shutdown();
+            workerNode2.shutdown();
+            masterNode1 = null;
+            masterNode2 = null;
+            workerNode1 = null;
+            workerNode2 = null;
+            closeClient(engineClient);
+            engineClient = null;
+
+            insertRows(tableBinding.first, 21, 22);
+            insertRows(tableBinding.second, 121, 122);
+
+            masterConfig1 = createPersistentSeaTunnelConfig(clusterName);
+            masterConfig2 = createPersistentSeaTunnelConfig(clusterName);
+            workerConfig1 = createPersistentSeaTunnelConfig(clusterName);
+            workerConfig2 = createPersistentSeaTunnelConfig(clusterName);
+            SeaTunnelConfig restartedMasterConfig1 = masterConfig1;
+            SeaTunnelConfig restartedMasterConfig2 = masterConfig2;
+            SeaTunnelConfig restartedWorkerConfig1 = workerConfig1;
+            SeaTunnelConfig restartedWorkerConfig2 = workerConfig2;
+
+            masterNode1 =
+                    startNodeWithRetry(
+                            "split-two-pipeline-master-1",
+                            () ->
+                                    SeaTunnelServerStarter.createMasterHazelcastInstance(
+                                            restartedMasterConfig1));
+            masterNode2 =
+                    startNodeWithRetry(
+                            "split-two-pipeline-master-2",
+                            () ->
+                                    SeaTunnelServerStarter.createMasterHazelcastInstance(
+                                            restartedMasterConfig2));
+            workerNode1 =
+                    startNodeWithRetry(
+                            "split-two-pipeline-worker-1",
+                            () ->
+                                    SeaTunnelServerStarter.createWorkerHazelcastInstance(
+                                            restartedWorkerConfig1));
+            workerNode2 =
+                    startNodeWithRetry(
+                            "split-two-pipeline-worker-2",
+                            () ->
+                                    SeaTunnelServerStarter.createWorkerHazelcastInstance(
+                                            restartedWorkerConfig2));
+            awaitClusterSize(masterNode1, 4);
+
+            engineClient = createEngineClient(clusterName);
+            ClientJobProxy restoredJobProxy = engineClient.createJobClient().getJobProxy(jobId);
+            awaitJobStatus(restoredJobProxy, JobStatus.RUNNING);
+            assertCheckpointIdsGrow(checkpointCounterStore(masterNode1), jobId, checkpointBefore);
+
+            insertRows(tableBinding.first, 31, 32);
+            insertRows(tableBinding.second, 131, 132);
+            awaitSourceAndSinkConsistent(tableBinding);
+
+            restoredJobProxy.cancelJob();
+            awaitJobStatus(restoredJobProxy, JobStatus.CANCELED);
+        } finally {
+            closeClient(engineClient);
+            shutdownNode(masterNode1);
+            shutdownNode(masterNode2);
+            shutdownNode(workerNode1);
+            shutdownNode(workerNode2);
         }
     }
 
