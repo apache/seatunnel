@@ -102,6 +102,7 @@
             <groupId>org.testcontainers</groupId>
             <artifactId>mysql</artifactId>
             <version>${testcontainer.version}</version>
+            <scope>test</scope>
         </dependency>
 
         <dependency>

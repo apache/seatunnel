@@ -51,6 +51,7 @@
             <groupId>org.testcontainers</groupId>
             <artifactId>milvus</artifactId>
             <version>${testcontainer.version}</version>
+            <scope>test</scope>
         </dependency>
         <dependency>
             <groupId>org.testcontainers</groupId>
