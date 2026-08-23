@@ -18,7 +18,6 @@
 package org.apache.seatunnel.connectors.cdc.base.source.reader;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
-import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.source.SourceReader;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
@@ -81,7 +80,7 @@ class IncrementalSourceReaderTest {
     }
 
     @Test
-    void testAddSplitsRequestsAnotherSplitWhenRestoredTablesAreAllRemoved() throws Exception {
+    void testAddSplitsKeepsRestoredSplitWhenDiscoveryReturnsEmpty() {
         SourceConfig sourceConfig = Mockito.mock(SourceConfig.class);
         DataSourceDialect<SourceConfig> dialect = Mockito.mock(DataSourceDialect.class);
         Mockito.when(dialect.discoverDataCollections(sourceConfig))
@@ -89,21 +88,60 @@ class IncrementalSourceReaderTest {
         SourceReader.Context context = Mockito.mock(SourceReader.Context.class);
         IncrementalSourceReader<Object, SourceConfig> reader =
                 createReader(dialect, sourceConfig, context);
-        @SuppressWarnings("unchecked")
-        Collector<Object> collector = Mockito.mock(Collector.class);
 
         try {
-            reader.pollNext(collector);
-            Mockito.clearInvocations(context);
-
             reader.addSplits(Collections.singletonList(restoredIncrementalSplit()));
 
-            Assertions.assertEquals(0, reader.getNumberOfCurrentlyAssignedSplits());
-            Mockito.verify(context, Mockito.never()).sendSplitRequest();
+            Assertions.assertEquals(1, reader.getNumberOfCurrentlyAssignedSplits());
+            List<SourceSplitBase> state = reader.snapshotState(1L);
+            Assertions.assertEquals(
+                    Arrays.asList(KEPT_TABLE, REMOVED_TABLE),
+                    state.get(0).asIncrementalSplit().getTableIds());
+        } finally {
+            reader.close();
+        }
+    }
 
-            reader.pollNext(collector);
+    @Test
+    void testAddSplitsKeepsRestoredSplitWhenDiscoveryFails() {
+        SourceConfig sourceConfig = Mockito.mock(SourceConfig.class);
+        DataSourceDialect<SourceConfig> dialect = Mockito.mock(DataSourceDialect.class);
+        Mockito.when(dialect.discoverDataCollections(sourceConfig))
+                .thenThrow(new RuntimeException("database unavailable"));
+        SourceReader.Context context = Mockito.mock(SourceReader.Context.class);
+        IncrementalSourceReader<Object, SourceConfig> reader =
+                createReader(dialect, sourceConfig, context);
 
-            Mockito.verify(context).sendSplitRequest();
+        try {
+            reader.addSplits(Collections.singletonList(restoredIncrementalSplit()));
+
+            Assertions.assertEquals(1, reader.getNumberOfCurrentlyAssignedSplits());
+            List<SourceSplitBase> state = reader.snapshotState(1L);
+            Assertions.assertEquals(
+                    Arrays.asList(KEPT_TABLE, REMOVED_TABLE),
+                    state.get(0).asIncrementalSplit().getTableIds());
+        } finally {
+            reader.close();
+        }
+    }
+
+    @Test
+    void testAddSplitsDiscoversCapturedTablesOnlyOncePerBatch() {
+        SourceConfig sourceConfig = Mockito.mock(SourceConfig.class);
+        DataSourceDialect<SourceConfig> dialect = Mockito.mock(DataSourceDialect.class);
+        Mockito.when(dialect.discoverDataCollections(sourceConfig))
+                .thenReturn(Collections.singletonList(KEPT_TABLE));
+        SourceReader.Context context = Mockito.mock(SourceReader.Context.class);
+        IncrementalSourceReader<Object, SourceConfig> reader =
+                createReader(dialect, sourceConfig, context);
+
+        try {
+            reader.addSplits(
+                    Arrays.asList(
+                            restoredIncrementalSplit(),
+                            restoredIncrementalSplit("incremental-split-1")));
+
+            Mockito.verify(dialect, Mockito.times(1)).discoverDataCollections(sourceConfig);
         } finally {
             reader.close();
         }
@@ -154,11 +192,15 @@ class IncrementalSourceReaderTest {
     }
 
     private static IncrementalSplit restoredIncrementalSplit() {
+        return restoredIncrementalSplit("incremental-split-0");
+    }
+
+    private static IncrementalSplit restoredIncrementalSplit(String splitId) {
         Map<TableId, byte[]> historyTableChanges = new HashMap<>();
         historyTableChanges.put(KEPT_TABLE, new byte[] {1});
         historyTableChanges.put(REMOVED_TABLE, new byte[] {2});
         return new IncrementalSplit(
-                "incremental-split-0",
+                splitId,
                 Arrays.asList(KEPT_TABLE, REMOVED_TABLE),
                 null,
                 null,

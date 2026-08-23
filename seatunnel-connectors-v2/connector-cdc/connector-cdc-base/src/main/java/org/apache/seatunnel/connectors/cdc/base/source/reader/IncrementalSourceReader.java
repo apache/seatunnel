@@ -130,6 +130,8 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
     public void addSplits(List<SourceSplitBase> splits) {
         // restore for finishedUnackedSplits
         List<SourceSplitBase> unfinishedSplits = new ArrayList<>();
+        List<TableId> capturedTables = null;
+        boolean capturedTablesDiscovered = false;
         log.info(
                 "subtask {} add splits: {}",
                 subtaskId,
@@ -147,8 +149,15 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
                     unfinishedSplits.add(split);
                 }
             } else {
-                IncrementalSplit incrementalSplit =
-                        pruneRestoredIncrementalSplit(split.asIncrementalSplit());
+                IncrementalSplit incrementalSplit = split.asIncrementalSplit();
+                if (hasRestoredCheckpointMetadata(incrementalSplit)) {
+                    if (!capturedTablesDiscovered) {
+                        capturedTables = discoverCapturedTables();
+                        capturedTablesDiscovered = true;
+                    }
+                    incrementalSplit =
+                            pruneRestoredIncrementalSplit(incrementalSplit, capturedTables);
+                }
                 if (incrementalSplit.getTableIds().isEmpty()) {
                     log.info(
                             "subtask {} skip restored incremental split {} because all tables have been removed from current configuration.",
@@ -248,11 +257,30 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
         }
     }
 
-    private IncrementalSplit pruneRestoredIncrementalSplit(IncrementalSplit incrementalSplit) {
-        if (!hasRestoredCheckpointMetadata(incrementalSplit)) {
+    private List<TableId> discoverCapturedTables() {
+        try {
+            return dataSourceDialect.discoverDataCollections(sourceConfig);
+        } catch (Exception e) {
+            log.warn(
+                    "Failed to discover captured tables while restoring CDC split. "
+                            + "Keeping restored checkpoint state unchanged.",
+                    e);
+            return null;
+        }
+    }
+
+    private IncrementalSplit pruneRestoredIncrementalSplit(
+            IncrementalSplit incrementalSplit, List<TableId> capturedTables) {
+        if (capturedTables == null) {
             return incrementalSplit;
         }
-        List<TableId> capturedTables = dataSourceDialect.discoverDataCollections(sourceConfig);
+        if (capturedTables.isEmpty() && !incrementalSplit.getTableIds().isEmpty()) {
+            log.warn(
+                    "Skip pruning restored incremental split {} because captured table discovery returned "
+                            + "an empty result. Keeping restored checkpoint state unchanged.",
+                    incrementalSplit.splitId());
+            return incrementalSplit;
+        }
         IncrementalSplit prunedSplit = incrementalSplit.pruneTables(capturedTables);
         if (prunedSplit.getTableIds().size() != incrementalSplit.getTableIds().size()) {
             log.info(
