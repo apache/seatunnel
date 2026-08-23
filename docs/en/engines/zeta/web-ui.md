@@ -34,6 +34,7 @@ http://<host>:8080/<context-path>/#/overview
 
 The Web UI of Apache SeaTunnel is a visual inspection console for SeaTunnel Engine. It helps operators view cluster overview data, running and finished jobs, job detail pages, logs, realtime DAG metrics, and the status of worker and master nodes.
 
+The Web UI does not submit jobs or provide lifecycle control actions such as cancel, stop, savepoint, or restore. Use the REST API or CLI when you need those operations.
 ![overview.png](../../../images/ui/overview.png)
 
 ## Capability Summary
@@ -76,6 +77,8 @@ On the Job Detail page, the DAG view can display realtime metrics for the recent
 
 This capability requires the job to enable `env.engine.observability` or configure an option that auto-enables it, such as `async_boundaries` or `split_sink_io`. See [Realtime Observability](realtime-observability.md) for configuration and metric semantics.
 
+For the runtime graph design boundary and large-DAG fallback rules, see [Runtime Execution Graph](runtime-execution-graph.md).
+
 ### Finished Jobs
 
 The "Finished Jobs" section displays jobs that have reached a terminal state, such as finished, failed, cancelled, or savepoint done. Users can review historical records and open the detail page to inspect configuration, exception text, metrics retained by the engine, and logs.
@@ -102,6 +105,7 @@ The "Master" section displays system monitoring information for master nodes. Us
 
 - [REST API and Web UI](./rest-api-and-web-ui.md)
 - [REST API V2](./rest-api-v2.md)
+- [Runtime Execution Graph](./runtime-execution-graph.md)
 - [Job Lifecycle API](./rest-api-job-lifecycle.md)
 - [Task Failure History Design](./task-failure-history.md)
 - [Security](./security.md)
