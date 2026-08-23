@@ -44,6 +44,9 @@ public interface DebeziumDeserializationSchema<T> extends Serializable {
 
     default void restoreCheckpointProducedType(List<CatalogTable> checkpointDataType) {}
 
+    default void restoreCheckpointHistoryTableChanges(
+            Map<TableId, byte[]> checkpointHistoryTableChanges) {}
+
     default SchemaChangeResolver getSchemaChangeResolver() {
         return null;
     }
