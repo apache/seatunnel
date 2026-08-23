@@ -205,9 +205,9 @@
 
 ### 依赖升级
 
-- **不兼容变更：Debezium 不再打包进 `connector-cdc-base`**
+- **不兼容变更：Debezium 运行时所有权从 `connector-cdc-base` 移出**
   - **影响组件**：`seatunnel-connectors-v2/connector-cdc/*`
-  - **说明**：`connector-cdc-base` 现在将 `debezium-api`、`debezium-embedded` 和 `zstd-jni` 声明为 `provided`，每个 CDC 连接器通过自己的 `debezium.version` 属性声明所打包的 Debezium 版本。此前所有 CDC 连接器都从 `connector-cdc-base` 传递依赖 Debezium，因此共享的 `connector-cdc-base` jar 就是整个项目唯一的 Debezium 版本；由于 `connector-cdc-base` 会被加载进每个 CDC 连接器的类加载器，任何连接器都无法覆盖它。现在 Debezium 类改为随各连接器自身的 jar 一起打包。
-  - **影响**：CDC 作业配置、运行时行为和 checkpoint 兼容性均不受影响——所有内置连接器仍然解析到 Debezium `1.9.8.Final`，CDC 作业类加载器上的类集合保持不变。基于 `connector-cdc-base` 构建、并依赖它间接提供 Debezium 的第三方 CDC 连接器，现在需要自行声明 `debezium-api` 和 `debezium-embedded`。`connectors/connector-cdc-base-*.jar` 中不再包含 `io.debezium` 类。
+  - **说明**：`connector-cdc-base` 现在将 `debezium-api`、`debezium-embedded` 和 `zstd-jni` 声明为 `provided`，每个 CDC 连接器通过自己的 `debezium.version` 属性声明所打包的 Debezium 版本。此前所有 CDC 连接器都从 `connector-cdc-base` 传递依赖 Debezium，因此共享的 `connector-cdc-base` jar 就是整个项目唯一的 Debezium 版本；由于 `connector-cdc-base` 会被加载进每个 CDC 连接器的类加载器，任何连接器都无法覆盖它。现在标准 Debezium 运行时改为随各连接器自身的 jar 一起打包，而 `connector-cdc-base` 仍然保留 5 个打过补丁的 `io.debezium` 类（`ChangeEventQueue`、`TableId`、`HeartbeatFactory`、`HistorizedRelationalDatabaseConnectorConfig`、`DefaultHeartbeatConnectionProvider`）。
+  - **影响**：CDC 作业配置、运行时行为和 checkpoint 兼容性均不受影响——所有内置连接器仍然解析到 Debezium `1.9.8.Final`，CDC 作业类加载器上的类集合保持不变。基于 `connector-cdc-base` 构建、并依赖它间接提供 Debezium 的第三方 CDC 连接器，现在需要自行声明 `debezium-api` 和 `debezium-embedded`。如果第三方连接器还会打包 `io.debezium:debezium-core`，则还必须排除其中自带的 `ChangeEventQueue`、`TableId`、`HistorizedRelationalDatabaseConnectorConfig`、`HeartbeatFactory`，确保 CDC 插件类加载器最终只保留 `connector-cdc-base` 中的补丁版本。
   - **打包说明**：Debezium 运行时（Debezium 及其 Kafka Connect、压缩库、Jetty 等依赖）不再共享，而是复制进每个基于 Debezium 的连接器 jar 中，二进制发行包体积会因此增大。
   - **连接器实际可以偏离到什么程度**：连接器现在可以解析到不同的 Debezium 版本，但 `connector-cdc-base` 仍然只针对单一基线编译，并且会被加载进每个 CDC 连接器的类加载器。它使用了约 85 个 Debezium 类型，覆盖 `io.debezium.relational`、`io.debezium.pipeline`、`io.debezium.schema`、`io.debezium.config` 和 `io.debezium.jdbc`，并且还打包了 `ChangeEventQueue`、`TableId`、`HeartbeatFactory`、`HistorizedRelationalDatabaseConnectorConfig`、`DefaultHeartbeatConnectionProvider` 的补丁版本。因此，只有在这些 API 保持二进制兼容的 Debezium 版本线内偏离才是安全的。若要把某个连接器升级到会改动这些 API 的 Debezium 版本，还需要先把 `connector-cdc-base` 中的 Debezium 用法迁移到 `DebeziumAdapter` SPI 之后，这一步目前尚未完成。
