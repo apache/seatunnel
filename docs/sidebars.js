@@ -90,6 +90,7 @@ const sidebars = {
                 "introduction/configuration/metalake",
                 "introduction/configuration/sink-options-placeholders",
                 "introduction/configuration/schema-evolution",
+                "introduction/configuration/error-handling",
                 "introduction/configuration/speed-limit"
             ]
         },
@@ -392,6 +393,7 @@ const sidebars = {
                 "developer/contribution-path",
                 "developer/coding-guide",
                 "developer/test-coding-guide",
+                "developer/shade-guide",
                 "developer/how-to-create-your-connector",
                 "developer/connector-runtime-boundaries",
                 "developer/source-connector-development",

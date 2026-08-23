@@ -15,6 +15,13 @@
     - 滚动重启期间，动态/静态混部的 Worker 可能在心跳中上报不一致的 `dynamicSlot`，建议采用协调式（非滚动）重启。
   - **迁移方案**：如需保留旧行为，请在 `seatunnel.yaml` 中设置 `seatunnel.engine.slot-service.dynamic-slot: true`。若保持静态 Slot，请根据峰值并行度评估 `slot-num`（N = 2 + Σ 作业并行度），并相应调整 Worker JVM 堆内存（`-Xmx`）以容纳相应数量的并发任务组工作集。同时请审计任何可能硬编码 `dynamic-slot: true` 的打包/helm/docker `seatunnel.yaml`。
 
+### MySQL CDC Schema-Change 解析
+
+- **行为变更：向上传播 DDL 解析监听器错误**
+  - **影响范围**：`connector-cdc-mysql`
+  - **变更说明**：处理已解析 DDL 时发生的错误不再被吞掉并当作无操作处理，而是作为解析失败向上抛出，避免 CDC 作业静默跳过 schema 变更。
+  - **影响**：某些过去在内部解析器或监听器出错后被忽略的 DDL，升级后可能导致作业失败。请检查源端 DDL，修改为连接器支持的语法后再重启作业。本变更不修改 checkpoint 或 savepoint 格式。
+
 ### JDBC Connector
 
 - **破坏性变更：带时区的时间戳列映射为 `TIMESTAMP_TZ` 类型**
@@ -103,6 +110,14 @@
 
 ### 连接器变更
 
+- **破坏性变更：ORC 文件 Sink 保留嵌套 Struct 字段名的大小写**
+  - **影响范围**：`seatunnel-connectors-v2/connector-file/connector-file-base`（所有共享 `OrcWriteStrategy` 的 File/HDFS/S3/OSS ORC Sink）
+  - **变更说明**：此前，`OrcWriteStrategy.buildFieldWithRowType(...)` 在构建 ORC Schema 时，会将每个嵌套 `ROW`（struct）字段名强制转为小写，因此声明为 `MD5` 的嵌套字段在文件 footer 中被持久化为 `md5`。下游消费者按原始大小写名称读取该列时会得到 null/缺失值。本次移除了递归嵌套字段分支上的 `.toLowerCase()` 调用，嵌套 struct 字段名将按原始大小写写入文件 Schema。
+  - **影响**：升级后由 SeaTunnel 写入的 ORC 文件，其 Schema footer 中的嵌套字段名保留原始大小写。已经适配旧行为的用户（例如使用 `orc.schema.evolution.case.sensitive=true` 的 ORC Reader、设置 `spark.sql.caseSensitive=true` 的 Spark、或预期读到 `md5` 而非 `MD5` 的下游管道）将面临相反的问题：读取新文件时出现空值或 Schema 不匹配。同一目录下混合旧版本（小写嵌套字段名）和新版本（原始大小写）的文件时，相同逻辑列对应的嵌套 Schema 形态不一致，大小写敏感的 Schema 合并无法调和。
+  - **迁移指南**：
+    - **混合版本目录**：将目录重新物化，使所有文件都由新版本写入；或将旧版本与新版本文件分别写入不同目录，独立读取。
+    - **大小写敏感的下游**：在支持的情况下将 Reader 配置为大小写不敏感的 Schema Evolution，或在读取时重映射该列。
+    - **仅大小写不同的同名兄弟字段**（例如同一 struct 中同时存在 `MD5` 和 `md5`）：现在可被表达；大小写不敏感的下游（如 Hive）可能将其视为歧义字段，如需保留请在源头消歧。
 - **破坏性变更：Iceberg 连接器 — 不再自动继承源表主键**
   - **影响范围**：`seatunnel-connectors-v2/connector-iceberg`
   - **变更说明**：当未显式配置 `iceberg.table.primary-keys` 时，`SchemaUtils.toIcebergSchema()`
@@ -125,6 +140,20 @@
   - **变更说明**：Apache POI 在读取任何行之前会将整个 Excel 工作簿完全加载到内存，对于较大的 `.xls`/`.xlsx` 文件可能导致 Zeta worker 严重 GC 压力甚至 OOM。新增 `poi_excel_max_file_size` 选项（默认 50 MB），POI 在构建工作簿之前会拒绝超过该限制的 Excel 文件。该校验同时覆盖普通 Excel 文件和归档（ZIP/TAR/TAR_GZ/GZ）中的 Excel 条目，且仅在 `excel_engine = POI`（默认值）时生效；流式读取的 `excel_engine = EasyExcel` 路径不受此限制。
   - **影响**：此前以 POI 引擎读取大于 50 MB Excel 文件的任务（虽然成功但伴随严重内存压力）现在会以 `FileConnectorException` 快速失败，而不再可能导致 worker OOM。
   - **迁移指南**：对于必须读取大 Excel 文件且 worker 内存充足的 POI 任务，可通过 `poi_excel_max_file_size = <字节数>` 调高限制；否则切换为 `excel_engine = EasyExcel`，该引擎惰性流式读取行，不受此限制约束。
+
+- **破坏性变更：移除 Prometheus Sink 的 `flush_interval` 选项**
+  - **受影响组件**：`seatunnel-connectors-v2/connector-prometheus`
+  - **变更说明**：Prometheus Sink 不再启动自己的后台刷新线程，连接器级的 `flush_interval` 选项已被移除。定时刷新改为由引擎通过作业 `env` 中的 `sink.flush.interval` 驱动，**仅 Zeta 引擎支持**。
+  - **影响**：
+    - **Spark 和 Flink 会失去周期性定时刷新。** 被移除的 `flush_interval` 调度器是连接器自己的线程，在所有引擎上都能工作；其替代者 `sink.flush.interval` 是 Zeta 引擎的能力，Spark 和 Flink 的 Sink 写入器上下文并未实现它，因此这两个引擎上没有周期性刷新。在 Spark 和 Flink 上，缓存现在只会在达到 `batch_size` 以及写入器关闭时被刷新（不会在检查点时刷新）。因此低吞吐的流式作业可能会把缓存的采样点一直保存在内存中直到作业停止；请相应调整 `batch_size`。
+    - 只有在使用 `--check` / `--dry-run=static` / `--dry-run=connect` 校验配置时（会执行 `validateUnknownKeys`），`Prometheus` sink 中残留的 `flush_interval` 键才会被拒绝。直接提交的作业会静默忽略该残留键；连接器会在每个 Sink 写入器启动时各打印一次告警作为替代提示（因此并行度为 N、多表或多副本的作业会多次打印）。
+  - **迁移指南**：从 `Prometheus` sink 中移除 `flush_interval`。如需在 Zeta 上继续使用定时刷新，请在作业 `env` 中设置 `sink.flush.interval`（毫秒）。在 Spark 和 Flink 上请依赖 `batch_size`。`batch_size` 触发和写入器关闭时的最后一次刷新在所有引擎上保持不变。
+
+- **破坏性变更：File 连接器拒绝 XML 输入中的 `DOCTYPE` 声明（XXE 加固）**
+  - **影响范围**：`seatunnel-connectors-v2/connector-file/connector-file-base`（`XmlReadStrategy`），以及所有基于该模块构建的 File Source：LocalFile、HdfsFile、S3File、OssFile、OssJindoFile、CosFile、FtpFile、SftpFile（`file_format_type = xml`）
+  - **变更说明**：此前 XML 读取器使用默认的 dom4j `SAXReader` 解析用户提供的文件，DTD 处理和外部实体解析均保持 JAXP 默认行为。精心构造的 `DOCTYPE`/外部实体载荷可能导致 worker 节点本地文件泄露、SSRF 式请求，或通过实体展开（"billion laughs"）耗尽内存。现在 `XmlReadStrategy` 的所有解析都会经过加固后的 reader：启用 JAXP 安全处理特性、彻底拒绝任何 `<!DOCTYPE ...>` 声明、禁用外部通用/参数实体及外部 DTD 加载，并额外安装一个拒绝一切解析请求的 `EntityResolver` 作为与具体解析器实现无关的兜底防护。
+  - **影响**：此前仅因携带 `<!DOCTYPE ...>` 声明才能被解析的 XML 文件——即使该声明是不引用任何外部 `SYSTEM`/`PUBLIC` 资源的良性声明——现在会以 `FileConnectorException(FILE_READ_FAILED)` 失败。该行为没有配置项可以恢复为旧版本的处理方式。
+  - **迁移指南**：在使用 SeaTunnel 读取前，移除 XML 文件中的 `DOCTYPE` 声明，或对文件做预处理/重新导出。不带 `DOCTYPE` 声明的合法 XML 文件不受影响。(#11250)
 
 ### 转换变更
 
@@ -149,6 +178,32 @@
   | `DynamicCompile` | `compile_pattern = ABSOLUTE_PATH` 但 `absolute_path` 为空 | 运行时文件读取失败 | 使用 `ABSOLUTE_PATH` 模式时提供 `absolute_path` |
 
   **迁移指南**：升级前请对照上表检查您的转换配置。如果现有配置匹配了"新增拒绝的配置"中的情况，请在升级前修改。提交时的错误消息会清楚标明哪个选项无效及原因。
+- **[BREAKING]** SQL 转换的 `CEIL` / `CEILING`、`FLOOR` 与 `TRUNC` / `TRUNCATE` 现在返回与参数相同的数据类型，
+  这与文档中一直声明的行为一致。此前无论输入类型如何，`CEIL` 和 `FLOOR` 都声明为 `INT`、`TRUNC` 声明为 `DOUBLE`，
+  从而静默产生错误的值：
+
+  | 表达式 | 输入 | 以前的结果 | 现在的结果 |
+  |-------|------|-----------|-----------|
+  | `CEIL(bigint_col)` | `9007199254740993` | `1` | `9007199254740993` |
+  | `FLOOR(double_col)` | `1.0E18` | `2147483647` | `1.0E18` |
+  | `TRUNC(bigint_col)` | `9007199254740993` | 声明为 `DOUBLE`，实际返回 `Long` | `9007199254740993` |
+
+  **迁移指南**：如果下游 Sink 的列是按旧的 `INT` / `DOUBLE` 输出类型创建的，请将其放宽为与源列一致的类型
+  （例如 `CEIL(bigint_col)` 对应 `BIGINT`），或使用显式的 `CAST(... AS INT)` 保持原有 schema。
+  对 `INT` 列的表达式不受影响。
+- **[BREAKING]** SQL 转换的 `ROUND`、`TRUNC` / `TRUNCATE` 和 `MOD` 不再将参数经由 `double` 中转，
+  因此 `DECIMAL` 和大 `BIGINT` 值可以保留完整精度。例如
+  `ROUND(CAST('12345678901234567890.987654321' AS DECIMAL(38,9)), 2)` 以前返回
+  `12345678901234567000.00`，现在返回 `12345678901234567890.99`；`MOD(9007199254740993, 2)` 以前返回 `0`，
+  现在返回 `1`。依赖旧的精度丢失结果的作业，其输出会发生变化（现在是正确的）。
+- **[BREAKING]** SQL Transform 对 `DECIMAL` 列的算术运算现在保持精确，并且除法改为四舍五入：
+  - `+`、`-`、`*`、`/` 的操作数之前通过 `BigDecimal.valueOf(value.doubleValue())` 转换，会先退化为 `double`，丢弃约 17 位有效数字之后的全部内容。现在会保留完整精度——例如在 `DECIMAL(38,2)` 列上，`123456789012345678.99 + 0.01` 返回 `123456789012345679.00`，而不是 `123456789012345680.01`。
+  - 除法现在使用 `RoundingMode.HALF_UP` 而不是 `RoundingMode.UP`。`UP` 总是向远离零的方向进位，因此在 scale 为 2 时，`10 / 3` 返回 `3.34` 而不是 `3.33`，`1 / 1000` 返回 `0.01` 而不是 `0.00`。
+  - `%`（`MOD`）不受影响，它本来就委托给 `MOD` 函数，没有自行转换操作数。
+  - `*` 现在会将结果舍入到输出列声明的 scale（`HALF_UP`），与 `/` 的既有行为一致。精确乘法得到的结果 scale 等于两个操作数 scale 之和，而该列声明的类型是 `DECIMAL(max(precision), max(scale))`；若直接输出更宽的值，会导致按声明 schema 编码的 Sink 写入失败。在 `DECIMAL(38,2)` 列上，`10.25 * 3.75` 返回 `38.44`，而旧的有损转换对这组特定的值恰好返回 `38.4375`。
+  - 除数为零的 `DECIMAL` 除法现在抛出标明该运算的 `TransformException`，而此前底层原因是 `java.lang.ArithmeticException("/ by zero")`。两种情况下出错的表达式本来就会被报告（SQL 引擎会包装表达式求值过程中抛出的任何异常），变化的只是 cause 的类型。这与 `MOD` 除零一直以来的报错方式保持一致。
+
+  **迁移指南**：之前被旧舍入模式抬高、或被 `double` 转换截断的结果都会发生变化。乘法结果的小数位数可能比以前*更少*：旧的转换有时会输出比列声明 scale 更宽的值，现在该值会被舍入到声明的 scale，因此原先从 `DECIMAL(38,2)` 列读到 `38.4375` 的作业，升级后会读到 `38.44`。如果下游系统已按旧值对账，升级后需要重新校准。任何为兼容旧行为而做的补偿（例如在除法后减去一个修正值）都应当移除。如果有代码检查除法失败的 cause 并匹配 `ArithmeticException`，需要改为 `TransformException`。
 
 ### 引擎行为变更
 

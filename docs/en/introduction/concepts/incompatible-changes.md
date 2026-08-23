@@ -16,6 +16,18 @@ You need to check this document before you upgrade to related version.
     - During a rolling restart, mixed dynamic/static workers may advertise inconsistent `dynamicSlot` in heartbeats; prefer a coordinated (non-rolling) restart.
   - **Migration Guide**: To preserve the previous behavior, set `seatunnel.engine.slot-service.dynamic-slot: true` in your `seatunnel.yaml`. If you keep static slots, size `slot-num` to your peak parallelism (N = 2 + Σ job parallelism) and size the worker JVM heap (`-Xmx`) to hold that many concurrent task-group working sets. Also audit any packaged/helm/docker `seatunnel.yaml` that may hardcode `dynamic-slot: true`.
 
+### MySQL CDC Schema-Change Parsing
+
+- **Behavior change: DDL parser listener errors are propagated**
+  - **Affected component**: `connector-cdc-mysql`
+  - **Description**: Errors raised while processing a parsed DDL are no longer swallowed and
+    treated as a no-op. They are now propagated as parsing failures so that a CDC job cannot
+    silently skip a schema change.
+  - **Impact**: A job may fail on a DDL statement that was previously ignored after an internal
+    parser/listener error. Review the source DDL and update it to syntax supported by the
+    connector before restarting the job. This change does not alter checkpoint or savepoint
+    formats.
+
 ### JDBC Connector
 
 - **Breaking Change: Mapping of timezone-aware timestamp columns to `TIMESTAMP_TZ` type**
@@ -104,6 +116,14 @@ You need to check this document before you upgrade to related version.
 
 ### Connector Changes
 
+- **Breaking Change: ORC file sink preserves case of nested struct field names**
+  - **Affected component**: `seatunnel-connectors-v2/connector-file/connector-file-base` (used by all File/HDFS/S3/OSS ORC sinks that share `OrcWriteStrategy`)
+  - **Description**: Previously, `OrcWriteStrategy.buildFieldWithRowType(...)` forced every nested `ROW` (struct) field name to lowercase when building the ORC schema, so a nested field declared as `MD5` was persisted as `md5` in the file footer. Downstream consumers that read the column by its declared original-case name received null/missing values. The `.toLowerCase()` call has been removed from the recursive nested-field branch, so nested struct field names are now written verbatim in the file schema.
+  - **Impact**: ORC files written by SeaTunnel after this change embed the original-case nested field names in their schema footer. Users that adapted to the old behavior (for example, case-sensitive ORC readers with `orc.schema.evolution.case.sensitive=true`, Spark with `spark.sql.caseSensitive=true`, or pipelines that expected `md5` rather than `MD5`) will see the inverse problem: null values or schema mismatches when reading new files. Directories that mix pre-upgrade files (lowercase nested names) with post-upgrade files (original case) will contain inconsistent nested-schema shapes for the same logical column, which case-sensitive schema merging cannot reconcile.
+  - **Migration Guide**:
+    - **Mixed-version directories**: Re-materialize the directory so every file is produced by the new version, or write pre- and post-upgrade files into separate directories and read them independently.
+    - **Case-sensitive consumers**: Configure the reader for case-insensitive schema evolution where supported, or remap the column at read time.
+    - **Case-only sibling fields** (for example `MD5` and `md5` in the same struct): now representable; case-insensitive downstream consumers (such as Hive) may treat them as ambiguous — disambiguate at the source if needed.
 - **Breaking Change: Iceberg Connector — source table primary key is no longer silently inherited**
   - **Affected component**: `seatunnel-connectors-v2/connector-iceberg`
   - **Description**: `SchemaUtils.toIcebergSchema()` previously fell back to the CDC source
@@ -131,6 +151,20 @@ You need to check this document before you upgrade to related version.
   - **Impact**: Existing jobs that read POI-engine Excel files larger than 50 MB - which previously succeeded at the cost of heavy memory pressure - will now fail fast with a `FileConnectorException` instead of potentially OOMing the worker.
   - **Migration Guide**: For POI jobs that must read large Excel files and have sufficient worker memory, raise the limit with `poi_excel_max_file_size = <bytes>`. Otherwise switch to `excel_engine = EasyExcel`, which streams rows lazily and is not subject to the limit.
 
+- **Breaking Change: Prometheus Sink `flush_interval` option removed**
+  - **Affected component**: `seatunnel-connectors-v2/connector-prometheus`
+  - **Description**: The Prometheus Sink no longer starts its own background flush thread. The connector-level `flush_interval` option has been removed. Timer-based flushing is now driven by the engine through `sink.flush.interval` in the job `env` block, which is **supported only by the Zeta engine**.
+  - **Impact**:
+    - **Spark and Flink lose periodic timer-based flushing.** The removed `flush_interval` scheduler was a plain connector-owned thread that ran on all engines. Its replacement, `sink.flush.interval`, is a Zeta engine primitive; the Spark and Flink sink writer contexts do not implement it, so there is no periodic flush on those engines. On Spark and Flink the buffer is now flushed only when it reaches `batch_size` and when the writer is closed (it is not flushed on checkpoint). A low-throughput streaming job can therefore hold buffered points in memory until it stops; tune `batch_size` accordingly.
+    - A leftover `flush_interval` key in the `Prometheus` sink block is rejected only when the config is validated with `--check` / `--dry-run=static` / `--dry-run=connect` (which run `validateUnknownKeys`). A directly submitted job silently ignores the stray key; the connector logs a warning once per sink writer at startup instead (so a job with parallelism N, multiple tables, or replicas logs it multiple times).
+  - **Migration Guide**: Remove `flush_interval` from the `Prometheus` sink block. To keep timer-based flushing on Zeta, set `sink.flush.interval` (milliseconds) in the job `env` block. On Spark and Flink, rely on `batch_size`. The `batch_size` trigger and the final flush on writer close are unchanged on all engines.
+
+- **Breaking Change: File connectors reject `DOCTYPE` declarations in XML input (XXE hardening)**
+  - **Affected component**: `seatunnel-connectors-v2/connector-file/connector-file-base` (`XmlReadStrategy`), and every file source built on it: LocalFile, HdfsFile, S3File, OssFile, OssJindoFile, CosFile, FtpFile, SftpFile (`file_format_type = xml`)
+  - **Description**: The XML reader previously parsed user-supplied files with a default dom4j `SAXReader`, leaving DTD processing and external entity resolution at their JAXP defaults. A crafted `DOCTYPE`/external-entity payload could disclose local worker-node files, trigger SSRF-style fetches, or exhaust memory via entity expansion ("billion laughs"). `XmlReadStrategy` now routes every parse through a hardened reader that enables JAXP secure processing, rejects any `<!DOCTYPE ...>` declaration outright, disables external general/parameter entities and external DTD loading, and installs a deny-all `EntityResolver` as a parser-agnostic backstop.
+  - **Impact**: XML files that previously parsed successfully only because they carried a `<!DOCTYPE ...>` declaration — even a benign one with no external `SYSTEM`/`PUBLIC` reference — now fail with `FileConnectorException(FILE_READ_FAILED)`. There is no configuration option to opt back into the previous behavior.
+  - **Migration Guide**: Remove the `DOCTYPE` declaration from XML files before ingesting them with SeaTunnel, or pre-process/re-export the file without it. Well-formed XML without a `DOCTYPE` declaration is unaffected. (#11250)
+
 ### Transform Changes
 
 - **[BREAKING]** SQL Transform `PARSEDATETIME`, `TO_DATE`, and `IS_DATE` functions now only accept whitelisted datetime format patterns. Custom format patterns that were previously accepted will now fail at runtime. The supported patterns are:
@@ -156,6 +190,33 @@ You need to check this document before you upgrade to related version.
 - Adjusted SQL Transform date & time functions:
   - `DATEDIFF(<start>, <end>, 'MONTH')` now returns the total number of months between the two dates across years (for example, from `2023-01-01` to `2024-03-01` returns `14` instead of `15`).
   - `WEEK(<datetime>)` now returns the ISO week number directly (previous behavior added an extra `+1` to the ISO week value).
+- **[BREAKING]** SQL Transform `CEIL` / `CEILING`, `FLOOR` and `TRUNC` / `TRUNCATE` now return the data type of their
+  argument, as their documentation has always specified. Previously `CEIL` and `FLOOR` declared `INT` and `TRUNC`
+  declared `DOUBLE` regardless of the input type, which silently produced wrong values:
+
+  | Expression | Input | Previous result | Current result |
+  |------------|-------|-----------------|----------------|
+  | `CEIL(bigint_col)` | `9007199254740993` | `1` | `9007199254740993` |
+  | `FLOOR(double_col)` | `1.0E18` | `2147483647` | `1.0E18` |
+  | `TRUNC(bigint_col)` | `9007199254740993` | declared `DOUBLE`, returned a `Long` | `9007199254740993` |
+
+  **Migration Guide**: If a downstream sink column was created against the old `INT` / `DOUBLE` output type, widen it to
+  match the source column type (for example `BIGINT` for `CEIL(bigint_col)`), or wrap the expression in an explicit
+  `CAST(... AS INT)` to keep the previous schema. Expressions over `INT` columns are unaffected.
+- **[BREAKING]** SQL Transform `ROUND`, `TRUNC` / `TRUNCATE` and `MOD` no longer round-trip their arguments through
+  `double`, so `DECIMAL` and large `BIGINT` values keep full precision. For example
+  `ROUND(CAST('12345678901234567890.987654321' AS DECIMAL(38,9)), 2)` previously returned
+  `12345678901234567000.00` and now returns `12345678901234567890.99`, and `MOD(9007199254740993, 2)` previously
+  returned `0` and now returns `1`. Jobs that (intentionally or not) depended on the old lossy values will see
+  different — now correct — output.
+- **[BREAKING]** SQL Transform arithmetic on `DECIMAL` columns is now exact, and division rounds to nearest:
+  - Operands of `+`, `-`, `*` and `/` were previously converted with `BigDecimal.valueOf(value.doubleValue())`, which collapsed them to a `double` and discarded everything beyond ~17 significant digits. Values now keep full precision — for example, on `DECIMAL(38,2)` columns `123456789012345678.99 + 0.01` returns `123456789012345679.00` instead of `123456789012345680.01`.
+  - Division now uses `RoundingMode.HALF_UP` instead of `RoundingMode.UP`. `UP` always rounded away from zero, so at scale 2 `10 / 3` returned `3.34` instead of `3.33`, and `1 / 1000` returned `0.01` instead of `0.00`.
+  - `%` (`MOD`) is unaffected; it already delegated to the `MOD` function rather than converting operands itself.
+  - `*` now rounds its result to the scale declared for the output column (`HALF_UP`), the same way `/` already did. Exact multiplication produces a result whose scale is the sum of the operand scales, while the column is declared as `DECIMAL(max(precision), max(scale))`; emitting the wider value would break sinks that encode against the declared schema. On `DECIMAL(38,2)` columns `10.25 * 3.75` returns `38.44`, where the old lossy conversion happened to return `38.4375` for these particular values.
+  - Dividing by a zero `DECIMAL` now fails with a `TransformException` naming the operation, where the underlying cause was previously `java.lang.ArithmeticException("/ by zero")`. The failing expression was already reported either way, since the SQL engine wraps anything thrown while evaluating an expression; only the cause type changed. This matches how `MOD` by zero has always been reported.
+
+  **Migration Guide**: Results that were previously inflated by the old rounding mode, or truncated by the `double` conversion, will change. Multiplication results may now carry *fewer* decimal places than before: the old conversion sometimes emitted a value wider than the declared column scale, and that value is now rounded down to it, so a job reading `38.4375` from a `DECIMAL(38,2)` column will read `38.44` after upgrading. Any code that inspects the *cause* of a division failure and matches on `ArithmeticException` should be updated to expect `TransformException`. If a downstream system was reconciled against the old values, re-baseline it after upgrading. Any workaround that compensated for the old behavior (for example subtracting a correction term after a division) should be removed.
 
 ### Engine Behavior Changes
 
