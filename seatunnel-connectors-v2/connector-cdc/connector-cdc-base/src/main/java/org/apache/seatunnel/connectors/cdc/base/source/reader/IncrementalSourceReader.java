@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.MultipleRowType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
 import org.apache.seatunnel.connectors.cdc.base.source.event.CompletedSnapshotPhaseEvent;
@@ -298,7 +299,7 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
                         tableIds.get(0).catalog(),
                         tableIds.get(0).schema(),
                         tableIds.get(0).table(),
-                        incrementalSplit.getCheckpointDataType().asSeaTunnelRowType()));
+                        (SeaTunnelRowType) incrementalSplit.getCheckpointDataType()));
     }
 
     private static CatalogTable toLegacyCheckpointTable(
