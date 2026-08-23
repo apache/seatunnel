@@ -136,42 +136,41 @@ jobs:
 
             const run_id = build_run.id
 
-              // Here we get check run ID to provide Check run view instead of Actions view, see also SPARK-37879.
-              const check_runs = await github.request(check_run_endpoint, check_run_params)
-              console.log('check_runs: ' + JSON.stringify(check_runs))
-              const actions_url = 'https://github.com/'
-                + context.payload.pull_request.head.repo.full_name
-                + '/actions/runs/'
-                + run_id
-              const run_url_part = '/actions/runs/' + run_id
-              const check_run_head = check_runs.data.check_runs.find(r =>
-                r.head_sha === build_run.head_sha
-                  && (
-                    (r.details_url && r.details_url.includes(run_url_part))
-                    || (r.html_url && r.html_url.includes(run_url_part))
-                  )
-              )
+            // Here we get check run ID to provide Check run view instead of Actions view, see also SPARK-37879.
+            const check_runs = await github.request(check_run_endpoint, check_run_params)
+            console.log('check_runs: ' + JSON.stringify(check_runs))
+            const actions_url = 'https://github.com/'
+              + context.payload.pull_request.head.repo.full_name
+              + '/actions/runs/'
+              + run_id
+            const run_url_part = '/actions/runs/' + run_id
+            const check_run_head = check_runs.data.check_runs.find(r =>
+              r.head_sha === build_run.head_sha
+                && (
+                  (r.details_url && r.details_url.includes(run_url_part))
+                  || (r.html_url && r.html_url.includes(run_url_part))
+                )
+            )
 
-              console.log('check_run_head: ' + JSON.stringify(check_run_head))
-              const check_run_url = check_run_head
-                ? (check_run_head.html_url || check_run_head.details_url || actions_url)
-                : actions_url
+            console.log('check_run_head: ' + JSON.stringify(check_run_head))
+            const check_run_url = check_run_head
+              ? (check_run_head.html_url || check_run_head.details_url || actions_url)
+              : actions_url
 
-              await github.rest.checks.create({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                name: name,
-                head_sha: head_sha,
-                status: 'queued',
-                output: {
-                  title: 'Test results',
-                  summary: '[See test results](' + check_run_url + ')',
-                  text: JSON.stringify({
-                    owner: context.payload.pull_request.head.repo.owner.login,
-                    repo: context.payload.pull_request.head.repo.name,
-                    run_id: run_id
-                  })
-                },
-                details_url: actions_url,
-              })
-            }
+            await github.rest.checks.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              name: name,
+              head_sha: head_sha,
+              status: 'queued',
+              output: {
+                title: 'Test results',
+                summary: '[See test results](' + check_run_url + ')',
+                text: JSON.stringify({
+                  owner: context.payload.pull_request.head.repo.owner.login,
+                  repo: context.payload.pull_request.head.repo.name,
+                  run_id: run_id
+                })
+              },
+              details_url: actions_url,
+            })
