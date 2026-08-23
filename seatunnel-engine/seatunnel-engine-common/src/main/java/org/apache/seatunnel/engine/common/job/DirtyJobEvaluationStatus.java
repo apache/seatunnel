@@ -17,34 +17,13 @@
 
 package org.apache.seatunnel.engine.common.job;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-import java.io.Serializable;
-
-@AllArgsConstructor
-@Data
-@NoArgsConstructor
-public final class JobStatusData implements Serializable {
-    private static final long serialVersionUID = 1L;
-
-    private Long jobId;
-    private String jobName;
-    private JobStatus jobStatus;
-    private long submitTime;
-    private Long startTime;
-    private Long finishTime;
-    // Optional additive projection; null preserves disabled-job semantics.
-    private DirtyJobSummary dirtyTask;
-
-    public JobStatusData(
-            Long jobId,
-            String jobName,
-            JobStatus jobStatus,
-            long submitTime,
-            Long startTime,
-            Long finishTime) {
-        this(jobId, jobName, jobStatus, submitTime, startTime, finishTime, null);
-    }
+/**
+ * Evaluation result for member-loss recovery tracking.
+ *
+ * <p>UNKNOWN is intentionally distinct from CLEAN when tracking evidence is incomplete.
+ */
+public enum DirtyJobEvaluationStatus {
+    CLEAN,
+    DIRTY,
+    UNKNOWN
 }

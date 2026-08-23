@@ -57,6 +57,8 @@ public class RestConstant {
     public static final String ERROR_MSG = "errorMsg";
 
     public static final String METRICS = "metrics";
+
+    public static final String DIRTY_TASK = "dirtyTask";
     public static final String LIMIT = "limit";
 
     public static final String TABLE_SOURCE_RECEIVED_COUNT = "TableSourceReceivedCount";

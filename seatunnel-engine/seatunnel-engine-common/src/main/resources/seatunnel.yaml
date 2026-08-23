@@ -18,6 +18,9 @@
 seatunnel:
     engine:
         backup-count: 1
+        dirty-task:
+            event-history-size: 10
+            pending-incident-ttl: 10m
         queue-type: blockingqueue
         print-execution-info-interval: 60
         print-job-metrics-info-interval: 60

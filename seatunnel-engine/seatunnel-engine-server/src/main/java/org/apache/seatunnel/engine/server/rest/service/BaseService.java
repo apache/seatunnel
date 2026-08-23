@@ -33,6 +33,7 @@ import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.common.utils.DateTimeUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.JobConfig;
+import org.apache.seatunnel.engine.common.job.DirtyJobState;
 import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
 import org.apache.seatunnel.engine.core.classloader.ClassLoaderService;
@@ -450,6 +451,13 @@ public abstract class BaseService {
                 .add(
                         RestConstant.METRICS,
                         metricsToJsonObject(getJobMetrics(jobMetrics, jobDAGInfo)));
+        DirtyJobState dirtyJobState = createUnknownDirtyJobState(jobImmutableInformation);
+        if (dirtyJobState != null) {
+            dirtyJobState =
+                    resolveConfiguredDirtyJobState(
+                            jobImmutableInformation, loadDirtyJobState(jobId));
+        }
+        addDirtyJobState(jobInfoJson, dirtyJobState);
 
         if (jobStatus != null && jobStatus.isEndState()) {
             RUNNING_JOB_DAG_JSON_CACHE.remove(jobId);
@@ -508,37 +516,238 @@ public abstract class BaseService {
 
     protected JsonObject getJobInfoJson(
             JobHistoryService.JobState jobState, String jobMetrics, JobDAGInfo jobDAGInfo) {
-        return new JsonObject()
-                .add(RestConstant.JOB_ID, String.valueOf(jobState.getJobId()))
-                .add(RestConstant.JOB_NAME, jobState.getJobName())
-                .add(RestConstant.JOB_STATUS, jobState.getJobStatus().toString())
-                .add(RestConstant.ERROR_MSG, jobState.getErrorMessage())
-                .add(
-                        RestConstant.CREATE_TIME,
-                        DateTimeUtils.toString(
-                                jobState.getSubmitTime(),
-                                DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS))
-                .add(
-                        RestConstant.START_TIME,
-                        jobState.getStartTime() == null
-                                ? ""
-                                : DateTimeUtils.toString(
-                                        jobState.getStartTime(),
+        JsonObject jobInfoJson =
+                new JsonObject()
+                        .add(RestConstant.JOB_ID, String.valueOf(jobState.getJobId()))
+                        .add(RestConstant.JOB_NAME, jobState.getJobName())
+                        .add(RestConstant.JOB_STATUS, jobState.getJobStatus().toString())
+                        .add(RestConstant.ERROR_MSG, jobState.getErrorMessage())
+                        .add(
+                                RestConstant.CREATE_TIME,
+                                DateTimeUtils.toString(
+                                        jobState.getSubmitTime(),
                                         DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS))
-                .add(
-                        RestConstant.FINISH_TIME,
-                        jobState.getFinishTime() == null
-                                ? ""
-                                : DateTimeUtils.toString(
-                                        jobState.getFinishTime(),
-                                        DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS))
-                .add(
-                        RestConstant.JOB_DAG,
-                        jobDAGInfo != null ? jobDAGInfo.toJsonObject() : new JsonObject())
-                .add(RestConstant.PLUGIN_JARS_URLS, new JsonArray())
-                .add(
-                        RestConstant.METRICS,
-                        metricsToJsonObject(getJobMetrics(jobMetrics, jobDAGInfo)));
+                        .add(
+                                RestConstant.START_TIME,
+                                jobState.getStartTime() == null
+                                        ? ""
+                                        : DateTimeUtils.toString(
+                                                jobState.getStartTime(),
+                                                DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS))
+                        .add(
+                                RestConstant.FINISH_TIME,
+                                jobState.getFinishTime() == null
+                                        ? ""
+                                        : DateTimeUtils.toString(
+                                                jobState.getFinishTime(),
+                                                DateTimeUtils.Formatter.YYYY_MM_DD_HH_MM_SS))
+                        .add(
+                                RestConstant.JOB_DAG,
+                                jobDAGInfo != null ? jobDAGInfo.toJsonObject() : new JsonObject())
+                        .add(RestConstant.PLUGIN_JARS_URLS, new JsonArray())
+                        .add(
+                                RestConstant.METRICS,
+                                metricsToJsonObject(getJobMetrics(jobMetrics, jobDAGInfo)));
+        addDirtyJobState(jobInfoJson, jobState.getDirtyTask());
+        return jobInfoJson;
+    }
+
+    protected DirtyJobState loadDirtyJobState(long jobId) {
+        DirtyJobState state = null;
+        try {
+            IMap<Long, DirtyJobState> dirtyJobStateMap =
+                    nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_DIRTY_JOB_STATE);
+            state = dirtyJobStateMap.get(jobId);
+            if (state == null) {
+                return null;
+            }
+            IMap<Long, Long> memberEventSequenceMap =
+                    nodeEngine
+                            .getHazelcastInstance()
+                            .getMap(Constant.IMAP_DIRTY_JOB_MEMBER_EVENT_SEQUENCE);
+            long sequence = memberEventSequenceMap.getOrDefault(0L, 0L);
+            return applyLocalDirtyJobGuard(jobId, state.evaluatedCopy(sequence));
+        } catch (Throwable error) {
+            log.warn("Failed to load dirty-job state for job {}", jobId, error);
+            if (state != null) {
+                state = state.evaluatedCopy(state.getLastProcessedMemberEventSequence());
+                state.markTrackingIncomplete("Failed to read dirty-job tracking state");
+            }
+            return applyLocalDirtyJobGuard(jobId, state);
+        }
+    }
+
+    protected DirtyJobState createUnknownDirtyJobState(
+            JobImmutableInformation jobImmutableInformation) {
+        if (jobImmutableInformation == null || jobImmutableInformation.getJobConfig() == null) {
+            return null;
+        }
+        int threshold =
+                ReadonlyConfig.fromMap(jobImmutableInformation.getJobConfig().getEnvOptions())
+                        .get(EnvCommonOptions.DIRTY_JOB_RESTORE_THRESHOLD);
+        if (threshold <= 0) {
+            return null;
+        }
+        DirtyJobState state =
+                DirtyJobState.create(
+                        jobImmutableInformation.getJobId(),
+                        jobImmutableInformation.getCreateTime(),
+                        threshold,
+                        1,
+                        1L,
+                        0L);
+        state.markTrackingIncomplete("Dirty-job state is unavailable");
+        return state;
+    }
+
+    /**
+     * Rejects state retained for a previous execution of the same job ID.
+     *
+     * @return current evaluated state, query-only UNKNOWN state, or null when tracking is disabled
+     */
+    protected DirtyJobState resolveConfiguredDirtyJobState(
+            JobImmutableInformation jobImmutableInformation, DirtyJobState persistedState) {
+        DirtyJobState configuredState = createUnknownDirtyJobState(jobImmutableInformation);
+        if (configuredState == null) {
+            return null;
+        }
+        if (persistedState == null) {
+            return configuredState;
+        }
+        if (persistedState.getJobCreateTime() != configuredState.getJobCreateTime()
+                || persistedState.getThreshold() != configuredState.getThreshold()) {
+            configuredState.markTrackingIncomplete(
+                    "Dirty-job state belongs to a different job execution or configuration");
+            return configuredState;
+        }
+        return persistedState;
+    }
+
+    protected Map<Long, DirtyJobState> loadAllDirtyJobStates() {
+        Map<Long, DirtyJobState> states = new HashMap<>();
+        try {
+            IMap<Long, DirtyJobState> dirtyJobStateMap =
+                    nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_DIRTY_JOB_STATE);
+            dirtyJobStateMap.forEach(states::put);
+        } catch (Throwable error) {
+            log.warn("Failed to load dirty-job states", error);
+            states.values()
+                    .forEach(
+                            state ->
+                                    state.markTrackingIncomplete(
+                                            "Failed to read dirty-job tracking state"));
+            return states;
+        }
+        try {
+            IMap<Long, Long> memberEventSequenceMap =
+                    nodeEngine
+                            .getHazelcastInstance()
+                            .getMap(Constant.IMAP_DIRTY_JOB_MEMBER_EVENT_SEQUENCE);
+            long sequence = memberEventSequenceMap.getOrDefault(0L, 0L);
+            states.replaceAll(
+                    (jobId, state) ->
+                            applyLocalDirtyJobGuard(jobId, state.evaluatedCopy(sequence)));
+        } catch (Throwable error) {
+            log.warn("Failed to load dirty-job member-event sequence", error);
+            states.replaceAll(
+                    (jobId, state) -> {
+                        DirtyJobState evaluated =
+                                state.evaluatedCopy(state.getLastProcessedMemberEventSequence());
+                        evaluated.markTrackingIncomplete(
+                                "Failed to read dirty-job member-event sequence");
+                        return evaluated;
+                    });
+        }
+        return states;
+    }
+
+    private DirtyJobState applyLocalDirtyJobGuard(long jobId, DirtyJobState state) {
+        if (state == null) {
+            return null;
+        }
+        try {
+            SeaTunnelServer seaTunnelServer = getSeaTunnelServer(true);
+            if (seaTunnelServer != null
+                    && seaTunnelServer.getCoordinatorService().getDirtyJobService() != null) {
+                return seaTunnelServer
+                        .getCoordinatorService()
+                        .getDirtyJobService()
+                        .markUnknownIfLocallyIncomplete(jobId, state);
+            }
+        } catch (Throwable error) {
+            state.markTrackingIncomplete("Failed to read local dirty-job tracking health");
+        }
+        return state;
+    }
+
+    /**
+     * Loads the compact enabled-job markers used to distinguish disabled jobs from missing state.
+     */
+    protected Map<Long, Integer> loadDirtyJobThresholds() {
+        Map<Long, Integer> thresholds = new HashMap<>();
+        try {
+            IMap<Long, Integer> thresholdMap =
+                    nodeEngine
+                            .getHazelcastInstance()
+                            .getMap(Constant.IMAP_DIRTY_JOB_ENABLED_THRESHOLDS);
+            thresholdMap.forEach(thresholds::put);
+        } catch (Throwable error) {
+            log.warn("Failed to load dirty-job enabled thresholds", error);
+            return null;
+        }
+        return thresholds;
+    }
+
+    /**
+     * Creates a query-only UNKNOWN state when the enabled marker exists but runtime state does not.
+     */
+    protected DirtyJobState createUnknownDirtyJobState(long jobId, int threshold) {
+        DirtyJobState state = DirtyJobState.create(jobId, threshold, 1, 1L, 0L);
+        state.markTrackingIncomplete("Dirty-job state is unavailable");
+        return state;
+    }
+
+    protected void addDirtyJobSummary(JsonObject target, DirtyJobState state) {
+        if (state == null) {
+            return;
+        }
+        target.add(
+                RestConstant.DIRTY_TASK,
+                new JsonObject()
+                        .add("dirty", state.isDirty())
+                        .add("evaluationStatus", state.getEvaluationStatus().name())
+                        .add("recoveryAttemptCount", state.getRecoveryAttemptCount()));
+    }
+
+    protected void addDirtyJobState(JsonObject target, DirtyJobState state) {
+        if (state == null) {
+            return;
+        }
+        String activeEpisodeId =
+                state.getActiveEpisode() == null ? null : state.getActiveEpisode().getEpisodeId();
+        JsonObject dirtyTask =
+                new JsonObject()
+                        .add("dirty", state.isDirty())
+                        .add("evaluationStatus", state.getEvaluationStatus().name())
+                        .add("trackingComplete", state.isTrackingComplete())
+                        .add("threshold", state.getThreshold())
+                        .add("recoveryAttemptCount", state.getRecoveryAttemptCount())
+                        .add("recoveryEpisodeCount", state.getRecoveryEpisodeCount())
+                        .add("memberLossIncidentCount", state.getMemberLossIncidentCount())
+                        .add("activeEpisodeId", activeEpisodeId)
+                        .add(
+                                "lastLeaveClassification",
+                                state.getLastLeaveClassification() == null
+                                        ? null
+                                        : state.getLastLeaveClassification().name())
+                        .add("lastLostMemberUuid", state.getLastLostMemberUuid())
+                        .add("lastLostAddress", state.getLastLostAddress())
+                        .add(
+                                "lastCountedTime",
+                                state.getLastCountedTime() == null
+                                        ? JsonValue.NULL
+                                        : JsonValue.valueOf(state.getLastCountedTime()));
+        target.add(RestConstant.DIRTY_TASK, dirtyTask);
     }
 
     private Map<String, Object> getJobMetrics(String jobMetrics, JobDAGInfo jobDAGInfo) {

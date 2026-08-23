@@ -51,6 +51,14 @@ This counter accumulates for the life of the pipeline; an intermediate successfu
 
 Used to control the default retry interval when a job fails. The default value is 3 seconds, and it only works in the Zeta engine.
 
+### job.dirty-task.threshold
+
+Controls the optional Zeta dirty-job label. The default value is `-1`; values less than or equal to zero disable tracking. A positive value marks the job `DIRTY` after that many job-level deployment generations associated with Hazelcast member loss. This option does not change `job.retry.times`, stop the job, or replace the primary job status.
+
+One member-loss recovery that redeploys multiple pipelines counts as one first-generation attempt. A later redeployment advances the generation once. Ordinary connector, data, or user-code failures without an active member-loss recovery episode are not counted. Kubernetes Pod restart, manual deletion, and rolling replacement are observed as unclassified member loss unless a future trusted planned-leave protocol proves otherwise, so their redeployment attempts are counted.
+
+Running and finished job APIs expose an optional `dirtyTask` object when tracking is enabled. Its `evaluationStatus` is `CLEAN`, `DIRTY`, or `UNKNOWN`. `UNKNOWN` means the engine cannot prove tracking completeness after a state-store or failover problem and must not be interpreted as clean.
+
 ### savemode.execute.location
 
 This parameter is used to specify the location of the savemode when the job is executed in the Zeta engine.

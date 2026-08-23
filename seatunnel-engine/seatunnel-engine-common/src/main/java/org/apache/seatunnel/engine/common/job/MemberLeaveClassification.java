@@ -17,34 +17,12 @@
 
 package org.apache.seatunnel.engine.common.job;
 
-import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
-import java.io.Serializable;
-
-@AllArgsConstructor
-@Data
-@NoArgsConstructor
-public final class JobStatusData implements Serializable {
-    private static final long serialVersionUID = 1L;
-
-    private Long jobId;
-    private String jobName;
-    private JobStatus jobStatus;
-    private long submitTime;
-    private Long startTime;
-    private Long finishTime;
-    // Optional additive projection; null preserves disabled-job semantics.
-    private DirtyJobSummary dirtyTask;
-
-    public JobStatusData(
-            Long jobId,
-            String jobName,
-            JobStatus jobStatus,
-            long submitTime,
-            Long startTime,
-            Long finishTime) {
-        this(jobId, jobName, jobStatus, submitTime, startTime, finishTime, null);
-    }
+/**
+ * Classification supplied by the control plane for a member departure.
+ *
+ * <p>Phase one emits UNCLASSIFIED because no trusted planned-leave protocol exists yet.
+ */
+public enum MemberLeaveClassification {
+    UNCLASSIFIED,
+    PLANNED_VERIFIED
 }

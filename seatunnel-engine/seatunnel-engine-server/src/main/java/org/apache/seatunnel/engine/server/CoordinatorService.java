@@ -41,6 +41,7 @@ import org.apache.seatunnel.engine.common.exception.JobNotFoundException;
 import org.apache.seatunnel.engine.common.exception.JobRestoreInProgressException;
 import org.apache.seatunnel.engine.common.exception.SavePointFailedException;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
+import org.apache.seatunnel.engine.common.job.DirtyJobMemberEvent;
 import org.apache.seatunnel.engine.common.job.JobResult;
 import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.common.utils.ExceptionUtil;
@@ -75,6 +76,7 @@ import org.apache.seatunnel.engine.server.master.JobHistoryService;
 import org.apache.seatunnel.engine.server.master.JobMaster;
 import org.apache.seatunnel.engine.server.master.cleanup.JobCleanupRecord;
 import org.apache.seatunnel.engine.server.master.cleanup.PipelineCleanupRecord;
+import org.apache.seatunnel.engine.server.master.dirty.DirtyJobService;
 import org.apache.seatunnel.engine.server.metrics.JobMetricsUtil;
 import org.apache.seatunnel.engine.server.resourcemanager.NoEnoughResourceException;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
@@ -138,6 +140,12 @@ public class CoordinatorService {
     private volatile ResourceManager resourceManager;
 
     private JobHistoryService jobHistoryService;
+
+    // Owns bounded HA updates for the optional dirty-job observation path.
+    private DirtyJobService dirtyJobService;
+
+    // Prevents event acknowledgement and restored-job scheduling before final replay completes.
+    private volatile boolean restoringJobsAfterMasterSwitch;
 
     /**
      * IMap key is jobId and value is {@link JobInfo}. Tuple2 key is JobMaster init timestamp and
@@ -217,7 +225,7 @@ public class CoordinatorService {
 
     private EventProcessor eventProcessor;
 
-    private PassiveCompletableFuture restoreAllJobFromMasterNodeSwitchFuture;
+    private volatile PassiveCompletableFuture<Void> restoreAllJobFromMasterNodeSwitchFuture;
 
     private final boolean isWaitStrategy;
 
@@ -234,6 +242,12 @@ public class CoordinatorService {
         this.engineContext = engineContext;
         this.engineConfig = engineConfig;
         this.logger = nodeEngine.getLogger(getClass());
+        this.dirtyJobService =
+                new DirtyJobService(
+                        nodeEngine,
+                        logger,
+                        engineConfig.getDirtyJobEventHistorySize(),
+                        engineConfig.getDirtyJobPendingIncidentTtl().toMillis());
         this.executorService = createCoordinatorExecutor();
 
         int metricsFetchThreads =
@@ -320,12 +334,19 @@ public class CoordinatorService {
      * @throws InterruptedException if queue waiting or retry sleep is interrupted
      */
     private void pendingJobSchedule() throws InterruptedException {
+        if (restoreAllJobFromMasterNodeSwitchFuture != null) {
+            restoreAllJobFromMasterNodeSwitchFuture.join();
+        }
         PendingJobInfo pendingJobInfo = pendingJobQueue.peekBlocking();
         if (Objects.isNull(pendingJobInfo)) {
             // This situation almost never happens because pendingJobSchedule is single-threaded
             logger.warning("The peek job info is null");
             Thread.sleep(3000);
             return;
+        }
+        PassiveCompletableFuture<Void> restoreFuture = restoreAllJobFromMasterNodeSwitchFuture;
+        if (restoreFuture != null) {
+            restoreFuture.join();
         }
         Long jobId = pendingJobInfo.getJobId();
         final JobMaster jobMaster = pendingJobInfo.getJobMaster();
@@ -371,6 +392,15 @@ public class CoordinatorService {
         // When deleting jobmaster from pendingJobQueue, make sure that there is a corresponding
         // jobMaster in the runningJobMasterMap
         runningJobMasterMap.put(jobId, jobMaster);
+        if (pendingJobInfo.getPendingSourceState() == PendingSourceState.SUBMIT
+                && dirtyJobService != null) {
+            try {
+                dirtyJobService.synchronizeMemberEventSequence(jobMaster);
+            } catch (Throwable trackingError) {
+                reportDirtyJobTrackingFailure(
+                        jobId, "synchronize member-event sequence", trackingError);
+            }
+        }
         final PendingJobInfo finalPendingJobInfo = pendingJobQueue.take();
         final JobMaster finalJobMaster = finalPendingJobInfo.getJobMaster();
         PendingSourceState pendingSourceState = finalPendingJobInfo.getPendingSourceState();
@@ -540,7 +570,8 @@ public class CoordinatorService {
                         nodeEngine
                                 .getHazelcastInstance()
                                 .getMap(Constant.IMAP_FINISHED_JOB_VERTEX_INFO),
-                        engineConfig.getHistoryJobExpireMinutes());
+                        engineConfig.getHistoryJobExpireMinutes(),
+                        dirtyJobService);
         eventProcessor =
                 createJobEventProcessor(
                         engineConfig.getEventReportHttpApi(),
@@ -559,10 +590,43 @@ public class CoordinatorService {
         }
 
         reschedulePendingJobCleanup();
-        restoreAllJobFromMasterNodeSwitchFuture =
-                new PassiveCompletableFuture(
-                        CompletableFuture.runAsync(
-                                this::restoreAllRunningJobFromMasterNodeSwitch, executorService));
+        restoringJobsAfterMasterSwitch = true;
+        CompletableFuture<Void> restoreFuture = new CompletableFuture<>();
+        restoreAllJobFromMasterNodeSwitchFuture = new PassiveCompletableFuture(restoreFuture);
+        try {
+            executorService.submit(
+                    () -> {
+                        boolean restored = false;
+                        Throwable restoreError = null;
+                        List<DirtyJobMemberEvent> replayedEvents = Collections.emptyList();
+                        try {
+                            replayedEvents = restoreAllRunningJobFromMasterNodeSwitch();
+                            restored = true;
+                        } catch (Throwable error) {
+                            restoreError = error;
+                        } finally {
+                            restoringJobsAfterMasterSwitch = false;
+                            if (restored) {
+                                try {
+                                    dirtyJobService.removePendingMemberEvents(replayedEvents);
+                                    dirtyJobService.removePendingMemberEvents(
+                                            dirtyJobService.getPendingMemberEvents());
+                                } catch (Throwable acknowledgeError) {
+                                    logger.warning(
+                                            "Failed to acknowledge replayed dirty-job member events",
+                                            acknowledgeError);
+                                } finally {
+                                    restoreFuture.complete(null);
+                                }
+                            } else {
+                                restoreFuture.completeExceptionally(restoreError);
+                            }
+                        }
+                    });
+        } catch (Throwable submitError) {
+            restoringJobsAfterMasterSwitch = false;
+            restoreFuture.completeExceptionally(submitError);
+        }
     }
 
     private void reschedulePendingJobCleanup() {
@@ -790,8 +854,11 @@ public class CoordinatorService {
 
         JobInfo currentJobInfo = runningJobInfoIMap.get(jobId);
         if (currentJobInfo == null) {
-            cleanupPendingJobStateMaps(record);
-            removePendingJobCleanupRecord(jobId, record);
+            if (cleanupPendingJobStateMaps(jobId, record)) {
+                removePendingJobCleanupRecord(jobId, record);
+            } else {
+                schedulePendingJobCleanupRetry(jobId, record);
+            }
             return;
         }
         if (!isCleanupOwnedByCurrentJob(currentJobInfo, jobId, record)) {
@@ -802,8 +869,11 @@ public class CoordinatorService {
         if (!runningJobInfoIMap.remove(jobId, currentJobInfo)) {
             JobInfo latestJobInfo = runningJobInfoIMap.get(jobId);
             if (latestJobInfo == null) {
-                cleanupPendingJobStateMaps(record);
-                removePendingJobCleanupRecord(jobId, record);
+                if (cleanupPendingJobStateMaps(jobId, record)) {
+                    removePendingJobCleanupRecord(jobId, record);
+                } else {
+                    schedulePendingJobCleanupRetry(jobId, record);
+                }
             } else if (!Objects.equals(
                     latestJobInfo.getInitializationTimestamp(),
                     record.getOwnerInitializationTimestamp())) {
@@ -812,8 +882,22 @@ public class CoordinatorService {
             return;
         }
 
-        cleanupPendingJobStateMaps(record);
-        removePendingJobCleanupRecord(jobId, record);
+        if (cleanupPendingJobStateMaps(jobId, record)) {
+            removePendingJobCleanupRecord(jobId, record);
+        } else {
+            schedulePendingJobCleanupRetry(jobId, record);
+        }
+    }
+
+    private void schedulePendingJobCleanupRetry(long jobId, JobCleanupRecord record) {
+        ScheduledExecutorService cleanupScheduler = seaTunnelServer.getMonitorService();
+        if (cleanupScheduler == null || cleanupScheduler.isShutdown()) {
+            return;
+        }
+        cleanupScheduler.schedule(
+                () -> processPendingJobCleanup(jobId, record),
+                PIPELINE_CLEANUP_INTERVAL_SECONDS,
+                TimeUnit.SECONDS);
     }
 
     private void removePendingJobCleanupRecord(long jobId, JobCleanupRecord record) {
@@ -856,9 +940,10 @@ public class CoordinatorService {
         return jobState instanceof JobStatus && ((JobStatus) jobState).isEndState();
     }
 
-    private void cleanupPendingJobStateMaps(JobCleanupRecord record) {
+    private boolean cleanupPendingJobStateMaps(long jobId, JobCleanupRecord record) {
         removeKeys(runningJobStateIMap, record.getStateKeys());
         removeKeys(runningJobStateTimestampsIMap, record.getTimestampKeys());
+        return dirtyJobService == null || dirtyJobService.removeRunningState(jobId);
     }
 
     private void removeKeys(IMap<Object, ?> map, Set<Object> keys) {
@@ -890,7 +975,7 @@ public class CoordinatorService {
      * JobMaster}. Each restored job is re-enqueued as a pending job so it can re-enter the normal
      * scheduling path on the new master.
      */
-    private void restoreAllRunningJobFromMasterNodeSwitch() {
+    private List<DirtyJobMemberEvent> restoreAllRunningJobFromMasterNodeSwitch() {
         List<Map.Entry<Long, JobInfo>> needRestoreFromMasterNodeSwitchJobs;
         try {
             needRestoreFromMasterNodeSwitchJobs =
@@ -912,7 +997,7 @@ public class CoordinatorService {
                     "Failed to fetch running jobs from IMap during master switch restore", e);
         }
         if (needRestoreFromMasterNodeSwitchJobs.isEmpty()) {
-            return;
+            return dirtyJobService.getPendingMemberEvents();
         }
         // Pre-filter: clean up terminal-state zombie jobs immediately before waiting for workers.
         // Zombies do not need a worker — they only need IMap cleanup. Processing them here avoids
@@ -940,12 +1025,13 @@ public class CoordinatorService {
                 continue;
             }
             if (jobState instanceof JobStatus && ((JobStatus) jobState).isEndState()) {
-                restoreJobFromMasterActiveSwitch(entry.getKey(), entry.getValue());
+                restoreJobFromMasterActiveSwitch(
+                        entry.getKey(), entry.getValue(), Collections.emptyMap());
                 zombieIterator.remove();
             }
         }
         if (needRestoreFromMasterNodeSwitchJobs.isEmpty()) {
-            return;
+            return dirtyJobService.getPendingMemberEvents();
         }
         // waiting have worker registered
         while (getResourceManager().workerCount(Collections.emptyMap()) == 0) {
@@ -957,6 +1043,26 @@ public class CoordinatorService {
                 throw new SeaTunnelEngineException("wait worker register error", e);
             }
         }
+        Map<Long, Map<String, Set<Integer>>> memberEventAssignmentSnapshots = new HashMap<>();
+        needRestoreFromMasterNodeSwitchJobs.forEach(
+                entry -> {
+                    Map<String, Set<Integer>> assignmentSnapshot = Collections.emptyMap();
+                    try {
+                        assignmentSnapshot =
+                                dirtyJobService.runBoundedObservation(
+                                        () ->
+                                                snapshotRecoverablePipelineAssignments(
+                                                        entry.getKey()));
+                    } catch (Throwable trackingError) {
+                        reportDirtyJobTrackingFailure(
+                                entry.getKey(),
+                                entry.getValue(),
+                                "snapshot member-event pipeline assignments",
+                                trackingError);
+                    }
+                    memberEventAssignmentSnapshots.put(entry.getKey(), assignmentSnapshot);
+                });
+        AtomicBoolean restoreFailed = new AtomicBoolean(false);
         List<CompletableFuture<Void>> collect =
                 needRestoreFromMasterNodeSwitchJobs.stream()
                         .map(
@@ -973,9 +1079,12 @@ public class CoordinatorService {
                                                                 entry.getKey())) {
                                                             restoreJobFromMasterActiveSwitch(
                                                                     entry.getKey(),
-                                                                    entry.getValue());
+                                                                    entry.getValue(),
+                                                                    memberEventAssignmentSnapshots
+                                                                            .get(entry.getKey()));
                                                         }
                                                     } catch (Exception e) {
+                                                        restoreFailed.set(true);
                                                         logger.severe(e);
                                                     }
                                                     logger.info(
@@ -990,10 +1099,26 @@ public class CoordinatorService {
             CompletableFuture<Void> voidCompletableFuture =
                     CompletableFuture.allOf(collect.toArray(new CompletableFuture[0]));
             voidCompletableFuture.get();
+            if (restoreFailed.get()) {
+                throw new SeaTunnelEngineException(
+                        "At least one job failed to restore after the master switch");
+            }
         } catch (Exception e) {
             logger.severe(ExceptionUtils.getMessage(e));
             throw new SeaTunnelEngineException(e);
         }
+        List<DirtyJobMemberEvent> replayedEvents = dirtyJobService.getPendingMemberEvents();
+        needRestoreFromMasterNodeSwitchJobs.forEach(
+                entry -> {
+                    JobMaster jobMaster = getJobMaster(entry.getKey());
+                    if (jobMaster != null) {
+                        replayPendingMemberEvents(
+                                jobMaster,
+                                memberEventAssignmentSnapshots.get(entry.getKey()),
+                                replayedEvents);
+                    }
+                });
+        return replayedEvents;
     }
 
     /**
@@ -1006,8 +1131,13 @@ public class CoordinatorService {
      *
      * @param jobId restored job identifier
      * @param jobInfo distributed immutable job metadata captured before the master switch
+     * @param memberEventAssignmentSnapshot persisted worker assignments captured before any job is
+     *     initialized
      */
-    private void restoreJobFromMasterActiveSwitch(@NonNull Long jobId, @NonNull JobInfo jobInfo) {
+    private void restoreJobFromMasterActiveSwitch(
+            @NonNull Long jobId,
+            @NonNull JobInfo jobInfo,
+            @NonNull Map<String, Set<Integer>> memberEventAssignmentSnapshot) {
         Object jobState;
         try {
             jobState =
@@ -1051,12 +1181,19 @@ public class CoordinatorService {
                         runningJobInfoIMap,
                         engineConfig,
                         seaTunnelServer);
-
         try {
             jobMaster.init(jobInfo.getInitializationTimestamp(), true);
         } catch (Exception e) {
             throw new SeaTunnelEngineException(String.format("Job id %s init failed", jobId), e);
         }
+        try {
+            dirtyJobService.initialize(jobMaster.getJobImmutableInformation(), true);
+        } catch (Throwable trackingError) {
+            reportDirtyJobTrackingFailure(
+                    jobId, "initialize dirty-job state after master switch", trackingError);
+        }
+        replayPendingMemberEvents(
+                jobMaster, memberEventAssignmentSnapshot, dirtyJobService.getPendingMemberEvents());
 
         PendingJobInfo pendingJobInfo = new PendingJobInfo(PendingSourceState.RESTORE, jobMaster);
         pendingJobQueue.put(pendingJobInfo);
@@ -1068,13 +1205,23 @@ public class CoordinatorService {
         JobImmutableInformation jobImmutableInformation = restoreJobImmutableInformation(jobInfo);
         cleanupTerminalZombieCheckpointIfNecessary(jobId, jobImmutableInformation, finalStatus);
         persistTerminalZombieHistoryIfNecessary(jobId, jobImmutableInformation, finalStatus);
-        cleanupPendingJobStateMaps(createTerminalZombieCleanupRecord(jobId, jobInfo, finalStatus));
+        JobCleanupRecord cleanupRecord =
+                createTerminalZombieCleanupRecord(jobId, jobInfo, finalStatus);
+        if (!cleanupPendingJobStateMaps(jobId, cleanupRecord)) {
+            rememberPendingTerminalZombieCleanup(jobId, cleanupRecord);
+        }
         runningJobInfoIMap.remove(jobId);
     }
 
     private void cleanupPendingJobStateForRestore(long jobId, JobCleanupRecord record) {
         removeKeys(runningJobStateIMap, record.getStateKeys());
         removeKeys(runningJobStateTimestampsIMap, record.getTimestampKeys());
+        if (dirtyJobService != null && !dirtyJobService.removeRunningState(jobId)) {
+            logger.warning(
+                    String.format(
+                            "Failed to remove stale dirty-job state for job %s; the new submission will overwrite it",
+                            jobId));
+        }
         removePendingJobCleanupRecord(jobId, record);
         runningJobInfoIMap.remove(jobId);
     }
@@ -1174,6 +1321,7 @@ public class CoordinatorService {
         if (!coordinatorServiceCleared.compareAndSet(false, true)) {
             return;
         }
+        dirtyJobService.clearLocalCoordinatorState();
         // interrupt all JobMaster
         runningJobMasterMap.values().forEach(JobMaster::interrupt);
         if (isWaitStrategy) {
@@ -1269,6 +1417,7 @@ public class CoordinatorService {
                 () -> {
                     JobMaster jobMaster = null;
                     JobInfo submittedJobInfo = null;
+                    boolean dirtyJobInitialized = false;
                     try {
                         JobImmutableInformation submittedJobImmutableInformation =
                                 deserializeJobImmutableInformation(jobImmutableInformation);
@@ -1320,6 +1469,14 @@ public class CoordinatorService {
                                 new JobInfo(initializationTimestamp, jobImmutableInformation);
                         runningJobInfoIMap.put(jobId, submittedJobInfo);
                         jobMaster.init(initializationTimestamp, false);
+                        dirtyJobInitialized = true;
+                        try {
+                            dirtyJobService.initialize(
+                                    jobMaster.getJobImmutableInformation(), false);
+                        } catch (Throwable trackingError) {
+                            reportDirtyJobTrackingFailure(
+                                    jobId, "initialize dirty-job state", trackingError);
+                        }
                         // Initialize the JobMaster and add it to the pendingJobQueue, ensuring that
                         // calling the getJobMaster method does not return NULL when the
                         // jobSubmitFuture is still running.
@@ -1346,6 +1503,9 @@ public class CoordinatorService {
                         }
                         runningJobMasterMap.remove(jobId);
                         pendingJobQueue.removeById(jobId);
+                        if (dirtyJobInitialized) {
+                            dirtyJobService.removeRunningState(jobId);
+                        }
                     }
                 });
         return new PassiveCompletableFuture<>(jobSubmitFuture);
@@ -1872,7 +2032,10 @@ public class CoordinatorService {
                         getJobStateTimestamp(jobId, JobStatus.SCHEDULED),
                         getJobStateTimestamp(jobId, finalStatus),
                         Collections.emptyMap(),
-                        null));
+                        null,
+                        dirtyJobService.createUnknownState(
+                                jobImmutableInformation,
+                                "Dirty-job state was unavailable during terminal-job recovery")));
     }
 
     private Long getJobStateTimestamp(long jobId, JobStatus status) {
@@ -1888,12 +2051,39 @@ public class CoordinatorService {
 
     private JobCleanupRecord createTerminalZombieCleanupRecord(
             long jobId, JobInfo jobInfo, JobStatus finalStatus) {
+        long createTimeMillis =
+                Math.max(
+                        0L, System.currentTimeMillis() - engineConfig.getStateCleanupDelayMillis());
         return new JobCleanupRecord(
                 jobInfo.getInitializationTimestamp(),
                 finalStatus,
                 collectTerminalZombieKeys(runningJobStateIMap, jobId),
                 collectTerminalZombieKeys(runningJobStateTimestampsIMap, jobId),
-                System.currentTimeMillis());
+                createTimeMillis);
+    }
+
+    /**
+     * Persists terminal zombie cleanup work so dirty-job state removal can retry after transient
+     * IMap failures without recreating the old running-job metadata.
+     */
+    private void rememberPendingTerminalZombieCleanup(long jobId, JobCleanupRecord cleanupRecord) {
+        if (pendingJobCleanupIMap == null) {
+            logger.warning(
+                    String.format(
+                            "Failed to retain pending terminal zombie cleanup for job %s because the cleanup map is unavailable",
+                            jobId));
+            return;
+        }
+        try {
+            pendingJobCleanupIMap.put(jobId, cleanupRecord);
+            schedulePendingJobCleanup(jobId, cleanupRecord);
+        } catch (Exception e) {
+            logger.warning(
+                    String.format(
+                            "Failed to retain pending terminal zombie cleanup for job %s: %s",
+                            jobId, ExceptionUtils.getMessage(e)),
+                    e);
+        }
     }
 
     private Set<Object> collectTerminalZombieKeys(IMap<Object, ?> sourceMap, long jobId) {
@@ -1955,6 +2145,7 @@ public class CoordinatorService {
 
     public void shutdown() {
         isActive = false;
+        dirtyJobService.shutdown();
         if (masterActiveListener != null) {
             masterActiveListener.shutdown();
         }
@@ -1974,10 +2165,104 @@ public class CoordinatorService {
         return isActive;
     }
 
-    public void failedTaskOnMemberRemoved(MembershipServiceEvent event) {
+    public synchronized void failedTaskOnMemberRemoved(MembershipServiceEvent event) {
+        DirtyJobMemberEvent dirtyJobMemberEvent = createMemberEventForTracking(event);
+        java.util.concurrent.CompletableFuture<Void> tracking =
+                failTasksOnMemberRemoved(event, dirtyJobMemberEvent);
+        removeMemberEventWhenProcessed(dirtyJobMemberEvent, tracking);
+    }
+
+    private java.util.concurrent.CompletableFuture<Void> failTasksOnMemberRemoved(
+            MembershipServiceEvent event, DirtyJobMemberEvent dirtyJobMemberEvent) {
         Address lostAddress = event.getMember().getAddress();
-        runningJobMasterMap.forEach(
+        long memberEventSequence =
+                dirtyJobMemberEvent == null ? -1L : dirtyJobMemberEvent.getSequence();
+        String lostMemberUuid =
+                dirtyJobMemberEvent == null
+                        ? event.getMember().getUuid().toString()
+                        : dirtyJobMemberEvent.getMemberUuid();
+        String lostAddressText =
+                dirtyJobMemberEvent == null
+                        ? lostAddress.toString()
+                        : dirtyJobMemberEvent.getAddressText();
+        Map<Long, JobMaster> trackedJobMasters = new HashMap<>(runningJobMasterMap);
+        Set<Long> runningJobIds = new HashSet<>(runningJobMasterMap.keySet());
+        List<java.util.concurrent.CompletableFuture<Void>> trackingUpdates = new ArrayList<>();
+        pendingJobQueue
+                .getJobIdMap()
+                .values()
+                .forEach(
+                        pendingJobInfo ->
+                                trackedJobMasters.putIfAbsent(
+                                        pendingJobInfo.getJobId(), pendingJobInfo.getJobMaster()));
+        trackedJobMasters.forEach(
                 (aLong, jobMaster) -> {
+                    boolean trackingEnabled = false;
+                    try {
+                        trackingEnabled =
+                                dirtyJobMemberEvent != null && dirtyJobService.isEnabled(jobMaster);
+                    } catch (Throwable trackingError) {
+                        logger.warning(
+                                String.format(
+                                        "Failed to inspect dirty-job tracking for job %s; continuing member recovery",
+                                        aLong),
+                                trackingError);
+                    }
+                    boolean terminalJob = false;
+                    try {
+                        terminalJob = jobMaster.getJobStatus().isEndState();
+                    } catch (Throwable statusError) {
+                        logger.warning(
+                                String.format(
+                                        "Failed to read job %s status during member recovery; continuing failover",
+                                        aLong),
+                                statusError);
+                    }
+                    if (terminalJob) {
+                        if (trackingEnabled) {
+                            try {
+                                trackingUpdates.add(
+                                        dirtyJobService.processMemberEvent(
+                                                jobMaster,
+                                                memberEventSequence,
+                                                lostMemberUuid,
+                                                lostAddressText,
+                                                Collections.emptySet(),
+                                                dirtyJobMemberEvent.getEventTime()));
+                            } catch (Throwable trackingError) {
+                                logger.warning(
+                                        String.format(
+                                                "Failed to update dirty-job tracking for terminal job %s",
+                                                aLong),
+                                        trackingError);
+                            }
+                        }
+                        return;
+                    }
+                    Set<Integer> affectedPipelineIds = Collections.emptySet();
+                    if (trackingEnabled) {
+                        try {
+                            affectedPipelineIds =
+                                    collectAffectedPipelineIds(jobMaster, lostAddress);
+                            trackingUpdates.add(
+                                    dirtyJobService.processMemberEvent(
+                                            jobMaster,
+                                            memberEventSequence,
+                                            lostMemberUuid,
+                                            lostAddressText,
+                                            affectedPipelineIds,
+                                            dirtyJobMemberEvent.getEventTime()));
+                        } catch (Throwable trackingError) {
+                            logger.warning(
+                                    String.format(
+                                            "Failed to update dirty-job tracking for job %s; continuing member recovery",
+                                            aLong),
+                                    trackingError);
+                        }
+                    }
+                    if (!runningJobIds.contains(aLong)) {
+                        return;
+                    }
                     jobMaster
                             .getPhysicalPlan()
                             .getPipelineList()
@@ -1989,19 +2274,48 @@ public class CoordinatorService {
                                                 subPlan.getPhysicalVertexList(), lostAddress);
                                     });
                 });
+        return java.util.concurrent.CompletableFuture.allOf(
+                trackingUpdates.toArray(new java.util.concurrent.CompletableFuture[0]));
+    }
+
+    private Set<Integer> collectAffectedPipelineIds(JobMaster jobMaster, Address lostAddress) {
+        return jobMaster.getPhysicalPlan().getPipelineList().stream()
+                .filter(
+                        subPlan ->
+                                hasAffectedTask(subPlan.getCoordinatorVertexList(), lostAddress)
+                                        || hasAffectedTask(
+                                                subPlan.getPhysicalVertexList(), lostAddress))
+                .map(SubPlan::getPipelineId)
+                .collect(Collectors.toSet());
+    }
+
+    private boolean hasAffectedTask(List<PhysicalVertex> physicalVertexList, Address lostAddress) {
+        return physicalVertexList.stream()
+                .anyMatch(physicalVertex -> isTaskAffected(physicalVertex, lostAddress));
+    }
+
+    private boolean isTaskAffected(PhysicalVertex physicalVertex, Address lostAddress) {
+        Address deployAddress = physicalVertex.getCurrentExecutionAddress();
+        return deployAddress != null
+                && deployAddress.equals(lostAddress)
+                && isRecoverableMemberLossState(physicalVertex);
+    }
+
+    private boolean isRecoverableMemberLossState(PhysicalVertex physicalVertex) {
+        return isRecoverableMemberLossState(physicalVertex.getExecutionState());
+    }
+
+    private boolean isRecoverableMemberLossState(ExecutionState executionState) {
+        return executionState == ExecutionState.DEPLOYING
+                || executionState == ExecutionState.RUNNING
+                || executionState == ExecutionState.CANCELING;
     }
 
     private void makeTasksFailed(
             @NonNull List<PhysicalVertex> physicalVertexList, @NonNull Address lostAddress) {
         physicalVertexList.forEach(
                 physicalVertex -> {
-                    Address deployAddress = physicalVertex.getCurrentExecutionAddress();
-                    ExecutionState executionState = physicalVertex.getExecutionState();
-                    if (null != deployAddress
-                            && deployAddress.equals(lostAddress)
-                            && (executionState.equals(ExecutionState.DEPLOYING)
-                                    || executionState.equals(ExecutionState.RUNNING)
-                                    || executionState.equals(ExecutionState.CANCELING))) {
+                    if (isTaskAffected(physicalVertex, lostAddress)) {
                         TaskGroupLocation taskGroupLocation = physicalVertex.getTaskGroupLocation();
                         physicalVertex.updateStateByExecutionService(
                                 new TaskExecutionState(
@@ -2016,10 +2330,162 @@ public class CoordinatorService {
     }
 
     public void memberRemoved(MembershipServiceEvent event) {
+        memberRemoved(event, createMemberEventForTracking(event));
+    }
+
+    void memberRemoved(MembershipServiceEvent event, DirtyJobMemberEvent dirtyJobMemberEvent) {
         if (isCoordinatorActive()) {
             this.getResourceManager().memberRemoved(event);
         }
-        this.failedTaskOnMemberRemoved(event);
+        java.util.concurrent.CompletableFuture<Void> tracking =
+                failTasksOnMemberRemoved(event, dirtyJobMemberEvent);
+        removeMemberEventWhenProcessed(dirtyJobMemberEvent, tracking);
+    }
+
+    private void removeMemberEventWhenProcessed(
+            DirtyJobMemberEvent event,
+            java.util.concurrent.CompletableFuture<Void> trackingUpdate) {
+        trackingUpdate.whenComplete(
+                (ignored, error) -> {
+                    if (!restoringJobsAfterMasterSwitch) {
+                        dirtyJobService.removePendingMemberEvent(event);
+                    }
+                });
+    }
+
+    DirtyJobMemberEvent recordMemberEvent(MembershipServiceEvent event) {
+        Address address = event.getMember().getAddress();
+        return dirtyJobService.recordMemberEvent(
+                event.getMember().getUuid().toString(), address.getHost(), address.getPort());
+    }
+
+    private DirtyJobMemberEvent createMemberEventForTracking(MembershipServiceEvent event) {
+        try {
+            return dirtyJobService.shouldTrackMemberEvents() ? recordMemberEvent(event) : null;
+        } catch (Throwable trackingError) {
+            logger.warning(
+                    "Failed to prepare dirty-job member event; continuing member recovery",
+                    trackingError);
+            Address address = event.getMember().getAddress();
+            return new DirtyJobMemberEvent(
+                    -1L,
+                    event.getMember().getUuid().toString(),
+                    address.getHost(),
+                    address.getPort(),
+                    System.currentTimeMillis());
+        }
+    }
+
+    void rememberMemberEventLocally(MembershipServiceEvent event) {
+        Address address = event.getMember().getAddress();
+        dirtyJobService.rememberMemberEventLocally(
+                event.getMember().getUuid().toString(), address.getHost(), address.getPort());
+    }
+
+    private Map<String, Set<Integer>> snapshotRecoverablePipelineAssignments(long jobId) {
+        Map<String, Set<Integer>> assignments = new HashMap<>();
+        ownedSlotProfilesIMap.keySet().stream()
+                .filter(pipelineLocation -> pipelineLocation.getJobId() == jobId)
+                .forEach(
+                        pipelineLocation -> {
+                            Map<TaskGroupLocation, SlotProfile> slotProfiles =
+                                    ownedSlotProfilesIMap.get(pipelineLocation);
+                            if (slotProfiles == null) {
+                                return;
+                            }
+                            slotProfiles.forEach(
+                                    (taskGroupLocation, slotProfile) -> {
+                                        Object state = runningJobStateIMap.get(taskGroupLocation);
+                                        if (slotProfile == null
+                                                || !(state instanceof ExecutionState)
+                                                || !isRecoverableMemberLossState(
+                                                        (ExecutionState) state)) {
+                                            return;
+                                        }
+                                        Address worker = slotProfile.getWorker();
+                                        assignments
+                                                .computeIfAbsent(
+                                                        memberAddressKey(
+                                                                worker.getHost(), worker.getPort()),
+                                                        ignored -> new HashSet<>())
+                                                .add(pipelineLocation.getPipelineId());
+                                    });
+                        });
+        return assignments;
+    }
+
+    private void replayPendingMemberEvents(
+            JobMaster jobMaster,
+            Map<String, Set<Integer>> assignmentSnapshot,
+            Collection<DirtyJobMemberEvent> pendingMemberEvents) {
+        try {
+            if (!dirtyJobService.isEnabled(jobMaster)) {
+                return;
+            }
+        } catch (Throwable trackingError) {
+            reportDirtyJobTrackingFailure(
+                    jobMaster.getJobId(),
+                    "inspect dirty-job tracking configuration",
+                    trackingError);
+            return;
+        }
+        for (DirtyJobMemberEvent event : pendingMemberEvents) {
+            try {
+                Set<Integer> affectedPipelineIds =
+                        assignmentSnapshot.getOrDefault(
+                                memberAddressKey(event.getMemberHost(), event.getMemberPort()),
+                                Collections.emptySet());
+                java.util.concurrent.CompletableFuture<Void> update =
+                        dirtyJobService.processMemberEvent(
+                                jobMaster,
+                                event.getSequence(),
+                                event.getMemberUuid(),
+                                event.getAddressText(),
+                                affectedPipelineIds,
+                                event.getEventTime());
+                dirtyJobService.awaitMemberEventReplay(jobMaster.getJobId(), update);
+            } catch (Throwable trackingError) {
+                reportDirtyJobTrackingFailure(
+                        jobMaster.getJobId(), "replay dirty-job member event", trackingError);
+            }
+        }
+    }
+
+    private void reportDirtyJobTrackingFailure(
+            long jobId, String operation, Throwable trackingError) {
+        logger.warning(
+                String.format(
+                        "Failed to %s for job %s; continuing the original recovery path",
+                        operation, jobId),
+                trackingError);
+        try {
+            dirtyJobService.reportTrackingFailure(jobId, operation, trackingError);
+        } catch (Throwable reportError) {
+            logger.warning(
+                    String.format("Failed to persist dirty-job tracking failure for job %s", jobId),
+                    reportError);
+        }
+    }
+
+    private void reportDirtyJobTrackingFailure(
+            long jobId, JobInfo jobInfo, String operation, Throwable trackingError) {
+        logger.warning(
+                String.format(
+                        "Failed to %s for job %s; continuing the original recovery path",
+                        operation, jobId),
+                trackingError);
+        try {
+            long jobCreateTime = restoreJobImmutableInformation(jobInfo).getCreateTime();
+            dirtyJobService.reportTrackingFailure(jobId, jobCreateTime, operation, trackingError);
+        } catch (Throwable reportError) {
+            logger.warning(
+                    String.format("Failed to persist dirty-job tracking failure for job %s", jobId),
+                    reportError);
+        }
+    }
+
+    private String memberAddressKey(String host, int port) {
+        return host + '\u0000' + port;
     }
 
     public void printExecutionInfo() {
@@ -2235,6 +2701,10 @@ public class CoordinatorService {
 
     public EngineConfig getEngineConfig() {
         return engineConfig;
+    }
+
+    public DirtyJobService getDirtyJobService() {
+        return dirtyJobService;
     }
 
     @VisibleForTesting

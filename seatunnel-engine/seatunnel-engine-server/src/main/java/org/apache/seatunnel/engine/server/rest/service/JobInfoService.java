@@ -26,6 +26,7 @@ import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.config.sql.SqlConfigBuilder;
 import org.apache.seatunnel.core.starter.utils.ConfigShadeUtils;
 import org.apache.seatunnel.engine.common.Constant;
+import org.apache.seatunnel.engine.common.job.DirtyJobState;
 import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
@@ -190,6 +191,8 @@ public class JobInfoService extends BaseService {
         IMap<Long, JobInfo> values = getRunningJobInfoMap();
         IMap<Object, Object> jobStateMap = getRunningJobStateMap();
         SeaTunnelServer seaTunnelServer = getSeaTunnelServer(true);
+        Map<Long, Integer> dirtyJobThresholds = loadDirtyJobThresholds();
+        Map<Long, DirtyJobState> dirtyJobStates = loadAllDirtyJobStates();
 
         long decodeTotalNs = 0L;
         JsonArray out = new JsonArray();
@@ -229,12 +232,24 @@ public class JobInfoService extends BaseService {
                 // ignore
             }
 
-            out.add(
+            JsonObject jobSummary =
                     new JsonObject()
                             .add(RestConstant.JOB_ID, String.valueOf(jobId))
                             .add(RestConstant.JOB_NAME, jobName)
                             .add(RestConstant.JOB_STATUS, jobStatus)
-                            .add(RestConstant.CREATE_TIME, createTime));
+                            .add(RestConstant.CREATE_TIME, createTime);
+            DirtyJobState dirtyJobState = dirtyJobStates.get(jobId);
+            Integer dirtyJobThreshold =
+                    dirtyJobThresholds == null ? null : dirtyJobThresholds.get(jobId);
+            if (dirtyJobState != null || dirtyJobThreshold != null) {
+                dirtyJobState =
+                        resolveConfiguredDirtyJobState(
+                                decodeJobImmutableInformation(jobInfo), dirtyJobState);
+            } else if (dirtyJobThresholds == null) {
+                dirtyJobState = createUnknownDirtyJobState(decodeJobImmutableInformation(jobInfo));
+            }
+            addDirtyJobSummary(jobSummary, dirtyJobState);
+            out.add(jobSummary);
         }
 
         if (!runningJobBasicInfoCache.isEmpty() && !jobIds.isEmpty()) {

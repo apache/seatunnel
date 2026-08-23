@@ -58,6 +58,14 @@ public class EnvCommonOptions {
                     .defaultValue(3)
                     .withDescription("The retry interval seconds of this job");
 
+    public static Option<Integer> DIRTY_JOB_RESTORE_THRESHOLD =
+            Options.key("job.dirty-task.threshold")
+                    .intType()
+                    .defaultValue(-1)
+                    .withDescription(
+                            "The member-loss recovery deployment threshold used to mark a job as dirty. "
+                                    + "A value less than or equal to zero disables dirty-job tracking.");
+
     public static Option<Long> CHECKPOINT_INTERVAL =
             Options.key("checkpoint.interval")
                     .longType()

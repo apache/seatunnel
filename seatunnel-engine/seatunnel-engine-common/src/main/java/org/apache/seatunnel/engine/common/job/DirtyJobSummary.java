@@ -23,28 +23,21 @@ import lombok.NoArgsConstructor;
 
 import java.io.Serializable;
 
+/**
+ * Bounded dirty-job fields suitable for job list responses.
+ *
+ * <p>Episode and incident detail remains in the job-detail response to keep list payloads small.
+ */
 @AllArgsConstructor
 @Data
 @NoArgsConstructor
-public final class JobStatusData implements Serializable {
+public class DirtyJobSummary implements Serializable {
     private static final long serialVersionUID = 1L;
 
-    private Long jobId;
-    private String jobName;
-    private JobStatus jobStatus;
-    private long submitTime;
-    private Long startTime;
-    private Long finishTime;
-    // Optional additive projection; null preserves disabled-job semantics.
-    private DirtyJobSummary dirtyTask;
-
-    public JobStatusData(
-            Long jobId,
-            String jobName,
-            JobStatus jobStatus,
-            long submitTime,
-            Long startTime,
-            Long finishTime) {
-        this(jobId, jobName, jobStatus, submitTime, startTime, finishTime, null);
-    }
+    // Irreversible threshold result for the current job ID.
+    private boolean dirty;
+    // CLEAN, DIRTY, or UNKNOWN completeness-aware projection.
+    private DirtyJobEvaluationStatus evaluationStatus;
+    // Cumulative job-level deployment generations caused by member loss.
+    private int recoveryAttemptCount;
 }

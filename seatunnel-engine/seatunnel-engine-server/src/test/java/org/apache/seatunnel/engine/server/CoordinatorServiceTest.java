@@ -27,6 +27,7 @@ import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.config.server.ScheduleStrategy;
 import org.apache.seatunnel.engine.common.exception.JobNotFoundException;
 import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
+import org.apache.seatunnel.engine.common.job.DirtyJobMemberEvent;
 import org.apache.seatunnel.engine.common.job.JobResult;
 import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
@@ -50,6 +51,8 @@ import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.master.JobHistoryService;
 import org.apache.seatunnel.engine.server.master.JobMaster;
+import org.apache.seatunnel.engine.server.master.cleanup.JobCleanupRecord;
+import org.apache.seatunnel.engine.server.master.dirty.DirtyJobService;
 import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
 import org.apache.seatunnel.engine.server.operation.PrintMessageOperation;
 import org.apache.seatunnel.engine.server.operation.ReturnRetryTimesOperation;
@@ -275,6 +278,94 @@ public class CoordinatorServiceTest {
         instance2.shutdown();
     }
 
+    @Test
+    void testTerminalZombieCleanupShouldRetainPendingRetryWhenDirtyStateRemovalFails()
+            throws Exception {
+        String clusterName =
+                TestUtils.getClusterName(
+                        "CoordinatorServiceTest_testTerminalZombieCleanupShouldRetainPendingRetryWhenDirtyStateRemovalFails");
+        HazelcastInstanceImpl instance =
+                createHazelcastInstanceWithJoinPortTryCount(clusterName, 100);
+        try {
+            SeaTunnelServer server =
+                    instance.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
+            await().atMost(20, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertTrue(server.isMasterNode());
+                                Assertions.assertTrue(
+                                        server.getCoordinatorService().isCoordinatorActive());
+                            });
+
+            CoordinatorService coordinatorService = server.getCoordinatorService();
+            long jobId = instance.getFlakeIdGenerator(Constant.SEATUNNEL_ID_GENERATOR_NAME).newId();
+            LogicalDag logicalDag =
+                    TestUtils.createTestLogicalPlan(
+                            "stream_fake_to_console.conf",
+                            "terminal-zombie-cleanup-retry-test",
+                            jobId);
+            JobImmutableInformation jobImmutableInformation =
+                    new JobImmutableInformation(
+                            jobId,
+                            "Test",
+                            instance.getSerializationService(),
+                            logicalDag,
+                            Collections.emptyList(),
+                            Collections.emptyList());
+            long initializationTimestamp = System.currentTimeMillis();
+            JobInfo jobInfo =
+                    new JobInfo(
+                            initializationTimestamp,
+                            instance.getSerializationService().toData(jobImmutableInformation));
+
+            IMap<Long, JobInfo> runningJobInfoIMap =
+                    instance.getMap(Constant.IMAP_RUNNING_JOB_INFO);
+            IMap<Object, Object> runningJobStateIMap =
+                    instance.getMap(Constant.IMAP_RUNNING_JOB_STATE);
+            @SuppressWarnings("unchecked")
+            IMap<Long, JobCleanupRecord> pendingJobCleanupIMap =
+                    (IMap<Long, JobCleanupRecord>)
+                            ReflectionUtils.getField(coordinatorService, "pendingJobCleanupIMap")
+                                    .orElseThrow(
+                                            () ->
+                                                    new AssertionError(
+                                                            "pendingJobCleanupIMap not found"));
+
+            runningJobInfoIMap.put(jobId, jobInfo);
+            runningJobStateIMap.put(jobId, JobStatus.CANCELED);
+
+            DirtyJobService dirtyJobService = Mockito.mock(DirtyJobService.class);
+            Mockito.when(dirtyJobService.removeRunningState(jobId)).thenReturn(false);
+            Mockito.when(
+                            dirtyJobService.createUnknownState(
+                                    Mockito.any(JobImmutableInformation.class),
+                                    Mockito.anyString()))
+                    .thenReturn(null);
+            ReflectionUtils.setField(coordinatorService, "dirtyJobService", dirtyJobService);
+
+            invokeCleanupTerminalZombieJob(coordinatorService, jobId, jobInfo, JobStatus.CANCELED);
+
+            await().atMost(20, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> {
+                                Assertions.assertFalse(
+                                        runningJobInfoIMap.containsKey(jobId),
+                                        "runningJobInfoIMap should be removed after zombie cleanup");
+                                Assertions.assertTrue(
+                                        pendingJobCleanupIMap.containsKey(jobId),
+                                        "pending job cleanup record should be retained for retry");
+                            });
+
+            JobCleanupRecord cleanupRecord = pendingJobCleanupIMap.get(jobId);
+            Assertions.assertNotNull(cleanupRecord);
+            Assertions.assertEquals(
+                    initializationTimestamp, cleanupRecord.getOwnerInitializationTimestamp());
+            Mockito.verify(dirtyJobService, Mockito.atLeastOnce()).removeRunningState(jobId);
+        } finally {
+            instance.shutdown();
+        }
+    }
+
     private boolean allTaskGroupsInactive(
             SeaTunnelServer server, List<TaskGroupLocation> taskGroupLocations) {
         for (TaskGroupLocation location : taskGroupLocations) {
@@ -334,6 +425,51 @@ public class CoordinatorServiceTest {
                                 Assertions.fail("Should not throw SeaTunnelEngineException here.");
                             }
                         });
+        instance2.shutdown();
+    }
+
+    @Test
+    void testMemberEventJournalSurvivesMasterSwitch() {
+        String clusterName =
+                TestUtils.getClusterName(
+                        "CoordinatorServiceTest_testMemberEventJournalSurvivesMasterSwitch");
+        HazelcastInstanceImpl instance1 =
+                createHazelcastInstanceWithJoinPortTryCount(clusterName, 100);
+        HazelcastInstanceImpl instance2 =
+                createHazelcastInstanceWithJoinPortTryCount(clusterName, 100);
+        SeaTunnelServer server1 =
+                instance1.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
+        SeaTunnelServer server2 =
+                instance2.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
+
+        await().atMost(20, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertTrue(server1.isMasterNode());
+                            Assertions.assertTrue(
+                                    server1.getCoordinatorService().isCoordinatorActive());
+                            Assertions.assertEquals(2, instance1.getCluster().getMembers().size());
+                        });
+
+        instance1.shutdown();
+
+        IMap<Long, Long> memberEventSequenceMap =
+                instance2.getMap(Constant.IMAP_DIRTY_JOB_MEMBER_EVENT_SEQUENCE);
+        IMap<String, DirtyJobMemberEvent> pendingMemberEventMap =
+                instance2.getMap(Constant.IMAP_DIRTY_JOB_PENDING_MEMBER_EVENTS);
+        await().atMost(30, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            Assertions.assertTrue(server2.isMasterNode());
+                            Assertions.assertTrue(
+                                    server2.getCoordinatorService().isCoordinatorActive());
+                            Assertions.assertTrue(
+                                    memberEventSequenceMap.getOrDefault(0L, 0L) >= 1L);
+                            Assertions.assertTrue(
+                                    pendingMemberEventMap.values().stream()
+                                            .anyMatch(event -> event.getSequence() >= 1L));
+                        });
+
         instance2.shutdown();
     }
 
@@ -1215,9 +1351,19 @@ public class CoordinatorServiceTest {
             CoordinatorService coordinatorService, long jobId, JobInfo jobInfo) throws Exception {
         Method method =
                 CoordinatorService.class.getDeclaredMethod(
-                        "restoreJobFromMasterActiveSwitch", Long.class, JobInfo.class);
+                        "restoreJobFromMasterActiveSwitch", Long.class, JobInfo.class, Map.class);
         method.setAccessible(true);
-        method.invoke(coordinatorService, jobId, jobInfo);
+        method.invoke(coordinatorService, jobId, jobInfo, Collections.emptyMap());
+    }
+
+    private void invokeCleanupTerminalZombieJob(
+            CoordinatorService coordinatorService, long jobId, JobInfo jobInfo, JobStatus status)
+            throws Exception {
+        Method method =
+                CoordinatorService.class.getDeclaredMethod(
+                        "cleanupTerminalZombieJob", long.class, JobInfo.class, JobStatus.class);
+        method.setAccessible(true);
+        method.invoke(coordinatorService, jobId, jobInfo, status);
     }
 
     private void invokeCheckNewActiveMaster(CoordinatorService coordinatorService)

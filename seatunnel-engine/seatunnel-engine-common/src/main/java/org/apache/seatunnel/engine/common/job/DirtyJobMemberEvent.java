@@ -23,28 +23,32 @@ import lombok.NoArgsConstructor;
 
 import java.io.Serializable;
 
+/**
+ * HA journal entry for a member removal that may outlive the active coordinator which observed it.
+ */
 @AllArgsConstructor
 @Data
 @NoArgsConstructor
-public final class JobStatusData implements Serializable {
+public class DirtyJobMemberEvent implements Serializable {
     private static final long serialVersionUID = 1L;
 
-    private Long jobId;
-    private String jobName;
-    private JobStatus jobStatus;
-    private long submitTime;
-    private Long startTime;
-    private Long finishTime;
-    // Optional additive projection; null preserves disabled-job semantics.
-    private DirtyJobSummary dirtyTask;
+    // Global cluster watermark, or -1 when only local fallback evidence exists.
+    private long sequence;
+    // Stable Hazelcast identity used for idempotent journal updates.
+    private String memberUuid;
+    // Diagnostic host used to match persisted task assignments.
+    private String memberHost;
+    // Diagnostic port used with the host for exact assignment matching.
+    private int memberPort;
+    // Original observation time retained across active-master replay.
+    private long eventTime;
 
-    public JobStatusData(
-            Long jobId,
-            String jobName,
-            JobStatus jobStatus,
-            long submitTime,
-            Long startTime,
-            Long finishTime) {
-        this(jobId, jobName, jobStatus, submitTime, startTime, finishTime, null);
+    /**
+     * Returns the diagnostic address without using it as the member identity.
+     *
+     * @return host and port used only for affected-task matching and diagnostics
+     */
+    public String getAddressText() {
+        return memberHost + ":" + memberPort;
     }
 }

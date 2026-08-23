@@ -48,6 +48,7 @@ import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Locale;
@@ -235,6 +236,9 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                     .key()
                     .equals(name)) {
                 engineConfig.setStateCleanupDelayMillis(Long.parseLong(getTextContent(node)));
+            } else if (ServerConfigOptions.MasterServerConfigOptions.DIRTY_JOB_CONFIG.equals(
+                    name)) {
+                parseDirtyJobConfig(node, engineConfig);
             } else if (ServerConfigOptions.MasterServerConfigOptions.CONNECTOR_JAR_STORAGE_CONFIG
                     .key()
                     .equals(name)) {
@@ -343,6 +347,29 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
             // If dynamic slot is enabled, the schedule strategy must be REJECT
             LOGGER.info("Dynamic slot is enabled, the schedule strategy is set to REJECT");
             engineConfig.setScheduleStrategy(ScheduleStrategy.REJECT);
+        }
+    }
+
+    private void parseDirtyJobConfig(Node dirtyJobNode, EngineConfig engineConfig) {
+        for (Node node : childElements(dirtyJobNode)) {
+            String name = cleanNodeName(node);
+            if (ServerConfigOptions.MasterServerConfigOptions.DIRTY_JOB_EVENT_HISTORY_SIZE
+                    .key()
+                    .equals(name)) {
+                engineConfig.setDirtyJobEventHistorySize(
+                        getIntegerValue(name, getTextContent(node)));
+            } else if (ServerConfigOptions.MasterServerConfigOptions.DIRTY_JOB_PENDING_INCIDENT_TTL
+                    .key()
+                    .equals(name)) {
+                engineConfig.setDirtyJobPendingIncidentTtl(
+                        org.apache.seatunnel.api.configuration.ReadonlyConfig.fromMap(
+                                        Collections.singletonMap(name, getTextContent(node)))
+                                .get(
+                                        ServerConfigOptions.MasterServerConfigOptions
+                                                .DIRTY_JOB_PENDING_INCIDENT_TTL));
+            } else {
+                LOGGER.warning("Unrecognized element: " + name);
+            }
         }
     }
 

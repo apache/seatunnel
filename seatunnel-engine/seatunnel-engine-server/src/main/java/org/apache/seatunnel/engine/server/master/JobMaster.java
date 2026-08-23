@@ -1353,6 +1353,104 @@ public class JobMaster {
         return this.seaTunnelServer.getCoordinatorService();
     }
 
+    /**
+     * Delegates stable dirty-attempt preparation without coupling SubPlan to the HA store.
+     *
+     * @param pipelineId pipeline entering restore preparation
+     * @return stable attempt ID, or null when no member-loss episode owns the pipeline
+     */
+    public String prepareDirtyJobRecoveryAttempt(int pipelineId) {
+        try {
+            CoordinatorService coordinatorService = getCoordinatorService();
+            if (coordinatorService == null || coordinatorService.getDirtyJobService() == null) {
+                return null;
+            }
+            return coordinatorService
+                    .getDirtyJobService()
+                    .prepareRecoveryAttempt(jobId, pipelineId);
+        } catch (Throwable trackingError) {
+            LOGGER.warning(
+                    String.format(
+                            "Failed to prepare dirty-job recovery attempt for job %s pipeline %s; continuing recovery",
+                            jobId, pipelineId),
+                    trackingError);
+            return null;
+        }
+    }
+
+    /**
+     * Confirms a dirty attempt after SubPlan persisted DEPLOYING.
+     *
+     * @param pipelineId pipeline whose deployment started
+     * @param attemptId stable attempt ID allocated during preparation
+     */
+    public void confirmDirtyJobRecoveryAttempt(int pipelineId, String attemptId) {
+        try {
+            CoordinatorService coordinatorService = getCoordinatorService();
+            if (coordinatorService != null && coordinatorService.getDirtyJobService() != null) {
+                coordinatorService
+                        .getDirtyJobService()
+                        .confirmRecoveryAttempt(jobId, pipelineId, attemptId);
+            }
+        } catch (Throwable trackingError) {
+            LOGGER.warning(
+                    String.format(
+                            "Failed to confirm dirty-job recovery attempt for job %s pipeline %s; continuing recovery",
+                            jobId, pipelineId),
+                    trackingError);
+        }
+    }
+
+    /**
+     * Marks the affected pipeline recovered after all task groups reached RUNNING.
+     *
+     * @param pipelineId recovered pipeline
+     * @param attemptId stable confirmed attempt ID
+     */
+    public void completeDirtyJobRecoveryPipeline(int pipelineId, String attemptId) {
+        try {
+            CoordinatorService coordinatorService = getCoordinatorService();
+            if (coordinatorService != null && coordinatorService.getDirtyJobService() != null) {
+                coordinatorService
+                        .getDirtyJobService()
+                        .completeRecoveryPipeline(jobId, pipelineId, attemptId);
+            }
+        } catch (Throwable trackingError) {
+            LOGGER.warning(
+                    String.format(
+                            "Failed to complete dirty-job recovery pipeline for job %s pipeline %s; continuing recovery",
+                            jobId, pipelineId),
+                    trackingError);
+        }
+    }
+
+    /**
+     * Reconciles a retained attempt from persisted pipeline and task-group state.
+     *
+     * @param pipelineId restored pipeline
+     * @param deployed whether persisted state proves deployment started
+     * @param recovered whether every persisted task group is running
+     * @return retained stable attempt ID, or null when no attempt is active
+     */
+    public String reconcileDirtyJobRecoveryPipeline(
+            int pipelineId, boolean deployed, boolean recovered) {
+        try {
+            CoordinatorService coordinatorService = getCoordinatorService();
+            if (coordinatorService != null && coordinatorService.getDirtyJobService() != null) {
+                return coordinatorService
+                        .getDirtyJobService()
+                        .reconcileRecoveryPipeline(jobId, pipelineId, deployed, recovered);
+            }
+        } catch (Throwable trackingError) {
+            LOGGER.warning(
+                    String.format(
+                            "Failed to reconcile dirty-job recovery for job %s pipeline %s; continuing recovery",
+                            jobId, pipelineId),
+                    trackingError);
+        }
+        return null;
+    }
+
     @VisibleForTesting
     public IMap<Object, Object> getRunningJobStateIMap() {
         return runningJobStateIMap;
