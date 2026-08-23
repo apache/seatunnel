@@ -277,8 +277,14 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
     private static List<CatalogTable> restoreLegacyCheckpointTables(
             IncrementalSplit incrementalSplit) {
         if (incrementalSplit.getCheckpointDataType() instanceof MultipleRowType) {
-            return CatalogTableUtil.convertDataTypeToCatalogTables(
-                    incrementalSplit.getCheckpointDataType(), TablePath.DEFAULT.getFullName());
+            MultipleRowType checkpointTables =
+                    (MultipleRowType) incrementalSplit.getCheckpointDataType();
+            return Arrays.stream(checkpointTables.getTableIds())
+                    .map(
+                            tableId ->
+                                    toLegacyCheckpointTable(
+                                            tableId, checkpointTables.getRowType(tableId)))
+                    .collect(Collectors.toList());
         }
 
         List<TableId> tableIds = incrementalSplit.getTableIds();
@@ -286,13 +292,27 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
             return Collections.emptyList();
         }
 
-        return CatalogTableUtil.convertDataTypeToCatalogTables(
-                incrementalSplit.getCheckpointDataType(),
-                TablePath.of(
-                                tableIds.get(0).catalog(),
-                                tableIds.get(0).schema(),
-                                tableIds.get(0).table())
-                        .getFullName());
+        return Collections.singletonList(
+                CatalogTableUtil.getCatalogTable(
+                        "schema",
+                        tableIds.get(0).catalog(),
+                        tableIds.get(0).schema(),
+                        tableIds.get(0).table(),
+                        incrementalSplit.getCheckpointDataType().asSeaTunnelRowType()));
+    }
+
+    private static CatalogTable toLegacyCheckpointTable(
+            String tableId, org.apache.seatunnel.api.table.type.SeaTunnelRowType rowType) {
+        TablePath tablePath = TablePath.of(tableId);
+        // The deprecated getCatalogTable(String, RowType) overload treats the full table path as a
+        // plain tableName and injects a synthetic "default" prefix. Build the identifier
+        // explicitly so restored legacy checkpoint tables keep their original path.
+        return CatalogTableUtil.getCatalogTable(
+                "schema",
+                tablePath.getDatabaseName(),
+                tablePath.getSchemaName(),
+                tablePath.getTableName(),
+                rowType);
     }
 
     private static List<String> toCheckpointTablePaths(List<CatalogTable> checkpointTables) {

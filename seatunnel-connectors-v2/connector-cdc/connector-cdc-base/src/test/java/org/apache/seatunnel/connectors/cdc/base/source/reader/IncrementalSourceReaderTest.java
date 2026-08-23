@@ -19,6 +19,8 @@ package org.apache.seatunnel.connectors.cdc.base.source.reader;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.MultipleRowType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 import org.apache.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
@@ -31,6 +33,7 @@ import org.mockito.Mockito;
 import io.debezium.relational.TableId;
 
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -115,6 +118,43 @@ class IncrementalSourceReaderTest {
                 restoredTables.get(0).getSeaTunnelRowType().getFieldNames());
         assertEquals(
                 "catalog.database.customers", restoredTables.get(0).getTablePath().getFullName());
+    }
+
+    @Test
+    void restoreCheckpointStateRestoresLegacyMultipleCheckpointTables() {
+        @SuppressWarnings("unchecked")
+        DebeziumDeserializationSchema<Object> schema =
+                Mockito.mock(DebeziumDeserializationSchema.class);
+        Map<String, SeaTunnelRowType> rowTypeMap = new LinkedHashMap<>();
+        rowTypeMap.put(
+                "catalog.database.customers",
+                new SeaTunnelRowType(
+                        new String[] {"id"}, new SeaTunnelDataType[] {BasicType.INT_TYPE}));
+        rowTypeMap.put(
+                "orders",
+                new SeaTunnelRowType(
+                        new String[] {"order_id"},
+                        new SeaTunnelDataType[] {BasicType.BIGINT_TYPE}));
+        MultipleRowType checkpointRowType = new MultipleRowType(rowTypeMap);
+        IncrementalSplit split =
+                new IncrementalSplit(
+                        "incremental-split-0",
+                        Collections.emptyList(),
+                        Mockito.mock(Offset.class),
+                        Mockito.mock(Offset.class),
+                        Collections.emptyList(),
+                        checkpointRowType);
+
+        IncrementalSourceReader.restoreCheckpointState(split, schema);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<List<CatalogTable>> captor = ArgumentCaptor.forClass(List.class);
+        Mockito.verify(schema).restoreCheckpointProducedType(captor.capture());
+        List<CatalogTable> restoredTables = captor.getValue();
+        assertEquals(2, restoredTables.size());
+        assertEquals(
+                "catalog.database.customers", restoredTables.get(0).getTablePath().getFullName());
+        assertEquals("orders", restoredTables.get(1).getTablePath().getFullName());
     }
 
     @Test
