@@ -159,6 +159,11 @@ google-firestore:
       - changed-files:
           - any-glob-to-any-file: seatunnel-connectors-v2/connector-google-firestore/**
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(google-firestore)/**'
+google-pubsub:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-google-pubsub/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(google-pubsub)/**'
 google-sheets:
   - all:
       - changed-files:
@@ -259,6 +264,11 @@ pulsar:
       - changed-files:
           - any-glob-to-any-file: seatunnel-connectors-v2/connector-pulsar/**
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(pulsar)/**'
+python:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-python/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(python)/**'
 rabbitmq:
   - all:
       - changed-files:
