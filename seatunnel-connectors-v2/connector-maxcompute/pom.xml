@@ -53,8 +53,7 @@
         </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-commons-lang3</artifactId>
-            <version>${project.version}</version>
+            <artifactId>seatunnel-shade-commons-lang3</artifactId>
         </dependency>
     </dependencies>
 

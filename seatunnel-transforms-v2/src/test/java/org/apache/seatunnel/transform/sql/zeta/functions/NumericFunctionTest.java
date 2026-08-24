@@ -154,11 +154,24 @@ public class NumericFunctionTest {
                         NumericFunction.mod(
                                 Arrays.asList(new BigDecimal("5.5"), new BigDecimal("2.0")));
         Assertions.assertEquals(new BigDecimal("1.5"), bdResult.stripTrailingZeros());
+
+        // BigDecimal precision is preserved (fix for #11696)
+        BigDecimal bigLeft = new BigDecimal("123456789012345678901234567890.123456");
+        BigDecimal bigRight = new BigDecimal("9876543210.987654");
+        BigDecimal bigMod = (BigDecimal) NumericFunction.mod(Arrays.asList(bigLeft, bigRight));
+        Assertions.assertEquals(
+                bigLeft.remainder(bigRight).stripTrailingZeros(), bigMod.stripTrailingZeros());
+
+        // Mod by a divisor that underflows to 0.0 in double should not throw (fix for #11696)
+        BigDecimal tinyDivisor = new BigDecimal("0.00000000000000000001");
+        BigDecimal tinyMod =
+                (BigDecimal) NumericFunction.mod(Arrays.asList(new BigDecimal("1"), tinyDivisor));
+        Assertions.assertEquals(0, tinyMod.compareTo(BigDecimal.ZERO));
     }
 
     @Test
     public void testCeilFloorRoundAndTrunc() {
-        // CEIL/FLOOR return the type of their argument, so a DOUBLE argument yields a DOUBLE
+        // CEIL/FLOOR return the type of their argument, so a DOUBLE argument yields a DOUBLE.
         Assertions.assertEquals(2d, NumericFunction.ceil(Arrays.asList(1.2d)));
         Assertions.assertEquals(-1d, NumericFunction.ceil(Arrays.asList(-1.8d)));
 
@@ -176,6 +189,17 @@ public class NumericFunctionTest {
 
         // negative scale for integer rounding
         Assertions.assertEquals(1200, NumericFunction.round(Arrays.asList(1234, -2)).intValue());
+
+        // Long inputs preserve Long return type (fix for #11696)
+        Assertions.assertEquals(10000000000L, NumericFunction.ceil(Arrays.asList(10000000000L)));
+        Assertions.assertEquals(10000000000L, NumericFunction.floor(Arrays.asList(10000000000L)));
+        Assertions.assertEquals(10000000000L, NumericFunction.trunc(Arrays.asList(10000000000L)));
+
+        // BigDecimal inputs preserve BigDecimal return type (fix for #11696)
+        BigDecimal bd = new BigDecimal("12345.6789");
+        Assertions.assertEquals(new BigDecimal("12346"), NumericFunction.ceil(Arrays.asList(bd)));
+        Assertions.assertEquals(new BigDecimal("12345"), NumericFunction.floor(Arrays.asList(bd)));
+        Assertions.assertEquals(new BigDecimal("12345"), NumericFunction.trunc(Arrays.asList(bd)));
     }
 
     @Test
