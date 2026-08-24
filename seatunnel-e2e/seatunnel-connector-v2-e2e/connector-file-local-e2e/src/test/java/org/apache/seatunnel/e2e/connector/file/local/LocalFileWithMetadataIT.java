@@ -21,6 +21,7 @@ import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.seatunnel.SeaTunnelContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
+import org.apache.seatunnel.e2e.common.util.MavenJarUtil;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
@@ -106,10 +107,8 @@ public class LocalFileWithMetadataIT extends SeaTunnelContainer {
                 Paths.get(SEATUNNEL_HOME, "config", "seatunnel.yaml").toString());
 
         server.withCopyFileToContainer(
-                MountableFile.forHostPath(
-                        PROJECT_ROOT_PATH
-                                + "/seatunnel-shade/seatunnel-hadoop3-3.1.4-uber/target/seatunnel-hadoop3-3.1.4-uber.jar"),
-                Paths.get(SEATUNNEL_HOME, "lib/seatunnel-hadoop3-3.1.4-uber.jar").toString());
+                MountableFile.forHostPath(MavenJarUtil.getHadoop3UberJarPath()),
+                CONTAINER_HADOOP_JAR_PATH.toString());
 
         server.start();
         // execute extra commands (including copying CSV files via extendedFactory)

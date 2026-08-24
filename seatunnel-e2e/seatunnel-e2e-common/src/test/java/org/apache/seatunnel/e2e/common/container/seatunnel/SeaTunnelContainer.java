@@ -29,6 +29,7 @@ import org.apache.seatunnel.e2e.common.container.ReusableTestContainer;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.TestContainerId;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
+import org.apache.seatunnel.e2e.common.util.MavenJarUtil;
 
 import org.apache.commons.compress.utils.Lists;
 import org.apache.http.HttpStatus;
@@ -81,6 +82,10 @@ import static org.apache.seatunnel.e2e.common.util.ContainerUtil.copyAllConnecto
 @Slf4j
 @AutoService(TestContainer.class)
 public class SeaTunnelContainer extends AbstractTestContainer implements ReusableTestContainer {
+    public static final String SERVER_JVM_OPTION_PROPERTY =
+            "seatunnel.e2e.seatunnel.server.jvm.option";
+    public static final String CLIENT_JVM_OPTION_PROPERTY =
+            "seatunnel.e2e.seatunnel.client.jvm.option";
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final String REST_STOP_JOB_PATH = "/stop-job";
     private static final String REST_CHECKPOINT_OVERVIEW_PATH = "/jobs/checkpoints";
@@ -139,10 +144,8 @@ public class SeaTunnelContainer extends AbstractTestContainer implements Reusabl
                 Paths.get(SEATUNNEL_HOME, "config").toString());
 
         server.withCopyFileToContainer(
-                MountableFile.forHostPath(
-                        PROJECT_ROOT_PATH
-                                + "/seatunnel-shade/seatunnel-hadoop3-3.1.4-uber/target/seatunnel-hadoop3-3.1.4-uber.jar"),
-                Paths.get(SEATUNNEL_HOME, "lib/seatunnel-hadoop3-3.1.4-uber.jar").toString());
+                MountableFile.forHostPath(MavenJarUtil.getHadoop3UberJarPath()),
+                CONTAINER_HADOOP_JAR_PATH.toString());
         // execute extra commands
         executeExtraCommands(server);
 
@@ -152,9 +155,15 @@ public class SeaTunnelContainer extends AbstractTestContainer implements Reusabl
     }
 
     protected String[] buildStartCommand() {
-        return new String[] {
-            ContainerUtil.adaptPathForWin(Paths.get(SEATUNNEL_HOME, "bin", SERVER_SHELL).toString())
-        };
+        List<String> command = new ArrayList<>();
+        command.add(
+                ContainerUtil.adaptPathForWin(
+                        Paths.get(SEATUNNEL_HOME, "bin", SERVER_SHELL).toString()));
+        String serverJvmOption = System.getProperty(SERVER_JVM_OPTION_PROPERTY);
+        if (!isBlank(serverJvmOption)) {
+            command.add("-DJvmOption=" + serverJvmOption);
+        }
+        return command.toArray(new String[0]);
     }
 
     protected GenericContainer<?> createSeaTunnelContainerWithFakeSourceAndInMemorySink(
@@ -186,10 +195,8 @@ public class SeaTunnelContainer extends AbstractTestContainer implements Reusabl
                 Paths.get(SEATUNNEL_HOME, "config", "seatunnel.yaml").toString());
 
         server.withCopyFileToContainer(
-                MountableFile.forHostPath(
-                        PROJECT_ROOT_PATH
-                                + "/seatunnel-shade/seatunnel-hadoop3-3.1.4-uber/target/seatunnel-hadoop3-3.1.4-uber.jar"),
-                Paths.get(SEATUNNEL_HOME, "lib/seatunnel-hadoop3-3.1.4-uber.jar").toString());
+                MountableFile.forHostPath(MavenJarUtil.getHadoop3UberJarPath()),
+                CONTAINER_HADOOP_JAR_PATH.toString());
 
         server.start();
         // execute extra commands
@@ -376,7 +383,15 @@ public class SeaTunnelContainer extends AbstractTestContainer implements Reusabl
 
     @Override
     protected List<String> getExtraStartShellCommands() {
-        return Collections.emptyList();
+        String clientJvmOption = System.getProperty(CLIENT_JVM_OPTION_PROPERTY);
+        if (isBlank(clientJvmOption)) {
+            return Collections.emptyList();
+        }
+        return Collections.singletonList("-DJvmOption=" + clientJvmOption);
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.trim().isEmpty();
     }
 
     @Override
@@ -555,6 +570,10 @@ public class SeaTunnelContainer extends AbstractTestContainer implements Reusabl
                 || s.startsWith("java-sdk-progress-listener-callback-thread")
                 // redis pool evictor daemon thread
                 || s.startsWith("commons-pool-evictor")
+                // MySQL JDBC driver abandoned connection cleanup thread
+                || s.startsWith("mysql-cj-abandoned-connection-cleanup")
+                // Error sink worker threads
+                || s.startsWith("seatunnel-error-sink-")
                 // Jetty QueuedThreadPool NIO selector thread from the embedded REST server;
                 // it may outlive the job and cause the E2E thread-leak check to fail.
                 || s.startsWith("qtp");
@@ -603,8 +622,74 @@ public class SeaTunnelContainer extends AbstractTestContainer implements Reusabl
         }
     }
 
+    /**
+     * Enables the {@code parallel-\d+} thread-name exemption for the duration of the Couchbase E2E
+     * test.
+     *
+     * <p>Must be called from {@code CouchbaseIT.startUp()} (the {@code @BeforeAll} hook) so that
+     * the exemption is active only while the Couchbase test lifecycle is running, not for the
+     * entire lifetime of any JVM that happens to have the Couchbase SDK on its classpath.
+     *
+     * @see #disableCouchbaseParallelThreadExemption()
+     */
+    public static void enableCouchbaseParallelThreadExemption() {
+        couchbaseE2eActive = true;
+    }
+
+    /**
+     * Disables the {@code parallel-\d+} thread-name exemption after the Couchbase E2E test
+     * completes.
+     *
+     * <p>Must be called from {@code CouchbaseIT.tearDown()} (the {@code @AfterAll} hook).
+     *
+     * @see #enableCouchbaseParallelThreadExemption()
+     */
+    public static void disableCouchbaseParallelThreadExemption() {
+        couchbaseE2eActive = false;
+    }
+
+    /**
+     * {@code true} while the Couchbase E2E test ({@code CouchbaseIT}) is active.
+     *
+     * <p>Set by {@link #enableCouchbaseParallelThreadExemption()} in {@code @BeforeAll} and cleared
+     * by {@link #disableCouchbaseParallelThreadExemption()} in {@code @AfterAll}. Scoping the flag
+     * to the test lifecycle — rather than checking classpath availability — ensures that the {@code
+     * parallel-\d+} exemption cannot silently swallow Reactor thread leaks from unrelated
+     * connectors running in the same JVM.
+     */
+    static volatile boolean couchbaseE2eActive = false;
+
     /** The thread should be recycled but not, we should fix it in the future. */
     protected boolean isIssueWeAlreadyKnow(String threadName) {
+        // Couchbase SDK JVM-global static singleton threads.
+        //
+        // SimplePauseDetectorThread  – GC-pause latency detector (cb-core)
+        // dnsjava NIO selector       – DNS resolution I/O loop   (cb-core)
+        // cb-cleaner                 – SDK internal cleaner       (cb-core)
+        //
+        // These three names are unique to the Couchbase SDK; no other connector produces them.
+        // They are owned by SDK-internal static singletons, survive Cluster.disconnect(), and
+        // are not connector-specific leak candidates.
+        if (threadName.startsWith("SimplePauseDetectorThread")
+                || threadName.startsWith("dnsjava NIO selector")
+                || threadName.startsWith("cb-cleaner")) {
+            return true;
+        }
+        // parallel-<N> – Reactor parallel scheduler thread.
+        //
+        // The Couchbase SDK depends on reactor-core but does NOT shade it, so the thread name
+        // "parallel-<N>" is identical to the thread name produced by any other connector that
+        // also uses reactor-core.  Exempting it by name alone would silently hide leaks from
+        // those connectors.
+        //
+        // Guard: only exempt "parallel-<N>" while the Couchbase E2E test lifecycle is active.
+        // CouchbaseIT.startUp() sets the flag via enableCouchbaseParallelThreadExemption() and
+        // CouchbaseIT.tearDown() clears it via disableCouchbaseParallelThreadExemption().  Any
+        // "parallel-<N>" thread observed outside that window is treated as an unknown thread and
+        // reported as a potential leak.
+        if (threadName.matches("parallel-\\d+") && couchbaseE2eActive) {
+            return true;
+        }
         // ClickHouse com.clickhouse.client.ClickHouseClientBuilder
         return threadName.startsWith("ClickHouseClientWorker")
                 // InfluxDB okio.AsyncTimeout$Watchdog

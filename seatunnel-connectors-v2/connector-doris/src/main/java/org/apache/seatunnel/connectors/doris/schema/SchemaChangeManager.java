@@ -27,10 +27,12 @@ import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
+import org.apache.seatunnel.api.table.schema.event.AlterColumnCommentEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableChangeColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnsEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableCommentEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableDropColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableModifyColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
@@ -133,6 +135,13 @@ public class SchemaChangeManager implements Serializable {
                     return;
                 }
                 applySchemaChange(tablePath, dropColumnEvent);
+            } else if (event instanceof AlterTableCommentEvent
+                    || event instanceof AlterColumnCommentEvent) {
+                // Comment-only changes are not supported by Doris sink, safely ignore
+                log.info(
+                        "Ignoring comment change event for table {} - Doris sink does not support comment sync: {}",
+                        tablePath.getFullName(),
+                        event.getEventType());
             } else {
                 throw new SeaTunnelException(
                         "Unsupported schemaChangeEvent : " + event.getEventType());
