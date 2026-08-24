@@ -46,8 +46,8 @@ The JVM parameters of the Master node are configured in the `$SEATUNNEL_HOME/con
 
 ```shell
 # JVM Heap
--Xms2g
--Xmx2g
+-Xms16g
+-Xmx16g
 
 # JVM Dump
 -XX:+HeapDumpOnOutOfMemoryError
@@ -64,8 +64,8 @@ The JVM parameters of the Worker node are configured in the `$SEATUNNEL_HOME/con
 
 ```shell
 # JVM Heap
--Xms2g
--Xmx2g
+-Xms16g
+-Xmx16g
 
 # JVM Dump
 -XX:+HeapDumpOnOutOfMemoryError
@@ -77,6 +77,8 @@ The JVM parameters of the Worker node are configured in the `$SEATUNNEL_HOME/con
 # G1GC
 -XX:+UseG1GC
 ```
+
+The examples above use a 16 GB JVM heap. For large-scale data processing, a 32 GB JVM heap is recommended.
 
 ## 4. Configure SeaTunnel Engine
 
@@ -308,8 +310,19 @@ map:
 
 Notice: In the official binary package, the jars required by OSS IMAP storage are copied to
 `starter/zeta/common` and `starter/zeta/oss`. You do not need to add them to `lib/` again when
-using the packaged distribution. If you build a custom distribution, make sure the Hadoop, OSS,
-JDOM, and Netty dependencies are available in those directories.
+using the packaged distribution. If you build a custom distribution, make sure the following
+jars are available in those directories.
+
+The `seatunnel-shade-hadoop3-uber` JAR comes from the [Apache SeaTunnel Shade](https://github.com/apache/seatunnel-shade) project, which provides a shaded (package-relocated) version of the Hadoop client. All third-party classes are relocated under `org.apache.seatunnel.shade.*` to avoid classpath conflicts with SeaTunnel's own dependencies. The version follows the `${library.version}-${seatunnel.shade.version}` format (e.g., `3.1.4-3.0.0`). Refer to the actual JAR file name in your SeaTunnel distribution package for the exact version.
+
+```
+aliyun-sdk-oss-3.13.2.jar
+hadoop-aliyun-3.3.6.jar
+jdom2-2.0.6.jar
+netty-buffer-4.1.89.Final.jar
+netty-common-4.1.89.Final.jar
+seatunnel-shade-hadoop3-uber-${seatunnel.shade.hadoop.version}-${seatunnel.shade.version}.jar
+```
 
 It is possible to utilize S3 for IMAP storage. 
 
@@ -340,9 +353,19 @@ map:
 
 Notice: In the official binary package, the jars required by S3 IMAP storage are copied to
 `starter/zeta/common` and `starter/zeta/s3`. You do not need to add them to `lib/` again when
-using the packaged distribution. If you build a custom distribution, make sure
-`seatunnel-hadoop3-3.1.4-uber.jar` and `seatunnel-hadoop-aws.jar` are available in those
-directories.
+using the packaged distribution. If you build a custom distribution, make sure the following
+jars are available in those directories.
+
+Both JARs come from the [Apache SeaTunnel Shade](https://github.com/apache/seatunnel-shade) project:
+- `seatunnel-shade-hadoop3-uber` — shaded Hadoop client with relocated packages
+- `seatunnel-shade-hadoop-aws` — shaded Hadoop AWS connector with relocated packages
+
+The version follows the `${library.version}-${seatunnel.shade.version}` format (e.g., `3.1.4-3.0.0`). Refer to the actual JAR file names in your SeaTunnel distribution package for the exact version.
+
+```
+seatunnel-shade-hadoop3-uber-${seatunnel.shade.hadoop.version}-${seatunnel.shade.version}.jar
+seatunnel-shade-hadoop-aws-${seatunnel.shade.hadoop-aws.version}-${seatunnel.shade.version}.jar
+```
 
 ### 4.7 Job Scheduling Strategy
 

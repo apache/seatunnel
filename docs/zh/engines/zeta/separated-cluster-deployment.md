@@ -48,8 +48,8 @@ Master节点的JVM参数在`$SEATUNNEL_HOME/config/jvm_master_options`文件中�
 
 ```shell
 # JVM Heap
--Xms2g
--Xmx2g
+-Xms16g
+-Xmx16g
 
 # JVM Dump
 -XX:+HeapDumpOnOutOfMemoryError
@@ -67,8 +67,8 @@ Worker节点的JVM参数在`$SEATUNNEL_HOME/config/jvm_worker_options`文件中�
 
 ```shell
 # JVM Heap
--Xms2g
--Xmx2g
+-Xms16g
+-Xmx16g
 
 # JVM Dump
 -XX:+HeapDumpOnOutOfMemoryError
@@ -81,6 +81,8 @@ Worker节点的JVM参数在`$SEATUNNEL_HOME/config/jvm_worker_options`文件中�
 -XX:+UseG1GC
 
 ```
+
+以上示例使用 16 GB JVM 堆内存。对于大规模数据处理场景，建议使用 32 GB JVM 堆内存。
 
 ## 4. 配置 SeaTunnel Engine
 
@@ -313,7 +315,18 @@ map:
 
 注意：在官方二进制发行包中，OSS IMAP 存储所需 jar 会被复制到
 `starter/zeta/common` 和 `starter/zeta/oss`。使用官方发行包时，不需要再手动放到 `lib/`
-目录。如果是自定义打包，请确保对应的 Hadoop、OSS、JDOM 和 Netty 依赖位于这两个目录中。
+目录。如果是自定义打包，请确保以下 jar 位于这两个目录中。
+
+其中 `seatunnel-shade-hadoop3-uber` 来自 [Apache SeaTunnel Shade](https://github.com/apache/seatunnel-shade) 项目，它是对 Hadoop 客户端的 shaded（包重定位）版本，所有第三方类被重定位到 `org.apache.seatunnel.shade.*` 下，避免与 SeaTunnel 自身的依赖产生类路径冲突。版本号格式为 `${library.version}-${seatunnel.shade.version}`（例如 `3.1.4-3.0.0`），具体版本请参考 SeaTunnel 发行包中实际包含的 JAR 文件名。
+
+```
+aliyun-sdk-oss-3.13.2.jar
+hadoop-aliyun-3.3.6.jar
+jdom2-2.0.6.jar
+netty-buffer-4.1.89.Final.jar
+netty-common-4.1.89.Final.jar
+seatunnel-shade-hadoop3-uber-${seatunnel.shade.hadoop.version}-${seatunnel.shade.version}.jar
+```
 
 ### 4.7 作业调度策略
 

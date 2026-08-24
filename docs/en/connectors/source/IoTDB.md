@@ -25,6 +25,9 @@ The current source runs a bounded SQL query. It is suitable for batch reads and 
   > IoTDB allows column projection using SQL query.
 - [x] [parallelism](../../introduction/concepts/connector-v2-features.md)
 - [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
+- [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
+
+> The IoTDB source connector issues a single bounded SQL query per task. It is intended for batch jobs or bounded time-window reads. It does not maintain a streaming cursor over the IoTDB change log, so it cannot tail new writes in streaming mode.
 
 ## Supported DataSource Info
 
@@ -221,6 +224,26 @@ The data format loaded to SeaTunnelRow is as follows:
 | 1664035200001 | root.test_group.device_a | 36.1        | 100      | 1     | 21474836470 | 1.0f    | 1.0d     | abc      | true      |
 | 1664035200001 | root.test_group.device_b | 36.2        | 101      | 2     | 21474836470 | 2.0f    | 2.0d     | abc      | true      |
 | 1664035200001 | root.test_group.device_c | 36.3        | 102      | 3     | 21474836470 | 3.0f    | 3.0d     | abc      | true      |
+
+## Time-Range Partitioning
+
+`lower_bound`, `upper_bound`, and `num_partitions` together let SeaTunnel split a single bounded query into multiple sub-queries, one per time partition. The partitions are distributed across the configured `parallelism`, so each sub-task owns a non-overlapping time slice.
+
+The split rule is:
+
+- If `num_partitions = 1`, the entire range `[lower_bound, upper_bound)` is used as a single partition.
+- Otherwise the range is divided into `num_partitions` equal slices. If `upper_bound - lower_bound < num_partitions`, the connector falls back to `upper_bound - lower_bound` partitions.
+
+For example, with `lower_bound = 1`, `upper_bound = 10`, and `num_partitions = 2` against the SQL `select * from test where age > 0 and age < 10`, the connector generates:
+
+```sql
+-- split 1
+select * from test where (time >= 1 and time < 6)  and (age > 0 and age < 10);
+-- split 2
+select * from test where (time >= 6 and time < 11) and (age > 0 and age < 10);
+```
+
+Use this when the time column is the natural partition key and the underlying data set spans a wide time range. For non-time-bound parallelism, raise `parallelism` instead and rely on IoTDB-side partitioning.
 
 ## Changelog
 

@@ -32,8 +32,8 @@ Usage: seatunnel.sh [options]
                                               and --encrypt are specified, only
                                               --encrypt will take effect (default:
                                               false)
-    -d, --dry-run                             Run the job in dry-run mode, support
-                                              [static, connect]
+    -d, --dry-run                             Validate or preview without running sinks.
+                                              Supported modes: [static, connect, sample]
     -m, --master, -e, --deploy-mode           SeaTunnel job submit master, support
                                               [local, cluster] (default: cluster)
     --encrypt                                 Encrypt config file, when both --decrypt
@@ -47,8 +47,11 @@ Usage: seatunnel.sh [options]
     -l, --list                                list job status (default: false)
     --metrics                                 Get job metrics by JobId
     -n, --name                                SeaTunnel job name (default: SeaTunnel)
-    -r, --restore, --restore-job              restore with savepoint by jobId
+    -r, --restore, --restore-job              按 jobId 从最新 Savepoint 恢复
+    --restore-with-checkpoint                 按 jobId 从最新成功完成的 Checkpoint 恢复
     -s, --savepoint, --savepoint-job          savepoint job by jobId
+    --sample-limit                            Maximum rows forwarded from each source by sample dry-run mode (default: 10, max: 10000)
+    --sample-print-data                       Print sampled row values to persistent logs (default: false)
     -i, --variable                            Variable substitution, such as -i
                                               city=beijing, or -i date=20190318.We use
                                               ',' as separator, when inside "", ',' are
@@ -100,6 +103,22 @@ bin/seatunnel.sh --config $SEATUNNEL_HOME/config/v2.batch.config.template --dry-
 
 - `VALIDATED` – 连接器执行了真实的连通性和/或 schema 校验。
 - `SKIPPED` – 连接器不支持 connect dry-run 校验。**对于 `SKIPPED` 的插件，`--dry-run connect` 成功并不代表其凭据或可达性得到了验证。** 对于不支持 dry-run 的 source，配置中显式声明的 schema 字段（`schema` / `tableConfigs` / `table_list` 中的 `fields` 或 `columns`）仍会用于下游 schema 校验；如果配置中也没有声明 schema 字段，则该管道的下游 transform/sink schema 校验同样会报告为 `SKIPPED`，而不是基于占位 schema 进行校验。
+
+### 预览样例数据
+
+```shell
+sh bin/seatunnel.sh --master local --config $SEATUNNEL_HOME/config/v2.batch.config.template --dry-run sample --sample-limit 10 --sample-print-data
+```
+
+`--dry-run sample` 模式具有以下行为：
+
+- 在本地运行配置的 source 和 transform，并输出表路径和物理行 schema。schema 输出不包含连接器选项或凭据。
+- 仅当设置 `--sample-print-data` 时，才输出限定数量的 source 和 transform 行数据。默认不输出行内容，因为持久化的引擎日志可能暴露敏感数据。
+- 所有 action 都使用并行度 `1`，包括已配置更高并行度的 source，以确保行数限制作用于整个 source，并使预览输出具有确定性。
+- 默认最多从每个 source 向样例管道发送 `10` 行，`--sample-limit` 最大为 `10000`。source reader 停止前可能会完成当前正在执行的 poll 或批次。
+- 使用内部无操作 sink 替换配置的 sink，跳过 sink 插件创建和 save-mode 操作，并禁用 checkpoint。
+- 可能从外部 source 读取数据，但不会向配置的目标系统写入数据。
+- 仅支持本地执行。不支持集群模式、异步提交、恢复、savepoint、校验或作业控制操作。未选择 sample 模式时，sample 相关选项也会被拒绝。
 
 ## 查看作业列表
 
