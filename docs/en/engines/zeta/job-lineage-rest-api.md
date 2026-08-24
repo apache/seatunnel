@@ -151,7 +151,8 @@ Example response:
 - `graphKind` is `EXECUTION` in this proposal.
 - `idScope` is `JOB`; clients must combine `jobId` and node `id` when storing a node.
 - `kind` is one of `SOURCE`, `TRANSFORM`, or `SINK`.
-- `name` is the action name already present in `VertexInfo`. It is display metadata, not an ID.
+- `name` is the connector type already present in `VertexInfo.connectorType`. It is display
+  metadata, not an ID.
 - `datasets` contains sorted, distinct table-path strings known for Source and Sink nodes.
 - `datasetMetadata` is one of:
   - `REPORTED`: the response contains the non-default table paths present in `JobDAGInfo`; this does
@@ -226,6 +227,11 @@ They must not include a Java stack trace, raw request value, connector configura
 class name. Clients must branch on `code`; `message` is descriptive text and may be refined without
 changing `schemaVersion`.
 
+The lineage servlet owns exception translation at its request boundary. It must catch unexpected
+failures and return the same `{code, message}` contract rather than allowing them to reach the
+shared `ExceptionHandlingFilter`, whose existing fallback response includes a stack trace and uses
+a different response shape. This proposal does not change that shared filter for other endpoints.
+
 ## Performance and Payload Bounds
 
 Mapping is `O(nodes + edges + datasets)` and uses the existing cached `JobDAGInfo`. The endpoint
@@ -270,7 +276,8 @@ paths are not URL-versioned, so the response version must remain explicit.
 1. Add an immutable REST response model and a pure mapper from `JobDAGInfo` with deterministic
    ordering, validation, dataset-status handling, and size accounting.
 2. Add `JobLineageService` and a dedicated servlet registered at `/job-lineage`, reusing the current
-   running/finished DAG lookup path without adding storage.
+   running/finished DAG lookup path without adding storage. The servlet handles all failures at its
+   boundary and emits only the error contract defined above.
 3. Add REST API documentation and security/retention notes after the contract is approved.
 4. Consider a separate Web UI or external-catalog integration only after operational use of the
    endpoint.

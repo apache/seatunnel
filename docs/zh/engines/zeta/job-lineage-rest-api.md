@@ -141,7 +141,7 @@ GET /job-lineage/{jobId}
 - `graphKind` 在本提案中固定为 `EXECUTION`。
 - `idScope` 为 `JOB`；客户端保存节点时必须组合 `jobId` 和节点 `id`。
 - `kind` 为 `SOURCE`、`TRANSFORM` 或 `SINK`。
-- `name` 是 `VertexInfo` 已有的 Action 名称，只用于显示，不是标识符。
+- `name` 是 `VertexInfo.connectorType` 已有的连接器类型，只用于显示，不是标识符。
 - `datasets` 包含 Source 和 Sink 节点已知的、排序且去重后的表路径字符串。
 - `datasetMetadata` 为以下值之一：
   - `REPORTED`：响应包含 `JobDAGInfo` 中已有的非默认表路径，但不声明动态连接器已经发现全部表；
@@ -202,6 +202,10 @@ Active Master 切换不需要新的血缘存储。Active Master 可以通过现�
 响应不能包含 Java stack trace、原始请求值、连接器配置或内部类名。客户端必须根据 `code` 分支；
 `message` 是描述文本，可以在不修改 `schemaVersion` 的情况下调整。
 
+血缘 Servlet 在请求边界负责异常转换。它必须捕获未预期的失败并返回相同的 `{code, message}`
+契约，不能让异常进入共享的 `ExceptionHandlingFilter`。该过滤器现有的兜底响应会包含 stack trace，
+并且使用不同的响应结构。本提案不修改其他端点使用的共享过滤器。
+
 ## 性能和负载限制
 
 映射复杂度为 `O(nodes + edges + datasets)`，并复用已有缓存的 `JobDAGInfo`。端点不能在每次请求
@@ -240,7 +244,7 @@ StainTrace payload。
 1. 增加不可变 REST 响应模型和从 `JobDAGInfo` 转换的纯 Mapper，包含确定性排序、校验、数据集状态
    处理和大小统计。
 2. 增加 `JobLineageService` 和注册在 `/job-lineage` 的独立 Servlet，复用当前运行中/已完成 DAG
-   查询路径，不增加存储。
+   查询路径，不增加存储。Servlet 在自身边界处理所有失败，并只返回上文定义的错误契约。
 3. 契约获批后补充 REST API 文档以及安全和保留说明。
 4. 在获得实际使用反馈后，再单独考虑 Web UI 或外部元数据目录集成。
 
