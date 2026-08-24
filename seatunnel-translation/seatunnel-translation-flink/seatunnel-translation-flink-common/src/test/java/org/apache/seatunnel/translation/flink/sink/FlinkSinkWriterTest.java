@@ -19,18 +19,24 @@ package org.apache.seatunnel.translation.flink.sink;
 
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.event.EventListener;
+import org.apache.seatunnel.api.sink.SchemaChangeApplier;
+import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.SinkWriter;
+import org.apache.seatunnel.api.sink.SupportCoordinatedSchemaEvolutionSink;
 import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
 import org.apache.seatunnel.api.sink.SupportSchemaRefreshSinkWriter;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.schema.SchemaChangeType;
 import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -177,6 +183,27 @@ class FlinkSinkWriterTest {
         Assertions.assertEquals(Collections.emptyList(), delegate.appliedSchemaChanges);
     }
 
+    @Test
+    void testCoordinatedSinkRejectsWriterWithoutSchemaRefreshSupport() {
+        InvalidCoordinatedSink invalidSink = new InvalidCoordinatedSink();
+        FlinkSink<SeaTunnelRow, String, String, String> flinkSink =
+                new FlinkSink<>(invalidSink, Collections.emptyList(), 1);
+
+        IOException error =
+                Assertions.assertThrows(
+                        IOException.class,
+                        () ->
+                                flinkSink.createWriter(
+                                        Mockito.mock(
+                                                org.apache.flink.api.connector.sink.Sink.InitContext
+                                                        .class),
+                                        Collections.emptyList()));
+
+        Assertions.assertTrue(
+                error.getMessage().contains("SupportSchemaRefreshSinkWriter"), error.getMessage());
+        Assertions.assertTrue(invalidSink.writer.closed);
+    }
+
     private static class RecordingSinkWriter implements SinkWriter<SeaTunnelRow, String, String> {
 
         protected final List<Long> prepareCommitCalls = new ArrayList<>();
@@ -234,6 +261,42 @@ class FlinkSinkWriterTest {
         @Override
         public void refreshSchema(CatalogTable evolvedSchema) {
             refreshedSchemas.add(evolvedSchema);
+        }
+    }
+
+    private static class InvalidCoordinatedSink
+            implements SeaTunnelSink<SeaTunnelRow, String, String, String>,
+                    SupportCoordinatedSchemaEvolutionSink {
+
+        private final ClosingRecordingSinkWriter writer = new ClosingRecordingSinkWriter();
+
+        @Override
+        public SinkWriter<SeaTunnelRow, String, String> createWriter(SinkWriter.Context context) {
+            return writer;
+        }
+
+        @Override
+        public List<SchemaChangeType> supports() {
+            return Collections.singletonList(SchemaChangeType.ADD_COLUMN);
+        }
+
+        @Override
+        public SchemaChangeApplier createSchemaChangeApplier(TablePath sinkTablePath) {
+            return event -> {};
+        }
+
+        @Override
+        public String getPluginName() {
+            return "invalid-coordinated-sink";
+        }
+    }
+
+    private static class ClosingRecordingSinkWriter extends RecordingSinkWriter {
+        private boolean closed;
+
+        @Override
+        public void close() {
+            closed = true;
         }
     }
 

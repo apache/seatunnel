@@ -32,6 +32,10 @@ public interface SchemaChangeApplier extends AutoCloseable {
      * <p>The same event can be delivered again after recovery. Implementations must treat an
      * already-applied compatible change as success and fail when the external schema conflicts with
      * the requested change.
+     *
+     * <p>Table, column, and other identifiers carried by the event must be treated as untrusted
+     * input. Implementations must validate and quote every event-derived identifier through the
+     * sink system's dialect or identifier API and must not concatenate raw identifiers into DDL.
      */
     void apply(SchemaChangeEvent event) throws IOException;
 

@@ -89,6 +89,33 @@ class JdbcCoordinatedSchemaEvolutionTest {
         assertEquals(2, queryColumnCount(jdbcUrl));
     }
 
+    @Test
+    void applySchemaChangeUsesCompleteChangeAfterSchema() throws Exception {
+        String jdbcUrl = "jdbc:sqlite:" + tempDir.resolve("writer-schema-change.db");
+        createInitialTable(jdbcUrl);
+
+        TableSchema initialSchema = schemaWithAge();
+        CatalogTable evolvedTable = catalogTable(schemaWithoutAge());
+        JdbcSinkWriter writer =
+                createWriter(new SqliteDialect(), buildSinkConfig(jdbcUrl), initialSchema);
+        AlterTableDropColumnEvent event =
+                new AlterTableDropColumnEvent(evolvedTable.getTableId(), "age");
+        event.setChangeAfter(evolvedTable);
+
+        try {
+            writer.applySchemaChange(event);
+            writer.write(row(1, "alice"));
+            writer.prepareCommit();
+
+            assertEquals(evolvedTable.getTableSchema(), writer.tableSchema);
+        } finally {
+            writer.close();
+        }
+
+        assertEquals(Collections.singletonList("1:alice"), queryRows(jdbcUrl));
+        assertEquals(2, queryColumnCount(jdbcUrl));
+    }
+
     private JdbcSinkWriter createWriter(
             SqliteDialect dialect, JdbcSinkConfig sinkConfig, TableSchema tableSchema) {
         return new JdbcSinkWriter(

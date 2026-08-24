@@ -31,6 +31,7 @@ import org.apache.seatunnel.e2e.common.container.TestContainerId;
 import org.apache.seatunnel.e2e.common.container.flink.AbstractTestFlinkContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
@@ -105,7 +106,9 @@ public class MysqlCDCWithFlinkCoordinatedSchemaEvolutionIT extends TestSuiteBase
 
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
-            MysqlCDCDriverResolver::copyMySQLDriverToContainer;
+            container ->
+                    DependencyJar.ofClassName("com.mysql.cj.jdbc.Driver")
+                            .copyTo(container, "/tmp/seatunnel/plugins/MySQL-CDC/lib");
 
     @Order(1)
     @TestTemplate

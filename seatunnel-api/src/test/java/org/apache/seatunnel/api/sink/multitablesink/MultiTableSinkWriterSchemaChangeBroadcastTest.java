@@ -21,8 +21,6 @@ import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.event.DefaultEventProcessor;
 import org.apache.seatunnel.api.event.EventListener;
 import org.apache.seatunnel.api.event.EventType;
-import org.apache.seatunnel.api.options.MultiTableFailurePolicy;
-import org.apache.seatunnel.api.sink.SchemaChangeApplier;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
@@ -33,7 +31,6 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.common.constants.JobMode;
 
 import org.junit.jupiter.api.Test;
 
@@ -95,55 +92,6 @@ public class MultiTableSinkWriterSchemaChangeBroadcastTest {
         assertEquals(0, sinkForC.getRefreshCount());
         assertEquals(evolvedSchema, sinkForA.getRefreshedSchema());
         assertEquals(evolvedSchema, sinkForB.getRefreshedSchema());
-    }
-
-    /**
-     * Verifies the coordinated path: one component mutates the external table and every sibling
-     * writer receives the same complete post-change schema without executing DDL itself.
-     */
-    @Test
-    void coordinatedSchemaChangeAppliesExternalChangeOnceAndRefreshesEverySibling()
-            throws IOException {
-        CoordinatedRecordingSinkWriter sinkForA =
-                new CoordinatedRecordingSinkWriter(PHYSICAL_SINK_SHARED);
-        CoordinatedRecordingSinkWriter sinkForB =
-                new CoordinatedRecordingSinkWriter(PHYSICAL_SINK_SHARED);
-        CoordinatedRecordingSinkWriter sinkForC =
-                new CoordinatedRecordingSinkWriter(PHYSICAL_SINK_OTHER);
-        AtomicInteger externalApplyCount = new AtomicInteger();
-
-        Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> writers = new HashMap<>();
-        writers.put(SinkIdentifier.of("dbA.users", 0), sinkForA);
-        writers.put(SinkIdentifier.of("dbB.users", 0), sinkForB);
-        writers.put(SinkIdentifier.of("dbC.users", 0), sinkForC);
-        Map<String, SchemaChangeApplier> appliers = new HashMap<>();
-        appliers.put("dbA.users", event -> externalApplyCount.incrementAndGet());
-
-        MultiTableSinkWriter coordinator =
-                new MultiTableSinkWriter(
-                        writers,
-                        1,
-                        buildContextMap(writers),
-                        MultiTableFailurePolicy.FAIL_FAST,
-                        JobMode.STREAMING,
-                        Collections.emptyList(),
-                        0,
-                        0,
-                        appliers);
-        TestSchemaChangeEvent event = new TestSchemaChangeEvent(TablePath.of("dbA", null, "users"));
-        CatalogTable evolvedSchema = createCatalogTable(TablePath.of("dbA", null, "users"));
-        event.setChangeAfter(evolvedSchema);
-
-        coordinator.applySchemaChange(event);
-
-        assertEquals(1, externalApplyCount.get());
-        assertEquals(1, sinkForA.getRefreshCount());
-        assertEquals(1, sinkForB.getRefreshCount());
-        assertEquals(0, sinkForC.getRefreshCount());
-        assertEquals(evolvedSchema, sinkForA.getRefreshedSchema());
-        assertEquals(evolvedSchema, sinkForB.getRefreshedSchema());
-        assertEquals(0, sinkForA.getInvocationCount());
-        assertEquals(0, sinkForB.getInvocationCount());
     }
 
     private static CatalogTable createCatalogTable(TablePath tablePath) {
