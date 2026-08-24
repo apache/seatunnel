@@ -135,6 +135,8 @@ public class BigQuerySink
         DataSaveMode dataSaveMode = config.get(BigQuerySinkOptions.DATA_SAVE_MODE);
         TablePath tablePath = catalogTable.getTableId().toTablePath();
         String configuredTableId = config.get(BigQuerySinkOptions.TABLE_ID);
+        // Note: config option TABLE_ID is already placeholder-resolved per target table
+        // by TablePlaceholderProcessor during FactoryUtil.createAndPrepareSink()
         if (configuredTableId != null && !configuredTableId.contains("${table_name}")) {
             tablePath = TablePath.of(tablePath.getDatabaseName(), configuredTableId);
         }

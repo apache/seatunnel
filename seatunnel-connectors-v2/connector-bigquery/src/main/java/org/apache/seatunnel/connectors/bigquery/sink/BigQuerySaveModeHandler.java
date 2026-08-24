@@ -135,8 +135,8 @@ public class BigQuerySaveModeHandler extends DefaultSaveModeHandler {
             if (e instanceof SeaTunnelRuntimeException) {
                 throw (SeaTunnelRuntimeException) e;
             }
-            String className = e.getClass().getName();
-            if (className.contains("BigQueryException") || className.contains("StorageException")) {
+            if (e instanceof com.google.cloud.bigquery.BigQueryException
+                    || e.getClass().getName().contains("StorageException")) {
                 throw new CatalogException("Failed to validate BigQuery schema coherence", e);
             }
             log.warn("Schema validation check ignored due to exception: {}", e.getMessage());

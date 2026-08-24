@@ -93,6 +93,12 @@ You need to check this document before you upgrade to related version.
 
 ### Connector Changes
 
+- **Breaking Change: BigQuery Sink Connector — default schema save mode introduces automatic table creation**
+  - **Affected component**: `seatunnel-connectors-v2/connector-bigquery`
+  - **Description**: The BigQuery sink connector (`connector-bigquery`) now implements `SupportSaveMode` with support for `schema_save_mode` and `data_save_mode`. The default `schema_save_mode` is set to `CREATE_SCHEMA_WHEN_NOT_EXIST`.
+  - **Impact**: Upgrading existing pipelines targeting a non-existent table will now automatically create the table in BigQuery with the source schema instead of failing fast at the BigQuery API layer.
+  - **Migration Guide**: To preserve the legacy fail-fast behavior, explicitly configure `schema_save_mode = "ERROR_WHEN_SCHEMA_NOT_EXIST"` in your BigQuery sink configuration.
+
 - **Breaking Change: Iceberg Connector — source table primary key is no longer silently inherited**
   - **Affected component**: `seatunnel-connectors-v2/connector-iceberg`
   - **Description**: `SchemaUtils.toIcebergSchema()` previously fell back to the CDC source
