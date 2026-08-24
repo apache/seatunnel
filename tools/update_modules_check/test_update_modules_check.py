@@ -103,6 +103,10 @@ class ConnectorItShardingTest(unittest.TestCase):
         )
 
     def test_full_and_updated_paths_apply_their_ownership_rules(self) -> None:
+        self.assertIn(
+            "connector-google-pubsub-e2e",
+            ALL_CONNECTORS_REQUIRED_DEDICATED_SHARD_MODULES,
+        )
         connector_modules = [
             "connector-normal-e2e",
             *ALL_CONNECTORS_REQUIRED_DEDICATED_SHARD_MODULES,

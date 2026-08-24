@@ -41,6 +41,7 @@ ALL_CONNECTORS_REQUIRED_DEDICATED_SHARD_MODULES = (
     "connector-rocketmq-e2e",
     "connector-kudu-e2e",
     "connector-amazonsqs-e2e",
+    "connector-google-pubsub-e2e",
     "connector-doris-e2e",
     "connector-paimon-e2e",
     "connector-cdc-oracle-e2e",
@@ -67,6 +68,8 @@ ALL_CONNECTORS_DEDICATED_SHARD_MODULES = (
     + ALL_CONNECTORS_OPTIONAL_DEDICATED_SHARD_MODULES
 )
 
+# The JDBC aggregate is excluded from full shards because its dedicated part
+# jobs own full runs, but direct JDBC changes still use the updated leaf shards.
 _CONNECTOR_IT_MODULES_WITH_DEDICATED_JOB = set(
     ALL_CONNECTORS_REQUIRED_DEDICATED_SHARD_MODULES
 ) - {"connector-jdbc-e2e"}
