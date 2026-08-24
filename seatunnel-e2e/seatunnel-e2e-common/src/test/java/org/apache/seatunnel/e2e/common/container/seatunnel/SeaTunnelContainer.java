@@ -28,6 +28,7 @@ import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.TestContainerId;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
+import org.apache.seatunnel.e2e.common.util.MavenJarUtil;
 
 import org.apache.commons.compress.utils.Lists;
 import org.apache.http.HttpStatus;
@@ -78,6 +79,11 @@ import static org.apache.seatunnel.e2e.common.util.ContainerUtil.copyAllConnecto
 @Slf4j
 @AutoService(TestContainer.class)
 public class SeaTunnelContainer extends AbstractTestContainer {
+    public static final String SERVER_JVM_OPTION_PROPERTY =
+            "seatunnel.e2e.seatunnel.server.jvm.option";
+    public static final String CLIENT_JVM_OPTION_PROPERTY =
+            "seatunnel.e2e.seatunnel.client.jvm.option";
+
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final String REST_STOP_JOB_PATH = "/stop-job";
     private static final String REST_CHECKPOINT_OVERVIEW_PATH = "/jobs/checkpoints";
@@ -134,10 +140,8 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                 Paths.get(SEATUNNEL_HOME, "config").toString());
 
         server.withCopyFileToContainer(
-                MountableFile.forHostPath(
-                        PROJECT_ROOT_PATH
-                                + "/seatunnel-shade/seatunnel-hadoop3-3.1.4-uber/target/seatunnel-hadoop3-3.1.4-uber.jar"),
-                Paths.get(SEATUNNEL_HOME, "lib/seatunnel-hadoop3-3.1.4-uber.jar").toString());
+                MountableFile.forHostPath(MavenJarUtil.getHadoop3UberJarPath()),
+                CONTAINER_HADOOP_JAR_PATH.toString());
         // execute extra commands
         executeExtraCommands(server);
 
@@ -147,9 +151,15 @@ public class SeaTunnelContainer extends AbstractTestContainer {
     }
 
     protected String[] buildStartCommand() {
-        return new String[] {
-            ContainerUtil.adaptPathForWin(Paths.get(SEATUNNEL_HOME, "bin", SERVER_SHELL).toString())
-        };
+        List<String> command = new ArrayList<>();
+        command.add(
+                ContainerUtil.adaptPathForWin(
+                        Paths.get(SEATUNNEL_HOME, "bin", SERVER_SHELL).toString()));
+        String serverJvmOption = System.getProperty(SERVER_JVM_OPTION_PROPERTY);
+        if (!isBlank(serverJvmOption)) {
+            command.add("-DJvmOption=" + serverJvmOption);
+        }
+        return command.toArray(new String[0]);
     }
 
     protected GenericContainer<?> createSeaTunnelContainerWithFakeSourceAndInMemorySink(
@@ -181,10 +191,8 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                 Paths.get(SEATUNNEL_HOME, "config", "seatunnel.yaml").toString());
 
         server.withCopyFileToContainer(
-                MountableFile.forHostPath(
-                        PROJECT_ROOT_PATH
-                                + "/seatunnel-shade/seatunnel-hadoop3-3.1.4-uber/target/seatunnel-hadoop3-3.1.4-uber.jar"),
-                Paths.get(SEATUNNEL_HOME, "lib/seatunnel-hadoop3-3.1.4-uber.jar").toString());
+                MountableFile.forHostPath(MavenJarUtil.getHadoop3UberJarPath()),
+                CONTAINER_HADOOP_JAR_PATH.toString());
 
         server.start();
         // execute extra commands
@@ -260,7 +268,15 @@ public class SeaTunnelContainer extends AbstractTestContainer {
 
     @Override
     protected List<String> getExtraStartShellCommands() {
-        return Collections.emptyList();
+        String clientJvmOption = System.getProperty(CLIENT_JVM_OPTION_PROPERTY);
+        if (isBlank(clientJvmOption)) {
+            return Collections.emptyList();
+        }
+        return Collections.singletonList("-DJvmOption=" + clientJvmOption);
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.trim().isEmpty();
     }
 
     @Override
