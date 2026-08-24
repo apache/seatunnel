@@ -31,6 +31,7 @@ import org.apache.seatunnel.connectors.seatunnel.file.hadoop.HadoopFileSystemPro
 import org.apache.seatunnel.connectors.seatunnel.file.sink.config.FileSinkConfig;
 import org.apache.seatunnel.connectors.seatunnel.file.sink.writer.CsvWriteStrategy;
 import org.apache.seatunnel.connectors.seatunnel.file.source.reader.CsvReadStrategy;
+import org.apache.seatunnel.connectors.seatunnel.file.util.LocalFileSystemConf;
 
 import org.apache.hadoop.fs.FSDataOutputStream;
 
@@ -80,6 +81,21 @@ public class CsvWriteStrategyTest {
         Assertions.assertEquals("1|测试", lines.get(1));
     }
 
+    /**
+     * Runs one real CsvWriteStrategy lifecycle (beginTransaction, write, finishAndCloseFile, close)
+     * against an in-memory Hadoop output stream and returns the produced file split into lines. The
+     * mocked HadoopFileSystemProxy hands every requested path the same ByteArrayOutputStream, so
+     * the returned bytes are exactly what the writer emitted; they are decoded with the SAME
+     * charset passed as {@code encoding}, which is what lets the UTF-16LE case detect a header
+     * written with the platform default charset instead of the configured one.
+     *
+     * @param directory unique per-test output directory suffix, keeping tmp paths distinct
+     * @param fieldDelimiter field_delimiter to configure, or null to exercise the default comma
+     * @param encoding charset name used both for the writer config and for decoding the output
+     * @param fieldName second column name (non-ASCII in the encoding case on purpose)
+     * @param fieldValue second column value written in the single data row
+     * @return the decoded output split on line breaks: header first, then the data row
+     */
     private List<String> writeCsvWithHeader(
             String directory,
             String fieldDelimiter,
@@ -118,7 +134,8 @@ public class CsvWriteStrategyTest {
         writeStrategy.write(new SeaTunnelRow(new Object[] {1, fieldValue}));
         writeStrategy.finishAndCloseFile();
         writeStrategy.close();
-        return Arrays.asList(new String(output.toByteArray(), Charset.forName(encoding)).split("\\R"));
+        return Arrays.asList(
+                new String(output.toByteArray(), Charset.forName(encoding)).split("\\R"));
     }
 
     @DisabledOnOs(OS.WINDOWS)
@@ -246,6 +263,12 @@ public class CsvWriteStrategyTest {
         readStrategy.close();
     }
 
+    /**
+     * Test subclass whose only job is to inject the mocked filesystem proxy and the transaction
+     * identifiers that AbstractWriteStrategy normally receives through init()/beginTransaction()
+     * wiring. It writes through the real production code paths; nothing is overridden, so the bytes
+     * asserted by the tests come from the genuine writer logic.
+     */
     private static class TestCsvWriteStrategy extends CsvWriteStrategy {
 
         private TestCsvWriteStrategy(FileSinkConfig fileSinkConfig) {
