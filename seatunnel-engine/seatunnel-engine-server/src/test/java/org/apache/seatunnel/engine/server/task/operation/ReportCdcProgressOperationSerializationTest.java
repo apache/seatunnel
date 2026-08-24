@@ -157,6 +157,58 @@ class ReportCdcProgressOperationSerializationTest {
     }
 
     @Test
+    void testEveryProgressOwnerRoundTripsByName() {
+        for (CdcProgressOwner owner : CdcProgressOwner.values()) {
+            CdcProgressEnvelope<?> restored =
+                    roundTrip(
+                            owner == CdcProgressOwner.READER
+                                    ? readerEnvelope(
+                                            CdcProgressLifecycle.INCREMENTAL,
+                                            CdcProgressValue.unavailable())
+                                    : enumeratorEnvelope(CdcSnapshotAssignmentStatus.ASSIGNING));
+
+            Assertions.assertEquals(owner, restored.getOwner());
+        }
+    }
+
+    @Test
+    void testEveryProgressLifecycleRoundTripsByName() {
+        for (CdcProgressLifecycle lifecycle : CdcProgressLifecycle.values()) {
+            CdcReaderProgressReport restored =
+                    (CdcReaderProgressReport)
+                            roundTrip(readerEnvelope(lifecycle, CdcProgressValue.unavailable()))
+                                    .getReport();
+
+            Assertions.assertEquals(lifecycle, restored.getLifecycle());
+        }
+    }
+
+    @Test
+    void testEveryProgressAccuracyRoundTripsByName() {
+        for (CdcProgressAccuracy accuracy : CdcProgressAccuracy.values()) {
+            CdcReaderProgressReport restored =
+                    (CdcReaderProgressReport)
+                            roundTrip(
+                                            readerEnvelope(
+                                                    CdcProgressLifecycle.INCREMENTAL,
+                                                    value(accuracy)))
+                                    .getReport();
+
+            Assertions.assertEquals(accuracy, restored.getCurrentConsumedPosition().getAccuracy());
+        }
+    }
+
+    @Test
+    void testEverySnapshotAssignmentStatusRoundTripsByName() {
+        for (CdcSnapshotAssignmentStatus status : CdcSnapshotAssignmentStatus.values()) {
+            CdcEnumeratorProgressReport restored =
+                    (CdcEnumeratorProgressReport) roundTrip(enumeratorEnvelope(status)).getReport();
+
+            Assertions.assertEquals(status, restored.getSnapshotAssignmentStatus());
+        }
+    }
+
+    @Test
     void testEmptyReportListsArePreservedAfterSerialization() {
         ReportCdcProgressOperation original =
                 new ReportCdcProgressOperation(Collections.emptyList());
@@ -220,6 +272,76 @@ class ReportCdcProgressOperationSerializationTest {
                         IOException.class, () -> CdcProgressReportSerializer.readEnvelope(input));
 
         Assertions.assertEquals("Unknown CDC progress owner: UNKNOWN", exception.getMessage());
+    }
+
+    private CdcProgressEnvelope<CdcReaderProgressReport> readerEnvelope(
+            CdcProgressLifecycle lifecycle, CdcProgressValue<CdcProgressPosition> currentPosition) {
+        return new CdcProgressEnvelope<>(
+                CdcProgressOwner.READER,
+                taskLocation(),
+                5L,
+                6L,
+                7L,
+                8L,
+                new CdcReaderProgressReport(
+                        "MySQL-CDC",
+                        lifecycle,
+                        "incremental-split",
+                        currentPosition,
+                        CdcProgressValue.unavailable(),
+                        CdcProgressValue.unavailable(),
+                        9L,
+                        null));
+    }
+
+    private CdcProgressEnvelope<CdcEnumeratorProgressReport> enumeratorEnvelope(
+            CdcSnapshotAssignmentStatus status) {
+        return new CdcProgressEnvelope<>(
+                CdcProgressOwner.ENUMERATOR,
+                taskLocation(),
+                5L,
+                6L,
+                7L,
+                8L,
+                new CdcEnumeratorProgressReport(
+                        "MySQL-CDC",
+                        status,
+                        CdcProgressValue.exact(0),
+                        CdcProgressValue.exact(0),
+                        CdcProgressValue.exact(0),
+                        CdcProgressValue.exact(0),
+                        CdcProgressValue.exact(0),
+                        Collections.emptyList()));
+    }
+
+    private CdcProgressValue<CdcProgressPosition> value(CdcProgressAccuracy accuracy) {
+        CdcProgressPosition position =
+                new CdcProgressPosition(
+                        "MYSQL_BINLOG", 1, Collections.singletonMap("file", "mysql-bin.000001"));
+        switch (accuracy) {
+            case EXACT:
+                return CdcProgressValue.exact(position);
+            case BEST_EFFORT:
+                return CdcProgressValue.bestEffort(position);
+            case UNSUPPORTED:
+                return CdcProgressValue.unsupported();
+            case UNAVAILABLE:
+                return CdcProgressValue.unavailable();
+            default:
+                throw new AssertionError("Unhandled accuracy: " + accuracy);
+        }
+    }
+
+    private CdcProgressEnvelope<?> roundTrip(CdcProgressEnvelope<?> envelope) {
+        ReportCdcProgressOperation operation =
+                new ReportCdcProgressOperation(Collections.singletonList(envelope));
+        ReportCdcProgressOperation restored =
+                serializationService.toObject(serializationService.toData(operation));
+        return (CdcProgressEnvelope<?>) reports(restored).get(0);
+    }
+
+    private TaskLocation taskLocation() {
+        return new TaskLocation(new TaskGroupLocation(1L, 2, 3L), 4L, 0);
     }
 
     @SuppressWarnings("unchecked")

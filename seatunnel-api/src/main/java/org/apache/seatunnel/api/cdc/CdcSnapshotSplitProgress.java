@@ -25,7 +25,9 @@ import java.util.Objects;
  * Progress detail for one active snapshot split.
  *
  * <p>Low and high watermarks always belong to the same {@link #getSplitId() split}. A watermark is
- * unavailable when that split has not established it yet.
+ * unavailable when that split has not established it yet. This value is deeply immutable: its
+ * fields are final, {@link CdcProgressValue} is immutable, and any contained {@link
+ * CdcProgressPosition} defensively copies and exposes an unmodifiable position map.
  */
 @Experimental
 public final class CdcSnapshotSplitProgress {
