@@ -29,6 +29,7 @@
 [Paimon](../../connectors/sink/Paimon.md#模式演变)
 [Elasticsearch](../../connectors/sink/Elasticsearch.md#模式演变)
 [BigQuery](../../connectors/sink/BigQuery.md#schema-演进)（仅支持 `ADD COLUMN`）
+[Redis](../../connectors/sink/Redis.md#模式演变)
 
 注意: 
 * 目前模式演进不支持transform。不同类型数据库(Oracle-CDC -> Jdbc-Mysql)的模式演进目前不支持ddl中列的默认值。

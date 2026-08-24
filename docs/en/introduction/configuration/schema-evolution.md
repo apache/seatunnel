@@ -29,6 +29,7 @@ Schema Evolution means that the schema of a data table can be changed and the da
 [Paimon](../../connectors/sink/Paimon.md#schema-evolution)
 [Elasticsearch](../../connectors/sink/Elasticsearch.md#schema-evolution)
 [BigQuery](../../connectors/sink/BigQuery.md#schema-evolution) (`ADD COLUMN` only)
+[Redis](../../connectors/sink/Redis.md#schema-evolution)
 
 Note:  
 * The schema evolution is not support the transform at now. The schema evolution of different types of databases（Oracle-CDC -> Jdbc-Mysql）is currently not supported the default value of the column in ddl.
