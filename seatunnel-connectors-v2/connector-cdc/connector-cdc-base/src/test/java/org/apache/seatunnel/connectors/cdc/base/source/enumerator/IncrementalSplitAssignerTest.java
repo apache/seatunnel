@@ -73,45 +73,45 @@ class IncrementalSplitAssignerTest {
     }
 
     @Test
-    void shouldResolveLatestStopOffsetOnceAtSnapshotCompletionAndReuseAfterRestore() {
+    void shouldResolveLatestStopOffsetOnceAtSplitCreationAndReuseAfterRestore() {
         SourceConfig sourceConfig = mock(SourceConfig.class);
         OffsetFactory offsetFactory = mock(OffsetFactory.class);
         Offset committedOffset = mock(Offset.class);
-        Offset splitCreationOffset = mock(Offset.class);
         Offset resolvedOffset = mock(Offset.class);
         when(sourceConfig.getStartupConfig())
                 .thenReturn(new StartupConfig(StartupMode.COMMITTED_OFFSET, null, null, null));
         when(sourceConfig.getStopConfig())
                 .thenReturn(new StopConfig(StopMode.LATEST, null, null, null));
         when(offsetFactory.committedOffset()).thenReturn(committedOffset);
-        // First resolution happens at split creation (before the snapshot phase completes);
-        // the second one is the authoritative resolution when the snapshot phase completes.
-        when(offsetFactory.latest()).thenReturn(splitCreationOffset, resolvedOffset);
+        when(offsetFactory.latest()).thenReturn(resolvedOffset);
 
         SplitAssigner.Context<SourceConfig> context = createContext(sourceConfig);
         IncrementalSplitAssigner<SourceConfig> assigner =
                 new IncrementalSplitAssigner<>(context, 1, offsetFactory);
 
-        // The incremental split is created before the snapshot phase completes, so its stop
-        // offset is resolved from StopConfig (stale).
-        assertSame(
-                splitCreationOffset, assigner.getNext().get().asIncrementalSplit().getStopOffset());
+        // The single authoritative resolution happens exactly once, when the first
+        // incremental split is created; the same value is used for the split handed to
+        // the reader and stored in the checkpoint, so they can never diverge.
+        assertSame(resolvedOffset, assigner.getNext().get().asIncrementalSplit().getStopOffset());
+        verify(offsetFactory, times(1)).latest();
 
-        // Snapshot phase completes: the stop offset is resolved exactly once, now.
+        // Snapshot phase completes: no second resolution, the resolved value is reused.
         assertTrue(assigner.completedSnapshotPhase(Collections.emptyList()));
-        verify(offsetFactory, times(2)).latest();
+        verify(offsetFactory, times(1)).latest();
 
         // The checkpoint stores the resolved stop offset...
         IncrementalPhaseState checkpoint = assigner.snapshotState(1L);
 
-        // ...and a restored assigner reuses it instead of re-resolving (no drift).
+        // ...and a restored assigner reuses it instead of re-resolving (no drift, and no
+        // boundary change on restore: the checkpointed value is the same one the running
+        // reader was already stopping at).
         IncrementalSplitAssigner<SourceConfig> restoredAssigner =
                 new IncrementalSplitAssigner<>(
                         createContext(sourceConfig), 1, offsetFactory, checkpoint);
         assertSame(
                 resolvedOffset,
                 restoredAssigner.getNext().get().asIncrementalSplit().getStopOffset());
-        verify(offsetFactory, times(2)).latest();
+        verify(offsetFactory, times(1)).latest();
     }
 
     private SplitAssigner.Context<SourceConfig> createContext(SourceConfig sourceConfig) {

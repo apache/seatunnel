@@ -339,17 +339,23 @@ public class MysqlCDCStopModeSpecificIT extends TestSuiteBase implements TestRes
         clearTable(MYSQL_DATABASE, SOURCE_TABLE);
         clearTable(MYSQL_DATABASE, SINK_TABLE);
 
-        // Bulk-insert enough rows so that, for snapshot-taking startups (initial/earliest),
-        // the snapshot phase takes a measurably non-trivial amount of time. Without this,
-        // the snapshot of a single-row table can complete before the RUNNING readiness
-        // signal is observed, and the post-readiness UPDATE below would land after the
-        // (snapshot-completion-time) stop offset and be silently dropped — a flaky race.
+        // Bulk-insert rows before starting the job.
+        // - initial: 2000 rows so the snapshot phase spans many splits deterministically
+        //   (snapshot.split.size=20 -> 100 splits, parallelism=1, consumed in ascending-key
+        //   order): the readiness gate below (first row visible in the sink) then fires while
+        //   ~99 splits are still unread, so the UPDATE is guaranteed to land inside the
+        //   snapshot window. A smaller table could be snapshotted entirely within one polling
+        //   interval and complete before the gate is observed (the flaky race SEZ9 flagged).
+        // - earliest: keep 200 rows — there is no snapshot phase (binlog replay from the
+        //   earliest position), and a larger bulk would only slow the replay.
+        // - latest/specific/timestamp: 200 rows, no snapshot window involved.
+        int bulkRowCount = "initial".equals(startupMode) ? 2000 : 200;
         StringBuilder bulkInsert =
                 new StringBuilder(
                         String.format(
                                 "INSERT INTO %s.%s (id, f_varchar) VALUES ",
                                 MYSQL_DATABASE, SOURCE_TABLE));
-        for (int i = 1; i <= 200; i++) {
+        for (int i = 1; i <= bulkRowCount; i++) {
             if (i > 1) {
                 bulkInsert.append(", ");
             }
@@ -390,12 +396,10 @@ public class MysqlCDCStopModeSpecificIT extends TestSuiteBase implements TestRes
 
         if ("initial".equals(startupMode)) {
             // Structural readiness gate for snapshot-taking startups: wait until the first
-            // bulk row (id=1) has reached the sink. With snapshot.split.size=20 the 200-row
-            // table is read in 10 splits, so this signal can only fire while the snapshot is
-            // still reading the remaining splits — the UPDATE below is therefore guaranteed
-            // to land inside the snapshot window and be picked up by the binlog phase. A
-            // bare RUNNING status is not sufficient (a small table's snapshot can complete
-            // before RUNNING is observed), and a raw timing margin is probabilistic.
+            // bulk row (id=1) has reached the sink. With 2000 rows across snapshot.split.size=20
+            // (100 splits, parallelism=1, ascending-key order), this signal fires while ~99
+            // splits are still unread — the UPDATE below is therefore guaranteed to land
+            // inside the snapshot window and be picked up by the binlog phase.
             await().atMost(60, TimeUnit.SECONDS)
                     .untilAsserted(
                             () ->
@@ -403,6 +407,16 @@ public class MysqlCDCStopModeSpecificIT extends TestSuiteBase implements TestRes
                                             "bulk",
                                             queryVarcharById(1),
                                             "snapshot phase must have started reading"));
+            // Defensive check for the residual race SEZ9 flagged: if the LAST-chunk row is
+            // already visible, the whole snapshot completed before the gate fired and the
+            // UPDATE below would land after the stop offset. Fail loudly instead of letting
+            // the post-UPDATE assertion mislead as data loss. (Row-lock stalls are not usable
+            // here: the snapshot reader issues a plain MVCC SELECT, so an open FOR UPDATE
+            // transaction on a trailing row does not block it.)
+            Assertions.assertNull(
+                    queryVarcharById(2000),
+                    "snapshot finished too early: last-chunk row already in sink; "
+                            + "increase the initial bulk row count");
         }
 
         // Issue a change while the job is running.
