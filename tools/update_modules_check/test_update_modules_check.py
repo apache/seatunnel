@@ -30,6 +30,7 @@ from update_modules_check import (
     build_sub_it_modules,
     get_sub_it_modules,
     get_sub_update_it_modules,
+    modules_to_json,
     split_full_connector_it_modules,
 )
 
@@ -46,6 +47,24 @@ class ConnectorItShardingTest(unittest.TestCase):
         return (
             Path(__file__).resolve().parents[2] / ".github" / "workflows" / "backend.yml"
         ).read_text(encoding="utf-8")
+
+    def test_modules_to_json_preserves_exact_module_tokens(self) -> None:
+        self.assertEqual(
+            '["connector-kafka-e2e", "connector-iceberg-e2e"]',
+            modules_to_json(":connector-kafka-e2e,:connector-iceberg-e2e"),
+        )
+        self.assertEqual("[]", modules_to_json(""))
+
+    def test_module_outputs_use_json_empty_array(self) -> None:
+        workflow = self.workflow_text()
+        self.assertIn(
+            "ut-modules: ${{ steps.ut-modules.outputs.modules || '[]' }}", workflow
+        )
+        self.assertIn(
+            "it-modules: ${{ steps.it-modules.outputs.modules || '[]' }}", workflow
+        )
+        self.assertIn("needs.changes.outputs.ut-modules != '[]'", workflow)
+        self.assertIn("needs.changes.outputs.it-modules != '[]'", workflow)
 
     def test_every_module_is_assigned_once(self) -> None:
         modules = ["connector-a-e2e", "connector-b-e2e", "connector-c-e2e"]
@@ -130,7 +149,9 @@ class ConnectorItShardingTest(unittest.TestCase):
 
         updated_output = io.StringIO()
         with redirect_stdout(updated_output):
-            get_sub_update_it_modules(":" + ",:".join(updated_modules), 1, 0)
+            get_sub_update_it_modules(
+                modules_to_json(":" + ",:".join(updated_modules)), 1, 0
+            )
         self.assertEqual(
             updated_output.getvalue(),
             ":connector-normal-e2e,"
@@ -223,17 +244,19 @@ class ConnectorItShardingTest(unittest.TestCase):
             f"Missing dedicated workflow modules: {sorted(expected_workflow_modules - workflow_modules)}",
         )
 
-    def test_new_dedicated_job_conditions_match_complete_module_tokens(self) -> None:
+    def test_dedicated_job_conditions_match_json_module_tokens(self) -> None:
         workflow = self.workflow_text()
-        for module in (
-            "seatunnel-edge-agent-e2e",
-            "connector-iceberg-e2e",
-            "connector-hbase-e2e",
-        ):
+        condition_modules = set(ALL_CONNECTORS_REQUIRED_DEDICATED_SHARD_MODULES) - {
+            "connector-jdbc-e2e"
+        }
+        condition_modules.update(
+            {"seatunnel-edge-agent-e2e", "seatunnel-engine-k8s-e2e"}
+        )
+        for module in sorted(condition_modules):
             with self.subTest(module=module):
                 self.assertIn(
-                    "contains(format(',{0},', needs.changes.outputs.it-modules), "
-                    f"',:{module},')",
+                    "contains(fromJSON(needs.changes.outputs.it-modules), "
+                    f"'{module}')",
                     workflow,
                 )
 

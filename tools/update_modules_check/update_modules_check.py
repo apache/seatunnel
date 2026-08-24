@@ -121,6 +121,12 @@ def replace_comma_to_commacolon(modules_str):
     print(modules_str)
 
 
+def modules_to_json(modules):
+    return json.dumps(
+        [module.lstrip(":") for module in modules.split(",") if module]
+    )
+
+
 def get_sub_modules(file):
     output = ""
     with open(file, 'r', encoding='utf-8') as f:
@@ -266,11 +272,9 @@ def get_sub_it_modules(modules, total_num, current_num):
 
 def get_sub_update_it_modules(modules, total_num, current_num):
     final_modules = list()
-    # :connector-jdbc-e2e-common,:connector-jdbc-e2e-part-1 --> connector-jdbc-e2e-common,:connector-jdbc-e2e-part-1
-    modules = modules[1:]
-    # connector-jdbc-e2e-common,:connector-jdbc-e2e-part-1 --> [connector-jdbc-e2e-common, connector-jdbc-e2e-part-1]
+    module_names = json.loads(modules)
     module_list = _filter_shared_it_modules(
-        modules.split(",:"),
+        module_names,
         {
             "connector-seatunnel-e2e-base",
             "connector-console-seatunnel-e2e",
@@ -301,6 +305,8 @@ def main(argv):
         get_final_ut_modules(argv[2])
     elif argv[1] == "replace":
         replace_comma_to_commacolon(argv[2])
+    elif argv[1] == "json":
+        print(modules_to_json(argv[2]))
     elif argv[1] == "sub":
         get_sub_modules(argv[2])
     elif argv[1] == "delete":
