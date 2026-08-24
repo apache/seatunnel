@@ -33,6 +33,7 @@ import java.math.BigDecimal;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 
 public class NumericFunctionTest {
 
@@ -412,6 +413,26 @@ public class NumericFunctionTest {
         Assertions.assertTrue(error.getMessage().contains("ROUND"), error.getMessage());
         Assertions.assertTrue(
                 error.getMessage().contains("java.math.BigInteger"), error.getMessage());
+    }
+
+    @Test
+    public void testRoundingDispatchIsLocaleIndependent() {
+        // "BigDecimal".toUpperCase() is "B\u0130GDEC\u0130MAL" under a Turkish default locale,
+        // which no longer matches the "BIGDECIMAL" case label. That used to fall through the
+        // switch and return the value unrounded; once the switch grew a default it would throw
+        // instead. Asserting the rounded result rules out both failure modes at once.
+        Locale previous = Locale.getDefault();
+        try {
+            Locale.setDefault(new Locale("tr", "TR"));
+            Assertions.assertEquals(
+                    new BigDecimal("1.3"),
+                    NumericFunction.round(Arrays.asList(new BigDecimal("1.25"), 1)));
+            Assertions.assertEquals(
+                    new BigDecimal("2"),
+                    NumericFunction.ceil(Collections.singletonList(new BigDecimal("1.25"))));
+        } finally {
+            Locale.setDefault(previous);
+        }
     }
 
     @Test

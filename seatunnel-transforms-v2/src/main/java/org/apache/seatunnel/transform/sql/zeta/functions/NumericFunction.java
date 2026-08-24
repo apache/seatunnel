@@ -24,6 +24,7 @@ import org.apache.seatunnel.transform.sql.zeta.ZetaSQLFunction;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.List;
+import java.util.Locale;
 import java.util.Random;
 
 public class NumericFunction {
@@ -265,7 +266,10 @@ public class NumericFunction {
         int scale = v2 != null ? v2.intValue() : 0;
         String t = v1.getClass().getSimpleName();
         c:
-        switch (t.toUpperCase()) {
+        // Locale.ROOT: under a Turkish default locale the lowercase 'i's in
+        // "BigDecimal" uppercase to '\u0130', so the label would miss its case and
+        // DECIMAL rounding would fall into the default branch below.
+        switch (t.toUpperCase(Locale.ROOT)) {
             case "BYTE":
             case "INTEGER":
             case "SHORT":
@@ -339,7 +343,7 @@ public class NumericFunction {
      * @throws TransformException if the value does not fit that type
      */
     private static Number convertTo(String valueType, BigDecimal value, String function) {
-        switch (valueType.toUpperCase()) {
+        switch (valueType.toUpperCase(Locale.ROOT)) {
             case "BYTE":
                 return (byte)
                         checkIntegralRange(
