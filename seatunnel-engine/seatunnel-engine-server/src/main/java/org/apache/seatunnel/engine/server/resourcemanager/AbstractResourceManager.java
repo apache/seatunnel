@@ -282,8 +282,9 @@ public abstract class AbstractResourceManager implements ResourceManager {
                             .anyMatch(
                                     s ->
                                             s.getSlotID() == profile.getSlotID()
-                                                    && s.getSequence()
-                                                            .equals(profile.getSequence()));
+                                                    && s.getSequence().equals(profile.getSequence())
+                                                    && s.getOwnerJobID()
+                                                            == profile.getOwnerJobID());
         }
 
         if (!active) {

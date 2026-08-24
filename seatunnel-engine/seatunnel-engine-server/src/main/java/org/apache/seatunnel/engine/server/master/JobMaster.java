@@ -107,6 +107,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -537,7 +538,7 @@ public class JobMaster {
 
         Map<TaskGroupLocation, CompletableFuture<SlotProfile>> preApplyResourceFutures =
                 new HashMap<>();
-        List<SlotProfile> reusedSlotProfiles = new ArrayList<>();
+        Set<SlotProfile> reusedSlotProfiles = Collections.newSetFromMap(new IdentityHashMap<>());
 
         boolean isSubPlan = Objects.nonNull(subPlan);
 
@@ -653,19 +654,35 @@ public class JobMaster {
         return enoughResource;
     }
 
+    /**
+     * Pre-applies resources for every pipeline in this job.
+     *
+     * @param preApplyResourceFutures target map for each task group's resource future
+     * @param reusedSlotProfiles identity set collecting slots retained from the previous master;
+     *     these slots must not be released when part of the pre-apply operation fails
+     * @return the populated resource-future map
+     */
     private Map<TaskGroupLocation, CompletableFuture<SlotProfile>> preApplyResourcesForAll(
             Map<TaskGroupLocation, CompletableFuture<SlotProfile>> preApplyResourceFutures,
-            List<SlotProfile> reusedSlotProfiles) {
+            Set<SlotProfile> reusedSlotProfiles) {
         for (SubPlan subPlan : physicalPlan.getPipelineList()) {
             preApplyResourcesForSubPlan(subPlan, preApplyResourceFutures, reusedSlotProfiles);
         }
         return preApplyResourceFutures;
     }
 
+    /**
+     * Pre-applies resources for one pipeline.
+     *
+     * @param subPlan pipeline whose task groups need resources
+     * @param preApplyResourceFutures target map for each task group's resource future
+     * @param reusedSlotProfiles identity set collecting slots retained from the previous master;
+     *     these slots must not be released when part of the pre-apply operation fails
+     */
     private void preApplyResourcesForSubPlan(
             SubPlan subPlan,
             Map<TaskGroupLocation, CompletableFuture<SlotProfile>> preApplyResourceFutures,
-            List<SlotProfile> reusedSlotProfiles) {
+            Set<SlotProfile> reusedSlotProfiles) {
 
         Map<TaskGroupLocation, CompletableFuture<SlotProfile>> coordinatorFutures = new HashMap<>();
         subPlan.getCoordinatorVertexList()
