@@ -200,7 +200,7 @@ When an initial consistent snapshot is made for large databases, your establishe
 | startup.specific-offset.skip-events       | Long     | No       | 0       | Number of binlog events to skip after the configured specific startup offset. This option can only be used when `startup.mode` is `specific`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | startup.specific-offset.skip-rows         | Long     | No       | 0       | Number of rows to skip after the configured specific startup offset. This option can only be used when `startup.mode` is `specific`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | startup.timestamp                         | Long     | No       | -       | Start from the specified timestamp, in milliseconds since Unix epoch. **Note, This option is required when the `startup.mode` option uses `timestamp`.**                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| stop.mode                                 | Enum     | No       | NEVER   | Optional stop mode for MySQL CDC consumer, valid enumerations are `never`, `latest` or `specific`. <br/> `never`: Real-time job don't stop the source.<br/> `latest`: Stop from the latest offset.<br/> `specific`: Stop from user-supplied specific offset.                                                                                                                                                                                                                                                                                                                                                         |
+| stop.mode                                 | Enum     | No       | NEVER   | Optional stop mode for MySQL CDC consumer, valid enumerations are `never`, `latest` or `specific`. <br/> `never`: Real-time job don't stop the source.<br/> `latest`: Stop from the latest offset. When combined with a snapshot-taking startup mode (`initial`/`earliest`), the stop offset is resolved once the snapshot phase completes, so changes written to the source while the snapshot is running are still captured by the binlog phase and are not dropped.<br/> `specific`: Stop from user-supplied specific offset.                                                                                                                                                                                                                                                                                                                                                         |
 | stop.specific-offset.file                 | String   | No       | -       | Stop from the specified binlog file name. **Note, This option is required when the `stop.mode` option used `specific`.**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | stop.specific-offset.pos                  | Long     | No       | -       | Stop from the specified binlog file position. **Note, This option is required when the `stop.mode` option used `specific`.**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
 | snapshot.split.size                       | Integer  | No       | 8096    | The split size (number of rows) of table snapshot, captured tables are split into multiple splits when read the snapshot of table.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
@@ -539,6 +539,26 @@ startup offset (or startup timestamp) and the configured stop offset, then termi
 
 > **Note**: bounded-read termination is currently supported on the **Zeta** engine only.
 > Flink and Spark engines do not support bounded incremental-split termination yet.
+
+`stop.mode = "latest"` also makes the job a bounded read: the stop offset is the binlog
+position at the moment the snapshot phase completes (for `startup.mode = "initial"`/`"earliest"`)
+or at job start (for the other startup modes). In particular, when combined with a
+snapshot-taking startup mode, changes written to the source **while the snapshot is running
+are not dropped** — they are captured by the binlog phase before the job terminates.
+
+```hocon
+source {
+  MySQL-CDC {
+    server-id = 5654
+    username = "st_user_source"
+    password = "mysqlpw"
+    table-names = ["mysql_cdc.mysql_cdc_e2e_source_table"]
+    url = "jdbc:mysql://mysql_cdc_e2e:3306/mysql_cdc"
+    startup.mode = "initial"
+    stop.mode = "latest"
+  }
+}
+```
 
 ```hocon
 source {
