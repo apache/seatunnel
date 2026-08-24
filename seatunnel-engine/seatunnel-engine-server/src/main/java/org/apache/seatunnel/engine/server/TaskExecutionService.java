@@ -776,15 +776,12 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                         futures.remove(id, future);
                     }
                     if (executionGeneration != null) {
-                        Map<String, CompletableFuture<?>> generationFutures =
-                                taskAsyncFunctionFutureByGeneration.get(executionGeneration);
-                        if (generationFutures != null) {
-                            generationFutures.remove(id, future);
-                            if (generationFutures.isEmpty()) {
-                                taskAsyncFunctionFutureByGeneration.remove(
-                                        executionGeneration, generationFutures);
-                            }
-                        }
+                        taskAsyncFunctionFutureByGeneration.computeIfPresent(
+                                executionGeneration,
+                                (generation, generationFutures) -> {
+                                    generationFutures.remove(id, future);
+                                    return generationFutures.isEmpty() ? null : generationFutures;
+                                });
                     }
                     logger.fine(
                             "remove async execute function from "
