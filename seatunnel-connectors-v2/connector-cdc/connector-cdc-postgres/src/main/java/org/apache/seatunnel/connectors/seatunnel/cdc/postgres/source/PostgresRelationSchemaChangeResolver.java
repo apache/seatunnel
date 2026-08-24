@@ -70,15 +70,22 @@ public class PostgresRelationSchemaChangeResolver implements SchemaChangeResolve
     private Table extractTable(SourceRecord record) {
         Struct value = (Struct) record.value();
         List<Struct> changes = value.getArray(HistoryRecord.Fields.TABLE_CHANGES);
+        if (changes == null || changes.isEmpty()) {
+            throw invalidRelationRecord("PostgreSQL relation record has no table change payload");
+        }
         TableChanges tableChanges = new ConnectTableChangeSerializer().deserialize(changes, true);
         return StreamSupport.stream(tableChanges.spliterator(), false)
                 .map(TableChanges.TableChange::getTable)
                 .findFirst()
                 .orElseThrow(
-                        () -> new IllegalArgumentException("PostgreSQL relation has no table"));
+                        () -> invalidRelationRecord("PostgreSQL relation record has no table"));
     }
 
     private CatalogTable findCatalogTable(Table after, List<CatalogTable> catalogTables) {
+        if (catalogTables == null) {
+            throw invalidRelationRecord(
+                    "Cached schemas are unavailable for PostgreSQL relation " + after.id());
+        }
         return catalogTables.stream()
                 .filter(
                         table ->
@@ -91,7 +98,7 @@ public class PostgresRelationSchemaChangeResolver implements SchemaChangeResolve
                 .findFirst()
                 .orElseThrow(
                         () ->
-                                new IllegalArgumentException(
+                                invalidRelationRecord(
                                         "Cannot find cached schema for PostgreSQL table "
                                                 + after.id()));
     }
@@ -138,7 +145,8 @@ public class PostgresRelationSchemaChangeResolver implements SchemaChangeResolve
         return events;
     }
 
-    public static boolean hasSameSchema(CatalogTable before, Table after) {
+    /** Compare SeaTunnel's tracked catalog schema with a pgoutput RELATION schema. */
+    public static boolean hasSameCatalogSchema(CatalogTable before, Table after) {
         List<Column> beforeColumns = before.getTableSchema().getColumns();
         if (beforeColumns.size() != after.columns().size()) {
             return false;
@@ -157,7 +165,13 @@ public class PostgresRelationSchemaChangeResolver implements SchemaChangeResolve
 
     private static Column convertToSeaTunnelColumn(Table table, int columnIndex) {
         return PostgresTypeConverter.INSTANCE.convert(
-                PostgresTypeUtils.convertToTypeDefine(table.columns().get(columnIndex)));
+                PostgresTypeUtils.convertRelationColumnToTypeDefine(
+                        table.columns().get(columnIndex)));
+    }
+
+    private SchemaValidationException invalidRelationRecord(String message) {
+        return new SchemaValidationException(
+                SchemaEvolutionErrorCode.INVALID_SCHEMA_STRUCTURE, message, null, null);
     }
 
     private SchemaValidationException unsupportedChange(CatalogTable before, Table after) {

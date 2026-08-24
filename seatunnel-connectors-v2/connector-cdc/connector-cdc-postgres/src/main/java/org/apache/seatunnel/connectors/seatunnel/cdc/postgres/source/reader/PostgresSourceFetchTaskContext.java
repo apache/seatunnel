@@ -112,7 +112,14 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
     private PostgresConnection.PostgresValueConverterBuilder postgresValueConverterBuilder;
 
     private Collection<TableChanges.TableChange> engineHistory;
+
+    // Suppresses duplicate RELATION messages within one task lifetime. Accessed only by the
+    // single Debezium reader thread and cleared whenever the context is configured for a split.
     private final Map<TableId, Table> lastRelationSchemas = new HashMap<>();
+
+    // The schema SeaTunnel had already propagated downstream before this task started. On restore,
+    // checkpoint tables take precedence over live discovery so the first RELATION can reveal a
+    // source/sink schema gap that occurred after the checkpoint.
     private final List<CatalogTable> relationSchemaBaseline;
 
     public PostgresSourceFetchTaskContext(
@@ -340,10 +347,11 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
         return databaseSchema;
     }
 
+    /** Enqueue a synthetic schema record when a streaming RELATION differs from tracked state. */
     private void dispatchRelationSchemaChange(Table table) {
         Table previousRelation = lastRelationSchemas.put(table.id(), table);
         if (previousRelation != null
-                && RelationAwarePostgresSchema.hasSameSchema(previousRelation, table)) {
+                && RelationAwarePostgresSchema.hasSameRelationSchema(previousRelation, table)) {
             return;
         }
         if (previousRelation == null && hasSameBaselineSchema(table)) {
@@ -366,6 +374,7 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
         }
     }
 
+    /** Compare the first RELATION for a table with initial or checkpoint-restored catalog state. */
     private boolean hasSameBaselineSchema(Table relation) {
         return relationSchemaBaseline.stream()
                 .filter(
@@ -378,7 +387,10 @@ public class PostgresSourceFetchTaskContext extends JdbcSourceFetchTaskContext {
                                                 table.getTablePath().getTableName(),
                                                 relation.id().table()))
                 .findFirst()
-                .map(table -> PostgresRelationSchemaChangeResolver.hasSameSchema(table, relation))
+                .map(
+                        table ->
+                                PostgresRelationSchemaChangeResolver.hasSameCatalogSchema(
+                                        table, relation))
                 .orElse(false);
     }
 

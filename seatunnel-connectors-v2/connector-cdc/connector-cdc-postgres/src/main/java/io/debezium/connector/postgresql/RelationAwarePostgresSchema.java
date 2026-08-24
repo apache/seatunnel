@@ -30,7 +30,7 @@ import java.util.function.Consumer;
 /** A PostgreSQL schema that exposes pgoutput RELATION changes to SeaTunnel. */
 public class RelationAwarePostgresSchema extends PostgresSchema {
 
-    private transient Consumer<Table> relationChangeListener;
+    private Consumer<Table> relationChangeListener;
 
     public RelationAwarePostgresSchema(
             PostgresConnectorConfig config,
@@ -63,7 +63,8 @@ public class RelationAwarePostgresSchema extends PostgresSchema {
         }
     }
 
-    public static boolean hasSameSchema(Table before, Table after) {
+    /** Compare two raw pgoutput RELATION schemas, including their primary-key definitions. */
+    public static boolean hasSameRelationSchema(Table before, Table after) {
         if (!Objects.equals(before.primaryKeyColumnNames(), after.primaryKeyColumnNames())) {
             return false;
         }
@@ -75,14 +76,14 @@ public class RelationAwarePostgresSchema extends PostgresSchema {
         }
 
         for (int i = 0; i < beforeColumns.size(); i++) {
-            if (!hasSameDefinition(beforeColumns.get(i), afterColumns.get(i))) {
+            if (!hasSameColumnDefinition(beforeColumns.get(i), afterColumns.get(i))) {
                 return false;
             }
         }
         return true;
     }
 
-    private static boolean hasSameDefinition(Column before, Column after) {
+    private static boolean hasSameColumnDefinition(Column before, Column after) {
         return Objects.equals(before.name(), after.name())
                 && before.jdbcType() == after.jdbcType()
                 && before.nativeType() == after.nativeType()

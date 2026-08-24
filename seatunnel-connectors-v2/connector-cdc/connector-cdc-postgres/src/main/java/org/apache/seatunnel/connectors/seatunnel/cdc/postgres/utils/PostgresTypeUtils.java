@@ -27,10 +27,20 @@ public class PostgresTypeUtils {
     private PostgresTypeUtils() {}
 
     public static SeaTunnelDataType<?> convertFromColumn(Column column) {
-        return PostgresTypeConverter.INSTANCE.convert(convertToTypeDefine(column)).getDataType();
+        BasicTypeDefine typeDefine =
+                BasicTypeDefine.builder()
+                        .name(column.name())
+                        .columnType(column.typeName())
+                        .dataType(column.typeName())
+                        .length((long) column.length())
+                        .precision((long) column.length())
+                        .scale(column.scale().orElse(0))
+                        .build();
+        return PostgresTypeConverter.INSTANCE.convert(typeDefine).getDataType();
     }
 
-    public static BasicTypeDefine convertToTypeDefine(Column column) {
+    /** Convert a pgoutput RELATION column with the metadata required by schema evolution. */
+    public static BasicTypeDefine convertRelationColumnToTypeDefine(Column column) {
         return BasicTypeDefine.builder()
                 .name(column.name())
                 .columnType(column.typeName())

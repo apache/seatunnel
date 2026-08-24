@@ -54,6 +54,7 @@ public final class PostgresRelationSchemaRecord {
 
     private PostgresRelationSchemaRecord() {}
 
+    /** Serialize a pgoutput RELATION table as a Debezium-compatible in-memory schema record. */
     public static SourceRecord create(
             Table table,
             Map<String, ?> sourcePartition,

@@ -105,6 +105,18 @@ class PostgresRelationSchemaChangeResolverTest {
         Assertions.assertTrue(exception.getMessage().contains("supports only ADD COLUMN"));
     }
 
+    @Test
+    void shouldRejectRelationWhenCachedTableIsMissing() {
+        SourceRecord record = createRecord(intColumn("id", 1), varcharColumn("name", 2, 64));
+
+        SchemaValidationException exception =
+                Assertions.assertThrows(
+                        SchemaValidationException.class,
+                        () -> resolver.resolve(record, Collections.emptyList()));
+
+        Assertions.assertTrue(exception.getMessage().contains("Cannot find cached schema"));
+    }
+
     private CatalogTable createCatalogTable() {
         return CatalogTable.of(
                 TABLE_IDENTIFIER,
