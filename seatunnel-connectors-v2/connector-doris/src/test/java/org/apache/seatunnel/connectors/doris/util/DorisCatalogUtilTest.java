@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.doris.util;
 
 import org.apache.seatunnel.api.table.catalog.Column;
 import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.api.table.converter.TypeConverter;
 import org.apache.seatunnel.api.table.type.BasicType;
@@ -28,11 +29,42 @@ import org.apache.seatunnel.connectors.doris.datatype.DorisTypeConverterV2;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.Arrays;
+import java.util.Collections;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 public class DorisCatalogUtilTest {
+
+    @Test
+    void buildsWholeTableTruncateQueryWithoutPartitions() {
+        TablePath tablePath = TablePath.of("test_db", "test_table");
+
+        assertEquals(
+                "TRUNCATE TABLE test_db.test_table",
+                DorisCatalogUtil.getTruncateTableQuery(tablePath, Collections.emptyList()));
+    }
+
+    @Test
+    void buildsPartitionTruncateQueryWithQuotedIdentifiers() {
+        TablePath tablePath = TablePath.of("test_db", "test_table");
+
+        assertEquals(
+                "TRUNCATE TABLE test_db.test_table PARTITION (`p1`, `p``2`)",
+                DorisCatalogUtil.getTruncateTableQuery(tablePath, Arrays.asList("p1", "p`2")));
+    }
+
+    @Test
+    void keepsPartitionContentInsideQuotedIdentifier() {
+        TablePath tablePath = TablePath.of("test_db", "test_table");
+
+        assertEquals(
+                "TRUNCATE TABLE test_db.test_table PARTITION (`p1``) DROP TABLE test_db.other; --`)",
+                DorisCatalogUtil.getTruncateTableQuery(
+                        tablePath, Collections.singletonList("p1`) DROP TABLE test_db.other; --")));
+    }
 
     @Test
     void returnsReconvertedTypeWhenSinkTypeNotNull() {
