@@ -20,6 +20,7 @@ package org.apache.seatunnel.e2e.connector.azure.queue;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.container.seatunnel.SeaTunnelContainer;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -89,13 +90,18 @@ public class AzureQueueStorageIT extends TestSuiteBase implements TestResource {
                         .queueName(QUEUE_NAME)
                         .buildClient();
         queueClient.createIfNotExists();
+        SeaTunnelContainer.enableAzureQueueReactorThreadExemption();
     }
 
     @AfterAll
     @Override
     public void tearDown() {
-        if (azurite != null) {
-            azurite.close();
+        try {
+            if (azurite != null) {
+                azurite.close();
+            }
+        } finally {
+            SeaTunnelContainer.disableAzureQueueReactorThreadExemption();
         }
     }
 
