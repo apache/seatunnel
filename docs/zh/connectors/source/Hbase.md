@@ -4,55 +4,65 @@ import ChangeLog from '../changelog/connector-hbase.md';
 
 > Hbase 源连接器
 
+## 引擎支持
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## 描述
 
-从 Apache Hbase 读取数据。
+从 Apache HBase 表读取数据。支持普通扫描、行键范围扫描、时间戳范围扫描、二进制行键、自定义命名空间和并行批读取。
 
-## 主要功能
+本连接器以批处理模式运行，读取的是扫描范围在任务启动时刻的快照状态，并非 CDC 源；扫描启动后发生的新写入不会进入结果。
+
+## 主要特性
 
 - [x] [批处理](../../introduction/concepts/connector-v2-features.md)
 - [ ] [流处理](../../introduction/concepts/connector-v2-features.md)
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
-- [x] [Schema](../../introduction/concepts/connector-v2-features.md)
+- [x] [模式投影](../../introduction/concepts/connector-v2-features.md)
 - [x] [并行度](../../introduction/concepts/connector-v2-features.md)
 - [ ] [支持用户定义的拆分](../../introduction/concepts/connector-v2-features.md)
 
 ## 选项
 
-| 名称                   | 类型       | 必填 | 默认值   |
-|----------------------|----------|----|-------|
-| zookeeper_quorum     | string   | 是  | -     |
-| table                | string   | 是  | -     |
-| schema               | config   | 是  | -     |
-| hbase_extra_config   | config   | 否  | -     |
-| caching              | int      | 否  | -1    |
-| batch                | int      | 否  | -1    |
-| cache_blocks         | boolean  | 否  | false |
-| is_binary_rowkey     | boolean  | 否  | false |
-| start_rowkey         | string   | 否  | -     |
-| end_rowkey           | string   | 否  | -     |
-| start_row_inclusive | boolean | 否  | true  |
-| end_row_inclusive   | boolean | 否  | false |
-| start_timestamp       | long    | 否  | -     |
-| end_timestamp       | long    | 否  | -     |
-| common-options       |          | 否  | -     |
+| 名称                 | 类型    | 必填 | 默认值 | 描述 |
+|----------------------|---------|------|--------|------|
+| zookeeper_quorum     | string  | 是   | -      | HBase ZooKeeper 地址，例如 `hadoop001:2181,hadoop002:2181`。 |
+| table                | string  | 是   | -      | 要扫描的 HBase 表。自定义 namespace 请使用 `namespace:table`。 |
+| schema               | config  | 是   | -      | SeaTunnel 表结构。行键写作 `rowkey`，普通单元格写作 `列簇:列名`。 |
+| hbase_extra_config   | config  | 否   | -      | 额外的 HBase 或 Hadoop 客户端配置。 |
+| caching              | int     | 否   | -1     | 每次 RPC 获取的行数。`-1` 表示使用 HBase 客户端默认值。 |
+| batch                | int     | 否   | -1     | 每次 RPC 返回的最大单元格数量。`-1` 表示使用 HBase 客户端默认值。 |
+| cache_blocks         | boolean | 否   | false  | 扫描结果是否写入 HBase block cache。 |
+| is_binary_rowkey     | boolean | 否   | false  | 是否把行键字段按二进制字节处理。 |
+| start_rowkey         | string  | 否   | -      | 范围扫描的起始行键。 |
+| end_rowkey           | string  | 否   | -      | 范围扫描的结束行键。 |
+| start_row_inclusive  | boolean | 否   | true   | 扫描结果是否包含 `start_rowkey`。 |
+| end_row_inclusive    | boolean | 否   | false  | 扫描结果是否包含 `end_rowkey`。 |
+| start_timestamp      | long    | 否   | -      | 时间范围扫描的起始时间戳，包含该时间。 |
+| end_timestamp        | long    | 否   | -      | 时间范围扫描的结束时间戳，不包含该时间。 |
+| common-options       |         | 否   | -      | Source 插件通用参数，例如 `plugin_output`。 |
 
 ### zookeeper_quorum [string]
 
-hbase的zookeeper集群主机，例如：“hadoop001:2181,hadoop002:2181,hadoop003:2181”
+HBase 的 zookeeper 集群主机，例如：“hadoop001:2181,hadoop002:2181,hadoop003:2181”
 
 ### table [string]
 
-要写入的表名，例如：“seatunnel”
+要读取的表名，例如：“seatunnel”
 如果表在自定义 namespace 下，请使用 `namespace:table` 形式（如 `ns1:seatunnel_test`）；未填写 namespace 时，SeaTunnel 会使用 HBase 的默认命名空间 `default`。
 
 ### schema [config]
 
-Hbase 使用字节数组进行存储。因此，您需要为表中的每一列配置数据类型。有关更多信息，请参阅：[guide](../../introduction/concepts/schema-feature.md#how-to-declare-type-supported)。
+HBase 使用字节数组进行存储。因此，您需要为表中的每一列配置数据类型。
+行键列使用 `rowkey`，HBase 单元格使用 `列簇:列名` 形式，例如 `info:name`。
+更多信息请参阅：[模式声明指南](../../introduction/concepts/schema-feature.md#how-to-declare-type-supported)。
 
 ### hbase_extra_config [config]
 
-hbase 的额外配置
+HBase 的额外配置
 
 ### caching
 
@@ -64,7 +74,7 @@ batch 参数用于设置在扫描过程中每次返回的最大列数。这对�
 
 ### cache_blocks
 
-cache_blocks 参数用于设置在扫描过程中是否缓存数据块。默认情况下，HBase 会在扫描时将数据块缓存到块缓存中。如果设置为 false，则在扫描过程中不会缓存数据块，从而减少内存的使用。在SeaTunnel中默认值为: false
+cache_blocks 参数用于设置在扫描过程中是否缓存数据块。默认情况下，HBase 会在扫描时将数据块缓存到块缓存中。如果设置为 false，则在扫描过程中不会缓存数据块，从而减少内存使用。在 SeaTunnel 中默认值为 false。
 
 ### is_binary_rowkey
 
@@ -90,10 +100,10 @@ HBase 的行键既可以是文本字符串，也可以是二进制数据。在 S
 
 **注意:** 在大多数情况下,应保持默认值 (false),这遵循 HBase 标准的左闭右开区间约定。仅当您需要在扫描结果中包含结束行时才修改此参数。
 
-**重要提示:** 在使用多个 split 并行读取时,这两个参数的组合对数据完整性至关重要:
-- **默认配置 (start_row_inclusive=true, end_row_inclusive=false)**: 这是推荐的配置,可以确保跨 split 时不会丢失数据或产生重复数据。每个 split 遵循 [start, end) 左闭右开区间约定。
-- **都设置为 false (start_row_inclusive=false, end_row_inclusive=false)**: 这可能会导致**数据丢失**,因为边界行会被所有 split 排除在外。
-- **都设置为 true (start_row_inclusive=true, end_row_inclusive=true)**: 这可能会导致**数据重复**,因为边界行会被相邻的多个 split 重复包含。
+**重要提示:** 使用多个分片并行读取时，这两个参数的组合对数据完整性很重要:
+- **默认配置 (start_row_inclusive=true, end_row_inclusive=false)**: 推荐配置，可以确保跨分片时不丢失数据、不产生重复数据。每个分片遵循 [start, end) 左闭右开区间约定。
+- **都设置为 false (start_row_inclusive=false, end_row_inclusive=false)**: 可能导致**数据丢失**，因为边界行会被所有分片排除在外。
+- **都设置为 true (start_row_inclusive=true, end_row_inclusive=true)**: 可能导致**数据重复**，因为边界行会被相邻的多个分片重复包含。
 
 ### start_timestamp
 
@@ -114,14 +124,16 @@ Source 插件常用参数，具体请参考 [Source 常用选项](../common-opti
 
 ## 示例
 
-```bash
+### 按行键和时间范围读取
+
+```hocon
 source {
   Hbase {
-    zookeeper_quorum = "hadoop001:2181,hadoop002:2181,hadoop003:2181" 
-    table = "seatunnel_test" 
-    caching = 1000 
-    batch = 100 
-    cache_blocks = false 
+    zookeeper_quorum = "hadoop001:2181,hadoop002:2181,hadoop003:2181"
+    table = "seatunnel_test"
+    caching = 1000
+    batch = 100
+    cache_blocks = false
     is_binary_rowkey = false
     start_rowkey = "B"
     end_rowkey = "C"
@@ -129,16 +141,16 @@ source {
     end_timestamp = 1700003600000
     schema = {
       columns = [
-        { 
-          name = "rowkey" 
-          type = string 
+        {
+          name = "rowkey"
+          type = string
         },
         {
           name = "columnFamily1:column1"
           type = boolean
         },
         {
-          name = "columnFamily1:column2" 
+          name = "columnFamily1:column2"
           type = double
         },
         {
@@ -150,6 +162,46 @@ source {
   }
 }
 ```
+
+### 读取命名空间下的表
+
+```hocon
+source {
+  Hbase {
+    zookeeper_quorum = "hbase_e2e:2181"
+    table = "ns1:seatunnel_test"
+    schema = {
+      columns = [
+        { name = rowkey, type = string },
+        { name = "info:name", type = string }
+      ]
+    }
+  }
+}
+```
+
+### 读取二进制行键
+
+```hocon
+source {
+  Hbase {
+    zookeeper_quorum = "hbase_e2e:2181"
+    table = "binary_rowkey_table"
+    is_binary_rowkey = true
+    caching = 500
+    batch = 100
+    schema = {
+      columns = [
+        { name = rowkey, type = bytes },
+        { name = "info:name", type = string },
+        { name = "info:score", type = double }
+      ]
+    }
+  }
+}
+```
+
+当 `is_binary_rowkey = true` 时，请在 `schema` 中把行键列声明为 `bytes`，并在后续的 transform 节点里自行解码。
 
 ## Kerberos 示例
 

@@ -224,31 +224,31 @@ exit;
 
 |                      Name                 |   Type   | Required  | Default | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
 |-------------------------------------------|----------|-----------|---------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| url                                       | String   | Yes       | -       | The URL of the JDBC connection. Refer to a case: `idbc:oracle:thin:datasource01:1523:xe`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| username                                  | String   | Yes       | -       | Name of the database to use when connecting to the database server.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| url                                       | String   | Yes       | -       | The URL of the JDBC connection. For example: `jdbc:oracle:thin:@//oracle-host:1521/ORCLCDB`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| username                                  | String   | Yes       | -       | Username used to connect to the Oracle database.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 | password                                  | String   | Yes       | -       | Password to use when connecting to the database server.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | database-names                            | List     | No        | -       | Database name of the database to monitor.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | schema-names                              | List     | No        | -       | Schema name of the database to monitor.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| table-names                               | List     | Yes       | -       | Table name of the database to monitor. The table name needs to include the database name, for example: `database_name.table_name`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| table-names-config                        | List     | No        | -       | Table config list. for example: [{"table": "db1.schema1.table1","primaryKeys": ["key1"],"snapshotSplitColumn": "key2"}]                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| startup.mode                              | Enum     | No        | INITIAL | Optional startup mode for Oracle CDC consumer, valid enumerations are `initial`, `earliest`, `latest`, `timestamp` and `specific`. <br/> `initial`: Synchronize historical data at startup, and then synchronize incremental data.<br/> `earliest`: Startup from the earliest offset possible.<br/> `latest`: Startup from the latest offset.<br/> `specific`: Startup from user-supplied specific offsets.                                                                                                                                                                                                          |
+| table-names                               | List     | Conditionally required | -       | Table names to monitor. Each value should use `database.schema.table`, for example: `ORCLCDB.DEBEZIUM.FULL_TYPES`. Configure either `table-names` or `table-pattern`.                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| table-pattern                             | String   | Conditionally required | -       | Regular expression for table names to capture. Configure either `table-names` or `table-pattern`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| table-names-config                        | List     | No        | -       | Per-table config list. For example: `[{"table": "ORCLCDB.DEBEZIUM.FULL_TYPES","primaryKeys": ["ID"],"snapshotSplitColumn": "ID"}]`. Use this when the table has no primary key, needs a custom primary key, or needs an explicit snapshot split column.                                                                                                                                                                                                                                                                                                                                                              |
+| startup.mode                              | Enum     | No        | INITIAL | Optional startup mode for Oracle CDC consumer, valid enumerations are `initial`, `latest`, `timestamp` and `specific`. <br/> `initial`: Synchronize historical data at startup, and then synchronize incremental data.<br/> `latest`: Start from the latest offset and skip the initial snapshot.<br/> `timestamp`: Start from the SCN resolved from `startup.timestamp`.<br/> `specific`: Start from user-supplied SCN.                                                                                                                                                                                           |
 | startup.timestamp                         | Long     | No        | -       | Start from the specified timestamp (milliseconds since Unix epoch). This timestamp is converted with `server-time-zone` when `startup.mode = timestamp`. **Note, This option is required when the `startup.mode` option used `timestamp`.**                                                                                                                                                                                                                                                                                                                                                                        |
-| startup.specific-offset.file              | String   | No        | -       | Start from the specified binlog file name. **Note, This option is required when the `startup.mode` option used `specific`.**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| startup.specific-offset.pos               | Long     | No        | -       | Start from the specified binlog file position. **Note, This option is required when the `startup.mode` option used `specific`.**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
-| stop.mode                                 | Enum     | No        | NEVER   | Optional stop mode for Oracle CDC consumer, valid enumerations are `never`, `latest` or `specific`. <br/> `never`: Real-time job don't stop the source.<br/> `latest`: Stop from the latest offset.<br/> `specific`: Stop from user-supplied specific offset.                                                                                                                                                                                                                                                                                                                                                        |
-| stop.specific-offset.file                 | String   | No        | -       | Stop from the specified binlog file name. **Note, This option is required when the `stop.mode` option used `specific`.**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| stop.specific-offset.pos                  | Long     | No        | -       | Stop from the specified binlog file position. **Note, This option is required when the `stop.mode` option used `specific`.**                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
+| startup.specific-offset.scn               | Long     | No        | -       | Start from the specified Oracle SCN. **Note, This option is required when the `startup.mode` option uses `specific`. The SCN must still be available to the selected Oracle log mining backend.**                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| stop.mode                                 | Enum     | No        | NEVER   | Optional stop mode for Oracle CDC consumer. The only valid value is `never`, so a streaming Oracle CDC source keeps running until the job is stopped.                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
 | snapshot.split.size                       | Integer  | No        | 8096    | The split size (number of rows) of table snapshot, captured tables are split into multiple splits when read the snapshot of table.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 | snapshot.fetch.size                       | Integer  | No        | 1024    | The maximum fetch size for per poll when read table snapshot.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | server-time-zone                          | String   | No        | UTC     | The session time zone in database server. If not set, then ZoneId.systemDefault() is used to determine the server time zone. This value is also used when converting `startup.timestamp` to SCN. Set it explicitly when database time zone and JVM time zone are different.                                                                                                                                                                                                                                                                                                                                     |
 | connect.timeout.ms                        | Duration | No        | 30000   | The maximum time that the connector should wait after trying to connect to the database server before timing out.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | connect.max-retries                       | Integer  | No        | 3       | The max retry times that the connector should retry to build database server connection.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | connection.pool.size                      | Integer  | No        | 20      | The jdbc connection pool size.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| incremental.parallelism                   | Integer  | No        | 1       | Number of parallel readers used after the snapshot phase enters incremental log reading.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
 | chunk-key.even-distribution.factor.upper-bound | Double   | No        | 100     | The upper bound of the chunk key distribution factor. This factor is used to determine whether the table data is evenly distributed. If the distribution factor is calculated to be less than or equal to this upper bound (i.e., (MAX(id) - MIN(id) + 1) / row count), the table chunks would be optimized for even distribution. Otherwise, if the distribution factor is greater, the table will be considered as unevenly distributed and the sampling-based sharding strategy will be used if the estimated shard count exceeds the value specified by `sample-sharding.threshold`. The default value is 100.0. |
 | chunk-key.even-distribution.factor.lower-bound | Double   | No        | 0.05    | The lower bound of the chunk key distribution factor. This factor is used to determine whether the table data is evenly distributed. If the distribution factor is calculated to be greater than or equal to this lower bound (i.e., (MAX(id) - MIN(id) + 1) / row count), the table chunks would be optimized for even distribution. Otherwise, if the distribution factor is less, the table will be considered as unevenly distributed and the sampling-based sharding strategy will be used if the estimated shard count exceeds the value specified by `sample-sharding.threshold`. The default value is 0.05.  |
 | sample-sharding.threshold                 | Integer  | No        | 1000    | This configuration specifies the threshold of estimated shard count to trigger the sample sharding strategy. When the distribution factor is outside the bounds specified by `chunk-key.even-distribution.factor.upper-bound` and `chunk-key.even-distribution.factor.lower-bound`, and the estimated shard count (calculated as approximate row count / chunk size) exceeds this threshold, the sample sharding strategy will be used. This can help to handle large datasets more efficiently. The default value is 1000 shards.                                                                                   |
 | inverse-sampling.rate                     | Integer  | No        | 1000    | The inverse of the sampling rate used in the sample sharding strategy. For example, if this value is set to 1000, it means a 1/1000 sampling rate is applied during the sampling process. This option provides flexibility in controlling the granularity of the sampling, thus affecting the final number of shards. It's especially useful when dealing with very large datasets where a lower sampling rate is preferred. The default value is 1000.                                                                                                                                                              |
 | split.allow-sampling                    | Boolean  | No        | true    | When set to false, the system should fall back to unevenly-sized chunk splitting (iterative query approach) regardless of the shard count.                                                                                                                                                              |
+| enable_concurrent_read                  | Boolean  | No        | true    | Whether to enable concurrent read with split during the snapshot phase. When set to false, the source skips split analysis and reads the table as a single split, which is useful for tables without indexes. The default value is true. |
 | exactly_once                              | Boolean  | No        | false   | Enable exactly once semantic.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | use_select_count                          | Boolean  | No        | false   | Use select count for table count rather then other methods in full stage.In this scenario, select count directly is used when it is faster to update statistics using sql from analysis table                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | skip_analyze                              | Boolean  | No        | false   | Skip the analysis of table count in full stage.In this scenario, you schedule analysis table sql to update related table statistics periodically or your table data does not change frequently                                                                                                                                                                                                                                                                                                                                                                                                                       |
@@ -295,12 +295,16 @@ source {
   Oracle-CDC {
     plugin_output = "customers"
     username = "system"
-    password = "oracle"
-    database-names = ["XE"]
+    password = "top_secret"
+    database-names = ["ORCLCDB"]
     schema-names = ["DEBEZIUM"]
-    table-names = ["XE.DEBEZIUM.FULL_TYPES", "XE.DEBEZIUM.FULL_TYPES2"]
-    url = "jdbc:oracle:thin:@oracle-host:1521:xe"
+    table-names = ["ORCLCDB.DEBEZIUM.FULL_TYPES", "ORCLCDB.DEBEZIUM.FULL_TYPES2"]
+    url = "jdbc:oracle:thin:@//oracle-host:1521/ORCLCDB"
     source.reader.close.timeout = 120000
+    connection.pool.size = 1
+    debezium {
+      database.oracle.jdbc.timezoneAsRegion = "false"
+    }
   }
 }
 ```
@@ -313,11 +317,11 @@ source {
     plugin_output = "customers"
     use_select_count = true 
     username = "system"
-    password = "oracle"
-    database-names = ["XE"]
+    password = "top_secret"
+    database-names = ["ORCLCDB"]
     schema-names = ["DEBEZIUM"]
-    table-names = ["XE.DEBEZIUM.FULL_TYPES"]
-    url = "jdbc:oracle:thin:system/oracle@oracle-host:1521:xe"
+    table-names = ["ORCLCDB.DEBEZIUM.FULL_TYPES"]
+    url = "jdbc:oracle:thin:@//oracle-host:1521/ORCLCDB"
     source.reader.close.timeout = 120000
   }
 }
@@ -332,11 +336,11 @@ source {
     plugin_output = "customers"
     skip_analyze = true 
     username = "system"
-    password = "oracle"
-    database-names = ["XE"]
+    password = "top_secret"
+    database-names = ["ORCLCDB"]
     schema-names = ["DEBEZIUM"]
-    table-names = ["XE.DEBEZIUM.FULL_TYPES"]
-    url = "jdbc:oracle:thin:system/oracle@oracle-host:1521:xe"
+    table-names = ["ORCLCDB.DEBEZIUM.FULL_TYPES"]
+    url = "jdbc:oracle:thin:@//oracle-host:1521/ORCLCDB"
     source.reader.close.timeout = 120000
   }
 }
@@ -348,22 +352,130 @@ source {
 source {
   Oracle-CDC {
     plugin_output = "customers"
-    url = "jdbc:oracle:thin:system/oracle@oracle-host:1521:xe"
+    url = "jdbc:oracle:thin:@//oracle-host:1521/ORCLCDB"
     source.reader.close.timeout = 120000
     username = "system"
-    password = "oracle"
-    database-names = ["XE"]
+    password = "top_secret"
+    database-names = ["ORCLCDB"]
     schema-names = ["DEBEZIUM"]
-    table-names = ["XE.DEBEZIUM.FULL_TYPES"]
+    table-names = ["ORCLCDB.DEBEZIUM.FULL_TYPES"]
     table-names-config = [
       {
-        table = "XE.DEBEZIUM.FULL_TYPES"
+        table = "ORCLCDB.DEBEZIUM.FULL_TYPES"
         primaryKeys = ["ID"]
       }
     ]
   }
 }
 ```
+
+### Enable exactly-once CDC
+
+`exactly_once = true` is used with the default `startup.mode = "initial"` path. Use it when the downstream sink is also configured for exactly-once delivery, for example a JDBC sink with XA enabled.
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  Oracle-CDC {
+    plugin_output = "customers"
+    username = "system"
+    password = "top_secret"
+    database-names = ["ORCLCDB"]
+    schema-names = ["DEBEZIUM"]
+    table-names = ["ORCLCDB.DEBEZIUM.FULL_TYPES"]
+    url = "jdbc:oracle:thin:@//oracle-host:1521/ORCLCDB"
+    exactly_once = true
+    connection.pool.size = 1
+    debezium {
+      database.oracle.jdbc.timezoneAsRegion = "false"
+    }
+  }
+}
+```
+
+### Start From Timestamp
+
+Use `startup.mode = "timestamp"` to start from the Oracle SCN resolved from a Unix timestamp in milliseconds.
+
+```hocon
+source {
+  Oracle-CDC {
+    plugin_output = "customers"
+    username = "system"
+    password = "top_secret"
+    database-names = ["ORCLCDB"]
+    schema-names = ["DEBEZIUM"]
+    table-names = ["ORCLCDB.DEBEZIUM.FULL_TYPES"]
+    url = "jdbc:oracle:thin:@//oracle-host:1521/ORCLCDB"
+    startup.mode = "timestamp"
+    startup.timestamp = 1700000000000
+    server-time-zone = "UTC"
+    debezium {
+      database.oracle.jdbc.timezoneAsRegion = "false"
+    }
+  }
+}
+```
+
+### Configure Debezium heartbeat
+
+For low-traffic tables, the Oracle LogMiner SCN only advances when redo log changes occur. Use a Debezium heartbeat to keep the SCN moving so checkpoint offsets are recorded regularly and replication lag stays observable. The heartbeat table must exist on the Oracle server before the job starts.
+
+```hocon
+source {
+  Oracle-CDC {
+    username = "system"
+    password = "top_secret"
+    database-names = ["ORCLCDB"]
+    schema-names = ["DEBEZIUM"]
+    table-names = ["ORCLCDB.DEBEZIUM.FULL_TYPES"]
+    url = "jdbc:oracle:thin:@//oracle-host:1521/ORCLCDB"
+    debezium {
+      database.oracle.jdbc.timezoneAsRegion = "false"
+      heartbeat.interval.ms = 100
+      heartbeat.action.query = "INSERT INTO DEBEZIUM.heartbeat (ts) VALUES (SYSTIMESTAMP)"
+    }
+  }
+}
+```
+
+### Read tables without a primary key
+
+Pick the path that matches what the source table guarantees:
+
+- **Append-only workload** (no UPDATE/DELETE will ever be produced downstream): keep
+  `exactly_once = false` and do not declare a primary key. The source falls back to a best-effort
+  row identity. Without a usable key, the connector cannot apply UPDATE/DELETE events safely.
+- **Unique non-primary column is available**: declare it via `table-names-config.primaryKeys` and
+  set `exactly_once = true` so the snapshot and redo-log phases both use the configured key for
+  consistent row identity.
+
+```hocon
+source {
+  Oracle-CDC {
+    username = "system"
+    password = "top_secret"
+    database-names = ["ORCLCDB"]
+    schema-names = ["DEBEZIUM"]
+    url = "jdbc:oracle:thin:@//oracle-host:1521/ORCLCDB"
+    table-names = ["ORCLCDB.DEBEZIUM.FULL_TYPES_NO_PRIMARY_KEY"]
+    table-names-config = [
+      {
+        table = "ORCLCDB.DEBEZIUM.FULL_TYPES_NO_PRIMARY_KEY"
+        primaryKeys = ["ID"]
+      }
+    ]
+    exactly_once = true
+  }
+}
+```
+
+Without a usable primary key, the connector cannot safely apply UPDATE/DELETE events. Use this mode only for append-only workloads.
 
 ### Schema change event filtering
 
@@ -397,7 +509,7 @@ source {
 }
 ```
 
-**Data handling when `drop.column` is excluded. For a retained **NOT NULL** column the `NULL` write is rejected
+**Data handling when `drop.column` is excluded.** For a retained **NOT NULL** column the `NULL` write is rejected
 by the sink, so excluding `drop.column` for a NOT NULL column that the source has stopped supplying
 will fail at the sink.
 

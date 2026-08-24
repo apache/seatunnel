@@ -401,9 +401,11 @@ public class ClusterFaultToleranceTwoPipelineIT {
                                         JobStatus.FINISHED, objectCompletableFuture.get());
                             });
 
-            Long fileLineNumberFromDir =
-                    FileUtils.getFileLineNumberFromDir(testResources.getLeft());
-            Assertions.assertEquals(testRowNumber * testParallelism * 2, fileLineNumberFromDir);
+            FaultToleranceFakeSourceAssertions.assertOutputRecoveredAndStable(
+                    testResources.getLeft(),
+                    testRowNumber * testParallelism * 2,
+                    testRowNumber,
+                    60_000L);
         } finally {
             if (engineClient != null) {
                 engineClient.close();
@@ -511,12 +513,14 @@ public class ClusterFaultToleranceTwoPipelineIT {
                                         lineNumberFromDir);
                                 Assertions.assertEquals(
                                         JobStatus.RUNNING, clientJobProxy.getJobStatus());
-                                Assertions.assertEquals(
-                                        testRowNumber * testParallelism * 2, lineNumberFromDir);
+                                Assertions.assertTrue(lineNumberFromDir > 1);
                             });
 
-            // sleep 10s and expect the job don't write more rows.
-            Thread.sleep(10000);
+            FaultToleranceFakeSourceAssertions.assertOutputRecoveredAndStable(
+                    testResources.getLeft(),
+                    testRowNumber * testParallelism * 2,
+                    testRowNumber,
+                    300_000L);
             clientJobProxy.cancelJob();
 
             Awaitility.await()
@@ -530,10 +534,11 @@ public class ClusterFaultToleranceTwoPipelineIT {
                                         JobStatus.CANCELED, objectCompletableFuture.get());
                             });
 
-            // check the final rows
-            Long fileLineNumberFromDir =
-                    FileUtils.getFileLineNumberFromDir(testResources.getLeft());
-            Assertions.assertEquals(testRowNumber * testParallelism * 2, fileLineNumberFromDir);
+            FaultToleranceFakeSourceAssertions.assertOutputRecoveredAndStable(
+                    testResources.getLeft(),
+                    testRowNumber * testParallelism * 2,
+                    testRowNumber,
+                    60_000L);
 
         } finally {
             if (engineClient != null) {
@@ -642,9 +647,11 @@ public class ClusterFaultToleranceTwoPipelineIT {
                                         JobStatus.FINISHED, objectCompletableFuture.get());
                             });
 
-            Long fileLineNumberFromDir =
-                    FileUtils.getFileLineNumberFromDir(testResources.getLeft());
-            Assertions.assertEquals(testRowNumber * testParallelism * 2, fileLineNumberFromDir);
+            FaultToleranceFakeSourceAssertions.assertOutputRecoveredAndStable(
+                    testResources.getLeft(),
+                    testRowNumber * testParallelism * 2,
+                    testRowNumber,
+                    60_000L);
 
         } finally {
             if (engineClient != null) {
@@ -746,12 +753,14 @@ public class ClusterFaultToleranceTwoPipelineIT {
                                         lineNumberFromDir);
                                 Assertions.assertEquals(
                                         JobStatus.RUNNING, clientJobProxy.getJobStatus());
-                                Assertions.assertEquals(
-                                        testRowNumber * testParallelism * 2, lineNumberFromDir);
+                                Assertions.assertTrue(lineNumberFromDir > 1);
                             });
 
-            // sleep 10s and expect the job don't write more rows.
-            Thread.sleep(10000);
+            FaultToleranceFakeSourceAssertions.assertOutputRecoveredAndStable(
+                    testResources.getLeft(),
+                    testRowNumber * testParallelism * 2,
+                    testRowNumber,
+                    300_000L);
             clientJobProxy.cancelJob();
 
             Awaitility.await()
@@ -766,10 +775,11 @@ public class ClusterFaultToleranceTwoPipelineIT {
                                         JobStatus.CANCELED, objectCompletableFuture.get());
                             });
 
-            // check the final rows
-            Long fileLineNumberFromDir =
-                    FileUtils.getFileLineNumberFromDir(testResources.getLeft());
-            Assertions.assertEquals(testRowNumber * testParallelism * 2, fileLineNumberFromDir);
+            FaultToleranceFakeSourceAssertions.assertOutputRecoveredAndStable(
+                    testResources.getLeft(),
+                    testRowNumber * testParallelism * 2,
+                    testRowNumber,
+                    60_000L);
 
         } finally {
             if (engineClient != null) {

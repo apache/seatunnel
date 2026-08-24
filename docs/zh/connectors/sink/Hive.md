@@ -12,7 +12,7 @@ import ChangeLog from '../changelog/connector-hive.md';
 
 为了使用此连接器，您必须确保您的 Spark/Flink 集群已经集成了 Hive。测试过的 Hive 版本是 2.3.9 和 3.1.3。
 
-如果您使用 SeaTunnel 引擎，您需要将 `seatunnel-hadoop3-3.1.4-uber.jar`、`hive-exec-3.1.3.jar` 和 `libfb303-0.9.3.jar` 放在 `$SEATUNNEL_HOME/lib/` 目录中。
+如果您使用 SeaTunnel 引擎，您需要将 `seatunnel-shade-hadoop3-uber-3.1.4-3.0.0.jar`、`hive-exec-3.1.3.jar` 和 `libfb303-0.9.3.jar` 放在 `$SEATUNNEL_HOME/lib/` 目录中。
 :::
 
 ## 关键特性
@@ -42,6 +42,7 @@ import ChangeLog from '../changelog/connector-hive.md';
 | hive_site_path                        | string  | 否  | -              |
 | hive.hadoop.conf                      | Map     | 否  | -              |
 | hive.hadoop.conf-path                 | string  | 否  | -              |
+| remote_user                           | string  | 否  | -              |
 | krb5_path                             | string  | 否  | /etc/krb5.conf |
 | kerberos_principal                    | string  | 否  | -              |
 | kerberos_keytab_path                  | string  | 否  | -              |
@@ -77,6 +78,10 @@ Hadoop 配置中的属性（`core-site.xml`、`hdfs-site.xml`、`hive-site.xml`�
 
 指定加载 `core-site.xml`、`hdfs-site.xml`、`hive-site.xml` 文件的路径
 
+### remote_user [string]
+
+未使用 Kerberos 凭据连接 HDFS/Hive 存储时使用的 Hadoop 远端用户名。
+
 ### krb5_path [string]
 
 `krb5.conf` 的路径，用于 Kerberos 认证
@@ -94,6 +99,8 @@ Kerberos 的 keytab 文件路径
 ### abort_drop_partition_metadata [boolean]
 
 在中止操作期间是否从 Hive Metastore 中删除分区元数据的标志。注意：这只影响元存储中的元数据，分区中的数据将始终被删除（同步过程中生成的数据）。
+
+默认值为 `false`。
 
 ### parquet_avro_write_timestamp_as_int96 [boolean]
 
@@ -115,6 +122,8 @@ Kerberos 的 keytab 文件路径
 - CUSTOM_PROCESSING / ERROR_WHEN_DATA_EXISTS：如无特殊需求，不建议在 Hive sink 下使用
 
 注意：overwrite=true 与 data_save_mode=DROP_DATA 行为等价，二者择一配置即可，勿同时设置。
+
+批处理作业中，如果希望本次运行替换目标 Hive 表里的已有数据，可以使用 `overwrite = true` 或 `data_save_mode = "DROP_DATA"`。普通追加写入场景保持默认的 `data_save_mode = "APPEND_DATA"` 即可。
 
 ### schema_save_mode [枚举]
 

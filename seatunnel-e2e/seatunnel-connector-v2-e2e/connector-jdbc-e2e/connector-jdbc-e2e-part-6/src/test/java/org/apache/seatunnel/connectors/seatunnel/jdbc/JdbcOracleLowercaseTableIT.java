@@ -141,11 +141,6 @@ public class JdbcOracleLowercaseTableIT extends AbstractJdbcIT {
     }
 
     @Override
-    String driverUrl() {
-        return "https://repo1.maven.org/maven2/com/oracle/database/jdbc/ojdbc8/12.2.0.1/ojdbc8-12.2.0.1.jar";
-    }
-
-    @Override
     Pair<String[], List<SeaTunnelRow>> initTestData() {
         String[] fieldNames =
                 new String[] {
@@ -202,9 +197,6 @@ public class JdbcOracleLowercaseTableIT extends AbstractJdbcIT {
                         .withExposedPorts(ORACLE_PORT)
                         .withLogConsumer(
                                 new Slf4jLogConsumer(DockerLoggerFactory.getLogger(ORACLE_IMAGE)));
-
-        container.setPortBindings(
-                Lists.newArrayList(String.format("%s:%s", ORACLE_PORT, ORACLE_PORT)));
 
         return container;
     }

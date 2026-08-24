@@ -4,9 +4,19 @@ import ChangeLog from '../changelog/connector-hbase.md';
 
 > Hbase Source Connector
 
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## Description
 
-Reads data from Apache Hbase.
+Reads data from Apache HBase tables. The source supports normal scans, row key range scans, timestamp
+range scans, binary row keys, custom namespaces, and parallel batch reading.
+
+The source runs in batch mode and reads the current state of the scanned range. It is not a CDC
+source: changes that happen after the scan starts are not delivered.
 
 ## Key Features
 
@@ -19,23 +29,23 @@ Reads data from Apache Hbase.
 
 ## Options
 
-| Name                 | Type      | Required  | Default |
-|----------------------|-----------|-----------|---------|
-| zookeeper_quorum     | string    | Yes       | -       |
-| table                | string    | Yes       | -       |
-| schema               | config    | Yes       | -       |
-| hbase_extra_config   | config    | No        | -       |
-| caching              | int       | No        | -1      |
-| batch                | int       | No        | -1      |
-| cache_blocks         | boolean   | No        | false   |
-| is_binary_rowkey     | boolean   | No        | false   |
-| start_rowkey         | string    | No        | -       |
-| end_rowkey           | string    | No        | -       |
-| start_row_inclusive | boolean | No       | true    |
-| end_row_inclusive   | boolean | No       | false   |
-| start_timestamp       | long      | No        | -       |
-| end_timestamp       | long      | No        | -       |
-| common-options       |           | No        | -       |
+| Name                | Type    | Required | Default | Description |
+|---------------------|---------|----------|---------|-------------|
+| zookeeper_quorum    | string  | Yes      | -       | HBase ZooKeeper quorum, for example `hadoop001:2181,hadoop002:2181`. |
+| table               | string  | Yes      | -       | HBase table to scan. Use `namespace:table` for a custom namespace. |
+| schema              | config  | Yes      | -       | SeaTunnel schema. Use `rowkey` for the row key and `family:qualifier` for cells. |
+| hbase_extra_config  | config  | No       | -       | Extra HBase or Hadoop client configuration. |
+| caching             | int     | No       | -1      | Number of rows fetched per RPC. `-1` keeps the HBase client default. |
+| batch               | int     | No       | -1      | Maximum number of cells returned per RPC. `-1` keeps the HBase client default. |
+| cache_blocks        | boolean | No       | false   | Whether scan results should populate the HBase block cache. |
+| is_binary_rowkey    | boolean | No       | false   | Whether the row key column should be handled as binary bytes. |
+| start_rowkey        | string  | No       | -       | Start row key for range scans. |
+| end_rowkey          | string  | No       | -       | End row key for range scans. |
+| start_row_inclusive | boolean | No       | true    | Whether the scan includes `start_rowkey`. |
+| end_row_inclusive   | boolean | No       | false   | Whether the scan includes `end_rowkey`. |
+| start_timestamp     | long    | No       | -       | Start timestamp for time range scans, inclusive. |
+| end_timestamp       | long    | No       | -       | End timestamp for time range scans, exclusive. |
+| common-options      |         | No       | -       | Source plugin common parameters, such as `plugin_output`. |
 
 ### zookeeper_quorum [string]
 
@@ -43,12 +53,14 @@ The zookeeper quorum for Hbase cluster hosts, e.g., "hadoop001:2181,hadoop002:21
 
 ### table [string]
 
-The name of the table to write to, e.g., "seatunnel".
+The name of the table to read from, e.g., "seatunnel".
 If your table lives in a custom namespace, use the `namespace:table` form (for example, `ns1:seatunnel_test`); when the namespace is omitted SeaTunnel will read from HBase's default namespace (`default`).
 
 ### schema [config]
 
-Hbase stores data in byte arrays. Therefore, you need to configure the data types for each column in the table. For more information, see: [guide](../../introduction/concepts/schema-feature.md#how-to-declare-type-supported).
+Hbase stores data in byte arrays. Therefore, you need to configure the data types for each column in the table.
+Use `rowkey` for the row key column and `family:qualifier` for HBase cells, such as `info:name`.
+For more information, see: [guide](../../introduction/concepts/schema-feature.md#how-to-declare-type-supported).
 
 ### hbase_extra_config [config]
 
@@ -114,14 +126,16 @@ Common parameters for Source plugins, refer to [Common Source Options](../common
 
 ## Example
 
-```bash
+### Read by Row Key and Time Range
+
+```hocon
 source {
   Hbase {
-    zookeeper_quorum = "hadoop001:2181,hadoop002:2181,hadoop003:2181" 
-    table = "seatunnel_test" 
-    caching = 1000 
-    batch = 100 
-    cache_blocks = false 
+    zookeeper_quorum = "hadoop001:2181,hadoop002:2181,hadoop003:2181"
+    table = "seatunnel_test"
+    caching = 1000
+    batch = 100
+    cache_blocks = false
     is_binary_rowkey = false
     start_rowkey = "B"
     end_rowkey = "C"
@@ -129,16 +143,16 @@ source {
     end_timestamp = 1700003600000
     schema = {
       columns = [
-        { 
-          name = "rowkey" 
-          type = string 
+        {
+          name = "rowkey"
+          type = string
         },
         {
           name = "columnFamily1:column1"
           type = boolean
         },
         {
-          name = "columnFamily1:column2" 
+          name = "columnFamily1:column2"
           type = double
         },
         {
@@ -150,6 +164,47 @@ source {
   }
 }
 ```
+
+### Read a Namespace Table
+
+```hocon
+source {
+  Hbase {
+    zookeeper_quorum = "hbase_e2e:2181"
+    table = "ns1:seatunnel_test"
+    schema = {
+      columns = [
+        { name = rowkey, type = string },
+        { name = "info:name", type = string }
+      ]
+    }
+  }
+}
+```
+
+### Read with a Binary Row Key
+
+```hocon
+source {
+  Hbase {
+    zookeeper_quorum = "hbase_e2e:2181"
+    table = "binary_rowkey_table"
+    is_binary_rowkey = true
+    caching = 500
+    batch = 100
+    schema = {
+      columns = [
+        { name = rowkey, type = bytes },
+        { name = "info:name", type = string },
+        { name = "info:score", type = double }
+      ]
+    }
+  }
+}
+```
+
+When `is_binary_rowkey = true`, declare the row key column as `bytes` in the schema and let the
+downstream transform handle decoding.
 
 ## Kerberos Example
 
@@ -192,4 +247,3 @@ source {
 ## Changelog
 
 <ChangeLog />
-
