@@ -79,7 +79,7 @@ public class PythonIT extends SeaTunnelContainer {
     /** Installs python3 in the shared runtime container when the base image does not include it. */
     private Container.ExecResult installPythonIfNecessary()
             throws IOException, InterruptedException {
-        return container.execInContainer(
+        return server.execInContainer(
                 "bash",
                 "-c",
                 "if command -v python3 >/dev/null 2>&1; then"
