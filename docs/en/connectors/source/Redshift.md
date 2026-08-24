@@ -4,15 +4,21 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 
 > JDBC Redshift Source Connector
 
-## Description
-
-Read external data source data through JDBC.
-
 ## Support those engines
 
 > Spark<br/>
 > Flink<br/>
 > Seatunnel Zeta<br/>
+
+## Description
+
+Read data from Amazon Redshift through the standard JDBC interface. The connector uses the Redshift JDBC
+driver (`com.amazon.redshift.jdbc.Driver`) and submits the configured `query` to fetch rows. Redshift is
+PostgreSQL-compatible, so the connector can read any table accessible to the JDBC user, including
+columnar SUPER values and standard scalar types. Parallel reads via `partition_column` and multi-table
+reads via `table_list` are supported.
+
+## Using Dependency
 
 ### For Spark/Flink Engine
 
@@ -38,10 +44,31 @@ Read external data source data through JDBC.
 |------------|----------------------------------------------------------|---------------------------------|-----------------------------------------|------------------------------------------------------------------------------------|
 | redshift   | Different dependency version has different driver class. | com.amazon.redshift.jdbc.Driver | jdbc:redshift://localhost:5439/database | [Download](https://mvnrepository.com/artifact/com.amazon.redshift/redshift-jdbc42) |
 
+## Source Options
+
+|        Name        |   Type   | Required |     Default     |                                                                 Description                                                                 |
+|--------------------|----------|----------|-----------------|---------------------------------------------------------------------------------------------------------------------------------------------|
+| url                | String   | Yes      | -               | The URL of the JDBC connection. Example: `jdbc:redshift://localhost:5439/database`.                                                         |
+| driver             | String   | Yes      | -               | The JDBC class name used to connect to Redshift. The value is `com.amazon.redshift.jdbc.Driver`.                                            |
+| username           | String   | No       | -               | Connection instance user name.                                                                                                              |
+| password           | String   | No       | -               | Connection instance password.                                                                                                               |
+| query              | String   | No       | -               | SELECT statement. Use this or `table_path`/`table_list` to define the rows to read. The query column list determines the output schema.    |
+| table_path         | String   | No       | -               | The fully-qualified table to read, for example `public.table2`. Useful as a shortcut for a single-table read.                               |
+| table_list         | Array    | No       | -               | List of tables to read. Each entry can override `table_path` and `query`. Enables multi-table reading and auto-split.                       |
+| connection_check_timeout_sec | Int | No       | 30              | The time, in seconds, to wait for the database operation used to validate the connection to complete.                                       |
+| partition_column   | String   | No       | -               | The column name used to split the data for parallel reading. Only numeric primary key columns are supported.                               |
+| partition_lower_bound | BigDecimal | No   | -               | The `partition_column` minimum value for the scan. If not set, SeaTunnel queries the database for the minimum value.                       |
+| partition_upper_bound | BigDecimal | No   | -               | The `partition_column` maximum value for the scan. If not set, SeaTunnel queries the database for the maximum value.                       |
+| partition_num      | Int      | No       | job parallelism | Number of partitions. Only positive integers are supported. Default value is the job parallelism.                                            |
+| fetch_size         | Int      | No       | 0               | For queries that return a large number of rows, configure the row fetch size used in the query to improve performance. `0` uses the driver default. |
+| where_condition    | String   | No       | -               | Common row filter applied to all tables/queries. Must start with `where`, for example `where id > 100`.                                     |
+| split.size         | Int      | No       | 8096            | The split size (rows) for auto-split when `table_path` or `table_list` is used.                                                              |
+| common-options     |          | No       | -               | Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details.          |
+
 ## Database dependency
 
-> Please download the support list corresponding to 'Maven' and copy it to the '$SEATUNNEL_HOME/plugins/jdbc/lib/' working directory<br/>
-> For example Redshift datasource: cp RedshiftJDBC42-xxx.jar $SEATUNNEL_HOME/plugins/jdbc/lib/
+> Place the [Redshift JDBC driver](https://mvnrepository.com/artifact/com.amazon.redshift/redshift-jdbc42)
+> in `${SEATUNNEL_HOME}/plugins/jdbc/lib/` for Spark/Flink, or `${SEATUNNEL_HOME}/lib/` for SeaTunnel Zeta.
 
 ## Data Type Mapping
 
@@ -50,7 +77,7 @@ Read external data source data through JDBC.
 | SMALLINT<br />INT2                                                                                                | SHORT                                                                                                                                               |
 | INTEGER<br />INT<br />INT4                                                                                        | INT                                                                                                                                                 |
 | BIGINT<br />INT8<br />OID                                                                                         | LONG                                                                                                                                                |
-| DECIMAL<br />NUMERIC                                                                                              | DECIMAL((Get the designated column's specified column size)+1,<br/>(Gets the designated column's number of digits to right of the decimal point.))) |
+| DECIMAL<br />NUMERIC                                                                                              | DECIMAL((Get the designated column's specified column size)+1, (Get the designated column's number of digits to the right of the decimal point.))  |
 | REAL<br />FLOAT4                                                                                                  | FLOAT                                                                                                                                               |
 | DOUBLE_PRECISION<br />FLOAT8<br />FLOAT                                                                           | DOUBLE                                                                                                                                              |
 | BOOLEAN<br />BOOL                                                                                                 | BOOLEAN                                                                                                                                             |
@@ -63,24 +90,24 @@ Read external data source data through JDBC.
 
 ### Simple
 
-> This example queries type_bin 'table' 16 data in your test "database" in single parallel and queries all of its fields. You can also specify which fields to query for final output to the console.
+> This example reads a single table from Redshift through `table_path` and writes the rows to the console.
 
-```
+```hocon
 env {
   parallelism = 2
   job.mode = "BATCH"
 }
-source{
+source {
     Jdbc {
         url = "jdbc:redshift://localhost:5439/dev"
         driver = "com.amazon.redshift.jdbc.Driver"
         username = "root"
         password = "123456"
-        
+
         table_path = "public.table2"
-        # Use query filetr rows & columns
+        # Use query to filter rows & columns
         query = "select id, name from public.table2 where id > 100"
-        
+
         #split.size = 8096
         #split.even-distribution.factor.upper-bound = 100
         #split.even-distribution.factor.lower-bound = 0.05
@@ -96,7 +123,7 @@ sink {
 
 ### Multiple table read
 
-***Configuring `table_list` will turn on auto split, you can configure `split.*` to adjust the split strategy***
+> Configuring `table_list` turns on auto split. Configure `split.*` to adjust the split strategy.
 
 ```hocon
 env {
@@ -116,7 +143,7 @@ source {
       },
       {
         table_path = "public.table2"
-        # Use query filetr rows & columns
+        # Use query to filter rows & columns
         query = "select id, name from public.table2 where id > 100"
       }
     ]

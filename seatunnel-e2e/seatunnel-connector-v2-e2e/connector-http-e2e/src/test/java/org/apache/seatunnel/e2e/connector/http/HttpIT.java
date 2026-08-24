@@ -20,13 +20,13 @@ package org.apache.seatunnel.e2e.connector.http;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.DeserializationFeature;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -35,6 +35,7 @@ import org.junit.jupiter.api.TestTemplate;
 import org.mockserver.client.MockServerClient;
 import org.mockserver.model.ClearType;
 import org.mockserver.model.Format;
+import org.postgresql.Driver;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.PostgreSQLContainer;
@@ -90,21 +91,15 @@ public class HttpIT extends TestSuiteBase implements TestResource {
     private static final String COUNT_QUERY = "select count(*) from sink";
 
     private static final String PG_IMAGE = "postgres:14-alpine";
-    private static final String PG_DRIVER_JAR =
-            "https://repo1.maven.org/maven2/org/postgresql/postgresql/42.3.3/postgresql-42.3.3.jar";
+    private static final String PG_DRIVER_CONTAINER_PATH =
+            "/tmp/seatunnel/plugins/Jdbc/lib/postgresql.jar";
     private PostgreSQLContainer<?> postgreSQLContainer;
 
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
-            container -> {
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && curl -O "
-                                        + PG_DRIVER_JAR);
-                Assertions.assertEquals(0, extraCommands.getExitCode());
-            };
+            container ->
+                    DependencyJar.of(Driver.class)
+                            .copyTo(container, "/tmp/seatunnel/plugins/Jdbc/lib", "postgresql.jar");
 
     @BeforeAll
     @Override
@@ -132,9 +127,10 @@ public class HttpIT extends TestSuiteBase implements TestResource {
                         .withEnv("MOCKSERVER_LOG_LEVEL", "WARN")
                         .withLogConsumer(new Slf4jLogConsumer(DockerLoggerFactory.getLogger(IMAGE)))
                         .waitingFor(new HttpWaitStrategy().forPath("/").forStatusCode(404));
-        mockserverContainer.setPortBindings(Lists.newArrayList(String.format("%s:%s", 1080, 1080)));
         Startables.deepStart(Stream.of(mockserverContainer)).join();
-        mockServerClient = new MockServerClient("127.0.0.1", 1080);
+        mockServerClient =
+                new MockServerClient(
+                        mockserverContainer.getHost(), mockserverContainer.getMappedPort(1080));
         fillMockRecords();
 
         postgreSQLContainer =

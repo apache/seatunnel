@@ -66,6 +66,19 @@ public class HadoopFileSystemProxy implements Serializable, Closeable {
         return execute(() -> getFileSystem().exists(new Path(filePath)));
     }
 
+    /**
+     * Qualifies a path against this proxy's configured filesystem.
+     *
+     * <p>This preserves the filesystem scheme and authority for paths configured without a URI,
+     * such as a relative FTP backup path.
+     *
+     * @param filePath path to qualify
+     * @return path qualified with the configured filesystem URI
+     */
+    public String makeQualifiedPath(@NonNull String filePath) {
+        return getFileSystem().makeQualified(new Path(filePath)).toString();
+    }
+
     public boolean isFile(@NonNull String filePath) throws IOException {
         return execute(() -> getFileSystem().getFileStatus(new Path(filePath)).isFile());
     }
@@ -129,13 +142,20 @@ public class HadoopFileSystemProxy implements Serializable, Closeable {
                     Path newPath = new Path(newFilePath);
 
                     if (!fileExist(oldPath.toString())) {
-                        log.warn(
-                                "rename file:[{}] to [{}] already finished in the last commit, skip. "
-                                        + "WARNING: In cluster mode with LocalFile without shared storage, "
-                                        + "the file may not be actually synced successfully, but the status shows success.",
-                                oldPath,
-                                newPath);
-                        return Void.class;
+                        if (fileExist(newPath.toString())) {
+                            log.info(
+                                    "Rename file from [{}] to [{}] already finished in a previous "
+                                            + "commit, skip.",
+                                    oldPath,
+                                    newPath);
+                            return Void.class;
+                        }
+                        throw new IOException(
+                                "Cannot rename file from ["
+                                        + oldPath
+                                        + "] to ["
+                                        + newPath
+                                        + "]: both source and target are missing.");
                     }
 
                     if (removeWhenNewFilePathExist) {
@@ -219,8 +239,58 @@ public class HadoopFileSystemProxy implements Serializable, Closeable {
         return execute(() -> getFileSystem().listStatus(new Path(filePath)));
     }
 
+    /** Opens one reusable directory-listing session for a complete discovery pass. */
+    public FileStatusListingSession openFileStatusListingSession() throws IOException {
+        FileSystem fs = getFileSystem();
+        if (fs instanceof StreamingFileSystem) {
+            return ((StreamingFileSystem) fs).openFileStatusListingSession();
+        }
+        return new HadoopListingSession();
+    }
+
     public FileStatus getFileStatus(String filePath) throws IOException {
         return execute(() -> getFileSystem().getFileStatus(new Path(filePath)));
+    }
+
+    private final class HadoopListingSession implements FileStatusListingSession {
+        @Override
+        public FileStatus getFileStatus(Path path) throws IOException {
+            return execute(() -> getFileSystem().getFileStatus(path));
+        }
+
+        @Override
+        public void list(Path directory, FileStatusConsumer consumer) throws IOException {
+            execute(
+                    () -> {
+                        FileSystem fs = getFileSystem();
+                        int emitted = 0;
+                        try {
+                            RemoteIterator<? extends FileStatus> iterator;
+                            if ("s3a".equalsIgnoreCase(fs.getScheme())) {
+                                iterator = fs.listLocatedStatus(directory);
+                            } else {
+                                iterator = fs.listStatusIterator(directory);
+                            }
+                            while (iterator.hasNext()) {
+                                consumer.accept(iterator.next());
+                                emitted++;
+                            }
+                        } catch (UnsupportedOperationException e) {
+                            if (emitted > 0) {
+                                throw e;
+                            }
+                            for (FileStatus status : fs.listStatus(directory)) {
+                                consumer.accept(status);
+                            }
+                        }
+                        return Void.class;
+                    });
+        }
+
+        @Override
+        public void close() {
+            // The proxy owns the Hadoop FileSystem lifecycle.
+        }
     }
 
     public FileChecksum getFileChecksum(String filePath) throws IOException {
@@ -253,6 +323,11 @@ public class HadoopFileSystemProxy implements Serializable, Closeable {
             initialize();
         }
         return fileSystem;
+    }
+
+    /** Returns the scheme of the initialized target or source file system. */
+    public String getScheme() {
+        return getFileSystem().getScheme();
     }
 
     @SneakyThrows
