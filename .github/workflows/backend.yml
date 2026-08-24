@@ -1216,6 +1216,7 @@ jobs:
       RUN_ALL_CONTAINER: ${{ needs.changes.outputs.api }}
       RUN_ZETA_CONTAINER: ${{ needs.changes.outputs.engine }}
     strategy:
+      fail-fast: false
       matrix:
         java: [ '8', '11' ]
         os: [ 'ubuntu-latest' ]

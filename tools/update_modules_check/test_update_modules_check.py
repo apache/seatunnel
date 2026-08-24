@@ -21,6 +21,7 @@ import unittest
 from contextlib import redirect_stdout
 
 from update_modules_check import (
+    build_sub_it_modules,
     get_sub_it_modules,
     get_sub_update_it_modules,
     split_full_connector_it_modules,
@@ -89,6 +90,9 @@ class ConnectorItShardingTest(unittest.TestCase):
         connector_modules = [
             "connector-normal-e2e",
             "connector-jdbc-e2e",
+            "connector-seatunnel-e2e-base",
+            "connector-console-seatunnel-e2e",
+            "seatunnel-edge-agent-e2e",
             "connector-iceberg-e2e",
             "connector-hbase-e2e",
             "connector-sensorsdata-e2e",
@@ -96,10 +100,7 @@ class ConnectorItShardingTest(unittest.TestCase):
             "connector-iceberg-s3-e2e",
         ]
         updated_modules = connector_modules + [
-            "connector-seatunnel-e2e-base",
-            "connector-console-seatunnel-e2e",
             "seatunnel-engine-k8s-e2e",
-            "seatunnel-edge-agent-e2e",
         ]
 
         full_output = io.StringIO()
@@ -123,6 +124,53 @@ class ConnectorItShardingTest(unittest.TestCase):
             ":connector-iceberg-s3-e2e\n",
         )
 
+    def test_dedicated_heavy_suites_do_not_stay_in_regular_shards(self):
+        """Iceberg and HBase should run only in their dedicated jobs."""
+        modules = ",".join(
+            [
+                "",
+                "connector-assert-e2e",
+                "connector-jdbc-e2e",
+                "connector-redis-e2e",
+                "connector-cdc-sqlserver-e2e",
+                "connector-kafka-e2e",
+                "connector-iceberg-e2e",
+                "connector-hbase-e2e",
+                "connector-http-e2e",
+                "connector-rocketmq-e2e",
+                "connector-kudu-e2e",
+                "connector-amazonsqs-e2e",
+                "connector-doris-e2e",
+                "connector-paimon-e2e",
+                "connector-cdc-oracle-e2e",
+                "connector-file-local-e2e",
+                "connector-file-sftp-e2e",
+                "connector-sensorsdata-e2e",
+            ]
+        )
+
+        shard_outputs = [build_sub_it_modules(modules, 7, shard) for shard in range(7)]
+        combined_outputs = ",".join(shard_outputs)
+
+        self.assertIn("connector-assert-e2e", combined_outputs)
+        for shard_modules in shard_outputs:
+            self.assertNotIn("connector-iceberg-e2e", shard_modules)
+            self.assertNotIn("connector-hbase-e2e", shard_modules)
+
+    def test_full_shard_rejects_non_positive_shard_count(self) -> None:
+        with self.assertRaisesRegex(
+            ValueError, "total shard count must be positive, got 0"
+        ):
+            build_sub_it_modules("connector-normal-e2e", 0, 0)
+
+    def test_full_shard_rejects_out_of_range_index(self) -> None:
+        for current_num in (-1, 7):
+            with self.subTest(current_num=current_num):
+                with self.assertRaisesRegex(
+                    ValueError,
+                    f"shard index {current_num} out of range \\[0, 7\\)",
+                ):
+                    build_sub_it_modules("connector-normal-e2e", 7, current_num)
 
 if __name__ == "__main__":
     unittest.main()

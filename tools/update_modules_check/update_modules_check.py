@@ -182,6 +182,9 @@ def _filter_shared_it_modules(modules, extra_exclusions=()):
 
 
 def split_full_connector_it_modules(modules, total_num):
+    if total_num <= 0:
+        raise ValueError(f"total shard count must be positive, got {total_num}")
+
     shards = [[] for _ in range(total_num)]
     for module in sorted(set(modules)):
         shard_key = f"{_FULL_CONNECTOR_IT_SHARD_SEED}:{module}".encode("utf-8")
@@ -190,14 +193,35 @@ def split_full_connector_it_modules(modules, total_num):
     return shards
 
 
-def get_sub_it_modules(modules, total_num, current_num):
+def build_sub_it_modules(modules, total_num, current_num):
+    """Build one stable full connector shard after applying ownership exclusions."""
+    total_num = int(total_num)
+    current_num = int(current_num)
+    if total_num <= 0:
+        raise ValueError(f"total shard count must be positive, got {total_num}")
+    if not 0 <= current_num < total_num:
+        raise ValueError(
+            f"shard index {current_num} out of range [0, {total_num})"
+        )
+
     # The JDBC aggregate is handled by the dedicated JDBC jobs for full runs,
-    # while direct JDBC changes still rely on the updated-module shards.
+    # while the base, console, and edge-agent suites have their own jobs. Direct
+    # changes to these modules still rely on the updated-module shards.
     modules_arr = _filter_shared_it_modules(
-        modules.split(","), {"connector-jdbc-e2e"}
+        modules.split(","),
+        {
+            "connector-jdbc-e2e",
+            "connector-seatunnel-e2e-base",
+            "connector-console-seatunnel-e2e",
+            "seatunnel-edge-agent-e2e",
+        },
     )
-    shards = split_full_connector_it_modules(modules_arr, int(total_num))
-    print(",".join(":" + module for module in shards[int(current_num)]))
+    shards = split_full_connector_it_modules(modules_arr, total_num)
+    return ",".join(":" + module for module in shards[current_num])
+
+
+def get_sub_it_modules(modules, total_num, current_num):
+    print(build_sub_it_modules(modules, total_num, current_num))
 
 
 def get_sub_update_it_modules(modules, total_num, current_num):
