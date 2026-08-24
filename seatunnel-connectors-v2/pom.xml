@@ -57,7 +57,9 @@
         <module>connector-datahub</module>
         <module>connector-sentry</module>
         <module>connector-mongodb</module>
+        <module>connector-couchbase</module>
         <module>connector-mqtt</module>
+        <module>connector-python</module>
         <module>connector-iceberg</module>
         <module>connector-influxdb</module>
         <module>connector-amazondynamodb</module>
@@ -68,6 +70,7 @@
         <module>connector-starrocks</module>
         <module>connector-google-sheets</module>
         <module>connector-google-firestore</module>
+        <module>connector-google-pubsub</module>
         <module>connector-slack</module>
         <module>connector-rabbitmq</module>
         <module>connector-openmldb</module>

@@ -140,7 +140,7 @@ public class CopyManagerBatchStatementExecutor implements JdbcBatchStatementExec
                     break;
                 case TIME:
                     LocalTime localTime = (LocalTime) record.getField(fieldIndex);
-                    csvRecord.add((java.sql.Time) java.sql.Time.valueOf(localTime));
+                    csvRecord.add(localTime.toString());
                     break;
                 case TIMESTAMP:
                     LocalDateTime localDateTime = (LocalDateTime) record.getField(fieldIndex);

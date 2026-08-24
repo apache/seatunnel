@@ -110,6 +110,30 @@ sink {
 }
 ```
 
+### 列投影并按条件过滤
+
+可以结合列投影和 `WHERE` 条件提前把不需要的行过滤掉。下面的示例只读取 `name` 以 `A`
+开头的行：
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Jdbc {
+    driver = org.apache.phoenix.jdbc.PhoenixDriver
+    url = "jdbc:phoenix:localhost:2182/hbase"
+    query = "select name, score from test.source where name like 'A%'"
+  }
+}
+
+sink {
+  Console {}
+}
+```
+
 ## 变更日志
 
 <ChangeLog />
