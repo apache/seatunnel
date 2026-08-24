@@ -71,6 +71,8 @@ Only physical `ADD COLUMN` events are supported. By default, added scalar or str
 
 Source array columns must be non-null and are created as BigQuery `REPEATED` fields. Nullable source arrays are rejected because BigQuery arrays cannot be `NULL`; silently mapping them would lose the distinction between `NULL` and an empty array. `DROP COLUMN`, `RENAME COLUMN`, and `MODIFY COLUMN` are not supported. BigQuery appends new fields to the target schema, so source `FIRST` and `AFTER` position hints do not change the physical BigQuery field order. Rows are encoded by field name, and the sink refreshes its writer schema before accepting rows that use the new column.
 
+An unsupported schema change fails the job instead of being silently skipped, because continuing with different source and target schemas can misroute or corrupt subsequent rows. Restoring from the same checkpoint can replay the unsupported event and fail again. Before restarting, reconcile the source and BigQuery schemas, then restart from a source position that does not replay the unsupported event. If the pipeline can produce unsupported DDL, disable `schema-changes.enabled` and manage those schema changes outside SeaTunnel.
+
 Schema updates use `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`. If the target already contains a field with the same name, its type and mode must be compatible or the job fails. In addition to the permissions required for Storage Write API ingestion, the credentials must be able to run the DDL job and read the resulting table metadata.
 
 ### Write Modes
