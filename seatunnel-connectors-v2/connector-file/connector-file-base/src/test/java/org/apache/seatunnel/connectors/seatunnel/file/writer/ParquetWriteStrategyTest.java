@@ -111,15 +111,16 @@ public class ParquetWriteStrategyTest {
         writeConfig.put("path", "file:///tmp/seatunnel/parquet/int96");
         writeConfig.put("file_format_type", FileFormat.PARQUET.name());
         writeConfig.put("parquet_avro_write_timestamp_as_int96", "true");
-        writeConfig.put("parquet_avro_write_fixed_as_int96", Arrays.asList("f3_bytes"));
+        writeConfig.put("parquet_avro_write_fixed_as_int96", Arrays.asList("F3_Bytes"));
 
         SeaTunnelRowType writeRowType =
                 new SeaTunnelRowType(
-                        new String[] {"f1_text", "f2_timestamp", "f3_bytes"},
+                        new String[] {"f1_text", "f2_timestamp", "F3_Bytes", "createTime"},
                         new SeaTunnelDataType[] {
                             BasicType.STRING_TYPE,
                             LocalTimeType.LOCAL_DATE_TIME_TYPE,
-                            PrimitiveByteArrayType.INSTANCE
+                            PrimitiveByteArrayType.INSTANCE,
+                            LocalTimeType.LOCAL_DATE_TIME_TYPE
                         });
         FileSinkConfig writeSinkConfig =
                 new FileSinkConfig(ReadonlyConfig.fromMap(writeConfig), writeRowType);
@@ -131,7 +132,10 @@ public class ParquetWriteStrategyTest {
         writeStrategy.init(hadoopConf, "test1", "test1", 0);
         writeStrategy.beginTransaction(1L);
         writeStrategy.write(
-                new SeaTunnelRow(new Object[] {"test", LocalDateTime.now(), new byte[12]}));
+                new SeaTunnelRow(
+                        new Object[] {
+                            "test", LocalDateTime.now(), new byte[12], LocalDateTime.now()
+                        }));
         writeStrategy.finishAndCloseFile();
         writeStrategy.close();
 
@@ -161,6 +165,10 @@ public class ParquetWriteStrategyTest {
             Assertions.assertEquals(
                     PrimitiveType.PrimitiveTypeName.INT96,
                     f3Type.asPrimitiveType().getPrimitiveTypeName());
+            Type createTimeType = metadata.getSchema().getType("createtime");
+            Assertions.assertEquals(
+                    PrimitiveType.PrimitiveTypeName.INT96,
+                    createTimeType.asPrimitiveType().getPrimitiveTypeName());
         }
 
         SeaTunnelRowType readRowType = readStrategy.getSeaTunnelRowTypeInfo(readFilePath);
@@ -172,6 +180,9 @@ public class ParquetWriteStrategyTest {
         Assertions.assertEquals(
                 LocalTimeType.LOCAL_DATE_TIME_TYPE.getSqlType(),
                 readRowType.getFieldType(2).getSqlType());
+        Assertions.assertEquals(
+                LocalTimeType.LOCAL_DATE_TIME_TYPE.getSqlType(),
+                readRowType.getFieldType(3).getSqlType());
         List<SeaTunnelRow> readRows = new ArrayList<>();
         Collector<SeaTunnelRow> readCollector =
                 new Collector<SeaTunnelRow>() {
@@ -180,6 +191,7 @@ public class ParquetWriteStrategyTest {
                         Assertions.assertTrue(record.getField(0) instanceof String);
                         Assertions.assertTrue(record.getField(1) instanceof LocalDateTime);
                         Assertions.assertTrue(record.getField(2) instanceof LocalDateTime);
+                        Assertions.assertTrue(record.getField(3) instanceof LocalDateTime);
                         readRows.add(record);
                     }
 
