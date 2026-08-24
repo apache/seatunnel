@@ -275,6 +275,28 @@ public class FixedChunkSplitterTest {
     }
 
     @Test
+    public void testRejectInvalidNonDateTemporalPartitionBound() throws Exception {
+        FixedChunkSplitter splitter = new FixedChunkSplitter(mysqlConfig());
+        Method parsePartitionBoundMethod =
+                FixedChunkSplitter.class.getDeclaredMethod(
+                        "parsePartitionBound", String.class, SeaTunnelDataType.class);
+        parsePartitionBoundMethod.setAccessible(true);
+
+        InvocationTargetException exception =
+                assertThrows(
+                        InvocationTargetException.class,
+                        () ->
+                                parsePartitionBoundMethod.invoke(
+                                        splitter,
+                                        "2024-01-03 00:00:00",
+                                        LocalTimeType.LOCAL_DATE_TIME_TYPE));
+
+        assertTrue(exception.getCause() instanceof JdbcConnectorException);
+        assertTrue(exception.getCause().getMessage().contains("TIMESTAMP"));
+        assertTrue(exception.getCause().getMessage().contains("epoch-millisecond"));
+    }
+
+    @Test
     public void testRejectFractionalTemporalPartitionBound() throws Exception {
         FixedChunkSplitter splitter = new FixedChunkSplitter(mysqlConfig());
         Method parsePartitionBoundMethod =

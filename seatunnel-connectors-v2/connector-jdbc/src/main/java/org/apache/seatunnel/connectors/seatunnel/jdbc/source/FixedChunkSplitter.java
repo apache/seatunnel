@@ -565,12 +565,19 @@ public class FixedChunkSplitter extends ChunkSplitter {
             }
             return numericBound;
         } catch (NumberFormatException e) {
-            if (SqlType.DATE.equals(sqlType)) {
+            if (temporalSplitKey) {
+                String expectedFormat =
+                        SqlType.DATE.equals(sqlType)
+                                ? "yyyy-MM-dd or a whole epoch-day number."
+                                : "a whole epoch-millisecond number.";
                 throw new JdbcConnectorException(
                         CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
-                        "Invalid DATE partition bound '"
+                        "Invalid "
+                                + sqlType
+                                + " partition bound '"
                                 + bound
-                                + "'. Expected yyyy-MM-dd or a whole epoch-day number.",
+                                + "'. Expected "
+                                + expectedFormat,
                         e);
             }
             throw e;
