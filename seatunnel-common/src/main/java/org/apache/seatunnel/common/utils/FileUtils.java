@@ -40,6 +40,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -73,6 +74,36 @@ public class FileUtils {
     }
 
     /**
+     * Valid split-layout storage directory names. storage.type is user-supplied configuration;
+     * restricting it to a bare lowercase identifier is what keeps {@link #searchJarFilesForStorage}
+     * from resolving outside the starter/zeta root.
+     */
+    private static final Pattern STORAGE_TYPE_PATTERN = Pattern.compile("[a-z0-9_-]+");
+
+    /**
+     * Returns true only when {@code directory} exists and its real path (symlinks resolved) is
+     * still inside {@code rootRealPath}. A subdirectory that is a symlink pointing outside the
+     * starter/zeta root must not be scanned: the JAR walk follows links, so an escaping link would
+     * load engine plugins from unrelated filesystem locations.
+     */
+    private static boolean isContainedDirectory(Path directory, Path rootRealPath)
+            throws IOException {
+        if (!Files.isDirectory(directory)) {
+            return false;
+        }
+        Path realPath = directory.toRealPath();
+        if (!realPath.startsWith(rootRealPath)) {
+            log.warn(
+                    "Ignoring storage jar directory {} because it resolves to {} outside {}",
+                    directory,
+                    realPath,
+                    rootRealPath);
+            return false;
+        }
+        return true;
+    }
+
+    /**
      * Search Zeta storage JAR files from a split starter layout.
      *
      * <p>When {@code storageType} is configured, SeaTunnel loads jars from {@code common/} and the
@@ -97,18 +128,32 @@ public class FileUtils {
             return searchJarFiles(zetaDirectory);
         }
 
+        String normalizedStorageType = storageType.trim().toLowerCase(Locale.ROOT);
+        // storage.type comes from user configuration, so it must stay a plain directory name.
+        // Anything path-shaped (separators, "..", drive/scheme prefixes, absolute paths) could
+        // make resolve() escape the starter/zeta root and load arbitrary JARs into the engine.
+        // Fail closed to the legacy whole-directory scan, which never leaves zetaDirectory.
+        if (!STORAGE_TYPE_PATTERN.matcher(normalizedStorageType).matches()) {
+            log.warn(
+                    "Ignoring illegal storage type '{}' for split storage-jar loading: only "
+                            + "[a-z0-9_-] names are allowed. Falling back to scanning {}",
+                    storageType,
+                    zetaDirectory);
+            return searchJarFiles(zetaDirectory);
+        }
+
         List<URL> jars = new ArrayList<>();
         boolean splitLayoutDetected = false;
+        Path zetaRealPath = zetaDirectory.toRealPath();
 
         Path commonDir = zetaDirectory.resolve("common");
-        if (Files.isDirectory(commonDir)) {
+        if (isContainedDirectory(commonDir, zetaRealPath)) {
             splitLayoutDetected = true;
             jars.addAll(searchJarFiles(commonDir));
         }
 
-        String normalizedStorageType = storageType.trim().toLowerCase(Locale.ROOT);
         Path storageDir = zetaDirectory.resolve(normalizedStorageType);
-        if (Files.isDirectory(storageDir)) {
+        if (isContainedDirectory(storageDir, zetaRealPath)) {
             splitLayoutDetected = true;
             jars.addAll(searchJarFiles(storageDir));
         }
