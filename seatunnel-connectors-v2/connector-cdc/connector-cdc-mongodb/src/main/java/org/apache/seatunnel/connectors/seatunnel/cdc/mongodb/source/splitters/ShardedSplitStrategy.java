@@ -37,6 +37,7 @@ import java.util.List;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.DROPPED_FIELD;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.MAX_FIELD;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.MIN_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.SHARD_KEY_FIELD;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.UNAUTHORIZED_ERROR;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbUtils.readChunks;
 import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.MongodbUtils.readCollectionMetadata;
@@ -84,7 +85,7 @@ public class ShardedSplitStrategy implements SplitStrategy {
             return SampleBucketSplitStrategy.INSTANCE.split(splitContext);
         }
 
-        BsonDocument splitKeys = collectionMetadata.getDocument("key");
+        BsonDocument splitKeys = collectionMetadata.getDocument(SHARD_KEY_FIELD);
         SeaTunnelRowType rowType = shardKeysToRowType(splitKeys);
 
         List<SnapshotSplit> snapshotSplits = new ArrayList<>(chunks.size());
