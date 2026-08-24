@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 #  Licensed to the Apache Software Foundation (ASF) under one or more
 #  contributor license agreements.  See the NOTICE file distributed with
 #  this work for additional information regarding copyright ownership.
@@ -13,7 +14,6 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 
-# !/usr/bin/python
 import json
 import sys
 import zlib
@@ -23,12 +23,20 @@ import zlib
 # the resulting seven shards were estimated at 79.1-89.6 minutes. The stable
 # hash keeps existing modules in the same shard when modules are added or removed,
 # without maintaining per-module durations or assignments.
+#
+# Re-tune only when the module set or durations change enough to unbalance the
+# shards. Export the latest per-module durations as {module: seconds}, evaluate
+# candidate seeds by assigning each module with the crc32 expression below, and
+# choose the seed that minimizes (maximum shard duration, shard-duration spread).
+# Update test_historical_seed_assignments_are_preserved with the seed so an
+# accidental reshuffle cannot silently change the CI matrix.
 _FULL_CONNECTOR_IT_SHARD_SEED = "37709"
 
 # Connector modules handled by jobs outside the shared connector shards. Add a
 # module here only after its dedicated job handles API, engine, and direct changes
 # to that module.
-_CONNECTOR_IT_MODULES_WITH_DEDICATED_JOB = {
+ALL_CONNECTORS_REQUIRED_DEDICATED_SHARD_MODULES = (
+    "connector-jdbc-e2e",
     "connector-kafka-e2e",
     "connector-rocketmq-e2e",
     "connector-kudu-e2e",
@@ -44,7 +52,24 @@ _CONNECTOR_IT_MODULES_WITH_DEDICATED_JOB = {
     "connector-iceberg-e2e",
     "connector-hbase-e2e",
     "connector-sensorsdata-e2e",
-}
+)
+
+# These suites have dedicated jobs in backend.yml, but they are not listed by
+# seatunnel-connector-v2-e2e's project.modules input.
+ALL_CONNECTORS_OPTIONAL_DEDICATED_SHARD_MODULES = (
+    "connector-seatunnel-e2e-base",
+    "connector-console-seatunnel-e2e",
+    "seatunnel-edge-agent-e2e",
+)
+
+ALL_CONNECTORS_DEDICATED_SHARD_MODULES = (
+    ALL_CONNECTORS_REQUIRED_DEDICATED_SHARD_MODULES
+    + ALL_CONNECTORS_OPTIONAL_DEDICATED_SHARD_MODULES
+)
+
+_CONNECTOR_IT_MODULES_WITH_DEDICATED_JOB = set(
+    ALL_CONNECTORS_REQUIRED_DEDICATED_SHARD_MODULES
+) - {"connector-jdbc-e2e"}
 
 
 def get_cv2_modules(files):
@@ -181,6 +206,23 @@ def _filter_shared_it_modules(modules, extra_exclusions=()):
     ]
 
 
+def filter_dedicated_shard_modules(modules, dedicated_modules, fail_on_missing):
+    """Remove modules owned by dedicated jobs and optionally detect workflow drift."""
+    module_set = set(modules)
+    if fail_on_missing:
+        missing_modules = [
+            module for module in dedicated_modules if module not in module_set
+        ]
+        if missing_modules:
+            raise ValueError(
+                "Missing dedicated shard modules from all-connectors input: "
+                + ",".join(missing_modules)
+            )
+
+    dedicated_modules_set = set(dedicated_modules)
+    return [module for module in modules if module not in dedicated_modules_set]
+
+
 def split_full_connector_it_modules(modules, total_num):
     if total_num <= 0:
         raise ValueError(f"total shard count must be positive, got {total_num}")
@@ -204,17 +246,12 @@ def build_sub_it_modules(modules, total_num, current_num):
             f"shard index {current_num} out of range [0, {total_num})"
         )
 
-    # The JDBC aggregate is handled by the dedicated JDBC jobs for full runs,
-    # while the base, console, and edge-agent suites have their own jobs. Direct
-    # changes to these modules still rely on the updated-module shards.
-    modules_arr = _filter_shared_it_modules(
-        modules.split(","),
-        {
-            "connector-jdbc-e2e",
-            "connector-seatunnel-e2e-base",
-            "connector-console-seatunnel-e2e",
-            "seatunnel-edge-agent-e2e",
-        },
+    modules_arr = [module for module in dict.fromkeys(modules.split(",")) if module]
+    modules_arr = filter_dedicated_shard_modules(
+        modules_arr, ALL_CONNECTORS_REQUIRED_DEDICATED_SHARD_MODULES, True
+    )
+    modules_arr = filter_dedicated_shard_modules(
+        modules_arr, ALL_CONNECTORS_OPTIONAL_DEDICATED_SHARD_MODULES, False
     )
     shards = split_full_connector_it_modules(modules_arr, total_num)
     return ",".join(":" + module for module in shards[current_num])

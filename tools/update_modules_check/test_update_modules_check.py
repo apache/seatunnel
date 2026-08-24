@@ -17,10 +17,16 @@
 """Regression tests for connector E2E module sharding."""
 
 import io
+import re
 import unittest
+from collections import Counter
 from contextlib import redirect_stdout
+from pathlib import Path
 
 from update_modules_check import (
+    ALL_CONNECTORS_DEDICATED_SHARD_MODULES,
+    ALL_CONNECTORS_OPTIONAL_DEDICATED_SHARD_MODULES,
+    ALL_CONNECTORS_REQUIRED_DEDICATED_SHARD_MODULES,
     build_sub_it_modules,
     get_sub_it_modules,
     get_sub_update_it_modules,
@@ -30,6 +36,16 @@ from update_modules_check import (
 
 class ConnectorItShardingTest(unittest.TestCase):
     """Verify connector sharding remains stable as modules change."""
+
+    @staticmethod
+    def parse_modules(modules):
+        return [module.lstrip(":") for module in modules.split(",") if module]
+
+    @staticmethod
+    def workflow_text():
+        return (
+            Path(__file__).resolve().parents[2] / ".github" / "workflows" / "backend.yml"
+        ).read_text(encoding="utf-8")
 
     def test_every_module_is_assigned_once(self) -> None:
         modules = ["connector-a-e2e", "connector-b-e2e", "connector-c-e2e"]
@@ -89,13 +105,8 @@ class ConnectorItShardingTest(unittest.TestCase):
     def test_full_and_updated_paths_apply_their_ownership_rules(self) -> None:
         connector_modules = [
             "connector-normal-e2e",
-            "connector-jdbc-e2e",
-            "connector-seatunnel-e2e-base",
-            "connector-console-seatunnel-e2e",
-            "seatunnel-edge-agent-e2e",
-            "connector-iceberg-e2e",
-            "connector-hbase-e2e",
-            "connector-sensorsdata-e2e",
+            *ALL_CONNECTORS_REQUIRED_DEDICATED_SHARD_MODULES,
+            *ALL_CONNECTORS_OPTIONAL_DEDICATED_SHARD_MODULES,
             "connector-iceberg-hadoop3-e2e",
             "connector-iceberg-s3-e2e",
         ]
@@ -124,38 +135,103 @@ class ConnectorItShardingTest(unittest.TestCase):
             ":connector-iceberg-s3-e2e\n",
         )
 
-    def test_dedicated_heavy_suites_do_not_stay_in_regular_shards(self):
-        """Iceberg and HBase should run only in their dedicated jobs."""
+    def test_regular_shards_keep_only_remaining_modules_once(self) -> None:
+        expected_modules = {
+            "connector-assert-e2e",
+            "connector-cdc-sqlserver-e2e",
+            "connector-http-e2e",
+        }
+        modules = ",".join(
+            ["", *sorted(expected_modules), *ALL_CONNECTORS_DEDICATED_SHARD_MODULES]
+        )
+
+        shard_outputs = [build_sub_it_modules(modules, 7, shard) for shard in range(7)]
+        shard_modules = [self.parse_modules(output) for output in shard_outputs]
+        combined_counter = Counter(
+            module for output_modules in shard_modules for module in output_modules
+        )
+
+        self.assertEqual(expected_modules, set(combined_counter))
+        self.assertEqual(Counter(expected_modules), combined_counter)
+        self.assertTrue(
+            set(ALL_CONNECTORS_DEDICATED_SHARD_MODULES).isdisjoint(set(combined_counter))
+        )
+
+    def test_regular_shards_fail_fast_when_dedicated_modules_disappear(self) -> None:
         modules = ",".join(
             [
                 "",
                 "connector-assert-e2e",
-                "connector-jdbc-e2e",
-                "connector-redis-e2e",
-                "connector-cdc-sqlserver-e2e",
-                "connector-kafka-e2e",
-                "connector-iceberg-e2e",
-                "connector-hbase-e2e",
-                "connector-http-e2e",
-                "connector-rocketmq-e2e",
-                "connector-kudu-e2e",
-                "connector-amazonsqs-e2e",
-                "connector-doris-e2e",
-                "connector-paimon-e2e",
-                "connector-cdc-oracle-e2e",
-                "connector-file-local-e2e",
-                "connector-file-sftp-e2e",
-                "connector-sensorsdata-e2e",
+                *[
+                    module
+                    for module in ALL_CONNECTORS_REQUIRED_DEDICATED_SHARD_MODULES
+                    if module != "connector-elasticsearch-e2e"
+                ],
             ]
         )
 
-        shard_outputs = [build_sub_it_modules(modules, 7, shard) for shard in range(7)]
-        combined_outputs = ",".join(shard_outputs)
+        with self.assertRaisesRegex(ValueError, "connector-elasticsearch-e2e"):
+            build_sub_it_modules(modules, 7, 0)
 
-        self.assertIn("connector-assert-e2e", combined_outputs)
-        for shard_modules in shard_outputs:
-            self.assertNotIn("connector-iceberg-e2e", shard_modules)
-            self.assertNotIn("connector-hbase-e2e", shard_modules)
+    def test_regular_shards_allow_optional_dedicated_modules_to_be_absent(
+        self,
+    ) -> None:
+        modules = ",".join(
+            ["", "connector-assert-e2e", *ALL_CONNECTORS_REQUIRED_DEDICATED_SHARD_MODULES]
+        )
+
+        shard_outputs = [build_sub_it_modules(modules, 7, shard) for shard in range(7)]
+        combined_modules = {
+            module
+            for output in shard_outputs
+            for module in self.parse_modules(output)
+        }
+
+        self.assertEqual({"connector-assert-e2e"}, combined_modules)
+
+    def test_workflow_keeps_dedicated_jobs_for_excluded_modules(self) -> None:
+        workflow_modules = set()
+        for modules in re.findall(
+            r"-pl\s+(:[A-Za-z0-9._-]+(?:,:[A-Za-z0-9._-]+)*)",
+            self.workflow_text(),
+        ):
+            workflow_modules.update(
+                module.lstrip(":") for module in modules.split(",") if module
+            )
+
+        expected_workflow_modules = set(ALL_CONNECTORS_DEDICATED_SHARD_MODULES)
+        expected_workflow_modules.remove("connector-jdbc-e2e")
+        expected_workflow_modules.update(
+            {
+                "connector-jdbc-e2e-part-1",
+                "connector-jdbc-e2e-part-2",
+                "connector-jdbc-e2e-part-3",
+                "connector-jdbc-e2e-part-4",
+                "connector-jdbc-e2e-part-5",
+                "connector-jdbc-e2e-part-6",
+                "connector-jdbc-e2e-part-7",
+                "connector-jdbc-e2e-ddl",
+            }
+        )
+
+        self.assertFalse(
+            expected_workflow_modules - workflow_modules,
+            f"Missing dedicated workflow modules: {sorted(expected_workflow_modules - workflow_modules)}",
+        )
+
+    def test_new_dedicated_job_conditions_match_complete_module_tokens(self) -> None:
+        workflow = self.workflow_text()
+        for module in (
+            "seatunnel-edge-agent-e2e",
+            "connector-iceberg-e2e",
+            "connector-hbase-e2e",
+        ):
+            with self.subTest(module=module):
+                self.assertIn(
+                    "contains(format(',{0},', needs.changes.outputs.it-modules), "
+                    f"',:{module},')",
+                    workflow,
+                )
 
     def test_full_shard_rejects_non_positive_shard_count(self) -> None:
         with self.assertRaisesRegex(
