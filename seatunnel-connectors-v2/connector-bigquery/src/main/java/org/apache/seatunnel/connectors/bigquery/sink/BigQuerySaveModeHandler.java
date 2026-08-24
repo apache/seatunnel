@@ -29,7 +29,6 @@ import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
 import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 
-import com.google.api.gax.rpc.ApiException;
 import com.google.cloud.bigquery.BigQueryException;
 import lombok.extern.slf4j.Slf4j;
 
@@ -137,9 +136,7 @@ public class BigQuerySaveModeHandler extends DefaultSaveModeHandler {
             if (e instanceof SeaTunnelRuntimeException) {
                 throw (SeaTunnelRuntimeException) e;
             }
-            if (e instanceof BigQueryException
-                    || e instanceof ApiException
-                    || e.getClass().getName().contains("StorageException")) {
+            if (e instanceof BigQueryException) {
                 throw new CatalogException("Failed to validate BigQuery schema coherence", e);
             }
             log.warn("Schema validation check ignored due to exception: {}", e.getMessage());
