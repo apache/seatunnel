@@ -40,8 +40,6 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.schema.SchemaChangePolicy;
 import org.apache.seatunnel.api.table.schema.SchemaChangeType;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
-import org.apache.seatunnel.api.table.schema.exception.SchemaEvolutionErrorCode;
-import org.apache.seatunnel.api.table.schema.exception.SinkWriterSchemaException;
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.common.constants.PluginType;
@@ -828,7 +826,9 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
     }
 
     private void processSchemaChangeEvent(SchemaChangeEvent event) throws IOException {
-        if (!(sinkAction.getSink() instanceof SupportSchemaEvolutionSink)) {
+        boolean supportsSchemaEvolution =
+                sinkAction.getSink() instanceof SupportSchemaEvolutionSink;
+        if (!supportsSchemaEvolution) {
             if (SchemaChangePolicy.isSafeToIgnore(event)) {
                 log.warn(
                         "Drop unsupported comment-only schema change event {} for table {} "
@@ -838,15 +838,12 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
                         sinkAction.getSink().getPluginName());
                 return;
             }
-            throw new SinkWriterSchemaException(
-                    SchemaEvolutionErrorCode.SCHEMA_EVENT_PROCESSING_FAILED,
-                    String.format(
-                            "Sink %s does not advertise schema evolution support for event %s.",
-                            sinkAction.getSink().getPluginName(), event.getEventType()),
-                    event.tableIdentifier(),
-                    event.getJobId(),
-                    null);
         }
+        SchemaChangePolicy.validateSinkSupportsSchemaEvolution(
+                supportsSchemaEvolution,
+                event,
+                sinkAction.getSink().getPluginName(),
+                event.getJobId());
         List<SchemaChangeType> supportedTypes =
                 ((SupportSchemaEvolutionSink) sinkAction.getSink()).supports();
         if (!SchemaChangePolicy.isSupported(event, supportedTypes)

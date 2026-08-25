@@ -17,9 +17,13 @@
 
 package org.apache.seatunnel.api.table.schema;
 
+import org.apache.seatunnel.api.table.catalog.PhysicalColumn;
 import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableCommentEvent;
 import org.apache.seatunnel.api.table.schema.exception.SchemaChangePolicyException;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.common.exception.NonRetryableException;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -42,5 +46,26 @@ public class SchemaChangePolicyTest {
                                         SchemaChangeBehavior.STRICT, event, "test-job"));
 
         Assertions.assertTrue(exception.getMessage().contains("Schema change behavior is STRICT"));
+    }
+
+    @Test
+    void testSinkWithoutSchemaEvolutionSupportIsNonRetryable() {
+        TableIdentifier tableIdentifier = TableIdentifier.of("catalog", "database", "table");
+        AlterTableAddColumnEvent event =
+                AlterTableAddColumnEvent.add(
+                        tableIdentifier,
+                        PhysicalColumn.of(
+                                "added_col", BasicType.STRING_TYPE, 64L, true, null, null));
+
+        SchemaChangePolicyException exception =
+                Assertions.assertThrows(
+                        SchemaChangePolicyException.class,
+                        () ->
+                                SchemaChangePolicy.validateSinkSupportsSchemaEvolution(
+                                        false, event, "plain", "test-job"));
+
+        Assertions.assertInstanceOf(NonRetryableException.class, exception);
+        Assertions.assertTrue(
+                exception.getMessage().contains("does not advertise schema evolution"));
     }
 }

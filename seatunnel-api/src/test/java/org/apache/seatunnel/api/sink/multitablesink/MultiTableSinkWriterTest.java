@@ -932,6 +932,33 @@ public class MultiTableSinkWriterTest {
     }
 
     @Test
+    public void testUnsupportedRowLayoutChangeFailsBeforeLegacyWriterApply() throws IOException {
+        SchemaChangeEvent event = createAddColumnEvent();
+        String tableId = event.tablePath().getFullName();
+        LegacySchemaEvolutionSinkWriter legacyWriter = new LegacySchemaEvolutionSinkWriter();
+        SinkIdentifier sinkIdentifier = SinkIdentifier.of(tableId, 0);
+        MultiTableSinkWriter multiTableSinkWriter =
+                new MultiTableSinkWriter(
+                        Collections.singletonMap(sinkIdentifier, legacyWriter),
+                        1,
+                        Collections.singletonMap(sinkIdentifier, new TestSinkWriterContext()),
+                        MultiTableFailurePolicy.FAIL_FAST,
+                        JobMode.BATCH,
+                        Collections.emptyList(),
+                        0,
+                        0,
+                        Collections.singletonMap(tableId, Collections.emptyList()));
+
+        RuntimeException error =
+                Assertions.assertThrows(
+                        RuntimeException.class,
+                        () -> multiTableSinkWriter.applySchemaChange(event));
+
+        Assertions.assertTrue(error.getMessage().contains("not supported end to end"));
+        Assertions.assertEquals(0, legacyWriter.appliedCount.get());
+    }
+
+    @Test
     public void testFailedTableMetadataIsSerializable() throws IOException {
         MultiTableFailedTable failedTable =
                 MultiTableFailureHelper.buildFailedTable(

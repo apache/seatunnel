@@ -35,6 +35,7 @@ import org.apache.seatunnel.api.table.schema.event.AlterTableDropColumnEvent;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.Record;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.common.exception.NonRetryableException;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.dag.actions.SinkAction;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
@@ -157,7 +158,19 @@ public class SinkFlowLifeCycleSchemaChangePolicyTest {
                         () -> sinkFlow.received(new Record<>(createAddColumnEvent())));
 
         Assertions.assertTrue(error.getMessage().contains("does not advertise schema evolution"));
+        Assertions.assertTrue(hasCause(error, NonRetryableException.class));
         Assertions.assertEquals(0, writer.appliedCount.get());
+    }
+
+    private static boolean hasCause(Throwable error, Class<?> causeType) {
+        Throwable current = error;
+        while (current != null) {
+            if (causeType.isInstance(current)) {
+                return true;
+            }
+            current = current.getCause();
+        }
+        return false;
     }
 
     @Test

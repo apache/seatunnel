@@ -176,6 +176,32 @@ public final class SchemaChangePolicy {
     }
 
     /**
+     * Fails when a sink does not advertise schema evolution support.
+     *
+     * <p>This rejection is a deterministic policy failure, so it is raised as a {@link
+     * SchemaChangePolicyException} and must not trigger checkpoint-based retries.
+     *
+     * @param supportsSchemaEvolution whether the sink advertises schema evolution support
+     * @param event schema change event to validate
+     * @param sinkName sink plugin name used in the error message
+     * @param jobId job identifier used in the raised exception
+     */
+    public static void validateSinkSupportsSchemaEvolution(
+            boolean supportsSchemaEvolution,
+            SchemaChangeEvent event,
+            String sinkName,
+            String jobId) {
+        if (!supportsSchemaEvolution) {
+            throw policyException(
+                    event,
+                    jobId,
+                    String.format(
+                            "Sink %s does not advertise schema evolution support for event %s.",
+                            sinkName, event.getEventType()));
+        }
+    }
+
+    /**
      * Returns whether an event only changes metadata and can be dropped without changing the
      * runtime row encoding.
      *

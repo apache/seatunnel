@@ -27,6 +27,7 @@ import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.sink.SupportSchemaEvolutionSinkWriter;
 import org.apache.seatunnel.api.table.schema.SchemaChangePolicy;
+import org.apache.seatunnel.api.table.schema.SchemaChangeType;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.tracing.MDCTracer;
@@ -93,6 +94,7 @@ public class MultiTableSinkWriter
     private final JobMode jobMode;
     private final int tableRetryTimes;
     private final int tableRetryIntervalSeconds;
+    private final Map<String, List<SchemaChangeType>> supportedSchemaChangeTypesByTable;
     private final Map<String, List<SinkIdentifier>> sinkIdentifiersByTable =
             new ConcurrentHashMap<>();
     private final ConcurrentMap<String, MultiTableFailedTable> failedTables =
@@ -194,12 +196,35 @@ public class MultiTableSinkWriter
             Collection<MultiTableFailedTable> initialFailedTables,
             int tableRetryTimes,
             int tableRetryIntervalSeconds) {
+        this(
+                sinkWriters,
+                queueSize,
+                sinkWritersContext,
+                failurePolicy,
+                jobMode,
+                initialFailedTables,
+                tableRetryTimes,
+                tableRetryIntervalSeconds,
+                null);
+    }
+
+    MultiTableSinkWriter(
+            Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters,
+            int queueSize,
+            Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext,
+            MultiTableFailurePolicy failurePolicy,
+            JobMode jobMode,
+            Collection<MultiTableFailedTable> initialFailedTables,
+            int tableRetryTimes,
+            int tableRetryIntervalSeconds,
+            Map<String, List<SchemaChangeType>> supportedSchemaChangeTypesByTable) {
         this.sinkWriters = sinkWriters;
         this.sinkWritersContext = sinkWritersContext;
         this.failurePolicy = failurePolicy;
         this.jobMode = jobMode;
         this.tableRetryTimes = Math.max(0, tableRetryTimes);
         this.tableRetryIntervalSeconds = Math.max(0, tableRetryIntervalSeconds);
+        this.supportedSchemaChangeTypesByTable = supportedSchemaChangeTypesByTable;
         AtomicInteger cnt = new AtomicInteger(0);
         executorService =
                 MDCTracer.tracing(
@@ -411,6 +436,7 @@ public class MultiTableSinkWriter
                             new SchemaChangeDispatchTarget(
                                     sinkWriterEntry.getKey(),
                                     sinkWriterEntry.getValue(),
+                                    getSupportedSchemaChangeTypes(sinkWriterEntry.getKey()),
                                     "source-match"));
                     primaryDispatchedKeys.add(sinkWriterEntry.getKey());
                     extractPhysicalSinkIdentifier(sinkWriterEntry.getValue())
@@ -437,6 +463,7 @@ public class MultiTableSinkWriter
                             new SchemaChangeDispatchTarget(
                                     sinkWriterEntry.getKey(),
                                     sinkWriterEntry.getValue(),
+                                    getSupportedSchemaChangeTypes(sinkWriterEntry.getKey()),
                                     "shared-physical-sink " + siblingPhysicalSinkId.get()));
                 }
             }
@@ -525,6 +552,19 @@ public class MultiTableSinkWriter
                 dispatchTarget.getSinkIdentifier().getTableIdentifier(),
                 dispatchTarget.getSinkIdentifier().getIndex(),
                 dispatchTarget.getReason());
+        List<SchemaChangeType> supportedTypes = dispatchTarget.getSupportedSchemaChangeTypes();
+        if (supportedTypes != null) {
+            if (!SchemaChangePolicy.isSupported(event, supportedTypes)
+                    && SchemaChangePolicy.isSafeToIgnore(event)) {
+                log.warn(
+                        "Drop unsupported comment-only schema change event {} for table {} "
+                                + "because its sub-sink does not advertise this capability.",
+                        event.getEventType(),
+                        dispatchTarget.getSinkIdentifier().getTableIdentifier());
+                return;
+            }
+            SchemaChangePolicy.validateSupported(event, supportedTypes, event.getJobId());
+        }
         executeWithTableRetry(
                 dispatchTarget.getSinkIdentifier().getTableIdentifier(),
                 MultiTableFailurePhase.CHECKPOINT,
@@ -559,6 +599,15 @@ public class MultiTableSinkWriter
                 dispatchTarget.getSinkIdentifier().getTableIdentifier(),
                 dispatchTarget.getSinkIdentifier().getIndex(),
                 dispatchTarget.getReason());
+    }
+
+    private List<SchemaChangeType> getSupportedSchemaChangeTypes(SinkIdentifier sinkIdentifier) {
+        if (supportedSchemaChangeTypesByTable == null) {
+            return null;
+        }
+        List<SchemaChangeType> supportedTypes =
+                supportedSchemaChangeTypesByTable.get(sinkIdentifier.getTableIdentifier());
+        return supportedTypes == null ? Collections.emptyList() : supportedTypes;
     }
 
     private Optional<String> extractPhysicalSinkIdentifier(SinkWriter<SeaTunnelRow, ?, ?> writer) {
