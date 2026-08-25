@@ -584,7 +584,7 @@ jobs:
         run: tools/github/free_disk_space.sh
       - name: run updated modules integration test (part-1)
         run: |
-          sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module '${{ needs.changes.outputs.it-modules }}' 8 0`
+          sub_modules=$(python tools/update_modules_check/update_modules_check.py sub_update_it_module "$IT_MODULES" 8 0)
           if [ ! -z $sub_modules ]; then
             echo $sub_modules
             ./mvnw -T 1 -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl $sub_modules -am -Pci
@@ -592,6 +592,7 @@ jobs:
             echo "sub modules is empty, skipping"
           fi
         env:
+          IT_MODULES: ${{ needs.changes.outputs.it-modules }}
           MAVEN_OPTS: -Xmx4096m
 
   updated-modules-integration-test-part-2:
@@ -616,7 +617,7 @@ jobs:
         run: tools/github/free_disk_space.sh
       - name: run updated modules integration test (part-2)
         run: |
-          sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module '${{ needs.changes.outputs.it-modules }}' 8 1`
+          sub_modules=$(python tools/update_modules_check/update_modules_check.py sub_update_it_module "$IT_MODULES" 8 1)
           if [ ! -z $sub_modules ]; then
             echo $sub_modules
             ./mvnw -T 1 -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl $sub_modules -am -Pci
@@ -624,6 +625,7 @@ jobs:
             echo "sub modules is empty, skipping"
           fi
         env:
+          IT_MODULES: ${{ needs.changes.outputs.it-modules }}
           MAVEN_OPTS: -Xmx4096m
 
   updated-modules-integration-test-part-3:
@@ -648,7 +650,7 @@ jobs:
         run: tools/github/free_disk_space.sh
       - name: run updated modules integration test (part-3)
         run: |
-          sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module '${{ needs.changes.outputs.it-modules }}' 8 2`
+          sub_modules=$(python tools/update_modules_check/update_modules_check.py sub_update_it_module "$IT_MODULES" 8 2)
           if [ ! -z $sub_modules ]; then
             echo $sub_modules
             ./mvnw -T 1 -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl $sub_modules -am -Pci
@@ -656,6 +658,7 @@ jobs:
             echo "sub modules is empty, skipping"
           fi
         env:
+          IT_MODULES: ${{ needs.changes.outputs.it-modules }}
           MAVEN_OPTS: -Xmx4096m
 
   updated-modules-integration-test-part-4:
@@ -680,7 +683,7 @@ jobs:
         run: tools/github/free_disk_space.sh
       - name: run updated modules integration test (part-4)
         run: |
-          sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module '${{ needs.changes.outputs.it-modules }}' 8 3`
+          sub_modules=$(python tools/update_modules_check/update_modules_check.py sub_update_it_module "$IT_MODULES" 8 3)
           if [ ! -z $sub_modules ]; then
             echo $sub_modules
             ./mvnw -T 1 -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl $sub_modules -am -Pci
@@ -688,6 +691,7 @@ jobs:
             echo "sub modules is empty, skipping"
           fi
         env:
+          IT_MODULES: ${{ needs.changes.outputs.it-modules }}
           MAVEN_OPTS: -Xmx4096m
   updated-modules-integration-test-part-5:
     needs: [ changes, sanity-check ]
@@ -711,7 +715,7 @@ jobs:
         run: tools/github/free_disk_space.sh
       - name: run updated modules integration test (part-5)
         run: |
-          sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module '${{ needs.changes.outputs.it-modules }}' 8 4`
+          sub_modules=$(python tools/update_modules_check/update_modules_check.py sub_update_it_module "$IT_MODULES" 8 4)
           if [ ! -z $sub_modules ]; then
             echo $sub_modules
             ./mvnw -T 1 -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl $sub_modules -am -Pci
@@ -719,6 +723,7 @@ jobs:
             echo "sub modules is empty, skipping"
           fi
         env:
+          IT_MODULES: ${{ needs.changes.outputs.it-modules }}
           MAVEN_OPTS: -Xmx4096m
   updated-modules-integration-test-part-6:
     needs: [ changes, sanity-check ]
@@ -742,7 +747,7 @@ jobs:
         run: tools/github/free_disk_space.sh
       - name: run updated modules integration test (part-6)
         run: |
-          sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module '${{ needs.changes.outputs.it-modules }}' 8 5`
+          sub_modules=$(python tools/update_modules_check/update_modules_check.py sub_update_it_module "$IT_MODULES" 8 5)
           if [ ! -z $sub_modules ]; then
             echo $sub_modules
             ./mvnw -T 1 -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl $sub_modules -am -Pci
@@ -750,6 +755,7 @@ jobs:
             echo "sub modules is empty, skipping"
           fi
         env:
+          IT_MODULES: ${{ needs.changes.outputs.it-modules }}
           MAVEN_OPTS: -Xmx4096m
   updated-modules-integration-test-part-7:
     needs: [ changes, sanity-check ]
@@ -773,7 +779,7 @@ jobs:
         run: tools/github/free_disk_space.sh
       - name: run updated modules integration test (part-7)
         run: |
-          sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module '${{ needs.changes.outputs.it-modules }}' 8 6`
+          sub_modules=$(python tools/update_modules_check/update_modules_check.py sub_update_it_module "$IT_MODULES" 8 6)
           if [ ! -z $sub_modules ]; then
             echo $sub_modules
             ./mvnw -T 1 -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl $sub_modules -am -Pci
@@ -781,6 +787,7 @@ jobs:
             echo "sub modules is empty, skipping"
           fi
         env:
+          IT_MODULES: ${{ needs.changes.outputs.it-modules }}
           MAVEN_OPTS: -Xmx4096m
 
   updated-modules-integration-test-part-8:
@@ -805,7 +812,7 @@ jobs:
         run: tools/github/free_disk_space.sh
       - name: run updated modules integration test (part-8)
         run: |
-          sub_modules=`python tools/update_modules_check/update_modules_check.py sub_update_it_module '${{ needs.changes.outputs.it-modules }}' 8 7`
+          sub_modules=$(python tools/update_modules_check/update_modules_check.py sub_update_it_module "$IT_MODULES" 8 7)
           if [ ! -z $sub_modules ]; then
             echo $sub_modules
             ./mvnw -T 1 -B verify -DskipUT=true -DskipIT=false -D"license.skipAddThirdParty"=true -D"skip.ui"=true --no-snapshot-updates -pl $sub_modules -am -Pci
@@ -813,6 +820,7 @@ jobs:
             echo "sub modules is empty, skipping"
           fi
         env:
+          IT_MODULES: ${{ needs.changes.outputs.it-modules }}
           MAVEN_OPTS: -Xmx4096m
 
   engine-v2-it:
@@ -960,6 +968,8 @@ jobs:
         env:
           MAVEN_OPTS: -Xmx4096m
 
+  # Dedicated connector ownership and shard rebalancing guidance are maintained in
+  # tools/update_modules_check/update_modules_check.py.
   all-connectors-it-1:
     needs: [ changes, sanity-check ]
     if: needs.changes.outputs.api == 'true' || needs.changes.outputs.engine == 'true'
