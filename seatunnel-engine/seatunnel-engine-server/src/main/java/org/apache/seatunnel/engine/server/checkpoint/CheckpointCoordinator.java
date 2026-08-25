@@ -44,7 +44,7 @@ import org.apache.seatunnel.engine.server.checkpoint.operation.NotifyTaskRestore
 import org.apache.seatunnel.engine.server.checkpoint.operation.NotifyTaskStartOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskReportStatusOperation;
-import org.apache.seatunnel.engine.server.checkpoint.serialization.CheckpointWireCodec;
+import org.apache.seatunnel.engine.server.checkpoint.savepoint.serialization.CheckpointWireCodec;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.task.record.Barrier;
 import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;

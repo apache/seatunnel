@@ -70,7 +70,7 @@ import org.apache.seatunnel.engine.server.checkpoint.CheckpointCoordinatorStatus
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointException;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointManager;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointPlan;
-import org.apache.seatunnel.engine.server.checkpoint.SavepointSaveSession;
+import org.apache.seatunnel.engine.server.checkpoint.savepoint.SavepointSaveSession;
 import org.apache.seatunnel.engine.server.dag.DAGUtils;
 import org.apache.seatunnel.engine.server.dag.physical.PhysicalPlan;
 import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;

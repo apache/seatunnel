@@ -41,7 +41,7 @@ import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOp
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskReportStatusOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TriggerSchemaChangeAfterCheckpointOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TriggerSchemaChangeBeforeCheckpointOperation;
-import org.apache.seatunnel.engine.server.checkpoint.serialization.SavepointReaderRegistry;
+import org.apache.seatunnel.engine.server.checkpoint.savepoint.serialization.SavepointReaderRegistry;
 import org.apache.seatunnel.engine.server.common.SeaTunnelEngineContext;
 import org.apache.seatunnel.engine.server.common.statestore.counter.CounterStateStore;
 import org.apache.seatunnel.engine.server.dag.execution.Pipeline;
