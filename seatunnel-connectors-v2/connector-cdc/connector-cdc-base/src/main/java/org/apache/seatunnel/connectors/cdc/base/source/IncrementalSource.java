@@ -83,7 +83,6 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 @NoArgsConstructor
 @Slf4j
@@ -395,10 +394,12 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
                             offsetFactory);
         } else if (checkpointState instanceof SnapshotPhaseState) {
             SnapshotPhaseState checkpointSnapshotState = (SnapshotPhaseState) checkpointState;
+            Set<TableId> checkpointCapturedTables =
+                    getCheckpointCapturedTables(checkpointSnapshotState);
             SplitAssigner.Context<C> assignerContext =
                     new SplitAssigner.Context<>(
                             sourceConfig,
-                            capturedTables,
+                            checkpointCapturedTables,
                             checkpointSnapshotState.getAssignedSplits(),
                             checkpointSnapshotState.getSplitCompletedOffsets());
             splitAssigner =
@@ -424,14 +425,23 @@ public abstract class IncrementalSource<T, C extends SourceConfig>
         return new IncrementalSourceEnumerator(enumeratorContext, splitAssigner);
     }
 
+    private static Set<TableId> getCheckpointCapturedTables(SnapshotPhaseState snapshotState) {
+        Set<TableId> checkpointTables = new HashSet<>(snapshotState.getAlreadyProcessedTables());
+        checkpointTables.addAll(snapshotState.getRemainingTables());
+        snapshotState.getRemainingSplits().stream()
+                .map(SnapshotSplit::getTableId)
+                .forEach(checkpointTables::add);
+        snapshotState.getAssignedSplits().values().stream()
+                .map(SnapshotSplit::getTableId)
+                .forEach(checkpointTables::add);
+        return checkpointTables;
+    }
+
     private HybridPendingSplitsState restore(
             Set<TableId> capturedTables, HybridPendingSplitsState checkpointState) {
         SnapshotPhaseState checkpointSnapshotState = checkpointState.getSnapshotPhaseState();
         Set<TableId> checkpointCapturedTables =
-                Stream.concat(
-                                checkpointSnapshotState.getAlreadyProcessedTables().stream(),
-                                checkpointSnapshotState.getRemainingTables().stream())
-                        .collect(Collectors.toSet());
+                getCheckpointCapturedTables(checkpointSnapshotState);
         Set<TableId> newTables = Sets.difference(capturedTables, checkpointCapturedTables);
         Set<TableId> deletedTables = Sets.difference(checkpointCapturedTables, capturedTables);
 
