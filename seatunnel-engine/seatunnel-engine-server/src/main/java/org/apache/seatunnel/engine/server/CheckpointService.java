@@ -33,14 +33,13 @@ import org.apache.seatunnel.engine.server.checkpoint.ActionState;
 import org.apache.seatunnel.engine.server.checkpoint.ActionStateKey;
 import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
 import org.apache.seatunnel.engine.server.checkpoint.CompletedCheckpoint;
-import org.apache.seatunnel.engine.server.checkpoint.serialization.CheckpointWireCodec;
+import org.apache.seatunnel.engine.server.checkpoint.serialization.SavepointReaderRegistry;
 import org.apache.seatunnel.engine.server.utils.CheckpointRestoreUtils;
 
 import lombok.Getter;
 import lombok.SneakyThrows;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -130,16 +129,15 @@ public class CheckpointService {
             if (!handles.isEmpty()) {
                 SavepointData data =
                         savepointStorage.readSavepoint(jobId, handles.get(0).getSavepointId());
-                List<CompletedCheckpoint> result = new ArrayList<>();
-                for (Map.Entry<Integer, PipelineState> entry :
-                        data.getPipelineStates().entrySet()) {
-                    CompletedCheckpoint checkpoint =
-                            CheckpointWireCodec.toCompletedCheckpoint(
-                                    CheckpointWireCodec.decode(entry.getValue().getStates()));
-                    result.add(checkpoint);
-                }
-                result.sort(Comparator.comparingInt(CompletedCheckpoint::getPipelineId));
-                return result;
+                Map<Integer, byte[]> payloads = new HashMap<>();
+                data.getPipelineStates()
+                        .forEach((pid, state) -> payloads.put(pid, state.getStates()));
+                Map<Integer, CompletedCheckpoint> restored =
+                        SavepointReaderRegistry.forVersion(data.getMeta())
+                                .read(data.getMeta(), payloads);
+                return restored.values().stream()
+                        .sorted(Comparator.comparingInt(CompletedCheckpoint::getPipelineId))
+                        .collect(Collectors.toList());
             }
             // No bundle: fall through to the legacy checkpoint-directory scan (best-effort).
         }

@@ -41,7 +41,7 @@ import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOp
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskReportStatusOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TriggerSchemaChangeAfterCheckpointOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TriggerSchemaChangeBeforeCheckpointOperation;
-import org.apache.seatunnel.engine.server.checkpoint.serialization.CheckpointWireCodec;
+import org.apache.seatunnel.engine.server.checkpoint.serialization.SavepointReaderRegistry;
 import org.apache.seatunnel.engine.server.common.SeaTunnelEngineContext;
 import org.apache.seatunnel.engine.server.common.statestore.counter.CounterStateStore;
 import org.apache.seatunnel.engine.server.dag.execution.Pipeline;
@@ -63,6 +63,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
@@ -222,18 +223,20 @@ public class CheckpointManager {
         }
         SavepointHandle newest = handles.get(0);
         SavepointData data = savepointStorage.readSavepoint(sourceJobId, newest.getSavepointId());
+        Map<Integer, byte[]> payloads = new HashMap<>();
+        data.getPipelineStates().forEach((pid, state) -> payloads.put(pid, state.getStates()));
+        Map<Integer, CompletedCheckpoint> restored =
+                SavepointReaderRegistry.forVersion(data.getMeta()).read(data.getMeta(), payloads);
         PipelineState pipelineState = data.getPipelineStates().get(Integer.valueOf(pipelineId));
-        if (pipelineState == null) {
+        CompletedCheckpoint checkpoint = restored.get(Integer.valueOf(pipelineId));
+        if (pipelineState == null || checkpoint == null) {
             throw new RuntimeException(
                     String.format(
                             "Savepoint bundle %s of job %s has no payload for pipeline %s",
                             newest.getSavepointId(), sourceJobId, pipelineId));
         }
-        // engine-wire-v1 payload -> runtime CompletedCheckpoint -> legacy byte layout expected by
+        // engine-wire payload -> runtime CompletedCheckpoint -> legacy byte layout expected by
         // CheckpointCoordinator.
-        CompletedCheckpoint checkpoint =
-                CheckpointWireCodec.toCompletedCheckpoint(
-                        CheckpointWireCodec.decode(pipelineState.getStates()));
         pipelineState.setStates(serializer.serialize(checkpoint));
         return pipelineState;
     }
