@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.checkpoint;
+package org.apache.seatunnel.engine.server.checkpoint.savepoint;
 
 import org.apache.seatunnel.common.utils.FileUtils;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;

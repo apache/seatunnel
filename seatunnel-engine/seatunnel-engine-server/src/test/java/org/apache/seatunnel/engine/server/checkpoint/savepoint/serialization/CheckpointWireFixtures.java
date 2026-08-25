@@ -15,12 +15,20 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.checkpoint;
+package org.apache.seatunnel.engine.server.checkpoint.savepoint.serialization;
 
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
 import org.apache.seatunnel.engine.serializer.protobuf.ProtoStuffSerializer;
+import org.apache.seatunnel.engine.server.checkpoint.ActionState;
+import org.apache.seatunnel.engine.server.checkpoint.ActionStateKey;
+import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
+import org.apache.seatunnel.engine.server.checkpoint.CompletedCheckpoint;
+import org.apache.seatunnel.engine.server.checkpoint.SubtaskStatistics;
+import org.apache.seatunnel.engine.server.checkpoint.SubtaskStatus;
+import org.apache.seatunnel.engine.server.checkpoint.TaskStatistics;
 
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -41,6 +49,25 @@ public final class CheckpointWireFixtures {
     public static final long CHECKPOINT_ID = 7L;
     public static final long TRIGGER_TIMESTAMP = 1748595600000L;
     public static final long COMPLETED_TIMESTAMP = 1748595600123L;
+
+    /**
+     * Frozen legacy-v0 wire bytes (base64). These are the bytes the engine wrote before the
+     * engine-wire-v1 format existed - they must stay byte-identical forever and must keep being
+     * readable by {@link LegacyCheckpointReader}. Kept as text (not binary resources) because the
+     * repository CI requires all files to be UTF-8 readable.
+     */
+    public static final byte[] LEGACY_V0_COMPLETED_CHECKPOINT =
+            Base64.getDecoder()
+                    .decode(
+                            "CICA6Z2n742XChAAGAcggNWtg/IyKAMw+9Wtg/IyOwsLChxBY3Rpb25TdGF0ZUtleSAtIGZha2Utc291cmNlDBMLChxBY3Rpb25TdGF0ZUtleSAtIGZha2Utc291cmNlDBMLCwocQWN0aW9uU3RhdGVLZXkgLSBmYWtlLXNvdXJjZQwQABsKAwECAxwMEAEUGwsKHEFjdGlvblN0YXRlS2V5IC0gZmFrZS1zb3VyY2UMEP///////////wEbCgMJCAccHCACFAw8QwsIABMIABMLCAAQ6AcYKiAADBABFBsIAhABEAAcIAErCAAQ6AcYKiAALBQMREgA");
+
+    public static final byte[] LEGACY_V0_COMPLETED_CHECKPOINT_EMPTY =
+            Base64.getDecoder().decode("CICA6Z2n742XChAAGAgggNWtg/IyKAQw+9Wtg/IyOzxDREgB");
+
+    public static final byte[] LEGACY_V0_PIPELINE_STATE =
+            Base64.getDecoder()
+                    .decode(
+                            "ChI3MzM1ODQ3ODgzNzUwOTMyNDgQABgHIvkBCICA6Z2n742XChAAGAcggNWtg/IyKAMw+9Wtg/IyOwsLChxBY3Rpb25TdGF0ZUtleSAtIGZha2Utc291cmNlDBMLChxBY3Rpb25TdGF0ZUtleSAtIGZha2Utc291cmNlDBMLCwocQWN0aW9uU3RhdGVLZXkgLSBmYWtlLXNvdXJjZQwQABsKAwECAxwMEAEUGwsKHEFjdGlvblN0YXRlS2V5IC0gZmFrZS1zb3VyY2UMEP///////////wEbCgMJCAccHCACFAw8QwsIABMIABMLCAAQ6AcYKiAADBABFBsIAhABEAAcIAErCAAQ6AcYKiAALBQMREgA");
 
     private CheckpointWireFixtures() {}
 

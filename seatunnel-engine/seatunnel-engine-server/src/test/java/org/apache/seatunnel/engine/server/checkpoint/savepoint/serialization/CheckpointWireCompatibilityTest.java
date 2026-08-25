@@ -15,23 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.checkpoint;
+package org.apache.seatunnel.engine.server.checkpoint.savepoint.serialization;
 
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
 import org.apache.seatunnel.engine.serializer.protobuf.ProtoStuffSerializer;
-import org.apache.seatunnel.engine.server.checkpoint.serialization.CheckpointWireCodec;
-import org.apache.seatunnel.engine.server.checkpoint.serialization.LegacyCheckpointReader;
-import org.apache.seatunnel.engine.server.checkpoint.serialization.WireActionState;
-import org.apache.seatunnel.engine.server.checkpoint.serialization.WireCheckpoint;
-import org.apache.seatunnel.engine.server.checkpoint.serialization.WireSubtaskState;
-import org.apache.seatunnel.engine.server.checkpoint.serialization.WireSubtaskStatistics;
-import org.apache.seatunnel.engine.server.checkpoint.serialization.WireTaskStatistics;
+import org.apache.seatunnel.engine.server.checkpoint.CompletedCheckpoint;
+import org.apache.seatunnel.engine.server.checkpoint.SubtaskStatus;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -50,7 +44,8 @@ import java.util.HashMap;
  *       target/fixtures/legacy-v0}; the committed copies under {@code
  *       src/test/resources/savepoint-wire/legacy-v0} are frozen - never edit after review.
  *   <li>{@code replayV0*} proves the frozen legacy bytes still decode into the {@code
- *       engine-wire-v1} DTO via {@link LegacyCheckpointReader}.
+ *       engine-wire-v1} DTO via {@link
+ *       org.apache.seatunnel.engine.server.checkpoint.savepoint.serialization.LegacyCheckpointReader}.
  *   <li>{@code v1*} tests pin the new wire-format contract: stable enum names, no runtime-only
  *       fields, byte-stable round trip, explicit errors for unknown enum values.
  * </ul>
@@ -58,12 +53,11 @@ import java.util.HashMap;
 public class CheckpointWireCompatibilityTest {
 
     private static final String LEGACY_VERSION = "legacy-v0";
-    private static final String FIXTURE_DIR = "savepoint-wire/" + LEGACY_VERSION;
     private static final Path GENERATED_DIR = Paths.get("target", "fixtures", LEGACY_VERSION);
 
     private final ProtoStuffSerializer serializer = new ProtoStuffSerializer();
 
-    /** Regenerates legacy-v0 wire bytes into the module build dir (source of frozen fixtures). */
+    /** Regenerates the current wire bytes into the module build dir (for fixture archaeology). */
     @Test
     public void generateV0Fixtures() throws IOException {
         Files.createDirectories(GENERATED_DIR);
@@ -78,9 +72,24 @@ public class CheckpointWireCompatibilityTest {
                 serializer.serialize(CheckpointWireFixtures.samplePipelineState()));
     }
 
+    /** The current runtime layout must still reproduce the frozen legacy-v0 bytes exactly. */
     @Test
-    public void replayV0CompletedCheckpointViaLegacyReader() throws IOException {
-        WireCheckpoint wire = LegacyCheckpointReader.read(readFixture("completed-checkpoint.ser"));
+    public void legacyV0WireFormatIsStable() {
+        Assertions.assertArrayEquals(
+                CheckpointWireFixtures.LEGACY_V0_COMPLETED_CHECKPOINT,
+                serializer.serialize(CheckpointWireFixtures.sampleCompletedCheckpoint()));
+        Assertions.assertArrayEquals(
+                CheckpointWireFixtures.LEGACY_V0_COMPLETED_CHECKPOINT_EMPTY,
+                serializer.serialize(CheckpointWireFixtures.sampleEmptyCompletedCheckpoint()));
+        Assertions.assertArrayEquals(
+                CheckpointWireFixtures.LEGACY_V0_PIPELINE_STATE,
+                serializer.serialize(CheckpointWireFixtures.samplePipelineState()));
+    }
+
+    @Test
+    public void replayV0CompletedCheckpointViaLegacyReader() {
+        WireCheckpoint wire =
+                LegacyCheckpointReader.read(CheckpointWireFixtures.LEGACY_V0_COMPLETED_CHECKPOINT);
         assertFullSampleWire(wire);
 
         // The wire DTO must convert back into a fully-formed runtime model.
@@ -106,9 +115,10 @@ public class CheckpointWireCompatibilityTest {
     }
 
     @Test
-    public void replayV0EmptyCheckpointViaLegacyReader() throws IOException {
+    public void replayV0EmptyCheckpointViaLegacyReader() {
         WireCheckpoint wire =
-                LegacyCheckpointReader.read(readFixture("completed-checkpoint-empty.ser"));
+                LegacyCheckpointReader.read(
+                        CheckpointWireFixtures.LEGACY_V0_COMPLETED_CHECKPOINT_EMPTY);
         Assertions.assertEquals(
                 CheckpointType.COMPLETED_POINT_TYPE.getName(), wire.getCheckpointTypeName());
         Assertions.assertTrue(wire.getTaskStates().isEmpty());
@@ -116,9 +126,10 @@ public class CheckpointWireCompatibilityTest {
     }
 
     @Test
-    public void replayV0PipelineStateViaLegacyReader() throws IOException {
+    public void replayV0PipelineStateViaLegacyReader() {
         PipelineState state =
-                serializer.deserialize(readFixture("pipeline-state.ser"), PipelineState.class);
+                serializer.deserialize(
+                        CheckpointWireFixtures.LEGACY_V0_PIPELINE_STATE, PipelineState.class);
         Assertions.assertEquals(String.valueOf(CheckpointWireFixtures.JOB_ID), state.getJobId());
         Assertions.assertEquals(CheckpointWireFixtures.PIPELINE_ID, state.getPipelineId());
         Assertions.assertEquals(CheckpointWireFixtures.CHECKPOINT_ID, state.getCheckpointId());
@@ -217,13 +228,5 @@ public class CheckpointWireCompatibilityTest {
         Assertions.assertArrayEquals(new boolean[] {true, false}, statistics.getSubtaskCompleted());
         Assertions.assertEquals(1, statistics.getNumAcknowledgedSubtasks());
         Assertions.assertNotNull(statistics.getLatestAckedSubtaskStatistics());
-    }
-
-    private byte[] readFixture(String name) throws IOException {
-        Path fixturePath = Paths.get("src", "test", "resources", FIXTURE_DIR, name);
-        if (!Files.exists(fixturePath)) {
-            Assertions.fail("missing frozen fixture " + FIXTURE_DIR + File.separator + name);
-        }
-        return Files.readAllBytes(fixturePath);
     }
 }

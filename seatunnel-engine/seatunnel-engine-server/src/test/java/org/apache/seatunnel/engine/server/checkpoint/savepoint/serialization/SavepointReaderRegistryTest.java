@@ -15,11 +15,10 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.checkpoint.serialization;
+package org.apache.seatunnel.engine.server.checkpoint.savepoint.serialization;
 
 import org.apache.seatunnel.engine.checkpoint.storage.savepoint.SavepointMeta;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
-import org.apache.seatunnel.engine.server.checkpoint.CheckpointWireFixtures;
 import org.apache.seatunnel.engine.server.checkpoint.CompletedCheckpoint;
 
 import org.junit.jupiter.api.Assertions;
