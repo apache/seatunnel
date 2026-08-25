@@ -222,6 +222,64 @@ public class HdfsFileSinkTest {
         fs.delete(new Path(FS_MULTI_TABLE_SINK_PATH), true);
     }
 
+    /** Ensures only compatible static-schema file aliases can opt into one multi-table writer. */
+    @Test
+    public void testPhysicalDestinationIdentifierRequiresStaticEquivalentSchema() {
+        Map<String, Object> staticConfig = createBasicConfig();
+        staticConfig.put(FileBaseSinkOptions.FILE_FORMAT_TYPE.key(), FileFormat.TEXT.toString());
+        HdfsFileSink firstStaticSink =
+                new HdfsFileSink(
+                        new HadoopConf(DEFAULT_FS),
+                        ReadonlyConfig.fromMap(staticConfig),
+                        catalogTable);
+        HdfsFileSink secondStaticSink =
+                new HdfsFileSink(
+                        new HadoopConf(DEFAULT_FS),
+                        ReadonlyConfig.fromMap(staticConfig),
+                        catalogTable);
+
+        Assertions.assertTrue(firstStaticSink.getPhysicalDestinationIdentifier().isPresent());
+        Assertions.assertEquals(
+                firstStaticSink.getPhysicalDestinationIdentifier(),
+                secondStaticSink.getPhysicalDestinationIdentifier());
+
+        CatalogTable differentSchemaTable =
+                CatalogTable.of(
+                        TableIdentifier.of("catalog", "database", "different_table"),
+                        TableSchema.builder()
+                                .column(
+                                        PhysicalColumn.of(
+                                                ROW_NAME,
+                                                BasicType.STRING_TYPE,
+                                                1L,
+                                                true,
+                                                null,
+                                                ""))
+                                .build(),
+                        Collections.emptyMap(),
+                        Collections.emptyList(),
+                        "comment");
+        HdfsFileSink differentSchemaSink =
+                new HdfsFileSink(
+                        new HadoopConf(DEFAULT_FS),
+                        ReadonlyConfig.fromMap(staticConfig),
+                        differentSchemaTable);
+
+        Assertions.assertNotEquals(
+                firstStaticSink.getPhysicalDestinationIdentifier(),
+                differentSchemaSink.getPhysicalDestinationIdentifier());
+
+        Map<String, Object> schemaEvolutionConfig = new HashMap<>(staticConfig);
+        schemaEvolutionConfig.put(FileBaseSinkOptions.SCHEMA_EVOLUTION_ENABLED.key(), true);
+        HdfsFileSink schemaEvolutionSink =
+                new HdfsFileSink(
+                        new HadoopConf(DEFAULT_FS),
+                        ReadonlyConfig.fromMap(schemaEvolutionConfig),
+                        catalogTable);
+
+        Assertions.assertFalse(schemaEvolutionSink.getPhysicalDestinationIdentifier().isPresent());
+    }
+
     private Map<String, Object> createBasicConfig() {
         Map<String, Object> config = new HashMap<>();
         config.put(FileBaseSinkOptions.DEFAULT_FS.key(), DEFAULT_FS);

@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.sink.SinkCommitter;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -36,50 +37,55 @@ public class MultiTableSinkCommitter implements SinkCommitter<MultiTableCommitIn
     @Override
     public List<MultiTableCommitInfo> commit(List<MultiTableCommitInfo> commitInfos)
             throws IOException {
-        for (String sinkIdentifier : sinkCommitters.keySet()) {
-            SinkCommitter<?> sinkCommitter = sinkCommitters.get(sinkIdentifier);
-            if (sinkCommitter != null) {
-                List commitInfo =
-                        commitInfos.stream()
-                                .flatMap(
-                                        multiTableCommitInfo ->
-                                                multiTableCommitInfo.getCommitInfo().entrySet()
-                                                        .stream()
-                                                        .filter(
-                                                                entry ->
-                                                                        entry.getKey()
-                                                                                .getTableIdentifier()
-                                                                                .equals(
-                                                                                        sinkIdentifier)))
-                                .map(Map.Entry::getValue)
-                                .collect(Collectors.toList());
-                sinkCommitter.commit(commitInfo);
-            }
+        for (Map.Entry<SinkCommitter<?>, List<String>> entry : groupByIdentity().entrySet()) {
+            entry.getKey().commit(getCommitInfos(commitInfos, entry.getValue()));
         }
         return new ArrayList<>();
     }
 
     @Override
     public void abort(List<MultiTableCommitInfo> commitInfos) throws IOException {
-        for (String sinkIdentifier : sinkCommitters.keySet()) {
-            SinkCommitter<?> sinkCommitter = sinkCommitters.get(sinkIdentifier);
-            if (sinkCommitter != null) {
-                List commitInfo =
-                        commitInfos.stream()
-                                .flatMap(
-                                        multiTableCommitInfo ->
-                                                multiTableCommitInfo.getCommitInfo().entrySet()
-                                                        .stream()
-                                                        .filter(
-                                                                entry ->
-                                                                        entry.getKey()
-                                                                                .getTableIdentifier()
-                                                                                .equals(
-                                                                                        sinkIdentifier)))
-                                .map(Map.Entry::getValue)
-                                .collect(Collectors.toList());
-                sinkCommitter.abort(commitInfo);
+        for (Map.Entry<SinkCommitter<?>, List<String>> entry : groupByIdentity().entrySet()) {
+            entry.getKey().abort(getCommitInfos(commitInfos, entry.getValue()));
+        }
+    }
+
+    /**
+     * Groups aliases that intentionally reference the same physical destination committer.
+     *
+     * @return one committer with every source-table identifier that routes to it
+     */
+    private Map<SinkCommitter<?>, List<String>> groupByIdentity() {
+        Map<SinkCommitter<?>, List<String>> groupedCommitters = new IdentityHashMap<>();
+        for (Map.Entry<String, SinkCommitter<?>> entry : sinkCommitters.entrySet()) {
+            if (entry.getValue() != null) {
+                groupedCommitters
+                        .computeIfAbsent(entry.getValue(), ignored -> new ArrayList<>())
+                        .add(entry.getKey());
             }
         }
+        return groupedCommitters;
+    }
+
+    /**
+     * Collects the canonical and legacy per-alias commit records for one physical committer.
+     *
+     * @param commitInfos all multi-table commit records received by the engine
+     * @param sinkIdentifiers source-table identifiers that share this committer
+     * @return commit payloads to deliver in one committer call
+     */
+    private List getCommitInfos(
+            List<MultiTableCommitInfo> commitInfos, List<String> sinkIdentifiers) {
+        return commitInfos.stream()
+                .flatMap(
+                        multiTableCommitInfo ->
+                                multiTableCommitInfo.getCommitInfo().entrySet().stream()
+                                        .filter(
+                                                entry ->
+                                                        sinkIdentifiers.contains(
+                                                                entry.getKey()
+                                                                        .getTableIdentifier()))
+                                        .map(Map.Entry::getValue))
+                .collect(Collectors.toList());
     }
 }

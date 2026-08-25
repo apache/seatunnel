@@ -81,6 +81,20 @@ SeaTunnel 的 sink 设计支持多种复杂度层级：
 - sink 收到重复 commit 请求会怎样
 - 目标表 schema 变化后会怎样
 
+## 多表 Writer 复用
+
+多表执行可以让多个上游表复用同一个写入同一物理目标的 writer 和 committer。connector 通过重写
+`SeaTunnelSink#getPhysicalDestinationIdentifier()` 显式选择加入该机制。
+
+只有在复用安全时才能返回标识。该标识必须包含会影响实际写入目标的全部坐标，例如 connector
+endpoint、warehouse、namespace、table 和 branch。返回同一标识的 sink 必须具有兼容的 schema、
+writer 配置和提交语义：协调器会从其中一个 alias 创建共享 writer，并把所有 alias 的数据都路由给它。
+协调器会额外使用 connector 实现类作为命名空间，因此不同 connector 类型之间不会共享。
+
+对于共享目标，checkpoint 只保存一个 canonical writer state 和一个 canonical commit record。恢复时，
+`restoreWriter` 可能会收到来自所有 alias 的合并 state，因此实现必须能处理该 state 列表。当无法保证
+这份契约时，应返回 `Optional.empty()`，SeaTunnel 会继续为每个 sink instance 保持独立 writer。
+
 ## 设计检查清单
 
 编码前，建议先回答这些问题：

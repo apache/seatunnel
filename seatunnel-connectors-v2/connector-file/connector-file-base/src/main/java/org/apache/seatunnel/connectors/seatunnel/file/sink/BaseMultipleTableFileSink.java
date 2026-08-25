@@ -128,9 +128,19 @@ public abstract class BaseMultipleTableFileSink
         return Optional.of(new DefaultSerializer<>());
     }
 
+    /**
+     * Shares a writer only for aliases with the same static row layout. Schema-evolution jobs keep
+     * isolated writers because each source alias can evolve its own in-memory row layout.
+     *
+     * @return a physical file destination identifier when writer sharing is safe, otherwise empty
+     */
     @Override
     public Optional<String> getPhysicalDestinationIdentifier() {
-        return Optional.ofNullable(fileSinkConfig.getPath());
+        if (fileSinkConfig.isSchemaEvolutionEnabled()) {
+            return Optional.empty();
+        }
+        return Optional.ofNullable(fileSinkConfig.getPath())
+                .map(path -> path + ";row-type=" + catalogTable.getSeaTunnelRowType());
     }
 
     @Override

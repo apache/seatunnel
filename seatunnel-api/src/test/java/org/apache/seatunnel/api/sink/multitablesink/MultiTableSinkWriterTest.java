@@ -54,6 +54,7 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -592,17 +593,19 @@ public class MultiTableSinkWriterTest {
         List<MultiTableState> states = multiTableSinkWriter.snapshotState(1L);
 
         Assertions.assertEquals(1, states.size());
-        Assertions.assertSame(
-                states.get(0).getStates().get(firstIdentifier),
-                states.get(0).getStates().get(secondIdentifier));
+        Assertions.assertEquals(1, states.get(0).getStates().size());
+        Assertions.assertTrue(
+                states.get(0).getStates().containsKey(firstIdentifier)
+                        || states.get(0).getStates().containsKey(secondIdentifier));
         Assertions.assertEquals(1, sharedWriter.getSnapshotCount());
 
         Optional<MultiTableCommitInfo> commitInfo = multiTableSinkWriter.prepareCommit(1L);
 
         Assertions.assertTrue(commitInfo.isPresent());
-        Assertions.assertEquals(2, commitInfo.get().getCommitInfo().size());
-        Assertions.assertTrue(commitInfo.get().getCommitInfo().containsKey(firstIdentifier));
-        Assertions.assertTrue(commitInfo.get().getCommitInfo().containsKey(secondIdentifier));
+        Assertions.assertEquals(1, commitInfo.get().getCommitInfo().size());
+        Assertions.assertTrue(
+                commitInfo.get().getCommitInfo().containsKey(firstIdentifier)
+                        || commitInfo.get().getCommitInfo().containsKey(secondIdentifier));
         Assertions.assertEquals(1, sharedWriter.getPrepareCommitCount());
 
         multiTableSinkWriter.abortPrepare();
@@ -610,6 +613,79 @@ public class MultiTableSinkWriterTest {
 
         multiTableSinkWriter.close();
         Assertions.assertEquals(1, sharedWriter.getCloseCount());
+    }
+
+    @Test
+    public void testSharedWriterRoundTripRestoresOneCanonicalState() throws IOException {
+        SinkIdentifier firstIdentifier = SinkIdentifier.of("src.db.t1", 0);
+        SinkIdentifier secondIdentifier = SinkIdentifier.of("src.db.t2", 0);
+        CountingSinkWriter sharedWriter = new CountingSinkWriter();
+        Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters = new HashMap<>();
+        Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
+        sinkWriters.put(firstIdentifier, sharedWriter);
+        sinkWriters.put(secondIdentifier, sharedWriter);
+        sinkWritersContext.put(firstIdentifier, new TestSinkWriterContext());
+        sinkWritersContext.put(secondIdentifier, new TestSinkWriterContext());
+        MultiTableSinkWriter writer = new MultiTableSinkWriter(sinkWriters, 1, sinkWritersContext);
+
+        List<MultiTableState> states = writer.snapshotState(1L);
+        Assertions.assertEquals(1, states.get(0).getStates().size());
+        writer.close();
+
+        StateCapturingRestoreSink firstSink =
+                new StateCapturingRestoreSink(TablePath.of("dest.db.shared"));
+        StateCapturingRestoreSink secondSink =
+                new StateCapturingRestoreSink(TablePath.of("dest.db.shared"));
+        Map<TablePath, SeaTunnelSink> sinks = new HashMap<>();
+        sinks.put(TablePath.of("src.db.t1"), firstSink);
+        sinks.put(TablePath.of("src.db.t2"), secondSink);
+        MultiTableSink multiTableSink = createMultiTableSink(sinks);
+
+        SinkWriter<SeaTunnelRow, MultiTableCommitInfo, MultiTableState> restoredWriter =
+                multiTableSink.restoreWriter(new TestSinkWriterContext(), states);
+
+        Assertions.assertEquals(
+                1,
+                firstSink.getCapturedRestoredStates().size()
+                        + secondSink.getCapturedRestoredStates().size());
+        List<?> restoredStates =
+                firstSink.getCapturedRestoredStates().isEmpty()
+                        ? secondSink.getCapturedRestoredStates().get(0)
+                        : firstSink.getCapturedRestoredStates().get(0);
+        Assertions.assertEquals(1, restoredStates.size());
+        restoredWriter.close();
+    }
+
+    @Test
+    public void testSamePhysicalIdentifierDoesNotShareAcrossConnectorClasses() throws IOException {
+        StateCapturingRestoreSink firstSink =
+                new StateCapturingRestoreSink(TablePath.of("dest.db.shared"));
+        AlternateStateCapturingRestoreSink secondSink =
+                new AlternateStateCapturingRestoreSink(TablePath.of("dest.db.shared"));
+        Map<TablePath, SeaTunnelSink> sinks = new HashMap<>();
+        sinks.put(TablePath.of("src.db.t1"), firstSink);
+        sinks.put(TablePath.of("src.db.t2"), secondSink);
+        MultiTableSink multiTableSink = createMultiTableSink(sinks);
+
+        SinkWriter<SeaTunnelRow, MultiTableCommitInfo, MultiTableState> writer =
+                multiTableSink.createWriter(new TestSinkWriterContext());
+
+        Assertions.assertEquals(1, firstSink.getCreateWriterCount());
+        Assertions.assertEquals(1, secondSink.getCreateWriterCount());
+        writer.close();
+    }
+
+    @Test
+    public void testCreateWriterPropagatesIOExceptionAndClosesCreatedWriters() {
+        CountingSinkWriter createdWriter = new CountingSinkWriter();
+        Map<TablePath, SeaTunnelSink> sinks = new LinkedHashMap<>();
+        sinks.put(TablePath.of("src.db.healthy"), new TestSeaTunnelSink(createdWriter));
+        sinks.put(TablePath.of("src.db.failed"), new ThrowingCreateSink());
+        MultiTableSink multiTableSink = createMultiTableSink(sinks);
+
+        Assertions.assertThrows(
+                IOException.class, () -> multiTableSink.createWriter(new TestSinkWriterContext()));
+        Assertions.assertEquals(1, createdWriter.getCloseCount());
     }
 
     @Test
@@ -1272,6 +1348,20 @@ public class MultiTableSinkWriterTest {
         }
     }
 
+    /** Creates a multi-table sink with the options required by writer lifecycle tests. */
+    private MultiTableSink createMultiTableSink(Map<TablePath, SeaTunnelSink> sinks) {
+        Map<String, Object> options = new HashMap<>();
+        options.put(SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA.key(), 1);
+        options.put(
+                MultiTableCommonOptions.MULTI_TABLE_FAILURE_POLICY.key(),
+                MultiTableFailurePolicy.FAIL_FAST.name());
+        return new MultiTableSink(
+                new MultiTableFactoryContext(
+                        ReadonlyConfig.fromMap(options),
+                        Thread.currentThread().getContextClassLoader(),
+                        sinks));
+    }
+
     static class StateCapturingRestoreSink
             implements SeaTunnelSink<SeaTunnelRow, Object, TestSinkState, Object> {
 
@@ -1313,12 +1403,23 @@ public class MultiTableSinkWriterTest {
                             "test"));
         }
 
+        @Override
+        public Optional<String> getPhysicalDestinationIdentifier() {
+            return Optional.of(destinationTablePath.toString());
+        }
+
         int getCreateWriterCount() {
             return createWriterCount.get();
         }
 
         List<List<?>> getCapturedRestoredStates() {
             return capturedRestoredStates;
+        }
+    }
+
+    static class AlternateStateCapturingRestoreSink extends StateCapturingRestoreSink {
+        AlternateStateCapturingRestoreSink(TablePath destinationTablePath) {
+            super(destinationTablePath);
         }
     }
 
@@ -1383,14 +1484,26 @@ public class MultiTableSinkWriterTest {
 
         @Override
         public SinkWriter<SeaTunnelRow, TestSinkState, Object> createWriter(
-                SinkWriter.Context context) {
+                SinkWriter.Context context) throws IOException {
             return writer;
         }
 
         @Override
         public SinkWriter<SeaTunnelRow, TestSinkState, Object> restoreWriter(
-                SinkWriter.Context context, List<Object> states) {
+                SinkWriter.Context context, List<Object> states) throws IOException {
             return writer;
+        }
+    }
+
+    static class ThrowingCreateSink extends TestSeaTunnelSink {
+        ThrowingCreateSink() {
+            super(new TestSinkWriter());
+        }
+
+        @Override
+        public SinkWriter<SeaTunnelRow, TestSinkState, Object> createWriter(
+                SinkWriter.Context context) throws IOException {
+            throw new IOException("expected writer creation failure");
         }
     }
 

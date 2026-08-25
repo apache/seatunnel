@@ -83,6 +83,23 @@ Do not stop after a happy-path write test. Verify what happens when:
 - the sink sees duplicate commit requests
 - the target table schema changes
 
+## Multi-Table Writer Sharing
+
+Multi-table execution can reuse one writer and one committer for several upstream tables that
+write to the same physical destination. A connector opts in by overriding
+`SeaTunnelSink#getPhysicalDestinationIdentifier()`.
+
+Only return an identifier when sharing is safe. It must include all destination coordinates that
+affect writes, such as connector endpoint, warehouse, namespace, table, and branch. Sinks with the
+same identifier must use compatible schemas, writer settings, and commit semantics: the coordinator
+creates one shared writer from one alias and routes every alias to it. Connector implementation
+class is included by the coordinator, so identifiers are never shared across connector types.
+
+For a shared destination, a checkpoint writes one canonical writer state and one canonical commit
+record. During recovery, `restoreWriter` can receive state originating from every aliased source
+table so it must accept the combined state list. Return `Optional.empty()` when this contract cannot
+be guaranteed; SeaTunnel will retain one writer per sink instance.
+
 ## Design Checklist
 
 Before coding, answer these questions:

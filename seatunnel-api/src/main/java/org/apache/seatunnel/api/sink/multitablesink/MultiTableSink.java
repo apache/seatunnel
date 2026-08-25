@@ -45,11 +45,13 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -121,10 +123,9 @@ public class MultiTableSink
      * blocking queues inside {@link MultiTableSinkWriter}, ensuring even distribution of write
      * load.
      *
-     * <p>Optimized to detect cases where multiple source tables map to the same destination table
-     * (e.g., sharded MySQL tables -> one Paimon table). In such cases, only one SinkWriter is
-     * created per destination per replica, preventing the creation of hundreds of unnecessary
-     * connections.
+     * <p>Optimized to detect cases where compatible static-schema source tables map to the same
+     * destination (for example, file-sink aliases that share one path). In such cases, only one
+     * SinkWriter is created per destination per replica, preventing redundant connections.
      *
      * @param context the sink writer context providing subtask index and parallelism info
      * @return a new {@link MultiTableSinkWriter} wrapping all per-table writers
@@ -136,38 +137,38 @@ public class MultiTableSink
         Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> writers = new HashMap<>();
         Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
 
-        // Map to track unique destination writers: "destTablePath_replicaIndex" -> SinkWriter
-        Map<String, SinkWriter<SeaTunnelRow, ?, ?>> destinationWriters = new HashMap<>();
-        Map<String, SinkContextProxy> destinationProxyContexts = new HashMap<>();
+        Map<DestinationKey, SinkWriter<SeaTunnelRow, ?, ?>> destinationWriters = new HashMap<>();
+        Map<DestinationKey, SinkContextProxy> destinationProxyContexts = new HashMap<>();
         Map<SinkIdentifier, SinkContextProxy> proxyContexts = new HashMap<>();
-        for (int i = 0; i < replicaNum; i++) {
-            for (TablePath tablePath : sinks.keySet()) {
-                if (shouldSkipFailedTable(initialFailedTables, tablePath)) {
-                    continue;
-                }
-                SeaTunnelSink sink = sinks.get(tablePath);
-                int index = context.getIndexOfSubtask() * replicaNum + i;
-                SinkIdentifier id = SinkIdentifier.of(tablePath.toString(), index);
-                String destKey = getDestinationKey(tablePath, i);
-                SinkContextProxy proxy =
-                        destinationProxyContexts.computeIfAbsent(
-                                destKey, key -> new SinkContextProxy(index, replicaNum, context));
-                SinkWriter<SeaTunnelRow, ?, ?> writer =
-                        destinationWriters.computeIfAbsent(
-                                destKey,
-                                k -> {
-                                    try {
-                                        return sink.createWriter(proxy);
-                                    } catch (IOException e) {
-                                        throw new RuntimeException(e);
-                                    }
-                                });
-                writers.put(id, writer);
-                if (!proxyContexts.containsValue(proxy)) {
+        try {
+            for (int i = 0; i < replicaNum; i++) {
+                for (TablePath tablePath : sinks.keySet()) {
+                    if (shouldSkipFailedTable(initialFailedTables, tablePath)) {
+                        continue;
+                    }
+                    SeaTunnelSink sink = sinks.get(tablePath);
+                    int index = context.getIndexOfSubtask() * replicaNum + i;
+                    SinkIdentifier id = SinkIdentifier.of(tablePath.toString(), index);
+                    DestinationKey destinationKey = getDestinationKey(tablePath, i);
+                    SinkContextProxy proxy =
+                            destinationProxyContexts.computeIfAbsent(
+                                    destinationKey,
+                                    key -> new SinkContextProxy(index, replicaNum, context));
+                    SinkWriter<SeaTunnelRow, ?, ?> writer = destinationWriters.get(destinationKey);
+                    if (writer == null) {
+                        writer = sink.createWriter(proxy);
+                        destinationWriters.put(destinationKey, writer);
+                    }
+                    writers.put(id, writer);
+                    // Every alias must retain the shared proxy so listener and metric lookups stay
+                    // aligned with the writer and context maps.
                     proxyContexts.put(id, proxy);
+                    sinkWritersContext.put(id, context);
                 }
-                sinkWritersContext.put(id, context);
             }
+        } catch (IOException error) {
+            closeCreatedWriters(destinationWriters.values(), error);
+            throw error;
         }
         MultiTableSinkWriter writer =
                 new MultiTableSinkWriter(
@@ -216,12 +217,12 @@ public class MultiTableSink
         List<MultiTableFailedTable> effectiveFailedTables = new ArrayList<>(initialFailedTables);
         effectiveFailedTables.addAll(restoredFailedTables);
 
-        // Map to track unique destination writers: "destTablePath_replicaIndex" -> SinkWriter
-        Map<String, SinkWriter<SeaTunnelRow, ?, ?>> destinationWriters = new HashMap<>();
-        Map<String, SinkContextProxy> destinationProxyContexts = new HashMap<>();
+        Map<DestinationKey, SinkWriter<SeaTunnelRow, ?, ?>> destinationWriters = new HashMap<>();
+        Map<DestinationKey, SinkContextProxy> destinationProxyContexts = new HashMap<>();
         // Pre-compute all SinkIdentifiers per destination key so the restore path can merge state
-        // from every aliased source table that shares this destination writer.
-        Map<String, List<SinkIdentifier>> identifiersByDestinationKey = new LinkedHashMap<>();
+        // from legacy per-alias checkpoints before handing it to the shared destination writer.
+        Map<DestinationKey, List<SinkIdentifier>> identifiersByDestinationKey =
+                new LinkedHashMap<>();
         for (int i = 0; i < replicaNum; i++) {
             for (TablePath tablePath : sinks.keySet()) {
                 if (shouldSkipFailedTable(effectiveFailedTables, tablePath)) {
@@ -234,60 +235,43 @@ public class MultiTableSink
             }
         }
 
-        for (int i = 0; i < replicaNum; i++) {
-            for (TablePath tablePath : sinks.keySet()) {
-                if (shouldSkipFailedTable(effectiveFailedTables, tablePath)) {
-                    continue;
-                }
-                SeaTunnelSink sink = sinks.get(tablePath);
-                int index = context.getIndexOfSubtask() * replicaNum + i;
-                SinkIdentifier sinkIdentifier = SinkIdentifier.of(tablePath.toString(), index);
-                String destKey = getDestinationKey(tablePath, i);
-                SinkContextProxy proxy =
-                        destinationProxyContexts.computeIfAbsent(
-                                destKey, key -> new SinkContextProxy(index, replicaNum, context));
-                SinkWriter<SeaTunnelRow, ?, ?> writer =
-                        destinationWriters.computeIfAbsent(
-                                destKey,
-                                k -> {
-                                    try {
-                                        List<?> state =
-                                                identifiersByDestinationKey
-                                                        .getOrDefault(
-                                                                destKey, Collections.emptyList())
-                                                        .stream()
-                                                        .flatMap(
-                                                                identifier ->
-                                                                        states.stream()
-                                                                                .map(
-                                                                                        multiTableState ->
-                                                                                                multiTableState
-                                                                                                        .getStates()
-                                                                                                        .get(
-                                                                                                                identifier))
-                                                                                .filter(
-                                                                                        Objects
-                                                                                                ::nonNull)
-                                                                                .flatMap(
-                                                                                        Collection
-                                                                                                ::stream))
-                                                        .collect(Collectors.toList());
-
-                                        if (state.isEmpty()) {
-                                            return sink.createWriter(proxy);
-                                        } else {
-                                            return sink.restoreWriter(proxy, state);
-                                        }
-                                    } catch (IOException e) {
-                                        throw new RuntimeException(e);
-                                    }
-                                });
-                writers.put(sinkIdentifier, writer);
-                if (!proxyContexts.containsValue(proxy)) {
+        try {
+            for (int i = 0; i < replicaNum; i++) {
+                for (TablePath tablePath : sinks.keySet()) {
+                    if (shouldSkipFailedTable(effectiveFailedTables, tablePath)) {
+                        continue;
+                    }
+                    SeaTunnelSink sink = sinks.get(tablePath);
+                    int index = context.getIndexOfSubtask() * replicaNum + i;
+                    SinkIdentifier sinkIdentifier = SinkIdentifier.of(tablePath.toString(), index);
+                    DestinationKey destinationKey = getDestinationKey(tablePath, i);
+                    SinkContextProxy proxy =
+                            destinationProxyContexts.computeIfAbsent(
+                                    destinationKey,
+                                    key -> new SinkContextProxy(index, replicaNum, context));
+                    SinkWriter<SeaTunnelRow, ?, ?> writer = destinationWriters.get(destinationKey);
+                    if (writer == null) {
+                        List<?> state =
+                                getRestoredState(
+                                        states,
+                                        identifiersByDestinationKey.getOrDefault(
+                                                destinationKey, Collections.emptyList()));
+                        writer =
+                                state.isEmpty()
+                                        ? sink.createWriter(proxy)
+                                        : sink.restoreWriter(proxy, state);
+                        destinationWriters.put(destinationKey, writer);
+                    }
+                    writers.put(sinkIdentifier, writer);
+                    // The shared proxy is intentionally reachable through every alias, but its
+                    // action is invoked once per writer by MultiTableSinkWriter.
                     proxyContexts.put(sinkIdentifier, proxy);
+                    sinkWritersContext.put(sinkIdentifier, context);
                 }
-                sinkWritersContext.put(sinkIdentifier, context);
             }
+        } catch (IOException error) {
+            closeCreatedWriters(destinationWriters.values(), error);
+            throw error;
         }
         MultiTableSinkWriter writer =
                 new MultiTableSinkWriter(
@@ -341,18 +325,65 @@ public class MultiTableSink
     }
 
     /**
-     * Builds a unique key for a destination table and replica index, used for writer deduplication.
+     * Collects all pre-optimization per-alias states that belong to a physical destination.
+     *
+     * <p>New checkpoints store a shared writer state under one canonical identifier. Earlier
+     * checkpoints can contain a distinct state list for each alias, which still must be restored
+     * together.
+     *
+     * @param states all states restored for this writer subtask
+     * @param identifiers aliases that resolve to one physical destination and replica
+     * @return the combined state passed to one restored writer
      */
-    private String getDestinationKey(TablePath tablePath, int replicaIndex) {
+    private List<?> getRestoredState(
+            List<MultiTableState> states, Collection<SinkIdentifier> identifiers) {
+        return identifiers.stream()
+                .flatMap(
+                        identifier ->
+                                states.stream()
+                                        .map(
+                                                multiTableState ->
+                                                        multiTableState.getStates().get(identifier))
+                                        .filter(Objects::nonNull)
+                                        .flatMap(Collection::stream))
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Closes successfully created unique writers when later initialization fails.
+     *
+     * @param writers writers that completed creation before the failure
+     * @param failure the initialization failure to preserve for the caller
+     */
+    private void closeCreatedWriters(
+            Collection<SinkWriter<SeaTunnelRow, ?, ?>> writers, IOException failure) {
+        Set<SinkWriter<SeaTunnelRow, ?, ?>> uniqueWriters =
+                Collections.newSetFromMap(new IdentityHashMap<>());
+        for (SinkWriter<SeaTunnelRow, ?, ?> writer : writers) {
+            if (uniqueWriters.add(writer)) {
+                try {
+                    writer.close();
+                } catch (Throwable closeError) {
+                    failure.addSuppressed(closeError);
+                }
+            }
+        }
+    }
+
+    /**
+     * Builds the destination and replica key used for writer and committer reuse.
+     *
+     * <p>A connector that opts in supplies a stable physical destination identifier. The connector
+     * class is part of that key so identifiers from different connector implementations can never
+     * share a writer. A connector that does not opt in remains isolated by sink instance identity.
+     *
+     * @param tablePath source table associated with the sink instance
+     * @param replicaIndex replica index for the destination writer
+     * @return a collision-safe physical destination key
+     */
+    private DestinationKey getDestinationKey(TablePath tablePath, int replicaIndex) {
         SeaTunnelSink<?, ?, ?, ?> sink = sinks.get(tablePath);
-        String destinationIdentifier =
-                sink.getPhysicalDestinationIdentifier()
-                        .orElseGet(
-                                () ->
-                                        sink.getClass().getName()
-                                                + "@"
-                                                + System.identityHashCode(sink));
-        return destinationIdentifier + "_" + replicaIndex;
+        return new DestinationKey(sink, sink.getPhysicalDestinationIdentifier(), replicaIndex);
     }
 
     @Override
@@ -373,13 +404,16 @@ public class MultiTableSink
     @Override
     public Optional<SinkCommitter<MultiTableCommitInfo>> createCommitter() throws IOException {
         Map<String, SinkCommitter<?>> committers = new HashMap<>();
+        Map<DestinationKey, Optional<SinkCommitter<?>>> destinationCommitters = new HashMap<>();
         for (TablePath tablePath : sinks.keySet()) {
             SeaTunnelSink sink = sinks.get(tablePath);
-            sink.createCommitter()
-                    .ifPresent(
-                            committer ->
-                                    committers.put(
-                                            tablePath.toString(), (SinkCommitter<?>) committer));
+            DestinationKey destinationKey = getDestinationKey(tablePath, 0);
+            Optional<SinkCommitter<?>> committer = destinationCommitters.get(destinationKey);
+            if (committer == null) {
+                committer = sink.createCommitter().map(value -> (SinkCommitter<?>) value);
+                destinationCommitters.put(destinationKey, committer);
+            }
+            committer.ifPresent(value -> committers.put(tablePath.toString(), value));
         }
         if (committers.isEmpty()) {
             return Optional.empty();
@@ -406,12 +440,18 @@ public class MultiTableSink
     public Optional<SinkAggregatedCommitter<MultiTableCommitInfo, MultiTableAggregatedCommitInfo>>
             createAggregatedCommitter() throws IOException {
         Map<String, SinkAggregatedCommitter<?, ?>> aggCommitters = new HashMap<>();
+        Map<DestinationKey, Optional<SinkAggregatedCommitter<?, ?>>> destinationCommitters =
+                new HashMap<>();
         for (TablePath tablePath : sinks.keySet()) {
             SeaTunnelSink sink = sinks.get(tablePath);
-            Optional<SinkAggregatedCommitter<?, ?>> sinkOptional = sink.createAggregatedCommitter();
-            sinkOptional.ifPresent(
-                    sinkAggregatedCommitter ->
-                            aggCommitters.put(tablePath.toString(), sinkAggregatedCommitter));
+            DestinationKey destinationKey = getDestinationKey(tablePath, 0);
+            Optional<SinkAggregatedCommitter<?, ?>> committer =
+                    destinationCommitters.get(destinationKey);
+            if (committer == null) {
+                committer = sink.createAggregatedCommitter();
+                destinationCommitters.put(destinationKey, committer);
+            }
+            committer.ifPresent(value -> aggCommitters.put(tablePath.toString(), value));
         }
         if (aggCommitters.isEmpty()) {
             return Optional.empty();
@@ -516,6 +556,63 @@ public class MultiTableSink
             return ((SupportSchemaEvolutionSink) firstSink).supports();
         }
         return Collections.emptyList();
+    }
+
+    /**
+     * Key for one physical destination writer or committer replica.
+     *
+     * <p>Opt-in identifiers use connector class plus connector-provided destination identity. The
+     * fallback compares sink objects by reference, so identity hash collisions remain harmless.
+     */
+    private static final class DestinationKey {
+
+        /** Sink retained for identity-isolated keys. */
+        private final SeaTunnelSink<?, ?, ?, ?> sink;
+
+        /** Connector-provided physical destination identifier, if the sink opts in. */
+        private final String physicalDestinationIdentifier;
+
+        /** Writer replica that must remain independent from other replicas. */
+        private final int replicaIndex;
+
+        private DestinationKey(
+                SeaTunnelSink<?, ?, ?, ?> sink,
+                Optional<String> physicalDestinationIdentifier,
+                int replicaIndex) {
+            this.sink = sink;
+            this.physicalDestinationIdentifier = physicalDestinationIdentifier.orElse(null);
+            this.replicaIndex = replicaIndex;
+        }
+
+        @Override
+        public boolean equals(Object object) {
+            if (this == object) {
+                return true;
+            }
+            if (!(object instanceof DestinationKey)) {
+                return false;
+            }
+            DestinationKey that = (DestinationKey) object;
+            if (replicaIndex != that.replicaIndex) {
+                return false;
+            }
+            if (physicalDestinationIdentifier == null
+                    || that.physicalDestinationIdentifier == null) {
+                return physicalDestinationIdentifier == null
+                        && that.physicalDestinationIdentifier == null
+                        && sink == that.sink;
+            }
+            return sink.getClass().equals(that.sink.getClass())
+                    && physicalDestinationIdentifier.equals(that.physicalDestinationIdentifier);
+        }
+
+        @Override
+        public int hashCode() {
+            if (physicalDestinationIdentifier == null) {
+                return 31 * System.identityHashCode(sink) + replicaIndex;
+            }
+            return Objects.hash(sink.getClass(), physicalDestinationIdentifier, replicaIndex);
+        }
     }
 
     private JobMode getJobMode() {
