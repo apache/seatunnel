@@ -55,10 +55,7 @@ public class SinkExecuteProcessor extends AbstractSinkExecuteProcessor {
         if (isStreaming && sink instanceof SupportSchemaEvolutionSink) {
             ds = SchemaEvolutionSinkFlow.coordinate(ds, sink, parallelism);
         }
-        DataStreamSink<SeaTunnelRow> dataStreamSink =
-                ds.sinkTo(new FlinkSink<>(sink, stream.getCatalogTables(), parallelism))
-                        .name(String.format("%s-Sink", sink.getPluginName()));
-        dataStreamSink.setParallelism(parallelism);
-        return dataStreamSink;
+        return ds.sinkTo(new FlinkSink<>(sink, stream.getCatalogTables(), parallelism))
+                .name(String.format("%s-Sink", sink.getPluginName()));
     }
 }
