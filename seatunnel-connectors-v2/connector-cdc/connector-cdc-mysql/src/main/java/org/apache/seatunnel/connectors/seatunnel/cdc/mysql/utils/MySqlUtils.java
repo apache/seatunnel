@@ -348,6 +348,9 @@ public class MySqlUtils {
             boolean isLastSplit,
             int limitSize,
             boolean isScanningData) {
+        if (rowType == null) {
+            return "SELECT * FROM " + quotedTableIdString(tableId);
+        }
         final String condition;
         int numColumns = rowType.getTotalFields();
 
