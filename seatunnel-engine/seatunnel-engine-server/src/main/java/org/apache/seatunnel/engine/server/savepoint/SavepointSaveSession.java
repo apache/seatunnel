@@ -62,7 +62,13 @@ public class SavepointSaveSession {
         return request.getSavepointId();
     }
 
-    /** Publishes the savepoint bundle exactly once (concurrent requests share the session). */
+    /**
+     * Publishes the savepoint bundle exactly once (concurrent requests share the session).
+     *
+     * <p>The storage fills in the manifest entries (file, length, checksum, payload format) from
+     * the payloads that were actually written and persists them in {@code _metadata.ser}; the file
+     * is the authoritative record, the caller does not need to read the meta back.
+     */
     public synchronized void commit() throws CheckpointStorageException {
         if (committed) {
             return;

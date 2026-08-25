@@ -29,13 +29,18 @@ public final class SavepointStorageConstants {
     /** Name of the commit marker file inside a final savepoint directory. */
     public static final String META_FILE_NAME = "_metadata.ser";
 
-    /** Name of the wire format this savepoint format family uses. */
-    public static final String FORMAT_NAME = "engine-wire";
-
-    /** Current savepoint bundle format version; only increments. */
+    /**
+     * Current savepoint bundle format version; only increments. Single source of truth: written
+     * into {@link SavepointMeta#getFormatVersion()} and used by the engine-side reader registry to
+     * dispatch to the matching savepoint reader.
+     */
     public static final int FORMAT_VERSION = 1;
 
-    /** Payload format of v1 savepoints (engine-wire-v1). */
+    /**
+     * Payload format of {@link #FORMAT_VERSION} bundles ({@code engine-wire-vN}, N = bundle format
+     * version). Recorded per manifest entry; the engine decodes it with the reader registered for
+     * the bundle version.
+     */
     public static final String PAYLOAD_FORMAT_V1 = "engine-wire-v1";
 
     private SavepointStorageConstants() {}

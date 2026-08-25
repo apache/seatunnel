@@ -18,6 +18,7 @@
 package org.apache.seatunnel.engine.server.savepoint.serialization;
 
 import org.apache.seatunnel.engine.checkpoint.storage.savepoint.SavepointMeta;
+import org.apache.seatunnel.engine.checkpoint.storage.savepoint.SavepointStorageConstants;
 
 import java.util.Map;
 
@@ -34,14 +35,18 @@ public final class SavepointReaderRegistry {
     /** Oldest format version the current engine can still read. */
     public static final int MIN_SUPPORTED_FORMAT_VERSION = 1;
 
+    /**
+     * Readers keyed by the bundle format version ({@link SavepointStorageConstants#FORMAT_VERSION}
+     * - single source of truth).
+     */
     private static final Map<Integer, SavepointReader> READERS =
-            Map.of(SavepointWireCodec.FORMAT_VERSION, new SavepointReaderV1());
+            Map.of(SavepointStorageConstants.FORMAT_VERSION, new SavepointReaderV1());
 
     private SavepointReaderRegistry() {}
 
-    /** Current engine wire payload format version ({@link SavepointWireCodec#FORMAT_VERSION}). */
+    /** Current bundle format version = {@link SavepointStorageConstants#FORMAT_VERSION}. */
     public static int currentFormatVersion() {
-        return SavepointWireCodec.FORMAT_VERSION;
+        return SavepointStorageConstants.FORMAT_VERSION;
     }
 
     public static SavepointReader forVersion(SavepointMeta meta) {

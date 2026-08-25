@@ -37,15 +37,11 @@ import java.util.Map;
  *
  * <p>Only this class (plus the frozen DTOs) is allowed to touch the savepoint payload format. The
  * runtime {@link CompletedCheckpoint} is explicitly NOT a storage contract: conversion always goes
- * through {@link WireSavepoint}.
+ * through {@link WireSavepoint}. The version of this payload family is anchored in the bundle
+ * {@link SavepointMeta#getFormatVersion()} ({@link SavepointStorageConstants#FORMAT_VERSION}) - its
+ * manifest entries carry {@link SavepointStorageConstants#PAYLOAD_FORMAT_V1}.
  */
 public final class SavepointWireCodec {
-
-    /** Stable name of the wire format. Never changed; version bumps only change the version. */
-    public static final String FORMAT_NAME = "engine-wire";
-
-    /** Current wire format version. Bump together with a versioned reader on structural changes. */
-    public static final int FORMAT_VERSION = 1;
 
     private static final ProtoStuffSerializer SERIALIZER = new ProtoStuffSerializer();
 
