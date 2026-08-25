@@ -35,6 +35,7 @@ import org.apache.seatunnel.api.sink.multitablesink.MultiTableSink;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
+import org.apache.seatunnel.common.utils.PathResolver;
 import org.apache.seatunnel.common.utils.RetryUtils;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
@@ -249,6 +250,8 @@ public class JobMaster {
         ClassLoader appClassLoader = Thread.currentThread().getContextClassLoader();
 
         List<Set<URL>> logicalVertexJarsList = jobImmutableInformation.getLogicalVertexJarsList();
+        // Resolves URLs with the logical SEATUNNEL_HOME variable to absolute paths.
+        logicalVertexJarsList.forEach(PathResolver::resolvePathEnv);
         List<ClassLoader> logicalVertexClassLoaders = new ArrayList<>();
         for (Set<URL> urls : logicalVertexJarsList) {
             logicalVertexClassLoaders.add(

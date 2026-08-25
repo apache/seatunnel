@@ -53,7 +53,9 @@ import java.net.URLClassLoader;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ScheduledFuture;
@@ -187,6 +189,10 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         long jobId = System.currentTimeMillis();
 
         TaskGroupLocation location = new TaskGroupLocation(jobId, 1, 1);
+        Set<URL> sourceUrls = new HashSet<>();
+        sourceUrls.add(new URL(fakeFile));
+        Set<URL> sinkUrls = new HashSet<>();
+        sinkUrls.add(new URL(consoleFile));
         TaskGroupImmutableInformation taskGroupImmutableInformation =
                 new TaskGroupImmutableInformation(
                         jobId,
@@ -197,9 +203,7 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
                         Arrays.asList(
                                 nodeEngine.getSerializationService().toData(testTask1),
                                 nodeEngine.getSerializationService().toData(testTask2)),
-                        Arrays.asList(
-                                Collections.singleton(new URL(fakeFile)),
-                                Collections.singleton(new URL(consoleFile))),
+                        Arrays.asList(sourceUrls, sinkUrls),
                         Arrays.asList(emptySet(), emptySet()));
 
         Data data = nodeEngine.getSerializationService().toData(taskGroupImmutableInformation);

@@ -22,6 +22,7 @@ import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.ImmutablePair;
 
 import org.apache.seatunnel.api.common.JobContext;
 import org.apache.seatunnel.api.metadata.MetadataConfig;
+import org.apache.seatunnel.common.utils.PathResolver;
 import org.apache.seatunnel.engine.client.SeaTunnelHazelcastClient;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
@@ -177,10 +178,14 @@ public class ClientJobExecutionEnvironment extends AbstractJobEnvironment {
                                 action, commonPluginJarUrls, commonJarIdentifiers);
                     });
         } else {
+            // Replaces the absolute SEATUNNEL_HOME path in the given URL with a logical variable.
+            PathResolver.replacePathWithEnv(commonPluginJars);
+            PathResolver.replacePathWithEnv(immutablePair.getRight());
             jarUrls.addAll(commonPluginJars);
             jarUrls.addAll(immutablePair.getRight());
             actions.forEach(
                     action -> {
+                        replaceActionJarUrls(action);
                         addCommonPluginJarsToAction(
                                 action, new HashSet<>(commonPluginJars), Collections.emptySet());
                     });
@@ -216,6 +221,20 @@ public class ClientJobExecutionEnvironment extends AbstractJobEnvironment {
                         uploadActionPluginJar(action.getUpstream(), result);
                     }
                 });
+    }
+
+    /**
+     * It will traverse the entire task graph (DAG) and ensure that the jar path of each node
+     * (whether it is Source, Transform, or Sink) is correctly replaced with the logical path
+     * starting with $SEATUNNEL_HOME.
+     *
+     * @param action action
+     */
+    private void replaceActionJarUrls(Action action) {
+        PathResolver.replacePathWithEnv(action.getJarUrls());
+        if (!action.getUpstream().isEmpty()) {
+            action.getUpstream().forEach(this::replaceActionJarUrls);
+        }
     }
 
     public ClientJobProxy execute() throws ExecutionException, InterruptedException {

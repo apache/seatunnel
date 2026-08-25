@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.sink.SeaTunnelSink;
 import org.apache.seatunnel.api.sink.multitablesink.MultiTableSink;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.common.utils.PathResolver;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
 import org.apache.seatunnel.engine.core.classloader.ClassLoaderService;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
@@ -65,8 +66,12 @@ public class DAGUtils {
             List<Data> logicalVertexDataList = jobImmutableInformation.getLogicalVertexDataList();
             for (int i = 0; i < jobImmutableInformation.getLogicalVertexDataList().size(); i++) {
                 Thread.currentThread().setContextClassLoader(classLoaders.get(i));
-                logicalDag.addLogicalVertex(
-                        serializationService.toObject(logicalVertexDataList.get(i)));
+
+                LogicalVertex logicalVertex =
+                        serializationService.toObject(logicalVertexDataList.get(i));
+                // Resolves URLs with the logical SEATUNNEL_HOME variable to absolute paths.
+                PathResolver.resolvePathEnv(logicalVertex.getAction().getJarUrls());
+                logicalDag.addLogicalVertex(logicalVertex);
             }
             return logicalDag;
         } finally {
@@ -79,6 +84,8 @@ public class DAGUtils {
             SerializationService serializationService,
             ClassLoaderService classLoaderService) {
         List<Set<URL>> logicalVertexJarsList = jobImmutableInformation.getLogicalVertexJarsList();
+        // Resolves URLs with the logical SEATUNNEL_HOME variable to absolute paths.
+        logicalVertexJarsList.forEach(PathResolver::resolvePathEnv);
         List<ClassLoader> classLoaders = new ArrayList<>();
         try {
             for (Set<URL> urls : logicalVertexJarsList) {
