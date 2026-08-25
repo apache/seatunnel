@@ -21,6 +21,8 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.util.Set;
+
 /** Request for starting a savepoint write attempt. */
 @Data
 @NoArgsConstructor
@@ -35,4 +37,11 @@ public class SavepointRequest {
 
     /** Per-attempt id; staging is isolated per attempt to make retries safe. */
     private String attemptId;
+
+    /**
+     * Expected pipeline ids of the bundle. When present, commit requires exactly this set to have
+     * been written - a bundle that is missing any pipeline (or contains an unknown one) must not be
+     * published.
+     */
+    private Set<Integer> expectedPipelineIds;
 }

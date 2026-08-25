@@ -35,6 +35,7 @@ import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.apache.seatunnel.engine.checkpoint.storage.constants.StorageConstants.STORAGE_NAME_SPACE;
 
@@ -61,7 +62,8 @@ public class HdfsSavepointStorageTest {
     @Test
     public void testBeginWriteCommitListReadDelete() throws CheckpointStorageException {
         SavepointWriter writer =
-                storage.beginSavepoint(new SavepointRequest("1", "1000", "attempt-1"));
+                storage.beginSavepoint(
+                        new SavepointRequest("1", "1000", "attempt-1", Set.of(0, 1)));
         writer.writePipeline(pipelineState(0, 10, new byte[] {1, 2, 3}));
         writer.writePipeline(pipelineState(1, 20, new byte[] {4, 5, 6}));
 
@@ -86,7 +88,7 @@ public class HdfsSavepointStorageTest {
     @Test
     public void testCorruptedPayloadDetectedOnRead() throws Exception {
         SavepointWriter writer =
-                storage.beginSavepoint(new SavepointRequest("1", "1002", "attempt-1"));
+                storage.beginSavepoint(new SavepointRequest("1", "1002", "attempt-1", Set.of(0)));
         writer.writePipeline(pipelineState(0, 10, new byte[] {1, 2, 3}));
         writer.commitSavepoint(new SavepointMeta(1, "1002", "1", "test", 3000L, null, null));
 

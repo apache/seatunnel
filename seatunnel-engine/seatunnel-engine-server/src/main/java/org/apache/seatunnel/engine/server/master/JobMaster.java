@@ -1317,7 +1317,9 @@ public class JobMaster {
                                 try {
                                     savepointSaveSession =
                                             new SavepointSaveSession(
-                                                    checkpointManager.getSavepointStorage(), jobId);
+                                                    checkpointManager.getSavepointStorage(),
+                                                    jobId,
+                                                    checkpointManager.getPipelineIds());
                                 } catch (CheckpointStorageException e) {
                                     throw new RuntimeException(
                                             "Failed to open savepoint write attempt for job "

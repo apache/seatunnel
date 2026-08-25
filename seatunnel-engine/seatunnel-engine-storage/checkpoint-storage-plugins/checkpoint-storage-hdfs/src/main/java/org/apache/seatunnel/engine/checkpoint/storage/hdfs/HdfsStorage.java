@@ -51,6 +51,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -574,8 +575,14 @@ public class HdfsStorage extends AbstractCheckpointStorage implements SavepointS
                             request.getAttemptId());
         }
 
+        /**
+         * Write one pipeline payload. Synchronized because all pipeline coordinators of the job
+         * share this writer and call it concurrently - the in-memory manifest state must be
+         * consistent.
+         */
         @Override
-        public void writePipeline(PipelineState state) throws CheckpointStorageException {
+        public synchronized void writePipeline(PipelineState state)
+                throws CheckpointStorageException {
             byte[] data;
             try {
                 data = serializeCheckPointData(state);
@@ -607,7 +614,8 @@ public class HdfsStorage extends AbstractCheckpointStorage implements SavepointS
         }
 
         @Override
-        public void commitSavepoint(SavepointMeta meta) throws CheckpointStorageException {
+        public synchronized void commitSavepoint(SavepointMeta meta)
+                throws CheckpointStorageException {
             if (written.isEmpty()) {
                 throw new CheckpointStorageException(
                         "No pipeline payload written for savepoint " + request.getSavepointId());
@@ -619,6 +627,7 @@ public class HdfsStorage extends AbstractCheckpointStorage implements SavepointS
                                 + " vs metadata "
                                 + meta.getSavepointId());
             }
+            validateCompleteBundle();
             Path finalDir = savepointDirectory(request.getJobId(), request.getSavepointId());
             try {
                 if (fs.exists(new Path(finalDir, META_FILE_NAME))) {
@@ -640,6 +649,7 @@ public class HdfsStorage extends AbstractCheckpointStorage implements SavepointS
                                                 SavepointStorageUtils.sha256Hex(data),
                                                 PAYLOAD_FORMAT_V1)));
                 meta.setPipelines(entries);
+                SavepointStorageUtils.verifyManifestComplete(request.getSavepointId(), entries);
                 meta.setManifestChecksum(SavepointStorageUtils.manifestChecksum(entries));
 
                 fs.mkdirs(finalDir);
@@ -686,8 +696,15 @@ public class HdfsStorage extends AbstractCheckpointStorage implements SavepointS
             }
         }
 
+        /** Rejects a commit that does not cover exactly the expected pipelines (if declared). */
+        private void validateCompleteBundle() throws CheckpointStorageException {
+            Set<Integer> actualPipelineIds = new HashSet<>(pipelineIds.values());
+            SavepointStorageUtils.verifyCompleteBundle(
+                    request.getSavepointId(), actualPipelineIds, request.getExpectedPipelineIds());
+        }
+
         @Override
-        public void abortSavepoint() {
+        public synchronized void abortSavepoint() {
             try {
                 if (fs.exists(stagingDir)) {
                     fs.delete(stagingDir, true);

@@ -25,6 +25,8 @@ import org.apache.seatunnel.engine.checkpoint.storage.savepoint.SavepointStorage
 import org.apache.seatunnel.engine.checkpoint.storage.savepoint.SavepointWriter;
 import org.apache.seatunnel.engine.common.env.EnvironmentUtil;
 
+import java.util.Set;
+
 /**
  * Aggregated write session for one stop-with-savepoint request.
  *
@@ -44,13 +46,20 @@ public class SavepointSaveSession {
 
     public SavepointSaveSession(SavepointStorage storage, long jobId)
             throws CheckpointStorageException {
+        this(storage, jobId, null);
+    }
+
+    public SavepointSaveSession(
+            SavepointStorage storage, long jobId, Set<Integer> expectedPipelineIds)
+            throws CheckpointStorageException {
         this.triggerTimestamp = System.currentTimeMillis();
         String savepointId = String.valueOf(triggerTimestamp);
         this.request =
                 new SavepointRequest(
                         String.valueOf(jobId),
                         savepointId,
-                        savepointId + SAVEPOINT_ID_SUFFIX + System.nanoTime());
+                        savepointId + SAVEPOINT_ID_SUFFIX + System.nanoTime(),
+                        expectedPipelineIds);
         this.writer = storage.beginSavepoint(request);
     }
 
@@ -87,7 +96,7 @@ public class SavepointSaveSession {
     }
 
     /** Discards the staging attempt; safe on write or commit failures. */
-    public void abort() {
+    public synchronized void abort() {
         if (committed) {
             return;
         }

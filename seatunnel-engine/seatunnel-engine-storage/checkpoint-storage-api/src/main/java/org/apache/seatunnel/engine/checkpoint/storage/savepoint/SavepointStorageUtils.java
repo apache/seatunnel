@@ -27,7 +27,9 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /** Shared serialization, checksum and naming helpers for savepoint storage implementors. */
 public final class SavepointStorageUtils {
@@ -109,6 +111,73 @@ public final class SavepointStorageUtils {
 
     public static String pipelinePayloadFileName(int pipelineId, long checkpointId) {
         return pipelineId + "-" + checkpointId + ".ser";
+    }
+
+    /**
+     * Verifies that the payloads actually written cover exactly the expected pipelines.
+     *
+     * <p>A savepoint is an all-or-nothing bundle: if the writer's expected pipeline set (declared
+     * in {@link SavepointRequest}) is known, commit must not publish a bundle that misses any of
+     * them. Duplicate pipeline ids (same pipeline written twice, e.g. with a different checkpoint
+     * id) are also rejected because the manifest could not map them unambiguously.
+     *
+     * @param savepointId savepoint id (for the error message)
+     * @param actualPipelineIds pipeline ids that were actually written
+     * @param expectedPipelineIds expected pipeline ids (may be null when unknown)
+     */
+    public static void verifyCompleteBundle(
+            String savepointId, Set<Integer> actualPipelineIds, Set<Integer> expectedPipelineIds)
+            throws CheckpointStorageException {
+        if (expectedPipelineIds == null || expectedPipelineIds.isEmpty()) {
+            return;
+        }
+        Set<Integer> missing = new HashSet<>(expectedPipelineIds);
+        missing.removeAll(actualPipelineIds);
+        if (!missing.isEmpty()) {
+            throw new CheckpointStorageException(
+                    "Savepoint bundle "
+                            + savepointId
+                            + " is incomplete: missing pipeline ids "
+                            + missing);
+        }
+        Set<Integer> unexpected = new HashSet<>(actualPipelineIds);
+        unexpected.removeAll(expectedPipelineIds);
+        if (!unexpected.isEmpty()) {
+            throw new CheckpointStorageException(
+                    "Savepoint bundle "
+                            + savepointId
+                            + " contains unexpected pipeline ids "
+                            + unexpected);
+        }
+        if (actualPipelineIds.size() != expectedPipelineIds.size()) {
+            throw new CheckpointStorageException(
+                    "Savepoint bundle "
+                            + savepointId
+                            + " has "
+                            + actualPipelineIds.size()
+                            + " pipeline payloads but "
+                            + expectedPipelineIds.size()
+                            + " were expected (duplicate pipeline writes)");
+        }
+    }
+
+    /** Verifies that the whole bundle is a complete, commit-worthy set. */
+    public static void verifyManifestComplete(
+            String savepointId, List<SavepointManifestEntry> pipelines)
+            throws CheckpointStorageException {
+        if (pipelines == null || pipelines.isEmpty()) {
+            throw new CheckpointStorageException("Savepoint manifest is empty: " + savepointId);
+        }
+        Set<Integer> seen = new HashSet<>();
+        for (SavepointManifestEntry entry : pipelines) {
+            if (!seen.add(entry.getPipelineId())) {
+                throw new CheckpointStorageException(
+                        "Savepoint manifest of "
+                                + savepointId
+                                + " contains duplicate pipeline id "
+                                + entry.getPipelineId());
+            }
+        }
     }
 
     private static String hex(byte[] bytes) {

@@ -66,6 +66,7 @@ import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -444,6 +445,11 @@ public class CheckpointManager {
                 .map(CheckpointCoordinator::isEndOfSavePoint)
                 .reduce((v1, v2) -> v1 && v2)
                 .orElse(false);
+    }
+
+    /** Pipeline ids of the job; a savepoint bundle must cover exactly these pipelines. */
+    public Set<Integer> getPipelineIds() {
+        return coordinatorMap.keySet();
     }
 
     public boolean isPipelineSavePointEnd(PipelineLocation pipelineLocation) {
