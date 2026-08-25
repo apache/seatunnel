@@ -31,9 +31,9 @@ public final class DryRunConnectFailureMessageSanitizer {
             Pattern.compile("\\bjdbc:[^\\s]+", Pattern.CASE_INSENSITIVE);
     private static final Pattern SENSITIVE_FREE_TEXT_KEY =
             Pattern.compile(
-                    "\\b("
+                    "([\"']?\\b(?:"
                             + SENSITIVE_KEYS
-                            + ")(\\s*[:=]\\s*)(\\\"[^\\\"]*\\\"|'[^']*'|[^\\s,;&]+)",
+                            + ")\\b[\"']?)(\\s*[:=]\\s*)(\\\"[^\\\"]*\\\"|'[^']*'|[^\\s,;&]+)",
                     Pattern.CASE_INSENSITIVE);
 
     private DryRunConnectFailureMessageSanitizer() {}
