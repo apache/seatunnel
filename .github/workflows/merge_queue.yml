@@ -42,7 +42,7 @@ jobs:
           distribution: temurin
           java-version: '8'
           cache: maven
-      # Build the default reactor, including seatunnel-dist.
+      # Build the CI reactor without the seatunnel-dist release assembly.
       - name: Compile main and test sources
         uses: nick-fields/retry@v3
         with:
@@ -51,7 +51,7 @@ jobs:
           retry_wait_seconds: 10
           retry_on: error
           command: |
-            ./mvnw -B -T 1C clean install -DskipTests \
+            ./mvnw -B -T 1C -Pci clean install -DskipTests \
               -D"license.skipAddThirdParty"=true -D"skip.ui"=true \
               --no-snapshot-updates
       # Build the opt-in seatunnel-benchmarks module with its dedicated profile.
