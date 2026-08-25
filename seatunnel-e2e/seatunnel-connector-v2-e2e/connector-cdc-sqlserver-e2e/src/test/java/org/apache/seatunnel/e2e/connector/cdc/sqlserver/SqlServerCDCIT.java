@@ -28,6 +28,7 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 import org.apache.seatunnel.e2e.common.util.JdbcUtil;
 import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
 
@@ -43,7 +44,6 @@ import org.testcontainers.containers.MSSQLServerContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
-import org.testcontainers.utility.MountableFile;
 
 import com.microsoft.sqlserver.jdbc.SQLServerDriver;
 import io.debezium.jdbc.JdbcConnection;
@@ -53,7 +53,6 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.IOException;
 import java.net.URL;
 import java.nio.file.Files;
-import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -196,40 +195,14 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
                             new Slf4jLogConsumer(
                                     DockerLoggerFactory.getLogger("sqlserver-docker-image")));
 
-    /**
-     * Resolve the SQLServer JDBC test dependency from the active test classpath instead of
-     * hard-coding a Maven local repository path.
-     */
-    private Path driverJarPath() {
-        try {
-            return Paths.get(
-                    SQLServerDriver.class
-                            .getProtectionDomain()
-                            .getCodeSource()
-                            .getLocation()
-                            .toURI());
-        } catch (Exception e) {
-            throw new SeaTunnelException(
-                    "Failed to resolve SQLServer JDBC driver jar from the test classpath", e);
-        }
-    }
-
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
-            container -> {
-                Path driverJarPath = driverJarPath();
-                Assertions.assertTrue(
-                        Files.isRegularFile(driverJarPath),
-                        "SQLServer JDBC driver should be resolved from the test classpath before E2E runs: "
-                                + driverJarPath);
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash", "-c", "mkdir -p /tmp/seatunnel/plugins/SqlServer-CDC/lib");
-                Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
-                container.copyFileToContainer(
-                        MountableFile.forHostPath(driverJarPath),
-                        "/tmp/seatunnel/plugins/SqlServer-CDC/lib/mssql-jdbc-9.4.1.jre8.jar");
-            };
+            container ->
+                    DependencyJar.of(SQLServerDriver.class)
+                            .copyTo(
+                                    container,
+                                    "/tmp/seatunnel/plugins/SqlServer-CDC/lib",
+                                    "mssql-jdbc-9.4.1.jre8.jar");
 
     @Override
     @BeforeAll

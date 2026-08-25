@@ -272,6 +272,7 @@ const sidebars = {
                                     ]
                                 },
                                 "engines/zeta/web-ui",
+                                "engines/zeta/runtime-execution-graph",
                                 "engines/zeta/security",
                                 "engines/zeta/python-sdk"
                             ]
@@ -393,6 +394,7 @@ const sidebars = {
                 "developer/contribution-path",
                 "developer/coding-guide",
                 "developer/test-coding-guide",
+                "developer/shade-guide",
                 "developer/how-to-create-your-connector",
                 "developer/connector-runtime-boundaries",
                 "developer/source-connector-development",

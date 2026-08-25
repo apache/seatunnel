@@ -496,6 +496,12 @@
                 </dependency>
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-google-pubsub</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
                     <artifactId>connector-google-bigtable</artifactId>
                     <version>${project.version}</version>
                     <scope>provided</scope>
@@ -960,9 +966,7 @@
                 <!-- hadoop jar -->
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
-                    <artifactId>seatunnel-hadoop-aws</artifactId>
-                    <version>${project.version}</version>
-                    <classifier>optional</classifier>
+                    <artifactId>seatunnel-shade-hadoop-aws</artifactId>
                     <scope>provided</scope>
                 </dependency>
                 <dependency>
@@ -991,9 +995,7 @@
                 </dependency>
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
-                    <artifactId>seatunnel-hadoop3-3.1.4-uber</artifactId>
-                    <version>${project.version}</version>
-                    <classifier>optional</classifier>
+                    <artifactId>seatunnel-shade-hadoop3-uber</artifactId>
                     <scope>provided</scope>
                 </dependency>
                 <!-- hadoop jar end -->
@@ -1240,9 +1242,7 @@
 
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
-                    <artifactId>seatunnel-hadoop3-3.1.4-uber</artifactId>
-                    <version>${project.version}</version>
-                    <classifier>optional</classifier>
+                    <artifactId>seatunnel-shade-hadoop3-uber</artifactId>
                     <scope>provided</scope>
                 </dependency>
 
@@ -1269,9 +1269,7 @@
 
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
-                    <artifactId>seatunnel-hadoop-aws</artifactId>
-                    <version>${project.version}</version>
-                    <classifier>optional</classifier>
+                    <artifactId>seatunnel-shade-hadoop-aws</artifactId>
                     <scope>provided</scope>
                 </dependency>
             </dependencies>

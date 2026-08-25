@@ -27,6 +27,7 @@ import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -37,15 +38,11 @@ import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
-import org.testcontainers.utility.MountableFile;
 
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
 import java.math.BigDecimal;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -78,8 +75,6 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
     private static final String TABLE_OPTIONS_SINK_TABLE = "sink_table_options";
     private static final String TABLE_OPTIONS_CONFIG_FILE =
             "/fake-to-starrocks-with-table-options.conf";
-    private static final String SR_DRIVER_CONTAINER_PATH =
-            "/tmp/seatunnel/plugins/Jdbc/lib/mysql-connector-java.jar";
     private static final String COLUMN_STRING =
             "BIGINT_COL, LARGEINT_COL, SMALLINT_COL, TINYINT_COL, BOOLEAN_COL, DECIMAL_COL, DOUBLE_COL, FLOAT_COL, INT_COL, CHAR_COL, VARCHAR_11_COL, STRING_COL, DATETIME_COL, DATE_COL";
 
@@ -221,37 +216,12 @@ public class StarRocksIT extends TestSuiteBase implements TestResource {
 
     @TestContainerExtension
     private final ContainerExtendedFactory extendedFactory =
-            container -> {
-                Path driverJarPath = driverJarPath();
-                Assertions.assertTrue(
-                        Files.isRegularFile(driverJarPath),
-                        "MySQL JDBC driver should be resolved from the test classpath before E2E runs: "
-                                + driverJarPath);
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash", "-c", "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib");
-                Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
-                container.copyFileToContainer(
-                        MountableFile.forHostPath(driverJarPath), SR_DRIVER_CONTAINER_PATH);
-            };
-
-    /**
-     * Resolve the MySQL JDBC test dependency from the active test classpath instead of downloading
-     * it inside the container.
-     */
-    private Path driverJarPath() {
-        try {
-            return Paths.get(
-                    com.mysql.cj.jdbc.Driver.class
-                            .getProtectionDomain()
-                            .getCodeSource()
-                            .getLocation()
-                            .toURI());
-        } catch (Exception e) {
-            throw new RuntimeException(
-                    "Failed to resolve MySQL JDBC driver jar from the test classpath", e);
-        }
-    }
+            container ->
+                    DependencyJar.of(com.mysql.cj.jdbc.Driver.class)
+                            .copyTo(
+                                    container,
+                                    "/tmp/seatunnel/plugins/Jdbc/lib",
+                                    "mysql-connector-java.jar");
 
     @BeforeAll
     @Override
