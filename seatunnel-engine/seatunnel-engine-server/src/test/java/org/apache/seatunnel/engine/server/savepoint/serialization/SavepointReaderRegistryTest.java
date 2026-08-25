@@ -36,9 +36,9 @@ public class SavepointReaderRegistryTest {
     @Test
     public void v1BundleIsReadable() {
         byte[] payload =
-                CheckpointWireCodec.encode(
-                        CheckpointWireCodec.fromCompletedCheckpoint(
-                                CheckpointWireFixtures.sampleCompletedCheckpoint()));
+                SavepointWireCodec.encode(
+                        SavepointWireCodec.fromCompletedCheckpoint(
+                                SavepointWireFixtures.sampleCompletedCheckpoint()));
         SavepointMeta meta = new SavepointMeta(1, "1000", "1", "test", 2000L, null, "checksum");
         Map<Integer, byte[]> payloads = new HashMap<>();
         payloads.put(0, payload);
@@ -48,7 +48,7 @@ public class SavepointReaderRegistryTest {
 
         Assertions.assertEquals(1, restored.size());
         CompletedCheckpoint checkpoint = restored.get(0);
-        Assertions.assertEquals(CheckpointWireFixtures.JOB_ID, checkpoint.getJobId());
+        Assertions.assertEquals(SavepointWireFixtures.JOB_ID, checkpoint.getJobId());
         Assertions.assertEquals(CheckpointType.SAVEPOINT_TYPE, checkpoint.getCheckpointType());
         Assertions.assertFalse(checkpoint.isRestored());
     }

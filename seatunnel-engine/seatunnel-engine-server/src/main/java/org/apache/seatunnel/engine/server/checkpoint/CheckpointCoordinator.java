@@ -45,7 +45,7 @@ import org.apache.seatunnel.engine.server.checkpoint.operation.NotifyTaskStartOp
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskAcknowledgeOperation;
 import org.apache.seatunnel.engine.server.checkpoint.operation.TaskReportStatusOperation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
-import org.apache.seatunnel.engine.server.savepoint.serialization.CheckpointWireCodec;
+import org.apache.seatunnel.engine.server.savepoint.serialization.SavepointWireCodec;
 import org.apache.seatunnel.engine.server.task.record.Barrier;
 import org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState;
 
@@ -1348,8 +1348,8 @@ public class CheckpointCoordinator {
                     // Savepoint bundles persist the engine-wire-v1 payload (runtime-only fields
                     // like isRestored are excluded from the storage contract).
                     pipelineState.setStates(
-                            CheckpointWireCodec.encode(
-                                    CheckpointWireCodec.fromCompletedCheckpoint(
+                            SavepointWireCodec.encode(
+                                    SavepointWireCodec.fromCompletedCheckpoint(
                                             completedCheckpoint)));
                     savepointWriter.writePipeline(pipelineState);
                 } else {

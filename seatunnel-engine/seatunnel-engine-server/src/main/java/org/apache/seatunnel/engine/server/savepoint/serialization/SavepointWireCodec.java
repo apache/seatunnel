@@ -37,9 +37,9 @@ import java.util.Map;
  *
  * <p>Only this class (plus the frozen DTOs) is allowed to touch the savepoint payload format. The
  * runtime {@link CompletedCheckpoint} is explicitly NOT a storage contract: conversion always goes
- * through {@link WireCheckpoint}.
+ * through {@link WireSavepoint}.
  */
-public final class CheckpointWireCodec {
+public final class SavepointWireCodec {
 
     /** Stable name of the wire format. Never changed; version bumps only change the version. */
     public static final String FORMAT_NAME = "engine-wire";
@@ -49,18 +49,18 @@ public final class CheckpointWireCodec {
 
     private static final ProtoStuffSerializer SERIALIZER = new ProtoStuffSerializer();
 
-    private CheckpointWireCodec() {}
+    private SavepointWireCodec() {}
 
-    public static byte[] encode(WireCheckpoint checkpoint) {
+    public static byte[] encode(WireSavepoint checkpoint) {
         return SERIALIZER.serialize(checkpoint);
     }
 
-    public static WireCheckpoint decode(byte[] data) {
-        return SERIALIZER.deserialize(data, WireCheckpoint.class);
+    public static WireSavepoint decode(byte[] data) {
+        return SERIALIZER.deserialize(data, WireSavepoint.class);
     }
 
     /** Converts runtime checkpoint state into the wire DTO (drops runtime-only fields). */
-    public static WireCheckpoint fromCompletedCheckpoint(CompletedCheckpoint checkpoint) {
+    public static WireSavepoint fromCompletedCheckpoint(CompletedCheckpoint checkpoint) {
         Map<String, WireActionState> taskStates = new HashMap<>();
         checkpoint
                 .getTaskStates()
@@ -71,7 +71,7 @@ public final class CheckpointWireCodec {
                 .getTaskStatistics()
                 .forEach((key, stats) -> taskStatistics.put(key, fromTaskStatistics(stats)));
 
-        return new WireCheckpoint(
+        return new WireSavepoint(
                 checkpoint.getCheckpointId(),
                 checkpoint.getPipelineId(),
                 checkpoint.getJobId(),
@@ -83,7 +83,7 @@ public final class CheckpointWireCodec {
     }
 
     /** Converts a wire DTO back into the runtime checkpoint model. */
-    public static CompletedCheckpoint toCompletedCheckpoint(WireCheckpoint wire) {
+    public static CompletedCheckpoint toCompletedCheckpoint(WireSavepoint wire) {
         CheckpointType checkpointType;
         try {
             checkpointType = CheckpointType.fromName(wire.getCheckpointTypeName());

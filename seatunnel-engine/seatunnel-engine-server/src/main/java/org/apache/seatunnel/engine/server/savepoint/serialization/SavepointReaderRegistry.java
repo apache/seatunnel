@@ -35,13 +35,13 @@ public final class SavepointReaderRegistry {
     public static final int MIN_SUPPORTED_FORMAT_VERSION = 1;
 
     private static final Map<Integer, SavepointReader> READERS =
-            Map.of(CheckpointWireCodec.FORMAT_VERSION, new SavepointReaderV1());
+            Map.of(SavepointWireCodec.FORMAT_VERSION, new SavepointReaderV1());
 
     private SavepointReaderRegistry() {}
 
-    /** Current engine wire payload format version ({@link CheckpointWireCodec#FORMAT_VERSION}). */
+    /** Current engine wire payload format version ({@link SavepointWireCodec#FORMAT_VERSION}). */
     public static int currentFormatVersion() {
-        return CheckpointWireCodec.FORMAT_VERSION;
+        return SavepointWireCodec.FORMAT_VERSION;
     }
 
     public static SavepointReader forVersion(SavepointMeta meta) {

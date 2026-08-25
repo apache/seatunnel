@@ -34,8 +34,8 @@ public class SavepointReaderV1 implements SavepointReader {
                 (pipelineId, payload) ->
                         checkpoints.put(
                                 pipelineId,
-                                CheckpointWireCodec.toCompletedCheckpoint(
-                                        CheckpointWireCodec.decode(payload))));
+                                SavepointWireCodec.toCompletedCheckpoint(
+                                        SavepointWireCodec.decode(payload))));
         return checkpoints;
     }
 }

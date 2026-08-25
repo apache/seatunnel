@@ -45,12 +45,12 @@ import java.util.HashMap;
  *       src/test/resources/savepoint-wire/legacy-v0} are frozen - never edit after review.
  *   <li>{@code replayV0*} proves the frozen legacy bytes still decode into the {@code
  *       engine-wire-v1} DTO via {@link
- *       org.apache.seatunnel.engine.server.savepoint.serialization.LegacyCheckpointReader}.
+ *       org.apache.seatunnel.engine.server.savepoint.serialization.LegacySavepointReader}.
  *   <li>{@code v1*} tests pin the new wire-format contract: stable enum names, no runtime-only
  *       fields, byte-stable round trip, explicit errors for unknown enum values.
  * </ul>
  */
-public class CheckpointWireCompatibilityTest {
+public class SavepointWireCompatibilityTest {
 
     private static final String LEGACY_VERSION = "legacy-v0";
     private static final Path GENERATED_DIR = Paths.get("target", "fixtures", LEGACY_VERSION);
@@ -63,51 +63,51 @@ public class CheckpointWireCompatibilityTest {
         Files.createDirectories(GENERATED_DIR);
         Files.write(
                 GENERATED_DIR.resolve("completed-checkpoint.ser"),
-                serializer.serialize(CheckpointWireFixtures.sampleCompletedCheckpoint()));
+                serializer.serialize(SavepointWireFixtures.sampleCompletedCheckpoint()));
         Files.write(
                 GENERATED_DIR.resolve("completed-checkpoint-empty.ser"),
-                serializer.serialize(CheckpointWireFixtures.sampleEmptyCompletedCheckpoint()));
+                serializer.serialize(SavepointWireFixtures.sampleEmptyCompletedCheckpoint()));
         Files.write(
                 GENERATED_DIR.resolve("pipeline-state.ser"),
-                serializer.serialize(CheckpointWireFixtures.samplePipelineState()));
+                serializer.serialize(SavepointWireFixtures.samplePipelineState()));
     }
 
     /** The current runtime layout must still reproduce the frozen legacy-v0 bytes exactly. */
     @Test
     public void legacyV0WireFormatIsStable() {
         Assertions.assertArrayEquals(
-                CheckpointWireFixtures.LEGACY_V0_COMPLETED_CHECKPOINT,
-                serializer.serialize(CheckpointWireFixtures.sampleCompletedCheckpoint()));
+                SavepointWireFixtures.LEGACY_V0_COMPLETED_CHECKPOINT,
+                serializer.serialize(SavepointWireFixtures.sampleCompletedCheckpoint()));
         Assertions.assertArrayEquals(
-                CheckpointWireFixtures.LEGACY_V0_COMPLETED_CHECKPOINT_EMPTY,
-                serializer.serialize(CheckpointWireFixtures.sampleEmptyCompletedCheckpoint()));
+                SavepointWireFixtures.LEGACY_V0_COMPLETED_CHECKPOINT_EMPTY,
+                serializer.serialize(SavepointWireFixtures.sampleEmptyCompletedCheckpoint()));
         Assertions.assertArrayEquals(
-                CheckpointWireFixtures.LEGACY_V0_PIPELINE_STATE,
-                serializer.serialize(CheckpointWireFixtures.samplePipelineState()));
+                SavepointWireFixtures.LEGACY_V0_PIPELINE_STATE,
+                serializer.serialize(SavepointWireFixtures.samplePipelineState()));
     }
 
     @Test
     public void replayV0CompletedCheckpointViaLegacyReader() {
-        WireCheckpoint wire =
-                LegacyCheckpointReader.read(CheckpointWireFixtures.LEGACY_V0_COMPLETED_CHECKPOINT);
+        WireSavepoint wire =
+                LegacySavepointReader.read(SavepointWireFixtures.LEGACY_V0_COMPLETED_CHECKPOINT);
         assertFullSampleWire(wire);
 
         // The wire DTO must convert back into a fully-formed runtime model.
-        CompletedCheckpoint checkpoint = CheckpointWireCodec.toCompletedCheckpoint(wire);
-        Assertions.assertEquals(CheckpointWireFixtures.JOB_ID, checkpoint.getJobId());
-        Assertions.assertEquals(CheckpointWireFixtures.PIPELINE_ID, checkpoint.getPipelineId());
-        Assertions.assertEquals(CheckpointWireFixtures.CHECKPOINT_ID, checkpoint.getCheckpointId());
+        CompletedCheckpoint checkpoint = SavepointWireCodec.toCompletedCheckpoint(wire);
+        Assertions.assertEquals(SavepointWireFixtures.JOB_ID, checkpoint.getJobId());
+        Assertions.assertEquals(SavepointWireFixtures.PIPELINE_ID, checkpoint.getPipelineId());
+        Assertions.assertEquals(SavepointWireFixtures.CHECKPOINT_ID, checkpoint.getCheckpointId());
         Assertions.assertEquals(CheckpointType.SAVEPOINT_TYPE, checkpoint.getCheckpointType());
         Assertions.assertEquals(
                 2,
                 checkpoint
                         .getTaskStates()
-                        .get(CheckpointWireFixtures.sampleActionStateKey())
+                        .get(SavepointWireFixtures.sampleActionStateKey())
                         .getParallelism());
         Assertions.assertNull(
                 checkpoint
                         .getTaskStates()
-                        .get(CheckpointWireFixtures.sampleActionStateKey())
+                        .get(SavepointWireFixtures.sampleActionStateKey())
                         .getSubtaskStates()
                         .get(1));
         Assertions.assertEquals(
@@ -116,9 +116,9 @@ public class CheckpointWireCompatibilityTest {
 
     @Test
     public void replayV0EmptyCheckpointViaLegacyReader() {
-        WireCheckpoint wire =
-                LegacyCheckpointReader.read(
-                        CheckpointWireFixtures.LEGACY_V0_COMPLETED_CHECKPOINT_EMPTY);
+        WireSavepoint wire =
+                LegacySavepointReader.read(
+                        SavepointWireFixtures.LEGACY_V0_COMPLETED_CHECKPOINT_EMPTY);
         Assertions.assertEquals(
                 CheckpointType.COMPLETED_POINT_TYPE.getName(), wire.getCheckpointTypeName());
         Assertions.assertTrue(wire.getTaskStates().isEmpty());
@@ -129,33 +129,33 @@ public class CheckpointWireCompatibilityTest {
     public void replayV0PipelineStateViaLegacyReader() {
         PipelineState state =
                 serializer.deserialize(
-                        CheckpointWireFixtures.LEGACY_V0_PIPELINE_STATE, PipelineState.class);
-        Assertions.assertEquals(String.valueOf(CheckpointWireFixtures.JOB_ID), state.getJobId());
-        Assertions.assertEquals(CheckpointWireFixtures.PIPELINE_ID, state.getPipelineId());
-        Assertions.assertEquals(CheckpointWireFixtures.CHECKPOINT_ID, state.getCheckpointId());
-        assertFullSampleWire(LegacyCheckpointReader.read(state.getStates()));
+                        SavepointWireFixtures.LEGACY_V0_PIPELINE_STATE, PipelineState.class);
+        Assertions.assertEquals(String.valueOf(SavepointWireFixtures.JOB_ID), state.getJobId());
+        Assertions.assertEquals(SavepointWireFixtures.PIPELINE_ID, state.getPipelineId());
+        Assertions.assertEquals(SavepointWireFixtures.CHECKPOINT_ID, state.getCheckpointId());
+        assertFullSampleWire(LegacySavepointReader.read(state.getStates()));
     }
 
     /** Runtime-only {@code isRestored} must not leak into the engine-wire-v1 contract. */
     @Test
     public void legacyIsRestoredIsNotPartOfV1Contract() throws IOException {
-        CompletedCheckpoint cleared = CheckpointWireFixtures.sampleEmptyCompletedCheckpoint();
+        CompletedCheckpoint cleared = SavepointWireFixtures.sampleEmptyCompletedCheckpoint();
         cleared.setRestored(false);
-        CompletedCheckpoint marked = CheckpointWireFixtures.sampleEmptyCompletedCheckpoint();
+        CompletedCheckpoint marked = SavepointWireFixtures.sampleEmptyCompletedCheckpoint();
         marked.setRestored(true);
         Assertions.assertArrayEquals(
-                CheckpointWireCodec.encode(CheckpointWireCodec.fromCompletedCheckpoint(cleared)),
-                CheckpointWireCodec.encode(CheckpointWireCodec.fromCompletedCheckpoint(marked)));
+                SavepointWireCodec.encode(SavepointWireCodec.fromCompletedCheckpoint(cleared)),
+                SavepointWireCodec.encode(SavepointWireCodec.fromCompletedCheckpoint(marked)));
     }
 
     /** The v1 codec must be byte-stable: decode(encode(x)) re-encodes to the same bytes. */
     @Test
     public void v1RoundTripIsByteStable() throws IOException {
-        WireCheckpoint wire =
-                CheckpointWireCodec.fromCompletedCheckpoint(
-                        CheckpointWireFixtures.sampleCompletedCheckpoint());
-        byte[] first = CheckpointWireCodec.encode(wire);
-        byte[] second = CheckpointWireCodec.encode(CheckpointWireCodec.decode(first));
+        WireSavepoint wire =
+                SavepointWireCodec.fromCompletedCheckpoint(
+                        SavepointWireFixtures.sampleCompletedCheckpoint());
+        byte[] first = SavepointWireCodec.encode(wire);
+        byte[] second = SavepointWireCodec.encode(SavepointWireCodec.decode(first));
         Assertions.assertArrayEquals(first, second);
     }
 
@@ -166,9 +166,9 @@ public class CheckpointWireCompatibilityTest {
             CompletedCheckpoint checkpoint =
                     new CompletedCheckpoint(
                             1L, 0, 1L, 1L, type, 1L, new HashMap<>(), new HashMap<>());
-            WireCheckpoint wire = CheckpointWireCodec.fromCompletedCheckpoint(checkpoint);
+            WireSavepoint wire = SavepointWireCodec.fromCompletedCheckpoint(checkpoint);
             Assertions.assertEquals(type.getName(), wire.getCheckpointTypeName());
-            CompletedCheckpoint round = CheckpointWireCodec.toCompletedCheckpoint(wire);
+            CompletedCheckpoint round = SavepointWireCodec.toCompletedCheckpoint(wire);
             Assertions.assertEquals(type, round.getCheckpointType());
         }
     }
@@ -176,31 +176,30 @@ public class CheckpointWireCompatibilityTest {
     /** Unknown enum values must fail explicitly, not silently. */
     @Test
     public void unknownCheckpointTypeNameFailsExplicitly() {
-        WireCheckpoint wire =
-                new WireCheckpoint(
-                        1, 0, 1L, 1L, "bogus-type", 1L, new HashMap<>(), new HashMap<>());
+        WireSavepoint wire =
+                new WireSavepoint(1, 0, 1L, 1L, "bogus-type", 1L, new HashMap<>(), new HashMap<>());
         IllegalArgumentException exception =
                 Assertions.assertThrows(
                         IllegalArgumentException.class,
-                        () -> CheckpointWireCodec.toCompletedCheckpoint(wire));
+                        () -> SavepointWireCodec.toCompletedCheckpoint(wire));
         Assertions.assertTrue(exception.getMessage().contains("bogus-type"));
         Assertions.assertTrue(exception.getMessage().toLowerCase().contains("supported"));
     }
 
-    private void assertFullSampleWire(WireCheckpoint wire) {
-        Assertions.assertEquals(CheckpointWireFixtures.CHECKPOINT_ID, wire.getCheckpointId());
-        Assertions.assertEquals(CheckpointWireFixtures.PIPELINE_ID, wire.getPipelineId());
-        Assertions.assertEquals(CheckpointWireFixtures.JOB_ID, wire.getJobId());
+    private void assertFullSampleWire(WireSavepoint wire) {
+        Assertions.assertEquals(SavepointWireFixtures.CHECKPOINT_ID, wire.getCheckpointId());
+        Assertions.assertEquals(SavepointWireFixtures.PIPELINE_ID, wire.getPipelineId());
+        Assertions.assertEquals(SavepointWireFixtures.JOB_ID, wire.getJobId());
         Assertions.assertEquals(
-                CheckpointWireFixtures.TRIGGER_TIMESTAMP, wire.getTriggerTimestamp());
+                SavepointWireFixtures.TRIGGER_TIMESTAMP, wire.getTriggerTimestamp());
         Assertions.assertEquals(
                 CheckpointType.SAVEPOINT_TYPE.getName(), wire.getCheckpointTypeName());
         Assertions.assertEquals(
-                CheckpointWireFixtures.COMPLETED_TIMESTAMP, wire.getCompletedTimestamp());
+                SavepointWireFixtures.COMPLETED_TIMESTAMP, wire.getCompletedTimestamp());
 
         Assertions.assertEquals(1, wire.getTaskStates().size());
         WireActionState actionState =
-                wire.getTaskStates().get(CheckpointWireFixtures.sampleActionStateKey().getName());
+                wire.getTaskStates().get(SavepointWireFixtures.sampleActionStateKey().getName());
         Assertions.assertNotNull(actionState);
         Assertions.assertEquals(2, actionState.getParallelism());
         Assertions.assertEquals(2, actionState.getSubtaskStates().size());

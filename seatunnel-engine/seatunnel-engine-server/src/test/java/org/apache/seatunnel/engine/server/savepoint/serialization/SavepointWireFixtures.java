@@ -34,7 +34,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Shared sample model used by {@link CheckpointWireCompatibilityTest}.
+ * Shared sample model used by {@link SavepointWireCompatibilityTest}.
  *
  * <p>The sample data is the stable anchor for the committed {@code legacy-v0} wire fixtures. The
  * samples intentionally cover the full persisted object graph: {@link CompletedCheckpoint}, {@link
@@ -42,7 +42,7 @@ import java.util.Map;
  * SubtaskStatistics} ({@link SubtaskStatus}), plus null slots (unreported subtasks) and empty
  * collections.
  */
-public final class CheckpointWireFixtures {
+public final class SavepointWireFixtures {
 
     public static final long JOB_ID = 733584788375093248L;
     public static final int PIPELINE_ID = 0;
@@ -53,7 +53,7 @@ public final class CheckpointWireFixtures {
     /**
      * Frozen legacy-v0 wire bytes (base64). These are the bytes the engine wrote before the
      * engine-wire-v1 format existed - they must stay byte-identical forever and must keep being
-     * readable by {@link LegacyCheckpointReader}. Kept as text (not binary resources) because the
+     * readable by {@link LegacySavepointReader}. Kept as text (not binary resources) because the
      * repository CI requires all files to be UTF-8 readable.
      */
     public static final byte[] LEGACY_V0_COMPLETED_CHECKPOINT =
@@ -69,7 +69,7 @@ public final class CheckpointWireFixtures {
                     .decode(
                             "ChI3MzM1ODQ3ODgzNzUwOTMyNDgQABgHIvkBCICA6Z2n742XChAAGAcggNWtg/IyKAMw+9Wtg/IyOwsLChxBY3Rpb25TdGF0ZUtleSAtIGZha2Utc291cmNlDBMLChxBY3Rpb25TdGF0ZUtleSAtIGZha2Utc291cmNlDBMLCwocQWN0aW9uU3RhdGVLZXkgLSBmYWtlLXNvdXJjZQwQABsKAwECAxwMEAEUGwsKHEFjdGlvblN0YXRlS2V5IC0gZmFrZS1zb3VyY2UMEP///////////wEbCgMJCAccHCACFAw8QwsIABMIABMLCAAQ6AcYKiAADBABFBsIAhABEAAcIAErCAAQ6AcYKiAALBQMREgA");
 
-    private CheckpointWireFixtures() {}
+    private SavepointWireFixtures() {}
 
     public static ActionStateKey sampleActionStateKey() {
         return new ActionStateKey("ActionStateKey - fake-source");

@@ -29,15 +29,15 @@ import org.apache.seatunnel.engine.server.checkpoint.CompletedCheckpoint;
  * savepoint-wire/legacy-v0} fixtures pin the expected wire layout; a future runtime model change
  * must keep this reader (and those fixtures) working or declare the legacy format retired.
  */
-public final class LegacyCheckpointReader {
+public final class LegacySavepointReader {
 
     private static final ProtoStuffSerializer SERIALIZER = new ProtoStuffSerializer();
 
-    private LegacyCheckpointReader() {}
+    private LegacySavepointReader() {}
 
     /** Decodes legacy-v0 bytes into the current wire DTO. */
-    public static WireCheckpoint read(byte[] data) {
+    public static WireSavepoint read(byte[] data) {
         CompletedCheckpoint checkpoint = SERIALIZER.deserialize(data, CompletedCheckpoint.class);
-        return CheckpointWireCodec.fromCompletedCheckpoint(checkpoint);
+        return SavepointWireCodec.fromCompletedCheckpoint(checkpoint);
     }
 }

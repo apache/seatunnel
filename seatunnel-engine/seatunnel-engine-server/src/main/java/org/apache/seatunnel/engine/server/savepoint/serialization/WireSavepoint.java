@@ -38,7 +38,7 @@ import java.util.Map;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class WireCheckpoint {
+public class WireSavepoint {
 
     @Tag(1)
     private long checkpointId;
