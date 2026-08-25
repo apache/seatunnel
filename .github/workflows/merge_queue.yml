@@ -42,7 +42,7 @@ jobs:
           distribution: temurin
           java-version: '8'
           cache: maven
-      # Build the CI reactor without the seatunnel-dist release assembly.
+      # Compile the standard modules with the CI profile.
       - name: Compile main and test sources
         uses: nick-fields/retry@v3
         with:
