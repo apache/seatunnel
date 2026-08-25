@@ -23,6 +23,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 
 import org.apache.flink.api.common.typeinfo.TypeInformation;
 import org.apache.flink.streaming.api.datastream.DataStream;
+import org.apache.flink.streaming.api.datastream.SingleOutputStreamOperator;
 
 import java.util.Map;
 
@@ -32,16 +33,23 @@ public final class SchemaEvolutionSinkFlow {
     private SchemaEvolutionSinkFlow() {}
 
     public static DataStream<SeaTunnelRow> coordinate(
-            DataStream<SeaTunnelRow> input, SeaTunnelSink<?, ?, ?, ?> sink, int sinkParallelism) {
+            DataStream<SeaTunnelRow> input,
+            SeaTunnelSink<?, ?, ?, ?> sink,
+            int sinkParallelism,
+            boolean parallelismConfigured) {
         if (!(sink instanceof SupportCoordinatedSchemaEvolutionSink)
                 || !((SupportCoordinatedSchemaEvolutionSink) sink)
                         .supportsCoordinatedSchemaEvolution()) {
-            return input.transform(
-                            "BroadcastSchemaHandler",
-                            TypeInformation.of(SeaTunnelRow.class),
-                            new BroadcastSchemaSinkOperator())
-                    .name("BroadcastSchemaHandler")
-                    .setParallelism(sinkParallelism);
+            SingleOutputStreamOperator<SeaTunnelRow> broadcastSchemaHandler =
+                    input.transform(
+                                    "BroadcastSchemaHandler",
+                                    TypeInformation.of(SeaTunnelRow.class),
+                                    new BroadcastSchemaSinkOperator())
+                            .name("BroadcastSchemaHandler");
+            if (parallelismConfigured) {
+                broadcastSchemaHandler.setParallelism(sinkParallelism);
+            }
+            return broadcastSchemaHandler;
         }
 
         DataStream<SeaTunnelRow> dataRows =
@@ -55,14 +63,17 @@ public final class SchemaEvolutionSinkFlow {
                                 new ExternalSchemaChangeOperator(sink))
                         .name("ExternalSchemaChangeApplier")
                         .setParallelism(1);
-        return dataRows.connect(schemaRows.broadcast())
-                .transform(
-                        "SchemaRefreshBarrier",
-                        TypeInformation.of(SeaTunnelRow.class),
-                        new SchemaRefreshBarrierOperator())
-                .name("SchemaRefreshBarrier")
-                .setParallelism(sinkParallelism)
-                .forward();
+        SingleOutputStreamOperator<SeaTunnelRow> schemaRefreshBarrier =
+                dataRows.connect(schemaRows.broadcast())
+                        .transform(
+                                "SchemaRefreshBarrier",
+                                TypeInformation.of(SeaTunnelRow.class),
+                                new SchemaRefreshBarrierOperator())
+                        .name("SchemaRefreshBarrier");
+        if (parallelismConfigured) {
+            schemaRefreshBarrier.setParallelism(sinkParallelism);
+        }
+        return schemaRefreshBarrier.forward();
     }
 
     private static boolean isDataRow(SeaTunnelRow row) {

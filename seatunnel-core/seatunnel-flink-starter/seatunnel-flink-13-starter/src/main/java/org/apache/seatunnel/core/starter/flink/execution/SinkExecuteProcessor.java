@@ -196,12 +196,15 @@ public class SinkExecuteProcessor
             createdAnySink = true;
             boolean sinkParallelism = sinkConfig.hasPath(EnvCommonOptions.PARALLELISM.key());
             boolean envParallelism = envConfig.hasPath(EnvCommonOptions.PARALLELISM.key());
+            boolean parallelismConfigured = sinkParallelism || envParallelism;
             int parallelism =
                     sinkParallelism
                             ? sinkConfig.getInt(EnvCommonOptions.PARALLELISM.key())
                             : envParallelism
                                     ? envConfig.getInt(EnvCommonOptions.PARALLELISM.key())
-                                    : 1;
+                                    : stream.getDataStream()
+                                            .getExecutionEnvironment()
+                                            .getParallelism();
 
             boolean isStreaming =
                     envConfig.hasPath("job.mode")
@@ -210,12 +213,16 @@ public class SinkExecuteProcessor
                                     .equalsIgnoreCase(envConfig.getString("job.mode"));
             DataStream<SeaTunnelRow> ds = stream.getDataStream();
             if (isStreaming && sink instanceof SupportSchemaEvolutionSink) {
-                ds = SchemaEvolutionSinkFlow.coordinate(ds, sink, parallelism);
+                ds =
+                        SchemaEvolutionSinkFlow.coordinate(
+                                ds, sink, parallelism, parallelismConfigured);
             }
             DataStreamSink<SeaTunnelRow> dataStreamSink =
                     ds.sinkTo(new FlinkSink<>(sink, stream.getCatalogTables(), parallelism))
                             .name(String.format("%s-Sink", sink.getPluginName()));
-            dataStreamSink.setParallelism(parallelism);
+            if (parallelismConfigured) {
+                dataStreamSink.setParallelism(parallelism);
+            }
         }
         if (!createdAnySink && !skippedTables.isEmpty()) {
             throw new TaskExecuteException(

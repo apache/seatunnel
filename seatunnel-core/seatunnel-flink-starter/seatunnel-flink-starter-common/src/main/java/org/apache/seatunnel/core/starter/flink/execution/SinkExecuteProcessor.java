@@ -48,13 +48,17 @@ public class SinkExecuteProcessor extends AbstractSinkExecuteProcessor {
 
     @Override
     protected DataStreamSink<SeaTunnelRow> createVersionSpecificDataStreamSink(
-            DataStreamTableInfo stream, SeaTunnelSink sink, int parallelism, Config sinkConfig) {
+            DataStreamTableInfo stream,
+            SeaTunnelSink sink,
+            int parallelism,
+            boolean parallelismConfigured,
+            Config sinkConfig) {
         boolean isStreaming =
                 envConfig.hasPath("job.mode")
                         && STREAMING.toString().equalsIgnoreCase(envConfig.getString("job.mode"));
         DataStream<SeaTunnelRow> ds = stream.getDataStream();
         if (isStreaming && sink instanceof SupportSchemaEvolutionSink) {
-            ds = SchemaEvolutionSinkFlow.coordinate(ds, sink, parallelism);
+            ds = SchemaEvolutionSinkFlow.coordinate(ds, sink, parallelism, parallelismConfigured);
         }
         return ds.sinkTo(
                         SinkV1Adapter.wrap(
