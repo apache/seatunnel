@@ -18,12 +18,17 @@
 package org.apache.seatunnel.engine.server.savepoint.serialization;
 
 import org.apache.seatunnel.engine.checkpoint.storage.savepoint.SavepointMeta;
+import org.apache.seatunnel.engine.checkpoint.storage.savepoint.SavepointManifestEntry;
+import org.apache.seatunnel.engine.checkpoint.storage.savepoint.SavepointStorageConstants;
+import org.apache.seatunnel.engine.checkpoint.storage.savepoint.SavepointStorageUtils;
+
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
 import org.apache.seatunnel.engine.server.checkpoint.CompletedCheckpoint;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -39,7 +44,26 @@ public class SavepointReaderRegistryTest {
                 SavepointWireCodec.encode(
                         SavepointWireCodec.fromCompletedCheckpoint(
                                 SavepointWireFixtures.sampleCompletedCheckpoint()));
-        SavepointMeta meta = new SavepointMeta(1, "1000", "1", "test", 2000L, null, "checksum");
+        SavepointManifestEntry entry =
+                new SavepointManifestEntry(
+                        SavepointWireFixtures.PIPELINE_ID,
+                        SavepointWireFixtures.CHECKPOINT_ID,
+                        SavepointWireFixtures.PIPELINE_ID
+                                + "-"
+                                + SavepointWireFixtures.CHECKPOINT_ID
+                                + ".ser",
+                        payload.length,
+                        SavepointStorageUtils.sha256Hex(payload),
+                        SavepointStorageConstants.PAYLOAD_FORMAT_V1);
+        SavepointMeta meta =
+                new SavepointMeta(
+                        1,
+                        "1000",
+                        String.valueOf(SavepointWireFixtures.JOB_ID),
+                        "test",
+                        2000L,
+                        Collections.singletonList(entry),
+                        SavepointStorageUtils.manifestChecksum(Collections.singletonList(entry)));
         Map<Integer, byte[]> payloads = new HashMap<>();
         payloads.put(0, payload);
 

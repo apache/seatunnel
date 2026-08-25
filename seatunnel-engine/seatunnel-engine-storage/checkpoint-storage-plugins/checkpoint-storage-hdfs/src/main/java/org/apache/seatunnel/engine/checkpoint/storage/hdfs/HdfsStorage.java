@@ -30,6 +30,7 @@ import org.apache.seatunnel.engine.checkpoint.storage.hdfs.common.FileConfigurat
 import org.apache.seatunnel.engine.checkpoint.storage.savepoint.SavepointData;
 import org.apache.seatunnel.engine.checkpoint.storage.savepoint.SavepointHandle;
 import org.apache.seatunnel.engine.checkpoint.storage.savepoint.SavepointManifestEntry;
+import org.apache.seatunnel.engine.checkpoint.storage.savepoint.SavepointManifestValidator;
 import org.apache.seatunnel.engine.checkpoint.storage.savepoint.SavepointMeta;
 import org.apache.seatunnel.engine.checkpoint.storage.savepoint.SavepointRequest;
 import org.apache.seatunnel.engine.checkpoint.storage.savepoint.SavepointStorage;
@@ -460,6 +461,7 @@ public class HdfsStorage extends AbstractCheckpointStorage implements SavepointS
             }
             SavepointMeta meta = SavepointStorageUtils.deserializeMeta(readBytes(metaPath));
             SavepointStorageUtils.verifyManifestChecksum(meta);
+            SavepointManifestValidator.validateMetadata(meta, jobId, savepointId);
             Map<Integer, PipelineState> pipelineStates = new HashMap<>();
             for (SavepointManifestEntry entry : meta.getPipelines()) {
                 Path payload = new Path(dir, entry.getPayloadFile());
@@ -488,6 +490,7 @@ public class HdfsStorage extends AbstractCheckpointStorage implements SavepointS
                 }
                 pipelineStates.put(entry.getPipelineId(), deserializeCheckPointData(bytes));
             }
+            SavepointManifestValidator.validate(meta, jobId, savepointId, pipelineStates);
             return new SavepointData(jobId, savepointId, meta, pipelineStates);
         } catch (IOException e) {
             throw new CheckpointStorageException(

@@ -24,6 +24,7 @@ import org.apache.seatunnel.engine.checkpoint.storage.savepoint.SavepointHandle;
 import org.apache.seatunnel.engine.checkpoint.storage.savepoint.SavepointMeta;
 import org.apache.seatunnel.engine.checkpoint.storage.savepoint.SavepointRequest;
 import org.apache.seatunnel.engine.checkpoint.storage.savepoint.SavepointStorageConstants;
+import org.apache.seatunnel.engine.checkpoint.storage.savepoint.SavepointStorageUtils;
 import org.apache.seatunnel.engine.checkpoint.storage.savepoint.SavepointWriter;
 
 import org.junit.jupiter.api.AfterEach;
@@ -182,6 +183,66 @@ public class LocalSavepointStorageTest {
         Assertions.assertTrue(exception.getMessage().contains("missing pipeline ids"));
         // the incomplete bundle must not be listed
         Assertions.assertTrue(storage.listCompletedSavepoints("1").isEmpty());
+    }
+
+    @Test
+    public void testSavepointMetadataValidation() throws Exception {
+        // helper: scaffold a committed bundle
+        SavepointWriter writer =
+                storage.beginSavepoint(new SavepointRequest("1", "1006", "attempt-1", Set.of(0)));
+        writer.writePipeline(pipelineState(0, 10, new byte[] {1}));
+        writer.commitSavepoint(new SavepointMeta(1, "1006", "1", "test", 7000L, null, null));
+
+        // 1) job id tamper: rewrite _metadata.ser with a different jobId
+        File metaFile =
+                tempDir.resolve(SavepointStorageConstants.SAVEPOINT_ROOT_DIR)
+                        .resolve("1")
+                        .resolve("1006")
+                        .resolve(SavepointStorageConstants.META_FILE_NAME)
+                        .toFile();
+        SavepointMeta tamperedMeta =
+                SavepointStorageUtils.deserializeMeta(Files.readAllBytes(metaFile.toPath()));
+        tamperedMeta.setJobId("999");
+        Files.write(metaFile.toPath(), SavepointStorageUtils.serializeMeta(tamperedMeta));
+        CheckpointStorageException e1 =
+                Assertions.assertThrows(
+                        CheckpointStorageException.class, () -> storage.readSavepoint("1", "1006"));
+        Assertions.assertTrue(e1.getMessage().contains("job id mismatch"));
+
+        // restore metadata, then tamper savepoint id
+        tamperedMeta.setJobId("1");
+        tamperedMeta.setSavepointId("9999");
+        Files.write(metaFile.toPath(), SavepointStorageUtils.serializeMeta(tamperedMeta));
+        CheckpointStorageException e2 =
+                Assertions.assertThrows(
+                        CheckpointStorageException.class, () -> storage.readSavepoint("1", "1006"));
+        Assertions.assertTrue(e2.getMessage().contains("id mismatch"));
+    }
+
+    @Test
+    public void testUnsafePayloadFileNameRejected() throws Exception {
+        SavepointWriter writer =
+                storage.beginSavepoint(new SavepointRequest("1", "1007", "attempt-1", Set.of(0)));
+        writer.writePipeline(pipelineState(0, 10, new byte[] {1}));
+        writer.commitSavepoint(new SavepointMeta(1, "1007", "1", "test", 8000L, null, null));
+
+        File metaFile =
+                tempDir.resolve(SavepointStorageConstants.SAVEPOINT_ROOT_DIR)
+                        .resolve("1")
+                        .resolve("1007")
+                        .resolve(SavepointStorageConstants.META_FILE_NAME)
+                        .toFile();
+        SavepointMeta meta =
+                SavepointStorageUtils.deserializeMeta(Files.readAllBytes(metaFile.toPath()));
+        meta.getPipelines().get(0).setPayloadFile("../outside.ser");
+        // keep the manifest checksum consistent so the filename check is what fires
+        meta.setManifestChecksum(SavepointStorageUtils.manifestChecksum(meta.getPipelines()));
+        Files.write(metaFile.toPath(), SavepointStorageUtils.serializeMeta(meta));
+
+        CheckpointStorageException e =
+                Assertions.assertThrows(
+                        CheckpointStorageException.class, () -> storage.readSavepoint("1", "1007"));
+        Assertions.assertTrue(e.getMessage().contains("unsafe payload file name"));
     }
 
     private PipelineState pipelineState(int pipelineId, long checkpointId, byte[] states) {

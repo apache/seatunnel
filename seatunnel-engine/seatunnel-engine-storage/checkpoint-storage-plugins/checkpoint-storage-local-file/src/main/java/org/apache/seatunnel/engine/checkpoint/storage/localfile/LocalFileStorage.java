@@ -29,6 +29,7 @@ import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorag
 import org.apache.seatunnel.engine.checkpoint.storage.savepoint.SavepointData;
 import org.apache.seatunnel.engine.checkpoint.storage.savepoint.SavepointHandle;
 import org.apache.seatunnel.engine.checkpoint.storage.savepoint.SavepointManifestEntry;
+import org.apache.seatunnel.engine.checkpoint.storage.savepoint.SavepointManifestValidator;
 import org.apache.seatunnel.engine.checkpoint.storage.savepoint.SavepointMeta;
 import org.apache.seatunnel.engine.checkpoint.storage.savepoint.SavepointRequest;
 import org.apache.seatunnel.engine.checkpoint.storage.savepoint.SavepointStorage;
@@ -487,6 +488,7 @@ public class LocalFileStorage extends AbstractCheckpointStorage implements Savep
                     "Failed to read savepoint metadata for " + savepointId, e);
         }
         SavepointStorageUtils.verifyManifestChecksum(meta);
+        SavepointManifestValidator.validateMetadata(meta, jobId, savepointId);
         Map<Integer, PipelineState> pipelineStates = new HashMap<>();
         for (SavepointManifestEntry entry : meta.getPipelines()) {
             File payload = new File(dir, entry.getPayloadFile());
@@ -542,6 +544,7 @@ public class LocalFileStorage extends AbstractCheckpointStorage implements Savep
             }
             pipelineStates.put(entry.getPipelineId(), pipelineState);
         }
+        SavepointManifestValidator.validate(meta, jobId, savepointId, pipelineStates);
         return new SavepointData(jobId, savepointId, meta, pipelineStates);
     }
 
