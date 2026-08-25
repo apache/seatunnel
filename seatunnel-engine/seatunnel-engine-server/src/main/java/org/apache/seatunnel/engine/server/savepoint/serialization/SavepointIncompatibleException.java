@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.checkpoint.savepoint.serialization;
+package org.apache.seatunnel.engine.server.savepoint.serialization;
 
 /**
  * Raised when a savepoint bundle cannot be read or restored because of a version or integrity

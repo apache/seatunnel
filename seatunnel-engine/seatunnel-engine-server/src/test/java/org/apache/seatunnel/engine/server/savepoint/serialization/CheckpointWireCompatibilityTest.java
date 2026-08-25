@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.checkpoint.savepoint.serialization;
+package org.apache.seatunnel.engine.server.savepoint.serialization;
 
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
@@ -45,7 +45,7 @@ import java.util.HashMap;
  *       src/test/resources/savepoint-wire/legacy-v0} are frozen - never edit after review.
  *   <li>{@code replayV0*} proves the frozen legacy bytes still decode into the {@code
  *       engine-wire-v1} DTO via {@link
- *       org.apache.seatunnel.engine.server.checkpoint.savepoint.serialization.LegacyCheckpointReader}.
+ *       org.apache.seatunnel.engine.server.savepoint.serialization.LegacyCheckpointReader}.
  *   <li>{@code v1*} tests pin the new wire-format contract: stable enum names, no runtime-only
  *       fields, byte-stable round trip, explicit errors for unknown enum values.
  * </ul>

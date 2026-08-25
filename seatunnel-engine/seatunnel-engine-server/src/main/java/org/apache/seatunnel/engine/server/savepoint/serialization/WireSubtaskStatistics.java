@@ -15,32 +15,32 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.checkpoint.savepoint.serialization;
+package org.apache.seatunnel.engine.server.savepoint.serialization;
 
 import io.protostuff.Tag;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.util.List;
-
-/** Wire-format DTO of an action state ({@code engine-wire-v1}). */
+/** Wire-format DTO of one subtask statistics entry ({@code engine-wire-v1}). */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class WireActionState {
+public class WireSubtaskStatistics {
 
-    /** {@link org.apache.seatunnel.engine.server.checkpoint.ActionStateKey#getName()}. */
     @Tag(1)
-    private String stateKeyName;
+    private int subtaskIndex;
 
-    /** Null elements are preserved (parallelism slots without reported state). */
     @Tag(2)
-    private List<WireSubtaskState> subtaskStates;
+    private long ackTimestamp;
 
     @Tag(3)
-    private WireSubtaskState coordinatorState;
+    private long stateSize;
 
+    /**
+     * Stable {@link org.apache.seatunnel.engine.server.checkpoint.SubtaskStatus#name()} value; must
+     * not rely on enum ordinal.
+     */
     @Tag(4)
-    private int parallelism;
+    private String subtaskStatusName;
 }

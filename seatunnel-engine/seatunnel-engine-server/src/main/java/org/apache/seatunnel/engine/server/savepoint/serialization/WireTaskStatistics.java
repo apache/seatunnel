@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.engine.server.checkpoint.savepoint.serialization;
+package org.apache.seatunnel.engine.server.savepoint.serialization;
 
 import io.protostuff.Tag;
 import lombok.AllArgsConstructor;
