@@ -130,10 +130,15 @@ public abstract class AbstractJdbcCatalog implements Catalog {
             Enumeration<Driver> drivers = DriverManager.getDrivers();
             try {
                 // Driver Manager may load the wrong driver, prioritize finding the driver by class
-                // name
+                // name and url to avoid conflicts (e.g., OpenGauss JDBC driver vs PostgreSQL JDBC
+                // driver)
                 while (drivers.hasMoreElements()) {
                     Driver driver = drivers.nextElement();
                     if (StringUtils.equals(driver.getClass().getName(), driverClass)) {
+                        if (!driver.acceptsURL(url)) {
+                            log.info("driver {} does not accept url {}, skip", driverClass, url);
+                            continue;
+                        }
                         try {
                             Connection connection = driver.connect(url, info);
                             connectionMap.put(url, connection);

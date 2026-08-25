@@ -178,7 +178,7 @@ Applications can use change streams to subscribe to all data changes on a single
 
 **Lookup Full Document for Update Operations** is a feature provided by **Change Stream** which can configure the change stream to return the most current majority-committed version of the updated document. Because of this feature, we can easily collect the latest full document and convert the change log to Changelog Stream.
 
-The format of the data captured by delete events in change streams: [delete event](https://www.mongodb.com/docs/v5.0/reference/change-events/delete/)
+The format of the data captured by delete events in change streams: [delete event](https://www.mongodb.com/docs/manual/reference/change-events/delete/)
 ```
 {
    "_id": { <Resume Token> },

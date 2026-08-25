@@ -108,6 +108,15 @@ public class SimpleJdbcConnectionProvider implements JdbcConnectionProvider, Ser
             info.setProperty("password", jdbcConfig.getPassword().get());
         }
         info.putAll(jdbcConfig.getProperties());
+        // Verify the driver accepts the URL to avoid driver conflicts
+        // (e.g., OpenGauss JDBC driver vs PostgreSQL JDBC driver)
+        if (!driver.acceptsURL(jdbcConfig.getUrl())) {
+            LOG.info(
+                    "driver {} does not accept url {}, try to find another driver",
+                    driver.getClass().getName(),
+                    jdbcConfig.getUrl());
+            driver = DriverManager.getDriver(jdbcConfig.getUrl());
+        }
         connection = driver.connect(jdbcConfig.getUrl(), info);
         if (connection == null) {
             // Throw same exception as DriverManager.getConnection when no driver found to match
