@@ -69,4 +69,68 @@ public class MySqlUtilsTest {
                         true);
         Assertions.assertEquals("SELECT * FROM `db1`.`table1` WHERE `id` >= ?", splitScanSQL);
     }
+
+    @Test
+    public void testCompositePrimaryKeySplitScanQuery() {
+        // Test composite primary key with 2 columns: middle split
+        String splitScanSQL =
+                MySqlUtils.buildSplitScanQuery(
+                        TableId.parse("db1.table1"),
+                        new SeaTunnelRowType(
+                                new String[] {"order_id", "line_no"},
+                                new SeaTunnelDataType[] {BasicType.LONG_TYPE, BasicType.INT_TYPE}),
+                        false,
+                        false);
+        // Middle split uses lexicographic tuple comparison:
+        // (order_id > ?) OR (order_id = ? AND line_no >= ?) -- lower bound
+        // AND NOT (order_id = ? AND line_no = ?) -- exclude start boundary
+        // AND ((order_id < ?) OR (order_id = ? AND line_no <= ?)) -- upper bound
+        Assertions.assertNotNull(splitScanSQL);
+        Assertions.assertTrue(splitScanSQL.contains("`order_id` > ?"));
+        Assertions.assertTrue(splitScanSQL.contains("`line_no` >= ?"));
+        Assertions.assertTrue(splitScanSQL.contains("`order_id` < ?"));
+        Assertions.assertTrue(splitScanSQL.contains("`line_no` <= ?"));
+        Assertions.assertTrue(splitScanSQL.contains("NOT ("));
+        Assertions.assertTrue(splitScanSQL.contains("`order_id` = ?"));
+        Assertions.assertTrue(splitScanSQL.contains("`line_no` = ?"));
+        Assertions.assertTrue(splitScanSQL.contains(" OR "));
+
+        // Test composite primary key: first split (upper bound only)
+        splitScanSQL =
+                MySqlUtils.buildSplitScanQuery(
+                        TableId.parse("db1.table1"),
+                        new SeaTunnelRowType(
+                                new String[] {"order_id", "line_no"},
+                                new SeaTunnelDataType[] {BasicType.LONG_TYPE, BasicType.INT_TYPE}),
+                        true,
+                        false);
+        Assertions.assertNotNull(splitScanSQL);
+        Assertions.assertTrue(splitScanSQL.contains("`order_id` < ?"));
+        Assertions.assertTrue(splitScanSQL.contains("NOT ("));
+        Assertions.assertTrue(splitScanSQL.contains("`order_id` = ?"));
+
+        // Test composite primary key: last split (lower bound only)
+        splitScanSQL =
+                MySqlUtils.buildSplitScanQuery(
+                        TableId.parse("db1.table1"),
+                        new SeaTunnelRowType(
+                                new String[] {"order_id", "line_no"},
+                                new SeaTunnelDataType[] {BasicType.LONG_TYPE, BasicType.INT_TYPE}),
+                        false,
+                        true);
+        Assertions.assertNotNull(splitScanSQL);
+        Assertions.assertTrue(splitScanSQL.contains("`order_id` > ?"));
+        Assertions.assertTrue(splitScanSQL.contains("`line_no` >= ?"));
+
+        // Test composite primary key: full table scan (first and last)
+        splitScanSQL =
+                MySqlUtils.buildSplitScanQuery(
+                        TableId.parse("db1.table1"),
+                        new SeaTunnelRowType(
+                                new String[] {"order_id", "line_no"},
+                                new SeaTunnelDataType[] {BasicType.LONG_TYPE, BasicType.INT_TYPE}),
+                        true,
+                        true);
+        Assertions.assertEquals("SELECT * FROM `db1`.`table1`", splitScanSQL);
+    }
 }
