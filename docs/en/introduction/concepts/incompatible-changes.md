@@ -5,6 +5,25 @@ You need to check this document before you upgrade to related version.
 
 ## dev
 
+### Zeta Savepoint Storage
+
+- **New format: savepoints are versioned bundles**
+  - **Affected component**: `seatunnel-engine` (Zeta checkpoint storage)
+  - **Description**: New savepoints are written to `<namespace>/savepoint/<job-id>/<savepoint-id>/`
+    as a bundle with a `_metadata.ser` commit marker (`formatVersion=1`, manifest with per-file
+    length and SHA-256 checksums). They are no longer written into the checkpoint directory and are
+    excluded from checkpoint retention/rotation and from job-terminal cleanup - savepoints are now
+    kept until explicitly deleted.
+  - **Compatibility**: Savepoints written by earlier engines (still inside the checkpoint
+    directory, no version marker) remain readable on a best-effort basis and are used only when no
+    new bundle exists for the job. Forward compatibility is NOT promised: a savepoint written by a
+    newer engine is rejected with an explicit error. Connector-internal state bytes (offsets,
+    transaction ids) are passed through unchanged; cross-version compatibility of connector state
+    remains the connector's own responsibility.
+  - **Impact**: Jobs restored from a savepoint keep working identically. Operators should re-run
+    `stop-with-savepoint` after upgrade for the new layout; old bundles can be migrated manually
+    (a migration tool is planned).
+
 ### MySQL CDC Schema-Change Parsing
 
 - **Behavior change: DDL parser listener errors are propagated**
