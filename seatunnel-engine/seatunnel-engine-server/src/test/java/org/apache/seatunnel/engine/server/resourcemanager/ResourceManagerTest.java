@@ -94,6 +94,34 @@ public class ResourceManagerTest extends AbstractSeaTunnelServerTest<ResourceMan
     }
 
     @Test
+    public void testSlotActiveCheckFailsClosedForMissingWorkerOrSequence()
+            throws UnknownHostException {
+        FakeResourceManager fakeResourceManager = new FakeResourceManager(nodeEngine);
+        Address worker = new Address("localhost", 5801);
+        SlotProfile snapshot = new SlotProfile(worker, 1, new ResourceProfile(), null);
+        snapshot.assign(jobId);
+
+        Assertions.assertFalse(fakeResourceManager.slotActiveCheck(snapshot));
+
+        SlotProfile liveSlot = new SlotProfile(worker, 1, new ResourceProfile(), null);
+        liveSlot.assign(jobId);
+        fakeResourceManager
+                .getRegisterWorker()
+                .put(
+                        worker,
+                        new WorkerProfile(
+                                worker,
+                                new ResourceProfile(),
+                                new ResourceProfile(),
+                                true,
+                                new SlotProfile[] {null, liveSlot},
+                                new SlotProfile[] {},
+                                Collections.emptyMap()));
+
+        Assertions.assertFalse(fakeResourceManager.slotActiveCheck(snapshot));
+    }
+
+    @Test
     public void testApplyRequest() throws ExecutionException, InterruptedException {
         List<ResourceProfile> resourceProfiles = new ArrayList<>();
         resourceProfiles.add(new ResourceProfile(CPU.of(0), Memory.of(100)));
