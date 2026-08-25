@@ -24,6 +24,7 @@ import ChangeLog from '../changelog/connector-http-shopify.md';
 | url                         | String  | 是       | -         |
 | access_token                | String  | 是       | -         |
 | method                      | String  | 否       | get       |
+| headers                     | Map     | 否       | -         |
 | schema                      | Config  | 否       | -         |
 | format                      | String  | 否       | text      |
 | params                      | Map     | 否       | -         |
@@ -34,8 +35,11 @@ import ChangeLog from '../changelog/connector-http-shopify.md';
 | retry                       | int     | 否       | -         |
 | retry_backoff_multiplier_ms | int     | 否       | 100       |
 | retry_backoff_max_ms        | int     | 否       | 10000     |
+| json_filed_missed_return_null | boolean | 否     | false     |
 | enable_multi_lines          | boolean | 否       | false     |
 | common-options              | config  | 否       | -         |
+
+选项规则同样接受 `pageing`，但本连接器并未实现它 —— 见[分页](#分页)。
 
 ### url [String]
 
@@ -48,6 +52,12 @@ Shopify Admin API 的访问令牌，通过 `X-Shopify-Access-Token` 请求头发
 ### method [String]
 
 http 请求方法，仅支持 GET、POST 方法。
+
+### headers [Map]
+
+额外的 HTTP 请求头。连接器已经会根据 `access_token` 设置 `X-Shopify-Access-Token`，并设置
+`Accept: application/json`，因此这里只需要配置这两者之外的请求头；在这里设置
+`X-Shopify-Access-Token` 会被 `access_token` 覆盖。
 
 ### schema [Config]
 
@@ -72,6 +82,15 @@ http 请求参数。
 ### common options
 
 数据源插件通用参数，详情请参考 [Source Common Options](../common-options/source-common-options.md)。
+
+## 分页
+
+**暂不支持。** `pageing` 继承自 HTTP source 的选项规则，配置时不会报错，但本连接器不会把它
+传给 reader，因此作业只会读取第一次响应的数据 —— 最多到 Shopify 的默认分页大小。
+
+仅仅把继承来的分页参数传下去也解决不了问题：共享实现是用 JsonPath 从响应*体*中读取下一个游标，
+而 Admin REST API 把游标放在 `Link` 响应头里。要真正支持，需要让 `connector-http-base`
+能够从响应头读取游标。
 
 ## 示例
 

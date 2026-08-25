@@ -24,6 +24,7 @@ Used to read data from the [Shopify Admin REST API](https://shopify.dev/docs/api
 | url                         | String  | Yes      | -             |
 | access_token                | String  | Yes      | -             |
 | method                      | String  | No       | get           |
+| headers                     | Map     | No       | -             |
 | schema                      | Config  | No       | -             |
 | format                      | String  | No       | text          |
 | params                      | Map     | No       | -             |
@@ -34,8 +35,11 @@ Used to read data from the [Shopify Admin REST API](https://shopify.dev/docs/api
 | retry                       | int     | No       | -             |
 | retry_backoff_multiplier_ms | int     | No       | 100           |
 | retry_backoff_max_ms        | int     | No       | 10000         |
+| json_filed_missed_return_null | boolean | No     | false         |
 | enable_multi_lines          | boolean | No       | false         |
 | common-options              | config  | No       | -             |
+
+`pageing` is also accepted by the option rule but is not implemented by this connector — see [Pagination](#pagination).
 
 ### url [String]
 
@@ -48,6 +52,12 @@ The Shopify Admin API access token. It is sent in the `X-Shopify-Access-Token` r
 ### method [String]
 
 http request method, only supports GET, POST method.
+
+### headers [Map]
+
+Extra HTTP request headers. The connector already sets `X-Shopify-Access-Token` from
+`access_token` and `Accept: application/json`, so this is only for anything beyond those —
+setting `X-Shopify-Access-Token` here is overwritten by `access_token`.
 
 ### schema [Config]
 
@@ -72,6 +82,17 @@ This parameter can extract a sub-section of the JSON response (for example the a
 ### common options
 
 Source plugin common parameters, please refer to [Source Common Options](../common-options/source-common-options.md) for details.
+
+## Pagination
+
+**Not supported yet.** `pageing` is inherited from the HTTP source option rule and is
+accepted without error, but this connector does not pass it to the reader, so a job reads
+only the first response — up to Shopify's default page size.
+
+Wiring the inherited pagination through would not help on its own: the shared implementation
+reads the next cursor out of the response *body* with a JsonPath, while the Admin REST API
+returns it in the `Link` response header. Supporting it properly means teaching
+`connector-http-base` to read a header cursor.
 
 ## Example
 
