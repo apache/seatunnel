@@ -20,6 +20,9 @@ package org.apache.seatunnel.engine.server;
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorageFactory;
+import org.apache.seatunnel.engine.checkpoint.storage.savepoint.SavepointData;
+import org.apache.seatunnel.engine.checkpoint.storage.savepoint.SavepointHandle;
+import org.apache.seatunnel.engine.checkpoint.storage.savepoint.SavepointStorage;
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.utils.FactoryUtil;
 import org.apache.seatunnel.engine.core.job.JobPipelineCheckpointData;
@@ -30,12 +33,14 @@ import org.apache.seatunnel.engine.server.checkpoint.ActionState;
 import org.apache.seatunnel.engine.server.checkpoint.ActionStateKey;
 import org.apache.seatunnel.engine.server.checkpoint.ActionSubtaskState;
 import org.apache.seatunnel.engine.server.checkpoint.CompletedCheckpoint;
+import org.apache.seatunnel.engine.server.checkpoint.serialization.CheckpointWireCodec;
 import org.apache.seatunnel.engine.server.utils.CheckpointRestoreUtils;
 
 import lombok.Getter;
 import lombok.SneakyThrows;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -50,6 +55,10 @@ import java.util.stream.Collectors;
  */
 public class CheckpointService {
     @Getter private CheckpointStorage checkpointStorage;
+
+    /** Savepoint bundle capability; null when the storage plugin does not support it. */
+    private final SavepointStorage savepointStorage;
+
     private Serializer serializer = new ProtoStuffSerializer();
 
     @SneakyThrows
@@ -60,6 +69,10 @@ public class CheckpointService {
                                 CheckpointStorageFactory.class,
                                 config.getStorage().getStorage())
                         .create(config.getStorage().getStoragePluginConfig());
+        this.savepointStorage =
+                checkpointStorage instanceof SavepointStorage
+                        ? (SavepointStorage) checkpointStorage
+                        : null;
     }
 
     @SneakyThrows
@@ -112,6 +125,24 @@ public class CheckpointService {
     @SneakyThrows
     public List<CompletedCheckpoint> getLatestCheckpointsForRestore(
             String jobId, RestoreMode restoreMode) {
+        if (restoreMode == RestoreMode.SAVEPOINT && savepointStorage != null) {
+            List<SavepointHandle> handles = savepointStorage.listCompletedSavepoints(jobId);
+            if (!handles.isEmpty()) {
+                SavepointData data =
+                        savepointStorage.readSavepoint(jobId, handles.get(0).getSavepointId());
+                List<CompletedCheckpoint> result = new ArrayList<>();
+                for (Map.Entry<Integer, PipelineState> entry :
+                        data.getPipelineStates().entrySet()) {
+                    CompletedCheckpoint checkpoint =
+                            CheckpointWireCodec.toCompletedCheckpoint(
+                                    CheckpointWireCodec.decode(entry.getValue().getStates()));
+                    result.add(checkpoint);
+                }
+                result.sort(Comparator.comparingInt(CompletedCheckpoint::getPipelineId));
+                return result;
+            }
+            // No bundle: fall through to the legacy checkpoint-directory scan (best-effort).
+        }
         return checkpointStorage.getAllCheckpoints(jobId).stream()
                 .map(this::deserializeCheckpoint)
                 .filter(

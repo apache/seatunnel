@@ -21,6 +21,9 @@ import org.apache.seatunnel.common.utils.ReflectionUtils;
 import org.apache.seatunnel.engine.checkpoint.storage.PipelineState;
 import org.apache.seatunnel.engine.checkpoint.storage.api.CheckpointStorage;
 import org.apache.seatunnel.engine.checkpoint.storage.exception.CheckpointStorageException;
+import org.apache.seatunnel.engine.checkpoint.storage.savepoint.SavepointData;
+import org.apache.seatunnel.engine.checkpoint.storage.savepoint.SavepointHandle;
+import org.apache.seatunnel.engine.checkpoint.storage.savepoint.SavepointStorage;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
 import org.apache.seatunnel.engine.common.config.server.CheckpointConfig;
 import org.apache.seatunnel.engine.common.job.JobStatus;
@@ -90,8 +93,20 @@ public class CheckpointStorageTest extends AbstractSeaTunnelServerTest {
                                 Assertions.assertEquals(
                                         server.getCoordinatorService().getJobStatus(jobId),
                                         JobStatus.SAVEPOINT_DONE));
-        List<PipelineState> savepoint1 = checkpointStorage.getAllCheckpoints(String.valueOf(jobId));
-        Assertions.assertEquals(1, savepoint1.size());
+        List<PipelineState> checkpoints =
+                checkpointStorage.getAllCheckpoints(String.valueOf(jobId));
+        Assertions.assertTrue(
+                checkpoints.isEmpty(),
+                "savepoint must not be written into the checkpoint directory");
+
+        SavepointStorage savepointStorage = (SavepointStorage) checkpointStorage;
+        List<SavepointHandle> handles =
+                savepointStorage.listCompletedSavepoints(String.valueOf(jobId));
+        Assertions.assertEquals(1, handles.size());
+        SavepointData savepointData =
+                savepointStorage.readSavepoint(
+                        String.valueOf(jobId), handles.get(0).getSavepointId());
+        Assertions.assertEquals(1, savepointData.getPipelineStates().size());
     }
 
     @Test

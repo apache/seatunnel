@@ -663,7 +663,7 @@ public class HdfsStorage extends AbstractCheckpointStorage implements SavepointS
                     }
                 }
                 Path metaTmp = new Path(finalDir, META_FILE_NAME + STORAGE_TMP_SUFFIX);
-                try (FSDataOutputStream outStream = fs.create(metaTmp, false)) {
+                try (FSDataOutputStream outStream = fs.create(metaTmp, true)) {
                     outStream.write(SavepointStorageUtils.serializeMeta(meta));
                 }
                 if (fs.exists(new Path(finalDir, META_FILE_NAME))) {
