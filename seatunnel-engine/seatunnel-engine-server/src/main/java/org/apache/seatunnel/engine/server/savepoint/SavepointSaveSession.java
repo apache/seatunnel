@@ -26,6 +26,7 @@ import org.apache.seatunnel.engine.checkpoint.storage.savepoint.SavepointWriter;
 import org.apache.seatunnel.engine.common.env.EnvironmentUtil;
 
 import java.util.Set;
+import java.util.UUID;
 
 /**
  * Aggregated write session for one stop-with-savepoint request.
@@ -37,7 +38,9 @@ import java.util.Set;
  */
 public class SavepointSaveSession {
 
-    private static final String SAVEPOINT_ID_SUFFIX = "-attempt-";
+    private static final String SAVEPOINT_ID_PREFIX = "savepoint-";
+    private static final String SAVEPOINT_ID_SUFFIX = "-";
+    private static final String ATTEMPT_ID_PREFIX = "attempt-";
 
     private final SavepointRequest request;
     private final long triggerTimestamp;
@@ -53,12 +56,18 @@ public class SavepointSaveSession {
             SavepointStorage storage, long jobId, Set<Integer> expectedPipelineIds)
             throws CheckpointStorageException {
         this.triggerTimestamp = System.currentTimeMillis();
-        String savepointId = String.valueOf(triggerTimestamp);
+        // Savepoint id must be globally unique: a random suffix guarantees uniqueness even for
+        // same-millisecond triggers, the timestamp prefix keeps ordering/debugging readable.
+        String savepointId =
+                SAVEPOINT_ID_PREFIX
+                        + triggerTimestamp
+                        + SAVEPOINT_ID_SUFFIX
+                        + UUID.randomUUID().toString().substring(0, 8);
         this.request =
                 new SavepointRequest(
                         String.valueOf(jobId),
                         savepointId,
-                        savepointId + SAVEPOINT_ID_SUFFIX + System.nanoTime(),
+                        ATTEMPT_ID_PREFIX + savepointId,
                         expectedPipelineIds);
         this.writer = storage.beginSavepoint(request);
     }

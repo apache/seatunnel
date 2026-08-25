@@ -124,7 +124,7 @@ $SEATUNNEL_HOME/bin/seatunnel.sh --config job.conf --restore-with-checkpoint <jo
 <namespace>/
   savepoint/
     <job-id>/
-      <savepoint-id>/                       # savepoint-id = 触发时间戳（单调递增）
+      <savepoint-id>/                       # savepoint-id = 停止触发时间戳 + 唯一后缀（时间戳仅用于排序/诊断）
         _metadata.ser                       # 提交标记：格式版本、Manifest、SHA-256
         <pipeline-id>-<checkpoint-id>.ser   # 每个 pipeline 一个文件（engine-wire-v1 载荷）
 ```

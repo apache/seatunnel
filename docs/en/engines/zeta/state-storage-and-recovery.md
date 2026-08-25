@@ -131,7 +131,7 @@ $SEATUNNEL_HOME/bin/seatunnel.sh --config job.conf --restore-with-checkpoint <jo
 <namespace>/
   savepoint/
     <job-id>/
-      <savepoint-id>/                       # savepoint-id = trigger timestamp (monotonic)
+      <savepoint-id>/                       # savepoint-id = stop-trigger timestamp + unique suffix
         _metadata.ser                       # commit marker: format version, manifest, SHA-256
         <pipeline-id>-<checkpoint-id>.ser   # one file per pipeline (engine-wire-v1 payload)
 ```
