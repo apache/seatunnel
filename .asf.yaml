@@ -54,12 +54,11 @@ github:
     - name: Merge Queue
       target: branch
       enforcement: active
-      # Emergency fallback limited to pull request merges.
       bypass_actors:
-        # GitHub repository role: Write.
-        - actor_id: 4
-          actor_type: RepositoryRole
-          bypass_mode: pull_request
+        # apache/root — ASF Infra team.
+        - actor_id: 118420
+          actor_type: Team
+          bypass_mode: always
       conditions:
         ref_name:
           include:
