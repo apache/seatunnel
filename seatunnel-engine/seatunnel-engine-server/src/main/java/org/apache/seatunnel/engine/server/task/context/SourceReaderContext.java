@@ -30,6 +30,9 @@ public class SourceReaderContext implements SourceReader.Context {
 
     private final Boundedness boundedness;
 
+    /** Whether the owning job will invoke checkpoint completion callbacks. */
+    private final boolean checkpointEnabled;
+
     private final SourceFlowLifeCycle<?, ?> sourceActionLifeCycle;
 
     private final MetricsContext metricsContext;
@@ -38,11 +41,13 @@ public class SourceReaderContext implements SourceReader.Context {
     public SourceReaderContext(
             int index,
             Boundedness boundedness,
+            boolean checkpointEnabled,
             SourceFlowLifeCycle<?, ?> sourceActionLifeCycle,
             MetricsContext metricsContext,
             EventListener eventListener) {
         this.index = index;
         this.boundedness = boundedness;
+        this.checkpointEnabled = checkpointEnabled;
         this.sourceActionLifeCycle = sourceActionLifeCycle;
         this.metricsContext = metricsContext;
         this.eventListener = eventListener;
@@ -56,6 +61,16 @@ public class SourceReaderContext implements SourceReader.Context {
     @Override
     public Boundedness getBoundedness() {
         return boundedness;
+    }
+
+    /**
+     * Returns the checkpoint capability calculated from the owning job configuration.
+     *
+     * @return true when checkpoint completion callbacks are enabled
+     */
+    @Override
+    public boolean isCheckpointEnabled() {
+        return checkpointEnabled;
     }
 
     @Override

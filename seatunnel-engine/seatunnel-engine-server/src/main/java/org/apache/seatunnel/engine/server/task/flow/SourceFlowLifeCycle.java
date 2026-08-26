@@ -161,6 +161,7 @@ public class SourceFlowLifeCycle<T, SplitT extends SourceSplit> extends ActionFl
                 new SourceReaderContext(
                         indexID,
                         sourceAction.getSource().getBoundedness(),
+                        runningTask.isCheckpointEnabled(),
                         this,
                         metricsContext,
                         eventListener);

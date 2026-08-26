@@ -93,6 +93,11 @@ public interface SourceReader<T, SplitT extends SourceSplit>
         /** @return boundedness of this reader. */
         Boundedness getBoundedness();
 
+        /** @return whether the engine enables checkpointing for this job. */
+        default boolean isCheckpointEnabled() {
+            return true;
+        }
+
         /** Indicator that the input has reached the end of data. Then will cancel this reader. */
         void signalNoMoreElement();
 

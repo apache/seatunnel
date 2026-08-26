@@ -26,13 +26,21 @@ import lombok.Setter;
 
 @Getter
 @Setter
-@EqualsAndHashCode
+@EqualsAndHashCode(of = {"rowStart", "rowNum", "tablePath"})
 public class MaxcomputeSourceSplit implements SourceSplit {
     private static final long serialVersionUID = 573028372948731375L;
     private final long rowStart;
     private final long rowNum;
     private final TablePath tablePath;
     private final int index;
+
+    /**
+     * Marks a split that was completed before the reader checkpoint snapshot.
+     *
+     * <p>The marker lets restoration remove the enumerator's assignment without replaying data
+     * already covered by that checkpoint.
+     */
+    private boolean finished;
 
     public MaxcomputeSourceSplit(long rowStart, long rowNum, TablePath tablePath, int index) {
         this.rowStart = rowStart;
@@ -43,6 +51,6 @@ public class MaxcomputeSourceSplit implements SourceSplit {
 
     @Override
     public String splitId() {
-        return tablePath.toString() + "_" + index + "_" + rowStart;
+        return tablePath.getFullName() + ":" + rowStart + ":" + rowNum;
     }
 }

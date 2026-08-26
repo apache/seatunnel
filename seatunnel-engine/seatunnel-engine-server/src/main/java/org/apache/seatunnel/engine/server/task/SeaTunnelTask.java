@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.tracing.MDCTracer;
 import org.apache.seatunnel.common.utils.function.ConsumerWithException;
 import org.apache.seatunnel.engine.common.Constant;
+import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 import org.apache.seatunnel.engine.core.checkpoint.InternalCheckpointListener;
 import org.apache.seatunnel.engine.core.dag.actions.Action;
@@ -82,6 +83,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiConsumer;
 import java.util.stream.Collectors;
 
+import static org.apache.seatunnel.api.options.EnvCommonOptions.CHECKPOINT_INTERVAL;
+import static org.apache.seatunnel.common.constants.JobMode.BATCH;
 import static org.apache.seatunnel.engine.common.utils.ExceptionUtil.sneaky;
 import static org.apache.seatunnel.engine.common.utils.ExceptionUtil.sneakyThrow;
 import static org.apache.seatunnel.engine.server.task.statemachine.SeaTunnelTaskState.CANCELED;
@@ -196,30 +199,53 @@ public abstract class SeaTunnelTask extends AbstractTask {
     }
 
     public Map<String, Object> getJobEnvOptions() {
+        JobConfig jobConfig = resolveJobConfig();
+        return jobConfig == null ? Collections.emptyMap() : jobConfig.getEnvOptions();
+    }
+
+    /**
+     * Returns whether this job can receive checkpoint completion notifications.
+     *
+     * <p>The decision intentionally matches the coordinator's batch-job checkpoint policy so a
+     * source reader does not retain completion metadata forever when checkpoints are disabled.
+     *
+     * @return true when checkpoint lifecycle callbacks are enabled for the job
+     */
+    public boolean isCheckpointEnabled() {
+        JobConfig jobConfig = resolveJobConfig();
+        if (jobConfig == null || jobConfig.getJobContext() == null) {
+            // Preserve checkpoint-safe behavior when runtime job metadata cannot be resolved.
+            return true;
+        }
+        return jobConfig.getJobContext().getJobMode() != BATCH
+                || jobConfig.getEnvOptions().containsKey(CHECKPOINT_INTERVAL.key());
+    }
+
+    private JobConfig resolveJobConfig() {
         try {
             if (executionContext == null
                     || executionContext.getTaskExecutionService() == null
                     || executionContext.getTaskExecutionService().getNodeEngine() == null) {
-                return Collections.emptyMap();
+                return null;
             }
             NodeEngineImpl nodeEngine = executionContext.getTaskExecutionService().getNodeEngine();
             IMap<Long, JobInfo> jobInfoMap =
                     nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_RUNNING_JOB_INFO);
             JobInfo jobInfo = jobInfoMap.get(jobID);
             if (jobInfo == null || jobInfo.getJobImmutableInformation() == null) {
-                return Collections.emptyMap();
+                return null;
             }
             JobImmutableInformation immutable =
                     nodeEngine
                             .getSerializationService()
                             .toObject(jobInfo.getJobImmutableInformation());
             if (immutable == null || immutable.getJobConfig() == null) {
-                return Collections.emptyMap();
+                return null;
             }
-            return immutable.getJobConfig().getEnvOptions();
+            return immutable.getJobConfig();
         } catch (Throwable t) {
             log.debug("Resolve job env options failed, jobId={}", jobID, t);
-            return Collections.emptyMap();
+            return null;
         }
     }
 
