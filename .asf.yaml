@@ -54,7 +54,12 @@ github:
     - name: Merge Queue
       target: branch
       enforcement: active
-      bypass_actors: []
+      # Emergency fallback limited to pull request merges.
+      bypass_actors:
+        # GitHub repository role: Write.
+        - actor_id: 4
+          actor_type: RepositoryRole
+          bypass_mode: pull_request
       conditions:
         ref_name:
           include:
