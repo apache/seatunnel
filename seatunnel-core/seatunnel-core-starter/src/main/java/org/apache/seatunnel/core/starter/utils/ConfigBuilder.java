@@ -323,7 +323,6 @@ public class ConfigBuilder {
         if (value.startsWith("[") && value.endsWith("]")) {
             List<Object> list = null;
             try {
-                // list=JsonUtils.toList(value,Object.class);
                 list = JACKSON_MAPPER.readValue(value, new TypeReference<List<Object>>() {});
             } catch (JsonProcessingException e) {
                 String innerContent = value.substring(1, value.length() - 1).trim();
