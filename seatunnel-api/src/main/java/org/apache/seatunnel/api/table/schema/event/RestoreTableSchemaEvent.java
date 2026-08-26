@@ -22,7 +22,16 @@ import org.apache.seatunnel.api.table.catalog.CatalogTable;
 
 import lombok.ToString;
 
-/** Restores the runtime table schema from checkpoint state without applying physical DDL. */
+/**
+ * Restores the runtime table schema from checkpoint state after a failover recovery.
+ *
+ * <p>Contract for every schema-change consumer (dispatchers, transforms, sinks): this event only
+ * refreshes runtime schema state such as row types, converters, serializers and writers. It must
+ * never be translated into physical DDL against the external system, because the original DDL was
+ * already applied before the checkpoint this event is restored from. A consumer that does not
+ * explicitly handle {@link EventType#SCHEMA_CHANGE_RESTORE} must treat it as a runtime schema
+ * refresh only and must not re-execute any DDL for it.
+ */
 @ToString(callSuper = true)
 public class RestoreTableSchemaEvent extends AlterTableEvent {
 

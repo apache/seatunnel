@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.cdc.base.source.reader;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.MultipleRowType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
@@ -47,8 +48,12 @@ class IncrementalSourceReaderTest {
         @SuppressWarnings("unchecked")
         DebeziumDeserializationSchema<Object> schema =
                 Mockito.mock(DebeziumDeserializationSchema.class);
-        List<CatalogTable> checkpointTables =
-                Collections.singletonList(Mockito.mock(CatalogTable.class));
+        CatalogTable checkpointTable = Mockito.mock(CatalogTable.class);
+        // Stub the table path because restoreCheckpointState logs restored table paths and
+        // dereferences CatalogTable#getTablePath unconditionally.
+        Mockito.when(checkpointTable.getTablePath())
+                .thenReturn(TablePath.of("catalog", "database", "new_table"));
+        List<CatalogTable> checkpointTables = Collections.singletonList(checkpointTable);
         Map<TableId, byte[]> historyTableChanges =
                 Collections.singletonMap(
                         new TableId("catalog", "database", "new_table"), new byte[] {1});
