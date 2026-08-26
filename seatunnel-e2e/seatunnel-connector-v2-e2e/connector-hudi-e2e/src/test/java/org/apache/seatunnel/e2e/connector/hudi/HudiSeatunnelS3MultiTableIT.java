@@ -45,6 +45,7 @@ import io.minio.MinioClient;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.concurrent.TimeUnit;
 
 import static org.awaitility.Awaitility.given;
@@ -124,7 +125,10 @@ public class HudiSeatunnelS3MultiTableIT extends SeaTunnelContainer {
     @Test
     public void testS3MultiWrite() throws IOException, InterruptedException {
         copyFileToContainer("/hudi/core-site.xml", "/tmp/seatunnel/config/core-site.xml");
-        Container.ExecResult textWriteResult = executeJob("/hudi/s3_fake_to_hudi.conf");
+        Container.ExecResult textWriteResult =
+                executeJob(
+                        "/hudi/s3_fake_to_hudi.conf",
+                        Collections.singletonList("bucket=" + BUCKET));
         Assertions.assertEquals(0, textWriteResult.getExitCode());
         Configuration configuration = new Configuration();
         configuration.set("fs.defaultFS", LocalFileSystem.DEFAULT_FS);
