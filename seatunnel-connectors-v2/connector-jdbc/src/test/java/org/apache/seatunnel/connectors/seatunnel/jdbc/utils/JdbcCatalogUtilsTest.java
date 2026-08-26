@@ -47,6 +47,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -476,6 +477,170 @@ public class JdbcCatalogUtilsTest {
         Assertions.assertEquals(
                 tableOfPath.getTableSchema().getColumns().get(0),
                 mergeTable.getTableSchema().getColumns().get(0));
+    }
+
+    @Test
+    public void testMergeWithUnderlyingTableWhenQueryMapsToSingleTable() {
+        CatalogTable tableOfQuery =
+                buildQueryTable(TableIdentifier.of("jdbc_catalog", "database-x", null, "table-x"));
+
+        AtomicBoolean loaderInvoked = new AtomicBoolean(false);
+        CatalogTable mergeTable =
+                JdbcCatalogUtils.mergeWithUnderlyingTable(
+                        tableOfQuery,
+                        tablePath -> {
+                            loaderInvoked.set(true);
+                            Assertions.assertEquals(
+                                    TablePath.of("database-x", null, "table-x"), tablePath);
+                            return DEFAULT_TABLE;
+                        });
+
+        Assertions.assertTrue(loaderInvoked.get());
+        Assertions.assertEquals(DEFAULT_TABLE.getTableId(), mergeTable.getTableId());
+        Assertions.assertEquals(
+                DEFAULT_TABLE.getTableSchema().getPrimaryKey(),
+                mergeTable.getTableSchema().getPrimaryKey());
+        Assertions.assertEquals(
+                DEFAULT_TABLE.getTableSchema().getConstraintKeys(),
+                mergeTable.getTableSchema().getConstraintKeys());
+        Assertions.assertEquals(DEFAULT_TABLE.getPartitionKeys(), mergeTable.getPartitionKeys());
+        Assertions.assertEquals(
+                Arrays.asList("f1 comment", "f2 comment", "f3 comment"),
+                mergeTable.getTableSchema().getColumns().stream()
+                        .map(Column::getComment)
+                        .collect(Collectors.toList()));
+    }
+
+    @Test
+    public void testMergeWithUnderlyingTableSkippedWhenTableNameNotResolved() {
+        CatalogTable tableOfQuery =
+                buildQueryTable(TableIdentifier.of("jdbc_catalog", TablePath.DEFAULT));
+
+        AtomicBoolean loaderInvoked = new AtomicBoolean(false);
+        CatalogTable mergeTable =
+                JdbcCatalogUtils.mergeWithUnderlyingTable(
+                        tableOfQuery,
+                        tablePath -> {
+                            loaderInvoked.set(true);
+                            return DEFAULT_TABLE;
+                        });
+
+        Assertions.assertFalse(loaderInvoked.get());
+        Assertions.assertSame(tableOfQuery, mergeTable);
+    }
+
+    @Test
+    public void testMergeWithUnderlyingTableSkippedWhenDatabaseAndSchemaMissing() {
+        CatalogTable tableOfQuery =
+                buildQueryTable(TableIdentifier.of("jdbc_catalog", null, null, "table-x"));
+
+        AtomicBoolean loaderInvoked = new AtomicBoolean(false);
+        CatalogTable mergeTable =
+                JdbcCatalogUtils.mergeWithUnderlyingTable(
+                        tableOfQuery,
+                        tablePath -> {
+                            loaderInvoked.set(true);
+                            return DEFAULT_TABLE;
+                        });
+
+        Assertions.assertFalse(loaderInvoked.get());
+        Assertions.assertSame(tableOfQuery, mergeTable);
+    }
+
+    @Test
+    public void testMergeWithUnderlyingTableSkippedWhenTableNotExists() {
+        CatalogTable tableOfQuery =
+                buildQueryTable(TableIdentifier.of("jdbc_catalog", "database-x", null, "table-x"));
+
+        CatalogTable mergeTable =
+                JdbcCatalogUtils.mergeWithUnderlyingTable(tableOfQuery, tablePath -> null);
+
+        Assertions.assertSame(tableOfQuery, mergeTable);
+    }
+
+    @Test
+    public void testMergeWithUnderlyingTableSkippedWhenUnderlyingTableHasNoColumns() {
+        CatalogTable tableOfQuery =
+                buildQueryTable(TableIdentifier.of("jdbc_catalog", "database-x", null, "table-x"));
+        CatalogTable emptyTable =
+                CatalogTable.of(
+                        TableIdentifier.of("mysql-1", "database-x", null, "table-x"),
+                        TableSchema.builder().build(),
+                        Collections.emptyMap(),
+                        Collections.emptyList(),
+                        null);
+
+        CatalogTable mergeTable =
+                JdbcCatalogUtils.mergeWithUnderlyingTable(tableOfQuery, tablePath -> emptyTable);
+
+        Assertions.assertSame(tableOfQuery, mergeTable);
+    }
+
+    @Test
+    public void testMergeWithUnderlyingTableFallbackWhenLoadFailed() {
+        CatalogTable tableOfQuery =
+                buildQueryTable(TableIdentifier.of("jdbc_catalog", "database-x", null, "table-x"));
+
+        CatalogTable mergeTable =
+                JdbcCatalogUtils.mergeWithUnderlyingTable(
+                        tableOfQuery,
+                        tablePath -> {
+                            throw new CatalogException("mock load failure");
+                        });
+
+        Assertions.assertSame(tableOfQuery, mergeTable);
+    }
+
+    private static CatalogTable buildQueryTable(TableIdentifier tableId) {
+        return CatalogTable.of(
+                tableId,
+                TableSchema.builder()
+                        .column(
+                                PhysicalColumn.of(
+                                        "f1",
+                                        BasicType.LONG_TYPE,
+                                        null,
+                                        true,
+                                        null,
+                                        null,
+                                        null,
+                                        false,
+                                        false,
+                                        null,
+                                        null,
+                                        null))
+                        .column(
+                                PhysicalColumn.of(
+                                        "f2",
+                                        BasicType.STRING_TYPE,
+                                        10,
+                                        true,
+                                        null,
+                                        null,
+                                        null,
+                                        false,
+                                        false,
+                                        null,
+                                        null,
+                                        null))
+                        .column(
+                                PhysicalColumn.of(
+                                        "f3",
+                                        BasicType.STRING_TYPE,
+                                        20,
+                                        false,
+                                        null,
+                                        null,
+                                        null,
+                                        false,
+                                        false,
+                                        null,
+                                        null,
+                                        null))
+                        .build(),
+                Collections.emptyMap(),
+                Collections.emptyList(),
+                null);
     }
 
     @Test

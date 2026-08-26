@@ -47,6 +47,8 @@ sh bin/install-plugin.sh
 | 自定义读取列、JOIN 或数据库表达式 | `query`，可以同时配置 `table_path` | SeaTunnel 执行用户提供的 SQL。需要明确表身份和元数据时可同时配置 `table_path`。部分 JOIN 无法安全推断查询主键，详见 [Query 与主键注意事项](#query-与主键注意事项)。 |
 | 读取多张表或按表名模式匹配 | `table_list` | 每一项可以配置 `table_path`、可选 `query` 和分片参数。使用 `table_list` 时，不能再配置顶层 `table_path` 或 `query`。 |
 
+当只配置 `query` 且查询能定位到唯一物理表（例如 `SELECT * FROM db.table`）时，SeaTunnel 会根据查询结果元数据解析底表，并把底表的元数据（字段注释、表注释、主键、约束键、分区键）合并进查询推导出的 schema，效果等同于同时配置 `table_path` 与 `query`。查询中被改名或经过表达式加工的列保留查询推导的定义；无法定位底表时跳过合并。
+
 只有需要给所有选中表或查询追加同一过滤条件时才使用 `where_condition`。它必须以 `where` 开头，例如 `where updated_at >= '2026-01-01'`。
 
 ## 快速入门：PostgreSQL

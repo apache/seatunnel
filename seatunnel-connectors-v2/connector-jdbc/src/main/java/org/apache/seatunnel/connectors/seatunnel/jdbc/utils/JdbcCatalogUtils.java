@@ -272,7 +272,13 @@ public class JdbcCatalogUtils {
             return jdbcCatalog.getTable(tablePath);
         }
 
-        return jdbcCatalog.getTable(tableConfig.getQuery());
+        CatalogTable tableOfQuery = jdbcCatalog.getTable(tableConfig.getQuery());
+        return mergeWithUnderlyingTable(
+                tableOfQuery,
+                tablePath ->
+                        jdbcCatalog.tableExists(tablePath)
+                                ? jdbcCatalog.getTable(tablePath)
+                                : null);
     }
 
     static CatalogTable mergeCatalogTable(CatalogTable tableOfPath, CatalogTable tableOfQuery) {
@@ -468,7 +474,56 @@ public class JdbcCatalogUtils {
             return CatalogUtils.getCatalogTable(connection, tablePath, jdbcDialect);
         }
 
-        return getCatalogTable(connection, tableConfig.getQuery(), jdbcDialect);
+        CatalogTable tableOfQuery =
+                getCatalogTable(connection, tableConfig.getQuery(), jdbcDialect);
+        return mergeWithUnderlyingTable(
+                tableOfQuery,
+                tablePath -> CatalogUtils.getCatalogTable(connection, tablePath, jdbcDialect));
+    }
+
+    /**
+     * When a source table is defined by query only, its schema is derived from {@link
+     * java.sql.ResultSetMetaData} which carries no metadata such as column/table comments,
+     * constraint keys and partition keys. If the query maps to a single physical table (e.g. {@code
+     * SELECT * FROM db.table}, resolved from the result set metadata), load that table and merge
+     * the missing metadata into the query-derived table, the same way as configuring {@code
+     * table_path} together with {@code query}. Fall back to the query-derived table when the
+     * underlying table can not be resolved or loaded.
+     */
+    static CatalogTable mergeWithUnderlyingTable(
+            CatalogTable tableOfQuery, UnderlyingTableLoader underlyingTableLoader) {
+        TableIdentifier tableId = tableOfQuery.getTableId();
+        if (tableId == null || StringUtils.isBlank(tableId.getTableName())) {
+            return tableOfQuery;
+        }
+        TablePath tablePath = tableId.toTablePath();
+        if (TablePath.DEFAULT.equals(tablePath)
+                || (StringUtils.isBlank(tablePath.getDatabaseName())
+                        && StringUtils.isBlank(tablePath.getSchemaName()))) {
+            return tableOfQuery;
+        }
+        try {
+            CatalogTable tableOfPath = underlyingTableLoader.load(tablePath);
+            if (tableOfPath == null || tableOfPath.getTableSchema().getColumns().isEmpty()) {
+                return tableOfQuery;
+            }
+            CatalogTable mergedTable = mergeCatalogTable(tableOfPath, tableOfQuery);
+            log.info(
+                    "Merged the metadata of underlying table {} into the query-derived table",
+                    tablePath);
+            return mergedTable;
+        } catch (Exception e) {
+            log.debug(
+                    "Failed to load the underlying table {} of query, use the query-derived table directly",
+                    tablePath,
+                    e);
+            return tableOfQuery;
+        }
+    }
+
+    @FunctionalInterface
+    interface UnderlyingTableLoader {
+        CatalogTable load(TablePath tablePath) throws Exception;
     }
 
     private static CatalogTable getCatalogTable(
