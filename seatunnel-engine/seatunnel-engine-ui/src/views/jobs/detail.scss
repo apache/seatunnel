@@ -15,11 +15,80 @@
  * limitations under the License.
  */
 
- .n-data-table .n-data-table-tr.focused-row {
+.n-data-table .n-data-table-tr.focused-row {
   &,
   &:hover {
     td.n-data-table-td {
       background-color: #e6f7ff;
     }
   }
- }
+}
+
+.runtime-context {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+  margin: 16px 0;
+}
+
+.runtime-context-item {
+  min-width: 0;
+  padding: 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #fafafa;
+}
+
+.runtime-context-title {
+  margin-bottom: 8px;
+  color: #6b7280;
+  font-size: 13px;
+  line-height: 18px;
+}
+
+.runtime-context-value {
+  margin-bottom: 8px;
+  color: #111827;
+  font-size: 18px;
+  font-weight: 600;
+  line-height: 24px;
+}
+
+.runtime-context-line {
+  overflow: hidden;
+  color: #374151;
+  font-size: 13px;
+  line-height: 20px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.runtime-error-snippet {
+  max-height: 120px;
+  overflow: auto;
+  color: #b91c1c;
+  font-family: monospace;
+  font-size: 13px;
+  line-height: 20px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.runtime-large-summary {
+  margin-bottom: 16px;
+}
+
+.runtime-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.runtime-summary-title {
+  margin-bottom: 8px;
+  color: #111827;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 20px;
+}
