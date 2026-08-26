@@ -166,18 +166,17 @@ public class JdbcMysqlJsonParamIT extends TestSuiteBase implements TestResource 
         variables.add("-e local");
         variables.add("-c /tmp/jdbc_mysql_json_params.conf");
         variables.add("-i mysql_host=" + MYSQL_HOST);
-        //        variables.add("-i mysql_port=3306");
+        variables.add("-i mysql_port=3306");
         variables.add("-i mysql_db=" + MYSQL_DATABASE);
         variables.add(
                 "-i mysql_props='{"
                         + "\"useSSL\":\"false\","
                         + "\"allowPublicKeyRetrieval\":\"true\"}'");
 
-        variables.add("-i mysql_user=" + MYSQL_USER);
         variables.add("-i mysql_password=" + MYSQL_PASSWORD);
 
         variables.add(
-                "-i table_list=[{\"table_path\":\"json_test.ml_*\",\"use_regex\":\"true\"},{\"table_path\":\"json_test.ratings\"}]");
+                "-i table_list=[\\{\"table_path\":\"json_test.ml_*\",\"use_regex\":\"true\"\\},\\{\"table_path\":\"json_test.ratings\"\\}]");
         variables.add(
                 "-i table_filter='{\"plugin_input\":\"mysql_source\",\"plugin_output\":\"table_filter\",\"include_fields\":[movie_id,unix_time]}'");
 
