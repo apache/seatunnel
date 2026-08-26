@@ -1091,9 +1091,19 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                                             + " group was cleaned up while it was being deployed",
                                     taskGroupLocation));
                 }
-                Thread.currentThread()
-                        .setContextClassLoader(
-                                taskGroupContext.getClassLoaders().get(t.getTaskID()));
+                ClassLoader taskClassLoader = taskGroupContext.getClassLoaders().get(t.getTaskID());
+                if (taskClassLoader == null) {
+                    // Installing a null context class loader here would silently fall back
+                    // to the thread's inherited loader and surface much later as a
+                    // confusing ClassNotFoundException from inside the task.
+                    throw new IllegalStateException(
+                            String.format(
+                                    "No class loader registered for task %s of %s; the task"
+                                            + " group was cleaned up while it was being"
+                                            + " deployed",
+                                    t.getTaskID(), taskGroupLocation));
+                }
+                Thread.currentThread().setContextClassLoader(taskClassLoader);
 
                 // Signalled before init() so that submitBlockingTask() returns once workers
                 // have started, not once they have finished.
@@ -1490,6 +1500,10 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                                     "Skip stale taskDone cleanup for %s because the active context "
                                             + "is no longer owned by this tracker.",
                                     taskGroupLocation));
+                    // The map entry belongs to a newer generation now, but this tracker still
+                    // owns the class loaders it installed. Release them here or they stay
+                    // alive for the rest of the job when classloader-cache-mode is false.
+                    recycleClassLoader(taskGroupLocation, ownedContext);
                     return;
                 }
                 recycleClassLoader(taskGroupLocation, ownedContext);
