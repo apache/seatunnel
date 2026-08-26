@@ -49,15 +49,17 @@ gh run view <run-id> --repo apache/seatunnel --log-failed
 
 如果较早的队列条目失败，GitHub 会排除该条目并重新构建后续临时 merge group。除非后续 PR 自身的检查也失败，否则不需要人工处理。
 
-## 紧急 Bypass
+## Merge Queue 无法恢复时的应急处理
 
-Ruleset 仅向 ASF Infra 的 `apache/root` team 提供紧急 bypass，SeaTunnel Committer 和 PMC 成员不拥有此权限。bypass mode 为 `always`，因此对该 Ruleset 的 Pull Request 合并和直接 push 均适用；其他独立的分支保护规则仍会分别检查。
+当 Merge Queue 本身发生故障，并且按照上述排查和恢复步骤处理后，仍然无法让一个原本满足合并条件的 PR 正常入队或合并时，ASF Infra 可以使用 `apache/root` team 的 bypass 作为最后恢复手段。SeaTunnel Committer 和 PMC 成员不拥有此权限。
 
-:::warning 仅用于 Merge Queue 紧急故障
+bypass mode 为 `always`，因此对该 Ruleset 的 Pull Request 合并和直接 push 均适用；其他独立的分支保护规则仍会分别检查。
 
-这是 ASF Infra 在 Merge Queue 本身不可用或运行异常时使用的紧急恢复通道。不得用它跳过正常排队、必需的批准、失败的 `Build` 或编译问题。
+:::warning 仅在常规恢复无效时使用
 
-如果 Merge Queue 阻止了一个原本满足合并条件的 PR，请保留 PR 和 workflow run 链接并联系 ASF Infra。只要条件允许，应通过已经 review 且普通 `Build` 成功的 PR 完成恢复；直接 push 只能作为最后手段。
+此 bypass 不是另一种日常合并方式。不得用它跳过正常排队、必需的批准、失败的 `Build` 或编译问题。
+
+联系 ASF Infra 时，请保留 PR 和 workflow run 链接。只要条件允许，应通过已经 review 且普通 `Build` 成功的 PR 完成恢复；直接 push 只能作为最后手段。
 
 绕过 Merge Queue 会失去最终代码组合验证，也可能让正在运行的 merge group 失效。恢复后，应使用相同的 Maven 编译命令或等价的 post-merge build 验证新的 `dev` 提交，并关注队列中的 PR 是否自动重新构建或失败。
 
