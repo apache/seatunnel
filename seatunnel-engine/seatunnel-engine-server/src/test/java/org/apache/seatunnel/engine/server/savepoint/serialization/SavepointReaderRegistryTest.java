@@ -17,11 +17,10 @@
 
 package org.apache.seatunnel.engine.server.savepoint.serialization;
 
-import org.apache.seatunnel.engine.checkpoint.storage.savepoint.SavepointMeta;
 import org.apache.seatunnel.engine.checkpoint.storage.savepoint.SavepointManifestEntry;
+import org.apache.seatunnel.engine.checkpoint.storage.savepoint.SavepointMeta;
 import org.apache.seatunnel.engine.checkpoint.storage.savepoint.SavepointStorageConstants;
 import org.apache.seatunnel.engine.checkpoint.storage.savepoint.SavepointStorageUtils;
-
 import org.apache.seatunnel.engine.core.checkpoint.CheckpointType;
 import org.apache.seatunnel.engine.server.checkpoint.CompletedCheckpoint;
 
