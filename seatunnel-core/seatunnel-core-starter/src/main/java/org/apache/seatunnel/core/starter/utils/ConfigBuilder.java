@@ -303,9 +303,19 @@ public class ConfigBuilder {
 
             Config cleanSourceConfig = filterSourceConfig(sourceConfig, placeholders);
 
-            return processedConfig
-                    .withFallback(cleanSourceConfig)
-                    .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true));
+            Config resolvedConfig =
+                    processedConfig
+                            .withFallback(cleanSourceConfig)
+                            .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true));
+
+            // remove userConfig
+            for (String key : placeholders) {
+                if (!config.hasPath(key) && resolvedConfig.hasPath(key)) {
+                    resolvedConfig = resolvedConfig.withoutPath(key);
+                }
+            }
+
+            return resolvedConfig;
         }
         return config;
     }
