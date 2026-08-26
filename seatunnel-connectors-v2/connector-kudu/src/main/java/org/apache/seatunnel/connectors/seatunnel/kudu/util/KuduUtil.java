@@ -151,6 +151,17 @@ public class KuduUtil {
     private static void refreshJdkKerberosConfig() {
         try {
             Class.forName("sun.security.krb5.Config").getMethod("refresh").invoke(null);
+        } catch (IllegalAccessException e) {
+            // Module access denied: the JVM is missing the jgss export, so the custom krb5.conf
+            // configured for this source cannot take effect. This is an actionable deployment
+            // problem, not a transient refresh failure, so report it at ERROR with the fix.
+            log.error(
+                    "JVM module system denied the Kerberos configuration reload, so the configured"
+                            + " krb5.conf will NOT take effect. Start the JVM with"
+                            + " --add-exports=java.security.jgss/sun.security.krb5=ALL-UNNAMED"
+                            + " (shipped in config/jvm_*_options and appended by the launch"
+                            + " scripts since the Java 11 baseline).",
+                    e);
         } catch (ReflectiveOperationException | RuntimeException e) {
             log.warn(
                     "refreshing JDK Kerberos configuration failed, current default realm will still be used.",

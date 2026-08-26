@@ -141,6 +141,17 @@ public class PaimonSecurityContext extends SecurityContext {
         try {
             refreshJdkKerberosConfig();
             KerberosName.resetDefaultRealm();
+        } catch (IllegalAccessException e) {
+            // Module access denied: the JVM is missing the jgss export, so the custom krb5.conf
+            // configured for this catalog cannot take effect. This is an actionable deployment
+            // problem, not a transient refresh failure, so report it at ERROR with the fix.
+            log.error(
+                    "JVM module system denied the Kerberos configuration reload, so the configured"
+                            + " krb5.conf will NOT take effect. Start the JVM with"
+                            + " --add-exports=java.security.jgss/sun.security.krb5=ALL-UNNAMED"
+                            + " (shipped in config/jvm_*_options and appended by the launch"
+                            + " scripts since the Java 11 baseline).",
+                    e);
         } catch (ReflectiveOperationException e) {
             log.warn(
                     "resetting default realm failed, current default realm will still be used.", e);
