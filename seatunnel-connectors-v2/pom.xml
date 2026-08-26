@@ -59,6 +59,7 @@
         <module>connector-mongodb</module>
         <module>connector-couchbase</module>
         <module>connector-mqtt</module>
+        <module>connector-snmp</module>
         <module>connector-python</module>
         <module>connector-iceberg</module>
         <module>connector-influxdb</module>
