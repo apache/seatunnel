@@ -20,6 +20,7 @@ package org.apache.seatunnel.engine.server.savepoint.serialization;
 import org.apache.seatunnel.engine.checkpoint.storage.savepoint.SavepointMeta;
 import org.apache.seatunnel.engine.checkpoint.storage.savepoint.SavepointStorageConstants;
 
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -39,8 +40,13 @@ public final class SavepointReaderRegistry {
      * Readers keyed by the bundle format version ({@link SavepointStorageConstants#FORMAT_VERSION}
      * - single source of truth).
      */
-    private static final Map<Integer, SavepointReader> READERS =
-            Map.of(SavepointStorageConstants.FORMAT_VERSION, new SavepointReaderV1());
+    private static final Map<Integer, SavepointReader> READERS;
+
+    static {
+        Map<Integer, SavepointReader> readers = new HashMap<>();
+        readers.put(SavepointStorageConstants.FORMAT_VERSION, new SavepointReaderV1());
+        READERS = java.util.Collections.unmodifiableMap(readers);
+    }
 
     private SavepointReaderRegistry() {}
 

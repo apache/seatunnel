@@ -36,10 +36,11 @@ import org.junit.jupiter.api.io.TempDir;
 import java.io.File;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import static org.apache.seatunnel.engine.checkpoint.storage.constants.StorageConstants.STORAGE_NAME_SPACE;
 
@@ -65,7 +66,8 @@ public class LocalSavepointStorageTest {
     public void testBeginWriteCommitListReadDelete() throws CheckpointStorageException {
         SavepointWriter writer =
                 storage.beginSavepoint(
-                        new SavepointRequest("1", "1000", "attempt-1", Set.of(0, 1)));
+                        new SavepointRequest(
+                                "1", "1000", "attempt-1", new HashSet<>(Arrays.asList(0, 1))));
         writer.writePipeline(pipelineState(0, 10, new byte[] {1, 2, 3}));
         writer.writePipeline(pipelineState(1, 20, new byte[] {4, 5, 6}));
 
@@ -99,7 +101,9 @@ public class LocalSavepointStorageTest {
     @Test
     public void testAbortRemovesStaging() throws CheckpointStorageException {
         SavepointWriter writer =
-                storage.beginSavepoint(new SavepointRequest("1", "1001", "attempt-1", Set.of(0)));
+                storage.beginSavepoint(
+                        new SavepointRequest(
+                                "1", "1001", "attempt-1", new HashSet<>(Arrays.asList(0))));
         writer.writePipeline(pipelineState(0, 10, new byte[] {1}));
         writer.abortSavepoint();
         Assertions.assertTrue(storage.listCompletedSavepoints("1").isEmpty());
@@ -113,7 +117,9 @@ public class LocalSavepointStorageTest {
     @Test
     public void testCorruptedPayloadDetectedOnRead() throws Exception {
         SavepointWriter writer =
-                storage.beginSavepoint(new SavepointRequest("1", "1002", "attempt-1", Set.of(0)));
+                storage.beginSavepoint(
+                        new SavepointRequest(
+                                "1", "1002", "attempt-1", new HashSet<>(Arrays.asList(0))));
         writer.writePipeline(pipelineState(0, 10, new byte[] {1, 2, 3}));
         writer.commitSavepoint(new SavepointMeta(1, "1002", "1", "test", 3000L, null, null));
 
@@ -134,12 +140,16 @@ public class LocalSavepointStorageTest {
     @Test
     public void testDuplicateSavepointIdRejected() throws CheckpointStorageException {
         SavepointWriter first =
-                storage.beginSavepoint(new SavepointRequest("1", "1003", "attempt-1", Set.of(0)));
+                storage.beginSavepoint(
+                        new SavepointRequest(
+                                "1", "1003", "attempt-1", new HashSet<>(Arrays.asList(0))));
         first.writePipeline(pipelineState(0, 10, new byte[] {1}));
         first.commitSavepoint(new SavepointMeta(1, "1003", "1", "test", 4000L, null, null));
 
         SavepointWriter second =
-                storage.beginSavepoint(new SavepointRequest("1", "1003", "attempt-2", Set.of(0)));
+                storage.beginSavepoint(
+                        new SavepointRequest(
+                                "1", "1003", "attempt-2", new HashSet<>(Arrays.asList(0))));
         second.writePipeline(pipelineState(0, 11, new byte[] {2}));
         CheckpointStorageException exception =
                 Assertions.assertThrows(
@@ -155,7 +165,9 @@ public class LocalSavepointStorageTest {
     public void testSavepointIsolatesCheckpointDirectory() throws CheckpointStorageException {
         storage.storeCheckPoint(pipelineState(0, 10, new byte[] {1, 2, 3}));
         SavepointWriter writer =
-                storage.beginSavepoint(new SavepointRequest("1", "1004", "attempt-1", Set.of(0)));
+                storage.beginSavepoint(
+                        new SavepointRequest(
+                                "1", "1004", "attempt-1", new HashSet<>(Arrays.asList(0))));
         writer.writePipeline(pipelineState(0, 20, new byte[] {4, 5}));
         writer.commitSavepoint(new SavepointMeta(1, "1004", "1", "test", 5000L, null, null));
 
@@ -171,7 +183,8 @@ public class LocalSavepointStorageTest {
         // expected pipelines {0,1}, only 0 is written -> commit must fail
         SavepointWriter writer =
                 storage.beginSavepoint(
-                        new SavepointRequest("1", "1005", "attempt-1", Set.of(0, 1)));
+                        new SavepointRequest(
+                                "1", "1005", "attempt-1", new HashSet<>(Arrays.asList(0, 1))));
         writer.writePipeline(pipelineState(0, 10, new byte[] {1}));
         CheckpointStorageException exception =
                 Assertions.assertThrows(
@@ -189,7 +202,9 @@ public class LocalSavepointStorageTest {
     public void testSavepointMetadataValidation() throws Exception {
         // helper: scaffold a committed bundle
         SavepointWriter writer =
-                storage.beginSavepoint(new SavepointRequest("1", "1006", "attempt-1", Set.of(0)));
+                storage.beginSavepoint(
+                        new SavepointRequest(
+                                "1", "1006", "attempt-1", new HashSet<>(Arrays.asList(0))));
         writer.writePipeline(pipelineState(0, 10, new byte[] {1}));
         writer.commitSavepoint(new SavepointMeta(1, "1006", "1", "test", 7000L, null, null));
 
@@ -222,7 +237,9 @@ public class LocalSavepointStorageTest {
     @Test
     public void testUnsafePayloadFileNameRejected() throws Exception {
         SavepointWriter writer =
-                storage.beginSavepoint(new SavepointRequest("1", "1007", "attempt-1", Set.of(0)));
+                storage.beginSavepoint(
+                        new SavepointRequest(
+                                "1", "1007", "attempt-1", new HashSet<>(Arrays.asList(0))));
         writer.writePipeline(pipelineState(0, 10, new byte[] {1}));
         writer.commitSavepoint(new SavepointMeta(1, "1007", "1", "test", 8000L, null, null));
 

@@ -30,7 +30,6 @@ import org.apache.seatunnel.engine.server.checkpoint.TaskStatistics;
 
 import java.util.Base64;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 /**
@@ -82,9 +81,11 @@ public final class SavepointWireFixtures {
     public static CompletedCheckpoint sampleCompletedCheckpoint() {
         ActionStateKey key = sampleActionStateKey();
         ActionState actionState = new ActionState(key, 2);
-        actionState.reportState(0, new ActionSubtaskState(key, 0, List.of(new byte[] {1, 2, 3})));
+        actionState.reportState(
+                0, new ActionSubtaskState(key, 0, java.util.Arrays.asList(new byte[] {1, 2, 3})));
         // subtask 1 intentionally not reported -> null slot in subtaskStates
-        actionState.reportState(-1, new ActionSubtaskState(key, -1, List.of(new byte[] {9, 8, 7})));
+        actionState.reportState(
+                -1, new ActionSubtaskState(key, -1, java.util.Arrays.asList(new byte[] {9, 8, 7})));
 
         Map<ActionStateKey, ActionState> taskStates = new HashMap<>();
         taskStates.put(key, actionState);
