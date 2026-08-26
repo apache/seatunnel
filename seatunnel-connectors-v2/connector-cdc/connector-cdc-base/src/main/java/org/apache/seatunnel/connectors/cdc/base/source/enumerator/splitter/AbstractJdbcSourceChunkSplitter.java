@@ -415,20 +415,27 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
                 splitColumnsConfig.getOrDefault(tableId.catalog() + "." + tableId.table(), null);
 
         if (StringUtils.isNotEmpty(tableSc)) {
-            // Is tableSc（table split column） the unique key
-            AtomicBoolean isUniqueKey = new AtomicBoolean(false);
-            dialect.getUniqueKeys(jdbc, tableId)
-                    .forEach(
-                            ck ->
-                                    ck.getColumnNames()
-                                            .forEach(
-                                                    ckc -> {
-                                                        if (tableSc.equals(ckc.getColumnName())) {
-                                                            isUniqueKey.set(true);
-                                                        }
-                                                    }));
+            // Is tableSc（table split column） the primary key or a unique key
+            AtomicBoolean isKey = new AtomicBoolean(false);
+            Optional<PrimaryKey> primaryKey = dialect.getPrimaryKey(jdbc, tableId);
+            if (primaryKey.isPresent()) {
+                isKey.set(primaryKey.get().getColumnNames().contains(tableSc));
+            }
+            if (!isKey.get()) {
+                dialect.getUniqueKeys(jdbc, tableId)
+                        .forEach(
+                                ck ->
+                                        ck.getColumnNames()
+                                                .forEach(
+                                                        ckc -> {
+                                                            if (tableSc.equals(
+                                                                    ckc.getColumnName())) {
+                                                                isKey.set(true);
+                                                            }
+                                                        }));
+            }
 
-            if (isUniqueKey.get()) {
+            if (isKey.get()) {
                 Column column = table.columnWithName(tableSc);
                 if (isEvenlySplitColumn(column)) {
                     return column;
@@ -438,7 +445,9 @@ public abstract class AbstractJdbcSourceChunkSplitter implements JdbcSourceChunk
                             tableId);
                 }
             } else {
-                log.warn("Config snapshotSplitColumn not unique key for table {}", tableId);
+                log.warn(
+                        "Config snapshotSplitColumn not primary key or unique key for table {}",
+                        tableId);
             }
         } else {
             log.info("Config snapshotSplitColumn not exists for table {}", tableId);

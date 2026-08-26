@@ -45,8 +45,10 @@ import java.sql.SQLException;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Optional;
+import java.util.Properties;
 
 class JdbcSourceChunkSplitterTest {
 
@@ -79,6 +81,24 @@ class JdbcSourceChunkSplitterTest {
                         null, new TestSourceDialectWithUniqueKey_2(), new TableId("", "", ""));
         Assertions.assertEquals("int", splitColumn.typeName());
     }
+
+    @Test
+    void splitColumnTestWithPrimaryKeyConfigured() throws SQLException {
+        // Regression test for #11973: a configured split column that is the
+        // physical PRIMARY KEY (not part of getUniqueKeys()) must be accepted.
+        java.util.Map<String, String> splitColumn = new HashMap<>();
+        splitColumn.put("testdb.test_split_column", "id");
+        TestJdbcSourceChunkSplitter testJdbcSourceChunkSplitter =
+                new TestJdbcSourceChunkSplitter(
+                        new PrimaryKeyConfig(splitColumn), new TestSourceDialectWithPrimaryKey());
+        Column splitColumnResult =
+                testJdbcSourceChunkSplitter.getSplitColumn(
+                        null,
+                        new TestSourceDialectWithPrimaryKey(),
+                        new TableId("testdb", "", "test_split_column"));
+        Assertions.assertEquals("bigint", splitColumnResult.typeName());
+    }
+
 
     private class TestJdbcSourceChunkSplitter extends AbstractJdbcSourceChunkSplitter {
 
@@ -329,4 +349,98 @@ class JdbcSourceChunkSplitterTest {
             return keys;
         }
     }
+    /**
+     * A dialect whose physical primary key ("id") is NOT part of any unique key,
+     * mirroring the MySQL-CDC table in #11973 (PRIMARY KEY (id), UNIQUE KEY
+     * uk_business (category, business_key)).
+     */
+    private class TestSourceDialectWithPrimaryKey extends TestSourceDialect {
+
+        @Override
+        public Optional<PrimaryKey> getPrimaryKey(JdbcConnection jdbcConnection, TableId tableId)
+                throws SQLException {
+            return Optional.of(PrimaryKey.of("pkName", Arrays.asList("id")));
+        }
+
+        @Override
+        public List<ConstraintKey> getUniqueKeys(JdbcConnection jdbcConnection, TableId tableId)
+                throws SQLException {
+            List<ConstraintKey> keys = new ArrayList<>();
+            keys.add(
+                    ConstraintKey.of(
+                            ConstraintKey.ConstraintType.UNIQUE_KEY,
+                            "uk_business",
+                            Arrays.asList(
+                                    ConstraintKey.ConstraintKeyColumn.of(
+                                            "category", ConstraintKey.ColumnSortType.ASC),
+                                    ConstraintKey.ConstraintKeyColumn.of(
+                                            "business_key", ConstraintKey.ColumnSortType.ASC))));
+            return keys;
+        }
+
+        @Override
+        public TableChanges.TableChange queryTableSchema(JdbcConnection jdbc, TableId tableId) {
+            Table table =
+                    Table.editor()
+                            .tableId(tableId)
+                            .addColumns(
+                                    Column.editor()
+                                            .name("id")
+                                            .jdbcType(Types.BIGINT)
+                                            .type("bigint")
+                                            .create(),
+                                    Column.editor()
+                                            .name("category")
+                                            .jdbcType(Types.TINYINT)
+                                            .type("tinyint")
+                                            .create(),
+                                    Column.editor()
+                                            .name("business_key")
+                                            .jdbcType(Types.VARCHAR)
+                                            .type("varchar")
+                                            .create())
+                            .create();
+            return new TableChanges.TableChange(TableChanges.TableChangeType.CREATE, table);
+        }
+    }
+
+    /**
+     * A minimal JdbcSourceConfig carrying the user-configured split column map.
+     */
+    private static class PrimaryKeyConfig extends JdbcSourceConfig {
+
+        public PrimaryKeyConfig(java.util.Map<String, String> splitColumn) {
+            super(
+                    null,
+                    null,
+                    null,
+                    null,
+                    8096,
+                    splitColumn,
+                    1.0,
+                    0.05,
+                    1000,
+                    1000,
+                    true,
+                    new Properties(),
+                    null,
+                    null,
+                    0,
+                    null,
+                    null,
+                    null,
+                    1024,
+                    null,
+                    30000L,
+                    3,
+                    20,
+                    false);
+        }
+
+        @Override
+        public RelationalDatabaseConnectorConfig getDbzConnectorConfig() {
+            return null;
+        }
+    }
+
 }
