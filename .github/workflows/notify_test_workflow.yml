@@ -40,8 +40,10 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const endpoint = 'GET /repos/:owner/:repo/actions/workflows/:id/runs?&branch=:branch'
-            const check_run_endpoint = 'GET /repos/:owner/:repo/commits/:ref/check-runs?per_page=100'
+            const endpoint = 'GET /repos/{owner}/{repo}/actions/workflows/{workflow_id}/runs'
+            const check_run_endpoint = 'GET /repos/{owner}/{repo}/commits/{ref}/check-runs'
+            const MAX_LOOKUP_DURATION_MS = 60 * 1000
+            const LOOKUP_INTERVAL_MS = 5000
 
             // TODO: Should use pull_request.user and pull_request.user.repos_url?
             // If a different person creates a commit to another forked repo,
@@ -49,34 +51,57 @@ jobs:
             const params = {
               owner: context.payload.pull_request.head.repo.owner.login,
               repo: context.payload.pull_request.head.repo.name,
-              id: 'build_main.yml',
+              workflow_id: 'build_main.yml',
               branch: context.payload.pull_request.head.ref,
+              per_page: 100,
             }
             const check_run_params = {
               owner: context.payload.pull_request.head.repo.owner.login,
               repo: context.payload.pull_request.head.repo.name,
               ref: context.payload.pull_request.head.ref,
+              per_page: 100,
             }
 
             console.log('Ref: ' + context.payload.pull_request.head.ref)
             console.log('SHA: ' + context.payload.pull_request.head.sha)
 
-            // Wait 3 seconds to make sure the fork repository triggered a workflow.
-            await new Promise(r => setTimeout(r, 3000))
-
-            let runs
-            try {
-              runs = await github.request(endpoint, params)
-            } catch (error) {
-              console.error(error)
-              // Assume that runs were not found.
-            }
-
             const name = 'Build'
             const head_sha = context.payload.pull_request.head.sha
             let status = 'queued'
-            console.log('runs: ' + JSON.stringify(runs))
-            if (!runs || runs.data.workflow_runs.length === 0) {
+
+            async function findBuildWorkflowRun() {
+              const lookupDeadline = Date.now() + MAX_LOOKUP_DURATION_MS
+              let attempt = 1
+
+              while (true) {
+                try {
+                  const runs = await github.request(endpoint, params)
+                  const buildRun = runs.data.workflow_runs.find(
+                    (run) => run.head_sha === head_sha
+                  )
+
+                  console.log('runs: ' + JSON.stringify(runs))
+                  if (buildRun) {
+                    return buildRun
+                  }
+                } catch (error) {
+                  console.error(`Failed to find Build workflow run on attempt ${attempt}`, error)
+                }
+
+                const remainingLookupTime = lookupDeadline - Date.now()
+                if (remainingLookupTime <= 0) {
+                  return null
+                }
+
+                await new Promise((resolve) =>
+                  setTimeout(resolve, Math.min(LOOKUP_INTERVAL_MS, remainingLookupTime))
+                )
+                attempt += 1
+              }
+            }
+
+            const build_run = await findBuildWorkflowRun()
+            if (!build_run) {
               status = 'completed'
               const conclusion = 'action_required'
 
@@ -109,12 +134,7 @@ jobs:
                 }
               })
             } else {
-              const build_run = runs.data.workflow_runs[0]
               const run_id = build_run.id
-
-              if (build_run.head_sha != context.payload.pull_request.head.sha) {
-                throw new Error('There was a new unsynced commit pushed. Please retrigger the workflow.');
-              }
 
               // Here we get check run ID to provide Check run view instead of Actions view, see also SPARK-37879.
               const check_runs = await github.request(check_run_endpoint, check_run_params)

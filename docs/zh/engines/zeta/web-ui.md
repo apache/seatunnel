@@ -78,6 +78,8 @@ Web UI 不负责提交作业，也不提供 cancel、stop、savepoint、restore 
 > 该能力需要作业侧开启 `env.engine.observability`（或满足默认开启条件），并按需配置 `async_boundaries`、`split_sink_io` 等。
 > 详细配置与指标说明请参考：[实时可观测性](realtime-observability.md)。
 
+运行时图的设计边界与大 DAG 降级规则请参考：[运行时执行图](runtime-execution-graph.md)。
+
 ### 已完成的作业
 
 “已完成的作业”模块展示已进入终态的作业，例如 finished、failed、cancelled 或 savepoint done。用户可以回看历史记录，并进入详情页查看配置、异常文本、引擎保留的指标和日志。
@@ -104,5 +106,6 @@ Web UI 不负责提交作业，也不提供 cancel、stop、savepoint、restore 
 
 - [REST API 与 Web UI](./rest-api-and-web-ui.md)
 - [REST API V2](./rest-api-v2.md)
+- [运行时执行图](./runtime-execution-graph.md)
 - [作业生命周期 API](./rest-api-job-lifecycle.md)
 - [安全](./security.md)
