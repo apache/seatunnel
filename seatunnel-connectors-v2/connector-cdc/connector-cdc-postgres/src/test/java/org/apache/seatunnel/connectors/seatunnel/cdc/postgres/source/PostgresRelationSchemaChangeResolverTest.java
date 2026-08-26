@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnsEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
+import org.apache.seatunnel.api.table.schema.exception.SchemaEvolutionException;
 import org.apache.seatunnel.api.table.schema.exception.SchemaValidationException;
 import org.apache.seatunnel.api.table.type.BasicType;
 
@@ -117,6 +118,28 @@ class PostgresRelationSchemaChangeResolverTest {
         Assertions.assertTrue(exception.getMessage().contains("Cannot find cached schema"));
     }
 
+    @Test
+    void shouldFailFastWhenAddedColumnTypeCannotBeConverted() {
+        SourceRecord record =
+                createRecord(
+                        intColumn("id", 1),
+                        varcharColumn("name", 2, 64),
+                        unsupportedArrayColumn("roles", 3));
+
+        SchemaEvolutionException exception =
+                Assertions.assertThrows(
+                        SchemaEvolutionException.class,
+                        () ->
+                                resolver.resolve(
+                                        record, Collections.singletonList(createCatalogTable())));
+
+        Assertions.assertTrue(
+                exception
+                        .getMessage()
+                        .contains("Failed to resolve PostgreSQL RELATION schema change"));
+        Assertions.assertNotNull(exception.getCause());
+    }
+
     private CatalogTable createCatalogTable() {
         return CatalogTable.of(
                 TABLE_IDENTIFIER,
@@ -187,6 +210,17 @@ class PostgresRelationSchemaChangeResolverTest {
                 .type("bool", "bool")
                 .position(position)
                 .optional(false)
+                .create();
+    }
+
+    private Column unsupportedArrayColumn(String name, int position) {
+        return Column.editor()
+                .name(name)
+                .jdbcType(Types.ARRAY)
+                .nativeType(Types.ARRAY)
+                .type("_uuid", "uuid[]")
+                .position(position)
+                .optional(true)
                 .create();
     }
 }

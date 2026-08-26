@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnsEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.schema.exception.SchemaEvolutionErrorCode;
+import org.apache.seatunnel.api.table.schema.exception.SchemaEvolutionException;
 import org.apache.seatunnel.api.table.schema.exception.SchemaValidationException;
 import org.apache.seatunnel.connectors.cdc.base.schema.SchemaChangeResolver;
 import org.apache.seatunnel.connectors.cdc.debezium.ConnectTableChangeSerializer;
@@ -54,17 +55,33 @@ public class PostgresRelationSchemaChangeResolver implements SchemaChangeResolve
 
     @Override
     public SchemaChangeEvent resolve(SourceRecord record, List<CatalogTable> catalogTables) {
-        Table after = extractTable(record);
-        CatalogTable before = findCatalogTable(after, catalogTables);
-        List<AlterTableColumnEvent> events = resolveAddedColumns(before, after);
-        if (events.isEmpty()) {
-            return null;
-        }
+        Table after = null;
+        CatalogTable before = null;
+        try {
+            after = extractTable(record);
+            before = findCatalogTable(after, catalogTables);
+            List<AlterTableColumnEvent> events = resolveAddedColumns(before, after);
+            if (events.isEmpty()) {
+                return null;
+            }
 
-        events.forEach(event -> event.setSourceDialectName(DatabaseIdentifier.POSTGRESQL));
-        AlterTableColumnsEvent result = new AlterTableColumnsEvent(before.getTableId(), events);
-        result.setSourceDialectName(DatabaseIdentifier.POSTGRESQL);
-        return result;
+            events.forEach(event -> event.setSourceDialectName(DatabaseIdentifier.POSTGRESQL));
+            AlterTableColumnsEvent result = new AlterTableColumnsEvent(before.getTableId(), events);
+            result.setSourceDialectName(DatabaseIdentifier.POSTGRESQL);
+            return result;
+        } catch (SchemaEvolutionException e) {
+            throw e;
+        } catch (Exception e) {
+            String relationId = after == null ? "unknown" : after.id().toString();
+            throw new SchemaEvolutionException(
+                    SchemaEvolutionErrorCode.INVALID_SCHEMA_STRUCTURE,
+                    "Failed to resolve PostgreSQL RELATION schema change for "
+                            + relationId
+                            + ". Continuing could make the produced row schema diverge from the source relation.",
+                    before == null ? null : before.getTableId(),
+                    null,
+                    e);
+        }
     }
 
     private Table extractTable(SourceRecord record) {
