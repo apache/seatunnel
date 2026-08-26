@@ -51,7 +51,7 @@ If an earlier queue entry fails, GitHub rebuilds later temporary groups without 
 
 ## Last-resort Recovery When Merge Queue Remains Unavailable
 
-When Merge Queue itself fails and the troubleshooting and recovery steps above do not restore its ability to queue or merge an otherwise mergeable pull request, ASF Infra may use the `apache/root` team bypass as a last-resort recovery path. SeaTunnel committers and PMC members do not receive this bypass.
+When Merge Queue itself fails and the troubleshooting and recovery steps above do not restore its ability to queue or merge an otherwise mergeable pull request, ASF Infra may use the `apache/root` team bypass as a last-resort recovery path.
 
 The bypass mode is `always`, so it applies to both pull-request merges and direct pushes for this ruleset; separate branch-protection rules are evaluated independently.
 
