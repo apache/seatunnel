@@ -81,6 +81,7 @@ libfb303-xxx.jar
 | data_save_mode                         | Enum    | no       | APPEND_DATA                  | the data save mode, please refer to `data_save_mode` below                                                                                                                                                                                                                                                                |
 | custom_sql                             | string  | Required when `data_save_mode` is `CUSTOM_PROCESSING` | -                            | Custom `delete` SQL for `CUSTOM_PROCESSING` data save mode, for example `delete from ... where ...`.                                                                                                                                                                                                                     |
 | iceberg.table.commit-branch            | string  | no       | -                            | Default branch for commits                                                                                                                                                                                                                                                                                                |
+| iceberg.drop-data.strategy             | Enum    | no       | DELETE_COMMIT                | Strategy used when `data_save_mode = DROP_DATA`. `DELETE_COMMIT` preserves the legacy delete-commit behavior and can target `iceberg.table.commit-branch`. `HARD_METADATA_RESET` clears all snapshot refs and snapshots for the table, then recreates the configured commit branch if needed. |
 | multi_table_sink_replica               | int     | no       | -                            | Replica number for every table writer in multi-table sink mode. Use this when one upstream job writes to multiple Iceberg tables and each table needs more than one sink writer.                                                                                                                                           |
 | krb5_path                              | string  | no       | /etc/krb5.conf              | The path of `krb5.conf`, used for Kerberos authentication.                                                                                                                                                                                                                                                                |
 | kerberos_principal                     | string  | no       | -                            | The principal for Kerberos authentication.                                                                                                                                                                                                                                                                               |
@@ -115,6 +116,19 @@ The principal for Kerberos authentication.
 ### kerberos_keytab_path [string]
 
 The keytab file path for Kerberos authentication.
+
+### iceberg.drop-data.strategy [Enum]
+
+Controls how the Iceberg sink handles `data_save_mode = DROP_DATA`.
+
+- `DELETE_COMMIT`
+  - Preserves the historical behavior.
+  - Uses Iceberg delete commit semantics.
+  - If `iceberg.table.commit-branch` is configured, the delete commit targets that branch.
+- `HARD_METADATA_RESET`
+  - Removes all snapshot refs and snapshots from the table metadata.
+  - Recreates the configured non-`main` commit branch after reset.
+  - Leaves orphan file cleanup to separate Iceberg maintenance.
 
 ## Task Example
 

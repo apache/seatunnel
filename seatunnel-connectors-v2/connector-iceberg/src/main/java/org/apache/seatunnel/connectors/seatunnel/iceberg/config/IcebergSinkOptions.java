@@ -93,4 +93,11 @@ public class IcebergSinkOptions extends IcebergCommonOptions {
                     .stringType()
                     .noDefaultValue()
                     .withDescription("Default branch for commits");
+
+    public static final Option<IcebergDropDataStrategy> DROP_DATA_STRATEGY =
+            Options.key("iceberg.drop-data.strategy")
+                    .enumType(IcebergDropDataStrategy.class)
+                    .defaultValue(IcebergDropDataStrategy.DELETE_COMMIT)
+                    .withDescription(
+                            "Strategy used for data_save_mode=DROP_DATA. DELETE_COMMIT preserves the historical delete-commit behavior and can target iceberg.table.commit-branch. HARD_METADATA_RESET clears all snapshot refs and snapshots for the table, then recreates the configured commit branch if needed.");
 }

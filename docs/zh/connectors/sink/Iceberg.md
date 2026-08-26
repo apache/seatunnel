@@ -81,6 +81,7 @@ libfb303-xxx.jar
 | data_save_mode                         | Enum    | no   | APPEND_DATA                  | 数据写入方式, 请参考下面的 `data_save_mode`                                                                                                                                                                                   |
 | custom_sql                             | string  | 当 `data_save_mode` 为 `CUSTOM_PROCESSING` 时是 | -                            | `CUSTOM_PROCESSING` 数据写入方式使用的自定义 `delete` SQL，例如 `delete from ... where ...`。                                                                                                                                       |
 | iceberg.table.commit-branch            | string  | no   | -                            | 提交的默认分支                                                                                                                                                                                                           |
+| iceberg.drop-data.strategy             | Enum    | no   | DELETE_COMMIT                | `data_save_mode = DROP_DATA` 时使用的策略。`DELETE_COMMIT` 保持历史 delete commit 行为，并且可以作用在 `iceberg.table.commit-branch` 指定的分支上。`HARD_METADATA_RESET` 会清空整张表的 snapshot refs 和 snapshots，并在需要时重建配置的 commit branch。 |
 | multi_table_sink_replica               | int     | no   | -                            | 多表写入模式下每张表对应的 Sink 写入并发数。一个作业写入多张 Iceberg 表，并且每张表都需要多个写入器时使用。                                                                                                                                                                                                           |
 | krb5_path                              | string  | no       | /etc/krb5.conf              | `krb5.conf` 文件的路径，用于 Kerberos 认证。                                                                                                                                                                                                                                                                |
 | kerberos_principal                     | string  | no       | -                            | Kerberos 认证的 principal。                                                                                                                                                                                                                                                                               |
@@ -115,6 +116,19 @@ Kerberos 认证的 principal。
 ### kerberos_keytab_path [string]
 
 Kerberos 认证的 keytab 文件路径。
+
+### iceberg.drop-data.strategy [Enum]
+
+用于控制 Iceberg sink 在 `data_save_mode = DROP_DATA` 时的处理方式。
+
+- `DELETE_COMMIT`
+  - 保持历史行为。
+  - 使用 Iceberg 的 delete commit 语义清理数据。
+  - 如果配置了 `iceberg.table.commit-branch`，delete commit 会作用在该分支上。
+- `HARD_METADATA_RESET`
+  - 清空整张表 metadata 中的 snapshot refs 和 snapshots。
+  - reset 后会重建配置的非 `main` commit branch。
+  - orphan 文件清理由独立的 Iceberg 维护任务处理。
 
 ## 任务示例
 
