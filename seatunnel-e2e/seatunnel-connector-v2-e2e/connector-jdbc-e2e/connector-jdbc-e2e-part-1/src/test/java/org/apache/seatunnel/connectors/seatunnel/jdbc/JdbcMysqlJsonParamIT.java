@@ -35,6 +35,7 @@ import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerImageName;
 import org.testcontainers.utility.DockerLoggerFactory;
+import org.testcontainers.utility.MountableFile;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -107,6 +108,11 @@ public class JdbcMysqlJsonParamIT extends TestSuiteBase implements TestResource 
                                         + " && cd /tmp/seatunnel/plugins/Jdbc/lib"
                                         + " && wget -q "
                                         + MYSQL_DRIVER_URL);
+
+                container.copyFileToContainer(
+                        MountableFile.forClasspathResource("jdbc_mysql_json_params.conf"),
+                        "/tmp/jdbc_mysql_json_params.conf");
+
                 Assertions.assertEquals(
                         0,
                         result.getExitCode(),
@@ -158,7 +164,7 @@ public class JdbcMysqlJsonParamIT extends TestSuiteBase implements TestResource 
         List<String> variables = new ArrayList<>();
         variables.add("/opt/seatunnel/bin/seatunnel.sh");
         variables.add("-e local");
-        variables.add("-c /jdbc_mysql_json_params.conf");
+        variables.add("-c /tmp/jdbc_mysql_json_params.conf");
         variables.add("-i mysql_host=" + MYSQL_HOST);
         //        variables.add("-i mysql_port=3306");
         variables.add("-i mysql_db=" + MYSQL_DATABASE);
