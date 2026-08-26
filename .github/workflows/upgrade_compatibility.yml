@@ -53,7 +53,11 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: "17"
+          # JDK 11, not 17: this job boots the OLD release (2.3.13), whose bundled
+          # config/jvm_*_options predate the JDK 9+ --add-opens flags, so running it under
+          # JDK 17's strong encapsulation could fail for reasons unrelated to upgrade
+          # compatibility. Java 11 is the minimum runtime both versions support.
+          java-version: "11"
 
       - name: Test upgrade compatibility tooling
         run: bash tools/upgrade_compatibility/run_upgrade_compatibility_test.sh
