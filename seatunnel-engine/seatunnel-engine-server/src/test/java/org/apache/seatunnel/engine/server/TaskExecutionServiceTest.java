@@ -524,6 +524,36 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         taskExecutionService.closeTimerFlushTask(taskLocation);
     }
 
+    /**
+     * A blocking task deployed without a class loader entry of its own must fail loudly rather than
+     * run with a null context class loader, which would otherwise surface later as an unrelated
+     * ClassNotFoundException from inside the task.
+     */
+    @Test
+    public void testMissingTaskClassLoaderFailsFast() throws Exception {
+        TaskExecutionService taskExecutionService = server.getTaskExecutionService();
+        TaskGroupLocation location =
+                new TaskGroupLocation(
+                        System.currentTimeMillis(), pipeLineId, FLAKE_ID_GENERATOR.newId());
+        AtomicBoolean stop = new AtomicBoolean(false);
+        // isThreadsShare == false routes the task through submitBlockingTask/BlockingWorker.
+        TaskGroup taskGroup =
+                new TaskGroupDefaultImpl(
+                        location,
+                        "missing-class-loader",
+                        Lists.newArrayList(new TestTask(stop, 0, false)));
+
+        // Deliberately empty: getClassLoaders().get(taskId) returns null for this task.
+        PassiveCompletableFuture<TaskExecutionState> completion =
+                taskExecutionService.deployLocalTask(
+                        taskGroup, new ConcurrentHashMap<>(), new ConcurrentHashMap<>());
+
+        TaskExecutionState state = completion.get(30, TimeUnit.SECONDS);
+        assertEquals(FAILED, state.getExecutionState());
+
+        stop.set(true);
+    }
+
     public List<Task> buildFixedTestTask(
             long callTime, long count, AtomicBoolean stopMart, CopyOnWriteArrayList<Long> lagList) {
         List<Task> taskQueue = new ArrayList<>();

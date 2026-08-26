@@ -73,7 +73,6 @@ import com.hazelcast.spi.impl.operationservice.impl.InvocationFuture;
 import lombok.NonNull;
 import lombok.SneakyThrows;
 
-import java.io.IOException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -1075,6 +1074,7 @@ public class TaskExecutionService implements DynamicMetricsProvider {
             final Task t = tracker.task;
             ProgressState result = null;
             boolean startLatchReleased = false;
+            boolean initAttempted = false;
             try {
                 // Resolving the class loader has to happen inside this try. The execution
                 // context for this location can already have been removed by a taskDone() of
@@ -1109,6 +1109,9 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 // have started, not once they have finished.
                 startedLatch.countDown();
                 startLatchReleased = true;
+                // Set before init() rather than after: a task that failed part-way through
+                // init() may already hold resources and still needs close().
+                initAttempted = true;
                 t.init();
                 do {
                     result = t.call();
@@ -1136,10 +1139,14 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                     startedLatch.countDown();
                 }
                 taskGroupExecutionTracker.taskDone(t);
-                if (result == null || !result.isDone()) {
+                // Only close a task we actually started initialising. Reaching the failure
+                // path before init() leaves SeaTunnelTask.close() dereferencing state it has
+                // not built yet, and the resulting NPE is not an IOException, so it would
+                // escape this finally block and be lost on a future nobody polls.
+                if (initAttempted && (result == null || !result.isDone())) {
                     try {
                         tracker.task.close();
-                    } catch (IOException e) {
+                    } catch (Throwable e) {
                         logger.severe("Close task error", e);
                     }
                 }
