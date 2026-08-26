@@ -51,6 +51,7 @@ connector-fluss
 connector-google-sheets
 connector-google-firestore
 connector-google-pubsub
+connector-azure-queue-storage
 connector-google-bigtable
 connector-graphql
 connector-hive
