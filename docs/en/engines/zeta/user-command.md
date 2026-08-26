@@ -26,7 +26,7 @@ Usage: seatunnel.sh [options]
     -cn, --cluster                              The name of the cluster.
     -c, --config                                Config file.
     --decrypt                                   Decrypt the config file. When both --decrypt and --encrypt are specified, only --encrypt will take effect (default: false).
-    -d, --dry-run                               Run the job in dry-run mode, support [static, connect].
+    -d, --dry-run                               Validate or preview without running sinks. Supported modes: [static, connect, sample].
     -m, --master, -e, --deploy-mode             SeaTunnel job submit master, support [local, cluster] (default: cluster).
     --encrypt                                   Encrypt the config file. When both --decrypt and --encrypt are specified, only --encrypt will take effect (default: false).
     --get_running_job_metrics                   Get metrics for running jobs (default: false).
@@ -38,6 +38,8 @@ Usage: seatunnel.sh [options]
     -r, --restore, --restore-job                Restore from the latest savepoint by jobId.
     --restore-with-checkpoint                   Restore from the latest completed checkpoint by jobId.
     -s, --savepoint, --savepoint-job            Savepoint the job by jobId.
+    --sample-limit                              Maximum rows forwarded from each source by sample dry-run mode (default: 10, max: 10000).
+    --sample-print-data                         Print sampled row values to persistent logs (default: false).
     -i, --variable                              Variable substitution, such as -i city=beijing, or -i date=20190318. We use ',' as a separator. When inside "", ',' are treated as normal characters instead of delimiters. (default: []).
 
 ```
@@ -85,6 +87,22 @@ Every plugin in the job is reported in a validation summary with one of two stat
 
 - `VALIDATED` – the connector performed real connectivity and/or schema validation.
 - `SKIPPED` – the connector does not support connect dry-run validation. **A successful `--dry-run connect` result does NOT verify credentials or reachability for `SKIPPED` plugins.** For sources without dry-run support, the schema fields declared in the config (`schema` / `tableConfigs` / `table_list` with `fields` or `columns`) are still used for downstream schema checks; if the config does not declare schema fields either, downstream transform/sink schema checks for that pipeline are also reported as `SKIPPED` instead of being validated against a placeholder schema.
+
+### Previewing Sample Rows
+
+```shell
+sh bin/seatunnel.sh --master local --config $SEATUNNEL_HOME/config/v2.batch.config.template --dry-run sample --sample-limit 10 --sample-print-data
+```
+
+The `--dry-run sample` mode has the following behavior:
+
+- Runs the configured sources and transforms locally and prints their table paths and physical row schemas. Connector options and credentials are not included in schema output.
+- Prints bounded source and transform row values only when `--sample-print-data` is set. Row values are hidden by default because persistent engine logs may expose sensitive data.
+- Uses parallelism `1` for every action, including sources configured with higher parallelism, so the row limit is source-wide and the preview output is deterministic.
+- Forwards at most `10` rows from each source into the sample pipeline by default, with a maximum `--sample-limit` of `10000`. A source reader may finish its active poll or batch before it stops.
+- Replaces configured sinks with an internal no-op sink, skips sink plugin creation and save-mode actions, and disables checkpoints.
+- May read from external sources, but does not write to configured target systems.
+- Supports local execution only. Cluster mode, asynchronous submission, restore, savepoint, validation, and job-control operations are rejected. Sample options are also rejected when sample mode is not selected.
 
 ## Viewing The Job List
 

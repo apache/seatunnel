@@ -27,6 +27,7 @@ import org.apache.seatunnel.core.starter.enums.DryRun;
 import org.apache.seatunnel.core.starter.enums.MasterType;
 import org.apache.seatunnel.core.starter.seatunnel.command.ClientExecuteCommand;
 import org.apache.seatunnel.core.starter.seatunnel.command.SeaTunnelConfValidateCommand;
+import org.apache.seatunnel.engine.common.config.DryRunSampleConfig;
 
 import com.beust.jcommander.IParameterValidator;
 import com.beust.jcommander.IStringConverter;
@@ -45,9 +46,22 @@ public class ClientCommandArgs extends AbstractCommandArgs {
 
     @Parameter(
             names = {"-d", "--dry-run"},
-            description = "Validate without running the job. Supported modes: [static, connect].",
+            description =
+                    "Validate or preview without running sinks. Supported modes: [static, connect, sample].",
             converter = DryRunConverter.class)
     protected DryRun dryRun = null;
+
+    @Parameter(
+            names = {"--sample-limit"},
+            description =
+                    "Maximum rows forwarded from each source by sample dry-run mode (default: 10, max: 10000)",
+            validateWith = PositiveIntegerValidator.class)
+    private Integer sampleLimit;
+
+    @Parameter(
+            names = {"--sample-print-data"},
+            description = "Print sampled row values to persistent logs")
+    private boolean samplePrintData;
 
     @Parameter(
             names = {"-m", "--master", "-e", "--deploy-mode"},
@@ -151,6 +165,7 @@ public class ClientCommandArgs extends AbstractCommandArgs {
 
     @Override
     public Command<?> buildCommand() {
+        validateCommandOptions();
         if (restoreJobId != null && restoreWithCheckpointJobId != null) {
             throw new IllegalArgumentException(
                     "--restore and --restore-with-checkpoint are mutually exclusive");
@@ -174,6 +189,9 @@ public class ClientCommandArgs extends AbstractCommandArgs {
                             "--set-job-id requires a numeric jobId, got: ");
         }
         Common.setDeployMode(getDeployMode());
+        if (dryRun == DryRun.SAMPLE) {
+            return new ClientExecuteCommand(this);
+        }
         if (checkConfig || dryRun != null) {
             return new SeaTunnelConfValidateCommand(this);
         }
@@ -219,11 +237,87 @@ public class ClientCommandArgs extends AbstractCommandArgs {
                     || DryRun.CONNECT.name().equalsIgnoreCase(trimmed)) {
                 return DryRun.CONNECT;
             }
+            if (DryRun.SAMPLE.getName().equalsIgnoreCase(trimmed)
+                    || DryRun.SAMPLE.name().equalsIgnoreCase(trimmed)) {
+                return DryRun.SAMPLE;
+            }
             throw new IllegalArgumentException(
                     "Unsupported dry-run mode '"
                             + value
-                            + "'. Currently only [static, connect] are supported; sample and shadow"
-                            + " are not implemented yet.");
+                            + "'. Currently only [static, connect, sample] are supported; shadow"
+                            + " is not implemented yet.");
+        }
+    }
+
+    /** Returns the configured sample limit, or the default limit when it was not specified. */
+    public int getSampleLimit() {
+        return sampleLimit == null ? DryRunSampleConfig.DEFAULT_LIMIT : sampleLimit;
+    }
+
+    /** Validates options that depend on other command-line arguments. */
+    public void validateCommandOptions() {
+        validateSampleOptions();
+        if (dryRun == DryRun.SAMPLE) {
+            validateSampleMode();
+        }
+    }
+
+    /**
+     * Validates that sample mode runs locally without asynchronous submission, restore, savepoint,
+     * validation, job control, encryption, or decryption options.
+     *
+     * @throws ParameterException when sample mode is combined with an unsupported option
+     */
+    public void validateSampleMode() {
+        if (masterType != MasterType.LOCAL) {
+            throw new ParameterException(
+                    "Sample dry-run mode requires --master/--deploy-mode local.");
+        }
+        if (async) {
+            throw new ParameterException("Sample dry-run mode does not support --async.");
+        }
+        if (restoreJobId != null
+                || restoreWithCheckpointJobId != null
+                || savePointJobId != null
+                || checkConfig
+                || listJob
+                || getRunningJobMetrics
+                || jobId != null
+                || cancelJobId != null
+                || forceCancelJobId != null
+                || metricsJobId != null
+                || checkpointOverviewJobId != null
+                || checkpointHistoryJobId != null
+                || encrypt
+                || decrypt) {
+            throw new ParameterException(
+                    "Sample dry-run mode cannot be combined with validation, job control, restore, savepoint, encryption, or decryption options.");
+        }
+    }
+
+    private void validateSampleOptions() {
+        if (dryRun != DryRun.SAMPLE && (sampleLimit != null || samplePrintData)) {
+            throw new ParameterException(
+                    "--sample-limit and --sample-print-data require --dry-run sample.");
+        }
+    }
+
+    /** Validates that a sample limit is between 1 and {@link DryRunSampleConfig#MAX_LIMIT}. */
+    public static class PositiveIntegerValidator implements IParameterValidator {
+        @Override
+        public void validate(String name, String value) throws ParameterException {
+            try {
+                int limit = Integer.parseInt(value);
+                if (limit < 1) {
+                    throw new ParameterException(name + " must be greater than zero.");
+                }
+                if (limit > DryRunSampleConfig.MAX_LIMIT) {
+                    throw new ParameterException(
+                            name + " must not exceed " + DryRunSampleConfig.MAX_LIMIT + ".");
+                }
+            } catch (NumberFormatException e) {
+                throw new ParameterException(name + " must be an integer.", e);
+            }
         }
     }
 

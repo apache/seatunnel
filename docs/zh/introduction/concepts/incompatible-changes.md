@@ -4,6 +4,13 @@
 
 ## dev
 
+### MySQL CDC Schema-Change 解析
+
+- **行为变更：向上传播 DDL 解析监听器错误**
+  - **影响范围**：`connector-cdc-mysql`
+  - **变更说明**：处理已解析 DDL 时发生的错误不再被吞掉并当作无操作处理，而是作为解析失败向上抛出，避免 CDC 作业静默跳过 schema 变更。
+  - **影响**：某些过去在内部解析器或监听器出错后被忽略的 DDL，升级后可能导致作业失败。请检查源端 DDL，修改为连接器支持的语法后再重启作业。本变更不修改 checkpoint 或 savepoint 格式。
+
 ### JDBC Connector
 
 - **破坏性变更：带时区的时间戳列映射为 `TIMESTAMP_TZ` 类型**
@@ -91,6 +98,21 @@
 
 
 ### 连接器变更
+
+- **破坏性变更：ORC 文件 Sink 保留嵌套 Struct 字段名的大小写**
+  - **影响范围**：`seatunnel-connectors-v2/connector-file/connector-file-base`（所有共享 `OrcWriteStrategy` 的 File/HDFS/S3/OSS ORC Sink）
+  - **变更说明**：此前，`OrcWriteStrategy.buildFieldWithRowType(...)` 在构建 ORC Schema 时，会将每个嵌套 `ROW`（struct）字段名强制转为小写，因此声明为 `MD5` 的嵌套字段在文件 footer 中被持久化为 `md5`。下游消费者按原始大小写名称读取该列时会得到 null/缺失值。本次移除了递归嵌套字段分支上的 `.toLowerCase()` 调用，嵌套 struct 字段名将按原始大小写写入文件 Schema。
+  - **影响**：升级后由 SeaTunnel 写入的 ORC 文件，其 Schema footer 中的嵌套字段名保留原始大小写。已经适配旧行为的用户（例如使用 `orc.schema.evolution.case.sensitive=true` 的 ORC Reader、设置 `spark.sql.caseSensitive=true` 的 Spark、或预期读到 `md5` 而非 `MD5` 的下游管道）将面临相反的问题：读取新文件时出现空值或 Schema 不匹配。同一目录下混合旧版本（小写嵌套字段名）和新版本（原始大小写）的文件时，相同逻辑列对应的嵌套 Schema 形态不一致，大小写敏感的 Schema 合并无法调和。
+  - **迁移指南**：
+    - **混合版本目录**：将目录重新物化，使所有文件都由新版本写入；或将旧版本与新版本文件分别写入不同目录，独立读取。
+    - **大小写敏感的下游**：在支持的情况下将 Reader 配置为大小写不敏感的 Schema Evolution，或在读取时重映射该列。
+    - **仅大小写不同的同名兄弟字段**（例如同一 struct 中同时存在 `MD5` 和 `md5`）：现在可被表达；大小写不敏感的下游（如 Hive）可能将其视为歧义字段，如需保留请在源头消歧。
+
+- **破坏性变更：Google Bigtable Source 的 `scan_row_limit` 变为每个 split 的上限**
+  - **影响范围**：`seatunnel-connectors-v2/connector-google-bigtable`
+  - **变更说明**：Enumerator 现在通过 `sampleRowKeys` 按 tablet 边界把表（或配置的 `start_rowkey` / `end_rowkey` 区间）切成多个 split。Reader 仍对每个 split 调用一次 `query.limit(...)`。此前 Source 始终只产生 1 个 split，因此 `scan_row_limit` 等价于整表行数上限。升级后，只要表有多个 tablet，即使 `parallelism = 1`（唯一 reader 会拿到全部 split），作业级上限约为 `scan_row_limit × split 数`。详见 [Google Bigtable Source](../../connectors/source/GoogleBigtable.md#scan_row_limit-int)。
+  - **影响**：依赖 `scan_row_limit` 限制总输出量的存量作业（抽样、测试、成本控制、下游容量）在升级后、配置不变的情况下，可能读出远超以前的行数。
+  - **迁移指南**：若仍需要整表级上限，请用 `start_rowkey` / `end_rowkey` 收窄扫描范围，或下调 `scan_row_limit`，使 `scan_row_limit × 预期 split 数` 不超过原预算。采样失败、无采样点或求交为空时仍会回退为单个 split，但这不是用来锁定旧语义的受支持方式。(#11876)
 
 - **破坏性变更：Iceberg 连接器 — 不再自动继承源表主键**
   - **影响范围**：`seatunnel-connectors-v2/connector-iceberg`
