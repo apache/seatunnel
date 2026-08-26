@@ -51,29 +51,14 @@ gh run view <run-id> --repo apache/seatunnel --log-failed
 
 ## 紧急 Bypass
 
-Ruleset 为具有仓库 `Write` 角色的用户提供仅限 Pull Request 合并的 bypass，不允许通过直接 push 绕过规则。
+Ruleset 仅向 ASF Infra 的 `apache/root` team 提供紧急 bypass，SeaTunnel Committer 和 PMC 成员不拥有此权限。bypass mode 为 `always`，因此对该 Ruleset 的 Pull Request 合并和直接 push 均适用；其他独立的分支保护规则仍会分别检查。
 
 :::warning 仅用于 Merge Queue 紧急故障
 
-只有 Merge Queue 本身不可用或运行异常时才能使用 bypass。不要用它跳过正常排队、必需的批准、失败的 `Build` 或编译问题。
+这是 ASF Infra 在 Merge Queue 本身不可用或运行异常时使用的紧急恢复通道。不得用它跳过正常排队、必需的批准、失败的 `Build` 或编译问题。
 
-队列仍在运行时，bypass 会改变正常的合并顺序保证：
+如果 Merge Queue 阻止了一个原本满足合并条件的 PR，请保留 PR 和 workflow run 链接并联系 ASF Infra。只要条件允许，应通过已经 review 且普通 `Build` 成功的 PR 完成恢复；直接 push 只能作为最后手段。
 
-- 如果 bypass PR 先进入 `dev`，基于旧 `dev` 创建的 merge group 会失效。GitHub 必须重新构建这些 merge group，正在运行的 CI 也会被浪费。
-- 如果队列中的 PR 先进入 `dev`，bypass PR 随后可能在没有针对最终组合执行 merge-group build 的情况下合并。普通 PR 的 `Build` 可能基于较旧的 `dev`，因此未经验证的代码组合可能进入 `dev`。
-
-以上情况不会覆盖或丢失已有提交，但会浪费 CI 资源，并失去 Merge Queue 正常提供的最终组合验证。
-
-使用 bypass 前：
-
-1. 检查 merge queue 和正在运行的 `Merge Queue` workflow；只要条件允许，应等待队列空闲。
-2. 确认 PR 已获得所需批准，并且普通 Pull Request 的 `Build` 已成功。
-3. 在 PR 中说明 bypass 原因，并附上队列故障或服务异常的链接。
-
-使用 bypass 后：
-
-1. 使用相同的 Maven 编译命令验证新的 `dev` 提交，或者确认等价的 post-merge build 已成功。
-2. 关注队列中其他 PR 是否自动重新构建 merge group，以及是否出现失败。
-3. 在 dev 邮件列表报告队列异常；需要仓库级恢复时联系 ASF Infra。
+绕过 Merge Queue 会失去最终代码组合验证，也可能让正在运行的 merge group 失效。恢复后，应使用相同的 Maven 编译命令或等价的 post-merge build 验证新的 `dev` 提交，并关注队列中的 PR 是否自动重新构建或失败。
 
 :::
