@@ -163,7 +163,7 @@ public class JdbcMysqlJsonParamIT extends TestSuiteBase implements TestResource 
         //        variables.add("-i mysql_port=3306");
         variables.add("-i mysql_db=" + MYSQL_DATABASE);
         variables.add(
-                "mysql_props='{"
+                "-i mysql_props='{"
                         + "\"useSSL\":\"false\","
                         + "\"allowPublicKeyRetrieval\":\"true\"}'");
 

@@ -31,6 +31,7 @@ public class ParameterSplitter implements IParameterSplitter {
     private static final Set<Character> END_DELIMITERS =
             new HashSet<>(Arrays.asList(',', '}', ']', ':'));
 
+    @Override
     public List<String> split(String value) {
         List<String> result = new ArrayList<>();
         StringBuilder currentToken = new StringBuilder();
