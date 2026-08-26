@@ -49,15 +49,17 @@ gh run view <run-id> --repo apache/seatunnel --log-failed
 
 If an earlier queue entry fails, GitHub rebuilds later temporary groups without that entry. No manual action is required for those later pull requests unless their own checks fail.
 
-## Emergency Bypass
+## Last-resort Recovery When Merge Queue Remains Unavailable
 
-The ruleset grants an emergency bypass only to ASF Infra's `apache/root` team. SeaTunnel committers and PMC members do not receive this bypass. The bypass mode is `always`, so it applies to both pull-request merges and direct pushes for this ruleset; separate branch-protection rules are evaluated independently.
+When Merge Queue itself fails and the troubleshooting and recovery steps above do not restore its ability to queue or merge an otherwise mergeable pull request, ASF Infra may use the `apache/root` team bypass as a last-resort recovery path. SeaTunnel committers and PMC members do not receive this bypass.
 
-:::warning Use only for Merge Queue emergencies
+The bypass mode is `always`, so it applies to both pull-request merges and direct pushes for this ruleset; separate branch-protection rules are evaluated independently.
 
-This is a break-glass path for ASF Infra when Merge Queue itself is unavailable or malfunctioning. It must not be used to skip normal queue waiting, required approval, a failed `Build`, or a compilation problem.
+:::warning Use only when normal recovery has failed
 
-If Merge Queue blocks an otherwise mergeable pull request, preserve the PR and workflow-run links and contact ASF Infra. Whenever possible, recovery should use a reviewed pull request with a successful normal `Build`; direct push should remain a last resort.
+This bypass is not an alternative merge path. It must not be used to skip normal queue waiting, required approval, a failed `Build`, or a compilation problem.
+
+Preserve the pull request and workflow-run links when contacting ASF Infra. Whenever possible, recovery should use a reviewed pull request with a successful normal `Build`; direct push should remain a last resort.
 
 Bypassing Merge Queue removes its exact-combination validation and may make active merge groups stale. After recovery, verify the new `dev` commit with the same Maven compile commands or an equivalent post-merge build, and monitor queued pull requests for automatic rebuilds or failures.
 
