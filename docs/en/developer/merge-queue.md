@@ -51,29 +51,14 @@ If an earlier queue entry fails, GitHub rebuilds later temporary groups without 
 
 ## Emergency Bypass
 
-The ruleset grants a pull-request-only bypass to users with the repository `Write` role. It does not allow bypass by direct push.
+The ruleset grants an emergency bypass only to ASF Infra's `apache/root` team. SeaTunnel committers and PMC members do not receive this bypass. The bypass mode is `always`, so it applies to both pull-request merges and direct pushes for this ruleset; separate branch-protection rules are evaluated independently.
 
 :::warning Use only for Merge Queue emergencies
 
-Use bypass only when Merge Queue itself is unavailable or malfunctioning. Do not use it to skip normal queue waiting, required approval, a failed `Build`, or a compilation problem.
+This is a break-glass path for ASF Infra when Merge Queue itself is unavailable or malfunctioning. It must not be used to skip normal queue waiting, required approval, a failed `Build`, or a compilation problem.
 
-Bypass changes the ordering guarantees while the queue is active:
+If Merge Queue blocks an otherwise mergeable pull request, preserve the PR and workflow-run links and contact ASF Infra. Whenever possible, recovery should use a reviewed pull request with a successful normal `Build`; direct push should remain a last resort.
 
-- If the bypassed PR reaches `dev` first, merge groups created from the previous `dev` become stale. GitHub must rebuild those groups, and their running CI work is discarded.
-- If a queued PR reaches `dev` first, the bypassed PR may merge afterward without a merge-group build for that exact final combination. The PR's normal `Build` may have run against an older `dev`, so an unvalidated combination can enter `dev`.
-
-These cases do not overwrite commits, but they can waste CI capacity and remove the exact-combination validation that Merge Queue normally provides.
-
-Before bypassing:
-
-1. Check the merge queue and active `Merge Queue` workflow runs. Whenever possible, wait until the queue is idle.
-2. Confirm that the PR has the required approval and a successful normal pull-request `Build`.
-3. Comment on the PR with the reason for bypassing and link the queue failure or outage.
-
-After bypassing:
-
-1. Verify the new `dev` commit with the same Maven compile commands, or confirm an equivalent post-merge build.
-2. Watch queued PRs for automatic merge-group rebuilds and failures.
-3. Report queue-specific failures on the dev mailing list and involve ASF Infra if repository-level recovery is required.
+Bypassing Merge Queue removes its exact-combination validation and may make active merge groups stale. After recovery, verify the new `dev` commit with the same Maven compile commands or an equivalent post-merge build, and monitor queued pull requests for automatic rebuilds or failures.
 
 :::
