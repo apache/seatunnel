@@ -60,7 +60,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -122,11 +121,15 @@ public class PhysicalVertex {
 
     public volatile boolean isRunning = false;
 
-    /** The error throw by physicalVertex, should be set when physicalVertex throw error. */
-    private AtomicReference<String> errorByPhysicalVertex = new AtomicReference<>();
-
-    /** Tracks whether the current failure came from a graceful member-removal classification. */
-    private AtomicBoolean gracefulMemberRemovalFailureByPhysicalVertex = new AtomicBoolean(false);
+    /**
+     * The failure recorded for this physical vertex, installed first-write-wins. The failure
+     * message and its coordinator-classified graceful member-removal flag are kept in one immutable
+     * holder so they are always written and read as a single unit: writing them as two independent
+     * atomics allowed a concurrent caller to re-tag another caller's already-recorded failure with
+     * its own classification, logging a genuine failure at the wrong level.
+     */
+    private AtomicReference<FailureClassification> failureClassificationByPhysicalVertex =
+            new AtomicReference<>();
 
     public PhysicalVertex(
             int subTaskGroupIndex,
@@ -503,9 +506,8 @@ public class PhysicalVertex {
                         () -> {
                             updateStateTimestamps(ExecutionState.CREATED);
                             runningJobStateIMap.set(taskGroupLocation, ExecutionState.CREATED);
-                            // reset the errorByPhysicalVertex
-                            errorByPhysicalVertex = new AtomicReference<>();
-                            gracefulMemberRemovalFailureByPhysicalVertex = new AtomicBoolean(false);
+                            // reset the recorded failure classification
+                            failureClassificationByPhysicalVertex = new AtomicReference<>();
                             return null;
                         },
                         new RetryUtils.RetryMaterial(
@@ -551,8 +553,10 @@ public class PhysicalVertex {
                             "The state must be end state from ExecutionService, can not be %s",
                             taskExecutionState.getExecutionState()));
         }
-        errorByPhysicalVertex.compareAndSet(null, taskExecutionState.getThrowableMsg());
-        gracefulMemberRemovalFailureByPhysicalVertex.set(gracefulMemberRemovalFailure);
+        recordFailureClassification(
+                failureClassificationByPhysicalVertex,
+                taskExecutionState.getThrowableMsg(),
+                gracefulMemberRemovalFailure);
         updateTaskState(taskExecutionState.getExecutionState());
     }
 
@@ -625,13 +629,21 @@ public class PhysicalVertex {
                         new TaskExecutionState(
                                 taskGroupLocation,
                                 ExecutionState.CANCELED,
-                                errorByPhysicalVertex.get()));
+                                getRecordedFailureMessage()));
                 return;
             case FAILED:
                 stopPhysicalVertex();
-                String errorMsg = errorByPhysicalVertex.get();
+                // Read the recorded failure once so the message and its graceful classification
+                // always come from the same write and can never be observed as a torn pair.
+                FailureClassification failureClassification =
+                        failureClassificationByPhysicalVertex.get();
+                String errorMsg =
+                        failureClassification == null
+                                ? null
+                                : failureClassification.getErrorMessage();
                 boolean gracefulMemberRemovalFailure =
-                        gracefulMemberRemovalFailureByPhysicalVertex.get();
+                        failureClassification != null
+                                && failureClassification.isGracefulMemberRemovalFailure();
                 if (shouldLogFailureAsWarn(gracefulMemberRemovalFailure)) {
                     log.warn(
                             String.format(
@@ -652,7 +664,7 @@ public class PhysicalVertex {
                         new TaskExecutionState(
                                 taskGroupLocation,
                                 ExecutionState.FINISHED,
-                                errorByPhysicalVertex.get()));
+                                getRecordedFailureMessage()));
                 return;
             default:
                 throw new IllegalArgumentException(
@@ -661,14 +673,76 @@ public class PhysicalVertex {
     }
 
     public void makeTaskGroupFailing(Throwable err) {
-        errorByPhysicalVertex.compareAndSet(null, ExceptionUtils.getMessage(err));
-        gracefulMemberRemovalFailureByPhysicalVertex.set(false);
+        recordFailureClassification(
+                failureClassificationByPhysicalVertex, ExceptionUtils.getMessage(err), false);
         updateTaskState(ExecutionState.FAILING);
+    }
+
+    /**
+     * Returns the message of the recorded failure classification, or {@code null} when no failure
+     * has been recorded for this physical vertex.
+     */
+    private String getRecordedFailureMessage() {
+        FailureClassification failureClassification = failureClassificationByPhysicalVertex.get();
+        return failureClassification == null ? null : failureClassification.getErrorMessage();
     }
 
     /** Only coordinator-classified graceful member removals should be downgraded to warn logs. */
     @VisibleForTesting
     static boolean shouldLogFailureAsWarn(boolean gracefulMemberRemovalFailure) {
         return gracefulMemberRemovalFailure;
+    }
+
+    /**
+     * Installs a failure message and its graceful member-removal classification into the slot as
+     * one atomic, first-write-wins unit. Later callers never override an already-recorded failure,
+     * so a concurrent node-offline classification can not re-tag a genuine failure as graceful (or
+     * strip the graceful flag from a recorded offline failure). A {@code null} message never claims
+     * the slot, preserving the pre-existing first-write-wins behavior where a message-less caller
+     * left the slot claimable by a later caller that actually carries a failure message.
+     */
+    @VisibleForTesting
+    static void recordFailureClassification(
+            AtomicReference<FailureClassification> failureClassificationSlot,
+            String errorMessage,
+            boolean gracefulMemberRemovalFailure) {
+        if (errorMessage == null) {
+            return;
+        }
+        failureClassificationSlot.compareAndSet(
+                null, new FailureClassification(errorMessage, gracefulMemberRemovalFailure));
+    }
+
+    /**
+     * Immutable pairing of a failure message and the coordinator-classified graceful member-removal
+     * flag. The pair must always travel together: keeping them in two independent fields with
+     * mismatched write discipline (first-write-wins message, last-write-wins flag) allowed a
+     * genuine concurrent failure to inherit another caller's classification and be logged at the
+     * wrong level.
+     */
+    @VisibleForTesting
+    static final class FailureClassification {
+
+        /** The failure message recorded for this physical vertex. */
+        private final String errorMessage;
+
+        /**
+         * Whether the coordinator classified the recorded failure as caused by a graceful member
+         * removal, which is the only case that downgrades the failure log level to warn.
+         */
+        private final boolean gracefulMemberRemovalFailure;
+
+        private FailureClassification(String errorMessage, boolean gracefulMemberRemovalFailure) {
+            this.errorMessage = errorMessage;
+            this.gracefulMemberRemovalFailure = gracefulMemberRemovalFailure;
+        }
+
+        String getErrorMessage() {
+            return errorMessage;
+        }
+
+        boolean isGracefulMemberRemovalFailure() {
+            return gracefulMemberRemovalFailure;
+        }
     }
 }

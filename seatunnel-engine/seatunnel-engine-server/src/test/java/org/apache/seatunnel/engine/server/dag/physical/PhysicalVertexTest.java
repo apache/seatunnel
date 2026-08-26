@@ -20,6 +20,9 @@ package org.apache.seatunnel.engine.server.dag.physical;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.atomic.AtomicReference;
+
 /** Tests the graceful member-removal classification in {@link PhysicalVertex}. */
 public class PhysicalVertexTest {
 
@@ -31,5 +34,102 @@ public class PhysicalVertexTest {
     public void shouldWarnOnlyForGracefulMemberRemovalFailureType() {
         Assertions.assertTrue(PhysicalVertex.shouldLogFailureAsWarn(true));
         Assertions.assertFalse(PhysicalVertex.shouldLogFailureAsWarn(false));
+    }
+
+    /**
+     * Reproduces the race interleaving reported in review: a genuine task failure (RPC-reported,
+     * non-graceful) records its classification first, then the coordinator's node-offline
+     * classification for the same vertex lands afterwards. Before the message and the flag were
+     * paired in one first-write-wins holder, the late graceful write silently re-tagged the
+     * already-recorded genuine failure, so a real fault was logged at warn instead of error. The
+     * recorded pair must stay the genuine failure's own classification.
+     */
+    @Test
+    public void shouldNotRetagRecordedGenuineFailureAsGraceful() {
+        AtomicReference<PhysicalVertex.FailureClassification> slot = new AtomicReference<>();
+        PhysicalVertex.recordFailureClassification(slot, "genuine task failure", false);
+        PhysicalVertex.recordFailureClassification(slot, "deployed node offline", true);
+        Assertions.assertEquals("genuine task failure", slot.get().getErrorMessage());
+        Assertions.assertFalse(slot.get().isGracefulMemberRemovalFailure());
+    }
+
+    /**
+     * The reverse interleaving: when the node-offline classification wins the first write, a later
+     * genuine failure report must not strip the graceful flag from the recorded offline failure,
+     * matching the pre-existing first-write-wins semantics of the recorded failure message.
+     */
+    @Test
+    public void shouldNotStripGracefulFlagFromRecordedOfflineFailure() {
+        AtomicReference<PhysicalVertex.FailureClassification> slot = new AtomicReference<>();
+        PhysicalVertex.recordFailureClassification(slot, "deployed node offline", true);
+        PhysicalVertex.recordFailureClassification(slot, "genuine task failure", false);
+        Assertions.assertEquals("deployed node offline", slot.get().getErrorMessage());
+        Assertions.assertTrue(slot.get().isGracefulMemberRemovalFailure());
+    }
+
+    /**
+     * A {@code null} message must never claim the classification slot, so a later caller that
+     * actually carries a failure message still wins the recorded classification. This preserves the
+     * pre-existing behavior where a message-less state report left the error slot claimable.
+     */
+    @Test
+    public void shouldIgnoreNullMessageAndKeepSlotClaimable() {
+        AtomicReference<PhysicalVertex.FailureClassification> slot = new AtomicReference<>();
+        PhysicalVertex.recordFailureClassification(slot, null, true);
+        Assertions.assertNull(slot.get());
+        PhysicalVertex.recordFailureClassification(slot, "genuine task failure", false);
+        Assertions.assertEquals("genuine task failure", slot.get().getErrorMessage());
+        Assertions.assertFalse(slot.get().isGracefulMemberRemovalFailure());
+    }
+
+    /**
+     * Concurrency invariant for the paired holder: two racing writers (a genuine failure and a
+     * graceful node-offline classification) may win the slot in either order, but the recorded flag
+     * must always belong to the recorded message. The assertion is order-independent, so the test
+     * stays deterministic while still exercising real cross-thread interleavings.
+     */
+    @Test
+    public void shouldKeepMessageAndFlagPairedUnderConcurrentWriters() throws Exception {
+        for (int i = 0; i < 100; i++) {
+            AtomicReference<PhysicalVertex.FailureClassification> slot = new AtomicReference<>();
+            CountDownLatch startLatch = new CountDownLatch(1);
+            Thread genuineFailureWriter =
+                    new Thread(
+                            () -> {
+                                awaitStart(startLatch);
+                                PhysicalVertex.recordFailureClassification(
+                                        slot, "genuine task failure", false);
+                            });
+            Thread offlineClassificationWriter =
+                    new Thread(
+                            () -> {
+                                awaitStart(startLatch);
+                                PhysicalVertex.recordFailureClassification(
+                                        slot, "deployed node offline", true);
+                            });
+            genuineFailureWriter.start();
+            offlineClassificationWriter.start();
+            startLatch.countDown();
+            genuineFailureWriter.join();
+            offlineClassificationWriter.join();
+            PhysicalVertex.FailureClassification recorded = slot.get();
+            Assertions.assertNotNull(recorded);
+            Assertions.assertEquals(
+                    "deployed node offline".equals(recorded.getErrorMessage()),
+                    recorded.isGracefulMemberRemovalFailure());
+        }
+    }
+
+    /**
+     * Releases the writer threads at the same moment to maximize the chance of a real interleaving
+     * between the two classification writes.
+     */
+    private static void awaitStart(CountDownLatch startLatch) {
+        try {
+            startLatch.await();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new IllegalStateException(e);
+        }
     }
 }
