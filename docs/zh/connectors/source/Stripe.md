@@ -24,7 +24,7 @@ import ChangeLog from '../changelog/connector-http-stripe.md';
 | 名称 | 类型 | 是否必填 | 默认值 | 说明 |
 |------|------|----------|--------|------|
 | secret_key | String | 是 | - | Stripe 私有 API Key。连接器以 Bearer Token 发送该值，不会把它写入连接器日志。 |
-| api_base_url | String | 否 | https://api.stripe.com | Stripe API 基础地址，主要用于通过兼容的 HTTP 地址进行本地测试。 |
+| api_base_url | String | 否 | `https://api.stripe.com` | Stripe API 基础地址，主要用于通过兼容的 HTTP 地址进行本地测试。 |
 | api_version | String | 否 | - | 通过 `Stripe-Version` 请求头指定 Stripe API 版本。需要稳定响应契约时建议固定该值。 |
 | page_size | int | 否 | 100 | 每页请求的 PaymentIntent 数量，范围为 1 到 100。 |
 | created_gte | long | 否 | - | `created` 时间的包含式下界，使用 Unix 秒。 |

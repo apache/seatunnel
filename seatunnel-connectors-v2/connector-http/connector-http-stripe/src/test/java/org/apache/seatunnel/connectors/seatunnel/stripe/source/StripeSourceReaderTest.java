@@ -189,7 +189,9 @@ class StripeSourceReaderTest {
                 "/v1/payment_intents",
                 exchange ->
                         respondJson(
-                                exchange, 401, "{\"error\":{\"message\":\"invalid api key\"}}"));
+                                exchange,
+                                401,
+                                "{\"error\":{\"message\":\"invalid api key sk_test_secret\"}}"));
 
         try (StripeSourceReader reader =
                 createReader(mock(SingleSplitReaderContext.class), 100, 0)) {
@@ -200,6 +202,7 @@ class StripeSourceReaderTest {
                             () -> reader.internalPollNext(new RecordingCollector()));
             Assertions.assertTrue(error.getMessage().contains("HTTP 401"));
             Assertions.assertFalse(error.getMessage().contains("sk_test_secret"));
+            Assertions.assertTrue(error.getMessage().contains("[REDACTED]"));
         }
     }
 

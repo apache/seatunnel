@@ -203,7 +203,16 @@ public class StripeSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> 
         String responseBody = response.getContent();
         if (responseBody == null) {
             responseBody = "";
-        } else if (responseBody.length() > MAX_ERROR_BODY_LENGTH) {
+        } else {
+            String authorization = sourceParameter.getHeaders().get("Authorization");
+            if (authorization != null && authorization.startsWith("Bearer ")) {
+                String secretKey = authorization.substring("Bearer ".length());
+                if (!secretKey.isEmpty()) {
+                    responseBody = responseBody.replace(secretKey, "[REDACTED]");
+                }
+            }
+        }
+        if (responseBody.length() > MAX_ERROR_BODY_LENGTH) {
             responseBody = responseBody.substring(0, MAX_ERROR_BODY_LENGTH) + "...";
         }
         return new HttpConnectorException(

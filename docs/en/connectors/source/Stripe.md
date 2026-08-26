@@ -24,7 +24,7 @@ The connector follows Stripe's reverse-chronological list order and uses the las
 | name | type | required | default value | description |
 |------|------|----------|---------------|-------------|
 | secret_key | String | Yes | - | Stripe secret API key. The connector sends it as a Bearer token and does not include it in connector logs. |
-| api_base_url | String | No | https://api.stripe.com | Stripe API base URL. This is primarily useful for local testing through a compatible HTTP endpoint. |
+| api_base_url | String | No | `https://api.stripe.com` | Stripe API base URL. This is primarily useful for local testing through a compatible HTTP endpoint. |
 | api_version | String | No | - | Stripe API version sent in the `Stripe-Version` header. Pin this when a job needs a stable Stripe response contract. |
 | page_size | int | No | 100 | PaymentIntents requested per page. The allowed range is 1 to 100. |
 | created_gte | long | No | - | Inclusive lower `created` boundary in Unix seconds. |
