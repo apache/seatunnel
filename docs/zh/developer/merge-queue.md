@@ -51,7 +51,7 @@ gh run view <run-id> --repo apache/seatunnel --log-failed
 
 ## Merge Queue 无法恢复时的应急处理
 
-当 Merge Queue 本身发生故障，并且按照上述排查和恢复步骤处理后，仍然无法让一个原本满足合并条件的 PR 正常入队或合并时，ASF Infra 可以使用 `apache/root` team 的 bypass 作为最后恢复手段。SeaTunnel Committer 和 PMC 成员不拥有此权限。
+当 Merge Queue 本身发生故障，并且按照上述排查和恢复步骤处理后，仍然无法让一个原本满足合并条件的 PR 正常入队或合并时，ASF Infra 可以使用 `apache/root` team 的 bypass 作为最后恢复手段。
 
 bypass mode 为 `always`，因此对该 Ruleset 的 Pull Request 合并和直接 push 均适用；其他独立的分支保护规则仍会分别检查。
 
