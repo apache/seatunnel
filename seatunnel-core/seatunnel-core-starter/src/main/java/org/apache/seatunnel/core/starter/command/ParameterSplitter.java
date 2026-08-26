@@ -79,13 +79,13 @@ public class ParameterSplitter implements IParameterSplitter {
                 } else if (c == '}' && braceDepth > 0) {
                     braceDepth--;
                 } else if (c == '}' && braceDepth == 0) {
-                    throw new IllegalArgumentException("Unexpected closing brace '}'");
+                    throw new IllegalArgumentException("Unexpected closing brace '}': " + value);
                 } else if (c == '[') {
                     bracketDepth++;
                 } else if (c == ']' && bracketDepth > 0) {
                     bracketDepth--;
                 } else if (c == ']' && bracketDepth == 0) {
-                    throw new IllegalArgumentException("Unexpected closing bracket ']'");
+                    throw new IllegalArgumentException("Unexpected closing bracket ']': " + value);
                 }
             }
 
