@@ -1,0 +1,189 @@
+/*
+ * Copyright (c) 2008-2021, Hazelcast, Inc. All Rights Reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.seatunnel.engine.common.utils;
+
+import org.apache.seatunnel.shade.org.apache.commons.lang3.tuple.ImmutableTriple;
+
+import org.apache.seatunnel.common.utils.ExceptionUtils;
+import org.apache.seatunnel.common.utils.function.ConsumerWithException;
+import org.apache.seatunnel.common.utils.function.RunnableWithException;
+import org.apache.seatunnel.common.utils.function.SupplierWithException;
+import org.apache.seatunnel.engine.common.exception.JobDefineCheckException;
+import org.apache.seatunnel.engine.common.exception.JobNotFoundException;
+import org.apache.seatunnel.engine.common.exception.JobRestoreInProgressException;
+import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineException;
+
+import com.hazelcast.client.impl.protocol.ClientExceptionFactory;
+import com.hazelcast.client.impl.protocol.ClientProtocolErrorCodes;
+import com.hazelcast.core.HazelcastInstanceNotActiveException;
+import com.hazelcast.core.OperationTimeoutException;
+import com.hazelcast.instance.impl.OutOfMemoryErrorDispatcher;
+import com.hazelcast.spi.exception.RetryableHazelcastException;
+import lombok.NonNull;
+
+import java.lang.reflect.InvocationTargetException;
+import java.util.Arrays;
+import java.util.List;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.ExecutionException;
+
+public final class ExceptionUtil {
+
+    private static final List<
+                    ImmutableTriple<
+                            Integer,
+                            Class<? extends Throwable>,
+                            ClientExceptionFactory.ExceptionFactory>>
+            EXCEPTIONS =
+                    Arrays.asList(
+                            new ImmutableTriple<>(
+                                    ClientProtocolErrorCodes.USER_EXCEPTIONS_RANGE_START,
+                                    SeaTunnelEngineException.class,
+                                    SeaTunnelEngineException::new),
+                            new ImmutableTriple<>(
+                                    ClientProtocolErrorCodes.USER_EXCEPTIONS_RANGE_START + 1,
+                                    JobNotFoundException.class,
+                                    JobNotFoundException::new),
+                            new ImmutableTriple<>(
+                                    ClientProtocolErrorCodes.USER_EXCEPTIONS_RANGE_START + 2,
+                                    JobDefineCheckException.class,
+                                    JobDefineCheckException::new),
+                            new ImmutableTriple<>(
+                                    ClientProtocolErrorCodes.USER_EXCEPTIONS_RANGE_START + 3,
+                                    JobRestoreInProgressException.class,
+                                    JobRestoreInProgressException::new));
+
+    private ExceptionUtil() {}
+
+    /** Called during startup to make our exceptions known to Hazelcast serialization */
+    public static void registerSeaTunnelExceptions(@NonNull ClientExceptionFactory factory) {
+        for (ImmutableTriple<
+                        Integer,
+                        Class<? extends Throwable>,
+                        ClientExceptionFactory.ExceptionFactory>
+                exception : EXCEPTIONS) {
+            factory.register(exception.left, exception.middle, exception.right);
+        }
+    }
+
+    @NonNull public static RuntimeException rethrow(@NonNull final Throwable t) {
+        if (t instanceof Error) {
+            if (t instanceof OutOfMemoryError) {
+                OutOfMemoryErrorDispatcher.onOutOfMemory((OutOfMemoryError) t);
+            }
+            throw (Error) t;
+        } else {
+            throw peeledAndUnchecked(t);
+        }
+    }
+
+    @NonNull private static RuntimeException peeledAndUnchecked(@NonNull Throwable t) {
+        t = peel(t);
+
+        if (t instanceof RuntimeException) {
+            return (RuntimeException) t;
+        }
+
+        return new SeaTunnelEngineException(t);
+    }
+
+    /**
+     * If {@code t} is either of {@link CompletionException}, {@link ExecutionException} or {@link
+     * InvocationTargetException}, returns its cause, peeling it recursively. Otherwise returns
+     * {@code t}.
+     *
+     * @param t Throwable to peel
+     * @see #peeledAndUnchecked(Throwable)
+     */
+    public static Throwable peel(Throwable t) {
+        while ((t instanceof CompletionException
+                        || t instanceof ExecutionException
+                        || t instanceof InvocationTargetException)
+                && t.getCause() != null
+                && t.getCause() != t) {
+            t = t.getCause();
+        }
+        return t;
+    }
+
+    /** javac hack for unchecking the checked exception. */
+    @SuppressWarnings("unchecked")
+    public static <T extends Throwable> void sneakyThrow(Throwable t) throws T {
+        throw (T) t;
+    }
+
+    @SuppressWarnings("unchecked")
+    public static <T extends Exception> void sneakyThrow(Exception t) throws T {
+        throw (T) t;
+    }
+
+    public static void sneaky(RunnableWithException runnable) {
+        try {
+            runnable.run();
+        } catch (Exception r) {
+            sneakyThrow(r);
+        }
+    }
+
+    public static <T> void sneaky(ConsumerWithException<T> consumer, T t) {
+        try {
+            consumer.accept(t);
+        } catch (Exception r) {
+            sneakyThrow(r);
+        }
+    }
+
+    public static <R, E extends Throwable> R sneaky(SupplierWithException<R, E> supplier) {
+        try {
+            return supplier.get();
+        } catch (Throwable r) {
+            sneakyThrow(r);
+        }
+        // This method wouldn't be executed.
+        throw new RuntimeException("Never throw here.");
+    }
+
+    /**
+     * Check if an exception indicates an operation that should be retried.
+     *
+     * <p>This method is used by {@link org.apache.seatunnel.common.utils.RetryUtils} to determine
+     * if a failed operation should be retried. It extracts the root cause of the exception chain
+     * and checks if it matches known transient exception types.
+     *
+     * <p>The following exception types are considered retryable:
+     *
+     * <ul>
+     *   <li>{@link HazelcastInstanceNotActiveException} - Hazelcast instance is shutting down
+     *   <li>{@link InterruptedException} - Operation was interrupted
+     *   <li>{@link OperationTimeoutException} - Operation timed out waiting for a response
+     *   <li>{@link RetryableHazelcastException} - Hazelcast explicitly marks the operation as
+     *       retryable, e.g., when an IMap partition is still loading data from external storage
+     *       (MapStore) during cluster startup or master switch
+     * </ul>
+     *
+     * @param e the exception to check (may be wrapped in CompletionException / ExecutionException)
+     * @return {@code true} if the root cause is a transient, retryable exception; {@code false}
+     *     otherwise
+     */
+    public static boolean isOperationNeedRetryException(@NonNull Throwable e) {
+        Throwable exception = ExceptionUtils.getRootException(e);
+        return exception instanceof HazelcastInstanceNotActiveException
+                || exception instanceof InterruptedException
+                || exception instanceof OperationTimeoutException
+                || exception instanceof RetryableHazelcastException;
+    }
+}

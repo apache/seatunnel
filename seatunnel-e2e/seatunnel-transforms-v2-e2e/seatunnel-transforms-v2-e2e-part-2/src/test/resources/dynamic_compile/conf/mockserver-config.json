@@ -1,0 +1,18 @@
+
+// https://www.mock-server.com/mock_server/getting_started.html#request_matchers
+[
+  {
+    "httpRequest": {
+      "method": "GET",
+      "path": "/v1/compile"
+    },
+    "httpResponse": {
+      "body": {
+        "compile": "seatunnel-compile"
+      },
+      "headers": {
+        "Content-Type": "application/json"
+      }
+    }
+  }
+]

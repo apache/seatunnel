@@ -1,0 +1,525 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.seatunnel.engine.common.config.server;
+
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
+
+import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.metadata.MetadataConfig;
+
+import java.util.Map;
+
+/** Declares the server-side configuration keys that are exposed through `seatunnel.yaml`. */
+public class ServerConfigOptions {
+
+    public static final Option<Boolean> CLASSLOADER_CACHE_MODE =
+            Options.key("classloader-cache-mode")
+                    .booleanType()
+                    .defaultValue(true)
+                    .withDescription(
+                            "Whether to use classloader cache mode. With cache mode, all jobs share the same classloader if the jars are the same");
+
+    public static final Option<Boolean> STAIN_TRACE_ENABLED =
+            Options.key("stain-trace-enabled")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Whether to enable stain trace. When enabled, the engine will sample a small number of records and report end-to-end latency breakdown as events.");
+
+    public static final Option<Integer> STAIN_TRACE_SAMPLE_RATE =
+            Options.key("stain-trace-sample-rate")
+                    .intType()
+                    .defaultValue(100000)
+                    .withDescription("Sample 1 record per N records for stain trace.");
+
+    public static final Option<Integer> STAIN_TRACE_MAX_TRACES_PER_SECOND_PER_WORKER =
+            Options.key("stain-trace-max-traces-per-second-per-worker")
+                    .intType()
+                    .defaultValue(50)
+                    .withDescription(
+                            "Maximum number of stain traces generated per second per worker. 0 means disable trace generation.");
+
+    public static final Option<Integer> STAIN_TRACE_MAX_ENTRIES_PER_TRACE =
+            Options.key("stain-trace-max-entries-per-trace")
+                    .intType()
+                    .defaultValue(32)
+                    .withDescription("Maximum stage entries recorded per stain trace payload.");
+
+    public static final Option<Boolean> STAIN_TRACE_PROPAGATE_TO_ALL_SPLITS =
+            Options.key("stain-trace-propagate-to-all-splits")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Whether to propagate stain trace payload to all split outputs in transform (e.g. flatMap). "
+                                    + "When enabled, all derived output rows will inherit payload and append TRANSFORM_OUT stage.");
+
+    public static final Option<String> STAIN_TRACE_FILE_BASE_PATH =
+            Options.key("stain-trace-file-base-path")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Base directory for writing stain trace OTLP JSONL files. "
+                                    + "If not set, local file writing is disabled. "
+                                    + "Should use the same storage root as "
+                                    + "checkpoint.storage.plugin-config.namespace to keep "
+                                    + "engine-level persistent data co-located.");
+
+    public static final Option<Integer> STAIN_TRACE_FILE_MAX_EVENTS_PER_FILE =
+            Options.key("stain-trace-file-max-events-per-file")
+                    .intType()
+                    .defaultValue(10000)
+                    .withDescription("Maximum number of trace events per JSONL file.");
+
+    public static final Option<Integer> STAIN_TRACE_FILE_MAX_SIZE_MB =
+            Options.key("stain-trace-file-max-size-mb")
+                    .intType()
+                    .defaultValue(10)
+                    .withDescription("Maximum size (MB) of each trace JSONL file.");
+
+    public static final Option<Integer> STAIN_TRACE_FILE_FLUSH_INTERVAL_SECONDS =
+            Options.key("stain-trace-file-flush-interval-seconds")
+                    .intType()
+                    .defaultValue(10)
+                    .withDescription("Flush interval in seconds for the trace file writer.");
+
+    /////////////////////////////////////////////////
+    // The options for metrics start
+    public static final Option<Boolean> TELEMETRY_METRIC_ENABLED =
+            Options.key("enabled")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription("Whether open metrics export.");
+
+    public static final Option<TelemetryMetricConfig> TELEMETRY_METRIC =
+            Options.key("metric")
+                    .type(new TypeReference<TelemetryMetricConfig>() {})
+                    .defaultValue(new TelemetryMetricConfig())
+                    .withDescription("The telemetry metric configuration.");
+
+    public static final Option<Boolean> TELEMETRY_LOGS_SCHEDULED_DELETION_ENABLE =
+            Options.key("scheduled-deletion-enable")
+                    .booleanType()
+                    .defaultValue(true)
+                    .withDescription(
+                            "Enable scheduled cleanup, with default value of true. The system will automatically delete relevant log files when job expiration time, as defined by `history-job-expire-minutes`, is reached. "
+                                    + "If this feature is disabled, logs will remain permanently on disk, requiring manual management, which may affect disk space usage. It is recommended to configure this setting based on specific needs.");
+
+    public static final Option<TelemetryLogsConfig> TELEMETRY_LOGS =
+            Options.key("logs")
+                    .type(new TypeReference<TelemetryLogsConfig>() {})
+                    .defaultValue(new TelemetryLogsConfig())
+                    .withDescription("The telemetry logs configuration.");
+
+    public static final Option<TelemetryConfig> TELEMETRY =
+            Options.key("telemetry")
+                    .type(new TypeReference<TelemetryConfig>() {})
+                    .defaultValue(new TelemetryConfig())
+                    .withDescription("The telemetry configuration.");
+
+    public static final Option<MetadataConfig> METADATA =
+            Options.key("metadata")
+                    .type(new TypeReference<MetadataConfig>() {})
+                    .defaultValue(new MetadataConfig())
+                    .withDescription("The MetaData Center configuration.");
+    // The options for metrics end
+    /////////////////////////////////////////////////
+
+    /** The options for master. */
+    public static class MasterServerConfigOptions {
+
+        public static final Option<Integer> PRINT_EXECUTION_INFO_INTERVAL =
+                Options.key("print-execution-info-interval")
+                        .intType()
+                        .defaultValue(60)
+                        .withDescription(
+                                "The interval (in seconds) between two consecutive executions of the print execution info task.");
+
+        public static final Option<Integer> PRINT_JOB_METRICS_INFO_INTERVAL =
+                Options.key("print-job-metrics-info-interval")
+                        .intType()
+                        .defaultValue(60)
+                        .withDescription("The interval (in seconds) of job print metrics info");
+
+        public static final Option<Integer> JOB_METRICS_BACKUP_INTERVAL =
+                Options.key("job-metrics-backup-interval")
+                        .intType()
+                        .defaultValue(10)
+                        .withDescription("The interval (in seconds) of job metrics backups");
+
+        public static final Option<Integer> JOB_METRICS_PARTITION_COUNT =
+                Options.key("job-metrics-partition-count")
+                        .intType()
+                        .defaultValue(1)
+                        .withDescription("Number of partitions for storing job metrics in IMap.");
+        /////////////////////////////////////////////////
+        // The options about Hazelcast IMAP store start
+        public static final Option<Integer> BACKUP_COUNT =
+                Options.key("backup-count")
+                        .intType()
+                        .defaultValue(1)
+                        .withDescription("The number of backup copies of each partition.");
+
+        public static final Option<Integer> HISTORY_JOB_EXPIRE_MINUTES =
+                Options.key("history-job-expire-minutes")
+                        .intType()
+                        .defaultValue(1440)
+                        .withDescription("The expire time of history jobs.time unit minute");
+
+        public static final Option<Long> STATE_CLEANUP_DELAY_MILLIS =
+                Options.key("state-cleanup-delay-ms")
+                        .longType()
+                        .defaultValue(60000L)
+                        .withDescription(
+                                "How long to retain terminal job/pipeline/task state in distributed maps before removing it. "
+                                        + "This delay allows late asynchronous callbacks to observe a terminal tombstone instead of a missing state entry.");
+        // The options about Hazelcast IMAP store end
+        /////////////////////////////////////////////////
+
+        /////////////////////////////////////////////////
+        // The options for checkpoint start
+        public static final Option<Integer> CHECKPOINT_INTERVAL =
+                Options.key("interval")
+                        .intType()
+                        .defaultValue(300000)
+                        .withDescription(
+                                "The interval (in milliseconds) between two consecutive checkpoints.");
+
+        public static final Option<Integer> CHECKPOINT_TIMEOUT =
+                Options.key("timeout")
+                        .intType()
+                        .defaultValue(30000)
+                        .withDescription("The timeout (in milliseconds) for a checkpoint.");
+
+        public static final Option<Integer> CHECKPOINT_MIN_PAUSE =
+                Options.key("min-pause")
+                        .intType()
+                        .defaultValue(-1)
+                        .withDescription(
+                                "The minimum pause (in milliseconds) between consecutive checkpoints. "
+                                        + "This ensures that checkpoints are not triggered too frequently and provides.");
+
+        public static final Option<String> CHECKPOINT_STORAGE_TYPE =
+                Options.key("type")
+                        .stringType()
+                        .defaultValue("localfile")
+                        .withDescription("The checkpoint storage type.");
+
+        public static final Option<Integer> CHECKPOINT_STORAGE_MAX_RETAINED =
+                Options.key("max-retained")
+                        .intType()
+                        .defaultValue(20)
+                        .withDescription("The maximum number of retained checkpoints.");
+
+        public static final Option<CheckpointStorageConfig> CHECKPOINT_STORAGE =
+                Options.key("storage")
+                        .type(new TypeReference<CheckpointStorageConfig>() {})
+                        .defaultValue(new CheckpointStorageConfig())
+                        .withDescription("The checkpoint storage configuration.");
+
+        public static final Option<Integer> SCHEMA_CHANGE_CHECKPOINT_TIMEOUT =
+                Options.key("schema-change-timeout")
+                        .intType()
+                        .defaultValue(30000)
+                        .withDescription(
+                                "The timeout (in milliseconds) for a schema change checkpoint.");
+
+        public static final Option<Map<String, String>> CHECKPOINT_STORAGE_PLUGIN_CONFIG =
+                Options.key("plugin-config")
+                        .type(new TypeReference<Map<String, String>>() {})
+                        .noDefaultValue()
+                        .withDescription("The checkpoint storage instance configuration.");
+
+        public static final Option<Boolean> CHECKPOINT_RETAIN_AFTER_JOB_CANCELLED =
+                Options.key("retain-after-job-cancelled")
+                        .booleanType()
+                        .defaultValue(false)
+                        .withDescription(
+                                "Whether to retain completed checkpoint data after a job is cancelled. "
+                                        + "When enabled, checkpoint data will not be cleaned up on job cancellation, "
+                                        + "allowing later resume from the latest completed checkpoint via --restore-with-checkpoint.");
+
+        public static final Option<CheckpointConfig> CHECKPOINT =
+                Options.key("checkpoint")
+                        .type(new TypeReference<CheckpointConfig>() {})
+                        .defaultValue(new CheckpointConfig())
+                        .withDescription("The checkpoint configuration.");
+        // The options for checkpoint end
+        /////////////////////////////////////////////////
+
+        /////////////////////////////////////////////////////
+        // The options for job scheduler start
+        public static final Option<AllocateStrategy> SLOT_ALLOCATE_STRATEGY =
+                Options.key("slot-allocate-strategy")
+                        .enumType(AllocateStrategy.class)
+                        .defaultValue(AllocateStrategy.RANDOM)
+                        .withDescription(
+                                "When the strategy is SLOT_RATIO, the system allocates tasks based on the slot usage ratio, with priority given to workers with low usage rates; When the strategy is SYSTEM_LOAD, the system allocates tasks based on server load, with priority given to workers with lower load.");
+
+        public static final Option<ScheduleStrategy> JOB_SCHEDULE_STRATEGY =
+                Options.key("job-schedule-strategy")
+                        .enumType(ScheduleStrategy.class)
+                        .defaultValue(ScheduleStrategy.REJECT)
+                        .withDescription(
+                                "When the policy is REJECT, when the task queue is full, the task will be rejected; when the policy is WAIT, when the task queue is full, the task will wait");
+        // The options for job scheduler end
+        /////////////////////////////////////////////////////
+
+        /////////////////////////////////////////////////////
+        // The options for http server start
+        public static final Option<Integer> PORT =
+                Options.key("port")
+                        .intType()
+                        .defaultValue(8080)
+                        .withDescription("The port of the http server.");
+
+        public static final Option<Boolean> ENABLE_HTTP =
+                Options.key("enable-http")
+                        .booleanType()
+                        .defaultValue(false)
+                        .withDescription("Whether to enable the http server.");
+
+        public static final Option<Boolean> ENABLE_HTTPS =
+                Options.key("enable-https")
+                        .booleanType()
+                        .defaultValue(false)
+                        .withDescription("Whether to enable the https server.");
+
+        public static final Option<Integer> HTTPS_PORT =
+                Options.key("https-port")
+                        .intType()
+                        .defaultValue(8443)
+                        .withDescription("The port of the https server.");
+
+        public static final Option<String> KEY_STORE_PATH =
+                Options.key("key-store-path")
+                        .stringType()
+                        .noDefaultValue()
+                        .withDescription("The key store path of the https server.");
+
+        public static final Option<String> KEY_STORE_PASSWORD =
+                Options.key("key-store-password")
+                        .stringType()
+                        .noDefaultValue()
+                        .withDescription("The key store password of the https server.");
+
+        public static final Option<String> KEY_MANAGER_PASSWORD =
+                Options.key("key-manager-password")
+                        .stringType()
+                        .noDefaultValue()
+                        .withDescription("The key manager password of the https server.");
+
+        public static final Option<String> TRUST_STORE_PATH =
+                Options.key("trust-store-path")
+                        .stringType()
+                        .noDefaultValue()
+                        .withDescription("The trust store path of the https server.");
+
+        public static final Option<String> TRUST_STORE_PASSWORD =
+                Options.key("trust-store-password")
+                        .stringType()
+                        .noDefaultValue()
+                        .withDescription("The trust store password of the https server.");
+
+        public static final Option<String> CONTEXT_PATH =
+                Options.key("context-path")
+                        .stringType()
+                        .defaultValue("")
+                        .withDescription("The context path of the http server.");
+
+        public static final Option<Boolean> ENABLE_DYNAMIC_PORT =
+                Options.key("enable-dynamic-port")
+                        .booleanType()
+                        .defaultValue(false)
+                        .withDescription(
+                                "Whether to enable the dynamic port of the http server. If true, We will use the unused port");
+
+        public static final Option<Integer> PORT_RANGE =
+                Options.key("port-range")
+                        .intType()
+                        .defaultValue(100)
+                        .withDescription(
+                                "The port range of the http server. If enable-dynamic-port is true, We will use the unused port in the range");
+
+        public static final Option<Boolean> ENABLE_BASIC_AUTH =
+                Options.key("enable-basic-auth")
+                        .booleanType()
+                        .defaultValue(false)
+                        .withDescription("Whether to enable basic authentication for the web UI.");
+
+        public static final Option<String> BASIC_AUTH_USERNAME =
+                Options.key("basic-auth-username")
+                        .stringType()
+                        .defaultValue("admin")
+                        .withDescription("The username for basic authentication.");
+
+        public static final Option<String> BASIC_AUTH_PASSWORD =
+                Options.key("basic-auth-password")
+                        .stringType()
+                        .defaultValue("admin")
+                        .withDescription("The password for basic authentication.");
+
+        public static final Option<HttpConfig> HTTP =
+                Options.key("http")
+                        .type(new TypeReference<HttpConfig>() {})
+                        .defaultValue(new HttpConfig())
+                        .withDescription("The http configuration.");
+
+        public static final String EVENT_REPORT_HTTP = "event-report-http";
+        public static final String EVENT_REPORT_HTTP_URL = "url";
+        public static final String EVENT_REPORT_HTTP_HEADERS = "headers";
+        public static final String REPORT_NON_TERMINAL_JOB_STATE = "report-non-terminal-job-state";
+
+        // The options for http server end
+        /////////////////////////////////////////////////////
+
+        /////////////////////////////////////////////////
+        // The options for connector jar storage start
+        public static final Option<Boolean> ENABLE_CONNECTOR_JAR_STORAGE =
+                Options.key("enable")
+                        .booleanType()
+                        .defaultValue(Boolean.FALSE)
+                        .withDescription(
+                                "Enable the engine server Jar package storage service,"
+                                        + " automatically upload connector Jar packages and dependent third-party Jar packages"
+                                        + " to the server before job execution."
+                                        + " Enabling this configuration does not require the server to hold all connector Jar packages");
+
+        public static final Option<ConnectorJarStorageMode> CONNECTOR_JAR_STORAGE_MODE =
+                Options.key("connector-jar-storage-mode")
+                        .enumType(ConnectorJarStorageMode.class)
+                        .defaultValue(ConnectorJarStorageMode.SHARED)
+                        .withDescription(
+                                "The storage mode of the connector jar package, including SHARED, ISOLATED. Default is SHARED");
+
+        public static final Option<String> CONNECTOR_JAR_STORAGE_PATH =
+                Options.key("connector-jar-storage-path")
+                        .stringType()
+                        .defaultValue("")
+                        .withDescription("The user defined connector jar storage path.");
+
+        public static final Option<Integer> CONNECTOR_JAR_CLEANUP_TASK_INTERVAL =
+                Options.key("connector-jar-cleanup-task-interval")
+                        .intType()
+                        .defaultValue(3600)
+                        .withDescription("The user defined connector jar cleanup task interval.");
+
+        public static final Option<Integer> CONNECTOR_JAR_EXPIRY_TIME =
+                Options.key("connector-jar-expiry-time")
+                        .intType()
+                        .defaultValue(600)
+                        .withDescription("The user defined connector jar expiry time.");
+
+        public static final Option<String> CONNECTOR_JAR_HA_STORAGE_TYPE =
+                Options.key("type")
+                        .stringType()
+                        .defaultValue("localfile")
+                        .withDescription("The connector jar HA storage type.");
+
+        public static final Option<Map<String, String>> CONNECTOR_JAR_HA_STORAGE_PLUGIN_CONFIG =
+                Options.key("plugin-config")
+                        .mapType()
+                        .noDefaultValue()
+                        .withDescription("The connector jar HA storage instance configuration.");
+
+        public static final Option<ConnectorJarHAStorageConfig> CONNECTOR_JAR_HA_STORAGE_CONFIG =
+                Options.key("jar-ha-storage")
+                        .type(new TypeReference<ConnectorJarHAStorageConfig>() {})
+                        .defaultValue(new ConnectorJarHAStorageConfig())
+                        .withDescription("The connector jar ha storage configuration.");
+
+        public static final Option<ConnectorJarStorageConfig> CONNECTOR_JAR_STORAGE_CONFIG =
+                Options.key("jar-storage")
+                        .type(new TypeReference<ConnectorJarStorageConfig>() {})
+                        .defaultValue(new ConnectorJarStorageConfig())
+                        .withDescription("The connector jar storage configuration.");
+        // The options for connector jar storage end
+        /////////////////////////////////////////////////
+
+        /////////////////////////////////////////////////
+        // The options for coordinator service start
+        public static final Option<Integer> CORE_THREAD_NUM =
+                Options.key("core-thread-num")
+                        .intType()
+                        .defaultValue(10)
+                        .withDescription("The core thread num of coordinator service");
+
+        public static final Option<Integer> MAX_THREAD_NUM =
+                Options.key("max-thread-num")
+                        .intType()
+                        .defaultValue(Integer.MAX_VALUE)
+                        .withDescription("The max thread num of coordinator service");
+
+        public static final Option<CoordinatorServiceConfig> COORDINATOR_SERVICE =
+                Options.key("coordinator-service")
+                        .type(new TypeReference<CoordinatorServiceConfig>() {})
+                        .defaultValue(new CoordinatorServiceConfig())
+                        .withDescription("The coordinator service configuration.");
+        // The options for coordinator service end
+        /////////////////////////////////////////////////
+
+    }
+
+    /** The options for worker. */
+    public static class WorkerServerConfigOptions {
+
+        public static final Option<ThreadShareMode> TASK_EXECUTION_THREAD_SHARE_MODE =
+                Options.key("task_execution_thread_share_mode")
+                        .type(new TypeReference<ThreadShareMode>() {})
+                        .defaultValue(ThreadShareMode.OFF)
+                        .withDescription(
+                                "The thread sharing mode of TaskExecutionServer, including ALL, OFF, PART. Default is OFF");
+
+        public static final Option<QueueType> QUEUE_TYPE =
+                Options.key("queue-type")
+                        .type(new TypeReference<QueueType>() {})
+                        .defaultValue(QueueType.BLOCKINGQUEUE)
+                        .withDescription("The internal data cache queue type.");
+
+        /////////////////////////////////////////////////
+        // The options for slot start
+        public static final Option<Boolean> DYNAMIC_SLOT =
+                Options.key("dynamic-slot")
+                        .booleanType()
+                        .defaultValue(true)
+                        .withDescription("Whether to use dynamic slot.");
+
+        public static final Option<Integer> SLOT_NUM =
+                Options.key("slot-num")
+                        .intType()
+                        .defaultValue(Runtime.getRuntime().availableProcessors() * 2)
+                        .withDescription(
+                                "The number of slots. Only valid when dynamic slot is disabled.");
+
+        public static final Option<SlotServiceConfig> SLOT_SERVICE =
+                Options.key("slot-service")
+                        .type(new TypeReference<SlotServiceConfig>() {})
+                        .defaultValue(new SlotServiceConfig())
+                        .withDescription("The slot service configuration.");
+
+        // The options for slot end
+        /////////////////////////////////////////////////
+
+        public static final Option<Integer> TIMER_FLUSH_POOL_SIZE =
+                Options.key("timer-flush-pool-size")
+                        .intType()
+                        .defaultValue(1)
+                        .withDescription(
+                                "The number of threads in the timer flush worker pool used to inject FlushSignals into the pipeline.");
+    }
+}

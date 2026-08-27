@@ -1,0 +1,481 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.seatunnel.connectors.seatunnel.rocketmq.source;
+
+import org.apache.seatunnel.shade.com.google.common.collect.Maps;
+import org.apache.seatunnel.shade.com.google.common.collect.Sets;
+
+import org.apache.seatunnel.api.source.SourceSplitEnumerator;
+import org.apache.seatunnel.common.config.Common;
+import org.apache.seatunnel.connectors.seatunnel.rocketmq.common.RocketMqAdminUtil;
+import org.apache.seatunnel.connectors.seatunnel.rocketmq.common.StartMode;
+import org.apache.seatunnel.connectors.seatunnel.rocketmq.exception.RocketMqConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.rocketmq.exception.RocketMqConnectorException;
+
+import org.apache.rocketmq.client.exception.MQClientException;
+import org.apache.rocketmq.common.admin.TopicOffset;
+import org.apache.rocketmq.common.consumer.ConsumeFromWhere;
+import org.apache.rocketmq.common.message.MessageQueue;
+
+import lombok.extern.slf4j.Slf4j;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+
+@Slf4j
+public class RocketMqSourceSplitEnumerator
+        implements SourceSplitEnumerator<RocketMqSourceSplit, RocketMqSourceState> {
+
+    private static final long DEFAULT_DISCOVERY_INTERVAL_MILLIS = 60 * 1000;
+    private final Map<MessageQueue, RocketMqSourceSplit> assignedSplit;
+    private final ConsumerMetadata metadata;
+    private final Map<String, TopicTableConfig> topicConfigs;
+    private final Context<RocketMqSourceSplit> context;
+    private final Map<MessageQueue, RocketMqSourceSplit> pendingSplit;
+    private ScheduledExecutorService executor;
+    private ScheduledFuture scheduledFuture;
+    private final Object lock = new Object();
+    // ms
+    private long discoveryIntervalMillis;
+
+    /**
+     * Tracks message queues whose splits were restored from a checkpoint. These splits already have
+     * the correct startOffset and should not have their offset overwritten by
+     * setPartitionStartOffset().
+     */
+    private final Set<MessageQueue> restoredSplits = new HashSet<>();
+
+    /**
+     * Indicates whether this enumerator was created to restore from a checkpoint state. When true,
+     * addSplitsBack() will preserve the checkpoint offsets instead of resetting them.
+     */
+    private boolean isRestored = false;
+
+    /**
+     * Set to true after the first run() completes. Used to distinguish the initial startup phase
+     * (where addSplitsBack may be called with checkpoint splits) from later reader
+     * re-registrations.
+     */
+    private volatile boolean initialized = false;
+
+    public RocketMqSourceSplitEnumerator(
+            ConsumerMetadata metadata,
+            Map<String, TopicTableConfig> topicConfigs,
+            SourceSplitEnumerator.Context<RocketMqSourceSplit> context) {
+        this.metadata = metadata;
+        this.topicConfigs = topicConfigs;
+        this.context = context;
+        this.assignedSplit = new HashMap<>();
+        this.pendingSplit = new HashMap<>();
+        // Set `rocketmq.client.logUseSlf4j` to `true` to avoid create many
+        // `AsyncAppender-Dispatcher-Thread`
+        System.setProperty("rocketmq.client.logUseSlf4j", "true");
+    }
+
+    public RocketMqSourceSplitEnumerator(
+            ConsumerMetadata metadata,
+            Map<String, TopicTableConfig> topicConfigs,
+            SourceSplitEnumerator.Context<RocketMqSourceSplit> context,
+            long discoveryIntervalMillis) {
+        this(metadata, topicConfigs, context);
+        this.discoveryIntervalMillis = discoveryIntervalMillis;
+    }
+
+    /**
+     * Creates an enumerator that restores state from a checkpoint.
+     *
+     * <p>The {@code sourceState} parameter is intentionally unused. The actual split restoration
+     * happens via {@link #addSplitsBack(List, int)}, which the engine calls before {@link #run()}
+     * with the splits carrying the correct startOffset from the reader-side checkpoint. Using
+     * {@code sourceState} to pre-populate {@code assignedSplit} would cause {@link #assignSplit()}
+     * to skip those splits (since they would already appear in {@code assignedSplit}), preventing
+     * them from being dispatched to any reader.
+     *
+     * @param metadata consumer metadata
+     * @param topicConfigs per-topic configuration map
+     * @param context enumerator context
+     * @param discoveryIntervalMillis interval for dynamic queue discovery, in milliseconds
+     * @param sourceState the checkpoint state (unused; retained for API contract compatibility)
+     */
+    public RocketMqSourceSplitEnumerator(
+            ConsumerMetadata metadata,
+            Map<String, TopicTableConfig> topicConfigs,
+            SourceSplitEnumerator.Context<RocketMqSourceSplit> context,
+            long discoveryIntervalMillis,
+            RocketMqSourceState sourceState) {
+        this(metadata, topicConfigs, context, discoveryIntervalMillis);
+        this.isRestored = true;
+    }
+
+    private static int getSplitOwner(MessageQueue messageQueue, int numReaders) {
+        int startIndex = ((messageQueue.getQueueId() * 31) & 0x7FFFFFFF) % numReaders;
+        return (startIndex + messageQueue.getQueueId()) % numReaders;
+    }
+
+    @Override
+    public void open() {
+        discoveryIntervalMillis =
+                discoveryIntervalMillis > 0
+                        ? discoveryIntervalMillis
+                        : DEFAULT_DISCOVERY_INTERVAL_MILLIS;
+        if (discoveryIntervalMillis > 0) {
+            this.executor =
+                    Executors.newScheduledThreadPool(
+                            1,
+                            runnable -> {
+                                Thread thread = new Thread(runnable);
+                                thread.setDaemon(true);
+                                thread.setName("RocketMq-messageQueue-dynamic-discovery");
+                                return thread;
+                            });
+            this.scheduledFuture =
+                    executor.scheduleWithFixedDelay(
+                            () -> {
+                                try {
+                                    if (initialized) {
+                                        discoverySplits();
+                                    }
+                                } catch (Exception e) {
+                                    log.error("Dynamic discovery failure:", e);
+                                }
+                            },
+                            discoveryIntervalMillis,
+                            discoveryIntervalMillis,
+                            TimeUnit.MILLISECONDS);
+        }
+    }
+
+    @Override
+    public void run() throws Exception {
+        synchronized (lock) {
+            fetchPendingPartitionSplit();
+            setPartitionStartOffset();
+            restoredSplits.clear();
+        }
+
+        synchronized (lock) {
+            assignSplit();
+        }
+
+        if (!initialized) {
+            initialized = true;
+        }
+    }
+
+    @Override
+    public void close() throws IOException {
+        if (scheduledFuture != null) {
+            scheduledFuture.cancel(false);
+            if (executor != null) {
+                executor.shutdownNow();
+            }
+        }
+    }
+
+    @Override
+    public void addSplitsBack(List<RocketMqSourceSplit> splits, int subtaskId) {
+        if (!splits.isEmpty()) {
+            synchronized (lock) {
+                if (isRestored && !initialized) {
+                    // During checkpoint recovery the engine returns previously assigned splits
+                    // to the enumerator before run() is called. These splits already have the
+                    // correct startOffset from the checkpoint snapshot, so we must NOT call
+                    // convertToNextSplit() (which resets offset to the broker's latest value).
+                    splits.forEach(
+                            split -> {
+                                restoredSplits.add(split.getMessageQueue());
+                                pendingSplit.put(split.getMessageQueue(), split.copy());
+                            });
+                    return;
+                }
+            }
+            pendingSplit.putAll(convertToNextSplit(splits));
+            assignSplit();
+        }
+    }
+
+    private Map<MessageQueue, ? extends RocketMqSourceSplit> convertToNextSplit(
+            List<RocketMqSourceSplit> splits) {
+        try {
+            Map<MessageQueue, Long> listOffsets =
+                    listOffsets(
+                            splits.stream()
+                                    .map(RocketMqSourceSplit::getMessageQueue)
+                                    .collect(Collectors.toList()),
+                            ConsumeFromWhere.CONSUME_FROM_LAST_OFFSET);
+            splits.forEach(
+                    split -> {
+                        split.setStartOffset(
+                                Math.min(
+                                        split.getEndOffset() + 1,
+                                        listOffsets.get(split.getMessageQueue())));
+                        split.setEndOffset(listOffsets.get(split.getMessageQueue()));
+                    });
+            return splits.stream()
+                    .collect(
+                            Collectors.toMap(RocketMqSourceSplit::getMessageQueue, split -> split));
+        } catch (Exception e) {
+            throw new RocketMqConnectorException(
+                    RocketMqConnectorErrorCode.ADD_SPLIT_BACK_TO_ENUMERATOR_FAILED, e);
+        }
+    }
+
+    @Override
+    public int currentUnassignedSplitSize() {
+        return pendingSplit.size();
+    }
+
+    @Override
+    public void handleSplitRequest(int subtaskId) {
+        // No-op
+    }
+
+    @Override
+    public void registerReader(int subtaskId) {
+        if (!pendingSplit.isEmpty() && initialized) {
+            assignSplit();
+        }
+    }
+
+    @Override
+    public RocketMqSourceState snapshotState(long checkpointId) throws Exception {
+        synchronized (lock) {
+            return new RocketMqSourceState(new HashSet<>(assignedSplit.values()));
+        }
+    }
+
+    @Override
+    public void notifyCheckpointComplete(long checkpointId) throws Exception {
+        // No-op
+    }
+
+    private void discoverySplits() {
+        synchronized (lock) {
+            fetchPendingPartitionSplit();
+        }
+        synchronized (lock) {
+            assignSplit();
+        }
+    }
+
+    private void fetchPendingPartitionSplit() {
+        getTopicInfo()
+                .forEach(
+                        split -> {
+                            if (!assignedSplit.containsKey(split.getMessageQueue())) {
+                                if (!pendingSplit.containsKey(split.getMessageQueue())) {
+                                    pendingSplit.put(split.getMessageQueue(), split);
+                                }
+                            }
+                        });
+    }
+
+    private Set<RocketMqSourceSplit> getTopicInfo() {
+        log.info("Configured topics: {}", metadata.getTopics());
+        List<Map<MessageQueue, TopicOffset>> offsetTopics =
+                RocketMqAdminUtil.offsetTopics(metadata.getBaseConfig(), metadata.getTopics());
+        Set<RocketMqSourceSplit> sourceSplits = Sets.newConcurrentHashSet();
+        offsetTopics.forEach(
+                messageQueueOffsets -> {
+                    messageQueueOffsets.forEach(
+                            (messageQueue, topicOffset) -> {
+                                sourceSplits.add(
+                                        new RocketMqSourceSplit(
+                                                messageQueue,
+                                                topicOffset.getMinOffset(),
+                                                topicOffset.getMaxOffset()));
+                            });
+                });
+        return sourceSplits;
+    }
+
+    private StartMode getEffectiveStartMode(String topic) {
+        TopicTableConfig config = topicConfigs.get(topic);
+        if (config != null && config.getStartMode() != null) {
+            return config.getStartMode();
+        }
+        return metadata.getStartMode();
+    }
+
+    private void setPartitionStartOffset() throws MQClientException {
+        // Group pending partitions by their effective start mode (per-topic override or global).
+        // Restored splits already carry the correct checkpoint offset; skip them entirely so we
+        // do not overwrite the persisted position with a broker-derived offset.
+        Map<StartMode, List<MessageQueue>> partitionsByMode = new LinkedHashMap<>();
+        for (MessageQueue mq : pendingSplit.keySet()) {
+            if (restoredSplits.contains(mq)) {
+                log.debug(
+                        "Skipping offset reset for restored split: topic={}, broker={}, queueId={}",
+                        mq.getTopic(),
+                        mq.getBrokerName(),
+                        mq.getQueueId());
+                continue;
+            }
+            StartMode effectiveMode = getEffectiveStartMode(mq.getTopic());
+            partitionsByMode.computeIfAbsent(effectiveMode, k -> new ArrayList<>()).add(mq);
+        }
+
+        Map<MessageQueue, Long> topicPartitionOffsets = new HashMap<>();
+        for (Map.Entry<StartMode, List<MessageQueue>> entry : partitionsByMode.entrySet()) {
+            StartMode startMode = entry.getKey();
+            List<MessageQueue> queues = entry.getValue();
+            switch (startMode) {
+                case CONSUME_FROM_FIRST_OFFSET:
+                    topicPartitionOffsets.putAll(
+                            listOffsets(queues, ConsumeFromWhere.CONSUME_FROM_FIRST_OFFSET));
+                    break;
+                case CONSUME_FROM_LAST_OFFSET:
+                    topicPartitionOffsets.putAll(
+                            listOffsets(queues, ConsumeFromWhere.CONSUME_FROM_LAST_OFFSET));
+                    break;
+                case CONSUME_FROM_TIMESTAMP:
+                    // Group by effective timestamp (per-topic or global).
+                    Map<Long, List<MessageQueue>> queuesByTimestamp = new LinkedHashMap<>();
+                    for (MessageQueue mq : queues) {
+                        TopicTableConfig config = topicConfigs.get(mq.getTopic());
+                        Long ts =
+                                (config != null && config.getStartTimestamp() != null)
+                                        ? config.getStartTimestamp()
+                                        : metadata.getStartOffsetsTimestamp();
+                        queuesByTimestamp.computeIfAbsent(ts, k -> new ArrayList<>()).add(mq);
+                    }
+                    for (Map.Entry<Long, List<MessageQueue>> tsEntry :
+                            queuesByTimestamp.entrySet()) {
+                        topicPartitionOffsets.putAll(
+                                RocketMqAdminUtil.searchOffsetsByTimestamp(
+                                        metadata.getBaseConfig(),
+                                        tsEntry.getValue(),
+                                        tsEntry.getKey()));
+                    }
+                    break;
+                case CONSUME_FROM_GROUP_OFFSETS:
+                    Map<MessageQueue, Long> groupOffsets = listConsumerGroupOffsets(queues);
+                    if (groupOffsets.isEmpty()) {
+                        topicPartitionOffsets.putAll(
+                                listOffsets(queues, ConsumeFromWhere.CONSUME_FROM_FIRST_OFFSET));
+                    } else {
+                        topicPartitionOffsets.putAll(groupOffsets);
+                    }
+                    break;
+                case CONSUME_FROM_SPECIFIC_OFFSETS:
+                    Map<MessageQueue, Long> specificOffsets = metadata.getSpecificStartOffsets();
+                    if (specificOffsets != null) {
+                        Map<String, Long> offsetByKey = new HashMap<>();
+                        for (Map.Entry<MessageQueue, Long> e : specificOffsets.entrySet()) {
+                            offsetByKey.put(
+                                    e.getKey().getTopic() + "-" + e.getKey().getQueueId(),
+                                    e.getValue());
+                        }
+                        for (MessageQueue mq : queues) {
+                            Long offset = offsetByKey.get(mq.getTopic() + "-" + mq.getQueueId());
+                            if (offset != null) {
+                                topicPartitionOffsets.put(mq, offset);
+                            }
+                        }
+                    }
+                    break;
+                default:
+                    throw new RocketMqConnectorException(
+                            RocketMqConnectorErrorCode.UNSUPPORTED_START_MODE_ERROR,
+                            startMode.name());
+            }
+        }
+
+        topicPartitionOffsets.forEach(
+                (mq, offset) -> {
+                    if (pendingSplit.containsKey(mq)) {
+                        pendingSplit.get(mq).setStartOffset(offset);
+                    }
+                });
+    }
+
+    private Map<MessageQueue, Long> listOffsets(
+            Collection<MessageQueue> messageQueues, ConsumeFromWhere consumeFromWhere) {
+        Map<MessageQueue, Long> results = Maps.newConcurrentMap();
+        Map<MessageQueue, TopicOffset> messageQueueOffsets =
+                RocketMqAdminUtil.flatOffsetTopics(metadata.getBaseConfig(), metadata.getTopics());
+        switch (consumeFromWhere) {
+            case CONSUME_FROM_FIRST_OFFSET:
+                messageQueues.forEach(
+                        messageQueue -> {
+                            TopicOffset topicOffset = messageQueueOffsets.get(messageQueue);
+                            results.put(messageQueue, topicOffset.getMinOffset());
+                        });
+                break;
+            case CONSUME_FROM_LAST_OFFSET:
+                messageQueues.forEach(
+                        messageQueue -> {
+                            TopicOffset topicOffset = messageQueueOffsets.get(messageQueue);
+                            results.put(messageQueue, topicOffset.getMaxOffset());
+                        });
+                break;
+            case CONSUME_FROM_TIMESTAMP:
+                results.putAll(
+                        RocketMqAdminUtil.searchOffsetsByTimestamp(
+                                metadata.getBaseConfig(),
+                                messageQueues,
+                                metadata.getStartOffsetsTimestamp()));
+                break;
+            default:
+                // No-op
+                break;
+        }
+        return results;
+    }
+
+    /** list consumer group offsets */
+    public Map<MessageQueue, Long> listConsumerGroupOffsets(
+            Collection<MessageQueue> messageQueues) {
+        return RocketMqAdminUtil.currentOffsets(
+                metadata.getBaseConfig(), metadata.getTopics(), new HashSet<>(messageQueues));
+    }
+
+    private synchronized void assignSplit() {
+        Map<Integer, List<RocketMqSourceSplit>> readySplit = new HashMap<>(Common.COLLECTION_SIZE);
+        for (int taskID = 0; taskID < context.currentParallelism(); taskID++) {
+            readySplit.computeIfAbsent(taskID, id -> new ArrayList<>());
+        }
+        pendingSplit
+                .entrySet()
+                .forEach(
+                        s -> {
+                            if (!assignedSplit.containsKey(s.getKey())) {
+                                readySplit
+                                        .get(
+                                                getSplitOwner(
+                                                        s.getKey(), context.currentParallelism()))
+                                        .add(s.getValue());
+                            }
+                        });
+        readySplit.forEach(context::assignSplit);
+        assignedSplit.putAll(pendingSplit);
+        pendingSplit.clear();
+    }
+}

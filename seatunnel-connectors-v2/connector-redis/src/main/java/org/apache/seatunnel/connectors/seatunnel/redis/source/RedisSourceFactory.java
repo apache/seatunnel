@@ -1,0 +1,113 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.seatunnel.connectors.seatunnel.redis.source;
+
+import org.apache.seatunnel.api.configuration.util.Conditions;
+import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.api.table.connector.TableSource;
+import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.api.table.factory.TableSourceFactory;
+import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
+import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisBaseOptions;
+import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisNodesValidator;
+import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisSingleTableDataTypeValidator;
+import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.redis.config.RedisTableConfigsValidator;
+
+import com.google.auto.service.AutoService;
+
+import java.io.Serializable;
+
+@AutoService(Factory.class)
+public class RedisSourceFactory implements TableSourceFactory {
+    @Override
+    public String factoryIdentifier() {
+        return "Redis";
+    }
+
+    @Override
+    public <T, SplitT extends SourceSplit, StateT extends Serializable>
+            TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
+        return () -> (SeaTunnelSource<T, SplitT, StateT>) new RedisSource(context.getOptions());
+    }
+
+    @Override
+    public OptionRule optionRule() {
+        return OptionRule.builder()
+                .exclusive(RedisBaseOptions.TABLE_CONFIGS, RedisBaseOptions.KEY_PATTERN)
+                .optional(
+                        RedisBaseOptions.KEY_PATTERN,
+                        Conditions.notBlank(RedisBaseOptions.KEY_PATTERN),
+                        Conditions.extension(
+                                RedisBaseOptions.KEY_PATTERN,
+                                new RedisSingleTableDataTypeValidator()))
+                .optional(
+                        RedisBaseOptions.TABLE_CONFIGS,
+                        Conditions.notEmpty(RedisBaseOptions.TABLE_CONFIGS),
+                        Conditions.extension(
+                                RedisBaseOptions.TABLE_CONFIGS, new RedisTableConfigsValidator()))
+                .optional(
+                        RedisBaseOptions.DATA_TYPE,
+                        RedisBaseOptions.MODE,
+                        RedisSourceOptions.HASH_KEY_PARSE_MODE,
+                        RedisBaseOptions.AUTH,
+                        RedisBaseOptions.USER,
+                        RedisSourceOptions.READ_KEY_ENABLED,
+                        RedisSourceOptions.SINGLE_FIELD_NAME,
+                        RedisSourceOptions.KEY_FIELD_NAME,
+                        RedisBaseOptions.BATCH_SIZE,
+                        RedisBaseOptions.FORMAT,
+                        RedisBaseOptions.FIELD_DELIMITER,
+                        RedisBaseOptions.DB_NUM,
+                        RedisBaseOptions.SCHEMA)
+                .conditional(
+                        RedisBaseOptions.MODE,
+                        RedisBaseOptions.RedisMode.CLUSTER,
+                        RedisBaseOptions.NODES)
+                .conditional(
+                        RedisBaseOptions.MODE,
+                        RedisBaseOptions.RedisMode.SINGLE,
+                        RedisBaseOptions.HOST,
+                        RedisBaseOptions.PORT)
+                .conditional(
+                        RedisBaseOptions.MODE,
+                        RedisBaseOptions.RedisMode.SINGLE,
+                        Conditions.notBlank(RedisBaseOptions.HOST),
+                        Conditions.greaterOrEqual(RedisBaseOptions.PORT, RedisBaseOptions.MIN_PORT)
+                                .and(
+                                        Conditions.lessOrEqual(
+                                                RedisBaseOptions.PORT, RedisBaseOptions.MAX_PORT)))
+                .conditional(
+                        RedisBaseOptions.MODE,
+                        RedisBaseOptions.RedisMode.CLUSTER,
+                        Conditions.notEmpty(RedisBaseOptions.NODES),
+                        Conditions.extension(RedisBaseOptions.NODES, new RedisNodesValidator()))
+                .conditional(
+                        RedisSourceOptions.READ_KEY_ENABLED,
+                        true,
+                        RedisSourceOptions.SINGLE_FIELD_NAME)
+                .build();
+    }
+
+    @Override
+    public Class<? extends SeaTunnelSource> getSourceClass() {
+        return RedisSource.class;
+    }
+}

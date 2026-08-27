@@ -1,0 +1,122 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.seatunnel.connectors.seatunnel.pulsar.source;
+
+import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.Conditions;
+import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.options.table.TableSchemaOptions;
+import org.apache.seatunnel.api.source.SeaTunnelSource;
+import org.apache.seatunnel.api.source.SourceSplit;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
+import org.apache.seatunnel.api.table.connector.TableSource;
+import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.api.table.factory.TableSourceFactory;
+import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
+import org.apache.seatunnel.connectors.seatunnel.pulsar.config.PulsarSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.pulsar.exception.PulsarConnectorException;
+
+import com.google.auto.service.AutoService;
+
+import java.io.Serializable;
+
+@AutoService(Factory.class)
+public class PulsarSourceFactory implements TableSourceFactory {
+    @Override
+    public String factoryIdentifier() {
+        return PulsarSourceOptions.IDENTIFIER;
+    }
+
+    @Override
+    public OptionRule optionRule() {
+        return OptionRule.builder()
+                .required(
+                        PulsarSourceOptions.CLIENT_SERVICE_URL,
+                        Conditions.notBlank(PulsarSourceOptions.CLIENT_SERVICE_URL))
+                .required(
+                        PulsarSourceOptions.ADMIN_SERVICE_URL,
+                        Conditions.notBlank(PulsarSourceOptions.ADMIN_SERVICE_URL))
+                .optional(
+                        PulsarSourceOptions.SUBSCRIPTION_NAME,
+                        Conditions.notBlank(PulsarSourceOptions.SUBSCRIPTION_NAME))
+                .optional(
+                        PulsarSourceOptions.CURSOR_STARTUP_MODE,
+                        PulsarSourceOptions.CURSOR_STOP_MODE,
+                        PulsarSourceOptions.TOPIC_DISCOVERY_INTERVAL,
+                        PulsarSourceOptions.POLL_TIMEOUT,
+                        PulsarSourceOptions.POLL_INTERVAL,
+                        PulsarSourceOptions.POLL_BATCH_SIZE,
+                        PulsarSourceOptions.FORMAT,
+                        PulsarSourceOptions.SCHEMA)
+                .exclusive(
+                        PulsarSourceOptions.TOPIC,
+                        PulsarSourceOptions.TOPIC_PATTERN,
+                        TableSchemaOptions.TABLE_CONFIGS)
+                .conditional(
+                        PulsarSourceOptions.FORMAT,
+                        PulsarSourceOptions.TEXT_FORMAT,
+                        PulsarSourceOptions.FIELD_DELIMITER)
+                .conditional(
+                        PulsarSourceOptions.CURSOR_STARTUP_MODE,
+                        PulsarSourceOptions.StartMode.TIMESTAMP,
+                        PulsarSourceOptions.CURSOR_STARTUP_TIMESTAMP)
+                .conditional(
+                        PulsarSourceOptions.CURSOR_STARTUP_MODE,
+                        PulsarSourceOptions.StartMode.SUBSCRIPTION,
+                        PulsarSourceOptions.CURSOR_RESET_MODE)
+                .conditional(
+                        PulsarSourceOptions.CURSOR_STOP_MODE,
+                        PulsarSourceOptions.StopMode.TIMESTAMP,
+                        PulsarSourceOptions.CURSOR_STOP_TIMESTAMP)
+                .bundled(PulsarSourceOptions.AUTH_PLUGIN_CLASS, PulsarSourceOptions.AUTH_PARAMS)
+                .build();
+    }
+
+    @Override
+    public Class<? extends SeaTunnelSource> getSourceClass() {
+        return PulsarSource.class;
+    }
+
+    @Override
+    public <T, SplitT extends SourceSplit, StateT extends Serializable>
+            TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
+        validateSourceOptions(context.getOptions());
+        CatalogTable catalogTable;
+        if (context.getOptions().getOptional(PulsarSourceOptions.SCHEMA).isPresent()) {
+            catalogTable = CatalogTableUtil.buildWithConfig(context.getOptions());
+        } else {
+            catalogTable = CatalogTableUtil.buildSimpleTextTable();
+        }
+        return () ->
+                (SeaTunnelSource<T, SplitT, StateT>)
+                        new PulsarSource(context.getOptions(), catalogTable);
+    }
+
+    private void validateSourceOptions(ReadonlyConfig config) {
+        if (!config.getOptional(TableSchemaOptions.TABLE_CONFIGS).isPresent()
+                && !config.getOptional(PulsarSourceOptions.SUBSCRIPTION_NAME).isPresent()) {
+            throw new PulsarConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    String.format(
+                            "Single-table Pulsar source must configure '%s'.",
+                            PulsarSourceOptions.SUBSCRIPTION_NAME.key()));
+        }
+    }
+}

@@ -1,0 +1,130 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.seatunnel.connectors.seatunnel.elasticsearch.config;
+
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
+
+import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.Options;
+
+import lombok.Getter;
+import lombok.Setter;
+
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.TimeUnit;
+
+@Getter
+@Setter
+public class ElasticsearchSourceOptions extends ElasticsearchBaseOptions {
+
+    public static final Option<List<Map<String, Object>>> INDEX_LIST =
+            Options.key("index_list")
+                    .type(new TypeReference<List<Map<String, Object>>>() {})
+                    .noDefaultValue()
+                    .withDescription("index_list for multiTable sync");
+
+    public static final Option<List<String>> SOURCE =
+            Options.key("source")
+                    .listType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "The fields of index. You can get the document id by specifying the field _id.If sink _id to other index,you need specify an alias for _id due to the Elasticsearch limit");
+
+    public static final Option<Map<String, String>> ARRAY_COLUMN =
+            Options.key("array_column")
+                    .mapType()
+                    .defaultValue(new HashMap<>())
+                    .withDescription(
+                            "Because there is no array type in es,so need specify array Type.");
+
+    public static final Option<String> SCROLL_TIME =
+            Options.key("scroll_time")
+                    .stringType()
+                    .defaultValue("1m")
+                    .withDescription(
+                            "Amount of time Elasticsearch will keep the search context alive for scroll requests");
+
+    public static final Option<SearchTypeEnum> SEARCH_TYPE =
+            Options.key("search_type")
+                    .enumType(SearchTypeEnum.class)
+                    .defaultValue(SearchTypeEnum.DSL)
+                    .withDescription("Choose query type: DSL (Domain Specific Language) or SQL.");
+
+    public static final Option<SearchApiTypeEnum> SEARCH_API_TYPE =
+            Options.key("search_api_type")
+                    .enumType(SearchApiTypeEnum.class)
+                    .defaultValue(SearchApiTypeEnum.SCROLL)
+                    .withDescription(
+                            "Choose API type for pagination: SCROLL or PIT (Point in Time).");
+
+    public static final Option<String> SQL_QUERY =
+            Options.key("sql_query")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("X-pack sql,if search_type is sql, this value is required.");
+
+    public static final Option<Integer> SCROLL_SIZE =
+            Options.key("scroll_size")
+                    .intType()
+                    .defaultValue(100)
+                    .withDescription(
+                            "Maximum number of hits to be returned with each Elasticsearch scroll request");
+
+    public static final Option<Map<String, Object>> QUERY =
+            Options.key("query")
+                    .type(new TypeReference<Map<String, Object>>() {})
+                    .defaultValue(
+                            Collections.singletonMap("match_all", new HashMap<String, String>()))
+                    .withDescription(
+                            "Elasticsearch query language. You can control the range of data read");
+
+    public static final Option<Long> PIT_KEEP_ALIVE =
+            Options.key("pit_keep_alive")
+                    .longType()
+                    .defaultValue(TimeUnit.MINUTES.toMillis(1)) // 1 minute in milliseconds
+                    .withDescription(
+                            "The amount of time (in milliseconds) for which the PIT should be kept alive. Default is 1 minute.");
+
+    public static final Option<Integer> PIT_BATCH_SIZE =
+            Options.key("pit_batch_size")
+                    .intType()
+                    .defaultValue(100)
+                    .withDescription(
+                            "Maximum number of hits to be returned with each PIT search request. Similar to scroll_size but for PIT API.");
+
+    public static final Option<List<Map<String, Object>>> RUNTIME_FIELDS =
+            Options.key("runtime_fields")
+                    .type(new TypeReference<List<Map<String, Object>>>() {})
+                    .noDefaultValue()
+                    .withDescription(
+                            "Runtime fields to be computed at query time. Each runtime field should contain: name, type, and script. "
+                                    + "Example: [{\"name\": \"day_of_week\", \"type\": \"keyword\", \"script\": \"emit(doc['timestamp'].value.dayOfWeekEnum.toString())\"}]. "
+                                    + "Supported types: boolean, date, double, geo_point, ip, keyword, long. "
+                                    + "Available in Elasticsearch 7.11+");
+
+    public static final Option<Integer> SLICE_MAX =
+            Options.key("slice_max")
+                    .intType()
+                    .defaultValue(1)
+                    .withDescription(
+                            "Split a single index into multiple slices for parallel reads. "
+                                    + "Only effective for Scroll/PIT, and should be > 1 to enable slicing.");
+}

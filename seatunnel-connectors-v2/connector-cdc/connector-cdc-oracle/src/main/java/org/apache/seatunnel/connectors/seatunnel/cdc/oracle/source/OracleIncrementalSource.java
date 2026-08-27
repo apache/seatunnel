@@ -1,0 +1,234 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source;
+
+import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.source.SupportParallelism;
+import org.apache.seatunnel.api.source.SupportSchemaEvolution;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.schema.SchemaChangeType;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
+import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfig;
+import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
+import org.apache.seatunnel.connectors.cdc.base.config.StartupConfig;
+import org.apache.seatunnel.connectors.cdc.base.dialect.DataSourceDialect;
+import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
+import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
+import org.apache.seatunnel.connectors.cdc.base.option.StartupMode;
+import org.apache.seatunnel.connectors.cdc.base.option.StopMode;
+import org.apache.seatunnel.connectors.cdc.base.schema.SchemaChangeEventFilter;
+import org.apache.seatunnel.connectors.cdc.base.source.IncrementalSource;
+import org.apache.seatunnel.connectors.cdc.base.source.offset.OffsetFactory;
+import org.apache.seatunnel.connectors.cdc.debezium.ConnectTableChangeSerializer;
+import org.apache.seatunnel.connectors.cdc.debezium.DebeziumDeserializationSchema;
+import org.apache.seatunnel.connectors.cdc.debezium.DeserializeFormat;
+import org.apache.seatunnel.connectors.cdc.debezium.row.DebeziumJsonDeserializeSchema;
+import org.apache.seatunnel.connectors.cdc.debezium.row.SeaTunnelRowDebeziumDeserializeSchema;
+import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.config.OracleSourceConfigFactory;
+import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source.offset.RedoLogOffset;
+import org.apache.seatunnel.connectors.seatunnel.cdc.oracle.source.offset.RedoLogOffsetFactory;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
+
+import org.apache.kafka.connect.data.Struct;
+
+import io.debezium.jdbc.JdbcConnection;
+import io.debezium.relational.TableId;
+import io.debezium.relational.history.TableChanges;
+
+import java.time.ZoneId;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Collectors;
+
+public class OracleIncrementalSource<T> extends IncrementalSource<T, JdbcSourceConfig>
+        implements SupportParallelism, SupportSchemaEvolution {
+
+    static final String IDENTIFIER = "Oracle-CDC";
+
+    public OracleIncrementalSource(ReadonlyConfig options, List<CatalogTable> catalogTables) {
+        super(options, catalogTables);
+    }
+
+    @Override
+    public String getPluginName() {
+        return IDENTIFIER;
+    }
+
+    @Override
+    public Option<StartupMode> getStartupModeOption() {
+        return OracleIncrementalSourceOptions.STARTUP_MODE;
+    }
+
+    @Override
+    public Option<StopMode> getStopModeOption() {
+        return OracleIncrementalSourceOptions.STOP_MODE;
+    }
+
+    @Override
+    protected StartupConfig getStartupConfig(ReadonlyConfig config) {
+        return getOracleStartupConfig(config);
+    }
+
+    /**
+     * Builds the startup configuration for Oracle CDC. A specific SCN is mapped to the standard
+     * {@link RedoLogOffset} structure. Generic file and position offsets are rejected because they
+     * do not apply to Oracle. The initial {@code commit_scn=0} and {@code lcr_position=null} values
+     * intentionally match the offset shape expected by the existing Oracle offset loader.
+     *
+     * @param config connector configuration
+     * @return the Oracle startup configuration
+     */
+    static StartupConfig getOracleStartupConfig(ReadonlyConfig config) {
+        StartupMode startupMode = config.get(OracleIncrementalSourceOptions.STARTUP_MODE);
+        Optional<Long> startupSpecificOffsetScn =
+                config.getOptional(OracleIncrementalSourceOptions.STARTUP_SPECIFIC_OFFSET_SCN);
+
+        if (startupMode != StartupMode.SPECIFIC) {
+            if (startupSpecificOffsetScn.isPresent()) {
+                throw new IllegalArgumentException(
+                        OracleIncrementalSourceOptions.STARTUP_SPECIFIC_OFFSET_SCN.key()
+                                + " is only supported when startup.mode is specific.");
+            }
+            return new StartupConfig(
+                    startupMode,
+                    config.get(SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE),
+                    config.get(SourceOptions.STARTUP_SPECIFIC_OFFSET_POS),
+                    config.get(SourceOptions.STARTUP_TIMESTAMP));
+        }
+
+        if (config.getOptional(SourceOptions.STARTUP_SPECIFIC_OFFSET_FILE).isPresent()
+                || config.getOptional(SourceOptions.STARTUP_SPECIFIC_OFFSET_POS).isPresent()) {
+            throw new IllegalArgumentException(
+                    "Oracle-CDC specific startup mode uses "
+                            + OracleIncrementalSourceOptions.STARTUP_SPECIFIC_OFFSET_SCN.key()
+                            + " instead of file or position offsets.");
+        }
+
+        Long scn =
+                startupSpecificOffsetScn.orElseThrow(
+                        () ->
+                                new IllegalArgumentException(
+                                        OracleIncrementalSourceOptions.STARTUP_SPECIFIC_OFFSET_SCN
+                                                        .key()
+                                                + " is required when startup.mode is specific."));
+        if (scn <= 0) {
+            throw new IllegalArgumentException(
+                    OracleIncrementalSourceOptions.STARTUP_SPECIFIC_OFFSET_SCN.key()
+                            + " must be greater than 0.");
+        }
+
+        Map<String, String> specificOffset = new HashMap<>();
+        specificOffset.put(RedoLogOffset.SCN_KEY, String.valueOf(scn));
+        specificOffset.put(RedoLogOffset.COMMIT_SCN_KEY, "0");
+        specificOffset.put(RedoLogOffset.LCR_POSITION_KEY, null);
+        return new StartupConfig(StartupMode.SPECIFIC, specificOffset);
+    }
+
+    @Override
+    public SourceConfig.Factory<JdbcSourceConfig> createSourceConfigFactory(ReadonlyConfig config) {
+        OracleSourceConfigFactory configFactory = new OracleSourceConfigFactory();
+        configFactory.fromReadonlyConfig(readonlyConfig);
+        configFactory.startupOptions(startupConfig);
+        configFactory.stopOptions(stopConfig);
+        configFactory.schemaList(config.get(OracleIncrementalSourceOptions.SCHEMA_NAMES));
+        configFactory.useSelectCount(config.get(OracleIncrementalSourceOptions.USE_SELECT_COUNT));
+        configFactory.skipAnalyze(config.get(OracleIncrementalSourceOptions.SKIP_ANALYZE));
+        configFactory.originUrl(config.get(JdbcCommonOptions.URL));
+        return configFactory;
+    }
+
+    @SuppressWarnings("unchecked")
+    @Override
+    public DebeziumDeserializationSchema<T> createDebeziumDeserializationSchema(
+            ReadonlyConfig config) {
+        Map<TableId, Struct> tableIdStructMap = tableChanges();
+        Map<String, String> debeziumProperties = config.get(SourceOptions.DEBEZIUM_PROPERTIES);
+        if (DeserializeFormat.COMPATIBLE_DEBEZIUM_JSON.equals(
+                config.get(JdbcSourceOptions.FORMAT))) {
+            return (DebeziumDeserializationSchema<T>)
+                    new DebeziumJsonDeserializeSchema(debeziumProperties, tableIdStructMap);
+        }
+
+        String zoneId = config.get(JdbcSourceOptions.SERVER_TIME_ZONE);
+        return (DebeziumDeserializationSchema<T>)
+                SeaTunnelRowDebeziumDeserializeSchema.builder()
+                        .setTables(catalogTables)
+                        .setServerTimeZone(ZoneId.of(zoneId))
+                        .setSchemaChangeResolver(
+                                new OracleSchemaChangeResolver(createSourceConfigFactory(config)))
+                        .setSchemaChangeEventFilter(SchemaChangeEventFilter.fromConfig(config))
+                        .setTableIdTableChangeMap(tableIdStructMap)
+                        .build();
+    }
+
+    @Override
+    public DataSourceDialect<JdbcSourceConfig> createDataSourceDialect(ReadonlyConfig config) {
+        return new OracleDialect((OracleSourceConfigFactory) configFactory, catalogTables);
+    }
+
+    @Override
+    public OffsetFactory createOffsetFactory(ReadonlyConfig config) {
+        return new RedoLogOffsetFactory(
+                (OracleSourceConfigFactory) configFactory, (OracleDialect) dataSourceDialect);
+    }
+
+    @Override
+    public Optional<String> driverName() {
+        return Optional.of("oracle.jdbc.OracleDriver");
+    }
+
+    private Map<TableId, Struct> tableChanges() {
+        JdbcSourceConfig jdbcSourceConfig = configFactory.create(0);
+        OracleDialect dialect =
+                new OracleDialect((OracleSourceConfigFactory) configFactory, catalogTables);
+        List<TableId> discoverTables = dialect.discoverDataCollections(jdbcSourceConfig);
+        ConnectTableChangeSerializer connectTableChangeSerializer =
+                new ConnectTableChangeSerializer();
+        try (JdbcConnection jdbcConnection = dialect.openJdbcConnection(jdbcSourceConfig)) {
+            return discoverTables.stream()
+                    .collect(
+                            Collectors.toMap(
+                                    Function.identity(),
+                                    (tableId) -> {
+                                        TableChanges tableChanges = new TableChanges();
+                                        tableChanges.create(
+                                                dialect.queryTableSchema(jdbcConnection, tableId)
+                                                        .getTable());
+                                        return connectTableChangeSerializer
+                                                .serialize(tableChanges)
+                                                .get(0);
+                                    }));
+        } catch (Exception e) {
+            throw new SeaTunnelException(e);
+        }
+    }
+
+    @Override
+    public List<SchemaChangeType> supports() {
+        return Arrays.asList(
+                SchemaChangeType.ADD_COLUMN,
+                SchemaChangeType.DROP_COLUMN,
+                SchemaChangeType.RENAME_COLUMN,
+                SchemaChangeType.UPDATE_COLUMN);
+    }
+}

@@ -1,0 +1,516 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils;
+
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
+import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConfig;
+import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.exception.MongodbConnectorException;
+import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.internal.MongodbClientProvider;
+import org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.source.offset.ChangeStreamDescriptor;
+
+import org.bson.BsonDocument;
+import org.bson.BsonInt32;
+import org.bson.BsonString;
+import org.bson.BsonTimestamp;
+import org.bson.Document;
+import org.bson.conversions.Bson;
+
+import com.mongodb.ConnectionString;
+import com.mongodb.MongoCommandException;
+import com.mongodb.client.ChangeStreamIterable;
+import com.mongodb.client.MongoChangeStreamCursor;
+import com.mongodb.client.MongoClient;
+import com.mongodb.client.MongoCollection;
+import com.mongodb.client.MongoDatabase;
+import com.mongodb.client.model.changestream.ChangeStreamDocument;
+import com.mongodb.client.model.changestream.FullDocument;
+import io.debezium.relational.TableId;
+import lombok.extern.slf4j.Slf4j;
+
+import javax.annotation.Nonnull;
+
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.Optional;
+import java.util.regex.Pattern;
+
+import static com.mongodb.client.model.Aggregates.match;
+import static com.mongodb.client.model.Filters.and;
+import static com.mongodb.client.model.Filters.eq;
+import static com.mongodb.client.model.Filters.or;
+import static com.mongodb.client.model.Filters.regex;
+import static com.mongodb.client.model.Projections.include;
+import static com.mongodb.client.model.Sorts.ascending;
+import static org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.ADD_NS_FIELD_NAME;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.CHANGE_STREAM_FATAL_ERROR;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.COMMAND_SUCCEED_FLAG;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.DOES_NOT_EXIST;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.DROPPED_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.ID_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.INVALID_CHANGE_STREAM_ERRORS;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.INVALID_RESUME_TOKEN;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.MAX_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.MIN_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.NOT_FOUND;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.NO_LONGER_IN_THE_OPLOG;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.NS_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.RESUME_TOKEN;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.SHARD_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.SHARD_KEY_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.config.MongodbSourceConstants.UUID_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.CollectionDiscoveryUtils.ADD_NS_FIELD;
+import static org.apache.seatunnel.connectors.seatunnel.cdc.mongodb.utils.CollectionDiscoveryUtils.includeListAsFlatPattern;
+
+@Slf4j
+public class MongodbUtils {
+    private static final String MONGODB_SCHEME = "mongodb://";
+    private static final String MONGODB_SRV_SCHEME = "mongodb+srv://";
+    private static final String DEFAULT_DATABASE = "/";
+
+    public static ChangeStreamDescriptor getChangeStreamDescriptor(
+            @Nonnull MongodbSourceConfig sourceConfig,
+            List<String> discoveredDatabases,
+            List<String> discoveredCollections) {
+        List<String> databaseList = sourceConfig.getDatabaseList();
+        List<String> collectionList = sourceConfig.getCollectionList();
+
+        ChangeStreamDescriptor changeStreamFilter;
+        if (collectionList != null) {
+            // Watching collections changes
+            if (isIncludeListExplicitlySpecified(collectionList, discoveredCollections)) {
+                changeStreamFilter =
+                        ChangeStreamDescriptor.collection(
+                                TableId.parse(discoveredCollections.get(0)));
+            } else {
+                Pattern namespaceRegex = includeListAsFlatPattern(collectionList);
+                if (databaseList != null) {
+                    if (isIncludeListExplicitlySpecified(databaseList, discoveredDatabases)) {
+                        changeStreamFilter =
+                                ChangeStreamDescriptor.database(
+                                        discoveredDatabases.get(0), namespaceRegex);
+                    } else {
+                        Pattern databaseRegex = includeListAsFlatPattern(databaseList);
+                        changeStreamFilter =
+                                ChangeStreamDescriptor.deployment(databaseRegex, namespaceRegex);
+                    }
+                } else {
+                    changeStreamFilter = ChangeStreamDescriptor.deployment(null, namespaceRegex);
+                }
+            }
+        } else if (databaseList != null) {
+            if (isIncludeListExplicitlySpecified(databaseList, discoveredDatabases)) {
+                changeStreamFilter = ChangeStreamDescriptor.database(discoveredDatabases.get(0));
+            } else {
+                Pattern databaseRegex = includeListAsFlatPattern(databaseList);
+                changeStreamFilter = ChangeStreamDescriptor.deployment(databaseRegex);
+            }
+        } else {
+            // Watching all changes on the cluster
+            changeStreamFilter = ChangeStreamDescriptor.deployment();
+        }
+        return changeStreamFilter;
+    }
+
+    public static boolean isIncludeListExplicitlySpecified(
+            List<String> includeList, List<String> discoveredList) {
+        if (includeList == null || includeList.size() != 1) {
+            return false;
+        }
+        if (discoveredList == null || discoveredList.size() != 1) {
+            return false;
+        }
+        String firstOfIncludeList = includeList.get(0);
+        String firstOfDiscoveredList = discoveredList.get(0);
+        return firstOfDiscoveredList.equals(firstOfIncludeList);
+    }
+
+    public static @Nonnull ChangeStreamIterable<Document> getChangeStreamIterable(
+            MongodbSourceConfig sourceConfig, @Nonnull ChangeStreamDescriptor descriptor) {
+        return getChangeStreamIterable(
+                createMongoClient(sourceConfig),
+                descriptor.getDatabase(),
+                descriptor.getCollection(),
+                descriptor.getDatabaseRegex(),
+                descriptor.getNamespaceRegex(),
+                sourceConfig.getBatchSize(),
+                sourceConfig.isUpdateLookup());
+    }
+
+    public static @Nonnull ChangeStreamIterable<Document> getChangeStreamIterable(
+            MongoClient mongoClient,
+            @Nonnull ChangeStreamDescriptor descriptor,
+            int batchSize,
+            boolean updateLookup) {
+        return getChangeStreamIterable(
+                mongoClient,
+                descriptor.getDatabase(),
+                descriptor.getCollection(),
+                descriptor.getDatabaseRegex(),
+                descriptor.getNamespaceRegex(),
+                batchSize,
+                updateLookup);
+    }
+
+    public static @Nonnull ChangeStreamIterable<Document> getChangeStreamIterable(
+            MongoClient mongoClient,
+            String database,
+            String collection,
+            Pattern databaseRegex,
+            Pattern namespaceRegex,
+            int batchSize,
+            boolean updateLookup) {
+        ChangeStreamIterable<Document> changeStream;
+        if (StringUtils.isNotEmpty(database) && StringUtils.isNotEmpty(collection)) {
+            MongoCollection<Document> coll =
+                    mongoClient.getDatabase(database).getCollection(collection);
+            log.info("Preparing change stream for collection {}.{}", database, collection);
+            changeStream = coll.watch();
+        } else if (StringUtils.isNotEmpty(database) && namespaceRegex != null) {
+            MongoDatabase db = mongoClient.getDatabase(database);
+            List<Bson> pipeline = new ArrayList<>();
+            pipeline.add(ADD_NS_FIELD);
+            Bson nsFilter = regex(ADD_NS_FIELD_NAME, namespaceRegex);
+            pipeline.add(match(nsFilter));
+            log.info(
+                    "Preparing change stream for database {} with namespace regex filter {}",
+                    database,
+                    namespaceRegex);
+            changeStream = db.watch(pipeline);
+        } else if (StringUtils.isNotEmpty(database)) {
+            MongoDatabase db = mongoClient.getDatabase(database);
+            log.info("Preparing change stream for database {}", database);
+            changeStream = db.watch();
+        } else if (namespaceRegex != null) {
+            List<Bson> pipeline = new ArrayList<>();
+            pipeline.add(ADD_NS_FIELD);
+
+            Bson nsFilter = regex(ADD_NS_FIELD_NAME, namespaceRegex);
+            if (databaseRegex != null) {
+                Bson dbFilter = regex("ns.db", databaseRegex);
+                nsFilter = and(dbFilter, nsFilter);
+                log.info(
+                        "Preparing change stream for deployment with"
+                                + " database regex filter {} and namespace regex filter {}",
+                        databaseRegex,
+                        namespaceRegex);
+            } else {
+                log.info(
+                        "Preparing change stream for deployment with namespace regex filter {}",
+                        namespaceRegex);
+            }
+
+            pipeline.add(match(nsFilter));
+            changeStream = mongoClient.watch(pipeline);
+        } else if (databaseRegex != null) {
+            List<Bson> pipeline = new ArrayList<>();
+            pipeline.add(match(regex("ns.db", databaseRegex)));
+
+            log.info(
+                    "Preparing change stream for deployment  with database regex filter {}",
+                    databaseRegex);
+            changeStream = mongoClient.watch(pipeline);
+        } else {
+            log.info("Preparing change stream for deployment");
+            changeStream = mongoClient.watch();
+        }
+
+        if (batchSize > 0) {
+            changeStream.batchSize(batchSize);
+        }
+
+        if (updateLookup) {
+            changeStream.fullDocument(FullDocument.UPDATE_LOOKUP);
+        }
+        return changeStream;
+    }
+
+    public static BsonDocument getLatestResumeToken(
+            MongoClient mongoClient, ChangeStreamDescriptor descriptor) {
+        ChangeStreamIterable<Document> changeStreamIterable =
+                getChangeStreamIterable(mongoClient, descriptor, 1, false);
+
+        // Nullable when no change record or postResumeToken (new in MongoDB 4.0.7).
+        try (MongoChangeStreamCursor<ChangeStreamDocument<Document>> changeStreamCursor =
+                changeStreamIterable.cursor()) {
+            ChangeStreamDocument<Document> firstResult = changeStreamCursor.tryNext();
+
+            return firstResult != null
+                    ? firstResult.getResumeToken()
+                    : changeStreamCursor.getResumeToken();
+        }
+    }
+
+    public static boolean isCommandSucceed(BsonDocument commandResult) {
+        return commandResult != null && COMMAND_SUCCEED_FLAG.equals(commandResult.getDouble("ok"));
+    }
+
+    public static String commandErrorMessage(BsonDocument commandResult) {
+        return Optional.ofNullable(commandResult)
+                .map(doc -> doc.getString("errmsg"))
+                .map(BsonString::getValue)
+                .orElse(null);
+    }
+
+    public static @Nonnull BsonDocument collStats(
+            @Nonnull MongoClient mongoClient, @Nonnull TableId collectionId) {
+        BsonDocument collStatsCommand =
+                new BsonDocument("collStats", new BsonString(collectionId.table()));
+        return mongoClient
+                .getDatabase(collectionId.catalog())
+                .runCommand(collStatsCommand, BsonDocument.class);
+    }
+
+    public static @Nonnull BsonDocument splitVector(
+            MongoClient mongoClient,
+            TableId collectionId,
+            BsonDocument keyPattern,
+            int maxChunkSizeMB) {
+        return splitVector(mongoClient, collectionId, keyPattern, maxChunkSizeMB, null, null);
+    }
+
+    public static @Nonnull BsonDocument splitVector(
+            @Nonnull MongoClient mongoClient,
+            @Nonnull TableId collectionId,
+            BsonDocument keyPattern,
+            int maxChunkSizeMB,
+            BsonDocument min,
+            BsonDocument max) {
+        BsonDocument splitVectorCommand =
+                new BsonDocument("splitVector", new BsonString(collectionId.identifier()))
+                        .append("keyPattern", keyPattern)
+                        .append("maxChunkSize", new BsonInt32(maxChunkSizeMB));
+        Optional.ofNullable(min).ifPresent(v -> splitVectorCommand.append(MIN_FIELD, v));
+        Optional.ofNullable(max).ifPresent(v -> splitVectorCommand.append(MAX_FIELD, v));
+        return mongoClient
+                .getDatabase(collectionId.catalog())
+                .runCommand(splitVectorCommand, BsonDocument.class);
+    }
+
+    public static BsonTimestamp getCurrentClusterTime(MongoClient mongoClient) {
+        BsonDocument isMasterResult = isMaster(mongoClient);
+        if (!isCommandSucceed(isMasterResult)) {
+            throw new MongodbConnectorException(
+                    ILLEGAL_ARGUMENT,
+                    "Failed to execute isMaster command: " + commandErrorMessage(isMasterResult));
+        }
+        return isMasterResult.getDocument("$clusterTime").getTimestamp("clusterTime");
+    }
+
+    public static @Nonnull BsonDocument isMaster(@Nonnull MongoClient mongoClient) {
+        BsonDocument isMasterCommand = new BsonDocument("isMaster", new BsonInt32(1));
+        return mongoClient.getDatabase("admin").runCommand(isMasterCommand, BsonDocument.class);
+    }
+
+    public static @Nonnull List<BsonDocument> readChunks(
+            MongoClient mongoClient, @Nonnull BsonDocument collectionMetadata) {
+        MongoCollection<BsonDocument> chunks =
+                getMongoCollection(mongoClient, TableId.parse("config.chunks"), BsonDocument.class);
+        List<BsonDocument> collectionChunks = new ArrayList<>();
+
+        Bson filter =
+                or(
+                        new BsonDocument(NS_FIELD, collectionMetadata.get(ID_FIELD)),
+                        // MongoDB 4.9.0 removed ns field of config.chunks collection, using
+                        // collection's uuid instead.
+                        // See: https://jira.mongodb.org/browse/SERVER-53105
+                        new BsonDocument(UUID_FIELD, collectionMetadata.get(UUID_FIELD)));
+
+        chunks.find(filter)
+                .projection(include(MIN_FIELD, MAX_FIELD, SHARD_FIELD))
+                .sort(ascending(MIN_FIELD))
+                .into(collectionChunks);
+        return collectionChunks;
+    }
+
+    public static BsonDocument readCollectionMetadata(
+            MongoClient mongoClient, @Nonnull TableId collectionId) {
+        MongoCollection<BsonDocument> collection =
+                getMongoCollection(
+                        mongoClient, TableId.parse("config.collections"), BsonDocument.class);
+
+        return collection
+                .find(eq(ID_FIELD, collectionId.identifier()))
+                .projection(include(ID_FIELD, UUID_FIELD, DROPPED_FIELD, SHARD_KEY_FIELD))
+                .first();
+    }
+
+    public static <T> @Nonnull MongoCollection<T> getMongoCollection(
+            MongoClient mongoClient, TableId collectionId, Class<T> documentClass) {
+        return getCollection(mongoClient, collectionId, documentClass);
+    }
+
+    @SuppressWarnings("unchecked")
+    public static <T> @Nonnull MongoCollection<T> getCollection(
+            MongoClient mongoClient, TableId collectionId, Class<T> documentClass) {
+        return mongoClient
+                .getDatabase(collectionId.catalog())
+                .getCollection(collectionId.table(), documentClass);
+    }
+
+    public static MongoClient createMongoClient(MongodbSourceConfig sourceConfig) {
+        return MongodbClientProvider.INSTANCE.createMongoClient(sourceConfig);
+    }
+
+    public static @Nonnull ConnectionString buildConnectionString(
+            String username, String password, String hosts, String connectionOptions) {
+        String uri =
+                isConnectionUri(hosts)
+                        ? buildFromUri(hosts, username, password, connectionOptions)
+                        : buildFromHosts(hosts, username, password, connectionOptions);
+        return new ConnectionString(uri);
+    }
+
+    private static String buildFromHosts(
+            String hosts, String username, String password, String connectionOptions) {
+        StringBuilder sb = new StringBuilder(MONGODB_SCHEME);
+        if (hasCredentials(username, password)) {
+            appendCredentials(sb, username, password);
+        }
+        sb.append(hosts);
+        if (StringUtils.isNotEmpty(connectionOptions)) {
+            sb.append("/?").append(connectionOptions);
+        }
+        return sb.toString();
+    }
+
+    private static String buildFromUri(
+            String uri, String username, String password, String connectionOptions) {
+        StringBuilder sb = new StringBuilder(uri);
+        if (hasCredentials(username, password) && !hasCredentialsInUri(uri)) {
+            sb.insert(getScheme(uri).length(), credentialString(username, password));
+        }
+        appendConnectionOptions(sb, connectionOptions);
+        return sb.toString();
+    }
+
+    public static boolean isConnectionUri(String hosts) {
+        return StringUtils.startsWith(hosts, MONGODB_SCHEME)
+                || StringUtils.startsWith(hosts, MONGODB_SRV_SCHEME);
+    }
+
+    public static String buildConnectionNamespacePrefix(String hosts) {
+        if (!isConnectionUri(hosts)) {
+            return MONGODB_SCHEME + hosts;
+        }
+
+        String scheme = getScheme(hosts);
+        String remaining = hosts.substring(scheme.length());
+        int boundary = findAuthorityBoundary(remaining);
+        String authority = boundary == -1 ? remaining : remaining.substring(0, boundary);
+        int credentialIndex = authority.lastIndexOf('@');
+        if (credentialIndex >= 0) {
+            authority = authority.substring(credentialIndex + 1);
+        }
+        return scheme + authority;
+    }
+
+    private static String getScheme(String uri) {
+        return StringUtils.startsWith(uri, MONGODB_SRV_SCHEME)
+                ? MONGODB_SRV_SCHEME
+                : MONGODB_SCHEME;
+    }
+
+    private static boolean hasCredentialsInUri(String uri) {
+        String scheme = getScheme(uri);
+        String remaining = uri.substring(scheme.length());
+        int boundary = findAuthorityBoundary(remaining);
+        String authority = boundary == -1 ? remaining : remaining.substring(0, boundary);
+        return authority.contains("@");
+    }
+
+    private static int findAuthorityBoundary(String uriWithoutScheme) {
+        int slashIndex = uriWithoutScheme.indexOf('/');
+        int queryIndex = uriWithoutScheme.indexOf('?');
+        if (slashIndex == -1) {
+            return queryIndex;
+        }
+        if (queryIndex == -1) {
+            return slashIndex;
+        }
+        return Math.min(slashIndex, queryIndex);
+    }
+
+    private static String credentialString(String username, String password) {
+        return encodeValue(username) + ":" + encodeValue(password) + "@";
+    }
+
+    private static void appendConnectionOptions(StringBuilder sb, String connectionOptions) {
+        if (StringUtils.isEmpty(connectionOptions)) {
+            return;
+        }
+        if (StringUtils.contains(sb, "?")) {
+            if (!StringUtils.endsWith(sb, "?") && !StringUtils.endsWith(sb, "&")) {
+                sb.append("&");
+            }
+        } else if (hasDatabasePath(sb)) {
+            sb.append("?");
+        } else {
+            sb.append(DEFAULT_DATABASE).append("?");
+        }
+        sb.append(connectionOptions);
+    }
+
+    private static boolean hasDatabasePath(StringBuilder sb) {
+        int schemeEnd = sb.indexOf("://") + 3;
+        return sb.indexOf("/", schemeEnd) >= 0;
+    }
+
+    private static boolean hasCredentials(String username, String password) {
+        return StringUtils.isNotEmpty(username) && StringUtils.isNotEmpty(password);
+    }
+
+    private static void appendCredentials(
+            @Nonnull StringBuilder sb, String username, String password) {
+        sb.append(credentialString(username, password));
+    }
+
+    public static String encodeValue(String value) {
+        try {
+            return URLEncoder.encode(value, StandardCharsets.UTF_8.name());
+        } catch (UnsupportedEncodingException e) {
+            throw new MongodbConnectorException(ILLEGAL_ARGUMENT, e.getMessage());
+        }
+    }
+
+    // Checks if given exception is caused by change stream cursor issues, including
+    // network connection failures, sharded cluster changes, or invalidate events.
+    // See: https://www.mongodb.com/docs/manual/changeStreams/ for more details.
+    public static boolean checkIfChangeStreamCursorExpires(final MongoCommandException e) {
+        return INVALID_CHANGE_STREAM_ERRORS.contains(e.getCode());
+    }
+
+    // This check is stricter than checkIfChangeStreamCursorExpires, which specifically
+    // checks if given exception is caused by an expired resume token.
+    public static boolean checkIfResumeTokenExpires(final MongoCommandException e) {
+        if (e.getCode() != CHANGE_STREAM_FATAL_ERROR) {
+            return false;
+        }
+        String errorMessage = e.getErrorMessage().toLowerCase(Locale.ROOT);
+        return (errorMessage.contains(RESUME_TOKEN))
+                && (errorMessage.contains(NOT_FOUND)
+                        || errorMessage.contains(DOES_NOT_EXIST)
+                        || errorMessage.contains(INVALID_RESUME_TOKEN)
+                        || errorMessage.contains(NO_LONGER_IN_THE_OPLOG));
+    }
+}

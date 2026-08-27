@@ -1,0 +1,875 @@
+Apache SeaTunnel
+Copyright 2021-2024 The Apache Software Foundation
+
+This product includes Bouncy Castle Provider (LTS Distribution), developed by
+The Legion of the Bouncy Castle Inc. and distributed under the Bouncy Castle
+License. The license text is provided in licenses/LICENSE-bcprov-lts8on.txt.
+
+This product includes software developed at
+The Apache Software Foundation (http://www.apache.org/).
+
+========================================================================
+
+Snappy Copyright NOTICE
+
+========================================================================
+Snappy Copyright Notices
+Copyright 2011 Dain Sundstrom dain@iq80.com
+Copyright 2011, Google Inc.opensource@google.com
+Snappy License
+Copyright 2011, Google Inc. All rights reserved.
+
+Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
+
+* Redistributions of source code must retain the above copyright
+notice, this list of conditions and the following disclaimer. * Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution. * Neither the name of Google Inc. nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+
+========================================================================
+
+Apache Yetus NOTICE
+
+========================================================================
+
+Apache Yetus
+Copyright 2008-2019 The Apache Software Foundation
+
+This product includes software developed at
+The Apache Software Foundation (https://www.apache.org/).
+
+---
+Additional licenses for the Apache Yetus Source/Website:
+---
+
+
+See LICENSE for terms.
+
+
+========================================================================
+
+Apache Avro NOTICE
+
+========================================================================
+Apache Avro
+Copyright 2010-2019 The Apache Software Foundation
+
+This product includes software developed at
+The Apache Software Foundation (https://www.apache.org/).
+
+NUnit license acknowledgement:
+
+| Portions Copyright © 2002-2012 Charlie Poole or Copyright © 2002-2004 James
+| W. Newkirk, Michael C. Two, Alexei A. Vorontsov or Copyright © 2000-2002
+| Philip A. Craig
+
+Based upon the representations of upstream licensors, it is understood that
+portions of the mapreduce API included in the Java implementation are licensed
+from various contributors under one or more contributor license agreements to
+Odiago, Inc. and were then contributed by Odiago to Apache Avro, which has now
+made them available under the Apache 2.0 license. The original file header text
+is:
+
+| Licensed to Odiago, Inc. under one or more contributor license
+| agreements.  See the NOTICE file distributed with this work for
+| additional information regarding copyright ownership.  Odiago, Inc.
+| licenses this file to you under the Apache License, Version 2.0
+| (the "License"); you may not use this file except in compliance
+| with the License.  You may obtain a copy of the License at
+|
+|     https://www.apache.org/licenses/LICENSE-2.0
+|
+| Unless required by applicable law or agreed to in writing, software
+| distributed under the License is distributed on an "AS IS" BASIS,
+| WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+| implied.  See the License for the specific language governing
+| permissions and limitations under the License.
+
+The Odiago NOTICE at the time of the contribution:
+
+| This product includes software developed by Odiago, Inc.
+| (https://www.wibidata.com).
+
+Apache Ivy includes the following in its NOTICE file:
+
+| Apache Ivy
+| Copyright 2007-2010 The Apache Software Foundation
+|
+| This product includes software developed by
+| The Apache Software Foundation (https://www.apache.org/).
+|
+| Portions of Ivy were originally developed by
+| Jayasoft SARL (http://www.jayasoft.fr/)
+| and are licensed to the Apache Software Foundation under the
+| "Software Grant License Agreement"
+|
+| SSH and SFTP support is provided by the JCraft JSch package,
+| which is open source software, available under
+| the terms of a BSD style license.
+| The original software and related information is available
+| at http://www.jcraft.com/jsch/.
+
+Apache Log4Net includes the following in its NOTICE file:
+
+| Apache log4net
+| Copyright 2004-2015 The Apache Software Foundation
+|
+| This product includes software developed at
+| The Apache Software Foundation (https://www.apache.org/).
+
+csharp reflect serializers were contributed by Pitney Bowes Inc.
+
+| Copyright 2019 Pitney Bowes Inc.
+| Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the License.
+| You may obtain a copy of the License at https://www.apache.org/licenses/LICENSE-2.0.
+| Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on an "AS IS" BASIS,
+| WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+| See the License for the specific language governing permissions and limitations under the License.
+
+========================================================================
+
+Chill NOTICE
+
+========================================================================
+Chill is a set of Scala extensions for Kryo.
+Copyright 2012 Twitter, Inc.
+
+Third Party Dependencies:
+
+Kryo 2.17
+BSD 3-Clause License
+http://code.google.com/p/kryo
+
+Commons-Codec 1.7
+Apache Public License 2.0
+http://hadoop.apache.org
+
+========================================================================
+
+Apache Commons Codec NOTICE
+
+========================================================================
+Apache Commons Codec
+Copyright 2002-2019 The Apache Software Foundation
+
+This product includes software developed at
+The Apache Software Foundation (https://www.apache.org/).
+
+src/test/org/apache/commons/codec/language/DoubleMetaphoneTest.java
+contains test data from http://aspell.net/test/orig/batch0.tab.
+Copyright (C) 2002 Kevin Atkinson (kevina@gnu.org)
+
+===============================================================================
+
+The content of package org.apache.commons.codec.language.bm has been translated
+from the original php source code available at http://stevemorse.org/phoneticinfo.htm
+with permission from the original authors.
+Original source copyright:
+Copyright (c) 2008 Alexander Beider & Stephen P. Morse.
+
+========================================================================
+
+Apache Commons Collections NOTICE
+
+========================================================================
+
+Apache Commons Collections
+Copyright 2001-2008 The Apache Software Foundation
+
+This product includes software developed by
+The Apache Software Foundation (http://www.apache.org/).
+========================================================================
+
+Apache Commons Compress NOTICE
+
+========================================================================
+Apache Commons Compress
+Copyright 2002-2020 The Apache Software Foundation
+
+This product includes software developed at
+The Apache Software Foundation (https://www.apache.org/).
+
+---
+
+The files in the package org.apache.commons.compress.archivers.sevenz
+were derived from the LZMA SDK, version 9.20 (C/ and CPP/7zip/),
+which has been placed in the public domain:
+
+"LZMA SDK is placed in the public domain." (http://www.7-zip.org/sdk.html)
+
+---
+
+The test file lbzip2_32767.bz2 has been copied from libbzip2's source
+repository:
+
+This program, "bzip2", the associated library "libbzip2", and all
+documentation, are copyright (C) 1996-2019 Julian R Seward.  All
+rights reserved.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions
+are met:
+
+1. Redistributions of source code must retain the above copyright
+   notice, this list of conditions and the following disclaimer.
+
+2. The origin of this software must not be misrepresented; you must 
+   not claim that you wrote the original software.  If you use this 
+   software in a product, an acknowledgment in the product 
+   documentation would be appreciated but is not required.
+
+3. Altered source versions must be plainly marked as such, and must
+   not be misrepresented as being the original software.
+
+4. The name of the author may not be used to endorse or promote 
+   products derived from this software without specific prior written 
+   permission.
+
+THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS
+OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ARE DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY
+DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+Julian Seward, jseward@acm.org
+
+========================================================================
+
+Apache Commons Lang NOTICE
+
+========================================================================
+Apache Commons Lang
+Copyright 2001-2011 The Apache Software Foundation
+
+This product includes software developed by
+The Apache Software Foundation (http://www.apache.org/).
+========================================================================
+
+Apache Commons IO NOTICE
+
+========================================================================
+Apache Commons IO
+Copyright 2002-2020 The Apache Software Foundation
+
+This product includes software developed at
+The Apache Software Foundation (https://www.apache.org/).
+
+========================================================================
+
+The inverse error function implementation in the Erf class is based on CUDA
+code developed by Mike Giles, Oxford-Man Institute of Quantitative Finance,
+and published in GPU Computing Gems, volume 2, 2010.
+===============================================================================
+
+The BracketFinder (package org.apache.commons.math3.optimization.univariate)
+and PowellOptimizer (package org.apache.commons.math3.optimization.general)
+classes are based on the Python code in module "optimize.py" (version 0.5)
+developed by Travis E. Oliphant for the SciPy library (http://www.scipy.org/)
+Copyright © 2003-2009 SciPy Developers.
+===============================================================================
+
+The LinearConstraint, LinearObjectiveFunction, LinearOptimizer,
+RelationShip, SimplexSolver and SimplexTableau classes in package
+org.apache.commons.math3.optimization.linear include software developed by
+Benjamin McCann (http://www.benmccann.com) and distributed with
+the following copyright: Copyright 2009 Google Inc.
+===============================================================================
+
+This product includes software developed by the
+University of Chicago, as Operator of Argonne National
+Laboratory.
+The LevenbergMarquardtOptimizer class in package
+org.apache.commons.math3.optimization.general includes software
+translated from the lmder, lmpar and qrsolv Fortran routines
+from the Minpack package
+Minpack Copyright Notice (1999) University of Chicago.  All rights reserved
+===============================================================================
+
+The GraggBulirschStoerIntegrator class in package
+org.apache.commons.math3.ode.nonstiff includes software translated
+from the odex Fortran routine developed by E. Hairer and G. Wanner.
+Original source copyright:
+Copyright (c) 2004, Ernst Hairer
+===============================================================================
+
+The EigenDecompositionImpl class in package
+org.apache.commons.math3.linear includes software translated
+from some LAPACK Fortran routines.  Original source copyright:
+Copyright (c) 1992-2008 The University of Tennessee.  All rights reserved.
+===============================================================================
+
+The MersenneTwister class in package org.apache.commons.math3.random
+includes software translated from the 2002-01-26 version of
+the Mersenne-Twister generator written in C by Makoto Matsumoto and Takuji
+Nishimura. Original source copyright:
+Copyright (C) 1997 - 2002, Makoto Matsumoto and Takuji Nishimura,
+All rights reserved
+===============================================================================
+
+The LocalizedFormatsTest class in the unit tests is an adapted version of
+the OrekitMessagesTest class from the orekit library distributed under the
+terms of the Apache 2 licence. Original source copyright:
+Copyright 2010 CS Systèmes d'Information
+===============================================================================
+
+The HermiteInterpolator class and its corresponding test have been imported from
+the orekit library distributed under the terms of the Apache 2 licence. Original
+source copyright:
+Copyright 2010-2012 CS Systèmes d'Information
+===============================================================================
+
+The creation of the package "o.a.c.m.analysis.integration.gauss" was inspired
+by an original code donated by Sébastien Brisard.
+===============================================================================
+
+The direction numbers in the resource file for Sobol generation was created
+by Frances Y. Kuo and Stephen Joe. Original source copyright:
+Copyright (c) 2008, Frances Y. Kuo and Stephen Joe
+All rights reserved.
+===============================================================================
+
+
+The complete text of licenses and disclaimers associated with the the original
+sources enumerated above at the time of code translation are in the LICENSE.txt
+file.
+========================================================================
+
+Apache Commons Pool NOTICE
+
+========================================================================
+Apache Commons Pool
+Copyright 2001-2012 The Apache Software Foundation
+
+This product includes software developed by
+The Apache Software Foundation (http://www.apache.org/).
+========================================================================
+
+Apache Flink NOTICE
+
+========================================================================
+Apache Flink
+Copyright 2014-2021 The Apache Software Foundation
+
+This product includes software developed at
+The Apache Software Foundation (http://www.apache.org/).
+
+This project bundles the following dependencies under the MIT license.
+See bundled license files for details.
+
+- AnchorJS v3.1.0 (https://github.com/bryanbraun/anchorjs) Copyright (c) 2016 Bryan Braun
+    -> in "docs/static/js/anchor.min.js"
+- font-awesome:4.6.3 (css) (https://fontawesome.com/) - Created by Dave Gandy
+    -> css in "docs/static/font-awesome/css"
+- chroma (css generated by Hugo) (https://github.com/alecthomas/chroma) Copyright (C) 2017 Alec Thomas
+    -> in "docs/assets/github.css"
+
+This project bundles the following dependencies under the BSD license.
+See bundled license files for details.
+
+- cloudpickle:1.2.2
+- net.sf.py4j:py4j:0.10.8.1
+
+This project bundles the following dependencies under SIL OFL 1.1 license (https://opensource.org/licenses/OFL-1.1).
+See bundled license files for details.
+
+- font-awesome:4.6.3 (Font) (https://fontawesome.com/) - Created by Dave Gandy
+    -> fonts in "docs/static/font-awesome/fonts"
+
+The Apache Flink project contains or reuses code that is licensed under the ISC license from the following projects.
+
+- simplejmx (http://256stuff.com/sources/simplejmx/) Copyright (c) - Gray Watson
+
+Permission to use, copy, modify, and/or distribute this software for any purpose with or without fee is hereby
+granted, provided that this permission notice appear in all copies.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES WITH REGARD TO THIS SOFTWARE INCLUDING
+ALL IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY SPECIAL,
+DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS,
+WHETHER IN AN ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE
+USE OR PERFORMANCE OF THIS SOFTWARE.
+
+The Apache Flink project contains or reuses code that is licensed under the Apache 2.0 license from the following projects:
+- Google Cloud Client Library for Java (https://github.com/googleapis/google-cloud-java) Copyright 2017 Google LLC
+
+  See: flink-end-to-end-tests/flink-connector-gcp-pubsub-emulator-tests/src/test/java/org/apache/flink/streaming/connectors/gcp/pubsub/emulator/PubsubHelper.java
+
+- aws-sdk-java-s3 (https://github.com/aws/aws-sdk-java)
+
+  See: flink/flink-filesystems/flink-s3-fs-base/src/main/java/com/amazonaws/services/s3/model/transform/XmlResponsesSaxParser.java
+
+AWS SDK for Java
+Copyright 2010-2014 Amazon.com, Inc. or its affiliates. All Rights Reserved.
+
+This product includes software developed by
+Amazon Technologies, Inc (http://www.amazon.com/).
+
+**********************
+THIRD PARTY COMPONENTS
+**********************
+This software includes third party software subject to the following copyrights:
+- XML parsing and utility functions from JetS3t - Copyright 2006-2009 James Murty.
+- PKCS#1 PEM encoded private key parsing and utility functions from oauth.googlecode.com - Copyright 1998-2010 AOL Inc.
+========================================================================
+
+Hive Storage API NOTICE
+
+========================================================================
+
+Hive Storage API
+Copyright 2018 The Apache Software Foundation
+
+This product includes software developed at
+The Apache Software Foundation (http://www.apache.org/).
+========================================================================
+
+Jackson JSON processor NOTICE
+
+========================================================================
+# Jackson JSON processor
+
+Jackson is a high-performance, Free/Open Source JSON processing library.
+It was originally written by Tatu Saloranta (tatu.saloranta@iki.fi), and has
+been in development since 2007.
+It is currently developed by a community of developers.
+
+## Licensing
+
+Jackson 2.x core and extension components are licensed under Apache License 2.0
+To find the details that apply to this artifact see the accompanying LICENSE file.
+
+## Credits
+
+A list of contributors may be found from CREDITS(-2.x) file, which is included
+in some artifacts (usually source distributions); but is always available
+from the source code management (SCM) system project uses.
+
+========================================================================
+
+Apache log4j NOTICE
+
+========================================================================
+Apache Log4j
+Copyright 1999-2021 Apache Software Foundation
+
+This product includes software developed at
+The Apache Software Foundation (http://www.apache.org/).
+
+ResolverUtil.java
+Copyright 2005-2006 Tim Fennell
+
+Dumbster SMTP test server
+Copyright 2004 Jason Paul Kitchen
+
+TypeUtil.java
+Copyright 2002-2012 Ramnivas Laddad, Juergen Hoeller, Chris Beams
+
+picocli (http://picocli.info)
+Copyright 2017 Remko Popma
+
+TimeoutBlockingWaitStrategy.java and parts of Util.java
+Copyright 2011 LMAX Ltd.
+========================================================================
+
+Apache ORC NOTICE
+
+========================================================================
+Apache ORC
+Copyright 2013-2015 The Apache Software Foundation
+
+This product includes software developed by The Apache Software
+Foundation (http://www.apache.org/).
+
+This product includes software developed by Hewlett-Packard:
+(c) Copyright [2014-2015] Hewlett-Packard Development Company, L.P
+========================================================================
+
+Apache Parquet Format NOTICE
+
+========================================================================
+
+Apache Parquet Format
+Copyright 2014 The Apache Software Foundation
+
+This product includes software developed at
+The Apache Software Foundation (http://www.apache.org/).
+========================================================================
+
+Apache Parquet MR NOTICE
+
+========================================================================
+
+Apache Parquet MR
+Copyright 2014 The Apache Software Foundation
+
+This product includes software developed at
+The Apache Software Foundation (http://www.apache.org/).
+
+--------------------------------------------------------------------------------
+
+This product includes parquet-tools, initially developed at ARRIS, Inc. with
+the following copyright notice:
+
+  Copyright 2013 ARRIS, Inc.
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+--------------------------------------------------------------------------------
+
+This product includes parquet-protobuf, initially developed by Lukas Nalezenc
+with the following copyright notice:
+
+  Copyright 2013 Lukas Nalezenec.
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+  http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+
+--------------------------------------------------------------------------------
+
+This product includes code from Apache Avro, which includes the following in
+its NOTICE file:
+
+  Apache Avro
+  Copyright 2010-2015 The Apache Software Foundation
+
+  This product includes software developed at
+  The Apache Software Foundation (http://www.apache.org/).
+
+--------------------------------------------------------------------------------
+
+This project includes code from Kite, developed at Cloudera, Inc. with
+the following copyright notice:
+
+| Copyright 2013 Cloudera Inc.
+|
+| Licensed under the Apache License, Version 2.0 (the "License");
+| you may not use this file except in compliance with the License.
+| You may obtain a copy of the License at
+|
+|   http://www.apache.org/licenses/LICENSE-2.0
+|
+| Unless required by applicable law or agreed to in writing, software
+| distributed under the License is distributed on an "AS IS" BASIS,
+| WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+| See the License for the specific language governing permissions and
+| limitations under the License.
+
+--------------------------------------------------------------------------------
+
+This project includes code from Netflix, Inc. with the following copyright
+notice:
+
+| Copyright 2016 Netflix, Inc.
+|
+| Licensed under the Apache License, Version 2.0 (the "License");
+| you may not use this file except in compliance with the License.
+| You may obtain a copy of the License at
+|
+|   http://www.apache.org/licenses/LICENSE-2.0
+|
+| Unless required by applicable law or agreed to in writing, software
+| distributed under the License is distributed on an "AS IS" BASIS,
+| WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+| See the License for the specific language governing permissions and
+| limitations under the License.
+========================================================================
+
+Snappy Java NOTICE
+
+========================================================================
+This product includes software developed by Google
+ Snappy: http://code.google.com/p/snappy/ (New BSD License)
+
+This product includes software developed by Apache
+ PureJavaCrc32C from apache-hadoop-common http://hadoop.apache.org/
+ (Apache 2.0 license)
+
+This library containd statically linked libstdc++. This inclusion is allowed by 
+"GCC RUntime Library Exception" 
+http://gcc.gnu.org/onlinedocs/libstdc++/manual/license.html
+
+== Contributors ==
+  * Tatu Saloranta  
+    * Providing benchmark suite
+  * Alec Wysoker
+    * Performance and memory usage improvement
+
+========================================================================
+
+Apache Maven Wrapper NOTICE
+
+========================================================================
+This product contains code form the Apache Maven Wrapper Project:
+
+Apache Maven Wrapper
+Copyright 2013-2022 The Apache Software Foundation
+
+This product includes software developed at
+The Apache Software Foundation (http://www.apache.org/).
+
+The original idea and initial implementation of the maven-wrapper module is derived 
+from the Gradle Wrapper which was written originally by Hans Dockter and Adam Murdoch.
+Copyright 2007 the original author or authors.
+
+========================================================================
+
+ProtoStuff NOTICE
+
+==============================================================
+ protostuff
+ Copyright 2009 David Yu dyuproject@gmail.com
+==============================================================
+
+protobuf is copyright Google inc unless otherwise noted. 
+It is licensed under the BSD license.
+
+jackson-core-asl is copyright FasterXml unless otherwise noted. 
+It is licensed under the apache 2.0 license.
+
+antlr is copyright Terence Parr unless otherwise noted. 
+It is licensed under the BSD license.
+
+stringtemplate is copyright Terence Parr unless otherwise noted.
+It is licensed under the BSD license.
+
+velocity is licensed under the apache 2.0 license.
+
+B64Code.java is copyright Mort Bay Consulting Pty Ltd unless otherwise noted. 
+It is licensed under the apache 2.0 license.
+
+jarjar is copyright Google inc unless otherwise noted. 
+It is licensed under the apache 2.0 license.
+
+guava is copyright Google inc unless otherwise noted.
+It is licensed under the apache 2.0 license.
+=========================================================================
+
+hazelcast NOTICE
+
+=========================================================================
+The packages:
+
+com.hazelcast.internal.util.collection
+com.hazelcast.internal.util.concurrent
+
+and the classes:
+
+com.hazelcast.internal.util.QuickMath
+com.hazelcast.client.impl.protocol.util.UnsafeBuffer
+com.hazelcast.client.impl.protocol.util.BufferBuilder
+
+contain code originating from the Agrona project
+(https://github.com/real-logic/Agrona).
+
+The class com.hazelcast.internal.util.HashUtil contains code originating
+from the Koloboke project (https://github.com/OpenHFT/Koloboke).
+
+The class classloading.ThreadLocalLeakTestUtils contains code originating
+from the Tomcat project (https://github.com/apache/tomcat).
+
+com.hazelcast.internal.cluster.fd.PhiAccrualFailureDetector contains code originating
+from the Akka project (https://github.com/akka/akka/).
+
+The package com.hazelcast.internal.json contains code originating
+from minimal-json project (https://github.com/ralfstx/minimal-json).
+
+The class com.hazelcast.instance.impl.MobyNames contains code originating
+from The Moby Project (https://github.com/moby/moby).
+
+The class com.hazelcast.internal.util.graph.BronKerboschCliqueFinder contains code
+originating from The JGraphT Project (https://github.com/jgrapht/jgrapht).
+
+The packages:
+com.hazelcast.sql
+com.hazelcast.jet.sql
+
+contain code originating from the Apache Calcite (https://github.com/apache/calcite)
+
+The class com.hazelcast.jet.kafka.impl.ResumeTransactionUtil contains
+code derived from the Apache Flink project.
+
+The class com.hazelcast.internal.util.ConcurrentReferenceHashMap contains code written by Doug Lea
+and updated within the WildFly project (https://github.com/wildfly/wildfly).
+
+The class org.apache.calcite.linq4j.tree.ConstantExpression contains code
+originating from the Calcite project (https://github.com/apache/calcite).
+
+=========================================================================
+
+Apache Calcite NOTICE
+
+=========================================================================
+
+Apache Calcite
+Copyright 2012-2024 The Apache Software Foundation
+
+This product includes software developed at
+The Apache Software Foundation (http://www.apache.org/).
+
+This product is based on source code originally developed
+by DynamoBI Corporation, LucidEra Inc., SQLstream Inc. and others
+under the auspices of the Eigenbase Foundation
+and released as the LucidDB project.
+
+=========================================================================
+
+Apache Hadoop NOTICE
+
+=========================================================================
+
+Apache Hadoop
+Copyright 2006 and onwards The Apache Software Foundation.
+
+This product includes software developed at
+The Apache Software Foundation (http://www.apache.org/).
+
+Export Control Notice
+---------------------
+
+This distribution includes cryptographic software.  The country in
+which you currently reside may have restrictions on the import,
+possession, use, and/or re-export to another country, of
+encryption software.  BEFORE using any encryption software, please
+check your country's laws, regulations and policies concerning the
+import, possession, or use, and re-export of encryption software, to
+see if this is permitted.  See <http://www.wassenaar.org/> for more
+information.
+
+The U.S. Government Department of Commerce, Bureau of Industry and
+Security (BIS), has classified this software as Export Commodity
+Control Number (ECCN) 5D002.C.1, which includes information security
+software using or performing cryptographic functions with asymmetric
+algorithms.  The form and manner of this Apache Software Foundation
+distribution makes it eligible for export under the License Exception
+ENC Technology Software Unrestricted (TSU) exception (see the BIS
+Export Administration Regulations, Section 740.13) for both object
+code and source code.
+
+The following provides more details on the included cryptographic software:
+
+This software uses the SSL libraries from the Jetty project written
+by mortbay.org.
+Hadoop Yarn Server Web Proxy uses the BouncyCastle Java
+cryptography APIs written by the Legion of the Bouncy Castle Inc.
+
+=========================================================================
+
+Apache Spark NOTICE
+
+========================================================================
+
+Apache Spark
+Copyright 2014 and onwards The Apache Software Foundation.
+
+This product includes software developed at
+The Apache Software Foundation (http://www.apache.org/).
+
+
+Export Control Notice
+---------------------
+
+This distribution includes cryptographic software. The country in which you currently reside may have
+restrictions on the import, possession, use, and/or re-export to another country, of encryption software.
+BEFORE using any encryption software, please check your country's laws, regulations and policies concerning
+the import, possession, or use, and re-export of encryption software, to see if this is permitted. See
+<http://www.wassenaar.org/> for more information.
+
+The U.S. Government Department of Commerce, Bureau of Industry and Security (BIS), has classified this
+software as Export Commodity Control Number (ECCN) 5D002.C.1, which includes information security software
+using or performing cryptographic functions with asymmetric algorithms. The form and manner of this Apache
+Software Foundation distribution makes it eligible for export under the License Exception ENC Technology
+Software Unrestricted (TSU) exception (see the BIS Export Administration Regulations, Section 740.13) for
+both object code and source code.
+
+The following provides more details on the included cryptographic software:
+
+This software uses Apache Commons Crypto (https://commons.apache.org/proper/commons-crypto/) to
+support authentication, and encryption and decryption of data sent across the network between
+services.
+
+
+Metrics
+Copyright 2010-2013 Coda Hale and Yammer, Inc.
+
+This product includes software developed by Coda Hale and Yammer, Inc.
+
+This product includes code derived from the JSR-166 project (ThreadLocalRandom, Striped64,
+LongAdder), which was released with the following comments:
+
+    Written by Doug Lea with assistance from members of JCP JSR-166
+    Expert Group and released to the public domain, as explained at
+    http://creativecommons.org/publicdomain/zero/1.0/
+
+=========================================================================
+
+Prometheus NOTICE
+
+=========================================================================
+Prometheus instrumentation library for JVM applications
+Copyright 2012-2015 The Prometheus Authors
+
+This product includes software developed at
+Boxever Ltd. (http://www.boxever.com/).
+
+This product includes software developed at
+SoundCloud Ltd. (http://soundcloud.com/).
+
+This product includes software developed as part of the
+Ocelli project by Netflix Inc. (https://github.com/Netflix/ocelli/).
+
+=========================================================================
+
+Apache HugeGraph NOTICE
+
+=========================================================================
+
+Apache HugeGraph(incubating)
+Copyright 2022-2024 The Apache Software Foundation
+
+This product includes software developed at
+The Apache Software Foundation (http://www.apache.org/).
+
+The initial codebase was donated to the ASF by HugeGraph Authors, copyright 2017-2021.
+
+=========================================================================
+
+ +===============================================================================
+ + Third-party dependencies for Aerospike connector:
+ +===============================================================================
+ + com.aerospike:aerospike-client (https://github.com/aerospike/aerospike-client-java)
+ + Copyright 2012-2023 Aerospike, Inc.
+ + Licensed under the Apache License, Version 2.0
+
+=========================================================================
+
+ +===============================================================================
+ + Third-party dependencies for Couchbase connector:
+ +===============================================================================
+ + com.couchbase.client:java-client (https://github.com/couchbase/couchbase-jvm-clients)
+ + Copyright 2019-2024 Couchbase, Inc.
+ + Licensed under the Apache License, Version 2.0

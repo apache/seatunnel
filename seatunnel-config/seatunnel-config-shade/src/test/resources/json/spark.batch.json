@@ -1,0 +1,20 @@
+{
+  "env" : {
+    "spark.app.name" : "SeaTunnel",
+    "spark.executor.cores" : 1,
+    "spark.executor.instances" : 2,
+    "spark.executor.memory" : "1g"
+  },
+  "sink" : [
+    {
+      "plugin_name" : "Console"
+    }
+  ],
+  "source" : [
+    {
+      "plugin_name" : "Fake",
+      "plugin_output" : "my_dataset"
+    }
+  ],
+  "transform" : []
+}

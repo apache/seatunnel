@@ -1,0 +1,15 @@
+{
+  "name": "John Doe",
+  "address": [
+    {
+      "street": "123 Main St",
+      "city": "New York",
+      "zipcode": "10001"
+    },
+    {
+      "street": "456 Elm St",
+      "city": "Los Angeles",
+      "zipcode": "90001"
+    }
+  ]
+}

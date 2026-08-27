@@ -1,0 +1,926 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.seatunnel.connectors.seatunnel.clickhouse;
+
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.type.ArrayType;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.DecimalType;
+import org.apache.seatunnel.api.table.type.LocalTimeType;
+import org.apache.seatunnel.api.table.type.MapType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.clickhouse.catalog.ClickhouseCatalog;
+import org.apache.seatunnel.e2e.common.TestResource;
+import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.TestContainer;
+import org.apache.seatunnel.e2e.common.util.ContainerUtil;
+
+import org.awaitility.Awaitility;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.TestTemplate;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.testcontainers.containers.ClickHouseContainer;
+import org.testcontainers.containers.Container;
+import org.testcontainers.containers.output.Slf4jLogConsumer;
+import org.testcontainers.lifecycle.Startables;
+import org.testcontainers.shaded.org.apache.commons.io.IOUtils;
+import org.testcontainers.shaded.org.apache.commons.lang3.tuple.Pair;
+import org.testcontainers.utility.DockerLoggerFactory;
+
+import com.typesafe.config.Config;
+import com.typesafe.config.ConfigFactory;
+
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
+import java.sql.Array;
+import java.sql.Connection;
+import java.sql.Date;
+import java.sql.Driver;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.sql.Timestamp;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Properties;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+public class ClickhouseIT extends TestSuiteBase implements TestResource {
+    private static final Logger LOG = LoggerFactory.getLogger(ClickhouseIT.class);
+    private static final String CLICKHOUSE_DOCKER_IMAGE = "clickhouse/clickhouse-server:23.3.13.6";
+    private static final String HOST = "clickhouse";
+    private static final String DRIVER_CLASS = "com.clickhouse.jdbc.ClickHouseDriver";
+    private static final String INIT_CLICKHOUSE_PATH = "/init/clickhouse_init.conf";
+    private static final String CLICKHOUSE_JOB_CONFIG = "/clickhouse_to_clickhouse.conf";
+    private static final String DATABASE = "default";
+    private static final String SOURCE_TABLE = "source_table";
+    private static final String SOURCE_MERGE_TREE_TABLE = "source_merge_tree_table";
+    private static final String SINK_TABLE = "sink_table";
+    private static final List<String> MULTI_SINK_TABLES =
+            Arrays.asList("multi_sink_table1", "multi_sink_table2");
+    private static final List<String> MULTI_SOURCE_SINK_TABLES =
+            Arrays.asList(
+                    "source_table_multi_table_sink", "source_merge_tree_table_multi_table_sink");
+    private static final String INSERT_SQL = "insert_sql";
+    private static final String INSERT_MERGE_TREE_SQL = "insert_merge_tree_sql";
+    private static final String COMPARE_SQL = "compare_sql";
+    private static final Pair<SeaTunnelRowType, List<SeaTunnelRow>> TEST_DATASET =
+            generateTestDataSet();
+    private static final Config CONFIG = getInitClickhouseConfig();
+    private ClickHouseContainer container;
+    private Connection connection;
+
+    private static final String FIX_PARTITION_DATE = "2025-06-17";
+
+    @TestTemplate
+    public void testClickhouse(TestContainer container) throws Exception {
+        Container.ExecResult execResult = container.executeJob(CLICKHOUSE_JOB_CONFIG);
+        Assertions.assertEquals(0, execResult.getExitCode());
+        assertHasData(SINK_TABLE);
+        compareResult(SOURCE_TABLE, SINK_TABLE);
+        clearTable(SINK_TABLE);
+    }
+
+    @TestTemplate
+    public void testSourceParallelism(TestContainer container) throws Exception {
+        Container.ExecResult execResult = container.executeJob("/clickhouse_to_console.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
+
+    @TestTemplate
+    public void testClickhouseWithCreateSchemaWhenComment(TestContainer container)
+            throws Exception {
+        Container.ExecResult execResult =
+                container.executeJob("/clickhouse_with_create_schema_when_comment.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+    }
+
+    @TestTemplate
+    public void testClickhouseAutoCreateTableWithSpecialCharactersInComments(
+            TestContainer testContainer) throws Exception {
+        String testTableName = "test_special_chars_comments_table";
+
+        String createSourceTableSql =
+                String.format(
+                        "CREATE TABLE IF NOT EXISTS %s.%s ("
+                                + "id UInt64, "
+                                + "col_with_dollar_comment String COMMENT 'Comment with $1 and $2 special chars', "
+                                + "col_with_backslash_comment String COMMENT 'Comment with \\\\ backslash', "
+                                + "col_with_mixed_chars String COMMENT '~`!@#$%%^&*()_+-*/-=[]{}', "
+                                + "col_with_chinese_chars String COMMENT '这是特殊符号测试英文键盘：~`!@#$%%^&*()_+-*/-=[]{}'"
+                                + ") ENGINE = MergeTree() ORDER BY id",
+                        DATABASE, testTableName);
+
+        String sinkTableName = testTableName + "_sink";
+
+        try (Statement statement = connection.createStatement()) {
+            statement.execute(createSourceTableSql);
+
+            String insertSql =
+                    String.format(
+                            "INSERT INTO %s.%s VALUES "
+                                    + "(1, 'value1', 'value2', 'value3', 'value4')",
+                            DATABASE, testTableName);
+            statement.execute(insertSql);
+        }
+
+        Container.ExecResult execResult =
+                testContainer.executeJob("/clickhouse_auto_create_with_special_comments.conf");
+
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
+
+        Assertions.assertEquals(1, countData(sinkTableName));
+
+        dropTable(DATABASE + "." + testTableName);
+        dropTable(DATABASE + "." + sinkTableName);
+    }
+
+    @TestTemplate
+    public void clickhouseWithCreateSchemaWhenNotExist(TestContainer container) throws Exception {
+        String tableName = "default.sink_table_for_schema";
+        Container.ExecResult execResult =
+                container.executeJob("/clickhouse_with_create_schema_when_not_exist.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(100, countData(tableName));
+        execResult = container.executeJob("/clickhouse_with_create_schema_when_not_exist.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(200, countData(tableName));
+        dropTable(tableName);
+    }
+
+    @TestTemplate
+    public void clickhouseWithRecreateSchemaAndAppendData(TestContainer container)
+            throws Exception {
+        String tableName = "default.sink_table_for_schema";
+        Container.ExecResult execResult =
+                container.executeJob("/clickhouse_with_recreate_schema_and_append_data.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(100, countData(tableName));
+        execResult = container.executeJob("/clickhouse_with_recreate_schema_and_append_data.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(100, countData(tableName));
+        dropTable(tableName);
+    }
+
+    @TestTemplate
+    public void clickhouseWithErrorWhenSchemaNotExist(TestContainer container) throws Exception {
+        Container.ExecResult execResult =
+                container.executeJob("/clickhouse_with_error_when_schema_not_exist.conf");
+        Assertions.assertEquals(1, execResult.getExitCode());
+        Assertions.assertTrue(
+                execResult
+                        .getStderr()
+                        .contains(
+                                "ErrorCode:[API-11], ErrorDescription:[The sink table not exist]"));
+    }
+
+    @TestTemplate
+    public void clickhouseWithCreateSchemaWhenNotExistAndDropData(TestContainer container)
+            throws Exception {
+        String tableName = "default.sink_table_for_schema";
+        Container.ExecResult execResult =
+                container.executeJob(
+                        "/clickhouse_with_create_schema_when_not_exist_and_drop_data.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(100, countData(tableName));
+        execResult =
+                container.executeJob(
+                        "/clickhouse_with_create_schema_when_not_exist_and_drop_data.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(100, countData(tableName));
+        dropTable(tableName);
+    }
+
+    @TestTemplate
+    public void clickhouseWithErrorWhenDataExists(TestContainer container) throws Exception {
+        String tableName = "default.sink_table_for_schema";
+        Container.ExecResult execResult =
+                container.executeJob("/clickhouse_with_error_when_data_exists.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(100, countData(tableName));
+        execResult = container.executeJob("/clickhouse_with_error_when_data_exists.conf");
+        Assertions.assertEquals(1, execResult.getExitCode());
+        Assertions.assertTrue(
+                execResult.getStderr().contains("The target data source already has data"));
+        dropTable(tableName);
+    }
+
+    @TestTemplate
+    public void clickhouseRecreateSchemaAndCustom(TestContainer container) throws Exception {
+        String tableName = "default.sink_table_for_schema";
+        Container.ExecResult execResult =
+                container.executeJob("/clickhouse_with_recreate_schema_and_custom.conf");
+        Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStdout());
+        Assertions.assertEquals(101, countData(tableName));
+        dropTable(tableName);
+    }
+
+    @TestTemplate
+    public void testClickHouseWithMultiTableSink(TestContainer container) throws Exception {
+        for (String tableName : MULTI_SINK_TABLES) {
+            Assertions.assertEquals(0, countData(tableName));
+        }
+        Container.ExecResult execResult =
+                container.executeJob("/fake_to_clickhouse_with_multi_table.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        for (String tableName : MULTI_SINK_TABLES) {
+            Assertions.assertEquals(100, countData(tableName));
+            clearTable(tableName);
+        }
+    }
+
+    @TestTemplate
+    public void testClickhouseWithParallelismRead(TestContainer testContainer)
+            throws IOException, InterruptedException, SQLException {
+        Container.ExecResult execResult =
+                testContainer.executeJob("/clickhouse_with_parallelism_read.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(100, countData(SOURCE_MERGE_TREE_TABLE));
+        Assertions.assertEquals(100, countData(SINK_TABLE));
+        compareResult(SOURCE_MERGE_TREE_TABLE, SINK_TABLE);
+        clearTable(SINK_TABLE);
+    }
+
+    @TestTemplate
+    public void testClickhouseWithParallelismAddFilterQuery(TestContainer testContainer)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                testContainer.executeJob("/clickhouse_with_parallelism_add_filter_query.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(100, countData(SOURCE_MERGE_TREE_TABLE));
+        Assertions.assertEquals(47, countData(SINK_TABLE));
+        clearTable(SINK_TABLE);
+    }
+
+    @TestTemplate
+    public void testClickhouseWithParallelismAddPartitionList(TestContainer testContainer)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                testContainer.executeJob("/clickhouse_with_parallelism_add_partition_list.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(100, countData(SOURCE_MERGE_TREE_TABLE));
+        Assertions.assertEquals(30, countData(SINK_TABLE));
+        clearTable(SINK_TABLE);
+    }
+
+    @TestTemplate
+    public void testClickhouseWitJoinComplexSql(TestContainer testContainer)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                testContainer.executeJob("/clickhouse_with_join_complex_sql.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(100, countData(SINK_TABLE));
+        clearTable(SINK_TABLE);
+    }
+
+    @TestTemplate
+    public void testClickhouseWithSqlAndFilterQuery(TestContainer testContainer)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                testContainer.executeJob("/clickhouse_with_sql_and_filter_query.conf");
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(100, countData(SOURCE_MERGE_TREE_TABLE));
+        // filter_query = "id < 47" should filter data to 47 rows (id from 0 to 46)
+        Assertions.assertEquals(47, countData(SINK_TABLE));
+        clearTable(SINK_TABLE);
+    }
+
+    @TestTemplate
+    public void testClickhouseWithMultiTableSource(TestContainer testContainer)
+            throws IOException, InterruptedException {
+        Container.ExecResult execResult =
+                testContainer.executeJob("/clickhouse_with_multi_table_source.conf");
+
+        Assertions.assertEquals(0, execResult.getExitCode());
+        Assertions.assertEquals(100, countData(MULTI_SOURCE_SINK_TABLES.get(0)));
+        Assertions.assertEquals(47, countData(MULTI_SOURCE_SINK_TABLES.get(1)));
+        MULTI_SOURCE_SINK_TABLES.forEach(this::clearTable);
+    }
+
+    @TestTemplate
+    public void testClickhouseCatalogGetTableColumnsCorrectly(TestContainer testContainer)
+            throws Exception {
+        String testTableName = "test_column_names_table";
+        String createTableSql =
+                String.format(
+                        "CREATE TABLE IF NOT EXISTS %s.%s ("
+                                + "user_id UInt64, "
+                                + "user_name String, "
+                                + "user_age UInt32, "
+                                + "created_at DateTime, "
+                                + "balance Decimal(10, 2)"
+                                + ") ENGINE = MergeTree() ORDER BY user_id",
+                        DATABASE, testTableName);
+
+        try (Statement statement = connection.createStatement()) {
+            statement.execute(createTableSql);
+
+            String insertSql =
+                    String.format(
+                            "INSERT INTO %s.%s VALUES (1, 'Alice', 25, '2024-01-01 10:00:00', 100.50)",
+                            DATABASE, testTableName);
+            statement.execute(insertSql);
+        }
+
+        Map<String, Object> catalogConfig = new HashMap<>();
+        catalogConfig.put("host", container.getHost() + ":" + container.getMappedPort(8123));
+        catalogConfig.put("database", DATABASE);
+        catalogConfig.put("username", container.getUsername());
+        catalogConfig.put("password", container.getPassword());
+
+        ClickhouseCatalog catalog =
+                new ClickhouseCatalog(ReadonlyConfig.fromMap(catalogConfig), "test_catalog");
+
+        try {
+            catalog.open();
+
+            TablePath tablePath = TablePath.of(DATABASE, testTableName);
+            CatalogTable catalogTable = catalog.getTable(tablePath);
+
+            List<String> actualColumnNames = new ArrayList<>();
+            for (Column column : catalogTable.getTableSchema().getColumns()) {
+                actualColumnNames.add(column.getName());
+            }
+
+            List<String> expectedColumnNames =
+                    Arrays.asList("user_id", "user_name", "user_age", "created_at", "balance");
+
+            Assertions.assertEquals(
+                    expectedColumnNames.size(),
+                    actualColumnNames.size(),
+                    "Column count should match");
+
+            for (int i = 0; i < expectedColumnNames.size(); i++) {
+                Assertions.assertEquals(
+                        expectedColumnNames.get(i),
+                        actualColumnNames.get(i),
+                        String.format(
+                                "Column %d name should be '%s' but got '%s'",
+                                i, expectedColumnNames.get(i), actualColumnNames.get(i)));
+            }
+
+            // Verify we don't have DESC result column names like 'name', 'type', 'default_type'
+            Assertions.assertFalse(
+                    actualColumnNames.contains("name"),
+                    "Should not contain DESC result column 'name'");
+            Assertions.assertFalse(
+                    actualColumnNames.contains("type"),
+                    "Should not contain DESC result column 'type'");
+            Assertions.assertFalse(
+                    actualColumnNames.contains("default_type"),
+                    "Should not contain DESC result column 'default_type'");
+
+        } finally {
+            catalog.close();
+            dropTable(DATABASE + "." + testTableName);
+        }
+    }
+
+    @TestTemplate
+    public void testClickhouseCatalogSourceTypeNotNull(TestContainer testContainer)
+            throws Exception {
+        String testTableName = "test_source_type_table";
+        String createTableSql =
+                String.format(
+                        "CREATE TABLE IF NOT EXISTS %s.%s ("
+                                + "id UInt64, "
+                                + "name String, "
+                                + "age UInt32, "
+                                + "score Int32, "
+                                + "balance Decimal(18, 4), "
+                                + "created_at DateTime, "
+                                + "is_active UInt8, "
+                                + "description Nullable(String), "
+                                + "tags Array(String)"
+                                + ") ENGINE = MergeTree() ORDER BY id",
+                        DATABASE, testTableName);
+
+        try (Statement statement = connection.createStatement()) {
+            statement.execute(createTableSql);
+
+            String insertSql =
+                    String.format(
+                            "INSERT INTO %s.%s VALUES "
+                                    + "(1, 'Alice', 25, 95, 1000.5000, '2024-01-01 10:00:00', 1, 'Test user', ['tag1', 'tag2'])",
+                            DATABASE, testTableName);
+            statement.execute(insertSql);
+        }
+
+        Map<String, Object> catalogConfig = new HashMap<>();
+        catalogConfig.put("host", container.getHost() + ":" + container.getMappedPort(8123));
+        catalogConfig.put("database", DATABASE);
+        catalogConfig.put("username", container.getUsername());
+        catalogConfig.put("password", container.getPassword());
+
+        ClickhouseCatalog catalog =
+                new ClickhouseCatalog(ReadonlyConfig.fromMap(catalogConfig), "test_catalog");
+
+        try {
+            catalog.open();
+
+            TablePath tablePath = TablePath.of(DATABASE, testTableName);
+            CatalogTable catalogTable = catalog.getTable(tablePath);
+
+            Map<String, String> expectedSourceTypes = new HashMap<>();
+            expectedSourceTypes.put("id", "UInt64");
+            expectedSourceTypes.put("name", "String");
+            expectedSourceTypes.put("age", "UInt32");
+            expectedSourceTypes.put("score", "Int32");
+            expectedSourceTypes.put("balance", "Decimal(18, 4)");
+            expectedSourceTypes.put("created_at", "DateTime");
+            expectedSourceTypes.put("is_active", "UInt8");
+            expectedSourceTypes.put("description", "Nullable(String)");
+            expectedSourceTypes.put("tags", "Array(String)");
+
+            for (Column column : catalogTable.getTableSchema().getColumns()) {
+                String columnName = column.getName();
+                String sourceType = column.getSourceType();
+
+                Assertions.assertNotNull(
+                        sourceType,
+                        String.format("Column '%s' sourceType should not be null", columnName));
+
+                String expectedSourceType = expectedSourceTypes.get(columnName);
+                Assertions.assertNotNull(expectedSourceType);
+
+                Assertions.assertEquals(expectedSourceType, sourceType);
+            }
+
+        } finally {
+            catalog.close();
+            dropTable(DATABASE + "." + testTableName);
+        }
+    }
+
+    @BeforeAll
+    @Override
+    public void startUp() throws Exception {
+        this.container =
+                new ClickHouseContainer(CLICKHOUSE_DOCKER_IMAGE)
+                        .withNetwork(NETWORK)
+                        .withNetworkAliases(HOST)
+                        .withLogConsumer(
+                                new Slf4jLogConsumer(
+                                        DockerLoggerFactory.getLogger(CLICKHOUSE_DOCKER_IMAGE)));
+        Startables.deepStart(Stream.of(this.container)).join();
+        LOG.info("Clickhouse container started");
+        Awaitility.given()
+                .ignoreExceptions()
+                .await()
+                .atMost(360L, TimeUnit.SECONDS)
+                .untilAsserted(this::initConnection);
+        this.initializeClickhouseTable();
+        this.batchInsertData();
+    }
+
+    private void initializeClickhouseTable() {
+        try {
+            Statement statement = this.connection.createStatement();
+            statement.execute(CONFIG.getString(SOURCE_TABLE));
+            statement.execute(CONFIG.getString(SINK_TABLE));
+            statement.execute(CONFIG.getString(SOURCE_MERGE_TREE_TABLE));
+
+            // table for multi-table sink test
+            for (String tableName : MULTI_SINK_TABLES) {
+                statement.execute(CONFIG.getString(tableName));
+            }
+
+            for (String tableName : MULTI_SOURCE_SINK_TABLES) {
+                statement.execute(CONFIG.getString(tableName));
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Initializing Clickhouse table failed!", e);
+        }
+    }
+
+    private void initConnection()
+            throws SQLException, ClassNotFoundException, InstantiationException,
+                    IllegalAccessException {
+        final Properties info = new Properties();
+        info.put("user", this.container.getUsername());
+        info.put("password", this.container.getPassword());
+        this.connection =
+                ((Driver) Class.forName(DRIVER_CLASS).newInstance())
+                        .connect(this.container.getJdbcUrl(), info);
+    }
+
+    private static Config getInitClickhouseConfig() {
+        File file = ContainerUtil.getResourcesFile(INIT_CLICKHOUSE_PATH);
+        Config config = ConfigFactory.parseFile(file);
+        assert config.hasPath(SOURCE_TABLE)
+                && config.hasPath(SINK_TABLE)
+                && config.hasPath(INSERT_SQL)
+                && config.hasPath(COMPARE_SQL);
+        return config;
+    }
+
+    private Array toSqlArray(Object value) throws SQLException {
+        Object[] elements = null;
+        String sqlType = null;
+        if (String[].class.equals(value.getClass())) {
+            sqlType = "TEXT";
+            elements = (String[]) value;
+        } else if (Boolean[].class.equals(value.getClass())) {
+            sqlType = "BOOLEAN";
+            elements = (Boolean[]) value;
+        } else if (Byte[].class.equals(value.getClass())) {
+            sqlType = "TINYINT";
+            elements = (Byte[]) value;
+        } else if (Short[].class.equals(value.getClass())) {
+            sqlType = "SMALLINT";
+            elements = (Short[]) value;
+        } else if (Integer[].class.equals(value.getClass())) {
+            sqlType = "INTEGER";
+            elements = (Integer[]) value;
+        } else if (Long[].class.equals(value.getClass())) {
+            sqlType = "BIGINT";
+            elements = (Long[]) value;
+        } else if (Float[].class.equals(value.getClass())) {
+            sqlType = "REAL";
+            elements = (Float[]) value;
+        } else if (Double[].class.equals(value.getClass())) {
+            sqlType = "DOUBLE";
+            elements = (Double[]) value;
+        }
+        if (sqlType == null) {
+            throw new IllegalArgumentException(
+                    "array inject error, not supported data type: " + value.getClass());
+        }
+        return connection.createArrayOf(sqlType, elements);
+    }
+
+    private int countData(String tableName) {
+        try {
+            String sql = "select count(1) from " + tableName;
+            ResultSet resultSet = this.connection.createStatement().executeQuery(sql);
+            if (resultSet.next()) {
+                return resultSet.getInt(1);
+            } else {
+                return -1;
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private void dropTable(String tableName) {
+        try {
+            Statement statement = this.connection.createStatement();
+            statement.execute("drop table if exists " + tableName);
+        } catch (SQLException e) {
+            throw new RuntimeException("Drop table failed!", e);
+        }
+    }
+
+    private void batchInsertData() {
+        String sql = CONFIG.getString(INSERT_SQL);
+        String mergeTreeSql = CONFIG.getString(INSERT_MERGE_TREE_SQL);
+
+        List<String> insertSqlList = Arrays.asList(sql, mergeTreeSql);
+        for (String insertSql : insertSqlList) {
+            PreparedStatement preparedStatement = null;
+            try {
+                this.connection.setAutoCommit(true);
+                preparedStatement = this.connection.prepareStatement(insertSql);
+                for (SeaTunnelRow row : TEST_DATASET.getValue()) {
+                    preparedStatement.setLong(1, (Long) row.getField(0));
+                    preparedStatement.setObject(2, row.getField(1));
+                    preparedStatement.setArray(3, toSqlArray(row.getField(2)));
+                    preparedStatement.setArray(4, toSqlArray(row.getField(3)));
+                    preparedStatement.setArray(5, toSqlArray(row.getField(4)));
+                    preparedStatement.setArray(6, toSqlArray(row.getField(5)));
+                    preparedStatement.setArray(7, toSqlArray(row.getField(6)));
+                    preparedStatement.setArray(8, toSqlArray(row.getField(7)));
+                    preparedStatement.setString(9, (String) row.getField(8));
+                    preparedStatement.setBoolean(10, (Boolean) row.getField(9));
+                    preparedStatement.setByte(11, (Byte) row.getField(10));
+                    preparedStatement.setShort(12, (Short) row.getField(11));
+                    preparedStatement.setInt(13, (Integer) row.getField(12));
+                    preparedStatement.setLong(14, (Long) row.getField(13));
+                    preparedStatement.setFloat(15, (Float) row.getField(14));
+                    preparedStatement.setDouble(16, (Double) row.getField(15));
+                    preparedStatement.setBigDecimal(17, (BigDecimal) row.getField(16));
+                    preparedStatement.setDate(18, Date.valueOf((LocalDate) row.getField(17)));
+                    preparedStatement.setTimestamp(
+                            19, Timestamp.valueOf((LocalDateTime) row.getField(18)));
+                    preparedStatement.setInt(20, (Integer) row.getField(19));
+                    preparedStatement.setString(21, (String) row.getField(20));
+                    preparedStatement.setArray(22, toSqlArray(row.getField(21)));
+                    preparedStatement.setArray(23, toSqlArray(row.getField(22)));
+                    preparedStatement.setArray(24, toSqlArray(row.getField(23)));
+                    preparedStatement.setObject(25, row.getField(24));
+                    preparedStatement.setObject(26, row.getField(25));
+                    preparedStatement.setObject(27, row.getField(26));
+                    preparedStatement.setObject(28, row.getField(27));
+                    preparedStatement.setObject(29, row.getField(28));
+                    preparedStatement.setObject(30, row.getField(29));
+                    preparedStatement.addBatch();
+                }
+                preparedStatement.executeBatch();
+                preparedStatement.clearBatch();
+            } catch (SQLException e) {
+                throw new RuntimeException("Batch insert data failed!", e);
+            } finally {
+                if (preparedStatement != null) {
+                    try {
+                        preparedStatement.close();
+                    } catch (SQLException e) {
+                        throw new RuntimeException("PreparedStatement close failed!", e);
+                    }
+                }
+            }
+        }
+    }
+
+    private static Pair<SeaTunnelRowType, List<SeaTunnelRow>> generateTestDataSet() {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {
+                            "id",
+                            "c_map",
+                            "c_array_string",
+                            "c_array_short",
+                            "c_array_int",
+                            "c_array_long",
+                            "c_array_float",
+                            "c_array_double",
+                            "c_string",
+                            "c_boolean",
+                            "c_int8",
+                            "c_int16",
+                            "c_int32",
+                            "c_int64",
+                            "c_float32",
+                            "c_float64",
+                            "c_decimal",
+                            "c_date",
+                            "c_datetime",
+                            "c_nullable",
+                            "c_lowcardinality",
+                            "c_nested.int",
+                            "c_nested.double",
+                            "c_nested.string",
+                            "c_int128",
+                            "c_uint128",
+                            "c_int256",
+                            "c_uint256",
+                            "c_point",
+                            "c_ring"
+                        },
+                        new SeaTunnelDataType[] {
+                            BasicType.LONG_TYPE,
+                            new MapType<>(BasicType.STRING_TYPE, BasicType.INT_TYPE),
+                            ArrayType.STRING_ARRAY_TYPE,
+                            ArrayType.SHORT_ARRAY_TYPE,
+                            ArrayType.INT_ARRAY_TYPE,
+                            ArrayType.LONG_ARRAY_TYPE,
+                            ArrayType.FLOAT_ARRAY_TYPE,
+                            ArrayType.DOUBLE_ARRAY_TYPE,
+                            BasicType.STRING_TYPE,
+                            BasicType.BOOLEAN_TYPE,
+                            BasicType.BYTE_TYPE,
+                            BasicType.SHORT_TYPE,
+                            BasicType.INT_TYPE,
+                            BasicType.LONG_TYPE,
+                            BasicType.FLOAT_TYPE,
+                            BasicType.DOUBLE_TYPE,
+                            new DecimalType(9, 4),
+                            LocalTimeType.LOCAL_DATE_TYPE,
+                            LocalTimeType.LOCAL_DATE_TIME_TYPE,
+                            BasicType.INT_TYPE,
+                            BasicType.STRING_TYPE,
+                            ArrayType.INT_ARRAY_TYPE,
+                            ArrayType.DOUBLE_ARRAY_TYPE,
+                            ArrayType.STRING_ARRAY_TYPE,
+                            BasicType.STRING_TYPE,
+                            BasicType.STRING_TYPE,
+                            BasicType.STRING_TYPE,
+                            BasicType.STRING_TYPE,
+                            BasicType.STRING_TYPE,
+                            BasicType.STRING_TYPE
+                        });
+        List<SeaTunnelRow> rows = new ArrayList<>();
+        for (int i = 0; i < 100; ++i) {
+            SeaTunnelRow row =
+                    new SeaTunnelRow(
+                            new Object[] {
+                                (long) i,
+                                Collections.singletonMap("key", Integer.parseInt("1")),
+                                new String[] {"string"},
+                                new Short[] {Short.parseShort("1")},
+                                new Integer[] {Integer.parseInt("1")},
+                                new Long[] {Long.parseLong("1")},
+                                new Float[] {Float.parseFloat("1.1")},
+                                new Double[] {Double.parseDouble("1.1")},
+                                "string",
+                                Boolean.FALSE,
+                                Byte.parseByte("1"),
+                                Short.parseShort("1"),
+                                Integer.parseInt("1"),
+                                Long.parseLong("1"),
+                                Float.parseFloat("1.1"),
+                                Double.parseDouble("1.1"),
+                                BigDecimal.valueOf(11L, 1),
+                                i < 30 ? LocalDate.parse(FIX_PARTITION_DATE) : LocalDate.now(),
+                                LocalDateTime.now(),
+                                i,
+                                "string",
+                                new Integer[] {Integer.parseInt("1")},
+                                new Double[] {Double.parseDouble("1.1")},
+                                new String[] {"1"},
+                                "170141183460469231731687303715884105727",
+                                "340282366920938463463374607431768211455",
+                                "57896044618658097711785492504343953926634992332820282019728792003956564819967",
+                                "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+                                new double[] {1, 2},
+                                new double[][] {{2, 3}, {4, 5}}
+                            });
+            rows.add(row);
+        }
+        return Pair.of(rowType, rows);
+    }
+
+    private void compareResult(String sourceTable, String sinkTable)
+            throws SQLException, IOException {
+        String sourceSql = "select * from " + sourceTable + " order by id";
+        String sinkSql = "select * from " + sinkTable + " order by id";
+        List<String> columnList =
+                Arrays.stream(generateTestDataSet().getKey().getFieldNames())
+                        .collect(Collectors.toList());
+        try (Statement sourceStatement = connection.createStatement();
+                Statement sinkStatement = connection.createStatement();
+                ResultSet sourceResultSet = sourceStatement.executeQuery(sourceSql);
+                ResultSet sinkResultSet = sinkStatement.executeQuery(sinkSql)) {
+            Assertions.assertEquals(
+                    sourceResultSet.getMetaData().getColumnCount(),
+                    sinkResultSet.getMetaData().getColumnCount());
+
+            while (sourceResultSet.next()) {
+                if (sinkResultSet.next()) {
+                    for (String column : columnList) {
+                        Object source = sourceResultSet.getObject(column);
+                        Object sink = sinkResultSet.getObject(column);
+                        if (!Objects.deepEquals(source, sink)) {
+                            InputStream sourceAsciiStream = sourceResultSet.getBinaryStream(column);
+                            InputStream sinkAsciiStream = sinkResultSet.getBinaryStream(column);
+                            String sourceValue =
+                                    IOUtils.toString(sourceAsciiStream, StandardCharsets.UTF_8);
+                            String sinkValue =
+                                    IOUtils.toString(sinkAsciiStream, StandardCharsets.UTF_8);
+                            Assertions.assertEquals(sourceValue, sinkValue);
+                        }
+                        Assertions.assertTrue(true);
+                    }
+                }
+            }
+            String columns = String.join(",", generateTestDataSet().getKey().getFieldNames());
+            Assertions.assertTrue(
+                    compare(String.format(CONFIG.getString(COMPARE_SQL), columns, columns)));
+        }
+    }
+
+    private Boolean compare(String sql) {
+        try (Statement statement = connection.createStatement();
+                ResultSet resultSet = statement.executeQuery(sql)) {
+            return !resultSet.next();
+        } catch (SQLException e) {
+            throw new RuntimeException("result compare error", e);
+        }
+    }
+
+    private void assertHasData(String table) {
+        String sql = String.format("select * from %s.%s limit 1", DATABASE, table);
+        try (Statement statement = connection.createStatement();
+                ResultSet source = statement.executeQuery(sql); ) {
+            Assertions.assertTrue(source.next());
+        } catch (SQLException e) {
+            throw new RuntimeException("test clickhouse server image error", e);
+        }
+    }
+
+    private void clearTable(String tableName) {
+        try (Statement statement = connection.createStatement()) {
+            statement.execute(String.format("truncate table %s.%s", DATABASE, tableName));
+        } catch (SQLException e) {
+            throw new RuntimeException("Test clickhouse server image error", e);
+        }
+    }
+
+    @TestTemplate
+    public void testClickhouseSourceFactoryWithPrimaryKey(TestContainer testContainer)
+            throws Exception {
+        String testTableName = "test_primary_key_table";
+        String createTableSql =
+                String.format(
+                        "CREATE TABLE IF NOT EXISTS %s.%s ("
+                                + "id UInt64, "
+                                + "name String, "
+                                + "age UInt32"
+                                + ") ENGINE = MergeTree() "
+                                + "PRIMARY KEY (id) "
+                                + "ORDER BY id",
+                        DATABASE, testTableName);
+
+        try (Statement statement = connection.createStatement()) {
+            statement.execute(createTableSql);
+
+            String insertSql =
+                    String.format(
+                            "INSERT INTO %s.%s VALUES (1, 'Alice', 25), (2, 'Bob', 30)",
+                            DATABASE, testTableName);
+            statement.execute(insertSql);
+        }
+
+        Map<String, Object> sourceConfig = new HashMap<>();
+        sourceConfig.put("host", container.getHost() + ":" + container.getMappedPort(8123));
+        sourceConfig.put("table_path", DATABASE + "." + testTableName);
+        sourceConfig.put("username", container.getUsername());
+        sourceConfig.put("password", container.getPassword());
+
+        ReadonlyConfig config = ReadonlyConfig.fromMap(sourceConfig);
+
+        org.apache.seatunnel.connectors.seatunnel.clickhouse.source.ClickhouseSourceFactory
+                factory =
+                        new org.apache.seatunnel.connectors.seatunnel.clickhouse.source
+                                .ClickhouseSourceFactory();
+        org.apache.seatunnel.api.table.factory.TableSourceFactoryContext context =
+                new org.apache.seatunnel.api.table.factory.TableSourceFactoryContext(
+                        config, Thread.currentThread().getContextClassLoader());
+
+        try {
+            org.apache.seatunnel.api.table.connector.TableSource<?, ?, ?> tableSource =
+                    factory.createSource(context);
+            Assertions.assertNotNull(tableSource, "TableSource should not be null");
+
+            org.apache.seatunnel.connectors.seatunnel.clickhouse.source.ClickhouseSource source =
+                    (org.apache.seatunnel.connectors.seatunnel.clickhouse.source.ClickhouseSource)
+                            tableSource.createSource();
+            List<CatalogTable> catalogTables = source.getProducedCatalogTables();
+
+            Assertions.assertNotNull(catalogTables, "Catalog tables should not be null");
+            Assertions.assertFalse(
+                    catalogTables.isEmpty(), "Should have at least one catalog table");
+
+            CatalogTable catalogTable = catalogTables.get(0);
+
+            Assertions.assertNotNull(
+                    catalogTable.getTableSchema().getPrimaryKey(),
+                    "Primary key should not be null for table with PRIMARY KEY");
+
+            List<String> pkColumns = catalogTable.getTableSchema().getPrimaryKey().getColumnNames();
+            Assertions.assertNotNull(pkColumns, "Primary key columns should not be null");
+            Assertions.assertEquals(1, pkColumns.size(), "Should have 1 primary key column");
+            Assertions.assertEquals("id", pkColumns.get(0), "Primary key column should be 'id'");
+
+        } finally {
+            dropTable(DATABASE + "." + testTableName);
+        }
+    }
+
+    @AfterAll
+    @Override
+    public void tearDown() throws Exception {
+        if (this.connection != null) {
+            this.connection.close();
+        }
+        if (this.container != null) {
+            this.container.stop();
+        }
+    }
+}

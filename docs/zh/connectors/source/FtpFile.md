@@ -1,0 +1,906 @@
+import ChangeLog from '../changelog/connector-file-ftp.md';
+
+# FtpFile
+
+> Ftp 文件 Source 连接器
+
+## 支持的引擎
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
+## 关键特性
+
+- [x] [多模态](../../introduction/concepts/connector-v2-features.md#多模态multimodal)
+
+  使用二进制文件格式读取和写入任何格式的文件，例如视频、图片等。简而言之，任何文件都可以同步到目标位置。
+
+- [x] [批处理](../../introduction/concepts/connector-v2-features.md)
+- [ ] [流处理](../../introduction/concepts/connector-v2-features.md)
+- [ ] [精确一次处理](../../introduction/concepts/connector-v2-features.md)
+- [x] [列投影](../../introduction/concepts/connector-v2-features.md)
+- [x] [并行度](../../introduction/concepts/connector-v2-features.md)
+- [ ] [支持用户自定义分片](../../introduction/concepts/connector-v2-features.md)
+- [x] [支持多表读取](../../introduction/concepts/connector-v2-features.md)
+- [x] 文件格式类型
+  - [x] 文本
+  - [x] CSV
+  - [x] JSON
+  - [x] Excel
+  - [x] XML
+  - [x] 二进制
+  - [x] markdown
+  - [x] pdf
+
+## 描述
+
+从 FTP 文件服务器读取数据。
+
+:::提示
+
+如果您使用 Spark/Flink，为了使用此连接器，您必须确保您的 Spark/Flink 集群已经集成了 Hadoop。测试的 Hadoop 版本为 2.x。
+如果您使用 SeaTunnel Engine，当您下载并安装 SeaTunnel Engine 时，它会自动集成 Hadoop 的 jar 包。您可以在 `${SEATUNNEL_HOME}/lib` 目录下检查 jar 包以确认这一点。
+
+:::
+
+## 配置项
+
+| 名称                          | 类型      | 是否必填 | 默认值                 |
+|-----------------------------|---------|------|---------------------|
+| host                        | string  | 是    | -                   |
+| port                        | int     | 是    | -                   |
+| user                        | string  | 是    | -                   |
+| password                    | string  | 是    | -                   |
+| path                        | string  | 是    | -                   |
+| tables_configs              | list    | 否    | -                   |
+| file_format_type            | string  | 是    | -                   |
+| connection_mode             | string  | 否    | active_local        |
+| remote_verification_enabled | boolean | 否    | true                |
+| control_encoding            | string  | 否    | UTF-8               |
+| delimiter/field_delimiter   | string  | 否    | \001                |
+| row_delimiter               | string  | 否    | \n                  | 读取 `text` 文件时使用的行分隔符。默认值为 `\n`。 |
+| read_columns                | list    | 否    | -                   |
+| parse_partition_from_path   | boolean | 否    | true                |
+| date_format                 | string  | 否    | yyyy-MM-dd          |
+| datetime_format             | string  | 否    | yyyy-MM-dd HH:mm:ss |
+| time_format                 | string  | 否    | HH:mm:ss            |
+| skip_header_row_number      | long    | 否    | 0                   |
+| schema                      | config  | 否    | -                   |
+| sheet_name                  | string  | 否    | -                   |
+| excel_engine                | string  | 否    | POI                |
+| poi_excel_max_file_size     | long    | 否    | 52428800           |
+| xml_row_tag                 | string  | 否    | -                   |
+| xml_use_attr_format         | boolean | 否    | -                   |
+| csv_use_header_line         | boolean | 否    | false               |
+| file_filter_pattern         | string  | 否    | -                   |
+| filename_extension          | string  | 否    | -                   | 使用指定的文件扩展名筛选文件，例如 `csv`、`.txt`、`json` 或 `.xml`。 |
+| compress_codec              | string  | 否    | none                |
+| archive_compress_codec      | string  | 否    | none                |
+| encoding                    | string  | 否    | UTF-8               |
+| null_format                 | string  | 否    | -                   |
+| binary_chunk_size           | int     | 否    | 1024                |
+| binary_complete_file_mode   | boolean | 否    | false               |
+| discovery_mode              | string  | 否    | once                |
+| scan_interval               | string  | 否    | 10S |
+| start_mode                  | string  | 否    | earliest            |
+| sync_mode                   | string  | 否    | full                |
+| target_path                 | string  | 否    | -                   |
+| target_hadoop_conf          | map     | 否    | -                   |
+| update_strategy             | string  | 否    | distcp              |
+| compare_mode                | string  | 否    | len_mtime           |
+| update_compare_parallelism  | int     | 否    | 8                   |
+| update_compare_bulk_threshold | int   | 否    | 0                   |
+| post_sync_action            | string  | 否    | none                |
+| backup_path                 | string  | 否    | -                   |
+| retention_max_age           | string  | 否    | -                   |
+| retention_check_interval    | string  | 否    | 1H                  |
+| common-options              |         | 否    | -                   |
+| file_filter_modified_start  | string  | 否    | -                   | 
+| file_filter_modified_end    | string  | 否    | -                   | 
+| quote_char                  | string  | 否    | "                   | 
+| escape_char                 | string  | 否    | -                   |
+| metalake_type               | string  | 否    | gravitino           |
+| recursive_file_scan         | boolean | 否    | true                |
+| sort_files_by_modification_time | boolean | 否 | false               | 是否按修改时间降序排序文件。启用此选项后，在读取不断演化的 schema 时可确保 schema 推断使用最新的文件。                                                                                                                      |
+
+### host [string]
+
+目标 FTP 主机地址，必填项。
+
+### port [int]
+
+目标 FTP 端口，必填项。
+
+### user [string]
+
+目标 FTP 用户名，必填项。
+
+### password [string]
+
+目标 FTP 密码，必填项。
+
+### path [string]
+
+源文件路径。
+
+### tables_configs [list]
+
+在一个 Source 块中配置多张 FTP 源表。`tables_configs` 中每一项都使用与单表 `FtpFile` Source 相同的参数，
+例如 `host`、`port`、`user`、`password`、`path`、`file_format_type` 和 `schema`。可通过 `schema.table`
+指定传递给下游的表名。
+
+### remote_verification_enabled [boolean]
+
+是否启用FTP数据通道的远程主机验证。默认值为 `true`。
+
+### file_filter_pattern [string]
+
+文件过滤模式，用于过滤文件。若只想根据文件名称筛选，则直接写文件名称的正则；若同时想根据文件目录进行过滤，则表达式以`path`起始。
+
+该模式遵循标准正则表达式。详情请参考：https://en.wikipedia.org/wiki/Regular_expression.
+以下是一些示例。
+
+若`path`为`/data/seatunnel`,且文件结构示例：
+
+```
+/data/seatunnel/20241001/report.txt
+/data/seatunnel/20241007/abch202410.csv
+/data/seatunnel/20241002/abcg202410.csv
+/data/seatunnel/20241005/old_data.csv
+/data/seatunnel/20241012/logo.png
+
+```
+匹配规则示例：
+
+**示例 1**：*匹配所有 .txt 文件*，正则表达式：
+```
+.*.txt
+```
+该示例匹配结果为：
+```
+/data/seatunnel/20241001/report.txt
+```
+**示例 2**：*匹配所有以 abc 开头的文件*，正则表达式：
+```
+abc.*
+```
+该示例匹配结果为：
+```
+/data/seatunnel/20241007/abch202410.csv
+/data/seatunnel/20241002/abcg202410.csv
+```
+**示例 3**：*匹配20241007文件夹下所有以 abc 开头的文件，且第四个字符为 h 或 g*，正则表达式：
+```
+/data/seatunnel/20241007/abc[h,g].*
+```
+该示例匹配结果为：
+```
+/data/seatunnel/20241007/abch202410.csv
+```
+**示例 4**：*匹配第三级文件夹以 202410 开头且文件以 .csv 结尾的文件*，正则表达式：
+```
+/data/seatunnel/202410\d*/.*.csv
+```
+该示例匹配结果为：
+```
+/data/seatunnel/20241007/abch202410.csv
+/data/seatunnel/20241002/abcg202410.csv
+/data/seatunnel/20241005/old_data.csv
+```
+
+### file_format_type [string]
+
+文件类型，支持以下文件类型：
+
+`text` `csv` `parquet` `orc` `json` `excel` `xml` `binary` `markdown` `pdf`
+
+如果您将文件类型指定为 `json`，您还需要指定 schema 选项以告诉连接器如何将数据解析为您所需的行。
+
+例如：
+
+上游数据如下：
+
+```json
+
+{"code":  200, "data":  "get success", "success":  true}
+
+```
+
+您应按如下方式指定 schema：
+
+```hocon
+
+schema {
+    fields {
+        code = int
+        data = string
+        success = boolean
+    }
+}
+
+```
+
+连接器将生成如下数据：
+
+| code |    data     | success |
+|------|-------------|---------|
+| 200  | get success | true    |
+
+如果您将文件类型指定为 `text` 或 `csv`，您可以选择是否指定 schema 信息。
+
+例如，上游数据如下：
+
+```text
+
+tyrantlucifer#26#male
+
+```
+
+如果您不指定数据 schema，连接器将按如下方式处理上游数据：
+
+|        content        |
+|-----------------------|
+| tyrantlucifer#26#male |
+
+如果您指定数据 schema，您还需要指定 `field_delimiter` 选项（CSV 文件类型除外）。
+
+您应按如下方式指定 schema 和分隔符：
+
+```hocon
+
+field_delimiter = "#"
+schema {
+    fields {
+        name = string
+        age = int
+        gender = string 
+    }
+}
+
+```
+
+连接器将生成如下数据：
+
+|     name      | age | gender |
+|---------------|-----|--------|
+| tyrantlucifer | 26  | male   |
+
+如果您将文件类型指定为 `binary`，SeaTunnel 可以同步任何格式的文件，
+例如压缩包、图片等。简而言之，任何文件都可以同步到目标位置。
+在这种情况下，您需要确保源和接收端同时使用 `binary` 格式进行文件同步。
+您可以在下面的示例中找到具体用法。
+
+如果您将文件类型指定为 `markdown`，SeaTunnel 可以解析 markdown 文件并提取结构化数据。
+markdown 解析器提取各种元素，包括标题、段落、列表、代码块、表格等。
+每个提取出的元素都会转换为一条文档元素结构化记录，schema 如下：
+- `element_id`：元素的唯一标识符
+- `element_type`：元素类型（Heading、Paragraph、ListItem 等）
+- `heading_level`：标题级别（1-6，非标题元素为 null）
+- `text`：元素的文本内容
+- `page_number`：页码（默认：1）
+- `position_index`：文档中的位置索引
+- `parent_id`：父元素的 ID
+- `child_ids`：子元素 ID 的逗号分隔列表
+
+当 `markdown_rag_metadata_enabled` 或 `pdf_rag_metadata_enabled` 设置为 `true` 时，SeaTunnel 会针对对应文件类型在 `child_ids` 之后追加以下 RAG 元数据字段：
+- `source_uri`：源文件路径或 URI
+- `document_id`：由 `source_uri` 派生的稳定文档标识符
+- `chunk_id`：由文档标识、chunk 顺序和内容哈希派生的稳定 chunk 标识符
+- `chunk_index`：解析后文档中的一基 chunk 顺序
+- `content_hash`：已输出 `text` 值的 SHA-256 哈希
+
+启用该选项并读取有界 Markdown 文件时，source enumerator 会使用相同的 `document_id` 哈希分配整文件 split，使同一文档派生的所有行留在同一个 source 路由 bucket 中。禁用该选项时，默认的轮询 split 分配行为保持不变。
+
+该选项默认值为 `false`，因此只有显式启用后才会改变原始 Markdown schema。
+
+当 `markdown_rag_metadata_enabled=true` 时，每个 Markdown 行还会在 row options 中携带四个 Knowledge Sync 逻辑元数据值，source 也会在 metadata schema 中声明相同 Key：
+
+- `SourceUri`：不含凭据的逻辑来源路径或 URI
+- `DocumentId`：`doc_` 加逻辑 `SourceUri` 的 UTF-8 字节的小写 SHA-256
+- `DocumentHash`：UTF-8 解码前实际读取到的精确来源字节的小写 SHA-256
+- `ChunkHash`：当前 Markdown 输出行 `text` 的 UTF-8 字节的小写 SHA-256（null 按空字符串处理）；其值等于物理 `content_hash`
+
+本地路径和有效 `file:` URI 沿用现有的本地路径归一化。对于分层远程 URI，逻辑 `SourceUri` 保留 scheme、host、显式端口和 path，移除 user info、完整 query 和 fragment，并将 scheme 与 host 转为小写。仅通过 query 区分资源时，必须改用稳定且不敏感的 path。
+
+五个物理 RAG 字段、现有计算公式和路由行为均保持不变。因此，对于带签名或凭据的远程 URI，逻辑与物理 `document_id` 可能不同。请通过 [Metadata transform](../../transforms/metadata.md) 将逻辑 `SourceUri` 和 `DocumentId` 投影到 `ks_source_uri`、`ks_document_id` 等不冲突的别名。
+
+逻辑 `ChunkHash` 只描述 Markdown source 直接输出的当前行。如果下游 transform 修改文本或把一行展开为多个 chunk，则必须在 lifecycle sink 前重新计算最终 `ChunkHash`、`ChunkId` 和 `ChunkIndex`。该 bridge 不实现增量比较、writer affinity、过期 chunk 删除或 tombstone。
+
+注意：Markdown 格式仅支持读取，不支持写入。
+
+如果您将文件类型指定为 `pdf`，SeaTunnel 可以解析 PDF 文件并提取结构化的文档元素。
+PDF 使用与上文相同的文档元素 schema。
+对于 PDF 输入，启用 `pdf_rag_metadata_enabled` 即可追加上文所述的 RAG 元数据字段。
+
+PDF 特有的解析行为如下：
+
+- **有大纲**：提取 `heading`（标题）、`paragraph`（段落）、`image`（图片）和 `link`（链接）元素。标题从大纲结构中派生，元素按照文档的逻辑结构组织为父子层级关系。
+- **无大纲**：仅提取 `paragraph`（段落）和 `image`（图片）元素，以扁平结构呈现，不包含层级关系。
+- `element_type` 在 PDF 场景下可能为 `heading`、`paragraph`、`image` 或 `link`。
+
+注意：仅支持单栏（从上到下）PDF 布局。不支持多栏布局（例如并排的双栏文档），可能会产生不正确的文本顺序。
+
+### connection_mode [string]
+
+目标 FTP 连接模式，默认为主动模式，支持以下模式：
+
+`active_local` `passive_local`
+
+### control_encoding [string]
+
+FTP 控制连接的字符编码。默认为 `UTF-8`。
+
+当文件路径包含特殊字符（如 `$`、空格、中文字符等）时，需要设置为 `UTF-8` 以确保路径能够正确解析。
+
+例如：`/data/whale_ops/share/$Fund-Product/DA - SANY （三一）/Daily/2025.08.18/file.xlsx`
+
+### delimiter/field_delimiter [string]
+
+**delimiter** 参数将在 2.3.5 版本后弃用，请使用 **field_delimiter** 代替。
+
+仅在文件格式为 text 时需要配置。
+
+字段分隔符，用于告诉连接器如何切分字段。
+
+默认值为 `\001`，与 Hive 的默认分隔符相同。
+
+### parse_partition_from_path [boolean]
+
+控制是否从文件路径中解析分区键和值。
+
+例如，如果您从路径 `ftp://hadoop-cluster/tmp/seatunnel/parquet/name=tyrantlucifer/age=26` 读取文件，
+
+文件中的每条记录数据将添加以下两个字段：
+
+|     name      | age |
+|---------------|-----|
+| tyrantlucifer | 26  |
+
+提示：**不要在 schema 选项中定义分区字段**
+
+### date_format [string]
+
+日期类型格式，用于告诉连接器如何将字符串转换为日期，支持以下格式：
+
+`yyyy-MM-dd` `yyyy.MM.dd` `yyyy/MM/dd`
+
+默认值为 `yyyy-MM-dd`
+
+### datetime_format [string]
+
+日期时间类型格式，用于告诉连接器如何将字符串转换为日期时间，支持以下格式：
+
+`yyyy-MM-dd HH:mm:ss` `yyyy.MM.dd HH:mm:ss` `yyyy/MM/dd HH:mm:ss` `yyyyMMddHHmmss`
+
+默认值为 `yyyy-MM-dd HH:mm:ss`
+
+### time_format [string]
+
+时间类型格式，用于告诉连接器如何将字符串转换为时间，支持以下格式：
+
+`HH:mm:ss` `HH:mm:ss.SSS`
+
+默认值为 `HH:mm:ss`
+
+### skip_header_row_number [long]
+
+跳过前几行，仅适用于 txt 和 csv 文件。
+
+例如，设置如下：
+
+`skip_header_row_number = 2`
+
+SeaTunnel 将从源文件中跳过前 2 行。
+
+### schema [config]
+
+仅在文件格式类型为 text、json、excel、xml 或 csv（或其他无法从元数据中读取 schema 的格式）时需要配置。
+
+上游数据的 schema 信息。更多详情请参考 [Schema 特性](../../introduction/concepts/schema-feature.md)。
+
+#### metadata_table_id [string]
+
+元数据服务中的表标识符，用于获取表结构。对于 Gravitino，格式应为 `{catalog}.{database}.{table}`，例如 `mysql-catalog.test_db.users`。
+
+当指定此参数时，连接器将从外部元数据服务获取表结构，而不是使用手动定义的 `columns`。
+
+> 当使用 Gravitino 作为元数据源时，Gravitino 的列类型会自动转换为 SeaTunnel 数据类型。详细的类型映射信息请参考 [Gravitino 类型映射](../../introduction/concepts/gravitino-type-mapping.md)。
+
+更多信息请参考 [元数据 SPI](../../introduction/concepts/metadata-spi.md)。
+
+### read_columns [list]
+
+数据源的读取列列表，用户可以使用它来实现字段投影。
+
+### sheet_name [string]
+
+读取工作簿中的工作表，仅在文件格式类型为 excel 时使用。
+
+### excel_engine [string]
+
+仅在 `file_format` 为 excel 时使用。
+
+支持的引擎包括 `POI` 和 `EasyExcel`。默认值为 `POI`。
+
+默认的 Excel 读取引擎是 POI。POI 会保留历史读取行为，包括 POI 特有的公式和格式处理能力，但读取大 Excel 文件时可能占用大量内存。
+
+如果需要读取大 Excel 文件，可以设置 `excel_engine = EasyExcel` 使用流式读取。
+
+### poi_excel_max_file_size [long]
+
+仅在 `file_format` 为 excel 且 `excel_engine` 为 POI 时使用。
+
+POI 引擎允许读取的最大 Excel 文件大小，单位为字节。默认值为 `52428800` 字节（50 MB）。当文件超过该限制时，连接器会提前失败，并提示使用 EasyExcel。
+
+### xml_row_tag [string]
+
+仅在文件格式为 xml 时需要配置。
+
+指定 XML 文件中数据行的标签名称。
+
+### xml_use_attr_format [boolean]
+
+仅在文件格式为 xml 时需要配置。
+
+指定是否使用标签属性格式处理数据。
+
+:::caution
+
+出于安全考虑(XXE 加固), 包含 `<!DOCTYPE ...>` 声明的 XML 文件(`file_format_type = xml`)——即使是仅定义内部实体、不引用外部资源的良性声明——现在会被拒绝并抛出 `FILE_READ_FAILED` 错误。该行为没有配置项可以恢复为旧版本的处理方式。如果您的 XML 文件由某些工具导出并带有 `DOCTYPE` 头，请在使用 SeaTunnel 读取前将其移除或做预处理。
+
+:::
+
+### csv_use_header_line [boolean]
+
+仅在文件格式为 csv 时可以选择配置。
+是否使用标题行来解析文件, 标题行 与 RFC 4180 匹配
+
+### compress_codec [string]
+
+文件的压缩编解码器，支持的详细信息如下：
+
+- txt: `lzo` `none`
+- json: `lzo` `none`
+- csv: `lzo` `none`
+- orc/parquet:  
+  自动识别压缩类型，无需额外设置。
+
+### archive_compress_codec [string]
+
+归档文件的压缩编解码器，支持的详细信息如下：
+
+| archive_compress_codec | 文件格式        | 归档压缩后缀 |
+|------------------------|--------------------|-------------------------|
+| ZIP                    | txt,json,excel,xml | .zip                    |
+| TAR                    | txt,json,excel,xml | .tar                    |
+| TAR_GZ                 | txt,json,excel,xml | .tar.gz                 |
+| GZ                     | txt,json,excel,xml | .gz                     |
+| NONE                   | all                | .*                      |
+
+注意：gz 压缩的 excel 文件需要压缩原始文件或指定文件后缀，例如 e2e.xls ->e2e_test.xls.gz
+
+### encoding [string]
+
+仅在文件格式类型为 json、text、csv、xml 时使用。
+读取文件的编码。此参数将通过 `Charset.forName(encoding)` 解析。
+
+### null_format [string]
+
+仅在文件格式类型为 text 时使用。
+用于定义哪些字符串可以表示为 null。
+
+例如：`\N`
+
+### binary_chunk_size [int]
+
+仅在 file_format_type 为 binary 时使用。
+
+读取二进制文件的块大小（以字节为单位）。默认为 1024 字节。较大的值可能会提高大文件的性能，但会使用更多内存。
+
+### binary_complete_file_mode [boolean]
+
+仅在 file_format_type 为 binary 时使用。
+
+是否将完整文件作为单个块读取，而不是分割成块。启用时，整个文件内容将一次性读入内存。默认为 false。
+
+### discovery_mode [string]
+
+文件发现模式，支持：`once`（默认）、`continuous`。
+
+- `once`：启动时枚举一次文件并结束（有界）。
+- `continuous`：作业保持运行，周期性扫描路径并在运行时处理新增/变更文件（无界）。
+
+当前实现中，`discovery_mode=continuous` 需要配合 `sync_mode=update`（仅 binary）使用，以避免重复传输。
+
+### scan_interval [string]
+
+仅在 `discovery_mode=continuous` 时使用。周期性扫描间隔，取值必须大于 `0`。推荐使用简写格式 `10S`、`30S`（大小写不敏感，例如 `10s`）；同时兼容 ISO-8601 格式 `PT10S`、`PT30S`。默认 `10S`。
+
+### start_mode [string]
+
+仅在 `discovery_mode=continuous` 时使用，支持：`earliest`（默认）、`latest`。
+
+- `earliest`：启动时读取已有文件。
+- `latest`：仅处理作业启动后修改的新文件。
+
+### sync_mode [string]
+
+文件同步模式，支持：`full`（默认）、`update`。
+当 `update` 时，对源/目标进行对比，只读取新增/变更文件（目前仅支持 `file_format_type=binary`）。
+
+**性能注意事项**
+- Update 模式会对每个源文件额外发起一次到目标端的 `getFileStatus` 用于对比。
+- 对于远程文件系统（FTP/SFTP），会带来按文件的网络开销，不建议用于海量小文件场景。
+
+**要求 / 限制**
+- `target_path` 通常应与 sink 的 `path` 一致（同一文件系统且相对路径结构一致）。
+- 使用 `update_strategy=distcp` 时，依赖源/目标端时钟同步，否则可能误判。
+- 使用 `compare_mode=checksum` 时，需要文件系统支持 checksum；若无法获取 checksum，SeaTunnel 会降级为内容比较（开销更大）并打印告警日志。
+
+示例：
+
+```hocon
+sync_mode = "update"
+file_format_type = "binary"
+target_path = "/path/to/your/sink/path"
+update_strategy = "distcp"
+compare_mode = "len_mtime"
+```
+
+### target_path [string]
+
+仅在 `sync_mode=update` 时使用。目标端基础路径（通常应与 sink 的 `path` 一致），用于对比同相对路径文件。
+
+### target_hadoop_conf [map]
+
+仅在 `sync_mode=update` 时使用。目标端 Hadoop 配置（可选），可在其中设置 `fs.defaultFS` 覆盖目标 defaultFS。
+
+### update_strategy [string]
+
+仅在 `sync_mode=update` 时使用。支持：`distcp`（默认）、`strict`。
+
+### compare_mode [string]
+
+仅在 `sync_mode=update` 时使用。支持：`len_mtime`（默认）、`checksum`（仅在 `update_strategy=strict` 时可用）。
+
+### update_compare_parallelism [int]
+
+`sync_mode=update` 对稀疏目标文件执行元数据点查时的最大并发数。默认值为 `8`，有效范围为 `1` 到 `64`；范围外的值会在配置校验阶段被拒绝；已提交但未完成的任务上限为该值的 8 倍。
+
+### update_compare_bulk_threshold [int]
+
+设置正数后，同一目标父目录的候选文件达到该阈值时，SeaTunnel 改为只枚举一次目标目录。默认值 `0` 表示关闭自动批量枚举，使用有界并发点查，避免意外扫描庞大的目标目录。该行为适用于所有目标文件系统。源端会边枚举边过滤，以降低元数据峰值内存。
+
+### post_sync_action [string]
+
+仅在 `discovery_mode=continuous` 时使用。支持：`none`（默认）、`delete`、`backup`。当 `discovery_mode=once` 时，若配置 `post_sync_action=delete` 或 `post_sync_action=backup`，会在配置校验阶段被显式拒绝。
+
+- `none`：默认行为，不对源文件执行运维动作。
+- `delete`：在 `notifyCheckpointComplete` 后删除已处理源文件；失败动作会在后续 checkpoint 回调中重试。
+- `backup`：在 `notifyCheckpointComplete` 后将已处理源文件移动到 `backup_path`；失败动作会在后续 checkpoint 回调中重试。
+
+执行 `delete` 或 `backup` 前，SeaTunnel 会先将源文件重命名到 staging/trash 路径，然后重新检查文件长度和修改时间。如果重命名后版本不一致，文件会被恢复到原路径，以便后续扫描重新发现变更后的文件。
+
+**mtime 粒度限制**：FTP MDTM 分辨率通常为 1 秒（有时为 1 分钟）。act-then-verify 方式缩小了但不能完全消除同秒同长度修改的竞态窗口。为了最大安全性，请确保 post-sync 处理期间没有并发写入，或使用 `backup` 而非 `delete` 以便文件可恢复。
+
+**安全提示**：在 FTP 上使用 `post_sync_action=delete` 或 `backup` 时，建议使用专用最小权限账户，仅对监控目录有 DELETE/RENAME 权限。FTP 凭证以明文传输，此功能需要写/删权限，会增加凭证泄露后的影响范围。
+
+### backup_path [string]
+
+仅在 `post_sync_action=backup` 时使用。在 checkpoint 完成提交后，已处理文件会移动到该基础路径，目标文件名会附带源文件版本后缀以避免覆盖冲突。phase-1 仅支持与 `path` 同文件系统（scheme + authority 相同）的 backup，跨文件系统 backup 会被显式拒绝。
+
+`backup_path` 不能与 `path` 相同，不能位于 `path` 之下，`path` 也不能位于 `backup_path` 之下。建议使用专用备份目录，因为保留清理只会管理带 SeaTunnel 版本后缀的备份文件。
+
+### retention_max_age [string]
+
+`backup_path` 的可选保留策略。超过该时长的 SeaTunnel 备份文件会在 checkpoint 完成后的保留扫描中被清理。
+仅在 `post_sync_action=backup` 时有效。
+
+支持的时长格式包括带 `MS`、`S`、`M`、`H`、`D` 后缀的简写格式，例如 `500MS`、`30S`、`10M`、`12H`、`7D`，也支持 ISO-8601 时长，例如 `PT1H30M`。
+
+时长后缀不区分大小写：`MS`（毫秒）、`S`（秒）、`M`（分钟）、`H`（小时）、`D`（天）。`M` 始终表示分钟，不是月份。非法值（如 `PT7D`、`P1M`）会导致配置校验失败并报错。
+
+### retention_check_interval [string]
+
+保留清理扫描间隔，默认 `1H`。仅在 `post_sync_action=backup` 且配置 `retention_max_age` 后生效，清理任务最多按该间隔执行一次。单独设置 `retention_check_interval` 不会产生效果。
+
+时长后缀不区分大小写：`MS`、`S`、`M`、`H`、`D`。`M` 始终表示分钟，不是月份。非法值会导致配置校验失败并报错。
+
+### file_filter_modified_start
+
+按照最后修改时间过滤文件。 要过滤的开始时间(包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`。
+
+### file_filter_modified_end
+
+按照最后修改时间过滤文件。 要过滤的结束时间(不包括改时间),时间格式是：`yyyy-MM-dd HH:mm:ss`。
+
+### quote_char [string]
+
+用于包裹 CSV 字段的单字符，可保证包含逗号、换行符或引号的字段被正确解析。
+
+### escape_char [string]
+
+用于在 CSV 字段内转义引号或其他特殊字符，使其不会结束字段。
+
+### recursive_file_scan [boolean]
+
+是否递归扫描子目录。
+如果设置为 `false`，将忽略子目录，仅扫描指定路径下的文件。
+
+### sort_files_by_modification_time [boolean]
+
+是否按修改时间降序排序文件。默认值为 `false`。
+启用后，文件将按修改时间排序（最新的在前）。适用于以下场景：
+- 读取具有不断演化的 schema 的文件，且希望 schema 推断使用最新的文件
+- 需要按时间顺序处理文件
+
+### 通用选项
+
+源插件的通用参数，详情请参考 [源通用选项](../common-options/source-common-options.md)。
+
+## 示例
+
+```hocon
+
+  FtpFile {
+    path = "/tmp/seatunnel/sink/text"
+    host = "192.168.31.48"
+    port = 21
+    user = tyrantlucifer
+    password = tianchao
+    file_format_type = "text"
+    schema = {
+      name = string
+      age = int
+    }
+    field_delimiter = "#"
+  }
+
+```
+
+### 多表配置
+
+`tables_configs` 中的每一项都会作为一张独立表读取。除非通过外层共享配置复用相同参数，否则建议在每一项中明确写出连接和格式参数。
+
+```hocon
+
+FtpFile {
+  tables_configs = [
+    {
+      schema {
+        table = "student"
+      }
+      path = "/tmp/seatunnel/sink/text"
+      host = "192.168.31.48"
+      port = 21
+      user = tyrantlucifer
+      password = tianchao
+      file_format_type = "parquet"
+    },
+    {
+      schema {
+        table = "teacher"
+      }
+      path = "/tmp/seatunnel/sink/text"
+      host = "192.168.31.48"
+      port = 21
+      user = tyrantlucifer
+      password = tianchao
+      file_format_type = "parquet"
+    }
+  ]
+}
+
+```
+
+```hocon
+
+FtpFile {
+  tables_configs = [
+    {
+      schema {
+        fields {
+          name = string
+          age = int
+        }
+      }
+      path = "/apps/hive/demo/student"
+      file_format_type = "json"
+    },
+    {
+      schema {
+        fields {
+          name = string
+          age = int
+        }
+      }
+      path = "/apps/hive/demo/teacher"
+      file_format_type = "json"
+    }
+}
+
+```
+
+### 传输二进制文件
+
+```hocon
+
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FtpFile {
+    host = "192.168.31.48"
+    port = 21
+    user = tyrantlucifer
+    password = tianchao
+    path = "/seatunnel/read/binary/"
+    file_format_type = "binary"
+    binary_chunk_size = 2048
+    binary_complete_file_mode = false
+  }
+}
+sink {
+  // 您可以将本地文件传输到 s3/hdfs/oss 等。
+  FtpFile {
+    host = "192.168.31.48"
+    port = 21
+    user = tyrantlucifer
+    password = tianchao
+    path = "/seatunnel/read/binary2/"
+    file_format_type = "binary"
+  }
+}
+
+```
+
+### 增量同步（sync_mode=update，仅 binary）
+
+`sync_mode=update` 会对比 source 与 `target_path`，仅读取新增/变更文件。
+多数情况下，`target_path` 需要与 sink 的 `path` 对齐（同一文件系统、相同相对路径）。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FtpFile {
+    host = "192.168.31.48"
+    port = 21
+    user = tyrantlucifer
+    password = tianchao
+
+    path = "/seatunnel/read/binary/"
+    file_format_type = "binary"
+
+    sync_mode = "update"
+    target_path = "/seatunnel/read/binary2/"
+    update_strategy = "distcp"
+    compare_mode = "len_mtime"
+  }
+}
+sink {
+  FtpFile {
+    host = "192.168.31.48"
+    port = 21
+    user = tyrantlucifer
+    password = tianchao
+
+    path = "/seatunnel/read/binary2/"
+    tmp_path = "/seatunnel/read/binary2-tmp/"
+    file_format_type = "binary"
+  }
+}
+```
+
+### 持续发现（discovery_mode=continuous）
+
+`discovery_mode=continuous` 会让作业保持运行，并按间隔持续扫描路径发现新/变更文件（长跑作业，推荐使用 `job.mode="STREAMING"`）。
+
+**注意：** `discovery_mode=continuous` 当前需要配合 `sync_mode="update"`（仅支持 binary）使用，以避免重复传输而不引入无限增长的“已处理状态”。同时 `target_path` 通常应与 sink 的 `path` 保持一致（同一文件系统、相同相对路径）。
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+}
+
+source {
+  FtpFile {
+    host = "192.168.31.48"
+    port = 21
+    user = tyrantlucifer
+    password = tianchao
+
+    path = "/seatunnel/watch/src/"
+    file_format_type = "binary"
+
+    discovery_mode = "continuous"
+    scan_interval = "10S"
+    start_mode = "latest"
+
+    sync_mode = "update"
+    target_path = "/seatunnel/watch/dst/"
+    update_strategy = "distcp"
+    compare_mode = "len_mtime"
+
+    post_sync_action = "backup"
+    backup_path = "/seatunnel/watch/backup/"
+    retention_max_age = "7D"
+    retention_check_interval = "1H"
+  }
+}
+sink {
+  FtpFile {
+    host = "192.168.31.48"
+    port = 21
+    user = tyrantlucifer
+    password = tianchao
+
+    path = "/seatunnel/watch/dst/"
+    tmp_path = "/seatunnel/watch/dst-tmp/"
+    file_format_type = "binary"
+  }
+}
+```
+
+### 过滤文件
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FtpFile {
+    host = "192.168.31.48"
+    port = 21
+    user = tyrantlucifer
+    password = tianchao
+    path = "/seatunnel/read/binary/"
+    file_format_type = "binary"
+    // 文件示例 abcD2024.csv
+    file_filter_pattern = "abc[DX]*.*"
+  }
+}
+
+sink {
+  Console {
+  }
+}
+```
+
+### 通过 SFTP 读取（SSH 文件传输）
+
+`FtpFile` 通过统一的 Hadoop FileSystem URI 同时支持 FTP 和 SFTP；将 URI 协议改为 `sftp://` 即切换到 SSH 通道。SFTP 需要 SSH 密钥（或密码）认证，且 host key 必须被运行中的 JVM 信任（通过 `~/.ssh/known_hosts` 或通过 `ftp_properties` 显式指定的 `known_hosts` 文件）。
+
+```hocon
+source {
+  FtpFile {
+    fs.defaultFS = "sftp://sftp.example.example.com:22"
+    path = "/upload/landing/"
+    user = "seatunnel"
+    file_format_type = "csv"
+    delimiter = ","
+    ftp_properties = {
+      "fs.sftp.user." = "seatunnel"
+      "fs.sftp.keyfile" = "/etc/seatunnel/id_rsa"
+      "fs.sftp.host"   = "sftp.example.example.com"
+      "fs.sftp.port"   = "22"
+      "fs.sftp.knownHosts" = "/etc/seatunnel/known_hosts"
+    }
+  }
+}
+```
+
+如果 SFTP 服务器使用的是自签 host key，请提前把它加进 `known_hosts`——否则第一次读取会抛出 `SftpException` 并提示 host 校验未通过。连接器本身不缓存或刷新 `known_hosts`，更新文件后重启作业即可生效。
+
+## 变更日志
+
+<ChangeLog />

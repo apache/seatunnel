@@ -1,0 +1,51 @@
+{
+  "ignorePatterns": [
+    {
+      "pattern": "^http://localhost"
+    },
+    {
+      "pattern": "^http://127\\.0\\.0\\.1"
+    },
+    {
+      "pattern": "^https://mvnrepository.com"
+    },
+    {
+      "pattern": "^https://www.qutoutiao.net"
+    },
+    {
+      "pattern": "^https://img.shields.io"
+    },
+    {
+      "pattern": "^https://json.org/"
+    },
+    {
+      "pattern": "^https://docs.starrocks.io"
+    },
+    {
+      "pattern": "^/docs/category"
+    },
+    {
+      "pattern": "^https://opencollective.com"
+    },
+    {
+      "pattern": "^https://twitter.com/ASFSeaTunnel"
+    },
+    {
+      "pattern": "^https://github.com/apache/seatunnel/commit/"
+    },
+    {
+      "pattern": "src/main/java/"
+    }
+  ],
+  "timeout": "10s",
+  "retryOn429": true,
+  "retryCount": 10,
+  "fallbackRetryDelay": "1000ms",
+  "aliveStatusCodes": [
+    0,
+    200,
+    401,
+    403,
+    406
+  ]
+}

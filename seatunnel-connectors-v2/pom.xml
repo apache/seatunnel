@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+    Licensed to the Apache Software Foundation (ASF) under one or more
+    contributor license agreements.  See the NOTICE file distributed with
+    this work for additional information regarding copyright ownership.
+    The ASF licenses this file to You under the Apache License, Version 2.0
+    (the "License"); you may not use this file except in compliance with
+    the License.  You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>org.apache.seatunnel</groupId>
+        <artifactId>seatunnel</artifactId>
+        <version>${revision}</version>
+    </parent>
+    <artifactId>seatunnel-connectors-v2</artifactId>
+    <packaging>pom</packaging>
+    <name>SeaTunnel : Connectors V2 :</name>
+
+    <modules>
+        <module>connector-common</module>
+        <module>connector-cdc</module>
+        <module>connector-clickhouse</module>
+        <module>connector-databend</module>
+        <module>connector-console</module>
+        <module>connector-fake</module>
+        <module>connector-http</module>
+        <module>connector-jdbc</module>
+        <module>connector-kafka</module>
+        <module>connector-pulsar</module>
+        <module>connector-socket</module>
+        <module>connector-hive</module>
+        <module>connector-file</module>
+        <module>connector-hudi</module>
+        <module>connector-hugegraph</module>
+        <module>connector-assert</module>
+        <module>connector-kudu</module>
+        <module>connector-email</module>
+        <module>connector-dingtalk</module>
+        <module>connector-elasticsearch</module>
+        <module>connector-iotdb</module>
+        <module>connector-iotdb-v2</module>
+        <module>connector-neo4j</module>
+        <module>connector-redis</module>
+        <module>connector-datahub</module>
+        <module>connector-sentry</module>
+        <module>connector-mongodb</module>
+        <module>connector-couchbase</module>
+        <module>connector-mqtt</module>
+        <module>connector-python</module>
+        <module>connector-iceberg</module>
+        <module>connector-influxdb</module>
+        <module>connector-amazondynamodb</module>
+        <module>connector-tablestore</module>
+        <module>connector-cassandra</module>
+        <module>connector-salesforce</module>
+        <module>connector-s3-redshift</module>
+        <module>connector-starrocks</module>
+        <module>connector-google-sheets</module>
+        <module>connector-google-firestore</module>
+        <module>connector-google-pubsub</module>
+        <module>connector-slack</module>
+        <module>connector-rabbitmq</module>
+        <module>connector-openmldb</module>
+        <module>connector-doris</module>
+        <module>connector-druid</module>
+        <module>connector-maxcompute</module>
+        <module>connector-tdengine</module>
+        <module>connector-selectdb-cloud</module>
+        <module>connector-hbase</module>
+        <module>connector-google-bigtable</module>
+        <module>connector-rocketmq</module>
+        <module>connector-amazonsqs</module>
+        <module>connector-paimon</module>
+        <module>connector-easysearch</module>
+        <module>connector-web3j</module>
+        <module>connector-milvus</module>
+        <module>connector-activemq</module>
+        <module>connector-prometheus</module>
+        <module>connector-qdrant</module>
+        <module>connector-sls</module>
+        <module>connector-typesense</module>
+        <module>connector-graphql</module>
+        <module>connector-aerospike</module>
+        <module>connector-sensorsdata</module>
+        <module>connector-fluss</module>
+        <module>connector-lance</module>
+        <module>connector-bigquery</module>
+        <module>connector-edge-socket</module>
+        <module>connector-nats-jetstream</module>
+    </modules>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.apache.seatunnel</groupId>
+                <artifactId>seatunnel-api</artifactId>
+                <version>${project.version}</version>
+                <scope>provided</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <dependencies>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-api</artifactId>
+            <version>${project.version}</version>
+            <scope>provided</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <configuration>
+                    <skip>${e2e.dependency.skip}</skip>
+                    <appendOutput>true</appendOutput>
+                </configuration>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+
+</project>

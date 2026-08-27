@@ -1,0 +1,404 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.seatunnel.api.configuration.util;
+
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
+
+import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.OptionTest;
+import org.apache.seatunnel.api.configuration.Options;
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
+
+import java.util.List;
+
+import static org.apache.seatunnel.api.configuration.OptionTest.TEST_MODE;
+import static org.apache.seatunnel.api.configuration.OptionTest.TEST_NUM;
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+
+public class OptionRuleTest {
+    public static final Option<Long> TEST_TIMESTAMP =
+            Options.key("option.timestamp")
+                    .longType()
+                    .noDefaultValue()
+                    .withDescription("test long timestamp");
+
+    public static final Option<String> TEST_TOPIC_PATTERN =
+            Options.key("option.topic-pattern")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("test string type");
+
+    public static final Option<List<String>> TEST_TOPIC =
+            Options.key("option.topic")
+                    .listType()
+                    .noDefaultValue()
+                    .withDescription("test list string type");
+
+    public static final Option<List<Integer>> TEST_PORTS =
+            Options.key("option.ports")
+                    .type(new TypeReference<List<Integer>>() {})
+                    .noDefaultValue()
+                    .withDescription("test list int type");
+
+    public static final Option<String> TEST_REQUIRED_HAVE_DEFAULT_VALUE =
+            Options.key("option.required-have-default")
+                    .stringType()
+                    .defaultValue("11")
+                    .withDescription("test string type");
+
+    public static final Option<String> TEST_DUPLICATE =
+            Options.key("option.test-duplicate")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription("test string type");
+
+    @Test
+    public void testBuildSuccess() {
+        OptionRule rule =
+                OptionRule.builder()
+                        .optional(TEST_NUM, TEST_MODE)
+                        .required(TEST_PORTS)
+                        .exclusive(TEST_TOPIC_PATTERN, TEST_TOPIC)
+                        .conditional(TEST_MODE, OptionTest.TestMode.TIMESTAMP, TEST_TIMESTAMP)
+                        .build();
+        Assertions.assertNotNull(rule);
+    }
+
+    @Test
+    public void testVerify() {
+        Executable executable =
+                () -> {
+                    OptionRule.builder()
+                            .optional(TEST_NUM, TEST_MODE)
+                            .required(TEST_PORTS, TEST_REQUIRED_HAVE_DEFAULT_VALUE)
+                            .exclusive(TEST_TOPIC_PATTERN, TEST_TOPIC)
+                            .conditional(TEST_MODE, OptionTest.TestMode.TIMESTAMP, TEST_TIMESTAMP)
+                            .build();
+                };
+
+        executable =
+                () -> {
+                    OptionRule.builder()
+                            .optional(TEST_NUM, TEST_MODE, TEST_REQUIRED_HAVE_DEFAULT_VALUE)
+                            .required(TEST_PORTS, TEST_REQUIRED_HAVE_DEFAULT_VALUE)
+                            .exclusive(TEST_TOPIC_PATTERN, TEST_TOPIC)
+                            .conditional(TEST_MODE, OptionTest.TestMode.TIMESTAMP, TEST_TIMESTAMP)
+                            .build();
+                };
+
+        // test duplicate
+        assertEquals(
+                "ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - AbsolutelyRequiredOptions 'option.required-have-default' duplicate in option options.",
+                assertThrows(OptionValidationException.class, executable).getMessage());
+
+        executable =
+                () -> {
+                    OptionRule.builder()
+                            .optional(TEST_NUM, TEST_MODE)
+                            .exclusive(TEST_TOPIC_PATTERN, TEST_TOPIC, TEST_DUPLICATE)
+                            .required(TEST_PORTS, TEST_DUPLICATE)
+                            .conditional(TEST_MODE, OptionTest.TestMode.TIMESTAMP, TEST_TIMESTAMP)
+                            .build();
+                };
+
+        // test duplicate in RequiredOption$ExclusiveRequiredOptions
+        assertEquals(
+                "ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - AbsolutelyRequiredOptions 'option.test-duplicate' duplicate in ExclusiveRequiredOptions options.",
+                assertThrows(OptionValidationException.class, executable).getMessage());
+
+        executable =
+                () -> {
+                    OptionRule.builder()
+                            .optional(TEST_NUM)
+                            .exclusive(TEST_TOPIC_PATTERN, TEST_TOPIC)
+                            .required(TEST_PORTS)
+                            .conditional(TEST_MODE, OptionTest.TestMode.TIMESTAMP, TEST_TIMESTAMP)
+                            .build();
+                };
+
+        // test conditional not found in other options
+        assertEquals(
+                "ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - Conditional 'option.mode' not found in options.",
+                assertThrows(OptionValidationException.class, executable).getMessage());
+
+        executable =
+                () -> {
+                    OptionRule.builder()
+                            .optional(TEST_NUM, TEST_MODE)
+                            .exclusive(TEST_TOPIC_PATTERN, TEST_TOPIC)
+                            .required(TEST_PORTS)
+                            .conditional(TEST_MODE, OptionTest.TestMode.TIMESTAMP, TEST_TIMESTAMP)
+                            .conditional(TEST_NUM, 100, TEST_TIMESTAMP)
+                            .build();
+                };
+
+        // test parameter can only be controlled by one other parameter
+        assertEquals(
+                "ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - ConditionalRequiredOptions 'option.timestamp' duplicate in ConditionalRequiredOptions options.",
+                assertThrows(OptionValidationException.class, executable).getMessage());
+
+        // Test conditional only does not conflict with optional options
+        // Test option TEST_TIMESTAMP
+        executable =
+                () -> {
+                    OptionRule.builder()
+                            .optional(TEST_NUM, TEST_MODE, TEST_TIMESTAMP)
+                            .exclusive(TEST_TOPIC_PATTERN, TEST_TOPIC)
+                            .required(TEST_PORTS)
+                            .conditional(TEST_MODE, OptionTest.TestMode.TIMESTAMP, TEST_TIMESTAMP)
+                            .conditional(TEST_MODE, OptionTest.TestMode.LATEST, TEST_TIMESTAMP)
+                            .build();
+                };
+        assertDoesNotThrow(executable);
+        executable =
+                () -> {
+                    OptionRule.builder()
+                            .optional(TEST_NUM, TEST_MODE)
+                            .exclusive(TEST_TOPIC_PATTERN, TEST_TOPIC, TEST_TIMESTAMP)
+                            .required(TEST_PORTS)
+                            .conditional(TEST_MODE, OptionTest.TestMode.TIMESTAMP, TEST_TIMESTAMP)
+                            .build();
+                };
+        assertEquals(
+                "ErrorCode:[API-02], ErrorDescription:[Option item validate failed] - ConditionalRequiredOptions 'option.timestamp' duplicate in ExclusiveRequiredOptions options.",
+                assertThrows(OptionValidationException.class, executable).getMessage());
+
+        // test exclusive options can be paired with optional value constraints
+        OptionRule exclusiveWithOptional =
+                OptionRule.builder()
+                        .exclusive(TEST_TOPIC_PATTERN, TEST_TOPIC)
+                        .optional(TEST_TOPIC_PATTERN, Conditions.notBlank(TEST_TOPIC_PATTERN))
+                        .optional(TEST_TOPIC, Conditions.notEmpty(TEST_TOPIC))
+                        .build();
+        assertEquals(1, exclusiveWithOptional.getRequiredOptions().size());
+        assertEquals(2, exclusiveWithOptional.getOptionalOptions().size());
+        assertEquals(2, exclusiveWithOptional.getValueConstraints().size());
+
+        // test bundled options can be paired with optional value constraints
+        OptionRule bundledWithOptional =
+                OptionRule.builder()
+                        .bundled(TEST_TOPIC_PATTERN, TEST_TOPIC)
+                        .optional(TEST_TOPIC_PATTERN, Conditions.notBlank(TEST_TOPIC_PATTERN))
+                        .optional(TEST_TOPIC, Conditions.notEmpty(TEST_TOPIC))
+                        .build();
+        assertEquals(1, bundledWithOptional.getRequiredOptions().size());
+        assertEquals(2, bundledWithOptional.getOptionalOptions().size());
+        assertEquals(2, bundledWithOptional.getValueConstraints().size());
+
+        // test required options still cannot be paired with optional (no condition)
+        executable = () -> OptionRule.builder().required(TEST_PORTS).optional(TEST_PORTS).build();
+        assertThrows(OptionValidationException.class, executable);
+
+        // test required options still cannot be paired with optional (with condition)
+        executable =
+                () ->
+                        OptionRule.builder()
+                                .required(TEST_PORTS)
+                                .optional(TEST_PORTS, Conditions.notEmpty(TEST_PORTS))
+                                .build();
+        assertThrows(OptionValidationException.class, executable);
+
+        // test duplicate optional declaration still fails
+        executable =
+                () ->
+                        OptionRule.builder()
+                                .optional(TEST_TOPIC_PATTERN)
+                                .optional(
+                                        TEST_TOPIC_PATTERN, Conditions.notBlank(TEST_TOPIC_PATTERN))
+                                .build();
+        assertThrows(OptionValidationException.class, executable);
+
+        // test exclusive + duplicate optional value constraint still fails
+        executable =
+                () ->
+                        OptionRule.builder()
+                                .exclusive(TEST_TOPIC_PATTERN, TEST_TOPIC)
+                                .optional(
+                                        TEST_TOPIC_PATTERN, Conditions.notBlank(TEST_TOPIC_PATTERN))
+                                .optional(
+                                        TEST_TOPIC_PATTERN, Conditions.notBlank(TEST_TOPIC_PATTERN))
+                                .build();
+        assertThrows(OptionValidationException.class, executable);
+
+        // test exclusive + bundled with same key still fails
+        executable =
+                () ->
+                        OptionRule.builder()
+                                .exclusive(TEST_TOPIC_PATTERN, TEST_TOPIC)
+                                .bundled(TEST_TOPIC_PATTERN, TEST_NUM)
+                                .build();
+        assertThrows(OptionValidationException.class, executable);
+
+        // test bundled + exclusive with same key still fails
+        executable =
+                () ->
+                        OptionRule.builder()
+                                .bundled(TEST_TOPIC_PATTERN, TEST_TOPIC)
+                                .exclusive(TEST_TOPIC_PATTERN, TEST_NUM)
+                                .build();
+        assertThrows(OptionValidationException.class, executable);
+
+        // test exclusive + required with same key fails
+        executable =
+                () ->
+                        OptionRule.builder()
+                                .exclusive(TEST_TOPIC_PATTERN, TEST_TOPIC)
+                                .required(TEST_TOPIC_PATTERN)
+                                .build();
+        assertThrows(OptionValidationException.class, executable);
+
+        // test bundled + required with same key fails
+        executable =
+                () ->
+                        OptionRule.builder()
+                                .bundled(TEST_TOPIC_PATTERN, TEST_TOPIC)
+                                .required(TEST_TOPIC_PATTERN)
+                                .build();
+        assertThrows(OptionValidationException.class, executable);
+
+        // test required + exclusive with same key fails
+        executable =
+                () ->
+                        OptionRule.builder()
+                                .required(TEST_TOPIC_PATTERN)
+                                .exclusive(TEST_TOPIC_PATTERN, TEST_TOPIC)
+                                .build();
+        assertThrows(OptionValidationException.class, executable);
+
+        // test required + bundled with same key fails
+        executable =
+                () ->
+                        OptionRule.builder()
+                                .required(TEST_TOPIC_PATTERN)
+                                .bundled(TEST_TOPIC_PATTERN, TEST_TOPIC)
+                                .build();
+        assertThrows(OptionValidationException.class, executable);
+
+        // test optional(no condition) + exclusive with same key fails
+        executable =
+                () ->
+                        OptionRule.builder()
+                                .optional(TEST_TOPIC_PATTERN)
+                                .exclusive(TEST_TOPIC_PATTERN, TEST_TOPIC)
+                                .build();
+        assertThrows(OptionValidationException.class, executable);
+
+        // test optional(no condition) + bundled with same key fails
+        executable =
+                () ->
+                        OptionRule.builder()
+                                .optional(TEST_TOPIC_PATTERN)
+                                .bundled(TEST_TOPIC_PATTERN, TEST_TOPIC)
+                                .build();
+        assertThrows(OptionValidationException.class, executable);
+
+        // test optional(no condition) + required with same key fails
+        executable =
+                () ->
+                        OptionRule.builder()
+                                .optional(TEST_TOPIC_PATTERN)
+                                .required(TEST_TOPIC_PATTERN)
+                                .build();
+        assertThrows(OptionValidationException.class, executable);
+
+        // test exclusive -> optional(no condition) with same key fails
+        executable =
+                () ->
+                        OptionRule.builder()
+                                .exclusive(TEST_TOPIC_PATTERN, TEST_TOPIC)
+                                .optional(TEST_TOPIC_PATTERN)
+                                .build();
+        assertThrows(OptionValidationException.class, executable);
+
+        // test bundled -> optional(no condition) with same key fails
+        executable =
+                () ->
+                        OptionRule.builder()
+                                .bundled(TEST_TOPIC_PATTERN, TEST_TOPIC)
+                                .optional(TEST_TOPIC_PATTERN)
+                                .build();
+        assertThrows(OptionValidationException.class, executable);
+
+        // test bundled + duplicate optional value constraint still fails
+        executable =
+                () ->
+                        OptionRule.builder()
+                                .bundled(TEST_TOPIC_PATTERN, TEST_TOPIC)
+                                .optional(
+                                        TEST_TOPIC_PATTERN, Conditions.notBlank(TEST_TOPIC_PATTERN))
+                                .optional(
+                                        TEST_TOPIC_PATTERN, Conditions.notBlank(TEST_TOPIC_PATTERN))
+                                .build();
+        assertThrows(OptionValidationException.class, executable);
+
+        // test extension condition builds correctly
+        ConditionExtension<Integer> positiveExt =
+                new ConditionExtension<Integer>() {
+                    @Override
+                    public String description() {
+                        return "must be positive";
+                    }
+
+                    @Override
+                    public boolean evaluate(ReadonlyConfig config, Integer value) {
+                        return value != null && value > 0;
+                    }
+                };
+        OptionRule extRule =
+                OptionRule.builder()
+                        .required(TEST_PORTS)
+                        .optional(TEST_NUM, Conditions.extension(TEST_NUM, positiveExt))
+                        .build();
+        Assertions.assertNotNull(extRule);
+        assertEquals(1, extRule.getValueConstraints().size());
+        assertEquals(
+                ConditionOperator.EXTENSION, extRule.getValueConstraints().get(0).getOperator());
+
+        // test extension with null extension throws
+        assertThrows(IllegalArgumentException.class, () -> Conditions.extension(TEST_NUM, null));
+
+        // test extension with null option throws
+        assertThrows(IllegalArgumentException.class, () -> Conditions.extension(null, positiveExt));
+    }
+
+    @Test
+    public void testEquals() {
+        OptionRule rule1 =
+                OptionRule.builder()
+                        .optional(TEST_NUM, TEST_MODE)
+                        .required(TEST_PORTS)
+                        .exclusive(TEST_TOPIC_PATTERN, TEST_TOPIC)
+                        .conditional(TEST_MODE, OptionTest.TestMode.TIMESTAMP, TEST_TIMESTAMP)
+                        .build();
+        OptionRule rule2 =
+                OptionRule.builder()
+                        .optional(TEST_NUM)
+                        .optional(TEST_MODE)
+                        .required(TEST_PORTS)
+                        .exclusive(TEST_TOPIC_PATTERN, TEST_TOPIC)
+                        .conditional(TEST_MODE, OptionTest.TestMode.TIMESTAMP, TEST_TIMESTAMP)
+                        .build();
+        Assertions.assertEquals(rule1, rule2);
+    }
+}

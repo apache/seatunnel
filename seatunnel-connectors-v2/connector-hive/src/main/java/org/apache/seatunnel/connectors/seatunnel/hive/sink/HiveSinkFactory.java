@@ -1,0 +1,86 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.seatunnel.connectors.seatunnel.hive.sink;
+
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.OptionRule;
+import org.apache.seatunnel.api.sink.DataSaveMode;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.connector.TableSink;
+import org.apache.seatunnel.api.table.factory.Factory;
+import org.apache.seatunnel.api.table.factory.TableSinkFactory;
+import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSinkOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileAggregatedCommitInfo;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.commit.FileCommitInfo;
+import org.apache.seatunnel.connectors.seatunnel.file.sink.state.FileSinkState;
+import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveConstants;
+import org.apache.seatunnel.connectors.seatunnel.hive.config.HiveSinkOptions;
+
+import com.google.auto.service.AutoService;
+
+@AutoService(Factory.class)
+public class HiveSinkFactory
+        implements TableSinkFactory<
+                SeaTunnelRow, FileSinkState, FileCommitInfo, FileAggregatedCommitInfo> {
+
+    @Override
+    public OptionRule optionRule() {
+        return OptionRule.builder()
+                .required(HiveSinkOptions.TABLE_NAME)
+                .required(HiveSinkOptions.METASTORE_URI)
+                .optional(HiveSinkOptions.ABORT_DROP_PARTITION_METADATA)
+                .optional(HiveSinkOptions.KERBEROS_PRINCIPAL)
+                .optional(HiveSinkOptions.KERBEROS_KEYTAB_PATH)
+                .optional(HiveSinkOptions.REMOTE_USER)
+                .optional(HiveSinkOptions.HADOOP_CONF)
+                .optional(HiveSinkOptions.HADOOP_CONF_PATH)
+                .optional(FileBaseSinkOptions.PARQUET_AVRO_WRITE_TIMESTAMP_AS_INT96)
+                // SaveMode related options
+                .optional(HiveSinkOptions.SCHEMA_SAVE_MODE)
+                .optional(HiveSinkOptions.DATA_SAVE_MODE)
+                .optional(HiveSinkOptions.OVERWRITE)
+                .optional(HiveSinkOptions.SAVE_MODE_CREATE_TEMPLATE)
+                .build();
+    }
+
+    @Override
+    public TableSink<SeaTunnelRow, FileSinkState, FileCommitInfo, FileAggregatedCommitInfo>
+            createSink(TableSinkFactoryContext context) {
+        ReadonlyConfig readonlyConfig = context.getOptions();
+        CatalogTable catalogTable = context.getCatalogTable();
+
+        return () -> {
+            java.util.Map<String, Object> conf =
+                    new java.util.LinkedHashMap<>(readonlyConfig.getSourceMap());
+            java.util.Optional<Boolean> overwriteOptional =
+                    readonlyConfig.getOptional(HiveSinkOptions.OVERWRITE);
+            if (overwriteOptional.isPresent() && overwriteOptional.get()) {
+                conf.put(HiveSinkOptions.DATA_SAVE_MODE.key(), DataSaveMode.DROP_DATA.name());
+            }
+            ReadonlyConfig adjusted = ReadonlyConfig.fromMap(conf);
+            return new HiveSink(adjusted, catalogTable);
+        };
+    }
+
+    @Override
+    public String factoryIdentifier() {
+        return HiveConstants.CONNECTOR_NAME;
+    }
+}

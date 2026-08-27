@@ -1,0 +1,27 @@
+{
+    "env": {
+        "job.mode": "batch"
+    },
+    "source": [
+        {
+            "plugin_name": "FakeSource",
+            "plugin_output": "fake",
+            "row.num": 100,
+            "schema": {
+                "fields": {
+                    "name": "string",
+                    "age": "int",
+                    "card": "int"
+                }
+            }
+        }
+    ],
+    "transform": [
+    ],
+    "sink": [
+        {
+            "plugin_name": "Console",
+            "plugin_input": ["fake"]
+        }
+    ]
+}

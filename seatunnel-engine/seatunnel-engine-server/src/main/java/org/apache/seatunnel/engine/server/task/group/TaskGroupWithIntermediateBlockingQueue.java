@@ -1,0 +1,131 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.seatunnel.engine.server.task.group;
+
+import org.apache.seatunnel.api.common.metrics.Counter;
+import org.apache.seatunnel.api.common.metrics.MetricsContext;
+import org.apache.seatunnel.api.table.type.Record;
+import org.apache.seatunnel.engine.server.execution.Task;
+import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
+import org.apache.seatunnel.engine.server.execution.TaskGroupType;
+import org.apache.seatunnel.engine.server.task.SeaTunnelTask;
+import org.apache.seatunnel.engine.server.task.group.queue.AbstractIntermediateQueue;
+import org.apache.seatunnel.engine.server.task.group.queue.IntermediateBlockingQueue;
+
+import java.util.Collection;
+import java.util.Map;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.ConcurrentHashMap;
+
+import static org.apache.seatunnel.api.common.metrics.MetricNames.FLUSH_SIGNAL_QUEUE_FAILURE_TOTAL;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.FLUSH_SIGNAL_QUEUE_SUCCESS_TOTAL;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.INTERMEDIATE_QUEUE_CAPACITY;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.INTERMEDIATE_QUEUE_PUT_BLOCKED_NANOS;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.INTERMEDIATE_QUEUE_SIZE;
+
+public class TaskGroupWithIntermediateBlockingQueue extends AbstractTaskGroupWithIntermediateQueue {
+
+    public static final int QUEUE_SIZE = 2048;
+
+    public TaskGroupWithIntermediateBlockingQueue(
+            TaskGroupLocation taskGroupLocation, String taskGroupName, Collection<Task> tasks) {
+        super(taskGroupLocation, taskGroupName, tasks);
+    }
+
+    private Map<Long, QueueWithMetrics> blockingQueueCache = null;
+
+    private static final class QueueWithMetrics {
+        private final BlockingQueue<Record<?>> queue;
+        private final Counter totalQueueSize;
+        private final Counter queueSize;
+        private final Counter putBlockedNs;
+        private final Counter flushSignalQueueSuccessTotal;
+        private final Counter flushSignalQueueFailureTotal;
+        private final IntermediateBlockingQueue.QueueSizeTracker queueSizeTracker;
+
+        private QueueWithMetrics(
+                BlockingQueue<Record<?>> queue,
+                Counter totalQueueSize,
+                Counter queueSize,
+                Counter putBlockedNs,
+                Counter flushSignalQueueSuccessTotal,
+                Counter flushSignalQueueFailureTotal,
+                IntermediateBlockingQueue.QueueSizeTracker queueSizeTracker) {
+            this.queue = queue;
+            this.totalQueueSize = totalQueueSize;
+            this.queueSize = queueSize;
+            this.putBlockedNs = putBlockedNs;
+            this.flushSignalQueueSuccessTotal = flushSignalQueueSuccessTotal;
+            this.flushSignalQueueFailureTotal = flushSignalQueueFailureTotal;
+            this.queueSizeTracker = queueSizeTracker;
+        }
+    }
+
+    @Override
+    public void init() {
+        blockingQueueCache = new ConcurrentHashMap<>();
+        getTasks().stream()
+                .filter(SeaTunnelTask.class::isInstance)
+                .map(s -> (SeaTunnelTask) s)
+                .forEach(s -> s.setTaskGroup(this));
+    }
+
+    @Override
+    public AbstractIntermediateQueue<?> getQueueCache(
+            long id, int capacity, MetricsContext metricsContext) {
+        int effectiveCapacity = capacity > 0 ? capacity : QUEUE_SIZE;
+        blockingQueueCache.computeIfAbsent(
+                id,
+                i -> {
+                    Counter totalQueueSize = metricsContext.counter(INTERMEDIATE_QUEUE_SIZE);
+                    Counter queueSize = metricsContext.counter(INTERMEDIATE_QUEUE_SIZE + "#" + i);
+                    Counter putBlockedNs =
+                            metricsContext.counter(INTERMEDIATE_QUEUE_PUT_BLOCKED_NANOS + "#" + i);
+                    Counter capacityCounter =
+                            metricsContext.counter(INTERMEDIATE_QUEUE_CAPACITY + "#" + i);
+                    capacityCounter.set(effectiveCapacity);
+                    Counter flushSignalQueueSuccessTotal =
+                            metricsContext.counter(FLUSH_SIGNAL_QUEUE_SUCCESS_TOTAL);
+                    Counter flushSignalQueueFailureTotal =
+                            metricsContext.counter(FLUSH_SIGNAL_QUEUE_FAILURE_TOTAL);
+                    return new QueueWithMetrics(
+                            new ArrayBlockingQueue<>(effectiveCapacity),
+                            totalQueueSize,
+                            queueSize,
+                            putBlockedNs,
+                            flushSignalQueueSuccessTotal,
+                            flushSignalQueueFailureTotal,
+                            new IntermediateBlockingQueue.QueueSizeTracker());
+                });
+        QueueWithMetrics cache = blockingQueueCache.get(id);
+        return new IntermediateBlockingQueue(
+                cache.queue,
+                cache.totalQueueSize,
+                cache.queueSize,
+                cache.putBlockedNs,
+                cache.flushSignalQueueSuccessTotal,
+                cache.flushSignalQueueFailureTotal,
+                cache.queueSizeTracker);
+    }
+
+    @Override
+    public TaskGroupType getTaskGroupType() {
+        return TaskGroupType.INTERMEDIATE_BLOCKING_QUEUE;
+    }
+}

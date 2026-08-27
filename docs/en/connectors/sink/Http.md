@@ -1,0 +1,154 @@
+import ChangeLog from '../changelog/connector-http.md';
+
+# Http
+
+> Http sink connector
+
+## Support Those Engines
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
+## Key Features
+
+- [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+- [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
+- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
+
+## Description
+
+Used to launch web hooks using data.
+
+> For example, if the data from upstream is [`age: 12, name: tyrantlucifer`], the body content is the following: `{"age": 12, "name": "tyrantlucifer"}`
+
+**Tips: Http sink only support `post json` webhook and the data from source will be treated as body content in web hook.**
+
+## Supported DataSource Info
+
+In order to use the Http connector, the following dependencies are required.
+They can be downloaded via install-plugin.sh or from the Maven central repository.
+
+| Datasource | Supported Versions | Dependency                                                                         |
+|------------|--------------------|------------------------------------------------------------------------------------|
+| Http       | universal          | [Download](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-http) |
+
+## Sink Options
+
+|            Name             |  Type  | Required | Default |                                                 Description                                                 |
+|-----------------------------|--------|----------|---------|-------------------------------------------------------------------------------------------------------------|
+| url                         | String | Yes      | -       | Http request url                                                                                            |
+| headers                     | Map    | No       | -       | Http headers                                                                                                |
+| params                      | Map    | No       | -       | Accepted by the option rule. For the current sink writer, put query parameters directly in `url`; rows are posted to the final URL as the request body. |
+| retry                       | Int    | No       | -       | The max retry times if request http return to `IOException`                                                 |
+| retry_backoff_multiplier_ms | Int    | No       | 100     | The retry-backoff times(millis) multiplier if request http failed                                           |
+| retry_backoff_max_ms        | Int    | No       | 10000   | The maximum retry-backoff times(millis) if request http failed                                              |
+| array_mode                  | Boolean| No       | false   | Send data as a JSON array when true, or as a single JSON object when false (default)                        |
+| batch_size                  | Int    | No       | 1       | The batch size of records to send in one HTTP request. Only works when array_mode is true.                  |
+| request_interval_ms         | Int    | No       | 0       | The interval milliseconds between two HTTP requests, to avoid sending requests too frequently.              |
+| multi_table_sink_replica    | Int    | No       | -       | Number of sink replicas used for multi-table write. See [Sink Common Options](../common-options/sink-common-options.md). |
+| common-options              |        | No       | -       | Sink plugin common parameters, please refer to [Sink Common Options](../common-options/sink-common-options.md) for details |
+
+## Example
+
+The Http sink always sends `POST` requests. Each upstream row is converted to JSON and used as the request body. When `array_mode = true`, rows are accumulated into a JSON array before sending; `batch_size` controls the maximum number of rows in one request.
+
+simple:
+
+```hocon
+Http {
+    url = "http://localhost/test/webhook"
+    headers {
+        token = "9e32e859ef044462a257e1fc76730066"
+    }
+}
+```
+
+### With Batch Processing
+
+```hocon
+Http {
+    url = "http://localhost/test/webhook"
+    headers {
+        token = "9e32e859ef044462a257e1fc76730066"
+        Content-Type = "application/json"
+    }
+    array_mode = true
+    batch_size = 50
+    request_interval_ms = 500
+}
+```
+
+### Multiple table
+
+#### example1
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+  checkpoint.interval = 5000
+}
+
+source {
+  Mysql-CDC {
+    url = "jdbc:mysql://127.0.0.1:3306/seatunnel"
+    username = "root"
+    password = "******"
+    
+    table-names = ["seatunnel.role","seatunnel.user","galileo.Bucket"]
+  }
+}
+
+transform {
+}
+
+sink {
+  Http {
+    ...
+    url = "http://localhost/test/${database_name}_test/${table_name}_test"
+  }
+}
+```
+
+#### example2
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Jdbc {
+    driver = oracle.jdbc.driver.OracleDriver
+    url = "jdbc:oracle:thin:@localhost:1521/XE"
+    user = testUser
+    password = testPassword
+
+    table_list = [
+      {
+        table_path = "TESTSCHEMA.TABLE_1"
+      },
+      {
+        table_path = "TESTSCHEMA.TABLE_2"
+      }
+    ]
+  }
+}
+
+transform {
+}
+
+sink {
+  Http {
+    ...
+    url = "http://localhost/test/${schema_name}_test/${table_name}_test"
+  }
+}
+```
+
+## Changelog
+
+<ChangeLog />

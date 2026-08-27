@@ -1,0 +1,1211 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Licensed to the Apache Software Foundation (ASF) under one or more
+    contributor license agreements.  See the NOTICE file distributed with
+    this work for additional information regarding copyright ownership.
+    The ASF licenses this file to You under the Apache License, Version 2.0
+    (the "License"); you may not use this file except in compliance with
+    the License.  You may obtain a copy of the License at
+       http://www.apache.org/licenses/LICENSE-2.0
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.apache</groupId>
+        <artifactId>apache</artifactId>
+        <version>31</version>
+        <relativePath />
+    </parent>
+
+    <groupId>org.apache.seatunnel</groupId>
+    <artifactId>seatunnel</artifactId>
+    <version>${revision}</version>
+    <packaging>pom</packaging>
+
+    <name>SeaTunnel :</name>
+
+    <description>Production ready big data processing product based on Apache Spark and Apache Flink.</description>
+
+    <modules>
+        <!--
+            We retrieve the config module from maven repository. If you want to change the config module,
+            you need to open this annotation and change the dependency of config-shade to project.
+            <module>seatunnel-config</module>
+        -->
+        <module>seatunnel-config</module>
+        <module>seatunnel-common</module>
+        <module>seatunnel-core</module>
+        <module>seatunnel-transforms-v2</module>
+        <module>seatunnel-connectors-v2</module>
+        <module>seatunnel-api</module>
+        <module>seatunnel-translation</module>
+        <module>seatunnel-plugin-discovery</module>
+        <module>seatunnel-formats</module>
+        <module>seatunnel-engine</module>
+        <module>seatunnel-trace</module>
+        <module>seatunnel-examples</module>
+        <module>seatunnel-e2e</module>
+        <module>seatunnel-edge-agent</module>
+        <module>seatunnel-ci-tools</module>
+    </modules>
+
+    <properties>
+        <!--todo The classification is too confusing, reclassify by type-->
+        <revision>3.0.0-SNAPSHOT</revision>
+        <seatunnel.config.shade.version>2.1.1</seatunnel.config.shade.version>
+        <!-- The seatunnel shade version  e.g. ${seatunnel.shade.hazelcast.version}-${seatunnel.shade.version} -->
+        <seatunnel.shade.version>3.0.0</seatunnel.shade.version>
+        <seatunnel.shade.arraw.version>15.0.1</seatunnel.shade.arraw.version>
+        <seatunnel.shade.guava.version>27.0-jre</seatunnel.shade.guava.version>
+        <seatunnel.shade.hadoop.version>3.1.4</seatunnel.shade.hadoop.version>
+        <seatunnel.shade.hadoop-aws.version>3.1.4</seatunnel.shade.hadoop-aws.version>
+        <seatunnel.shade.hazelcast.version>5.1</seatunnel.shade.hazelcast.version>
+        <seatunnel.shade.hikari.version>4.0.3</seatunnel.shade.hikari.version>
+        <seatunnel.shade.jackson.version>2.15.4</seatunnel.shade.jackson.version>
+        <seatunnel.shade.janino.version>3.1.12</seatunnel.shade.janino.version>
+        <seatunnel.shade.jetty.version>9.4.56.v20240826</seatunnel.shade.jetty.version>
+        <seatunnel.shade.scala-compiler.version>2.12</seatunnel.shade.scala-compiler.version>
+        <seatunnel.shade.thrift-service.version>1.0.0</seatunnel.shade.thrift-service.version>
+        <seatunnel.shade.commons-lang3.version>3.18.0</seatunnel.shade.commons-lang3.version>
+        <seatunnel.shade.calcite.version>1.38.0</seatunnel.shade.calcite.version>
+
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <java.version>1.8</java.version>
+        <scala.version>2.12.15</scala.version>
+        <scala.binary.version>2.12</scala.binary.version>
+        <maven.compiler.source>${java.version}</maven.compiler.source>
+        <maven.compiler.target>${java.version}</maven.compiler.target>
+
+        <system-rules.version>1.2.1</system-rules.version>
+        <powermock.version>2.0.9</powermock.version>
+        <slf4j.version>1.7.36</slf4j.version>
+        <log4j2.version>2.17.1</log4j2.version>
+        <log4j2-disruptor.version>3.4.4</log4j2-disruptor.version>
+        <log4j.version>1.2.17</log4j.version>
+        <logback.version>1.2.3</logback.version>
+        <commons-logging.version>1.2</commons-logging.version>
+        <flink.1.13.6.version>1.13.6</flink.1.13.6.version>
+        <flink.1.15.3.version>1.15.3</flink.1.15.3.version>
+        <flink.1.20.1.version>1.20.1</flink.1.20.1.version>
+        <spark.2.4.0.version>2.4.0</spark.2.4.0.version>
+        <spark.3.3.0.version>3.3.0</spark.3.3.0.version>
+        <spark.binary.2.4.version>2.4</spark.binary.2.4.version>
+        <commons.beanutils.version>1.9.4</commons.beanutils.version>
+        <commons.cli.version>1.4</commons.cli.version>
+        <commons.configuration.version>1.7</commons.configuration.version>
+        <commons.digester.version>1.8.1</commons.digester.version>
+        <codehaus.jackson.version>1.9.13</codehaus.jackson.version>
+        <jersey.version>1.19</jersey.version>
+        <javax.servlet.jap.version>2.1</javax.servlet.jap.version>
+        <hadoop.binary.version>2.7</hadoop.binary.version>
+        <jackson.version>2.15.4</jackson.version>
+        <lombok.version>1.18.36</lombok.version>
+        <commons-compress.version>1.20</commons-compress.version>
+        <avro.version>1.11.1</avro.version>
+        <skip.pmd.check>false</skip.pmd.check>
+        <maven.deploy.skip>false</maven.deploy.skip>
+        <maven.javadoc.skip>false</maven.javadoc.skip>
+        <maven-surefire-plugin.version>2.22.2</maven-surefire-plugin.version>
+        <maven-failsafe-plugin.version>2.22.2</maven-failsafe-plugin.version>
+        <nexus-staging-maven-plugin.version>1.6.8</nexus-staging-maven-plugin.version>
+        <maven-source-plugin.version>3.0.1</maven-source-plugin.version>
+        <maven-javadoc-plugin.version>2.9.1</maven-javadoc-plugin.version>
+        <maven-deploy-plugin.version>2.8.2</maven-deploy-plugin.version>
+        <maven-compiler-plugin.version>3.10.1</maven-compiler-plugin.version>
+        <maven-pmd-plugin.version>3.8</maven-pmd-plugin.version>
+        <elasticsearch6.client.version>6.3.1</elasticsearch6.client.version>
+        <elasticsearch7.client.version>7.5.1</elasticsearch7.client.version>
+        <flink-shaded-hadoop-2.version>2.7.5-7.0</flink-shaded-hadoop-2.version>
+        <commons-lang3.version>3.18.0</commons-lang3.version>
+        <commons-io.version>2.11.0</commons-io.version>
+        <commons-collections4.version>4.4</commons-collections4.version>
+        <commons-csv.version>1.10.0</commons-csv.version>
+        <maven-assembly-plugin.version>3.3.0</maven-assembly-plugin.version>
+        <protostuff.version>1.8.0</protostuff.version>
+        <spark.scope>provided</spark.scope>
+        <flink.scope>provided</flink.scope>
+        <codec.version>1.13</codec.version>
+        <exec-maven-plugin.version>3.0.0</exec-maven-plugin.version>
+        <docker.hub>apache</docker.hub>
+        <docker.repo>seatunnel</docker.repo>
+        <docker.tag>${project.version}</docker.tag>
+        <docker.build.skip>true</docker.build.skip>
+        <docker.verify.skip>true</docker.verify.skip>
+        <docker.push.skip>true</docker.push.skip>
+        <jcommander.version>1.81</jcommander.version>
+        <junit4.version>4.13.2</junit4.version>
+        <junit5.version>5.9.0</junit5.version>
+        <rest-assured.version>5.4.0</rest-assured.version>
+        <mockito.version>4.11.0</mockito.version>
+        <config.version>1.3.3</config.version>
+        <maven-shade-plugin.version>3.5.1</maven-shade-plugin.version>
+        <maven-helper-plugin.version>3.2.0</maven-helper-plugin.version>
+        <maven-git-commit-id-plugin.version>4.0.4</maven-git-commit-id-plugin.version>
+        <flatten-maven-plugin.version>1.3.0</flatten-maven-plugin.version>
+        <maven-license-maven-plugin>1.20</maven-license-maven-plugin>
+        <log4j-core.version>2.17.1</log4j-core.version>
+        <docker-maven-plugin.version>0.38.0</docker-maven-plugin.version>
+        <maven-dependency-plugin.version>3.1.1</maven-dependency-plugin.version>
+        <p3c-pmd.version>1.3.0</p3c-pmd.version>
+        <maven-scm-provider-jgit.version>2.0.0</maven-scm-provider-jgit.version>
+        <testcontainer.version>1.17.6</testcontainer.version>
+        <spotless.version>2.29.0</spotless.version>
+        <jsqlparser.version>4.9</jsqlparser.version>
+        <json-path.version>2.7.0</json-path.version>
+        <groovy.version>4.0.16</groovy.version>
+        <scala.version>2.12.15</scala.version>
+        <jetty.version>9.4.56.v20240826</jetty.version>
+        <jakarta.servlet-api>4.0.4</jakarta.servlet-api>
+        <hugegraph.client.version>1.7.0</hugegraph.client.version>
+        <!-- Option args -->
+        <surefire.jvm.args>-Dfile.encoding=UTF-8</surefire.jvm.args>
+        <skipUT>false</skipUT>
+        <skipIT>true</skipIT>
+        <elasticsearch>7</elasticsearch>
+        <guava.version>27.0-jre</guava.version>
+        <auto-service.version>1.0.1</auto-service.version>
+        <hadoop2.version>2.6.5</hadoop2.version>
+        <seatunnel.shade.package>org.apache.seatunnel.shade</seatunnel.shade.package>
+        <snappy-java.version>1.1.8.3</snappy-java.version>
+        <checker.qual.version>3.10.0</checker.qual.version>
+        <awaitility.version>4.2.0</awaitility.version>
+        <e2e.dependency.skip>true</e2e.dependency.skip>
+        <skip.spotless>false</skip.spotless>
+
+        <!-- prometheus simpleclient -->
+        <prometheus.simpleclient.version>0.16.0</prometheus.simpleclient.version>
+        <enableSourceJarCreation>true</enableSourceJarCreation>
+
+        <hadoop-aws.version>3.1.4</hadoop-aws.version>
+        <software.amazon.awssdk.version>2.31.30</software.amazon.awssdk.version>
+        <arrow.version>15.0.1</arrow.version>
+        <okhttp.version>4.12.0</okhttp.version>
+
+    </properties>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- ***************** slf4j & provider & bridges start ***************** -->
+            <!-- Declare slf4j-api -->
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>slf4j-api</artifactId>
+                <version>${slf4j.version}</version>
+            </dependency>
+            <!-- Declare slf4j-api provider: log4j2.x -->
+            <dependency>
+                <groupId>org.apache.logging.log4j</groupId>
+                <artifactId>log4j-slf4j-impl</artifactId>
+                <version>${log4j2.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.logging.log4j</groupId>
+                <artifactId>log4j-api</artifactId>
+                <version>${log4j2.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.logging.log4j</groupId>
+                <artifactId>log4j-core</artifactId>
+                <version>${log4j2.version}</version>
+            </dependency>
+            <!-- Declare log4j2 asynchronous loggers provider: disruptor -->
+            <dependency>
+                <groupId>com.lmax</groupId>
+                <artifactId>disruptor</artifactId>
+                <version>${log4j2-disruptor.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.xerial.snappy</groupId>
+                <artifactId>snappy-java</artifactId>
+                <version>${snappy-java.version}</version>
+            </dependency>
+            <!-- Include the logging bridges -->
+            <!-- commons-logging bridge to slf4j -->
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>jcl-over-slf4j</artifactId>
+                <version>${slf4j.version}</version>
+            </dependency>
+            <!-- jdk-logging bridge to slf4j -->
+            <!-- low performance, see: https://www.slf4j.org/legacy.html#jul-to-slf4j
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>jul-to-slf4j</artifactId>
+                <version>${slf4j.version}</version>
+            </dependency>
+            -->
+            <!-- log4j1.x bridge to log4j2.x -->
+            <dependency>
+                <groupId>org.apache.logging.log4j</groupId>
+                <artifactId>log4j-1.2-api</artifactId>
+                <version>${log4j2.version}</version>
+            </dependency>
+            <!-- Exclude the logging bridges via provided scope -->
+            <!-- log4j1.x bridge to slf4j
+                 Use of the SLF4J adapter (log4j-over-slf4j) together with the SLF4J bridge (slf4j-log4j12) should never be attempted as it will cause events to endlessly be routed between SLF4J and Log4j 1
+             -->
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>log4j-over-slf4j</artifactId>
+                <version>${slf4j.version}</version>
+                <scope>provided</scope>
+            </dependency>
+            <!-- slf4j binding to log4j1.x -->
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>slf4j-log4j12</artifactId>
+                <version>${slf4j.version}</version>
+                <scope>provided</scope>
+            </dependency>
+            <!-- log4j2.x binding to slf4j.
+                 Use of the SLF4J adapter (log4j-to-slf4j-2.x.jar) together with the SLF4J bridge (log4j-slf4j-impl-2.x.jar) should never be attempted as it will cause events to endlessly be routed between SLF4J and Log4j 2
+            -->
+            <dependency>
+                <groupId>org.apache.logging.log4j</groupId>
+                <artifactId>log4j-to-slf4j</artifactId>
+                <version>${log4j2.version}</version>
+                <scope>provided</scope>
+            </dependency>
+            <!-- slf4j binding to jdk-logging -->
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>slf4j-jdk14</artifactId>
+                <version>${slf4j.version}</version>
+                <scope>provided</scope>
+            </dependency>
+            <!-- slf4j binding to commons-logging -->
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>slf4j-jcl</artifactId>
+                <version>${slf4j.version}</version>
+                <scope>provided</scope>
+            </dependency>
+            <!-- slf4j binding to nop -->
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>slf4j-nop</artifactId>
+                <version>${slf4j.version}</version>
+                <scope>provided</scope>
+            </dependency>
+            <!-- slf4j binding to simple -->
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>slf4j-simple</artifactId>
+                <version>${slf4j.version}</version>
+                <scope>provided</scope>
+            </dependency>
+            <!-- slf4j binding to reload4j -->
+            <dependency>
+                <groupId>org.slf4j</groupId>
+                <artifactId>slf4j-reload4j</artifactId>
+                <version>${slf4j.version}</version>
+                <scope>provided</scope>
+            </dependency>
+            <!-- Exclude other logging provider via provided scope -->
+            <dependency>
+                <groupId>commons-logging</groupId>
+                <artifactId>commons-logging</artifactId>
+                <version>${commons-logging.version}</version>
+                <scope>provided</scope>
+            </dependency>
+            <dependency>
+                <groupId>log4j</groupId>
+                <artifactId>log4j</artifactId>
+                <version>${log4j.version}</version>
+                <scope>provided</scope>
+            </dependency>
+            <dependency>
+                <groupId>ch.qos.logback</groupId>
+                <artifactId>logback-classic</artifactId>
+                <version>${logback.version}</version>
+                <scope>provided</scope>
+            </dependency>
+            <dependency>
+                <groupId>ch.qos.logback</groupId>
+                <artifactId>logback-core</artifactId>
+                <version>${logback.version}</version>
+                <scope>provided</scope>
+            </dependency>
+            <!-- ***************** slf4j & provider & bridges end ***************** -->
+
+            <dependency>
+                <groupId>org.apache.seatunnel</groupId>
+                <artifactId>seatunnel-config-shade</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>commons-codec</groupId>
+                <artifactId>commons-codec</artifactId>
+                <version>${codec.version}</version>
+            </dependency>
+
+            <!-- OkHttp dependencies -->
+            <dependency>
+                <groupId>com.squareup.okhttp3</groupId>
+                <artifactId>okhttp</artifactId>
+                <version>${okhttp.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.squareup.okhttp3</groupId>
+                <artifactId>mockwebserver</artifactId>
+                <version>${okhttp.version}</version>
+                <scope>test</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.flink</groupId>
+                <artifactId>flink-shaded-hadoop-2</artifactId>
+                <version>${flink-shaded-hadoop-2.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>xml-apis</groupId>
+                        <artifactId>xml-apis</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>org.slf4j</groupId>
+                        <artifactId>slf4j-log4j12</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>org.projectlombok</groupId>
+                <artifactId>lombok</artifactId>
+                <version>${lombok.version}</version>
+                <scope>provided</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-lang3</artifactId>
+                <version>${commons-lang3.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-collections4</artifactId>
+                <version>${commons-collections4.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-csv</artifactId>
+                <version>${commons-csv.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.beust</groupId>
+                <artifactId>jcommander</artifactId>
+                <version>${jcommander.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.junit</groupId>
+                <artifactId>junit-bom</artifactId>
+                <version>${junit5.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>junit</groupId>
+                <artifactId>junit</artifactId>
+                <version>${junit4.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.mockito</groupId>
+                <artifactId>mockito-junit-jupiter</artifactId>
+                <version>${mockito.version}</version>
+                <scope>test</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-annotations</artifactId>
+                <version>${jackson.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.fasterxml.jackson.datatype</groupId>
+                <artifactId>jackson-datatype-jsr310</artifactId>
+                <version>${jackson.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.fasterxml.jackson.module</groupId>
+                <artifactId>jackson-module-scala_${scala.binary.version}</artifactId>
+                <version>${jackson.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-core</artifactId>
+                <version>${jackson.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.fasterxml.jackson.core</groupId>
+                <artifactId>jackson-databind</artifactId>
+                <version>${jackson.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.fasterxml.jackson.dataformat</groupId>
+                <artifactId>jackson-dataformat-yaml</artifactId>
+                <version>${jackson.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.fasterxml.jackson.dataformat</groupId>
+                <artifactId>jackson-dataformat-properties</artifactId>
+                <version>${jackson.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.fasterxml.jackson.datatype</groupId>
+                <artifactId>jackson-datatype-jdk8</artifactId>
+                <version>${jackson.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-compress</artifactId>
+                <version>${commons-compress.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.testcontainers</groupId>
+                <artifactId>testcontainers</artifactId>
+                <version>${testcontainer.version}</version>
+                <scope>test</scope>
+                <exclusions>
+                    <exclusion>
+                        <groupId>org.slf4j</groupId>
+                        <artifactId>slf4j-api</artifactId>
+                    </exclusion>
+                    <exclusion>
+                        <groupId>junit</groupId>
+                        <artifactId>junit</artifactId>
+                    </exclusion>
+                </exclusions>
+            </dependency>
+
+            <dependency>
+                <groupId>com.typesafe</groupId>
+                <artifactId>config</artifactId>
+                <version>${config.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.scala-lang</groupId>
+                <artifactId>scala-library</artifactId>
+                <version>${scala.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.google.guava</groupId>
+                <artifactId>guava</artifactId>
+                <version>${guava.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.checkerframework</groupId>
+                <artifactId>checker-qual</artifactId>
+                <version>${checker.qual.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.awaitility</groupId>
+                <artifactId>awaitility</artifactId>
+                <version>${awaitility.version}</version>
+                <scope>test</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>commons-io</groupId>
+                <artifactId>commons-io</artifactId>
+                <version>${commons-io.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.protostuff</groupId>
+                <artifactId>protostuff-core</artifactId>
+                <version>${protostuff.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.protostuff</groupId>
+                <artifactId>protostuff-runtime</artifactId>
+                <version>${protostuff.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.google.auto.service</groupId>
+                <artifactId>auto-service</artifactId>
+                <version>${auto-service.version}</version>
+                <scope>provided</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.seatunnel</groupId>
+                <artifactId>seatunnel-shade-hadoop3-uber</artifactId>
+                <version>${seatunnel.shade.hadoop.version}-${seatunnel.shade.version}</version>
+                <scope>provided</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.seatunnel</groupId>
+                <artifactId>seatunnel-shade-hadoop-aws</artifactId>
+                <version>${seatunnel.shade.hadoop-aws.version}-${seatunnel.shade.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.seatunnel</groupId>
+                <artifactId>seatunnel-shade-guava</artifactId>
+                <version>${seatunnel.shade.guava.version}-${seatunnel.shade.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.seatunnel</groupId>
+                <artifactId>seatunnel-shade-jackson</artifactId>
+                <version>${seatunnel.shade.jackson.version}-${seatunnel.shade.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.seatunnel</groupId>
+                <artifactId>seatunnel-shade-jackson-yaml</artifactId>
+                <version>${seatunnel.shade.jackson.version}-${seatunnel.shade.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.seatunnel</groupId>
+                <artifactId>seatunnel-shade-commons-lang3</artifactId>
+                <version>${seatunnel.shade.commons-lang3.version}-${seatunnel.shade.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.seatunnel</groupId>
+                <artifactId>seatunnel-shade-arrow</artifactId>
+                <version>${seatunnel.shade.arraw.version}-${seatunnel.shade.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.seatunnel</groupId>
+                <artifactId>seatunnel-shade-hikari</artifactId>
+                <version>${seatunnel.shade.hikari.version}-${seatunnel.shade.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.seatunnel</groupId>
+                <artifactId>seatunnel-shade-hazelcast</artifactId>
+                <version>${seatunnel.shade.hazelcast.version}-${seatunnel.shade.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.seatunnel</groupId>
+                <artifactId>seatunnel-shade-scala-compiler</artifactId>
+                <version>${seatunnel.shade.scala-compiler.version}-${seatunnel.shade.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.seatunnel</groupId>
+                <artifactId>seatunnel-shade-janino</artifactId>
+                <version>${seatunnel.shade.janino.version}-${seatunnel.shade.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.seatunnel</groupId>
+                <artifactId>seatunnel-shade-calcite</artifactId>
+                <version>${seatunnel.shade.calcite.version}-${seatunnel.shade.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.seatunnel</groupId>
+                <artifactId>seatunnel-shade-jetty</artifactId>
+                <version>${seatunnel.shade.jetty.version}-${seatunnel.shade.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.seatunnel</groupId>
+                <artifactId>seatunnel-shade-thrift-service</artifactId>
+                <version>${seatunnel.shade.thrift-service.version}-${seatunnel.shade.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.arrow</groupId>
+                <artifactId>arrow-vector</artifactId>
+                <version>${arrow.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.arrow</groupId>
+                <artifactId>arrow-memory-netty</artifactId>
+                <version>${arrow.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.hugegraph</groupId>
+                <artifactId>hugegraph-client</artifactId>
+                <version>${hugegraph.client.version}</version>
+            </dependency>
+
+        </dependencies>
+    </dependencyManagement>
+
+    <dependencies>
+        <dependency>
+            <groupId>com.google.auto.service</groupId>
+            <artifactId>auto-service</artifactId>
+            <version>${auto-service.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.projectlombok</groupId>
+            <artifactId>lombok</artifactId>
+        </dependency>
+
+        <!-- ***************** slf4j & provider & bridges start ***************** -->
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-slf4j-impl</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-api</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-core</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>jcl-over-slf4j</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.logging.log4j</groupId>
+            <artifactId>log4j-1.2-api</artifactId>
+        </dependency>
+        <!-- ***************** slf4j & provider & bridges end ***************** -->
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-engine</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.junit.jupiter</groupId>
+            <artifactId>junit-jupiter-params</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-junit-jupiter</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.mockito</groupId>
+            <artifactId>mockito-inline</artifactId>
+            <version>${mockito.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.github.stefanbirkner</groupId>
+            <artifactId>system-lambda</artifactId>
+            <version>${system-rules.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.powermock</groupId>
+            <artifactId>powermock-module-junit4</artifactId>
+            <version>${powermock.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.powermock</groupId>
+            <artifactId>powermock-api-mockito2</artifactId>
+            <version>${powermock.version}</version>
+            <scope>test</scope>
+        </dependency>
+
+        <!-- The prometheus simpleclient -->
+        <dependency>
+            <groupId>io.prometheus</groupId>
+            <artifactId>simpleclient</artifactId>
+            <version>${prometheus.simpleclient.version}</version>
+        </dependency>
+        <!-- Hotspot JVM metrics-->
+        <dependency>
+            <groupId>io.prometheus</groupId>
+            <artifactId>simpleclient_hotspot</artifactId>
+            <version>${prometheus.simpleclient.version}</version>
+        </dependency>
+        <!-- Exposition HTTPServer-->
+        <dependency>
+            <groupId>io.prometheus</groupId>
+            <artifactId>simpleclient_httpserver</artifactId>
+            <version>${prometheus.simpleclient.version}</version>
+        </dependency>
+
+    </dependencies>
+
+    <build>
+
+        <finalName>${project.artifactId}-${project.version}-${scala.version}</finalName>
+
+        <pluginManagement>
+            <plugins>
+
+                <!-- java/scala compiler (Start) -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-compiler-plugin</artifactId>
+                    <version>${maven-compiler-plugin.version}</version>
+                    <configuration>
+                        <source>${maven.compiler.source}</source>
+                        <target>${maven.compiler.target}</target>
+                        <forceJavacCompilerUse>true</forceJavacCompilerUse>
+                    </configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-surefire-plugin</artifactId>
+                    <version>${maven-surefire-plugin.version}</version>
+                    <configuration>
+                        <argLine>${surefire.jvm.args}</argLine>
+                        <skip>${skipUT}</skip>
+                        <systemPropertyVariables>
+                            <jacoco-agent.destfile>${project.build.directory}/jacoco.exec</jacoco-agent.destfile>
+                        </systemPropertyVariables>
+                        <excludes>
+                            <exclude>**/*IT.java</exclude>
+                        </excludes>
+                        <classpathDependencyExcludes>
+                            <!--
+                                The logger provider & bridges declared under 'provided' scope should be explicitly excluded from testing as below.
+                            -->
+                            <classpathDependencyExclude>org.slf4j:slf4j-jdk14</classpathDependencyExclude>
+                            <classpathDependencyExclude>org.slf4j:slf4j-jcl</classpathDependencyExclude>
+                            <classpathDependencyExclude>org.slf4j:slf4j-nop</classpathDependencyExclude>
+                            <classpathDependencyExclude>org.slf4j:slf4j-simple</classpathDependencyExclude>
+                            <classpathDependencyExclude>org.slf4j:slf4j-reload4j</classpathDependencyExclude>
+                            <classpathDependencyExclude>org.slf4j:slf4j-log4j12</classpathDependencyExclude>
+                            <classpathDependencyExclude>org.slf4j:log4j-over-slf4j</classpathDependencyExclude>
+                            <classpathDependencyExclude>commons-logging:commons-logging</classpathDependencyExclude>
+                            <classpathDependencyExclude>log4j:log4j</classpathDependencyExclude>
+                            <classpathDependencyExclude>ch.qos.logback:logback-classic</classpathDependencyExclude>
+                            <classpathDependencyExclude>ch.qos.logback:logback-core</classpathDependencyExclude>
+                            <classpathDependencyExclude>org.apache.logging.log4j:log4j-to-slf4j</classpathDependencyExclude>
+                        </classpathDependencyExcludes>
+                    </configuration>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-failsafe-plugin</artifactId>
+                    <version>${maven-failsafe-plugin.version}</version>
+                    <configuration>
+                        <argLine>${surefire.jvm.args}</argLine>
+                        <skip>${skipIT}</skip>
+                    </configuration>
+                    <executions>
+                        <execution>
+                            <goals>
+                                <goal>integration-test</goal>
+                                <goal>verify</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                </plugin>
+
+                <plugin>
+                    <groupId>io.fabric8</groupId>
+                    <artifactId>docker-maven-plugin</artifactId>
+                    <version>${docker-maven-plugin.version}</version>
+                </plugin>
+
+                <!-- shade -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-shade-plugin</artifactId>
+                    <version>${maven-shade-plugin.version}</version>
+                    <configuration>
+                        <shadedArtifactAttached>false</shadedArtifactAttached>
+                        <createDependencyReducedPom>true</createDependencyReducedPom>
+                        <!-- Make sure the transitive dependencies are written to the generated pom under <dependencies> -->
+                        <promoteTransitiveDependencies>true</promoteTransitiveDependencies>
+                        <artifactSet>
+                            <excludes>
+                                <exclude>org.slf4j:*</exclude>
+                                <exclude>ch.qos.logback:*</exclude>
+                                <exclude>log4j:*</exclude>
+                                <exclude>org.apache.logging.log4j:*</exclude>
+                                <exclude>commons-logging:*</exclude>
+                            </excludes>
+                        </artifactSet>
+                        <filters>
+                            <filter>
+                                <artifact>*:*</artifact>
+                                <excludes>
+                                    <exclude>META-INF/*.SF</exclude>
+                                    <exclude>META-INF/*.DSA</exclude>
+                                    <exclude>META-INF/*.RSA</exclude>
+                                </excludes>
+                            </filter>
+                        </filters>
+                    </configuration>
+
+                    <executions>
+                        <execution>
+                            <goals>
+                                <goal>shade</goal>
+                            </goals>
+                            <phase>package</phase>
+                            <configuration>
+                                <transformers combine.children="append">
+                                    <!-- The service transformer is needed to merge META-INF/services files -->
+                                    <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer" />
+                                </transformers>
+                            </configuration>
+                        </execution>
+                    </executions>
+                </plugin>
+
+                <!-- assembly -->
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-assembly-plugin</artifactId>
+                    <version>${maven-assembly-plugin.version}</version>
+                </plugin>
+
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-source-plugin</artifactId>
+                    <version>${maven-source-plugin.version}</version>
+                    <executions>
+                        <execution>
+                            <id>attach-sources</id>
+                            <goals>
+                                <goal>jar-no-fork</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                </plugin>
+
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-javadoc-plugin</artifactId>
+                    <version>${maven-javadoc-plugin.version}</version>
+                    <configuration>
+                        <source>${maven.compiler.source}</source>
+                        <failOnError>false</failOnError>
+                        <aggregate>true</aggregate>
+                        <skip>${maven.javadoc.skip}</skip>
+                        <additionalparam>-Xdoclint:none</additionalparam>
+                    </configuration>
+                    <executions>
+                        <execution>
+                            <id>attach-javadocs</id>
+                            <goals>
+                                <goal>jar</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                </plugin>
+
+                <plugin>
+                    <groupId>org.codehaus.mojo</groupId>
+                    <artifactId>build-helper-maven-plugin</artifactId>
+                    <version>${maven-helper-plugin.version}</version>
+                </plugin>
+
+                <plugin>
+                    <groupId>pl.project13.maven</groupId>
+                    <artifactId>git-commit-id-plugin</artifactId>
+                    <version>${maven-git-commit-id-plugin.version}</version>
+                </plugin>
+
+                <plugin>
+                    <groupId>org.codehaus.mojo</groupId>
+                    <artifactId>license-maven-plugin</artifactId>
+                    <version>${maven-license-maven-plugin}</version>
+                    <configuration>
+                        <outputDirectory>${project.basedir}/seatunnel-dist/target/</outputDirectory>
+                        <thirdPartyFilename>THIRD-PARTY.txt</thirdPartyFilename>
+                        <sortArtifactByName>false</sortArtifactByName>
+                        <useMissingFile>false</useMissingFile>
+                        <addJavaLicenseAfterPackage>true</addJavaLicenseAfterPackage>
+                        <socketTimeout>30000</socketTimeout>
+                        <connectTimeout>30000</connectTimeout>
+                        <connectionRequestTimeout>30000</connectionRequestTimeout>
+                        <excludedScopes>test,provided</excludedScopes>
+                    </configuration>
+                </plugin>
+
+                <!-- make sure that flatten runs after shaded -->
+                <plugin>
+                    <groupId>org.codehaus.mojo</groupId>
+                    <artifactId>flatten-maven-plugin</artifactId>
+                    <version>${flatten-maven-plugin.version}</version>
+                    <configuration>
+                        <updatePomFile>true</updatePomFile>
+                        <flattenMode>resolveCiFriendliesOnly</flattenMode>
+                    </configuration>
+                    <executions>
+                        <execution>
+                            <id>flatten</id>
+                            <goals>
+                                <goal>flatten</goal>
+                            </goals>
+                            <phase>process-resources</phase>
+                        </execution>
+                        <execution>
+                            <id>flatten.clean</id>
+                            <goals>
+                                <goal>clean</goal>
+                            </goals>
+                            <phase>clean</phase>
+                        </execution>
+                    </executions>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-dependency-plugin</artifactId>
+                    <version>${maven-dependency-plugin.version}</version>
+                    <configuration>
+                        <appendOutput>true</appendOutput>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
+
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <encoding>UTF-8</encoding>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                            <version>${lombok.version}</version>
+                        </path>
+                        <path>
+                            <groupId>com.google.auto.service</groupId>
+                            <artifactId>auto-service</artifactId>
+                            <version>${auto-service.version}</version>
+                        </path>
+                    </annotationProcessorPaths>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-release-plugin</artifactId>
+                <configuration>
+                    <autoVersionSubmodules>true</autoVersionSubmodules>
+                    <tagNameFormat>@{project.version}</tagNameFormat>
+                    <tagBase>${project.version}</tagBase>
+                </configuration>
+                <dependencies>
+                    <dependency>
+                        <groupId>org.apache.maven.scm</groupId>
+                        <artifactId>maven-scm-provider-jgit</artifactId>
+                        <version>${maven-scm-provider-jgit.version}</version>
+                    </dependency>
+                </dependencies>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+            </plugin>
+
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>license-maven-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>flatten-maven-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>com.diffplug.spotless</groupId>
+                <artifactId>spotless-maven-plugin</artifactId>
+                <version>${spotless.version}</version>
+                <configuration>
+                    <skip>${skip.spotless}</skip>
+                    <java>
+                        <excludes>
+                            <exclude>src/main/java/org/apache/seatunnel/antlr4/generated/*.*</exclude>
+                        </excludes>
+                        <googleJavaFormat>
+                            <version>1.7</version>
+                            <style>AOSP</style>
+                        </googleJavaFormat>
+                        <removeUnusedImports />
+                        <formatAnnotations />
+                        <importOrder>
+                            <order>org.apache.seatunnel.shade,org.apache.seatunnel,org.apache,org,,javax,java,\#</order>
+                        </importOrder>
+                        <replaceRegex>
+                            <name>Remove wildcard imports</name>
+                            <searchRegex>import\s+(static)*\s*[^\*\s]+\*;(\r\n|\r|\n)</searchRegex>
+                            <replacement>$1</replacement>
+                        </replaceRegex>
+                        <replaceRegex>
+                            <name>Block powermock</name>
+                            <searchRegex>import\s+org\.powermock\.[^\*\s]*(|\*);(\r\n|\r|\n)</searchRegex>
+                            <replacement>$1</replacement>
+                        </replaceRegex>
+                        <replaceRegex>
+                            <name>Block jUnit4 imports</name>
+                            <searchRegex>import\s+org\.junit\.[^jupiter][^\*\s]*(|\*);(\r\n|\r|\n)</searchRegex>
+                            <replacement>$1</replacement>
+                        </replaceRegex>
+                        <replaceRegex>
+                            <name>Convert Google Guava imports to shade</name>
+                            <searchRegex>import\s+(static\s+)?com\.google\.common\.([^;]+);(\r\n|\r|\n)</searchRegex>
+                            <replacement>import $1org.apache.seatunnel.shade.com.google.common.$2;$3</replacement>
+                        </replaceRegex>
+                        <replaceRegex>
+                            <name>Convert Jetty imports to shade</name>
+                            <searchRegex>import\s+(static\s+)?org\.eclipse\.jetty\.([^;]+);(\r\n|\r|\n)</searchRegex>
+                            <replacement>import $1org.apache.seatunnel.shade.org.eclipse.jetty.$2;$3</replacement>
+                        </replaceRegex>
+                        <replaceRegex>
+                            <name>Convert Hikari imports to shade</name>
+                            <searchRegex>import\s+(static\s+)?com\.zaxxer\.hikari\.([^;]+);(\r\n|\r|\n)</searchRegex>
+                            <replacement>import $1org.apache.seatunnel.shade.com.zaxxer.hikari.$2;$3</replacement>
+                        </replaceRegex>
+                        <replaceRegex>
+                            <name>Convert Janino imports to shade</name>
+                            <searchRegex>import\s+(static\s+)?org\.codehaus\.(janino|commons)\.([^;]+);(\r\n|\r|\n)</searchRegex>
+                            <replacement>import $1org.apache.seatunnel.shade.org.codehaus.$2.$3;$4</replacement>
+                        </replaceRegex>
+                        <replaceRegex>
+                            <name>Convert Apache Commons Lang3 imports to shade</name>
+                            <searchRegex>import\s+(static\s+)?org\.apache\.commons\.lang3\.([^;]+);(\r\n|\r|\n)</searchRegex>
+                            <replacement>import $1org.apache.seatunnel.shade.org.apache.commons.lang3.$2;$3</replacement>
+                        </replaceRegex>
+                    </java>
+                    <pom>
+                        <sortPom>
+                            <encoding>UTF-8</encoding>
+                            <nrOfIndentSpace>4</nrOfIndentSpace>
+                            <keepBlankLines>true</keepBlankLines>
+                            <indentBlankLines>false</indentBlankLines>
+                            <indentSchemaLocation>true</indentSchemaLocation>
+                            <spaceBeforeCloseEmptyElement>true</spaceBeforeCloseEmptyElement>
+                            <sortModules>false</sortModules>
+                            <sortExecutions>false</sortExecutions>
+                            <predefinedSortOrder>custom_1</predefinedSortOrder>
+                            <expandEmptyElements>false</expandEmptyElements>
+                            <sortProperties>false</sortProperties>
+                        </sortPom>
+                        <replace>
+                            <name>Leading blank line</name>
+                            <search>project</search>
+                            <replacement>project</replacement>
+                        </replace>
+                    </pom>
+                    <!-- disable markdown for now, it will change sidebar config in file-->
+                    <!--                    <markdown>-->
+                    <!--                        <includes>-->
+                    <!--                            <include>docs/**/*.md</include>-->
+                    <!--                        </includes>-->
+                    <!--                        <excludes>-->
+                    <!--                            <exclude>**/.github/**/*.md</exclude>-->
+                    <!--                        </excludes>-->
+                    <!--                        <flexmark />-->
+                    <!--                    </markdown>-->
+                    <upToDateChecking>
+                        <enabled>true</enabled>
+                    </upToDateChecking>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>spotless-check</id>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                        <phase>validate</phase>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+    <url>https://github.com/apache/seatunnel</url>
+
+    <licenses>
+        <license>
+            <name>The Apache License, Version 2.0</name>
+            <url>https://www.apache.org/licenses/LICENSE-2.0.txt</url>
+        </license>
+    </licenses>
+
+    <mailingLists>
+        <mailingList>
+            <name>SeaTunnel Developer List</name>
+            <subscribe>dev-subscribe@seatunnel.apache.org</subscribe>
+            <unsubscribe>dev-unsubscribe@seatunnel.apache.org</unsubscribe>
+            <post>dev@seatunnel.apache.org</post>
+        </mailingList>
+        <mailingList>
+            <name>SeaTunnel Commits List</name>
+            <subscribe>commits-subscribe@seatunnel.apache.org</subscribe>
+            <unsubscribe>commits-unsubscribe@seatunnel.apache.org</unsubscribe>
+            <post>commits@seatunnel.apache.org</post>
+        </mailingList>
+    </mailingLists>
+
+    <scm>
+        <connection>scm:git:https://github.com/apache/seatunnel.git</connection>
+        <developerConnection>scm:git:https://github.com/apache/seatunnel.git</developerConnection>
+        <url>https://github.com/apache/seatunnel</url>
+        <tag>HEAD</tag>
+    </scm>
+
+    <issueManagement>
+        <system>GitHub</system>
+        <url>https://github.com/apache/seatunnel/issues</url>
+    </issueManagement>
+
+    <profiles>
+        <profile>
+            <id>release</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <modules>
+                <module>seatunnel-dist</module>
+            </modules>
+        </profile>
+        <!-- The ci need build without seatunnel-dist modules, so we need add a no_dist profile -->
+        <profile>
+            <id>ci</id>
+            <activation>
+                <activeByDefault>false</activeByDefault>
+            </activation>
+        </profile>
+        <profile>
+            <id>benchmark</id>
+            <activation>
+                <activeByDefault>false</activeByDefault>
+            </activation>
+            <modules>
+                <module>seatunnel-benchmarks</module>
+            </modules>
+        </profile>
+    </profiles>
+
+</project>

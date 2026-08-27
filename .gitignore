@@ -1,0 +1,76 @@
+# Package Files #
+*.jar
+*.class
+*.zip
+*.tar.gz
+
+# see JDK-8214300
+.attach_pid*
+
+# virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
+hs_err_pid*
+
+# build targets
+target/
+
+# Log file
+*.log
+/logs
+logs.zip
+
+# Intellij Idea files
+.idea/
+*.iml
+.idea/*
+
+# Eclipse / M2E files
+.classpath
+.factorypath
+.project
+.settings/
+
+.DS_Store
+
+metastore_db/
+
+work_dir
+
+all-dependencies.txt
+self-modules.txt
+third-party-dependencies.txt
+
+*.keytab
+/derby.log
+
+dependency-reduced-pom.xml
+
+apidoc
+
+# Python
+*.py[cod]
+
+Test.java
+Test.scala
+test.conf
+spark-warehouse
+*.flattened-pom.xml
+
+seatunnel-examples
+
+# vscode
+.vscode
+
+/lib/*
+version.properties
+node/
+
+dist/
+
+seatunnel-engine/seatunnel-engine-server/**/ui/*
+
+seatunnel-edge-agent/**/edge-agent.id
+seatunnel-edge-agent/**/tmp/
+
+# seatunnel-cli benchmark runtime artifacts
+seatunnel-cli/benchmark/results/
+seatunnel-cli/benchmark/models.json

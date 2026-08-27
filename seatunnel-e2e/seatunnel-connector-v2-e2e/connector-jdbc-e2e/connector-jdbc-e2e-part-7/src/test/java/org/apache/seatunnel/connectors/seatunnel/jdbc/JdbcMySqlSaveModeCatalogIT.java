@@ -1,0 +1,288 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.seatunnel.connectors.seatunnel.jdbc;
+
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.Column;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.common.utils.JdbcUrlUtil;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.mysql.MySqlCatalog;
+import org.apache.seatunnel.e2e.common.TestResource;
+import org.apache.seatunnel.e2e.common.TestSuiteBase;
+import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
+import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
+
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.testcontainers.containers.MySQLContainer;
+import org.testcontainers.containers.output.Slf4jLogConsumer;
+import org.testcontainers.containers.wait.strategy.Wait;
+import org.testcontainers.images.PullPolicy;
+import org.testcontainers.lifecycle.Startables;
+import org.testcontainers.utility.DockerImageName;
+import org.testcontainers.utility.DockerLoggerFactory;
+
+import lombok.extern.slf4j.Slf4j;
+
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.time.Duration;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Stream;
+
+import static org.awaitility.Awaitility.given;
+
+@Slf4j
+public class JdbcMySqlSaveModeCatalogIT extends TestSuiteBase implements TestResource {
+
+    private static final String MYSQL_IMAGE = "mysql:8.0.43";
+    private static final String MYSQL_CONTAINER_HOST = "mysql-e2e";
+    private static final String MYSQL_DATABASE = "auto";
+
+    private static final String MYSQL_USERNAME = "root";
+    private static final String MYSQL_PASSWORD = "Abc!@#135_seatunnel";
+    private static final int MYSQL_CONTAINER_PORT = 3306;
+    private static final String TABLE_COMMENT = "test table's \\ comment";
+
+    private MySQLContainer<?> mysql_container;
+    private JdbcUrlUtil.UrlInfo mysqlUrlInfo;
+
+    private static final String CREATE_TABLE_SQL =
+            "CREATE TABLE IF NOT EXISTS mysql_auto_create\n"
+                    + "(\n  "
+                    + "`id` int(11) NOT NULL AUTO_INCREMENT,\n"
+                    + "  `f_binary` binary(64) DEFAULT NULL COMMENT '\"#¥%……&*（）;;'',,..``````//''@特殊注释''\\\\''\"',\n"
+                    + "  `f_smallint` smallint(6) DEFAULT NULL,\n"
+                    + "  `f_smallint_unsigned` smallint(5) unsigned DEFAULT NULL,\n"
+                    + "  `f_mediumint` mediumint(9) DEFAULT NULL,\n"
+                    + "  `f_mediumint_unsigned` mediumint(8) unsigned DEFAULT NULL,\n"
+                    + "  `f_int` int(11) DEFAULT NULL COMMENT 'test column comment',\n"
+                    + "  `f_int_unsigned` int(10) unsigned DEFAULT NULL,\n"
+                    + "  `f_integer` int(11) DEFAULT NULL,\n"
+                    + "  `f_integer_unsigned` int(10) unsigned DEFAULT NULL,\n"
+                    + "  `f_bigint` bigint(20) DEFAULT NULL,\n"
+                    + "  `f_bigint_unsigned` bigint(20) unsigned DEFAULT NULL,\n"
+                    + "  `f_numeric` decimal(10,0) DEFAULT NULL,\n"
+                    + "  `f_decimal` decimal(10,0) DEFAULT NULL,\n"
+                    + "  `f_float` float DEFAULT NULL,\n"
+                    + "  `f_double` double DEFAULT NULL,\n"
+                    + "  `f_double_precision` double DEFAULT NULL,\n"
+                    + "  `f_tinytext` tinytext COLLATE utf8mb4_unicode_ci,\n"
+                    + "  `f_varchar` varchar(100) COLLATE utf8mb4_unicode_ci DEFAULT NULL,\n"
+                    + "  `f_datetime` datetime DEFAULT NULL,\n"
+                    + "  `f_timestamp` timestamp NULL DEFAULT NULL,\n"
+                    + "  `f_bit1` bit(1) DEFAULT NULL,\n"
+                    + "  `f_bit64` bit(64) DEFAULT NULL,\n"
+                    + "  `f_char` char(1) COLLATE utf8mb4_unicode_ci DEFAULT NULL,\n"
+                    + "  `f_enum` enum('enum1','enum2','enum3') COLLATE utf8mb4_unicode_ci DEFAULT NULL,\n"
+                    + "  `f_real` double DEFAULT NULL,\n"
+                    + "  `f_tinyint` tinyint(4) DEFAULT NULL,\n"
+                    + "  `f_bigint8` bigint(8) DEFAULT NULL,\n"
+                    + "  `f_bigint1` bigint(1) DEFAULT NULL,\n"
+                    + "  `f_data` date DEFAULT NULL,\n"
+                    + "  PRIMARY KEY (`id`),\n"
+                    + "  KEY `idx_f_varchar` (`f_varchar`),\n"
+                    + "  UNIQUE KEY `idx_f_bigint` (`f_bigint`)\n"
+                    + ") ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci COMMENT = 'test table''s \\\\ comment';";
+
+    private final String getInsertSql =
+            "INSERT INTO mysql_auto_create"
+                    + "(id, f_binary, f_smallint, f_smallint_unsigned, f_mediumint, f_mediumint_unsigned, f_int, f_int_unsigned, f_integer, f_integer_unsigned, f_bigint, f_bigint_unsigned, f_numeric, f_decimal, f_float, f_double, f_double_precision, f_tinytext, f_varchar, f_datetime, f_timestamp, f_bit1, f_bit64, f_char, f_enum, f_real, f_tinyint, f_bigint8, f_bigint1, f_data)\n"
+                    + "VALUES(575, 0x654458436C70336B7357000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000, 194, 549, 633, 835, 719, 253, 742, 265, 806, 736, 474, 254, 120.8, 476.42, 264.95, 'In other words, Navicat provides the ability for data in different databases and/or schemas to be kept up-to-date so that each repository contains the same information.', 'jF9X70ZqH4', '2011-10-20 23:10:08', '2017-09-10 19:33:51', 1, b'0001001101100000001010010100010111000010010110110101110011111100', 'u', 'enum2', 876.55, 25, 503, 1, '2011-03-06');\n";
+
+    private final String customSql =
+            "INSERT INTO mysql_auto_create_sink"
+                    + "(id, f_binary, f_smallint, f_smallint_unsigned, f_mediumint, f_mediumint_unsigned, f_int, f_int_unsigned, f_integer, f_integer_unsigned, f_bigint, f_bigint_unsigned, f_numeric, f_decimal, f_float, f_double, f_double_precision, f_tinytext, f_varchar, f_datetime, f_timestamp, f_bit1, f_bit64, f_char, f_enum, f_real, f_tinyint, f_bigint8, f_bigint1, f_data)\n"
+                    + "VALUES(575, 0x654458436C70336B7357000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000, 194, 549, 633, 835, 719, 253, 742, 265, 806, 736, 474, 254, 120.8, 476.42, 264.95, 'In other words, Navicat provides the ability for data in different databases and/or schemas to be kept up-to-date so that each repository contains the same information.', 'jF9X70ZqH4', '2011-10-20 23:10:08', '2017-09-10 19:33:51', 1, b'0001001101100000001010010100010111000010010110110101110011111100', 'u', 'enum2', 876.55, 25, 503, 1, '2011-03-06');\n";
+
+    @TestContainerExtension
+    protected final ContainerExtendedFactory extendedFactory =
+            container ->
+                    DependencyJar.ofClassName("com.mysql.cj.jdbc.Driver")
+                            .copyTo(container, "/tmp/seatunnel/plugins/MySQL-CDC/lib");
+
+    void initContainer() throws ClassNotFoundException {
+        // ============= mysql
+        DockerImageName imageName = DockerImageName.parse(MYSQL_IMAGE);
+        mysql_container =
+                new MySQLContainer<>(imageName)
+                        .withImagePullPolicy(PullPolicy.ageBased(Duration.ofDays(7)))
+                        .withUsername(MYSQL_USERNAME)
+                        .withPassword(MYSQL_PASSWORD)
+                        .withDatabaseName(MYSQL_DATABASE)
+                        .withNetwork(NETWORK)
+                        .withNetworkAliases(MYSQL_CONTAINER_HOST)
+                        .withExposedPorts(MYSQL_CONTAINER_PORT)
+                        .waitingFor(Wait.forHealthcheck())
+                        .withLogConsumer(
+                                new Slf4jLogConsumer(DockerLoggerFactory.getLogger(MYSQL_IMAGE)));
+        Startables.deepStart(Stream.of(mysql_container)).join();
+        mysqlUrlInfo = JdbcUrlUtil.getUrlInfo(mysql_container.getJdbcUrl());
+    }
+
+    @Override
+    @BeforeAll
+    public void startUp() throws Exception {
+        initContainer();
+        given().ignoreExceptions()
+                .await()
+                .pollInterval(500, TimeUnit.MILLISECONDS)
+                .atMost(2, TimeUnit.MINUTES)
+                .untilAsserted(this::assertMySqlReady);
+        initializeJdbcTable();
+    }
+
+    @Test
+    public void testCatalog() throws SQLException {
+        TablePath tablePathMySql = TablePath.of("auto", "mysql_auto_create");
+        TablePath tablePathMySqlSink = TablePath.of("auto", "mysql_auto_create_sink");
+        MySqlCatalog mySqlCatalog =
+                new MySqlCatalog("mysql", "root", MYSQL_PASSWORD, mysqlUrlInfo, null);
+        mySqlCatalog.open();
+        CatalogTable catalogTable = mySqlCatalog.getTable(tablePathMySql);
+        // source table comment
+        Assertions.assertEquals(
+                "\"#¥%……&*（）;;',,..``````//'@特殊注释'\\'\"",
+                catalogTable.getTableSchema().getColumns().get(1).getComment());
+        Assertions.assertEquals(TABLE_COMMENT, catalogTable.getComment());
+        Assertions.assertEquals(
+                "InnoDB", catalogTable.getOptions().get(MySqlCatalog.TABLE_OPTION_ENGINE));
+        Assertions.assertEquals(
+                "utf8mb4", catalogTable.getOptions().get(MySqlCatalog.TABLE_OPTION_CHARSET));
+        Assertions.assertTrue(
+                catalogTable
+                        .getOptions()
+                        .get(MySqlCatalog.TABLE_OPTION_COLLATE)
+                        .startsWith("utf8mb4"));
+
+        // sink tableExists ?
+        boolean tableExistsBefore = mySqlCatalog.tableExists(tablePathMySqlSink);
+        Assertions.assertFalse(tableExistsBefore);
+        // create table
+        mySqlCatalog.createTable(tablePathMySqlSink, catalogTable, true);
+        boolean tableExistsAfter = mySqlCatalog.tableExists(tablePathMySqlSink);
+        Assertions.assertTrue(tableExistsAfter);
+
+        // Verify metadata is preserved in sink table
+        final CatalogTable sinkTable = mySqlCatalog.getTable(tablePathMySqlSink);
+        // Column comment preserved
+        final Column column = sinkTable.getTableSchema().getColumns().get(1);
+        Assertions.assertEquals("\"#¥%……&*（）;;',,..``````//'@特殊注释'\\'\"", column.getComment());
+        // Table comment preserved
+        Assertions.assertEquals(TABLE_COMMENT, sinkTable.getComment());
+        // ENGINE/CHARSET/COLLATE preserved
+        Assertions.assertEquals(
+                "InnoDB", sinkTable.getOptions().get(MySqlCatalog.TABLE_OPTION_ENGINE));
+        Assertions.assertEquals(
+                "utf8mb4", sinkTable.getOptions().get(MySqlCatalog.TABLE_OPTION_CHARSET));
+        Assertions.assertTrue(
+                sinkTable
+                        .getOptions()
+                        .get(MySqlCatalog.TABLE_OPTION_COLLATE)
+                        .startsWith("utf8mb4"));
+        // Non-PK indexes preserved
+        Assertions.assertEquals(2, sinkTable.getTableSchema().getConstraintKeys().size());
+
+        // Verify at SQL level
+        try (Connection conn = getJdbcMySqlConnection();
+                Statement stmt = conn.createStatement();
+                ResultSet rs =
+                        stmt.executeQuery(
+                                "SELECT ENGINE, TABLE_COLLATION, TABLE_COMMENT "
+                                        + "FROM information_schema.tables "
+                                        + "WHERE TABLE_SCHEMA = 'auto' AND TABLE_NAME = 'mysql_auto_create_sink'")) {
+            Assertions.assertTrue(rs.next());
+            Assertions.assertEquals("InnoDB", rs.getString("ENGINE"));
+            Assertions.assertTrue(rs.getString("TABLE_COLLATION").startsWith("utf8mb4"));
+            Assertions.assertEquals(TABLE_COMMENT, rs.getString("TABLE_COMMENT"));
+        }
+
+        // Verify indexes at SQL level
+        try (Connection conn = getJdbcMySqlConnection();
+                Statement stmt = conn.createStatement();
+                ResultSet rs =
+                        stmt.executeQuery("SHOW INDEX FROM `auto`.`mysql_auto_create_sink`")) {
+            boolean hasIdxVarchar = false;
+            boolean hasIdxBigint = false;
+            while (rs.next()) {
+                String keyName = rs.getString("Key_name");
+                if ("idx_f_varchar".equals(keyName)) {
+                    hasIdxVarchar = true;
+                }
+                if ("idx_f_bigint".equals(keyName)) {
+                    hasIdxBigint = true;
+                }
+            }
+            Assertions.assertTrue(hasIdxVarchar, "Index idx_f_varchar should exist");
+            Assertions.assertTrue(hasIdxBigint, "Unique index idx_f_bigint should exist");
+        }
+
+        // isExistsData ?
+        boolean existsDataBefore = mySqlCatalog.isExistsData(tablePathMySqlSink);
+        Assertions.assertFalse(existsDataBefore);
+        // insert one data
+        mySqlCatalog.executeSql(tablePathMySqlSink, customSql);
+        boolean existsDataAfter = mySqlCatalog.isExistsData(tablePathMySqlSink);
+        Assertions.assertTrue(existsDataAfter);
+        // truncateTable
+        mySqlCatalog.truncateTable(tablePathMySqlSink, true);
+        Assertions.assertFalse(mySqlCatalog.isExistsData(tablePathMySqlSink));
+        // drop table
+        mySqlCatalog.dropTable(tablePathMySqlSink, true);
+        Assertions.assertFalse(mySqlCatalog.tableExists(tablePathMySqlSink));
+        mySqlCatalog.close();
+    }
+
+    @Override
+    @AfterAll
+    public void tearDown() throws Exception {
+        if (mysql_container != null) {
+            mysql_container.close();
+        }
+    }
+
+    private Connection getJdbcMySqlConnection() throws SQLException {
+        return DriverManager.getConnection(
+                mysql_container.getJdbcUrl(),
+                mysql_container.getUsername(),
+                mysql_container.getPassword());
+    }
+
+    private void assertMySqlReady() throws SQLException {
+        try (Connection connection = getJdbcMySqlConnection();
+                Statement statement = connection.createStatement()) {
+            statement.executeQuery("SELECT 1");
+        }
+    }
+
+    private void initializeJdbcTable() {
+        try (Connection connection = getJdbcMySqlConnection()) {
+            Statement statement = connection.createStatement();
+            statement.execute(CREATE_TABLE_SQL);
+            statement.execute(getInsertSql);
+        } catch (SQLException e) {
+            throw new RuntimeException("Initializing Mysql table failed!", e);
+        }
+    }
+}

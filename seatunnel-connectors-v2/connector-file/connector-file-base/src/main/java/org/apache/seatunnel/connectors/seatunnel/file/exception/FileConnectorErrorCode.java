@@ -1,0 +1,55 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.seatunnel.connectors.seatunnel.file.exception;
+
+import org.apache.seatunnel.common.exception.SeaTunnelErrorCode;
+
+public enum FileConnectorErrorCode implements SeaTunnelErrorCode {
+    FILE_TYPE_INVALID("FILE-01", "File type is invalid"),
+    DATA_DESERIALIZE_FAILED("FILE-02", "Data deserialization failed"),
+    FILE_LIST_GET_FAILED("FILE-03", "Get file list failed"),
+    FILE_LIST_EMPTY("FILE-04", "File list is empty"),
+    AGGREGATE_COMMIT_ERROR("FILE-05", "Aggregate committer error"),
+    FILE_READ_STRATEGY_NOT_SUPPORT("FILE-06", "File strategy not support"),
+    FORMAT_NOT_SUPPORT("FILE-07", "Format not support"),
+    FILE_READ_FAILED("FILE-08", "File read failed"),
+    BINARY_FILE_PART_ORDER_ERROR("FILE-09", "Binary file fragment order abnormality"),
+    FILE_SPLIT_SIZE_ILLEGAL("FILE-10", "SplitSizeBytes must be greater than 0"),
+    FILE_SPLIT_FAIL("FILE-11", "File split fail"),
+    FILE_NOT_FOUND("FILE-12", "File not found"),
+    FILE_ACCESS_DENIED("FILE-13", "File access denied"),
+    FILE_IO_TIMEOUT("FILE-14", "File IO timeout");
+
+    private final String code;
+    private final String description;
+
+    FileConnectorErrorCode(String code, String description) {
+        this.code = code;
+        this.description = description;
+    }
+
+    @Override
+    public String getCode() {
+        return code;
+    }
+
+    @Override
+    public String getDescription() {
+        return description;
+    }
+}

@@ -1,0 +1,229 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.seatunnel.connectors.seatunnel.file.source.reader;
+
+import org.apache.seatunnel.api.common.SeaTunnelAPIErrorCode;
+import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.MetadataUtil;
+import org.apache.seatunnel.api.table.type.PrimitiveByteArrayType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
+import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
+
+import org.apache.commons.io.IOUtils;
+import org.apache.hadoop.fs.Path;
+
+import java.io.FilterInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.Arrays;
+
+/** Used to read file to binary stream */
+public class BinaryReadStrategy extends AbstractReadStrategy {
+
+    public static SeaTunnelRowType binaryRowType =
+            new SeaTunnelRowType(
+                    new String[] {"data", "relativePath", "partIndex"},
+                    new SeaTunnelDataType[] {
+                        PrimitiveByteArrayType.INSTANCE, BasicType.STRING_TYPE, BasicType.LONG_TYPE
+                    });
+
+    private String basePath;
+    private transient boolean basePathIsFile;
+    private int binaryChunkSize = FileBaseSourceOptions.BINARY_CHUNK_SIZE.defaultValue();
+    private boolean completeFileMode =
+            FileBaseSourceOptions.BINARY_COMPLETE_FILE_MODE.defaultValue();
+    private transient String lastReadFingerprint;
+
+    @Override
+    public void init(HadoopConf conf) {
+        super.init(conf);
+        basePath = pluginConfig.getString(FileBaseSourceOptions.FILE_PATH.key());
+        try {
+            basePathIsFile = hadoopFileSystemProxy.isFile(basePath);
+        } catch (IOException e) {
+            throw new FileConnectorException(
+                    SeaTunnelAPIErrorCode.CONFIG_VALIDATION_FAILED,
+                    "Failed to determine whether file source path is a file or directory: "
+                            + basePath,
+                    e);
+        }
+
+        // Load binary chunk size configuration
+        if (pluginConfig.hasPath(FileBaseSourceOptions.BINARY_CHUNK_SIZE.key())) {
+            binaryChunkSize = pluginConfig.getInt(FileBaseSourceOptions.BINARY_CHUNK_SIZE.key());
+            // Validate chunk size - should be positive and reasonable
+            if (binaryChunkSize <= 0) {
+                throw new IllegalArgumentException(
+                        "Binary chunk size must be positive, got: " + binaryChunkSize);
+            }
+            if (binaryChunkSize > 100 * 1024 * 1024) { // 100MB limit
+                throw new IllegalArgumentException(
+                        "Binary chunk size too large (max 100MB), got: " + binaryChunkSize);
+            }
+        }
+
+        // Load complete file mode configuration
+        if (pluginConfig.hasPath(FileBaseSourceOptions.BINARY_COMPLETE_FILE_MODE.key())) {
+            completeFileMode =
+                    pluginConfig.getBoolean(FileBaseSourceOptions.BINARY_COMPLETE_FILE_MODE.key());
+        }
+    }
+
+    @Override
+    public void read(String path, String tableId, Collector<SeaTunnelRow> output)
+            throws IOException, FileConnectorException {
+        MessageDigest digest = createSha256Digest();
+        lastReadFingerprint = null;
+        try (InputStream inputStream =
+                new DigestTrackingInputStream(hadoopFileSystemProxy.getInputStream(path), digest)) {
+            String relativePath = resolveBinaryRelativePath(path);
+
+            if (completeFileMode) {
+                // Read entire file as a single chunk
+                readCompleteFile(inputStream, relativePath, tableId, output);
+            } else {
+                // Read file in configurable chunks
+                readFileInChunks(inputStream, relativePath, tableId, output);
+            }
+            // Send an empty chunk as end-of-file marker
+            byte[] endMarker = new byte[0];
+            SeaTunnelRow endRow = new SeaTunnelRow(new Object[] {endMarker, relativePath, -1L});
+            endRow.setTableId(tableId);
+            MetadataUtil.setBinaryRowComplete(endRow);
+            output.collect(endRow);
+            lastReadFingerprint = sha256Hex(digest.digest());
+        }
+    }
+
+    @Override
+    public String getLastReadFingerprint() {
+        return lastReadFingerprint;
+    }
+
+    private String resolveBinaryRelativePath(String filePath) {
+        if (basePathIsFile) {
+            return new Path(filePath).getName();
+        }
+        return resolveRelativePath(basePath, filePath);
+    }
+
+    /** Read the entire file as a single chunk. */
+    private void readCompleteFile(
+            InputStream inputStream,
+            String relativePath,
+            String tableId,
+            Collector<SeaTunnelRow> output)
+            throws IOException {
+        byte[] fileContent = IOUtils.toByteArray(inputStream);
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {fileContent, relativePath, 0L});
+        row.setTableId(tableId);
+        MetadataUtil.setBinaryFormat(row);
+        output.collect(row);
+    }
+
+    /** Read the file in configurable chunks. */
+    private void readFileInChunks(
+            InputStream inputStream,
+            String relativePath,
+            String tableId,
+            Collector<SeaTunnelRow> output)
+            throws IOException {
+        byte[] buffer = new byte[binaryChunkSize];
+        long partIndex = 0;
+        int readSize;
+        while ((readSize = inputStream.read(buffer)) != -1) {
+            if (readSize != binaryChunkSize) {
+                buffer = Arrays.copyOf(buffer, readSize);
+            }
+            SeaTunnelRow row = new SeaTunnelRow(new Object[] {buffer, relativePath, partIndex});
+            buffer = new byte[binaryChunkSize];
+            row.setTableId(tableId);
+            MetadataUtil.setBinaryFormat(row);
+            output.collect(row);
+            partIndex++;
+        }
+    }
+
+    /**
+     * Returns a fixed SeaTunnelRowType used to store file fragments.
+     *
+     * <p>`data`: Holds the binary data of the file fragment. When the data is empty, it indicates
+     * the end of the file.
+     *
+     * <p>`relativePath`: Represents the sub-path of the file.
+     *
+     * <p>`partIndex`: Indicates the order of the file fragment.
+     */
+    @Override
+    public SeaTunnelRowType getSeaTunnelRowTypeInfo(String path) throws FileConnectorException {
+        return binaryRowType;
+    }
+
+    private static MessageDigest createSha256Digest() throws IOException {
+        try {
+            return MessageDigest.getInstance("SHA-256");
+        } catch (NoSuchAlgorithmException e) {
+            throw new IOException("SHA-256 is not supported by this JVM", e);
+        }
+    }
+
+    private static String sha256Hex(byte[] bytes) {
+        char[] digits = "0123456789abcdef".toCharArray();
+        char[] encoded = new char[bytes.length * 2];
+        for (int i = 0; i < bytes.length; i++) {
+            int current = bytes[i] & 0xff;
+            encoded[i * 2] = digits[current >>> 4];
+            encoded[i * 2 + 1] = digits[current & 0x0f];
+        }
+        return new String(encoded);
+    }
+
+    private static final class DigestTrackingInputStream extends FilterInputStream {
+        private final MessageDigest digest;
+
+        private DigestTrackingInputStream(InputStream in, MessageDigest digest) {
+            super(in);
+            this.digest = digest;
+        }
+
+        @Override
+        public int read() throws IOException {
+            int result = super.read();
+            if (result >= 0) {
+                digest.update((byte) result);
+            }
+            return result;
+        }
+
+        @Override
+        public int read(byte[] b, int off, int len) throws IOException {
+            int read = super.read(b, off, len);
+            if (read > 0) {
+                digest.update(b, off, read);
+            }
+            return read;
+        }
+    }
+}

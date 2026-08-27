@@ -1,0 +1,318 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.seatunnel.connectors.cdc.base.utils;
+
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+
+import org.apache.kafka.connect.data.Schema;
+import org.apache.kafka.connect.data.Struct;
+import org.apache.kafka.connect.source.SourceRecord;
+
+import io.debezium.connector.AbstractSourceInfo;
+import io.debezium.data.Envelope;
+import io.debezium.document.DocumentReader;
+import io.debezium.relational.TableId;
+import io.debezium.relational.history.HistoryRecord;
+import io.debezium.util.SchemaNameAdjuster;
+
+import java.math.BigDecimal;
+import java.math.BigInteger;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.util.Arrays;
+import java.util.List;
+
+import static io.debezium.connector.AbstractSourceInfo.SCHEMA_NAME_KEY;
+import static io.debezium.connector.AbstractSourceInfo.TABLE_NAME_KEY;
+
+/** Utility class to deal record. */
+public class SourceRecordUtils {
+
+    private SourceRecordUtils() {}
+
+    /** Todo: Support more schema change event key name, currently only support MySQL and Oracle. */
+    public static final List<String> SUPPORT_SCHEMA_CHANGE_EVENT_KEY_NAME =
+            Arrays.asList(
+                    "io.debezium.connector.mysql.SchemaChangeKey",
+                    "io.debezium.connector.oracle.SchemaChangeKey",
+                    "io.debezium.connector.sqlserver.SchemaChangeKey");
+
+    public static final String HEARTBEAT_VALUE_SCHEMA_KEY_NAME =
+            "io.debezium.connector.common.Heartbeat";
+    private static final DocumentReader DOCUMENT_READER = DocumentReader.defaultReader();
+
+    /** Converts a {@link ResultSet} row to an array of Objects. */
+    public static Object[] rowToArray(ResultSet rs, int size) throws SQLException {
+        final Object[] row = new Object[size];
+        for (int i = 0; i < size; i++) {
+            row[i] = rs.getObject(i + 1);
+        }
+        return row;
+    }
+
+    /**
+     * In the source object, ts_ms indicates the time that the change was made in the database. By
+     * comparing the value for payload.source.ts_ms with the value for payload.ts_ms, you can
+     * determine the lag between the source database update and Debezium.
+     */
+    public static Long getMessageTimestamp(SourceRecord record) {
+        Schema schema = record.valueSchema();
+        Struct value = (Struct) record.value();
+        if (schema == null || schema.field(Envelope.FieldName.SOURCE) == null) {
+            return null;
+        }
+
+        Struct source = value.getStruct(Envelope.FieldName.SOURCE);
+        if (source == null || source.schema().field(Envelope.FieldName.TIMESTAMP) == null) {
+            return null;
+        }
+
+        return source.getInt64(Envelope.FieldName.TIMESTAMP);
+    }
+
+    /**
+     * The field `ts_ms` in {@link SourceRecord} data struct is the time when the record fetched by
+     * debezium reader, use it as the process time in Source.
+     */
+    public static Long getFetchTimestamp(SourceRecord record) {
+        Schema schema = record.valueSchema();
+        Struct value = (Struct) record.value();
+        if (schema.field(Envelope.FieldName.TIMESTAMP) == null) {
+            return null;
+        }
+        return value.getInt64(Envelope.FieldName.TIMESTAMP);
+    }
+
+    public static boolean isSchemaChangeEvent(SourceRecord sourceRecord) {
+        Schema keySchema = sourceRecord.keySchema();
+        return keySchema != null
+                && SUPPORT_SCHEMA_CHANGE_EVENT_KEY_NAME.stream()
+                        .anyMatch(name -> name.equalsIgnoreCase(keySchema.name()));
+    }
+
+    public static boolean isDataChangeRecord(SourceRecord record) {
+        Schema valueSchema = record.valueSchema();
+        Struct value = (Struct) record.value();
+        return valueSchema != null
+                && valueSchema.field(Envelope.FieldName.OPERATION) != null
+                && value.getString(Envelope.FieldName.OPERATION) != null;
+    }
+
+    public static boolean isHeartbeatRecord(SourceRecord record) {
+        Schema valueSchema = record.valueSchema();
+        return valueSchema != null && valueSchema.name().equals(HEARTBEAT_VALUE_SCHEMA_KEY_NAME);
+    }
+
+    public static TableId getTableId(SourceRecord dataRecord) {
+        Struct value = (Struct) dataRecord.value();
+        Struct source = value.getStruct(Envelope.FieldName.SOURCE);
+        String dbName = resolveDatabaseName(source);
+        // Oracle need schemaName
+        String schemaName = getSchemaName(source);
+        String tableName = source.getString(TABLE_NAME_KEY);
+        return new TableId(dbName, schemaName, tableName);
+    }
+
+    public static String getSchemaName(Struct source) {
+        if (source.schema().fields().stream().anyMatch(r -> SCHEMA_NAME_KEY.equals(r.name()))) {
+            return source.getString(SCHEMA_NAME_KEY);
+        }
+        return null;
+    }
+
+    public static Object[] getSplitKey(
+            SeaTunnelRowType splitBoundaryType,
+            SourceRecord dataRecord,
+            SchemaNameAdjuster nameAdjuster) {
+        // the split key field contains single field now
+        String splitFieldName = nameAdjuster.adjust(splitBoundaryType.getFieldNames()[0]);
+        Struct key = (Struct) dataRecord.key();
+        return new Object[] {key.get(splitFieldName)};
+    }
+
+    /** Returns the specific key contains in the split key range or not. */
+    public static boolean splitKeyRangeContains(
+            Object[] key, Object[] splitKeyStart, Object[] splitKeyEnd) {
+        // for all range
+        if (splitKeyStart == null && splitKeyEnd == null) {
+            return true;
+        }
+        // first split
+        if (splitKeyStart == null) {
+            int[] upperBoundRes = new int[key.length];
+            for (int i = 0; i < key.length; i++) {
+                upperBoundRes[i] = compareObjects(key[i], splitKeyEnd[i]);
+            }
+            return Arrays.stream(upperBoundRes).anyMatch(value -> value < 0)
+                    && Arrays.stream(upperBoundRes).allMatch(value -> value <= 0);
+        }
+        // last split
+        else if (splitKeyEnd == null) {
+            int[] lowerBoundRes = new int[key.length];
+            for (int i = 0; i < key.length; i++) {
+                lowerBoundRes[i] = compareObjects(key[i], splitKeyStart[i]);
+            }
+            return Arrays.stream(lowerBoundRes).allMatch(value -> value >= 0);
+        }
+        // other split
+        else {
+            int[] lowerBoundRes = new int[key.length];
+            int[] upperBoundRes = new int[key.length];
+            for (int i = 0; i < key.length; i++) {
+                lowerBoundRes[i] = compareObjects(key[i], splitKeyStart[i]);
+                upperBoundRes[i] = compareObjects(key[i], splitKeyEnd[i]);
+            }
+            return Arrays.stream(lowerBoundRes).anyMatch(value -> value >= 0)
+                    && Arrays.stream(upperBoundRes).anyMatch(value -> value < 0)
+                    && Arrays.stream(upperBoundRes).allMatch(value -> value <= 0);
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static int compareObjects(Object o1, Object o2) {
+        if (o1 instanceof Comparable && o1.getClass().equals(o2.getClass())) {
+            return ((Comparable) o1).compareTo(o2);
+        } else if (isNumericObject(o1) && isNumericObject(o2)) {
+            return toBigDecimal(o1).compareTo(toBigDecimal(o2));
+        } else {
+            return o1.toString().compareTo(o2.toString());
+        }
+    }
+
+    private static boolean isNumericObject(Object obj) {
+        return obj instanceof Byte
+                || obj instanceof Short
+                || obj instanceof Integer
+                || obj instanceof Long
+                || obj instanceof Float
+                || obj instanceof Double
+                || obj instanceof BigInteger
+                || obj instanceof BigDecimal;
+    }
+
+    private static BigDecimal toBigDecimal(Object numericObj) {
+        return new BigDecimal(numericObj.toString());
+    }
+
+    public static TablePath getTablePath(SourceRecord record) {
+        Struct messageStruct = (Struct) record.value();
+        Struct sourceStruct = messageStruct.getStruct(Envelope.FieldName.SOURCE);
+        String databaseName = resolveDatabaseName(sourceStruct);
+        String tableName = sourceStruct.getString(AbstractSourceInfo.TABLE_NAME_KEY);
+        String schemaName = null;
+        if (sourceStruct.schema().field(AbstractSourceInfo.SCHEMA_NAME_KEY) != null) {
+            schemaName = sourceStruct.getString(AbstractSourceInfo.SCHEMA_NAME_KEY);
+        }
+        return TablePath.of(databaseName, schemaName, tableName);
+    }
+
+    /**
+     * Resolves the logical database name from Debezium source metadata.
+     *
+     * <p>Vitess writes an empty string into the generic database field and stores the real logical
+     * database in {@code keyspace}, so blank values must also trigger the fallback.
+     */
+    private static String resolveDatabaseName(Struct sourceStruct) {
+        String databaseName = sourceStruct.getString(AbstractSourceInfo.DATABASE_NAME_KEY);
+        if ((databaseName == null || databaseName.isEmpty())
+                && sourceStruct.schema().field("keyspace") != null) {
+            return sourceStruct.getString("keyspace");
+        }
+        return databaseName;
+    }
+
+    public static String getDdl(SourceRecord record) {
+        Struct schemaChangeStruct = (Struct) record.value();
+        return schemaChangeStruct.getString(HistoryRecord.Fields.DDL_STATEMENTS);
+    }
+
+    /**
+     * Returns the binlog filename from the Debezium source struct, or null if not available. Only
+     * present for MySQL-CDC; other connectors (PostgreSQL, Oracle) use different offset keys.
+     * Returns null for snapshot rows where Debezium sets file to an empty string.
+     */
+    public static String getBinlogFile(SourceRecord record) {
+        Struct value = (Struct) record.value();
+        if (value == null) {
+            return null;
+        }
+        Struct source = value.getStruct(Envelope.FieldName.SOURCE);
+        if (source == null || source.schema().field("file") == null) {
+            return null;
+        }
+        String file = source.getString("file");
+        if (file == null || file.isEmpty()) {
+            return null;
+        }
+        return file;
+    }
+
+    /**
+     * Returns the binlog position from the Debezium source struct, or null if not available. Only
+     * present for MySQL-CDC.
+     */
+    public static Long getBinlogPos(SourceRecord record) {
+        Struct value = (Struct) record.value();
+        if (value == null) {
+            return null;
+        }
+        Struct source = value.getStruct(Envelope.FieldName.SOURCE);
+        if (source == null || source.schema().field("pos") == null) {
+            return null;
+        }
+        return source.getInt64("pos");
+    }
+
+    /**
+     * Returns the row index within the binlog event from the Debezium source struct, or null if not
+     * available. Only present for MySQL-CDC.
+     */
+    public static Integer getBinlogRow(SourceRecord record) {
+        Struct value = (Struct) record.value();
+        if (value == null) {
+            return null;
+        }
+        Struct source = value.getStruct(Envelope.FieldName.SOURCE);
+        if (source == null || source.schema().field("row") == null) {
+            return null;
+        }
+        return source.getInt32("row");
+    }
+
+    /**
+     * Returns the GTID from the Debezium source struct, or null if not available. Only present for
+     * MySQL-CDC when GTID mode is enabled on the server. Null for snapshot rows and when GTID is
+     * disabled.
+     */
+    public static String getGtid(SourceRecord record) {
+        Struct value = (Struct) record.value();
+        if (value == null) {
+            return null;
+        }
+        Struct source = value.getStruct(Envelope.FieldName.SOURCE);
+        if (source == null || source.schema().field("gtid") == null) {
+            return null;
+        }
+        String gtid = source.getString("gtid");
+        if (gtid == null || gtid.isEmpty()) {
+            return null;
+        }
+        return gtid;
+    }
+}

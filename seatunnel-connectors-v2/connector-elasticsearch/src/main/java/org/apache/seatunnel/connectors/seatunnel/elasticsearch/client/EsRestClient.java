@@ -1,0 +1,1194 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.seatunnel.connectors.seatunnel.elasticsearch.client;
+
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.JsonNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ArrayNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.ObjectNode;
+import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.node.TextNode;
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
+import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
+import org.apache.seatunnel.common.utils.JsonUtils;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.auth.AuthenticationProvider;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.auth.AuthenticationProviderFactory;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.config.ElasticsearchBaseOptions;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.BulkResponse;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.ElasticsearchClusterInfo;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source.IndexDocsCount;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source.PointInTimeResult;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.dto.source.ScrollResult;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.ElasticsearchConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.elasticsearch.exception.ElasticsearchConnectorException;
+
+import org.apache.commons.collections4.CollectionUtils;
+import org.apache.http.HttpHost;
+import org.apache.http.HttpStatus;
+import org.apache.http.util.Asserts;
+import org.apache.http.util.EntityUtils;
+
+import org.elasticsearch.client.Request;
+import org.elasticsearch.client.Response;
+import org.elasticsearch.client.RestClient;
+import org.elasticsearch.client.RestClientBuilder;
+
+import lombok.extern.slf4j.Slf4j;
+
+import java.io.Closeable;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.function.Function;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+
+import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsType.AGGREGATE_METRIC_DOUBLE;
+import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsType.ALIAS;
+import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsType.DATE;
+import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsType.DATE_NANOS;
+import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsType.DENSE_VECTOR;
+import static org.apache.seatunnel.connectors.seatunnel.elasticsearch.client.EsType.OBJECT;
+
+@Slf4j
+public class EsRestClient implements Closeable {
+
+    private static final int CONNECTION_REQUEST_TIMEOUT = 10 * 1000;
+
+    private static final int SOCKET_TIMEOUT = 5 * 60 * 1000;
+
+    private final RestClient restClient;
+
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
+    private EsRestClient(RestClient restClient) {
+        this.restClient = restClient;
+    }
+
+    public static EsRestClient createInstance(ReadonlyConfig config) {
+        List<String> hosts = config.get(ElasticsearchBaseOptions.HOSTS);
+
+        // Create basic RestClient builder
+        RestClientBuilder restClientBuilder = createRestClientBuilder(hosts);
+
+        // Configure authentication and TLS using the new authentication system
+        AuthenticationProvider authProvider = AuthenticationProviderFactory.createProvider(config);
+        authProvider.configure(restClientBuilder, config);
+
+        return new EsRestClient(restClientBuilder.build());
+    }
+
+    /**
+     * Create a basic RestClientBuilder with hosts and request configuration. Authentication and TLS
+     * configuration will be handled by AuthenticationProvider.
+     */
+    private static RestClientBuilder createRestClientBuilder(List<String> hosts) {
+        HttpHost[] httpHosts = new HttpHost[hosts.size()];
+        for (int i = 0; i < hosts.size(); i++) {
+            httpHosts[i] = HttpHost.create(hosts.get(i));
+        }
+
+        return RestClient.builder(httpHosts)
+                .setRequestConfigCallback(
+                        requestConfigBuilder ->
+                                requestConfigBuilder
+                                        .setConnectionRequestTimeout(CONNECTION_REQUEST_TIMEOUT)
+                                        .setSocketTimeout(SOCKET_TIMEOUT));
+    }
+
+    public BulkResponse bulk(String requestBody) {
+        Request request = new Request("POST", "/_bulk");
+        request.setJsonEntity(requestBody);
+        try {
+            Response response = restClient.performRequest(request);
+            if (response == null) {
+                throw new ElasticsearchConnectorException(
+                        ElasticsearchConnectorErrorCode.BULK_RESPONSE_ERROR,
+                        "bulk es Response is null");
+            }
+            String entity = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
+            if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
+                JsonNode json = OBJECT_MAPPER.readTree(entity);
+                int took = json.get("took").asInt();
+                boolean errors = json.get("errors").asBoolean();
+                return new BulkResponse(errors, took, entity);
+            } else {
+                throw new ElasticsearchConnectorException(
+                        ElasticsearchConnectorErrorCode.BULK_RESPONSE_ERROR,
+                        String.format(
+                                "bulk es response status=%s, response body=%s, request body(truncate)=%s",
+                                response.getStatusLine().getStatusCode(),
+                                entity,
+                                requestBody.substring(0, Math.min(1000, requestBody.length()))));
+            }
+        } catch (IOException e) {
+            throw new ElasticsearchConnectorException(
+                    ElasticsearchConnectorErrorCode.BULK_RESPONSE_ERROR,
+                    String.format(
+                            "bulk es error,request body(truncate)=%s",
+                            requestBody.substring(0, Math.min(1000, requestBody.length()))),
+                    e);
+        }
+    }
+
+    public ElasticsearchClusterInfo getClusterInfo() {
+        Request request = new Request("GET", "/");
+        try {
+            Response response = restClient.performRequest(request);
+            String result = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
+            JsonNode jsonNode = OBJECT_MAPPER.readTree(result);
+            JsonNode versionNode = jsonNode.get("version");
+            return ElasticsearchClusterInfo.builder()
+                    .clusterVersion(versionNode.get("number").asText())
+                    .distribution(
+                            Optional.ofNullable(versionNode.get("distribution"))
+                                    .map(JsonNode::asText)
+                                    .orElse(null))
+                    .build();
+        } catch (IOException e) {
+            throw new ElasticsearchConnectorException(
+                    ElasticsearchConnectorErrorCode.GET_ES_VERSION_FAILED,
+                    "fail to get elasticsearch version.",
+                    e);
+        }
+    }
+
+    @Override
+    public void close() {
+        try {
+            restClient.close();
+        } catch (IOException e) {
+            log.warn("close elasticsearch connection error", e);
+        }
+    }
+
+    /**
+     * first time to request search documents by scroll call /${index}/_search?scroll=${scroll}
+     *
+     * @param index index name
+     * @param source select fields
+     * @param scrollTime such as:1m
+     * @param scrollSize fetch documents count in one request
+     */
+    public ScrollResult searchByScroll(
+            String index,
+            List<String> source,
+            Map<String, Object> query,
+            String scrollTime,
+            int scrollSize) {
+        return searchByScroll(index, source, query, scrollTime, scrollSize, null, null, null);
+    }
+
+    /**
+     * Search documents by scroll with runtime fields support
+     *
+     * @param index index name
+     * @param source select fields
+     * @param query query DSL
+     * @param scrollTime scroll time such as:1m
+     * @param scrollSize fetch documents count in one request
+     * @param runtimeFields runtime fields definition (Elasticsearch 7.11+)
+     */
+    public ScrollResult searchByScroll(
+            String index,
+            List<String> source,
+            Map<String, Object> query,
+            String scrollTime,
+            int scrollSize,
+            Map<String, Object> runtimeFields,
+            Integer sliceId,
+            Integer sliceMax) {
+        Map<String, Object> param = new HashMap<>();
+        param.put("query", query);
+        param.put("_source", source);
+        param.put("sort", new String[] {"_doc"});
+        param.put("size", scrollSize);
+
+        // Add runtime fields if provided (Elasticsearch 7.11+)
+        if (runtimeFields != null && !runtimeFields.isEmpty()) {
+            param.put("runtime_mappings", runtimeFields);
+            param.put("fields", new ArrayList<>(runtimeFields.keySet()));
+        }
+
+        if (sliceMax != null && sliceMax > 1) {
+            Map<String, Object> slice = new HashMap<>();
+            slice.put("id", sliceId == null ? 0 : sliceId);
+            slice.put("max", sliceMax);
+            param.put("slice", slice);
+        }
+        String endpoint = "/" + index + "/_search?scroll=" + scrollTime;
+        return getDocsFromScrollRequest(endpoint, JsonUtils.toJsonString(param));
+    }
+
+    /**
+     * first time to request search documents by scroll call /_sql?format=json
+     *
+     * @param scrollSize fetch documents count in one request
+     */
+    public ScrollResult searchBySql(String query, int scrollSize) {
+        Map<String, Object> param = new HashMap<>();
+        param.put("query", query);
+        param.put("fetch_size", scrollSize);
+        String endpoint = "/_sql?format=json";
+        return getDocsFromSqlResult(endpoint, JsonUtils.toJsonString(param), null);
+    }
+
+    /** first time to request search documents by scroll call /_sql?format=json */
+    public Map<String, BasicTypeDefine<EsType>> getSqlMapping(String query, List<String> source) {
+        Map<String, Object> param = new HashMap<>();
+        String limitRegex = "(?i)\\s+LIMIT\\s+\\d+";
+        Pattern pattern = Pattern.compile(limitRegex);
+        Matcher matcher = pattern.matcher(query);
+        if (matcher.find()) {
+            query = matcher.replaceAll(" LIMIT 0");
+        } else {
+            query = query.trim() + " LIMIT 0";
+        }
+        param.put("query", query);
+        String endpoint = "/_sql?format=json";
+        ScrollResult scrollResult =
+                getDocsFromSqlResult(endpoint, JsonUtils.toJsonString(param), null);
+        JsonNode columnNodes = scrollResult.getColumnNodes();
+        Map<String, Object> columnMap = new LinkedHashMap<>();
+        for (JsonNode columnNode : columnNodes) {
+            String fieldName = columnNode.get("name").asText();
+            columnMap.put(fieldName, columnNode);
+        }
+        return getFieldTypeMappingFromProperties(JsonUtils.toJsonNode(columnMap), source);
+    }
+
+    /**
+     * scroll to get result call _search/scroll
+     *
+     * @param scrollId the scroll id of the last request
+     * @param scrollTime such as:1m
+     */
+    public ScrollResult searchWithScrollId(String scrollId, String scrollTime) {
+        Map<String, String> param = new HashMap<>();
+        param.put("scroll_id", scrollId);
+        param.put("scroll", scrollTime);
+        return getDocsFromScrollRequest("/_search/scroll", JsonUtils.toJsonString(param));
+    }
+
+    public ScrollResult searchWithSql(String scrollId, JsonNode columnNodes) {
+        Map<String, String> param = new HashMap<>();
+        param.put("cursor", scrollId);
+        String endpoint = "/_sql?format=json";
+        return getDocsFromSqlResult(endpoint, JsonUtils.toJsonString(param), columnNodes);
+    }
+
+    /**
+     * Clear scroll context to release server-side resources.
+     *
+     * @param scrollId The scroll ID to clear
+     * @return True if the scroll was successfully cleared
+     */
+    public boolean clearScroll(String scrollId) {
+        if (StringUtils.isEmpty(scrollId)) {
+            log.warn("Attempted to clear scroll with empty scroll ID");
+            return false;
+        }
+
+        String endpoint = "/_search/scroll";
+        Request request = new Request("DELETE", endpoint);
+        Map<String, String> requestBody = new HashMap<>();
+        requestBody.put("scroll_id", scrollId);
+        request.setJsonEntity(JsonUtils.toJsonString(requestBody));
+
+        try {
+            Response response = restClient.performRequest(request);
+            if (response == null) {
+                log.warn("DELETE {} response null for scroll ID: {}", endpoint, scrollId);
+                return false;
+            }
+            String entity = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
+            if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
+                JsonNode jsonNode = JsonUtils.parseObject(entity);
+                boolean succeeded = jsonNode.get("succeeded").asBoolean();
+                return succeeded;
+            } else {
+                log.warn(
+                        "DELETE {} response status code={}, body={} for scroll ID: {}",
+                        endpoint,
+                        response.getStatusLine().getStatusCode(),
+                        entity,
+                        scrollId);
+                return false;
+            }
+        } catch (Exception ex) {
+            log.warn("Failed to clear scroll ID: " + scrollId, ex);
+            return false;
+        }
+    }
+
+    /**
+     * Close SQL cursor to release server-side resources.
+     *
+     * @param cursor The SQL cursor to close
+     * @return True if the cursor was successfully closed
+     */
+    public boolean closeSqlCursor(String cursor) {
+        if (StringUtils.isEmpty(cursor)) {
+            log.debug("SQL cursor is empty; skip closing.");
+            return false;
+        }
+
+        String endpoint = "/_sql/close";
+        Request request = new Request("POST", endpoint);
+        Map<String, String> requestBody = new HashMap<>();
+        requestBody.put("cursor", cursor);
+        request.setJsonEntity(JsonUtils.toJsonString(requestBody));
+
+        try {
+            Response response = restClient.performRequest(request);
+            if (response == null) {
+                log.warn("POST {} response null for cursor: {}", endpoint, cursor);
+                return false;
+            }
+            if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
+                String entity = EntityUtils.toString(response.getEntity());
+                JsonNode jsonNode = JsonUtils.parseObject(entity);
+                return jsonNode.get("succeeded").asBoolean();
+            } else {
+                log.warn(
+                        "POST {} response status code={} for cursor: {}",
+                        endpoint,
+                        response.getStatusLine().getStatusCode(),
+                        cursor);
+                return false;
+            }
+        } catch (Exception ex) {
+            log.warn("Failed to close SQL cursor: {}", cursor, ex);
+            return false;
+        }
+    }
+
+    private ScrollResult getDocsFromSqlResult(
+            String endpoint, String requestBody, JsonNode columnNodes) {
+        Request request = new Request("POST", endpoint);
+        request.setJsonEntity(requestBody);
+        try {
+            Response response = restClient.performRequest(request);
+            if (response == null) {
+                throw new ElasticsearchConnectorException(
+                        ElasticsearchConnectorErrorCode.SCROLL_REQUEST_ERROR,
+                        "POST " + endpoint + " response null");
+            }
+            String entity = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
+            if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
+                ObjectNode responseJson = JsonUtils.parseObject(entity);
+                return getDocsFromSqlResponse(responseJson, columnNodes);
+            } else {
+                throw new ElasticsearchConnectorException(
+                        ElasticsearchConnectorErrorCode.SCROLL_REQUEST_ERROR,
+                        String.format(
+                                "POST %s response status code=%d, body=%s, request body=%s",
+                                endpoint,
+                                response.getStatusLine().getStatusCode(),
+                                entity,
+                                requestBody));
+            }
+        } catch (IOException e) {
+            throw new ElasticsearchConnectorException(
+                    ElasticsearchConnectorErrorCode.SCROLL_REQUEST_ERROR,
+                    String.format("POST %s error,request body=%s", endpoint, requestBody),
+                    e);
+        }
+    }
+
+    private ScrollResult getDocsFromScrollRequest(String endpoint, String requestBody) {
+        Request request = new Request("POST", endpoint);
+        request.setJsonEntity(requestBody);
+        try {
+            Response response = restClient.performRequest(request);
+            if (response == null) {
+                throw new ElasticsearchConnectorException(
+                        ElasticsearchConnectorErrorCode.SCROLL_REQUEST_ERROR,
+                        "POST " + endpoint + " response null");
+            }
+            String entity = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
+            if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
+                ObjectNode responseJson = JsonUtils.parseObject(entity);
+
+                JsonNode shards = responseJson.get("_shards");
+                int totalShards = shards.get("total").intValue();
+                int successful = shards.get("successful").intValue();
+                Asserts.check(
+                        totalShards == successful,
+                        String.format(
+                                "POST %s,total shards(%d)!= successful shards(%d)",
+                                endpoint, totalShards, successful));
+
+                return getDocsFromScrollResponse(responseJson);
+            } else {
+                throw new ElasticsearchConnectorException(
+                        ElasticsearchConnectorErrorCode.SCROLL_REQUEST_ERROR,
+                        String.format(
+                                "POST %s response status code=%d, body=%s, request body=%s",
+                                endpoint,
+                                response.getStatusLine().getStatusCode(),
+                                entity,
+                                requestBody));
+            }
+        } catch (IOException e) {
+            throw new ElasticsearchConnectorException(
+                    ElasticsearchConnectorErrorCode.SCROLL_REQUEST_ERROR,
+                    String.format("POST %s error,request body=%s", endpoint, requestBody),
+                    e);
+        }
+    }
+
+    private ScrollResult getDocsFromSqlResponse(ObjectNode responseJson, JsonNode columnNodes) {
+        ScrollResult scrollResult = new ScrollResult();
+        if (responseJson.get("cursor") != null) {
+            scrollResult.setScrollId(responseJson.get("cursor").asText());
+        }
+        if (columnNodes == null) {
+            columnNodes = responseJson.get("columns");
+        }
+        JsonNode valueNodes = responseJson.get("rows");
+        List<Map<String, Object>> docs = new ArrayList<>();
+        if (valueNodes != null) {
+
+            for (int i = 0; i < valueNodes.size(); i++) {
+                JsonNode valueNode = valueNodes.get(i);
+                Map<String, Object> doc = new HashMap<>();
+                for (int j = 0; j < columnNodes.size(); j++) {
+                    String fieldName = columnNodes.get(j).get("name").asText();
+                    if (valueNode.get(j) instanceof TextNode) {
+                        doc.put(fieldName, valueNode.get(j).textValue());
+                    } else {
+                        doc.put(fieldName, valueNode.get(j));
+                    }
+                }
+                docs.add(doc);
+            }
+        }
+        scrollResult.setDocs(docs);
+        scrollResult.setColumnNodes(columnNodes);
+
+        return scrollResult;
+    }
+
+    private ScrollResult getDocsFromScrollResponse(ObjectNode responseJson) {
+        ScrollResult scrollResult = new ScrollResult();
+        String scrollId = responseJson.get("_scroll_id").asText();
+        scrollResult.setScrollId(scrollId);
+
+        JsonNode hitsNode = responseJson.get("hits").get("hits");
+        List<Map<String, Object>> docs = new ArrayList<>(hitsNode.size());
+        scrollResult.setDocs(docs);
+
+        for (JsonNode jsonNode : hitsNode) {
+            Map<String, Object> doc = new HashMap<>();
+            doc.put("_index", jsonNode.get("_index").textValue());
+            doc.put("_id", jsonNode.get("_id").textValue());
+            JsonNode source = jsonNode.get("_source");
+            for (Iterator<Map.Entry<String, JsonNode>> iterator = source.fields();
+                    iterator.hasNext(); ) {
+                Map.Entry<String, JsonNode> entry = iterator.next();
+                String fieldName = entry.getKey();
+                if (entry.getValue() instanceof TextNode) {
+                    doc.put(fieldName, entry.getValue().textValue());
+                } else {
+                    doc.put(fieldName, entry.getValue());
+                }
+            }
+            mergeFieldsFromResponse(doc, jsonNode.get("fields"));
+            docs.add(doc);
+        }
+        return scrollResult;
+    }
+
+    /**
+     * Instead of the getIndexDocsCount method to determine if the index exists,
+     *
+     * <p>
+     *
+     * <p>getIndexDocsCount throws an exception if the index does not exist
+     *
+     * <p>
+     *
+     * @param index index
+     * @return true or false
+     */
+    public boolean checkIndexExist(String index) {
+        Request request = new Request("HEAD", "/" + index.toLowerCase());
+        try {
+            Response response = restClient.performRequest(request);
+            int statusCode = response.getStatusLine().getStatusCode();
+            return statusCode == 200;
+        } catch (Exception ex) {
+            throw new ElasticsearchConnectorException(
+                    ElasticsearchConnectorErrorCode.CHECK_INDEX_FAILED, ex);
+        }
+    }
+
+    public List<IndexDocsCount> getIndexDocsCount(String index) {
+        String endpoint =
+                String.format(
+                        "/_cat/indices/%s?h=index,docsCount&format=json", index.toLowerCase());
+        Request request = new Request("GET", endpoint);
+        try {
+            Response response = restClient.performRequest(request);
+            if (response == null) {
+                throw new ElasticsearchConnectorException(
+                        ElasticsearchConnectorErrorCode.GET_INDEX_DOCS_COUNT_FAILED,
+                        "GET " + endpoint + " response null");
+            }
+            String entity = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
+            if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
+                return JsonUtils.toList(entity, IndexDocsCount.class);
+            } else {
+                throw new ElasticsearchConnectorException(
+                        ElasticsearchConnectorErrorCode.GET_INDEX_DOCS_COUNT_FAILED,
+                        String.format(
+                                "GET %s response status code=%d, body=%s",
+                                endpoint, response.getStatusLine().getStatusCode(), entity));
+            }
+        } catch (IOException ex) {
+            throw new ElasticsearchConnectorException(
+                    ElasticsearchConnectorErrorCode.GET_INDEX_DOCS_COUNT_FAILED, ex);
+        }
+    }
+
+    public List<String> listIndex() {
+        String endpoint = "/_cat/indices?format=json";
+        Request request = new Request("GET", endpoint);
+        try {
+            Response response = restClient.performRequest(request);
+            if (response == null) {
+                throw new ElasticsearchConnectorException(
+                        ElasticsearchConnectorErrorCode.LIST_INDEX_FAILED,
+                        "GET " + endpoint + " response null");
+            }
+            String entity = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
+            if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
+                return JsonUtils.toList(entity, Map.class).stream()
+                        .map(map -> map.get("index").toString())
+                        .collect(Collectors.toList());
+            } else {
+                throw new ElasticsearchConnectorException(
+                        ElasticsearchConnectorErrorCode.LIST_INDEX_FAILED,
+                        String.format(
+                                "GET %s response status code=%d, body=%s",
+                                endpoint, response.getStatusLine().getStatusCode(), entity));
+            }
+        } catch (IOException ex) {
+            throw new ElasticsearchConnectorException(
+                    ElasticsearchConnectorErrorCode.LIST_INDEX_FAILED, ex);
+        }
+    }
+
+    public void createIndex(String indexName) {
+        createIndex(indexName, null);
+    }
+
+    public void createIndex(String indexName, String mapping) {
+        String endpoint = String.format("/%s", indexName.toLowerCase());
+        Request request = new Request("PUT", endpoint);
+        if (StringUtils.isNotEmpty(mapping)) {
+            request.setJsonEntity(mapping);
+        }
+        try {
+            Response response = restClient.performRequest(request);
+            if (response == null) {
+                throw new ElasticsearchConnectorException(
+                        ElasticsearchConnectorErrorCode.CREATE_INDEX_FAILED,
+                        "PUT " + endpoint + " response null");
+            }
+            String entity = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
+            if (response.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
+                throw new ElasticsearchConnectorException(
+                        ElasticsearchConnectorErrorCode.CREATE_INDEX_FAILED,
+                        String.format(
+                                "PUT %s response status code=%d, body=%s",
+                                endpoint, response.getStatusLine().getStatusCode(), entity));
+            }
+        } catch (IOException ex) {
+            throw new ElasticsearchConnectorException(
+                    ElasticsearchConnectorErrorCode.CREATE_INDEX_FAILED, ex);
+        }
+    }
+
+    public void dropIndex(String tableName) {
+        String endpoint = String.format("/%s", tableName.toLowerCase());
+        Request request = new Request("DELETE", endpoint);
+        try {
+            Response response = restClient.performRequest(request);
+            if (response == null) {
+                throw new ElasticsearchConnectorException(
+                        ElasticsearchConnectorErrorCode.DROP_INDEX_FAILED,
+                        "DELETE " + endpoint + " response null");
+            }
+            String entity = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
+            if (response.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
+                throw new ElasticsearchConnectorException(
+                        ElasticsearchConnectorErrorCode.DROP_INDEX_FAILED,
+                        String.format(
+                                "DELETE %s response status code=%d, body=%s",
+                                endpoint, response.getStatusLine().getStatusCode(), entity));
+            }
+        } catch (IOException ex) {
+            throw new ElasticsearchConnectorException(
+                    ElasticsearchConnectorErrorCode.DROP_INDEX_FAILED, ex);
+        }
+    }
+
+    public void clearIndexData(String indexName) {
+        String endpoint = String.format("/%s/_delete_by_query", indexName.toLowerCase());
+        Request request = new Request("POST", endpoint);
+        String jsonString = "{ \"query\": { \"match_all\": {} } }";
+        request.setJsonEntity(jsonString);
+
+        try {
+            Response response = restClient.performRequest(request);
+            if (response == null) {
+                throw new ElasticsearchConnectorException(
+                        ElasticsearchConnectorErrorCode.CLEAR_INDEX_DATA_FAILED,
+                        "POST " + endpoint + " response null");
+            }
+            String entity = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
+            if (response.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
+                throw new ElasticsearchConnectorException(
+                        ElasticsearchConnectorErrorCode.CLEAR_INDEX_DATA_FAILED,
+                        String.format(
+                                "POST %s response status code=%d, body=%s",
+                                endpoint, response.getStatusLine().getStatusCode(), entity));
+            }
+        } catch (IOException ex) {
+            throw new ElasticsearchConnectorException(
+                    ElasticsearchConnectorErrorCode.CLEAR_INDEX_DATA_FAILED, ex);
+        }
+    }
+
+    /**
+     * get es field name and type mapping realtion
+     *
+     * @param index index name
+     * @return {key-> field name,value->es type}
+     */
+    public Map<String, BasicTypeDefine<EsType>> getFieldTypeMapping(
+            String index, List<String> source) {
+        String endpoint = String.format("/%s/_mappings", index);
+        Request request = new Request("GET", endpoint);
+        Map<String, BasicTypeDefine<EsType>> mapping = new HashMap<>();
+        try {
+            Response response = restClient.performRequest(request);
+            if (response == null) {
+                throw new ElasticsearchConnectorException(
+                        ElasticsearchConnectorErrorCode.GET_INDEX_DOCS_COUNT_FAILED,
+                        "GET " + endpoint + " response null");
+            }
+            if (response.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
+                String entity = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
+                throw new ElasticsearchConnectorException(
+                        ElasticsearchConnectorErrorCode.GET_INDEX_DOCS_COUNT_FAILED,
+                        String.format(
+                                "GET %s response status code=%d, body=%s",
+                                endpoint, response.getStatusLine().getStatusCode(), entity));
+            }
+            String entity = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
+            log.info(String.format("GET %s respnse=%s", endpoint, entity));
+            ObjectNode responseJson = JsonUtils.parseObject(entity);
+            for (Iterator<JsonNode> it = responseJson.elements(); it.hasNext(); ) {
+                JsonNode indexProperty = it.next();
+                JsonNode mappingsProperty = indexProperty.get("mappings");
+                if (mappingsProperty.has("mappingsProperty")) {
+                    JsonNode properties = mappingsProperty.get("properties");
+                    mapping = getFieldTypeMappingFromProperties(properties, source);
+                } else {
+                    for (JsonNode typeNode : mappingsProperty) {
+                        JsonNode properties;
+                        if (typeNode.has("properties")) {
+                            properties = typeNode.get("properties");
+                        } else {
+                            properties = typeNode;
+                        }
+                        mapping.putAll(getFieldTypeMappingFromProperties(properties, source));
+                    }
+                }
+            }
+        } catch (IOException ex) {
+            throw new ElasticsearchConnectorException(
+                    ElasticsearchConnectorErrorCode.GET_INDEX_DOCS_COUNT_FAILED, ex);
+        }
+        return mapping;
+    }
+
+    private static Map<String, BasicTypeDefine<EsType>> getFieldTypeMappingFromProperties(
+            JsonNode properties, List<String> source) {
+        Map<String, BasicTypeDefine<EsType>> allElasticSearchFieldTypeInfoMap = new HashMap<>();
+        properties
+                .fields()
+                .forEachRemaining(
+                        entry -> {
+                            String fieldName = entry.getKey();
+                            JsonNode fieldProperty = entry.getValue();
+                            if (fieldProperty.has("type")) {
+                                String type = fieldProperty.get("type").asText();
+                                BasicTypeDefine.BasicTypeDefineBuilder<EsType> typeDefine =
+                                        BasicTypeDefine.<EsType>builder()
+                                                .name(fieldName)
+                                                .columnType(type)
+                                                .dataType(type);
+                                if (type.equalsIgnoreCase(AGGREGATE_METRIC_DOUBLE)) {
+                                    ArrayNode metrics = ((ArrayNode) fieldProperty.get("metrics"));
+                                    List<String> metricsList = new ArrayList<>();
+                                    for (JsonNode node : metrics) {
+                                        metricsList.add(node.asText());
+                                    }
+                                    Map<String, Object> options = new HashMap<>();
+                                    options.put("metrics", metricsList);
+                                    typeDefine.nativeType(new EsType(type, options));
+                                } else if (type.equalsIgnoreCase(ALIAS)) {
+                                    String path = fieldProperty.get("path").asText();
+                                    Map<String, Object> options = new HashMap<>();
+                                    options.put("path", path);
+                                    typeDefine.nativeType(new EsType(type, options));
+                                } else if (type.equalsIgnoreCase(DENSE_VECTOR)) {
+                                    String elementType =
+                                            fieldProperty.get("element_type") == null
+                                                    ? "float"
+                                                    : fieldProperty.get("element_type").asText();
+                                    Map<String, Object> options = new HashMap<>();
+                                    options.put("element_type", elementType);
+                                    typeDefine.nativeType(new EsType(type, options));
+                                } else if (type.equalsIgnoreCase(DATE)
+                                        || type.equalsIgnoreCase(DATE_NANOS)) {
+                                    String format =
+                                            fieldProperty.get("format") != null
+                                                    ? fieldProperty.get("format").asText()
+                                                    : "strict_date_optional_time_nanos||epoch_millis";
+                                    Map<String, Object> options = new HashMap<>();
+                                    options.put("format", format);
+                                    typeDefine.nativeType(new EsType(type, options));
+                                } else {
+                                    typeDefine.nativeType(new EsType(type, new HashMap<>()));
+                                }
+                                allElasticSearchFieldTypeInfoMap.put(fieldName, typeDefine.build());
+                            } else if (fieldProperty.has("properties")) {
+                                // it should be object type
+                                JsonNode propertiesNode = fieldProperty.get("properties");
+                                List<String> fields = new ArrayList<>();
+                                propertiesNode.fieldNames().forEachRemaining(fields::add);
+                                Map<String, BasicTypeDefine<EsType>> subFieldTypeInfoMap =
+                                        getFieldTypeMappingFromProperties(propertiesNode, fields);
+                                BasicTypeDefine.BasicTypeDefineBuilder<EsType> typeDefine =
+                                        BasicTypeDefine.<EsType>builder()
+                                                .name(fieldName)
+                                                .columnType(OBJECT)
+                                                .dataType(OBJECT);
+                                typeDefine.nativeType(
+                                        new EsType(OBJECT, (Map) subFieldTypeInfoMap));
+                                allElasticSearchFieldTypeInfoMap.put(fieldName, typeDefine.build());
+                            }
+                        });
+        if (CollectionUtils.isEmpty(source)) {
+            return allElasticSearchFieldTypeInfoMap;
+        }
+
+        allElasticSearchFieldTypeInfoMap.forEach(
+                (fieldName, fieldType) -> {
+                    if (fieldType.getDataType().equalsIgnoreCase(ALIAS)) {
+                        BasicTypeDefine<EsType> type =
+                                allElasticSearchFieldTypeInfoMap.get(
+                                        fieldType.getNativeType().getOptions().get("path"));
+                        if (type != null) {
+                            allElasticSearchFieldTypeInfoMap.put(fieldName, type);
+                        }
+                    }
+                });
+
+        return source.stream()
+                .collect(
+                        Collectors.toMap(
+                                Function.identity(),
+                                fieldName -> {
+                                    BasicTypeDefine<EsType> fieldType =
+                                            allElasticSearchFieldTypeInfoMap.get(fieldName);
+                                    if (fieldType == null) {
+                                        log.warn(
+                                                "fail to get elasticsearch field {} mapping type,so give a default type text",
+                                                fieldName);
+                                        return BasicTypeDefine.<EsType>builder()
+                                                .name(fieldName)
+                                                .columnType("text")
+                                                .dataType("text")
+                                                .build();
+                                    }
+                                    return fieldType;
+                                }));
+    }
+
+    /**
+     * Add a new field to an existing index
+     *
+     * @param index index name
+     * @param fieldTypeDefine field type definition
+     */
+    public void addField(String index, BasicTypeDefine<EsType> fieldTypeDefine) {
+        String endpoint = String.format("/%s/_mapping", index);
+        Request request = new Request("PUT", endpoint);
+
+        // Build mapping JSON for the new field
+        ObjectNode mappingJson = OBJECT_MAPPER.createObjectNode();
+        ObjectNode propertiesJson = OBJECT_MAPPER.createObjectNode();
+        ObjectNode fieldJson = OBJECT_MAPPER.createObjectNode();
+
+        // Set field type
+        fieldJson.put("type", fieldTypeDefine.getNativeType().getType());
+
+        // Add additional options based on field type
+        Map<String, Object> options = fieldTypeDefine.getNativeType().getOptions();
+        if (!options.isEmpty()) {
+            if (fieldTypeDefine.getNativeType().getType().equalsIgnoreCase(DATE)
+                    || fieldTypeDefine.getNativeType().getType().equalsIgnoreCase(DATE_NANOS)) {
+                fieldJson.put("format", options.get("format").toString());
+            } else if (fieldTypeDefine.getNativeType().getType().equalsIgnoreCase(DENSE_VECTOR)) {
+                fieldJson.put("element_type", options.get("element_type").toString());
+            } else if (fieldTypeDefine.getNativeType().getType().equalsIgnoreCase(ALIAS)) {
+                fieldJson.put("path", options.get("path").toString());
+            } else if (fieldTypeDefine
+                    .getNativeType()
+                    .getType()
+                    .equalsIgnoreCase(AGGREGATE_METRIC_DOUBLE)) {
+                ArrayNode metricsArray = OBJECT_MAPPER.createArrayNode();
+                @SuppressWarnings("unchecked")
+                List<String> metrics = (List<String>) options.get("metrics");
+                metrics.forEach(metricsArray::add);
+                fieldJson.set("metrics", metricsArray);
+            }
+        }
+
+        propertiesJson.set(fieldTypeDefine.getName(), fieldJson);
+        mappingJson.set("properties", propertiesJson);
+
+        request.setJsonEntity(mappingJson.toString());
+
+        try {
+            Response response = restClient.performRequest(request);
+            if (response == null) {
+                throw new ElasticsearchConnectorException(
+                        ElasticsearchConnectorErrorCode.ADD_FIELD_FAILED,
+                        "PUT " + endpoint + " response null");
+            }
+            String entity = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
+            if (response.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
+                throw new ElasticsearchConnectorException(
+                        ElasticsearchConnectorErrorCode.ADD_FIELD_FAILED,
+                        String.format(
+                                "PUT %s response status code=%d, body=%s",
+                                endpoint, response.getStatusLine().getStatusCode(), entity));
+            }
+        } catch (IOException ex) {
+            throw new ElasticsearchConnectorException(
+                    ElasticsearchConnectorErrorCode.ADD_FIELD_FAILED,
+                    String.format(
+                            "Failed to add field %s to index %s", fieldTypeDefine.getName(), index),
+                    ex);
+        }
+    }
+
+    /**
+     * Creates a Point-in-Time (PIT) for the specified index.
+     *
+     * @param index The index to create a PIT for
+     * @param keepAlive The time to keep the PIT alive (in milliseconds)
+     * @return The PIT ID
+     */
+    public String createPointInTime(String index, long keepAlive) {
+        String endpoint = String.format("/%s/_pit?keep_alive=%dms", index.toLowerCase(), keepAlive);
+        Request request = new Request("POST", endpoint);
+        try {
+            Response response = restClient.performRequest(request);
+            if (response == null) {
+                throw new ElasticsearchConnectorException(
+                        ElasticsearchConnectorErrorCode.CREATE_PIT_FAILED,
+                        "POST " + endpoint + " response null");
+            }
+            String entity = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
+            if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
+                JsonNode jsonNode = JsonUtils.parseObject(entity);
+                return jsonNode.get("id").asText();
+            } else {
+                throw new ElasticsearchConnectorException(
+                        ElasticsearchConnectorErrorCode.CREATE_PIT_FAILED,
+                        String.format(
+                                "POST %s response status code=%d, body=%s",
+                                endpoint, response.getStatusLine().getStatusCode(), entity));
+            }
+        } catch (IOException ex) {
+            throw new ElasticsearchConnectorException(
+                    ElasticsearchConnectorErrorCode.CREATE_PIT_FAILED, ex);
+        }
+    }
+
+    /**
+     * Deletes a Point-in-Time (PIT).
+     *
+     * @param pitId The PIT ID to delete
+     * @return True if the PIT was successfully deleted
+     */
+    public boolean deletePointInTime(String pitId) {
+        String endpoint = "/_pit";
+        Request request = new Request("DELETE", endpoint);
+        Map<String, String> requestBody = new HashMap<>();
+        requestBody.put("id", pitId);
+        request.setJsonEntity(JsonUtils.toJsonString(requestBody));
+        try {
+            Response response = restClient.performRequest(request);
+            if (response == null) {
+                throw new ElasticsearchConnectorException(
+                        ElasticsearchConnectorErrorCode.DELETE_PIT_FAILED,
+                        "DELETE " + endpoint + " response null");
+            }
+            String entity = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
+            if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
+                JsonNode jsonNode = JsonUtils.parseObject(entity);
+                return jsonNode.get("succeeded").asBoolean();
+            } else {
+                throw new ElasticsearchConnectorException(
+                        ElasticsearchConnectorErrorCode.DELETE_PIT_FAILED,
+                        String.format(
+                                "DELETE %s response status code=%d, body=%s",
+                                endpoint, response.getStatusLine().getStatusCode(), entity));
+            }
+        } catch (IOException ex) {
+            throw new ElasticsearchConnectorException(
+                    ElasticsearchConnectorErrorCode.DELETE_PIT_FAILED, ex);
+        }
+    }
+
+    /**
+     * Searches using a Point-in-Time (PIT).
+     *
+     * @param pitId The PIT ID to use
+     * @param source The fields to include in the response
+     * @param query The query to execute
+     * @param batchSize The number of documents to return
+     * @param searchAfter The sort values to search after (for pagination)
+     * @param keepAlive The time to keep the PIT alive (in milliseconds)
+     * @return The search results
+     */
+    public PointInTimeResult searchWithPointInTime(
+            String pitId,
+            List<String> source,
+            Map<String, Object> query,
+            int batchSize,
+            Object[] searchAfter,
+            long keepAlive,
+            Integer sliceId,
+            Integer sliceMax) {
+        return searchWithPointInTime(
+                pitId, source, query, batchSize, searchAfter, keepAlive, null, sliceId, sliceMax);
+    }
+
+    /**
+     * Search documents using Point-in-Time with runtime fields support
+     *
+     * @param pitId The PIT ID
+     * @param source Fields to return
+     * @param query Query DSL
+     * @param batchSize Number of documents to return
+     * @param searchAfter Pagination cursor
+     * @param keepAlive Keep alive time in milliseconds
+     * @param runtimeFields Runtime fields definition (Elasticsearch 7.11+)
+     * @return Search results
+     */
+    public PointInTimeResult searchWithPointInTime(
+            String pitId,
+            List<String> source,
+            Map<String, Object> query,
+            int batchSize,
+            Object[] searchAfter,
+            long keepAlive,
+            Map<String, Object> runtimeFields,
+            Integer sliceId,
+            Integer sliceMax) {
+
+        Map<String, Object> requestBody = new HashMap<>();
+        requestBody.put("size", batchSize);
+        requestBody.put("query", query);
+        requestBody.put("_source", source);
+
+        // Add runtime fields if provided (Elasticsearch 7.11+)
+        if (runtimeFields != null && !runtimeFields.isEmpty()) {
+            requestBody.put("runtime_mappings", runtimeFields);
+            requestBody.put("fields", new ArrayList<>(runtimeFields.keySet()));
+        }
+
+        // Add PIT information
+        Map<String, Object> pit = new HashMap<>();
+        pit.put("id", pitId);
+        pit.put("keep_alive", keepAlive + "ms");
+        requestBody.put("pit", pit);
+
+        // Add sort for search_after
+        List<Map<String, String>> sort = new ArrayList<>();
+        sort.add(Collections.singletonMap("_shard_doc", "asc"));
+        requestBody.put("sort", sort);
+
+        // Add search_after if provided
+        if (searchAfter != null && searchAfter.length > 0) {
+            requestBody.put("search_after", searchAfter);
+        }
+        if (sliceMax != null && sliceMax > 1) {
+            Map<String, Object> slice = new HashMap<>();
+            slice.put("id", sliceId == null ? 0 : sliceId);
+            slice.put("max", sliceMax);
+            requestBody.put("slice", slice);
+        }
+
+        String endpoint = "/_search";
+        Request request = new Request("POST", endpoint);
+        request.setJsonEntity(JsonUtils.toJsonString(requestBody));
+
+        try {
+            Response response = restClient.performRequest(request);
+            if (response == null) {
+                throw new ElasticsearchConnectorException(
+                        ElasticsearchConnectorErrorCode.SEARCH_WITH_PIT_FAILED,
+                        "POST " + endpoint + " response null");
+            }
+            String entity = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
+            if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
+                return parsePointInTimeResponse(entity, pitId);
+            } else {
+                throw new ElasticsearchConnectorException(
+                        ElasticsearchConnectorErrorCode.SEARCH_WITH_PIT_FAILED,
+                        String.format(
+                                "POST %s response status code=%d, body=%s",
+                                endpoint, response.getStatusLine().getStatusCode(), entity));
+            }
+        } catch (IOException ex) {
+            throw new ElasticsearchConnectorException(
+                    ElasticsearchConnectorErrorCode.SEARCH_WITH_PIT_FAILED, ex);
+        }
+    }
+
+    /**
+     * Parses the response from a Point-in-Time search.
+     *
+     * @param responseJson The JSON response from Elasticsearch
+     * @param pitId The PIT ID used for the search
+     * @return The parsed search results
+     */
+    private PointInTimeResult parsePointInTimeResponse(String responseJson, String pitId) {
+        JsonNode rootNode = JsonUtils.parseObject(responseJson);
+        JsonNode hitsNode = rootNode.get("hits");
+        JsonNode totalNode = hitsNode.get("total");
+        long totalHits = totalNode.get("value").asLong();
+
+        List<Map<String, Object>> docs = new ArrayList<>();
+        JsonNode hitsArray = hitsNode.get("hits");
+        Object[] searchAfter = null;
+
+        for (JsonNode hit : hitsArray) {
+            Map<String, Object> doc = new HashMap<>();
+            // Add metadata fields
+            doc.put("_index", hit.get("_index").textValue());
+            doc.put("_id", hit.get("_id").textValue());
+            if (hit.has("_type")) {
+                doc.put("_type", hit.get("_type").textValue());
+            }
+
+            // Extract document source fields
+            JsonNode source = hit.get("_source");
+            for (Iterator<Map.Entry<String, JsonNode>> iterator = source.fields();
+                    iterator.hasNext(); ) {
+                Map.Entry<String, JsonNode> entry = iterator.next();
+                String fieldName = entry.getKey();
+                if (entry.getValue() instanceof TextNode) {
+                    doc.put(fieldName, entry.getValue().textValue());
+                } else {
+                    doc.put(fieldName, entry.getValue());
+                }
+            }
+            mergeFieldsFromResponse(doc, hit.get("fields"));
+            docs.add(doc);
+
+            // Get sort values from the last document for search_after
+            if (hit.has("sort")) {
+                searchAfter = new Object[hit.get("sort").size()];
+                for (int i = 0; i < searchAfter.length; i++) {
+                    JsonNode sortValue = hit.get("sort").get(i);
+                    if (sortValue.isNumber()) {
+                        searchAfter[i] = sortValue.asDouble();
+                    } else if (sortValue.isTextual()) {
+                        searchAfter[i] = sortValue.asText();
+                    } else {
+                        searchAfter[i] = sortValue.toString();
+                    }
+                }
+            }
+        }
+
+        // Get the updated PIT ID
+        String updatedPitId = rootNode.has("pit_id") ? rootNode.get("pit_id").asText() : pitId;
+
+        // Determine if there are more results
+        boolean hasMore = !docs.isEmpty();
+
+        return new PointInTimeResult(updatedPitId, docs, totalHits, searchAfter, hasMore);
+    }
+
+    private void mergeFieldsFromResponse(Map<String, Object> doc, JsonNode fieldsNode) {
+        if (fieldsNode == null || fieldsNode.isNull()) {
+            return;
+        }
+        for (Iterator<Map.Entry<String, JsonNode>> iterator = fieldsNode.fields();
+                iterator.hasNext(); ) {
+            Map.Entry<String, JsonNode> entry = iterator.next();
+            String fieldName = entry.getKey();
+            JsonNode valueNode = unwrapFieldValue(entry.getValue());
+            if (valueNode == null || valueNode.isNull()) {
+                continue;
+            }
+            if (valueNode instanceof TextNode) {
+                doc.put(fieldName, valueNode.textValue());
+            } else {
+                doc.put(fieldName, valueNode);
+            }
+        }
+    }
+
+    private JsonNode unwrapFieldValue(JsonNode fieldValue) {
+        if (fieldValue == null || fieldValue.isNull()) {
+            return fieldValue;
+        }
+        if (fieldValue.isArray()) {
+            if (fieldValue.size() == 0) {
+                return fieldValue;
+            }
+            if (fieldValue.size() == 1) {
+                return fieldValue.get(0);
+            }
+        }
+        return fieldValue;
+    }
+}

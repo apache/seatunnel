@@ -1,0 +1,11 @@
+c_string,c_int,c_boolean,c_double
+test_string_1,100,false,1.1
+test_string_2,200,true,2.2
+test_string_3,300,false,3.3
+test_string_4,400,true,4.4
+test_string_5,500,false,5.5
+test_string_6,600,true,6.6
+test_string_7,700,false,7.7
+test_string_8,800,true,8.8
+test_string_9,900,false,9.9
+test_string_10,1000,true,11.0

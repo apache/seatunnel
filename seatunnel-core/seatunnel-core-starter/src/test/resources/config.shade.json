@@ -1,0 +1,48 @@
+{
+  "env" : {
+    "shade.identifier" : "base64",
+    "parallelism" : 1,
+    "shade.options": ["username", "password", "f1", "config1.f1",  "config2.list", "f2"]
+  },
+  "source" : [
+    {
+      "plugin_name" : "MySQL-CDC",
+      "url" : "jdbc:mysql://localhost:56725",
+      "username" : "c2VhdHVubmVs",
+      "password" : "c2VhdHVubmVsX3Bhc3N3b3Jk",
+      "hostname" : "127.0.0.1",
+      "port" : 56725,
+      "database-name" : "inventory_vwyw0n",
+      "parallelism" : 1,
+      "table-name" : "products",
+      "server-id" : 5656,
+      "schema" : {
+        "fields" : {
+          "name" : "string",
+          "age" : "int",
+          "sex" : "boolean"
+        }
+      },
+      "plugin_output" : "fake",
+      "f1": "c2VhdHVubmVs",
+      "config1.f1": "c2VhdHVubmVs",
+      "config2.list": ["c2VhdHVubmVsX3Bhc3N3b3Jk", "c2VhdHVubmVsX3Bhc3N3b3Jk", "c2VhdHVubmVsX3Bhc3N3b3Jk"],
+      "config3": {
+        "f2": "c2VhdHVubmVs"
+      }
+    }
+  ],
+  "transform" : [],
+  "sink" : [
+    {
+      "plugin_name" : "Clickhouse",
+      "host" : "localhost:8123",
+      "username" : "c2VhdHVubmVs",
+      "password" : "c2VhdHVubmVsX3Bhc3N3b3Jk",
+      "database" : "default",
+      "table" : "fake_all",
+      "support_upsert" : true,
+      "primary_key" : "id"
+    }
+  ]
+}

@@ -1,0 +1,70 @@
+{
+  "env" : {
+    "shade.identifier" : "base64",
+    "parallelism" : 1,
+    "shade.options" : ["api_key"]
+  },
+  "source" : [
+    {
+      "plugin_name": "S3File",
+      "schema": {
+        "fields": {
+          "id": "int",
+          "age": "int",
+          "name": "string"
+        },
+        "primaryKey": {
+          "name": "id",
+          "columnNames": [
+            "id"
+          ]
+        }
+      },
+      "path": "/test_json_data.json",
+      "bucket": "seatunnel",
+      "access_key": "YWNjZXNzX2tleQ==",
+      "secret_key": "c2VjcmV0X2tleQ==",
+      "file_format_type": "json",
+      "fs.s3a.endpoint": "xxx.seatunnel.s3.com",
+      "fs.s3a.aws.credentials.provider": "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider",
+      "plugin_output": "s3file_output"
+    }
+  ],
+  "transform" : [
+    {
+      "plugin_name": "LLM",
+      "api_key": "YXBpX2tleQ==",
+      "model_provider": "DOUBAO",
+      "inference_columns": ["name"],
+      "model": "doubao-1-5-thinking-pro-250415",
+      "prompt": "Inferring male or female based on name",
+      "plugin_input": "s3file_output",
+      "plugin_output": "llm_output"
+    },
+    {
+      "plugin_name": "Embedding",
+      "model": "doubao-embedding-text-240715",
+      "api_key": "YXBpX2tleQ==",
+      "model_provider": "DOUBAO",
+      "vectorization_fields": {
+        "name_vector": "name"
+      },
+      "plugin_input": "llm_output",
+      "plugin_output": "embedding_output"
+    }
+  ],
+  "sink" : [
+    {
+        "plugin_name": "Milvus",
+        "enable_auto_id": true,
+        "batch_size": 1000,
+        "database": "default",
+        "schema_save_mode": "RECREATE_SCHEMA",
+        "url": "https://milvus.com:19530",
+        "token": "dG9rZW4=",
+        "create_index": true,
+        "load_collection": true,
+        "plugin_input": "embedding_output"
+    }
+  ]
+}

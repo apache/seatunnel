@@ -1,0 +1,159 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.seatunnel.connectors.seatunnel.kafka.config;
+
+import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
+
+import org.apache.seatunnel.api.configuration.Option;
+import org.apache.seatunnel.api.configuration.Options;
+
+import java.util.List;
+import java.util.Map;
+
+public class KafkaSourceOptions extends KafkaBaseOptions {
+
+    public static final Option<Boolean> PATTERN =
+            Options.key("pattern")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "If pattern is set to true,the regular expression for a pattern of topic names to read from."
+                                    + " All topics in clients with names that match the specified regular expression will be subscribed by the consumer.");
+
+    public static final Option<String> CONSUMER_GROUP =
+            Options.key("consumer.group")
+                    .stringType()
+                    .defaultValue("SeaTunnel-Consumer-Group")
+                    .withDescription(
+                            "Kafka consumer group id, used to distinguish different consumer groups.");
+
+    public static final Option<Integer> READER_CACHE_QUEUE_SIZE =
+            Options.key("reader_cache_queue_size")
+                    .intType()
+                    .defaultValue(2)
+                    .withDescription(
+                            "The capacity of the fetcher-to-reader element queue. "
+                                    + "Each element is one consumer.poll() batch, not a single message. "
+                                    + "Actual buffered messages ≈ this value × max.poll.records.");
+
+    public static final Option<Boolean> COMMIT_ON_CHECKPOINT =
+            Options.key("commit_on_checkpoint")
+                    .booleanType()
+                    .defaultValue(true)
+                    .withDescription(
+                            "If true, consumer offsets are committed only after a SeaTunnel checkpoint completes, and Kafka auto commit is disabled. If false, checkpoint commits are disabled and Kafka auto commit is enabled.");
+
+    public static final Option<Boolean> DEBEZIUM_RECORD_INCLUDE_SCHEMA =
+            Options.key("debezium_record_include_schema")
+                    .booleanType()
+                    .defaultValue(true)
+                    .withDescription("Does the debezium record carry a schema.");
+
+    public static final Option<TableIdentifierConfig> DEBEZIUM_RECORD_TABLE_FILTER =
+            Options.key("debezium_record_table_filter")
+                    .type(new TypeReference<TableIdentifierConfig>() {})
+                    .noDefaultValue()
+                    .withDescription("Debezium record table filter.");
+
+    public static final Option<StartMode> START_MODE =
+            Options.key("start_mode")
+                    .objectType(StartMode.class)
+                    .defaultValue(StartMode.GROUP_OFFSETS)
+                    .withDescription(
+                            "The initial consumption pattern of consumers,there are several types:\n"
+                                    + "[earliest],[group_offsets],[latest],[specific_offsets],[timestamp]");
+
+    public static final Option<Long> START_MODE_TIMESTAMP =
+            Options.key("start_mode.timestamp")
+                    .longType()
+                    .noDefaultValue()
+                    .withDescription("The time required for consumption mode to be timestamp.");
+
+    public static final Option<Map<String, Long>> START_MODE_OFFSETS =
+            Options.key("start_mode.offsets")
+                    .type(new TypeReference<Map<String, Long>>() {})
+                    .noDefaultValue()
+                    .withDescription(
+                            "The offset required for consumption mode to be specific_offsets.");
+
+    /** Configuration key to define the consumer's partition discovery interval, in milliseconds. */
+    public static final Option<Long> KEY_PARTITION_DISCOVERY_INTERVAL_MILLIS =
+            Options.key("partition-discovery.interval-millis")
+                    .longType()
+                    .defaultValue(-1L)
+                    .withDescription(
+                            "The interval for dynamically discovering topics and partitions.");
+
+    public static final Option<Long> KEY_POLL_TIMEOUT =
+            Options.key("poll.timeout")
+                    .longType()
+                    .defaultValue(10000L)
+                    .withDescription("The interval for poll message");
+
+    public static final Option<Boolean> IGNORE_NO_LEADER_PARTITION =
+            Options.key("ignore_no_leader_partition")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Whether to ignore partitions that have no leader. "
+                                    + "If set to true, partitions without a leader will be skipped during partition discovery. "
+                                    + "If set to false (default), the connector will include all partitions regardless of leader status.");
+
+    public static final Option<MessageFormatErrorHandleWay> MESSAGE_FORMAT_ERROR_HANDLE_WAY_OPTION =
+            Options.key("format_error_handle_way")
+                    .enumType(MessageFormatErrorHandleWay.class)
+                    .defaultValue(MessageFormatErrorHandleWay.FAIL)
+                    .withDescription(
+                            "The processing method of data format error. The default value is fail, and the optional value is (fail, skip). "
+                                    + "When fail is selected, data format error will block and an exception will be thrown. "
+                                    + "When skip is selected, data format error will skip this line data.");
+
+    public static final Option<Long> START_MODE_END_TIMESTAMP =
+            Options.key("start_mode.end_timestamp")
+                    .longType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "The time required for consumption mode to be timestamp.The endTimestamp configuration specifies the end timestamp of the messages and is only applicable in batch mode");
+
+    public static final Option<Boolean> STRIP_SCHEMA_REGISTRY_HEADER =
+            Options.key("strip_schema_registry_header")
+                    .booleanType()
+                    .defaultValue(false)
+                    .withDescription(
+                            "Whether to strip the Confluent Schema Registry wire format header "
+                                    + "(magic byte, schema id and message indexes) before "
+                                    + "protobuf deserialization.");
+
+    public static final Option<String> AVRO_SCHEMA =
+            Options.key("avro_schema")
+                    .stringType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Effective when the format is avro. The writer Avro schema used to "
+                                    + "deserialize binary Avro messages whose record name, namespace, "
+                                    + "or union layout differs from the SeaTunnel schema.");
+
+    public static final Option<List<String>> KAFKA_HEADERS_FIELDS =
+            Options.key("kafka_headers_fields")
+                    .listType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Specify which Kafka message header keys to extract as row fields. "
+                                    + "Each header value is read as a STRING and appended to the output row. "
+                                    + "Cannot be used with NATIVE format.");
+}

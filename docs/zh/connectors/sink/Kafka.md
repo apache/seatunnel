@@ -1,0 +1,509 @@
+import ChangeLog from '../changelog/connector-kafka.md';
+
+# Kafka
+
+> Kafka 数据接收器
+
+## 支持引擎
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
+## 主要特性
+
+- [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [ ] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
+
+> 默认情况下，我们将使用 2pc 来保证消息只发送一次到kafka
+
+## 描述
+
+将 Rows 内容发送到 Kafka topic
+
+## 支持的数据源信息
+
+为了使用 Kafka 连接器，需要以下依赖项
+可以通过 install-plugin.sh 或从 Maven 中央存储库下载
+
+| 数据源   | 支持版本 | Maven                                                                         |
+|-------|------|-------------------------------------------------------------------------------|
+| Kafka | 通用   | [下载](https://mvnrepository.com/artifact/org.apache.seatunnel/connector-kafka) |
+
+## 接收器选项
+
+|          名称          |   类型   | 是否需要 | 默认值  | 描述                                                                                                                                                                                                                                                                 |
+|----------------------|--------|------|------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| topic                | String | 是    | -    | 当表用作接收器时，topic 名称是要写入数据的 topic                                                                                                                                                                                                                                     |
+| bootstrap.servers    | String | 是    | -    | Kafka brokers 使用逗号分隔                                                                                                                                                                                                                                               |
+| kafka.config         | Map    | 否    | -    | 除了上述 Kafka Producer 客户端必须指定的参数外，用户还可以为 Producer 客户端指定多个非强制参数，涵盖 [Kafka官方文档中指定的所有生产者参数](https://kafka.apache.org/documentation.html#producerconfigs)                                                                                                                |
+| semantics            | String | 否    | NON  | 可以选择的语义是 EXACTLY_ONCE/AT_LEAST_ONCE/NON，默认 NON。                                                                                                                                                                                                                    |
+| partition_key_fields | Array  | 否    | -    | 配置字段用作 kafka 消息的key                                                                                                                                                                                                                                                |
+| kafka_headers_fields | Array  | 否    | -    | 配置字段用作 kafka 消息的headers。字段值将被转换为字符串并用作 header 值                                                                                                                                                                                                                   |
+| partition            | Int    | 否    | -    | 可以指定分区，所有消息都会发送到此分区                                                                                                                                                                                                                                                |
+| assign_partitions    | Array  | 否    | -    | 可以根据消息的内容决定发送哪个分区,该参数的作用是分发信息                                                                                                                                                                                                                                      |
+| transaction_prefix   | String | 否    | -    | 当 `semantics` 为 `EXACTLY_ONCE` 时，生产者会把消息写入 Kafka 事务。Kafka 通过 transaction id 区分不同事务，因此不同作业应使用不同前缀。                                                                                                                                           |
+| format               | String | 否    | json | 数据格式。默认格式是json。可选 text, canal_json, debezium_json, compatible_debezium_json, ogg_json, maxwell_json, avro, protobuf 和 native。如果使用 json 或 text 格式，默认字段分隔符是 `,`。如果自定义分隔符，请添加 `field_delimiter` 选项。如果使用 canal 格式，请参考 [canal-json](../formats/canal-json.md)。如果使用 debezium 格式，请参阅 [debezium-json](../formats/debezium-json.md) 了解详细信息 |
+| field_delimiter      | String | 否    | ,    | 自定义数据格式的字段分隔符                                                                                                                                                                                                                                                      |
+| common-options       |        | 否    | -    | Sink插件常用参数，请参考 [Sink常用选项 ](../common-options/sink-common-options.md) 了解详情                                                                                                                                                                                                         |
+|protobuf_message_name|String|否|-| format配置为protobuf时生效，取Message名称                                                                                                                                                                                                                                    |
+|protobuf_schema|String|否|-| format配置为protobuf时生效取Schema名称                                                                                                                                                                                                                                      |
+
+## 参数解释
+
+### Topic 格式
+
+目前支持两种格式：
+
+1. 填写topic名称
+
+2. 使用上游数据中的字段值作为 topic ,格式是 `${your field name}`, 其中 topic 是上游数据的其中一列的值
+
+   例如，上游数据如下：
+
+| name | age |     data      |
+|------|-----|---------------|
+| Jack | 16  | data-example1 |
+| Mary | 23  | data-example2 |
+
+如果 `${name}` 设置为 topic。因此，第一行发送到 Jack topic，第二行发送到 Mary topic。
+
+### 语义
+
+在 EXACTLY_ONCE 中，生产者将在 Kafka 事务中写入所有消息，这些消息将在检查点上提交给 Kafka，该模式下能保证数据精确写入kafka一次，即使任务失败重试也不会出现数据重复和丢失
+在 AT_LEAST_ONCE 中，生产者将等待 Kafka 缓冲区中所有未完成的消息在检查点上被 Kafka 生产者确认，该模式下能保证数据至少写入kafka一次，即使任务失败
+NON 不提供任何保证：如果 Kafka 代理出现问题，消息可能会丢失，并且消息可能会重复，该模式下，任务失败重试可能会产生数据丢失或重复。
+
+使用 `EXACTLY_ONCE` 时需要开启 checkpoint，并确保每个运行中的作业使用唯一的 `transaction_prefix`。多个作业复用同一个事务前缀，可能导致 Kafka 事务冲突。
+
+### 分区关键字段
+
+例如，如果你想使用上游数据中的字段值作为键，可以将这些字段名指定给此属性
+
+上游数据如下所示：
+
+| name | age |     data      |
+|------|-----|---------------|
+| Jack | 16  | data-example1 |
+| Mary | 23  | data-example2 |
+
+如果将 name 设置为 key，那么 name 列的哈希值将决定消息发送到哪个分区。
+如果没有设置分区键字段，则将发送空消息键。
+消息 key 的格式为 json，如果设置 name 为 key，例如 `{"name":"Jack"}`。
+所选的字段必须是上游数据中已存在的字段。
+
+### Kafka Headers 字段
+
+例如，如果你想使用上游数据中的字段值作为 kafka 消息的 headers，可以将这些字段名指定给此属性。
+
+上游数据如下所示：
+
+| name | age |     data      | source | traceId   |
+|------|-----|---------------|--------|-----------|
+| Jack | 16  | data-example1 | web    | trace-123 |
+| Mary | 23  | data-example2 | mobile | trace-456 |
+
+如果将 source 和 traceId 设置为 kafka headers 字段，那么这些字段值将作为 headers 添加到 kafka 消息中。
+例如，第一行将具有 headers：`source=web` 和 `traceId=trace-123`。
+字段值将被转换为字符串并用作 header 值。
+所选的字段必须是上游数据中已存在的字段。
+
+注意：
+配置为 Kafka headers 的字段将不会包含在消息的 value（payload）中，而只会存在于 Kafka 消息的 headers 中。
+`format = native` 时不支持 `kafka_headers_fields`。
+
+### 分区分配
+
+假设总有五个分区，配置中的 assign_partitions 字段设置为：
+assign_partitions = ["shoe", "clothing"]
+在这种情况下，包含 "shoe" 的消息将被发送到第零个分区，因为 "shoe" 在 assign_partitions 中被标记为零， 而包含 "clothing" 的消息将被发送到第一个分区。
+对于其他的消息，我们将使用哈希算法将它们均匀地分配到剩余的分区中。
+这个功能是通过 MessageContentPartitioner 类实现的，该类实现了 org.apache.kafka.clients.producer.Partitioner 接口。如果我们需要自定义分区，我们需要实现这个接口。
+
+## 任务示例
+
+### 简单
+
+> 此示例展示了如何定义一个 SeaTunnel 同步任务，该任务能够通过 FakeSource 自动产生数据并将其发送到 Kafka Sink。在这个例子中，FakeSource 会生成总共 16 行数据（`row.num=16`），每一行都包含两个字段，即 `name`（字符串类型）和 `age`（整型）。最终，这些数据将被发送到名为 test_topic 的 topic 中，因此该 topic 也将包含 16 行数据。
+> 如果你还未安装和部署 SeaTunnel，你需要参照 [安装SeaTunnel](../../getting-started/locally/deployment.md) 的指南来进行安装和部署。完成安装和部署后，你可以按照 [快速开始使用 SeaTunnel 引擎](../../getting-started/locally/quick-start-seatunnel-engine.md) 的指南来运行任务。
+
+```hocon
+# Defining the runtime environment
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    parallelism = 1
+    plugin_output = "fake"
+    row.num = 16
+    schema = {
+      fields {
+        name = "string"
+        age = "int"
+      }
+    }
+  }
+}
+
+sink {
+  kafka {
+      topic = "test_topic"
+      bootstrap.servers = "localhost:9092"
+      format = json
+      semantics = EXACTLY_ONCE
+      kafka.config = {
+        acks = "all"
+        request.timeout.ms = 60000
+        buffer.memory = 33554432
+      }
+  }
+}
+```
+
+### 使用 Kafka Headers
+
+本示例展示如何使用 `kafka_headers_fields` 将上游字段设置为 Kafka 消息头：
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    parallelism = 1
+    plugin_output = "fake"
+    row.num = 16
+    schema = {
+      fields {
+        name = "string"
+        age = "int"
+        source = "string"
+        traceId = "string"
+      }
+    }
+  }
+}
+
+sink {
+  Kafka {
+      topic = "test_topic"
+      bootstrap.servers = "localhost:9092"
+      format = json
+      partition_key_fields = ["name"]
+      kafka_headers_fields = ["source", "traceId"]
+      semantics = EXACTLY_ONCE
+      kafka.config = {
+        acks = "all"
+        request.timeout.ms = 60000
+        buffer.memory = 33554432
+      }
+  }
+}
+```
+
+### AWS MSK SASL/SCRAM
+
+将以下 `${username}` 和 `${password}` 替换为 AWS MSK 中的配置值。
+
+```hocon
+sink {
+  kafka {
+      topic = "seatunnel"
+      bootstrap.servers = "localhost:9092"
+      format = json
+      semantics = EXACTLY_ONCE
+      kafka.config = {
+         security.protocol=SASL_SSL
+         sasl.mechanism=SCRAM-SHA-512
+         sasl.jaas.config="org.apache.kafka.common.security.scram.ScramLoginModule required \nusername=${username}\npassword=${password};"
+      }
+  }
+}
+```
+
+### AWS MSK IAM
+
+从 https://github.com/aws/aws-msk-iam-auth/releases 下载 `aws-msk-iam-auth-1.1.5.jar`
+并将其放入 `$SEATUNNEL_HOME/plugin/kafka/lib` 中目录。
+请确保 IAM 策略具有 `kafka-cluster:Connect`
+如下配置：
+
+```hocon
+"Effect": "Allow",
+"Action": [
+    "kafka-cluster:Connect",
+    "kafka-cluster:AlterCluster",
+    "kafka-cluster:DescribeCluster"
+],
+```
+
+接收器配置
+
+```hocon
+sink {
+  kafka {
+      topic = "seatunnel"
+      bootstrap.servers = "localhost:9092"
+      format = json
+      semantics = EXACTLY_ONCE
+      kafka.config = {
+         security.protocol=SASL_SSL
+         sasl.mechanism=AWS_MSK_IAM
+         sasl.jaas.config="software.amazon.msk.auth.iam.IAMLoginModule required;"
+         sasl.client.callback.handler.class="software.amazon.msk.auth.iam.IAMClientCallbackHandler"
+      }
+  }
+}
+```
+
+### Kerberos 认证示例
+
+请在启动 SeaTunnel 之前设置 JVM 参数 `java.security.krb5.conf` 或更新 `/etc/krb5.conf` 中的默认 `krb5.conf`。
+
+接收器配置示例：
+
+```hocon
+sink {
+   Kafka {
+      topic = "seatunnel"
+      bootstrap.servers = "localhost:9092"
+      format = json
+      semantics = EXACTLY_ONCE
+      kafka.config = {
+         security.protocol = SASL_PLAINTEXT
+         sasl.kerberos.service.name = kafka
+         sasl.mechanism = GSSAPI
+         sasl.jaas.config = "com.sun.security.auth.module.Krb5LoginModule required \n        useKeyTab=true \n        storeKey=true  \n        keyTab=\"/path/to/xxx.keytab\" \n        principal=\"user@xxx.com\";"
+      }
+   }
+}
+```
+
+
+### Protobuf配置
+
+`format` 设置为 `protobuf`，配置`protobuf`数据结构，`protobuf_message_name`和`protobuf_schema`参数
+
+使用样例：
+
+```hocon
+sink {
+  kafka {
+      topic = "test_protobuf_topic_fake_source"
+      bootstrap.servers = "kafkaCluster:9092"
+      format = protobuf
+      kafka.config = {
+        acks = "all"
+        request.timeout.ms = 60000
+        buffer.memory = 33554432
+      }
+      protobuf_message_name = Person
+      protobuf_schema = """
+              syntax = "proto3";
+
+              package org.apache.seatunnel.format.protobuf;
+
+              option java_outer_classname = "ProtobufE2E";
+
+              message Person {
+                int32 c_int32 = 1;
+                int64 c_int64 = 2;
+                float c_float = 3;
+                double c_double = 4;
+                bool c_bool = 5;
+                string c_string = 6;
+                bytes c_bytes = 7;
+
+                message Address {
+                  string street = 1;
+                  string city = 2;
+                  string state = 3;
+                  string zip = 4;
+                }
+
+                Address address = 8;
+
+                map<string, float> attributes = 9;
+
+                repeated string phone_numbers = 10;
+              }
+              """
+  }
+}
+```
+
+### format
+如果需要写入Kafka原生的信息，可以参考下面的配置。
+
+配置示例:
+```hocon
+sink {
+  kafka {
+      topic = "test_topic_native_sink"
+      bootstrap.servers = "kafkaCluster:9092"
+      format = "NATIVE"
+  }
+}
+```
+
+输入参数要求如下:
+```json
+{
+  "headers": {
+    "header1": "header1",
+    "header2": "header2"
+  },
+  "key": "dGVzdF9ieXRlc19kYXRh",
+  "partition": 3,
+  "timestamp": 1672531200000,
+  "timestampType": "CREATE_TIME",
+  "value": "dGVzdF9ieXRlc19kYXRh"
+}
+```
+Note：key/value 需要 byte[]类型.
+
+### 流式 EXACTLY_ONCE 与 Checkpoint 协同
+
+长时间运行的流式作业若不能容忍丢失或重复，需要开启 checkpoint 并把 `semantics` 设置为 `EXACTLY_ONCE`。SeaTunnel 会把 Kafka 事务与 checkpoint 协调，保证每个 in-flight 批次和对应的消费 offset 原子提交。
+
+```hocon
+env {
+  parallelism = 2
+  job.mode = "STREAMING"
+  checkpoint.interval = 10000
+}
+
+source {
+  Kafka {
+    topic = "orders"
+    bootstrap.servers = "localhost:9092"
+    consumer.group = "orders_consumer"
+    start_mode = group_offsets
+    format = json
+    schema = {
+      fields {
+        order_id = bigint
+        user_id = bigint
+        amount = double
+      }
+    }
+  }
+}
+
+sink {
+  Kafka {
+    topic = "orders_sink"
+    bootstrap.servers = "localhost:9092"
+    format = json
+    semantics = EXACTLY_ONCE
+    transaction_prefix = "orders_pipeline"
+    kafka.config = {
+      "transaction.timeout.ms" = "900000"
+    }
+    partition_key_fields = ["order_id"]
+  }
+}
+```
+
+注意：每个作业都必须使用唯一的 `transaction_prefix`。Kafka 通过 transactional id 区分事务，跨作业复用相同前缀会导致事务冲突。
+
+### NATIVE 格式下的 Header 转发
+
+当 source 端使用 `format = "NATIVE"`、sink 端同样使用 `format = "NATIVE"` 时，Kafka 的 headers、key、partition、timestamp 等字段会原样回写到下游 topic。这种用法适合在不改写线缆布局的前提下，把已是 Kafka 编码的记录转发到另一个 topic。
+
+```hocon
+source {
+  Kafka {
+    topic = "topic_native_source"
+    bootstrap.servers = "localhost:9092"
+    format = "NATIVE"
+    consumer.group = "native_forwarder"
+  }
+}
+
+sink {
+  Kafka {
+    topic = "topic_native_sink"
+    bootstrap.servers = "localhost:9092"
+    format = "NATIVE"
+  }
+}
+```
+
+注意：上游记录使用 `format = "NATIVE"` 时，`key` 和 `value` 是 `byte[]`。这种情况下请谨慎配置 `kafka_headers_fields`，因为 headers 已经编码在行内。
+
+## 常见问题
+
+### Kafka Sink 会自动创建 topic 吗？
+
+SeaTunnel Kafka Sink 本身不会主动创建 Kafka topic，只是向配置的 `topic` 写入数据。topic 是否自动创建取决于 Kafka Broker 的 `auto.create.topics.enable` 配置。
+
+生产环境中建议提前手动创建 topic，以便自行控制分区数、副本数、保留策略和 ACL。不要依赖自动创建，因为 Broker 可能已将 `auto.create.topics.enable` 设为 `false`。
+
+### 不配置 `partition_key_fields` 会怎样？
+
+若未设置 `partition_key_fields`，SeaTunnel 将以 **null** 作为 Kafka 消息 key 发送记录，Kafka 会使用默认的轮询策略将记录分散到各分区。
+
+这适合做负载均衡，但**不适合**需要相同业务 key 的记录落入同一分区以保证顺序的场景。如有顺序要求，请配置 `partition_key_fields`。
+
+### 如何实现精确一次（exactly-once）写入？
+
+将 `semantics` 设为 `EXACTLY_ONCE` 以启用精确一次语义，并配置 `transaction_prefix`
+为每个任务提供唯一的 Kafka 事务 ID 前缀。SeaTunnel 会将 Kafka 事务与 checkpoint 协调来实现 exactly-once：
+
+```hocon
+sink {
+  kafka {
+    topic = "output-topic"
+    bootstrap.servers = "localhost:9092"
+    semantics = EXACTLY_ONCE
+    transaction_prefix = "SeaTunnelJob"
+    kafka.config = {
+      "transaction.timeout.ms" = "900000"
+    }
+  }
+}
+```
+
+确保 Kafka Broker 开启了事务支持，且 `transaction.timeout.ms` 与 checkpoint 间隔相匹配。
+
+在 `EXACTLY_ONCE` 语义下，发送失败会让 checkpoint 失败，而不是静默丢弃数据。此时可能出现两种错误：
+
+| 错误码      | 名称                      | 含义                                        | 处理建议                                                             |
+|----------|-------------------------|-------------------------------------------|------------------------------------------------------------------|
+| KAFKA-08 | TRANSACTION_NOT_STARTED | 事务中已有数据，但 Kafka 始终未在 Broker 端完成该事务的注册。    | 检查 Broker 是否可用，以及 `transaction.timeout.ms` 是否小于 checkpoint 间隔。   |
+| KAFKA-09 | PRODUCE_DATA_FAILED     | 事务中的某条数据异步发送失败。                           | 查看异常 cause；可重试的异常通常在 checkpoint 重试后恢复，其他异常需要排查 Broker 端问题。      |
+
+两种错误都会中止当前事务，受影响的数据会从上一个已完成的 checkpoint 重新发送，不会丢失。
+
+### 如何配置 SASL/Kerberos 认证？
+
+```hocon
+sink {
+  kafka {
+    topic = "secure-topic"
+    bootstrap.servers = "broker:9092"
+    kafka.security.protocol = "SASL_PLAINTEXT"
+    kafka.sasl.mechanism = "GSSAPI"
+    kafka.sasl.kerberos.service.name = "kafka"
+    kafka.sasl.jaas.config = """com.sun.security.auth.module.Krb5LoginModule required
+      useKeyTab=true
+      keyTab="/etc/kafka/kafka.keytab"
+      principal="user@REALM.COM";"""
+  }
+}
+```
+
+### Kafka Sink 支持哪些消息格式？
+
+支持：`json`、`text`、`canal_json`、`debezium_json`、`ogg_json`、`avro`、`protobuf` 和 `NATIVE`。当上游数据已经是带 headers、key 和 value 字节字段的 Kafka 原生格式时，使用 `NATIVE` 格式。
+
+## 变更日志
+
+<ChangeLog />

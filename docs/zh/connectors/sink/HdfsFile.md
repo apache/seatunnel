@@ -1,0 +1,344 @@
+import ChangeLog from '../changelog/connector-file-hadoop.md';
+
+# Hdfs文件
+
+> Hdfs文件 数据接收器
+
+## 支持的引擎
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
+## 主要特性
+
+- [x] [多模态](../../introduction/concepts/connector-v2-features.md#多模态multimodal)
+
+  使用二进制文件格式读取和写入任何格式的文件，例如视频、图片等。简而言之，任何文件都可以同步到目标位置。
+
+- [x] [精确一次](../../introduction/concepts/connector-v2-features.md)
+- [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
+
+  默认情况下，我们使用2PC提交来确保"精确一次"
+
+- [x] 文件格式类型
+  - [x] 文本
+  - [x] CSV
+  - [x] Parquet
+  - [x] ORC
+  - [x] JSON
+  - [x] Excel
+  - [x] canal_json
+  - [x] debezium_json
+  - [x] maxwell_json
+- [x] 压缩编解码器
+  - [x] lzo
+- [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
+
+## 描述
+
+将数据输出到Hdfs文件
+
+## 支持的数据源信息
+
+| 数据源    | 支持的版本            |
+|--------|------------------|
+| Hdfs文件 | hadoop 2.x 和 3.x |
+
+## 接收器选项
+
+| 名称                               | 类型      | 是否必须 | 默认值                                        | 描述                                                                                                                                                                                                                                                                                               |
+|----------------------------------|---------|------|--------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| fs.defaultFS                     | string  | 是    | -                                          | Hadoop 集群地址。支持以下格式：<br/>- 标准 HDFS：`hdfs://hadoopcluster` 或 `hdfs://namenode:9000`<br/>- ViewFS（联邦 HDFS）：`viewfs://mycluster`<br/>详见下方 ViewFS 配置示例。                                                                                                                                                      |
+| path                             | string  | 是    | -                                          | 目标目录路径是必需的。                                                                                                                                                                                                                                                                                      |
+| tmp_path                         | string  | 是    | /tmp/seatunnel                             | 结果文件将首先写入临时路径，然后使用 `mv` 命令将临时目录提交到目标目录。需要一个Hdfs路径。                                                                                                                                                                                                                                               |
+| hdfs_site_path                   | string  | 否    | -                                          | `hdfs-site.xml` 的路径，用于加载 namenodes 的 ha 配置。                                                                                                                                                                                                                                                      |
+| custom_filename                  | boolean | 否    | false                                      | 是否需要自定义文件名                                                                                                                                                                                                                                                                                       |
+| file_name_expression             | string  | 否    | "${transactionId}"                         | 仅在 `custom_filename` 为 `true` 时使用。`file_name_expression` 描述将创建到 `path` 中的文件表达式。我们可以在 `file_name_expression` 中添加变量 `${now}` 或 `${uuid}`，例如 `test_${uuid}_${now}`，`${now}` 表示当前时间，其格式可以通过指定选项 `filename_time_format` 来定义。请注意，如果 `is_enable_transaction` 为 `true`，我们将在文件头部自动添加 `${transactionId}_`。 |
+| filename_time_format             | string  | 否    | "yyyy.MM.dd"                               | 仅在 `custom_filename` 为 `true` 时使用。当 `file_name_expression` 参数中的格式为 `xxxx-${now}` 时，`filename_time_format` 可以指定路径的时间格式，默认值为 `yyyy.MM.dd`。常用的时间格式如下所示：[y:年,M:月,d:月中的一天,H:一天中的小时（0-23），m:小时中的分钟，s:分钟中的秒]                                                                                            |
+| file_format_type                 | string  | 否    | "csv"                                      | 我们支持以下文件类型：`text` `json` `csv` `orc` `parquet` `excel` `canal_json` `debezium_json` `maxwell_json`。请注意，最终文件名将以文件格式的后缀结束，文本文件的后缀是 `txt`。                                                                                                                                                          |
+| filename_extension               | string  | 否    | -                                          | 使用自定义的文件扩展名覆盖默认的文件扩展名。 例如：`.xml`, `.json`, `dat`, `.customtype`                                                                                                                                                                                                                                  |
+| field_delimiter                  | string  | 否    | '\001'                                     | 仅在 file_format 为 text 时使用，数据行中列之间的分隔符。仅需要 `text` 文件格式。                                                                                                                                                                                                                                           |
+| row_delimiter                    | string  | 否    | "\n"                                       | 仅在 file_format 为 text 时使用，文件中行之间的分隔符。仅需要 `text`、`csv`、`json` 文件格式。                                                                                                                                                                                                                               |
+| have_partition                   | boolean | 否    | false                                      | 是否需要处理分区。                                                                                                                                                                                                                                                                                        |
+| partition_by                     | array   | 否    | -                                          | 仅在 have_partition 为 true 时使用，根据选定的字段对数据进行分区。                                                                                                                                                                                                                                                     |
+| partition_dir_expression         | string  | 否    | "${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/" | 仅在 have_partition 为 true 时使用，如果指定了 `partition_by`，我们将根据分区信息生成相应的分区目录，并将最终文件放置在分区目录中。默认 `partition_dir_expression` 为 `${k0}=${v0}/${k1}=${v1}/.../${kn}=${vn}/`。`k0` 是第一个分区字段，`v0` 是第一个分区字段的值。                                                                                                    |
+| is_partition_field_write_in_file | boolean | 否    | false                                      | 仅当 `have_partition` 为 `true` 时使用。如果 `is_partition_field_write_in_file` 为 `true`，则分区字段及其值将写入数据文件中。例如，如果要写入Hive数据文件，则其值应为 `false`。                                                                                                                                                                 |
+| sink_columns                     | array   | 否    |                                            | 当此参数为空时，所有字段都是接收器列。需要写入文件的列，默认值是从 `Transform` 或 `Source` 获取的所有列。字段的顺序确定了实际写入文件时的顺序。                                                                                                                                                                                                              |
+| is_enable_transaction            | boolean | 否    | true                                       | 如果 `is_enable_transaction` 为 true，则在将数据写入目标目录时，我们将确保数据不会丢失或重复。请注意，如果 `is_enable_transaction` 为 `true`，我们将在文件头部自动添加 `${transactionId}_`。目前仅支持 `true`。                                                                                                                                             |
+| batch_size                       | int     | 否    | 1000000                                    | 文件中的最大行数。对于 SeaTunnel Engine，文件中的行数由 `batch_size` 和 `checkpoint.interval` 共同决定。如果 `checkpoint.interval` 的值足够大，则接收器写入器将在文件中写入行，直到文件中的行大于 `batch_size`。如果 `checkpoint.interval` 很小，则接收器写入器将在新检查点触发时创建一个新文件。                                                                                        |
+| single_file_mode                 | boolean | 否    | false                                      | 每个并行度只会输出一个文件，当此参数开启时，batch_size就不会生效。输出的文件名没有文件块后缀。                                                                                                                                                                                                                                             |
+| create_empty_file_when_no_data   | boolean | 否    | false                                      | 当上游没有数据同步时，依然生成对应的数据文件。                                                                                                                                                                                                                                                                          |
+| compress_codec                   | string  | 否    | none                                       | 文件的压缩编解码器及其支持的细节如下所示：[txt: `lzo` `none`，json: `lzo` `none`，csv: `lzo` `none`，orc: `lzo` `snappy` `lz4` `zlib` `none`，parquet: `lzo` `snappy` `lz4` `gzip` `brotli` `zstd` `none`]。提示：excel类型不支持任何压缩格式。                                                                                           |
+| krb5_path                        | string  | 否    | /etc/krb5.conf                             | kerberos 的 krb5 路径                                                                                                                                                                                                                                                                               |
+| kerberos_principal               | string  | 否    | -                                          | kerberos 的主体                                                                                                                                                                                                                                                                                     |
+| kerberos_keytab_path             | string  | 否    | -                                          | kerberos 的 keytab 路径                                                                                                                                                                                                                                                                             |
+| compress_codec                   | string  | 否    | none                                       | 压缩编解码器                                                                                                                                                                                                                                                                                           |
+| common-options                   | object  | 否    | -                                          | 接收器插件通用参数，请参阅 [接收器通用选项](../common-options/sink-common-options.md) 了解详情                                                                                                                                                                                                                                          |
+| csv_string_quote_mode            | enum    | 否    | MINIMAL                                    | 仅在文件格式为 CSV 时使用。                                                                                                                                                                                                                                                                                 |
+| enable_header_write              | boolean | 否    | false                                      | 仅在 file_format_type 为 text,csv 时使用。<br/> false:不写入表头,true:写入表头。                                                                                                                                                                                                                                  |
+| max_rows_in_memory               | int     | 否    | -                                          | 仅当 file_format 为 excel 时使用。当文件格式为 Excel 时，可以缓存在内存中的最大数据项数。                                                                                                                                                                                                                                       |
+| sheet_name                       | string  | 否    | Sheet${Random number}                      | 仅当 file_format 为 excel 时使用。将工作簿的表写入指定的表名                                                                                                                                                                                                                                                         |
+| remote_user                      | string  | 否    | -                                          | Hdfs的远端用户名。                                                                                                                                                                                                                                                                                      |
+| schema_evolution_enabled         | boolean | 否    | false                                      | 开启 Schema 演变支持，适用于 CDC 管道。为 true 时，来自上游的 ADD/DROP/RENAME/MODIFY 列事件无需重启作业即可应用到 Sink。不支持 binary 格式。                                                                                                                                                                                                            |
+| schema_save_mode                 | string  | 否    | CREATE_SCHEMA_WHEN_NOT_EXIST               | 现有目录处理方式                                                                                                                                                                                                                                                                                         |
+| data_save_mode                   | string  | 否    | APPEND_DATA                                | 现有数据处理方式                                                                                                                                                                                                                                                                                         |
+| multi_table_sink_replica         | int     | 否    | 1                                          | 多表写入时，每张表对应的 Sink Writer 副本数。                                                                                                                                                                                                                                                             |
+| merge_update_event               | boolean | 否    | false                                      | 仅当file_format_type为canal_json、debezium_json、maxwell_json.                                                                                                                                                                                                                                        |
+
+### 提示
+
+> 如果您使用 spark/flink，为了使用此连接器，您必须确保您的 spark/flink 集群已经集成了 hadoop。测试过的 hadoop 版本是
+> 2.x。如果您使用 SeaTunnel Engine，则在下载和安装 SeaTunnel Engine 时会自动集成 hadoop
+> jar。您可以检查 `${SEATUNNEL_HOME}/lib` 下的 jar 包来确认这一点。
+
+### schema_save_mode [string]
+
+现有的目录处理方法。
+- RECREATE_SCHEMA：当目录不存在时创建，当目录存在时删除并重新创建
+- CREATE_SCHEMA_WHEN_NOT_EXIST：当目录不存在时创建，当目录存在时跳过
+- ERROR_WHEN_SCHEMA_NOT_EXIST：当目录不存在时，将报告错误
+- IGNORE：忽略对表的处理
+
+### data_save_mode [string]
+
+现有的数据处理方法。
+- DROP_DATA：保留目录并删除数据文件
+- APPEND_DATA：保留目录，保留数据文件
+- ERROR_WHEN_DATA_EXISTS：当有数据文件时，会报告错误
+
+### schema_evolution_enabled [boolean]
+
+设置为 `true` 时，文件 Sink 可在运行时处理 CDC Schema 变更事件（ADD COLUMN、DROP COLUMN、RENAME COLUMN、MODIFY COLUMN 类型），无需重启作业。每次 Schema 变更时，当前输出文件会被关闭，并以新 Schema 打开一个新文件。
+
+**支持的格式：** 除 `binary` 外的所有文件格式。将此选项与 `file_format_type = binary` 一起使用时，作业启动时会抛出配置校验错误。
+
+**分区约束：** 当 `have_partition = true` 时，不允许删除 `partition_by` 中列出的列，违反时会立即抛出异常。分区列在 Schema 变更过程中必须保持稳定。
+
+**当 `schema_evolution_enabled = false`（默认值）时：** 若上游 CDC Source 配置了 `schema-changes.enabled = true` 且 Sink 收到 `AlterTableEvent`，作业会立即抛出如下错误：
+> `Received AlterTableEvent but schema_evolution_enabled=false at this sink. Either set schema_evolution_enabled=true to handle schema changes, or set schema-changes.enabled=false at the CDC source to suppress them.`
+
+使用默认 CDC Source 配置（`schema-changes.enabled = false`）的用户不受影响。
+
+**已知限制：** Schema 变更与 Checkpoint 不是原子操作。若作业在文件轮转与 Schema 元数据更新之间的窗口期崩溃，恢复后写入的数据行可能使用变更前的 Schema。这是与其他 SeaTunnel Sink 共同存在的已知架构限制。完整的重启后 DDL 正确性支持需要配套的 CDC Source 修复（另行跟踪）。
+
+CDC 管道中的使用示例：
+
+```hocon
+HdfsFile {
+    fs.defaultFS = "hdfs://hadoopcluster"
+    path = "/tmp/seatunnel/cdc/${table_name}"
+    file_format_type = "parquet"
+    schema_evolution_enabled = true
+}
+```
+
+### multi_table_sink_replica [int]
+
+多表写入时，每张表对应的 Sink Writer 副本数。默认值为 `1`；只有单表写入压力较大、需要更多写入并行度时再调大。
+
+### merge_update_event [boolean]
+
+仅当file_format_type为canal_json、debezium_json、maxwell_json时使用.
+设置成true,序列化数据时,UPDATE_AFTER 和 UPDATE_BEFORE 会合并成 UPDATE;
+设置成false,序列化数据时,UPDATE_AFTER 和 UPDATE_BEFORE 不会合并;
+
+## 任务示例
+
+### 简单示例
+
+> 此示例定义了一个 SeaTunnel 同步任务，通过 FakeSource 自动生成数据并将其发送到 Hdfs。
+
+```
+# 定义运行时环境
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  # 这是一个示例源插件 **仅用于测试和演示功能源插件**
+  FakeSource {
+    parallelism = 1
+    plugin_output = "fake"
+    row.num = 16
+    schema = {
+      fields {
+        c_map = "map<string, smallint>"
+        c_array = "array<int>"
+        c_string = string
+        c_boolean = boolean
+        c_tinyint = tinyint
+        c_smallint = smallint
+        c_int = int
+        c_bigint = bigint
+        c_float = float
+        c_double = double
+        c_decimal = "decimal(30, 8)"
+        c_bytes = bytes
+        c_date = date
+        c_timestamp = timestamp
+      }
+    }
+  }
+  # 如果您想获取有关如何配置 seatunnel 的更多信息和查看完整的源端插件列表，
+  # 请访问 https://seatunnel.apache.org/docs/connectors/source
+}
+
+transform {
+  # 如果您想获取有关如何配置 seatunnel 的更多信息和查看完整的转换插件列表，
+    # 请访问 https://seatunnel.apache.org/docs/transforms
+}
+
+sink {
+    HdfsFile {
+      fs.defaultFS = "hdfs://hadoopcluster"
+      path = "/tmp/hive/warehouse/test2"
+      file_format_type = "orc"
+    }
+  # 如果您想获取有关如何配置 seatunnel 的更多信息和查看完整的接收器插件列表，
+  # 请访问 https://seatunnel.apache.org/docs/connectors/sink
+}
+```
+
+### orc 文件格式的简单配置
+
+```
+HdfsFile {
+    fs.defaultFS = "hdfs://hadoopcluster"
+    path = "/tmp/hive/warehouse/test2"
+    file_format_type = "orc"
+}
+```
+
+### text 文件格式的配置，包括 `have_partition`、`custom_filename` 和 `sink_columns`
+
+```
+HdfsFile {
+    fs.defaultFS = "hdfs://hadoopcluster"
+    path = "/tmp/hive/warehouse/test2"
+    file_format_type = "text"
+    field_delimiter = "\t"
+    row_delimiter = "\n"
+    have_partition = true
+    partition_by = ["age"]
+    partition_dir_expression = "${k0}=${v0}"
+    is_partition_field_write_in_file = true
+    custom_filename = true
+    file_name_expression = "${transactionId}_${now}"
+    filename_time_format = "yyyy.MM.dd"
+    sink_columns = ["name","age"]
+    is_enable_transaction = true
+}
+```
+
+### parquet 文件格式的配置，包括 `have_partition`、`custom_filename` 和 `sink_columns`
+
+```
+HdfsFile {
+    fs.defaultFS = "hdfs://hadoopcluster"
+    path = "/tmp/hive/warehouse/test2"
+    have_partition = true
+    partition_by = ["age"]
+    partition_dir_expression = "${k0}=${v0}"
+    is_partition_field_write_in_file = true
+    custom_filename = true
+    file_name_expression = "${transactionId}_${now}"
+    filename_time_format = "yyyy.MM.dd"
+    file_format_type = "parquet"
+    sink_columns = ["name","age"]
+    is_enable_transaction = true
+}
+```
+
+### enable_header_write [boolean]
+
+仅在 file_format_type 为 text,csv 时使用。false:不写入表头,true:写入表头。
+
+### csv_string_quote_mode [string]
+
+当文件格式为 CSV 时，CSV 的字符串引号模式。
+
+- ALL：所有字符串字段都会加引号。
+- MINIMAL：仅为包含特殊字符（如字段分隔符、引号字符或行分隔符字符串中的任何字符）的字段加引号。
+- NONE：从不为字段加引号。当数据中包含分隔符时，输出会在前面加上转义字符。如果未设置转义字符，则格式验证会抛出异常。
+
+### kerberos 的简单配置
+
+```
+HdfsFile {
+    fs.defaultFS = "hdfs://hadoopcluster"
+    path = "/tmp/hive/warehouse/test2"
+    hdfs_site_path = "/path/to/your/hdfs_site_path"
+    kerberos_principal = "your_principal@EXAMPLE.COM"
+    kerberos_keytab_path = "/path/to/your/keytab/file.keytab"
+}
+```
+
+### 压缩的简单配置
+
+```
+HdfsFile {
+    fs.defaultFS = "hdfs://hadoopcluster"
+    path = "/tmp/hive/warehouse/test2"
+    compress_codec = "lzo"
+}
+```
+
+### ViewFS（联邦 HDFS）配置示例
+
+ViewFS 允许您将多个 HDFS 集群或命名空间统一到一个逻辑命名空间中。这对于 HDFS 联邦（Federation）场景非常有用。
+
+```
+HdfsFile {
+    fs.defaultFS = "viewfs://mycluster"
+    path = "/data/output"
+    file_format_type = "parquet"
+    hdfs_site_path = "/path/to/core-site.xml"
+    data_save_mode = "DROP_DATA"
+}
+```
+
+在 `core-site.xml` 中配置挂载表：
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <!-- ViewFS mount table for mycluster -->
+    <property>
+        <name>fs.viewfs.mounttable.mycluster.link./data</name>
+        <value>hdfs://namenode1:9000/data</value>
+    </property>
+    <property>
+        <name>fs.viewfs.mounttable.mycluster.link./logs</name>
+        <value>hdfs://namenode2:9000/logs</value>
+    </property>
+    <property>
+        <name>fs.viewfs.mounttable.mycluster.link./tmp</name>
+        <value>hdfs://namenode3:9000/tmp</value>
+    </property>
+</configuration>
+```
+
+### 写入启用 Kerberos 的 HA HDFS 集群
+
+向启用 Kerberos 的 HA HDFS 集群写入时，除了 nameservice URI，还需要提供 Kerberos principal/keytab。连接器复用 Hadoop 工具链的同一套身份认证，因此 principal 必须拥有目标目录的写权限。
+
+```hocon
+sink {
+  HdfsFile {
+    fs.defaultFS = "hdfs://mycluster"
+    path = "/data/landing/events"
+    file_format_type = "parquet"
+    hdfs_site_path = "/etc/hadoop/conf/hdfs-site.xml"
+    kerberos_principal = "sink@EXAMPLE.COM"
+    krb5_path = "/etc/krb5.conf"
+  }
+}
+```
+
+`kerberos_principal` 与 `krb5_path` 仅被转发给 Hadoop FileSystem 客户端，连接器自身不会执行 `kinit`；所以 keytab 必须已经能被每个 worker 节点发现（通常通过 `KRB5CCNAME` 或定时 `kinit`），或经由标准的 Hadoop 认证工具注入到同一 JVM 中。遇到集群级认证问题时，请先在 worker 日志里查看 `LoginException` / `KrbException`——这些通常是凭据问题，而不是连接器本身的 bug。
+
+## 变更日志
+
+<ChangeLog />

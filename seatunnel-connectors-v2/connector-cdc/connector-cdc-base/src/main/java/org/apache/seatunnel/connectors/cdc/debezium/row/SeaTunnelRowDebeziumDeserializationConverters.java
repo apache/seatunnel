@@ -1,0 +1,752 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.seatunnel.connectors.cdc.debezium.row;
+
+import org.apache.seatunnel.shade.com.google.common.annotations.VisibleForTesting;
+
+import org.apache.seatunnel.api.table.type.ArrayType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.connectors.cdc.debezium.DebeziumDeserializationConverter;
+import org.apache.seatunnel.connectors.cdc.debezium.DebeziumDeserializationConverterFactory;
+import org.apache.seatunnel.connectors.cdc.debezium.MetadataConverter;
+import org.apache.seatunnel.connectors.cdc.debezium.utils.TemporalConversions;
+
+import org.apache.kafka.connect.data.Decimal;
+import org.apache.kafka.connect.data.Field;
+import org.apache.kafka.connect.data.Schema;
+import org.apache.kafka.connect.data.Struct;
+import org.apache.kafka.connect.source.SourceRecord;
+
+import io.debezium.data.SpecialValueDecimal;
+import io.debezium.data.VariableScaleDecimal;
+import io.debezium.data.geometry.Geography;
+import io.debezium.data.geometry.Geometry;
+import io.debezium.time.MicroTime;
+import io.debezium.time.MicroTimestamp;
+import io.debezium.time.NanoTime;
+import io.debezium.time.NanoTimestamp;
+import io.debezium.time.Timestamp;
+
+import java.io.Serializable;
+import java.math.BigDecimal;
+import java.nio.ByteBuffer;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.ZoneId;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Optional;
+
+/** Deserialization schema from Debezium object to {@link SeaTunnelRow} */
+public class SeaTunnelRowDebeziumDeserializationConverters implements Serializable {
+    private static final long serialVersionUID = -897499476343410567L;
+    protected final DebeziumDeserializationConverter[] physicalConverters;
+    protected final MetadataConverter[] metadataConverters;
+    protected final String[] fieldNames;
+
+    public SeaTunnelRowDebeziumDeserializationConverters(
+            SeaTunnelRowType physicalDataType,
+            MetadataConverter[] metadataConverters,
+            ZoneId serverTimeZone,
+            DebeziumDeserializationConverterFactory userDefinedConverterFactory) {
+        this.metadataConverters = metadataConverters;
+
+        this.physicalConverters =
+                Arrays.stream(physicalDataType.getFieldTypes())
+                        .map(
+                                type ->
+                                        createConverter(
+                                                type, serverTimeZone, userDefinedConverterFactory))
+                        .toArray(DebeziumDeserializationConverter[]::new);
+        this.fieldNames = physicalDataType.getFieldNames();
+    }
+
+    public SeaTunnelRow convert(SourceRecord record, Struct struct, Schema schema)
+            throws Exception {
+        int arity = physicalConverters.length + metadataConverters.length;
+        SeaTunnelRow row = new SeaTunnelRow(arity);
+        // physical column
+        for (int i = 0; i < physicalConverters.length; i++) {
+            String fieldName = fieldNames[i];
+            Field field = schema.field(fieldName);
+            if (field == null) {
+                row.setField(i, null);
+            } else {
+                Object fieldValue = struct.getWithoutDefault(fieldName);
+                Schema fieldSchema = field.schema();
+                Object convertedField =
+                        SeaTunnelRowDebeziumDeserializationConverters.convertField(
+                                physicalConverters[i], fieldValue, fieldSchema);
+                row.setField(i, convertedField);
+            }
+        }
+        // metadata column
+        for (int i = 0; i < metadataConverters.length; i++) {
+            row.setField(i + physicalConverters.length, metadataConverters[i].read(record));
+        }
+        return row;
+    }
+
+    // -------------------------------------------------------------------------------------
+    // Runtime Converters
+    // -------------------------------------------------------------------------------------
+
+    /** Creates a runtime converter which is null safe. */
+    private static DebeziumDeserializationConverter createConverter(
+            SeaTunnelDataType<?> type,
+            ZoneId serverTimeZone,
+            DebeziumDeserializationConverterFactory userDefinedConverterFactory) {
+        return wrapIntoNullableConverter(
+                createNotNullConverter(type, serverTimeZone, userDefinedConverterFactory));
+    }
+
+    // --------------------------------------------------------------------------------
+    // IMPORTANT! We use anonymous classes instead of lambdas for a reason here. It is
+    // necessary because the maven shade plugin cannot relocate classes in
+    // SerializedLambdas (MSHADE-260).
+    // --------------------------------------------------------------------------------
+
+    /** Creates a runtime converter which assuming input object is not null. */
+    private static DebeziumDeserializationConverter createNotNullConverter(
+            SeaTunnelDataType<?> type,
+            ZoneId serverTimeZone,
+            DebeziumDeserializationConverterFactory userDefinedConverterFactory) {
+
+        // user defined converter has a higher resolve order
+        Optional<DebeziumDeserializationConverter> converter =
+                userDefinedConverterFactory.createUserDefinedConverter(type, serverTimeZone);
+        if (converter.isPresent()) {
+            return converter.get();
+        }
+
+        // if no matched user defined converter, fallback to the default converter
+        switch (type.getSqlType()) {
+            case NULL:
+                return new DebeziumDeserializationConverter() {
+                    private static final long serialVersionUID = 1L;
+
+                    @Override
+                    public Object convert(Object dbzObj, Schema schema) throws Exception {
+                        return null;
+                    }
+                };
+            case BOOLEAN:
+                return wrapNumericConverter(convertToBoolean());
+            case TINYINT:
+                return wrapNumericConverter(convertToByte());
+            case SMALLINT:
+                return wrapNumericConverter(convertToShort());
+            case INT:
+                return wrapNumericConverter(convertToInt());
+            case BIGINT:
+                return wrapNumericConverter(convertToLong());
+            case DATE:
+                return convertToDate();
+            case TIME:
+                return convertToTime();
+            case TIMESTAMP:
+                return convertToTimestamp(serverTimeZone);
+            case TIMESTAMP_TZ:
+                return convertToTimestampTz(serverTimeZone);
+            case FLOAT:
+                return wrapNumericConverter(convertToFloat());
+            case DOUBLE:
+                return wrapNumericConverter(convertToDouble());
+            case STRING:
+                return convertToString();
+            case BYTES:
+                return convertToBinary();
+            case DECIMAL:
+                return wrapNumericConverter(createDecimalConverter());
+            case ROW:
+                return createRowConverter(
+                        (SeaTunnelRowType) type, serverTimeZone, userDefinedConverterFactory);
+            case ARRAY:
+                return createArrayConverter(type);
+            case MAP:
+            default:
+                throw new UnsupportedOperationException("Unsupported type: " + type);
+        }
+    }
+
+    @VisibleForTesting
+    protected static DebeziumDeserializationConverter createArrayConverter(
+            SeaTunnelDataType<?> type) {
+        SeaTunnelDataType elementType = ((ArrayType) type).getElementType();
+        switch (elementType.getSqlType()) {
+            case BOOLEAN:
+                return (dbzObj, schema) ->
+                        convertListToArray((List<Boolean>) dbzObj, Boolean.class);
+            case SMALLINT:
+                return (dbzObj, schema) -> convertListToArray((List<Short>) dbzObj, Short.class);
+            case INT:
+                return (dbzObj, schema) ->
+                        convertListToArray((List<Integer>) dbzObj, Integer.class);
+            case BIGINT:
+                return (dbzObj, schema) -> convertListToArray((List<Long>) dbzObj, Long.class);
+            case FLOAT:
+                return (dbzObj, schema) -> convertListToArray((List<Float>) dbzObj, Float.class);
+            case DOUBLE:
+                return (dbzObj, schema) -> convertListToArray((List<Double>) dbzObj, Double.class);
+            case STRING:
+                return (dbzObj, schema) -> convertListToArray((List<String>) dbzObj, String.class);
+            default:
+                throw new IllegalArgumentException(
+                        "Unsupported SQL type: " + elementType.getSqlType());
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <T> T[] convertListToArray(List<T> list, Class<T> clazz) {
+        T[] array = (T[]) java.lang.reflect.Array.newInstance(clazz, list.size());
+        for (int i = 0; i < list.size(); i++) {
+            array[i] = list.get(i);
+        }
+        return array;
+    }
+
+    private static DebeziumDeserializationConverter convertToBoolean() {
+        return new DebeziumDeserializationConverter() {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public Object convert(Object dbzObj, Schema schema) {
+                if (dbzObj instanceof Boolean) {
+                    return dbzObj;
+                } else if (dbzObj instanceof Byte) {
+                    return (byte) dbzObj != 0;
+                } else if (dbzObj instanceof Short) {
+                    return (short) dbzObj != 0;
+                } else if (dbzObj instanceof BigDecimal) {
+                    return ((BigDecimal) dbzObj).shortValue() != 0;
+                } else {
+                    return Boolean.parseBoolean(dbzObj.toString());
+                }
+            }
+        };
+    }
+
+    private static DebeziumDeserializationConverter convertToByte() {
+        return new DebeziumDeserializationConverter() {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public Object convert(Object dbzObj, Schema schema) {
+                if (dbzObj instanceof Byte) {
+                    return dbzObj;
+                } else if (dbzObj instanceof BigDecimal) {
+                    return ((BigDecimal) dbzObj).byteValue();
+                } else if (dbzObj instanceof Boolean) {
+                    return Boolean.TRUE.equals(dbzObj) ? Byte.valueOf("1") : Byte.valueOf("0");
+                } else {
+                    return Byte.parseByte(dbzObj.toString());
+                }
+            }
+        };
+    }
+
+    private static DebeziumDeserializationConverter convertToShort() {
+        return new DebeziumDeserializationConverter() {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public Object convert(Object dbzObj, Schema schema) {
+                if (dbzObj instanceof Byte) {
+                    return dbzObj;
+                } else if (dbzObj instanceof Short) {
+                    return dbzObj;
+                } else if (dbzObj instanceof BigDecimal) {
+                    return ((BigDecimal) dbzObj).shortValue();
+                } else {
+                    return Short.parseShort(dbzObj.toString());
+                }
+            }
+        };
+    }
+
+    private static DebeziumDeserializationConverter convertToInt() {
+        return new DebeziumDeserializationConverter() {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public Object convert(Object dbzObj, Schema schema) {
+                if (dbzObj instanceof Integer) {
+                    return dbzObj;
+                } else if (dbzObj instanceof Long) {
+                    return ((Long) dbzObj).intValue();
+                } else if (dbzObj instanceof BigDecimal) {
+                    return ((BigDecimal) dbzObj).intValue();
+                } else {
+                    return Integer.parseInt(dbzObj.toString());
+                }
+            }
+        };
+    }
+
+    private static DebeziumDeserializationConverter convertToLong() {
+        return new DebeziumDeserializationConverter() {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public Object convert(Object dbzObj, Schema schema) {
+                if (dbzObj instanceof Integer) {
+                    return dbzObj;
+                } else if (dbzObj instanceof Long) {
+                    return dbzObj;
+                } else if (dbzObj instanceof BigDecimal) {
+                    return ((BigDecimal) dbzObj).longValue();
+                } else {
+                    return Long.parseLong(dbzObj.toString());
+                }
+            }
+        };
+    }
+
+    private static DebeziumDeserializationConverter convertToDouble() {
+        return new DebeziumDeserializationConverter() {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public Object convert(Object dbzObj, Schema schema) {
+                if (dbzObj instanceof Float) {
+                    return dbzObj;
+                } else if (dbzObj instanceof Double) {
+                    return dbzObj;
+                } else if (dbzObj instanceof BigDecimal) {
+                    return ((BigDecimal) dbzObj).doubleValue();
+                } else {
+                    return Double.parseDouble(dbzObj.toString());
+                }
+            }
+        };
+    }
+
+    private static DebeziumDeserializationConverter convertToFloat() {
+        return new DebeziumDeserializationConverter() {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public Object convert(Object dbzObj, Schema schema) {
+                if (dbzObj instanceof Float) {
+                    return dbzObj;
+                } else if (dbzObj instanceof Double) {
+                    return ((Double) dbzObj).floatValue();
+                } else if (dbzObj instanceof BigDecimal) {
+                    return ((BigDecimal) dbzObj).floatValue();
+                } else {
+                    return Float.parseFloat(dbzObj.toString());
+                }
+            }
+        };
+    }
+
+    private static DebeziumDeserializationConverter convertToDate() {
+        return new DebeziumDeserializationConverter() {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public Object convert(Object dbzObj, Schema schema) {
+                return TemporalConversions.toLocalDate(dbzObj);
+            }
+        };
+    }
+
+    private static DebeziumDeserializationConverter convertToTime() {
+        return new DebeziumDeserializationConverter() {
+            private static final long serialVersionUID = 1L;
+
+            @SuppressWarnings("MagicNumber")
+            @Override
+            public Object convert(Object dbzObj, Schema schema) {
+                if (dbzObj instanceof Long) {
+                    switch (schema.name()) {
+                        case MicroTime.SCHEMA_NAME:
+                            return LocalTime.ofNanoOfDay((long) dbzObj * 1000L);
+                        case NanoTime.SCHEMA_NAME:
+                            return LocalTime.ofNanoOfDay((long) dbzObj);
+                        default:
+                    }
+                } else if (dbzObj instanceof Integer) {
+                    return LocalTime.ofNanoOfDay((Integer) dbzObj * 1000_000L);
+                }
+                // get number of milliseconds of the day
+                return TemporalConversions.toLocalTime(dbzObj);
+            }
+        };
+    }
+
+    /**
+     * Flexible fallback formatter that covers non-ISO variants emitted by Debezium:
+     *
+     * <ul>
+     *   <li>Space separator instead of 'T' (MySQL in certain schema-history modes): {@code
+     *       2024-01-01 12:00:00+08:00}
+     *   <li>Hour-only offset (PostgreSQL short form): {@code 2024-01-01T12:00:00+08}
+     *   <li>Both: {@code 2024-01-01 12:00:00+08}
+     * </ul>
+     */
+    private static final java.time.format.DateTimeFormatter FLEXIBLE_OFFSET_FORMATTER =
+            new java.time.format.DateTimeFormatterBuilder()
+                    .parseLenient()
+                    .append(java.time.format.DateTimeFormatter.ISO_LOCAL_DATE)
+                    .optionalStart()
+                    .appendLiteral('T')
+                    .optionalEnd()
+                    .optionalStart()
+                    .appendLiteral(' ')
+                    .optionalEnd()
+                    .append(java.time.format.DateTimeFormatter.ISO_LOCAL_TIME)
+                    .appendPattern("[XXX][XX][X]")
+                    .toFormatter();
+
+    private static DebeziumDeserializationConverter convertToTimestampTz(ZoneId serverTimeZone) {
+        return new DebeziumDeserializationConverter() {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public Object convert(Object dbzObj, Schema schema) {
+                if (dbzObj instanceof String) {
+                    return parseOffsetDateTimeFromString((String) dbzObj, serverTimeZone);
+                }
+                java.time.LocalDateTime localDateTime =
+                        TemporalConversions.toLocalDateTime(dbzObj, serverTimeZone);
+                return localDateTime
+                        .atZone(serverTimeZone)
+                        .toOffsetDateTime()
+                        .withOffsetSameInstant(java.time.ZoneOffset.UTC);
+            }
+        };
+    }
+
+    /**
+     * Parses a Debezium-emitted timestamp string into an {@link java.time.OffsetDateTime} using a
+     * fallback chain that tolerates the variety of formats Debezium may produce:
+     *
+     * <ol>
+     *   <li>{@link java.time.OffsetDateTime#parse} — strict ISO-8601 with numeric offset, e.g.
+     *       {@code 2024-01-01T12:00:00+08:00}
+     *   <li>{@link java.time.ZonedDateTime#parse} — IANA zone-region id, e.g. {@code
+     *       2024-01-01T12:00:00 Asia/Shanghai} or {@code 2024-01-01 12:00:00 Asia/Shanghai}. The
+     *       last space before an alphabetic token is treated as the zone-id boundary; any remaining
+     *       space in the datetime portion is replaced with 'T'.
+     *   <li>{@link #FLEXIBLE_OFFSET_FORMATTER} — space date/time separator or short offset, e.g.
+     *       {@code 2024-01-01 12:00:00+08:00} or {@code 2024-01-01T12:00:00+08}
+     *   <li>{@link Instant#parse} — UTC epoch literal, e.g. {@code 2024-01-01T12:00:00Z}
+     * </ol>
+     *
+     * If all attempts fail, an {@link IllegalArgumentException} is thrown with the raw value
+     * included so that the failing CDC task carries enough context for diagnosis.
+     */
+    @VisibleForTesting
+    static java.time.OffsetDateTime parseOffsetDateTimeFromString(
+            String str, ZoneId serverTimeZone) {
+        // 1. Strict ISO-8601 with numeric offset: 2024-01-01T12:00:00+08:00 / Z
+        try {
+            return java.time.OffsetDateTime.parse(str)
+                    .withOffsetSameInstant(java.time.ZoneOffset.UTC);
+        } catch (java.time.format.DateTimeParseException ignored) {
+            // fall through
+        }
+
+        // 2. IANA zone-region id: "2024-01-01T12:00:00 Asia/Shanghai"
+        //    or space-date/time variant: "2024-01-01 12:00:00 Asia/Shanghai"
+        // Use lastIndexOf to isolate the zone id from the datetime part so that
+        // any space between the date and time is not corrupted by a global replace.
+        try {
+            int zoneStart = str.lastIndexOf(' ');
+            if (zoneStart > 0
+                    && zoneStart + 1 < str.length()
+                    && Character.isLetter(str.charAt(zoneStart + 1))) {
+                // Replace any space between date and time in the datetime portion with 'T'.
+                String dateTimePart = str.substring(0, zoneStart).trim().replace(' ', 'T');
+                String zonePart = str.substring(zoneStart + 1);
+                String normalized = dateTimePart + "[" + zonePart + "]";
+                java.time.format.DateTimeFormatter zoneRegionFmt =
+                        new java.time.format.DateTimeFormatterBuilder()
+                                .append(java.time.format.DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+                                .appendLiteral('[')
+                                .parseCaseSensitive()
+                                .appendZoneRegionId()
+                                .appendLiteral(']')
+                                .toFormatter();
+                return java.time.ZonedDateTime.parse(normalized, zoneRegionFmt)
+                        .toOffsetDateTime()
+                        .withOffsetSameInstant(java.time.ZoneOffset.UTC);
+            }
+        } catch (Exception ignored) {
+            // fall through
+        }
+
+        // 3. Space separator or short offset: 2024-01-01 12:00:00+08:00 / +08
+        try {
+            return java.time.OffsetDateTime.parse(str, FLEXIBLE_OFFSET_FORMATTER)
+                    .withOffsetSameInstant(java.time.ZoneOffset.UTC);
+        } catch (java.time.format.DateTimeParseException ignored) {
+            // fall through
+        }
+
+        // 4. UTC epoch literal: 2024-01-01T12:00:00Z
+        try {
+            return Instant.parse(str).atOffset(java.time.ZoneOffset.UTC);
+        } catch (java.time.format.DateTimeParseException ignored) {
+            // fall through
+        }
+
+        throw new IllegalArgumentException(
+                "Unable to parse OffsetDateTime from CDC TIMESTAMP_TZ value: '"
+                        + str
+                        + "'. Supported formats: ISO-8601 with numeric offset, IANA zone-region"
+                        + " id, space-separated date/time, short-form hour-only offset, UTC"
+                        + " epoch literal.");
+    }
+
+    private static DebeziumDeserializationConverter convertToTimestamp(ZoneId serverTimeZone) {
+        return new DebeziumDeserializationConverter() {
+            private static final long serialVersionUID = 1L;
+
+            @SuppressWarnings("MagicNumber")
+            @Override
+            public Object convert(Object dbzObj, Schema schema) {
+                if (dbzObj instanceof Long) {
+                    switch (schema.name()) {
+                        case Timestamp.SCHEMA_NAME:
+                            return toLocalDateTime((Long) dbzObj, 0);
+                        case MicroTimestamp.SCHEMA_NAME:
+                            long micro = (long) dbzObj;
+                            return toLocalDateTime(micro / 1000, (int) (micro % 1000 * 1000));
+                        case NanoTimestamp.SCHEMA_NAME:
+                            long nano = (long) dbzObj;
+                            return toLocalDateTime(nano / 1000_000, (int) (nano % 1000_000));
+                        default:
+                    }
+                }
+                return TemporalConversions.toLocalDateTime(dbzObj, serverTimeZone);
+            }
+        };
+    }
+
+    @SuppressWarnings("MagicNumber")
+    public static LocalDateTime toLocalDateTime(long millisecond, int nanoOfMillisecond) {
+        // 86400000 = 24 * 60 * 60 * 1000
+        int date = (int) (millisecond / 86400000);
+        int time = (int) (millisecond % 86400000);
+        if (time < 0) {
+            --date;
+            time += 86400000;
+        }
+        long nanoOfDay = time * 1_000_000L + nanoOfMillisecond;
+        LocalDate localDate = LocalDate.ofEpochDay(date);
+        LocalTime localTime = LocalTime.ofNanoOfDay(nanoOfDay);
+        return LocalDateTime.of(localDate, localTime);
+    }
+
+    private static DebeziumDeserializationConverter convertToLocalTimeZoneTimestamp(
+            ZoneId serverTimeZone) {
+        return new DebeziumDeserializationConverter() {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public Object convert(Object dbzObj, Schema schema) {
+                if (dbzObj instanceof String) {
+                    String str = (String) dbzObj;
+                    // TIMESTAMP type is encoded in string type
+                    Instant instant = Instant.parse(str);
+                    return LocalDateTime.ofInstant(instant, serverTimeZone);
+                }
+                throw new IllegalArgumentException(
+                        "Unable to convert to LocalDateTime from unexpected value '"
+                                + dbzObj
+                                + "' of type "
+                                + dbzObj.getClass().getName());
+            }
+        };
+    }
+
+    private static DebeziumDeserializationConverter convertToString() {
+        return new DebeziumDeserializationConverter() {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public Object convert(Object dbzObj, Schema schema) {
+                if (dbzObj == null) {
+                    return null;
+                }
+
+                if (schema != null && schema.name() != null && dbzObj instanceof Struct) {
+                    String logicalName = schema.name();
+                    if (Geometry.LOGICAL_NAME.equals(logicalName)
+                            || Geography.LOGICAL_NAME.equals(logicalName)) {
+                        return convertGeometryStructToHexWkb((Struct) dbzObj);
+                    }
+                }
+
+                return dbzObj.toString();
+            }
+        };
+    }
+
+    private static String convertGeometryStructToHexWkb(Struct struct) {
+        Object wkbField = struct.get(Geometry.WKB_FIELD);
+        if (!(wkbField instanceof byte[])) {
+            // Fallback to default string representation if the expected field is not present.
+            return struct.toString();
+        }
+
+        byte[] wkb = (byte[]) wkbField;
+        StringBuilder sb = new StringBuilder(wkb.length * 2);
+        for (byte b : wkb) {
+            sb.append(String.format("%02X", b));
+        }
+        return sb.toString();
+    }
+
+    private static DebeziumDeserializationConverter convertToBinary() {
+        return new DebeziumDeserializationConverter() {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public Object convert(Object dbzObj, Schema schema) throws Exception {
+                if (dbzObj instanceof byte[]) {
+                    return dbzObj;
+                } else if (dbzObj instanceof ByteBuffer) {
+                    ByteBuffer byteBuffer = (ByteBuffer) dbzObj;
+                    byte[] bytes = new byte[byteBuffer.remaining()];
+                    byteBuffer.get(bytes);
+                    return bytes;
+                } else {
+                    throw new UnsupportedOperationException(
+                            "Unsupported BYTES value type: " + dbzObj.getClass().getSimpleName());
+                }
+            }
+        };
+    }
+
+    private static DebeziumDeserializationConverter createDecimalConverter() {
+        return new DebeziumDeserializationConverter() {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public Object convert(Object dbzObj, Schema schema) throws Exception {
+                BigDecimal bigDecimal;
+                if (dbzObj instanceof byte[]) {
+                    // decimal.handling.mode=precise
+                    bigDecimal = Decimal.toLogical(schema, (byte[]) dbzObj);
+                } else if (dbzObj instanceof String) {
+                    // decimal.handling.mode=string
+                    bigDecimal = new BigDecimal((String) dbzObj);
+                } else if (dbzObj instanceof Double) {
+                    // decimal.handling.mode=double
+                    bigDecimal = BigDecimal.valueOf((Double) dbzObj);
+                } else if (dbzObj instanceof BigDecimal) {
+                    bigDecimal = (BigDecimal) dbzObj;
+                } else {
+                    // fallback to string
+                    bigDecimal = new BigDecimal(dbzObj.toString());
+                }
+
+                return bigDecimal;
+            }
+        };
+    }
+
+    private static DebeziumDeserializationConverter createRowConverter(
+            SeaTunnelRowType rowType,
+            ZoneId serverTimeZone,
+            DebeziumDeserializationConverterFactory userDefinedConverterFactory) {
+        final DebeziumDeserializationConverter[] fieldConverters =
+                Arrays.stream(rowType.getFieldTypes())
+                        .map(
+                                type ->
+                                        createConverter(
+                                                type, serverTimeZone, userDefinedConverterFactory))
+                        .toArray(DebeziumDeserializationConverter[]::new);
+        final String[] fieldNames = rowType.getFieldNames();
+
+        return new DebeziumDeserializationConverter() {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public Object convert(Object dbzObj, Schema schema) throws Exception {
+                Struct struct = (Struct) dbzObj;
+                int arity = fieldNames.length;
+                SeaTunnelRow row = new SeaTunnelRow(arity);
+                for (int i = 0; i < arity; i++) {
+                    String fieldName = fieldNames[i];
+                    Field field = schema.field(fieldName);
+                    if (field == null) {
+                        row.setField(i, null);
+                    } else {
+                        Object fieldValue = struct.getWithoutDefault(fieldName);
+                        Schema fieldSchema = field.schema();
+                        Object convertedField =
+                                SeaTunnelRowDebeziumDeserializationConverters.convertField(
+                                        fieldConverters[i], fieldValue, fieldSchema);
+                        row.setField(i, convertedField);
+                    }
+                }
+                return row;
+            }
+        };
+    }
+
+    private static Object convertField(
+            DebeziumDeserializationConverter fieldConverter, Object fieldValue, Schema fieldSchema)
+            throws Exception {
+        if (fieldValue == null) {
+            return null;
+        } else {
+            return fieldConverter.convert(fieldValue, fieldSchema);
+        }
+    }
+
+    private static DebeziumDeserializationConverter wrapIntoNullableConverter(
+            DebeziumDeserializationConverter converter) {
+        return new DebeziumDeserializationConverter() {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public Object convert(Object dbzObj, Schema schema) throws Exception {
+                if (dbzObj == null) {
+                    return null;
+                }
+                return converter.convert(dbzObj, schema);
+            }
+        };
+    }
+
+    private static DebeziumDeserializationConverter wrapNumericConverter(
+            DebeziumDeserializationConverter converter) {
+        return new DebeziumDeserializationConverter() {
+            private static final long serialVersionUID = 1L;
+
+            @Override
+            public Object convert(Object dbzObj, Schema schema) throws Exception {
+                if (VariableScaleDecimal.LOGICAL_NAME.equals(schema.name())) {
+                    SpecialValueDecimal decimal = VariableScaleDecimal.toLogical((Struct) dbzObj);
+                    return converter.convert(
+                            decimal.getDecimalValue().orElse(BigDecimal.ZERO), schema);
+                }
+                return converter.convert(dbzObj, schema);
+            }
+        };
+    }
+}
