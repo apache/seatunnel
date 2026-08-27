@@ -199,6 +199,18 @@ public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAs
                             if (this.startupOffset == null) {
                                 this.startupOffset = startupOffset;
                             }
+                            // Mirror the startupOffset restoration for the resolved latest
+                            // stop offset: a checkpoint written before the stopOffset field
+                            // existed has none, so on restore the re-created incremental
+                            // split carries the previously resolved stop offset. Reuse it
+                            // here instead of re-resolving (and drifting) at split creation.
+                            if (resolvedStopOffset == null
+                                    && context.getSourceConfig() != null
+                                    && context.getSourceConfig().getStopConfig().getStopMode()
+                                            == StopMode.LATEST
+                                    && incrementalSplit.getStopOffset() != null) {
+                                resolvedStopOffset = incrementalSplit.getStopOffset();
+                            }
                             checkpointTables = incrementalSplit.getCheckpointTables();
                             historyTableChanges = incrementalSplit.getHistoryTableChanges();
                         });
@@ -359,6 +371,11 @@ public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAs
      * Resolves the latest stop offset with retry, so a transient failure of the underlying JDBC
      * query (e.g. a momentarily unreachable database at the snapshot-to-incremental transition)
      * does not fail the whole job. Mirrors the retry pattern used by the CDC connection factory.
+     *
+     * <p>Threading note: this runs on the job's own split-enumerator coordinator thread (invoked
+     * via {@code IncrementalSourceEnumerator.assignSplits()} → {@code getNext()}), which is per-job
+     * and not shared across concurrently running sources; the bounded backoff (at most 300ms +
+     * 600ms) blocks only this job's enumerator, matching the connection-factory retry.
      */
     private Offset resolveLatestStopOffsetWithRetry(C sourceConfig) {
         final int maxRetries = 3;

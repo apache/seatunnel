@@ -57,9 +57,10 @@ public class HybridSplitAssignerTest {
                         false);
         HybridPendingSplitsState checkpointState =
                 new HybridPendingSplitsState(snapshotPhaseState, null);
-        // This test only exercises split-tracking bookkeeping, so the SourceConfig is a mock
-        // with a non-LATEST stop mode: it must not trigger the stop.mode=latest resolution in
-        // IncrementalSplitAssigner.completedSnapshotPhase (which would NPE on a null config).
+        // This test only exercises split-tracking bookkeeping, so a minimal mocked
+        // SourceConfig (non-LATEST stop mode) keeps the Context well-formed. The
+        // stop.mode=latest resolution lives in IncrementalSplitAssigner.createIncrementalSplit
+        // and is not exercised here.
         SourceConfig sourceConfig = mock(SourceConfig.class);
         when(sourceConfig.getStopConfig())
                 .thenReturn(new StopConfig(StopMode.NEVER, null, null, null));
