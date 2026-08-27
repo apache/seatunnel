@@ -348,6 +348,16 @@ public abstract class BaseService {
     }
 
     protected JsonObject convertToJson(JobInfo jobInfo, long jobId) {
+        return convertToJson(jobInfo, jobId, true);
+    }
+
+    /**
+     * @param withDiagnostics whether to add the {@code diagnostics} block. A listing of every
+     *     running job builds this payload once per job, and every job already costs a master round
+     *     trip when the request is not served by the master, so diagnostics are only collected for
+     *     a request about one job.
+     */
+    protected JsonObject convertToJson(JobInfo jobInfo, long jobId, boolean withDiagnostics) {
 
         JsonObject jobInfoJson = new JsonObject();
         JobImmutableInformation jobImmutableInformation =
@@ -454,9 +464,11 @@ public abstract class BaseService {
                         RestConstant.METRICS,
                         metricsToJsonObject(getJobMetrics(jobMetrics, jobDAGInfo)));
 
-        JsonObject diagnostics = getJobDiagnostics(jobId, seaTunnelServer);
-        if (diagnostics != null) {
-            jobInfoJson.add(RestConstant.DIAGNOSTICS, diagnostics);
+        if (withDiagnostics) {
+            JsonObject diagnostics = getJobDiagnostics(jobId, seaTunnelServer);
+            if (diagnostics != null) {
+                jobInfoJson.add(RestConstant.DIAGNOSTICS, diagnostics);
+            }
         }
 
         if (jobStatus != null && jobStatus.isEndState()) {

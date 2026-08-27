@@ -561,7 +561,8 @@ This endpoint helps troubleshoot why jobs stay in `PENDING` by showing the pendi
 `finishedTime`, `errorMsg` will return when job is finished.
 `diagnostics` will return when the job is running and its diagnostics can be read from the master
 node. It is auxiliary information: if it can not be obtained, the field is omitted instead of
-failing the request.
+failing the request. Only this endpoint returns it; `/running-jobs` does not, because collecting it
+for every running job would cost one more round trip to the master per job.
 
 #### Metrics field description
 

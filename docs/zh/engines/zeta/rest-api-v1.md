@@ -312,7 +312,7 @@ network:
 `jobId`, `jobName`, `jobStatus`, `createTime`, `jobDag`, `metrics` 字段总会返回.
 `envOptions`, `pluginJarsUrls`, `isStartWithSavePoint` 字段在Job在RUNNING状态时会返回
 `finishedTime`, `errorMsg` 字段在Job结束时会返回，结束状态为不为RUNNING，可能为FINISHED，可能为CANCEL
-运行中的Job还会返回 `diagnostics` 字段（状态时间戳与各 Pipeline 的恢复次数），字段说明见 [REST API V2](rest-api-v2.md)。
+运行中的Job还会返回 `diagnostics` 字段（状态时间戳与各 Pipeline 的恢复次数），字段说明见 [REST API V2](rest-api-v2.md)。该字段只在本接口返回，`/running-jobs` 不返回。
 
 #### 指标字段说明
 
