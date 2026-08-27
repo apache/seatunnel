@@ -25,7 +25,7 @@ This example demonstrates a typical batch offline ingestion pipeline from MySQL 
 - **Transform (`Sql`)**: Cleanses data and shapes the schema:
   - Renames primary key column (`id` -> `order_id`).
   - Normalizes order status to uppercase (`upper(status) as order_status`).
-  - Generates a date partition key from timestamp (`date_format(create_time, 'yyyy-MM-dd') as pt_dt`).
+  - Generates a date partition key from the source timestamp's date portion (`FORMATDATETIME(create_date, 'yyyy-MM-dd') as pt_dt`).
   - Filters out anomalous rows (`where amount >= 0`).
 - **Sink (`HdfsFile`)**: Writes data into HDFS in snappy-compressed Parquet format using Hive-style dynamic partitioning (`/pt_dt=YYYY-MM-DD/`).
 
@@ -62,7 +62,7 @@ The sample dataset contains 5 orders across two days (`2026-08-23` and `2026-08-
 ### Step 2: Configure Job
 
 Review `mysql_to_hdfs_batch_dw.conf`:
-- Update `url`, `user`, and `password` under `source.Jdbc` to match your MySQL environment.
+- Update `url`, `username`, and `password` under `source.Jdbc` to match your MySQL environment.
 - Update `fs.defaultFS` and `path` under `sink.HdfsFile` to point to your HDFS NameNode and warehouse directory.
 
 ### Step 3: Run the SeaTunnel Job
@@ -85,12 +85,12 @@ SeaTunnel automatically routes rows into corresponding partition subdirectories 
 ```text
 /user/hive/warehouse/dwd.db/dwd_orders_df/
 ├── pt_dt=2026-08-23/
-│   ├── e2e_xxxx_0.snappy.parquet
-│   └── e2e_xxxx_1.snappy.parquet
+│   └── <generated-file>.snappy.parquet
 └── pt_dt=2026-08-24/
-    ├── e2e_xxxx_0.snappy.parquet
-    └── e2e_xxxx_1.snappy.parquet
+    └── <generated-file>.snappy.parquet
 ```
+
+The exact number and names of output files depend on the job parallelism, writer instances, and data distribution.
 
 ### Data Verification
 
