@@ -162,8 +162,6 @@ public class JdbcMysqlJsonParamIT extends TestSuiteBase implements TestResource 
     @TestTemplate
     public void testJsonParams(TestContainer container) throws IOException, InterruptedException {
         List<String> variables = new ArrayList<>();
-        variables.add("/opt/seatunnel/bin/seatunnel.sh");
-        variables.add("-e local");
         variables.add("-c /tmp/jdbc_mysql_json_params.conf");
         variables.add("-i mysql_host=" + MYSQL_HOST);
         variables.add("-i mysql_port=3306");
@@ -176,7 +174,7 @@ public class JdbcMysqlJsonParamIT extends TestSuiteBase implements TestResource 
         variables.add("-i mysql_password=" + MYSQL_PASSWORD);
 
         variables.add(
-                "-i table_list=[\\{\"table_path\":\"json_test.ml_*\",\"use_regex\":\"true\"\\},\\{\"table_path\":\"json_test.ratings\"\\}]");
+                "-i table_list=['{\"table_path\":\"json_test.ml_*\",\"use_regex\":\"true\"}','{\"table_path\":\"json_test.ratings\"}']");
         variables.add(
                 "-i table_filter='{\"plugin_input\":\"mysql_source\",\"plugin_output\":\"table_filter\",\"include_fields\":[movie_id,unix_time]}'");
 
