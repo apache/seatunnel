@@ -1322,6 +1322,166 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload?restoreMode=CHECKPOINT&
 
 </details>
 
+------------------------------------------------------------------------------------------
+
+### 查看与修改日志级别
+
+通过这些接口修改的日志级别属于运行时覆盖：立即生效、仅作用于单个节点、节点重启后丢失。需要在重启后依然
+生效的级别请写入 `config/log4j2.properties`，参见 [日志](logging.md)。
+
+根 logger 的名字是 `root`。
+
+<details>
+ <summary><code>GET</code> <code><b>/loggers</b></code> <code>(返回当前生效配置中的 logger 列表。)</code></summary>
+
+#### 请求参数
+
+> |     参数名      |   是否必填   |  类型   |                                   描述                                    |
+> |----------------|--------------|---------|---------------------------------------------------------------------------|
+> | scope          |   optional   | string  | `node`（默认）只处理接收请求的节点，`cluster` 会请求集群中的每个节点         |
+
+#### 响应
+
+```json
+{
+  "node": "localhost:8080",
+  "loggers": [
+    {
+      "name": "root",
+      "level": "INFO",
+      "origin": "file"
+    },
+    {
+      "name": "org.apache.seatunnel.connectors.seatunnel.jdbc",
+      "level": "DEBUG",
+      "origin": "runtime-override",
+      "fileLevel": "INFO"
+    }
+  ]
+}
+```
+
+`origin` 表示当前级别的来源：`file` 表示来自 log4j2 配置文件，`runtime-override` 表示通过日志级别接口
+设置。只有当被覆盖的 logger 同时也在配置文件中配置过时才会返回 `fileLevel`，它就是 `DELETE` 会恢复的级别。
+
+使用 `?scope=cluster` 时每个节点返回一条记录：
+
+```json
+{
+  "scope": "cluster",
+  "status": "SUCCESS",
+  "nodes": [
+    {
+      "node": "localhost:8080",
+      "loggers": [
+        {
+          "name": "root",
+          "level": "INFO",
+          "origin": "file"
+        }
+      ]
+    }
+  ]
+}
+```
+
+所有节点都返回结果时 `status` 为 `SUCCESS`，部分节点失败时为 `PARTIAL_FAILURE`，全部失败时为
+`FAILURE`；失败的节点会带上自己的 `status` 与 `error`。集群请求按各节点配置中的 REST 端口访问，因此无法
+访问通过 `enable-dynamic-port` 使用了其它端口的节点。
+
+</details>
+
+<details>
+ <summary><code>GET</code> <code><b>/loggers/:name</b></code> <code>(返回单个 logger 的生效级别。)</code></summary>
+
+#### 响应
+
+级别通过最近的已配置父级 logger 解析，因此也可以查询本身没有被配置的 logger。
+
+```json
+{
+  "name": "org.apache.seatunnel.connectors.seatunnel.jdbc",
+  "level": "INFO",
+  "origin": "file",
+  "node": "localhost:8080"
+}
+```
+
+</details>
+
+<details>
+ <summary><code>POST</code> <code><b>/loggers/:name</b></code> <code>(修改单个 logger 的级别。)</code></summary>
+
+#### 请求参数
+
+> |     参数名      |   是否必填   |  类型   |                                   描述                                    |
+> |----------------|--------------|---------|---------------------------------------------------------------------------|
+> | level          |   optional   | string  | `OFF`、`FATAL`、`ERROR`、`WARN`、`INFO`、`DEBUG`、`TRACE` 或 `ALL`，不区分大小写；也可以放在请求体中 |
+> | scope          |   optional   | string  | `node`（默认）只修改接收请求的节点，`cluster` 会修改集群中的每个节点        |
+
+#### 请求体
+
+```json
+{
+  "level": "DEBUG"
+}
+```
+
+#### 响应
+
+```json
+{
+  "name": "org.apache.seatunnel.connectors.seatunnel.jdbc",
+  "level": "DEBUG",
+  "origin": "runtime-override",
+  "node": "localhost:8080",
+  "previousLevel": "INFO",
+  "status": "SUCCESS"
+}
+```
+
+未知级别不会被当作已生效处理，而是返回 `400` 并列出所有合法级别。每次修改都会在节点日志中输出一行 `INFO`
+记录，包含 logger 名、修改前后的级别、作用范围以及调用方地址。
+
+#### 例子
+
+把单个节点上的 JDBC 连接器调整为 `DEBUG`：
+`curl -X POST 'http://localhost:8080/loggers/org.apache.seatunnel.connectors.seatunnel.jdbc?level=DEBUG'`
+
+在集群的每个节点上调整：
+`curl -X POST 'http://localhost:8080/loggers/org.apache.seatunnel.connectors.seatunnel.jdbc?level=DEBUG&scope=cluster'`
+
+</details>
+
+<details>
+ <summary><code>DELETE</code> <code><b>/loggers/:name</b></code> <code>(撤销运行时覆盖。)</code></summary>
+
+#### 请求参数
+
+> |     参数名      |   是否必填   |  类型   |                                   描述                                    |
+> |----------------|--------------|---------|---------------------------------------------------------------------------|
+> | scope          |   optional   | string  | `node`（默认）只撤销接收请求的节点，`cluster` 会撤销集群中的每个节点        |
+
+#### 响应
+
+logger 会恢复到首次被覆盖之前的状态：配置文件中配置的级别，或者在配置文件没有配置它时恢复为从父级 logger
+继承的级别。
+
+```json
+{
+  "name": "org.apache.seatunnel.connectors.seatunnel.jdbc",
+  "level": "INFO",
+  "origin": "file",
+  "node": "localhost:8080",
+  "previousLevel": "DEBUG",
+  "status": "SUCCESS"
+}
+```
+
+如果该 logger 从未通过接口被覆盖过，`status` 为 `NO_OVERRIDE`，此时不做任何修改。
+
+</details>
+
 ### 获取节点指标信息
 
 <details>
