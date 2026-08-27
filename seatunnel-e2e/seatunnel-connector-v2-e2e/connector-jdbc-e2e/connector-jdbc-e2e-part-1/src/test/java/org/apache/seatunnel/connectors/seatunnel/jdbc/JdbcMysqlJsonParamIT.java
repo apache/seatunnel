@@ -95,6 +95,8 @@ public class JdbcMysqlJsonParamIT extends TestSuiteBase implements TestResource 
     private static final String MYSQL_DRIVER_URL =
             "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
 
+    private static final String JDBC_CONNECTOR_HOST_PATH =
+            "/home/runner/work/seatunnel/seatunnel/seatunnel-connectors-v2/connector-jdbc/target/connector-jdbc-*.jar";
     private MySQLContainer<?> mysqlContainer;
 
     @TestContainerExtension
@@ -108,6 +110,10 @@ public class JdbcMysqlJsonParamIT extends TestSuiteBase implements TestResource 
                                         + " && cd /tmp/seatunnel/plugins/Jdbc/lib"
                                         + " && wget -q "
                                         + MYSQL_DRIVER_URL);
+
+                container.copyFileToContainer(
+                        MountableFile.forHostPath(JDBC_CONNECTOR_HOST_PATH),
+                        "/tmp/seatunnel/connectors/");
 
                 container.copyFileToContainer(
                         MountableFile.forClasspathResource("jdbc_mysql_json_params.conf"),
