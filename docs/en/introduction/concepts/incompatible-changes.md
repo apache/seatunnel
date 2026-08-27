@@ -48,6 +48,12 @@ You need to check this document before you upgrade to related version.
   }
   ```
 
+- **Breaking Change: An unknown log level is rejected by the runtime log level endpoint**
+  - **Affected component**: SeaTunnel Engine REST API — `POST /hazelcast/rest/maps/log-level`
+  - **Description**: The endpoint answered `200` with `{"status":"SUCCESS"}` for every request, including a level name it could not resolve (`DEBUGG`, `verbose`, a lowercase name of a level that does not exist, an empty value). Nothing was applied in that case, and the unresolved level was handed to log4j2 as `null`, which removes the explicit level of the logger instead of leaving it alone — so the logger silently fell back to its parent, or to `ERROR` for the root logger. An unknown level, a blank level and a missing `level` parameter are now rejected with `400` and a message listing the valid levels; a level name is still accepted in any letter case.
+  - **Impact**: Scripts and automation that only check the HTTP status now see `400` where they used to see `200`, for requests that never took effect in the first place. Requests with a resolvable level are unchanged.
+  - **Migration Guide**: Send a level log4j2 knows (`OFF`, `FATAL`, `ERROR`, `WARN`, `INFO`, `DEBUG`, `TRACE`, `ALL`, or a level registered by the configuration). The response body of a rejected request names the levels the node accepts.
+
 - **Breaking Change: `Condition.of(option, null)` no longer allowed**
   - **Affected component**: `seatunnel-api` — `org.apache.seatunnel.api.configuration.util.Condition`
   - **Description**: The `Condition` constructor now validates that binary literal operators (such as `EQUAL`, `NOT_EQUAL`, `GREATER_THAN`, etc.) must have a non-null `expectValue`. Previously, `Condition.of(option, null)` was silently accepted; it now throws `IllegalArgumentException` at construction time.
