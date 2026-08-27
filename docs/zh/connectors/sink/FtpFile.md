@@ -26,6 +26,8 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 
   默认情况下，我们使用两阶段提交（2PC）来确保`精确一次`
 
+- [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
+
 - [x] 文件格式
   - [x] text
   - [x] csv
@@ -35,7 +37,7 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
   - [x] excel
   - [x] xml
   - [x] binary
-- [ ] [timer flush](../../introduction/concepts/connector-v2-features.md)
+- [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
 ## 选项
 
@@ -49,6 +51,7 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 | tmp_path                              | string  | 是    | /tmp/seatunnel                             | 结果文件将首先写入一个临时路径，然后使用 `mv` 命令将临时目录提交到目标目录。需要是一个FTP目录。                      |
 | connection_mode                       | string  | 否    | active_local                               | 目标FTP连接模式                                                                 |
 | remote_verification_enabled           | boolean | 否    | true                                       | 是否启用FTP数据通道的远程主机验证                                                        |
+| control_encoding                      | string  | 否    | UTF-8                                      | FTP 控制连接的字符编码，路径包含空格或非 ASCII 字符时很有用                                      |
 | custom_filename                       | boolean | 否    | false                                      | 是否需要自定义文件名                                                                |
 | file_name_expression                  | string  | 否    | "${transactionId}"                         | 仅在 `custom_filename` 为 `true` 时使用                                         |
 | filename_time_format                  | string  | 否    | "yyyy.MM.dd"                               | 仅在 `custom_filename` 为 `true` 时使用                                         |
@@ -66,6 +69,7 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 | compress_codec                        | string  | 否    | none                                       |                                                                           |
 | common-options                        | object  | 否    | -                                          |                                                                           |
 | max_rows_in_memory                    | int     | 否    | -                                          | 仅在 `file_format_type` 为 `excel` 时使用。                                      |
+| sheet_max_rows                         | int     | 否    | 1048576                                    | 仅在 `file_format_type` 为 `excel` 时使用；每个工作表允许写入的最大行数。 |
 | sheet_name                            | string  | 否    | Sheet${随机数}                                | 仅在 `file_format_type` 为 `excel` 时使用。                                      |
 | csv_string_quote_mode                 | enum    | 否    | MINIMAL                                    | 仅在 `file_format` 为 `csv` 时使用。                                             |
 | xml_root_tag                          | string  | 否    | RECORDS                                    | 仅在 `file_format` 为 `xml` 时使用。                                             |
@@ -77,8 +81,10 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 | parquet_avro_write_fixed_as_int96     | array   | 否    | -                                          | 仅在 `file_format` 为 `parquet` 时使用。                                         |
 | enable_header_write                   | boolean | 否    | false                                      | 仅在 `file_format_type` 为 `text`、`csv` 时使用。<br/> `false`：不写入表头，`true`：写入表头。 |
 | encoding                              | string  | 否    | "UTF-8"                                    | 仅在 `file_format_type` 为 `json`、`text`、`csv`、`xml` 时使用。                    |
+| schema_evolution_enabled              | boolean | 否    | false                                      | 开启 Schema 演变支持，适用于 CDC 管道。为 true 时，来自上游的 ADD/DROP/RENAME/MODIFY 列事件无需重启作业即可应用到 Sink。不支持 binary 格式。 |
 | schema_save_mode                      | string  | 否    | CREATE_SCHEMA_WHEN_NOT_EXIST               | 现有目录处理方法                                                                  |
 | data_save_mode                        | string  | 否    | APPEND_DATA                                | 现有数据处理方法                                                                  |
+| multi_table_sink_replica              | int     | 否    | 1                                          | 多表写入时，每张表对应的 Sink Writer 副本数。                                      |
 
 ### host [string]
 
@@ -110,6 +116,13 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 
 是否启用FTP数据通道的远程主机验证。默认值为 `true`。
 
+### control_encoding [string]
+
+FTP 控制连接的字符编码。默认值为 `UTF-8`。
+
+当文件路径包含特殊字符、空格或非 ASCII 字符时，除非 FTP 服务端要求其他控制通道编码，否则建议保持
+`UTF-8`。
+
 ### custom_filename [boolean]
 
 是否自定义文件名
@@ -137,7 +150,6 @@ import ChangeLog from '../changelog/connector-file-ftp.md';
 | d            | Day of month       |
 | H            | Hour in day (0-23) |
 | m            | Minute in hour     |
-| schema_evolution_enabled              | boolean | 否    | false                                      | 开启 Schema 演变支持，适用于 CDC 管道。为 true 时，来自上游的 ADD/DROP/RENAME/MODIFY 列事件无需重启作业即可应用到 Sink。不支持 binary 格式。 |
 | s            | Second in minute   |
 
 ### file_format_type [string]
@@ -226,6 +238,10 @@ Sink 插件的通用参数，请参考[Sink通用选项](../common-options/sink-
 
 当文件格式为Excel时，可在内存中缓存的数据项的最大数量。 
 
+### sheet_max_rows [int]
+
+仅在 `file_format_type` 为 `excel` 时使用。该选项限制每个工作表可以写入的最大行数，默认值为 `1048576`。
+
 ### sheet_name [string]
 
 写入工作簿的工作表。
@@ -284,6 +300,39 @@ Sink 插件的通用参数，请参考[Sink通用选项](../common-options/sink-
 - APPEND_DATA（追加数据）：保留目录和数据文件。
 - ERROR_WHEN_DATA_EXISTS（数据存在时报错）：当存在数据文件时，报告错误。
 
+### schema_evolution_enabled [boolean]
+
+设置为 `true` 时，文件 Sink 可在运行时处理 CDC Schema 变更事件（ADD COLUMN、DROP COLUMN、RENAME COLUMN、MODIFY COLUMN 类型），无需重启作业。每次 Schema 变更时，当前输出文件会被关闭，并以新 Schema 打开一个新文件。
+
+**支持的格式：** 除 `binary` 外的所有文件格式。将此选项与 `file_format_type = binary` 一起使用时，作业启动时会抛出配置校验错误。
+
+**分区约束：** 当 `have_partition = true` 时，不允许删除 `partition_by` 中列出的列，违反时会立即抛出异常。分区列在 Schema 变更过程中必须保持稳定。
+
+**当 `schema_evolution_enabled = false`（默认值）时：** 若上游 CDC Source 配置了 `schema-changes.enabled = true` 且 Sink 收到 `AlterTableEvent`，作业会立即抛出如下错误：
+> `Received AlterTableEvent but schema_evolution_enabled=false at this sink. Either set schema_evolution_enabled=true to handle schema changes, or set schema-changes.enabled=false at the CDC source to suppress them.`
+
+使用默认 CDC Source 配置（`schema-changes.enabled = false`）的用户不受影响。
+
+**已知限制：** Schema 变更与 Checkpoint 不是原子操作。若作业在文件轮转与 Schema 元数据更新之间的窗口期崩溃，恢复后写入的数据行可能使用变更前的 Schema。这是与其他 SeaTunnel Sink 共同存在的已知架构限制。完整的重启后 DDL 正确性支持需要配套的 CDC Source 修复（另行跟踪）。
+
+CDC 管道中的使用示例：
+
+```hocon
+FtpFile {
+    host = "xxx.xxx.xxx.xxx"
+    port = 21
+    user = "username"
+    password = "password"
+    path = "/data/ftp/cdc/${table_name}"
+    file_format_type = "parquet"
+    schema_evolution_enabled = true
+}
+```
+
+### multi_table_sink_replica [int]
+
+多表写入时，每张表对应的 Sink Writer 副本数。默认值为 `1`；只有单表写入压力较大、需要更多写入并行度时再调大。
+
 ## 示例
 
 对于文本文件格式的简易配置 
@@ -330,7 +379,8 @@ FtpFile {
 
 ```
 
-当我们的数据源端是多个表，并且希望将不同的数据按照不同的表达式存储到不同的目录时，我们可以按照这种方式进行配置。  
+当上游是多张表，并且希望每张表写入不同的 FTP 目录时，可以在 `path` 中使用 `${table_name}`。
+`schema_save_mode` 和 `data_save_mode` 用于控制写入前如何处理已存在的目录和文件。
 
 ```hocon
 
@@ -358,31 +408,25 @@ FtpFile {
 
 ```
 
+### 通过 SFTP 写入
 
-### schema_evolution_enabled [boolean]
-
-设置为 `true` 时，文件 Sink 可在运行时处理 CDC Schema 变更事件（ADD COLUMN、DROP COLUMN、RENAME COLUMN、MODIFY COLUMN 类型），无需重启作业。每次 Schema 变更时，当前输出文件会被关闭，并以新 Schema 打开一个新文件。
-
-**支持的格式：** 除 `binary` 外的所有文件格式。将此选项与 `file_format_type = binary` 一起使用时，作业启动时会抛出配置校验错误。
-
-**分区约束：** 当 `have_partition = true` 时，不允许删除 `partition_by` 中列出的列，违反时会立即抛出异常。分区列在 Schema 变更过程中必须保持稳定。
-
-**当 `schema_evolution_enabled = false`（默认值）时：** 若上游 CDC Source 配置了 `schema-changes.enabled = true` 且 Sink 收到 `AlterTableEvent`，作业会立即抛出如下错误：
-> `Received AlterTableEvent but schema_evolution_enabled=false at this sink. Either set schema_evolution_enabled=true to handle schema changes, or set schema-changes.enabled=false at the CDC source to suppress them.`
-
-使用默认 CDC Source 配置（`schema-changes.enabled = false`）的用户不受影响。
-
-**已知限制：** Schema 变更与 Checkpoint 不是原子操作。若作业在文件轮转与 Schema 元数据更新之间的窗口期崩溃，恢复后写入的数据行可能使用变更前的 Schema。这是与其他 SeaTunnel Sink 共同存在的已知架构限制。完整的重启后 DDL 正确性支持需要配套的 CDC Source 修复（另行跟踪）。
-
-CDC 管道中的使用示例：
+`FtpFile` Sink 同时支持 `ftp://` 和 `sftp://` URI。认证方式与 source 一致：SSH 密钥或密码外加 `known_hosts` 文件——连接器不会自动信任未知 host。
 
 ```hocon
-LocalFile {
-    path = "/tmp/cdc/${table_name}"
+sink {
+  FtpFile {
+    fs.defaultFS = "sftp://sftp.example.example.com:22"
+    path = "/upload/landing/"
+    user = "seatunnel"
     file_format_type = "parquet"
-    schema_evolution_enabled = true
-    have_partition = true
-    partition_by = ["updated_at_month"]
+    ftp_properties = {
+      "fs.sftp.user."      = "seatunnel"
+      "fs.sftp.keyfile"    = "/etc/seatunnel/id_rsa"
+      "fs.sftp.host"       = "sftp.example.example.com"
+      "fs.sftp.port"       = "22"
+      "fs.sftp.knownHosts" = "/etc/seatunnel/known_hosts"
+    }
+  }
 }
 ```
 

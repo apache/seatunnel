@@ -149,6 +149,58 @@ vectorization_fields {
 }
 ```
 
+**Multi-field Mixing Multimodal Vectorization:**  
+> Note: Currently, only the `DOUBAO` provider supports multimodal data processing.
+```hocon
+vectorization_fields {
+    # Multi-field text
+    multi_field_text_vector = [product_name, description]
+    
+    # Multi-field image
+    multi_field_image_vector = [
+      {
+        field = product_image_url
+        modality = jpeg
+        format = url
+      },
+      {
+        field = thumbnail_image
+        modality = png
+        format = url
+      }
+    ]
+
+    # Multi-field video
+    multi_field_video_vector = [
+      {
+        field = product_video_url
+        modality = mp4
+        format = url
+      },
+      {
+        field = promotional_video
+        modality = mov
+        format = url
+      }
+    ]
+
+    # Multi-field mix multimodal
+    multi_field_mix_vector = [
+      product_name,
+      {
+        field = product_image_url
+        modality = jpeg
+        format = url
+      },
+      {
+        field = product_video_url
+        modality = mp4
+        format = url
+      }
+    ]
+}
+```
+
 **Field Specification Formats:**
 
 **Supported Modality Types:**
@@ -162,7 +214,7 @@ vectorization_fields {
 - `binary` - Binary data format
 
 **Automatic Modality Detection:**
-When `modality` is not explicitly specified and `format` is not `binary`, the system automatically detects the modality type based on the file suffix of the field value:
+When `modality` is not explicitly specified and `format` is `url`, the system automatically detects the modality type based on the file suffix of the field value:
 
 > **Important:** When using multimodal fields (image or video), ensure your model provider supports multimodal embedding. Image and video fields must contain valid URLs or binary data. Currently, `DOUBAO` provider supports multimodal data processing.
 

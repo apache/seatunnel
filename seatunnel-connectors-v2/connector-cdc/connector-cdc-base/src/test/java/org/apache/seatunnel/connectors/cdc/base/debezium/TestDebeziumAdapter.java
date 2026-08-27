@@ -30,6 +30,8 @@ public class TestDebeziumAdapter implements DebeziumAdapter {
 
     @Override
     public boolean supports(String connectorClassName) {
-        return TEST_CONNECTOR_CLASS.equals(connectorClassName);
+        return TEST_CONNECTOR_CLASS.equals(connectorClassName)
+                || DuplicateTestDebeziumAdapter.DUPLICATE_CONNECTOR_CLASS.equals(
+                        connectorClassName);
     }
 }

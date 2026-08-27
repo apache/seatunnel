@@ -25,13 +25,13 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import javax.tools.JavaCompiler;
 import javax.tools.JavaFileObject;
 import javax.tools.StandardJavaFileManager;
 import javax.tools.ToolProvider;
 
-import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.net.MalformedURLException;
@@ -124,39 +124,43 @@ public abstract class AbstractClassLoaderServiceTest {
      * backing jars differ.
      */
     @Test
-    void testDifferentClassLoadersCanHostConflictingDebeziumClasses() throws Exception {
-        File versionOneJar = createVersionProbeJar("v1");
-        File versionTwoJar = createVersionProbeJar("v2");
-        URL versionOneUrl = versionOneJar.toURI().toURL();
-        URL versionTwoUrl = versionTwoJar.toURI().toURL();
+    void testDifferentClassLoadersCanHostConflictingDebeziumClasses(
+            @TempDir Path temporaryDirectory) throws Exception {
+        URL versionOneUrl = createVersionProbeJar(temporaryDirectory, "v1").toUri().toURL();
+        URL versionTwoUrl = createVersionProbeJar(temporaryDirectory, "v2").toUri().toURL();
 
-        ClassLoader versionOneClassLoader =
-                classLoaderService.getClassLoader(11L, Collections.singletonList(versionOneUrl));
-        ClassLoader versionTwoClassLoader =
-                classLoaderService.getClassLoader(12L, Collections.singletonList(versionTwoUrl));
+        try {
+            ClassLoader versionOneClassLoader =
+                    classLoaderService.getClassLoader(
+                            11L, Collections.singletonList(versionOneUrl));
+            ClassLoader versionTwoClassLoader =
+                    classLoaderService.getClassLoader(
+                            12L, Collections.singletonList(versionTwoUrl));
 
-        Class<?> versionOneProbe =
-                versionOneClassLoader.loadClass("io.debezium.testing.VersionProbe");
-        Class<?> versionTwoProbe =
-                versionTwoClassLoader.loadClass("io.debezium.testing.VersionProbe");
+            Class<?> versionOneProbe =
+                    versionOneClassLoader.loadClass("io.debezium.testing.VersionProbe");
+            Class<?> versionTwoProbe =
+                    versionTwoClassLoader.loadClass("io.debezium.testing.VersionProbe");
 
-        Assertions.assertNotSame(versionOneProbe, versionTwoProbe);
-        Assertions.assertEquals("v1", versionOneProbe.getMethod("version").invoke(null));
-        Assertions.assertEquals("v2", versionTwoProbe.getMethod("version").invoke(null));
-
-        classLoaderService.releaseClassLoader(11L, Collections.singletonList(versionOneUrl));
-        classLoaderService.releaseClassLoader(12L, Collections.singletonList(versionTwoUrl));
+            Assertions.assertNotSame(versionOneProbe, versionTwoProbe);
+            Assertions.assertEquals("v1", versionOneProbe.getMethod("version").invoke(null));
+            Assertions.assertEquals("v2", versionTwoProbe.getMethod("version").invoke(null));
+        } finally {
+            classLoaderService.releaseClassLoader(11L, Collections.singletonList(versionOneUrl));
+            classLoaderService.releaseClassLoader(12L, Collections.singletonList(versionTwoUrl));
+        }
     }
 
     /**
      * Builds a temporary jar that exports the same Debezium-like class name but returns a
      * caller-provided version string.
      */
-    private static File createVersionProbeJar(String version) throws IOException {
+    private static Path createVersionProbeJar(Path temporaryDirectory, String version)
+            throws IOException {
         JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
         Assertions.assertNotNull(compiler, "A JDK compiler is required to build test probe jars");
 
-        Path tempRoot = Files.createTempDirectory("debezium-version-probe-" + version);
+        Path tempRoot = temporaryDirectory.resolve("debezium-version-probe-" + version);
         Path sourceFile = tempRoot.resolve("io/debezium/testing/VersionProbe.java");
         Files.createDirectories(sourceFile.getParent());
         Files.write(
@@ -188,8 +192,9 @@ public abstract class AbstractClassLoaderServiceTest {
         }
 
         Path classFile = tempRoot.resolve("io/debezium/testing/VersionProbe.class");
-        File jarFile = tempRoot.resolve("version-probe-" + version + ".jar").toFile();
-        try (JarOutputStream jarOutputStream = new JarOutputStream(new FileOutputStream(jarFile))) {
+        Path jarFile = tempRoot.resolve("version-probe-" + version + ".jar");
+        try (JarOutputStream jarOutputStream =
+                new JarOutputStream(new FileOutputStream(jarFile.toFile()))) {
             jarOutputStream.putNextEntry(new JarEntry("io/debezium/testing/VersionProbe.class"));
             jarOutputStream.write(Files.readAllBytes(classFile));
             jarOutputStream.closeEntry();

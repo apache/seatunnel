@@ -42,6 +42,7 @@ import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.core.starter.utils.ConfigBuilder;
+import org.apache.seatunnel.engine.common.config.DryRunSampleConfig;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.exception.JobDefineCheckException;
 import org.apache.seatunnel.engine.common.loader.SeaTunnelChildFirstClassLoader;
@@ -71,6 +72,102 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 
 public class MultipleTableJobConfigParserTest {
+
+    @Test
+    public void testSampleDryRunReplacesConfiguredSink() {
+        Common.setDeployMode(DeployMode.CLIENT);
+        String filePath =
+                ContentFormatUtilTest.getResource("/batch_fake_to_console_multi_table.conf");
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setJobContext(new JobContext());
+        DryRunSampleConfig.configure(jobConfig, 10, false);
+
+        ImmutablePair<List<Action>, Set<URL>> parsed =
+                new MultipleTableJobConfigParser(filePath, new IdGenerator(), jobConfig)
+                        .parse(null);
+
+        Assertions.assertFalse(parsed.getLeft().isEmpty());
+        parsed.getLeft()
+                .forEach(
+                        action -> {
+                            Assertions.assertInstanceOf(SinkAction.class, action);
+                            Assertions.assertEquals(
+                                    "dry-run-sample",
+                                    ((SinkAction<?, ?, ?, ?>) action).getSink().getPluginName());
+                            Assertions.assertEquals(1, action.getParallelism());
+                        });
+        Assertions.assertFalse(jobConfig.getJobContext().isEnableCheckpoint());
+    }
+
+    @Test
+    public void testSampleDryRunUsesSingleParallelismForConfiguredSources() {
+        Common.setDeployMode(DeployMode.CLIENT);
+        String filePath =
+                ContentFormatUtilTest.getResource("/batch_fakesource_to_file_complex.conf");
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setJobContext(new JobContext());
+        DryRunSampleConfig.configure(jobConfig, 10, false);
+
+        ImmutablePair<List<Action>, Set<URL>> parsed =
+                new MultipleTableJobConfigParser(filePath, new IdGenerator(), jobConfig)
+                        .parse(null);
+
+        Assertions.assertEquals(1, parsed.getLeft().size());
+        Action sinkAction = parsed.getLeft().get(0);
+        Assertions.assertEquals(1, sinkAction.getParallelism());
+        Assertions.assertEquals(2, sinkAction.getUpstream().size());
+        sinkAction
+                .getUpstream()
+                .forEach(sourceAction -> Assertions.assertEquals(1, sourceAction.getParallelism()));
+    }
+
+    @Test
+    public void testSampleDryRunUsesSingleParallelismForConfiguredTransform() {
+        Common.setDeployMode(DeployMode.CLIENT);
+        String filePath =
+                ContentFormatUtilTest.getResource(
+                        "/batch_fake_to_console_with_transform_name.conf");
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setJobContext(new JobContext());
+        DryRunSampleConfig.configure(jobConfig, 10, false);
+
+        ImmutablePair<List<Action>, Set<URL>> parsed =
+                new MultipleTableJobConfigParser(filePath, new IdGenerator(), jobConfig)
+                        .parse(null);
+
+        Assertions.assertEquals(1, parsed.getLeft().size());
+        Action transformAction = parsed.getLeft().get(0).getUpstream().get(0);
+        Assertions.assertEquals("t_sql_named", transformAction.getName());
+        Assertions.assertEquals(1, transformAction.getParallelism());
+    }
+
+    @Test
+    public void testUserEnvCannotEnableSampleDryRun() {
+        Common.setDeployMode(DeployMode.CLIENT);
+        String filePath =
+                ContentFormatUtilTest.getResource("/batch_fake_to_console_multi_table.conf");
+        Config baseConfig = ConfigBuilder.of(Paths.get(filePath));
+        Config config =
+                ConfigFactory.parseString("env { __seatunnel_dry_run_sample = true }")
+                        .withFallback(baseConfig);
+        JobConfig jobConfig = new JobConfig();
+        jobConfig.setJobContext(new JobContext());
+
+        ImmutablePair<List<Action>, Set<URL>> parsed =
+                new MultipleTableJobConfigParser(config, new IdGenerator(), jobConfig).parse(null);
+
+        Assertions.assertFalse(
+                DryRunSampleConfig.isEnabled(jobConfig.getEnvOptions()),
+                "User env options must not activate sample mode");
+        parsed.getLeft()
+                .forEach(
+                        action ->
+                                Assertions.assertNotEquals(
+                                        "dry-run-sample",
+                                        ((SinkAction<?, ?, ?, ?>) action)
+                                                .getSink()
+                                                .getPluginName()));
+    }
 
     @Test
     public void testSimpleJobParse() {
@@ -197,6 +294,7 @@ public class MultipleTableJobConfigParserTest {
         List<Action> actions = parse.getLeft();
         Assertions.assertEquals(1, actions.size());
         Assertions.assertEquals("t_sql_named", actions.get(0).getUpstream().get(0).getName());
+        Assertions.assertEquals(4, actions.get(0).getUpstream().get(0).getParallelism());
     }
 
     @Test
@@ -263,17 +361,19 @@ public class MultipleTableJobConfigParserTest {
     }
 
     /**
-     * Verifies that the parser requests a dedicated source-side classloader for each source
-     * configuration before transforms and sinks are parsed.
+     * Verifies that the parser requests source-side classloaders independently from transforms and
+     * sinks, so different source dependency sets can remain isolated.
      */
     @Test
-    public void testMultipleSourcesUseDifferentClassLoaders() {
+    public void testMultipleSourcesUseSourceClassLoaders() {
         Common.setDeployMode(DeployMode.CLIENT);
         String filePath =
                 ContentFormatUtilTest.getResource("/batch_fakesource_to_file_complex.conf");
+        ClassLoader callingClassLoader = Thread.currentThread().getContextClassLoader();
         JobConfig jobConfig = new JobConfig();
         jobConfig.setJobContext(new JobContext(System.currentTimeMillis()));
         final ClassLoader[] sourceClassLoaders = new ClassLoader[2];
+        final ClassLoader[] sourceContextClassLoaders = new ClassLoader[2];
         final ClassLoader[] transformAndSinkClassLoaders = new ClassLoader[2];
         MultipleTableJobConfigParser jobConfigParser =
                 new MultipleTableJobConfigParser(filePath, new IdGenerator(), jobConfig) {
@@ -281,6 +381,8 @@ public class MultipleTableJobConfigParserTest {
                     public Tuple2<String, List<Tuple2<CatalogTable, Action>>> parseSource(
                             int configIndex, Config sourceConfig, ClassLoader classLoader) {
                         sourceClassLoaders[configIndex] = classLoader;
+                        sourceContextClassLoaders[configIndex] =
+                                Thread.currentThread().getContextClassLoader();
                         return super.parseSource(configIndex, sourceConfig, classLoader);
                     }
 
@@ -326,7 +428,9 @@ public class MultipleTableJobConfigParserTest {
                 });
         Assertions.assertEquals(4, getClassLoaderTimes.get());
         Assertions.assertEquals(4, releaseClassLoaderTimes.get());
-        Assertions.assertNotEquals(sourceClassLoaders[0], sourceClassLoaders[1]);
+        Assertions.assertSame(sourceClassLoaders[0], sourceContextClassLoaders[0]);
+        Assertions.assertSame(sourceClassLoaders[1], sourceContextClassLoaders[1]);
+        Assertions.assertSame(callingClassLoader, Thread.currentThread().getContextClassLoader());
         Assertions.assertNotEquals(sourceClassLoaders[0], transformAndSinkClassLoaders[0]);
         Assertions.assertNotEquals(sourceClassLoaders[1], transformAndSinkClassLoaders[0]);
         Assertions.assertNotEquals(

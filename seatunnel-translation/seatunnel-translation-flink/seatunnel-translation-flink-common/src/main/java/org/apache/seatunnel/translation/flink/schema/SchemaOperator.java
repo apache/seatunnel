@@ -557,11 +557,16 @@ public class SchemaOperator extends AbstractStreamOperator<SeaTunnelRow>
                 return supportedTypes.contains(SchemaChangeType.UPDATE_COLUMN);
             case SCHEMA_CHANGE_CHANGE_COLUMN:
                 return supportedTypes.contains(SchemaChangeType.RENAME_COLUMN);
+            case SCHEMA_CHANGE_ALTER_TABLE_COMMENT:
+                return supportedTypes.contains(SchemaChangeType.ALTER_TABLE_COMMENT);
+            case SCHEMA_CHANGE_ALTER_COLUMN_COMMENT:
+                return supportedTypes.contains(SchemaChangeType.ALTER_COLUMN_COMMENT);
             case SCHEMA_CHANGE_UPDATE_COLUMNS:
                 return supportedTypes.contains(SchemaChangeType.ADD_COLUMN)
                         || supportedTypes.contains(SchemaChangeType.DROP_COLUMN)
                         || supportedTypes.contains(SchemaChangeType.UPDATE_COLUMN)
-                        || supportedTypes.contains(SchemaChangeType.RENAME_COLUMN);
+                        || supportedTypes.contains(SchemaChangeType.RENAME_COLUMN)
+                        || supportedTypes.contains(SchemaChangeType.ALTER_COLUMN_COMMENT);
             default:
                 log.error("Unknown schema change event type: {}", event.getEventType());
                 throw SchemaValidationException.unsupportedChangeType(

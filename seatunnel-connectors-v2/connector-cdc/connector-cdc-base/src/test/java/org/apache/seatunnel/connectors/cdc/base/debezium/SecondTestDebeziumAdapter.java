@@ -23,19 +23,19 @@ package org.apache.seatunnel.connectors.cdc.base.debezium;
  */
 public class SecondTestDebeziumAdapter implements DebeziumAdapter {
 
-    /** Shares the same connector class as the primary test adapter to simulate an ambiguous SPI. */
+    // Shares the primary adapter connector class to simulate an ambiguous SPI registration.
     static final String TEST_CONNECTOR_CLASS = TestDebeziumAdapter.TEST_CONNECTOR_CLASS;
 
-    /** Distinct Debezium version label used to identify this provider in assertions. */
+    // Identifies this provider in the duplicate-provider assertion.
     static final String TEST_DEBEZIUM_VERSION = "3.0.0.Final";
 
-    /** Returns the Debezium version exposed by this test adapter. */
+    /** Returns a distinct version label so failure output identifies this test provider. */
     @Override
     public String getDebeziumVersion() {
         return TEST_DEBEZIUM_VERSION;
     }
 
-    /** Supports the same connector class as the primary test adapter to force ambiguity. */
+    /** Simulates an ambiguous SPI registration for the primary test connector. */
     @Override
     public boolean supports(String connectorClassName) {
         return TEST_CONNECTOR_CLASS.equals(connectorClassName);

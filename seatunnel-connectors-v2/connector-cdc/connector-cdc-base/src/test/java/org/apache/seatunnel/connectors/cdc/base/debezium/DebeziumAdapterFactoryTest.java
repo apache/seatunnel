@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.cdc.base.debezium;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.net.URL;
 import java.net.URLClassLoader;
@@ -27,6 +28,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Collections;
 
+/** Verifies the deterministic adapter-selection contract used by CDC connector modules. */
 class DebeziumAdapterFactoryTest {
 
     /**
@@ -44,15 +46,16 @@ class DebeziumAdapterFactoryTest {
                 TestDebeziumAdapter.TEST_DEBEZIUM_VERSION, adapter.getDebeziumVersion());
     }
 
-    /** Verifies that unknown connector classes still fail with a clear error. */
     @Test
     void getAdapter_throwsIllegalStateException_whenNoAdapterMatches() {
         ClassLoader cl = Thread.currentThread().getContextClassLoader();
-        Assertions.assertThrows(
-                IllegalStateException.class,
-                () ->
-                        DebeziumAdapterFactory.getAdapter(
-                                "io.debezium.connector.unknown.UnknownConnector", cl));
+        IllegalStateException exception =
+                Assertions.assertThrows(
+                        IllegalStateException.class,
+                        () ->
+                                DebeziumAdapterFactory.getAdapter(
+                                        "io.debezium.connector.unknown.UnknownConnector", cl));
+        Assertions.assertTrue(exception.getMessage().contains("No DebeziumAdapter found"));
     }
 
     /**
@@ -60,8 +63,8 @@ class DebeziumAdapterFactoryTest {
      * providers for one connector class.
      */
     @Test
-    void getAdapter_throwsIllegalStateException_whenMultipleAdaptersMatch() throws Exception {
-        Path tempDir = Files.createTempDirectory("debezium-adapter-service-loader");
+    void getAdapter_throwsIllegalStateException_whenMultipleAdaptersMatch(@TempDir Path tempDir)
+            throws Exception {
         Path serviceFile =
                 tempDir.resolve("META-INF")
                         .resolve("services")
@@ -87,5 +90,21 @@ class DebeziumAdapterFactoryTest {
             Assertions.assertTrue(
                     exception.getMessage().contains(SecondTestDebeziumAdapter.class.getName()));
         }
+    }
+
+    @Test
+    void getAdapter_throwsIllegalStateException_whenRegisteredAdaptersMatchSameConnector() {
+        ClassLoader cl = Thread.currentThread().getContextClassLoader();
+        IllegalStateException ex =
+                Assertions.assertThrows(
+                        IllegalStateException.class,
+                        () ->
+                                DebeziumAdapterFactory.getAdapter(
+                                        DuplicateTestDebeziumAdapter.DUPLICATE_CONNECTOR_CLASS,
+                                        cl));
+        Assertions.assertTrue(ex.getMessage().contains("Multiple DebeziumAdapters matched"));
+        Assertions.assertTrue(ex.getMessage().contains(TestDebeziumAdapter.class.getName()));
+        Assertions.assertTrue(
+                ex.getMessage().contains(DuplicateTestDebeziumAdapter.class.getName()));
     }
 }

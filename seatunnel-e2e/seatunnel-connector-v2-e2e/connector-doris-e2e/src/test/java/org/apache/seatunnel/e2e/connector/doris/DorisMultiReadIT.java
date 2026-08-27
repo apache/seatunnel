@@ -24,6 +24,7 @@ import org.apache.seatunnel.connectors.doris.util.DorisCatalogUtil;
 import org.apache.seatunnel.e2e.common.container.ContainerExtendedFactory;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -52,12 +53,21 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Properties;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
+import static org.awaitility.Awaitility.await;
+
 @Slf4j
 public class DorisMultiReadIT extends AbstractDorisIT {
+    /**
+     * Multi-source Doris writes can become visible slightly after the SeaTunnel job exits, so the
+     * sink assertions must wait for the final row count instead of querying immediately.
+     */
+    private static final long SINK_ASSERT_TIMEOUT_MILLIS = 60_000L;
+
     private static final String UNIQUE_TABLE_0 = "doris_e2e_unique_table_0";
     private static final String UNIQUE_TABLE_1 = "doris_e2e_unique_table_1";
     private static final String SOURCE_DB_0 = "e2e_source_0";
@@ -107,15 +117,9 @@ public class DorisMultiReadIT extends AbstractDorisIT {
 
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
-            container -> {
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/jdbc/lib && cd /tmp/seatunnel/plugins/jdbc/lib && wget "
-                                        + DRIVER_JAR);
-                Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
-            };
+            container ->
+                    DependencyJar.of(com.mysql.cj.jdbc.Driver.class)
+                            .copyTo(container, "/tmp/seatunnel/plugins/jdbc/lib");
 
     @TestTemplate
     public void testDorisMultiRead(TestContainer container)
@@ -149,7 +153,14 @@ public class DorisMultiReadIT extends AbstractDorisIT {
 
     protected void checkSinkData(String database, String tableName, String sqlCondition) {
         try {
+            String sourceSql =
+                    String.format(
+                            "select * from %s.%s %s order by F_ID ",
+                            database, tableName, sqlCondition);
+            String sinkSql = String.format("select * from %s.%s order by F_ID", sinkDB, tableName);
+
             assertHasData(database, tableName);
+            awaitSinkTableReady(sourceSql, sinkSql);
             assertHasData(sinkDB, tableName);
 
             PreparedStatement sourcePre =
@@ -216,16 +227,21 @@ public class DorisMultiReadIT extends AbstractDorisIT {
                             sinkColumnType.toUpperCase(Locale.ROOT));
                 }
             }
-
-            String sourceSql =
-                    String.format(
-                            "select * from %s.%s %s order by F_ID ",
-                            database, tableName, sqlCondition);
-            String sinkSql = String.format("select * from %s.%s order by F_ID", sinkDB, tableName);
             checkSourceAndSinkTableDate(sourceSql, sinkSql, UNIQUE_TABLE_COLUMN_STRING);
         } catch (Exception e) {
             throw new RuntimeException("Doris connection error", e);
         }
+    }
+
+    /**
+     * Wait until the Doris sink exposes the same number of rows as the filtered source query before
+     * running schema and row-by-row assertions.
+     */
+    private void awaitSinkTableReady(String sourceSql, String sinkSql) {
+        int expectedRowCount = queryRowCount(sourceSql);
+        await().atMost(SINK_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
+                .untilAsserted(
+                        () -> Assertions.assertEquals(expectedRowCount, queryRowCount(sinkSql)));
     }
 
     private void checkSourceAndSinkTableDate(String sourceSql, String sinkSql, String columnsString)
@@ -278,6 +294,18 @@ public class DorisMultiReadIT extends AbstractDorisIT {
         return -1;
     }
 
+    private int queryRowCount(String sql) {
+        try (Statement statement =
+                        conn.createStatement(
+                                ResultSet.TYPE_SCROLL_SENSITIVE, ResultSet.CONCUR_READ_ONLY);
+                ResultSet resultSet = statement.executeQuery(sql)) {
+            resultSet.last();
+            return resultSet.getRow();
+        } catch (SQLException e) {
+            throw new RuntimeException("Failed to query Doris table rows", e);
+        }
+    }
+
     private void assertHasData(String db, String table) {
         try (Statement statement = conn.createStatement()) {
             String sql = String.format("select * from %s.%s limit 1", db, table);
@@ -310,14 +338,18 @@ public class DorisMultiReadIT extends AbstractDorisIT {
         try {
             URLClassLoader urlClassLoader =
                     new URLClassLoader(
-                            new URL[] {new URL(DRIVER_JAR)},
+                            new URL[] {mysqlDriverJarPath().toUri().toURL()},
                             DorisMultiReadIT.class.getClassLoader());
             Thread.currentThread().setContextClassLoader(urlClassLoader);
             Driver driver = (Driver) urlClassLoader.loadClass(DRIVER_CLASS).newInstance();
             Properties props = new Properties();
             props.put("user", USERNAME);
             props.put("password", PASSWORD);
-            conn = driver.connect(String.format(URL, container.getHost()), props);
+            conn =
+                    driver.connect(
+                            String.format(
+                                    URL, container.getHost(), container.getMappedPort(QUERY_PORT)),
+                            props);
             try (Statement statement = conn.createStatement()) {
                 // create test databases
                 statement.execute(createDatabase(SOURCE_DB_0));

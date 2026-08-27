@@ -39,60 +39,71 @@ public class DebeziumAdapterFactory {
     private DebeziumAdapterFactory() {}
 
     /**
-     * Returns the {@link DebeziumAdapter} whose {@link DebeziumAdapter#supports(String)} method
-     * returns {@code true} for the given Debezium connector fully-qualified class name (e.g.,
-     * {@code "io.debezium.connector.mysql.MySqlConnector"}).
+     * Returns the unique {@link DebeziumAdapter} whose {@link DebeziumAdapter#supports(String)}
+     * method returns {@code true} for the given Debezium connector fully-qualified class name
+     * (e.g., {@code "io.debezium.connector.mysql.MySqlConnector"}).
+     *
+     * <p>The selection rule is deterministic:
+     *
+     * <ul>
+     *   <li>No match &rarr; fails with {@link IllegalStateException}
+     *   <li>Exactly one match &rarr; returns it
+     *   <li>More than one match &rarr; fails with {@link IllegalStateException} listing the matched
+     *       providers
+     * </ul>
      *
      * @param connectorClassName the fully-qualified Debezium connector class name, matching the
      *     {@code connector.class} Debezium property
      * @param classLoader the class loader used to discover {@link DebeziumAdapter} registrations
      *     from {@code META-INF/services}
-     * @throws IllegalStateException if no matching adapter is found
+     * @throws IllegalStateException if no matching adapter is found, or if more than one adapter
+     *     matches
      */
     public static DebeziumAdapter getAdapter(String connectorClassName, ClassLoader classLoader) {
         LOG.info("Loading DebeziumAdapter for connector class: {}", connectorClassName);
         ServiceLoader<DebeziumAdapter> loader =
                 ServiceLoader.load(DebeziumAdapter.class, classLoader);
-        List<DebeziumAdapter> matchingAdapters = new ArrayList<>();
 
+        List<DebeziumAdapter> matches = new ArrayList<>();
         for (DebeziumAdapter adapter : loader) {
             if (adapter.supports(connectorClassName)) {
-                matchingAdapters.add(adapter);
+                matches.add(adapter);
             }
         }
 
-        if (matchingAdapters.size() == 1) {
-            DebeziumAdapter adapter = matchingAdapters.get(0);
-            LOG.info(
-                    "Found DebeziumAdapter for {}: {} targeting Debezium {}",
-                    connectorClassName,
-                    adapter.getClass().getName(),
-                    adapter.getDebeziumVersion());
-            return adapter;
+        if (matches.isEmpty()) {
+            throw new IllegalStateException(
+                    "No DebeziumAdapter found for connector class: "
+                            + connectorClassName
+                            + ". Ensure a META-INF/services/"
+                            + DebeziumAdapter.class.getName()
+                            + " registration is present in the connector module.");
         }
 
-        if (matchingAdapters.size() > 1) {
-            String providerDescriptions =
-                    matchingAdapters.stream()
+        if (matches.size() > 1) {
+            String providers =
+                    matches.stream()
                             .map(
-                                    adapter ->
-                                            adapter.getClass().getName()
+                                    a ->
+                                            a.getClass().getName()
                                                     + " (Debezium "
-                                                    + adapter.getDebeziumVersion()
+                                                    + a.getDebeziumVersion()
                                                     + ")")
                             .collect(Collectors.joining(", "));
             throw new IllegalStateException(
-                    "Multiple DebeziumAdapters found for connector class: "
+                    "Multiple DebeziumAdapters matched connector class "
                             + connectorClassName
-                            + ". Expected exactly one matching provider, but found: "
-                            + providerDescriptions);
+                            + ": ["
+                            + providers
+                            + "]. Each connector class must have exactly one adapter.");
         }
 
-        throw new IllegalStateException(
-                "No DebeziumAdapter found for connector class: "
-                        + connectorClassName
-                        + ". Ensure a META-INF/services/"
-                        + DebeziumAdapter.class.getName()
-                        + " registration is present in the connector module.");
+        DebeziumAdapter adapter = matches.get(0);
+        LOG.info(
+                "Found DebeziumAdapter for {}: {} targeting Debezium {}",
+                connectorClassName,
+                adapter.getClass().getName(),
+                adapter.getDebeziumVersion());
+        return adapter;
     }
 }

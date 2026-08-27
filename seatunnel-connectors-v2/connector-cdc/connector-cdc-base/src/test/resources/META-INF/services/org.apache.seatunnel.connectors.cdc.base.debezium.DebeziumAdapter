@@ -14,3 +14,4 @@
 # limitations under the License.
 
 org.apache.seatunnel.connectors.cdc.base.debezium.TestDebeziumAdapter
+org.apache.seatunnel.connectors.cdc.base.debezium.DuplicateTestDebeziumAdapter

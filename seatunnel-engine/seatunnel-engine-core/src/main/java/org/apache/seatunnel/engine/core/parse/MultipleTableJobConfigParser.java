@@ -59,6 +59,7 @@ import org.apache.seatunnel.common.constants.JobMode;
 import org.apache.seatunnel.common.constants.PluginType;
 import org.apache.seatunnel.common.exception.SeaTunnelRuntimeException;
 import org.apache.seatunnel.core.starter.utils.ConfigBuilder;
+import org.apache.seatunnel.engine.common.config.DryRunSampleConfig;
 import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.exception.JobDefineCheckException;
 import org.apache.seatunnel.engine.common.loader.SeaTunnelChildFirstClassLoader;
@@ -228,7 +229,10 @@ public class MultipleTableJobConfigParser {
 
         List<URL> transformConnectorJars =
                 getConnectorJarList(transformConfigs, PluginType.TRANSFORM);
-        List<URL> sinkConnectorJars = getConnectorJarList(sinkConfigs, PluginType.SINK);
+        List<URL> sinkConnectorJars =
+                DryRunSampleConfig.isEnabled(jobConfig.getEnvOptions())
+                        ? Collections.emptyList()
+                        : getConnectorJarList(sinkConfigs, PluginType.SINK);
         ClassLoader parentClassLoader = Thread.currentThread().getContextClassLoader();
 
         // Each source uses its own classloader so source-side dependencies can diverge
@@ -241,16 +245,18 @@ public class MultipleTableJobConfigParser {
                                                 Collections.singletonList(config),
                                                 PluginType.SOURCE))
                         .collect(Collectors.toList());
-        List<ClassLoader> sourceClassLoaders =
-                sourceJars.stream()
-                        .map(jars -> getClassLoader(classLoaderService, parentClassLoader, jars))
-                        .collect(Collectors.toList());
-        ClassLoader transformClassLoader =
-                getClassLoader(classLoaderService, parentClassLoader, transformConnectorJars);
-        ClassLoader sinkClassLoader =
-                getClassLoader(classLoaderService, parentClassLoader, sinkConnectorJars);
-
         try {
+            List<ClassLoader> sourceClassLoaders =
+                    sourceJars.stream()
+                            .map(
+                                    jars ->
+                                            getClassLoader(
+                                                    classLoaderService, parentClassLoader, jars))
+                            .collect(Collectors.toList());
+            ClassLoader transformClassLoader =
+                    getClassLoader(classLoaderService, parentClassLoader, transformConnectorJars);
+            ClassLoader sinkClassLoader =
+                    getClassLoader(classLoaderService, parentClassLoader, sinkConnectorJars);
             Thread.currentThread().setContextClassLoader(transformClassLoader);
             ConfigParserUtil.checkGraph(sourceConfigs, transformConfigs, sinkConfigs);
             LinkedHashMap<String, List<Tuple2<CatalogTable, Action>>> tableWithActionMap =
@@ -266,8 +272,17 @@ public class MultipleTableJobConfigParser {
             }
             for (int configIndex = 0; configIndex < sourceConfigs.size(); configIndex++) {
                 Config sourceConfig = sourceConfigs.get(configIndex);
-                Tuple2<String, List<Tuple2<CatalogTable, Action>>> tuple2 =
-                        parseSource(configIndex, sourceConfig, sourceClassLoaders.get(configIndex));
+                ClassLoader sourceClassLoader = sourceClassLoaders.get(configIndex);
+                ClassLoader previousClassLoader = Thread.currentThread().getContextClassLoader();
+                Tuple2<String, List<Tuple2<CatalogTable, Action>>> tuple2;
+                try {
+                    // Legacy source discovery uses the context classloader, while table factories
+                    // receive sourceClassLoader explicitly. Both must resolve one source's jars.
+                    Thread.currentThread().setContextClassLoader(sourceClassLoader);
+                    tuple2 = parseSource(configIndex, sourceConfig, sourceClassLoader);
+                } finally {
+                    Thread.currentThread().setContextClassLoader(previousClassLoader);
+                }
                 tableWithActionMap.put(tuple2._1(), tuple2._2());
             }
             boolean hasSourceTables =
@@ -375,11 +390,19 @@ public class MultipleTableJobConfigParser {
             jobConfig.setName(envOptions.get(EnvCommonOptions.JOB_NAME));
         }
         jobConfig.getEnvOptions().putAll(envOptions.getSourceMap());
+        DryRunSampleConfig.applyTrustedConfiguration(jobConfig);
+        if (DryRunSampleConfig.isEnabled(jobConfig.getEnvOptions())) {
+            jobConfig.getJobContext().setEnableCheckpoint(false);
+        }
         this.commonPluginJars.addAll(JobPluginClasspathHelper.thirdPartyJarsFromEnv(envOptions));
         log.info("add common jar in plugins :{}", commonPluginJars);
     }
 
     private int getParallelism(ReadonlyConfig config) {
+        if (DryRunSampleConfig.isEnabled(jobConfig.getEnvOptions())) {
+            // Keep task-local sample counters source-wide and the preview output deterministic.
+            return 1;
+        }
         return Math.max(
                 1,
                 config.getOptional(EnvCommonOptions.PARALLELISM)
@@ -521,7 +544,11 @@ public class MultipleTableJobConfigParser {
         checkProducedTypeEquals(inputActions);
         int spareParallelism = inputs.get(0)._2().getParallelism();
         int parallelism =
-                readonlyConfig.getOptional(EnvCommonOptions.PARALLELISM).orElse(spareParallelism);
+                DryRunSampleConfig.isEnabled(jobConfig.getEnvOptions())
+                        ? 1
+                        : readonlyConfig
+                                .getOptional(EnvCommonOptions.PARALLELISM)
+                                .orElse(spareParallelism);
         SeaTunnelTransform<?> transform =
                 FactoryUtil.createAndPrepareMultiTableTransform(
                         new ArrayList<>(catalogTables), readonlyConfig, classLoader, factoryId);
@@ -647,7 +674,9 @@ public class MultipleTableJobConfigParser {
 
         // get jar urls
         Set<URL> jarUrls = new HashSet<>();
-        jarUrls.addAll(getSinkPluginJarPaths(sinkConfig));
+        if (!DryRunSampleConfig.isEnabled(jobConfig.getEnvOptions())) {
+            jarUrls.addAll(getSinkPluginJarPaths(sinkConfig));
+        }
         List<SinkAction<?, ?, ?, ?>> sinkActions = new ArrayList<>();
         int failedTableStartIndex = failedTables.size();
 
@@ -690,6 +719,9 @@ public class MultipleTableJobConfigParser {
                             tuple._2().getParallelism(),
                             configIndex);
             sinkAction.ifPresent(sinkActions::add);
+        }
+        if (DryRunSampleConfig.isEnabled(jobConfig.getEnvOptions())) {
+            return sinkActions;
         }
         Optional<SinkAction<?, ?, ?, ?>> multiTableSink =
                 tryGenerateMultiTableSink(
@@ -773,6 +805,25 @@ public class MultipleTableJobConfigParser {
             String factoryId,
             int parallelism,
             int configIndex) {
+
+        if (DryRunSampleConfig.isEnabled(jobConfig.getEnvOptions())) {
+            SinkConfig actionConfig = new SinkConfig(catalogTable.getTableId().toTablePath());
+            SinkAction<Object, Void, Void, Void> sinkAction =
+                    new SinkAction<>(
+                            idGenerator.getNextId(),
+                            JobConfigParser.createSinkActionName(
+                                    configIndex,
+                                    "dry-run-sample",
+                                    actionConfig.getTablePath().toString()),
+                            new ArrayList<>(inputActions),
+                            new DryRunSampleSink(),
+                            Collections.emptySet(),
+                            Collections.emptySet(),
+                            actionConfig);
+            sinkAction.setParallelism(1);
+            log.info("Dry-run sample: sink DDL preview for {} is SKIPPED", factoryId);
+            return Optional.of(sinkAction);
+        }
 
         Function<PluginIdentifier, SeaTunnelSink> fallbackCreateSink =
                 pluginIdentifier -> {
