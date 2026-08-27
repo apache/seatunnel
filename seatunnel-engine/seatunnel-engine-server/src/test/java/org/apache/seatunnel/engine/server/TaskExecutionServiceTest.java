@@ -87,9 +87,11 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
 
     private PassiveCompletableFuture<TaskExecutionState> deployLocalTask(
             TaskExecutionService taskExecutionService, @NonNull TaskGroup taskGroup) {
-        Long taskId = taskGroup.getTasks().iterator().next().getTaskID();
         ConcurrentHashMap<Long, ClassLoader> classLoaders = new ConcurrentHashMap<>();
-        classLoaders.put(taskId, Thread.currentThread().getContextClassLoader());
+        // Mirror deployTask(): every task in the group gets its own class loader entry.
+        for (Task task : taskGroup.getTasks()) {
+            classLoaders.put(task.getTaskID(), Thread.currentThread().getContextClassLoader());
+        }
         return taskExecutionService.deployLocalTask(
                 taskGroup, classLoaders, new ConcurrentHashMap<>());
     }
