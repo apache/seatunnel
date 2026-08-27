@@ -1240,7 +1240,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        java: [ '8', '11' ]
+        java: [ '11', '17' ]
         os: [ 'ubuntu-latest' ]
     timeout-minutes: 150
     steps:
