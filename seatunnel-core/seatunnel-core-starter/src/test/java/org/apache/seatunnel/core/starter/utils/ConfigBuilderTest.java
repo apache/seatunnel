@@ -17,12 +17,14 @@
 
 package org.apache.seatunnel.core.starter.utils;
 
-import lombok.extern.slf4j.Slf4j;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
+
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -174,30 +176,28 @@ public class ConfigBuilderTest {
         Assertions.assertEquals("string", desensitizedFields.get("user-password"));
     }
 
-
     @Test
-    public void testJsonInArrayParsing(){
-        //table_list
-        String value="[{\"table_path\":\"json_test.ml_*\",\"use_regex\":\"true\"},{\"table_path\":\"json_test.ratings\"}]";
+    public void testJsonInArrayParsing() {
+        // table_list
+        String value =
+                "[{\"table_path\":\"json_test.ml_*\",\"use_regex\":\"true\"},{\"table_path\":\"json_test.ratings\"}]";
         try {
             Config parsed = ConfigFactory.parseString("v = " + value);
-            ConfigValue result= parsed.root().get("v");
-            Object obj=result.unwrapped();
-            Assertions.assertInstanceOf(List.class,obj);
+            ConfigValue result = parsed.root().get("v");
+            Object parsedObj = result.unwrapped();
+            Assertions.assertInstanceOf(List.class, parsedObj);
 
-            List<Object> tableList=(List<Object>)obj;
-            tableList.forEach(tablePath->{
-                Assertions.assertInstanceOf(Map.class,tablePath);
-            });
+            List<Object> parsedList = (List<Object>) parsedObj;
 
-            List<Map<String,String>> list=new ArrayList<>();
-            Map<String,String> map= new LinkedHashMap<>();
-            map.put("table_path","json_test.ml_*");
-            map.put("use_regex","true");
-            list.add(map);
-            list.add(Collections.singletonMap("table_path","json_test.ratings"));
+            List<Map<String, String>> expectedList = new ArrayList<>();
+            Map<String, String> map = new LinkedHashMap<>();
+            map.put("table_path", "json_test.ml_*");
+            map.put("use_regex", "true");
+            expectedList.add(map);
+            expectedList.add(Collections.singletonMap("table_path", "json_test.ratings"));
 
-            Assertions.assertArrayEquals(tableList.toArray(),list.toArray());
+            Assertions.assertArrayEquals(parsedList.toArray(), expectedList.toArray());
+
         } catch (Exception e) {
             log.warn("Failed to parse value as ConfigValue, fallback to plain string: {}", value);
         }
