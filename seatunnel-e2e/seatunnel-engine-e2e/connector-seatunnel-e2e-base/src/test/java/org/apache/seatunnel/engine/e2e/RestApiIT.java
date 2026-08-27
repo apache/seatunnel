@@ -710,9 +710,7 @@ public class RestApiIT {
                                 .body("diagnostics.stateTimestamps.RUNNING", notNullValue())
                                 .body("diagnostics.pipelines", hasSize(1))
                                 .body("diagnostics.pipelines[0].pipelineId", equalTo(1))
-                                .body(
-                                        "diagnostics.pipelines[0].pipelineStatus",
-                                        equalTo("RUNNING"))
+                                .body("diagnostics.pipelines[0].pipelineStatus", equalTo("RUNNING"))
                                 .body("diagnostics.pipelines[0].restoreCount", equalTo(0))
                                 .body(
                                         "diagnostics.pipelines[0].stateTimestamps.RUNNING",
