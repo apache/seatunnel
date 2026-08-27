@@ -17,8 +17,14 @@
 
 package org.apache.seatunnel.core.starter.utils;
 
-import org.apache.seatunnel.shade.com.fasterxml.jackson.core.JsonProcessingException;
-import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
+import lombok.NonNull;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.seatunnel.api.configuration.ConfigAdapter;
+import org.apache.seatunnel.api.sink.TablePlaceholder;
+import org.apache.seatunnel.common.utils.JsonUtils;
+import org.apache.seatunnel.common.utils.ParserException;
+import org.apache.seatunnel.core.starter.command.ParameterSplitter;
+import org.apache.seatunnel.core.starter.exception.ConfigCheckException;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigException;
@@ -34,20 +40,9 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.impl.Parseable;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
-import org.apache.seatunnel.api.configuration.ConfigAdapter;
-import org.apache.seatunnel.api.sink.TablePlaceholder;
-import org.apache.seatunnel.common.utils.JsonUtils;
-import org.apache.seatunnel.common.utils.ParserException;
-import org.apache.seatunnel.core.starter.command.ParameterSplitter;
-import org.apache.seatunnel.core.starter.exception.ConfigCheckException;
-
-import lombok.NonNull;
-import lombok.extern.slf4j.Slf4j;
-
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -65,18 +60,13 @@ import static org.apache.seatunnel.common.utils.PlaceholderUtils.replaceAllPlace
 @Slf4j
 public class ConfigBuilder {
 
-    private static ParameterSplitter SPLITTER = new ParameterSplitter();
-    private static final ObjectMapper JACKSON_MAPPER = new ObjectMapper();
-
     public static final ConfigRenderOptions CONFIG_RENDER_OPTIONS =
             ConfigRenderOptions.concise().setFormatted(true);
 
-    private static final String PLACEHOLDER_REGEX = "\\$\\{([^:{}]+)(?::[^}]*)?\\}";
     private static final String MASKED_VALUE = "******";
     private static final String CONFIG_PATH_SEPARATOR = ".";
     // Treat common option separators as equivalent when matching config paths in logs.
     private static final Pattern CONFIG_OPTION_SEPARATOR_PATTERN = Pattern.compile("[._-]+");
-    private static Pattern pattern = Pattern.compile(PLACEHOLDER_REGEX);
 
     private ConfigBuilder() {
         // utility class and cannot be instantiated
@@ -329,31 +319,6 @@ public class ConfigBuilder {
             value = StringUtils.unwrap(value, "\"");
             return ConfigValueFactory.fromAnyRef(value);
         }
-
-        if (value.startsWith("[") && value.endsWith("]")) {
-            List<Object> list = null;
-            try {
-                list = JACKSON_MAPPER.readValue(value, new TypeReference<List<Object>>() {});
-            } catch (JsonProcessingException e) {
-                String innerContent = value.substring(1, value.length() - 1).trim();
-                if (innerContent.isEmpty()) {
-                    return ConfigValueFactory.fromAnyRef(Collections.emptyList());
-                }
-                List<String> elementList = SPLITTER.split(innerContent);
-                list =
-                        elementList.stream()
-                                .map(String::trim)
-                                .map(ConfigBuilder::parseUserValue)
-                                .collect(Collectors.toList());
-                if (!list.isEmpty()) {
-                    return ConfigValueFactory.fromAnyRef(list);
-                } else {
-                    log.warn("Invalid JSON Array structure, fallback to plain string: {}", value);
-                }
-            }
-            return ConfigValueFactory.fromAnyRef(list);
-        }
-
         try {
             Config parsed = ConfigFactory.parseString("v = " + value);
             return parsed.root().get("v");
