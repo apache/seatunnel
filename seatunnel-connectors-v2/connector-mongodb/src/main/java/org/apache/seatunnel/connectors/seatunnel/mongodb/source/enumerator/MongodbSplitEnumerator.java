@@ -168,6 +168,6 @@ public class MongodbSplitEnumerator
     }
 
     private static int getSplitOwner(String tp, int numReaders) {
-        return HashUtils.nonNegativeMod(tp.hashCode(), numReaders);
+        return HashUtils.bucketIndex(tp.hashCode(), numReaders);
     }
 }

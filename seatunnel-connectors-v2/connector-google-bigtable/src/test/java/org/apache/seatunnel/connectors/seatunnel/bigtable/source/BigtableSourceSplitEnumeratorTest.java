@@ -288,7 +288,7 @@ public class BigtableSourceSplitEnumeratorTest {
         // Each split's owner must match hash(splitId) % parallelism.
         for (int i = 0; i < parallelism; i++) {
             for (BigtableSourceSplit split : context.getAssignedSplits(i)) {
-                int expected = HashUtils.nonNegativeMod(split.splitId().hashCode(), parallelism);
+                int expected = HashUtils.bucketIndex(split.splitId().hashCode(), parallelism);
                 assertEquals(
                         expected,
                         i,

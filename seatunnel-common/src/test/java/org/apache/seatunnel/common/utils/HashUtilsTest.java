@@ -30,9 +30,9 @@ public class HashUtilsTest {
 
         // Clearing the sign bit leaves 0, which is in range for every bucket count.
         for (int bucketCount : new int[] {1, 2, 3, 7, 8, 100}) {
-            Assertions.assertEquals(0, HashUtils.nonNegativeMod(Integer.MIN_VALUE, bucketCount));
+            Assertions.assertEquals(0, HashUtils.bucketIndex(Integer.MIN_VALUE, bucketCount));
         }
-        Assertions.assertEquals(1, HashUtils.nonNegativeMod(Integer.MIN_VALUE + 1, 3));
+        Assertions.assertEquals(1, HashUtils.bucketIndex(Integer.MIN_VALUE + 1, 3));
     }
 
     @Test
@@ -40,7 +40,7 @@ public class HashUtilsTest {
         for (int bucketCount : new int[] {1, 2, 3, 7, 8, 100}) {
             for (int hash :
                     new int[] {-1, -5, -31, -12345, Integer.MIN_VALUE, Integer.MIN_VALUE + 1}) {
-                int bucket = HashUtils.nonNegativeMod(hash, bucketCount);
+                int bucket = HashUtils.bucketIndex(hash, bucketCount);
                 Assertions.assertTrue(
                         bucket >= 0 && bucket < bucketCount,
                         "hash=" + hash + " bucketCount=" + bucketCount + " bucket=" + bucket);
@@ -54,7 +54,7 @@ public class HashUtilsTest {
             for (int bucketCount : new int[] {1, 2, 3, 7, 8, 16, 100}) {
                 Assertions.assertEquals(
                         (hash & Integer.MAX_VALUE) % bucketCount,
-                        HashUtils.nonNegativeMod(hash, bucketCount),
+                        HashUtils.bucketIndex(hash, bucketCount),
                         "hash=" + hash + " bucketCount=" + bucketCount);
             }
         }
@@ -62,33 +62,79 @@ public class HashUtilsTest {
 
     @Test
     public void testSingleBucketAlwaysZero() {
-        Assertions.assertEquals(0, HashUtils.nonNegativeMod(Integer.MIN_VALUE, 1));
-        Assertions.assertEquals(0, HashUtils.nonNegativeMod(Integer.MAX_VALUE, 1));
-        Assertions.assertEquals(0, HashUtils.nonNegativeMod(0, 1));
+        Assertions.assertEquals(0, HashUtils.bucketIndex(Integer.MIN_VALUE, 1));
+        Assertions.assertEquals(0, HashUtils.bucketIndex(Integer.MAX_VALUE, 1));
+        Assertions.assertEquals(0, HashUtils.bucketIndex(0, 1));
     }
 
     @Test
     public void testNonPositiveBucketCountRejected() {
+        Assertions.assertThrows(IllegalArgumentException.class, () -> HashUtils.bucketIndex(42, 0));
         Assertions.assertThrows(
-                IllegalArgumentException.class, () -> HashUtils.nonNegativeMod(42, 0));
-        Assertions.assertThrows(
-                IllegalArgumentException.class, () -> HashUtils.nonNegativeMod(42, -1));
+                IllegalArgumentException.class, () -> HashUtils.bucketIndex(42, -1));
     }
 
     @Test
     public void testNotEquivalentToFloorModForNonPowerOfTwo() {
         // Guards the invariant that made this a helper rather than a mechanical rename:
         // masking and floorMod agree only when bucketCount is a power of two.
-        Assertions.assertEquals(0, HashUtils.nonNegativeMod(-5, 3));
+        Assertions.assertEquals(0, HashUtils.bucketIndex(-5, 3));
         Assertions.assertEquals(1, Math.floorMod(-5, 3));
 
         for (int bucketCount : new int[] {2, 4, 8, 16, 1024}) {
             for (int hash = -500; hash <= 500; hash++) {
                 Assertions.assertEquals(
                         Math.floorMod(hash, bucketCount),
-                        HashUtils.nonNegativeMod(hash, bucketCount),
+                        HashUtils.bucketIndex(hash, bucketCount),
                         "hash=" + hash + " bucketCount=" + bucketCount);
             }
         }
+    }
+
+    @Test
+    public void testLongHashesStayInRange() {
+        for (int bucketCount : new int[] {1, 2, 3, 7, 8, 100}) {
+            for (long hash :
+                    new long[] {
+                        -1L, -5L, -31L, -12345L, Long.MIN_VALUE, Long.MIN_VALUE + 1, Long.MAX_VALUE
+                    }) {
+                int bucket = HashUtils.bucketIndex(hash, bucketCount);
+                Assertions.assertTrue(
+                        bucket >= 0 && bucket < bucketCount,
+                        "hash=" + hash + " bucketCount=" + bucketCount + " bucket=" + bucket);
+            }
+        }
+    }
+
+    @Test
+    public void testLongMatchesExistingMaskedSpelling() {
+        // The clickhouse shard router already spelled this out inline; the helper must not
+        // change which shard a value routes to.
+        for (long hash = -1000L; hash <= 1000L; hash++) {
+            for (int bucketCount : new int[] {1, 2, 3, 7, 8, 16, 100}) {
+                Assertions.assertEquals(
+                        (int) ((hash & Long.MAX_VALUE) % bucketCount),
+                        HashUtils.bucketIndex(hash, bucketCount),
+                        "hash=" + hash + " bucketCount=" + bucketCount);
+            }
+        }
+        Assertions.assertEquals(0, HashUtils.bucketIndex(Long.MIN_VALUE, 3));
+    }
+
+    @Test
+    public void testLongOverloadIsDistinctFromIntOverload() {
+        // A 64-bit hash and its truncation to 32 bits generally land in different buckets,
+        // so the two overloads are separate mappings and call sites must not be switched.
+        long hash = 1L << 32;
+        Assertions.assertEquals(1, HashUtils.bucketIndex(hash, 3));
+        Assertions.assertEquals(0, HashUtils.bucketIndex((int) hash, 3));
+    }
+
+    @Test
+    public void testLongNonPositiveBucketCountRejected() {
+        Assertions.assertThrows(
+                IllegalArgumentException.class, () -> HashUtils.bucketIndex(42L, 0));
+        Assertions.assertThrows(
+                IllegalArgumentException.class, () -> HashUtils.bucketIndex(42L, -1));
     }
 }

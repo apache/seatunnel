@@ -195,7 +195,7 @@ class JdbcSourceSplitEnumeratorTest {
         Assertions.assertEquals(tables.size(), assignedSplitOwners.size());
         assignedSplitOwners.forEach(
                 (splitId, owner) -> {
-                    int expectedOwner = HashUtils.nonNegativeMod(splitId.hashCode(), parallelism);
+                    int expectedOwner = HashUtils.bucketIndex(splitId.hashCode(), parallelism);
                     Assertions.assertEquals(expectedOwner, owner);
                 });
 

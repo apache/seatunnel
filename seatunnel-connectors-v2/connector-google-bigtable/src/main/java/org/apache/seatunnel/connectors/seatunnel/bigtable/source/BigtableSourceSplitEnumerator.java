@@ -384,7 +384,7 @@ public class BigtableSourceSplitEnumerator
         } else {
             for (BigtableSourceSplit split : pendingSplits) {
                 int owner =
-                        HashUtils.nonNegativeMod(
+                        HashUtils.bucketIndex(
                                 split.splitId().hashCode(), context.currentParallelism());
                 if (owner == taskId) {
                     toAssign.add(split);

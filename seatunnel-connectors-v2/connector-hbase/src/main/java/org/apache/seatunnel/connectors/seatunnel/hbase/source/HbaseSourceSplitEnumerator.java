@@ -321,6 +321,6 @@ public class HbaseSourceSplitEnumerator
 
     /** Hash algorithm for assigning splits to readers */
     private static int getSplitOwner(String tp, int numReaders) {
-        return HashUtils.nonNegativeMod(tp.hashCode(), numReaders);
+        return HashUtils.bucketIndex(tp.hashCode(), numReaders);
     }
 }

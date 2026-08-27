@@ -18,7 +18,7 @@
 package org.apache.seatunnel.common.utils;
 
 /** Utilities for mapping hash codes onto a fixed number of buckets. */
-public class HashUtils {
+public final class HashUtils {
 
     private HashUtils() {}
 
@@ -44,11 +44,36 @@ public class HashUtils {
      * @return a bucket index in {@code [0, bucketCount)}
      * @throws IllegalArgumentException if {@code bucketCount} is not greater than zero
      */
-    public static int nonNegativeMod(int hash, int bucketCount) {
+    public static int bucketIndex(int hash, int bucketCount) {
+        checkBucketCount(bucketCount);
+        return (hash & Integer.MAX_VALUE) % bucketCount;
+    }
+
+    /**
+     * Maps an arbitrary 64-bit hash onto {@code [0, bucketCount)}.
+     *
+     * <p>Behaves as {@link #bucketIndex(int, int)} does, clearing the sign bit before the division
+     * so that {@link Long#MIN_VALUE} is handled without overflow. The result always fits in an
+     * {@code int} because it is smaller than {@code bucketCount}.
+     *
+     * <p>This is a distinct mapping from the {@code int} overload rather than a widening of it: a
+     * 64-bit hash and its truncation to 32 bits generally land in different buckets, so a call site
+     * must not be switched between the two overloads.
+     *
+     * @param hash any 64-bit hash, including negative values and {@link Long#MIN_VALUE}
+     * @param bucketCount the number of buckets, must be greater than zero
+     * @return a bucket index in {@code [0, bucketCount)}
+     * @throws IllegalArgumentException if {@code bucketCount} is not greater than zero
+     */
+    public static int bucketIndex(long hash, int bucketCount) {
+        checkBucketCount(bucketCount);
+        return (int) ((hash & Long.MAX_VALUE) % bucketCount);
+    }
+
+    private static void checkBucketCount(int bucketCount) {
         if (bucketCount <= 0) {
             throw new IllegalArgumentException(
                     "bucketCount must be greater than zero, but was " + bucketCount);
         }
-        return (hash & Integer.MAX_VALUE) % bucketCount;
     }
 }

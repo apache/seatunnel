@@ -136,7 +136,7 @@ public class RocketMqSourceSplitEnumerator
     }
 
     private static int getSplitOwner(MessageQueue messageQueue, int numReaders) {
-        int startIndex = HashUtils.nonNegativeMod(messageQueue.getQueueId() * 31, numReaders);
+        int startIndex = HashUtils.bucketIndex(messageQueue.getQueueId() * 31, numReaders);
         return (startIndex + messageQueue.getQueueId()) % numReaders;
     }
 

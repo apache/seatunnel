@@ -191,7 +191,7 @@ public abstract class AbstractSplitEnumerator
     }
 
     private static int getSplitOwner(String splitId, int numReaders) {
-        return HashUtils.nonNegativeMod(splitId.hashCode(), numReaders);
+        return HashUtils.bucketIndex(splitId.hashCode(), numReaders);
     }
 
     protected void addPendingSplits(Collection<IcebergFileScanTaskSplit> newSplits) {

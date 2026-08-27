@@ -51,7 +51,7 @@ public class MessageContentPartitioner implements Partitioner {
             }
         }
         // Choose one of the remaining partitions according to the hashcode.
-        return HashUtils.nonNegativeMod(message.hashCode(), numPartitions - assignPartitionsSize)
+        return HashUtils.bucketIndex(message.hashCode(), numPartitions - assignPartitionsSize)
                 + assignPartitionsSize;
     }
 

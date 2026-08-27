@@ -170,7 +170,7 @@ public class FlussSourceSplitEnumerator
 
     private static int getSplitOwner(FlussSourceSplit split, int parallelism) {
         int hash = split.getTablePath().getFullName().hashCode() * 31 + split.getBucketId();
-        return HashUtils.nonNegativeMod(hash, parallelism);
+        return HashUtils.bucketIndex(hash, parallelism);
     }
 
     @Override

@@ -447,7 +447,7 @@ public class KafkaSourceSplitEnumerator
     }
 
     private static int getSplitOwner(TopicPartition tp, int numReaders) {
-        int startIndex = HashUtils.nonNegativeMod(tp.topic().hashCode() * 31, numReaders);
+        int startIndex = HashUtils.bucketIndex(tp.topic().hashCode() * 31, numReaders);
         return (startIndex + tp.partition()) % numReaders;
     }
 

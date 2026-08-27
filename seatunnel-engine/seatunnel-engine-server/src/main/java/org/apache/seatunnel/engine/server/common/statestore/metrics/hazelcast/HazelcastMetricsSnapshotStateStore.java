@@ -168,7 +168,7 @@ public class HazelcastMetricsSnapshotStateStore
     }
 
     private long partition(TaskLocation taskLocation) {
-        return HashUtils.nonNegativeMod(taskLocation.hashCode(), partitionCount);
+        return HashUtils.bucketIndex(taskLocation.hashCode(), partitionCount);
     }
 
     @Override

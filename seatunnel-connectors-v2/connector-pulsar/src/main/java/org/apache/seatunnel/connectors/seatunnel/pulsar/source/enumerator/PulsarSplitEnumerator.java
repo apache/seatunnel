@@ -230,7 +230,7 @@ public class PulsarSplitEnumerator
     }
 
     static int getSplitOwner(TopicPartition tp, int numReaders) {
-        int startIndex = HashUtils.nonNegativeMod(tp.getTopic().hashCode() * 31, numReaders);
+        int startIndex = HashUtils.bucketIndex(tp.getTopic().hashCode() * 31, numReaders);
 
         // here, the assumption is that the id of pulsar partitions are always ascending
         // starting from 0, and therefore can be used directly as the offset clockwise from the

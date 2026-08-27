@@ -238,7 +238,7 @@ public abstract class AbstractSplitEnumerator
 
     /** Hash algorithm for assigning splits to readers */
     protected static int getSplitOwner(String tp, int numReaders) {
-        return HashUtils.nonNegativeMod(tp.hashCode(), numReaders);
+        return HashUtils.bucketIndex(tp.hashCode(), numReaders);
     }
 
     // ------------------------------------------------------------------------
