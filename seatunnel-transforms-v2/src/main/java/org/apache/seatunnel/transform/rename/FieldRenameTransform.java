@@ -45,6 +45,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.regex.Matcher;
@@ -164,10 +165,10 @@ public class FieldRenameTransform extends AbstractCatalogSupportMapTransform {
         if (config.getConvertCase() != null) {
             switch (config.getConvertCase()) {
                 case UPPER:
-                    name = name.toUpperCase();
+                    name = name.toUpperCase(Locale.ROOT);
                     break;
                 case LOWER:
-                    name = name.toLowerCase();
+                    name = name.toLowerCase(Locale.ROOT);
                     break;
                 default:
                     throw new UnsupportedOperationException(
