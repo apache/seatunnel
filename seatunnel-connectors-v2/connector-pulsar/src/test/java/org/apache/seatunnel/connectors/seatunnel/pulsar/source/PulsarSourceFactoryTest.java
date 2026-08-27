@@ -147,6 +147,36 @@ public class PulsarSourceFactoryTest {
         Assertions.assertDoesNotThrow(() -> validate(config));
     }
 
+    @Test
+    void testBlankClientServiceUrlFails() {
+        Map<String, Object> config = validSourceConfig();
+        config.put(PulsarSourceOptions.CLIENT_SERVICE_URL.key(), "");
+        OptionValidationException exception =
+                Assertions.assertThrows(OptionValidationException.class, () -> validate(config));
+        Assertions.assertTrue(
+                exception.getMessage().contains(PulsarSourceOptions.CLIENT_SERVICE_URL.key()));
+    }
+
+    @Test
+    void testBlankAdminServiceUrlFails() {
+        Map<String, Object> config = validSourceConfig();
+        config.put(PulsarSourceOptions.ADMIN_SERVICE_URL.key(), "   ");
+        OptionValidationException exception =
+                Assertions.assertThrows(OptionValidationException.class, () -> validate(config));
+        Assertions.assertTrue(
+                exception.getMessage().contains(PulsarSourceOptions.ADMIN_SERVICE_URL.key()));
+    }
+
+    @Test
+    void testBlankSubscriptionNameFails() {
+        Map<String, Object> config = validSourceConfig();
+        config.put(PulsarSourceOptions.SUBSCRIPTION_NAME.key(), "");
+        OptionValidationException exception =
+                Assertions.assertThrows(OptionValidationException.class, () -> validate(config));
+        Assertions.assertTrue(
+                exception.getMessage().contains(PulsarSourceOptions.SUBSCRIPTION_NAME.key()));
+    }
+
     private Map<String, Object> validSourceConfig() {
         Map<String, Object> config = new HashMap<>();
         config.put(PulsarSourceOptions.CLIENT_SERVICE_URL.key(), "pulsar://localhost:6650");
