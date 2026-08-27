@@ -275,6 +275,7 @@ public class JdbcCatalogUtils {
         CatalogTable tableOfQuery = jdbcCatalog.getTable(tableConfig.getQuery());
         return mergeWithUnderlyingTable(
                 tableOfQuery,
+                isSinglePhysicalTableQuery(jdbcCatalog, tableConfig.getQuery()),
                 tablePath ->
                         jdbcCatalog.tableExists(tablePath)
                                 ? jdbcCatalog.getTable(tablePath)
@@ -474,11 +475,26 @@ public class JdbcCatalogUtils {
             return CatalogUtils.getCatalogTable(connection, tablePath, jdbcDialect);
         }
 
+        ResultSetMetaData resultSetMetaData =
+                jdbcDialect.getResultSetMetaData(connection, tableConfig.getQuery());
         CatalogTable tableOfQuery =
-                getCatalogTable(connection, tableConfig.getQuery(), jdbcDialect);
+                getCatalogTable(resultSetMetaData, tableConfig.getQuery(), jdbcDialect);
         return mergeWithUnderlyingTable(
                 tableOfQuery,
+                CatalogUtils.isSinglePhysicalTable(resultSetMetaData),
                 tablePath -> CatalogUtils.getCatalogTable(connection, tablePath, jdbcDialect));
+    }
+
+    private static boolean isSinglePhysicalTableQuery(
+            AbstractJdbcCatalog jdbcCatalog, String sqlQuery) {
+        try {
+            return jdbcCatalog.isSinglePhysicalTableQuery(sqlQuery);
+        } catch (Exception e) {
+            log.debug(
+                    "Failed to verify whether query maps to a single physical table, skip merging underlying table metadata",
+                    e);
+            return false;
+        }
     }
 
     /**
@@ -491,7 +507,12 @@ public class JdbcCatalogUtils {
      * underlying table can not be resolved or loaded.
      */
     static CatalogTable mergeWithUnderlyingTable(
-            CatalogTable tableOfQuery, UnderlyingTableLoader underlyingTableLoader) {
+            CatalogTable tableOfQuery,
+            boolean singlePhysicalTable,
+            UnderlyingTableLoader underlyingTableLoader) {
+        if (!singlePhysicalTable) {
+            return tableOfQuery;
+        }
         TableIdentifier tableId = tableOfQuery.getTableId();
         if (tableId == null || StringUtils.isBlank(tableId.getTableName())) {
             return tableOfQuery;
@@ -521,6 +542,7 @@ public class JdbcCatalogUtils {
         }
     }
 
+    /** Loads table metadata through catalog APIs that may throw checked exceptions. */
     @FunctionalInterface
     interface UnderlyingTableLoader {
         CatalogTable load(TablePath tablePath) throws Exception;
@@ -530,6 +552,12 @@ public class JdbcCatalogUtils {
             Connection connection, String sqlQuery, JdbcDialect jdbcDialect) throws SQLException {
         ResultSetMetaData resultSetMetaData =
                 jdbcDialect.getResultSetMetaData(connection, sqlQuery);
+        return getCatalogTable(resultSetMetaData, sqlQuery, jdbcDialect);
+    }
+
+    private static CatalogTable getCatalogTable(
+            ResultSetMetaData resultSetMetaData, String sqlQuery, JdbcDialect jdbcDialect)
+            throws SQLException {
         return CatalogUtils.getCatalogTable(
                 resultSetMetaData, jdbcDialect.getJdbcDialectTypeMapper(), sqlQuery);
     }

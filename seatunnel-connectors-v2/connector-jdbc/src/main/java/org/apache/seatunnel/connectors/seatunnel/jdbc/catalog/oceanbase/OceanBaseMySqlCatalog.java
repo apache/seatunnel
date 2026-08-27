@@ -31,6 +31,7 @@ import org.apache.seatunnel.api.table.catalog.exception.CatalogException;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.common.utils.JdbcUrlUtil;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.AbstractJdbcCatalog;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oceanbase.OceanBaseMySqlTypeConverter;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.oceanbase.OceanBaseMysqlType;
 
@@ -259,6 +260,15 @@ public class OceanBaseMySqlCatalog extends AbstractJdbcCatalog {
                 new ArrayList<>(),
                 "",
                 catalogName);
+    }
+
+    @Override
+    public boolean isSinglePhysicalTableQuery(String sqlQuery) throws SQLException {
+        Connection connection = getConnection(defaultUrl);
+        try (Statement statement = connection.createStatement();
+                ResultSet resultSet = statement.executeQuery(sqlQuery)) {
+            return CatalogUtils.isSinglePhysicalTable(resultSet.getMetaData());
+        }
     }
 
     @Override

@@ -231,6 +231,15 @@ public class YashanDbCatalog extends AbstractJdbcCatalog {
         }
     }
 
+    @Override
+    public boolean isSinglePhysicalTableQuery(String sqlQuery) throws SQLException {
+        try (Connection defaultConnection = getConnection(defaultUrl);
+                Statement stmt = defaultConnection.createStatement();
+                ResultSet rs = stmt.executeQuery(sqlQuery)) {
+            return CatalogUtils.isSinglePhysicalTable(rs.getMetaData());
+        }
+    }
+
     private PrimaryKey extractPrimaryKey(
             Connection connection, ResultSetMetaData resultSetMetaData, String sqlQuery) {
         try {

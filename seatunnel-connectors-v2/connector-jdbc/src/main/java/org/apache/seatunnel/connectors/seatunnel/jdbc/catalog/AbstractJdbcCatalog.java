@@ -688,6 +688,17 @@ public abstract class AbstractJdbcCatalog implements Catalog {
         return CatalogUtils.getCatalogTable(defaultConnection, sqlQuery);
     }
 
+    /**
+     * Returns whether JDBC metadata identifies every query result column as belonging to the same
+     * physical table.
+     */
+    public boolean isSinglePhysicalTableQuery(String sqlQuery) throws SQLException {
+        Connection defaultConnection = getConnection(defaultUrl);
+        try (PreparedStatement statement = defaultConnection.prepareStatement(sqlQuery)) {
+            return CatalogUtils.isSinglePhysicalTable(statement.getMetaData());
+        }
+    }
+
     protected void truncateTableInternal(TablePath tablePath) throws CatalogException {
         try {
             executeInternal(defaultUrl, getTruncateTableSql(tablePath));

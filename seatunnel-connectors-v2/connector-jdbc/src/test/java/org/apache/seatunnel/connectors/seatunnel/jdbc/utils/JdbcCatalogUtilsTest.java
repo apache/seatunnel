@@ -488,6 +488,7 @@ public class JdbcCatalogUtilsTest {
         CatalogTable mergeTable =
                 JdbcCatalogUtils.mergeWithUnderlyingTable(
                         tableOfQuery,
+                        true,
                         tablePath -> {
                             loaderInvoked.set(true);
                             Assertions.assertEquals(
@@ -512,6 +513,25 @@ public class JdbcCatalogUtilsTest {
     }
 
     @Test
+    public void testMergeWithUnderlyingTableSkippedForMultiTableQuery() {
+        CatalogTable tableOfQuery =
+                buildQueryTable(TableIdentifier.of("jdbc_catalog", "database-x", null, "orders"));
+
+        AtomicBoolean loaderInvoked = new AtomicBoolean(false);
+        CatalogTable mergeTable =
+                JdbcCatalogUtils.mergeWithUnderlyingTable(
+                        tableOfQuery,
+                        false,
+                        tablePath -> {
+                            loaderInvoked.set(true);
+                            return DEFAULT_TABLE;
+                        });
+
+        Assertions.assertFalse(loaderInvoked.get());
+        Assertions.assertSame(tableOfQuery, mergeTable);
+    }
+
+    @Test
     public void testMergeWithUnderlyingTableSkippedWhenTableNameNotResolved() {
         CatalogTable tableOfQuery =
                 buildQueryTable(TableIdentifier.of("jdbc_catalog", TablePath.DEFAULT));
@@ -520,6 +540,7 @@ public class JdbcCatalogUtilsTest {
         CatalogTable mergeTable =
                 JdbcCatalogUtils.mergeWithUnderlyingTable(
                         tableOfQuery,
+                        true,
                         tablePath -> {
                             loaderInvoked.set(true);
                             return DEFAULT_TABLE;
@@ -538,6 +559,7 @@ public class JdbcCatalogUtilsTest {
         CatalogTable mergeTable =
                 JdbcCatalogUtils.mergeWithUnderlyingTable(
                         tableOfQuery,
+                        true,
                         tablePath -> {
                             loaderInvoked.set(true);
                             return DEFAULT_TABLE;
@@ -553,7 +575,7 @@ public class JdbcCatalogUtilsTest {
                 buildQueryTable(TableIdentifier.of("jdbc_catalog", "database-x", null, "table-x"));
 
         CatalogTable mergeTable =
-                JdbcCatalogUtils.mergeWithUnderlyingTable(tableOfQuery, tablePath -> null);
+                JdbcCatalogUtils.mergeWithUnderlyingTable(tableOfQuery, true, tablePath -> null);
 
         Assertions.assertSame(tableOfQuery, mergeTable);
     }
@@ -571,7 +593,8 @@ public class JdbcCatalogUtilsTest {
                         null);
 
         CatalogTable mergeTable =
-                JdbcCatalogUtils.mergeWithUnderlyingTable(tableOfQuery, tablePath -> emptyTable);
+                JdbcCatalogUtils.mergeWithUnderlyingTable(
+                        tableOfQuery, true, tablePath -> emptyTable);
 
         Assertions.assertSame(tableOfQuery, mergeTable);
     }
@@ -584,6 +607,7 @@ public class JdbcCatalogUtilsTest {
         CatalogTable mergeTable =
                 JdbcCatalogUtils.mergeWithUnderlyingTable(
                         tableOfQuery,
+                        true,
                         tablePath -> {
                             throw new CatalogException("mock load failure");
                         });

@@ -335,6 +335,47 @@ public class CatalogUtils {
                 sqlQuery);
     }
 
+    /**
+     * Returns whether every result column is reported as originating from the same physical table.
+     * Missing or inconsistent origin metadata is treated as unverified.
+     */
+    public static boolean isSinglePhysicalTable(ResultSetMetaData metadata) {
+        if (metadata == null) {
+            return false;
+        }
+        try {
+            int columnCount = metadata.getColumnCount();
+            if (columnCount == 0) {
+                return false;
+            }
+            TablePath tablePath = getPhysicalTablePath(metadata, 1);
+            if (tablePath == null) {
+                return false;
+            }
+            for (int index = 2; index <= columnCount; index++) {
+                if (!tablePath.equals(getPhysicalTablePath(metadata, index))) {
+                    return false;
+                }
+            }
+            return true;
+        } catch (SQLException e) {
+            log.debug("Failed to verify the physical table of query result metadata", e);
+            return false;
+        }
+    }
+
+    private static TablePath getPhysicalTablePath(ResultSetMetaData metadata, int columnIndex)
+            throws SQLException {
+        String tableName = metadata.getTableName(columnIndex);
+        if (StringUtils.isBlank(tableName)) {
+            return null;
+        }
+        return TablePath.of(
+                StringUtils.defaultIfBlank(metadata.getCatalogName(columnIndex), null),
+                StringUtils.defaultIfBlank(metadata.getSchemaName(columnIndex), null),
+                tableName);
+    }
+
     public static CatalogTable getCatalogTable(
             ResultSetMetaData metadata,
             BiFunction<ResultSetMetaData, Integer, Column> columnConverter,
