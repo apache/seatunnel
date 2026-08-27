@@ -18,7 +18,9 @@
 package org.apache.seatunnel.connectors.cdc.base.source.reader.external;
 
 import org.apache.seatunnel.connectors.cdc.base.schema.SchemaChangeResolver;
+import org.apache.seatunnel.connectors.cdc.base.source.event.SnapshotSplitWatermark;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
+import org.apache.seatunnel.connectors.cdc.base.source.split.CompletedSnapshotSplitInfo;
 import org.apache.seatunnel.connectors.cdc.base.source.split.IncrementalSplit;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceRecords;
 import org.apache.seatunnel.connectors.cdc.base.source.split.SourceSplitBase;
@@ -48,11 +50,13 @@ import io.debezium.schema.TopicSelector;
 import io.debezium.util.SchemaNameAdjuster;
 
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 
 import static io.debezium.config.CommonConnectorConfig.TRANSACTION_TOPIC;
@@ -495,10 +499,55 @@ public class IncrementalSourceStreamFetcherTest {
         Assertions.assertFalse(result.hasNext());
     }
 
+    @Test
+    public void testConfigureFilterKeepsTableSpecificLowerBound() throws Exception {
+        IncrementalSourceStreamFetcher fetcher =
+                new IncrementalSourceStreamFetcher(null, 0, mock(SchemaChangeResolver.class));
+        TableId snapshotTable = TableId.parse("database.snapshot_table");
+        TableId specificTable = TableId.parse("database.specific_table");
+        Offset snapshotHighWatermark = mock(Offset.class);
+        Offset specificStartOffset = mock(Offset.class);
+        CompletedSnapshotSplitInfo snapshotSplitInfo =
+                new CompletedSnapshotSplitInfo(
+                        "snapshot-0",
+                        snapshotTable,
+                        null,
+                        null,
+                        null,
+                        new SnapshotSplitWatermark(null, null, snapshotHighWatermark));
+        IncrementalSplit incrementalSplit =
+                new IncrementalSplit(
+                        "incremental-0",
+                        Arrays.asList(snapshotTable, specificTable),
+                        specificStartOffset,
+                        null,
+                        Collections.singletonList(snapshotSplitInfo),
+                        Collections.singletonMap(specificTable, specificStartOffset),
+                        null,
+                        Collections.emptyMap());
+
+        setField(fetcher, "currentIncrementalSplit", incrementalSplit);
+        Method configureFilter =
+                IncrementalSourceStreamFetcher.class.getDeclaredMethod("configureFilter");
+        configureFilter.setAccessible(true);
+        configureFilter.invoke(fetcher);
+
+        Map<TableId, Offset> highWatermarks =
+                (Map<TableId, Offset>) getField(fetcher, "maxSplitHighWatermarkMap");
+        Assertions.assertSame(snapshotHighWatermark, highWatermarks.get(snapshotTable));
+        Assertions.assertSame(specificStartOffset, highWatermarks.get(specificTable));
+    }
+
     private static void setField(Object target, String fieldName, Object value) throws Exception {
         Field field = IncrementalSourceStreamFetcher.class.getDeclaredField(fieldName);
         field.setAccessible(true);
         field.set(target, value);
+    }
+
+    private static Object getField(Object target, String fieldName) throws Exception {
+        Field field = IncrementalSourceStreamFetcher.class.getDeclaredField(fieldName);
+        field.setAccessible(true);
+        return field.get(target);
     }
 
     static IncrementalSourceStreamFetcher createFetcher() {
