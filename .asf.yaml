@@ -66,8 +66,7 @@ github:
       rules:
         - type: merge_queue
           parameters:
-            # Allow enough time for runner scheduling before the 30-minute job starts,
-            # while still bounding the full required-check response window.
+            # Allow enough time for runner scheduling before the 30-minute job starts.
             check_response_timeout_minutes: 120
             grouping_strategy: ALLGREEN
             max_entries_to_build: 5
