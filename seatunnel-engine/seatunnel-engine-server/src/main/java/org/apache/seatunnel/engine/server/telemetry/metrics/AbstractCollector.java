@@ -19,6 +19,7 @@ package org.apache.seatunnel.engine.server.telemetry.metrics;
 
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
+import org.apache.seatunnel.engine.common.exception.SeaTunnelEngineRetryableException;
 import org.apache.seatunnel.engine.server.CoordinatorService;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 
@@ -67,6 +68,15 @@ public abstract class AbstractCollector extends Collector {
 
     protected CoordinatorService getCoordinatorService() {
         return getServer().getCoordinatorService();
+    }
+
+    protected CoordinatorService getReadyCoordinatorService() {
+        try {
+            return getCoordinatorService();
+        } catch (SeaTunnelEngineRetryableException ignored) {
+            // The coordinator can become inactive after the readiness check succeeds.
+            return null;
+        }
     }
 
     // Non-blocking coordinator readiness check; call before getCoordinatorService() in collect().
