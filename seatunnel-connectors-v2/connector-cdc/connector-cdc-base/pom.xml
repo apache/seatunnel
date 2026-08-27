@@ -54,8 +54,11 @@
             connector-cdc-base is loaded into the class loader of *every* CDC connector (see
             AbstractPluginDiscovery#filterPluginJar), so any Debezium artifact packaged here would
             become a single project-wide Debezium version that no connector could override. Keeping
-            these dependencies provided leaves the shaded connector-cdc-base jar free of Debezium
-            classes and forces each connector to declare the Debezium version it ships.
+            these dependencies provided keeps stock Debezium artifacts out of the shaded
+            connector-cdc-base jar and forces each connector to declare the Debezium version it
+            ships. The base jar intentionally still contains its five patched io.debezium classes:
+            four replace classes from debezium-core, while DefaultHeartbeatConnectionProvider is a
+            SeaTunnel-only implementation.
         -->
         <dependency>
             <groupId>io.debezium</groupId>
