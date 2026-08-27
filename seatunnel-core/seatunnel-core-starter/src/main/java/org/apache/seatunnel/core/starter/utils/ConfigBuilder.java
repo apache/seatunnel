@@ -17,15 +17,6 @@
 
 package org.apache.seatunnel.core.starter.utils;
 
-import lombok.NonNull;
-import lombok.extern.slf4j.Slf4j;
-import org.apache.seatunnel.api.configuration.ConfigAdapter;
-import org.apache.seatunnel.api.sink.TablePlaceholder;
-import org.apache.seatunnel.common.utils.JsonUtils;
-import org.apache.seatunnel.common.utils.ParserException;
-import org.apache.seatunnel.core.starter.command.ParameterSplitter;
-import org.apache.seatunnel.core.starter.exception.ConfigCheckException;
-import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigException;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
@@ -39,6 +30,15 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigValue;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigValueFactory;
 import org.apache.seatunnel.shade.com.typesafe.config.impl.Parseable;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
+import org.apache.seatunnel.api.configuration.ConfigAdapter;
+import org.apache.seatunnel.api.sink.TablePlaceholder;
+import org.apache.seatunnel.common.utils.JsonUtils;
+import org.apache.seatunnel.common.utils.ParserException;
+import org.apache.seatunnel.core.starter.exception.ConfigCheckException;
+
+import lombok.NonNull;
+import lombok.extern.slf4j.Slf4j;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
