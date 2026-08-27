@@ -143,6 +143,11 @@ public class MySqlSourceConfigFactory extends JdbcSourceConfigFactory {
         if (dbzProperties != null) {
             dbzProperties.forEach(props::put);
         }
+        // Runtime table discovery cannot work without Debezium DDL records, so the connector
+        // option takes precedence over a conflicting user-provided Debezium property.
+        if (scanBinlogNewlyAddedTableEnabled) {
+            props.setProperty(SCHEMA_CHANGE_KEY, String.valueOf(true));
+        }
 
         Configuration dbzConfiguration = Configuration.from(props);
         String driverClassName = dbzConfiguration.getString(MySqlConnectorConfig.JDBC_DRIVER);

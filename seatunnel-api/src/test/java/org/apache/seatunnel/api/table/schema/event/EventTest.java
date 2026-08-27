@@ -70,6 +70,9 @@ public class EventTest {
                 new CreateTableEvent(TableIdentifier.of("", TablePath.DEFAULT), null);
         Assertions.assertEquals(
                 EventType.SCHEMA_CHANGE_CREATE_TABLE, createTableEvent.getEventType());
+        Assertions.assertEquals(0, EventType.SCHEMA_CHANGE_ADD_COLUMN.ordinal());
+        Assertions.assertEquals(
+                EventType.values().length - 1, EventType.SCHEMA_CHANGE_CREATE_TABLE.ordinal());
     }
 
     @Test

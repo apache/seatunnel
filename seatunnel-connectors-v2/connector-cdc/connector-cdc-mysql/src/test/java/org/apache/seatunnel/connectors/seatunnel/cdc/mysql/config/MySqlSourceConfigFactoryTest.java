@@ -20,6 +20,8 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.util.Properties;
+
 /**
  * Tests MySQL source configuration behavior required by dynamic binlog table discovery.
  *
@@ -39,6 +41,28 @@ public class MySqlSourceConfigFactoryTest {
         factory.username("test");
         factory.password("test");
         factory.scanBinlogNewlyAddedTableEnabled(true);
+
+        MySqlSourceConfig sourceConfig = factory.create(0);
+
+        Assertions.assertTrue(
+                sourceConfig
+                        .getDbzConfiguration()
+                        .getBoolean(MySqlSourceConfigFactory.SCHEMA_CHANGE_KEY));
+    }
+
+    /**
+     * Ensures an internal DDL dependency cannot be disabled through Debezium pass-through options.
+     */
+    @Test
+    public void testBinlogNewlyAddedTableOverridesSchemaChangeProperty() {
+        MySqlSourceConfigFactory factory = new MySqlSourceConfigFactory();
+        factory.hostname("localhost");
+        factory.username("test");
+        factory.password("test");
+        factory.scanBinlogNewlyAddedTableEnabled(true);
+        Properties debeziumProperties = new Properties();
+        debeziumProperties.setProperty(MySqlSourceConfigFactory.SCHEMA_CHANGE_KEY, "false");
+        factory.debeziumProperties(debeziumProperties);
 
         MySqlSourceConfig sourceConfig = factory.create(0);
 

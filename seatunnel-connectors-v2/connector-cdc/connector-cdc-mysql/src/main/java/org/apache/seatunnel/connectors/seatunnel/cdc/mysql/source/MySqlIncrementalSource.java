@@ -280,7 +280,11 @@ public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceCo
                         .setServerTimeZone(ZoneId.of(zoneId))
                         .setTableIdTableChangeMap(tableIdTableChangeMap)
                         .setSchemaChangeResolver(
-                                new MySqlSchemaChangeResolver(createSourceConfigFactory(config)))
+                                new MySqlSchemaChangeResolver(
+                                        createSourceConfigFactory(config),
+                                        config.get(
+                                                MySqlIncrementalSourceOptions
+                                                        .SCAN_BINLOG_NEWLY_ADDED_TABLE_ENABLED)))
                         .setSchemaChangeEventFilter(SchemaChangeEventFilter.fromConfig(config))
                         .setScanBinlogNewlyAddedTableEnabled(
                                 config.get(
@@ -292,7 +296,7 @@ public class MySqlIncrementalSource<T> extends IncrementalSource<T, JdbcSourceCo
                                                         .getTableFilters()
                                                         .dataCollectionFilter()
                                                         .isIncluded(tableChange.getTable().id())
-                                                ? MySqlCatalogTableUtils.toCatalogTable(
+                                                ? MySqlCatalogTableUtils.toRuntimeCatalogTable(
                                                         tableChange.getTable(),
                                                         sourceConfig.getDbzConnectorConfig())
                                                 : null)

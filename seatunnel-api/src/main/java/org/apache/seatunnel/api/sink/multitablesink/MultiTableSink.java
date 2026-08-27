@@ -83,6 +83,24 @@ public class MultiTableSink
     private final int tableRetryIntervalSeconds;
     private final ReadonlyConfig options;
     private JobContext jobContext;
+    /**
+     * Builds or restores a sink writer from runtime table metadata without persisting sink config.
+     */
+    private final MultiTableSinkWriter.RuntimeSinkWriterFactory runtimeSinkWriterFactory =
+            new MultiTableSinkWriter.RuntimeSinkWriterFactory() {
+                @Override
+                public SinkWriter<SeaTunnelRow, ?, ?> create(
+                        CatalogTable catalogTable, SinkWriter.Context context) throws IOException {
+                    return createRuntimeSinkWriter(catalogTable, context);
+                }
+
+                @Override
+                public SinkWriter<SeaTunnelRow, ?, ?> restore(
+                        CatalogTable catalogTable, SinkWriter.Context context, List<?> states)
+                        throws IOException {
+                    return restoreRuntimeSinkWriter(catalogTable, context, states);
+                }
+            };
 
     /**
      * Constructs a MultiTableSink from the given factory context.
@@ -172,7 +190,7 @@ public class MultiTableSink
                         tableRetryTimes,
                         tableRetryIntervalSeconds,
                         sinkWriterTemplates,
-                        this::createRuntimeSinkWriter,
+                        runtimeSinkWriterFactory,
                         proxyContexts);
         registerAggregatedFlushIfNeeded(context, writer, proxyContexts);
         return writer;
@@ -259,8 +277,18 @@ public class MultiTableSink
                 }
                 SinkIdentifier sinkIdentifier = SinkIdentifier.of(tablePath.getFullName(), index);
                 SinkContextProxy proxy = new SinkContextProxy(index, replicaNum, context);
+                List<?> state =
+                        states.stream()
+                                .map(
+                                        multiTableState ->
+                                                multiTableState.getStates().get(sinkIdentifier))
+                                .filter(Objects::nonNull)
+                                .flatMap(Collection::stream)
+                                .collect(Collectors.toList());
                 SinkWriter<SeaTunnelRow, ?, ?> sinkWriter =
-                        createRuntimeSinkWriter(catalogTable, proxy);
+                        state.isEmpty()
+                                ? runtimeSinkWriterFactory.create(catalogTable, proxy)
+                                : runtimeSinkWriterFactory.restore(catalogTable, proxy, state);
                 writers.put(sinkIdentifier, sinkWriter);
                 if (sinkWriterTemplates.size() == i) {
                     sinkWriterTemplates.add(
@@ -286,7 +314,7 @@ public class MultiTableSink
                         tableRetryTimes,
                         tableRetryIntervalSeconds,
                         sinkWriterTemplates,
-                        this::createRuntimeSinkWriter,
+                        runtimeSinkWriterFactory,
                         proxyContexts);
         writer.registerRestoredRuntimeCreatedTables(restoredRuntimeTables);
 
@@ -318,6 +346,25 @@ public class MultiTableSink
      */
     private SinkWriter<SeaTunnelRow, ?, ?> createRuntimeSinkWriter(
             CatalogTable catalogTable, SinkWriter.Context context) throws IOException {
+        return createRuntimeSinkWriter(catalogTable, context, Collections.emptyList());
+    }
+
+    /** Restores a runtime-created writer with the state captured under its sink identifier. */
+    private SinkWriter<SeaTunnelRow, ?, ?> restoreRuntimeSinkWriter(
+            CatalogTable catalogTable, SinkWriter.Context context, List<?> states)
+            throws IOException {
+        return createRuntimeSinkWriter(catalogTable, context, states);
+    }
+
+    /**
+     * Resolves the runtime sink factory and delegates writer creation or restoration to that sink.
+     *
+     * <p>The original unresolved options stay on this runtime object and are never copied into
+     * {@link MultiTableState}.
+     */
+    private SinkWriter<SeaTunnelRow, ?, ?> createRuntimeSinkWriter(
+            CatalogTable catalogTable, SinkWriter.Context context, List<?> states)
+            throws IOException {
         try {
             String factoryIdentifier = options.get(ConnectorCommonOptions.PLUGIN_NAME);
             ClassLoader runtimeClassLoader = Thread.currentThread().getContextClassLoader();
@@ -335,7 +382,7 @@ public class MultiTableSink
             if (jobContext != null) {
                 sink.setJobContext(jobContext);
             }
-            return sink.createWriter(context);
+            return createOrRestoreRuntimeSinkWriter(sink, context, states);
         } catch (Throwable error) {
             if (error instanceof IOException) {
                 throw (IOException) error;
@@ -344,6 +391,19 @@ public class MultiTableSink
                     "Failed to create sink writer for runtime table " + catalogTable.getTablePath(),
                     error);
         }
+    }
+
+    /**
+     * Delegates runtime writer setup to the sink's correct lifecycle method based on checkpoint
+     * state presence.
+     *
+     * <p>This prevents runtime-created writers from dropping state during a failover restore.
+     */
+    static SinkWriter<SeaTunnelRow, ?, ?> createOrRestoreRuntimeSinkWriter(
+            SeaTunnelSink sink, SinkWriter.Context context, List<?> states) throws IOException {
+        return states == null || states.isEmpty()
+                ? sink.createWriter(context)
+                : sink.restoreWriter(context, states);
     }
 
     /**

@@ -166,6 +166,41 @@ public class MultiTableSinkWriterTest {
     }
 
     @Test
+    public void testRuntimeTableRegistrationRetriesWriterCreation() throws Exception {
+        Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters = new HashMap<>();
+        Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
+        SinkWriter.Context context = new TestSinkWriterContext();
+        AtomicInteger attempts = new AtomicInteger();
+        MultiTableSinkWriter.SinkWriterTemplate sinkWriterTemplate =
+                new MultiTableSinkWriter.SinkWriterTemplate(null, context, 0);
+        MultiTableSinkWriter multiTableSinkWriter =
+                new MultiTableSinkWriter(
+                        sinkWriters,
+                        1,
+                        sinkWritersContext,
+                        MultiTableFailurePolicy.FAIL_FAST,
+                        JobMode.STREAMING,
+                        Collections.emptyList(),
+                        2,
+                        0,
+                        Collections.singletonList(sinkWriterTemplate),
+                        (runtimeCatalogTable, runtimeContext) -> {
+                            if (attempts.incrementAndGet() < 3) {
+                                throw new IOException("transient runtime writer creation failure");
+                            }
+                            return new DynamicTestSinkWriter(
+                                    runtimeCatalogTable.getTablePath().getFullName());
+                        });
+
+        CatalogTable catalogTable = catalogTable(TablePath.of("db1", "retry_runtime_table"));
+        multiTableSinkWriter.applySchemaChange(
+                new CreateTableEvent(catalogTable.getTableId(), catalogTable));
+        multiTableSinkWriter.close();
+
+        Assertions.assertEquals(3, attempts.get());
+    }
+
+    @Test
     public void testAggregatedFlushIncludesRuntimeCreatedWriterContext() throws Exception {
         RuntimeFlushSinkWriter.FLUSH_COUNT.set(0);
         Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters = new HashMap<>();
@@ -511,6 +546,22 @@ public class MultiTableSinkWriterTest {
         IOException closeException =
                 Assertions.assertThrows(IOException.class, restoredWriter::close);
         Assertions.assertTrue(closeException.getMessage().contains("test.failed"));
+    }
+
+    /** Ensures checkpointed runtime writer state reaches the underlying sink restore method. */
+    @Test
+    public void testRuntimeWriterRestoreDelegatesStateToSink() throws IOException {
+        RecordingSinkWriter restoredWriter = new RecordingSinkWriter(false);
+        RuntimeRestoreTestSink runtimeSink = new RuntimeRestoreTestSink(restoredWriter);
+        List<Object> states = Collections.singletonList("runtime-state");
+
+        SinkWriter<SeaTunnelRow, ?, ?> actual =
+                MultiTableSink.createOrRestoreRuntimeSinkWriter(
+                        runtimeSink, new TestSinkWriterContext(), states);
+
+        Assertions.assertSame(restoredWriter, actual);
+        Assertions.assertEquals(states, runtimeSink.getRestoredStates());
+        Assertions.assertEquals(0, runtimeSink.getCreateCalls());
     }
 
     @Test
@@ -1391,6 +1442,50 @@ public class MultiTableSinkWriterTest {
         public SinkWriter<SeaTunnelRow, TestSinkState, Object> restoreWriter(
                 SinkWriter.Context context, List<Object> states) {
             throw new AssertionError("failed table writer should not be restored");
+        }
+    }
+
+    /** Records which lifecycle method MultiTableSink chooses for a runtime writer restore. */
+    static class RuntimeRestoreTestSink
+            implements SeaTunnelSink<SeaTunnelRow, Object, TestSinkState, Object> {
+        /** Writer returned after the runtime sink receives checkpoint state. */
+        private final SinkWriter<SeaTunnelRow, TestSinkState, Object> restoredWriter;
+        /** Checkpoint state observed by the restore method. */
+        private List<Object> restoredStates;
+        /** Number of calls to the fresh-writer path. */
+        private int createCalls;
+
+        RuntimeRestoreTestSink(SinkWriter<SeaTunnelRow, TestSinkState, Object> restoredWriter) {
+            this.restoredWriter = restoredWriter;
+        }
+
+        @Override
+        public String getPluginName() {
+            return "runtime-restore-test";
+        }
+
+        @Override
+        public SinkWriter<SeaTunnelRow, TestSinkState, Object> createWriter(
+                SinkWriter.Context context) {
+            createCalls++;
+            return restoredWriter;
+        }
+
+        @Override
+        public SinkWriter<SeaTunnelRow, TestSinkState, Object> restoreWriter(
+                SinkWriter.Context context, List<Object> states) {
+            restoredStates = states;
+            return restoredWriter;
+        }
+
+        /** Returns the state passed through MultiTableSink's runtime restore path. */
+        List<Object> getRestoredStates() {
+            return restoredStates;
+        }
+
+        /** Returns the number of fresh-writer creation attempts. */
+        int getCreateCalls() {
+            return createCalls;
         }
     }
 

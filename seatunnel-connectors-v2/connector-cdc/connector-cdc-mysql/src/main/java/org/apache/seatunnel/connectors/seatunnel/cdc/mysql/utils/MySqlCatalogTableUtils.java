@@ -30,6 +30,7 @@ import io.debezium.relational.TableId;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
@@ -39,6 +40,9 @@ import java.util.stream.Collectors;
  * startup catalog discovery phase.
  */
 public class MySqlCatalogTableUtils {
+
+    /** Names that can be safely propagated from source-side DDL to downstream JDBC identifiers. */
+    private static final Pattern SAFE_IDENTIFIER = Pattern.compile("[A-Za-z_][A-Za-z0-9_$]*");
 
     /**
      * Converts a Debezium MySQL table change into a SeaTunnel {@link CatalogTable}. It is used when
@@ -72,6 +76,43 @@ public class MySqlCatalogTableUtils {
                 Collections.emptyMap(),
                 Collections.emptyList(),
                 null);
+    }
+
+    /**
+     * Converts runtime table metadata after rejecting names that cannot be safely substituted into
+     * downstream JDBC identifiers.
+     *
+     * <p>Runtime metadata originates in a source-side DDL record and can be used by a downstream
+     * sink to create a physical table. Limit this path to ordinary unquoted MySQL identifiers so it
+     * cannot turn source-controlled names into a downstream SQL injection vector.
+     */
+    public static CatalogTable toRuntimeCatalogTable(
+            Table table, MySqlConnectorConfig dbzConnectorConfig) {
+        validateRuntimeTableIdentifiers(table);
+        return toCatalogTable(table, dbzConnectorConfig);
+    }
+
+    /** Validates every source-controlled identifier that a runtime sink can turn into SQL. */
+    private static void validateRuntimeTableIdentifiers(Table table) {
+        TableId tableId = table.id();
+        validateIdentifier("database", tableId.catalog());
+        validateIdentifier("schema", tableId.schema());
+        validateIdentifier("table", tableId.table());
+        table.columns().forEach(column -> validateIdentifier("column", column.name()));
+        table.primaryKeyColumnNames()
+                .forEach(primaryKey -> validateIdentifier("primary key", primaryKey));
+    }
+
+    /**
+     * Rejects a missing-safe-pattern identifier while allowing absent catalog or schema components.
+     */
+    private static void validateIdentifier(String type, String identifier) {
+        if (identifier != null && !SAFE_IDENTIFIER.matcher(identifier).matches()) {
+            throw new IllegalArgumentException(
+                    String.format(
+                            "Runtime MySQL %s identifier '%s' must match %s",
+                            type, identifier, SAFE_IDENTIFIER.pattern()));
+        }
     }
 
     private MySqlCatalogTableUtils() {}

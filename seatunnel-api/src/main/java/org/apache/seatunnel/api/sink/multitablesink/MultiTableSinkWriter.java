@@ -540,7 +540,13 @@ public class MultiTableSinkWriter
         }
         if (event instanceof CreateTableEvent) {
             try {
-                registerNewlyCreatedTable((CreateTableEvent) event);
+                executeWithTableRetry(
+                        tableId,
+                        MultiTableFailurePhase.CHECKPOINT,
+                        () -> {
+                            registerNewlyCreatedTable((CreateTableEvent) event);
+                            return null;
+                        });
             } catch (Throwable error) {
                 if (failurePolicy.continueOtherTables()) {
                     handleTableFailure(tableId, MultiTableFailurePhase.CHECKPOINT, error);
@@ -1524,6 +1530,18 @@ public class MultiTableSinkWriter
     interface RuntimeSinkWriterFactory {
         SinkWriter<SeaTunnelRow, ?, ?> create(CatalogTable catalogTable, SinkWriter.Context context)
                 throws IOException;
+
+        /**
+         * Restores a runtime-created writer from checkpoint state.
+         *
+         * <p>The default preserves existing factory implementations that only support fresh writer
+         * creation.
+         */
+        default SinkWriter<SeaTunnelRow, ?, ?> restore(
+                CatalogTable catalogTable, SinkWriter.Context context, List<?> states)
+                throws IOException {
+            return create(catalogTable, context);
+        }
     }
 
     @FunctionalInterface

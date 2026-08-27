@@ -54,6 +54,16 @@ import static org.mockito.Mockito.when;
 public class MySqlSchemaTest {
     private static final String QUOTED_CHARACTER = "`";
 
+    /** Ensures source-controlled runtime identifiers cannot be propagated into downstream SQL. */
+    @Test
+    public void testRuntimeCatalogTableRejectsUnsafeIdentifier() {
+        Table unsafeTable = Table.editor().tableId(TableId.parse("db1.unsafe-table")).create();
+
+        Assertions.assertThrows(
+                IllegalArgumentException.class,
+                () -> MySqlCatalogTableUtils.toRuntimeCatalogTable(unsafeTable, null));
+    }
+
     @Test
     public void testReadSchemaFallbackDescTable() {
         MySqlSourceConfigFactory factory = new MySqlSourceConfigFactory();
