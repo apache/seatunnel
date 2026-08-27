@@ -50,6 +50,28 @@ github:
     rebase: false
   pull_requests:
     allow_update_branch: true
+  rulesets:
+    - name: Merge Queue
+      target: branch
+      enforcement: active
+      bypass_actors: []
+      conditions:
+        ref_name:
+          include:
+            - refs/heads/dev
+          exclude: []
+      rules:
+        - type: merge_queue
+          parameters:
+            # Leave time for runner scheduling and status reporting around the 30-minute job.
+            check_response_timeout_minutes: 45
+            grouping_strategy: ALLGREEN
+            max_entries_to_build: 5
+            # Phase one merges each PR immediately instead of waiting to form a batch.
+            max_entries_to_merge: 1
+            merge_method: SQUASH
+            min_entries_to_merge: 1
+            min_entries_to_merge_wait_minutes: 0
   protected_branches:
     dev:
       required_status_checks:
