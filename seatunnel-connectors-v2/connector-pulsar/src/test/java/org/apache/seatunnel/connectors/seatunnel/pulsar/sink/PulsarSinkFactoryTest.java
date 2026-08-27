@@ -121,6 +121,26 @@ public class PulsarSinkFactoryTest {
         Assertions.assertTrue(exception.getMessage().contains("bundled"));
     }
 
+    @Test
+    void testBlankClientServiceUrlFails() {
+        Map<String, Object> options = validSinkOptions();
+        options.put(PulsarSinkOptions.CLIENT_SERVICE_URL.key(), "");
+        OptionValidationException exception =
+                Assertions.assertThrows(OptionValidationException.class, () -> validate(options));
+        Assertions.assertTrue(
+                exception.getMessage().contains(PulsarSinkOptions.CLIENT_SERVICE_URL.key()));
+    }
+
+    @Test
+    void testBlankAdminServiceUrlFails() {
+        Map<String, Object> options = validSinkOptions();
+        options.put(PulsarSinkOptions.ADMIN_SERVICE_URL.key(), "   ");
+        OptionValidationException exception =
+                Assertions.assertThrows(OptionValidationException.class, () -> validate(options));
+        Assertions.assertTrue(
+                exception.getMessage().contains(PulsarSinkOptions.ADMIN_SERVICE_URL.key()));
+    }
+
     private Map<String, Object> validSinkOptions() {
         Map<String, Object> options = new HashMap<>();
         options.put(PulsarSinkOptions.CLIENT_SERVICE_URL.key(), "pulsar://localhost:6650");
