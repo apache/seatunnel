@@ -531,9 +531,15 @@ public class FtpFileIT extends TestSuiteBase implements TestResource {
                                                     CONTINUOUS_NON_RECURSIVE_PATH
                                                             + "/dst/root.bin")));
 
-            Thread.sleep(3000);
-            Assertions.assertFalse(
-                    isFtpFileExists(CONTINUOUS_NON_RECURSIVE_PATH + "/dst/subdir/nested.bin"));
+            Awaitility.await()
+                    .during(3, TimeUnit.SECONDS)
+                    .atMost(1, TimeUnit.MINUTES)
+                    .untilAsserted(
+                            () ->
+                                    Assertions.assertFalse(
+                                            isFtpFileExists(
+                                                    CONTINUOUS_NON_RECURSIVE_PATH
+                                                            + "/dst/subdir/nested.bin")));
         } catch (Throwable failure) {
             testFailure = failure;
             throw failure;

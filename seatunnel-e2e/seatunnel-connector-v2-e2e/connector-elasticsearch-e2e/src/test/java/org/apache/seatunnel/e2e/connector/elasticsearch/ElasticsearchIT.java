@@ -45,8 +45,9 @@ import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 import org.apache.commons.io.IOUtils;
 
 import org.awaitility.Awaitility;
-import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestTemplate;
@@ -87,8 +88,6 @@ import java.util.stream.Stream;
 @Slf4j
 public class ElasticsearchIT extends TestSuiteBase implements TestResource {
 
-    private static final int FILTERED_DOCUMENT_COUNT = 11;
-
     private List<String> testDataset1;
 
     private List<String> testDataset2;
@@ -99,7 +98,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
-    @BeforeEach
+    @BeforeAll
     @Override
     public void startUp() throws Exception {
         container =
@@ -130,6 +129,15 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         esRestClient = EsRestClient.createInstance(config);
         testDataset1 = generateTestDataSet1();
         testDataset2 = generateTestDataSet2();
+    }
+
+    @BeforeEach
+    public void initializeTestData() throws Exception {
+        // Reuse the Elasticsearch process across this large parameterized suite, while keeping
+        // every invocation isolated from indices created by the preceding invocation.
+        esRestClient.listIndex().stream()
+                .filter(index -> !index.startsWith("."))
+                .forEach(esRestClient::dropIndex);
         createIndexForResourceNull("st_index");
         createIndexDocs();
         createIndexWithFullType();
@@ -491,8 +499,10 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
         range2.put("c_int2", rangeParam);
         query2.put("range", range2);
 
-        awaitIndexDocsCount("read_filter_index1_copy", FILTERED_DOCUMENT_COUNT);
-        awaitIndexDocsCount("read_filter_index2_copy", FILTERED_DOCUMENT_COUNT);
+        awaitIndexDocsCount(
+                "read_filter_index1_copy", countDocumentsMatchingRange(testDataset1, "c_int"));
+        awaitIndexDocsCount(
+                "read_filter_index2_copy", countDocumentsMatchingRange(testDataset2, "c_int2"));
         Set<String> sinkData1 =
                 new HashSet<>(
                         getDocsWithTransformDate(
@@ -765,7 +775,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
     private List<String> readSinkDataWithOutSchema(String indexName) throws InterruptedException {
         Map<String, BasicTypeDefine<EsType>> esFieldType =
                 esRestClient.getFieldTypeMapping(indexName, Lists.newArrayList());
-        awaitIndexDocsCount(indexName, FILTERED_DOCUMENT_COUNT);
+        awaitIndexDocsCount(indexName, mapTestDatasetForDSL().size());
         List<String> source = new ArrayList<>(esFieldType.keySet());
         return getDocsWithTransformDate(source, indexName);
     }
@@ -776,7 +786,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
             throws InterruptedException {
         Map<String, BasicTypeDefine<EsType>> esFieldType =
                 esRestClient.getFieldTypeMapping(indexName, Lists.newArrayList());
-        awaitIndexDocsCount(indexName, FILTERED_DOCUMENT_COUNT);
+        awaitIndexDocsCount(indexName, mapTestDatasetForDSL().size());
         List<String> source = new ArrayList<>(esFieldType.keySet());
         return getDocsWithTransformDate(source, indexName, nullAllowedFields);
     }
@@ -784,7 +794,7 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
     // The timestamp type in Elasticsearch is incompatible with that in Seatunnel,
     // and we need to handle the conversion here.
     private List<String> readSinkDataWithSchema(String index) throws InterruptedException {
-        awaitIndexDocsCount(index, FILTERED_DOCUMENT_COUNT);
+        awaitIndexDocsCount(index, mapTestDatasetForDSL().size());
         List<String> source =
                 Lists.newArrayList(
                         "c_map",
@@ -1049,13 +1059,15 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                 .collect(Collectors.toList());
     }
 
-    @AfterEach
+    @AfterAll
     @Override
     public void tearDown() {
         if (Objects.nonNull(esRestClient)) {
             esRestClient.close();
         }
-        container.close();
+        if (Objects.nonNull(container)) {
+            container.close();
+        }
     }
 
     @Test
@@ -1151,6 +1163,17 @@ public class ElasticsearchIT extends TestSuiteBase implements TestResource {
                                                 .getIndexDocsCount(indexName)
                                                 .get(0)
                                                 .getDocsCount()));
+    }
+
+    private long countDocumentsMatchingRange(List<String> dataset, String fieldName) {
+        return dataset.stream()
+                .map(JsonUtils::parseObject)
+                .filter(
+                        document -> {
+                            JsonNode field = document.get(fieldName);
+                            return field != null && field.asInt() >= 10 && field.asInt() <= 20;
+                        })
+                .count();
     }
 
     private List<String> generateTestData() throws JsonProcessingException {
