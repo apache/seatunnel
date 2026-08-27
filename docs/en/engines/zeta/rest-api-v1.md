@@ -292,6 +292,8 @@ network:
 `jobId`, `jobName`, `jobStatus`, `createTime`, `jobDag`, `metrics` always be returned.
 `envOptions`, `pluginJarsUrls`, `isStartWithSavePoint` will return when job is running.
 `finishedTime`, `errorMsg` will return when job is finished.
+A running job also returns a `diagnostics` block (state timestamps and per-pipeline restore counts),
+see [REST API V2](rest-api-v2.md) for its fields.
 
 #### Metrics field description
 

@@ -685,6 +685,42 @@ public class RestApiIT {
     }
 
     @Test
+    public void testGetJobDiagnosticsOfRunningJob() {
+        // the diagnostics of a running job must be identical no matter which member serves the
+        // request: the master builds them locally, other members fetch them from the master
+        ports.forEach(
+                (key, value) ->
+                        given().get(
+                                        HOST
+                                                + value
+                                                + node1Config
+                                                        .getEngineConfig()
+                                                        .getHttpConfig()
+                                                        .getContextPath()
+                                                + RestConstant.REST_URL_JOB_INFO
+                                                + "/"
+                                                + clientJobProxy.getJobId())
+                                .then()
+                                .statusCode(200)
+                                .body("jobStatus", equalTo("RUNNING"))
+                                .body(
+                                        "diagnostics.jobId",
+                                        equalTo(Long.toString(clientJobProxy.getJobId())))
+                                .body("diagnostics.generatedAt", notNullValue())
+                                .body("diagnostics.stateTimestamps.RUNNING", notNullValue())
+                                .body("diagnostics.pipelines", hasSize(1))
+                                .body("diagnostics.pipelines[0].pipelineId", equalTo(1))
+                                .body(
+                                        "diagnostics.pipelines[0].pipelineStatus",
+                                        equalTo("RUNNING"))
+                                .body("diagnostics.pipelines[0].restoreCount", equalTo(0))
+                                .body(
+                                        "diagnostics.pipelines[0].stateTimestamps.RUNNING",
+                                        notNullValue())
+                                .body("diagnostics.totalPipelineRestoreCount", equalTo(0)));
+    }
+
+    @Test
     public void testOverview() {
         Arrays.asList(node2, node1)
                 .forEach(

@@ -46,9 +46,11 @@ import org.apache.seatunnel.engine.core.job.VertexInfo;
 import org.apache.seatunnel.engine.server.CoordinatorService;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.dag.DAGUtils;
+import org.apache.seatunnel.engine.server.diagnostic.JobRuntimeDiagnostics;
 import org.apache.seatunnel.engine.server.master.JobHistoryService;
 import org.apache.seatunnel.engine.server.operation.CancelJobOperation;
 import org.apache.seatunnel.engine.server.operation.GetClusterHealthMetricsOperation;
+import org.apache.seatunnel.engine.server.operation.GetJobDiagnosticsOperation;
 import org.apache.seatunnel.engine.server.operation.GetJobInfoOperation;
 import org.apache.seatunnel.engine.server.operation.GetJobMetricsOperation;
 import org.apache.seatunnel.engine.server.operation.GetJobStatusOperation;
@@ -63,6 +65,7 @@ import com.hazelcast.cluster.Address;
 import com.hazelcast.cluster.Cluster;
 import com.hazelcast.cluster.Member;
 import com.hazelcast.instance.impl.Node;
+import com.hazelcast.internal.json.Json;
 import com.hazelcast.internal.json.JsonArray;
 import com.hazelcast.internal.json.JsonObject;
 import com.hazelcast.internal.json.JsonValue;
@@ -451,11 +454,40 @@ public abstract class BaseService {
                         RestConstant.METRICS,
                         metricsToJsonObject(getJobMetrics(jobMetrics, jobDAGInfo)));
 
+        JsonObject diagnostics = getJobDiagnostics(jobId, seaTunnelServer);
+        if (diagnostics != null) {
+            jobInfoJson.add(RestConstant.DIAGNOSTICS, diagnostics);
+        }
+
         if (jobStatus != null && jobStatus.isEndState()) {
             RUNNING_JOB_DAG_JSON_CACHE.remove(jobId);
         }
 
         return jobInfoJson;
+    }
+
+    /**
+     * Reads the job runtime diagnostics from the master member, or {@code null} when they can not
+     * be obtained. Diagnostics are auxiliary information, so a failure here never fails the
+     * job-info response.
+     */
+    private JsonObject getJobDiagnostics(long jobId, SeaTunnelServer masterSeaTunnelServer) {
+        try {
+            // the caller resolved it with getSeaTunnelServer(true), so it is either null or this
+            // node is the master and no further isMasterNode() check is needed
+            if (masterSeaTunnelServer != null) {
+                return JobRuntimeDiagnostics.build(masterSeaTunnelServer, jobId);
+            }
+            String response =
+                    (String)
+                            NodeEngineUtil.sendOperationToMasterNode(
+                                            nodeEngine, new GetJobDiagnosticsOperation(jobId))
+                                    .join();
+            return response == null ? null : Json.parse(response).asObject();
+        } catch (Throwable t) {
+            log.debug("Get job {} diagnostics failed: {}", jobId, t.getMessage());
+            return null;
+        }
     }
 
     private JobDAGInfo getRunningJobDAGInfo(long jobId, SeaTunnelServer masterSeaTunnelServer) {
