@@ -138,6 +138,8 @@ final class IntermediateQueueBenchmarkState {
         if (capacity <= 0 || Integer.bitCount(capacity) != 1) {
             throw new IllegalArgumentException("capacity must be a positive power of two");
         }
+        // Keep at least one reusable record per queue slot so a saturated queue does not contain
+        // duplicate record instances. Records remain read-only after trial setup.
         if (recordPoolSize < capacity || Integer.bitCount(recordPoolSize) != 1) {
             throw new IllegalArgumentException(
                     "recordPoolSize must be a power of two and at least capacity");

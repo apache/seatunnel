@@ -49,10 +49,12 @@ class IntermediateQueueBenchmarkTest {
     }
 
     @Test
-    void shouldRejectCapacityThatDisruptorCannotUse() {
-        IntermediateQueueBenchmarkState state =
-                new IntermediateQueueBenchmarkState(QueueType.DISRUPTOR, 1000, 4096);
+    void shouldRejectNonPowerOfTwoCapacityForEachQueueType() {
+        for (QueueType queueType : QueueType.values()) {
+            IntermediateQueueBenchmarkState state =
+                    new IntermediateQueueBenchmarkState(queueType, 1000, 4096);
 
-        assertThrows(IllegalArgumentException.class, state::setUp);
+            assertThrows(IllegalArgumentException.class, state::setUp);
+        }
     }
 }
