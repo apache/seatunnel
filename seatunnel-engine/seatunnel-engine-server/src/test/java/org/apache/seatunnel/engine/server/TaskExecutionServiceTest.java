@@ -613,6 +613,7 @@ public class TaskExecutionServiceTest extends AbstractSeaTunnelServerTest {
         oldTracker.taskDone(oldTask);
 
         Assertions.assertSame(newContext, executionContexts.get(location));
+        Assertions.assertNull(oldContext.getClassLoaders());
         Assertions.assertNotNull(newContext.getClassLoaders());
         Assertions.assertFalse(newCancellationFuture.isCancelled());
         Assertions.assertSame(newCancellationFuture, cancellationFutures.get(location));

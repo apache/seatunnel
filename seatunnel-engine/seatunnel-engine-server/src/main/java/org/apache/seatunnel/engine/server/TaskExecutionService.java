@@ -1522,9 +1522,10 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 if (!finishExecutionContext(taskGroupLocation)) {
                     logger.warning(
                             String.format(
-                                    "Skip stale taskDone cleanup for %s because the active context "
-                                            + "is no longer owned by this tracker.",
+                                    "Skip stale taskDone shared cleanup for %s because the active "
+                                            + "context is no longer owned by this tracker.",
                                     taskGroupLocation));
+                    recycleClassLoader(taskGroupLocation, ownedContext);
                     return;
                 }
                 recycleClassLoader(taskGroupLocation, ownedContext);
