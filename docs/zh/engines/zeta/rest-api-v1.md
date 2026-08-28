@@ -239,6 +239,45 @@ network:
 
 ------------------------------------------------------------------------------------------
 
+### 返回运行中作业的 Slot 占用
+
+<details>
+ <summary><code>GET</code> <code><b>/hazelcast/rest/maps/running-jobs/slot-usage</b></code> <code>(按运行中作业返回 Slot 占用。)</code></summary>
+
+#### 参数
+
+#### 响应
+
+```json
+[
+  {
+    "jobId": "733584788375093248",
+    "slotCount": 3,
+    "slotSourceAvailable": true,
+    "pipelineSlotCounts": {
+      "1": 2,
+      "2": 1
+    },
+    "workerSlotCounts": {
+      "10.0.0.8:5801": 2,
+      "10.0.0.9:5801": 1
+    }
+  }
+]
+```
+
+**说明：**
+- `jobId` 使用字符串返回，以避免 JavaScript 客户端出现精度丢失。
+- `slotCount` 表示该运行中作业当前占用的 task group slot 数量。
+- `slotSourceAvailable` 表示本次响应是否拿到了 master 侧的 assigned-slot 快照。当该值为 `false` 时，`slotCount = 0` 也可能意味着 slot 数据源尚未就绪，而不是作业真实未持有 slot。
+- `pipelineSlotCounts` 按 pipeline id 汇总同一批 slot。
+- `workerSlotCounts` 按 worker 地址汇总同一批 slot。
+- 如果运行中作业尚未拿到 slot，会返回该作业且 `slotCount` 为 `0`，同时 `slotSourceAvailable` 保持为 `true`。
+
+</details>
+
+------------------------------------------------------------------------------------------
+
 ### 返回作业的详细信息
 
 <details>

@@ -316,6 +316,31 @@ public class RestApiIT {
     }
 
     @Test
+    public void testGetRunningJobSlotUsage() {
+        long jobId = clientJobProxy.getJobId();
+
+        ports.forEach(
+                (hazelcastPort, httpPort) ->
+                        Awaitility.await()
+                                .atMost(2, TimeUnit.MINUTES)
+                                .untilAsserted(
+                                        () -> {
+                                            assertRunningJobSlotUsageEndpoint(
+                                                    HOST
+                                                            + hazelcastPort
+                                                            + CONTEXT_PATH
+                                                            + RestConstant
+                                                                    .REST_URL_RUNNING_JOBS_SLOT_USAGE,
+                                                    jobId);
+                                            assertRunningJobSlotUsageEndpoint(
+                                                    buildHttpBaseUrl(httpPort)
+                                                            + RestConstant
+                                                                    .REST_URL_RUNNING_JOBS_SLOT_USAGE,
+                                                    jobId);
+                                        }));
+    }
+
+    @Test
     public void testGetJobById() {
         Arrays.asList(node2, node1)
                 .forEach(
@@ -1356,6 +1381,40 @@ public class RestApiIT {
             return Collections.emptyMap();
         }
         return (Map<String, Object>) value;
+    }
+
+    private void assertRunningJobSlotUsageEndpoint(String url, long jobId) {
+        List<Map<String, Object>> slotUsages =
+                given().get(url)
+                        .then()
+                        .statusCode(200)
+                        .extract()
+                        .as(new TypeRef<List<Map<String, Object>>>() {});
+        Map<String, Object> slotUsage =
+                slotUsages.stream()
+                        .filter(
+                                usage ->
+                                        String.valueOf(jobId)
+                                                .equals(String.valueOf(usage.get("jobId"))))
+                        .findFirst()
+                        .orElseThrow(
+                                () ->
+                                        new AssertionError(
+                                                "Running job slot usage not found for job "
+                                                        + jobId));
+        int slotCount = ((Number) slotUsage.get("slotCount")).intValue();
+        Assertions.assertTrue(
+                slotCount > 0, "slotCount should be positive for running job " + jobId);
+        Assertions.assertEquals(Boolean.TRUE, slotUsage.get("slotSourceAvailable"));
+        Assertions.assertEquals(slotCount, sumCounts(castMap(slotUsage.get("pipelineSlotCounts"))));
+        Assertions.assertEquals(slotCount, sumCounts(castMap(slotUsage.get("workerSlotCounts"))));
+    }
+
+    private int sumCounts(Map<String, Object> counts) {
+        return counts.values().stream()
+                .filter(Number.class::isInstance)
+                .mapToInt(value -> ((Number) value).intValue())
+                .sum();
     }
 
     private long getLong(Map<String, Object> source, String key) {

@@ -83,6 +83,7 @@ public class RestConstant {
     public static final String REST_URL_RUNNING_JOBS = "/running-jobs";
 
     public static final String REST_URL_RUNNING_JOBS_SUMMARY = "/running-jobs/summary";
+    public static final String REST_URL_RUNNING_JOBS_SLOT_USAGE = "/running-jobs/slot-usage";
 
     @Deprecated public static final String REST_URL_RUNNING_JOB = "/running-job";
     public static final String REST_URL_JOB_INFO = "/job-info";
