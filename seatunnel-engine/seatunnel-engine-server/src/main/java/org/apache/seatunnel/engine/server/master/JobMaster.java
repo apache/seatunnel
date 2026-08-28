@@ -728,7 +728,7 @@ public class JobMaster {
      * <p>The slot-to-task mapping is stored in Hazelcast before task deployment. After a master
      * failover, requesting those slots again cannot succeed with fixed slots because Workers still
      * own them for this job. A slot is reused only after the current ResourceManager confirms that
-     * the Worker still has the matching slot sequence.
+     * the Worker still has the matching allocation sequence.
      */
     private SlotProfile getReusableSlot(TaskGroupLocation taskGroupLocation) {
         if (!masterFailoverRestore) {

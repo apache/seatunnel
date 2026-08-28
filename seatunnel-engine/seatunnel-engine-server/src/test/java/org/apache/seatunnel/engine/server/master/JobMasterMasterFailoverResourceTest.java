@@ -83,6 +83,45 @@ public class JobMasterMasterFailoverResourceTest
         }
     }
 
+    /**
+     * Verifies that a slot reassigned to another task group of the same job cannot satisfy a stale
+     * persisted mapping after master failover.
+     */
+    @Test
+    void testRestoreRejectsSlotReassignedWithinSameJob() throws Exception {
+        long jobId = instance.getFlakeIdGenerator("master-failover-same-job-reassignment").newId();
+        ResourceManager resourceManager = server.getCoordinatorService().getResourceManager();
+        JobMaster original = newJobMaster(jobId);
+        original.init(System.currentTimeMillis(), false);
+        Assertions.assertTrue(original.preApplyResources());
+        persistPreAppliedSlots(original);
+
+        SlotProfile staleSlot = getFirstPersistedSlot(original);
+        List<SlotProfile> blockerSlots = occupyRemainingSlots(resourceManager, jobId + 1);
+        resourceManager.releaseResource(jobId, staleSlot).join();
+        SlotProfile reassignedSlot =
+                resourceManager.applyResource(jobId, new ResourceProfile(), null).get();
+        Assertions.assertEquals(staleSlot.getWorker(), reassignedSlot.getWorker());
+        Assertions.assertEquals(staleSlot.getSlotID(), reassignedSlot.getSlotID());
+        Assertions.assertNotEquals(staleSlot.getSequence(), reassignedSlot.getSequence());
+        Assertions.assertEquals(0, resourceManager.getUnassignedSlots(null).size());
+
+        JobMaster restored = newJobMaster(jobId);
+        restored.init(System.currentTimeMillis(), true);
+
+        try {
+            Assertions.assertFalse(restored.preApplyResources());
+            Assertions.assertFalse(resourceManager.slotActiveCheck(staleSlot));
+            Assertions.assertTrue(resourceManager.slotActiveCheck(reassignedSlot));
+            resourceManager.releaseResource(jobId, staleSlot).join();
+            Assertions.assertTrue(resourceManager.slotActiveCheck(reassignedSlot));
+        } finally {
+            resourceManager.releaseResources(jobId + 1, blockerSlots).join();
+            resourceManager.releaseResource(jobId, reassignedSlot).join();
+            releasePersistedSlotsExcept(resourceManager, original, jobId, staleSlot);
+        }
+    }
+
     private JobMaster newJobMaster(long jobId) {
         LogicalDag logicalDag =
                 TestUtils.createTestLogicalPlan(
@@ -143,6 +182,20 @@ public class JobMasterMasterFailoverResourceTest
                 jobMaster.getPhysicalPlan().getPreApplyResourceFutures().get(location).join());
     }
 
+    /** Returns one persisted assignment that can be released and reassigned during the test. */
+    private SlotProfile getFirstPersistedSlot(JobMaster jobMaster) {
+        IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfilesIMap =
+                nodeEngine.getHazelcastInstance().getMap("ownedSlotProfilesIMap");
+        for (SubPlan subPlan : jobMaster.getPhysicalPlan().getPipelineList()) {
+            Map<TaskGroupLocation, SlotProfile> slotProfiles =
+                    ownedSlotProfilesIMap.get(subPlan.getPipelineLocation());
+            if (slotProfiles != null && !slotProfiles.isEmpty()) {
+                return slotProfiles.values().iterator().next();
+            }
+        }
+        throw new IllegalStateException("No pre-applied slot was persisted for the test job");
+    }
+
     private List<SlotProfile> occupyRemainingSlots(ResourceManager resourceManager, long jobId)
             throws Exception {
         int freeSlots = resourceManager.getUnassignedSlots(null).size();
@@ -155,6 +208,15 @@ public class JobMasterMasterFailoverResourceTest
 
     private void releasePersistedSlots(
             ResourceManager resourceManager, JobMaster jobMaster, long jobId) {
+        releasePersistedSlotsExcept(resourceManager, jobMaster, jobId, null);
+    }
+
+    /** Releases persisted test slots except a profile whose stale release must remain rejected. */
+    private void releasePersistedSlotsExcept(
+            ResourceManager resourceManager,
+            JobMaster jobMaster,
+            long jobId,
+            SlotProfile excludedSlot) {
         IMap<PipelineLocation, Map<TaskGroupLocation, SlotProfile>> ownedSlotProfilesIMap =
                 nodeEngine.getHazelcastInstance().getMap("ownedSlotProfilesIMap");
         List<SlotProfile> persistedSlots = new ArrayList<>();
@@ -162,7 +224,9 @@ public class JobMasterMasterFailoverResourceTest
             Map<TaskGroupLocation, SlotProfile> slotProfiles =
                     ownedSlotProfilesIMap.remove(subPlan.getPipelineLocation());
             if (slotProfiles != null) {
-                persistedSlots.addAll(slotProfiles.values());
+                slotProfiles.values().stream()
+                        .filter(slotProfile -> !slotProfile.equals(excludedSlot))
+                        .forEach(persistedSlots::add);
             }
         }
         if (!persistedSlots.isEmpty()) {

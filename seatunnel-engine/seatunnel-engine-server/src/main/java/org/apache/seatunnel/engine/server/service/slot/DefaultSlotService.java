@@ -173,7 +173,9 @@ public class DefaultSlotService implements SlotService {
         initStatus = false;
         SlotProfile profile = selectBestMatchSlot(resourceProfile);
         if (profile != null) {
-            profile.assign(jobId);
+            // A fixed slot can return to the same job after release, so every assignment needs a
+            // new identity instead of reusing the worker-service sequence.
+            profile.assign(jobId, UUID.randomUUID().toString());
             assignedResource.accumulateAndGet(profile.getResourceProfile(), ResourceProfile::merge);
             unassignedResource.accumulateAndGet(
                     profile.getResourceProfile(), ResourceProfile::subtract);
