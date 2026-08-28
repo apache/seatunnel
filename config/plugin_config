@@ -24,6 +24,7 @@ connector-amazondynamodb
 connector-assert
 connector-cassandra
 connector-salesforce
+connector-cdc-db2
 connector-cdc-mysql
 connector-cdc-mongodb
 connector-cdc-sqlserver
@@ -46,8 +47,11 @@ connector-file-jindo-oss
 connector-file-s3
 connector-file-sftp
 connector-file-obs
+connector-fluss
 connector-google-sheets
 connector-google-firestore
+connector-google-pubsub
+connector-azure-queue-storage
 connector-google-bigtable
 connector-graphql
 connector-hive
@@ -71,6 +75,7 @@ connector-jdbc
 connector-kafka
 connector-kudu
 connector-maxcompute
+connector-couchbase
 connector-mongodb
 connector-neo4j
 connector-openmldb
@@ -103,4 +108,6 @@ connector-sensorsdata
 connector-hugegraph
 connector-lance
 connector-mqtt
+connector-python
 connector-bigquery
+connector-nats-jetstream

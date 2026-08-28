@@ -17,6 +17,7 @@
 package org.apache.seatunnel.connectors.seatunnel.prometheus.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
@@ -42,33 +43,31 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.TimeUnit;
+import java.util.Optional;
 
 @Slf4j
 public class PrometheusWriter extends HttpSinkWriter {
+
+    // The removed connector-level option key, kept only to detect and warn about a leftover key in
+    // an upgraded job config.
+    private static final String REMOVED_FLUSH_INTERVAL_KEY = "flush_interval";
+
     private final List<Point> batchList;
-    private volatile Exception flushException;
     private final Integer batchSize;
-    private final long flushInterval;
-    private PrometheusSinkConfig sinkConfig;
+    private final PrometheusSinkConfig sinkConfig;
     private final Serializer serializer;
     protected final HttpClientProvider httpClient;
-    private ScheduledExecutorService executor;
-    private ScheduledFuture scheduledFuture;
 
     public PrometheusWriter(
             SeaTunnelRowType seaTunnelRowType,
             HttpParameter httpParameter,
-            ReadonlyConfig pluginConfig) {
+            ReadonlyConfig pluginConfig,
+            SinkWriter.Context context) {
 
         super(seaTunnelRowType, httpParameter);
         this.batchList = new ArrayList<>();
         this.sinkConfig = PrometheusSinkConfig.loadConfig(pluginConfig);
         this.batchSize = sinkConfig.getBatchSize();
-        this.flushInterval = sinkConfig.getFlushInterval();
         this.serializer =
                 new PrometheusSerializer(
                         seaTunnelRowType,
@@ -76,23 +75,27 @@ public class PrometheusWriter extends HttpSinkWriter {
                         sinkConfig.getKeyLabel(),
                         sinkConfig.getKeyValue());
         this.httpClient = new HttpClientProvider(httpParameter);
-        if (flushInterval > 0) {
-            log.info("start schedule submit message,interval:{}", flushInterval);
-            this.executor =
-                    Executors.newScheduledThreadPool(
-                            1,
-                            runnable -> {
-                                Thread thread = new Thread(runnable);
-                                thread.setDaemon(true);
-                                thread.setName("Prometheus-Metric-Sender");
-                                return thread;
-                            });
-            this.scheduledFuture =
-                    executor.scheduleAtFixedRate(
-                            this::flushSchedule,
-                            flushInterval,
-                            flushInterval,
-                            TimeUnit.MILLISECONDS);
+        // The connector-level `flush_interval` option was removed in favor of the engine-level
+        // `sink.flush.interval`. A leftover key in an upgraded job config is silently ignored on a
+        // direct job run (only `--check`/`--dry-run` reject unknown keys), so warn here (once per
+        // writer instance) to give operators a signal instead of silently dropping periodic
+        // flushing.
+        if (pluginConfig.getSourceMap().containsKey(REMOVED_FLUSH_INTERVAL_KEY)) {
+            log.warn(
+                    "The connector option 'flush_interval' has been removed and is ignored. Use the "
+                            + "engine-level 'sink.flush.interval' in the job 'env' block instead. "
+                            + "Engine-level timer flush is supported only by Zeta; on Spark and "
+                            + "Flink there is no periodic flush, so tune 'batch_size' instead.");
+        }
+        // Opt in to engine-level timer flush. On Zeta the engine invokes this action on the normal
+        // Sink input-processing path when a FlushSignal arrives, so there is no connector-owned
+        // scheduler thread and no concurrency with write/checkpoint/close. On Spark and Flink the
+        // Context does not implement registerFlushAction (it keeps the interface's no-op default),
+        // so there is no periodic timer flush there; the buffer is flushed on batch_size and on
+        // close(). The null-check is defensive for non-standard/test call sites that may not supply
+        // a context.
+        if (context != null) {
+            context.registerFlushAction(this::flush);
         }
     }
 
@@ -103,8 +106,6 @@ public class PrometheusWriter extends HttpSinkWriter {
     }
 
     public void write(Point record) {
-        checkFlushException();
-
         synchronized (batchList) {
             batchList.add(record);
             if (batchSize > 0 && batchList.size() >= batchSize) {
@@ -113,45 +114,58 @@ public class PrometheusWriter extends HttpSinkWriter {
         }
     }
 
-    private void flushSchedule() {
-        synchronized (batchList) {
-            if (!batchList.isEmpty()) {
-                flush();
-            }
-        }
-    }
-
-    private void checkFlushException() {
-        if (flushException != null) {
-            throw new PrometheusConnectorException(
-                    CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
-                    "Writing records to prometheus failed.",
-                    flushException);
-        }
+    @Override
+    public Optional<Void> prepareCommit() {
+        // Flush buffered records on checkpoint. On Spark and Flink the engine-level timer flush
+        // (registerFlushAction) keeps the Context's no-op default, so without this the buffer would
+        // only be sent on batch_size and on close(). Flushing on checkpoint bounds the buffered
+        // window to one checkpoint interval on every engine, matching the sibling FlushSignal sinks
+        // (Doris, ClickHouse, Elasticsearch, StarRocks, MongoDB), which flush their buffer here for
+        // the non-2PC case and return Optional.empty(). Prometheus remote-write is not
+        // transactional, so there is no commit info to return.
+        //
+        // flush() throws on failure, so a failed checkpoint flush fails the checkpoint instead of
+        // silently dropping the batch. On restart the source replays from the last successful
+        // checkpoint and re-sends the buffered samples. Whether that replay is harmless depends on
+        // the receiver: one that treats a repeated (labels, timestamp) sample as an idempotent
+        // upsert absorbs it, but one that rejects duplicate or out-of-order samples may fail the
+        // replayed flush, so the delivery guarantee here is at-least-once, not exactly-once.
+        flush();
+        return Optional.empty();
     }
 
     private void flush() {
-        checkFlushException();
-        if (batchList.isEmpty()) {
-            return;
-        }
-        try {
-            byte[] body = snappy(batchList);
-            ByteArrayEntity byteArrayEntity = new ByteArrayEntity(body);
-            HttpResponse response =
-                    httpClient.doPost(
-                            httpParameter.getUrl(), httpParameter.getHeaders(), byteArrayEntity);
-            if (HttpStatus.SC_NO_CONTENT == response.getCode()) {
+        synchronized (batchList) {
+            if (batchList.isEmpty()) {
                 return;
             }
-            log.error(
-                    "http client execute exception, http response status code:[{}], content:[{}]",
-                    response.getCode(),
-                    response.getContent());
-        } catch (Exception e) {
-            log.error(e.getMessage(), e);
-        } finally {
-            batchList.clear();
+            try {
+                byte[] body = snappy(batchList);
+                ByteArrayEntity byteArrayEntity = new ByteArrayEntity(body);
+                HttpResponse response =
+                        httpClient.doPost(
+                                httpParameter.getUrl(),
+                                httpParameter.getHeaders(),
+                                byteArrayEntity);
+                if (HttpStatus.SC_NO_CONTENT == response.getCode()) {
+                    batchList.clear();
+                    return;
+                }
+                // Propagate the failure to the engine instead of silently dropping the batch, so a
+                // flush that did not succeed is not treated as a successful flush.
+                throw new PrometheusConnectorException(
+                        CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
+                        String.format(
+                                "Writing records to prometheus failed, http response status code:[%d], content:[%s]",
+                                response.getCode(), response.getContent()));
+            } catch (PrometheusConnectorException e) {
+                throw e;
+            } catch (Exception e) {
+                throw new PrometheusConnectorException(
+                        CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
+                        "Writing records to prometheus failed.",
+                        e);
+            }
         }
     }
 
@@ -202,13 +216,48 @@ public class PrometheusWriter extends HttpSinkWriter {
 
     @Override
     public void close() throws IOException {
-        super.close();
-        if (scheduledFuture != null) {
-            scheduledFuture.cancel(false);
-            if (executor != null) {
-                executor.shutdownNow();
-            }
+        // Run the final flush and both cleanup steps unconditionally, but keep the first failure as
+        // the primary exception and attach later ones with addSuppressed. Otherwise an IOException
+        // from closing an HTTP client (thrown from a finally block) would replace the meaningful
+        // "Writing records to prometheus failed" exception from the final flush.
+        Throwable primary = null;
+        try {
+            // Send any records still buffered before the writer is closed.
+            flush();
+        } catch (Throwable t) {
+            primary = t;
         }
-        this.flush();
+        try {
+            // Close the HttpClientProvider actually used for remote-write (this field shadows the
+            // parent's), otherwise it would leak when the writer is closed.
+            httpClient.close();
+        } catch (Throwable t) {
+            primary = addAsPrimaryOrSuppressed(primary, t);
+        }
+        try {
+            super.close();
+        } catch (Throwable t) {
+            primary = addAsPrimaryOrSuppressed(primary, t);
+        }
+        if (primary != null) {
+            if (primary instanceof IOException) {
+                throw (IOException) primary;
+            }
+            if (primary instanceof RuntimeException) {
+                throw (RuntimeException) primary;
+            }
+            if (primary instanceof Error) {
+                throw (Error) primary;
+            }
+            throw new IOException(primary);
+        }
+    }
+
+    private static Throwable addAsPrimaryOrSuppressed(Throwable primary, Throwable next) {
+        if (primary == null) {
+            return next;
+        }
+        primary.addSuppressed(next);
+        return primary;
     }
 }

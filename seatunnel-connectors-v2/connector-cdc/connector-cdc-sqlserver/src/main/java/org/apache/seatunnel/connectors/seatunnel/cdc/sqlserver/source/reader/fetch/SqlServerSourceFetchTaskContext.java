@@ -60,6 +60,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.sql.SQLException;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.Map;
 
 /** The context for fetch task that fetching data of snapshot split from MySQL data source. */
@@ -272,7 +273,18 @@ public class SqlServerSourceFetchTaskContext extends JdbcSourceFetchTaskContext 
                         ? LsnOffset.INITIAL_OFFSET
                         : split.asIncrementalSplit().getStartupOffset();
 
-        SqlServerOffsetContext sqlServerOffsetContext = loader.load(offset.getOffset());
+        Map<String, Object> restoredOffset = new HashMap<>(offset.getOffset());
+        // Debezium's SqlServerOffsetContext.Loader expects `event_serial_no` to be a Number;
+        // SeaTunnel's checkpoint/offset map only stores String values, so the previously
+        // serialized String must be converted back to Long here. Without this coercion the
+        // loader silently rejects the offset and the original `#10571` resume-precision bug
+        // reappears on the restore path.
+        String eventSerialNo = offset.getOffset().get(SourceInfo.EVENT_SERIAL_NO_KEY);
+        if (eventSerialNo != null) {
+            restoredOffset.put(SourceInfo.EVENT_SERIAL_NO_KEY, Long.valueOf(eventSerialNo));
+        }
+
+        SqlServerOffsetContext sqlServerOffsetContext = loader.load(restoredOffset);
 
         return sqlServerOffsetContext;
     }

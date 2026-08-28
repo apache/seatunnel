@@ -120,6 +120,19 @@ cd "${SEATUNNEL_HOME}"
 
 如果任务在读取数据前失败，请先检查[故障排查](#故障排查)。
 
+:::note
+
+连接 MariaDB 时，请使用 MariaDB Connector/J 以及匹配的 URL 和驱动：
+
+```hocon
+url = "jdbc:mariadb://localhost:3306/database"
+driver = "org.mariadb.jdbc.Driver"
+```
+
+不要使用 MySQL Connector/J 和 `jdbc:mysql:` URL 连接 MariaDB。该配置会选择 MySQL 方言，可能将 MariaDB 服务端版本判定为不支持的 MySQL 版本。
+
+:::
+
 ## 关键特性
 
 - [x] [批](../../introduction/concepts/connector-v2-features.md)
@@ -174,6 +187,7 @@ cd "${SEATUNNEL_HOME}"
 | split.sample-sharding.threshold            | Int     | 否    | 1000            | 此配置指定触发采样分片策略的预估分片数阈值。当分布因子超出 `split.even-distribution.factor.upper-bound` 和 `split.even-distribution.factor.lower-bound` 指定的范围，且预估分片数（计算方式为近似行数 / 分片大小）超过此阈值时，将使用采样分片策略。这有助于更高效地处理大数据集。默认值为 1000。                                                                                                                 |
 | split.inverse-sampling.rate                | Int     | 否    | 1000            | 采样分片策略中使用的采样率的倒数。例如，如果此值设置为 1000，则表示在采样过程中应用 1/1000 的采样率。此选项提供了控制采样粒度的灵活性，从而影响最终的分片数量。在处理大数据集时尤为有用，此时较低的采样率可能更合适。默认值为 1000。                                                                                                            |
 | split.allow-sampling                       | Boolean | 否    | true            | 是否启用基于采样的分片策略。当设置为 false 时，无论预估分片数是否超过阈值，系统都将回退到非均匀分片方式（迭代查询方式）。默认值为 true。                                                                                                                                                                                              |
+| enable_concurrent_read                     | Boolean | 否    | true            | 是否在快照阶段启用基于分片的并发读取。当设置为 false 时，source 会跳过分片分析，并以单个 split 读取整张表，适合没有索引的表。默认值为 true。                                                                                                                                                                                          |
 | split.string_split_mode                    | String  | 否    | sample          | 支持不同的字符串分割算法。默认使用 `sample`，通过采样字符串值来确定分割。可以切换为 `charset_based` 启用基于字符集的字符串分割算法。设置为 `charset_based` 时，算法假定 partition_column 的字符在 ASCII 32-126 范围内，覆盖了大多数基于字符的分割场景。                                                                                                                                                    |
 | split.string-strategy                      | String  | 否    | -               | 控制 String 分区列的分片方式，可选值为 `none`、`hash`、`range`、`auto`。`range` 和 `auto` 当前要求 MySQL binary collation，且键值为固定长度的可打印 ASCII 字符串。其他 JDBC 方言在显式验证 range 分片支持前会拒绝 `range` 和 `auto`。`auto` 会优先尝试 range 分片，range 不安全时回退为 hash 分片。未设置该参数时，SeaTunnel 保持现有 `split.string_split_mode` 行为。                                                                                                                                                                                                                                                                       |
 | split.string_split_mode_collate            | String  | 否    | -               | 当 string_split_mode 设置为 `charset_based` 且表具有特殊排序规则时，指定要使用的排序规则。如果未指定，将使用数据库的默认排序规则。                                                                                                                                                                                                            |
@@ -199,6 +213,18 @@ use_regex = true
 HOCON 字符串中的正则反斜杠需要转义，因此正则中的 `\d+` 在配置文件里要写成 `\\d+`。最后一个未转义的点用于分隔数据库/schema 路径和表名模式。
 
 许多 JDBC 驱动会把传给 `DatabaseMetaData` 的 schema 和表名参数当作 SQL `LIKE` 模式。SeaTunnel 会在发现元数据后再次精确核对标识符；对于大小写敏感的数据库，仍应确保配置与数据库中的真实标识符大小写完全一致。
+
+:::note 视图与表匹配
+
+`table_path`（无论是否启用 `use_regex`）是否会连带匹配到数据库视图（而不仅仅是基础表），取决于各方言内部列举表所使用的查询方式，目前没有可以显式包含或排除视图的配置项：
+
+- MySQL 和 PostgreSQL 会把视图和基础表列在一起，因此像 `db.*` 这样宽泛的匹配模式也会匹配到视图。
+- SQL Server 通过 `TABLE_TYPE = 'BASE TABLE'` 过滤，会排除视图。
+- Oracle 和 Dameng 查询的是 `ALL_TABLES`，视图不在其中，因此会被间接排除。
+
+如果需要在任意方言下都只读取指定的基础表，建议直接在 `table_list` 中显式列出表名，而不要依赖宽泛的正则表达式。
+
+:::
 
 ### decimal_type_narrowing
 
@@ -260,6 +286,8 @@ int_type_narrowing = false
 | IRIS      | Inceptor | Highgo |
 | YashanDB  |          |          |
 
+达梦 `NCHAR` 源字段会映射为 SeaTunnel `STRING`。
+
 ## 并行读取器
 
 任务 `parallelism` 决定最多可以同时运行多少个 Reader；分片配置决定实际有多少个独立 split 可以分配给 Reader。
@@ -285,7 +313,7 @@ SeaTunnel 为 `query` 推断主键时，会继承结果集第一列所属底层�
 下表仅作为起点。部署前应向数据库厂商确认驱动制品、许可证、数据库版本兼容性和 Java 版本兼容性。
 
 | 数据源        | 驱动                                              | URL                                                                    | Maven                                                                                                                         |
-|-------------|---------------------------------------------------|--------------------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------|
+|-------------|---------------------------------------------------|--------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------|
 | mysql             | com.mysql.cj.jdbc.Driver                            | jdbc:mysql://localhost:3306/test                                       | https://mvnrepository.com/artifact/mysql/mysql-connector-java                                                                 |
 | postgresql        | org.postgresql.Driver                               | jdbc:postgresql://localhost:5432/postgres                              | https://mvnrepository.com/artifact/org.postgresql/postgresql                                                                  |
 | dm                | dm.jdbc.driver.DmDriver                             | jdbc:dm://localhost:5236                                               | https://mvnrepository.com/artifact/com.dameng/DmJdbcDriver18                                                                  |
@@ -312,7 +340,7 @@ SeaTunnel 为 `query` 推断主键时，会继承结果集第一列所属底层�
 | Highgo            | com.highgo.jdbc.Driver                              | jdbc:highgo://localhost:5866/highgo                                    | https://repo1.maven.org/maven2/com/highgo/HgdbJdbc/6.2.3/HgdbJdbc-6.2.3.jar                                                   |
 | Presto            | com.facebook.presto.jdbc.PrestoDriver               | jdbc:presto://localhost:8080/presto                                    | https://repo1.maven.org/maven2/com/facebook/presto/presto-jdbc/0.279/presto-jdbc-0.279.jar                                    |
 | Trino             | io.trino.jdbc.TrinoDriver                           | jdbc:trino://localhost:8080/trino                                      | https://repo1.maven.org/maven2/io/trino/trino-jdbc/460/trino-jdbc-460.jar                                                     |
-| YashanDB          | com.yashandb.jdbc.Driver                            | jdbc:yasdb://localhost:1688/SYS                                        | https://mvnrepository.com/artifact/com.yashandb/yashandb-jdbc                                                                 |
+| YashanDB          | com.yashandb.jdbc.Driver                            | jdbc:yasdb://localhost:1688/SYS                                        |  https://repo1.maven.org/maven2/com/yashandb/yashandb-jdbc/1.10.7/yashandb-jdbc-1.10.7.jar                                    |
 
 ## 常用模式
 
