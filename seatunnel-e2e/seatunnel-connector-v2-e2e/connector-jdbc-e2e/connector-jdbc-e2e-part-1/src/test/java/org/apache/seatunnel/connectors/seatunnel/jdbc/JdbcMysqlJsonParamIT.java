@@ -24,6 +24,7 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.MavenJarUtil;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -95,8 +96,8 @@ public class JdbcMysqlJsonParamIT extends TestSuiteBase implements TestResource 
     private static final String MYSQL_DRIVER_URL =
             "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
 
-    private static final String JDBC_CONNECTOR_HOST_PATH =
-            "/home/runner/work/seatunnel/seatunnel/seatunnel-connectors-v2/connector-jdbc/target/connector-jdbc-*.jar";
+    String JDBC_CONNECTOR_HOST_PATH = MavenJarUtil.getConnectorJarPath("connector-jdbc");
+
     private MySQLContainer<?> mysqlContainer;
 
     @TestContainerExtension
