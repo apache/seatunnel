@@ -36,6 +36,7 @@ import org.apache.seatunnel.common.constants.JobMode;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
+import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -1526,8 +1527,15 @@ public class MultiTableSinkWriter
         }
     }
 
+    /**
+     * Creates runtime sink writers while remaining serializable with the enclosing multi-table
+     * sink.
+     *
+     * <p>Sink actions cross the engine serialization boundary before reaching workers, so a factory
+     * implementation must not introduce a non-serializable callback into that object graph.
+     */
     @FunctionalInterface
-    interface RuntimeSinkWriterFactory {
+    interface RuntimeSinkWriterFactory extends Serializable {
         SinkWriter<SeaTunnelRow, ?, ?> create(CatalogTable catalogTable, SinkWriter.Context context)
                 throws IOException;
 

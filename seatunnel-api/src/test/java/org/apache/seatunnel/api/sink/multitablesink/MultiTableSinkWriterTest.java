@@ -506,6 +506,30 @@ public class MultiTableSinkWriterTest {
         Assertions.assertTrue(restoredCloseException.getMessage().contains("test.failed"));
     }
 
+    /** Verifies that the runtime writer factory remains serializable with the enclosing sink. */
+    @Test
+    public void testMultiTableSinkSerializesRuntimeWriterFactory() throws IOException {
+        Map<String, Object> options = new HashMap<>();
+        options.put(SinkConnectorCommonOptions.MULTI_TABLE_SINK_REPLICA.key(), 1);
+        options.put(
+                MultiTableCommonOptions.MULTI_TABLE_FAILURE_POLICY.key(),
+                MultiTableFailurePolicy.FAIL_FAST.name());
+        options.put(EnvCommonOptions.JOB_RETRY_TIMES.key(), 0);
+        options.put(EnvCommonOptions.JOB_RETRY_INTERVAL_SECONDS.key(), 0);
+        MultiTableSink multiTableSink =
+                new MultiTableSink(
+                        new MultiTableFactoryContext(
+                                ReadonlyConfig.fromMap(options),
+                                Thread.currentThread().getContextClassLoader(),
+                                Collections.emptyMap()));
+        DefaultSerializer<Serializable> serializer = new DefaultSerializer<>();
+
+        MultiTableSink restored =
+                (MultiTableSink) serializer.deserialize(serializer.serialize(multiTableSink));
+
+        Assertions.assertNotNull(restored);
+    }
+
     @Test
     public void testRestoreWriterDoesNotRestorePreviouslyFailedTable() throws IOException {
         MultiTableFailedTable failedTable =
