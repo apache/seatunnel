@@ -512,8 +512,9 @@ public class MultiTableSinkWriter
         }
         schemaChangeBarrier.awaitCompletion();
         for (SchemaChangeFailure schemaChangeFailure : schemaChangeFailures) {
-            handleTableFailure(
+            handleWriterFailure(
                     schemaChangeFailure.getTableId(),
+                    schemaChangeFailure.getWriter(),
                     MultiTableFailurePhase.CHECKPOINT,
                     schemaChangeFailure.getError());
         }
@@ -541,6 +542,7 @@ public class MultiTableSinkWriter
                     schemaChangeFailures.add(
                             new SchemaChangeFailure(
                                     dispatchTarget.getSinkIdentifier().getTableIdentifier(),
+                                    dispatchTarget.getWriter(),
                                     error));
                     continue;
                 }
@@ -1172,6 +1174,39 @@ public class MultiTableSinkWriter
         return tableId != null && failedTables.containsKey(tableId);
     }
 
+    /**
+     * Quarantines every alias of a writer that failed a shared lifecycle operation.
+     *
+     * <p>A schema change mutates the physical writer rather than one row, so continuing any alias
+     * after it fails could reuse a partially updated writer. Runtime row failures intentionally use
+     * {@link #handleTableFailure(String, MultiTableFailurePhase, Throwable)} directly instead: a
+     * rejected row for one table must not close a shared writer that can still write its siblings.
+     */
+    private void handleWriterFailure(
+            String fallbackTableId,
+            SinkWriter<SeaTunnelRow, ?, ?> failedWriter,
+            MultiTableFailurePhase phase,
+            Throwable error) {
+        Set<String> tableIds = new HashSet<>();
+        for (int i = 0; i < sinkWritersWithIndex.size(); i++) {
+            synchronized (runnable.get(i)) {
+                for (Map.Entry<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> entry :
+                        sinkWritersWithIndex.get(i).entrySet()) {
+                    if (entry.getValue() == failedWriter) {
+                        tableIds.add(entry.getKey().getTableIdentifier());
+                    }
+                }
+            }
+        }
+        if (tableIds.isEmpty()) {
+            handleTableFailure(fallbackTableId, phase, error);
+            return;
+        }
+        for (String tableId : tableIds) {
+            handleTableFailure(tableId, phase, error);
+        }
+    }
+
     private Throwable getFirstFailureCause() {
         return failedTables.values().stream()
                 .map(MultiTableFailedTable::getCause)
@@ -1245,8 +1280,9 @@ public class MultiTableSinkWriter
             for (int i = 0; i < sinkWritersWithIndex.size(); i++) {
                 synchronized (runnable.get(i)) {
                     SinkWriter<SeaTunnelRow, ?, ?> writer =
-                            sinkWritersWithIndex.get(i).get(sinkIdentifier);
-                    if (writer != null) {
+                            sinkWritersWithIndex.get(i).remove(sinkIdentifier);
+                    if (writer != null
+                            && !isWriterStillReferenced(sinkWritersWithIndex.get(i), writer)) {
                         try {
                             writer.close();
                         } catch (Throwable closeError) {
@@ -1256,13 +1292,30 @@ public class MultiTableSinkWriter
                                     closeError);
                         }
                     }
-                    sinkWritersWithIndex.get(i).remove(sinkIdentifier);
-                    runnable.get(i).removeTableWriter(tableId);
+                    if (writer != null) {
+                        runnable.get(i).removeTableWriter(tableId);
+                    }
                 }
             }
             sinkWriters.remove(sinkIdentifier);
         }
         sinkPrimaryKeys.remove(tableId);
+    }
+
+    /**
+     * Determines whether another logical table still owns the same physical writer in this queue.
+     *
+     * <p>Writers are compared by identity because equality does not express lifecycle ownership.
+     */
+    private boolean isWriterStillReferenced(
+            Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> writerMap,
+            SinkWriter<SeaTunnelRow, ?, ?> writer) {
+        for (SinkWriter<SeaTunnelRow, ?, ?> activeWriter : writerMap.values()) {
+            if (activeWriter == writer) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @FunctionalInterface
@@ -1277,15 +1330,24 @@ public class MultiTableSinkWriter
     private static class SchemaChangeFailure {
 
         private final String tableId;
+        /** Physical writer that failed the schema mutation. */
+        private final SinkWriter<SeaTunnelRow, ?, ?> writer;
+
         private final Throwable error;
 
-        private SchemaChangeFailure(String tableId, Throwable error) {
+        private SchemaChangeFailure(
+                String tableId, SinkWriter<SeaTunnelRow, ?, ?> writer, Throwable error) {
             this.tableId = tableId;
+            this.writer = writer;
             this.error = error;
         }
 
         public String getTableId() {
             return tableId;
+        }
+
+        public SinkWriter<SeaTunnelRow, ?, ?> getWriter() {
+            return writer;
         }
 
         public Throwable getError() {

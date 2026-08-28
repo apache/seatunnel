@@ -66,6 +66,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
 import static org.awaitility.Awaitility.await;
 
@@ -612,6 +613,48 @@ public class MultiTableSinkWriterTest {
         Assertions.assertEquals(1, sharedWriter.getAbortPrepareCount());
 
         multiTableSinkWriter.close();
+        Assertions.assertEquals(1, sharedWriter.getCloseCount());
+    }
+
+    /** Verifies that a row failure only quarantines its logical alias of a shared writer. */
+    @Test
+    public void testRuntimeFailureDoesNotCloseSharedWriterForHealthyAlias() throws IOException {
+        Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> sinkWriters = new HashMap<>();
+        Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
+        TableSelectiveFailingSharedSinkWriter sharedWriter =
+                new TableSelectiveFailingSharedSinkWriter("test.failed");
+        SinkIdentifier failedIdentifier = SinkIdentifier.of("test.failed", 0);
+        SinkIdentifier healthyIdentifier = SinkIdentifier.of("test.healthy", 0);
+        sinkWriters.put(failedIdentifier, sharedWriter);
+        sinkWriters.put(healthyIdentifier, sharedWriter);
+        sinkWritersContext.put(failedIdentifier, new TestSinkWriterContext());
+        sinkWritersContext.put(healthyIdentifier, new TestSinkWriterContext());
+
+        MultiTableSinkWriter multiTableSinkWriter =
+                new MultiTableSinkWriter(
+                        sinkWriters,
+                        1,
+                        sinkWritersContext,
+                        MultiTableFailurePolicy.CONTINUE_OTHER_TABLES,
+                        JobMode.BATCH);
+
+        multiTableSinkWriter.write(buildRow("test.failed", 0));
+        multiTableSinkWriter.write(buildRow("test.healthy", 0));
+
+        Optional<MultiTableCommitInfo> commitInfo = multiTableSinkWriter.prepareCommit(1L);
+
+        Assertions.assertTrue(commitInfo.isPresent());
+        Assertions.assertEquals(1, sharedWriter.getSuccessfulWriteCount());
+        Assertions.assertEquals(0, sharedWriter.getCloseCount());
+        Assertions.assertEquals(
+                Collections.singleton("test.healthy"),
+                commitInfo.get().getCommitInfo().keySet().stream()
+                        .map(SinkIdentifier::getTableIdentifier)
+                        .collect(Collectors.toSet()));
+
+        IOException closeException =
+                Assertions.assertThrows(IOException.class, multiTableSinkWriter::close);
+        Assertions.assertTrue(closeException.getMessage().contains("test.failed"));
         Assertions.assertEquals(1, sharedWriter.getCloseCount());
     }
 
@@ -1345,6 +1388,30 @@ public class MultiTableSinkWriterTest {
 
         int getCloseCount() {
             return closeCount.get();
+        }
+    }
+
+    /** Shared test writer that rejects rows from one source table while accepting sibling rows. */
+    static class TableSelectiveFailingSharedSinkWriter extends CountingSinkWriter {
+        /** Logical source table whose rows must fail. */
+        private final String failedTableId;
+        /** Number of rows accepted from healthy aliases. */
+        private final AtomicInteger successfulWriteCount = new AtomicInteger();
+
+        TableSelectiveFailingSharedSinkWriter(String failedTableId) {
+            this.failedTableId = failedTableId;
+        }
+
+        @Override
+        public void write(SeaTunnelRow seaTunnelRow) {
+            if (failedTableId.equals(seaTunnelRow.getTableId())) {
+                throw new RuntimeException("intentional sink failure");
+            }
+            successfulWriteCount.incrementAndGet();
+        }
+
+        int getSuccessfulWriteCount() {
+            return successfulWriteCount.get();
         }
     }
 

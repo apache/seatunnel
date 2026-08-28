@@ -41,7 +41,10 @@ import org.apache.hadoop.fs.Path;
 
 import java.io.IOException;
 import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -76,17 +79,24 @@ public class BaseFileSinkWriter
                 writeStrategy.getHadoopFileSystemProxy();
         if (!fileSinkStates.isEmpty()) {
             try {
-                List<String> transactions =
-                        findTransactionList(jobId, uuidPrefix, hadoopFileSystemProxy);
-                Set<String> restoredTransactionIds =
-                        fileSinkStates.stream()
-                                .map(FileSinkState::getTransactionId)
-                                .collect(Collectors.toSet());
-                for (String transaction : transactions) {
-                    if (!restoredTransactionIds.contains(transaction)) {
-                        // Checkpointed transactions are replayed exclusively by the aggregated
-                        // committer. Only transactions absent from restored state are abandoned.
-                        writeStrategy.abortPrepare(transaction);
+                Map<String, Set<String>> restoredTransactionIdsByPrefix = new HashMap<>();
+                for (FileSinkState fileSinkState : fileSinkStates) {
+                    restoredTransactionIdsByPrefix
+                            .computeIfAbsent(fileSinkState.getUuidPrefix(), key -> new HashSet<>())
+                            .add(fileSinkState.getTransactionId());
+                }
+                for (Map.Entry<String, Set<String>> restoredTransactions :
+                        restoredTransactionIdsByPrefix.entrySet()) {
+                    List<String> transactions =
+                            findTransactionList(
+                                    jobId, restoredTransactions.getKey(), hadoopFileSystemProxy);
+                    for (String transaction : transactions) {
+                        if (!restoredTransactions.getValue().contains(transaction)) {
+                            // Checkpointed transactions are replayed exclusively by the aggregated
+                            // committer. Only transactions absent from restored state are
+                            // abandoned.
+                            writeStrategy.abortPrepare(transaction);
+                        }
                     }
                 }
             } catch (IOException e) {
