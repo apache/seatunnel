@@ -26,6 +26,10 @@ public class RestConstant {
 
     public static final String IS_START_WITH_SAVE_POINT = "isStartWithSavePoint";
 
+    public static final String RESTORE_MODE = "restoreMode";
+
+    public static final String RESTORE_SOURCE_JOB_ID = "restoreSourceJobId";
+
     public static final String IS_STOP_WITH_SAVE_POINT = "isStopWithSavePoint";
 
     public static final String DRY_RUN = "dryRun";
@@ -97,6 +101,7 @@ public class RestConstant {
     public static final String REST_URL_STOP_JOB = "/stop-job";
     public static final String REST_URL_STOP_JOBS = "/stop-jobs";
     public static final String REST_URL_UPDATE_TAGS = "/update-tags";
+    public static final String REST_URL_UPDATE_LOCAL_MEMBER_TAGS = "/update-local-member-tags";
     public static final String REST_URL_PENDING_JOBS = "/pending-jobs";
     // Get All Nodes Log
     public static final String REST_URL_LOGS = "/logs";

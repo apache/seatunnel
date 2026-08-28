@@ -52,6 +52,7 @@ import org.apache.seatunnel.engine.server.rest.servlet.SubmitJobServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.SubmitJobsServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.SystemMonitoringServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.ThreadDumpServlet;
+import org.apache.seatunnel.engine.server.rest.servlet.UpdateLocalMemberTagsServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.UpdateTagsServlet;
 
 import com.hazelcast.spi.impl.NodeEngineImpl;
@@ -93,6 +94,7 @@ import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_SUBM
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_SUBMIT_JOB_BY_UPLOAD_FILE;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_SYSTEM_MONITORING_INFORMATION;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_THREAD_DUMP;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_UPDATE_LOCAL_MEMBER_TAGS;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_UPDATE_TAGS;
 
 /** The Jetty service for SeaTunnel engine server. */
@@ -203,6 +205,8 @@ public class JettyService {
         ServletHolder stopJobsHolder = new ServletHolder(new StopJobsServlet(nodeEngine));
         ServletHolder encryptConfigHolder = new ServletHolder(new EncryptConfigServlet(nodeEngine));
         ServletHolder updateTagsHandler = new ServletHolder(new UpdateTagsServlet(nodeEngine));
+        ServletHolder updateLocalMemberTagsHandler =
+                new ServletHolder(new UpdateLocalMemberTagsServlet(nodeEngine));
 
         ServletHolder runningThreadsHolder =
                 new ServletHolder(new RunningThreadsServlet(nodeEngine));
@@ -245,6 +249,8 @@ public class JettyService {
         context.addServlet(stopJobsHolder, convertUrlToPath(REST_URL_STOP_JOBS));
         context.addServlet(encryptConfigHolder, convertUrlToPath(REST_URL_ENCRYPT_CONFIG));
         context.addServlet(updateTagsHandler, convertUrlToPath(REST_URL_UPDATE_TAGS));
+        context.addServlet(
+                updateLocalMemberTagsHandler, convertUrlToPath(REST_URL_UPDATE_LOCAL_MEMBER_TAGS));
 
         context.addServlet(runningThreadsHolder, convertUrlToPath(REST_URL_RUNNING_THREADS));
 

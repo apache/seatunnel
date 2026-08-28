@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.e2e.common;
 
+import org.apache.seatunnel.e2e.common.container.ContainerTcpProxy;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.container.TestContainersFactory;
 import org.apache.seatunnel.e2e.common.junit.ContainerTestingExtension;
@@ -26,12 +27,18 @@ import org.apache.seatunnel.e2e.common.junit.TestLoggerExtension;
 import org.apache.seatunnel.e2e.common.junit.TimingExtension;
 import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
+import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.Network;
 
 import com.github.dockerjava.api.DockerClient;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 @ExtendWith({
     ContainerTestingExtension.class,
@@ -48,4 +55,38 @@ public abstract class TestSuiteBase {
     private TestContainersFactory containersFactory = ContainerUtil::discoverTestContainers;
 
     protected DockerClient dockerClient = DockerClientFactory.lazyClient();
+
+    private final List<ContainerTcpProxy> containerTcpProxies = new ArrayList<>();
+
+    /**
+     * Starts a container TCP proxy that is automatically closed after the test class.
+     *
+     * @param portMappings ports advertised by the service and their dynamic container targets
+     * @return the managed container TCP proxy
+     */
+    protected final ContainerTcpProxy startContainerTcpProxy(
+            ContainerTcpProxy.PortMapping... portMappings) throws IOException {
+        return startContainerTcpProxy(Arrays.asList(portMappings));
+    }
+
+    /**
+     * Starts a container TCP proxy that is automatically closed after the test class.
+     *
+     * @param portMappings ports advertised by the service and their dynamic container targets
+     * @return the managed container TCP proxy
+     */
+    protected final ContainerTcpProxy startContainerTcpProxy(
+            List<ContainerTcpProxy.PortMapping> portMappings) throws IOException {
+        ContainerTcpProxy proxy = ContainerTcpProxy.start(portMappings);
+        containerTcpProxies.add(proxy);
+        return proxy;
+    }
+
+    @AfterAll
+    protected final void closeContainerTcpProxies() {
+        for (int i = containerTcpProxies.size() - 1; i >= 0; i--) {
+            containerTcpProxies.get(i).close();
+        }
+        containerTcpProxies.clear();
+    }
 }

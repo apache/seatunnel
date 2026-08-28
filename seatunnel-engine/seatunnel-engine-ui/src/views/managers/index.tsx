@@ -78,7 +78,7 @@ export default defineComponent({
       tagMessage.value = ''
       tagError.value = ''
       try {
-        if (!selectedMonitor.value) {
+        if (!selectedMonitor.value?.uuid) {
           tagError.value = t('managers.tags.workerRequired')
           return
         }

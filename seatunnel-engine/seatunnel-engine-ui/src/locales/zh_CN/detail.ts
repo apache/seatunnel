@@ -74,5 +74,17 @@ export default {
     failureReason: '失败原因',
     action: '操作',
     restoreLatest: '恢复最新状态'
+  },
+  liveMetrics: {
+    pinnedTitle: '已固定实时指标',
+    pinnedHint: '会话级 · 最多 {limit} 条 · 复用 Overview 轮询',
+    emptyPinned: '在节点/边抽屉中 Pin 指标后，可在此持续观察。',
+    pin: '固定',
+    unpin: '取消固定',
+    pinLimit: '已达 Pin 上限（{limit}），请先取消一条。',
+    chartEmpty: '当前窗口暂无时序数据',
+    unitRatio: '占比',
+    unitDuration: '耗时（毫秒/条）',
+    unitCount: '条数'
   }
 }

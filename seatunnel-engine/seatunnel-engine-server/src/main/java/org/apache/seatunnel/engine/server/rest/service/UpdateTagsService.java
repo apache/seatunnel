@@ -24,16 +24,9 @@ import com.hazelcast.cluster.impl.MemberImpl;
 import com.hazelcast.internal.json.JsonObject;
 import com.hazelcast.spi.impl.NodeEngineImpl;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-/**
- * Updates tags for the REST node that serves the request.
- *
- * <p>The optional member uuid prevents operators from accidentally updating the current node while
- * intending to update a different worker.
- */
 public class UpdateTagsService extends BaseService {
     public UpdateTagsService(NodeEngineImpl nodeEngine) {
         super(nodeEngine);
@@ -42,59 +35,66 @@ public class UpdateTagsService extends BaseService {
     /**
      * Updates the local member tags from the request body.
      *
-     * @param requestBody JSON request body. It can be either a legacy flat tag map or a structured
-     *     request with uuid and tags.
+     * @param requestBody JSON request body containing the legacy flat tag map.
      * @return operation status JSON.
      */
     public JsonObject updateTags(byte[] requestBody) {
+        return updateTags(JsonUtils.toMap(requestHandle(requestBody)), getLocalMember());
+    }
+
+    /**
+     * Updates tags through the structured, target-validated Web UI request format.
+     *
+     * @param requestBody JSON request body containing {@code uuid} and a nested {@code tags}
+     *     object.
+     * @return operation status JSON.
+     */
+    public JsonObject updateLocalMemberTags(byte[] requestBody) {
         Map<String, Object> params = JsonUtils.toMap(requestHandle(requestBody));
-        SeaTunnelServer seaTunnelServer = getSeaTunnelServer(false);
-
-        NodeEngineImpl nodeEngine = seaTunnelServer.getNodeEngine();
-        MemberImpl localMember = nodeEngine.getLocalMember();
+        MemberImpl localMember = getLocalMember();
         validateTargetMember(params, localMember);
+        return updateTags(extractStructuredTagParams(params), localMember);
+    }
 
-        Map<String, Object> tagParams = extractTagParams(params);
+    private MemberImpl getLocalMember() {
+        SeaTunnelServer seaTunnelServer = getSeaTunnelServer(false);
+        NodeEngineImpl nodeEngine = seaTunnelServer.getNodeEngine();
+        return nodeEngine.getLocalMember();
+    }
+
+    private JsonObject updateTags(Map<String, Object> tagParams, MemberImpl localMember) {
         Map<String, String> tags = toStringTags(tagParams);
         localMember.updateAttribute(tags);
         return new JsonObject().add("status", "success").add("message", "update node tags done.");
     }
 
     /**
-     * Validates that an explicit target uuid matches the local member.
+     * Validates that the target uuid matches the local member.
      *
      * @param params parsed request parameters.
      * @param localMember member served by the current REST endpoint.
      */
     private void validateTargetMember(Map<String, Object> params, MemberImpl localMember) {
         Object uuid = params.get("uuid");
-        if (uuid != null && !localMember.getUuid().toString().equals(uuid.toString())) {
+        if (uuid == null || !localMember.getUuid().toString().equals(uuid.toString())) {
             throw new IllegalArgumentException(
-                    String.format(
-                            "Target member uuid %s is not served by this REST node. "
-                                    + "Please send the request to the target node.",
-                            uuid));
+                    "Target member uuid must match the REST node serving this request.");
         }
     }
 
     /**
-     * Extracts tag values from the structured or legacy request format.
+     * Extracts tags from the structured request format.
      *
      * @param params parsed request parameters.
-     * @return tag map to apply to the local member.
+     * @return tag map from the structured request.
      */
     @SuppressWarnings("unchecked")
-    private Map<String, Object> extractTagParams(Map<String, Object> params) {
+    static Map<String, Object> extractStructuredTagParams(Map<String, Object> params) {
         Object tags = params.get("tags");
-        if (tags instanceof Map) {
-            return (Map<String, Object>) tags;
-        }
-        if (tags != null) {
+        if (!(tags instanceof Map)) {
             throw new IllegalArgumentException("The tags field must be an object.");
         }
-        Map<String, Object> legacyTags = new HashMap<>(params);
-        legacyTags.remove("uuid");
-        return legacyTags;
+        return (Map<String, Object>) tags;
     }
 
     /**
@@ -103,7 +103,7 @@ public class UpdateTagsService extends BaseService {
      * @param tagParams raw tag values from the request.
      * @return string tags accepted by Hazelcast member attributes.
      */
-    private Map<String, String> toStringTags(Map<String, Object> tagParams) {
+    static Map<String, String> toStringTags(Map<String, Object> tagParams) {
         return tagParams.entrySet().stream()
                 .collect(
                         Collectors.toMap(

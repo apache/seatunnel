@@ -20,7 +20,7 @@ import type { Monitor, UpdateTagsRequest, UpdateTagsResponse } from './types'
 
 export const getMonitors = () => get<Monitor[]>('/system-monitoring-information')
 export const updateTags = (request: UpdateTagsRequest) =>
-  post<UpdateTagsResponse>('/update-tags', request)
+  post<UpdateTagsResponse>('/update-local-member-tags', request)
 export const managerService = {
   getMonitors,
   updateTags

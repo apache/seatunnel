@@ -70,7 +70,7 @@ export interface Monitor {
 }
 
 export interface UpdateTagsRequest {
-  uuid?: string
+  uuid: string
   tags: Record<string, string>
 }
 
