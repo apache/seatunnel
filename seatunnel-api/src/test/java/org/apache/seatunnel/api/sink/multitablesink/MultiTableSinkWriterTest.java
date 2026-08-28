@@ -178,7 +178,7 @@ public class MultiTableSinkWriterTest {
                         sinkWriters,
                         1,
                         sinkWritersContext,
-                        MultiTableFailurePolicy.FAIL_FAST,
+                        MultiTableFailurePolicy.CONTINUE_OTHER_TABLES,
                         JobMode.STREAMING,
                         Collections.emptyList(),
                         2,
