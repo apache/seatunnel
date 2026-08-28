@@ -204,6 +204,9 @@ public class IncrementalSplitAssigner<C extends SourceConfig> implements SplitAs
                             // existed has none, so on restore the re-created incremental
                             // split carries the previously resolved stop offset. Reuse it
                             // here instead of re-resolving (and drifting) at split creation.
+                            // If several splits with already-diverged stop offsets are handed
+                            // back in the same call, the first one processed wins (they can
+                            // only diverge in the same narrow legacy-checkpoint upgrade case).
                             if (resolvedStopOffset == null
                                     && context.getSourceConfig() != null
                                     && context.getSourceConfig().getStopConfig().getStopMode()
