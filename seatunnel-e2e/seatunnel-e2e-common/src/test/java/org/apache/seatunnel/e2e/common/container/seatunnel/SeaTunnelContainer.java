@@ -527,6 +527,16 @@ public class SeaTunnelContainer extends AbstractTestContainer {
         couchbaseE2eActive = false;
     }
 
+    /** Enables Reactor thread exemptions while the Azure Queue Storage E2E test is active. */
+    public static void enableAzureQueueReactorThreadExemption() {
+        azureQueueE2eActive = true;
+    }
+
+    /** Disables Reactor thread exemptions after the Azure Queue Storage E2E test completes. */
+    public static void disableAzureQueueReactorThreadExemption() {
+        azureQueueE2eActive = false;
+    }
+
     /**
      * {@code true} while the Couchbase E2E test ({@code CouchbaseIT}) is active.
      *
@@ -537,6 +547,9 @@ public class SeaTunnelContainer extends AbstractTestContainer {
      * connectors running in the same JVM.
      */
     static volatile boolean couchbaseE2eActive = false;
+
+    /** {@code true} while the Azure Queue Storage E2E test is active. */
+    static volatile boolean azureQueueE2eActive = false;
 
     /** The thread should be recycled but not, we should fix it in the future. */
     protected boolean isIssueWeAlreadyKnow(String threadName) {
@@ -567,6 +580,12 @@ public class SeaTunnelContainer extends AbstractTestContainer {
         // "parallel-<N>" thread observed outside that window is treated as an unknown thread and
         // reported as a potential leak.
         if (threadName.matches("parallel-\\d+") && couchbaseE2eActive) {
+            return true;
+        }
+        // Azure Queue's shaded Reactor Netty threads are unique to this connector. The
+        // boundedElastic evictor name is shared by all Reactor users, so exempt it only while the
+        // Azure Queue E2E test is active.
+        if (isAzureQueueReactorThreadExempt(threadName)) {
             return true;
         }
         // ClickHouse com.clickhouse.client.ClickHouseClientBuilder
@@ -605,6 +624,11 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                 // Paimon
                 || threadName.startsWith("AsyncOutputStream")
                 || threadName.startsWith("MANIFEST-READ-THREAD-POOL");
+    }
+
+    static boolean isAzureQueueReactorThreadExempt(String threadName) {
+        return threadName.startsWith("org.apache.seatunnel.shade.azure.queue.reactor-http-nio-")
+                || (threadName.startsWith("boundedElastic-evictor-") && azureQueueE2eActive);
     }
 
     @Override
