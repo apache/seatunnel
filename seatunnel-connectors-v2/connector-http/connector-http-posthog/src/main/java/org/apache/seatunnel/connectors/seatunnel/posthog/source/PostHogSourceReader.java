@@ -75,6 +75,11 @@ public class PostHogSourceReader extends AbstractSingleSplitReader<SeaTunnelRow>
         httpClient = new HttpClientProvider(httpParameter);
     }
 
+    @VisibleForTesting
+    void setHttpClient(HttpClientProvider httpClient) {
+        this.httpClient = httpClient;
+    }
+
     @Override
     public void close() throws IOException {
         if (httpClient != null) {
@@ -85,13 +90,10 @@ public class PostHogSourceReader extends AbstractSingleSplitReader<SeaTunnelRow>
     @Override
     public void internalPollNext(Collector<SeaTunnelRow> output) throws Exception {
         HttpResponse response =
-                httpClient.execute(
+                httpClient.doPost(
                         httpParameter.getUrl(),
-                        httpParameter.getMethod().getMethod(),
                         httpParameter.getHeaders(),
-                        httpParameter.getParams(),
-                        httpParameter.getBody(),
-                        httpParameter.isKeepParamsAsForm());
+                        httpParameter.getBody());
         if (response.getCode() < 200 || response.getCode() >= 300) {
             throw requestFailed(
                     "PostHog query request failed with HTTP status " + response.getCode());

@@ -26,6 +26,9 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.common.utils.JsonUtils;
+import org.apache.seatunnel.connectors.seatunnel.common.source.SingleSplitReaderContext;
+import org.apache.seatunnel.connectors.seatunnel.http.client.HttpClientProvider;
+import org.apache.seatunnel.connectors.seatunnel.http.client.HttpResponse;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
 import org.apache.seatunnel.connectors.seatunnel.http.exception.HttpConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.http.source.DeserializationCollector;
@@ -37,7 +40,9 @@ import org.junit.jupiter.api.Test;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 public class PostHogSourceReaderTest {
 
@@ -78,6 +83,45 @@ public class PostHogSourceReaderTest {
         reader.collectResponse("{\"columns\":[\"event\",\"distinct_id\"],\"results\":[]}", output);
 
         Assertions.assertTrue(rows.isEmpty());
+    }
+
+    @Test
+    public void testSendNestedQueryBodyWithoutFlattening() throws Exception {
+        String url = "http://localhost/api/projects/123/query/";
+        String body =
+                "{\"query\":{\"kind\":\"HogQLQuery\",\"query\":\"SELECT event FROM events\"},"
+                        + "\"refresh\":\"blocking\"}";
+        Map<String, String> headers = Collections.singletonMap("Authorization", "Bearer phx_test");
+        HttpParameter parameter = new HttpParameter();
+        parameter.setUrl(url);
+        parameter.setHeaders(headers);
+        parameter.setBody(body);
+
+        TestSingleSplitReaderContext context = new TestSingleSplitReaderContext();
+        RecordingHttpClientProvider httpClient = new RecordingHttpClientProvider();
+        PostHogSourceReader httpReader =
+                new PostHogSourceReader(
+                        parameter,
+                        context,
+                        new DeserializationCollector(new JsonTextDeserializationSchema()),
+                        new SeaTunnelRowType(
+                                new String[] {"event", "distinct_id"},
+                                new SeaTunnelDataType[] {
+                                    BasicType.STRING_TYPE, BasicType.STRING_TYPE
+                                }));
+        httpReader.setHttpClient(httpClient);
+
+        try {
+            httpReader.internalPollNext(output);
+        } finally {
+            httpReader.close();
+        }
+
+        Assertions.assertEquals(url, httpClient.url);
+        Assertions.assertEquals(headers, httpClient.headers);
+        Assertions.assertEquals(body, httpClient.body);
+        Assertions.assertTrue(context.noMoreElements);
+        Assertions.assertEquals(1, rows.size());
     }
 
     @Test
@@ -209,6 +253,42 @@ public class PostHogSourceReaderTest {
         @Override
         public SeaTunnelDataType<SeaTunnelRow> getProducedType() {
             return producedType;
+        }
+    }
+
+    private static final class RecordingHttpClientProvider extends HttpClientProvider {
+
+        private String url;
+        private Map<String, String> headers;
+        private String body;
+
+        private RecordingHttpClientProvider() {
+            super(new HttpParameter());
+        }
+
+        @Override
+        public HttpResponse doPost(String url, Map<String, String> headers, String body) {
+            this.url = url;
+            this.headers = headers;
+            this.body = body;
+            return new HttpResponse(
+                    200,
+                    "{\"columns\":[\"event\",\"distinct_id\"],"
+                            + "\"results\":[[\"signup\",\"user-1\"]]}");
+        }
+    }
+
+    private static final class TestSingleSplitReaderContext extends SingleSplitReaderContext {
+
+        private boolean noMoreElements;
+
+        private TestSingleSplitReaderContext() {
+            super(null);
+        }
+
+        @Override
+        public void signalNoMoreElement() {
+            noMoreElements = true;
         }
     }
 }
