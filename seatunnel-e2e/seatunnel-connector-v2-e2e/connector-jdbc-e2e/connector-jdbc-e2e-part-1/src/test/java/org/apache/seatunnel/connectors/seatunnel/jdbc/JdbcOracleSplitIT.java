@@ -64,7 +64,8 @@ import static org.awaitility.Awaitility.given;
 public class JdbcOracleSplitIT extends TestSuiteBase implements TestResource {
     private static final Logger LOG = LoggerFactory.getLogger(JdbcOracleSplitIT.class);
 
-    private static final String ORACLE_IMAGE = "gvenzl/oracle-xe:21-slim-faststart";
+    // gvenzl/oracle-free is a multi-arch (amd64/arm64) substitute for gvenzl/oracle-xe
+    private static final String ORACLE_IMAGE = "gvenzl/oracle-free:slim-faststart";
     private static final String ORACLE_NETWORK_ALIASES = "oracle-e2e";
     private static final int ORACLE_PORT = 1521;
     private static final String USERNAME = "TESTUSER";
@@ -77,7 +78,8 @@ public class JdbcOracleSplitIT extends TestSuiteBase implements TestResource {
     @BeforeAll
     @Override
     public void startUp() throws Exception {
-        DockerImageName imageName = DockerImageName.parse(ORACLE_IMAGE);
+        DockerImageName imageName =
+                DockerImageName.parse(ORACLE_IMAGE).asCompatibleSubstituteFor("gvenzl/oracle-xe");
         Map<String, String> containerEnv = new HashMap<>();
         containerEnv.put("ORACLE_PASSWORD", PASSWORD);
         containerEnv.put("APP_USER", USERNAME);
