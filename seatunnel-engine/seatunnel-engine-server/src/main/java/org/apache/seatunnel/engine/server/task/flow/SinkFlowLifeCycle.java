@@ -132,8 +132,8 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
 
     private final EventListener eventListener;
 
-    /** Mapping relationship between upstream TablePath and downstream TablePath. */
-    private final Map<TablePath, TablePath> tablesMaps = new HashMap<>();
+    /** Maps the original upstream table ID string to the resolved downstream table path. */
+    private final Map<String, TablePath> sinkTableMappings = new HashMap<>();
 
     private final MetricsContext metricsContext;
 
@@ -197,7 +197,11 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
         boolean isMulti = sinkAction.getSink() instanceof MultiTableSink;
         if (isMulti) {
             sinkTables = ((MultiTableSink) sinkAction.getSink()).getSinkTables();
-            tablesMaps.putAll(((MultiTableSink) sinkAction.getSink()).getSinkTableMapping());
+            ((MultiTableSink) sinkAction.getSink())
+                    .getSinkTableMapping()
+                    .forEach(
+                            (sourceTable, sinkTable) ->
+                                    sinkTableMappings.put(sourceTable.getFullName(), sinkTable));
         } else {
             Optional<CatalogTable> catalogTable = sinkAction.getSink().getWriteCatalogTable();
             if (catalogTable.isPresent()) {
@@ -738,7 +742,7 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
             if (row.getTableId() == null || row.getTableId().isEmpty()) {
                 return row.getTableId();
             }
-            TablePath tablePath = tablesMaps.get(TablePath.of(row.getTableId()));
+            TablePath tablePath = sinkTableMappings.get(row.getTableId());
             return tablePath != null ? tablePath.getFullName() : TablePath.DEFAULT.getFullName();
         }
         Optional<CatalogTable> writeCatalogTable = this.sinkAction.getSink().getWriteCatalogTable();
