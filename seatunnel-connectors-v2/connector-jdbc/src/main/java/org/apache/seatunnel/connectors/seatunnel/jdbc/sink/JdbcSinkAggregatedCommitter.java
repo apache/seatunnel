@@ -88,15 +88,16 @@ public class JdbcSinkAggregatedCommitter
      * XIDs from the first still-prepared transaction onward must all be present in the recovery
      * scan and are replayed strictly. An all-absent batch is treated as already resolved, while an
      * absent prefix before a still-prepared suffix is treated as already resolved only after that
-     * suffix commits successfully.
+     * suffix commits successfully. The scan is refreshed for each batch because an external
+     * resource-manager actor can resolve an in-doubt transaction between restored batches.
      */
     @Override
     public List<JdbcAggregatedCommitInfo> restoreCommit(
             List<JdbcAggregatedCommitInfo> aggregatedCommitInfos) throws IOException {
         tryOpen();
         for (JdbcAggregatedCommitInfo aggregatedCommitInfo : aggregatedCommitInfos) {
-            // Refresh RM evidence for every batch because transactions may be resolved concurrently
-            // during failover while earlier restored batches are being replayed.
+            // Refresh RM evidence for every batch because a DBA or RM cleanup process can resolve
+            // an in-doubt transaction while earlier restored batches are being replayed.
             replayRecoveredCheckpoint(
                     aggregatedCommitInfo.getXidInfoList(), recoverCheckpointTransactions());
         }
