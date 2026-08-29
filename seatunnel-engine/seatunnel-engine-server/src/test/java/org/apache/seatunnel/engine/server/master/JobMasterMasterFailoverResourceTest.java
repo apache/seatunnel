@@ -64,7 +64,8 @@ public class JobMasterMasterFailoverResourceTest
     void testRestoreReusesActiveSlotsWhenNoFreeFixedSlotsRemain() throws Exception {
         long jobId = instance.getFlakeIdGenerator("master-failover-resource").newId();
         ResourceManager resourceManager = server.getCoordinatorService().getResourceManager();
-        JobMaster original = newJobMaster(jobId);
+        Data jobImmutableInformationData = createJobImmutableInformationData(jobId);
+        JobMaster original = newJobMaster(jobId, jobImmutableInformationData);
         original.init(System.currentTimeMillis(), false);
         Assertions.assertTrue(original.preApplyResources());
         persistPreAppliedSlots(original);
@@ -72,7 +73,7 @@ public class JobMasterMasterFailoverResourceTest
         List<SlotProfile> blockerSlots = occupyRemainingSlots(resourceManager, jobId + 1);
         Assertions.assertEquals(0, resourceManager.getUnassignedSlots(null).size());
 
-        JobMaster restored = newJobMaster(jobId);
+        JobMaster restored = newJobMaster(jobId, jobImmutableInformationData);
         restored.init(System.currentTimeMillis(), true);
 
         try {
@@ -91,7 +92,8 @@ public class JobMasterMasterFailoverResourceTest
     void testRestoreRejectsSlotReassignedWithinSameJob() throws Exception {
         long jobId = instance.getFlakeIdGenerator("master-failover-same-job-reassignment").newId();
         ResourceManager resourceManager = server.getCoordinatorService().getResourceManager();
-        JobMaster original = newJobMaster(jobId);
+        Data jobImmutableInformationData = createJobImmutableInformationData(jobId);
+        JobMaster original = newJobMaster(jobId, jobImmutableInformationData);
         original.init(System.currentTimeMillis(), false);
         Assertions.assertTrue(original.preApplyResources());
         persistPreAppliedSlots(original);
@@ -106,7 +108,7 @@ public class JobMasterMasterFailoverResourceTest
         Assertions.assertNotEquals(staleSlot.getSequence(), reassignedSlot.getSequence());
         Assertions.assertEquals(0, resourceManager.getUnassignedSlots(null).size());
 
-        JobMaster restored = newJobMaster(jobId);
+        JobMaster restored = newJobMaster(jobId, jobImmutableInformationData);
         restored.init(System.currentTimeMillis(), true);
 
         try {
@@ -122,7 +124,7 @@ public class JobMasterMasterFailoverResourceTest
         }
     }
 
-    private JobMaster newJobMaster(long jobId) {
+    private Data createJobImmutableInformationData(long jobId) {
         LogicalDag logicalDag =
                 TestUtils.createTestLogicalPlan(
                         "stream_fake_to_inmemory_with_sleep.conf",
@@ -136,7 +138,10 @@ public class JobMasterMasterFailoverResourceTest
                         logicalDag,
                         Collections.emptyList(),
                         Collections.emptyList());
-        Data data = nodeEngine.getSerializationService().toData(jobImmutableInformation);
+        return nodeEngine.getSerializationService().toData(jobImmutableInformation);
+    }
+
+    private JobMaster newJobMaster(long jobId, Data jobImmutableInformationData) {
         IMap<Object, Object> runningJobStateIMap =
                 nodeEngine.getHazelcastInstance().getMap("runningJobState");
         IMap<Object, Long[]> runningJobStateTimestampsIMap =
@@ -146,7 +151,7 @@ public class JobMasterMasterFailoverResourceTest
 
         return new JobMaster(
                 jobId,
-                data,
+                jobImmutableInformationData,
                 nodeEngine,
                 ForkJoinPool.commonPool(),
                 server.getCoordinatorService().getResourceManager(),
