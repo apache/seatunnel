@@ -24,7 +24,7 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
-import org.apache.seatunnel.e2e.common.util.MavenJarUtil;
+import org.apache.seatunnel.e2e.common.util.ContainerUtil;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -96,8 +96,6 @@ public class JdbcMysqlJsonParamIT extends TestSuiteBase implements TestResource 
     private static final String MYSQL_DRIVER_URL =
             "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
 
-    String JDBC_CONNECTOR_HOST_PATH = MavenJarUtil.getConnectorJarPath("connector-jdbc");
-
     private MySQLContainer<?> mysqlContainer;
 
     @TestContainerExtension
@@ -112,9 +110,13 @@ public class JdbcMysqlJsonParamIT extends TestSuiteBase implements TestResource 
                                         + " && wget -q "
                                         + MYSQL_DRIVER_URL);
 
-                container.copyFileToContainer(
-                        MountableFile.forHostPath(JDBC_CONNECTOR_HOST_PATH),
-                        "/tmp/seatunnel/connectors/");
+                ContainerUtil.copyConnectorJarToContainer(
+                        container,
+                        "jdbc_mysql_json_params.conf",
+                        "seatunnel-connectors-v2",
+                        "connector-jdbc-",
+                        "seatunnel",
+                        "/tmp/seatunnel");
 
                 container.copyFileToContainer(
                         MountableFile.forClasspathResource("jdbc_mysql_json_params.conf"),
