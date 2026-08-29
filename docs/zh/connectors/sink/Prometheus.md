@@ -97,7 +97,7 @@ env {
 检查点刷新是一次 remote-write 请求，刷新失败会让检查点失败，而不会丢弃这批数据。有两点需要了解：
 
 - **瞬时失败会被重试。** 传输层错误（连接被拒、重置、超时）或可重试的 HTTP 状态码（`5xx` 或 `429`）会按 `retry` 次数进行重试，采用指数退避（`retry_backoff_multiplier_ms`，上限为 `retry_backoff_max_ms`）；只有在重试耗尽后，刷新才会让检查点失败。其他 `4xx` 响应不可重试，会快速失败。Flink 的 `tolerableCheckpointFailureNumber` 默认是 `0`，因此重试耗尽后的失败会重启作业；在 Spark 和 Flink 上，对于低吞吐作业你可能还需要调高该引擎设置。
-- **检查点失败后的重放会被容忍。** 检查点失败后作业会重启，Source 从上一次成功的检查点重放，因此缓存的采样点会被重新发送。如果 remote-write 接收端把重新发送的样本作为重复（相同的 labels 和 timestamp）或乱序样本拒绝（Prometheus TSDB，以及 Cortex、Mimir、Thanos 等接收端对这些情况会返回 `400`），Sink 会把该 `400` 视为已投递而不失败，因此重放不会让作业陷入循环。投递语义仍为 at-least-once。
+- **检查点失败后的重放会被容忍。** 检查点失败后作业会重启，Source 从上一次成功的检查点重放，因此缓存的采样点会被重新发送。如果 remote-write 接收端把重新发送的样本作为重复（相同的 labels 和 timestamp）或乱序样本拒绝（Prometheus TSDB，以及 Cortex、Mimir、Thanos 等接收端对这些情况会返回 `400`），Sink 会把该 `400` 视为已投递而不失败，因此重放不会让作业陷入循环。投递语义仍为 at-least-once。这是基于接收端特定错误文案的尽力而为匹配；如果某个接收端以不同文案返回 `400`，则不会被识别，刷新会像其他 `4xx` 一样失败；每次被容忍的拒绝都会以 `WARN` 记录日志。
 
 ## 示例
 

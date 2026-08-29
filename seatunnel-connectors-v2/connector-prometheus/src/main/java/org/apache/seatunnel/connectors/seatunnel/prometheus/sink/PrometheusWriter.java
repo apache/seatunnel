@@ -166,7 +166,12 @@ public class PrometheusWriter extends HttpSinkWriter {
             // treated as delivered (see sendOnce). After the retries are exhausted flush() throws,
             // so a genuine outage fails the caller (a checkpoint via prepareCommit, batch_size, the
             // timer flush, or close()) instead of silently dropping the batch.
-            int maxAttempts = retry + 1;
+            //
+            // `retry` is the total attempt budget here, matching the base transport
+            // retryer (which uses stopAfterAttempt(retry)). The base uses a Fibonacci
+            // backoff while this status path uses a capped exponential backoff, both
+            // bounded by the retry_backoff_* options.
+            int maxAttempts = Math.max(1, retry);
             for (int attempt = 1; ; attempt++) {
                 try {
                     sendOnce(body);
@@ -177,9 +182,16 @@ public class PrometheusWriter extends HttpSinkWriter {
                         throw new PrometheusConnectorException(
                                 CommonErrorCodeDeprecated.FLUSH_DATA_FAILED,
                                 String.format(
-                                        "Writing records to prometheus failed after %d attempt(s): %s",
-                                        attempt, e.getMessage()));
+                                        "Writing records to prometheus failed after %d attempt(s).",
+                                        attempt),
+                                e);
                     }
+                    log.warn(
+                            "Prometheus remote-write attempt {}/{} failed with a retryable response, "
+                                    + "retrying: {}",
+                            attempt,
+                            maxAttempts,
+                            e.getMessage());
                     sleepBeforeRetry(attempt);
                 }
             }
@@ -243,10 +255,13 @@ public class PrometheusWriter extends HttpSinkWriter {
             // A replay after a restore can re-send samples the receiver already has or that are
             // older than its head for the series; the receiver returns 400 for these. Per the
             // remote-write spec 4xx must not be retried, and failing here would loop the job on the
-            // same batch, so treat it as delivered.
-            log.info(
-                    "Prometheus rejected samples as duplicate/out-of-order (HTTP 400); treating as "
-                            + "delivered. content:[{}]",
+            // same batch, so treat it as delivered. The match on the response body is best effort
+            // (see indicatesDuplicateOrOutOfOrder), so log at WARN: it discards an error response,
+            // and a false positive would drop the batch rather than resend it.
+            log.warn(
+                    "Prometheus returned HTTP 400 whose body matches a duplicate/out-of-order "
+                            + "rejection; treating the batch as delivered. If this receiver returns "
+                            + "400 for an unrelated reason, the batch would be dropped. content:[{}]",
                     response.getContent());
             return;
         }

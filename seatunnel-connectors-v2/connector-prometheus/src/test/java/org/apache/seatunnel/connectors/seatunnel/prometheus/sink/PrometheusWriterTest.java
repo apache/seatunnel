@@ -273,13 +273,48 @@ class PrometheusWriterTest {
                                                 anyString(), any(), any(ByteArrayEntity.class)))
                                         .thenReturn(unavailable))) {
 
-            PrometheusWriter writer = createWriter(context, 2);
+            PrometheusWriter writer = createWriter(context, 3);
             writer.write(newPoint());
 
             Assertions.assertThrows(
                     PrometheusConnectorException.class, () -> writer.prepareCommit());
-            // 1 initial attempt + 2 retries = 3 doPost calls.
+            // retry is the total attempt budget, so retry=3 means 3 doPost calls.
             verify(writer.httpClient, times(3))
+                    .doPost(anyString(), any(), any(ByteArrayEntity.class));
+        }
+    }
+
+    /**
+     * After the retries are exhausted the batch stays buffered (not cleared), so a later flush
+     * re-sends the same records. This pins down the at-least-once guarantee explicitly.
+     */
+    @Test
+    void shouldRetainBufferAfterRetriesExhausted() throws Exception {
+        SinkWriter.Context context = mock(SinkWriter.Context.class);
+        HttpResponse unavailable =
+                new HttpResponse(HttpStatus.SC_SERVICE_UNAVAILABLE, "unavailable");
+        HttpResponse ok = new HttpResponse(HttpStatus.SC_NO_CONTENT);
+
+        try (MockedConstruction<HttpClientProvider> ignored =
+                mockConstruction(
+                        HttpClientProvider.class,
+                        (mockClient, ctx) ->
+                                when(mockClient.doPost(
+                                                anyString(), any(), any(ByteArrayEntity.class)))
+                                        .thenReturn(unavailable, ok))) {
+
+            // retry=1 means a single attempt, so the first flush exhausts immediately.
+            PrometheusWriter writer = createWriter(context, 1);
+            writer.write(newPoint());
+
+            Assertions.assertThrows(
+                    PrometheusConnectorException.class, () -> writer.prepareCommit());
+            verify(writer.httpClient, times(1))
+                    .doPost(anyString(), any(), any(ByteArrayEntity.class));
+
+            // The row is still buffered: a second flush re-sends it and now succeeds.
+            writer.prepareCommit();
+            verify(writer.httpClient, times(2))
                     .doPost(anyString(), any(), any(ByteArrayEntity.class));
         }
     }

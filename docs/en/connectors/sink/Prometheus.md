@@ -128,7 +128,9 @@ replay case:
   remote-write receiver rejects a re-sent sample as a duplicate (same labels and timestamp) or as
   out-of-order (Prometheus TSDB, and receivers such as Cortex, Mimir, and Thanos, return `400` for
   these), the sink treats that `400` as delivered rather than failing, so a replay does not loop the
-  job. The delivery guarantee remains at-least-once.
+  job. The delivery guarantee remains at-least-once. This is a best-effort match on receiver-specific
+  error wording; a receiver that returns `400` with different wording is not recognized and the flush
+  fails as with any other `4xx`, and each tolerated rejection is logged at `WARN`.
 
 ## Example
 
