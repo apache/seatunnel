@@ -21,6 +21,7 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 
 import org.apache.seatunnel.api.event.Event;
 import org.apache.seatunnel.api.event.EventType;
+import org.apache.seatunnel.engine.common.utils.concurrent.CompletableFuture;
 
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Assertions;
@@ -49,7 +50,6 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -61,7 +61,9 @@ import static org.awaitility.Awaitility.given;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @Slf4j
@@ -210,6 +212,35 @@ public class JobEventHttpReportHandlerTest {
             }
             handler.close();
             constructorExecutor.shutdownNow();
+        }
+    }
+
+    @Test
+    public void testInitialCursorAndOverflowRecovery() throws Exception {
+        Ringbuffer ringbuffer = mock(Ringbuffer.class);
+        ReadResultSet<Event> emptyResultSet = mock(ReadResultSet.class);
+        CountDownLatch firstReadCompleted = new CountDownLatch(1);
+        when(ringbuffer.headSequence()).thenReturn(5L, 7L);
+        when(ringbuffer.readManyAsync(anyLong(), anyInt(), anyInt(), any()))
+                .thenAnswer(
+                        invocation -> {
+                            firstReadCompleted.countDown();
+                            return CompletableFuture.completedFuture(emptyResultSet);
+                        });
+        when(emptyResultSet.size()).thenReturn(0);
+
+        JobEventHttpReportHandler handler =
+                new JobEventHttpReportHandler(
+                        mockWebServer.url("/api").toString(), Duration.ofDays(1), ringbuffer);
+        try {
+            Assertions.assertTrue(firstReadCompleted.await(5, TimeUnit.SECONDS));
+            verify(ringbuffer).readManyAsync(eq(5L), anyInt(), anyInt(), any());
+
+            handler.report();
+
+            verify(ringbuffer).readManyAsync(eq(7L), anyInt(), anyInt(), any());
+        } finally {
+            handler.close();
         }
     }
 

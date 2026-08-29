@@ -112,7 +112,7 @@ public class JobEventHttpReportHandler implements EventHandler {
                         log.error("Failed to report event", e);
                     }
                 },
-                reportInterval.getSeconds(),
+                0,
                 reportInterval.getSeconds(),
                 TimeUnit.SECONDS);
     }
@@ -142,7 +142,9 @@ public class JobEventHttpReportHandler implements EventHandler {
 
     private boolean reportFromRingbuffer() throws IOException {
         long headSequence = ringbuffer.headSequence();
-        if (headSequence > committedEventIndex) {
+        if (committedEventIndex < 0) {
+            committedEventIndex = headSequence;
+        } else if (headSequence > committedEventIndex) {
             log.warn(
                     "The head sequence {} is greater than the committed event index {}",
                     headSequence,
