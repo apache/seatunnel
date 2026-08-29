@@ -25,8 +25,10 @@ import org.apache.seatunnel.connectors.seatunnel.file.source.BaseMultipleTableFi
 
 import java.util.List;
 
+/** File source implementation for objects stored in Google Cloud Storage. */
 public class GcsFileSource extends BaseMultipleTableFileSource {
 
+    /** Creates a GCS file source for the configured catalog tables. */
     public GcsFileSource(
             ReadonlyConfig readonlyConfig, List<CatalogTable> catalogTablesFromConfig) {
         this(new MultipleTableGcsFileSourceConfig(readonlyConfig, catalogTablesFromConfig));

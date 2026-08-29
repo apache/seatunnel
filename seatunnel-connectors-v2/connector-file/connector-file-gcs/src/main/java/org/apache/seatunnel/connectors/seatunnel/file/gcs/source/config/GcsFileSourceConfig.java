@@ -24,10 +24,12 @@ import org.apache.seatunnel.connectors.seatunnel.file.config.FileSystemType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.HadoopConf;
 import org.apache.seatunnel.connectors.seatunnel.file.gcs.config.GcsHadoopConf;
 
+/** Source configuration that supplies the Google Cloud Storage filesystem settings. */
 public class GcsFileSourceConfig extends BaseFileSourceConfig {
 
     private static final long serialVersionUID = 1L;
 
+    /** Creates a source configuration for a single catalog table. */
     public GcsFileSourceConfig(ReadonlyConfig readonlyConfig, CatalogTable catalogTableFromConfig) {
         super(readonlyConfig, catalogTableFromConfig);
     }

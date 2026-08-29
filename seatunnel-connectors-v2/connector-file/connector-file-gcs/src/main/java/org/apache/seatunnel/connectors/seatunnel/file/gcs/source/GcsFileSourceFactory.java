@@ -37,6 +37,7 @@ import com.google.auto.service.AutoService;
 import java.io.Serializable;
 import java.util.Arrays;
 
+/** Creates Google Cloud Storage file sources from table factory configuration. */
 @AutoService(Factory.class)
 public class GcsFileSourceFactory implements TableSourceFactory {
 

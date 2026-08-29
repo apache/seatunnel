@@ -27,6 +27,7 @@ import java.net.URISyntaxException;
 import java.util.HashMap;
 import java.util.Map;
 
+/** Hadoop filesystem configuration for Google Cloud Storage. */
 public class GcsHadoopConf extends HadoopConf {
 
     static final String GCS_FILESYSTEM_IMPLEMENTATION =
@@ -38,6 +39,7 @@ public class GcsHadoopConf extends HadoopConf {
         super(bucket);
     }
 
+    /** Builds a GCS Hadoop configuration from connector options. */
     public static HadoopConf buildWithReadonlyConfig(ReadonlyConfig config) {
         String bucket = config.get(GcsFileBaseOptions.BUCKET);
         validateBucket(bucket);
