@@ -29,15 +29,12 @@ import org.codehaus.plexus.util.xml.pull.XmlPullParserException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
-import lombok.extern.slf4j.Slf4j;
-
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
 import java.util.Optional;
 import java.util.Properties;
 
-@Slf4j
 public class MavenJarUtil {
 
     public static final String MAVEN_LOCAL_REPOSITORY_PATH = getLocalRepositoryPath();
@@ -88,15 +85,6 @@ public class MavenJarUtil {
                 + ".jar";
     }
 
-    public static String getConnectorJarPath(String connectorArtifactId) {
-        Properties properties = getPomProperties();
-        String groupId = "org.apache.seatunnel";
-        String projectVersion = properties.getProperty("revision");
-        String scalaVersion = properties.getProperty("scala.version");
-        String connectorVersion = projectVersion + "-" + scalaVersion;
-        return getMavenJarPath(groupId, connectorArtifactId, connectorVersion);
-    }
-
     public static String getHadoop3UberJarPath() {
         Properties properties = getPomProperties();
         String shadeVersion = properties.getProperty("seatunnel.shade.version");
@@ -142,14 +130,5 @@ public class MavenJarUtil {
         File file = new File(getHadoop3UberJarPath());
         Assertions.assertTrue(
                 file.exists(), String.format("File %s not exists", file.getAbsolutePath()));
-    }
-
-    @Test
-    public void testConnectorJdbcJarPath() {
-        String connectorJdbcPath = getConnectorJarPath("connector-jdbc");
-        File file = new File(connectorJdbcPath);
-        Assertions.assertTrue(
-                file.exists(), String.format("File %s not exists", file.getAbsolutePath()));
-        log.info(connectorJdbcPath);
     }
 }
