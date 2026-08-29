@@ -1378,6 +1378,172 @@ To get the content of a log file: `http://localhost:5801/log/job-898380162133917
 
 </details>
 
+------------------------------------------------------------------------------------------
+
+### Read And Change Log Levels
+
+A log level changed through these endpoints is a runtime override: it takes effect immediately, is
+node local, and is lost when the node restarts. Levels that should survive a restart belong in
+`config/log4j2.properties`, see [Logging](logging.md).
+
+The root logger is addressed as `root`.
+
+<details>
+ <summary><code>GET</code> <code><b>/loggers</b></code> <code>(Returns the loggers of the running configuration.)</code></summary>
+
+#### Query Parameters
+
+> |  Parameter Name  |   Required   |  Type   |                                  Description                                   |
+> |------------------|--------------|---------|--------------------------------------------------------------------------------|
+> | scope            |   optional   | string  | `node` (default) answers for the node that serves the request, `cluster` asks every member |
+
+#### Response
+
+```json
+{
+  "node": "localhost:8080",
+  "loggers": [
+    {
+      "name": "root",
+      "level": "INFO",
+      "origin": "file"
+    },
+    {
+      "name": "org.apache.seatunnel.connectors.seatunnel.jdbc",
+      "level": "DEBUG",
+      "origin": "runtime-override",
+      "fileLevel": "INFO"
+    }
+  ]
+}
+```
+
+`origin` tells where the current level comes from: `file` for the level of the log4j2 configuration
+file, `runtime-override` for a level that was set through one of the log level endpoints. `fileLevel`
+is only present when an overridden logger is configured in the file as well, and reports the level a
+`DELETE` puts back.
+
+With `?scope=cluster` the answer is one entry per member:
+
+```json
+{
+  "scope": "cluster",
+  "status": "SUCCESS",
+  "nodes": [
+    {
+      "node": "localhost:8080",
+      "loggers": [
+        {
+          "name": "root",
+          "level": "INFO",
+          "origin": "file"
+        }
+      ]
+    }
+  ]
+}
+```
+
+`status` is `SUCCESS` when every member answered, `PARTIAL_FAILURE` when some did not, and `FAILURE`
+when none did; the member that failed carries its own `status` and `error`. A cluster request reaches
+every member on the REST port of its configuration, so it does not reach members that took a
+different port through `enable-dynamic-port`.
+
+</details>
+
+<details>
+ <summary><code>GET</code> <code><b>/loggers/:name</b></code> <code>(Returns the effective level of one logger.)</code></summary>
+
+#### Response
+
+The level is resolved through the closest configured ancestor, so a logger that is not configured
+itself can be asked about as well.
+
+```json
+{
+  "name": "org.apache.seatunnel.connectors.seatunnel.jdbc",
+  "level": "INFO",
+  "origin": "file",
+  "node": "localhost:8080"
+}
+```
+
+</details>
+
+<details>
+ <summary><code>POST</code> <code><b>/loggers/:name</b></code> <code>(Overrides the level of one logger.)</code></summary>
+
+#### Query Parameters
+
+> |  Parameter Name  |   Required   |  Type   |                                  Description                                   |
+> |------------------|--------------|---------|--------------------------------------------------------------------------------|
+> | level            |   optional   | string  | `OFF`, `FATAL`, `ERROR`, `WARN`, `INFO`, `DEBUG`, `TRACE` or `ALL`, any letter case; may also be sent in the body |
+> | scope            |   optional   | string  | `node` (default) changes the node that serves the request, `cluster` changes every member |
+
+#### Body
+
+```json
+{
+  "level": "DEBUG"
+}
+```
+
+#### Response
+
+```json
+{
+  "name": "org.apache.seatunnel.connectors.seatunnel.jdbc",
+  "level": "DEBUG",
+  "origin": "runtime-override",
+  "node": "localhost:8080",
+  "previousLevel": "INFO",
+  "status": "SUCCESS"
+}
+```
+
+An unknown level is rejected with `400` and the list of valid levels instead of being reported as
+applied. Every change is written to the node log as a single `INFO` line with the logger, the old and
+the new level, the scope and the address of the caller.
+
+#### Examples
+
+Raise the JDBC connector to `DEBUG` on one node:
+`curl -X POST 'http://localhost:8080/loggers/org.apache.seatunnel.connectors.seatunnel.jdbc?level=DEBUG'`
+
+Raise it on every member of the cluster:
+`curl -X POST 'http://localhost:8080/loggers/org.apache.seatunnel.connectors.seatunnel.jdbc?level=DEBUG&scope=cluster'`
+
+</details>
+
+<details>
+ <summary><code>DELETE</code> <code><b>/loggers/:name</b></code> <code>(Reverts a runtime override.)</code></summary>
+
+#### Query Parameters
+
+> |  Parameter Name  |   Required   |  Type   |                                  Description                                   |
+> |------------------|--------------|---------|--------------------------------------------------------------------------------|
+> | scope            |   optional   | string  | `node` (default) reverts the node that serves the request, `cluster` reverts every member |
+
+#### Response
+
+The logger goes back to the level it had before its first override, which is the level of the
+configuration file, or the level inherited from its parent when the file does not configure it.
+
+```json
+{
+  "name": "org.apache.seatunnel.connectors.seatunnel.jdbc",
+  "level": "INFO",
+  "origin": "file",
+  "node": "localhost:8080",
+  "previousLevel": "DEBUG",
+  "status": "SUCCESS"
+}
+```
+
+`status` is `NO_OVERRIDE` when the logger was never overridden through an endpoint; nothing is
+changed in that case.
+
+</details>
 
 ### Get Node Metrics
 
