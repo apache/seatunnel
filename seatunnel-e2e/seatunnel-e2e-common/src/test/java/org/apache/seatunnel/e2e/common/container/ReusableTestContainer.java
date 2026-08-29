@@ -23,7 +23,11 @@ package org.apache.seatunnel.e2e.common.container;
  * <p>Implementations must be configuration-independent across test classes because the first
  * instance is shared with subsequent classes. Per-class setup must be performed in {@link
  * #prepareForTestClass()} or through {@link TestContainer#executeExtraCommands} rather than during
- * construction or startup.
+ * construction or startup. Implementations must detect filesystem or classloader inputs that cannot
+ * be restored safely and fail cleanup so the shared resource is restarted. In particular, a class
+ * must not opt into reuse when its setup replaces an existing same-path connector artifact or
+ * mutates runtime libraries unless the implementation explicitly restores and invalidates that
+ * state.
  */
 public interface ReusableTestContainer extends TestContainer {
 

@@ -33,6 +33,7 @@ import org.apache.seatunnel.e2e.common.util.MavenJarUtil;
 
 import org.apache.commons.compress.utils.Lists;
 import org.apache.http.HttpStatus;
+import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
@@ -61,10 +62,12 @@ import lombok.extern.slf4j.Slf4j;
 import java.io.File;
 import java.io.IOException;
 import java.net.URL;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -91,12 +94,18 @@ public class SeaTunnelContainer extends AbstractTestContainer implements Reusabl
     private static final String REST_CHECKPOINT_OVERVIEW_PATH = "/jobs/checkpoints";
     protected static final String JDK_DOCKER_IMAGE = "seatunnelhub/openjdk:8u342";
     private static final String CLIENT_SHELL = "seatunnel.sh";
+    private static final String CONNECTOR_DIRECTORY = "/tmp/seatunnel/connectors";
+    private static final String RUNTIME_LIBRARY_DIRECTORY = "/tmp/seatunnel/lib";
+    private static final int REST_REQUEST_TIMEOUT_MILLIS = 5_000;
+    private static final int RUNNING_JOBS_TIMEOUT_SECONDS = 30;
     protected static final String SERVER_SHELL = "seatunnel-cluster.sh";
     protected static final String CONNECTOR_CHECK_SHELL = "seatunnel-connector.sh";
     protected GenericContainer<?> server;
     private final AtomicInteger runningCount = new AtomicInteger();
-    private Set<String> connectorJarsBeforeTest = Collections.emptySet();
-    private Set<String> temporaryConfigsBeforeTest = Collections.emptySet();
+    private Set<String> connectorJarsBeforeTest;
+    private Set<String> connectorJarFingerprintsBeforeTest;
+    private Set<String> runtimeLibraryFingerprintsBeforeTest;
+    private Set<String> temporaryConfigsBeforeTest;
 
     @Override
     public void startUp() throws Exception {
@@ -242,44 +251,82 @@ public class SeaTunnelContainer extends AbstractTestContainer implements Reusabl
 
     @Override
     public void prepareForTestClass() throws Exception {
-        assertNoRunningJobs();
-        assertVolumeEmpty();
-        connectorJarsBeforeTest = listConnectorJars();
-        temporaryConfigsBeforeTest = listTemporaryConfigs();
+        resetReuseBaselines();
+        try {
+            assertNoRunningJobs();
+            assertVolumeEmpty();
+            Set<String> connectorJars = listConnectorJars();
+            Set<String> connectorJarFingerprints = listConnectorJarFingerprints();
+            Set<String> runtimeLibraryFingerprints = listRuntimeLibraryFingerprints();
+            Set<String> temporaryConfigs = listTemporaryConfigs();
+            connectorJarsBeforeTest = connectorJars;
+            connectorJarFingerprintsBeforeTest = connectorJarFingerprints;
+            runtimeLibraryFingerprintsBeforeTest = runtimeLibraryFingerprints;
+            temporaryConfigsBeforeTest = temporaryConfigs;
+        } catch (Exception e) {
+            resetReuseBaselines();
+            throw e;
+        }
     }
 
     @Override
     public void cleanUpAfterTestClass() throws Exception {
+        requireReuseBaselines();
         if (runningCount.get() != 0) {
             throw new IllegalStateException("Cannot clean a SeaTunnelContainer with running jobs");
         }
         assertNoRunningJobs();
         Container.ExecResult cleanupResult =
-                server.execInContainer("sh", "-c", "find /tmp/seatunnel_mnt -mindepth 1 -delete");
+                server.execInContainer(
+                        "sh",
+                        "-c",
+                        "if [ ! -d /tmp/seatunnel_mnt ]; then "
+                                + "echo '/tmp/seatunnel_mnt is missing' >&2; exit 1; fi; "
+                                + "find /tmp/seatunnel_mnt -mindepth 1 -delete");
         if (cleanupResult.getExitCode() != 0) {
             throw new IllegalStateException(
                     "Failed to clean shared SeaTunnelContainer: " + cleanupResult.getStderr());
         }
-        deleteAddedArtifacts(
-                "/tmp/seatunnel/connectors", connectorJarsBeforeTest, listConnectorJars());
+        deleteAddedArtifacts(CONNECTOR_DIRECTORY, connectorJarsBeforeTest, listConnectorJars());
         deleteAddedArtifacts("/tmp", temporaryConfigsBeforeTest, listTemporaryConfigs());
         assertVolumeEmpty();
         assertArtifactsRestored("connector JARs", connectorJarsBeforeTest, listConnectorJars());
         assertArtifactsRestored(
+                "connector JAR contents",
+                connectorJarFingerprintsBeforeTest,
+                listConnectorJarFingerprints());
+        assertArtifactsRestored(
+                "runtime libraries",
+                runtimeLibraryFingerprintsBeforeTest,
+                listRuntimeLibraryFingerprints());
+        assertArtifactsRestored(
                 "temporary configs", temporaryConfigsBeforeTest, listTemporaryConfigs());
         assertNoRunningJobs();
+        resetReuseBaselines();
     }
 
     private Set<String> listConnectorJars() throws IOException, InterruptedException {
         return listArtifacts(
-                "find /tmp/seatunnel/connectors -maxdepth 1 -type f -name '*.jar' "
-                        + "-exec basename {} \\;");
+                "find " + CONNECTOR_DIRECTORY + " -type f -name '*.jar' -printf '%P\\n'");
+    }
+
+    private Set<String> listConnectorJarFingerprints() throws IOException, InterruptedException {
+        return listArtifacts(
+                "find " + CONNECTOR_DIRECTORY + " -type f -name '*.jar' -exec sha256sum {} \\;");
+    }
+
+    private Set<String> listRuntimeLibraryFingerprints() throws IOException, InterruptedException {
+        return listArtifacts(
+                "find "
+                        + RUNTIME_LIBRARY_DIRECTORY
+                        + " -type f -name '*.jar' -exec sha256sum {} \\;");
     }
 
     private Set<String> listTemporaryConfigs() throws IOException, InterruptedException {
         return listArtifacts(
-                "find /tmp -maxdepth 1 -type f \\( -name '*.conf' -o -name '*.sql' \\) "
-                        + "-exec basename {} \\;");
+                "find /tmp -type f \\( -name '*.conf' -o -name '*.sql' \\) "
+                        + "! -path '/tmp/seatunnel/*' ! -path '/tmp/seatunnel_mnt/*' "
+                        + "-printf '%P\\n'");
     }
 
     private Set<String> listArtifacts(String command) throws IOException, InterruptedException {
@@ -298,6 +345,11 @@ public class SeaTunnelContainer extends AbstractTestContainer implements Reusabl
             throws IOException, InterruptedException {
         Set<String> artifactsToDelete = new TreeSet<>(currentArtifacts);
         artifactsToDelete.removeAll(baseline);
+        Set<String> directoriesToDelete =
+                new TreeSet<>(
+                        Comparator.comparingInt((String path) -> Paths.get(path).getNameCount())
+                                .reversed()
+                                .thenComparing(Comparator.naturalOrder()));
         for (String artifact : artifactsToDelete) {
             Container.ExecResult result =
                     server.execInContainer("rm", "-f", directory + "/" + artifact);
@@ -308,7 +360,43 @@ public class SeaTunnelContainer extends AbstractTestContainer implements Reusabl
                                 + ": "
                                 + result.getStderr());
             }
+            Path parent = Paths.get(artifact).getParent();
+            while (parent != null) {
+                directoriesToDelete.add(parent.toString());
+                parent = parent.getParent();
+            }
         }
+        for (String relativeDirectory : directoriesToDelete) {
+            Container.ExecResult directoryCleanup =
+                    server.execInContainer(
+                            "rmdir",
+                            "--ignore-fail-on-non-empty",
+                            directory + "/" + relativeDirectory);
+            if (directoryCleanup.getExitCode() != 0) {
+                throw new IllegalStateException(
+                        "Failed to remove empty shared SeaTunnelContainer directory "
+                                + relativeDirectory
+                                + ": "
+                                + directoryCleanup.getStderr());
+            }
+        }
+    }
+
+    private void requireReuseBaselines() {
+        if (connectorJarsBeforeTest == null
+                || connectorJarFingerprintsBeforeTest == null
+                || runtimeLibraryFingerprintsBeforeTest == null
+                || temporaryConfigsBeforeTest == null) {
+            throw new IllegalStateException(
+                    "Shared SeaTunnelContainer cleanup has no valid prepared baseline");
+        }
+    }
+
+    private void resetReuseBaselines() {
+        connectorJarsBeforeTest = null;
+        connectorJarFingerprintsBeforeTest = null;
+        runtimeLibraryFingerprintsBeforeTest = null;
+        temporaryConfigsBeforeTest = null;
     }
 
     private void assertArtifactsRestored(
@@ -327,24 +415,53 @@ public class SeaTunnelContainer extends AbstractTestContainer implements Reusabl
     private void assertVolumeEmpty() throws IOException, InterruptedException {
         Container.ExecResult result =
                 server.execInContainer(
-                        "sh", "-c", "find /tmp/seatunnel_mnt -mindepth 1 -print -quit");
-        if (result.getExitCode() != 0 || !result.getStdout().trim().isEmpty()) {
+                        "sh",
+                        "-c",
+                        "if [ ! -d /tmp/seatunnel_mnt ]; then "
+                                + "echo '/tmp/seatunnel_mnt is missing' >&2; exit 1; fi; "
+                                + "find /tmp/seatunnel_mnt -mindepth 1 -print -quit");
+        if (result.getExitCode() != 0) {
+            throw new IllegalStateException(
+                    "Failed to inspect shared SeaTunnelContainer volume: " + result.getStderr());
+        }
+        if (!result.getStdout().trim().isEmpty()) {
             throw new IllegalStateException(
                     "Shared SeaTunnelContainer volume is not empty: " + result.getStdout());
         }
     }
 
-    private void assertNoRunningJobs() throws IOException {
+    private void assertNoRunningJobs() {
+        Awaitility.await()
+                .atMost(RUNNING_JOBS_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .untilAsserted(this::assertNoRunningJobsOnce);
+    }
+
+    private void assertNoRunningJobsOnce() throws IOException {
         HttpGet get =
                 new HttpGet(
                         String.format(
                                 "http://%s:%d/hazelcast/rest/maps/running-jobs",
                                 server.getHost(), server.getMappedPort(5801)));
-        try (CloseableHttpClient client = HttpClients.createDefault();
+        RequestConfig requestConfig =
+                RequestConfig.custom()
+                        .setConnectTimeout(REST_REQUEST_TIMEOUT_MILLIS)
+                        .setConnectionRequestTimeout(REST_REQUEST_TIMEOUT_MILLIS)
+                        .setSocketTimeout(REST_REQUEST_TIMEOUT_MILLIS)
+                        .build();
+        try (CloseableHttpClient client =
+                        HttpClients.custom().setDefaultRequestConfig(requestConfig).build();
                 CloseableHttpResponse response = client.execute(get)) {
-            String runningJobs = EntityUtils.toString(response.getEntity());
-            if (response.getStatusLine().getStatusCode() != HttpStatus.SC_OK
-                    || !OBJECT_MAPPER.readTree(runningJobs).isEmpty()) {
+            String runningJobs =
+                    response.getEntity() == null ? "" : EntityUtils.toString(response.getEntity());
+            if (response.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
+                throw new IllegalStateException(
+                        "Shared SeaTunnelContainer running-jobs request returned HTTP "
+                                + response.getStatusLine().getStatusCode()
+                                + ": "
+                                + runningJobs);
+            }
+            if (!OBJECT_MAPPER.readTree(runningJobs).isEmpty()) {
                 throw new IllegalStateException(
                         "Shared SeaTunnelContainer still has running jobs: " + runningJobs);
             }
