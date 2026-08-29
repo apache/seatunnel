@@ -372,10 +372,8 @@ public final class ContainerUtil {
 
     private static Config getConfig(File file) {
         return ConfigBuilder.of(file.toPath())
-                .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true))
-                .resolveWith(
-                        ConfigFactory.systemProperties(),
-                        ConfigResolveOptions.defaults().setAllowUnresolved(true));
+                .withFallback(ConfigFactory.systemProperties())
+                .resolve(ConfigResolveOptions.defaults().setAllowUnresolved(true));
     }
 
     public static void checkPathExist(String path) {
