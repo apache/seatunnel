@@ -328,11 +328,11 @@ sink {
   
   Backslash Escaping: `-i mysql_properties=\{\"connectTimeout\":\"5000\",\"connectionTimeZone\":\"UTC\",\"serverTimezone\":\"UTC\",\"useSSL\":\"false\",\"allowPublicKeyRetrieval\":\"true\"\}`
 
-- If the value is an array with map inside，json parameters should be enclosed in single quotes (`\'`):
+- If the value is an array with map inside, json parameters should be enclosed in single quotes (`\'`):
 
   `-i table_list=['{"table_path":"movie_lens.tags_test"}','{"table_path":"movie_lens.ml_*","use_regex":"true"}']`
 
-- If the value is a map with array inside，, the array parameter format inside the JSON must adhere to JSON format specifications. Keys must be enclosed in double quotes, while elements within the array can be either quoted or unquoted, as they will be parsed automatically:
+- If the value is a map with array inside, the array parameter format inside the JSON must adhere to JSON format specifications. Keys must be enclosed in double quotes, while elements within the array can be either quoted or unquoted, as they will be parsed automatically:
 
   `-i table_filter='{"plugin_input":"mysql_source","plugin_output":"filter","include_fields":["movie_id","unix_time"]}'`
 
