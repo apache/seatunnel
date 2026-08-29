@@ -38,6 +38,16 @@ public interface AuthoritativeStateStores extends AutoCloseable {
     CounterStateStore<String> checkpointCounterStore();
 
     /**
+     * Returns the store for engine-level row error counters.
+     *
+     * <p>The current key format is versioned and scoped by job, pipeline, action, stage and counter
+     * name.
+     *
+     * @return error handler counter store
+     */
+    CounterStateStore<String> errorHandlerCounterStore();
+
+    /**
      * Releases resources owned by authoritative stores.
      *
      * <p>Implementations that only wrap non-closeable stores may keep the default no-op behavior.

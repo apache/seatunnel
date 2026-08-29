@@ -1,8 +1,6 @@
 # Schema evolution
 Schema Evolution means that the schema of a data table can be changed and the data synchronization task can automatically adapt to the changes of the new table structure without any other operations.
 
-> The proposed operator timeline is described in [Schema Evolution Timeline Design](./schema-evolution-timeline-design.md). It is not implemented yet.
-
 ## Supported engines
 
 - Zeta
@@ -30,6 +28,7 @@ Schema Evolution means that the schema of a data table can be changed and the da
 [Doris](../../connectors/sink/Doris.md)
 [Paimon](../../connectors/sink/Paimon.md#schema-evolution)
 [Elasticsearch](../../connectors/sink/Elasticsearch.md#schema-evolution)
+[Redis](../../connectors/sink/Redis.md#schema-evolution)
 
 Note:  
 * The schema evolution is not support the transform at now. The schema evolution of different types of databases（Oracle-CDC -> Jdbc-Mysql）is currently not supported the default value of the column in ddl.

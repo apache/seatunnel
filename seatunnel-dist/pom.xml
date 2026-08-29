@@ -340,6 +340,12 @@
                 </dependency>
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-python</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
                     <artifactId>connector-socket</artifactId>
                     <version>${project.version}</version>
                     <scope>provided</scope>
@@ -490,6 +496,18 @@
                 </dependency>
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-google-pubsub</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-azure-queue-storage</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
                     <artifactId>connector-google-bigtable</artifactId>
                     <version>${project.version}</version>
                     <scope>provided</scope>
@@ -623,6 +641,12 @@
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
                     <artifactId>connector-cdc-base</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-cdc-db2</artifactId>
                     <version>${project.version}</version>
                     <scope>provided</scope>
                 </dependency>
@@ -954,9 +978,7 @@
                 <!-- hadoop jar -->
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
-                    <artifactId>seatunnel-hadoop-aws</artifactId>
-                    <version>${project.version}</version>
-                    <classifier>optional</classifier>
+                    <artifactId>seatunnel-shade-hadoop-aws</artifactId>
                     <scope>provided</scope>
                 </dependency>
                 <dependency>
@@ -985,9 +1007,7 @@
                 </dependency>
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
-                    <artifactId>seatunnel-hadoop3-3.1.4-uber</artifactId>
-                    <version>${project.version}</version>
-                    <classifier>optional</classifier>
+                    <artifactId>seatunnel-shade-hadoop3-uber</artifactId>
                     <scope>provided</scope>
                 </dependency>
                 <!-- hadoop jar end -->
@@ -1234,9 +1254,7 @@
 
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
-                    <artifactId>seatunnel-hadoop3-3.1.4-uber</artifactId>
-                    <version>${project.version}</version>
-                    <classifier>optional</classifier>
+                    <artifactId>seatunnel-shade-hadoop3-uber</artifactId>
                     <scope>provided</scope>
                 </dependency>
 
@@ -1263,9 +1281,7 @@
 
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
-                    <artifactId>seatunnel-hadoop-aws</artifactId>
-                    <version>${project.version}</version>
-                    <classifier>optional</classifier>
+                    <artifactId>seatunnel-shade-hadoop-aws</artifactId>
                     <scope>provided</scope>
                 </dependency>
             </dependencies>

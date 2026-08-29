@@ -1,8 +1,6 @@
 # 模式演进
 模式演进是指数据表的Schema可以改变，数据同步任务可以自动适应新的表结构的变化而无需其他操作。
 
-> 面向运维的时间线方案见 [模式演进时间线设计](./schema-evolution-timeline-design.md)。该功能当前尚未实现。
-
 ## 已支持的引擎
 
 - Zeta
@@ -30,6 +28,7 @@
 [Doris](../../connectors/sink/Doris.md)
 [Paimon](../../connectors/sink/Paimon.md#模式演变)
 [Elasticsearch](../../connectors/sink/Elasticsearch.md#模式演变)
+[Redis](../../connectors/sink/Redis.md#模式演变)
 
 注意: 
 * 目前模式演进不支持transform。不同类型数据库(Oracle-CDC -> Jdbc-Mysql)的模式演进目前不支持ddl中列的默认值。
