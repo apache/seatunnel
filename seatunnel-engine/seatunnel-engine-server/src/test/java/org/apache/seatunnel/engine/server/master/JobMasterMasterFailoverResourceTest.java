@@ -201,14 +201,19 @@ public class JobMasterMasterFailoverResourceTest
         throw new IllegalStateException("No pre-applied slot was persisted for the test job");
     }
 
+    /**
+     * Occupies each currently free fixed slot sequentially so each allocation observes the worker
+     * profile refreshed by the preceding request.
+     */
     private List<SlotProfile> occupyRemainingSlots(ResourceManager resourceManager, long jobId)
             throws Exception {
         int freeSlots = resourceManager.getUnassignedSlots(null).size();
-        List<ResourceProfile> resourceProfiles = new ArrayList<>();
+        List<SlotProfile> blockerSlots = new ArrayList<>();
         for (int index = 0; index < freeSlots; index++) {
-            resourceProfiles.add(new ResourceProfile());
+            blockerSlots.add(
+                    resourceManager.applyResource(jobId, new ResourceProfile(), null).get());
         }
-        return resourceManager.applyResources(jobId, resourceProfiles, null).get();
+        return blockerSlots;
     }
 
     private void releasePersistedSlots(
