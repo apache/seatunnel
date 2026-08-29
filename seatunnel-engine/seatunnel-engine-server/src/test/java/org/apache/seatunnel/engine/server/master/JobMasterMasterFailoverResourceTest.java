@@ -27,6 +27,7 @@ import org.apache.seatunnel.engine.server.dag.physical.PhysicalVertex;
 import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
+import org.apache.seatunnel.engine.server.resourcemanager.NoEnoughResourceException;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
@@ -42,6 +43,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ForkJoinPool;
 
 /** Verifies that a restored master keeps using active fixed slots owned by its job. */
@@ -71,7 +73,6 @@ public class JobMasterMasterFailoverResourceTest
         persistPreAppliedSlots(original);
 
         List<SlotProfile> blockerSlots = occupyRemainingSlots(resourceManager, jobId + 1);
-        Assertions.assertEquals(0, resourceManager.getUnassignedSlots(null).size());
 
         JobMaster restored = newJobMaster(jobId, jobImmutableInformationData);
         restored.init(System.currentTimeMillis(), true);
@@ -106,7 +107,6 @@ public class JobMasterMasterFailoverResourceTest
         Assertions.assertEquals(staleSlot.getWorker(), reassignedSlot.getWorker());
         Assertions.assertEquals(staleSlot.getSlotID(), reassignedSlot.getSlotID());
         Assertions.assertNotEquals(staleSlot.getSequence(), reassignedSlot.getSequence());
-        Assertions.assertEquals(0, resourceManager.getUnassignedSlots(null).size());
 
         JobMaster restored = newJobMaster(jobId, jobImmutableInformationData);
         restored.init(System.currentTimeMillis(), true);
@@ -202,18 +202,25 @@ public class JobMasterMasterFailoverResourceTest
     }
 
     /**
-     * Occupies each currently free fixed slot sequentially so each allocation observes the worker
-     * profile refreshed by the preceding request.
+     * Occupies every actual remaining fixed slot and verifies exhaustion through the worker
+     * allocation result. The resource manager cache can briefly retain stale free-slot entries
+     * after asynchronous allocations, so it is not a reliable exhaustion assertion here.
      */
     private List<SlotProfile> occupyRemainingSlots(ResourceManager resourceManager, long jobId)
             throws Exception {
-        int freeSlots = resourceManager.getUnassignedSlots(null).size();
         List<SlotProfile> blockerSlots = new ArrayList<>();
-        for (int index = 0; index < freeSlots; index++) {
-            blockerSlots.add(
-                    resourceManager.applyResource(jobId, new ResourceProfile(), null).get());
+        for (int index = 0; index < SLOT_NUM; index++) {
+            try {
+                blockerSlots.add(
+                        resourceManager.applyResource(jobId, new ResourceProfile(), null).get());
+            } catch (ExecutionException exception) {
+                if (exception.getCause() instanceof NoEnoughResourceException) {
+                    return blockerSlots;
+                }
+                throw exception;
+            }
         }
-        return blockerSlots;
+        throw new AssertionError("Expected fixed-slot allocation to be exhausted");
     }
 
     private void releasePersistedSlots(
