@@ -37,6 +37,7 @@ import org.apache.seatunnel.engine.server.rest.servlet.CurrentNodeLogServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.EncryptConfigServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.FinishedJobsServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.JobInfoServlet;
+import org.apache.seatunnel.engine.server.rest.servlet.LoggersServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.MetricsServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.OptionRulesServlet;
 import org.apache.seatunnel.engine.server.rest.servlet.OverviewServlet;
@@ -73,6 +74,7 @@ import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_FINI
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_GET_ALL_LOG_NAME;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_JOB_INFO;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_LOG;
+import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_LOGGERS;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_LOGS;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_METRICS;
 import static org.apache.seatunnel.engine.server.rest.RestConstant.REST_URL_OPEN_METRICS;
@@ -210,6 +212,7 @@ public class JettyService {
         ServletHolder currentNodeLogServlet =
                 new ServletHolder(new CurrentNodeLogServlet(nodeEngine));
         ServletHolder allLogNameServlet = new ServletHolder(new AllLogNameServlet(nodeEngine));
+        ServletHolder loggersServlet = new ServletHolder(new LoggersServlet(nodeEngine));
 
         ServletHolder metricsServlet = new ServletHolder(new MetricsServlet(nodeEngine));
         ServletHolder realtimeMetricsServlet =
@@ -246,6 +249,7 @@ public class JettyService {
         context.addServlet(allNodeLogServletHolder, convertUrlToPath(REST_URL_LOGS));
         context.addServlet(currentNodeLogServlet, convertUrlToPath(REST_URL_LOG));
         context.addServlet(allLogNameServlet, convertUrlToPath(REST_URL_GET_ALL_LOG_NAME));
+        context.addServlet(loggersServlet, convertUrlToPath(REST_URL_LOGGERS));
         context.addServlet(metricsServlet, convertUrlToPath(REST_URL_METRICS));
         context.addServlet(metricsServlet, convertUrlToPath(REST_URL_OPEN_METRICS));
         context.addServlet(realtimeMetricsServlet, convertUrlToPath(REST_URL_REALTIME_METRICS));

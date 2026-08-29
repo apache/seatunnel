@@ -286,9 +286,7 @@ public class RestHttpGetCommandProcessor extends HttpCommandProcessor<HttpGetCom
                 (NodeExtension) textCommandService.getNode().getNodeExtension();
         try {
             TextFormat.writeFormat(
-                    contentType,
-                    stringWriter,
-                    nodeExtension.getCollectorRegistry().metricFamilySamples());
+                    contentType, stringWriter, nodeExtension.getMetricFamilySamples());
             this.prepareResponse(httpGetCommand, stringWriter.toString());
         } catch (IOException e) {
             httpGetCommand.send400();
