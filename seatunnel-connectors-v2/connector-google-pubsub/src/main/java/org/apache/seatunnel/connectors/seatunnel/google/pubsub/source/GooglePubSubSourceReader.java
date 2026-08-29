@@ -49,17 +49,22 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
+/** Reads Pub/Sub messages and acknowledges them only after their SeaTunnel checkpoint completes. */
 public class GooglePubSubSourceReader implements SourceReader<SeaTunnelRow, SingleSplit> {
 
     private static final long POLL_TIMEOUT_MILLIS = 500;
 
     private final DeserializationSchema<SeaTunnelRow> deserializationSchema;
     private final SubscriberFactory subscriberFactory;
+    // Guards all message acknowledgement state shared with checkpoint callbacks.
     private final Object acknowledgementLock = new Object();
     private final BlockingQueue<ReceivedMessage> receivedMessages = new LinkedBlockingQueue<>();
+    // Messages emitted since the last completed checkpoint.
     private final Set<AckReplyConsumerWithResponse> unacknowledgedMessages = new LinkedHashSet<>();
+    // Immutable acknowledgement snapshots keyed by SeaTunnel checkpoint ID.
     private final NavigableMap<Long, List<AckReplyConsumerWithResponse>> pendingAcknowledgements =
             new TreeMap<>();
+    // First asynchronous subscriber failure observed by the polling thread.
     private final AtomicReference<Throwable> subscriberFailure = new AtomicReference<>();
 
     private PubSubSubscriber subscriber;
@@ -158,6 +163,9 @@ public class GooglePubSubSourceReader implements SourceReader<SeaTunnelRow, Sing
             acknowledgements = new ArrayList<>(checkpoint.getValue());
         }
 
+        // Advance local state only after every acknowledgement in the selected checkpoint succeeds.
+        // If Pub/Sub accepts only part of the batch, failing the callback leaves the remaining
+        // messages eligible for redelivery instead of silently losing them from checkpoint state.
         acknowledge(acknowledgements, checkpointId);
         synchronized (acknowledgementLock) {
             unacknowledgedMessages.removeAll(acknowledgements);

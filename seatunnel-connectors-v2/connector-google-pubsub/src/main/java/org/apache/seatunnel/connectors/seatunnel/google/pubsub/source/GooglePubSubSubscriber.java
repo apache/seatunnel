@@ -22,6 +22,7 @@ import org.apache.seatunnel.connectors.seatunnel.google.pubsub.exception.GoogleP
 import org.apache.seatunnel.connectors.seatunnel.google.pubsub.exception.GooglePubSubConnectorException;
 
 import com.google.api.core.ApiService;
+import com.google.api.gax.batching.FlowControlSettings;
 import com.google.api.gax.core.FixedCredentialsProvider;
 import com.google.api.gax.core.NoCredentialsProvider;
 import com.google.api.gax.grpc.GrpcTransportChannel;
@@ -40,6 +41,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 
+/** Google Pub/Sub client lifecycle and transport configuration for a source reader. */
 class GooglePubSubSubscriber implements PubSubSubscriber {
 
     private static final long CLOSE_TIMEOUT_SECONDS = 60;
@@ -63,6 +65,8 @@ class GooglePubSubSubscriber implements PubSubSubscriber {
                             ProjectSubscriptionName.of(
                                     config.getProjectId(), config.getSubscription()),
                             receiver);
+
+            configureFlowControl(subscriberBuilder, config);
 
             if (config.getEmulatorHost() != null) {
                 emulatorChannel =
@@ -105,6 +109,25 @@ class GooglePubSubSubscriber implements PubSubSubscriber {
                     "Failed to create Google Pub/Sub subscriber for subscription "
                             + config.getSubscription(),
                     e);
+        }
+    }
+
+    private static void configureFlowControl(
+            Subscriber.Builder subscriberBuilder, GooglePubSubSourceConfig config) {
+        if (config.getMaxOutstandingMessages() != null || config.getMaxOutstandingBytes() != null) {
+            FlowControlSettings.Builder flowControlSettings =
+                    Subscriber.Builder.getDefaultFlowControlSettings().toBuilder();
+            if (config.getMaxOutstandingMessages() != null) {
+                flowControlSettings.setMaxOutstandingElementCount(
+                        config.getMaxOutstandingMessages());
+            }
+            if (config.getMaxOutstandingBytes() != null) {
+                flowControlSettings.setMaxOutstandingRequestBytes(config.getMaxOutstandingBytes());
+            }
+            subscriberBuilder.setFlowControlSettings(flowControlSettings.build());
+        }
+        if (config.getParallelPullCount() != null) {
+            subscriberBuilder.setParallelPullCount(config.getParallelPullCount());
         }
     }
 

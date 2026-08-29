@@ -65,6 +65,38 @@ class GooglePubSubSourceConfigTest {
         Assertions.assertTrue(exception.getMessage().contains("field_delimiter"));
     }
 
+    @Test
+    void shouldRejectNonPositiveFlowControlOptions() {
+        for (String option :
+                new String[] {
+                    "max_outstanding_messages", "max_outstanding_bytes", "parallel_pull_count"
+                }) {
+            Map<String, Object> options = requiredOptions();
+            options.put(option, 0);
+
+            IllegalArgumentException exception =
+                    Assertions.assertThrows(
+                            IllegalArgumentException.class,
+                            () -> GooglePubSubSourceConfig.from(ReadonlyConfig.fromMap(options)));
+            Assertions.assertTrue(exception.getMessage().contains(option));
+        }
+    }
+
+    @Test
+    void shouldReadFlowControlOptions() {
+        Map<String, Object> options = requiredOptions();
+        options.put("max_outstanding_messages", 100L);
+        options.put("max_outstanding_bytes", 1024L);
+        options.put("parallel_pull_count", 2);
+
+        GooglePubSubSourceConfig config =
+                GooglePubSubSourceConfig.from(ReadonlyConfig.fromMap(options));
+
+        Assertions.assertEquals(100L, config.getMaxOutstandingMessages());
+        Assertions.assertEquals(1024L, config.getMaxOutstandingBytes());
+        Assertions.assertEquals(2, config.getParallelPullCount());
+    }
+
     private Map<String, Object> requiredOptions() {
         Map<String, Object> options = new HashMap<>();
         options.put("project_id", "test-project");

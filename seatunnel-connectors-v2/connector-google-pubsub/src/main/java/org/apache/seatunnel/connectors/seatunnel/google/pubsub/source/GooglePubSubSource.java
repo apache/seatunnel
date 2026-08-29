@@ -36,6 +36,7 @@ import org.apache.seatunnel.connectors.seatunnel.google.pubsub.exception.GoogleP
 import java.util.Collections;
 import java.util.List;
 
+/** Unbounded source for one Google Pub/Sub subscription. */
 public class GooglePubSubSource
         implements SeaTunnelSource<SeaTunnelRow, SingleSplit, SingleSplitEnumeratorState> {
 

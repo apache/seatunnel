@@ -33,6 +33,9 @@ import ChangeLog from '../changelog/connector-google-pubsub.md';
 | emulator_host | string | 否 | - |
 | format | enum | 否 | json |
 | field_delimiter | string | 否 | , |
+| max_outstanding_messages | long | 否 | Google 客户端默认值 |
+| max_outstanding_bytes | long | 否 | Google 客户端默认值 |
+| parallel_pull_count | int | 否 | Google 客户端默认值 |
 | schema | config | 是 | - |
 | common-options | | 否 | - |
 
@@ -63,6 +66,18 @@ Pub/Sub 模拟器的主机和端口，例如 `pubsub-emulator:8085`。配置后�
 
 `format = text` 时使用的字段分隔符。默认值为 `,`。
 
+### max_outstanding_messages [long]
+
+订阅客户端在触发流量控制前最多保留的消息数。该值必须大于 `0`。未配置时使用 Google 客户端默认值。
+
+### max_outstanding_bytes [long]
+
+订阅客户端在触发流量控制前最多保留的消息总字节数。该值必须大于 `0`。未配置时使用 Google 客户端默认值。
+
+### parallel_pull_count [int]
+
+每个 Source Reader 建立的流式拉取连接数。该值必须大于 `0`。未配置时使用 Google 客户端默认值。
+
 ### schema [config]
 
 反序列化消息负载使用的 Schema。详情请参阅 [Schema 特性](../../introduction/concepts/schema-feature.md)。
@@ -76,6 +91,8 @@ Source 插件通用参数，请参考 [Source 通用选项](../common-options/so
 连接器使用一个逻辑 Pub/Sub 订阅 Split。只有当包含消息对应行的 SeaTunnel 检查点完成后，连接器才确认这些消息。如果任务在检查点完成前失败，Pub/Sub 可以重新投递未确认的消息。
 
 该机制提供至少一次交付语义。恢复后可能出现重复行，使用方需要具备去重能力。必须启用周期性 SeaTunnel 检查点，连接器才能确认已处理的消息。当前版本不将 Pub/Sub 消息属性、排序键或发布时间公开为元数据字段。
+
+如果消息无法反序列化，连接器会对该消息进行否定确认并使 Source 任务失败。Pub/Sub 可以在任务恢复后再次投递同一条消息，因此永久无效的消息可能导致作业反复重启。如不能接受该行为，请配置 Pub/Sub 死信主题或移除无效消息。
 
 ## 任务示例
 

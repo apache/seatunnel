@@ -40,6 +40,7 @@ import java.io.Serializable;
 
 import static org.apache.seatunnel.api.options.ConnectorCommonOptions.SCHEMA;
 
+/** Creates Google Pub/Sub sources and their payload deserializers. */
 @AutoService(Factory.class)
 public class GooglePubSubSourceFactory implements TableSourceFactory {
 
@@ -59,7 +60,10 @@ public class GooglePubSubSourceFactory implements TableSourceFactory {
                         GooglePubSubSourceOptions.CREDENTIALS_PATH,
                         GooglePubSubSourceOptions.EMULATOR_HOST,
                         GooglePubSubSourceOptions.FORMAT,
-                        GooglePubSubSourceOptions.FIELD_DELIMITER)
+                        GooglePubSubSourceOptions.FIELD_DELIMITER,
+                        GooglePubSubSourceOptions.MAX_OUTSTANDING_MESSAGES,
+                        GooglePubSubSourceOptions.MAX_OUTSTANDING_BYTES,
+                        GooglePubSubSourceOptions.PARALLEL_PULL_COUNT)
                 .build();
     }
 

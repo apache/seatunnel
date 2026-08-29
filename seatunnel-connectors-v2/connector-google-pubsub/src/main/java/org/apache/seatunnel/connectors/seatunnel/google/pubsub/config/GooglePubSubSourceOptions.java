@@ -63,5 +63,29 @@ public class GooglePubSubSourceOptions extends ConnectorCommonOptions {
                     .defaultValue(",")
                     .withDescription("Field delimiter used when format is text.");
 
+    public static final Option<Long> MAX_OUTSTANDING_MESSAGES =
+            Options.key("max_outstanding_messages")
+                    .longType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Maximum number of messages held by the Pub/Sub subscriber. "
+                                    + "The Google client default is used when this option is not set.");
+
+    public static final Option<Long> MAX_OUTSTANDING_BYTES =
+            Options.key("max_outstanding_bytes")
+                    .longType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Maximum total bytes held by the Pub/Sub subscriber. "
+                                    + "The Google client default is used when this option is not set.");
+
+    public static final Option<Integer> PARALLEL_PULL_COUNT =
+            Options.key("parallel_pull_count")
+                    .intType()
+                    .noDefaultValue()
+                    .withDescription(
+                            "Number of streaming pull connections used by the Pub/Sub subscriber. "
+                                    + "The Google client default is used when this option is not set.");
+
     private GooglePubSubSourceOptions() {}
 }

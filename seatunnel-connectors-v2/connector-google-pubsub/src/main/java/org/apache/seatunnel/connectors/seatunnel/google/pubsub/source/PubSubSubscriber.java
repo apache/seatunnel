@@ -19,6 +19,7 @@ package org.apache.seatunnel.connectors.seatunnel.google.pubsub.source;
 
 import java.io.Closeable;
 
+/** Lifecycle abstraction for the Pub/Sub client used by a source reader. */
 interface PubSubSubscriber extends Closeable {
 
     void start();

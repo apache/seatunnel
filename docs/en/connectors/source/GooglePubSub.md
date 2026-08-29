@@ -33,6 +33,9 @@ Reads messages from an existing Google Pub/Sub subscription and converts each me
 | emulator_host | string | no | - |
 | format | enum | no | json |
 | field_delimiter | string | no | , |
+| max_outstanding_messages | long | no | Google client default |
+| max_outstanding_bytes | long | no | Google client default |
+| parallel_pull_count | int | no | Google client default |
 | schema | config | yes | - |
 | common-options | | no | - |
 
@@ -63,6 +66,18 @@ Message payload format. Supported values:
 
 Field delimiter used when `format = text`. The default is `,`.
 
+### max_outstanding_messages [long]
+
+Maximum number of messages the subscriber can hold before applying flow control. The value must be greater than `0`. When omitted, the Google client default is used.
+
+### max_outstanding_bytes [long]
+
+Maximum total message bytes the subscriber can hold before applying flow control. The value must be greater than `0`. When omitted, the Google client default is used.
+
+### parallel_pull_count [int]
+
+Number of streaming pull connections opened by each source reader. The value must be greater than `0`. When omitted, the Google client default is used.
+
 ### schema [config]
 
 Schema used to deserialize message payloads. See [Schema Feature](../../introduction/concepts/schema-feature.md) for details.
@@ -76,6 +91,8 @@ Source plugin common parameters, please refer to [Source Common Options](../comm
 The connector uses one logical Pub/Sub subscription split. Messages are acknowledged only after the SeaTunnel checkpoint containing their rows completes. If the task fails before that checkpoint completes, Pub/Sub can redeliver the unacknowledged messages.
 
 This provides at-least-once delivery. Consumers must tolerate duplicate rows after recovery. Periodic SeaTunnel checkpoints must be enabled so the connector can acknowledge processed messages. The source currently does not expose Pub/Sub message attributes, ordering keys, or publish timestamps as metadata fields.
+
+If a message cannot be deserialized, the connector negatively acknowledges it and fails the source task. Pub/Sub can redeliver the same message after recovery, so a permanently invalid message can repeatedly restart the job. Configure a Pub/Sub dead-letter topic or remove the invalid message when this behavior is not acceptable.
 
 ## Task Example
 

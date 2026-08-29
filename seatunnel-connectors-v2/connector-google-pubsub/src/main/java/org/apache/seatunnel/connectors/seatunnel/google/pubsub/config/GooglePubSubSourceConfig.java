@@ -24,6 +24,7 @@ import lombok.Getter;
 
 import java.io.Serializable;
 
+/** Immutable runtime configuration for the Google Pub/Sub source. */
 @Getter
 @Builder
 public class GooglePubSubSourceConfig implements Serializable {
@@ -34,6 +35,9 @@ public class GooglePubSubSourceConfig implements Serializable {
     private final String emulatorHost;
     private final MessageFormat format;
     private final String fieldDelimiter;
+    private final Long maxOutstandingMessages;
+    private final Long maxOutstandingBytes;
+    private final Integer parallelPullCount;
 
     public static GooglePubSubSourceConfig from(ReadonlyConfig config) {
         String projectId = config.get(GooglePubSubSourceOptions.PROJECT_ID);
@@ -42,6 +46,10 @@ public class GooglePubSubSourceConfig implements Serializable {
         String emulatorHost = config.get(GooglePubSubSourceOptions.EMULATOR_HOST);
         MessageFormat format = config.get(GooglePubSubSourceOptions.FORMAT);
         String fieldDelimiter = config.get(GooglePubSubSourceOptions.FIELD_DELIMITER);
+        Long maxOutstandingMessages =
+                config.get(GooglePubSubSourceOptions.MAX_OUTSTANDING_MESSAGES);
+        Long maxOutstandingBytes = config.get(GooglePubSubSourceOptions.MAX_OUTSTANDING_BYTES);
+        Integer parallelPullCount = config.get(GooglePubSubSourceOptions.PARALLEL_PULL_COUNT);
 
         requireNonBlank(projectId, GooglePubSubSourceOptions.PROJECT_ID.key());
         requireNonBlank(subscription, GooglePubSubSourceOptions.SUBSCRIPTION.key());
@@ -54,6 +62,10 @@ public class GooglePubSubSourceConfig implements Serializable {
         if (format == MessageFormat.TEXT && fieldDelimiter.isEmpty()) {
             throw new IllegalArgumentException("Option 'field_delimiter' cannot be empty");
         }
+        requirePositive(
+                maxOutstandingMessages, GooglePubSubSourceOptions.MAX_OUTSTANDING_MESSAGES.key());
+        requirePositive(maxOutstandingBytes, GooglePubSubSourceOptions.MAX_OUTSTANDING_BYTES.key());
+        requirePositive(parallelPullCount, GooglePubSubSourceOptions.PARALLEL_PULL_COUNT.key());
 
         return GooglePubSubSourceConfig.builder()
                 .projectId(projectId)
@@ -62,6 +74,9 @@ public class GooglePubSubSourceConfig implements Serializable {
                 .emulatorHost(emulatorHost)
                 .format(format)
                 .fieldDelimiter(fieldDelimiter)
+                .maxOutstandingMessages(maxOutstandingMessages)
+                .maxOutstandingBytes(maxOutstandingBytes)
+                .parallelPullCount(parallelPullCount)
                 .build();
     }
 
@@ -74,6 +89,12 @@ public class GooglePubSubSourceConfig implements Serializable {
     private static void requireNonBlankIfPresent(String value, String option) {
         if (value != null) {
             requireNonBlank(value, option);
+        }
+    }
+
+    private static void requirePositive(Number value, String option) {
+        if (value != null && value.longValue() <= 0) {
+            throw new IllegalArgumentException("Option '" + option + "' must be greater than 0");
         }
     }
 }
