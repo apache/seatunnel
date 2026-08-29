@@ -33,6 +33,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.function.LongSupplier;
 
+/** Polls a configured SNMP agent and emits one row for each requested OID. */
 public class SnmpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
 
     private static final Logger LOG = LoggerFactory.getLogger(SnmpSourceReader.class);
@@ -47,6 +48,7 @@ public class SnmpSourceReader extends AbstractSingleSplitReader<SeaTunnelRow> {
     private SnmpClient client;
     private long nextPollTimeMillis;
 
+    /** Creates a reader for the supplied SNMP agent configuration. */
     public SnmpSourceReader(SnmpSourceConfig config, SingleSplitReaderContext context) {
         this(config, context, Snmp4jClient::new, System::currentTimeMillis);
     }

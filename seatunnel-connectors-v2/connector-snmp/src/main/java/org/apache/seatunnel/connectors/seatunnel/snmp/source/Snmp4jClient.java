@@ -36,6 +36,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
+/** SNMPv2c client backed by SNMP4J. */
 final class Snmp4jClient implements SnmpClient {
 
     private final SnmpSourceConfig config;

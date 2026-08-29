@@ -133,4 +133,3 @@ seatunnel-shade-jetty-9.4.56.v20240826-3.0.0.jar
 seatunnel-shade-scala-compiler-2.12-3.0.0.jar
 seatunnel-shade-calcite-1.38.0-3.0.0.jar
 seatunnel-shade-jackson-yaml-2.15.4-3.0.0.jar
-snmp4j-2.8.18.jar

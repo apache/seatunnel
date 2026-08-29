@@ -31,6 +31,7 @@ import com.google.auto.service.AutoService;
 
 import java.io.Serializable;
 
+/** Creates SNMP source connectors from table factory configuration. */
 @AutoService(Factory.class)
 public class SnmpSourceFactory implements TableSourceFactory {
 

@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.regex.Pattern;
 
+/** Validated runtime configuration for the SNMP source connector. */
 public final class SnmpSourceConfig implements Serializable {
 
     private static final long serialVersionUID = 1L;
@@ -43,6 +44,7 @@ public final class SnmpSourceConfig implements Serializable {
     private final int retries;
     private final long pollIntervalMillis;
 
+    /** Creates an SNMP source configuration from connector options. */
     public SnmpSourceConfig(ReadonlyConfig config) {
         String configuredHost = config.get(SnmpSourceOptions.HOST);
         if (isBlank(configuredHost)) {
