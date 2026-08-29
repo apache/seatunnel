@@ -518,13 +518,40 @@ seatunnel:
   },
   "pluginJarsUrls": [
   ],
-  "isStartWithSavePoint": false
+  "isStartWithSavePoint": false,
+  "diagnostics": {
+    "jobId": "",
+    "generatedAt": 1755000004000,
+    "stateTimestamps": {
+      "INITIALIZING": 1755000000000,
+      "CREATED": 1755000000200,
+      "SCHEDULED": 1755000001000,
+      "RUNNING": 1755000003000
+    },
+    "pipelines": [
+      {
+        "pipelineId": 1,
+        "pipelineStatus": "RUNNING",
+        "restoreCount": 7,
+        "maxRestoreCount": 100,
+        "stateTimestamps": {
+          "INITIALIZING": 1755000000000,
+          "CREATED": 1755000000200,
+          "SCHEDULED": 1755000001100,
+          "DEPLOYING": 1755000002000,
+          "RUNNING": 1755000003500
+        }
+      }
+    ],
+    "totalPipelineRestoreCount": 7
+  }
 }
 ```
 
 `jobId`, `jobName`, `jobStatus`, `createTime`, `jobDag`, `metrics` 字段总会返回.
 `envOptions`, `pluginJarsUrls`, `isStartWithSavePoint` 字段在Job在RUNNING状态时会返回
 `finishedTime`, `errorMsg` 字段在Job结束时会返回，结束状态为不为RUNNING，可能为FINISHED，可能为CANCEL
+`diagnostics` 字段在Job运行中且能从Master节点读取到诊断信息时返回。它属于辅助信息，读取失败时该字段会被省略，不会导致请求失败。该字段只在本接口返回，`/running-jobs` 不返回：为列表中的每个Job收集诊断信息会额外增加一次到Master的请求。
 
 #### 指标字段说明
 
@@ -546,6 +573,19 @@ seatunnel:
 | TableSourceReceived* | 按表汇总的源指标，键格式 `TableSourceReceivedXXX#<表>` |
 | TableSinkWrite* | 按表汇总的 Sink 写入尝试，键格式 `TableSinkWriteXXX#<表>` |
 | TableSinkCommitted* | 按表汇总的 Sink 已提交指标，键格式 `TableSinkCommittedXXX#<表>` |
+
+#### 诊断字段说明
+
+| 字段 | 说明 |
+| --- | --- |
+| generatedAt | 采集该诊断信息的时间戳（毫秒） |
+| stateTimestamps | Job 进入各状态的时间戳（毫秒），未进入过的状态不会出现。Pipeline 重启不会改变 Job 状态，因此仅凭该字段看不出重启 |
+| pipelines[].pipelineId | Job 内的 Pipeline id |
+| pipelines[].pipelineStatus | Pipeline 当前状态 |
+| pipelines[].restoreCount | 自 Job 提交以来该 Pipeline 被恢复（重启）的次数。若 `jobStatus` 一直是 `RUNNING` 而该值不断增长，说明处于崩溃重启循环中 |
+| pipelines[].maxRestoreCount | 该 Pipeline 的恢复次数上限，来自 `job.retry.times` env 配置 |
+| pipelines[].stateTimestamps | Pipeline 进入各状态的时间戳（毫秒）。发生恢复后，新一轮的时间戳会覆盖上一轮 |
+| totalPipelineRestoreCount | Job 下所有 Pipeline 的 `restoreCount` 之和 |
 
 当我们查询不到这个Job时，返回结果为：
 

@@ -526,13 +526,43 @@ This endpoint helps troubleshoot why jobs stay in `PENDING` by showing the pendi
   },
   "pluginJarsUrls": [
   ],
-  "isStartWithSavePoint": false
+  "isStartWithSavePoint": false,
+  "diagnostics": {
+    "jobId": "",
+    "generatedAt": 1755000004000,
+    "stateTimestamps": {
+      "INITIALIZING": 1755000000000,
+      "CREATED": 1755000000200,
+      "SCHEDULED": 1755000001000,
+      "RUNNING": 1755000003000
+    },
+    "pipelines": [
+      {
+        "pipelineId": 1,
+        "pipelineStatus": "RUNNING",
+        "restoreCount": 7,
+        "maxRestoreCount": 100,
+        "stateTimestamps": {
+          "INITIALIZING": 1755000000000,
+          "CREATED": 1755000000200,
+          "SCHEDULED": 1755000001100,
+          "DEPLOYING": 1755000002000,
+          "RUNNING": 1755000003500
+        }
+      }
+    ],
+    "totalPipelineRestoreCount": 7
+  }
 }
 ```
 
 `jobId`, `jobName`, `jobStatus`, `createTime`, `jobDag`, `metrics` always be returned.
 `envOptions`, `pluginJarsUrls`, `isStartWithSavePoint` will return when job is running.
 `finishedTime`, `errorMsg` will return when job is finished.
+`diagnostics` will return when the job is running and its diagnostics can be read from the master
+node. It is auxiliary information: if it can not be obtained, the field is omitted instead of
+failing the request. Only this endpoint returns it; `/running-jobs` does not, because collecting it
+for every running job would cost one more round trip to the master per job.
 
 #### Metrics field description
 
@@ -554,6 +584,19 @@ This endpoint helps troubleshoot why jobs stay in `PENDING` by showing the pendi
 | TableSourceReceived* | Per-table source metrics, key format `TableSourceReceivedXXX#<table>` |
 | TableSinkWrite* | Per-table sink write attempts, key format `TableSinkWriteXXX#<table>` |
 | TableSinkCommitted* | Per-table sink committed metrics, key format `TableSinkCommittedXXX#<table>` |
+
+#### Diagnostics field description
+
+| Field | Description |
+| --- | --- |
+| generatedAt | Epoch millis when this diagnostics block was collected |
+| stateTimestamps | Epoch millis when the job entered each state. States never entered are omitted. A pipeline restart does not change the job state, so this alone does not show restarts |
+| pipelines[].pipelineId | Pipeline id inside the job |
+| pipelines[].pipelineStatus | Current pipeline state |
+| pipelines[].restoreCount | How many times this pipeline has been restored since the job was submitted. A value that keeps growing while `jobStatus` stays `RUNNING` is a crash loop |
+| pipelines[].maxRestoreCount | Restore limit of this pipeline, from the `job.retry.times` env option |
+| pipelines[].stateTimestamps | Epoch millis when the pipeline entered each state. After a restore, the timestamps of the new attempt overwrite the previous ones |
+| totalPipelineRestoreCount | Sum of `restoreCount` over all pipelines of the job |
 
 When we can't get the job info, the response will be:
 
