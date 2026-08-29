@@ -243,6 +243,10 @@ public class MysqlDialect implements JdbcDialect {
     public StringRangeSplitDecision validateStringRangeSplit(
             Connection connection, JdbcSourceTable table, String columnName, int sampleSize)
             throws SQLException {
+        if (getClass() != MysqlDialect.class) {
+            return StringRangeSplitDecision.unsafe(
+                    "ASCII string range splitting is only validated for the MySQL dialect");
+        }
         if (table.getTablePath() == null
                 || TablePath.DEFAULT.getFullName().equals(table.getTablePath().getFullName())) {
             return StringRangeSplitDecision.unsafe(
@@ -282,6 +286,12 @@ public class MysqlDialect implements JdbcDialect {
                 String.format(
                         "collation %s is binary and %s sampled values are fixed-length printable ASCII",
                         collation, samples.size()));
+    }
+
+    @Override
+    public StringRangeSplitDecision validateStringRangeSplitSession(Connection connection) {
+        return StringRangeSplitDecision.safe(
+                "reader String comparisons use the binary column collation validated at planning");
     }
 
     @Override

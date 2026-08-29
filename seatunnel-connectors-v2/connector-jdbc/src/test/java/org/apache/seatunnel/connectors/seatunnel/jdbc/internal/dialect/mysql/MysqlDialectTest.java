@@ -23,6 +23,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.converter.JdbcRow
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.DatabaseIdentifier;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectTypeMapper;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.starrocks.StarRocksDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceTable;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.StringRangeSplitDecision;
 
@@ -125,6 +126,14 @@ public class MysqlDialectTest {
                         3);
 
         Assertions.assertTrue(decision.isSafe());
+    }
+
+    @Test
+    public void testDerivedMysqlDialectDoesNotInheritStringRangeSplitValidation() throws Exception {
+        StringRangeSplitDecision decision =
+                new StarRocksDialect().validateStringRangeSplit(null, null, "id", 256);
+
+        Assertions.assertFalse(decision.isSafe());
     }
 
     @Test

@@ -38,6 +38,7 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDiale
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.SQLUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.dialectenum.FieldIdeEnum;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.source.JdbcSourceTable;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.source.StringRangeSplitDecision;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -49,6 +50,7 @@ import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -60,6 +62,12 @@ import java.util.stream.Collectors;
 public class OracleDialect implements JdbcDialect {
 
     private static final int DEFAULT_ORACLE_FETCH_SIZE = 128;
+
+    private static final String NLS_SORT = "NLS_SORT";
+
+    private static final String NLS_COMP = "NLS_COMP";
+
+    private static final String BINARY_NLS_VALUE = "BINARY";
 
     /** Oracle PCTFREE legal range (inclusive). */
     private static final int PCTFREE_MIN = 0;
@@ -278,6 +286,137 @@ public class OracleDialect implements JdbcDialect {
             }
         }
         return SQLUtils.countForSubquery(connection, query);
+    }
+
+    @Override
+    public StringRangeSplitDecision validateStringRangeSplit(
+            Connection connection, JdbcSourceTable table, String columnName, int sampleSize)
+            throws SQLException {
+        if (getClass() != OracleDialect.class) {
+            return StringRangeSplitDecision.unsafe(
+                    "ASCII string range splitting is only validated for the Oracle dialect");
+        }
+        if (sampleSize <= 0) {
+            return StringRangeSplitDecision.unsafe("sample size must be greater than zero");
+        }
+        StringRangeSplitDecision sessionDecision = validateStringRangeSplitSession(connection);
+        if (!sessionDecision.isSafe()) {
+            return sessionDecision;
+        }
+
+        List<String> samples = sampleStringValues(connection, table, columnName, sampleSize);
+        if (samples.isEmpty()) {
+            return StringRangeSplitDecision.unsafe("no non-null sample values found");
+        }
+        Integer sampleLength = null;
+        for (String sample : samples) {
+            if (!isPrintableAscii(sample)) {
+                return StringRangeSplitDecision.unsafe(
+                        String.format("sample value contains non-ASCII characters: [%s]", sample));
+            }
+            if (sampleLength == null) {
+                sampleLength = sample.length();
+            } else if (sample.length() != sampleLength) {
+                return StringRangeSplitDecision.unsafe(
+                        "sample values have variable lengths and cannot preserve string range order");
+            }
+        }
+        return StringRangeSplitDecision.safe(
+                String.format(
+                        "session %s and %s are binary and %s sampled values are fixed-length printable ASCII",
+                        NLS_SORT, NLS_COMP, samples.size()));
+    }
+
+    @Override
+    public StringRangeSplitDecision validateStringRangeSplitSession(Connection connection)
+            throws SQLException {
+        Map<String, String> sessionNlsParameters = querySessionNlsParameters(connection);
+        String nlsSort = sessionNlsParameters.get(NLS_SORT);
+        if (!BINARY_NLS_VALUE.equalsIgnoreCase(nlsSort)) {
+            return StringRangeSplitDecision.unsafe(
+                    String.format(
+                            "session %s must be %s but was %s",
+                            NLS_SORT, BINARY_NLS_VALUE, nlsSort));
+        }
+        String nlsComp = sessionNlsParameters.get(NLS_COMP);
+        if (!BINARY_NLS_VALUE.equalsIgnoreCase(nlsComp)) {
+            return StringRangeSplitDecision.unsafe(
+                    String.format(
+                            "session %s must be %s but was %s",
+                            NLS_COMP, BINARY_NLS_VALUE, nlsComp));
+        }
+        return StringRangeSplitDecision.safe(
+                String.format("session %s and %s are binary", NLS_SORT, NLS_COMP));
+    }
+
+    @Override
+    public boolean supportStringRangeSplit() {
+        return true;
+    }
+
+    private Map<String, String> querySessionNlsParameters(Connection connection)
+            throws SQLException {
+        String sql =
+                "SELECT PARAMETER, VALUE FROM NLS_SESSION_PARAMETERS "
+                        + "WHERE PARAMETER IN ('NLS_SORT', 'NLS_COMP')";
+        Map<String, String> parameters = new HashMap<>();
+        try (Statement statement = connection.createStatement();
+                ResultSet resultSet = statement.executeQuery(sql)) {
+            while (resultSet.next()) {
+                parameters.put(resultSet.getString(1), resultSet.getString(2));
+            }
+        }
+        return parameters;
+    }
+
+    private List<String> sampleStringValues(
+            Connection connection, JdbcSourceTable table, String columnName, int sampleSize)
+            throws SQLException {
+        String quotedColumn = quoteIdentifier(columnName);
+        String sql;
+        if (StringUtils.isNotBlank(table.getQuery())) {
+            sql =
+                    String.format(
+                            "SELECT %s FROM (SELECT %s FROM (%s) tmp WHERE %s IS NOT NULL ORDER BY %s ASC) WHERE ROWNUM <= %s",
+                            quotedColumn,
+                            quotedColumn,
+                            table.getQuery(),
+                            quotedColumn,
+                            quotedColumn,
+                            sampleSize);
+        } else {
+            sql =
+                    String.format(
+                            "SELECT %s FROM (SELECT %s FROM %s WHERE %s IS NOT NULL ORDER BY %s ASC) WHERE ROWNUM <= %s",
+                            quotedColumn,
+                            quotedColumn,
+                            tableIdentifier(table.getTablePath()),
+                            quotedColumn,
+                            quotedColumn,
+                            sampleSize);
+        }
+
+        List<String> samples = new ArrayList<>(sampleSize);
+        try (Statement statement = connection.createStatement();
+                ResultSet resultSet = statement.executeQuery(sql)) {
+            while (resultSet.next()) {
+                String value = resultSet.getString(1);
+                if (value != null) {
+                    samples.add(value);
+                }
+            }
+        }
+        return samples;
+    }
+
+    private boolean isPrintableAscii(String value) {
+        for (int i = 0; i < value.length(); i++) {
+            char ch = value.charAt(i);
+            if (ch < 32 || ch > 126) {
+                return false;
+            }
+        }
+        return true;
     }
 
     @Override

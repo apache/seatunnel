@@ -20,8 +20,6 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.source;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
-import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
-import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
@@ -34,8 +32,11 @@ import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Method;
 import java.lang.reflect.Proxy;
 import java.math.BigDecimal;
+import java.sql.Connection;
 import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -43,6 +44,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 @Slf4j
 public class FixedChunkSplitterTest {
@@ -87,7 +91,7 @@ public class FixedChunkSplitterTest {
     }
 
     @Test
-    public void testRejectAutoStringRangeSplitForNonMysqlDialect() {
+    public void testAutoStringRangeSplitForNonMysqlDialectFallsBackToHash() throws SQLException {
         JdbcSourceConfig config =
                 JdbcSourceConfig.builder()
                         .jdbcConnectionConfig(
@@ -101,17 +105,40 @@ public class FixedChunkSplitterTest {
         JdbcSourceTable table =
                 JdbcSourceTable.builder().tablePath(TablePath.of("public", "tbl")).build();
 
+        assertEquals(StringSplitStrategy.HASH, splitter.resolveStringSplitStrategy(table, "id"));
+    }
+
+    @Test
+    public void testReaderRejectsOracleRangeSplitWithUnsafeSession() throws SQLException {
+        Connection connection = mock(Connection.class);
+        Statement statement = mock(Statement.class);
+        ResultSet resultSet = mock(ResultSet.class);
+        when(connection.createStatement()).thenReturn(statement);
+        when(statement.executeQuery(anyString())).thenReturn(resultSet);
+        when(resultSet.next()).thenReturn(true, true, false);
+        when(resultSet.getString(1)).thenReturn("NLS_SORT", "NLS_COMP");
+        when(resultSet.getString(2)).thenReturn("BINARY", "LINGUISTIC");
+
+        CapturingFixedChunkSplitter splitter =
+                new CapturingFixedChunkSplitter(oracleConfig(), connection);
+        JdbcSourceSplit split =
+                new JdbcSourceSplit(
+                        TablePath.of("APP", "ORDERS"),
+                        "split-0",
+                        null,
+                        "ORDER_ID",
+                        BasicType.STRING_TYPE,
+                        null,
+                        "A100");
+
         JdbcConnectorException exception =
                 assertThrows(
                         JdbcConnectorException.class,
                         () ->
-                                splitter.createSplits(
-                                        table,
-                                        new SeaTunnelRowType(
-                                                new String[] {"id"},
-                                                new SeaTunnelDataType[] {BasicType.STRING_TYPE})));
+                                splitter.generateSplitStatement(
+                                        split, TableSchema.builder().build()));
 
-        assertTrue(exception.getMessage().contains("does not support range/auto"));
+        assertTrue(exception.getMessage().contains("session NLS_COMP must be BINARY"));
     }
 
     @Test
@@ -176,12 +203,34 @@ public class FixedChunkSplitterTest {
                 .build();
     }
 
+    private static JdbcSourceConfig oracleConfig() {
+        return JdbcSourceConfig.builder()
+                .jdbcConnectionConfig(
+                        JdbcConnectionConfig.builder()
+                                .url("jdbc:oracle:thin:@localhost:1521:xe")
+                                .driverName("oracle.jdbc.OracleDriver")
+                                .build())
+                .stringSplitStrategy(StringSplitStrategy.RANGE)
+                .build();
+    }
+
     private static class CapturingFixedChunkSplitter extends FixedChunkSplitter {
         private String sql;
         private final Map<Integer, String> stringParameters = new HashMap<>();
+        private final Connection connection;
 
         private CapturingFixedChunkSplitter(JdbcSourceConfig config) {
+            this(config, null);
+        }
+
+        private CapturingFixedChunkSplitter(JdbcSourceConfig config, Connection connection) {
             super(config);
+            this.connection = connection;
+        }
+
+        @Override
+        protected Connection getOrEstablishConnection() {
+            return connection;
         }
 
         @Override
