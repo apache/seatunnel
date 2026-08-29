@@ -116,6 +116,10 @@
                 <mysql.version>8.0.27</mysql.version>
                 <postgresql.version>42.4.3</postgresql.version>
                 <postgis.jdbc.version>2.5.1</postgis.jdbc.version>
+                <!-- Only the "-og" variant is fully relocated to org.opengauss.*;
+                     the plain variant ships org.postgresql.* classes and must
+                     never land in lib/ (issue #11510). -->
+                <opengauss.jdbc.version>5.1.0-og</opengauss.jdbc.version>
                 <dm-jdbc.version>8.1.2.141</dm-jdbc.version>
                 <sqlserver.version>9.2.1.jre8</sqlserver.version>
                 <phoenix.version>5.2.5-HBase-2.x</phoenix.version>
@@ -336,6 +340,12 @@
                 </dependency>
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-python</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
                     <artifactId>connector-socket</artifactId>
                     <version>${project.version}</version>
                     <scope>provided</scope>
@@ -486,6 +496,18 @@
                 </dependency>
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-google-pubsub</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-azure-queue-storage</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
                     <artifactId>connector-google-bigtable</artifactId>
                     <version>${project.version}</version>
                     <scope>provided</scope>
@@ -624,6 +646,12 @@
                 </dependency>
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
+                    <artifactId>connector-cdc-db2</artifactId>
+                    <version>${project.version}</version>
+                    <scope>provided</scope>
+                </dependency>
+                <dependency>
+                    <groupId>org.apache.seatunnel</groupId>
                     <artifactId>connector-cdc-mysql</artifactId>
                     <version>${project.version}</version>
                     <scope>provided</scope>
@@ -669,6 +697,18 @@
                     <artifactId>connector-cdc-opengauss</artifactId>
                     <version>${project.version}</version>
                     <scope>provided</scope>
+                    <!-- The non "-og" opengauss-jdbc variant bundles unrelocated
+                         org.postgresql.* classes (including org/postgresql/Driver.class).
+                         Once copied into lib/, it hijacks the real PostgreSQL driver on
+                         the flat classpath and breaks every PostgreSQL connection
+                         (issue #11510). The connector shades its own driver copy, so the
+                         transitive jar must not be distributed. -->
+                    <exclusions>
+                        <exclusion>
+                            <groupId>org.opengauss</groupId>
+                            <artifactId>opengauss-jdbc</artifactId>
+                        </exclusion>
+                    </exclusions>
                 </dependency>
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
@@ -818,6 +858,15 @@
                     <version>${postgresql.version}</version>
                     <scope>provided</scope>
                 </dependency>
+                <!-- Relocated openGauss driver for the Jdbc connector's openGauss
+                     dialect. Contains no org.postgresql.* classes, so it cannot
+                     conflict with the PostgreSQL driver in lib/ (issue #11510). -->
+                <dependency>
+                    <groupId>org.opengauss</groupId>
+                    <artifactId>opengauss-jdbc</artifactId>
+                    <version>${opengauss.jdbc.version}</version>
+                    <scope>provided</scope>
+                </dependency>
                 <dependency>
                     <groupId>net.postgis</groupId>
                     <artifactId>postgis-jdbc</artifactId>
@@ -929,9 +978,7 @@
                 <!-- hadoop jar -->
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
-                    <artifactId>seatunnel-hadoop-aws</artifactId>
-                    <version>${project.version}</version>
-                    <classifier>optional</classifier>
+                    <artifactId>seatunnel-shade-hadoop-aws</artifactId>
                     <scope>provided</scope>
                 </dependency>
                 <dependency>
@@ -960,9 +1007,7 @@
                 </dependency>
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
-                    <artifactId>seatunnel-hadoop3-3.1.4-uber</artifactId>
-                    <version>${project.version}</version>
-                    <classifier>optional</classifier>
+                    <artifactId>seatunnel-shade-hadoop3-uber</artifactId>
                     <scope>provided</scope>
                 </dependency>
                 <!-- hadoop jar end -->
@@ -1209,9 +1254,7 @@
 
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
-                    <artifactId>seatunnel-hadoop3-3.1.4-uber</artifactId>
-                    <version>${project.version}</version>
-                    <classifier>optional</classifier>
+                    <artifactId>seatunnel-shade-hadoop3-uber</artifactId>
                     <scope>provided</scope>
                 </dependency>
 
@@ -1238,9 +1281,7 @@
 
                 <dependency>
                     <groupId>org.apache.seatunnel</groupId>
-                    <artifactId>seatunnel-hadoop-aws</artifactId>
-                    <version>${project.version}</version>
-                    <classifier>optional</classifier>
+                    <artifactId>seatunnel-shade-hadoop-aws</artifactId>
                     <scope>provided</scope>
                 </dependency>
             </dependencies>
