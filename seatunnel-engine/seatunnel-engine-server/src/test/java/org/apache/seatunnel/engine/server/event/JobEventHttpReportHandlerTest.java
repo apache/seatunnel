@@ -32,6 +32,7 @@ import com.hazelcast.config.RingbufferConfig;
 import com.hazelcast.config.RingbufferStoreConfig;
 import com.hazelcast.core.Hazelcast;
 import com.hazelcast.core.HazelcastInstance;
+import com.hazelcast.ringbuffer.ReadResultSet;
 import com.hazelcast.ringbuffer.Ringbuffer;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -48,9 +49,20 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 
 import static org.awaitility.Awaitility.given;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 @Slf4j
 /** Covers buffering and shutdown behavior for HTTP-based job event reporting. */
@@ -147,11 +159,7 @@ public class JobEventHttpReportHandlerTest {
                 new JobEventHttpReportHandler(
                         retryServer.url("/api").toString(), Duration.ofDays(1), ringbuffer);
         try {
-            given().ignoreExceptions()
-                    .await()
-                    .atMost(10, TimeUnit.SECONDS)
-                    .until(() -> retryServer.getRequestCount(), count -> count == 1);
-
+            handler.report();
             handler.report();
 
             RecordedRequest firstRequest = retryServer.takeRequest();
@@ -161,6 +169,47 @@ public class JobEventHttpReportHandlerTest {
         } finally {
             handler.close();
             retryServer.shutdown();
+        }
+    }
+
+    @Test
+    public void testConstructorDoesNotWaitForRingbuffer() throws Exception {
+        Ringbuffer ringbuffer = mock(Ringbuffer.class);
+        ReadResultSet<Event> emptyResultSet = mock(ReadResultSet.class);
+        CountDownLatch headSequenceCalled = new CountDownLatch(1);
+        CountDownLatch releaseHeadSequence = new CountDownLatch(1);
+        when(ringbuffer.headSequence())
+                .thenAnswer(
+                        invocation -> {
+                            headSequenceCalled.countDown();
+                            releaseHeadSequence.await();
+                            return 0L;
+                        });
+        when(ringbuffer.readManyAsync(anyLong(), anyInt(), anyInt(), any()))
+                .thenReturn(CompletableFuture.completedFuture(emptyResultSet));
+        when(emptyResultSet.size()).thenReturn(0);
+
+        ExecutorService constructorExecutor = Executors.newSingleThreadExecutor();
+        Future<JobEventHttpReportHandler> handlerFuture =
+                constructorExecutor.submit(
+                        () ->
+                                new JobEventHttpReportHandler(
+                                        mockWebServer.url("/api").toString(),
+                                        Duration.ofSeconds(1),
+                                        ringbuffer));
+        JobEventHttpReportHandler handler = null;
+        try {
+            handler = handlerFuture.get(5, TimeUnit.SECONDS);
+            Assertions.assertTrue(headSequenceCalled.await(5, TimeUnit.SECONDS));
+        } catch (TimeoutException e) {
+            Assertions.fail("Handler construction waited for the distributed ringbuffer", e);
+        } finally {
+            releaseHeadSequence.countDown();
+            if (handler == null) {
+                handler = handlerFuture.get(5, TimeUnit.SECONDS);
+            }
+            handler.close();
+            constructorExecutor.shutdownNow();
         }
     }
 

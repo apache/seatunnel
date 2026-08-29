@@ -95,7 +95,9 @@ public class JobEventHttpReportHandler implements EventHandler {
         this.httpEndpoint = httpEndpoint;
         this.httpHeaders = httpHeaders;
         this.ringbuffer = ringbuffer;
-        this.committedEventIndex = ringbuffer.headSequence();
+        // Avoid a distributed operation on the coordinator initialization thread.
+        // The reporting task initializes this index from the current ringbuffer head.
+        this.committedEventIndex = -1;
         this.httpClient = createHttpClient();
         this.scheduledExecutorService =
                 Executors.newSingleThreadScheduledExecutor(
@@ -110,7 +112,7 @@ public class JobEventHttpReportHandler implements EventHandler {
                         log.error("Failed to report event", e);
                     }
                 },
-                0,
+                reportInterval.getSeconds(),
                 reportInterval.getSeconds(),
                 TimeUnit.SECONDS);
     }

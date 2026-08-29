@@ -31,7 +31,6 @@ import org.junit.jupiter.api.Test;
 import org.testcontainers.Testcontainers;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.MountableFile;
 
 import lombok.extern.slf4j.Slf4j;
@@ -45,7 +44,6 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -59,7 +57,6 @@ import static org.awaitility.Awaitility.given;
 @Slf4j
 public class FakeSourceToConsoleWithEventReportIT extends SeaTunnelEngineContainer {
     private static final String MOCK_SERVER_PORT_PLACEHOLDER = "${MOCK_SERVER_PORT}";
-    private static final Duration ENGINE_STARTUP_TIMEOUT = Duration.ofMinutes(3);
 
     private MockWebServer mockWebServer;
     private Path eventReportConfig;
@@ -91,9 +88,6 @@ public class FakeSourceToConsoleWithEventReportIT extends SeaTunnelEngineContain
     @Override
     protected void executeExtraCommands(GenericContainer<?> container)
             throws IOException, InterruptedException {
-        container.waitingFor(
-                Wait.forLogMessage(".*received new worker register:.*", 1)
-                        .withStartupTimeout(ENGINE_STARTUP_TIMEOUT));
         Path configTemplate =
                 Paths.get(
                         PROJECT_ROOT_PATH
