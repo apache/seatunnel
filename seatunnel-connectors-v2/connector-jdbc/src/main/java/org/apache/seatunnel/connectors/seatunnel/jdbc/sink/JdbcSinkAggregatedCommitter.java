@@ -89,7 +89,9 @@ public class JdbcSinkAggregatedCommitter
      * scan and are replayed strictly. An all-absent batch is treated as already resolved, while an
      * absent prefix before a still-prepared suffix is treated as already resolved only after that
      * suffix commits successfully. The scan is refreshed for each batch because an external
-     * resource-manager actor can resolve an in-doubt transaction between restored batches.
+     * resource-manager actor, such as a DBA or RM cleanup process, can resolve an in-doubt
+     * transaction between restored batches. This is not a second Zeta committer; the refresh
+     * narrows, but cannot eliminate, the gap before the following XA commit call.
      */
     @Override
     public List<JdbcAggregatedCommitInfo> restoreCommit(
