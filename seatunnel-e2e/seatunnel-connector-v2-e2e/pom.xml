@@ -30,6 +30,7 @@
         <module>connector-assert-e2e</module>
         <module>connector-jdbc-e2e</module>
         <module>connector-redis-e2e</module>
+        <module>connector-cdc-db2-e2e</module>
         <module>connector-cdc-sqlserver-e2e</module>
         <module>connector-clickhouse-e2e</module>
         <module>connector-databend-e2e</module>
@@ -68,6 +69,7 @@
         <module>connector-druid-e2e</module>
         <module>connector-google-firestore-e2e</module>
         <module>connector-google-pubsub-e2e</module>
+        <module>connector-azure-queue-storage-e2e</module>
         <module>connector-rocketmq-e2e</module>
         <!--        <module>connector-file-obs-e2e</module>-->
         <module>connector-file-ftp-e2e</module>
