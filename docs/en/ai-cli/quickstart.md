@@ -67,6 +67,7 @@ export ORCAROUTER_API_KEY=orc_...
 # `orcarouter/auto` auto-grades and auto-routes each request.
 # export ORCAROUTER_MODEL=orcarouter/auto
 # export ORCAROUTER_SMALL_FAST_MODEL=orcarouter/auto
+# export ORCAROUTER_ECHO_REASONING_CONTENT=true   # optional: replay reasoning_content for reasoning models
 ```
 
 ### OrcaRouter AI gateway
@@ -86,6 +87,7 @@ export AI_PROVIDER=orcarouter
 export ORCAROUTER_API_KEY=orc_...
 # export ORCAROUTER_MODEL=deepseek/deepseek-v4-pro    # optional override
 # export ORCAROUTER_SMALL_FAST_MODEL=orcarouter/auto  # optional override
+# export ORCAROUTER_ECHO_REASONING_CONTENT=true       # optional: replay reasoning_content
 
 seatunnel "Sync MySQL users table to S3 Parquet"
 ```

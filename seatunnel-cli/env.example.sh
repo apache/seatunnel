@@ -58,6 +58,7 @@
 # export ORCAROUTER_API_KEY=orc_...
 # export ORCAROUTER_MODEL=orcarouter/auto                  # optional override
 # export ORCAROUTER_SMALL_FAST_MODEL=orcarouter/auto       # optional override
+# export ORCAROUTER_ECHO_REASONING_CONTENT=true            # optional: keep true to replay reasoning_content for reasoning models
 
 # ─── SeaTunnel Engine (optional) ───
 # export SEATUNNEL_HOME=/path/to/seatunnel

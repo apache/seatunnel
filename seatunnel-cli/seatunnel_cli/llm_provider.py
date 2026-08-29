@@ -1295,7 +1295,8 @@ class OrcaRouterProvider(OpenAIProvider):
             "ORCAROUTER_SMALL_FAST_MODEL",
             os.environ.get("OPENAI_SMALL_FAST_MODEL", self._model_id))
         self._client = openai.OpenAI(api_key=api_key, base_url=self.DEFAULT_BASE_URL)
-        self._echo_reasoning_content = True
+        self._echo_reasoning_content = _env_bool(
+            "ORCAROUTER_ECHO_REASONING_CONTENT", True)
 
     @property
     def provider_name(self) -> str:
@@ -1421,8 +1422,7 @@ def create_provider(provider: str | None = None) -> LLMProvider:
         model_config = config["models"].get(name, {})
         if model_config.get("model"):
             if name == "orcarouter":
-                if not os.environ.get("ORCAROUTER_MODEL"):
-                    os.environ.setdefault("ORCAROUTER_MODEL", model_config["model"])
+                os.environ.setdefault("ORCAROUTER_MODEL", model_config["model"])
             elif not os.environ.get("ANTHROPIC_MODEL") and not os.environ.get("OPENAI_MODEL"):
                 if name in ("openai", "bedrock-mantle"):
                     os.environ.setdefault("OPENAI_MODEL", model_config["model"])
@@ -1430,8 +1430,7 @@ def create_provider(provider: str | None = None) -> LLMProvider:
                     os.environ.setdefault("ANTHROPIC_MODEL", model_config["model"])
         if model_config.get("fast_model"):
             if name == "orcarouter":
-                if not os.environ.get("ORCAROUTER_SMALL_FAST_MODEL"):
-                    os.environ.setdefault("ORCAROUTER_SMALL_FAST_MODEL", model_config["fast_model"])
+                os.environ.setdefault("ORCAROUTER_SMALL_FAST_MODEL", model_config["fast_model"])
             elif not os.environ.get("ANTHROPIC_SMALL_FAST_MODEL") and not os.environ.get("OPENAI_SMALL_FAST_MODEL"):
                 if name in ("openai", "bedrock-mantle"):
                     os.environ.setdefault("OPENAI_SMALL_FAST_MODEL", model_config["fast_model"])

@@ -66,6 +66,7 @@ export ORCAROUTER_API_KEY=orc_...
 # `orcarouter/auto` 会自动评级并路由每个请求。
 # export ORCAROUTER_MODEL=orcarouter/auto
 # export ORCAROUTER_SMALL_FAST_MODEL=orcarouter/auto
+# export ORCAROUTER_ECHO_REASONING_CONTENT=true   # 可选：保留并回传推理模型的 reasoning_content
 ```
 
 ### OrcaRouter AI 网关
@@ -83,6 +84,7 @@ export AI_PROVIDER=orcarouter
 export ORCAROUTER_API_KEY=orc_...
 # export ORCAROUTER_MODEL=deepseek/deepseek-v4-pro    # 可选覆盖
 # export ORCAROUTER_SMALL_FAST_MODEL=orcarouter/auto  # 可选覆盖
+# export ORCAROUTER_ECHO_REASONING_CONTENT=true       # 可选：回传 reasoning_content
 
 seatunnel "Sync MySQL users table to S3 Parquet"
 ```

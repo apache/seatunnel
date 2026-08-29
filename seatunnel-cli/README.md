@@ -177,6 +177,7 @@ export ORCAROUTER_API_KEY=orc_...
 # The special model `orcarouter/auto` auto-grades and auto-routes each request.
 # export ORCAROUTER_MODEL=orcarouter/auto
 # export ORCAROUTER_SMALL_FAST_MODEL=orcarouter/auto
+# export ORCAROUTER_ECHO_REASONING_CONTENT=true   # optional: replay reasoning_content for reasoning models
 ```
 
 Requires: `pip install -e ".[openai]"` (the `openai` package).
@@ -244,6 +245,7 @@ When the engine is running, the CLI operates in **cluster mode** with live conne
 | `OPENAI_SMALL_FAST_MODEL` | No | `gpt-4o-mini` | Fast model for OpenAI provider |
 | `ORCAROUTER_MODEL` | No | `orcarouter/auto` | Primary model for OrcaRouter provider (provider/model namespace) |
 | `ORCAROUTER_SMALL_FAST_MODEL` | No | `orcarouter/auto` | Fast model for OrcaRouter provider |
+| `ORCAROUTER_ECHO_REASONING_CONTENT` | No | `true` | Preserve and replay `reasoning_content` for OpenAI-compatible reasoning models (parity with `OPENAI_ECHO_REASONING_CONTENT`) |
 | `SEATUNNEL_HOME` | No | Auto-detect | SeaTunnel installation directory. Auto-detected in distribution tarball; set manually for source install |
 | `SEATUNNEL_API_BASE` | No | `http://localhost:5801` | SeaTunnel REST API endpoint |
 | `SEATUNNEL_CLI_DATA` | No | `<cli-package>/.data/` | Override CLI data directory (sessions, memory, config) |

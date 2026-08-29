@@ -147,6 +147,7 @@ export ORCAROUTER_API_KEY=orc_...
 # 特殊模型 `orcarouter/auto` 会自动评级并路由每个请求。
 # export ORCAROUTER_MODEL=orcarouter/auto
 # export ORCAROUTER_SMALL_FAST_MODEL=orcarouter/auto
+# export ORCAROUTER_ECHO_REASONING_CONTENT=true   # 可选：保留并回传推理模型的 reasoning_content
 ```
 
 需要：`pip install -e ".[openai]"`（`openai` 包）。
@@ -212,6 +213,7 @@ export SEATUNNEL_API_BASE=http://localhost:5801  # 默认值
 | `OPENAI_SMALL_FAST_MODEL` | 否 | `gpt-4o-mini` | OpenAI 提供商的快速模型 |
 | `ORCAROUTER_MODEL` | 否 | `orcarouter/auto` | OrcaRouter 提供商的主模型（provider/model 命名空间） |
 | `ORCAROUTER_SMALL_FAST_MODEL` | 否 | `orcarouter/auto` | OrcaRouter 提供商的快速模型 |
+| `ORCAROUTER_ECHO_REASONING_CONTENT` | 否 | `true` | 保留并回传 `reasoning_content`（与 `OPENAI_ECHO_REASONING_CONTENT` 对齐） |
 | `SEATUNNEL_HOME` | 否 | 自动检测 | SeaTunnel 安装目录。发行版压缩包中自动检测；源码安装需手动设置 |
 | `SEATUNNEL_API_BASE` | 否 | `http://localhost:5801` | SeaTunnel REST API 端点 |
 | `SEATUNNEL_CLI_DATA` | 否 | `<cli-package>/.data/` | 覆盖 CLI 数据目录（会话、记忆、配置） |

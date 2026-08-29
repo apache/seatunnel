@@ -65,6 +65,31 @@ class OrcaRouterProviderTest(unittest.TestCase):
             with self.assertRaises(ValueError):
                 llm_provider.OrcaRouterProvider()
 
+    def test_echo_reasoning_content_env_override(self):
+        with mock.patch.dict(
+            "os.environ",
+            {"ORCAROUTER_API_KEY": "orc_test", "ORCAROUTER_ECHO_REASONING_CONTENT": "false"},
+            clear=False,
+        ):
+            from seatunnel_cli import llm_provider
+            provider = llm_provider.OrcaRouterProvider()
+            self.assertFalse(provider._echo_reasoning_content)
+
+        with mock.patch.dict(
+            "os.environ",
+            {"ORCAROUTER_API_KEY": "orc_test", "ORCAROUTER_ECHO_REASONING_CONTENT": "true"},
+            clear=False,
+        ):
+            from seatunnel_cli import llm_provider
+            provider = llm_provider.OrcaRouterProvider()
+            self.assertTrue(provider._echo_reasoning_content)
+
+        # Defaults to True when unset (parity with OPENAI_ECHO_REASONING_CONTENT).
+        with mock.patch.dict("os.environ", {"ORCAROUTER_API_KEY": "orc_test"}, clear=False):
+            from seatunnel_cli import llm_provider
+            provider = llm_provider.OrcaRouterProvider()
+            self.assertTrue(provider._echo_reasoning_content)
+
     def test_stream_uses_openai_protocol_and_collects_text(self):
         provider = OrcaRouterProvider.__new__(OrcaRouterProvider)
         provider._model_id = "deepseek/deepseek-v4-pro"
@@ -139,11 +164,11 @@ class OrcaRouterProviderTest(unittest.TestCase):
 
         from seatunnel_cli import llm_provider
 
-        tmp = tempfile.mkdtemp()
+        tmp = tempfile.TemporaryDirectory()
         original = llm_provider.get_config_path
 
         def fake_get_config_path():
-            return os.path.join(tmp, "config.json")
+            return os.path.join(tmp.name, "config.json")
 
         llm_provider.get_config_path = fake_get_config_path
         try:
@@ -168,6 +193,7 @@ class OrcaRouterProviderTest(unittest.TestCase):
                 self.assertEqual(provider.fast_model_id, "qwen/qwen3.8-flash")
         finally:
             llm_provider.get_config_path = original
+            tmp.cleanup()
 
 
 if __name__ == "__main__":
