@@ -22,34 +22,17 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
-/**
- * Read-only projection of the latest resource-manager heartbeat for one worker.
- *
- * <p>For dynamic-slot workers, {@code totalSlots} is the number of currently tracked assigned and
- * unassigned slots rather than a fixed capacity. Callers should use {@code dynamicSlot} to
- * interpret the slot fields.
- */
+/** Point-in-time master projection of the latest registered worker heartbeats. */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class WorkerResourceDiagnostic implements Serializable {
-    // Preserve compatibility with diagnostics serialized before resource fields were added.
-    private static final long serialVersionUID = 1347570277332453777L;
+public class WorkerResourceSnapshot implements Serializable {
+    private static final long serialVersionUID = 1L;
 
-    private String address;
-    private Map<String, String> tags;
-    private int totalSlots;
-    private int freeSlots;
-    private int usedSlots;
-    private boolean dynamicSlot;
-    private Integer totalCpuCores;
-    private Integer availableCpuCores;
-    private Long totalHeapMemoryBytes;
-    private Long availableHeapMemoryBytes;
-    private Double cpuUsage;
-    private Double memUsage;
-    private List<Long> runningJobIds;
+    private boolean available;
+    private long collectedAt;
+    private List<WorkerResourceDiagnostic> workers = new ArrayList<>();
 }
