@@ -366,7 +366,9 @@ public interface JdbcDialect extends Serializable {
      *
      * <p>Range boundaries can be planned by one process and executed by another. Dialects that
      * support String range splitting must independently validate any session-scoped comparison
-     * settings on each reader connection.
+     * settings on each reader connection. The default preserves the existing behavior of external
+     * dialects that already opted into range splitting; dialects with session-scoped settings must
+     * override this method and fail closed when those settings are unsafe.
      *
      * @param connection active reader JDBC connection
      * @return reader session safety decision
@@ -374,8 +376,11 @@ public interface JdbcDialect extends Serializable {
      */
     default StringRangeSplitDecision validateStringRangeSplitSession(Connection connection)
             throws SQLException {
-        return StringRangeSplitDecision.unsafe(
-                "string range split session is not validated for this JDBC dialect");
+        return supportStringRangeSplit()
+                ? StringRangeSplitDecision.safe(
+                        "dialect has no reader-session-specific range split validation")
+                : StringRangeSplitDecision.unsafe(
+                        "string range split session is not validated for this JDBC dialect");
     }
 
     /** Returns whether this dialect has validated string range split support. */

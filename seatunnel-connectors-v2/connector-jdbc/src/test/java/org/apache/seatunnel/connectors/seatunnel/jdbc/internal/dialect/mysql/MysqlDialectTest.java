@@ -130,10 +130,12 @@ public class MysqlDialectTest {
 
     @Test
     public void testDerivedMysqlDialectDoesNotInheritStringRangeSplitValidation() throws Exception {
-        StringRangeSplitDecision decision =
-                new StarRocksDialect().validateStringRangeSplit(null, null, "id", 256);
+        StarRocksDialect dialect = new StarRocksDialect();
+        StringRangeSplitDecision decision = dialect.validateStringRangeSplit(null, null, "id", 256);
 
         Assertions.assertFalse(decision.isSafe());
+        Assertions.assertFalse(dialect.validateStringRangeSplitSession(null).isSafe());
+        Assertions.assertFalse(dialect.supportStringRangeSplit());
     }
 
     @Test

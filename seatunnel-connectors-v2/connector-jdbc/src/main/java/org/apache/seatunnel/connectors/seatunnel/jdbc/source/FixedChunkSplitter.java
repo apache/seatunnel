@@ -95,10 +95,13 @@ public class FixedChunkSplitter extends ChunkSplitter {
                             return createStringRangeSplits(table, splitKeyName, splitKeyType);
                         } catch (Exception e) {
                             log.warn(
-                                    "Range string split failed for table {}, fallback to hash split",
+                                    "Range string split failed for table {}, fallback to {} split",
                                     table.getTablePath(),
+                                    jdbcDialect.supportHashSplitter() ? "hash" : "single",
                                     e);
-                            return createStringColumnSplits(table, splitKeyName, splitKeyType);
+                            return jdbcDialect.supportHashSplitter()
+                                    ? createStringColumnSplits(table, splitKeyName, splitKeyType)
+                                    : Collections.singletonList(createSingleSplit(table));
                         }
                     }
                     return createStringRangeSplits(table, splitKeyName, splitKeyType);

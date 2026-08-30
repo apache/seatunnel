@@ -20,6 +20,8 @@ package org.apache.seatunnel.connectors.seatunnel.jdbc.source;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.type.BasicType;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceConfig;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.exception.JdbcConnectorException;
@@ -91,7 +93,7 @@ public class FixedChunkSplitterTest {
     }
 
     @Test
-    public void testAutoStringRangeSplitForNonMysqlDialectFallsBackToHash() throws SQLException {
+    public void testRejectAutoStringRangeSplitForNonMysqlDialect() {
         JdbcSourceConfig config =
                 JdbcSourceConfig.builder()
                         .jdbcConnectionConfig(
@@ -105,7 +107,17 @@ public class FixedChunkSplitterTest {
         JdbcSourceTable table =
                 JdbcSourceTable.builder().tablePath(TablePath.of("public", "tbl")).build();
 
-        assertEquals(StringSplitStrategy.HASH, splitter.resolveStringSplitStrategy(table, "id"));
+        JdbcConnectorException exception =
+                assertThrows(
+                        JdbcConnectorException.class,
+                        () ->
+                                splitter.createSplits(
+                                        table,
+                                        new SeaTunnelRowType(
+                                                new String[] {"id"},
+                                                new SeaTunnelDataType[] {BasicType.STRING_TYPE})));
+
+        assertTrue(exception.getMessage().contains("does not support range/auto"));
     }
 
     @Test
@@ -139,6 +151,29 @@ public class FixedChunkSplitterTest {
                                         split, TableSchema.builder().build()));
 
         assertTrue(exception.getMessage().contains("session NLS_COMP must be BINARY"));
+    }
+
+    @Test
+    public void testAutoOracleStringRangeSplitFallsBackWhenSessionValidationQueryFails()
+            throws SQLException {
+        Connection connection = mock(Connection.class);
+        when(connection.createStatement())
+                .thenThrow(new SQLException("NLS_SESSION_PARAMETERS denied"));
+        JdbcSourceConfig config =
+                JdbcSourceConfig.builder()
+                        .jdbcConnectionConfig(
+                                JdbcConnectionConfig.builder()
+                                        .url("jdbc:oracle:thin:@localhost:1521:xe")
+                                        .driverName("oracle.jdbc.OracleDriver")
+                                        .build())
+                        .stringSplitStrategy(StringSplitStrategy.AUTO)
+                        .build();
+        CapturingFixedChunkSplitter splitter = new CapturingFixedChunkSplitter(config, connection);
+        JdbcSourceTable table =
+                JdbcSourceTable.builder().tablePath(TablePath.of("APP", "ORDERS")).build();
+
+        assertEquals(
+                StringSplitStrategy.HASH, splitter.resolveStringSplitStrategy(table, "ORDER_ID"));
     }
 
     @Test

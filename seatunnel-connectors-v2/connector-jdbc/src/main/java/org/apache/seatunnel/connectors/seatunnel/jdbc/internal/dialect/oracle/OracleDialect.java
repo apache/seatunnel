@@ -53,6 +53,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -68,6 +69,14 @@ public class OracleDialect implements JdbcDialect {
     private static final String NLS_COMP = "NLS_COMP";
 
     private static final String BINARY_NLS_VALUE = "BINARY";
+
+    private static final int FIRST_PRINTABLE_ASCII = 32;
+
+    private static final int LAST_PRINTABLE_ASCII = 126;
+
+    private static final String BINARY_COLLATION = "BINARY";
+
+    private static final String USING_NLS_COMP_COLLATION = "USING_NLS_COMP";
 
     /** Oracle PCTFREE legal range (inclusive). */
     private static final int PCTFREE_MIN = 0;
@@ -296,12 +305,23 @@ public class OracleDialect implements JdbcDialect {
             return StringRangeSplitDecision.unsafe(
                     "ASCII string range splitting is only validated for the Oracle dialect");
         }
+        if (table.getTablePath() == null
+                || TablePath.DEFAULT.getFullName().equals(table.getTablePath().getFullName())
+                || StringUtils.isBlank(table.getTablePath().getDatabaseName())) {
+            return StringRangeSplitDecision.unsafe(
+                    "missing physical table path for Oracle string range split validation");
+        }
         if (sampleSize <= 0) {
             return StringRangeSplitDecision.unsafe("sample size must be greater than zero");
         }
         StringRangeSplitDecision sessionDecision = validateStringRangeSplitSession(connection);
         if (!sessionDecision.isSafe()) {
             return sessionDecision;
+        }
+        StringRangeSplitDecision collationDecision =
+                validateStringRangeSplitColumnCollation(connection, table, columnName);
+        if (!collationDecision.isSafe()) {
+            return collationDecision;
         }
 
         List<String> samples = sampleStringValues(connection, table, columnName, sampleSize);
@@ -310,9 +330,12 @@ public class OracleDialect implements JdbcDialect {
         }
         Integer sampleLength = null;
         for (String sample : samples) {
-            if (!isPrintableAscii(sample)) {
+            int nonPrintableAsciiIndex = findNonPrintableAsciiIndex(sample);
+            if (nonPrintableAsciiIndex >= 0) {
                 return StringRangeSplitDecision.unsafe(
-                        String.format("sample value contains non-ASCII characters: [%s]", sample));
+                        String.format(
+                                "sample value of length %s contains a non-printable ASCII character at index %s",
+                                sample.length(), nonPrintableAsciiIndex));
             }
             if (sampleLength == null) {
                 sampleLength = sample.length();
@@ -330,6 +353,10 @@ public class OracleDialect implements JdbcDialect {
     @Override
     public StringRangeSplitDecision validateStringRangeSplitSession(Connection connection)
             throws SQLException {
+        if (getClass() != OracleDialect.class) {
+            return StringRangeSplitDecision.unsafe(
+                    "ASCII string range splitting is only validated for the Oracle dialect");
+        }
         Map<String, String> sessionNlsParameters = querySessionNlsParameters(connection);
         String nlsSort = sessionNlsParameters.get(NLS_SORT);
         if (!BINARY_NLS_VALUE.equalsIgnoreCase(nlsSort)) {
@@ -345,13 +372,19 @@ public class OracleDialect implements JdbcDialect {
                             "session %s must be %s but was %s",
                             NLS_COMP, BINARY_NLS_VALUE, nlsComp));
         }
+        StringRangeSplitDecision encodingDecision = validatePrintableAsciiEncoding(connection);
+        if (!encodingDecision.isSafe()) {
+            return encodingDecision;
+        }
         return StringRangeSplitDecision.safe(
-                String.format("session %s and %s are binary", NLS_SORT, NLS_COMP));
+                String.format(
+                        "session %s and %s are binary and the database preserves printable ASCII binary ordering",
+                        NLS_SORT, NLS_COMP));
     }
 
     @Override
     public boolean supportStringRangeSplit() {
-        return true;
+        return getClass() == OracleDialect.class;
     }
 
     private Map<String, String> querySessionNlsParameters(Connection connection)
@@ -367,6 +400,78 @@ public class OracleDialect implements JdbcDialect {
             }
         }
         return parameters;
+    }
+
+    /**
+     * Binary comparison follows database encoding. Verify the complete alphabet used by the Java
+     * boundary arithmetic so ASCII-compatible encodings work and EBCDIC encodings fail closed.
+     */
+    private StringRangeSplitDecision validatePrintableAsciiEncoding(Connection connection)
+            throws SQLException {
+        StringBuilder sql = new StringBuilder("SELECT ");
+        for (int asciiCode = FIRST_PRINTABLE_ASCII;
+                asciiCode <= LAST_PRINTABLE_ASCII;
+                asciiCode++) {
+            if (asciiCode > FIRST_PRINTABLE_ASCII) {
+                sql.append(", ");
+            }
+            sql.append("ASCII(?)");
+        }
+        sql.append(" FROM DUAL");
+
+        try (PreparedStatement statement = connection.prepareStatement(sql.toString())) {
+            for (int asciiCode = FIRST_PRINTABLE_ASCII;
+                    asciiCode <= LAST_PRINTABLE_ASCII;
+                    asciiCode++) {
+                statement.setString(
+                        asciiCode - FIRST_PRINTABLE_ASCII + 1, String.valueOf((char) asciiCode));
+            }
+            try (ResultSet resultSet = statement.executeQuery()) {
+                if (!resultSet.next()) {
+                    return StringRangeSplitDecision.unsafe(
+                            "database character set validation returned no result");
+                }
+                for (int asciiCode = FIRST_PRINTABLE_ASCII;
+                        asciiCode <= LAST_PRINTABLE_ASCII;
+                        asciiCode++) {
+                    if (resultSet.getInt(asciiCode - FIRST_PRINTABLE_ASCII + 1) != asciiCode) {
+                        return StringRangeSplitDecision.unsafe(
+                                "database character set does not preserve printable ASCII binary ordering");
+                    }
+                }
+            }
+        }
+        return StringRangeSplitDecision.safe("database character set preserves printable ASCII");
+    }
+
+    /**
+     * Oracle 12.2+ can attach a data-bound collation to a column, which overrides the session order
+     * used by range predicates. Accept only a binary collation or one governed by NLS_COMP.
+     */
+    private StringRangeSplitDecision validateStringRangeSplitColumnCollation(
+            Connection connection, JdbcSourceTable table, String columnName) throws SQLException {
+        TablePath tablePath = table.getTablePath();
+        String sql =
+                "SELECT COLLATION FROM ALL_TAB_COLUMNS "
+                        + "WHERE OWNER = ? AND TABLE_NAME = ? AND COLUMN_NAME = ?";
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, tablePath.getDatabaseName().toUpperCase(Locale.ROOT));
+            statement.setString(2, tablePath.getTableName().toUpperCase(Locale.ROOT));
+            statement.setString(3, columnName.toUpperCase(Locale.ROOT));
+            try (ResultSet resultSet = statement.executeQuery()) {
+                if (!resultSet.next()) {
+                    return StringRangeSplitDecision.unsafe(
+                            "column collation is unavailable for Oracle string range split validation");
+                }
+                String collation = resultSet.getString(1);
+                if (!BINARY_COLLATION.equalsIgnoreCase(collation)
+                        && !USING_NLS_COMP_COLLATION.equalsIgnoreCase(collation)) {
+                    return StringRangeSplitDecision.unsafe(
+                            String.format("column collation %s is not binary", collation));
+                }
+            }
+        }
+        return StringRangeSplitDecision.safe("column collation preserves binary comparison");
     }
 
     private List<String> sampleStringValues(
@@ -409,14 +514,14 @@ public class OracleDialect implements JdbcDialect {
         return samples;
     }
 
-    private boolean isPrintableAscii(String value) {
+    private int findNonPrintableAsciiIndex(String value) {
         for (int i = 0; i < value.length(); i++) {
             char ch = value.charAt(i);
-            if (ch < 32 || ch > 126) {
-                return false;
+            if (ch < FIRST_PRINTABLE_ASCII || ch > LAST_PRINTABLE_ASCII) {
+                return i;
             }
         }
-        return true;
+        return -1;
     }
 
     @Override

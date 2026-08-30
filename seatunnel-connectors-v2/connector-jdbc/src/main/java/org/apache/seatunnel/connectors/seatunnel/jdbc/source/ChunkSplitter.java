@@ -60,6 +60,8 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
     private final int fetchSize;
     private final boolean autoCommit;
 
+    // This splitter can move across nodes, but a session check is valid only for the local
+    // physical connection that performed it. Keep the marker transient and use identity checks.
     private transient Connection validatedStringRangeSessionConnection;
 
     public ChunkSplitter(JdbcSourceConfig config) {
@@ -139,7 +141,7 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
 
     public PreparedStatement generateSplitStatement(JdbcSourceSplit split, TableSchema schema)
             throws SQLException {
-        if (isStringRangeSplit(split)) {
+        if (requiresStringRangeSplitSessionValidation(split)) {
             validateStringRangeSplitReaderSession();
         }
         if (split.getSplitKeyName() == null) {
@@ -201,6 +203,13 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
                         && requestedStrategy != StringSplitStrategy.AUTO)) {
             return requestedStrategy;
         }
+        if (!jdbcDialect.supportStringRangeSplit()) {
+            throw new JdbcConnectorException(
+                    CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                    String.format(
+                            "String split strategy %s requires validated range split support, but dialect %s does not support range/auto string split strategy.",
+                            requestedStrategy, jdbcDialect.dialectName()));
+        }
 
         StringRangeSplitDecision decision;
         try {
@@ -209,7 +218,12 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
                             getOrEstablishConnection(), table, splitKeyName, 256);
         } catch (SQLException e) {
             if (requestedStrategy == StringSplitStrategy.RANGE) {
-                throw e;
+                throw new JdbcConnectorException(
+                        CommonErrorCodeDeprecated.ILLEGAL_ARGUMENT,
+                        String.format(
+                                "String range split validation failed for table %s, split column %s",
+                                table.getTablePath(), splitKeyName),
+                        e);
             }
             StringSplitStrategy fallback = getStringSplitFallbackStrategy();
             log.warn(
@@ -242,6 +256,10 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
         return fallback;
     }
 
+    /**
+     * Revalidates once for each physical reader connection because planning and reading can use
+     * different session-scoped comparison settings.
+     */
     private synchronized void validateStringRangeSplitReaderSession() throws SQLException {
         Connection connection = getOrEstablishConnection();
         if (connection == validatedStringRangeSessionConnection) {
@@ -256,7 +274,7 @@ public abstract class ChunkSplitter implements AutoCloseable, Serializable {
         validatedStringRangeSessionConnection = connection;
     }
 
-    private boolean isStringRangeSplit(JdbcSourceSplit split) {
+    private boolean requiresStringRangeSplitSessionValidation(JdbcSourceSplit split) {
         return (config.getStringSplitStrategy() == StringSplitStrategy.RANGE
                         || config.getStringSplitStrategy() == StringSplitStrategy.AUTO)
                 && split.getSplitKeyType() != null
