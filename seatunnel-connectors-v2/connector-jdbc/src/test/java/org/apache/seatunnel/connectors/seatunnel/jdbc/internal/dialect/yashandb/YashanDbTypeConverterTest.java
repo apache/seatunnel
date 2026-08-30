@@ -257,6 +257,36 @@ public class YashanDbTypeConverterTest {
         column = INSTANCE.convert(typeDefine);
         Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
         Assertions.assertEquals(200L, column.getColumnLength());
+
+        // VARCHAR2 is an alias of VARCHAR and must behave identically.
+        // YashanDbCatalog always feeds BasicTypeDefine#length from cols.data_length, which is a
+        // byte count, so a declared VARCHAR2(200) arrives as length=200 -> 200 * 4.
+        typeDefine =
+                BasicTypeDefine.builder()
+                        .name("test")
+                        .columnType("VARCHAR2(200)")
+                        .dataType("VARCHAR2")
+                        .length(200L)
+                        .build();
+        column = INSTANCE.convert(typeDefine);
+        Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
+        Assertions.assertEquals(800L, column.getColumnLength());
+        Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
+
+        // NVARCHAR2 is an alias of NVARCHAR and must behave identically.
+        // A declared NVARCHAR2(100) holds 100 characters at 2 bytes each, so data_length is 200
+        // and the double-byte rule yields 200 * 2 = 400, i.e. 100 characters at 4 bytes.
+        typeDefine =
+                BasicTypeDefine.builder()
+                        .name("test")
+                        .columnType("NVARCHAR2(100)")
+                        .dataType("NVARCHAR2")
+                        .length(200L)
+                        .build();
+        column = INSTANCE.convert(typeDefine);
+        Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
+        Assertions.assertEquals(400L, column.getColumnLength());
+        Assertions.assertEquals(typeDefine.getColumnType(), column.getSourceType());
     }
 
     @Test

@@ -71,6 +71,8 @@ public class JdbcYashanDbIT extends AbstractJdbcIT {
                     + "    YAS_NUMBER        NUMBER(10, 2),\n"
                     + "    YAS_CHAR          CHAR(20),\n"
                     + "    YAS_VARCHAR       VARCHAR(200),\n"
+                    + "    YAS_VARCHAR2      VARCHAR2(200),\n"
+                    + "    YAS_NVARCHAR2     NVARCHAR2(100),\n"
                     + "    YAS_CLOB          CLOB,\n"
                     + "    YAS_DATE          DATE,\n"
                     + "    YAS_TIMESTAMP     TIMESTAMP,\n"
@@ -89,6 +91,8 @@ public class JdbcYashanDbIT extends AbstractJdbcIT {
                 "YAS_NUMBER",
                 "YAS_CHAR",
                 "YAS_VARCHAR",
+                "YAS_VARCHAR2",
+                "YAS_NVARCHAR2",
                 "YAS_CLOB",
                 "YAS_DATE",
                 "YAS_TIMESTAMP",
@@ -150,6 +154,9 @@ public class JdbcYashanDbIT extends AbstractJdbcIT {
                                 BigDecimal.valueOf(i, 2),
                                 String.format("char_%s", i),
                                 String.format("varchar_%s", i),
+                                String.format("varchar2_%s", i),
+                                // multi-byte content exercises the NVARCHAR2 length rule
+                                String.format("崖山_%s", i),
                                 String.format("clob_%s", i),
                                 Date.valueOf(rowDate),
                                 Timestamp.valueOf(rowDateTime),
