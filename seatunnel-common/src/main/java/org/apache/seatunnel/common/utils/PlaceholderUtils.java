@@ -29,7 +29,7 @@ import java.util.regex.Pattern;
 public class PlaceholderUtils {
 
     private static final Pattern PLACEHOLDER_PATTERN =
-            Pattern.compile("\\$\\{\\??(?:\"([^\"]+)\"|([^{}:]+))(?::([^{}]*))?\\}");
+            Pattern.compile("\\$\\{\\??(?:\"([^\"]+)\"|([^{}:]+))(?::([^{}\\[\\]]*))?\\}");
 
     public static String replacePlaceholders(String input, String placeholderName, String value) {
         return replacePlaceholders(input, placeholderName, value, null);
