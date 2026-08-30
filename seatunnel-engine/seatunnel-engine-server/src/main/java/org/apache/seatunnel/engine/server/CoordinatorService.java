@@ -29,7 +29,6 @@ import org.apache.seatunnel.api.tracing.MDCExecutorService;
 import org.apache.seatunnel.api.tracing.MDCTracer;
 import org.apache.seatunnel.common.utils.ExceptionUtils;
 import org.apache.seatunnel.common.utils.RetryUtils;
-import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.common.utils.StringFormatUtils;
 import org.apache.seatunnel.engine.common.Constant;
 import org.apache.seatunnel.engine.common.config.EngineConfig;
@@ -131,6 +130,7 @@ import static org.apache.seatunnel.engine.server.metrics.JobMetricsUtil.toJobMet
 
 /** Coordinates job submission, scheduling, recovery, and event reporting on the master node. */
 public class CoordinatorService {
+
     private static final int PIPELINE_CLEANUP_INTERVAL_SECONDS = 60;
     private final NodeEngineImpl nodeEngine;
     private final SeaTunnelEngineContext engineContext;
@@ -1640,50 +1640,15 @@ public class CoordinatorService {
         return jobMetricsImap != JobMetrics.empty() ? jobMetricsImap.merge(jobMetrics) : jobMetrics;
     }
 
+    /**
+     * Get metrics for all running jobs.
+     *
+     * <p>This method is best-effort. It waits up to {@link EngineConfig#getMetricsFetchTimeoutMs()}
+     * for the overall fetch and returns a partial map when workers time out or are unavailable.
+     */
     public Map<Long, JobMetrics> getRunningJobMetrics() {
-        final Set<Long> runningJobIds = runningJobMasterMap.keySet();
-        Set<Address> addresses =
-                collectRunningWorkerAddresses(ownedSlotProfilesIMap, runningJobIds);
-
-        List<RawJobMetrics> metrics = new ArrayList<>();
-
-        addresses.forEach(
-                address -> {
-                    try {
-                        if (nodeEngine.getClusterService().getMember(address) != null) {
-                            RawJobMetrics rawJobMetrics =
-                                    (RawJobMetrics)
-                                            NodeEngineUtil.sendOperationToMemberNode(
-                                                            nodeEngine,
-                                                            new GetMetricsOperation(runningJobIds),
-                                                            address)
-                                                    .get();
-                            metrics.add(rawJobMetrics);
-                        }
-                    }
-                    // HazelcastInstanceNotActiveException. It means that the node is
-                    // offline, so waiting for the taskGroup to restore can be successful
-                    catch (HazelcastInstanceNotActiveException e) {
-                        logger.warning(
-                                String.format(
-                                        "get metrics with exception: %s.",
-                                        ExceptionUtils.getMessage(e)));
-                    } catch (Exception e) {
-                        throw new SeaTunnelException(e.getMessage());
-                    }
-                });
-
-        Map<Long, JobMetrics> longJobMetricsMap = toJobMetricsMap(metrics);
-
-        longJobMetricsMap.forEach(
-                (jobId, jobMetrics) -> {
-                    JobMetrics jobMetricsImap = jobHistoryService.getJobMetrics(jobId);
-                    if (jobMetricsImap != JobMetrics.empty()) {
-                        longJobMetricsMap.put(jobId, jobMetricsImap.merge(jobMetrics));
-                    }
-                });
-
-        return longJobMetricsMap;
+        return getRunningJobMetrics(
+                runningJobMasterMap.keySet(), engineConfig.getMetricsFetchTimeoutMs(), null);
     }
 
     /**
@@ -1708,38 +1673,9 @@ public class CoordinatorService {
             return Collections.emptyMap();
         }
 
-        Set<Address> addresses =
-                collectRunningWorkerAddresses(ownedSlotProfilesIMap, runningJobIds);
-
-        List<RawJobMetrics> metrics = new ArrayList<>();
-        for (Address address : addresses) {
-            try {
-                if (nodeEngine.getClusterService().getMember(address) != null) {
-                    RawJobMetrics rawJobMetrics =
-                            (RawJobMetrics)
-                                    NodeEngineUtil.sendOperationToMemberNode(
-                                                    nodeEngine,
-                                                    new GetMetricsOperation(
-                                                            runningJobIds, metricNamePrefixes),
-                                                    address)
-                                            .get(timeoutMs, TimeUnit.MILLISECONDS);
-                    metrics.add(rawJobMetrics);
-                }
-            } catch (TimeoutException e) {
-                logger.warning(String.format("get metrics timeout from worker %s", address));
-            } catch (HazelcastInstanceNotActiveException e) {
-                logger.warning(
-                        String.format(
-                                "get metrics with exception: %s.", ExceptionUtils.getMessage(e)));
-            } catch (Exception e) {
-                logger.warning(
-                        String.format(
-                                "get metrics from worker %s failed: %s",
-                                address, ExceptionUtils.getMessage(e)));
-            }
-        }
-
-        Map<Long, JobMetrics> longJobMetricsMap = toJobMetricsMap(metrics);
+        Map<Long, JobMetrics> longJobMetricsMap =
+                toJobMetricsMap(
+                        getRunningJobRawMetrics(runningJobIds, timeoutMs, metricNamePrefixes));
 
         longJobMetricsMap.forEach(
                 (jobId, jobMetrics) -> {
