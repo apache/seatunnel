@@ -68,6 +68,7 @@ public class DmdbTypeConverter implements TypeConverter<BasicTypeDefine> {
     public static final String DM_VARCHAR2 = "VARCHAR2";
     public static final String DM_NCHAR = "NCHAR";
     public static final String DM_NVARCHAR = "NVARCHAR";
+    public static final String DM_NCHAR = "NCHAR";
     public static final String DM_LONGVARCHAR = "LONGVARCHAR";
     public static final String DM_CLOB = "CLOB";
     public static final String DM_TEXT = "TEXT";
