@@ -60,6 +60,12 @@ You need to check this document before you upgrade to related version.
   }
   ```
 
+- **Breaking Change: An unknown log level is rejected by the runtime log level endpoint**
+  - **Affected component**: SeaTunnel Engine REST API — `POST /hazelcast/rest/maps/log-level`
+  - **Description**: The endpoint answered `200` with `{"status":"SUCCESS"}` for every request, including a level name it could not resolve (`DEBUGG`, `verbose`, a lowercase name of a level that does not exist, an empty value). Nothing was applied in that case, and the unresolved level was handed to log4j2 as `null`, which removes the explicit level of the logger instead of leaving it alone — so the logger silently fell back to its parent, or to `ERROR` for the root logger. An unknown level, a blank level and a missing `level` parameter are now rejected with `400` and a message listing the valid levels; a level name is still accepted in any letter case.
+  - **Impact**: Scripts and automation that only check the HTTP status now see `400` where they used to see `200`, for requests that never took effect in the first place. Requests with a resolvable level are unchanged.
+  - **Migration Guide**: Send a level log4j2 knows (`OFF`, `FATAL`, `ERROR`, `WARN`, `INFO`, `DEBUG`, `TRACE`, `ALL`, or a level registered by the configuration). The response body of a rejected request names the levels the node accepts.
+
 - **Breaking Change: `Condition.of(option, null)` no longer allowed**
   - **Affected component**: `seatunnel-api` — `org.apache.seatunnel.api.configuration.util.Condition`
   - **Description**: The `Condition` constructor now validates that binary literal operators (such as `EQUAL`, `NOT_EQUAL`, `GREATER_THAN`, etc.) must have a non-null `expectValue`. Previously, `Condition.of(option, null)` was silently accepted; it now throws `IllegalArgumentException` at construction time.
@@ -113,6 +119,13 @@ You need to check this document before you upgrade to related version.
     - **Mixed-version directories**: Re-materialize the directory so every file is produced by the new version, or write pre- and post-upgrade files into separate directories and read them independently.
     - **Case-sensitive consumers**: Configure the reader for case-insensitive schema evolution where supported, or remap the column at read time.
     - **Case-only sibling fields** (for example `MD5` and `md5` in the same struct): now representable; case-insensitive downstream consumers (such as Hive) may treat them as ambiguous — disambiguate at the source if needed.
+
+- **Breaking Change: Google Bigtable Source `scan_row_limit` is now a per-split cap**
+  - **Affected component**: `seatunnel-connectors-v2/connector-google-bigtable`
+  - **Description**: The enumerator now partitions a table (or the configured `start_rowkey` / `end_rowkey` range) into tablet-sized splits via `sampleRowKeys`. `scan_row_limit` is still applied with `query.limit(...)` once per split in the reader. Before this change the source always produced exactly one split, so `scan_row_limit` acted as a table-wide row cap. After this change a table with multiple tablets yields multiple splits even when `parallelism = 1` (the single reader is assigned every split), and the job-level upper bound is about `scan_row_limit × split count`. See [Google Bigtable Source](../../connectors/source/GoogleBigtable.md#scan_row_limit-int).
+  - **Impact**: Existing jobs that set `scan_row_limit` to bound total output (sampling, testing, cost control, or downstream capacity) can read far more rows after upgrade with no config change.
+  - **Migration Guide**: If you need a table-wide cap, narrow the scan with `start_rowkey` / `end_rowkey`, or lower `scan_row_limit` so that `scan_row_limit × expected split count` stays within the previous budget. To keep the previous single-split behavior, the connector still falls back to one split when sampling fails, returns no keys, or the intersection is empty — that is not a supported way to pin the old cap. (#11876)
+
 - **Breaking Change: Iceberg Connector — source table primary key is no longer silently inherited**
   - **Affected component**: `seatunnel-connectors-v2/connector-iceberg`
   - **Description**: `SchemaUtils.toIcebergSchema()` previously fell back to the CDC source
@@ -144,9 +157,9 @@ You need to check this document before you upgrade to related version.
   - **Affected component**: `seatunnel-connectors-v2/connector-prometheus`
   - **Description**: The Prometheus Sink no longer starts its own background flush thread. The connector-level `flush_interval` option has been removed. Timer-based flushing is now driven by the engine through `sink.flush.interval` in the job `env` block, which is **supported only by the Zeta engine**.
   - **Impact**:
-    - **Spark and Flink lose periodic timer-based flushing.** The removed `flush_interval` scheduler was a plain connector-owned thread that ran on all engines. Its replacement, `sink.flush.interval`, is a Zeta engine primitive; the Spark and Flink sink writer contexts do not implement it, so there is no periodic flush on those engines. On Spark and Flink the buffer is now flushed only when it reaches `batch_size` and when the writer is closed (it is not flushed on checkpoint). A low-throughput streaming job can therefore hold buffered points in memory until it stops; tune `batch_size` accordingly.
+    - **Spark and Flink lose sub-checkpoint timer-based flushing.** The removed `flush_interval` scheduler was a plain connector-owned thread that ran on all engines. Its replacement, `sink.flush.interval`, is a Zeta engine primitive; the Spark and Flink sink writer contexts do not implement it, so there is no periodic timer flush on those engines. On Spark and Flink the buffer is flushed when it reaches `batch_size`, on checkpoint (the sink flushes in `prepareCommit()`), and when the writer is closed. Buffered points are therefore bounded by the checkpoint interval rather than held until the job stops; for lower latency between checkpoints, tune `batch_size` accordingly.
     - A leftover `flush_interval` key in the `Prometheus` sink block is rejected only when the config is validated with `--check` / `--dry-run=static` / `--dry-run=connect` (which run `validateUnknownKeys`). A directly submitted job silently ignores the stray key; the connector logs a warning once per sink writer at startup instead (so a job with parallelism N, multiple tables, or replicas logs it multiple times).
-  - **Migration Guide**: Remove `flush_interval` from the `Prometheus` sink block. To keep timer-based flushing on Zeta, set `sink.flush.interval` (milliseconds) in the job `env` block. On Spark and Flink, rely on `batch_size`. The `batch_size` trigger and the final flush on writer close are unchanged on all engines.
+  - **Migration Guide**: Remove `flush_interval` from the `Prometheus` sink block. To keep timer-based flushing on Zeta, set `sink.flush.interval` (milliseconds) in the job `env` block. On Spark and Flink, buffered points are flushed on each checkpoint; tune `batch_size` for lower latency between checkpoints. The `batch_size` trigger and the final flush on writer close are unchanged on all engines.
 
 - **Breaking Change: File connectors reject `DOCTYPE` declarations in XML input (XXE hardening)**
   - **Affected component**: `seatunnel-connectors-v2/connector-file/connector-file-base` (`XmlReadStrategy`), and every file source built on it: LocalFile, HdfsFile, S3File, OssFile, OssJindoFile, CosFile, FtpFile, SftpFile (`file_format_type = xml`)
