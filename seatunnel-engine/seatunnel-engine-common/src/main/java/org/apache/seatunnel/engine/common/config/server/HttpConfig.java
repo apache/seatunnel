@@ -78,6 +78,10 @@ public class HttpConfig implements Serializable {
     private String basicAuthPassword =
             ServerConfigOptions.MasterServerConfigOptions.BASIC_AUTH_PASSWORD.defaultValue();
 
+    /** The public base URL for the HTTP server, used when the server is behind a reverse proxy or Ingress. */
+    private String publicUrl =
+            ServerConfigOptions.MasterServerConfigOptions.PUBLIC_URL.defaultValue();
+
     public void setPort(int port) {
         checkPositive(port, ServerConfigOptions.MasterServerConfigOptions.HTTP + " must be > 0");
         this.port = port;
