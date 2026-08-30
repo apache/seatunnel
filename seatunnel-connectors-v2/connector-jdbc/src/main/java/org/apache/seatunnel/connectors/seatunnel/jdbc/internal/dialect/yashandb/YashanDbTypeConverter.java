@@ -213,11 +213,13 @@ public class YashanDbTypeConverter implements TypeConverter<BasicTypeDefine> {
                 // ====================== Character types ======================
             case CHAR:
             case VARCHAR:
+            case VARCHAR2:
                 builder.dataType(BasicType.STRING_TYPE);
                 builder.columnLength(TypeDefineUtils.charTo4ByteLength(typeDefine.getLength()));
                 break;
             case NCHAR:
             case NVARCHAR:
+            case NVARCHAR2:
                 builder.dataType(BasicType.STRING_TYPE);
                 builder.columnLength(
                         TypeDefineUtils.doubleByteTo4ByteLength(typeDefine.getLength()));
