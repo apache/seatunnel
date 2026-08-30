@@ -606,24 +606,51 @@ public class DefaultErrorSinkWriter<T> implements ErrorSinkRowWriter<T> {
         if (!workerThread.isAlive()) {
             return;
         }
+        boolean interrupted = Thread.interrupted();
         try {
-            workerThread.join(timeoutMillis);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            log.warn("Interrupted while waiting for error sink worker to close");
-        }
+            long deadline = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMillis);
+            while (workerThread.isAlive()) {
+                long remainingNanos = deadline - System.nanoTime();
+                if (remainingNanos <= 0) {
+                    break;
+                }
+                try {
+                    workerThread.join(Math.max(1L, TimeUnit.NANOSECONDS.toMillis(remainingNanos)));
+                } catch (InterruptedException e) {
+                    // Task cancellation can interrupt the closer; finish releasing the error sink
+                    // first.
+                    interrupted = true;
+                    log.warn("Interrupted while waiting for error sink worker to close");
+                }
+            }
 
-        if (workerThread.isAlive()) {
+            if (!workerThread.isAlive()) {
+                return;
+            }
             log.warn(
                     "Error sink worker thread did not terminate within {} ms, interrupting it",
                     timeoutMillis);
             workerThread.interrupt();
-            try {
-                workerThread.join(Math.min(5_000L, timeoutMillis));
-            } catch (InterruptedException e) {
+
+            deadline =
+                    System.nanoTime()
+                            + TimeUnit.MILLISECONDS.toNanos(Math.min(5_000L, timeoutMillis));
+            while (workerThread.isAlive()) {
+                long remainingNanos = deadline - System.nanoTime();
+                if (remainingNanos <= 0) {
+                    break;
+                }
+                try {
+                    workerThread.join(Math.max(1L, TimeUnit.NANOSECONDS.toMillis(remainingNanos)));
+                } catch (InterruptedException e) {
+                    interrupted = true;
+                    log.warn(
+                            "Interrupted while waiting for error sink worker to close after interrupt");
+                }
+            }
+        } finally {
+            if (interrupted) {
                 Thread.currentThread().interrupt();
-                log.warn(
-                        "Interrupted while waiting for error sink worker to close after interrupt");
             }
         }
     }
