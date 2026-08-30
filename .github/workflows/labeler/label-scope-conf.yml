@@ -84,6 +84,11 @@ amazonsqs:
       - changed-files:
           - any-glob-to-any-file: seatunnel-connectors-v2/connector-amazonsqs/**
           - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(amazonsqs)/**'
+azurecosmosdb:
+  - all:
+      - changed-files:
+          - any-glob-to-any-file: seatunnel-connectors-v2/connector-azurecosmosdb/**
+          - all-globs-to-all-files: '!seatunnel-connectors-v2/connector-!(azurecosmosdb)/**'
 cassandra:
   - all:
       - changed-files:

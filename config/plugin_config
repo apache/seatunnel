@@ -21,6 +21,7 @@
 # Don't modify the delimiter " -- ", just select the plugin you need
 --connectors-v2--
 connector-amazondynamodb
+connector-azurecosmosdb
 connector-assert
 connector-cassandra
 connector-salesforce
