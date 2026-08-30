@@ -58,7 +58,7 @@ public class AzureQueueStorageSourceReader implements SourceReader<SeaTunnelRow,
 
     private AzureQueueReceiver receiver;
     private ScheduledExecutorService visibilityRenewalExecutor;
-    private boolean splitAssigned;
+    private volatile boolean splitAssigned;
 
     public AzureQueueStorageSourceReader(
             AzureQueueSourceConfig config,
@@ -82,6 +82,9 @@ public class AzureQueueStorageSourceReader implements SourceReader<SeaTunnelRow,
 
     @Override
     public void pollNext(Collector<SeaTunnelRow> output) {
+        if (!splitAssigned) {
+            return;
+        }
         checkVisibilityRenewalFailure();
         int availableCapacity;
         synchronized (acknowledgementLock) {

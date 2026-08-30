@@ -46,6 +46,21 @@ import java.util.concurrent.atomic.AtomicInteger;
 class AzureQueueStorageSourceReaderTest {
 
     @Test
+    void shouldWaitForSplitBeforePolling() throws Exception {
+        TestReceiver receiver = new TestReceiver();
+        receiver.enqueue("first");
+        AzureQueueStorageSourceReader reader = createReader(receiver);
+
+        reader.pollNext(new TestCollector());
+        Assertions.assertEquals(0, receiver.receiveCount.get());
+
+        assignSplit(reader);
+        reader.pollNext(new TestCollector());
+        Assertions.assertEquals(1, receiver.receiveCount.get());
+        reader.close();
+    }
+
+    @Test
     void shouldDeleteOnlyAfterCheckpointCompletes() throws Exception {
         TestReceiver receiver = new TestReceiver();
         AzureQueueMessage message = receiver.enqueue("first");
