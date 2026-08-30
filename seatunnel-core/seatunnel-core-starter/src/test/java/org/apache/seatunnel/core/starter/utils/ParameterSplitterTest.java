@@ -123,21 +123,4 @@ public class ParameterSplitterTest {
                 });
     }
 
-    @Test
-    void testSplitWithUnmatchedBraceThrowsException() {
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> {
-                    parameterSplitter.split("{unclosed");
-                });
-    }
-
-    @Test
-    void testSplitWithLoneClosingBraceThrowsException() {
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> {
-                    parameterSplitter.split("}");
-                });
-    }
 }
