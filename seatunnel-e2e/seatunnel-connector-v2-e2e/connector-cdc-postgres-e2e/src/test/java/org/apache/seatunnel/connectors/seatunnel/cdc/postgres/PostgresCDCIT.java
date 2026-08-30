@@ -592,7 +592,6 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
             Assertions.assertEquals(
                     0, container.savepointJob(String.valueOf(committedOffsetJobId)).getExitCode());
             committedOffsetJob.get(30, TimeUnit.SECONDS);
-            insertSourceTableRow(POSTGRESQL_SCHEMA, SOURCE_TABLE_1, 15);
 
             committedOffsetJob =
                     CompletableFuture.runAsync(
@@ -610,6 +609,8 @@ public class PostgresCDCIT extends TestSuiteBase implements TestResource {
             CompletableFuture<Void> restoredCommittedOffsetJob = committedOffsetJob;
             // Restoring the checkpoint and reconnecting the existing replication slot can take
             // longer on shared GitHub runners than the initial CDC startup.
+            waitForReplicationSlotActive(committedSlotName);
+            insertSourceTableRow(POSTGRESQL_SCHEMA, SOURCE_TABLE_1, 15);
             await().atMost(RESTORE_ASSERT_TIMEOUT_MILLIS, TimeUnit.MILLISECONDS)
                     .untilAsserted(
                             () -> {
