@@ -185,6 +185,27 @@ seatunnel:
        # important: The user of this key needs to have write permission for the bucket, otherwise an exception of 403 will be returned
 ```
 
+If you are running SeaTunnel on **Kubernetes with IRSA (IAM Roles for Service Accounts)**, you can use `WebIdentityTokenCredentialsProvider`.
+You can config like this:
+
+```yaml
+seatunnel:
+  engine:
+    checkpoint:
+      interval: 6000
+      timeout: 7000
+      storage:
+        type: hdfs
+        max-retained: 3
+        plugin-config:
+          namespace: # checkpoint storage parent path, the default value is /seatunnel/checkpoint/
+          storage.type: s3
+          s3.bucket: your-bucket
+          fs.s3a.aws.credentials.provider: com.amazonaws.auth.WebIdentityTokenCredentialsProvider
+```
+
+Note: this makes `WebIdentityTokenCredentialsProvider` loadable on the checkpoint-storage classpath (it requires an AWS SDK version this class ships in). The bundled `hadoop-aws` version has not been upgraded to the 3.3.x line, so broader Hadoop/AWS SDK alignment for IRSA across all S3-backed components is tracked separately.
+
 For additional reading on the Hadoop Credential Provider API, you can see: [Credential Provider API](https://hadoop.apache.org/docs/stable/hadoop-project-dist/hadoop-common/CredentialProviderAPI.html).
 
 #### HDFS
