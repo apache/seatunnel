@@ -73,25 +73,25 @@ public class JdbcMysqlJsonParamIT extends TestSuiteBase implements TestResource 
             Arrays.asList(
                     "drop table if exists ml_tags;\n",
                     "create table ml_tags("
-                            + "user_id long,"
-                            + "movie_id long,"
+                            + "user_id bigint,"
+                            + "movie_id bigint,"
                             + "tag varchar(400),"
-                            + "unix_time long"
+                            + "unix_time bigint"
                             + ");\n",
                     "INSERT INTO ml_tags(user_id, movie_id, tag, unix_time) VALUES"
-                            + "('336', '1', 'pixar', '1139045764'),"
-                            + "('62', '2', 'fantasy', '1528843929'),"
-                            + "('289', '3', 'moldy', '1143424860');",
+                            + "(336, 1, 'pixar', 1139045764),"
+                            + "(62, 2, 'fantasy', 1528843929),"
+                            + "(289, 3, 'moldy', 1143424860);",
                     "drop table if exists ratings;\n",
                     "create table ratings("
-                            + "user_id long,"
-                            + "movie_id long,"
+                            + "user_id bigint,"
+                            + "movie_id bigint,"
                             + "rating float,"
-                            + "unix_time long"
+                            + "unix_time bigint"
                             + ");\n",
                     "INSERT INTO ratings(user_id, movie_id, rating, unix_time) VALUES"
-                            + "('1', '1', 4.0, '964982703'),"
-                            + "('1', '3', 4.0, '964981247');");
+                            + "(1, 1, 4.0, 964982703),"
+                            + "(1, 3, 4.0, 964981247);");
 
     private static final String MYSQL_DRIVER_URL =
             "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
