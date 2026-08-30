@@ -32,6 +32,18 @@ public class NumericFunction {
         if (arg == null) {
             return null;
         }
+        if (arg instanceof Byte) {
+            if (arg.byteValue() == Byte.MIN_VALUE) {
+                throw cannotRepresentAbsoluteValue(arg, "TINYINT");
+            }
+            return (byte) Math.abs(arg.byteValue());
+        }
+        if (arg instanceof Short) {
+            if (arg.shortValue() == Short.MIN_VALUE) {
+                throw cannotRepresentAbsoluteValue(arg, "SMALLINT");
+            }
+            return (short) Math.abs(arg.shortValue());
+        }
         if (arg instanceof Integer) {
             return Math.abs(arg.intValue());
         }
@@ -244,6 +256,7 @@ public class NumericFunction {
         String t = v1.getClass().getSimpleName();
         c:
         switch (t.toUpperCase()) {
+            case "BYTE":
             case "INTEGER":
             case "SHORT":
             case "LONG":
@@ -295,12 +308,25 @@ public class NumericFunction {
                     v1 = t.equals("FLOAT") ? bd.floatValue() : bd.doubleValue();
                     break;
                 }
+            default:
+                throw new TransformException(
+                        CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                        String.format(
+                                "Unsupported arg type %s of function %s",
+                                v1.getClass().getName(), ZetaSQLFunction.ROUND));
         }
         return v1;
     }
 
     private static Number convertTo(String valueType, Number column) {
         switch (valueType.toUpperCase()) {
+            case "BYTE":
+                if (column.longValue() < Byte.MIN_VALUE || column.longValue() > Byte.MAX_VALUE) {
+                    throw new TransformException(
+                            CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                            String.format("Rounded value %s is out of range for TINYINT", column));
+                }
+                return column.byteValue();
             case "INTEGER":
                 return column.intValue();
             case "SHORT":
@@ -310,6 +336,14 @@ public class NumericFunction {
             default:
                 throw new IllegalArgumentException();
         }
+    }
+
+    private static TransformException cannotRepresentAbsoluteValue(Number value, String type) {
+        return new TransformException(
+                CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                String.format(
+                        "Function %s cannot represent the absolute value of %s for %s",
+                        ZetaSQLFunction.ABS, value, type));
     }
 
     public static Double exp(List<Object> args) {
@@ -452,8 +486,8 @@ public class NumericFunction {
         if (v1 == null) {
             return null;
         }
-        if (v1 instanceof Integer) {
-            return Integer.signum((Integer) v1);
+        if (v1 instanceof Byte || v1 instanceof Short || v1 instanceof Integer) {
+            return Integer.signum(v1.intValue());
         }
         if (v1 instanceof Long) {
             return Long.signum((Long) v1);
@@ -467,8 +501,7 @@ public class NumericFunction {
             return value == 0 || Float.isNaN(value) ? 0 : value < 0 ? -1 : 1;
         }
         if (v1 instanceof BigDecimal) {
-            double value = v1.doubleValue();
-            return value == 0 || Double.isNaN(value) ? 0 : value < 0 ? -1 : 1;
+            return ((BigDecimal) v1).signum();
         }
         throw new TransformException(
                 CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
