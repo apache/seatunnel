@@ -623,6 +623,8 @@ public class CoordinatorServiceTest {
         EngineConfig engineConfig = new EngineConfig();
         engineConfig.setScheduleStrategy(ScheduleStrategy.REJECT);
         CoordinatorService coordinatorService = newMockCoordinatorService(server, engineConfig);
+        ExecutorService schedulerExecutor = Executors.newSingleThreadExecutor();
+        CountDownLatch preApplyStarted = new CountDownLatch(1);
         CountDownLatch allowFirstScheduleToFinish = new CountDownLatch(1);
         try {
             JobMaster blockedJobMaster =
@@ -630,19 +632,28 @@ public class CoordinatorServiceTest {
             Mockito.when(blockedJobMaster.preApplyResources())
                     .thenAnswer(
                             invocation -> {
+                                preApplyStarted.countDown();
                                 allowFirstScheduleToFinish.await();
                                 return true;
                             });
 
             ReflectionUtils.setField(coordinatorService, "isActive", true);
-            invokePendingJobScheduler(coordinatorService);
+            Future<?> schedulerFuture =
+                    schedulerExecutor.submit(
+                            () -> {
+                                try {
+                                    invokePendingJobSchedule(
+                                            coordinatorService,
+                                            getPendingJobScheduleEpoch(coordinatorService).get());
+                                } catch (Exception e) {
+                                    throw new RuntimeException(e);
+                                }
+                            });
 
-            // Wait until the scheduler thread is parked inside preApplyResources().
-            await().atMost(5, TimeUnit.SECONDS)
-                    .untilAsserted(
-                            () ->
-                                    Mockito.verify(blockedJobMaster, Mockito.atLeastOnce())
-                                            .preApplyResources());
+            // Ensure the direct scheduler invocation has entered the blocking resource check.
+            Assertions.assertTrue(
+                    preApplyStarted.await(5, TimeUnit.SECONDS),
+                    "pending-job scheduling should enter resource pre-application");
 
             // Simulate a master step-down. The blocked JobMaster is interrupted; the
             // PendingJobInfo must be dropped from the queue so a later restore cannot
@@ -656,8 +667,11 @@ public class CoordinatorServiceTest {
                                         coordinatorService.getPendingJobQueue().contains(90001L));
                                 Mockito.verify(blockedJobMaster, Mockito.atLeastOnce()).interrupt();
                             });
+            allowFirstScheduleToFinish.countDown();
+            schedulerFuture.get(5, TimeUnit.SECONDS);
         } finally {
             allowFirstScheduleToFinish.countDown();
+            schedulerExecutor.shutdownNow();
             shutdownCoordinatorIfRunning(coordinatorService);
         }
     }
@@ -770,6 +784,14 @@ public class CoordinatorServiceTest {
         Method method = CoordinatorService.class.getDeclaredMethod("startPendingJobScheduleThread");
         method.setAccessible(true);
         method.invoke(coordinatorService);
+    }
+
+    private void invokePendingJobSchedule(CoordinatorService coordinatorService, long scheduleEpoch)
+            throws Exception {
+        Method method =
+                CoordinatorService.class.getDeclaredMethod("pendingJobSchedule", long.class);
+        method.setAccessible(true);
+        method.invoke(coordinatorService, scheduleEpoch);
     }
 
     private JobMaster enqueueMockPendingJob(
