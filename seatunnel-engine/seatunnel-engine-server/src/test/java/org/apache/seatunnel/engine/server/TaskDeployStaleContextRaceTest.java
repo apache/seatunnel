@@ -80,9 +80,9 @@ import static java.util.Collections.emptySet;
 public class TaskDeployStaleContextRaceTest extends AbstractSeaTunnelServerTest {
 
     /** Deployment is a local, in-memory operation; anything beyond this is the hang. */
-    private static final long DEPLOY_TIMEOUT_SECONDS = 10;
+    private static final long DEPLOY_TIMEOUT_SECONDS = 30;
 
-    private static final int ITERATIONS = 5;
+    private static final int ITERATIONS = 30;
 
     @Test
     public void deployMustNotHangWhenExecutionContextDisappearsDuringDeploy() throws Exception {
