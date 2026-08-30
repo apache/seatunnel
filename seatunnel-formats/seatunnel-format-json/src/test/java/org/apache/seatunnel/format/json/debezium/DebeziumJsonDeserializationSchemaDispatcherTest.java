@@ -18,18 +18,24 @@
 package org.apache.seatunnel.format.json.debezium;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
+import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalTime;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import static org.apache.seatunnel.api.table.type.LocalTimeType.LOCAL_TIME_TYPE;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -91,6 +97,53 @@ public class DebeziumJsonDeserializationSchemaDispatcherTest {
                         "debezium-oracle.txt");
         assertEquals(actual, actualWithOutDB);
         assertEquals(1, actual.size());
+    }
+
+    @Test
+    void testDispatcherWithSchemaEnabledDebeziumTimeUnits() throws IOException {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"time_millis", "time_micros", "time_nanos"},
+                        new SeaTunnelDataType[] {
+                            LOCAL_TIME_TYPE, LOCAL_TIME_TYPE, LOCAL_TIME_TYPE
+                        });
+        CatalogTable catalogTable = CatalogTableUtil.getCatalogTable("default", rowType);
+        TablePath tablePath = TablePath.of("inventory", null, "products");
+        Map<TablePath, DebeziumJsonDeserializationSchema> tableDeserializationMap = new HashMap<>();
+        tableDeserializationMap.put(
+                tablePath, new DebeziumJsonDeserializationSchema(catalogTable, false, true));
+        DebeziumJsonDeserializationSchemaDispatcher dispatcher =
+                new DebeziumJsonDeserializationSchemaDispatcher(
+                        tableDeserializationMap, false, true);
+        DebeziumJsonSerDeSchemaTest.SimpleCollector collector =
+                new DebeziumJsonSerDeSchemaTest.SimpleCollector();
+
+        String message =
+                "{\"schema\":{\"type\":\"struct\",\"fields\":["
+                        + "{\"type\":\"struct\",\"fields\":["
+                        + "{\"type\":\"int32\",\"name\":\"io.debezium.time.Time\","
+                        + "\"field\":\"time_millis\"},"
+                        + "{\"type\":\"int64\",\"name\":\"io.debezium.time.MicroTime\","
+                        + "\"field\":\"time_micros\"},"
+                        + "{\"type\":\"int64\",\"name\":\"io.debezium.time.NanoTime\","
+                        + "\"field\":\"time_nanos\"}],\"field\":\"before\"},"
+                        + "{\"type\":\"struct\",\"fields\":["
+                        + "{\"type\":\"int32\",\"name\":\"io.debezium.time.Time\","
+                        + "\"field\":\"time_millis\"},"
+                        + "{\"type\":\"int64\",\"name\":\"io.debezium.time.MicroTime\","
+                        + "\"field\":\"time_micros\"},"
+                        + "{\"type\":\"int64\",\"name\":\"io.debezium.time.NanoTime\","
+                        + "\"field\":\"time_nanos\"}],\"field\":\"after\"}]},"
+                        + "\"payload\":{\"before\":null,\"after\":{\"time_millis\":60000,"
+                        + "\"time_micros\":60000000,\"time_nanos\":60000000000},"
+                        + "\"source\":{\"db\":\"inventory\",\"table\":\"products\"},\"op\":\"c\"}}";
+
+        dispatcher.deserialize(message.getBytes(StandardCharsets.UTF_8), collector);
+
+        SeaTunnelRow row = collector.getList().get(0);
+        assertEquals(LocalTime.of(0, 1), row.getField(0));
+        assertEquals(LocalTime.of(0, 1), row.getField(1));
+        assertEquals(LocalTime.of(0, 1), row.getField(2));
     }
 
     private List<String> getRowsByTablePath(

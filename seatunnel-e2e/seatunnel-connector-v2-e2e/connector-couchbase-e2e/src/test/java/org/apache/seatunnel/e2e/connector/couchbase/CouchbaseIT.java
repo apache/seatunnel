@@ -37,6 +37,9 @@ import org.testcontainers.utility.DockerImageName;
 import com.couchbase.client.java.Cluster;
 import com.couchbase.client.java.json.JsonObject;
 import com.couchbase.client.java.query.QueryResult;
+import com.github.dockerjava.api.command.CreateContainerCmd;
+import com.github.dockerjava.api.model.HostConfig;
+import com.github.dockerjava.api.model.Ulimit;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
@@ -63,6 +66,12 @@ public class CouchbaseIT extends TestSuiteBase implements TestResource {
     private static final String COUCHBASE_BUCKET = "test_bucket";
     private static final String COUCHBASE_SCOPE = "_default";
     private static final String COUCHBASE_COLLECTION = "test_collection";
+    /**
+     * Couchbase 7.1 requires the couchbase user inside the container to have at least 200000 open
+     * files. Configure a slightly higher per-container limit so GitHub-hosted Docker starts the
+     * server reliably.
+     */
+    private static final int COUCHBASE_CONTAINER_NOFILE_LIMIT = 262144;
 
     /** Matches row.num in fake_source_to_couchbase.conf. */
     private static final int EXPECTED_ROW_COUNT = 100;
@@ -82,6 +91,7 @@ public class CouchbaseIT extends TestSuiteBase implements TestResource {
                 new CouchbaseContainer(DockerImageName.parse(COUCHBASE_IMAGE))
                         .withNetwork(NETWORK)
                         .withNetworkAliases(COUCHBASE_CONTAINER_HOST)
+                        .withCreateContainerCmdModifier(this::applyCouchbaseFileLimit)
                         .withCredentials(COUCHBASE_USERNAME, COUCHBASE_PASSWORD)
                         .withBucket(
                                 new BucketDefinition(COUCHBASE_BUCKET)
@@ -284,5 +294,25 @@ public class CouchbaseIT extends TestSuiteBase implements TestResource {
                                     count.get(),
                                     doc.toMap());
                         });
+    }
+
+    /**
+     * Applies the minimum open-file limit required by the Couchbase image inside Docker.
+     *
+     * <p>GitHub-hosted runners expose a lower default limit (65536) to containers, which causes the
+     * Couchbase bootstrap script to exit before Testcontainers can finish the cluster
+     * initialization sequence.
+     */
+    private void applyCouchbaseFileLimit(CreateContainerCmd command) {
+        HostConfig hostConfig =
+                command.getHostConfig() == null
+                        ? HostConfig.newHostConfig()
+                        : command.getHostConfig();
+        hostConfig.withUlimits(
+                new Ulimit(
+                        "nofile",
+                        COUCHBASE_CONTAINER_NOFILE_LIMIT,
+                        COUCHBASE_CONTAINER_NOFILE_LIMIT));
+        command.withHostConfig(hostConfig);
     }
 }

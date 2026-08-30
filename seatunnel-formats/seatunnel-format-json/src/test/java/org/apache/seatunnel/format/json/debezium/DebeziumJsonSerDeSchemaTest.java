@@ -41,6 +41,7 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -486,6 +487,85 @@ public class DebeziumJsonSerDeSchemaTest {
         Assertions.assertEquals("2024-12-17T15:23:38.790", row.getField(11).toString());
         Assertions.assertEquals("2024-12-17T15:23:40.280", row.getField(12).toString());
         Assertions.assertEquals("2024-12-17T15:23:42.119", row.getField(13).toString());
+    }
+
+    @Test
+    public void testDeserializationForSchemaLessMillisecondTime() throws Exception {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"time_millis"}, new SeaTunnelDataType[] {LOCAL_TIME_TYPE});
+        DebeziumJsonDeserializationSchema deserializationSchema =
+                new DebeziumJsonDeserializationSchema(
+                        CatalogTableUtil.getCatalogTable("default", rowType), false, false);
+        SimpleCollector collector = new SimpleCollector();
+
+        deserializationSchema.deserialize(
+                "{\"before\":null,\"after\":{\"time_millis\":60000},\"op\":\"c\"}"
+                        .getBytes(StandardCharsets.UTF_8),
+                collector);
+
+        SeaTunnelRow row = collector.getList().get(0);
+        Assertions.assertEquals(LocalTime.of(0, 1), row.getField(0));
+    }
+
+    @Test
+    public void testDeserializationForSchemaLessTextualMillisecondTimeRejected() throws Exception {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"time_millis"}, new SeaTunnelDataType[] {LOCAL_TIME_TYPE});
+        DebeziumJsonDeserializationSchema deserializationSchema =
+                new DebeziumJsonDeserializationSchema(
+                        CatalogTableUtil.getCatalogTable("default", rowType), false, false);
+        SimpleCollector collector = new SimpleCollector();
+
+        assertThrows(
+                SeaTunnelRuntimeException.class,
+                () ->
+                        deserializationSchema.deserialize(
+                                "{\"before\":null,\"after\":{\"time_millis\":\"60000\"},\"op\":\"c\"}"
+                                        .getBytes(StandardCharsets.UTF_8),
+                                collector));
+    }
+
+    @Test
+    public void testDeserializationForDebeziumTimeUnitsWithSchema() throws Exception {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"time_millis", "time_micros", "time_nanos"},
+                        new SeaTunnelDataType[] {
+                            LOCAL_TIME_TYPE, LOCAL_TIME_TYPE, LOCAL_TIME_TYPE
+                        });
+        DebeziumJsonDeserializationSchema deserializationSchema =
+                new DebeziumJsonDeserializationSchema(
+                        CatalogTableUtil.getCatalogTable("default", rowType), false, true);
+        SimpleCollector collector = new SimpleCollector();
+
+        String message =
+                "{\"schema\":{\"type\":\"struct\",\"fields\":["
+                        + "{\"type\":\"struct\",\"fields\":["
+                        + "{\"type\":\"int32\",\"name\":\"io.debezium.time.Time\","
+                        + "\"field\":\"time_millis\"},"
+                        + "{\"type\":\"int64\",\"name\":\"io.debezium.time.MicroTime\","
+                        + "\"field\":\"time_micros\"},"
+                        + "{\"type\":\"int64\",\"name\":\"io.debezium.time.NanoTime\","
+                        + "\"field\":\"time_nanos\"}],\"field\":\"before\"},"
+                        + "{\"type\":\"struct\",\"fields\":["
+                        + "{\"type\":\"int32\",\"name\":\"io.debezium.time.Time\","
+                        + "\"field\":\"time_millis\"},"
+                        + "{\"type\":\"int64\",\"name\":\"io.debezium.time.MicroTime\","
+                        + "\"field\":\"time_micros\"},"
+                        + "{\"type\":\"int64\",\"name\":\"io.debezium.time.NanoTime\","
+                        + "\"field\":\"time_nanos\"}],\"field\":\"after\"}]},"
+                        + "\"payload\":{\"before\":null,\"after\":{\"time_millis\":60000,"
+                        + "\"time_micros\":60000000,\"time_nanos\":60000000000},"
+                        + "\"op\":\"c\"}}";
+
+        deserializationSchema.deserialize(message.getBytes(StandardCharsets.UTF_8), collector);
+
+        SeaTunnelRow row = collector.getList().get(0);
+        Assertions.assertEquals(LocalTime.of(0, 1), row.getField(0));
+        Assertions.assertEquals(LocalTime.of(0, 1), row.getField(1));
+        Assertions.assertEquals(LocalTime.of(0, 1), row.getField(2));
     }
 
     /**
