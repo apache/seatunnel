@@ -47,6 +47,7 @@ connector-file-jindo-oss
 connector-file-s3
 connector-file-sftp
 connector-file-obs
+connector-file-bos
 connector-fluss
 connector-google-sheets
 connector-google-firestore
