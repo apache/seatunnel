@@ -48,6 +48,7 @@ public class PostgresCatalog extends AbstractJdbcCatalog {
                     + "\t\tt.typname as type_name,\n"
                     + "    CASE \n"
                     + "        WHEN a.atttypmod = -1 THEN t.typname\n"
+                    + "        WHEN t.typname = 'vector' THEN t.typname || '(' || (a.atttypmod - 4) || ')'\n"
                     + "        WHEN t.typname = 'varchar' THEN t.typname || '(' || (a.atttypmod - 4) || ')'\n"
                     + "        WHEN t.typname = 'bpchar' THEN 'char' || '(' || (a.atttypmod - 4) || ')'\n"
                     + "        WHEN t.typname = 'numeric' OR t.typname = 'decimal' THEN t.typname || '(' || ((a.atttypmod - 4) >> 16) || ', ' || ((a.atttypmod - 4) & 65535) || ')'\n"
