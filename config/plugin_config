@@ -67,6 +67,7 @@ connector-http-notion
 connector-http-onesignal
 connector-http-wechat
 connector-http-airtable
+connector-http-posthog
 connector-hudi
 connector-iceberg
 connector-influxdb
