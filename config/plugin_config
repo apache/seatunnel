@@ -109,6 +109,7 @@ connector-sensorsdata
 connector-hugegraph
 connector-lance
 connector-mqtt
+connector-snmp
 connector-python
 connector-bigquery
 connector-nats-jetstream
