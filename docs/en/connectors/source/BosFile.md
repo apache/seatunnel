@@ -47,9 +47,7 @@ If you use Spark/Flink, in order to use this connector you must ensure your Spar
 
 If you use SeaTunnel Engine, Hadoop jars are bundled under `${SEATUNNEL_HOME}/lib`.
 
-To use this connector you need to put `bos-hdfs-sdk` (>= 1.0.4-community) into `${SEATUNNEL_HOME}/lib`. Download: [bos-hdfs-sdk-1.0.4-community.jar.zip](https://sdk.bce.baidu.com/console-sdk/bos-hdfs-sdk-1.0.4-community.jar.zip).
-
-Install the jar into your local Maven repository before building from source. See `connector-file-bos/lib/README.md`.
+To use this connector you need to put `bos-hdfs-sdk` (>= 1.0.4-community) into `${SEATUNNEL_HOME}/lib`. Download: [bos-hdfs-sdk-1.0.4-community.jar.zip](https://sdk.bce.baidu.com/console-sdk/bos-hdfs-sdk-1.0.4-community.jar.zip). See `connector-file-bos/lib/README.md` for details.
 
 :::
 

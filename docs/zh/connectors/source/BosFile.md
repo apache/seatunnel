@@ -47,9 +47,7 @@ import ChangeLog from '../changelog/connector-file-bos.md';
 
 使用 SeaTunnel Engine 时，Hadoop 相关 jar 已包含在 `${SEATUNNEL_HOME}/lib` 中。
 
-使用本连接器需将 `bos-hdfs-sdk`（>= 1.0.4-community）放入 `${SEATUNNEL_HOME}/lib`。下载：[bos-hdfs-sdk-1.0.4-community.jar.zip](https://sdk.bce.baidu.com/console-sdk/bos-hdfs-sdk-1.0.4-community.jar.zip)。
-
-源码构建前需将 SDK 安装到本地 Maven 仓库，参见 `connector-file-bos/lib/README.md`。
+使用本连接器需将 `bos-hdfs-sdk`（>= 1.0.4-community）放入 `${SEATUNNEL_HOME}/lib`。下载：[bos-hdfs-sdk-1.0.4-community.jar.zip](https://sdk.bce.baidu.com/console-sdk/bos-hdfs-sdk-1.0.4-community.jar.zip)。详见 `connector-file-bos/lib/README.md`。
 
 :::
 
