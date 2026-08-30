@@ -30,7 +30,7 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 /** Validated runtime configuration for the SNMP source connector. */
-public final class SnmpSourceConfig implements Serializable {
+public final class SnmpSourceConfig implements Serializable, SnmpTargetConfig {
 
     private static final long serialVersionUID = 1L;
 
@@ -79,6 +79,25 @@ public final class SnmpSourceConfig implements Serializable {
         }
     }
 
+    private static boolean isBlank(String value) {
+        return value == null || value.trim().isEmpty();
+    }
+
+    @Override
+    public String getHost() {
+        return host;
+    }
+
+    @Override
+    public int getPort() {
+        return port;
+    }
+
+    @Override
+    public String getCommunity() {
+        return community;
+    }
+
     private static List<OID> parseOids(List<String> configuredOids) {
         if (configuredOids == null || configuredOids.isEmpty()) {
             throw new IllegalArgumentException("SNMP source oids must not be empty");
@@ -110,30 +129,16 @@ public final class SnmpSourceConfig implements Serializable {
         return Collections.unmodifiableList(parsed);
     }
 
-    private static boolean isBlank(String value) {
-        return value == null || value.trim().isEmpty();
-    }
-
-    public String getHost() {
-        return host;
-    }
-
-    public int getPort() {
-        return port;
-    }
-
-    public String getCommunity() {
-        return community;
-    }
-
     public List<OID> getOids() {
         return oids;
     }
 
+    @Override
     public long getTimeoutMillis() {
         return timeoutMillis;
     }
 
+    @Override
     public int getRetries() {
         return retries;
     }

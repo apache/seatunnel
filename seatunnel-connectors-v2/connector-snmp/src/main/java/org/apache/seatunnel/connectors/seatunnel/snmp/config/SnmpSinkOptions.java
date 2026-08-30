@@ -20,33 +20,34 @@ package org.apache.seatunnel.connectors.seatunnel.snmp.config;
 import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 
-import java.util.List;
-
-public final class SnmpSourceOptions {
+/** Configuration options for the SNMPv2c SET sink. */
+public final class SnmpSinkOptions {
 
     public static final String CONNECTOR_IDENTITY = SnmpOptions.CONNECTOR_IDENTITY;
 
     public static final Option<String> HOST = SnmpOptions.HOST;
-
     public static final Option<Integer> PORT = SnmpOptions.PORT;
-
     public static final Option<String> COMMUNITY = SnmpOptions.COMMUNITY;
-
-    public static final Option<List<String>> OIDS =
-            Options.key("oids")
-                    .listType()
-                    .noDefaultValue()
-                    .withDescription("Numeric OIDs to retrieve with SNMP GET");
-
     public static final Option<Long> TIMEOUT_MILLIS = SnmpOptions.TIMEOUT_MILLIS;
-
     public static final Option<Integer> RETRIES = SnmpOptions.RETRIES;
 
-    public static final Option<Long> POLL_INTERVAL_MILLIS =
-            Options.key("poll_interval_millis")
-                    .longType()
-                    .defaultValue(60000L)
-                    .withDescription("Interval in milliseconds between streaming polls");
+    public static final Option<String> OID_FIELD =
+            Options.key("oid_field")
+                    .stringType()
+                    .defaultValue("oid")
+                    .withDescription("Input STRING field containing the numeric OID to set");
 
-    private SnmpSourceOptions() {}
+    public static final Option<String> VALUE_FIELD =
+            Options.key("value_field")
+                    .stringType()
+                    .defaultValue("value")
+                    .withDescription("Input STRING field containing the value to set");
+
+    public static final Option<String> VALUE_TYPE_FIELD =
+            Options.key("value_type_field")
+                    .stringType()
+                    .defaultValue("value_type")
+                    .withDescription("Input STRING field containing the SMI value type");
+
+    private SnmpSinkOptions() {}
 }
