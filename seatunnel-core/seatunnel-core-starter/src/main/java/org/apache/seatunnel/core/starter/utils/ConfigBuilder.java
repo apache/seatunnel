@@ -319,12 +319,27 @@ public class ConfigBuilder {
             value = StringUtils.unwrap(value, "\"");
             return ConfigValueFactory.fromAnyRef(value);
         }
-        try {
-            Config parsed = ConfigFactory.parseString("v = " + value);
-            return parsed.root().get("v");
-        } catch (Exception e) {
-            log.warn("Failed to parse value as ConfigValue, fallback to plain string: {}", value);
+
+        boolean maybeJsonOrArray =
+                (value.startsWith("{") && value.endsWith("}"))
+                        || (value.startsWith("[") && value.endsWith("]"));
+
+        if (maybeJsonOrArray) {
+            try {
+                Config parsed = ConfigFactory.parseString("v = " + value);
+                return parsed.root().get("v");
+            } catch (Exception e) {
+                log.warn(
+                        "Value '{}' looks like JSON or Array but failed to parse. "
+                                + "fallback to plain string. "
+                                + "If you intended to pass a Map/List, please check the format. Error: {}",
+                        value,
+                        e.getMessage());
+
+                return ConfigValueFactory.fromAnyRef(value);
+            }
         }
+
         return ConfigValueFactory.fromAnyRef(value);
     }
 
