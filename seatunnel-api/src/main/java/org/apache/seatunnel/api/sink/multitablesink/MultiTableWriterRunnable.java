@@ -32,9 +32,16 @@ import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 /**
- * Consumes ordered queue requests for one sink queue. Both row writes and schema-change barriers
- * flow through this runnable so the worker always drains older rows before it switches any shared
- * sink schema.
+ * Consumes ordered queue requests for one sink queue.
+ *
+ * <p>Both row writes and schema-change barriers flow through this runnable so the worker always
+ * drains older rows before it switches any shared sink schema. The parent {@link
+ * MultiTableSinkWriter} synchronizes on this runnable before lifecycle operations that interact
+ * with sub-writers. Holding the same monitor during row writes keeps those lifecycle operations
+ * from racing with an active write.
+ *
+ * <p>When table-level failure isolation is enabled, write failures are reported through the
+ * configured handler and the failed table writer is removed so other tables can continue.
  */
 @Slf4j
 public class MultiTableWriterRunnable implements Runnable {
@@ -68,12 +75,27 @@ public class MultiTableWriterRunnable implements Runnable {
     /** Counts queued or dequeued row requests until their write path has fully finished. */
     private final AtomicInteger pendingRowRequests = new AtomicInteger();
 
+    /**
+     * Creates a worker that stops on the first table write failure.
+     *
+     * @param tableIdWriterMap writers keyed by table identifier
+     * @param queue row queue owned by this runnable
+     */
     public MultiTableWriterRunnable(
             Map<String, SinkWriter<SeaTunnelRow, ?, ?>> tableIdWriterMap,
             BlockingQueue<QueueElement> queue) {
         this(tableIdWriterMap, queue, false, (tableId, error) -> {});
     }
 
+    /**
+     * Creates a worker with optional table-level failure isolation and no retry.
+     *
+     * @param tableIdWriterMap writers keyed by table identifier
+     * @param queue row queue owned by this runnable
+     * @param continueOnTableFailure whether a failed table should be isolated instead of stopping
+     *     the worker
+     * @param failureHandler callback invoked after a table is isolated
+     */
     public MultiTableWriterRunnable(
             Map<String, SinkWriter<SeaTunnelRow, ?, ?>> tableIdWriterMap,
             BlockingQueue<QueueElement> queue,
@@ -82,6 +104,17 @@ public class MultiTableWriterRunnable implements Runnable {
         this(tableIdWriterMap, queue, continueOnTableFailure, failureHandler, 0, 0);
     }
 
+    /**
+     * Creates a worker with optional table-level failure isolation and bounded write retries.
+     *
+     * @param tableIdWriterMap writers keyed by table identifier
+     * @param queue row queue owned by this runnable
+     * @param continueOnTableFailure whether a failed table should be isolated instead of stopping
+     *     the worker
+     * @param failureHandler callback invoked after a table is isolated
+     * @param tableRetryTimes maximum retry attempts before a table is treated as failed
+     * @param tableRetryIntervalSeconds seconds to wait between retry attempts
+     */
     public MultiTableWriterRunnable(
             Map<String, SinkWriter<SeaTunnelRow, ?, ?>> tableIdWriterMap,
             BlockingQueue<QueueElement> queue,
@@ -98,14 +131,23 @@ public class MultiTableWriterRunnable implements Runnable {
         this.tableRetryIntervalSeconds = Math.max(0, tableRetryIntervalSeconds);
     }
 
+    /** Installs the row-level error handler used to bypass bad rows instead of failing the job. */
     public void setRowErrorHandler(MultiTableRowErrorHandler rowErrorHandler) {
         this.rowErrorHandler = rowErrorHandler;
     }
 
+    /** Installs the per-row success callback; a null handler is replaced with a no-op. */
     public void setWriteSuccessHandler(Consumer<SeaTunnelRow> writeSuccessHandler) {
         this.writeSuccessHandler = writeSuccessHandler == null ? row -> {} : writeSuccessHandler;
     }
 
+    /**
+     * Runs the queue-draining loop until interrupted or an unrecoverable write failure is captured.
+     *
+     * <p>Rows with zero arity are control signals for schema evolution. Real data rows are written
+     * while holding this runnable's monitor so parent lifecycle operations can acquire the same
+     * lock before interacting with sub-writers.
+     */
     @Override
     public void run() {
         while (true) {
@@ -234,6 +276,11 @@ public class MultiTableWriterRunnable implements Runnable {
         schemaChangeBarrier.reachBarrier();
     }
 
+    /**
+     * Offers a failed row to the installed row-error handler. Returns true when the handler
+     * consumed the failure (the row is bypassed); rethrows when the handler itself fails so the
+     * handler bug is never silently mistaken for a handled row.
+     */
     private boolean tryHandleRowError(
             SinkWriter<SeaTunnelRow, ?, ?> writer, SeaTunnelRow row, Throwable error)
             throws Throwable {
@@ -258,6 +305,9 @@ public class MultiTableWriterRunnable implements Runnable {
         }
     }
 
+    /**
+     * Converts a write failure into either a terminal worker error or an isolated table failure.
+     */
     private TableFailure handleWriteFailure(SeaTunnelRow row, Throwable error) {
         log.error(String.format("MultiTableWriterRunnable error when write row %s", row), error);
         if (containsFatalRowErrorHandlingFailure(error)) {
@@ -276,6 +326,7 @@ public class MultiTableWriterRunnable implements Runnable {
         return null;
     }
 
+    /** Asks the row-error handler whether this row's failure was already collected as bypassed. */
     private boolean consumeCollectedRowErrorOutcome(SeaTunnelRow row) {
         return rowErrorHandler != null && rowErrorHandler.consumeCollectedRowErrorOutcome(row);
     }
@@ -303,6 +354,12 @@ public class MultiTableWriterRunnable implements Runnable {
         return false;
     }
 
+    /**
+     * Notifies the parent writer about an isolated table and clears row-processing state.
+     *
+     * @param tableFailure failed table context
+     * @return {@code true} when the parent handler accepts the isolated table failure
+     */
     private boolean notifyTableFailure(TableFailure tableFailure) {
         try {
             failureHandler.accept(tableFailure.tableId, tableFailure.error);
@@ -316,6 +373,14 @@ public class MultiTableWriterRunnable implements Runnable {
         }
     }
 
+    /**
+     * Writes one row and retries only when table-level failure isolation is enabled.
+     *
+     * @param writer target sub-writer
+     * @param row row to write
+     * @param tableId table identifier used in retry logs
+     * @throws Throwable when the write still fails after all allowed retries
+     */
     private void writeWithRetry(
             SinkWriter<SeaTunnelRow, ?, ?> writer, SeaTunnelRow row, String tableId)
             throws Throwable {
@@ -340,6 +405,9 @@ public class MultiTableWriterRunnable implements Runnable {
         }
     }
 
+    /**
+     * Waits between retry attempts and restores the interrupt flag if the worker is interrupted.
+     */
     private void waitBeforeRetry() throws InterruptedException {
         if (tableRetryIntervalSeconds <= 0) {
             return;
@@ -352,22 +420,43 @@ public class MultiTableWriterRunnable implements Runnable {
         }
     }
 
+    /**
+     * Returns the first terminal error observed by this worker.
+     *
+     * @return terminal error, or {@code null} when no unrecoverable failure has been captured
+     */
     public Throwable getThrowable() {
         return throwable;
     }
 
+    /**
+     * Returns the table identifier currently being written.
+     *
+     * @return current table identifier, or {@code null} when no row has selected a writer yet
+     */
     public String getCurrentTableId() {
         return currentTableId;
     }
 
+    /**
+     * Returns whether this worker is currently processing a dequeued row.
+     *
+     * @return {@code true} while a data row is in progress
+     */
     public boolean isProcessingRow() {
         return processingRow;
     }
 
+    /**
+     * Returns whether this worker is notifying the parent about an isolated table failure.
+     *
+     * @return {@code true} while table-failure notification is in progress
+     */
     public boolean isHandlingTableFailure() {
         return handlingTableFailure;
     }
 
+    /** Reports whether counted row requests are still in flight; used by close-path draining. */
     public boolean hasPendingRowRequests() {
         return pendingRowRequests.get() > 0;
     }
@@ -383,6 +472,11 @@ public class MultiTableWriterRunnable implements Runnable {
         }
     }
 
+    /**
+     * Removes the writer for a failed table so subsequent rows for that table are skipped.
+     *
+     * @param tableId failed table identifier
+     */
     public synchronized void removeTableWriter(String tableId) {
         tableIdWriterMap.remove(tableId);
     }
