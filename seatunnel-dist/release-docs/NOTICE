@@ -977,3 +977,12 @@ from the original php source code available at http://stevemorse.org/phoneticinf
 with permission from the original authors.
 Original source copyright:
 Copyright (c) 2008 Alexander Beider & Stephen P. Morse.
+
+=========================================================================
+
+ +===============================================================================
+ + Third-party dependencies for SNMP connector:
+ +===============================================================================
+ + org.snmp4j:snmp4j (https://www.snmp4j.org/)
+ + Copyright Frank Fock and Jochen Katz
+ + Licensed under the Apache License, Version 2.0

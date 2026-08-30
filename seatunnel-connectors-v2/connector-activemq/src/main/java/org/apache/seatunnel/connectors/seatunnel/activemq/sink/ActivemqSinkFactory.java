@@ -25,11 +25,13 @@ import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 
 import com.google.auto.service.AutoService;
 
+import static org.apache.seatunnel.api.configuration.util.Conditions.notBlank;
 import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.ALWAYS_SESSION_ASYNC;
 import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.ALWAYS_SYNC_SEND;
 import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.CHECK_FOR_DUPLICATE;
 import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.CLIENT_ID;
 import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.CLOSE_TIMEOUT;
+import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.CONSUMER_EXPIRY_CHECK_ENABLED;
 import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.DISPATCH_ASYNC;
 import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.NESTED_MAP_AND_LIST_ENABLED;
 import static org.apache.seatunnel.connectors.seatunnel.activemq.config.ActivemqSinkOptions.PASSWORD;
@@ -49,14 +51,16 @@ public class ActivemqSinkFactory implements TableSinkFactory {
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
-                .required(QUEUE_NAME, URI)
+                .required(QUEUE_NAME, notBlank(QUEUE_NAME))
+                .required(URI, notBlank(URI))
                 .bundled(USERNAME, PASSWORD)
+                .optional(CLIENT_ID, notBlank(CLIENT_ID))
                 .optional(
-                        CLIENT_ID,
                         CHECK_FOR_DUPLICATE,
                         ALWAYS_SESSION_ASYNC,
                         ALWAYS_SYNC_SEND,
                         CLOSE_TIMEOUT,
+                        CONSUMER_EXPIRY_CHECK_ENABLED,
                         DISPATCH_ASYNC,
                         NESTED_MAP_AND_LIST_ENABLED,
                         WARN_ABOUT_UNSTARTED_CONNECTION_TIMEOUT)
