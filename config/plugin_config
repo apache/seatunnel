@@ -116,3 +116,4 @@ connector-snmp
 connector-python
 connector-bigquery
 connector-nats-jetstream
+connector-splunk
