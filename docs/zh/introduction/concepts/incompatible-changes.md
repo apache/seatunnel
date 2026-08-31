@@ -54,6 +54,12 @@
   }
   ```
 
+- **破坏性变更：运行期日志级别接口拒绝无法识别的级别**
+  - **影响范围**：SeaTunnel Engine REST API — `POST /hazelcast/rest/maps/log-level`
+  - **变更说明**：该接口此前对任何请求都返回 `200` 和 `{"status":"SUCCESS"}`，包括无法识别的级别名（`DEBUGG`、`verbose`、不存在的级别、空值）。这类请求实际上什么都没有生效，并且无法识别的级别会以 `null` 传给 log4j2，而 `null` 并不是"保持不变"：它会清除该 logger 上显式设置的级别，于是 logger 静默回退到父级别，root logger 则回退到 `ERROR`。现在无法识别的级别、空级别以及缺少 `level` 参数都会返回 `400`，并在响应中列出有效级别；级别名仍然不区分大小写。
+  - **影响**：只检查 HTTP 状态码的脚本和自动化流程，对于原本就没有生效的请求，会从 `200` 变为 `400`。能够正确识别级别的请求行为不变。
+  - **升级指南**：请传入 log4j2 能识别的级别（`OFF`、`FATAL`、`ERROR`、`WARN`、`INFO`、`DEBUG`、`TRACE`、`ALL`，或配置中注册的自定义级别）。被拒绝请求的响应体会列出该节点接受的级别。
+
 - **破坏性变更：`Condition.of(option, null)` 不再允许**
   - **影响范围**：`seatunnel-api` — `org.apache.seatunnel.api.configuration.util.Condition`
   - **变更说明**：`Condition` 构造器新增校验：二元字面量操作符（如 `EQUAL`、`NOT_EQUAL`、`GREATER_THAN` 等）的 `expectValue` 不能为 null。此前 `Condition.of(option, null)` 会被静默接受，现在会在构造时抛出 `IllegalArgumentException`。
