@@ -94,8 +94,8 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  benchmark:
-    name: Run normal benchmarks with Java 8 and 11
+  benchmark_java8:
+    name: Run normal benchmarks with Java 8
     if: >-
       github.event_name == 'schedule' ||
       (github.event_name == 'workflow_dispatch' &&
@@ -104,14 +104,9 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 240
 
-    strategy:
-      fail-fast: false
-      matrix:
-        java-version: [ '8', '11' ]
-
     env:
       BENCHMARKS: ${{ github.event.inputs.custom_benchmarks || github.event.inputs.benchmarks || '.*' }}
-      JAVA_VERSION: ${{ matrix.java-version }}
+      JAVA_VERSION: '8'
       PR_NUMBER: ${{ github.event.inputs.pr_number || '' }}
       SEATUNNEL_REF: ${{ github.event.inputs.seatunnel_ref || 'dev' }}
     steps:
@@ -130,20 +125,20 @@ jobs:
           ref: refs/pull/${{ github.event.inputs.pr_number }}/head
           path: candidate
 
-      - name: Set up JDK ${{ matrix.java-version }} with Maven cache
+      - name: Set up JDK ${{ env.JAVA_VERSION }} with Maven cache
         if: env.PR_NUMBER == ''
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: ${{ matrix.java-version }}
+          java-version: ${{ env.JAVA_VERSION }}
           cache: maven
 
-      - name: Set up JDK ${{ matrix.java-version }} without Maven cache
+      - name: Set up JDK ${{ env.JAVA_VERSION }} without Maven cache
         if: env.PR_NUMBER != ''
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: ${{ matrix.java-version }}
+          java-version: ${{ env.JAVA_VERSION }}
 
       - name: Build baseline benchmark module
         working-directory: baseline
@@ -161,7 +156,74 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: seatunnel-benchmarks-java${{ matrix.java-version }}-${{ github.run_id }}
+          name: seatunnel-benchmarks-java${{ env.JAVA_VERSION }}-${{ github.run_id }}
+          retention-days: 90
+          if-no-files-found: warn
+          path: benchmark-artifacts/**
+
+  benchmark_java11:
+    name: Run normal benchmarks with Java 11
+    if: >-
+      github.event_name == 'schedule' ||
+      (github.event_name == 'workflow_dispatch' &&
+      github.event.inputs.profile == 'none' &&
+      github.event.inputs.capture_jfr != 'true')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 240
+
+    env:
+      BENCHMARKS: ${{ github.event.inputs.custom_benchmarks || github.event.inputs.benchmarks || '.*' }}
+      JAVA_VERSION: '11'
+      PR_NUMBER: ${{ github.event.inputs.pr_number || '' }}
+      SEATUNNEL_REF: ${{ github.event.inputs.seatunnel_ref || 'dev' }}
+    steps:
+      - name: Checkout baseline
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.inputs.seatunnel_ref || 'dev' }}
+          path: baseline
+
+      - name: Checkout PR
+        if: env.PR_NUMBER != ''
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: refs/pull/${{ github.event.inputs.pr_number }}/head
+          path: candidate
+
+      - name: Set up JDK ${{ env.JAVA_VERSION }} with Maven cache
+        if: env.PR_NUMBER == ''
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+          cache: maven
+
+      - name: Set up JDK ${{ env.JAVA_VERSION }} without Maven cache
+        if: env.PR_NUMBER != ''
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: ${{ env.JAVA_VERSION }}
+
+      - name: Build baseline benchmark module
+        working-directory: baseline
+        run: ./mvnw -Pbenchmark -pl seatunnel-benchmarks -am -DskipTests package
+
+      - name: Build PR benchmark module
+        if: env.PR_NUMBER != ''
+        working-directory: candidate
+        run: ./mvnw -Pbenchmark -pl seatunnel-benchmarks -am -DskipTests package
+
+      - name: Run benchmarks and build report
+        run: bash baseline/tools/benchmarks/run_benchmarks.sh
+
+      - name: Upload benchmark result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: seatunnel-benchmarks-java${{ env.JAVA_VERSION }}-${{ github.run_id }}
           retention-days: 90
           if-no-files-found: warn
           path: benchmark-artifacts/**
