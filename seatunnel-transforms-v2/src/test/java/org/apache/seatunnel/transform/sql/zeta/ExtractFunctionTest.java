@@ -21,6 +21,7 @@ import org.apache.seatunnel.api.table.type.LocalTimeType;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
+import org.apache.seatunnel.api.table.type.SqlType;
 import org.apache.seatunnel.transform.sql.SQLEngine;
 import org.apache.seatunnel.transform.sql.SQLEngineFactory;
 
@@ -29,6 +30,8 @@ import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 
 public class ExtractFunctionTest {
@@ -76,11 +79,10 @@ public class ExtractFunctionTest {
         Assertions.assertEquals(14, outRow.getField(3));
         Assertions.assertEquals(30, outRow.getField(4));
         Assertions.assertEquals(45, outRow.getField(5));
-        Assertions.assertEquals(123, outRow.getField(6));
-        Assertions.assertEquals(123456, outRow.getField(7));
+        Assertions.assertEquals(45123, outRow.getField(6));
+        Assertions.assertEquals(45123456, outRow.getField(7));
 
-        Assertions.assertEquals(
-                (int) testDateTime.toEpochSecond(ZoneOffset.UTC), outRow.getField(8));
+        Assertions.assertEquals(testDateTime.toEpochSecond(ZoneOffset.UTC), outRow.getField(8));
         Assertions.assertEquals(2, outRow.getField(9));
         Assertions.assertEquals(21, outRow.getField(10));
         Assertions.assertEquals(202, outRow.getField(11));
@@ -88,6 +90,130 @@ public class ExtractFunctionTest {
         Assertions.assertEquals(2, outRow.getField(13));
         Assertions.assertEquals(140, outRow.getField(14));
         Assertions.assertEquals(3, outRow.getField(15));
+    }
+
+    @Test
+    public void testExtractFractionalSecondUnits() {
+        SQLEngine sqlEngine = SQLEngineFactory.getSQLEngine(SQLEngineFactory.EngineType.ZETA);
+
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"event_time"},
+                        new SeaTunnelDataType[] {LocalTimeType.LOCAL_DATE_TIME_TYPE});
+
+        LocalDateTime testDateTime = LocalDateTime.of(2025, 5, 20, 14, 30, 45, 123456789);
+        SeaTunnelRow inputRow = new SeaTunnelRow(new Object[] {testDateTime});
+
+        sqlEngine.init(
+                "test",
+                null,
+                rowType,
+                "SELECT "
+                        + "EXTRACT(MILLISECOND FROM event_time) as millisecond, "
+                        + "EXTRACT(MILLISECONDS FROM event_time) as milliseconds, "
+                        + "EXTRACT(MICROSECOND FROM event_time) as microsecond, "
+                        + "EXTRACT(MICROSECONDS FROM event_time) as microseconds "
+                        + "FROM dual");
+
+        SeaTunnelRow outRow = sqlEngine.transformBySQL(inputRow, rowType).get(0);
+
+        Assertions.assertEquals(45123, outRow.getField(0));
+        Assertions.assertEquals(45123, outRow.getField(1));
+        Assertions.assertEquals(45123456, outRow.getField(2));
+        Assertions.assertEquals(45123456, outRow.getField(3));
+    }
+
+    @Test
+    public void testExtractEpochAfter2038() {
+        SQLEngine sqlEngine = SQLEngineFactory.getSQLEngine(SQLEngineFactory.EngineType.ZETA);
+
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"event_time"},
+                        new SeaTunnelDataType[] {LocalTimeType.LOCAL_DATE_TIME_TYPE});
+
+        LocalDateTime testDateTime = LocalDateTime.of(2040, 1, 1, 0, 0, 0);
+        SeaTunnelRow inputRow = new SeaTunnelRow(new Object[] {testDateTime});
+
+        sqlEngine.init(
+                "test", null, rowType, "SELECT EXTRACT(EPOCH FROM event_time) as epoch FROM dual");
+
+        SeaTunnelRowType outRowType = sqlEngine.typeMapping(null);
+        SeaTunnelRow outRow = sqlEngine.transformBySQL(inputRow, rowType).get(0);
+
+        Assertions.assertEquals(SqlType.BIGINT, outRowType.getFieldType(0).getSqlType());
+        Assertions.assertEquals(testDateTime.toEpochSecond(ZoneOffset.UTC), outRow.getField(0));
+    }
+
+    @Test
+    public void testExtractFractionalSecondUnitsForLocalTimeAndOffsetDateTime() {
+        SQLEngine sqlEngine = SQLEngineFactory.getSQLEngine(SQLEngineFactory.EngineType.ZETA);
+
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"event_time", "event_time_tz"},
+                        new SeaTunnelDataType[] {
+                            LocalTimeType.LOCAL_TIME_TYPE, LocalTimeType.OFFSET_DATE_TIME_TYPE
+                        });
+
+        LocalTime localTime = LocalTime.of(14, 30, 45, 123456789);
+        OffsetDateTime offsetDateTime =
+                OffsetDateTime.of(2025, 5, 20, 14, 30, 45, 123456789, ZoneOffset.ofHours(8));
+        SeaTunnelRow inputRow = new SeaTunnelRow(new Object[] {localTime, offsetDateTime});
+
+        sqlEngine.init(
+                "test",
+                null,
+                rowType,
+                "SELECT "
+                        + "EXTRACT(MILLISECONDS FROM event_time) as time_milliseconds, "
+                        + "EXTRACT(MICROSECONDS FROM event_time) as time_microseconds, "
+                        + "EXTRACT(MILLISECONDS FROM event_time_tz) as time_tz_milliseconds, "
+                        + "EXTRACT(MICROSECONDS FROM event_time_tz) as time_tz_microseconds "
+                        + "FROM dual");
+
+        SeaTunnelRow outRow = sqlEngine.transformBySQL(inputRow, rowType).get(0);
+
+        Assertions.assertEquals(45123, outRow.getField(0));
+        Assertions.assertEquals(45123456, outRow.getField(1));
+        Assertions.assertEquals(45123, outRow.getField(2));
+        Assertions.assertEquals(45123456, outRow.getField(3));
+    }
+
+    @Test
+    public void testExtractEpochForLocalDateAndOffsetDateTime() {
+        SQLEngine sqlEngine = SQLEngineFactory.getSQLEngine(SQLEngineFactory.EngineType.ZETA);
+
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"event_date", "event_time_tz"},
+                        new SeaTunnelDataType[] {
+                            LocalTimeType.LOCAL_DATE_TYPE, LocalTimeType.OFFSET_DATE_TIME_TYPE
+                        });
+
+        LocalDate localDate = LocalDate.of(2040, 1, 1);
+        OffsetDateTime offsetDateTime =
+                OffsetDateTime.of(2040, 1, 1, 0, 0, 0, 0, ZoneOffset.ofHours(8));
+        SeaTunnelRow inputRow = new SeaTunnelRow(new Object[] {localDate, offsetDateTime});
+
+        sqlEngine.init(
+                "test",
+                null,
+                rowType,
+                "SELECT "
+                        + "EXTRACT(EPOCH FROM event_date) as date_epoch, "
+                        + "EXTRACT(EPOCH FROM event_time_tz) as time_tz_epoch "
+                        + "FROM dual");
+
+        SeaTunnelRowType outRowType = sqlEngine.typeMapping(null);
+        SeaTunnelRow outRow = sqlEngine.transformBySQL(inputRow, rowType).get(0);
+
+        Assertions.assertEquals(SqlType.BIGINT, outRowType.getFieldType(0).getSqlType());
+        Assertions.assertEquals(SqlType.BIGINT, outRowType.getFieldType(1).getSqlType());
+        Assertions.assertEquals(
+                LocalDateTime.of(localDate, LocalTime.MIDNIGHT).toEpochSecond(ZoneOffset.UTC),
+                outRow.getField(0));
+        Assertions.assertEquals(offsetDateTime.toEpochSecond(), outRow.getField(1));
     }
 
     @Test
