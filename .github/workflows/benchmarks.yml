@@ -29,7 +29,7 @@ on:
         type: string
         default: 'dev'
       benchmarks:
-        description: 'Normal-run benchmark selector; ignored by diagnostic runs.'
+        description: 'Common benchmark selector.'
         required: true
         type: choice
         options:
@@ -44,45 +44,11 @@ on:
           - 'sourceTransformSinkWithObservabilityAndTrace$'
         default: '.*'
       custom_benchmarks:
-        description: 'Optional normal-run JMH selector that overrides the choice above.'
+        description: 'Optional JMH selector that overrides the choice above.'
         required: false
         type: string
       pr_number:
         description: 'Optional trusted PR to compare. The workflow executes its code.'
-        required: false
-        type: string
-      profile_benchmark:
-        description: 'One exact JMH benchmark method to diagnose; multi-match selectors are rejected.'
-        required: true
-        type: string
-        default: 'IntermediateQueueBenchmark.disruptorRecordHandoff$'
-      profile_java_version:
-        description: 'JDK used by the diagnostic run.'
-        required: true
-        type: choice
-        options:
-          - '8'
-          - '11'
-        default: '8'
-      profile:
-        description: 'Optional profiler. all runs CPU, wall-clock, lock, and GC as separate steps.'
-        required: true
-        type: choice
-        options:
-          - 'none'
-          - 'cpu'
-          - 'wall'
-          - 'lock'
-          - 'gc'
-          - 'all'
-        default: 'none'
-      capture_jfr:
-        description: 'Capture a JFR recording for offline JVM analysis.'
-        required: true
-        type: boolean
-        default: false
-      profile_jmh_args:
-        description: 'Optional profiling JMH args, for example: -wi 1 -i 1 -w 1s -r 1s. Forks are fixed at 1.'
         required: false
         type: string
 
@@ -95,12 +61,7 @@ concurrency:
 
 jobs:
   benchmark:
-    name: Run benchmarks
-    if: >-
-      github.event_name == 'schedule' ||
-      (github.event_name == 'workflow_dispatch' &&
-      github.event.inputs.profile == 'none' &&
-      github.event.inputs.capture_jfr != 'true')
+    name: Run benchmarks with Java ${{ matrix.java-version }}
     runs-on: ubuntu-24.04
     timeout-minutes: 240
 
@@ -165,216 +126,3 @@ jobs:
           retention-days: 90
           if-no-files-found: warn
           path: benchmark-artifacts/**
-
-  diagnostics:
-    name: Capture benchmark diagnostics with Java ${{ github.event.inputs.profile_java_version || '8' }}
-    if: >-
-      github.event_name == 'workflow_dispatch' &&
-      (github.event.inputs.profile != 'none' || github.event.inputs.capture_jfr == 'true')
-    runs-on: ubuntu-24.04
-    timeout-minutes: 240
-
-    env:
-      ASYNC_PROFILER_CPU_EVENT: 'ctimer'
-      ASYNC_PROFILER_VERSION: '4.5'
-      ASYNC_PROFILER_SHA256: '89546fbb9ee0fc5496c7edd4099b0709489bc78b0d8057ccbb4b801f6b032b62'
-      BENCHMARKS: ${{ github.event.inputs.profile_benchmark || 'IntermediateQueueBenchmark.disruptorRecordHandoff$' }}
-      JAVA_VERSION: ${{ github.event.inputs.profile_java_version || '8' }}
-      PROFILE_JMH_ARGS: ${{ github.event.inputs.profile_jmh_args || '' }}
-      PR_NUMBER: ${{ github.event.inputs.pr_number || '' }}
-      SEATUNNEL_REF: ${{ github.event.inputs.seatunnel_ref || 'dev' }}
-    steps:
-      - name: Checkout baseline
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: ${{ github.event.inputs.seatunnel_ref || 'dev' }}
-          path: baseline
-
-      - name: Checkout workflow reporter
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.sha }}
-          path: workflow-source
-          sparse-checkout: tools/benchmarks/profile_report.py
-          sparse-checkout-cone-mode: false
-
-      - name: Checkout PR
-        if: env.PR_NUMBER != ''
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: refs/pull/${{ github.event.inputs.pr_number }}/head
-          path: candidate
-
-      - name: Select diagnostic source
-        run: |
-          if [[ -n "${PR_NUMBER}" ]]; then
-            echo "TARGET_DIRECTORY=candidate" >> "${GITHUB_ENV}"
-          else
-            echo "TARGET_DIRECTORY=baseline" >> "${GITHUB_ENV}"
-          fi
-
-      - name: Set up JDK ${{ env.JAVA_VERSION }} with Maven cache
-        if: env.PR_NUMBER == ''
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: ${{ env.JAVA_VERSION }}
-          cache: maven
-
-      - name: Set up JDK ${{ env.JAVA_VERSION }} without Maven cache
-        if: env.PR_NUMBER != ''
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: ${{ env.JAVA_VERSION }}
-
-      - name: Build benchmark module
-        id: build_benchmark
-        run: |
-          cd "${TARGET_DIRECTORY}"
-          ./mvnw -Pbenchmark -pl seatunnel-benchmarks -am -DskipTests package
-
-      - name: Install async-profiler
-        id: install_async_profiler
-        if: >-
-          steps.build_benchmark.outcome == 'success' &&
-          (github.event.inputs.profile == 'cpu' ||
-          github.event.inputs.profile == 'wall' ||
-          github.event.inputs.profile == 'lock' ||
-          github.event.inputs.profile == 'all')
-        run: |
-          archive="${RUNNER_TEMP}/async-profiler.tar.gz"
-          install_directory="${RUNNER_TEMP}/async-profiler"
-          curl --fail --location --retry 5 --retry-all-errors \
-            --output "${archive}" \
-            "https://github.com/async-profiler/async-profiler/releases/download/v${ASYNC_PROFILER_VERSION}/async-profiler-${ASYNC_PROFILER_VERSION}-linux-x64.tar.gz"
-          echo "${ASYNC_PROFILER_SHA256}  ${archive}" | sha256sum --check --strict
-          mkdir -p "${install_directory}"
-          tar --extract --gzip --file "${archive}" --directory "${install_directory}" --strip-components=1
-          echo "ASYNC_PROFILER_HOME=${install_directory}" >> "${GITHUB_ENV}"
-
-      - name: Profile CPU
-        if: >-
-          always() &&
-          steps.build_benchmark.outcome == 'success' &&
-          steps.install_async_profiler.outcome == 'success' &&
-          (github.event.inputs.profile == 'cpu' || github.event.inputs.profile == 'all')
-        run: |
-          bash baseline/tools/benchmarks/profile_benchmarks.sh profile cpu \
-            --repository "${TARGET_DIRECTORY}" \
-            --output "${GITHUB_WORKSPACE}/benchmark-diagnostics/profile-cpu"
-
-      - name: Profile wall clock
-        if: >-
-          always() &&
-          steps.build_benchmark.outcome == 'success' &&
-          steps.install_async_profiler.outcome == 'success' &&
-          (github.event.inputs.profile == 'wall' || github.event.inputs.profile == 'all')
-        run: |
-          bash baseline/tools/benchmarks/profile_benchmarks.sh profile wall \
-            --repository "${TARGET_DIRECTORY}" \
-            --output "${GITHUB_WORKSPACE}/benchmark-diagnostics/profile-wall"
-
-      - name: Profile locks
-        if: >-
-          always() &&
-          steps.build_benchmark.outcome == 'success' &&
-          steps.install_async_profiler.outcome == 'success' &&
-          (github.event.inputs.profile == 'lock' || github.event.inputs.profile == 'all')
-        run: |
-          bash baseline/tools/benchmarks/profile_benchmarks.sh profile lock \
-            --repository "${TARGET_DIRECTORY}" \
-            --output "${GITHUB_WORKSPACE}/benchmark-diagnostics/profile-lock"
-
-      - name: Profile GC and allocation
-        if: >-
-          always() &&
-          steps.build_benchmark.outcome == 'success' &&
-          (github.event.inputs.profile == 'gc' || github.event.inputs.profile == 'all')
-        run: |
-          bash baseline/tools/benchmarks/profile_benchmarks.sh profile gc \
-            --repository "${TARGET_DIRECTORY}" \
-            --output "${GITHUB_WORKSPACE}/benchmark-diagnostics/profile-gc"
-
-      - name: Capture JFR
-        if: >-
-          always() &&
-          steps.build_benchmark.outcome == 'success' &&
-          github.event.inputs.capture_jfr == 'true'
-        run: |
-          bash baseline/tools/benchmarks/profile_benchmarks.sh capture jfr \
-            --repository "${TARGET_DIRECTORY}" \
-            --output "${GITHUB_WORKSPACE}/benchmark-diagnostics/capture-jfr"
-
-      - name: Upload CPU profile
-        if: >-
-          always() &&
-          (github.event.inputs.profile == 'cpu' || github.event.inputs.profile == 'all')
-        uses: actions/upload-artifact@v4
-        with:
-          name: seatunnel-benchmark-profile-cpu-java${{ env.JAVA_VERSION }}-${{ github.run_id }}-${{ github.run_attempt }}
-          retention-days: 30
-          if-no-files-found: warn
-          path: benchmark-diagnostics/profile-cpu/**
-
-      - name: Upload wall-clock profile
-        if: >-
-          always() &&
-          (github.event.inputs.profile == 'wall' || github.event.inputs.profile == 'all')
-        uses: actions/upload-artifact@v4
-        with:
-          name: seatunnel-benchmark-profile-wall-java${{ env.JAVA_VERSION }}-${{ github.run_id }}-${{ github.run_attempt }}
-          retention-days: 30
-          if-no-files-found: warn
-          path: benchmark-diagnostics/profile-wall/**
-
-      - name: Upload lock profile
-        if: >-
-          always() &&
-          (github.event.inputs.profile == 'lock' || github.event.inputs.profile == 'all')
-        uses: actions/upload-artifact@v4
-        with:
-          name: seatunnel-benchmark-profile-lock-java${{ env.JAVA_VERSION }}-${{ github.run_id }}-${{ github.run_attempt }}
-          retention-days: 30
-          if-no-files-found: warn
-          path: benchmark-diagnostics/profile-lock/**
-
-      - name: Upload GC profile
-        if: >-
-          always() &&
-          (github.event.inputs.profile == 'gc' || github.event.inputs.profile == 'all')
-        uses: actions/upload-artifact@v4
-        with:
-          name: seatunnel-benchmark-profile-gc-java${{ env.JAVA_VERSION }}-${{ github.run_id }}-${{ github.run_attempt }}
-          retention-days: 30
-          if-no-files-found: warn
-          path: benchmark-diagnostics/profile-gc/**
-
-      - name: Upload JFR capture
-        if: always() && github.event.inputs.capture_jfr == 'true'
-        uses: actions/upload-artifact@v4
-        with:
-          name: seatunnel-benchmark-capture-jfr-java${{ env.JAVA_VERSION }}-${{ github.run_id }}-${{ github.run_attempt }}
-          retention-days: 30
-          if-no-files-found: warn
-          path: benchmark-diagnostics/capture-jfr/**
-
-      - name: Publish diagnostic summary
-        if: always()
-        run: |
-          python3 workflow-source/tools/benchmarks/profile_report.py summary \
-            --diagnostics-dir benchmark-diagnostics \
-            --profile "${{ github.event.inputs.profile }}" \
-            --capture-jfr "${{ github.event.inputs.capture_jfr }}" \
-            --repository "${TARGET_DIRECTORY}" \
-            --ref "${SEATUNNEL_REF}" \
-            --pr-number "${PR_NUMBER}" \
-            --benchmark "${BENCHMARKS}" \
-            --java "${JAVA_VERSION}" \
-            --jmh-args "${PROFILE_JMH_ARGS}" \
-            --artifacts-url "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}#artifacts" \
-            --run-id "${GITHUB_RUN_ID}" \
-            --run-attempt "${GITHUB_RUN_ATTEMPT}" \
-            >> "${GITHUB_STEP_SUMMARY}"

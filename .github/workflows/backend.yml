@@ -227,7 +227,7 @@ jobs:
           echo "helm=$true_or_false" >> $GITHUB_OUTPUT
           echo "helm_files=$file_list" >> $GITHUB_OUTPUT
 
-          benchmark_files=`python tools/update_modules_check/check_file_updates.py ua $workspace apache/dev origin/$current_branch "seatunnel-benchmarks/**" "tools/benchmarks/**" ".github/workflows/benchmarks.yml"`
+          benchmark_files=`python tools/update_modules_check/check_file_updates.py ua $workspace apache/dev origin/$current_branch "seatunnel-benchmarks/**" "tools/benchmarks/**" ".github/workflows/benchmarks.yml" ".github/workflows/benchmarks_diagnostics.yml"`
           true_or_false=${benchmark_files%%$'\n'*}
           file_list=${benchmark_files#*$'\n'}
           echo "benchmarks=$true_or_false" >> $GITHUB_OUTPUT
