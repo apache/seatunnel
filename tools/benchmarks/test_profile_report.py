@@ -16,6 +16,7 @@
 # limitations under the License.
 #
 
+import json
 import pathlib
 import tempfile
 import unittest
@@ -24,6 +25,23 @@ import profile_report
 
 
 class ProfileReportTest(unittest.TestCase):
+
+    @staticmethod
+    def write_profile_report(root, directory, **values):
+        report_directory = root / directory
+        report_directory.mkdir(parents=True)
+        report = {
+            "schema": profile_report.SCHEMA,
+            "mode": directory,
+            "command": "profile",
+            "status": 0,
+            "gc_metrics": [],
+            "artifacts": [],
+        }
+        report.update(values)
+        (report_directory / "profile-report.json").write_text(
+            json.dumps(report), encoding="utf-8"
+        )
 
     def test_ignores_incomplete_jmh_result(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -135,6 +153,75 @@ class ProfileReportTest(unittest.TestCase):
         self.assertIn("not normalized per operation", markdown)
         self.assertIn("not an exact stop-the-world pause-time measurement", markdown)
         self.assertIn("Capture JFR separately", markdown)
+
+    def test_renders_compact_workflow_summary_for_cpu_and_jfr(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            self.write_profile_report(root, "profile-cpu", async_samples=9453)
+            self.write_profile_report(
+                root, "capture-jfr", mode="jfr", command="capture"
+            )
+
+            markdown = profile_report.render_workflow_summary(
+                diagnostics_dir=root,
+                profile="cpu",
+                capture_jfr=True,
+                target_ref="dev",
+                pr_number="",
+                commit="0123456789ab",
+                benchmark="IntermediateQueueBenchmark.disruptorRecordHandoff$",
+                java="11",
+                jmh_args="-f 1 -wi 1 -i 1 -w 1s -r 1s",
+                artifacts_url="https://example.test/actions/runs/42#artifacts",
+                run_id="42",
+                run_attempt="2",
+            )
+
+        self.assertIn("Target: `dev` at `0123456789ab`", markdown)
+        self.assertIn("Async-profiler samples: `9453`", markdown)
+        self.assertLess(
+            markdown.index("### CPU diagnostics"),
+            markdown.index("### JFR diagnostics"),
+        )
+        self.assertIn("seatunnel-benchmark-profile-cpu-java11-42-2", markdown)
+        self.assertIn("seatunnel-benchmark-capture-jfr-java11-42-2", markdown)
+        self.assertIn("https://example.test/actions/runs/42#artifacts", markdown)
+        self.assertNotIn("raw/", markdown)
+
+    def test_renders_all_modes_in_order_and_marks_missing_artifact(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            self.write_profile_report(root, "profile-cpu", async_samples=1)
+            self.write_profile_report(root, "profile-wall", async_samples=2)
+            self.write_profile_report(root, "profile-lock", async_samples=3)
+            self.write_profile_report(root, "capture-jfr", mode="jfr")
+
+            markdown = profile_report.render_workflow_summary(
+                diagnostics_dir=root,
+                profile="all",
+                capture_jfr=True,
+                target_ref="dev",
+                pr_number="12021",
+                commit="fedcba987654",
+                benchmark="Queue.method$",
+                java="8",
+                jmh_args="",
+                artifacts_url="https://example.test/artifacts",
+                run_id="7",
+                run_attempt="1",
+            )
+
+        headings = [
+            "### CPU diagnostics",
+            "### Wall diagnostics",
+            "### Lock diagnostics",
+            "### GC diagnostics",
+            "### JFR diagnostics",
+        ]
+        positions = [markdown.index(heading) for heading in headings]
+        self.assertEqual(sorted(positions), positions)
+        self.assertIn("Target: `PR #12021` at `fedcba987654`", markdown)
+        self.assertIn("| GC | `not produced` | `not produced` |", markdown)
 
 
 if __name__ == "__main__":

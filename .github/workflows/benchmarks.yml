@@ -300,20 +300,73 @@ jobs:
             --repository "${TARGET_DIRECTORY}" \
             --output "${GITHUB_WORKSPACE}/benchmark-diagnostics/capture-jfr"
 
+      - name: Upload CPU profile
+        if: >-
+          always() &&
+          (github.event.inputs.profile == 'cpu' || github.event.inputs.profile == 'all')
+        uses: actions/upload-artifact@v4
+        with:
+          name: seatunnel-benchmark-profile-cpu-java${{ env.JAVA_VERSION }}-${{ github.run_id }}-${{ github.run_attempt }}
+          retention-days: 30
+          if-no-files-found: warn
+          path: benchmark-diagnostics/profile-cpu/**
+
+      - name: Upload wall-clock profile
+        if: >-
+          always() &&
+          (github.event.inputs.profile == 'wall' || github.event.inputs.profile == 'all')
+        uses: actions/upload-artifact@v4
+        with:
+          name: seatunnel-benchmark-profile-wall-java${{ env.JAVA_VERSION }}-${{ github.run_id }}-${{ github.run_attempt }}
+          retention-days: 30
+          if-no-files-found: warn
+          path: benchmark-diagnostics/profile-wall/**
+
+      - name: Upload lock profile
+        if: >-
+          always() &&
+          (github.event.inputs.profile == 'lock' || github.event.inputs.profile == 'all')
+        uses: actions/upload-artifact@v4
+        with:
+          name: seatunnel-benchmark-profile-lock-java${{ env.JAVA_VERSION }}-${{ github.run_id }}-${{ github.run_attempt }}
+          retention-days: 30
+          if-no-files-found: warn
+          path: benchmark-diagnostics/profile-lock/**
+
+      - name: Upload GC profile
+        if: >-
+          always() &&
+          (github.event.inputs.profile == 'gc' || github.event.inputs.profile == 'all')
+        uses: actions/upload-artifact@v4
+        with:
+          name: seatunnel-benchmark-profile-gc-java${{ env.JAVA_VERSION }}-${{ github.run_id }}-${{ github.run_attempt }}
+          retention-days: 30
+          if-no-files-found: warn
+          path: benchmark-diagnostics/profile-gc/**
+
+      - name: Upload JFR capture
+        if: always() && github.event.inputs.capture_jfr == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: seatunnel-benchmark-capture-jfr-java${{ env.JAVA_VERSION }}-${{ github.run_id }}-${{ github.run_attempt }}
+          retention-days: 30
+          if-no-files-found: warn
+          path: benchmark-diagnostics/capture-jfr/**
+
       - name: Publish diagnostic summary
         if: always()
         run: |
-          if [[ -d benchmark-diagnostics ]]; then
-            find benchmark-diagnostics -name profile-summary.md -print0 \
-              | sort -z \
-              | xargs -0 -r cat >> "${GITHUB_STEP_SUMMARY}"
-          fi
-
-      - name: Upload benchmark diagnostics
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: seatunnel-benchmark-diagnostics-java${{ env.JAVA_VERSION }}-${{ github.run_id }}-${{ github.run_attempt }}
-          retention-days: 30
-          if-no-files-found: warn
-          path: benchmark-diagnostics/**
+          python3 baseline/tools/benchmarks/profile_report.py summary \
+            --diagnostics-dir benchmark-diagnostics \
+            --profile "${{ github.event.inputs.profile }}" \
+            --capture-jfr "${{ github.event.inputs.capture_jfr }}" \
+            --repository "${TARGET_DIRECTORY}" \
+            --ref "${SEATUNNEL_REF}" \
+            --pr-number "${PR_NUMBER}" \
+            --benchmark "${BENCHMARKS}" \
+            --java "${JAVA_VERSION}" \
+            --jmh-args "${PROFILE_JMH_ARGS}" \
+            --artifacts-url "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}#artifacts" \
+            --run-id "${GITHUB_RUN_ID}" \
+            --run-attempt "${GITHUB_RUN_ATTEMPT}" \
+            >> "${GITHUB_STEP_SUMMARY}"

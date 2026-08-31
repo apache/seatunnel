@@ -167,10 +167,11 @@ lock profiling 没有观察到竞争时会报告 0 个样本，并且不会生�
 手动触发 `Benchmarks` workflow 时，诊断任务必须选择一个 `profile_benchmark` 方法和一个
 `profile_java_version`。Profiling dispatch 只用所选 JDK 运行该方法，不会同时启动正常的
 全量 benchmark Java 8/11 matrix；定时任务和非 profiling 的手动任务仍使用正常 matrix。
-Profiling 选择 `all` 会分别执行 CPU、wall-clock、lock 和 GC step，`capture_jfr` 会增加
-一个独立的 JFR 运行。上传的文件随所选模式而变化，包括 JFR、火焰图、文本摘要、JMH 日志
-和 JSON 报告。GitHub 托管的 Linux runner 使用 async-profiler 的 `ctimer` 事件进行 CPU
-profiling，不依赖 `perf_event` 权限。
+Profiling 选择 `all` 会分别执行 CPU、wall-clock、lock 和 GC step，并上传四个可以独立下载
+的 artifact；`capture_jfr` 会增加第五个 JFR artifact。每个 artifact 只包含对应模式的 JFR、
+火焰图、文本摘要、JMH 日志和 JSON 报告。Job Summary 会集中显示目标、benchmark 设置、
+各模式结果和独立 artifact 名称，不再重复完整文件清单。GitHub 托管的 Linux runner 使用
+async-profiler 的 `ctimer` 事件进行 CPU profiling，不依赖 `perf_event` 权限。
 
 ## 指标
 

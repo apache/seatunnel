@@ -24,6 +24,7 @@ import json
 import math
 import pathlib
 import re
+import subprocess
 
 
 SCHEMA = "seatunnel-profile/v1"
@@ -33,17 +34,72 @@ GC_COLUMNS = (
     ("gc.count", "GC count", "counts"),
     ("gc.time", "GC time", "ms"),
 )
+PROFILE_MODES = ("cpu", "wall", "lock", "gc")
+MODE_DETAILS = {
+    "cpu": {
+        "directory": "profile-cpu",
+        "label": "CPU",
+        "contents": "Flame graphs, async-profiler JFR and text summary",
+    },
+    "wall": {
+        "directory": "profile-wall",
+        "label": "Wall",
+        "contents": "Flame graphs, async-profiler JFR and text summary",
+    },
+    "lock": {
+        "directory": "profile-lock",
+        "label": "Lock",
+        "contents": "Contention flame graphs, JFR and text summary",
+    },
+    "gc": {
+        "directory": "profile-gc",
+        "label": "GC",
+        "contents": "Allocation and garbage-collection metrics",
+    },
+    "jfr": {
+        "directory": "capture-jfr",
+        "label": "JFR",
+        "contents": "JVM Flight Recorder capture",
+    },
+}
 
 
 def parse_args():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--mode", required=True)
-    parser.add_argument("--command", required=True, choices=("profile", "capture"))
-    parser.add_argument("--jmh", required=True, type=pathlib.Path)
-    parser.add_argument("--artifact-dir", required=True, type=pathlib.Path)
-    parser.add_argument("--output-json", required=True, type=pathlib.Path)
-    parser.add_argument("--output-md", required=True, type=pathlib.Path)
-    parser.add_argument("--status", required=True, type=int)
+    commands = parser.add_subparsers(dest="report_command", required=True)
+
+    mode_parser = commands.add_parser("mode", help="Build one profiler report.")
+    mode_parser.add_argument("--mode", required=True)
+    mode_parser.add_argument(
+        "--command", required=True, choices=("profile", "capture")
+    )
+    mode_parser.add_argument("--jmh", required=True, type=pathlib.Path)
+    mode_parser.add_argument("--artifact-dir", required=True, type=pathlib.Path)
+    mode_parser.add_argument("--output-json", required=True, type=pathlib.Path)
+    mode_parser.add_argument("--output-md", required=True, type=pathlib.Path)
+    mode_parser.add_argument("--status", required=True, type=int)
+
+    summary_parser = commands.add_parser(
+        "summary", help="Build the combined GitHub Actions summary."
+    )
+    summary_parser.add_argument(
+        "--diagnostics-dir", required=True, type=pathlib.Path
+    )
+    summary_parser.add_argument(
+        "--profile", required=True, choices=("none", "cpu", "wall", "lock", "gc", "all")
+    )
+    summary_parser.add_argument(
+        "--capture-jfr", required=True, choices=("true", "false")
+    )
+    summary_parser.add_argument("--repository", required=True, type=pathlib.Path)
+    summary_parser.add_argument("--ref", required=True)
+    summary_parser.add_argument("--pr-number", default="")
+    summary_parser.add_argument("--benchmark", required=True)
+    summary_parser.add_argument("--java", required=True)
+    summary_parser.add_argument("--jmh-args", default="")
+    summary_parser.add_argument("--artifacts-url", required=True)
+    summary_parser.add_argument("--run-id", required=True)
+    summary_parser.add_argument("--run-attempt", required=True)
     return parser.parse_args()
 
 
@@ -62,6 +118,31 @@ def load_jmh(path):
             return json.load(handle)
     except (OSError, json.JSONDecodeError):
         return []
+
+
+def load_profile_report(path):
+    if not path.is_file():
+        return None
+    try:
+        with path.open(encoding="utf-8") as handle:
+            report = json.load(handle)
+    except (OSError, json.JSONDecodeError):
+        return None
+    return report if isinstance(report, dict) else None
+
+
+def resolve_commit(repository):
+    try:
+        result = subprocess.run(
+            ["git", "-C", str(repository), "rev-parse", "--short=12", "HEAD"],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return "unknown"
+    return result.stdout.strip() or "unknown"
 
 
 def benchmark_name(result):
@@ -213,6 +294,15 @@ def artifact_report_lines(values):
     return lines
 
 
+def report_status(report):
+    if report is None:
+        return "not produced"
+    status = report.get("status")
+    if status == 0:
+        return "passed"
+    return "failed ({})".format(status if status is not None else "unknown")
+
+
 def build_report(args):
     jmh_results = load_jmh(args.jmh)
     gc = gc_metrics(jmh_results)
@@ -233,13 +323,12 @@ def build_report(args):
 
 
 def render_markdown(report):
-    state = "passed" if report["status"] == 0 else "failed ({})".format(report["status"])
     lines = [
         "## {} {} diagnostics".format(
             report["mode"].upper(), report["command"]
         ),
         "",
-        "- Status: `{}`".format(state),
+        "- Status: `{}`".format(report_status(report)),
         "- Schema: `{}`".format(report["schema"]),
         "- Score comparable with normal benchmarks: `no`",
     ]
@@ -272,8 +361,153 @@ def render_markdown(report):
     return "\n".join(lines) + "\n"
 
 
+def selected_modes(profile, capture_jfr):
+    modes = []
+    if profile == "all":
+        modes.extend(PROFILE_MODES)
+    elif profile != "none":
+        modes.append(profile)
+    if capture_jfr:
+        modes.append("jfr")
+    return modes
+
+
+def mode_report(root, mode):
+    directory = root / MODE_DETAILS[mode]["directory"]
+    return load_profile_report(directory / "profile-report.json")
+
+
+def workflow_mode_lines(mode, report):
+    details = MODE_DETAILS[mode]
+    lines = [
+        "### {} diagnostics".format(details["label"]),
+        "",
+        "- Status: `{}`".format(report_status(report)),
+    ]
+    if report is None:
+        return lines
+    if mode in ("cpu", "wall", "lock"):
+        sample_count = report.get("async_samples")
+        lines.append(
+            "- Async-profiler samples: `{}`".format(
+                sample_count if sample_count is not None else "unknown"
+            )
+        )
+        if sample_count == 0:
+            lines.extend(
+                [
+                    "",
+                    "> No matching {} events were observed, so no flame graph was generated.".format(
+                        mode
+                    ),
+                ]
+            )
+    if mode == "gc":
+        gc_lines = gc_report_lines(report.get("gc_metrics", []))
+        if gc_lines:
+            gc_lines[0] = "#### GC and allocation metrics"
+            lines.extend([""] + gc_lines)
+    return lines
+
+
+def workflow_artifact_name(mode, java, run_id, run_attempt):
+    if mode == "jfr":
+        prefix = "seatunnel-benchmark-capture-jfr"
+    else:
+        prefix = "seatunnel-benchmark-profile-{}".format(mode)
+    return "{}-java{}-{}-{}".format(prefix, java, run_id, run_attempt)
+
+
+def render_workflow_summary(
+    diagnostics_dir,
+    profile,
+    capture_jfr,
+    target_ref,
+    pr_number,
+    commit,
+    benchmark,
+    java,
+    jmh_args,
+    artifacts_url,
+    run_id,
+    run_attempt,
+):
+    modes = selected_modes(profile, capture_jfr)
+    reports = {mode: mode_report(diagnostics_dir, mode) for mode in modes}
+    target = "PR #{}".format(pr_number) if pr_number else target_ref
+    settings = jmh_args or "benchmark annotations"
+    lines = [
+        "## Benchmark diagnostics",
+        "",
+        "- Target: `{}` at `{}`".format(target, commit),
+        "- Benchmark: `{}`".format(benchmark),
+        "- Java: `{}`".format(java),
+        "- JMH settings: `{}`".format(settings),
+        "- Profiled scores comparable with normal benchmarks: `no`",
+    ]
+    if any(mode in ("cpu", "wall", "lock") for mode in modes):
+        lines.extend(
+            [
+                "- `secondaryMetrics.async` is a file-profiler marker; its `NaN` Score "
+                "is expected.",
+            ]
+        )
+    for mode in modes:
+        lines.extend([""] + workflow_mode_lines(mode, reports[mode]))
+
+    lines.extend(
+        [
+            "",
+            "### Downloads",
+            "",
+            "Download each selected mode independently from the "
+            "[run artifacts]({}).".format(artifacts_url),
+            "",
+            "| Mode | Status | Artifact | Contents |",
+            "| --- | --- | --- | --- |",
+        ]
+    )
+    for mode in modes:
+        details = MODE_DETAILS[mode]
+        directory = diagnostics_dir / details["directory"]
+        artifact = (
+            workflow_artifact_name(mode, java, run_id, run_attempt)
+            if directory.is_dir()
+            else "not produced"
+        )
+        lines.append(
+            "| {} | `{}` | `{}` | {} |".format(
+                details["label"],
+                report_status(reports[mode]),
+                artifact,
+                details["contents"],
+            )
+        )
+    return "\n".join(lines) + "\n"
+
+
 def main():
     args = parse_args()
+    if args.report_command == "summary":
+        print(
+            render_workflow_summary(
+                diagnostics_dir=args.diagnostics_dir,
+                profile=args.profile,
+                capture_jfr=args.capture_jfr == "true",
+                target_ref=args.ref,
+                pr_number=args.pr_number,
+                commit=resolve_commit(args.repository),
+                benchmark=args.benchmark,
+                java=args.java,
+                jmh_args=args.jmh_args,
+                artifacts_url=args.artifacts_url,
+                run_id=args.run_id,
+                run_attempt=args.run_attempt,
+            ),
+            end="",
+        )
+        return
+
     report = build_report(args)
     args.output_json.parent.mkdir(parents=True, exist_ok=True)
     with args.output_json.open("w", encoding="utf-8") as handle:

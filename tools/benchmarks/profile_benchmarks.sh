@@ -316,7 +316,7 @@ if [[ ${benchmark_status} -eq 0 && -n "${async_profiler_converter}" ]]; then
 fi
 
 report_status=0
-python3 "${script_dir}/profile_report.py" \
+python3 "${script_dir}/profile_report.py" mode \
     --mode "${mode}" \
     --command "${command_name}" \
     --jmh "${jmh_result}" \
