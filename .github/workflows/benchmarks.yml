@@ -35,6 +35,7 @@ on:
         options:
           - '.*'
           - 'SeaTunnelRowBenchmark'
+          - 'IntermediateQueueBenchmark'
           - 'SeaTunnelPipelineBenchmark'
           - 'sourceSink$'
           - 'sourceTransformSink$'

@@ -52,6 +52,7 @@
         <module>connector-elasticsearch</module>
         <module>connector-iotdb</module>
         <module>connector-iotdb-v2</module>
+        <module>connector-nebulagraph</module>
         <module>connector-neo4j</module>
         <module>connector-redis</module>
         <module>connector-datahub</module>
@@ -59,6 +60,7 @@
         <module>connector-mongodb</module>
         <module>connector-couchbase</module>
         <module>connector-mqtt</module>
+        <module>connector-snmp</module>
         <module>connector-python</module>
         <module>connector-iceberg</module>
         <module>connector-influxdb</module>
@@ -100,6 +102,7 @@
         <module>connector-lance</module>
         <module>connector-bigquery</module>
         <module>connector-edge-socket</module>
+        <module>connector-azurecosmosdb</module>
         <module>connector-nats-jetstream</module>
     </modules>
 
