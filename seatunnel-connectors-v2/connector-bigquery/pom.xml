@@ -105,11 +105,11 @@
                                 </relocation>
                                 <relocation>
                                     <pattern>com.google.protobuf</pattern>
-                                    <shadedPattern>${seatunnel.shade.package}.com.google.protobuf</shadedPattern>
+                                    <shadedPattern>${seatunnel.shade.package}.bigquery.com.google.protobuf</shadedPattern>
                                 </relocation>
                                 <relocation>
                                     <pattern>io.grpc</pattern>
-                                    <shadedPattern>${seatunnel.shade.package}.io.grpc</shadedPattern>
+                                    <shadedPattern>${seatunnel.shade.package}.bigquery.io.grpc</shadedPattern>
                                 </relocation>
                                 <relocation>
                                     <pattern>org.apache.arrow</pattern>

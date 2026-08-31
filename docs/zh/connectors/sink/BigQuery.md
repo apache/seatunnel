@@ -14,6 +14,7 @@ import ChangeLog from '../changelog/connector-bigquery.md';
 
 - [x] [精确一次](../../introduction/concepts/connector-v2-features.md) 仅适用于 batch 模式
 - [x] [CDC](../../introduction/concepts/connector-v2-features.md)
+- [x] Schema 演进（仅支持 `ADD COLUMN`）
 - [ ] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
 - [ ] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
@@ -38,8 +39,11 @@ import ChangeLog from '../changelog/connector-bigquery.md';
 | service_account_key_json    | string  | 否      | -       | 内联 GCP 服务账号 JSON 密钥内容                                                                                 |
 | write_mode                  | string  | 否      | batch   | 写入模式。支持的值：`batch` 和 `streaming`                                                                      |
 | sequence_number_column      | string  | 否      | -       | 用于 CDC 去重的序列号列名。仅在 `write_mode` 为 `streaming` 时适用                                                |
+| schema_evolution_enabled    | boolean | 否      | false   | 是否将 `ADD COLUMN` Schema 变更事件应用到目标 BigQuery 表                                                        |
+| schema_evolution_relax_not_null | boolean | 否   | false   | Schema 演进时是否将源端非空列创建为 BigQuery `NULLABLE` 字段                                                     |
 | batch_size                  | int     | 否      | 1000    | 发送到 BigQuery 之前批量处理的行数                                                                               |
-| emulator_host               | string  | 否      | -       | BigQuery emulator 地址，例如 `localhost:9050`。该参数仅用于测试。                                                |
+| emulator_host               | string  | 否      | -       | BigQuery emulator REST 地址，例如 `localhost:9050`。该参数仅用于测试。                                           |
+| emulator_grpc_host          | string  | 否      | -       | BigQuery emulator Storage Write API 地址，例如 `localhost:9060`；默认回退到 `emulator_host`。仅用于测试。          |
 | multi_table_sink_replica    | int     | 否      | -       | Sink 通用参数，用于控制多表运行时每张表的 sink 副本数；但该连接器仍只写入配置中的单个 BigQuery 表。                    |
 | common-options              |         | 否      | -       | Sink 通用参数，详见 [Sink Common Options](../common-options/sink-common-options.md)。                            |
 
@@ -57,6 +61,18 @@ import ChangeLog from '../changelog/connector-bigquery.md';
 连接器会在 writer 初始化时读取已有的表 schema，并且不会自动创建 BigQuery 表。
 
 该连接器会写入一个固定的目标表：`project_id.dataset_id.table_id`。它不会按上游表自动创建或切换 BigQuery 目标表。如果任务里有多张表，请配置多个 BigQuery sink，或者在写入 BigQuery 前先完成表路由。
+
+### Schema 演进
+
+Schema 演进默认关闭。需要在 BigQuery sink 中设置 `schema_evolution_enabled = true`，并在支持的 CDC source 中设置 `schema-changes.enabled = true`，才能将源表的 `ADD COLUMN` 事件同步到配置的目标表。
+
+仅支持物理列的 `ADD COLUMN` 事件。默认情况下，新增的标量列或 struct 列必须允许为空。设置 `schema_evolution_relax_not_null = true` 后，源端的非空标量列或 struct 列会在 BigQuery 中创建为 `NULLABLE` 字段；这是因为目标表中的历史数据没有新列对应的值。
+
+源端 array 列必须是非空列，并会创建为 BigQuery `REPEATED` 字段。nullable array 会被拒绝，因为 BigQuery array 不能为 `NULL`；静默映射会丢失 `NULL` 与空数组之间的区别。不支持 `DROP COLUMN`、`RENAME COLUMN` 和 `MODIFY COLUMN`。BigQuery 会把新字段追加到目标 Schema 末尾，因此源事件中的 `FIRST` 和 `AFTER` 位置提示不会改变 BigQuery 的物理字段顺序。数据行按字段名编码，sink 会在接收使用新字段的数据前刷新 writer Schema。
+
+遇到不支持的 Schema 变更时，任务会失败而不会静默跳过，因为在源端和目标端 Schema 不一致的情况下继续运行可能导致后续数据错位或损坏。从同一个 checkpoint 恢复可能会再次回放该事件并重复失败。重新启动前，请先协调源表与 BigQuery 表的 Schema，然后从不会再次回放该事件的 source 位置启动。如果数据链路可能产生不支持的 DDL，请关闭 `schema-changes.enabled`，并在 SeaTunnel 外部管理这些 Schema 变更。
+
+Schema 更新使用 `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`。如果目标表已经存在同名字段，其类型和模式必须兼容，否则任务会失败。除 Storage Write API 写入所需权限外，凭据还必须能够执行 DDL job 并读取更新后的表元数据。
 
 ### 写入模式
 
@@ -80,7 +96,7 @@ import ChangeLog from '../changelog/connector-bigquery.md';
 
 ### emulator_host
 
-`emulator_host` 只用于本地测试或 CI 测试。配置该参数后，SeaTunnel 会无凭据连接 BigQuery emulator。生产任务不要使用该参数。
+`emulator_host` 只用于本地测试或 CI 测试，用于配置 emulator 的 REST 地址。配置后，SeaTunnel 会无凭据连接 BigQuery emulator。当 emulator 的 Storage Write API 使用不同地址时，需要设置 `emulator_grpc_host`；例如 goccy BigQuery emulator 默认使用 `9060` 端口。未配置时，gRPC 地址会回退到 `emulator_host`。生产任务不要使用这些参数。
 
 ## 任务示例
 
@@ -126,6 +142,7 @@ sink {
     table_id = "test_table"
     batch_size = 2
     emulator_host = "localhost:9050"
+    emulator_grpc_host = "localhost:9060"
   }
 }
 ```
@@ -159,6 +176,7 @@ source {
       password = "mysqlpw"
       table-names = ["mysql_cdc.mysql_cdc_e2e_source_table"]
       url = "jdbc:mysql://mysql_cdc_e2e:3306/mysql_cdc"
+      schema-changes.enabled = true
   }
 }
 
@@ -169,6 +187,7 @@ sink {
     table_id = "orders"
     service_account_key_path = "/path/to/key.json"
     write_mode = "streaming"
+    schema_evolution_enabled = true
     batch_size = 500
   }
 }
@@ -240,8 +259,8 @@ sink {
 
 ### 测试
 
-该连接器使用 BigQuery Storage Write API。当前本地 BigQuery emulator 不能完整支持该连接器使用的写入路径。
-`emulator_host` 只适合用于本地或 CI 中与 emulator 兼容的检查。生产可用性验证应在真实 BigQuery 环境中完成。
+该连接器同时使用 BigQuery REST API 和 Storage Write API。使用 goccy BigQuery emulator 时，请将 `emulator_host` 配置为 REST 端口（默认 `9050`），并将 `emulator_grpc_host` 配置为 gRPC 端口（默认 `9060`）。
+Emulator 适合用于本地和 CI 覆盖，但生产可用性仍应在真实 BigQuery 环境中验证。
 
 ## 更新日志
 

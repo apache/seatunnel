@@ -22,11 +22,19 @@ import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 import org.apache.seatunnel.api.configuration.util.ConfigValidator;
+import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.schema.SchemaChangeType;
 import org.apache.seatunnel.connectors.bigquery.option.BigQuerySinkOptions;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.HashMap;
+import java.util.Map;
+
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.Mockito.mock;
 
 class BigQuerySinkFactoryTest {
 
@@ -51,5 +59,22 @@ class BigQuerySinkFactoryTest {
                 () ->
                         ConfigValidator.of(ReadonlyConfig.fromConfig(config))
                                 .validate(factory.optionRule()));
+    }
+
+    @Test
+    void testSchemaEvolutionCapabilityIsOptInAndAddOnly() {
+        Map<String, Object> options = new HashMap<>();
+        options.put(BigQuerySinkOptions.PROJECT_ID.key(), "test-project");
+        options.put(BigQuerySinkOptions.DATASET_ID.key(), "test_dataset");
+        options.put(BigQuerySinkOptions.TABLE_ID.key(), "test_table");
+
+        CatalogTable catalogTable = mock(CatalogTable.class);
+        BigQuerySink disabledSink = new BigQuerySink(ReadonlyConfig.fromMap(options), catalogTable);
+        assertTrue(disabledSink.supports().isEmpty());
+
+        options.put(BigQuerySinkOptions.SCHEMA_EVOLUTION_ENABLED.key(), true);
+        BigQuerySink enabledSink = new BigQuerySink(ReadonlyConfig.fromMap(options), catalogTable);
+        assertEquals(1, enabledSink.supports().size());
+        assertEquals(SchemaChangeType.ADD_COLUMN, enabledSink.supports().get(0));
     }
 }
