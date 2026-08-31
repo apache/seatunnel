@@ -230,6 +230,7 @@ def format_number(value):
 
 
 def gc_report_lines(metrics):
+    """Return GC/allocation Markdown lines, or no section when metrics are unavailable."""
     if not metrics:
         return []
     lines = [
@@ -432,6 +433,7 @@ def render_workflow_summary(
     run_id,
     run_attempt,
 ):
+    """Return the combined GitHub Actions summary for the selected diagnostic modes."""
     modes = selected_modes(profile, capture_jfr)
     reports = {mode: mode_report(diagnostics_dir, mode) for mode in modes}
     target = "PR #{}".format(pr_number) if pr_number else target_ref
