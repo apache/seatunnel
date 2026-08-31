@@ -434,6 +434,7 @@ public class SeaTunnelContainer extends AbstractTestContainer implements Reusabl
         Awaitility.await()
                 .atMost(RUNNING_JOBS_TIMEOUT_SECONDS, TimeUnit.SECONDS)
                 .pollInterval(1, TimeUnit.SECONDS)
+                .ignoreExceptions()
                 .untilAsserted(this::assertNoRunningJobsOnce);
     }
 
@@ -454,17 +455,13 @@ public class SeaTunnelContainer extends AbstractTestContainer implements Reusabl
                 CloseableHttpResponse response = client.execute(get)) {
             String runningJobs =
                     response.getEntity() == null ? "" : EntityUtils.toString(response.getEntity());
-            if (response.getStatusLine().getStatusCode() != HttpStatus.SC_OK) {
-                throw new IllegalStateException(
-                        "Shared SeaTunnelContainer running-jobs request returned HTTP "
-                                + response.getStatusLine().getStatusCode()
-                                + ": "
-                                + runningJobs);
-            }
-            if (!OBJECT_MAPPER.readTree(runningJobs).isEmpty()) {
-                throw new IllegalStateException(
-                        "Shared SeaTunnelContainer still has running jobs: " + runningJobs);
-            }
+            Assertions.assertEquals(
+                    HttpStatus.SC_OK,
+                    response.getStatusLine().getStatusCode(),
+                    "Shared SeaTunnelContainer running-jobs request returned: " + runningJobs);
+            Assertions.assertTrue(
+                    OBJECT_MAPPER.readTree(runningJobs).isEmpty(),
+                    "Shared SeaTunnelContainer still has running jobs: " + runningJobs);
         }
     }
 

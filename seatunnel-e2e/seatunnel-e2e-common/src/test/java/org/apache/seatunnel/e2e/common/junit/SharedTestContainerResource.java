@@ -24,6 +24,11 @@ import org.junit.jupiter.api.extension.ExtensionContext;
 
 import java.util.concurrent.Semaphore;
 
+/**
+ * Owns one reusable test container for a JUnit root store and serializes test-class access to it. A
+ * failed preparation or cleanup invalidates the shared container so the next acquisition starts
+ * from a fresh process.
+ */
 final class SharedTestContainerResource implements ExtensionContext.Store.CloseableResource {
 
     private final ReusableTestContainer container;
@@ -34,6 +39,7 @@ final class SharedTestContainerResource implements ExtensionContext.Store.Closea
         this.container = container;
     }
 
+    /** Acquires the class lease and prepares the shared container for one test class. */
     ReusableTestContainer acquire(ContainerExtendedFactory extendedFactory) throws Exception {
         classLease.acquire();
         boolean acquired = false;
@@ -56,6 +62,7 @@ final class SharedTestContainerResource implements ExtensionContext.Store.Closea
         }
     }
 
+    /** Cleans class-scoped state before releasing the lease to the next test class. */
     void release() throws Exception {
         try {
             container.cleanUpAfterTestClass();
