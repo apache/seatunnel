@@ -67,6 +67,7 @@ public class HudiSinkWriter
                         sinkConfig, tableConfig.getTableName(), seaTunnelRowType);
         this.hudiRecordWriter =
                 new HudiRecordWriter(tableConfig, writeClientProvider, seaTunnelRowType);
+        context.registerFlushAction(this::timerFlush);
     }
 
     @Override
@@ -110,6 +111,14 @@ public class HudiSinkWriter
                         tableConfig.getTableName());
         this.hudiRecordWriter =
                 new HudiRecordWriter(tableConfig, writeClientProvider, seaTunnelRowType);
+    }
+
+    /**
+     * Flushes buffered records when the sink receives a timer-generated FlushSignal. The signal is
+     * processed on the sink task thread in order with data records and checkpoint barriers.
+     */
+    private void timerFlush() {
+        hudiRecordWriter.flush();
     }
 
     private void tryOpen() {

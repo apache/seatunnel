@@ -53,7 +53,6 @@
         <module>seatunnel-examples</module>
         <module>seatunnel-e2e</module>
         <module>seatunnel-edge-agent</module>
-        <module>seatunnel-shade</module>
         <module>seatunnel-ci-tools</module>
     </modules>
 
@@ -61,6 +60,22 @@
         <!--todo The classification is too confusing, reclassify by type-->
         <revision>3.0.0-SNAPSHOT</revision>
         <seatunnel.config.shade.version>2.1.1</seatunnel.config.shade.version>
+        <!-- The seatunnel shade version  e.g. ${seatunnel.shade.hazelcast.version}-${seatunnel.shade.version} -->
+        <seatunnel.shade.version>3.0.0</seatunnel.shade.version>
+        <seatunnel.shade.arraw.version>15.0.1</seatunnel.shade.arraw.version>
+        <seatunnel.shade.guava.version>27.0-jre</seatunnel.shade.guava.version>
+        <seatunnel.shade.hadoop.version>3.1.4</seatunnel.shade.hadoop.version>
+        <seatunnel.shade.hadoop-aws.version>3.1.4</seatunnel.shade.hadoop-aws.version>
+        <seatunnel.shade.hazelcast.version>5.1</seatunnel.shade.hazelcast.version>
+        <seatunnel.shade.hikari.version>4.0.3</seatunnel.shade.hikari.version>
+        <seatunnel.shade.jackson.version>2.15.4</seatunnel.shade.jackson.version>
+        <seatunnel.shade.janino.version>3.1.12</seatunnel.shade.janino.version>
+        <seatunnel.shade.jetty.version>9.4.56.v20240826</seatunnel.shade.jetty.version>
+        <seatunnel.shade.scala-compiler.version>2.12</seatunnel.shade.scala-compiler.version>
+        <seatunnel.shade.thrift-service.version>1.0.0</seatunnel.shade.thrift-service.version>
+        <seatunnel.shade.commons-lang3.version>3.18.0</seatunnel.shade.commons-lang3.version>
+        <seatunnel.shade.calcite.version>1.38.0</seatunnel.shade.calcite.version>
+
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <java.version>1.8</java.version>
         <scala.version>2.12.15</scala.version>
@@ -148,8 +163,9 @@
         <scala.version>2.12.15</scala.version>
         <jetty.version>9.4.56.v20240826</jetty.version>
         <jakarta.servlet-api>4.0.4</jakarta.servlet-api>
-        <hugegraph.client.version>1.5.0</hugegraph.client.version>
+        <hugegraph.client.version>1.7.0</hugegraph.client.version>
         <!-- Option args -->
+        <surefire.jvm.args>-Dfile.encoding=UTF-8</surefire.jvm.args>
         <skipUT>false</skipUT>
         <skipIT>true</skipIT>
         <elasticsearch>7</elasticsearch>
@@ -436,6 +452,21 @@
                 <artifactId>jackson-databind</artifactId>
                 <version>${jackson.version}</version>
             </dependency>
+            <dependency>
+                <groupId>com.fasterxml.jackson.dataformat</groupId>
+                <artifactId>jackson-dataformat-yaml</artifactId>
+                <version>${jackson.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.fasterxml.jackson.dataformat</groupId>
+                <artifactId>jackson-dataformat-properties</artifactId>
+                <version>${jackson.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.fasterxml.jackson.datatype</groupId>
+                <artifactId>jackson-datatype-jdk8</artifactId>
+                <version>${jackson.version}</version>
+            </dependency>
 
             <dependency>
                 <groupId>org.apache.commons</groupId>
@@ -518,10 +549,87 @@
 
             <dependency>
                 <groupId>org.apache.seatunnel</groupId>
-                <artifactId>seatunnel-hadoop3-3.1.4-uber</artifactId>
-                <version>${project.version}</version>
-                <classifier>optional</classifier>
+                <artifactId>seatunnel-shade-hadoop3-uber</artifactId>
+                <version>${seatunnel.shade.hadoop.version}-${seatunnel.shade.version}</version>
                 <scope>provided</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.seatunnel</groupId>
+                <artifactId>seatunnel-shade-hadoop-aws</artifactId>
+                <version>${seatunnel.shade.hadoop-aws.version}-${seatunnel.shade.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.seatunnel</groupId>
+                <artifactId>seatunnel-shade-guava</artifactId>
+                <version>${seatunnel.shade.guava.version}-${seatunnel.shade.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.seatunnel</groupId>
+                <artifactId>seatunnel-shade-jackson</artifactId>
+                <version>${seatunnel.shade.jackson.version}-${seatunnel.shade.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.seatunnel</groupId>
+                <artifactId>seatunnel-shade-jackson-yaml</artifactId>
+                <version>${seatunnel.shade.jackson.version}-${seatunnel.shade.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.seatunnel</groupId>
+                <artifactId>seatunnel-shade-commons-lang3</artifactId>
+                <version>${seatunnel.shade.commons-lang3.version}-${seatunnel.shade.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.seatunnel</groupId>
+                <artifactId>seatunnel-shade-arrow</artifactId>
+                <version>${seatunnel.shade.arraw.version}-${seatunnel.shade.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.seatunnel</groupId>
+                <artifactId>seatunnel-shade-hikari</artifactId>
+                <version>${seatunnel.shade.hikari.version}-${seatunnel.shade.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.seatunnel</groupId>
+                <artifactId>seatunnel-shade-hazelcast</artifactId>
+                <version>${seatunnel.shade.hazelcast.version}-${seatunnel.shade.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.seatunnel</groupId>
+                <artifactId>seatunnel-shade-scala-compiler</artifactId>
+                <version>${seatunnel.shade.scala-compiler.version}-${seatunnel.shade.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.seatunnel</groupId>
+                <artifactId>seatunnel-shade-janino</artifactId>
+                <version>${seatunnel.shade.janino.version}-${seatunnel.shade.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.seatunnel</groupId>
+                <artifactId>seatunnel-shade-calcite</artifactId>
+                <version>${seatunnel.shade.calcite.version}-${seatunnel.shade.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.seatunnel</groupId>
+                <artifactId>seatunnel-shade-jetty</artifactId>
+                <version>${seatunnel.shade.jetty.version}-${seatunnel.shade.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.seatunnel</groupId>
+                <artifactId>seatunnel-shade-thrift-service</artifactId>
+                <version>${seatunnel.shade.thrift-service.version}-${seatunnel.shade.version}</version>
             </dependency>
 
             <dependency>
@@ -670,6 +778,7 @@
                     <artifactId>maven-surefire-plugin</artifactId>
                     <version>${maven-surefire-plugin.version}</version>
                     <configuration>
+                        <argLine>${surefire.jvm.args}</argLine>
                         <skip>${skipUT}</skip>
                         <systemPropertyVariables>
                             <jacoco-agent.destfile>${project.build.directory}/jacoco.exec</jacoco-agent.destfile>
@@ -701,6 +810,7 @@
                     <artifactId>maven-failsafe-plugin</artifactId>
                     <version>${maven-failsafe-plugin.version}</version>
                     <configuration>
+                        <argLine>${surefire.jvm.args}</argLine>
                         <skip>${skipIT}</skip>
                     </configuration>
                     <executions>
@@ -1086,6 +1196,15 @@
             <activation>
                 <activeByDefault>false</activeByDefault>
             </activation>
+        </profile>
+        <profile>
+            <id>benchmark</id>
+            <activation>
+                <activeByDefault>false</activeByDefault>
+            </activation>
+            <modules>
+                <module>seatunnel-benchmarks</module>
+            </modules>
         </profile>
     </profiles>
 

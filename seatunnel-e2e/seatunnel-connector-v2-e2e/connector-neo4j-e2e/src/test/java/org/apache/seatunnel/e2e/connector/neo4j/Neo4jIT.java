@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.e2e.connector.neo4j;
 
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
-
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
@@ -71,8 +69,6 @@ public class Neo4jIT extends TestSuiteBase implements TestResource {
     private static final int BOLT_PORT = 7687;
     private static final String CONTAINER_NEO4J_USERNAME = "neo4j";
     private static final String CONTAINER_NEO4J_PASSWORD = "Test@12343";
-    private static final URI CONTAINER_URI = URI.create("neo4j://localhost:" + BOLT_PORT);
-
     private GenericContainer<?> container;
     private Driver neo4jDriver;
     private Session neo4jSession;
@@ -92,10 +88,6 @@ public class Neo4jIT extends TestSuiteBase implements TestResource {
                         .withLogConsumer(
                                 new Slf4jLogConsumer(
                                         DockerLoggerFactory.getLogger(CONTAINER_IMAGE)));
-        container.setPortBindings(
-                Lists.newArrayList(
-                        String.format("%s:%s", HTTP_PORT, HTTP_PORT),
-                        String.format("%s:%s", BOLT_PORT, BOLT_PORT)));
         Startables.deepStart(Stream.of(container)).join();
         log.info("container started");
         Awaitility.given()
@@ -108,7 +100,10 @@ public class Neo4jIT extends TestSuiteBase implements TestResource {
     private void initConnection() {
         neo4jDriver =
                 GraphDatabase.driver(
-                        CONTAINER_URI,
+                        URI.create(
+                                String.format(
+                                        "bolt://%s:%s",
+                                        container.getHost(), container.getMappedPort(BOLT_PORT))),
                         AuthTokens.basic(CONTAINER_NEO4J_USERNAME, CONTAINER_NEO4J_PASSWORD));
         neo4jSession = neo4jDriver.session(SessionConfig.forDatabase("neo4j"));
     }
@@ -187,6 +182,19 @@ public class Neo4jIT extends TestSuiteBase implements TestResource {
             cnt++;
         }
         assertEquals(FAKE_ROW_NUM, cnt);
+    }
+
+    @TestTemplate
+    public void testMultiTableSource(TestContainer container)
+            throws IOException, InterruptedException {
+        neo4jSession.run("MATCH (n) WHERE n:MultiPerson OR n:MultiCompany DELETE n");
+        neo4jSession.run("CREATE (:MultiPerson {name:'Alice'})");
+        neo4jSession.run("CREATE (:MultiCompany {name:'Acme'})");
+
+        Container.ExecResult execResult =
+                container.executeJob("/neo4j/neo4j_multi_table_source.conf");
+
+        Assertions.assertEquals(0, execResult.getExitCode());
     }
 
     @AfterAll
