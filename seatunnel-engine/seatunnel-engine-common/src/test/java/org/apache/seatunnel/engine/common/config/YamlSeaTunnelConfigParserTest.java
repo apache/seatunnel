@@ -26,6 +26,7 @@ import com.hazelcast.client.config.ClientConfig;
 import com.hazelcast.client.config.YamlClientConfigBuilder;
 
 import java.io.IOException;
+import java.util.Arrays;
 
 import static com.hazelcast.internal.config.DeclarativeConfigUtil.YAML_ACCEPTED_SUFFIXES;
 
@@ -81,6 +82,9 @@ public class YamlSeaTunnelConfigParserTest {
         Assertions.assertEquals(8080, config.getEngineConfig().getHttpConfig().getPort());
         Assertions.assertEquals(200, config.getEngineConfig().getHttpConfig().getPortRange());
         Assertions.assertEquals(8443, config.getEngineConfig().getHttpConfig().getHttpsPort());
+        Assertions.assertEquals(
+                Arrays.asList("JOB_NAME", "SOURCE_URL"),
+                config.getEngineConfig().getHttpConfig().getHoconEnvironmentVariableAllowlist());
         Assertions.assertEquals(
                 30, config.getEngineConfig().getCoordinatorServiceConfig().getCoreThreadNum());
         Assertions.assertEquals(

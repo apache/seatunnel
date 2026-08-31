@@ -72,7 +72,7 @@ public class SubmitJobByUploadFileServlet extends BaseServlet {
                 break;
             case HOCON:
             default:
-                config = ConfigFactory.parseString(content);
+                config = jobInfoService.buildHoconConfig(content);
                 break;
         }
 

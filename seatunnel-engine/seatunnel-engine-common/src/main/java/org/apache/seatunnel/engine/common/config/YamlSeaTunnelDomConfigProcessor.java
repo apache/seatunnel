@@ -47,6 +47,7 @@ import com.hazelcast.internal.config.AbstractDomConfigProcessor;
 import com.hazelcast.logging.ILogger;
 import com.hazelcast.logging.Logger;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -650,6 +651,15 @@ public class YamlSeaTunnelDomConfigProcessor extends AbstractDomConfigProcessor 
                     .key()
                     .equals(name)) {
                 httpConfig.setEnableBasicAuth(getBooleanValue(getTextContent(node)));
+            } else if (ServerConfigOptions.MasterServerConfigOptions
+                    .HOCON_ENVIRONMENT_VARIABLE_ALLOWLIST
+                    .key()
+                    .equals(name)) {
+                ArrayList<String> environmentVariableAllowlist = new ArrayList<>();
+                for (Node variableNode : childElements(node)) {
+                    environmentVariableAllowlist.add(getTextContent(variableNode));
+                }
+                httpConfig.setHoconEnvironmentVariableAllowlist(environmentVariableAllowlist);
             } else if (ServerConfigOptions.MasterServerConfigOptions.BASIC_AUTH_USERNAME
                     .key()
                     .equals(name)) {
