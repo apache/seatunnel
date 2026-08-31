@@ -115,5 +115,5 @@ bash tools/benchmarks/profile_benchmarks.sh profile gc \
 
 The profiling script accepts exactly one benchmark method and always uses one fork.
 
-See the [Zeta benchmark guide](../docs/en/engines/zeta/benchmark.md) for benchmark parameters,
-metrics, and result interpretation.
+See the [Zeta benchmark guide](../docs/en/engines/zeta/benchmark.md) for workflow reports, IntelliJ
+IDEA setup, benchmark parameters, metrics, result interpretation, and contribution guidance.

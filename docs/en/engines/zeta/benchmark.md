@@ -87,6 +87,13 @@ during each measured job instead of deferring file writes across several invocat
 ./mvnw -Pbenchmark -pl seatunnel-benchmarks -am -DskipTests package
 ```
 
+### Import the Module in IntelliJ IDEA
+
+The module is behind the inactive `benchmark` Maven profile, so IDEA may not import it when the
+root project is first opened. In the Maven tool window, expand `Profiles`, enable `benchmark`, and
+click `Reload All Maven Projects`. If the module is still absent, right-click
+`seatunnel-benchmarks/pom.xml`, select `Add as Maven Project`, and reload Maven once more.
+
 List every JMH method:
 
 ```bash
@@ -141,6 +148,33 @@ java -jar seatunnel-benchmarks/target/benchmarks.jar SeaTunnelRowBenchmark \
 
 For a quick functional validation, add `-f 1 -wi 0 -i 1 -r 1s` to shorten the run. A single un-warmed
 sample is not valid performance evidence.
+
+### Read Workflow Reports
+
+The scheduled and manually triggered `Benchmarks` workflow runs each selected benchmark on Java 8
+and Java 11. Each Java job uploads one artifact containing:
+
+- the original `*.jmh.json`, preserving every fork and iteration sample;
+- a versioned `*.report.json`, normalizing benchmark names, parameters, scores, errors, units,
+  direction, commit, JVM, CPU, and runner metadata;
+- `summary.md`, which is also rendered in the GitHub Actions Job Summary;
+- the environment fingerprint and any full-pipeline sample JSON.
+
+The normalized report includes median pipeline throughput, P50/P95/P99/max latency, latency growth,
+completeness, and sustainable-sample counts. Raw samples and a schema version allow later tooling to
+consume saved artifacts without parsing console logs. The workflow does not push results to a
+repository branch.
+
+Manual runs offer common selectors through `benchmarks`; `custom_benchmarks` accepts a class,
+method, or regular expression and overrides that choice. `.*` selects all current and future
+benchmarks. When `pr_number` is set, the workflow executes `baseline -> PR -> PR -> baseline` on the
+same worker, compares the median of both runs for each revision, and reports a direction-adjusted
+percentage where a positive value is favorable.
+
+Absolute results remain sensitive to machine load, warmup, CPU frequency, and runner hardware.
+Use GitHub-hosted results as trend and functional-check evidence. Prefer repeated baseline/change
+runs on the same machine, as the PR comparison does, or use a fixed self-hosted runner for a future
+regression gate.
 
 ### Diagnose an Unstable Benchmark
 
@@ -264,6 +298,17 @@ completeness fields before deciding whether the configured load is sustainable.
 Files under `pipeline-results` are custom JSON rather than JMH JSON. Inspect them directly or use
 `tools/benchmarks/save_jmh_result.py` and `tools/benchmarks/regression_report.py` to generate
 normalized JSON and Markdown reports.
+
+## Add a Benchmark
+
+Keep cases small and focused on hot paths that run on one machine without external services. Useful
+targets include `SeaTunnelRow` operations, format parsing and serialization, Transform hot paths,
+connector option parsing, and split generation.
+
+Extend `BenchmarkBase` to inherit the shared JMH mode, forks, warmup, measurement, state, and output
+unit defaults. Keep benchmark-specific state and setup in the benchmark class. Full-pipeline engine
+lifecycle and controls belong in `SeaTunnelEnvironmentContext` or a focused subclass so checkpoint,
+failure-recovery, and metrics scenarios can be added without duplicating cluster setup.
 
 ## Performance Cost and Limitations
 
