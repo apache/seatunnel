@@ -57,7 +57,7 @@ Yes, you can specify different processing schemes for existing data on the targe
 - **`ERROR_WHEN_DATA_EXISTS`**: Throws an error if data already exists.
 
   Many connectors support handling existing data; please refer to the respective connector documentation, such as [Jdbc sink](https://seatunnel.apache.org/docs/connectors/sink/Jdbc#data_save_mode-enum).
-  Note: for JDBC sink, when sink `query` is configured (custom write SQL), save mode handling is currently not applied, so `CUSTOM_PROCESSING`/`custom_sql` will not be executed.
+  Note: for JDBC sink in `query` mode, catalog-based save modes are skipped, but `CUSTOM_PROCESSING`/`custom_sql` is still executed once before writing.
   For connector support boundaries and file/object-storage sink behavior, see [Sink Write Modes and Save Modes](./connectors/common-options/sink-write-modes.md).
 
 ## Should I use `generate_sink_sql` or `query` in JDBC Sink?

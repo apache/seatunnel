@@ -98,7 +98,7 @@ import ChangeLog from '../changelog/connector-jdbc.md';
 | properties                   | Map     | 否       | -       | 其他连接配置参数，当属性和URL具有相同的参数时，优先级由驱动程序的特定实现决定。例如，在MySQL中，属性优先于URL。 |
 | schema_save_mode             | Enum    | 否       | CREATE_SCHEMA_WHEN_NOT_EXIST | 同步任务启动前，对目标表结构的处理方式。 |
 | data_save_mode               | Enum    | 否       | APPEND_DATA | 同步任务启动前，对目标表已有数据的处理方式。 |
-| custom_sql                   | String  | 否       | -       | `data_save_mode = CUSTOM_PROCESSING` 时，在同步前执行的 SQL。自定义 `query` 模式下不会执行该 SQL。 |
+| custom_sql                   | String  | 否       | -       | `data_save_mode = CUSTOM_PROCESSING` 时，在同步前执行的 SQL。在自定义 `query` 模式下同样会执行一次。 |
 | common-options               |         | 否       | -       | Sink 插件通用参数，详见 [Sink 通用选项](../common-options/sink-common-options.md)                                                                                                                                    |
 | enable_upsert                | Boolean | 否       | true    | 通过primary_keys存在启用upsert，如果任务没有键重复数据，将此参数设置为“false”可以加快数据导入                                                                                                         |
 | is_primary_key_updated       | Boolean | 否       | true    | 自动生成更新语句时，是否把主键字段放入更新字段中。 |

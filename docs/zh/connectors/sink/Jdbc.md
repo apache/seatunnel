@@ -227,7 +227,7 @@ JDBC 连接的 URL。参考案例：`jdbc:postgresql://localhost/test`
 
 用于写入每条上游数据的参数化 SQL，例如 `INSERT INTO target(id, name) VALUES (?, ?)`。SeaTunnel 按上游字段顺序绑定 `?` 参数。该参数只用于自定义 SQL 模式，不能与 `generate_sink_sql = true` 同时使用。
 
-当前限制：当 sink 配置了 `query`（自定义写入 SQL）时，JDBC sink 不会执行 save mode 处理。此模式下 `schema_save_mode`、`data_save_mode`、`custom_sql` 不生效。如需使用 save mode，请改用 `generate_sink_sql = true` 并配置 `database`、`table`。
+当 sink 配置了 `query` 时，基于 catalog 的 save mode（`schema_save_mode` 以及 `DROP_DATA` 等数据模式）不会生效，因为无法解析目标 catalog 表。但 `data_save_mode = CUSTOM_PROCESSING` 配合 `custom_sql` 仍然支持：`custom_sql` 会在 writer 启动前通过 JDBC 执行一次。如需完整的 schema/data save mode，请改用 `generate_sink_sql = true` 并配置 `database`、`table`。
 
 ### compatible_mode [string]
 
@@ -527,7 +527,7 @@ sink {
 
 当`data_save_mode`选择`CUSTOM_PROCESSING`时，需要填写`CUSTOM_SQL`参数。该参数通常填写一条可以执行的SQL。SQL将在同步任务之前执行
 
-注意：在 sink 的 `query` 模式下，`custom_sql` 不会执行。这是 JDBC sink 的当前限制。
+该能力在 sink 配置了 `query` 时同样生效：`custom_sql` 会在 save-mode 阶段执行一次，再开始按行写入。
 
 ### enable_upsert [boolean]
 
