@@ -212,6 +212,7 @@ public class JobEventHttpReportHandler implements EventHandler {
     public void close() {
         log.info("Close http report handler");
         closing.set(true);
+        boolean interrupted = false;
         try {
             scheduledExecutorService.shutdown();
             boolean schedulerTerminated = false;
@@ -219,36 +220,39 @@ public class JobEventHttpReportHandler implements EventHandler {
                 schedulerTerminated =
                         scheduledExecutorService.awaitTermination(5, TimeUnit.SECONDS);
             } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
+                interrupted = true;
             }
             if (!schedulerTerminated) {
                 scheduledExecutorService.shutdownNow();
-                try {
-                    schedulerTerminated =
-                            scheduledExecutorService.awaitTermination(2, TimeUnit.SECONDS);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
+                if (!interrupted) {
+                    try {
+                        schedulerTerminated =
+                                scheduledExecutorService.awaitTermination(2, TimeUnit.SECONDS);
+                    } catch (InterruptedException e) {
+                        interrupted = true;
+                    }
                 }
             }
-            try {
-                if (schedulerTerminated) {
+            if (schedulerTerminated && !interrupted) {
+                try {
                     // Flush all remaining events before closing.
                     reportFromRingbuffer();
-                } else {
-                    log.warn("Timed out waiting for http report scheduler to stop");
+                } catch (Exception e) {
+                    log.error("Failed to flush events from ringbuffer on close", e);
                 }
-            } catch (HazelcastInstanceNotActiveException ignore) {
-                // Hazelcast is shutting down, ringbuffer is not available. Flush from local buffer.
-            } catch (IOException e) {
-                log.error("Failed to flush events from ringbuffer on close", e);
-            }
-            try {
-                reportFromLocalBuffer();
-            } catch (IOException e) {
-                log.error("Failed to flush events from local buffer on close", e);
+                try {
+                    reportFromLocalBuffer();
+                } catch (Exception e) {
+                    log.error("Failed to flush events from local buffer on close", e);
+                }
+            } else {
+                log.warn("Skip final event flush because the http report scheduler did not stop");
             }
         } finally {
             httpClient.connectionPool().evictAll();
+            if (interrupted) {
+                Thread.currentThread().interrupt();
+            }
         }
     }
 
@@ -264,6 +268,8 @@ public class JobEventHttpReportHandler implements EventHandler {
                 .connectTimeout(30, TimeUnit.SECONDS)
                 .readTimeout(10, TimeUnit.SECONDS)
                 .writeTimeout(10, TimeUnit.SECONDS)
+                .followRedirects(false)
+                .followSslRedirects(false)
                 .build();
     }
 

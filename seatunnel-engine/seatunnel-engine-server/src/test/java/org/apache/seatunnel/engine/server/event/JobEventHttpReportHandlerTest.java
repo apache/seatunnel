@@ -117,6 +117,9 @@ public class JobEventHttpReportHandlerTest {
                         Collections.singletonMap(headerName, headerValue),
                         Duration.ofSeconds(1),
                         ringbuffer);
+        // Cursor initialization is intentionally asynchronous so handler construction cannot
+        // block coordinator startup. Initialize it deterministically before filling the buffer.
+        handler.report();
         for (int i = 0; i < maxEvents; i++) {
             handler.handle(new TestEvent(i));
         }
@@ -132,6 +135,8 @@ public class JobEventHttpReportHandlerTest {
             RecordedRequest request = mockWebServer.takeRequest();
             Assertions.assertEquals("POST", request.getMethod());
             Assertions.assertEquals(headerValue, request.getHeader(headerName));
+            Assertions.assertEquals(
+                    "application/json; charset=utf-8", request.getHeader("Content-Type"));
             try (Buffer buffer = request.getBody()) {
                 String body = buffer.readUtf8();
                 List<TestEvent> data =
@@ -164,13 +169,56 @@ public class JobEventHttpReportHandlerTest {
             handler.report();
             handler.report();
 
-            RecordedRequest firstRequest = retryServer.takeRequest();
-            RecordedRequest retryRequest = retryServer.takeRequest();
-            Assertions.assertEquals(
-                    firstRequest.getBody().readUtf8(), retryRequest.getBody().readUtf8());
+            RecordedRequest firstRequest = retryServer.takeRequest(10, TimeUnit.SECONDS);
+            RecordedRequest retryRequest = retryServer.takeRequest(10, TimeUnit.SECONDS);
+            Assertions.assertNotNull(firstRequest, "First event report was not received");
+            Assertions.assertNotNull(retryRequest, "Retried event report was not received");
+            try (Buffer firstBody = firstRequest.getBody();
+                    Buffer retryBody = retryRequest.getBody()) {
+                Assertions.assertEquals(firstBody.readUtf8(), retryBody.readUtf8());
+            }
         } finally {
             handler.close();
             retryServer.shutdown();
+        }
+    }
+
+    @Test
+    public void testDoesNotFollowRedirects() throws Exception {
+        MockWebServer redirectServer = new MockWebServer();
+        MockWebServer redirectTarget = new MockWebServer();
+        redirectServer.start();
+        redirectTarget.start();
+        for (int i = 0; i < 3; i++) {
+            redirectServer.enqueue(
+                    new MockResponse()
+                            .setResponseCode(307)
+                            .setHeader("Location", redirectTarget.url("/target")));
+        }
+
+        String redirectRingBufferName = "redirect-test";
+        Ringbuffer ringbuffer = hazelcast.getRingbuffer(redirectRingBufferName);
+        ringbuffer.add(new TestEvent(1));
+        JobEventHttpReportHandler handler =
+                new JobEventHttpReportHandler(
+                        redirectServer.url("/api").toString(),
+                        Collections.singletonMap("Authorization", "Bearer test-token"),
+                        Duration.ofDays(1),
+                        ringbuffer);
+        try {
+            handler.report();
+
+            RecordedRequest redirectRequest = redirectServer.takeRequest(10, TimeUnit.SECONDS);
+            Assertions.assertNotNull(redirectRequest, "Redirect response was not exercised");
+            Assertions.assertEquals(
+                    "Bearer test-token", redirectRequest.getHeader("Authorization"));
+            Assertions.assertNull(
+                    redirectTarget.takeRequest(1, TimeUnit.SECONDS),
+                    "Event report followed a redirect to another endpoint");
+        } finally {
+            handler.close();
+            redirectServer.shutdown();
+            redirectTarget.shutdown();
         }
     }
 
