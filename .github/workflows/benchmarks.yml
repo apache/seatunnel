@@ -95,7 +95,7 @@ concurrency:
 
 jobs:
   benchmark_java8:
-    name: Run normal benchmarks with Java 8
+    name: Run benchmarks with Java 8
     if: >-
       github.event_name == 'schedule' ||
       (github.event_name == 'workflow_dispatch' &&
@@ -162,7 +162,7 @@ jobs:
           path: benchmark-artifacts/**
 
   benchmark_java11:
-    name: Run normal benchmarks with Java 11
+    name: Run benchmarks with Java 11
     if: >-
       github.event_name == 'schedule' ||
       (github.event_name == 'workflow_dispatch' &&
