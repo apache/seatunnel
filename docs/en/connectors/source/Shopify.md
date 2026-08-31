@@ -39,7 +39,7 @@ Used to read data from the [Shopify Admin REST API](https://shopify.dev/docs/api
 | enable_multi_lines          | boolean | No       | false         |
 | common-options              | config  | No       | -             |
 
-`pageing` is also accepted by the option rule but is not implemented by this connector — see [Pagination](#pagination).
+`pageing` appears in the option rule but is rejected at startup by this connector — see [Pagination](#pagination).
 
 ### url [String]
 
@@ -85,9 +85,10 @@ Source plugin common parameters, please refer to [Source Common Options](../comm
 
 ## Pagination
 
-**Not supported yet.** `pageing` is inherited from the HTTP source option rule and is
-accepted without error, but this connector does not pass it to the reader, so a job reads
-only the first response — up to Shopify's default page size.
+**Not supported.** `pageing` is inherited from the HTTP source option rule, but this connector
+does not pass it to the reader, so honouring it would read only the first response while the job
+reported success. Setting it therefore fails at startup with `HTTP-03`, rather than silently
+returning partial data.
 
 Wiring the inherited pagination through would not help on its own: the shared implementation
 reads the next cursor out of the response *body* with a JsonPath, while the Admin REST API
@@ -117,6 +118,17 @@ source {
   }
 }
 ```
+
+`${SHOPIFY_ACCESS_TOKEN}` is a SeaTunnel config variable, not an environment variable — it is
+substituted only when the value is supplied on the command line:
+
+```bash
+./bin/seatunnel.sh -c your_app.conf -i SHOPIFY_ACCESS_TOKEN=shpat_xxx
+```
+
+Without `-i`, the literal text `${SHOPIFY_ACCESS_TOKEN}` is sent as the token and Shopify answers
+`401`. See [variable configuration](../../introduction/concepts/config.md).
+
 
 ## Changelog
 

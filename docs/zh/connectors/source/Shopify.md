@@ -39,7 +39,7 @@ import ChangeLog from '../changelog/connector-http-shopify.md';
 | enable_multi_lines          | boolean | 否       | false     |
 | common-options              | config  | 否       | -         |
 
-选项规则同样接受 `pageing`，但本连接器并未实现它 —— 见[分页](#分页)。
+`pageing` 出现在选项规则中，但本连接器会在启动时拒绝它 —— 见[分页](#分页)。
 
 ### url [String]
 
@@ -85,8 +85,9 @@ http 请求参数。
 
 ## 分页
 
-**暂不支持。** `pageing` 继承自 HTTP source 的选项规则，配置时不会报错，但本连接器不会把它
-传给 reader，因此作业只会读取第一次响应的数据 —— 最多到 Shopify 的默认分页大小。
+**不支持。** `pageing` 继承自 HTTP source 的选项规则，但本连接器不会把它传给 reader；若照单
+接受，作业只会读取第一次响应的数据却仍报告成功。因此配置该选项会在启动时以 `HTTP-03` 失败，
+而不是静默返回不完整的数据。
 
 仅仅把继承来的分页参数传下去也解决不了问题：共享实现是用 JsonPath 从响应*体*中读取下一个游标，
 而 Admin REST API 把游标放在 `Link` 响应头里。要真正支持，需要让 `connector-http-base`
@@ -115,6 +116,15 @@ source {
   }
 }
 ```
+
+`${SHOPIFY_ACCESS_TOKEN}` 是 SeaTunnel 的配置变量，不是环境变量 —— 只有在命令行传入对应的值时才会被替换：
+
+```bash
+./bin/seatunnel.sh -c your_app.conf -i SHOPIFY_ACCESS_TOKEN=shpat_xxx
+```
+
+若不传 `-i`，字面量 `${SHOPIFY_ACCESS_TOKEN}` 会被当作令牌发送，Shopify 将返回 `401`。参见[变量配置](../../introduction/concepts/config.md)。
+
 
 ## 变更日志
 

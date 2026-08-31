@@ -31,6 +31,11 @@ import com.google.auto.service.AutoService;
 import java.io.Serializable;
 
 @AutoService(Factory.class)
+/**
+ * Registers {@code Shopify} as a source, discovered through {@code @AutoService} and
+ * {@code plugin-mapping.properties}. The option rule is the HTTP source's plus a required
+ * {@code access_token}.
+ */
 public class ShopifySourceFactory extends HttpSourceFactory {
     @Override
     public String factoryIdentifier() {
@@ -41,6 +46,15 @@ public class ShopifySourceFactory extends HttpSourceFactory {
     public <T, SplitT extends SourceSplit, StateT extends Serializable>
             TableSource<T, SplitT, StateT> createSource(TableSourceFactoryContext context) {
         return () -> (SeaTunnelSource<T, SplitT, StateT>) new ShopifySource(context.getOptions());
+    }
+
+    /**
+     * Without this the factory reports {@code HttpSource.class}, inherited from {@link
+     * HttpSourceFactory}, so anything reading factory metadata sees the wrong source type.
+     */
+    @Override
+    public Class<? extends SeaTunnelSource> getSourceClass() {
+        return ShopifySource.class;
     }
 
     @Override

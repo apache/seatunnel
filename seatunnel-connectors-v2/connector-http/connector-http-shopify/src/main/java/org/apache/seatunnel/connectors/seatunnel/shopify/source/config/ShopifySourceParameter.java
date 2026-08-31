@@ -22,6 +22,11 @@ import org.apache.seatunnel.connectors.seatunnel.http.config.HttpParameter;
 
 import java.util.HashMap;
 
+/**
+ * Adds Shopify's authentication to the base HTTP parameters: the Admin API expects its token in the
+ * {@code X-Shopify-Access-Token} header rather than in {@code Authorization}. Any headers the user
+ * configured are preserved.
+ */
 public class ShopifySourceParameter extends HttpParameter {
 
     @Override

@@ -21,6 +21,10 @@ import org.apache.seatunnel.api.configuration.Option;
 import org.apache.seatunnel.api.configuration.Options;
 import org.apache.seatunnel.connectors.seatunnel.http.config.HttpCommonOptions;
 
+/**
+ * The options this connector adds to the HTTP source's own: the Admin API access token, and the
+ * header names used to send it.
+ */
 public class ShopifySourceOptions extends HttpCommonOptions {
     public static final String ACCESS_TOKEN_HEADER = "X-Shopify-Access-Token";
     public static final String ACCEPT = "Accept";
