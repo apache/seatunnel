@@ -61,6 +61,7 @@ import java.util.stream.Collectors;
 @Slf4j
 public class DorisIT extends AbstractDorisIT {
     private static final String UNIQUE_TABLE = "doris_e2e_unique_table";
+    private static final String CAST_ERROR_SINK_TABLE = "doris_e2e_cast_error_sink_table";
     private static final String DUPLICATE_TABLE = "doris_duplicate_table";
     private static final String sourceDB = "e2e_source";
     private static final String sinkDB = "e2e_sink";
@@ -217,6 +218,25 @@ public class DorisIT extends AbstractDorisIT {
         Container.ExecResult execResult1 = container.executeJob("/doris_source_no_schema.conf");
         Assertions.assertEquals(0, execResult1.getExitCode());
         checkSinkData();
+    }
+
+    @TestTemplate
+    public void testDorisCastError(TestContainer container)
+            throws IOException, InterruptedException {
+        initializeJdbcTable();
+        batchInsertUniqueTableData();
+        // Test that the task can terminate normally instead of being blocked
+        // when Doris return parsing error(e.g., ANALYSIS_ERROR),
+        // the seatunnel task should fail gracefully and exit rather than hang indefinitely.
+        Container.ExecResult execResult =
+                container.executeJob("/doris_source_and_sink_with_cast_error.conf");
+        Assertions.assertEquals(1, execResult.getExitCode());
+        Assertions.assertTrue(execResult.getStderr().contains("can not cast from origin type"));
+
+        Container.ExecResult execResult2 =
+                container.executeJob("/doris_source_and_sink_with_cast_error_2pc_true.conf");
+        Assertions.assertEquals(1, execResult2.getExitCode());
+        Assertions.assertTrue(execResult2.getStderr().contains("can not cast from origin type"));
     }
 
     private void checkAllTypeSinkData() {
@@ -434,6 +454,8 @@ public class DorisIT extends AbstractDorisIT {
                 // create source and sink table
                 statement.execute(createUniqueTableForTest(sourceDB));
                 statement.execute(createDuplicateTableForTest(sourceDB));
+
+                statement.execute(createTypeCastErrorSinkTableForTest(sinkDB));
                 log.info("create source and sink table succeed");
             } catch (SQLException e) {
                 throw new RuntimeException("Initializing table failed!", e);
@@ -487,6 +509,53 @@ public class DorisIT extends AbstractDorisIT {
                         + "\"replication_allocation\" = \"tag.location.default: 1\""
                         + ");";
         return String.format(createTableSql, db, UNIQUE_TABLE);
+    }
+
+    private String createTypeCastErrorSinkTableForTest(String db) {
+        // The type of column MAP_VARCHAR_STRING in sink table bitmap, source table has
+        // MAP<VARCHAR(255), STRING> type.
+        // In this case, doris will report an error. After seatunnel receives the error msg from
+        // doris,
+        // it should stop the task normally instead of being blocked and unable to terminate.
+        String createTableSql =
+                "create table if not exists `%s`.`%s`(\n"
+                        + "F_ID bigint null,\n"
+                        + "F_INT int null,\n"
+                        + "F_BIGINT bigint null,\n"
+                        + "F_TINYINT tinyint null,\n"
+                        + "F_SMALLINT smallint null,\n"
+                        + "F_DECIMAL decimal(18,6) null,\n"
+                        + "F_LARGEINT largeint null,\n"
+                        + "F_BOOLEAN boolean null,\n"
+                        + "F_DOUBLE double null,\n"
+                        + "F_FLOAT float null,\n"
+                        + "F_CHAR char null,\n"
+                        + "F_VARCHAR_11 ARRAY<int>,\n"
+                        + "F_STRING string null,\n"
+                        + "F_DATETIME_P datetime(6),\n"
+                        + "F_DATETIME datetime,\n"
+                        + "F_DATE date,\n"
+                        + "MAP_VARCHAR_BOOLEAN map<varchar(200),boolean>,\n"
+                        + "MAP_CHAR_TINYINT MAP<CHAR, TINYINT>,\n"
+                        + "MAP_STRING_SMALLINT MAP<STRING, SMALLINT>,\n"
+                        + "MAP_INT_INT MAP<INT, INT>,\n"
+                        + "MAP_TINYINT_BIGINT MAP<TINYINT, BIGINT>,\n"
+                        + "MAP_SMALLINT_LARGEINT MAP<SMALLINT, LARGEINT>,\n"
+                        + "MAP_BIGINT_FLOAT MAP<BIGINT, FLOAT>,\n"
+                        + "MAP_LARGEINT_DOUBLE MAP<LARGEINT, DOUBLE>,\n"
+                        + "MAP_STRING_DECIMAL MAP<STRING, DECIMAL(10,2)>,\n"
+                        + "MAP_DECIMAL_DATE MAP<DECIMAL(10,2), DATE>,\n"
+                        + "MAP_DATE_DATETIME MAP<DATE, DATETIME>,\n"
+                        + "MAP_DATETIME_CHAR MAP<DATETIME, CHAR(20)>,\n"
+                        + "MAP_CHAR_VARCHAR MAP<CHAR(20), VARCHAR(255)>,\n"
+                        + "MAP_VARCHAR_STRING bitmap NOT NULL\n"
+                        + ")\n"
+                        + "UNIQUE KEY(`F_ID`)\n"
+                        + "DISTRIBUTED BY HASH(`F_ID`) BUCKETS 1\n"
+                        + "properties(\n"
+                        + "\"replication_allocation\" = \"tag.location.default: 1\""
+                        + ");";
+        return String.format(createTableSql, db, CAST_ERROR_SINK_TABLE);
     }
 
     private String createDuplicateTableForTest(String db) {

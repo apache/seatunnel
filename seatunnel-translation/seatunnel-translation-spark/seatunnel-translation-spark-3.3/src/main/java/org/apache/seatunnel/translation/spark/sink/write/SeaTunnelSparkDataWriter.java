@@ -92,8 +92,6 @@ public class SeaTunnelSparkDataWriter<CommitInfoT, StateT> implements DataWriter
         SeaTunnelSparkWriterCommitMessage<CommitInfoT> seaTunnelSparkWriterCommitMessage =
                 new SeaTunnelSparkWriterCommitMessage<>(latestCommitInfoT);
         cleanCommitInfo();
-        sinkWriter.close();
-        context.getEventListener().onEvent(new WriterCloseEvent());
         try {
             if (resourceManager != null) {
                 resourceManager.close();
@@ -122,5 +120,8 @@ public class SeaTunnelSparkDataWriter<CommitInfoT, StateT> implements DataWriter
     }
 
     @Override
-    public void close() throws IOException {}
+    public void close() throws IOException {
+        sinkWriter.close();
+        context.getEventListener().onEvent(new WriterCloseEvent());
+    }
 }
