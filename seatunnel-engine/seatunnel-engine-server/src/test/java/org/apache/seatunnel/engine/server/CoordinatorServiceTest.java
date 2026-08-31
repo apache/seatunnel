@@ -91,7 +91,6 @@ import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
-import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -624,9 +623,7 @@ public class CoordinatorServiceTest {
         EngineConfig engineConfig = new EngineConfig();
         engineConfig.setScheduleStrategy(ScheduleStrategy.REJECT);
         CoordinatorService coordinatorService = newMockCoordinatorService(server, engineConfig);
-        ThreadPoolExecutor schedulerExecutor =
-                new ThreadPoolExecutor(
-                        1, 1, 0L, TimeUnit.MILLISECONDS, new LinkedBlockingQueue<>());
+        ExecutorService schedulerExecutor = Executors.newSingleThreadExecutor();
         CountDownLatch preApplyStarted = new CountDownLatch(1);
         CountDownLatch allowFirstScheduleToFinish = new CountDownLatch(1);
         try {
@@ -641,16 +638,23 @@ public class CoordinatorServiceTest {
                             });
 
             ReflectionUtils.setField(coordinatorService, "isActive", true);
-            // Avoid depending on the shared coordinator pool to start the scheduler within the
-            // assertion window.
-            getCoordinatorExecutor(coordinatorService).shutdownNow();
-            ReflectionUtils.setField(coordinatorService, "executorService", schedulerExecutor);
-            invokePendingJobScheduler(coordinatorService);
+            Future<?> schedulerFuture =
+                    schedulerExecutor.submit(
+                            () -> {
+                                try {
+                                    invokePendingJobSchedule(
+                                            coordinatorService,
+                                            getPendingJobScheduleEpoch(coordinatorService).get());
+                                } catch (Exception e) {
+                                    throw new RuntimeException(e);
+                                }
+                            });
 
-            // Ensure the production scheduler loop has entered the blocking resource check.
+            // Invoke one production scheduling pass directly so this regression does not depend
+            // on a long-lived scheduler thread being dispatched before the assertion window.
             Assertions.assertTrue(
-                    preApplyStarted.await(30, TimeUnit.SECONDS),
-                    "Pending job scheduler did not enter preApplyResources");
+                    preApplyStarted.await(5, TimeUnit.SECONDS),
+                    "pending-job scheduling should enter resource pre-application");
 
             // Simulate a master step-down. The blocked JobMaster is interrupted; the
             // PendingJobInfo must be dropped from the queue so a later restore cannot
@@ -664,6 +668,8 @@ public class CoordinatorServiceTest {
                                         coordinatorService.getPendingJobQueue().contains(90001L));
                                 Mockito.verify(blockedJobMaster, Mockito.atLeastOnce()).interrupt();
                             });
+            allowFirstScheduleToFinish.countDown();
+            schedulerFuture.get(5, TimeUnit.SECONDS);
         } finally {
             allowFirstScheduleToFinish.countDown();
             schedulerExecutor.shutdownNow();
@@ -779,6 +785,14 @@ public class CoordinatorServiceTest {
         Method method = CoordinatorService.class.getDeclaredMethod("startPendingJobScheduleThread");
         method.setAccessible(true);
         method.invoke(coordinatorService);
+    }
+
+    private void invokePendingJobSchedule(CoordinatorService coordinatorService, long scheduleEpoch)
+            throws Exception {
+        Method method =
+                CoordinatorService.class.getDeclaredMethod("pendingJobSchedule", long.class);
+        method.setAccessible(true);
+        method.invoke(coordinatorService, scheduleEpoch);
     }
 
     private JobMaster enqueueMockPendingJob(
