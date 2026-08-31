@@ -110,6 +110,15 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                 seaTunnelConfig.getHazelcastConfig().setClusterName(clusterName);
                 clientConfig.setClusterName(clusterName);
             }
+            if (isLocalMode) {
+                int localPort = instance.getCluster().getLocalMember().getSocketAddress().getPort();
+                // Use localhost instead of actual IP to avoid network interface issues
+                String memberAddress = "localhost:" + localPort;
+                clientConfig
+                        .getNetworkConfig()
+                        .setAddresses(Collections.singletonList(memberAddress));
+                log.info("Local mode: Client configured to connect to {}", memberAddress);
+            }
             engineClient = new SeaTunnelClient(clientConfig);
             if (clientCommandArgs.isListJob()) {
                 String jobStatus = engineClient.getJobClient().listJobStatus(true);
@@ -341,6 +350,20 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
                 .setClusterRole(EngineConfig.ClusterRole.MASTER_AND_WORKER);
         // set local mode
         seaTunnelConfig.getEngineConfig().setMode(ExecutionMode.LOCAL);
+        seaTunnelConfig
+                .getHazelcastConfig()
+                .getNetworkConfig()
+                .getJoin()
+                .getTcpIpConfig()
+                .getMembers()
+                .clear();
+        Integer hazelcastPort = clientCommandArgs.getHazelcastPort();
+        if (hazelcastPort != null) {
+            seaTunnelConfig.getHazelcastConfig().getNetworkConfig().setPort(hazelcastPort);
+            log.info(
+                    "Local mode: Hazelcast port configured as {} (0 means random assignment)",
+                    hazelcastPort);
+        }
         seaTunnelConfig.getHazelcastConfig().getNetworkConfig().setPortAutoIncrement(true);
 
         // Ensure the local mode can expose REST/UI endpoints by default when users didn't provide
@@ -364,7 +387,14 @@ public class ClientExecuteCommand implements Command<ClientCommandArgs> {
 
         // set the default async executor for Hazelcast InvocationFuture
         ConcurrencyUtil.setDefaultAsyncExecutor(CompletableFuture.EXECUTOR);
+        HazelcastInstance hazelcastInstance = createHazelcastInstance(seaTunnelConfig);
+        log.info(
+                "Local mode: Hazelcast use port {}",
+                hazelcastInstance.getCluster().getLocalMember().getSocketAddress().getPort());
+        return hazelcastInstance;
+    }
 
+    HazelcastInstance createHazelcastInstance(SeaTunnelConfig seaTunnelConfig) {
         return HazelcastInstanceFactory.newHazelcastInstance(
                 seaTunnelConfig.getHazelcastConfig(),
                 Thread.currentThread().getName(),

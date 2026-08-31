@@ -41,6 +41,7 @@ public class SeaTunnelEngineLocalExample {
         ClientCommandArgs clientCommandArgs = new ClientCommandArgs();
         clientCommandArgs.setConfigFile(configFile);
         clientCommandArgs.setCheckConfig(false);
+        clientCommandArgs.setHazelcastPort(0);
         clientCommandArgs.setJobName(Paths.get(configFile).getFileName().toString());
         // Change Execution Mode to CLUSTER to use client mode, before do this, you should start
         // SeaTunnelEngineClusterServerExample
