@@ -22,6 +22,7 @@ import org.apache.seatunnel.api.source.Collector;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
+import org.apache.seatunnel.api.table.operation.event.TableOperationEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnsEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableCommentEvent;
@@ -31,8 +32,11 @@ import org.apache.seatunnel.api.table.schema.handler.TableSchemaChangeEventHandl
 import org.apache.seatunnel.api.table.type.MetadataUtil;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.schema.SchemaChangeEventFilter;
 import org.apache.seatunnel.connectors.cdc.base.schema.SchemaChangeResolver;
+import org.apache.seatunnel.connectors.cdc.base.schema.TableOperationEventFilter;
+import org.apache.seatunnel.connectors.cdc.base.utils.DdlStatements;
 import org.apache.seatunnel.connectors.cdc.base.utils.SourceRecordUtils;
 import org.apache.seatunnel.connectors.cdc.debezium.AbstractDebeziumDeserializationSchema;
 import org.apache.seatunnel.connectors.cdc.debezium.DebeziumDeserializationConverterFactory;
@@ -52,6 +56,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -75,6 +80,7 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
     private final DebeziumDeserializationConverterFactory userDefinedConverterFactory;
     private final SchemaChangeResolver schemaChangeResolver;
     private final SchemaChangeEventFilter schemaChangeEventFilter;
+    private final TableOperationEventFilter tableOperationEventFilter;
     private final TableSchemaChangeEventHandler tableSchemaChangeHandler;
     private List<CatalogTable> tables;
     private Map<String, SeaTunnelRowDebeziumDeserializationConverters> tableRowConverters;
@@ -86,6 +92,7 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
             DebeziumDeserializationConverterFactory userDefinedConverterFactory,
             SchemaChangeResolver schemaChangeResolver,
             SchemaChangeEventFilter schemaChangeEventFilter,
+            TableOperationEventFilter tableOperationEventFilter,
             Map<TableId, Struct> tableIdTableChangeMap) {
         super(tableIdTableChangeMap);
         this.metadataConverters = metadataConverters;
@@ -94,6 +101,11 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
         this.tables = checkNotNull(tables);
         this.schemaChangeResolver = schemaChangeResolver;
         this.schemaChangeEventFilter = schemaChangeEventFilter;
+        this.tableOperationEventFilter =
+                tableOperationEventFilter == null
+                        ? new TableOperationEventFilter(
+                                Collections.emptySet(), Collections.emptySet())
+                        : tableOperationEventFilter;
         this.tableSchemaChangeHandler = new TableSchemaChangeEventDispatcher();
         this.tableRowConverters =
                 createTableRowConverters(
@@ -114,6 +126,16 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
             return;
         }
         if (isSchemaChangeEvent(record)) {
+            if (schemaChangeResolver != null && DdlStatements.isTruncateTable(safeGetDdl(record))) {
+                deserializeTableOperationRecord(record, collector);
+                return;
+            }
+            if (schemaChangeResolver != null && !schemaChangeResolver.support(record)) {
+                log.debug(
+                        "Skip schema-change record that is not eligible under schema-changes.enabled: {}",
+                        safeGetDdl(record));
+                return;
+            }
             deserializeSchemaChangeRecord(record, collector);
             return;
         }
@@ -124,6 +146,39 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
         }
 
         log.debug("Unsupported record {}, just skip.", record);
+    }
+
+    private void deserializeTableOperationRecord(
+            SourceRecord record, Collector<SeaTunnelRow> collector) {
+        TableOperationEvent tableOperationEvent;
+        try {
+            tableOperationEvent = schemaChangeResolver.resolveTableOperation(record, tables);
+        } catch (Exception e) {
+            throw new SeaTunnelException(
+                    "Failed to resolve table-operation event from DDL '"
+                            + safeGetDdl(record)
+                            + "'. Skipping TRUNCATE TABLE would leave the sink out of sync with the source.",
+                    e);
+        }
+        if (tableOperationEvent == null) {
+            log.debug("Unsupported or uncaptured table operation {}, just skip.", record);
+            return;
+        }
+        tableOperationEvent = tableOperationEventFilter.filter(tableOperationEvent);
+        if (tableOperationEvent == null) {
+            log.debug(
+                    "Table operation event is filtered out by table-operations.include/exclude, not sent downstream.");
+            return;
+        }
+        collector.collect(tableOperationEvent);
+    }
+
+    private static String safeGetDdl(SourceRecord record) {
+        try {
+            return SourceRecordUtils.getDdl(record);
+        } catch (RuntimeException e) {
+            return null;
+        }
     }
 
     private void deserializeSchemaChangeRecord(
@@ -420,6 +475,7 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
         private Map<TableId, Struct> tableIdTableChangeMap = new HashMap<>();
         private SchemaChangeResolver schemaChangeResolver;
         private SchemaChangeEventFilter schemaChangeEventFilter;
+        private TableOperationEventFilter tableOperationEventFilter;
 
         public SeaTunnelRowDebeziumDeserializeSchema build() {
             return new SeaTunnelRowDebeziumDeserializeSchema(
@@ -429,6 +485,7 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
                     userDefinedConverterFactory,
                     schemaChangeResolver,
                     schemaChangeEventFilter,
+                    tableOperationEventFilter,
                     tableIdTableChangeMap);
         }
     }

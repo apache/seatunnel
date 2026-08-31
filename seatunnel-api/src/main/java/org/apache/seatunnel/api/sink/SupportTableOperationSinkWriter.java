@@ -15,31 +15,23 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.connectors.cdc.base.schema;
+package org.apache.seatunnel.api.sink;
 
-import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.operation.event.TableOperationEvent;
-import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 
-import org.apache.kafka.connect.source.SourceRecord;
+import java.io.IOException;
 
-import java.io.Serializable;
-import java.util.List;
-
-public interface SchemaChangeResolver extends Serializable {
-
-    boolean support(SourceRecord record);
-
-    SchemaChangeEvent resolve(SourceRecord record, List<CatalogTable> catalogTables);
+/**
+ * Writer-side contract for applying {@link TableOperationEvent}s after in-flight rows are flushed.
+ */
+public interface SupportTableOperationSinkWriter {
 
     /**
-     * Resolve a table-operation event such as {@code TRUNCATE TABLE}. Default is unsupported.
+     * Apply a table operation to the third-party receiver. Implementations must flush buffered rows
+     * for the target table before executing a destructive operation such as truncate.
      *
-     * @return the operation event, or {@code null} when the record is not a captured table
-     *     operation
+     * @param event table operation from upstream
+     * @throws IOException if the operation cannot be applied
      */
-    default TableOperationEvent resolveTableOperation(
-            SourceRecord record, List<CatalogTable> catalogTables) {
-        return null;
-    }
+    void applyTableOperation(TableOperationEvent event) throws IOException;
 }

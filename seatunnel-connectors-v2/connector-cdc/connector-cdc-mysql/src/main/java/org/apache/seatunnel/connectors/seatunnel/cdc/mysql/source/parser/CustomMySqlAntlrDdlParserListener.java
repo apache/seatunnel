@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.parser;
 
+import org.apache.seatunnel.api.table.operation.event.TruncateTableEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableEvent;
 
 import org.antlr.v4.runtime.ParserRuleContext;
@@ -61,12 +62,13 @@ public class CustomMySqlAntlrDdlParserListener extends MySqlParserBaseListener
     public CustomMySqlAntlrDdlParserListener(
             RelationalDatabaseConnectorConfig dbzConnectorConfig,
             MySqlAntlrDdlParser parser,
-            LinkedList<AlterTableEvent> parsedEvents) {
-        // Currently only DDL statements that modify the table structure are supported, so add
-        // custom listeners to handle these events.
+            LinkedList<AlterTableEvent> parsedEvents,
+            LinkedList<TruncateTableEvent> parsedTableOperations) {
+        // Column/table comment DDL plus table-level TRUNCATE.
         listeners.add(
                 new CustomAlterTableParserListener(
                         dbzConnectorConfig, parser, listeners, parsedEvents));
+        listeners.add(new CustomTruncateTableParserListener(parser, parsedTableOperations));
     }
 
     /**
