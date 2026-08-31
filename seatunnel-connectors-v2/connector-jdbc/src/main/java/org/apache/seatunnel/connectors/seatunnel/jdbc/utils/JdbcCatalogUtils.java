@@ -272,14 +272,18 @@ public class JdbcCatalogUtils {
             return jdbcCatalog.getTable(tablePath);
         }
 
-        CatalogTable tableOfQuery = jdbcCatalog.getTable(tableConfig.getQuery());
+        AbstractJdbcCatalog.QueryTableResolution queryTableResolution =
+                jdbcCatalog.resolveQueryTable(tableConfig.getQuery());
         return mergeWithUnderlyingTable(
-                tableOfQuery,
-                isSinglePhysicalTableQuery(jdbcCatalog, tableConfig.getQuery()),
-                tablePath ->
-                        jdbcCatalog.tableExists(tablePath)
-                                ? jdbcCatalog.getTable(tablePath)
-                                : null);
+                queryTableResolution.getTable(),
+                queryTableResolution.getSinglePhysicalTablePath(),
+                tablePath -> {
+                    TablePath tablePathToLoad =
+                            withDefaultDatabase(tablePath, jdbcCatalog.getDefaultDatabase());
+                    return jdbcCatalog.tableExists(tablePathToLoad)
+                            ? jdbcCatalog.getTable(tablePathToLoad)
+                            : null;
+                });
     }
 
     static CatalogTable mergeCatalogTable(CatalogTable tableOfPath, CatalogTable tableOfQuery) {
@@ -481,46 +485,42 @@ public class JdbcCatalogUtils {
                 getCatalogTable(resultSetMetaData, tableConfig.getQuery(), jdbcDialect);
         return mergeWithUnderlyingTable(
                 tableOfQuery,
-                CatalogUtils.isSinglePhysicalTable(resultSetMetaData),
+                CatalogUtils.getSinglePhysicalTablePath(resultSetMetaData),
                 tablePath -> CatalogUtils.getCatalogTable(connection, tablePath, jdbcDialect));
     }
 
-    private static boolean isSinglePhysicalTableQuery(
-            AbstractJdbcCatalog jdbcCatalog, String sqlQuery) {
-        try {
-            return jdbcCatalog.isSinglePhysicalTableQuery(sqlQuery);
-        } catch (Exception e) {
-            log.debug(
-                    "Failed to verify whether query maps to a single physical table, skip merging underlying table metadata",
-                    e);
-            return false;
+    /**
+     * Returns the table path with a blank database name replaced by the catalog default database.
+     * Drivers of schema-based databases usually report a blank catalog name in the query result
+     * metadata, while catalog lookups such as {@code tableExists} require a database name.
+     */
+    static TablePath withDefaultDatabase(TablePath tablePath, String defaultDatabase) {
+        if (StringUtils.isNotBlank(tablePath.getDatabaseName())
+                || StringUtils.isBlank(defaultDatabase)) {
+            return tablePath;
         }
+        return TablePath.of(defaultDatabase, tablePath.getSchemaName(), tablePath.getTableName());
     }
 
     /**
      * When a source table is defined by query only, its schema is derived from {@link
      * java.sql.ResultSetMetaData} which carries no metadata such as column/table comments,
-     * constraint keys and partition keys. If the query maps to a single physical table (e.g. {@code
-     * SELECT * FROM db.table}, resolved from the result set metadata), load that table and merge
-     * the missing metadata into the query-derived table, the same way as configuring {@code
-     * table_path} together with {@code query}. Fall back to the query-derived table when the
-     * underlying table can not be resolved or loaded.
+     * constraint keys and partition keys. If the query is verified to map to a single physical
+     * table (e.g. {@code SELECT * FROM db.table}, resolved from the result set metadata), load
+     * exactly that table and merge the missing metadata into the query-derived table, the same way
+     * as configuring {@code table_path} together with {@code query}. Fall back to the query-derived
+     * table when the underlying table can not be resolved or loaded.
      */
     static CatalogTable mergeWithUnderlyingTable(
             CatalogTable tableOfQuery,
-            boolean singlePhysicalTable,
+            Optional<TablePath> singlePhysicalTablePath,
             UnderlyingTableLoader underlyingTableLoader) {
-        if (!singlePhysicalTable) {
+        if (singlePhysicalTablePath == null || !singlePhysicalTablePath.isPresent()) {
             return tableOfQuery;
         }
-        TableIdentifier tableId = tableOfQuery.getTableId();
-        if (tableId == null || StringUtils.isBlank(tableId.getTableName())) {
-            return tableOfQuery;
-        }
-        TablePath tablePath = tableId.toTablePath();
-        if (TablePath.DEFAULT.equals(tablePath)
-                || (StringUtils.isBlank(tablePath.getDatabaseName())
-                        && StringUtils.isBlank(tablePath.getSchemaName()))) {
+        TablePath tablePath = singlePhysicalTablePath.get();
+        if (StringUtils.isBlank(tablePath.getDatabaseName())
+                && StringUtils.isBlank(tablePath.getSchemaName())) {
             return tableOfQuery;
         }
         try {
@@ -534,7 +534,7 @@ public class JdbcCatalogUtils {
                     tablePath);
             return mergedTable;
         } catch (Exception e) {
-            log.debug(
+            log.warn(
                     "Failed to load the underlying table {} of query, use the query-derived table directly",
                     tablePath,
                     e);

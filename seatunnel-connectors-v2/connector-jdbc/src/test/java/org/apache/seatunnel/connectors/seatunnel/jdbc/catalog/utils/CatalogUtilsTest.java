@@ -50,7 +50,7 @@ import static org.mockito.Mockito.when;
 public class CatalogUtilsTest {
 
     @Test
-    void testSinglePhysicalTableDetectedFromAllResultColumns() throws SQLException {
+    void testSinglePhysicalTableResolvedFromAllResultColumns() throws SQLException {
         ResultSetMetaData resultSetMetaData = mock(ResultSetMetaData.class);
         when(resultSetMetaData.getColumnCount()).thenReturn(3);
         for (int index = 1; index <= 3; index++) {
@@ -59,7 +59,9 @@ public class CatalogUtilsTest {
             when(resultSetMetaData.getTableName(index)).thenReturn("source_table");
         }
 
-        Assertions.assertTrue(CatalogUtils.isSinglePhysicalTable(resultSetMetaData));
+        Assertions.assertEquals(
+                Optional.of(TablePath.of("test_db", null, "source_table")),
+                CatalogUtils.getSinglePhysicalTablePath(resultSetMetaData));
     }
 
     @Test
@@ -76,7 +78,39 @@ public class CatalogUtilsTest {
         when(resultSetMetaData.getTableName(2)).thenReturn("orders");
         when(resultSetMetaData.getTableName(3)).thenReturn("customers");
 
-        Assertions.assertFalse(CatalogUtils.isSinglePhysicalTable(resultSetMetaData));
+        Assertions.assertEquals(
+                Optional.empty(), CatalogUtils.getSinglePhysicalTablePath(resultSetMetaData));
+    }
+
+    @Test
+    void testExpressionColumnKeepsSingleTableUnverified() throws SQLException {
+        // A computed/expression column reports no origin table, so the whole query is treated
+        // as unverified and the underlying table metadata merge is skipped, even though the
+        // remaining columns all originate from the same physical table.
+        ResultSetMetaData resultSetMetaData = mock(ResultSetMetaData.class);
+        when(resultSetMetaData.getColumnCount()).thenReturn(2);
+        when(resultSetMetaData.getCatalogName(1)).thenReturn("test_db");
+        when(resultSetMetaData.getSchemaName(1)).thenReturn("");
+        when(resultSetMetaData.getTableName(1)).thenReturn("orders");
+        when(resultSetMetaData.getCatalogName(2)).thenReturn("");
+        when(resultSetMetaData.getSchemaName(2)).thenReturn("");
+        when(resultSetMetaData.getTableName(2)).thenReturn("");
+
+        Assertions.assertEquals(
+                Optional.empty(), CatalogUtils.getSinglePhysicalTablePath(resultSetMetaData));
+    }
+
+    @Test
+    void testSinglePhysicalTablePathUnverifiedOnMetadataFailure() throws SQLException {
+        ResultSetMetaData resultSetMetaData = mock(ResultSetMetaData.class);
+        when(resultSetMetaData.getColumnCount()).thenReturn(2);
+        when(resultSetMetaData.getTableName(1)).thenReturn("orders");
+        when(resultSetMetaData.getCatalogName(1)).thenReturn("test_db");
+        when(resultSetMetaData.getSchemaName(1)).thenReturn("");
+        when(resultSetMetaData.getTableName(2)).thenThrow(new SQLException("mock failure"));
+
+        Assertions.assertEquals(
+                Optional.empty(), CatalogUtils.getSinglePhysicalTablePath(resultSetMetaData));
     }
 
     @Test

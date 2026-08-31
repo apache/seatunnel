@@ -689,13 +689,48 @@ public abstract class AbstractJdbcCatalog implements Catalog {
     }
 
     /**
-     * Returns whether JDBC metadata identifies every query result column as belonging to the same
-     * physical table.
+     * Resolves the query-derived table together with the physical table path that JDBC metadata
+     * identifies every result column as originating from (empty when the query cannot be verified
+     * as single-table). The verification reuses a metadata-only {@link
+     * PreparedStatement#getMetaData()} probe and never executes the query; dialects whose drivers
+     * cannot report prepared-statement metadata should override this method to derive both results
+     * from one query execution. A verification failure is logged and treated as unverified instead
+     * of failing table discovery.
      */
-    public boolean isSinglePhysicalTableQuery(String sqlQuery) throws SQLException {
-        Connection defaultConnection = getConnection(defaultUrl);
-        try (PreparedStatement statement = defaultConnection.prepareStatement(sqlQuery)) {
-            return CatalogUtils.isSinglePhysicalTable(statement.getMetaData());
+    public QueryTableResolution resolveQueryTable(String sqlQuery) throws SQLException {
+        CatalogTable tableOfQuery = getTable(sqlQuery);
+        Optional<TablePath> singlePhysicalTablePath = Optional.empty();
+        try {
+            Connection defaultConnection = getConnection(defaultUrl);
+            try (PreparedStatement statement = defaultConnection.prepareStatement(sqlQuery)) {
+                singlePhysicalTablePath =
+                        CatalogUtils.getSinglePhysicalTablePath(statement.getMetaData());
+            }
+        } catch (Exception e) {
+            log.warn(
+                    "Failed to verify whether the query maps to a single physical table, skip merging underlying table metadata",
+                    e);
+        }
+        return new QueryTableResolution(tableOfQuery, singlePhysicalTablePath);
+    }
+
+    /** The query-derived table and the verified single-table origin path of a sql query. */
+    public static class QueryTableResolution {
+        private final CatalogTable table;
+        private final Optional<TablePath> singlePhysicalTablePath;
+
+        public QueryTableResolution(
+                CatalogTable table, Optional<TablePath> singlePhysicalTablePath) {
+            this.table = table;
+            this.singlePhysicalTablePath = singlePhysicalTablePath;
+        }
+
+        public CatalogTable getTable() {
+            return table;
+        }
+
+        public Optional<TablePath> getSinglePhysicalTablePath() {
+            return singlePhysicalTablePath;
         }
     }
 

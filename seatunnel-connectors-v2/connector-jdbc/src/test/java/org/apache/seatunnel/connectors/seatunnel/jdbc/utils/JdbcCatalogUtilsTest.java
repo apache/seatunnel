@@ -46,6 +46,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
@@ -488,7 +489,7 @@ public class JdbcCatalogUtilsTest {
         CatalogTable mergeTable =
                 JdbcCatalogUtils.mergeWithUnderlyingTable(
                         tableOfQuery,
-                        true,
+                        Optional.of(TablePath.of("database-x", null, "table-x")),
                         tablePath -> {
                             loaderInvoked.set(true);
                             Assertions.assertEquals(
@@ -513,6 +514,26 @@ public class JdbcCatalogUtilsTest {
     }
 
     @Test
+    public void testMergeWithUnderlyingTableUsesVerifiedOriginTablePath() {
+        // The metadata-verified origin table path must be loaded, not the table path that the
+        // query-derived table identifier happens to carry.
+        CatalogTable tableOfQuery =
+                buildQueryTable(TableIdentifier.of("jdbc_catalog", "database-y", null, "table-y"));
+
+        AtomicBoolean loaderInvoked = new AtomicBoolean(false);
+        JdbcCatalogUtils.mergeWithUnderlyingTable(
+                tableOfQuery,
+                Optional.of(TablePath.of("database-x", null, "table-x")),
+                tablePath -> {
+                    loaderInvoked.set(true);
+                    Assertions.assertEquals(TablePath.of("database-x", null, "table-x"), tablePath);
+                    return DEFAULT_TABLE;
+                });
+
+        Assertions.assertTrue(loaderInvoked.get());
+    }
+
+    @Test
     public void testMergeWithUnderlyingTableSkippedForMultiTableQuery() {
         CatalogTable tableOfQuery =
                 buildQueryTable(TableIdentifier.of("jdbc_catalog", "database-x", null, "orders"));
@@ -521,26 +542,7 @@ public class JdbcCatalogUtilsTest {
         CatalogTable mergeTable =
                 JdbcCatalogUtils.mergeWithUnderlyingTable(
                         tableOfQuery,
-                        false,
-                        tablePath -> {
-                            loaderInvoked.set(true);
-                            return DEFAULT_TABLE;
-                        });
-
-        Assertions.assertFalse(loaderInvoked.get());
-        Assertions.assertSame(tableOfQuery, mergeTable);
-    }
-
-    @Test
-    public void testMergeWithUnderlyingTableSkippedWhenTableNameNotResolved() {
-        CatalogTable tableOfQuery =
-                buildQueryTable(TableIdentifier.of("jdbc_catalog", TablePath.DEFAULT));
-
-        AtomicBoolean loaderInvoked = new AtomicBoolean(false);
-        CatalogTable mergeTable =
-                JdbcCatalogUtils.mergeWithUnderlyingTable(
-                        tableOfQuery,
-                        true,
+                        Optional.empty(),
                         tablePath -> {
                             loaderInvoked.set(true);
                             return DEFAULT_TABLE;
@@ -559,7 +561,7 @@ public class JdbcCatalogUtilsTest {
         CatalogTable mergeTable =
                 JdbcCatalogUtils.mergeWithUnderlyingTable(
                         tableOfQuery,
-                        true,
+                        Optional.of(TablePath.of(null, null, "table-x")),
                         tablePath -> {
                             loaderInvoked.set(true);
                             return DEFAULT_TABLE;
@@ -575,7 +577,10 @@ public class JdbcCatalogUtilsTest {
                 buildQueryTable(TableIdentifier.of("jdbc_catalog", "database-x", null, "table-x"));
 
         CatalogTable mergeTable =
-                JdbcCatalogUtils.mergeWithUnderlyingTable(tableOfQuery, true, tablePath -> null);
+                JdbcCatalogUtils.mergeWithUnderlyingTable(
+                        tableOfQuery,
+                        Optional.of(TablePath.of("database-x", null, "table-x")),
+                        tablePath -> null);
 
         Assertions.assertSame(tableOfQuery, mergeTable);
     }
@@ -594,7 +599,9 @@ public class JdbcCatalogUtilsTest {
 
         CatalogTable mergeTable =
                 JdbcCatalogUtils.mergeWithUnderlyingTable(
-                        tableOfQuery, true, tablePath -> emptyTable);
+                        tableOfQuery,
+                        Optional.of(TablePath.of("database-x", null, "table-x")),
+                        tablePath -> emptyTable);
 
         Assertions.assertSame(tableOfQuery, mergeTable);
     }
@@ -607,12 +614,38 @@ public class JdbcCatalogUtilsTest {
         CatalogTable mergeTable =
                 JdbcCatalogUtils.mergeWithUnderlyingTable(
                         tableOfQuery,
-                        true,
+                        Optional.of(TablePath.of("database-x", null, "table-x")),
                         tablePath -> {
                             throw new CatalogException("mock load failure");
                         });
 
         Assertions.assertSame(tableOfQuery, mergeTable);
+    }
+
+    @Test
+    public void testWithDefaultDatabaseAppliedWhenDatabaseNameMissing() {
+        // Schema-only dialects report a blank catalog name in the query result metadata, so the
+        // database name of the origin table path falls back to the catalog default database.
+        Assertions.assertEquals(
+                TablePath.of("default-db", "schema-x", "table-x"),
+                JdbcCatalogUtils.withDefaultDatabase(
+                        TablePath.of(null, "schema-x", "table-x"), "default-db"));
+    }
+
+    @Test
+    public void testWithDefaultDatabaseKeepsResolvedDatabaseName() {
+        Assertions.assertEquals(
+                TablePath.of("database-x", null, "table-x"),
+                JdbcCatalogUtils.withDefaultDatabase(
+                        TablePath.of("database-x", null, "table-x"), "default-db"));
+    }
+
+    @Test
+    public void testWithDefaultDatabaseKeepsPathWhenNoDefaultDatabase() {
+        Assertions.assertEquals(
+                TablePath.of(null, "schema-x", "table-x"),
+                JdbcCatalogUtils.withDefaultDatabase(
+                        TablePath.of(null, "schema-x", "table-x"), null));
     }
 
     private static CatalogTable buildQueryTable(TableIdentifier tableId) {

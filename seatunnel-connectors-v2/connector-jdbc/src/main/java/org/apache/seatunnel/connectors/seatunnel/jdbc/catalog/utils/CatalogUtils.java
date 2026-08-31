@@ -336,31 +336,36 @@ public class CatalogUtils {
     }
 
     /**
-     * Returns whether every result column is reported as originating from the same physical table.
-     * Missing or inconsistent origin metadata is treated as unverified.
+     * Resolves the single physical table that every result column is reported as originating from.
+     * Returns empty when any column reports missing or inconsistent origin metadata (for example
+     * expression columns or join queries), or when the driver fails to report origin metadata at
+     * all — in both cases the query cannot be verified as single-table and no underlying table
+     * metadata should be merged.
      */
-    public static boolean isSinglePhysicalTable(ResultSetMetaData metadata) {
+    public static Optional<TablePath> getSinglePhysicalTablePath(ResultSetMetaData metadata) {
         if (metadata == null) {
-            return false;
+            return Optional.empty();
         }
         try {
             int columnCount = metadata.getColumnCount();
             if (columnCount == 0) {
-                return false;
+                return Optional.empty();
             }
             TablePath tablePath = getPhysicalTablePath(metadata, 1);
             if (tablePath == null) {
-                return false;
+                return Optional.empty();
             }
             for (int index = 2; index <= columnCount; index++) {
                 if (!tablePath.equals(getPhysicalTablePath(metadata, index))) {
-                    return false;
+                    return Optional.empty();
                 }
             }
-            return true;
+            return Optional.of(tablePath);
         } catch (SQLException e) {
-            log.debug("Failed to verify the physical table of query result metadata", e);
-            return false;
+            log.warn(
+                    "Failed to verify the physical table of the query result metadata, skip merging underlying table metadata",
+                    e);
+            return Optional.empty();
         }
     }
 

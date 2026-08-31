@@ -19,6 +19,25 @@ You need to check this document before you upgrade to related version.
 
 ### JDBC Connector
 
+- **Behavior change: query-only JDBC sources merge the underlying table's metadata**
+  - **Affected component**: `seatunnel-connectors-v2/connector-jdbc` (source)
+  - **Description**: When a source table is defined by `query` only (no `table_path`) and JDBC
+    metadata reports every result column as originating from the same physical table, SeaTunnel
+    now resolves that table and merges its column/table comments, primary key, constraint keys,
+    partition keys and table options into the query-derived schema, the same way as configuring
+    `table_path` together with `query`. Previously the schema was derived from
+    `ResultSetMetaData` only and carried none of this metadata. (#11971)
+  - **Impact**: Row shape, column order and checkpoint/savepoint compatibility are unchanged,
+    but the produced catalog table can now carry a primary key and comments it did not have
+    before. Sinks with automatic table creation (MySQL, Doris, StarRocks, ...) create the target
+    table with those comments/keys on the first run after the upgrade, and a query-only source
+    without a configured `partition_column` may now infer a split column from the merged primary
+    key, turning a previously single-split read into parallel range splits. Already-created sink
+    tables are not modified. There is no dedicated option to disable the merge; to keep the
+    previous behavior, pre-create the sink table and/or configure `partition_column` explicitly
+    to control split planning. Multi-table queries and queries whose column origins cannot be
+    verified (for example expression columns) are unaffected — the merge is skipped for them.
+
 - **Breaking Change: Mapping of timezone-aware timestamp columns to `TIMESTAMP_TZ` type**
   - **Affected component**: `seatunnel-connectors-v2/connector-jdbc`, `seatunnel-connectors-v2/connector-iceberg`, `seatunnel-connectors-v2/connector-cdc-base`, `seatunnel-connectors-v2/connector-cdc-tidb`, `seatunnel-connectors-v2/connector-starrocks`, `seatunnel-connectors-v2/connector-hudi`, `seatunnel-connectors-v2/connector-snowflake` (via JDBC dialect)
   - **Description**: Previously, JDBC sources mapped both timezone-naive (e.g., MySQL `DATETIME`) and timezone-aware (e.g., MySQL `TIMESTAMP`) timestamp columns to SeaTunnel's internal `TIMESTAMP` type. Now, timezone-aware columns like MySQL `TIMESTAMP`, PostgreSQL `timestamptz`, Oracle `TIMESTAMP WITH LOCAL TIME ZONE`, SQL Server `datetimeoffset`, Snowflake `TIMESTAMP_LTZ/TZ`, and others are explicitly mapped to `TIMESTAMP_TZ`. This ensures that timezone semantics are accurately preserved when writing to formats like Iceberg, where `TIMESTAMP` is saved as `timestamp` (without timezone) and `TIMESTAMP_TZ` is saved as `timestamptz` (with timezone).
