@@ -13,11 +13,13 @@ title: Zeta 基准测试
 
 ## 工作原理
 
-`seatunnel-benchmarks` 提供两类测试：
+`seatunnel-benchmarks` 提供三类测试：
 
 - `SeaTunnelRowBenchmark`：测试 Row 创建、读取、复制、投影和大小计算等热点代码。
 - `SeaTunnelPipelineBenchmark`：启动单节点嵌入式 Zeta 集群，并通过正常的 Client 和配置
   解析 API 运行完整的有界作业。
+- `CheckpointingTimeBenchmark`：保持一个流式作业运行，并测量显式触发普通 Checkpoint 的
+  完成耗时。
 
 MiniCluster 在每个 JMH Trial 的 Setup 阶段启动，不计入测量。作业提交、调度、Source、
 Transform、Sink 和作业完成都计入 JMH 测量。
@@ -143,6 +145,21 @@ java -jar seatunnel-benchmarks/target/benchmarks.jar SeaTunnelRowBenchmark \
 快速功能验证时可以增加 `-f 1 -wi 0 -i 1 -r 1s` 缩短运行时间。没有预热且只有一个样本的
 结果不能用于性能结论。
 
+### 运行 Checkpoint 基准测试
+
+```bash
+java -jar seatunnel-benchmarks/target/benchmarks.jar CheckpointingTimeBenchmark
+```
+
+该测试覆盖 `recordSize=1b` 和 `recordSize=1kb`。`checkpointSingleInput` 使用受控输入速率
+以及相同的 Source/Sink 并行度。专用 JMH 环境会在每个 Trial 中启动 master/worker 角色
+分离的双节点 Zeta 集群和一个流式作业。master 不提供 worker slot，pipeline 只在 worker
+执行，IMap backup count 为 0。该环境使用一份独立的 Checkpoint Engine 配置（不复用普通
+Benchmark 的 Engine 配置），为 `engine*` 开启基于本地文件系统的 HDFS MapStore，并通过
+HDFS Checkpoint 插件的 local 模式保存状态。每次 invocation 显式触发一个普通 Checkpoint，
+并等待 Zeta 完成持久化。Score 使用 `s/op`，数值越低越好；作业启动、负载建立、持久化
+校验和作业关闭不计入 invocation 时间。
+
 ### 查看 Workflow 报告
 
 定时或手动触发的 `Benchmarks` workflow 会在 Java 8 和 Java 11 上运行所选 benchmark。
@@ -220,7 +237,7 @@ Linux runner 使用 async-profiler 的 `ctimer` 事件进行 CPU profiling，不
 
 | 字段 | 说明 |
 |---|---|
-| `Score` | Pipeline Benchmark 每秒处理的行数，越大越好；Row 微基准仍使用 `ops/ms`。 |
+| `Score` | Pipeline Benchmark 每秒处理的行数，越大越好；Row 微基准使用 `ops/ms`；Checkpoint Benchmark 使用 `s/op`，越低越好。 |
 | `Error` | 根据本次 JMH 运行内部样本计算的不确定性。 |
 | `Cnt` | 参与聚合的 Measurement 样本数，不是处理行数。 |
 | `Units` | Score 的单位。 |
