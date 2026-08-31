@@ -164,7 +164,7 @@ async-profiler 产生文件而不是数值型 secondary metric，因此原始 JM
 `secondaryMetrics.async` Score 为 `NaN`，这是预期行为。诊断报告会显示采集到的样本数；
 lock profiling 没有观察到竞争时会报告 0 个样本，并且不会生成没有内容的火焰图。
 
-手动触发 `Benchmark Diagnostics` workflow 时，必须指定一个精确的 `benchmark` 方法和一个
+手动触发 `Benchmarks Diagnostics` workflow 时，必须指定一个精确的 `benchmark` 方法和一个
 `java_version`。该 workflow 与定时或手动触发的 `Benchmarks` workflow 相互独立，后者继续
 运行 Java 8/11 matrix。选择 `all` 会分别执行 CPU、wall-clock、lock 和 GC step，并上传四个
 可以独立下载的 artifact；`capture_jfr` 会增加第五个 JFR artifact。每个 artifact 只包含对应

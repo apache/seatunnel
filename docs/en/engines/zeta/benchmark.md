@@ -174,7 +174,7 @@ produces files rather than a numeric secondary metric. This is expected. The dia
 shows the collected sample count; when lock profiling observes no contention, it reports zero
 samples and intentionally omits an empty flame graph.
 
-The manual `Benchmark Diagnostics` workflow requires one exact `benchmark` method and one
+The manual `Benchmarks Diagnostics` workflow requires one exact `benchmark` method and one
 `java_version`. It is separate from the scheduled and manually triggered `Benchmarks` workflow,
 which continues to run the Java 8/11 matrix. Selecting `all` runs CPU, wall-clock, lock, and GC
 profiling as separate steps and uploads four independently downloadable artifacts; `capture_jfr`

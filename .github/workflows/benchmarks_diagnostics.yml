@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 
-name: Benchmark Diagnostics
+name: Benchmarks Diagnostics
 
 on:
   workflow_dispatch:
@@ -52,7 +52,6 @@ on:
           - 'lock'
           - 'gc'
           - 'all'
-          - 'none'
         default: 'cpu'
       capture_jfr:
         description: 'Also capture a JFR recording for offline JVM analysis.'
@@ -70,7 +69,6 @@ permissions:
 jobs:
   diagnostics:
     name: Capture diagnostics with Java ${{ inputs.java_version }}
-    if: inputs.profile != 'none' || inputs.capture_jfr
     runs-on: ubuntu-24.04
     timeout-minutes: 240
 
