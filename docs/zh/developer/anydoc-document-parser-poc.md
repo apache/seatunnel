@@ -6,7 +6,7 @@ title: Anydoc 文档解析器 PoC
 
 本文是设计与兼容性 PoC，不会新增文档文件格式，也不会引入 anydoc 运行时依赖。
 
-**状态：** 截至 2026 年 8 月 15 日，该方案仍在讨论中。当 GH-11801 的运行时模型被接受、替代或拒绝后，必须更新或删除本文。
+**状态：** 该开放方案由 GH-11801 跟踪。在运行时模型确定前，本文不会加入文档侧边栏发布。
 
 ## 当前边界
 
@@ -24,11 +24,11 @@ anydoc 后端应在现有 Markdown 行生成之前增加转换步骤：
     -> 文档元素行和可选的 RAG 元数据
 ```
 
-本 PoC 为 `MarkdownReadStrategy` 增加包级可见的 Markdown 交接方法。现有 Markdown 文件仍使用原有读取路径和结构。确定性单元测试使用 anydoc CLI 从已有 Excel 测试文件生成的 Markdown，验证现有元素和 RAG 元数据行为。
+本 PoC 为 `MarkdownReadStrategy` 增加包级可见的 Markdown 交接方法。交接方法显式接收原始源 URI 和原始源字节的 SHA-256，不能使用临时 Markdown 路径生成文档标识，也不能把转换后 Markdown 的哈希当作原始文档哈希。现有 Markdown 文件仍使用原有读取路径和结构。确定性单元测试使用 anydoc CLI 从已有 Excel 测试文件生成的 Markdown，验证现有元素和 RAG 元数据行为。
 
 ## PoC 命令
 
-实验直接使用上游 CLI，不把它加入 SeaTunnel 依赖：
+实验直接使用上游 CLI，不把它加入 SeaTunnel 依赖。由于 `npx -y` 会下载并执行指定软件包，只应在隔离的开发环境中运行：
 
 ```shell
 npx -y @firecrawl/anydoc@0.1.9 \
@@ -36,7 +36,7 @@ npx -y @firecrawl/anydoc@0.1.9 \
   -o anydoc-output.md
 ```
 
-该测试资源于 2026 年 8 月 15 日使用 `0.1.9` 版本重新生成。输出包含 `Sheet1` 标题和 GitHub-Flavored Markdown 表格。测试资源保存该输出，使单元测试保持本地、确定且不依赖网络。
+该测试资源使用 `0.1.9` 版本生成，SHA-256 为 `e5fc44559f67b2970729b0fb4d4b2d71935790d3073e2abb9001d3b224826fa0`。输出包含 `Sheet1` 标题和 GitHub-Flavored Markdown 表格。测试资源保存该输出，使单元测试保持本地、确定且不依赖网络。
 
 ## 兼容性结论
 

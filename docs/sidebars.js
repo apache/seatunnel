@@ -399,7 +399,6 @@ const sidebars = {
                 "developer/shade-guide",
                 "developer/how-to-create-your-connector",
                 "developer/connector-runtime-boundaries",
-                "developer/anydoc-document-parser-poc",
                 "developer/source-connector-development",
                 "developer/sink-connector-development",
                 "developer/contribute-plugin",

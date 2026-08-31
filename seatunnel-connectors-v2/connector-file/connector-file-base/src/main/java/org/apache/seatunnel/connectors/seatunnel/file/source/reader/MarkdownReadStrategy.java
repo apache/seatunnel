@@ -26,6 +26,7 @@ import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
 import org.apache.seatunnel.connectors.seatunnel.file.config.FileBaseSourceOptions;
+import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorErrorCode;
 import org.apache.seatunnel.connectors.seatunnel.file.exception.FileConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.file.source.FileSourceDocumentRouting;
 import org.apache.seatunnel.connectors.seatunnel.file.source.MarkdownKnowledgeSyncMetadata;
@@ -159,9 +160,17 @@ public class MarkdownReadStrategy extends AbstractReadStrategy {
     }
 
     /**
-     * Emits rows from Markdown while deriving stable document metadata from the original source.
+     * Emits rows from converted Markdown while preserving the identity of the original source.
+     *
+     * <p>{@code sourcePath} and {@code sourceDocumentHash} must describe the original source file,
+     * not an intermediate Markdown file or the converted Markdown bytes.
      */
-    void collectMarkdownRows(String markdown, String sourcePath, Collector<SeaTunnelRow> output) {
+    void collectMarkdownRows(
+            String markdown,
+            String sourcePath,
+            String sourceDocumentHash,
+            Collector<SeaTunnelRow> output) {
+        validateConvertedMarkdown(markdown, sourcePath, sourceDocumentHash);
         LogicalDocumentMetadata logicalMetadata = null;
         if (markdownRagMetadataEnabled) {
             String logicalSourceUri =
@@ -170,9 +179,29 @@ public class MarkdownReadStrategy extends AbstractReadStrategy {
                     new LogicalDocumentMetadata(
                             logicalSourceUri,
                             MarkdownKnowledgeSyncMetadata.buildDocumentId(logicalSourceUri),
-                            FileSourceDocumentRouting.sha256Hex(markdown));
+                            sourceDocumentHash);
         }
         collectMarkdownRows(markdown, sourcePath, logicalMetadata, output);
+    }
+
+    private void validateConvertedMarkdown(
+            String markdown, String sourcePath, String sourceDocumentHash) {
+        if (sourcePath == null || sourcePath.trim().isEmpty()) {
+            throw new FileConnectorException(
+                    FileConnectorErrorCode.DATA_DESERIALIZE_FAILED,
+                    "Cannot parse converted Markdown without the original source path");
+        }
+        if (markdown == null || markdown.trim().isEmpty()) {
+            throw new FileConnectorException(
+                    FileConnectorErrorCode.DATA_DESERIALIZE_FAILED,
+                    "Converted Markdown is empty for source: " + sourcePath);
+        }
+        if (markdownRagMetadataEnabled
+                && (sourceDocumentHash == null || sourceDocumentHash.trim().isEmpty())) {
+            throw new FileConnectorException(
+                    FileConnectorErrorCode.DATA_DESERIALIZE_FAILED,
+                    "Original document hash is missing for source: " + sourcePath);
+        }
     }
 
     private void collectMarkdownRows(

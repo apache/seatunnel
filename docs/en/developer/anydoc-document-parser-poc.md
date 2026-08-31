@@ -6,7 +6,7 @@ title: Anydoc document parser PoC
 
 This is a design and compatibility PoC. It does not add a document file format or an anydoc runtime dependency.
 
-**Status:** Open proposal as of August 15, 2026. This page must be updated or removed when the runtime model in GH-11801 is accepted, replaced, or rejected.
+**Status:** Open proposal tracked in GH-11801. This file is intentionally not published in the documentation sidebar while the runtime model is unresolved.
 
 ## Current boundary
 
@@ -24,11 +24,11 @@ source file bytes
     -> document-element rows and optional RAG metadata
 ```
 
-The PoC adds a package-private Markdown handoff method to `MarkdownReadStrategy`. Existing Markdown files still use the same read path and schema. A deterministic test feeds Markdown produced by the anydoc CLI from the existing Excel fixture into that method and verifies the existing element and RAG metadata behavior.
+The PoC adds a package-private Markdown handoff method to `MarkdownReadStrategy`. The handoff receives the original source URI and the SHA-256 hash of the original source bytes explicitly. It must not derive document identity from a temporary Markdown path or treat the converted Markdown hash as the source document hash. Existing Markdown files still use the same read path and schema. A deterministic test feeds Markdown produced by the anydoc CLI from the existing Excel fixture into that method and verifies the existing element and RAG metadata behavior.
 
 ## PoC command
 
-The experiment used the upstream CLI without adding it to SeaTunnel's dependencies:
+The experiment used the upstream CLI without adding it to SeaTunnel's dependencies. Run this only in an isolated development environment because `npx -y` downloads and executes the named package:
 
 ```shell
 npx -y @firecrawl/anydoc@0.1.9 \
@@ -36,7 +36,7 @@ npx -y @firecrawl/anydoc@0.1.9 \
   -o anydoc-output.md
 ```
 
-The fixture was regenerated with version `0.1.9` on August 15, 2026. The result contains a `Sheet1` heading and a GitHub-Flavored Markdown table. The checked-in test fixture preserves that output so unit tests remain local and deterministic.
+The fixture was generated with version `0.1.9`. Its SHA-256 is `e5fc44559f67b2970729b0fb4d4b2d71935790d3073e2abb9001d3b224826fa0`. The result contains a `Sheet1` heading and a GitHub-Flavored Markdown table. The checked-in test fixture preserves that output so unit tests remain local and deterministic.
 
 ## Compatibility findings
 
