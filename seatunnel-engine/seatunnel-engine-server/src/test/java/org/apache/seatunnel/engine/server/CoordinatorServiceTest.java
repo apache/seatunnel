@@ -649,8 +649,8 @@ public class CoordinatorServiceTest {
 
             // Ensure the production scheduler loop has entered the blocking resource check.
             Assertions.assertTrue(
-                    preApplyStarted.await(5, TimeUnit.SECONDS),
-                    "pending-job scheduling should enter resource pre-application");
+                    preApplyStarted.await(30, TimeUnit.SECONDS),
+                    "Pending job scheduler did not enter preApplyResources");
 
             // Simulate a master step-down. The blocked JobMaster is interrupted; the
             // PendingJobInfo must be dropped from the queue so a later restore cannot

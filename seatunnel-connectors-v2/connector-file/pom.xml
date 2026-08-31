@@ -41,6 +41,7 @@
         <module>connector-file-obs</module>
         <module>connector-file-jindo-oss</module>
         <module>connector-file-cos</module>
+        <module>connector-file-bos</module>
     </modules>
 
     <properties>

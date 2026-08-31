@@ -18,8 +18,6 @@
 package org.apache.seatunnel.engine.server.log;
 
 import org.apache.logging.log4j.Level;
-import org.apache.logging.log4j.core.config.Configurator;
-import org.apache.logging.log4j.core.config.LoggerConfig;
 
 import com.hazelcast.internal.ascii.TextCommandService;
 import com.hazelcast.internal.ascii.rest.HttpCommandProcessor;
@@ -27,6 +25,7 @@ import com.hazelcast.internal.ascii.rest.HttpPostCommand;
 import com.hazelcast.internal.ascii.rest.HttpPostCommandProcessor;
 import com.hazelcast.internal.json.JsonObject;
 
+import static com.hazelcast.internal.ascii.rest.HttpStatusCode.SC_400;
 import static com.hazelcast.internal.ascii.rest.HttpStatusCode.SC_500;
 
 public class Log4j2HttpPostCommandProcessor extends HttpCommandProcessor<HttpPostCommand> {
@@ -72,19 +71,31 @@ public class Log4j2HttpPostCommandProcessor extends HttpCommandProcessor<HttpPos
      * <p>Request Body(application/text):
      *
      * <p>your_username&your_password&com.example.logger1&ERROR
+     *
+     * <p>An unknown level name is rejected with {@code 400} instead of being applied as a {@code
+     * null} level, which clears the logger's explicit level rather than leaving it unchanged.
      */
     @SuppressWarnings("MagicNumber")
     private void setLoggerLevel(HttpPostCommand request) {
         try {
             String[] params = decodeParamsAndAuthenticate(request, 4);
             String logger = params[2];
-            String level = params[3];
-            if (LoggerConfig.ROOT.equals(logger)) {
-                Configurator.setRootLevel(Level.getLevel(level));
+            String levelName = params[3];
+            Level level = LogLevels.parse(levelName);
+            if (logger == null || logger.trim().isEmpty()) {
+                prepareResponse(SC_400, request, "Logger name is required!");
+            } else if (level == null) {
+                prepareResponse(
+                        SC_400,
+                        request,
+                        "Unknown logger level '"
+                                + levelName
+                                + "', valid levels are: "
+                                + LogLevels.validNames());
             } else {
-                Configurator.setLevel(logger, Level.getLevel(level));
+                LogLevels.apply(logger, level);
+                prepareResponse(request, new JsonObject().add("status", "SUCCESS"));
             }
-            prepareResponse(request, new JsonObject().add("status", "SUCCESS"));
         } catch (Throwable e) {
             prepareResponse(SC_500, request, exceptionResponse(e));
         }
