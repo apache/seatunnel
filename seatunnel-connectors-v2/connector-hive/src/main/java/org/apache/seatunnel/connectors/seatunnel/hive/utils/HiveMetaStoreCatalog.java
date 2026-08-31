@@ -166,6 +166,9 @@ public class HiveMetaStoreCatalog implements Catalog, Closeable, Serializable {
         return new HiveMetaStoreClient(hiveConf);
     }
 
+    /**
+     * Creates a metastore client through the Hive 3 factory contract used by AWS Glue Data Catalog.
+     */
     private IMetaStoreClient createClientFromFactory(
             HiveConf hiveConf, String clientFactoryClassName) {
         try {
@@ -209,6 +212,10 @@ public class HiveMetaStoreCatalog implements Catalog, Closeable, Serializable {
         }
     }
 
+    /**
+     * Resolves an optional metastore factory from the runtime context before falling back to Hive's
+     * configured class loader.
+     */
     private static Class<?> loadClass(String className, HiveConf hiveConf)
             throws ClassNotFoundException {
         ClassLoader contextClassLoader = Thread.currentThread().getContextClassLoader();
