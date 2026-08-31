@@ -142,6 +142,47 @@ java -jar seatunnel-benchmarks/target/benchmarks.jar SeaTunnelRowBenchmark \
 For a quick functional validation, add `-f 1 -wi 0 -i 1 -r 1s` to shorten the run. A single un-warmed
 sample is not valid performance evidence.
 
+### Diagnose an Unstable Benchmark
+
+Use profiling only after a normal run shows an unexpected Score, Error, or CV. The diagnostic
+runner keeps its report separate because profiler overhead makes its Score unsuitable for
+regression comparisons. A diagnostic selector must resolve to exactly one benchmark method;
+selectors such as `.*` or a class name that matches several methods are rejected.
+
+Install the complete async-profiler distribution and set `ASYNC_PROFILER_HOME` before running CPU,
+wall-clock, or lock profiling. The runner records JFR first and uses the bundled `jfrconv` to create
+forward and reverse flame graphs. GC profiling and JFR capture use JMH's built-in profilers and do
+not need async-profiler:
+
+```bash
+bash tools/benchmarks/profile_benchmarks.sh profile cpu --benchmark 'IntermediateQueueBenchmark.disruptorRecordHandoff$'
+bash tools/benchmarks/profile_benchmarks.sh profile wall --benchmark 'IntermediateQueueBenchmark.disruptorRecordHandoff$'
+bash tools/benchmarks/profile_benchmarks.sh profile lock --benchmark 'IntermediateQueueBenchmark.disruptorRecordHandoff$'
+bash tools/benchmarks/profile_benchmarks.sh profile gc --benchmark 'IntermediateQueueBenchmark.disruptorRecordHandoff$'
+bash tools/benchmarks/profile_benchmarks.sh capture jfr --benchmark 'IntermediateQueueBenchmark.disruptorRecordHandoff$'
+```
+
+CPU, wall-clock, and lock modes use JMH's async-profiler integration. GC mode uses JMH's GC
+profiler, and `capture jfr` uses JMH's JFR profiler. The runner always uses exactly one fork so that
+file-based profiler output cannot be overwritten by later forks. Warmup and measurement settings
+still come from benchmark annotations unless they are overridden after `--`, for example
+`-- -wi 1 -i 1 -w 1s -r 1s`. Each run gets a new default output directory; an explicit `--output`
+directory must be empty to prevent stale artifacts from being mixed into the report.
+
+The raw JMH JSON records async-profiler as `secondaryMetrics.async` with a `NaN` Score because it
+produces files rather than a numeric secondary metric. This is expected. The diagnostic report
+shows the collected sample count; when lock profiling observes no contention, it reports zero
+samples and intentionally omits an empty flame graph.
+
+The manual `Benchmarks` workflow requires one `profile_benchmark` method and one
+`profile_java_version` for diagnostics. A profiling dispatch runs only that method on the selected
+JDK; it does not also start the normal all-benchmark Java 8/11 matrix. Scheduled and non-profiling
+runs continue to use the normal matrix. Selecting `all` runs CPU, wall-clock, lock, and GC profiling
+as separate steps; `capture_jfr` adds a separate JFR run. The uploaded files depend on the selected
+modes and can include JFR recordings, flame graphs, text summaries, JMH logs, and JSON reports. On
+the hosted Linux runner, CPU profiling uses async-profiler's `ctimer` event so it does not depend on
+`perf_event` permissions.
+
 ## Metrics
 
 ### Sample Validity

@@ -136,6 +136,42 @@ java -jar seatunnel-benchmarks/target/benchmarks.jar SeaTunnelRowBenchmark \
 快速功能验证时可以增加 `-f 1 -wi 0 -i 1 -r 1s` 缩短运行时间。没有预热且只有一个样本的
 结果不能用于性能结论。
 
+### 诊断不稳定的 Benchmark
+
+只有正常运行出现异常的 Score、Error 或 CV 后，才使用 profiling 继续定位。Profiler 会引入
+额外开销，因此诊断报告与正常报告完全分开，诊断 Score 不能用于性能回归比较。诊断 selector
+必须且只能匹配一个 benchmark 方法；`.*` 或能够匹配多个方法的类名会被拒绝。
+
+运行 CPU、wall-clock 或 lock profiling 前，需要安装完整的 async-profiler，并设置
+`ASYNC_PROFILER_HOME`。Runner 会先生成 JFR，再使用安装包内的 `jfrconv` 生成正向和反向
+火焰图。GC profiling 和 JFR capture 使用 JMH 内置 profiler，不依赖 async-profiler：
+
+```bash
+bash tools/benchmarks/profile_benchmarks.sh profile cpu --benchmark 'IntermediateQueueBenchmark.disruptorRecordHandoff$'
+bash tools/benchmarks/profile_benchmarks.sh profile wall --benchmark 'IntermediateQueueBenchmark.disruptorRecordHandoff$'
+bash tools/benchmarks/profile_benchmarks.sh profile lock --benchmark 'IntermediateQueueBenchmark.disruptorRecordHandoff$'
+bash tools/benchmarks/profile_benchmarks.sh profile gc --benchmark 'IntermediateQueueBenchmark.disruptorRecordHandoff$'
+bash tools/benchmarks/profile_benchmarks.sh capture jfr --benchmark 'IntermediateQueueBenchmark.disruptorRecordHandoff$'
+```
+
+CPU、wall-clock 和 lock 模式直接使用 JMH 的 async-profiler 集成，GC 模式使用 JMH GC
+profiler，`capture jfr` 使用 JMH JFR profiler。Runner 始终使用一个 fork，防止后续 fork
+覆盖文件型 profiler 的产物。预热和测量设置默认仍来自 benchmark 注解；如需覆盖，将参数
+放在 `--` 后，例如 `-- -wi 1 -i 1 -w 1s -r 1s`。默认输出目录每次运行都不同；显式指定
+的 `--output` 目录必须为空，避免旧产物混入报告。
+
+async-profiler 产生文件而不是数值型 secondary metric，因此原始 JMH JSON 中的
+`secondaryMetrics.async` Score 为 `NaN`，这是预期行为。诊断报告会显示采集到的样本数；
+lock profiling 没有观察到竞争时会报告 0 个样本，并且不会生成没有内容的火焰图。
+
+手动触发 `Benchmarks` workflow 时，诊断任务必须选择一个 `profile_benchmark` 方法和一个
+`profile_java_version`。Profiling dispatch 只用所选 JDK 运行该方法，不会同时启动正常的
+全量 benchmark Java 8/11 matrix；定时任务和非 profiling 的手动任务仍使用正常 matrix。
+Profiling 选择 `all` 会分别执行 CPU、wall-clock、lock 和 GC step，`capture_jfr` 会增加
+一个独立的 JFR 运行。上传的文件随所选模式而变化，包括 JFR、火焰图、文本摘要、JMH 日志
+和 JSON 报告。GitHub 托管的 Linux runner 使用 async-profiler 的 `ctimer` 事件进行 CPU
+profiling，不依赖 `perf_event` 权限。
+
 ## 指标
 
 ### 样本有效性
