@@ -176,14 +176,14 @@ samples and intentionally omits an empty flame graph.
 
 The manual `Benchmarks` workflow requires one `profile_benchmark` method and one
 `profile_java_version` for diagnostics. A profiling dispatch runs only that method on the selected
-JDK; it does not also start the separate normal Java 8 and Java 11 jobs. Scheduled and non-profiling
-runs continue to use both normal jobs. Selecting `all` runs CPU, wall-clock, lock, and GC profiling
-as separate steps and uploads four independently downloadable artifacts; `capture_jfr` adds a
-fifth JFR artifact. Each artifact contains only its mode's JFR recordings, flame graphs, text
-summaries, JMH logs, and JSON reports. The job summary shows the target, benchmark settings,
-per-mode results, and independent artifact names without repeating the full file inventory. On the
-hosted Linux runner, CPU profiling uses async-profiler's `ctimer` event so it does not depend on
-`perf_event` permissions.
+JDK; it does not also start the normal all-benchmark Java 8/11 matrix. Scheduled and non-profiling
+runs continue to use the normal matrix. Selecting `all` runs CPU, wall-clock, lock, and GC profiling
+as separate steps and uploads four independently downloadable artifacts; `capture_jfr` adds a fifth
+JFR artifact. Each artifact contains only its mode's JFR recordings, flame graphs, text summaries,
+JMH logs, and JSON reports. The job summary shows the target, benchmark settings, per-mode results,
+and independent artifact names without repeating the full file inventory. On the hosted Linux
+runner, CPU profiling uses async-profiler's `ctimer` event so it does not depend on `perf_event`
+permissions.
 
 ## Metrics
 
