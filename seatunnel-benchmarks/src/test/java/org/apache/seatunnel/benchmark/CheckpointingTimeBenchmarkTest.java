@@ -21,6 +21,7 @@ import org.junit.jupiter.api.Test;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
+import org.openjdk.jmh.annotations.Threads;
 
 import java.util.concurrent.TimeUnit;
 
@@ -40,6 +41,7 @@ class CheckpointingTimeBenchmarkTest {
         assertEquals(
                 Mode.AverageTime,
                 CheckpointingTimeBenchmark.class.getAnnotation(BenchmarkMode.class).value()[0]);
+        assertEquals(1, CheckpointingTimeBenchmark.class.getAnnotation(Threads.class).value());
     }
 
     @Test

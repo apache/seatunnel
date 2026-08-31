@@ -22,6 +22,7 @@ import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Mode;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
+import org.openjdk.jmh.annotations.Threads;
 import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
@@ -33,6 +34,7 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 /** Measures regular checkpoint completion time for one input pipeline. */
 @BenchmarkMode(Mode.AverageTime)
 @OutputTimeUnit(SECONDS)
+@Threads(1)
 @Fork(
         value = 3,
         jvmArgsAppend = {
@@ -57,8 +59,8 @@ public class CheckpointingTimeBenchmark extends BenchmarkBase {
     }
 
     @Benchmark
-    public void checkpointSingleInput(SeaTunnelCheckpointEnvironmentContext context)
+    public void checkpointSingleInput(CheckpointingTimeBenchmarkPipeline pipeline)
             throws Exception {
-        context.triggerCheckpoint();
+        pipeline.triggerCheckpoint();
     }
 }

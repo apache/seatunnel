@@ -20,27 +20,12 @@ package org.apache.seatunnel.benchmark;
 import org.apache.seatunnel.common.config.Common;
 import org.apache.seatunnel.common.config.DeployMode;
 import org.apache.seatunnel.engine.client.SeaTunnelClient;
-import org.apache.seatunnel.engine.client.job.ClientJobExecutionEnvironment;
-import org.apache.seatunnel.engine.client.job.ClientJobProxy;
 import org.apache.seatunnel.engine.common.config.ConfigProvider;
-import org.apache.seatunnel.engine.common.config.JobConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelClientConfig;
 import org.apache.seatunnel.engine.common.config.SeaTunnelConfig;
-import org.apache.seatunnel.engine.common.job.JobStatus;
-import org.apache.seatunnel.engine.common.utils.PassiveCompletableFuture;
-import org.apache.seatunnel.engine.core.checkpoint.CheckpointHistoryEntry;
-import org.apache.seatunnel.engine.core.checkpoint.CheckpointInfo;
-import org.apache.seatunnel.engine.core.checkpoint.CheckpointStatus;
-import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.SeaTunnelServerStarter;
-import org.apache.seatunnel.engine.server.checkpoint.CheckpointCoordinator;
-import org.apache.seatunnel.engine.server.checkpoint.CompletedCheckpoint;
-import org.apache.seatunnel.engine.server.checkpoint.monitor.CheckpointMonitorService;
-import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
-import org.apache.seatunnel.engine.server.master.JobMaster;
 
 import org.openjdk.jmh.annotations.Level;
-import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
@@ -65,21 +50,18 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
-import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-/** Two-node Zeta master/worker context for repeatedly checkpointing one streaming job. */
+/** JMH environment that owns a dedicated two-node Zeta master/worker cluster and its client. */
 @State(Scope.Thread)
 public class SeaTunnelCheckpointEnvironmentContext {
 
     public static final MemorySize DEBLOATING_RECORD_SIZE = MemorySize.parse("1b");
     public static final MemorySize UNALIGNED_RECORD_SIZE = MemorySize.parse("1kb");
 
-    private static final String JOB_TEMPLATE =
-            loadTemplate("/benchmark/source-sink-checkpoint.conf.template");
     private static final String ENGINE_CONFIG_TEMPLATE =
             loadTemplate("/benchmark/engine-checkpoint.yaml.template");
     private static final String HAZELCAST_MASTER_CONFIG_TEMPLATE =
@@ -87,16 +69,7 @@ public class SeaTunnelCheckpointEnvironmentContext {
     private static final String HAZELCAST_WORKER_CONFIG_TEMPLATE =
             loadTemplate("/benchmark/hazelcast-checkpoint-worker.yaml.template");
     private static final Duration START_TIMEOUT = Duration.ofMinutes(2);
-    private static final Duration CHECKPOINT_TIMEOUT = Duration.ofMinutes(2);
-    private static final Duration CANCEL_TIMEOUT = Duration.ofSeconds(30);
-    private static final String DEBLOATING_RECORD_SIZE_VALUE = "1b";
-    private static final String UNALIGNED_RECORD_SIZE_VALUE = "1kb";
-    private static final long SOURCE_RATE_PER_SECOND = 10_000L;
-    private static final int PIPELINE_PARALLELISM = 4;
     private static final int WORKER_SLOT_COUNT = 12;
-
-    @Param({"1b", "1kb"})
-    public String recordSize;
 
     private Path clusterHome;
     private Path checkpointStorageDirectory;
@@ -105,18 +78,13 @@ public class SeaTunnelCheckpointEnvironmentContext {
     private HazelcastInstanceImpl masterInstance;
     private HazelcastInstanceImpl workerInstance;
     private SeaTunnelClient client;
-    private ClientJobProxy jobProxy;
-    private CheckpointCoordinator checkpointCoordinator;
-    private CheckpointMonitorService checkpointMonitorService;
-    private int pipelineId;
-    private boolean checkpointCompleted;
     private String previousSeaTunnelHome;
     private String previousUppercaseSeaTunnelHome;
     private String previousSeaTunnelConfig;
     private String previousCommonSeaTunnelHome;
     private DeployMode previousDeployMode;
 
-    /** Starts a dedicated master and worker, then submits one long-running benchmark job. */
+    /** Starts a dedicated master, worker, and client for checkpoint benchmark pipelines. */
     @Setup(Level.Trial)
     public void setUp() throws Exception {
         try {
@@ -144,21 +112,6 @@ public class SeaTunnelCheckpointEnvironmentContext {
                     .getConnectionRetryConfig()
                     .setClusterConnectTimeoutMillis(30_000L);
             client = new SeaTunnelClient(clientConfig);
-
-            Path jobConfigFile = clusterHome.resolve("checkpoint-benchmark.conf");
-            Files.write(
-                    jobConfigFile, createCheckpointJobConfig().getBytes(StandardCharsets.UTF_8));
-            JobConfig jobConfig = new JobConfig();
-            jobConfig.setName("checkpoint-benchmark-" + UUID.randomUUID());
-            ClientJobExecutionEnvironment environment =
-                    client.createExecutionContext(
-                            jobConfigFile.toString(), jobConfig, masterConfig);
-            jobProxy = environment.execute();
-            waitUntilRunning();
-            resolveCheckpointControl();
-
-            // The MASTER node has no worker slots, so RUNNING proves execution is on WORKER.
-            Thread.sleep(2_000L);
         } catch (Exception setupFailure) {
             try {
                 tearDown();
@@ -169,24 +122,17 @@ public class SeaTunnelCheckpointEnvironmentContext {
         }
     }
 
-    /** Stops the job and both nodes after verifying checkpoint and IMap persistence. */
+    /** Stops the client and both benchmark cluster nodes. */
     @TearDown(Level.Trial)
     public void tearDown() throws Exception {
         Exception failure = null;
         try {
-            if (checkpointCompleted) {
-                verifyCheckpointWasPersisted();
-            }
-            if (jobProxy != null && !jobProxy.getJobStatus().isEndState()) {
-                jobProxy.cancelJob();
-                waitUntilCanceled();
+            if (client != null) {
+                client.close();
             }
         } catch (Exception cleanupFailure) {
             failure = cleanupFailure;
         } finally {
-            if (client != null) {
-                client.close();
-            }
             if (workerInstance != null) {
                 workerInstance.shutdown();
             }
@@ -208,41 +154,6 @@ public class SeaTunnelCheckpointEnvironmentContext {
         if (failure != null) {
             throw failure;
         }
-    }
-
-    /** Triggers a regular checkpoint and waits until the coordinator records its completion. */
-    public void triggerCheckpoint() throws Exception {
-        if (checkpointCoordinator == null || checkpointMonitorService == null) {
-            throw new IllegalStateException("Checkpoint benchmark job has not been started");
-        }
-        long previousCheckpointId = latestCompletedCheckpointId();
-        PassiveCompletableFuture<CompletedCheckpoint> checkpoint =
-                CheckpointBenchmarkTrigger.trigger(checkpointCoordinator);
-        checkpoint.get(CHECKPOINT_TIMEOUT.toMillis(), TimeUnit.MILLISECONDS);
-
-        long deadline = System.nanoTime() + CHECKPOINT_TIMEOUT.toNanos();
-        while (System.nanoTime() < deadline) {
-            if (latestCompletedCheckpointId() > previousCheckpointId
-                    && !CheckpointBenchmarkTrigger.hasPendingCheckpoint(checkpointCoordinator)) {
-                checkpointCompleted = true;
-                return;
-            }
-            Thread.sleep(1L);
-        }
-        throw new IllegalStateException("Timed out waiting for benchmark checkpoint to complete");
-    }
-
-    String createCheckpointJobConfig() {
-        return renderTemplate(
-                JOB_TEMPLATE,
-                "payload_size",
-                selectedRecordSize().getBytes(),
-                "source_rate_per_second",
-                SOURCE_RATE_PER_SECOND,
-                "pipeline_parallelism",
-                PIPELINE_PARALLELISM,
-                "result_path",
-                clusterHome.resolve("checkpoint-results").toAbsolutePath());
     }
 
     private void prepareClusterHome() throws IOException {
@@ -328,96 +239,28 @@ public class SeaTunnelCheckpointEnvironmentContext {
         throw new IllegalStateException("Timed out forming checkpoint master/worker cluster");
     }
 
-    private void waitUntilRunning() throws InterruptedException {
-        long deadline = System.nanoTime() + START_TIMEOUT.toNanos();
-        while (System.nanoTime() < deadline) {
-            JobStatus status = jobProxy.getJobStatus();
-            if (status == JobStatus.RUNNING) {
-                return;
-            }
-            if (status.isEndState()) {
-                throw new IllegalStateException(
-                        "Checkpoint benchmark job ended during setup with " + status);
-            }
-            Thread.sleep(100L);
-        }
-        throw new IllegalStateException("Timed out waiting for checkpoint benchmark job to run");
+    Path getClusterHome() {
+        return clusterHome;
     }
 
-    private void waitUntilCanceled() throws InterruptedException {
-        long deadline = System.nanoTime() + CANCEL_TIMEOUT.toNanos();
-        while (System.nanoTime() < deadline) {
-            if (jobProxy.getJobStatus().isEndState()) {
-                return;
-            }
-            Thread.sleep(10L);
-        }
-        throw new IllegalStateException("Timed out canceling checkpoint benchmark job");
+    Path getCheckpointStorageDirectory() {
+        return checkpointStorageDirectory;
     }
 
-    private void resolveCheckpointControl() {
-        SeaTunnelServer server =
-                masterInstance.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
-        if (!server.isMasterNode()) {
-            throw new IllegalStateException("Checkpoint benchmark master node is not active");
-        }
-        JobMaster jobMaster = server.getCoordinatorService().getJobMaster(jobProxy.getJobId());
-        if (jobMaster == null) {
-            throw new IllegalStateException("Checkpoint benchmark JobMaster is unavailable");
-        }
-        List<SubPlan> pipelines = jobMaster.getPhysicalPlan().getPipelineList();
-        if (pipelines.size() != 1) {
-            throw new IllegalStateException(
-                    "Checkpoint benchmark requires one pipeline but found " + pipelines.size());
-        }
-        pipelineId = pipelines.get(0).getPipelineId();
-        checkpointCoordinator =
-                jobMaster.getCheckpointManager().getCheckpointCoordinator(pipelineId);
-        checkpointMonitorService = server.getCheckpointMonitorService();
+    Path getMapStoreDirectory() {
+        return mapStoreDirectory;
     }
 
-    private long latestCompletedCheckpointId() {
-        return checkpointMonitorService
-                .getHistory(jobProxy.getJobId(), pipelineId, 1, CheckpointStatus.COMPLETED).stream()
-                .map(CheckpointHistoryEntry::getCheckpointInfo)
-                .mapToLong(CheckpointInfo::getCheckpointId)
-                .findFirst()
-                .orElse(-1L);
+    SeaTunnelConfig getMasterConfig() {
+        return masterConfig;
     }
 
-    private void verifyCheckpointWasPersisted() throws Exception {
-        verifyPersistenceDirectory(checkpointStorageDirectory, ".ser", "checkpoint");
-        verifyPersistenceDirectory(mapStoreDirectory, null, "MapStore");
+    HazelcastInstanceImpl getMasterInstance() {
+        return masterInstance;
     }
 
-    private static void verifyPersistenceDirectory(
-            Path directory, String fileSuffix, String storageName) throws Exception {
-        if (directory == null || !Files.isDirectory(directory)) {
-            throw new IllegalStateException(
-                    storageName + " storage directory was not created: " + directory);
-        }
-        try (Stream<Path> files = Files.walk(directory)) {
-            if (files.noneMatch(
-                    path ->
-                            Files.isRegularFile(path)
-                                    && (fileSuffix == null
-                                            || path.getFileName()
-                                                    .toString()
-                                                    .endsWith(fileSuffix)))) {
-                throw new IllegalStateException(
-                        "No persisted " + storageName + " state was found under " + directory);
-            }
-        }
-    }
-
-    private MemorySize selectedRecordSize() {
-        if (DEBLOATING_RECORD_SIZE_VALUE.equals(recordSize)) {
-            return DEBLOATING_RECORD_SIZE;
-        }
-        if (UNALIGNED_RECORD_SIZE_VALUE.equals(recordSize)) {
-            return UNALIGNED_RECORD_SIZE;
-        }
-        throw new IllegalArgumentException("Unsupported checkpoint record size: " + recordSize);
+    SeaTunnelClient getClient() {
+        return client;
     }
 
     /** Immutable binary memory size used only by this checkpoint environment. */
@@ -483,10 +326,6 @@ public class SeaTunnelCheckpointEnvironmentContext {
         masterInstance = null;
         workerInstance = null;
         client = null;
-        jobProxy = null;
-        checkpointCoordinator = null;
-        checkpointMonitorService = null;
-        checkpointCompleted = false;
     }
 
     private static String loadTemplate(String resourceName) {
