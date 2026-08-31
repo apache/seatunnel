@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.parser;
 import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.operation.event.TruncateTableEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableEvent;
 
@@ -42,6 +43,7 @@ import java.util.stream.Collectors;
 public class CustomMySqlAntlrDdlParser extends MySqlAntlrDdlParser {
 
     private final LinkedList<AlterTableEvent> parsedEvents;
+    private final LinkedList<TruncateTableEvent> parsedTableOperations;
 
     private RelationalDatabaseConnectorConfig dbzConnectorConfig;
 
@@ -52,6 +54,7 @@ public class CustomMySqlAntlrDdlParser extends MySqlAntlrDdlParser {
     public CustomMySqlAntlrDdlParser(RelationalDatabaseConnectorConfig dbzConnectorConfig) {
         super(true, false, true, (MySqlValueConverters) null, Tables.TableFilter.includeAll());
         this.parsedEvents = new LinkedList<>();
+        this.parsedTableOperations = new LinkedList<>();
         this.dbzConnectorConfig = dbzConnectorConfig;
     }
 
@@ -311,12 +314,19 @@ public class CustomMySqlAntlrDdlParser extends MySqlAntlrDdlParser {
 
     @Override
     protected AntlrDdlParserListener createParseTreeWalkerListener() {
-        return new CustomMySqlAntlrDdlParserListener(dbzConnectorConfig, this, parsedEvents);
+        return new CustomMySqlAntlrDdlParserListener(
+                dbzConnectorConfig, this, parsedEvents, parsedTableOperations);
     }
 
     public List<AlterTableEvent> getAndClearParsedEvents() {
         List<AlterTableEvent> result = Lists.newArrayList(parsedEvents);
         parsedEvents.clear();
+        return result;
+    }
+
+    public List<TruncateTableEvent> getAndClearParsedTableOperations() {
+        List<TruncateTableEvent> result = Lists.newArrayList(parsedTableOperations);
+        parsedTableOperations.clear();
         return result;
     }
 

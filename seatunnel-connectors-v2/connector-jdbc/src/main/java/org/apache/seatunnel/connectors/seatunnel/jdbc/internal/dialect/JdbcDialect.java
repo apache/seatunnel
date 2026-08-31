@@ -24,6 +24,8 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.converter.BasicTypeDefine;
 import org.apache.seatunnel.api.table.converter.TypeConverter;
+import org.apache.seatunnel.api.table.operation.event.TableOperationEvent;
+import org.apache.seatunnel.api.table.operation.event.TruncateTableEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterColumnCommentEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableAddColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableChangeColumnEvent;
@@ -568,6 +570,39 @@ public interface JdbcDialect extends Serializable {
             } else {
                 throw new UnsupportedOperationException("Unsupported schemaChangeEvent: " + event);
             }
+        }
+    }
+
+    /**
+     * Apply a table-level operation such as {@code TRUNCATE TABLE}. Implementations flush through
+     * the caller; this method only executes the destination SQL.
+     *
+     * @param connection jdbc connection
+     * @param tablePath sink table path
+     * @param event table operation event
+     */
+    default void applyTableOperation(
+            Connection connection, TablePath tablePath, TableOperationEvent event)
+            throws SQLException {
+        if (event instanceof TruncateTableEvent) {
+            applyTruncateTable(connection, tablePath);
+            return;
+        }
+        throw new UnsupportedOperationException("Unsupported tableOperationEvent: " + event);
+    }
+
+    /**
+     * Remove all rows from the sink table while keeping the table object.
+     *
+     * @param connection jdbc connection
+     * @param tablePath sink table path
+     */
+    default void applyTruncateTable(Connection connection, TablePath tablePath)
+            throws SQLException {
+        String sql = "TRUNCATE TABLE " + tableIdentifier(tablePath);
+        try (Statement statement = connection.createStatement()) {
+            log.info("Executing table operation SQL: {}", sql);
+            statement.execute(sql);
         }
     }
 

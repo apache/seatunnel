@@ -15,38 +15,31 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.api.source;
+package org.apache.seatunnel.api.table.operation.event;
 
-import org.apache.seatunnel.api.table.operation.event.TableOperationEvent;
+import org.apache.seatunnel.api.event.Event;
+import org.apache.seatunnel.api.table.catalog.TableIdentifier;
+import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.api.table.operation.TableOperationType;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 
 /**
- * A {@link Collector} is used to collect data from {@link SourceReader}.
+ * A table-level operation that is not a structural {@link SchemaChangeEvent}.
  *
- * @param <T> data type.
+ * <p>{@code TRUNCATE TABLE} belongs here: the table object and schema stay in place, only the data
+ * is removed.
  */
-public interface Collector<T> {
+public interface TableOperationEvent extends Event {
 
-    void collect(T record);
+    TableIdentifier tableIdentifier();
 
-    default void markSchemaChangeBeforeCheckpoint() {}
-
-    default void collect(SchemaChangeEvent event) {}
-
-    default void collect(TableOperationEvent event) {}
-
-    default void markSchemaChangeAfterCheckpoint() {}
-
-    /**
-     * Returns the checkpoint lock.
-     *
-     * @return The object to use as the lock
-     */
-    Object getCheckpointLock();
-
-    default boolean isEmptyThisPollNext() {
-        return false;
+    default TablePath tablePath() {
+        return tableIdentifier().toTablePath();
     }
 
-    default void resetEmptyThisPollNext() {}
+    TableOperationType operationType();
+
+    String getStatement();
+
+    void setStatement(String statement);
 }

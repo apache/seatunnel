@@ -24,6 +24,7 @@ import org.apache.seatunnel.api.common.metrics.Meter;
 import org.apache.seatunnel.api.common.metrics.MetricNames;
 import org.apache.seatunnel.api.common.metrics.MetricsContext;
 import org.apache.seatunnel.api.source.Collector;
+import org.apache.seatunnel.api.table.operation.event.TableOperationEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.core.starter.flowcontrol.FlowControlGate;
@@ -80,6 +81,12 @@ public class FlinkRowCollector implements Collector<SeaTunnelRow> {
         options.put("schema_change_event", event);
         eventRow.setOptions(options);
         readerOutput.collect(eventRow);
+    }
+
+    @Override
+    public void collect(TableOperationEvent event) {
+        throw new UnsupportedOperationException(
+                "Table-operation events such as TRUNCATE TABLE are only supported on the Zeta engine.");
     }
 
     @Override
