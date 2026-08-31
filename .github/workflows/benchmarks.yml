@@ -95,7 +95,7 @@ concurrency:
 
 jobs:
   benchmark:
-    name: Run benchmarks with Java ${{ matrix.java-version }}
+    name: Run normal benchmarks with Java 8 and 11
     if: >-
       github.event_name == 'schedule' ||
       (github.event_name == 'workflow_dispatch' &&
