@@ -191,6 +191,14 @@ jobs:
           ref: ${{ github.event.inputs.seatunnel_ref || 'dev' }}
           path: baseline
 
+      - name: Checkout workflow reporter
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          path: workflow-source
+          sparse-checkout: tools/benchmarks/profile_report.py
+          sparse-checkout-cone-mode: false
+
       - name: Checkout PR
         if: env.PR_NUMBER != ''
         uses: actions/checkout@v4
@@ -356,7 +364,7 @@ jobs:
       - name: Publish diagnostic summary
         if: always()
         run: |
-          python3 baseline/tools/benchmarks/profile_report.py summary \
+          python3 workflow-source/tools/benchmarks/profile_report.py summary \
             --diagnostics-dir benchmark-diagnostics \
             --profile "${{ github.event.inputs.profile }}" \
             --capture-jfr "${{ github.event.inputs.capture_jfr }}" \
