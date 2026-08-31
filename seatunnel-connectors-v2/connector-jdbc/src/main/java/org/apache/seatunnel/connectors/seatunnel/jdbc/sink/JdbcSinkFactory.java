@@ -28,6 +28,7 @@ import org.apache.seatunnel.api.options.ConnectorCommonOptions;
 import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.sink.DataSaveMode;
 import org.apache.seatunnel.api.sink.SchemaSaveMode;
+import org.apache.seatunnel.api.sink.TablePlaceholder;
 import org.apache.seatunnel.api.table.catalog.Catalog;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
 import org.apache.seatunnel.api.table.catalog.Column;
@@ -55,6 +56,9 @@ import org.apache.commons.collections4.CollectionUtils;
 import com.google.auto.service.AutoService;
 
 import java.sql.Connection;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
@@ -118,35 +122,14 @@ public class JdbcSinkFactory implements TableSinkFactory, SupportSinkDryRunValid
             map.put(JdbcSinkOptions.TABLE.key(), catalogTable.getTableId().getTableName());
         }
         map.put(JdbcSinkOptions.DATABASE.key(), catalogTable.getTableId().getDatabaseName());
-        PrimaryKey primaryKey = catalogTable.getTableSchema().getPrimaryKey();
-        if (CollectionUtils.isEmpty(config.get(JdbcSinkOptions.PRIMARY_KEYS))) {
-            if (primaryKey != null && !CollectionUtils.isEmpty(primaryKey.getColumnNames())) {
-                map.put(
-                        JdbcSinkOptions.PRIMARY_KEYS.key(),
-                        String.join(",", primaryKey.getColumnNames()));
-            } else {
-                Optional<ConstraintKey> keyOptional =
-                        catalogTable.getTableSchema().getConstraintKeys().stream()
-                                .filter(
-                                        key ->
-                                                ConstraintKey.ConstraintType.UNIQUE_KEY.equals(
-                                                        key.getConstraintType()))
-                                .findFirst();
-                keyOptional.ifPresent(
-                        constraintKey ->
-                                map.put(
-                                        JdbcSinkOptions.PRIMARY_KEYS.key(),
-                                        constraintKey.getColumnNames().stream()
-                                                .map(
-                                                        ConstraintKey.ConstraintKeyColumn
-                                                                ::getColumnName)
-                                                .collect(Collectors.joining(","))));
-            }
-        } else {
+        Optional<List<String>> multiTablePrimaryKeys =
+                resolveMultiTablePrimaryKeys(config, catalogTable);
+        if (multiTablePrimaryKeys.isPresent()) {
+            List<String> primaryKeys = multiTablePrimaryKeys.get();
             PrimaryKey configPk =
                     PrimaryKey.of(
-                            catalogTable.getTablePath().getTableName() + "_config_pk",
-                            config.get(JdbcSinkOptions.PRIMARY_KEYS));
+                            catalogTable.getTablePath().getTableName() + "_config_pk", primaryKeys);
+            map.put(JdbcSinkOptions.PRIMARY_KEYS.key(), String.join(",", primaryKeys));
             TableSchema tableSchema = catalogTable.getTableSchema();
             catalogTable =
                     CatalogTable.of(
@@ -160,6 +143,50 @@ public class JdbcSinkFactory implements TableSinkFactory, SupportSinkDryRunValid
                             catalogTable.getPartitionKeys(),
                             catalogTable.getComment(),
                             catalogTable.getCatalogName());
+        } else {
+            PrimaryKey primaryKey = catalogTable.getTableSchema().getPrimaryKey();
+            if (CollectionUtils.isEmpty(config.get(JdbcSinkOptions.PRIMARY_KEYS))) {
+                if (primaryKey != null && !CollectionUtils.isEmpty(primaryKey.getColumnNames())) {
+                    map.put(
+                            JdbcSinkOptions.PRIMARY_KEYS.key(),
+                            String.join(",", primaryKey.getColumnNames()));
+                } else {
+                    Optional<ConstraintKey> keyOptional =
+                            catalogTable.getTableSchema().getConstraintKeys().stream()
+                                    .filter(
+                                            key ->
+                                                    ConstraintKey.ConstraintType.UNIQUE_KEY.equals(
+                                                            key.getConstraintType()))
+                                    .findFirst();
+                    keyOptional.ifPresent(
+                            constraintKey ->
+                                    map.put(
+                                            JdbcSinkOptions.PRIMARY_KEYS.key(),
+                                            constraintKey.getColumnNames().stream()
+                                                    .map(
+                                                            ConstraintKey.ConstraintKeyColumn
+                                                                    ::getColumnName)
+                                                    .collect(Collectors.joining(","))));
+                }
+            } else {
+                PrimaryKey configPk =
+                        PrimaryKey.of(
+                                catalogTable.getTablePath().getTableName() + "_config_pk",
+                                config.get(JdbcSinkOptions.PRIMARY_KEYS));
+                TableSchema tableSchema = catalogTable.getTableSchema();
+                catalogTable =
+                        CatalogTable.of(
+                                catalogTable.getTableId(),
+                                TableSchema.builder()
+                                        .primaryKey(configPk)
+                                        .constraintKey(tableSchema.getConstraintKeys())
+                                        .columns(tableSchema.getColumns())
+                                        .build(),
+                                catalogTable.getOptions(),
+                                catalogTable.getPartitionKeys(),
+                                catalogTable.getComment(),
+                                catalogTable.getCatalogName());
+            }
         }
         config = ReadonlyConfig.fromMap(new HashMap<>(map));
         final ReadonlyConfig options = config;
@@ -192,6 +219,126 @@ public class JdbcSinkFactory implements TableSinkFactory, SupportSinkDryRunValid
                         finalCatalogTable);
     }
 
+    Optional<List<String>> resolveMultiTablePrimaryKeys(
+            ReadonlyConfig config, CatalogTable catalogTable) {
+        Map<String, Object> multiTableConfig = config.get(JdbcSinkOptions.MULTI_TABLE_CONFIG);
+        if (multiTableConfig == null || multiTableConfig.isEmpty()) {
+            return Optional.empty();
+        }
+        Object primaryKeysObj = multiTableConfig.get("primary_keys");
+        if (!(primaryKeysObj instanceof Map)) {
+            return Optional.empty();
+        }
+        String tableName = catalogTable.getTableId().getTableName();
+        Map<?, ?> primaryKeyMap = (Map<?, ?>) primaryKeysObj;
+        for (Map.Entry<?, ?> entry : primaryKeyMap.entrySet()) {
+            String pattern = String.valueOf(entry.getKey());
+            if (matchesPattern(tableName, pattern)) {
+                return Optional.of(
+                        expandPrimaryKeyPlaceholder(
+                                toPrimaryKeyList(entry.getValue()), catalogTable, pattern));
+            }
+        }
+        return Optional.empty();
+    }
+
+    private boolean matchesPattern(String tableName, String pattern) {
+        try {
+            return tableName.matches(pattern);
+        } catch (java.util.regex.PatternSyntaxException e) {
+            throw new JdbcConnectorException(
+                    JdbcConnectorErrorCode.INVALID_MULTI_TABLE_CONFIG,
+                    String.format(
+                            "Invalid regular expression '%s' in multi-table_config.primary_keys.",
+                            pattern),
+                    e);
+        }
+    }
+
+    private List<String> toPrimaryKeyList(Object value) {
+        if (value instanceof List) {
+            List<String> keys = new ArrayList<>();
+            for (Object element : (List<?>) value) {
+                keys.add(String.valueOf(element));
+            }
+            return keys;
+        }
+        if (value instanceof String) {
+            String stringValue = (String) value;
+            if (StringUtils.isBlank(stringValue)) {
+                return Collections.emptyList();
+            }
+            return Arrays.stream(stringValue.split(","))
+                    .map(String::trim)
+                    .collect(Collectors.toList());
+        }
+        throw new JdbcConnectorException(
+                JdbcConnectorErrorCode.INVALID_MULTI_TABLE_CONFIG,
+                "multi-table_config.primary_keys values must be a string or a list of strings.");
+    }
+
+    private List<String> expandPrimaryKeyPlaceholder(
+            List<String> keys, CatalogTable catalogTable, String pattern) {
+        String primaryKeyPlaceholder =
+                "${" + TablePlaceholder.REPLACE_PRIMARY_KEY.getPlaceholder() + "}";
+        String uniqueKeyPlaceholder =
+                "${" + TablePlaceholder.REPLACE_UNIQUE_KEY.getPlaceholder() + "}";
+        List<String> primaryKeyColumns = getPrimaryKeyColumns(catalogTable);
+        List<String> uniqueKeyColumns = getUniqueKeyColumns(catalogTable);
+        List<String> resolved = new ArrayList<>();
+        for (String key : keys) {
+            if (primaryKeyPlaceholder.equals(key)) {
+                if (primaryKeyColumns.isEmpty()) {
+                    throw new JdbcConnectorException(
+                            JdbcConnectorErrorCode.INVALID_MULTI_TABLE_CONFIG,
+                            String.format(
+                                    "Table '%s' matched pattern '%s' in multi-table_config.primary_keys "
+                                            + "which uses '${primary_key}', but the upstream table has no primary key.",
+                                    catalogTable.getTableId().getTableName(), pattern));
+                }
+                resolved.addAll(primaryKeyColumns);
+            } else if (uniqueKeyPlaceholder.equals(key)) {
+                if (uniqueKeyColumns.isEmpty()) {
+                    throw new JdbcConnectorException(
+                            JdbcConnectorErrorCode.INVALID_MULTI_TABLE_CONFIG,
+                            String.format(
+                                    "Table '%s' matched pattern '%s' in multi-table_config.primary_keys "
+                                            + "which uses '${unique_key}', but the upstream table has no unique key.",
+                                    catalogTable.getTableId().getTableName(), pattern));
+                }
+                resolved.addAll(uniqueKeyColumns);
+            } else {
+                resolved.add(key);
+            }
+        }
+        return resolved;
+    }
+
+    private List<String> getPrimaryKeyColumns(CatalogTable catalogTable) {
+        PrimaryKey primaryKey = catalogTable.getTableSchema().getPrimaryKey();
+        if (primaryKey == null || CollectionUtils.isEmpty(primaryKey.getColumnNames())) {
+            return Collections.emptyList();
+        }
+        return new ArrayList<>(primaryKey.getColumnNames());
+    }
+
+    private List<String> getUniqueKeyColumns(CatalogTable catalogTable) {
+        Optional<ConstraintKey> keyOptional =
+                catalogTable.getTableSchema().getConstraintKeys().stream()
+                        .filter(
+                                key ->
+                                        ConstraintKey.ConstraintType.UNIQUE_KEY.equals(
+                                                key.getConstraintType()))
+                        .findFirst();
+        return keyOptional
+                .map(
+                        constraintKey ->
+                                constraintKey.getColumnNames().stream()
+                                        .map(ConstraintKey.ConstraintKeyColumn::getColumnName)
+                                        .collect(Collectors.toList()))
+                .orElseGet(Collections::emptyList);
+    }
+
     @Override
     public OptionRule optionRule() {
         return OptionRule.builder()
@@ -220,6 +367,7 @@ public class JdbcSinkFactory implements TableSinkFactory, SupportSinkDryRunValid
                         JdbcSinkOptions.GENERATE_SINK_SQL,
                         JdbcSinkOptions.AUTO_COMMIT,
                         JdbcSinkOptions.PRIMARY_KEYS,
+                        JdbcSinkOptions.MULTI_TABLE_CONFIG,
                         JdbcSinkOptions.IS_PRIMARY_KEY_UPDATED,
                         JdbcSinkOptions.SUPPORT_UPSERT_BY_INSERT_ONLY,
                         JdbcSinkOptions.USE_COPY_STATEMENT,

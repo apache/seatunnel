@@ -22,7 +22,9 @@ import org.apache.seatunnel.shade.com.fasterxml.jackson.core.type.TypeReference;
 import org.apache.seatunnel.shade.com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.seatunnel.shade.com.typesafe.config.Config;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigFactory;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigParseOptions;
 import org.apache.seatunnel.shade.com.typesafe.config.ConfigRenderOptions;
+import org.apache.seatunnel.shade.com.typesafe.config.ConfigSyntax;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -74,7 +76,13 @@ public class ReadonlyConfig implements Serializable {
      */
     @Deprecated
     public Config toConfig() {
-        return ConfigFactory.parseMap(confData);
+        try {
+            return ConfigFactory.parseString(
+                    JACKSON_MAPPER.writeValueAsString(confData),
+                    ConfigParseOptions.defaults().setSyntax(ConfigSyntax.JSON));
+        } catch (JsonProcessingException e) {
+            throw new IllegalArgumentException("Json parsing exception.", e);
+        }
     }
 
     public Map<String, String> toMap() {
