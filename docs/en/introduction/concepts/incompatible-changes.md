@@ -60,6 +60,12 @@ You need to check this document before you upgrade to related version.
   }
   ```
 
+- **Breaking Change: An unknown log level is rejected by the runtime log level endpoint**
+  - **Affected component**: SeaTunnel Engine REST API — `POST /hazelcast/rest/maps/log-level`
+  - **Description**: The endpoint answered `200` with `{"status":"SUCCESS"}` for every request, including a level name it could not resolve (`DEBUGG`, `verbose`, a lowercase name of a level that does not exist, an empty value). Nothing was applied in that case, and the unresolved level was handed to log4j2 as `null`, which removes the explicit level of the logger instead of leaving it alone — so the logger silently fell back to its parent, or to `ERROR` for the root logger. An unknown level, a blank level and a missing `level` parameter are now rejected with `400` and a message listing the valid levels; a level name is still accepted in any letter case.
+  - **Impact**: Scripts and automation that only check the HTTP status now see `400` where they used to see `200`, for requests that never took effect in the first place. Requests with a resolvable level are unchanged.
+  - **Migration Guide**: Send a level log4j2 knows (`OFF`, `FATAL`, `ERROR`, `WARN`, `INFO`, `DEBUG`, `TRACE`, `ALL`, or a level registered by the configuration). The response body of a rejected request names the levels the node accepts.
+
 - **Breaking Change: `Condition.of(option, null)` no longer allowed**
   - **Affected component**: `seatunnel-api` — `org.apache.seatunnel.api.configuration.util.Condition`
   - **Description**: The `Condition` constructor now validates that binary literal operators (such as `EQUAL`, `NOT_EQUAL`, `GREATER_THAN`, etc.) must have a non-null `expectValue`. Previously, `Condition.of(option, null)` was silently accepted; it now throws `IllegalArgumentException` at construction time.
@@ -104,6 +110,12 @@ You need to check this document before you upgrade to related version.
 
 
 ### Connector Changes
+
+- **Breaking Change: BigQuery Sink Connector — default schema save mode introduces automatic table creation**
+  - **Affected component**: `seatunnel-connectors-v2/connector-bigquery`
+  - **Description**: The BigQuery sink connector (`connector-bigquery`) now implements `SupportSaveMode` with support for `schema_save_mode` and `data_save_mode`. The default `schema_save_mode` is set to `CREATE_SCHEMA_WHEN_NOT_EXIST`.
+  - **Impact**: Upgrading existing pipelines targeting a non-existent table will now automatically create the table in BigQuery with the source schema instead of failing fast at the BigQuery API layer.
+  - **Migration Guide**: To preserve the legacy fail-fast behavior, explicitly configure `schema_save_mode = "ERROR_WHEN_SCHEMA_NOT_EXIST"` in your BigQuery sink configuration.
 
 - **Breaking Change: ORC file sink preserves case of nested struct field names**
   - **Affected component**: `seatunnel-connectors-v2/connector-file/connector-file-base` (used by all File/HDFS/S3/OSS ORC sinks that share `OrcWriteStrategy`)
@@ -151,9 +163,9 @@ You need to check this document before you upgrade to related version.
   - **Affected component**: `seatunnel-connectors-v2/connector-prometheus`
   - **Description**: The Prometheus Sink no longer starts its own background flush thread. The connector-level `flush_interval` option has been removed. Timer-based flushing is now driven by the engine through `sink.flush.interval` in the job `env` block, which is **supported only by the Zeta engine**.
   - **Impact**:
-    - **Spark and Flink lose periodic timer-based flushing.** The removed `flush_interval` scheduler was a plain connector-owned thread that ran on all engines. Its replacement, `sink.flush.interval`, is a Zeta engine primitive; the Spark and Flink sink writer contexts do not implement it, so there is no periodic flush on those engines. On Spark and Flink the buffer is now flushed only when it reaches `batch_size` and when the writer is closed (it is not flushed on checkpoint). A low-throughput streaming job can therefore hold buffered points in memory until it stops; tune `batch_size` accordingly.
+    - **Spark and Flink lose sub-checkpoint timer-based flushing.** The removed `flush_interval` scheduler was a plain connector-owned thread that ran on all engines. Its replacement, `sink.flush.interval`, is a Zeta engine primitive; the Spark and Flink sink writer contexts do not implement it, so there is no periodic timer flush on those engines. On Spark and Flink the buffer is flushed when it reaches `batch_size`, on checkpoint (the sink flushes in `prepareCommit()`), and when the writer is closed. Buffered points are therefore bounded by the checkpoint interval rather than held until the job stops; for lower latency between checkpoints, tune `batch_size` accordingly.
     - A leftover `flush_interval` key in the `Prometheus` sink block is rejected only when the config is validated with `--check` / `--dry-run=static` / `--dry-run=connect` (which run `validateUnknownKeys`). A directly submitted job silently ignores the stray key; the connector logs a warning once per sink writer at startup instead (so a job with parallelism N, multiple tables, or replicas logs it multiple times).
-  - **Migration Guide**: Remove `flush_interval` from the `Prometheus` sink block. To keep timer-based flushing on Zeta, set `sink.flush.interval` (milliseconds) in the job `env` block. On Spark and Flink, rely on `batch_size`. The `batch_size` trigger and the final flush on writer close are unchanged on all engines.
+  - **Migration Guide**: Remove `flush_interval` from the `Prometheus` sink block. To keep timer-based flushing on Zeta, set `sink.flush.interval` (milliseconds) in the job `env` block. On Spark and Flink, buffered points are flushed on each checkpoint; tune `batch_size` for lower latency between checkpoints. The `batch_size` trigger and the final flush on writer close are unchanged on all engines.
 
 - **Breaking Change: File connectors reject `DOCTYPE` declarations in XML input (XXE hardening)**
   - **Affected component**: `seatunnel-connectors-v2/connector-file/connector-file-base` (`XmlReadStrategy`), and every file source built on it: LocalFile, HdfsFile, S3File, OssFile, OssJindoFile, CosFile, FtpFile, SftpFile (`file_format_type = xml`)
