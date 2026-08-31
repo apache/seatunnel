@@ -292,6 +292,24 @@ public class MultiTableManagerTest {
         }
     }
 
+    @Test
+    public void testConvertRowWithNullTableIdDoesNotThrow() throws IOException {
+        initSchema();
+        initData();
+        MultiTableManager multiTableManager =
+                new MultiTableManager(new CatalogTable[] {catalogTable1});
+        InternalRowConverter rowSerialization =
+                multiTableManager.getInternalRowCollector(null, null, null).getRowSerialization();
+
+        seaTunnelRow1.setTableId(null);
+
+        InternalRow internalRow =
+                Assertions.assertDoesNotThrow(() -> rowSerialization.convert(seaTunnelRow1));
+        // index 1 is the reserved table-id field (index 0 is row kind)
+        Assertions.assertFalse(internalRow.isNullAt(1));
+        Assertions.assertEquals("", internalRow.getString(1));
+    }
+
     public void initSchema() {
         this.rowType1 =
                 new SeaTunnelRowType(

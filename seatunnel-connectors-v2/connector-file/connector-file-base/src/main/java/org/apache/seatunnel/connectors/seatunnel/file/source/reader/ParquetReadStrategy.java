@@ -94,7 +94,7 @@ public class ParquetReadStrategy extends AbstractReadStrategy {
     @Override
     public void read(String path, String tableId, Collector<SeaTunnelRow> output)
             throws FileConnectorException, IOException {
-        this.read(new FileSourceSplit(path), output);
+        this.read(new FileSourceSplit(tableId, path), output);
     }
 
     @Override
