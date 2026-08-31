@@ -82,14 +82,14 @@ jobs:
       JAVA_VERSION: ${{ inputs.java_version }}
       PROFILE_JMH_ARGS: ${{ inputs.jmh_args || '' }}
       PR_NUMBER: ${{ inputs.pr_number || '' }}
-      SEATUNNEL_REF: ${{ inputs.seatunnel_ref }}
+      SEATUNNEL_REF: ${{ inputs.seatunnel_ref || 'dev' }}
       TARGET_DIRECTORY: target
     steps:
       - name: Checkout benchmark target
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: ${{ inputs.pr_number != '' && format('refs/pull/{0}/head', inputs.pr_number) || inputs.seatunnel_ref }}
+          ref: ${{ inputs.pr_number != '' && format('refs/pull/{0}/head', inputs.pr_number) || inputs.seatunnel_ref || 'dev' }}
           path: target
 
       - name: Checkout workflow tools
