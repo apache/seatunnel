@@ -132,8 +132,8 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
 
     private final EventListener eventListener;
 
-    /** Mapping relationship between upstream TablePath and downstream TablePath. */
-    private final Map<TablePath, TablePath> tablesMaps = new HashMap<>();
+    /** Mapping relationship between upstream row table IDs and downstream table IDs. */
+    private final Map<String, String> sinkTableMappings = new HashMap<>();
 
     private final MetricsContext metricsContext;
 
@@ -196,8 +196,14 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
         List<TablePath> sinkTables = new ArrayList<>();
         boolean isMulti = sinkAction.getSink() instanceof MultiTableSink;
         if (isMulti) {
-            sinkTables = ((MultiTableSink) sinkAction.getSink()).getSinkTables();
-            tablesMaps.putAll(((MultiTableSink) sinkAction.getSink()).getSinkTableMapping());
+            MultiTableSink multiTableSink = (MultiTableSink) sinkAction.getSink();
+            sinkTables = multiTableSink.getSinkTables();
+            multiTableSink
+                    .getSinkTableMapping()
+                    .forEach(
+                            (sourceTable, sinkTable) ->
+                                    sinkTableMappings.put(
+                                            sourceTable.toString(), sinkTable.getFullName()));
         } else {
             Optional<CatalogTable> catalogTable = sinkAction.getSink().getWriteCatalogTable();
             if (catalogTable.isPresent()) {
@@ -738,8 +744,8 @@ public class SinkFlowLifeCycle<T, CommitInfoT extends Serializable, AggregatedCo
             if (row.getTableId() == null || row.getTableId().isEmpty()) {
                 return row.getTableId();
             }
-            TablePath tablePath = tablesMaps.get(TablePath.of(row.getTableId()));
-            return tablePath != null ? tablePath.getFullName() : TablePath.DEFAULT.getFullName();
+            return sinkTableMappings.getOrDefault(
+                    row.getTableId(), TablePath.DEFAULT.getFullName());
         }
         Optional<CatalogTable> writeCatalogTable = this.sinkAction.getSink().getWriteCatalogTable();
         return writeCatalogTable
