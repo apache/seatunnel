@@ -24,12 +24,14 @@ import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.catalog.TableSchema;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnEvent;
 import org.apache.seatunnel.api.table.schema.event.AlterTableColumnsEvent;
+import org.apache.seatunnel.api.table.schema.event.AlterTableCommentEvent;
 import org.apache.seatunnel.api.table.schema.event.SchemaChangeEvent;
 import org.apache.seatunnel.api.table.schema.handler.TableSchemaChangeEventDispatcher;
 import org.apache.seatunnel.api.table.schema.handler.TableSchemaChangeEventHandler;
 import org.apache.seatunnel.api.table.type.MetadataUtil;
 import org.apache.seatunnel.api.table.type.RowKind;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.connectors.cdc.base.schema.SchemaChangeEventFilter;
 import org.apache.seatunnel.connectors.cdc.base.schema.SchemaChangeResolver;
 import org.apache.seatunnel.connectors.cdc.base.utils.SourceRecordUtils;
 import org.apache.seatunnel.connectors.cdc.debezium.AbstractDebeziumDeserializationSchema;
@@ -72,6 +74,7 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
     private final ZoneId serverTimeZone;
     private final DebeziumDeserializationConverterFactory userDefinedConverterFactory;
     private final SchemaChangeResolver schemaChangeResolver;
+    private final SchemaChangeEventFilter schemaChangeEventFilter;
     private final TableSchemaChangeEventHandler tableSchemaChangeHandler;
     private List<CatalogTable> tables;
     private Map<String, SeaTunnelRowDebeziumDeserializationConverters> tableRowConverters;
@@ -82,6 +85,7 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
             ZoneId serverTimeZone,
             DebeziumDeserializationConverterFactory userDefinedConverterFactory,
             SchemaChangeResolver schemaChangeResolver,
+            SchemaChangeEventFilter schemaChangeEventFilter,
             Map<TableId, Struct> tableIdTableChangeMap) {
         super(tableIdTableChangeMap);
         this.metadataConverters = metadataConverters;
@@ -89,6 +93,7 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
         this.userDefinedConverterFactory = userDefinedConverterFactory;
         this.tables = checkNotNull(tables);
         this.schemaChangeResolver = schemaChangeResolver;
+        this.schemaChangeEventFilter = schemaChangeEventFilter;
         this.tableSchemaChangeHandler = new TableSchemaChangeEventDispatcher();
         this.tableRowConverters =
                 createTableRowConverters(
@@ -136,6 +141,18 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
             log.warn("Unsupported resolve schemaChangeEvent {}, just skip.", record);
             return;
         }
+
+        // Filter before updating the produced schema, so the produced row shape stays in lockstep
+        // with the (filtered) sink schema. Only surviving events are applied below.
+        if (schemaChangeEventFilter != null) {
+            schemaChangeEvent = schemaChangeEventFilter.filter(schemaChangeEvent);
+        }
+        if (schemaChangeEvent == null) {
+            log.debug(
+                    "Schema change event is fully filtered out by schema-changes.include/exclude, not applied to schema and not sent downstream.");
+            return;
+        }
+
         boolean tableExist = false;
         for (int i = 0; i < tables.size(); i++) {
             CatalogTable changeBefore = tables.get(i);
@@ -164,7 +181,7 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
                                     changeAfterSchema,
                                     changeBefore.getOptions(),
                                     changeBefore.getPartitionKeys(),
-                                    changeBefore.getComment());
+                                    getChangeAfterTableComment(changeBefore, event));
                     event.setChangeAfter(changeAfter);
 
                     changeBefore = changeAfter;
@@ -180,7 +197,7 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
                                 changeAfterSchema,
                                 changeBefore.getOptions(),
                                 changeBefore.getPartitionKeys(),
-                                changeBefore.getComment());
+                                getChangeAfterTableComment(changeBefore, schemaChangeEvent));
             }
             tables.set(i, changeAfter);
             schemaChangeEvent.setChangeAfter(changeAfter);
@@ -199,6 +216,14 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
                 createTableRowConverters(
                         tables, metadataConverters, serverTimeZone, userDefinedConverterFactory);
         collector.collect(schemaChangeEvent);
+    }
+
+    private String getChangeAfterTableComment(
+            CatalogTable changeBefore, SchemaChangeEvent schemaChangeEvent) {
+        if (schemaChangeEvent instanceof AlterTableCommentEvent) {
+            return ((AlterTableCommentEvent) schemaChangeEvent).getNewComment();
+        }
+        return changeBefore.getComment();
     }
 
     private void deserializeDataChangeRecord(SourceRecord record, Collector<SeaTunnelRow> collector)
@@ -394,6 +419,7 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
                 DebeziumDeserializationConverterFactory.DEFAULT;
         private Map<TableId, Struct> tableIdTableChangeMap = new HashMap<>();
         private SchemaChangeResolver schemaChangeResolver;
+        private SchemaChangeEventFilter schemaChangeEventFilter;
 
         public SeaTunnelRowDebeziumDeserializeSchema build() {
             return new SeaTunnelRowDebeziumDeserializeSchema(
@@ -402,6 +428,7 @@ public final class SeaTunnelRowDebeziumDeserializeSchema
                     serverTimeZone,
                     userDefinedConverterFactory,
                     schemaChangeResolver,
+                    schemaChangeEventFilter,
                     tableIdTableChangeMap);
         }
     }

@@ -1,123 +1,113 @@
 import ChangeLog from '../changelog/connector-activemq.md';
 
-# Activemq
+# ActiveMQ
 
-> Activemq sink connector
+> ActiveMQ sink connector
 
 ## Description
 
-Used to write data to Activemq.
+Write SeaTunnel rows to an ActiveMQ queue. Each row is serialized as a JSON text message. This is
+a sink-only connector; SeaTunnel does not provide an ActiveMQ source connector.
 
 ## Key features
 
+- [x] [batch](../../introduction/concepts/connector-v2-features.md)
+- [x] [stream](../../introduction/concepts/connector-v2-features.md)
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 
 ## Options
 
-|                name                 |  type   | required | default value |
-|-------------------------------------|---------|----------|---------------|
-| host                                | string  | no       | -             |
-| port                                | int     | no       | -             |
-| virtual_host                        | string  | no       | -             |
-| username                            | string  | no       | -             |
-| password                            | string  | no       | -             |
-| queue_name                          | string  | yes      | -             |
-| uri                                 | string  | yes      | -             |
-| check_for_duplicate                 | boolean | no       | -             |
-| client_id                           | boolean | no       | -             |
-| copy_message_on_send                | boolean | no       | -             |
-| disable_timeStamps_by_default       | boolean | no       | -             |
-| use_compression                     | boolean | no       | -             |
-| always_session_async                | boolean | no       | -             |
-| dispatch_async                      | boolean | no       | -             |
-| nested_map_and_list_enabled         | boolean | no       | -             |
-| warnAboutUnstartedConnectionTimeout | boolean | no       | -             |
-| closeTimeout                        | int     | no       | -             |
+| name                                    | type    | required | default value | description                                                                                                                                                           |
+|-----------------------------------------|---------|----------|---------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| uri                                     | string  | yes      | -             | ActiveMQ broker URL, such as `tcp://localhost:61616`.                                                                                                                 |
+| queue_name                              | string  | yes      | -             | Queue name to write messages to.                                                                                                                                      |
+| username                                | string  | no       | -             | Username used to create the ActiveMQ connection. If this option is set, `password` must also be set.                                                                  |
+| password                                | string  | no       | -             | Password used to create the ActiveMQ connection. If this option is set, `username` must also be set.                                                                  |
+| client_id                               | string  | no       | -             | JMS client ID used by the connection factory.                                                                                                                         |
+| check_for_duplicate                     | boolean | no       | -             | Whether the ActiveMQ client checks duplicate messages.                                                                                                                |
+| always_session_async                    | boolean | no       | -             | Whether the ActiveMQ client always uses a separate thread to dispatch messages for each session.                                                                       |
+| always_sync_send                        | boolean | no       | -             | Whether the ActiveMQ producer always uses synchronous sends.                                                                                                          |
+| close_timeout                           | int     | no       | -             | Timeout in milliseconds before closing the connection is considered failed.                                                                                           |
+| dispatch_async                          | boolean | no       | -             | Whether the broker dispatches messages asynchronously.                                                                                                                |
+| nested_map_and_list_enabled             | boolean | no       | -             | Whether structured message properties and `MapMessage` entries can contain nested `Map` and `List` objects.                                                           |
+| warn_about_unstarted_connection_timeout | int     | no       | -             | Timeout in milliseconds before ActiveMQ warns that a connection was not started correctly. Set a value less than `0` to disable the warning in the ActiveMQ client. |
+| consumer_expiry_check_enabled            | boolean | no       | -             | Whether the ActiveMQ client checks message expiration in each `MessageConsumer` before dispatching messages.                                                                                                  |
 
-### host [string]
+## Notes
 
-the default host to use for connections
-
-### port [int]
-
-the default port to use for connections
-
-### username [string]
-
-the AMQP user name to use when connecting to the broker
-
-### password [string]
-
-the password to use when connecting to the broker
-
-### uri [string]
-
-convenience method for setting the fields in an AMQP URI: host, port, username, password and virtual host
-
-### queue_name [string]
-
-the queue to write the message to
-
-### check_for_duplicate [boolean]
-
-will check for duplucate messages
-
-### client_id [string]
-
-client id
-
-### copy_message_on_send [boolean]
-
-if true, enables new JMS Message object as part of the send method
-
-### disable_timeStamps_by_default [boolean]
-
-disables timestamp for slight performance boost
-
-### use_compression [boolean]
-
-Enables the use of compression on the message’s body.
-
-### always_session_async [boolean]
-
-When true a separate thread is used for dispatching messages for each Session in the Connection.
-
-### always_sync_send [boolean]
-
-When true a MessageProducer will always use Sync sends when sending a Message
-
-### close_timeout [boolean]
-
-Sets the timeout, in milliseconds, before a close is considered complete.
-
-### dispatch_async [boolean]
-
-Should the broker dispatch messages asynchronously to the consumer
-
-### nested_map_and_list_enabled [boolean]
-
-Controls whether Structured Message Properties and MapMessages are supported
-
-### warn_about_unstarted_connection_timeout [int]
-
-The timeout, in milliseconds, from the time of connection creation to when a warning is generated
+- `uri` is the connection entry point. Put the broker host and port in this value, for example `tcp://activemq-host:61616`.
+- `username` and `password` are optional, but they must be configured together when the broker requires authentication.
+- The connector writes each SeaTunnel row as one JSON text message to `queue_name`. There is no separate `format` option for this sink.
+- Configure the broker address with `uri`. `host` and `port` are not ActiveMQ sink options.
+- Use any SeaTunnel source before this sink. The ActiveMQ connector only controls how the final rows are sent to the queue.
 
 ## Example
 
-simple:
+Write fake data to an ActiveMQ queue:
 
 ```hocon
-sink {
-      ActiveMQ {
-          uri="tcp://localhost:61616"
-          username = "admin"
-          password = "admin"
-          queue_name = "test1"
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  FakeSource {
+    schema = {
+      fields {
+        id = int
+        name = string
       }
+    }
+    rows = [
+      { kind = INSERT, fields = [1, "Alice"] }
+      { kind = INSERT, fields = [2, "Bob"] }
+    ]
+  }
+}
+
+sink {
+  ActiveMQ {
+    uri = "tcp://localhost:61616"
+    username = "admin"
+    password = "admin"
+    queue_name = "testQueue"
+  }
+}
+```
+
+In streaming mode, the sink keeps the same broker connection open and writes each row as it
+arrives. Username/password can also be embedded in the `uri`, for example
+`tcp://admin:admin@localhost:61616`:
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "STREAMING"
+}
+
+source {
+  FakeSource {
+    schema = {
+      fields {
+        id = int
+        name = string
+      }
+    }
+    rows = [
+      { kind = INSERT, fields = [1, "Alice"] }
+    ]
+  }
+}
+
+sink {
+  ActiveMQ {
+    uri = "tcp://admin:admin@localhost:61616"
+    queue_name = "testQueue"
+  }
 }
 ```
 
 ## Changelog
 
 <ChangeLog />
-

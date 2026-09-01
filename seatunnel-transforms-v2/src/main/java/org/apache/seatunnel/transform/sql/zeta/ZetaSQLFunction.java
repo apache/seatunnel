@@ -96,6 +96,8 @@ public class ZetaSQLFunction {
     public static final String CONCAT_WS = "CONCAT_WS";
     public static final String HEXTORAW = "HEXTORAW";
     public static final String RAWTOHEX = "RAWTOHEX";
+    public static final String TO_BASE64 = "TO_BASE64";
+    public static final String FROM_BASE64 = "FROM_BASE64";
     public static final String INSERT = "INSERT";
     public static final String LOWER = "LOWER";
     public static final String LCASE = "LCASE";
@@ -475,6 +477,10 @@ public class ZetaSQLFunction {
                 return StringFunction.hextoraw(args);
             case RAWTOHEX:
                 return StringFunction.rawtohex(args);
+            case TO_BASE64:
+                return StringFunction.toBase64(args);
+            case FROM_BASE64:
+                return StringFunction.fromBase64(args);
             case INSERT:
                 return StringFunction.insert(args);
             case LOWER:
@@ -755,22 +761,38 @@ public class ZetaSQLFunction {
             }
         }
         if (resultType.getSqlType() == SqlType.DECIMAL) {
-            BigDecimal bigDecimal = BigDecimal.valueOf(leftValue.doubleValue());
+            BigDecimal leftBigDecimal = NumericFunction.toBigDecimal(leftValue);
+            BigDecimal rightBigDecimal = NumericFunction.toBigDecimal(rightValue);
             if (binaryExpression instanceof Addition) {
-                return bigDecimal.add(BigDecimal.valueOf(rightValue.doubleValue()));
+                return leftBigDecimal.add(rightBigDecimal);
             }
             if (binaryExpression instanceof Subtraction) {
-                return bigDecimal.subtract(BigDecimal.valueOf(rightValue.doubleValue()));
+                return leftBigDecimal.subtract(rightBigDecimal);
             }
             if (binaryExpression instanceof Multiplication) {
-                return bigDecimal.multiply(BigDecimal.valueOf(rightValue.doubleValue()));
+                // BigDecimal.multiply returns a value whose scale is leftScale + rightScale,
+                // but the column type declared for this expression is
+                // DECIMAL(max(precision), max(scale)). Normalise to the declared scale, as
+                // Division already does, so the emitted value matches the schema the transform
+                // advertises: a sink that encodes against that schema (Parquet through Avro,
+                // for example) rejects a value whose scale differs from the declared one.
+                DecimalType decimalType = (DecimalType) resultType;
+                return leftBigDecimal
+                        .multiply(rightBigDecimal)
+                        .setScale(decimalType.getScale(), RoundingMode.HALF_UP);
             }
             if (binaryExpression instanceof Division) {
+                if (rightBigDecimal.signum() == 0) {
+                    // BigDecimal.divide would throw a bare ArithmeticException("/ by zero") with
+                    // no indication of which expression produced it. MOD already reports this as
+                    // a TransformException; do the same here, and name the expression.
+                    throw new TransformException(
+                            CommonErrorCodeDeprecated.UNSUPPORTED_OPERATION,
+                            String.format("Division by zero in expression: %s", binaryExpression));
+                }
                 DecimalType decimalType = (DecimalType) resultType;
-                return bigDecimal.divide(
-                        BigDecimal.valueOf(rightValue.doubleValue()),
-                        decimalType.getScale(),
-                        RoundingMode.UP);
+                return leftBigDecimal.divide(
+                        rightBigDecimal, decimalType.getScale(), RoundingMode.HALF_UP);
             }
             if (binaryExpression instanceof Modulo) {
                 List<Object> args = new ArrayList<>();

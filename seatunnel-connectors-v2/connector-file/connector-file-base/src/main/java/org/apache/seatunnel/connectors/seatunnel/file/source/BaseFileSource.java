@@ -54,6 +54,8 @@ public abstract class BaseFileSource
     private final CatalogTable catalogTable;
     private final List<String> filePaths;
     private final ReadStrategy readStrategy;
+    /** Enables document-affine routing and the Markdown Knowledge Sync metadata bridge. */
+    private final boolean documentRoutingEnabled;
 
     /** shouldn't use this construct method. just for testing */
     @VisibleForTesting
@@ -61,27 +63,44 @@ public abstract class BaseFileSource
         this.catalogTable = null;
         this.filePaths = null;
         this.readStrategy = null;
+        this.documentRoutingEnabled = false;
     }
 
     public BaseFileSource(ReadonlyConfig pluginConfig) {
         this.pluginConfig = pluginConfig;
         HadoopConf hadoopConf = initHadoopConf();
-        this.readStrategy =
-                pluginConfig.get(FileBaseSourceOptions.FILE_FORMAT_TYPE).getReadStrategy();
+        FileFormat fileFormat = pluginConfig.get(FileBaseSourceOptions.FILE_FORMAT_TYPE);
+        this.readStrategy = fileFormat.getReadStrategy();
+        this.documentRoutingEnabled =
+                fileFormat == FileFormat.MARKDOWN
+                        && pluginConfig.get(FileBaseSourceOptions.MARKDOWN_RAG_METADATA_ENABLED);
         this.readStrategy.setPluginConfig(pluginConfig.toConfig());
         this.readStrategy.init(hadoopConf);
         String path = pluginConfig.get(FileBaseSourceOptions.FILE_PATH);
+        // Fail fast and retain the sanitized root for diagnostics without replacing the logical
+        // identity that MarkdownReadStrategy derives for each discovered file.
+        String safeDiscoveryRootContext =
+                documentRoutingEnabled
+                        ? MarkdownKnowledgeSyncMetadata.canonicalizeSourceUri(path)
+                        : path;
         try {
             filePaths = readStrategy.getFileNamesByPath(path);
         } catch (IOException e) {
-            String errorMsg = String.format("Get file list from this path [%s] failed", path);
+            String errorMsg =
+                    String.format(
+                            "Get file list from this path [%s] failed", safeDiscoveryRootContext);
+            if (documentRoutingEnabled) {
+                throw new FileConnectorException(
+                        FileConnectorErrorCode.FILE_LIST_GET_FAILED,
+                        errorMsg,
+                        MarkdownKnowledgeSyncMetadata.copyStackTraceOnly(e));
+            }
             throw new FileConnectorException(
                     FileConnectorErrorCode.FILE_LIST_GET_FAILED, errorMsg, e);
         }
 
         // support user-defined schema
         CatalogTable userDefinedCatalogTable;
-        FileFormat fileFormat = pluginConfig.get(FileBaseSourceOptions.FILE_FORMAT_TYPE);
         // only json text csv type support user-defined schema now
         if (pluginConfig.getOptional(ConnectorCommonOptions.SCHEMA).isPresent()) {
             switch (fileFormat) {
@@ -122,11 +141,16 @@ public abstract class BaseFileSource
                 }
             }
         }
-        this.catalogTable = userDefinedCatalogTable;
+        this.catalogTable =
+                documentRoutingEnabled
+                        ? MarkdownKnowledgeSyncMetadata.withMetadata(userDefinedCatalogTable)
+                        : userDefinedCatalogTable;
     }
 
     private CatalogTable buildCatalogTableForEmptyPath(String path, FileFormat fileFormat) {
-        if (fileFormat != FileFormat.BINARY && fileFormat != FileFormat.MARKDOWN) {
+        if (fileFormat != FileFormat.BINARY
+                && fileFormat != FileFormat.MARKDOWN
+                && fileFormat != FileFormat.PDF) {
             // Preserve the legacy simple-text fallback for formats that still infer schema from
             // the first concrete file.
             return CatalogTableUtil.buildSimpleTextTable();
@@ -150,13 +174,13 @@ public abstract class BaseFileSource
     @Override
     public SourceReader<SeaTunnelRow, FileSourceSplit> createReader(
             SourceReader.Context readerContext) {
-        return new BaseFileSourceReader(readStrategy, readerContext);
+        return new BaseFileSourceReader(readStrategy, readerContext, documentRoutingEnabled);
     }
 
     @Override
     public SourceSplitEnumerator<FileSourceSplit, FileSourceState> createEnumerator(
             SourceSplitEnumerator.Context<FileSourceSplit> enumeratorContext) throws Exception {
-        return new FileSourceSplitEnumerator(enumeratorContext, filePaths);
+        return new FileSourceSplitEnumerator(enumeratorContext, filePaths, documentRoutingEnabled);
     }
 
     @Override
@@ -164,6 +188,7 @@ public abstract class BaseFileSource
             SourceSplitEnumerator.Context<FileSourceSplit> enumeratorContext,
             FileSourceState checkpointState)
             throws Exception {
-        return new FileSourceSplitEnumerator(enumeratorContext, filePaths, checkpointState);
+        return new FileSourceSplitEnumerator(
+                enumeratorContext, filePaths, checkpointState, documentRoutingEnabled);
     }
 }

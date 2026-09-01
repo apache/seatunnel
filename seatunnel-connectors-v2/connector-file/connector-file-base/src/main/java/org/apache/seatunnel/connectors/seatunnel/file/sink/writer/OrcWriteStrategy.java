@@ -71,7 +71,7 @@ public class OrcWriteStrategy extends AbstractWriteStrategy<Writer> {
     }
 
     @Override
-    public synchronized void write(@NonNull SeaTunnelRow seaTunnelRow) {
+    public void write(@NonNull SeaTunnelRow seaTunnelRow) {
         super.write(seaTunnelRow);
         String filePath = getOrCreateFilePathBeingWritten(seaTunnelRow);
         Writer writer = getOrCreateOutputStream(filePath);
@@ -94,6 +94,12 @@ public class OrcWriteStrategy extends AbstractWriteStrategy<Writer> {
         } catch (IOException e) {
             throw CommonError.fileOperationFailed("OrcFile", "write", filePath, e);
         }
+    }
+
+    @Override
+    public synchronized void newFilePart() {
+        finishAndCloseFile();
+        super.newFilePart();
     }
 
     @Override
@@ -207,7 +213,7 @@ public class OrcWriteStrategy extends AbstractWriteStrategy<Writer> {
                 SeaTunnelDataType<?>[] fieldTypes = ((SeaTunnelRowType) type).getFieldTypes();
                 for (int i = 0; i < fieldTypes.length; i++) {
                     struct.addField(
-                            ((SeaTunnelRowType) type).getFieldName(i).toLowerCase(),
+                            ((SeaTunnelRowType) type).getFieldName(i),
                             buildFieldWithRowType(fieldTypes[i]));
                 }
                 return struct;

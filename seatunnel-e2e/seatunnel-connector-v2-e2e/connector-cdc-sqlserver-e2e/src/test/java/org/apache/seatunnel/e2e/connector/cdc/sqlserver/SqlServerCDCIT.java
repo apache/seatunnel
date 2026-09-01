@@ -17,8 +17,6 @@
 
 package org.apache.seatunnel.e2e.connector.cdc.sqlserver;
 
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
-
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceConfigFactory;
 import org.apache.seatunnel.connectors.seatunnel.cdc.sqlserver.config.SqlServerSourceConfigFactory;
@@ -30,6 +28,7 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 import org.apache.seatunnel.e2e.common.util.JdbcUtil;
 import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
 
@@ -46,6 +45,7 @@ import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.lifecycle.Startables;
 import org.testcontainers.utility.DockerLoggerFactory;
 
+import com.microsoft.sqlserver.jdbc.SQLServerDriver;
 import io.debezium.jdbc.JdbcConnection;
 import io.debezium.relational.TableId;
 import lombok.extern.slf4j.Slf4j;
@@ -195,27 +195,18 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
                             new Slf4jLogConsumer(
                                     DockerLoggerFactory.getLogger("sqlserver-docker-image")));
 
-    private String driverUrl() {
-        return "https://repo1.maven.org/maven2/com/microsoft/sqlserver/mssql-jdbc/9.4.1.jre8/mssql-jdbc-9.4.1.jre8.jar";
-    }
-
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
-            container -> {
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/SqlServer-CDC/lib && cd /tmp/seatunnel/plugins/SqlServer-CDC/lib && wget "
-                                        + driverUrl());
-                Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
-            };
+            container ->
+                    DependencyJar.of(SQLServerDriver.class)
+                            .copyTo(
+                                    container,
+                                    "/tmp/seatunnel/plugins/SqlServer-CDC/lib",
+                                    "mssql-jdbc-9.4.1.jre8.jar");
 
     @Override
     @BeforeAll
     public void startUp() throws Exception {
-        MSSQL_SERVER_CONTAINER.setPortBindings(
-                Lists.newArrayList(String.format("%s:%s", PORT, PORT)));
         log.info("Starting containers...");
         Startables.deepStart(Stream.of(MSSQL_SERVER_CONTAINER)).join();
         log.info("Containers are started.");
@@ -559,7 +550,7 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
         JdbcSourceConfigFactory factory =
                 new SqlServerSourceConfigFactory()
                         .hostname(MSSQL_SERVER_CONTAINER.getHost())
-                        .port(PORT)
+                        .port(MSSQL_SERVER_CONTAINER.getMappedPort(PORT))
                         .username("sa")
                         .password("Password!")
                         .databaseList(DATABASE_NAME);
@@ -620,16 +611,49 @@ public class SqlServerCDCIT extends TestSuiteBase implements TestResource {
         final String ddlFile = String.format("ddl/%s.sql", sqlFile);
         final URL ddlTestFile = TestSuiteBase.class.getClassLoader().getResource(ddlFile);
         Assertions.assertNotNull(ddlTestFile, "Cannot locate " + ddlFile);
-        try (Connection connection = getJdbcConnection();
-                Statement statement = connection.createStatement()) {
+        try {
             List<String> statements =
                     parseStatements(Files.readAllLines(Paths.get(ddlTestFile.toURI())));
+            String currentDatabase = null;
             for (String stmt : statements) {
-                statement.execute(stmt);
+                String trimmed = stmt.trim();
+                if (trimmed.toUpperCase().startsWith("USE ")) {
+                    currentDatabase = trimmed.substring(4).replaceAll(";\\s*$", "").trim();
+                    continue;
+                }
+                executeWithDeadlockRetry(stmt, currentDatabase);
             }
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private void executeWithDeadlockRetry(String sql, String database) {
+        Awaitility.await(
+                        "Executing: "
+                                + sql.substring(0, Math.min(80, sql.length()))
+                                        .replaceAll("\\s+", " "))
+                .atMost(60, TimeUnit.SECONDS)
+                .pollInterval(2, TimeUnit.SECONDS)
+                .until(
+                        () -> {
+                            try (Connection connection = getJdbcConnection();
+                                    Statement statement = connection.createStatement()) {
+                                if (database != null) {
+                                    statement.execute("USE " + database);
+                                }
+                                statement.execute(sql);
+                                return true;
+                            } catch (SQLException e) {
+                                if (e.getMessage() != null
+                                        && (e.getMessage().contains("deadlock")
+                                                || e.getMessage().contains("Deadlock"))) {
+                                    log.warn("Deadlock detected, will retry: {}", sql);
+                                    return false;
+                                }
+                                throw new RuntimeException(e);
+                            }
+                        });
     }
 
     private void initializeSqlServerTable(String sqlFile) {

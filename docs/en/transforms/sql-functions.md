@@ -94,6 +94,42 @@ Example:
 
 RAWTOHEX(DATA)
 
+### TO_BASE64
+
+```TO_BASE64(value[, charset]) -> STRING```
+
+Encodes a string or bytes to Base64.
+
+The default charset is `UTF-8`. You can specify another charset.
+
+For bytes input, the charset argument is not supported because the value is already raw bytes.
+
+Returns **NULL** if value is **NULL**.
+
+Example:
+
+TO_BASE64(NAME)
+
+TO_BASE64(NAME, 'UTF-16')
+
+TO_BASE64(BINARY_PAYLOAD)
+
+### FROM_BASE64
+
+```FROM_BASE64(value[, charset]) -> STRING```
+
+Decodes a Base64 string to text.
+
+The default charset is `UTF-8`. You can specify another charset.
+
+Returns **NULL** if value is **NULL**.
+
+Example:
+
+FROM_BASE64(ENCODED_NAME)
+
+FROM_BASE64(TO_BASE64(NAME, 'UTF-16'), 'UTF-16')
+
 ### INSERT
 
 ```INSERT(originalString, startInt, lengthInt, addString) -> STRING```
@@ -633,6 +669,8 @@ RAND()
 ```ROUND(numeric[, digitsInt]) -> NUMERIC (same type)```
 
 Rounds to a number of fractional digits. This method returns value of the same type as argument, but with adjusted precision and scale, if applicable.
+
+Note that when `digitsInt` is negative and the argument is an integral type, the rounded value can fall outside the range of that type. For example, ROUND(2147483647, -1) should be 2147483650, but this value is not allowed for the INT data type. It leads to an exception. To avoid it cast argument of this function to a higher data type. CEIL and FLOOR overflow the same way; TRUNC rounds toward zero and therefore cannot.
 
 Example:
 
@@ -1350,4 +1388,3 @@ Normalizes a vector to unit length (magnitude = 1). This is useful for computing
 ```sql
 SELECT id, VECTOR_NORMALIZE(embedding) as normalized_embedding FROM table
 ```
-

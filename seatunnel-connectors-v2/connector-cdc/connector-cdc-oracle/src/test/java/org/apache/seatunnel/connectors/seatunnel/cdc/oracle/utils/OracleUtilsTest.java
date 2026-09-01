@@ -26,6 +26,9 @@ import org.junit.jupiter.api.Test;
 
 import io.debezium.relational.TableId;
 
+import java.util.Collections;
+import java.util.Map;
+
 public class OracleUtilsTest {
     @Test
     public void testSplitScanQuery() {
@@ -69,5 +72,16 @@ public class OracleUtilsTest {
                         true);
         Assertions.assertEquals(
                 "SELECT * FROM \"schema1\".\"table1\" WHERE \"id\" >= ?", splitScanSQL);
+    }
+
+    @Test
+    public void testResolveTableIdWithRequestedCatalog() {
+        TableId requestedTableId = TableId.parse("ORCLPDB.LIB_B.T_B1");
+        TableId readTableIdWithoutCatalog = new TableId(null, "LIB_B", "T_B1");
+        Map<TableId, ?> tableMap = Collections.singletonMap(requestedTableId, null);
+
+        Assertions.assertEquals(
+                requestedTableId,
+                OracleSchema.resolveTableId(readTableIdWithoutCatalog, requestedTableId, tableMap));
     }
 }

@@ -22,6 +22,7 @@ import org.apache.seatunnel.e2e.common.container.EngineType;
 import org.apache.seatunnel.e2e.common.container.TestContainer;
 import org.apache.seatunnel.e2e.common.junit.DisabledOnContainer;
 import org.apache.seatunnel.e2e.common.junit.TestContainerExtension;
+import org.apache.seatunnel.e2e.common.util.DependencyJar;
 import org.apache.seatunnel.e2e.common.util.JobIdGenerator;
 
 import org.awaitility.Awaitility;
@@ -36,6 +37,7 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -65,20 +67,9 @@ public class EdgeSocketMysql8_4IT extends AbstractEdgeSocketIT {
 
     @TestContainerExtension
     protected final ContainerExtendedFactory extendedFactory =
-            container -> {
-                Container.ExecResult extraCommands =
-                        container.execInContainer(
-                                "bash",
-                                "-c",
-                                "mkdir -p /tmp/seatunnel/plugins/Jdbc/lib && cd /tmp/seatunnel/plugins/Jdbc/lib && wget "
-                                        + driverUrl()
-                                        + " --no-check-certificate");
-                Assertions.assertEquals(0, extraCommands.getExitCode(), extraCommands.getStderr());
-            };
-
-    private String driverUrl() {
-        return "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.0.32/mysql-connector-j-8.0.32.jar";
-    }
+            container ->
+                    DependencyJar.of(com.mysql.cj.jdbc.Driver.class)
+                            .copyTo(container, JDBC_PLUGIN_LIB);
 
     @Override
     protected void startSinkDependencies() throws Exception {
@@ -159,6 +150,42 @@ public class EdgeSocketMysql8_4IT extends AbstractEdgeSocketIT {
             List<String> expectedMessages = buildExpectedTransformedMessages(sourceMessages);
 
             sendRecordsThroughCollector(sourceMessages);
+            awaitSinkContainsExpectedMessages(expectedMessages);
+        } finally {
+            Container.ExecResult cancelResult = container.cancelJob(jobId);
+            Assertions.assertEquals(0, cancelResult.getExitCode(), cancelResult.getStderr());
+
+            Container.ExecResult jobResult = waitForJobResult(jobFuture);
+            Assertions.assertEquals(0, jobResult.getExitCode(), jobResult.getStderr());
+        }
+    }
+
+    @TestTemplate
+    public void testEdgeSocketCommitWatermarkAdvances(TestContainer container) throws Exception {
+        String jobId = String.valueOf(JobIdGenerator.newJobId());
+        CompletableFuture<Container.ExecResult> jobFuture =
+                CompletableFuture.supplyAsync(
+                        () -> {
+                            try {
+                                return container.executeJob(
+                                        "/edge_socket_source_to_mysql84.conf", jobId);
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+
+        try {
+            Awaitility.await()
+                    .atMost(60, TimeUnit.SECONDS)
+                    .untilAsserted(
+                            () -> assertJobRunningOrSubmissionFailed(container, jobId, jobFuture));
+            ensureEdgeSocketForwarder();
+
+            List<String> sourceMessages = buildPlainTextMessages(3, "watermark-value");
+            List<String> expectedMessages = buildExpectedTransformedMessages(sourceMessages);
+            List<Long> watermarks = sendRecordsThroughCollectorAndCollectWatermarks(sourceMessages);
+
+            Assertions.assertEquals(Arrays.asList(1L, 2L, 3L), watermarks);
             awaitSinkContainsExpectedMessages(expectedMessages);
         } finally {
             Container.ExecResult cancelResult = container.cancelJob(jobId);

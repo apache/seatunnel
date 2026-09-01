@@ -94,6 +94,42 @@ HEXTORAW(DATA)
 
 RAWTOHEX(DATA)
 
+### TO_BASE64
+
+```TO_BASE64(value[, charset]) -> STRING```
+
+将字符串或字节编码为 Base64。
+
+默认字符集为 `UTF-8`。可以指定其他字符集。
+
+对于字节输入，不支持 charset 参数，因为该值已经是原始字节。
+
+如果 value 为 **NULL**，返回 **NULL**。
+
+示例:
+
+TO_BASE64(NAME)
+
+TO_BASE64(NAME, 'UTF-16')
+
+TO_BASE64(BINARY_PAYLOAD)
+
+### FROM_BASE64
+
+```FROM_BASE64(value[, charset]) -> STRING```
+
+将 Base64 字符串解码为文本。
+
+默认字符集为 `UTF-8`。可以指定其他字符集。
+
+如果 value 为 **NULL**，返回 **NULL**。
+
+示例:
+
+FROM_BASE64(ENCODED_NAME)
+
+FROM_BASE64(TO_BASE64(NAME, 'UTF-16'), 'UTF-16')
+
 ### INSERT
 
 ```INSERT(originalString, startInt, lengthInt, addString) -> STRING```
@@ -635,6 +671,8 @@ RAND()
 ```ROUND(numeric[, digitsInt]) -> NUMERIC (same type)```
 
 四舍五入到指定的小数位数。该方法返回与参数相同类型的值，但如果适用，则调整精度和标度。
+
+请注意，当 `digitsInt` 为负数且参数为整数类型时，舍入后的值可能超出该类型的取值范围。例如，ROUND(2147483647, -1) 应该是 2147483650，但是这个值对于 INT 数据类型是不允许的。这会导致异常。为了避免这种情况，请将此函数的参数转换为更高的数据类型。CEIL 和 FLOOR 会以同样的方式溢出；TRUNC 向零舍入，因此不会溢出。
 
 示例:
 

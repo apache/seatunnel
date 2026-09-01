@@ -30,9 +30,9 @@ import org.apache.seatunnel.engine.common.job.JobStatus;
 import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobInfo;
+import org.apache.seatunnel.engine.core.job.RestoreMode;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.master.JobHistoryService.JobState;
-import org.apache.seatunnel.engine.server.operation.GetJobMetricsOperation;
 import org.apache.seatunnel.engine.server.operation.GetJobStatusOperation;
 import org.apache.seatunnel.engine.server.rest.ConfigFormat;
 import org.apache.seatunnel.engine.server.rest.RestConstant;
@@ -121,9 +121,8 @@ public class JobInfoService extends BaseService {
         IMap<Long, JobDAGInfo> finishedJobDAGInfo =
                 nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_FINISHED_JOB_VERTEX_INFO);
 
-        SeaTunnelServer seaTunnelServer = getSeaTunnelServer(true);
-
         return finishedJob.values().stream()
+                .filter(java.util.Objects::nonNull)
                 .filter(
                         jobState -> {
                             if (state.isEmpty()) {
@@ -131,29 +130,41 @@ public class JobInfoService extends BaseService {
                             }
                             return jobState.getJobStatus().name().equals(state.toUpperCase());
                         })
-                .sorted(Comparator.comparing(JobState::getFinishTime, Comparator.reverseOrder()))
+                .sorted(
+                        Comparator.comparing(
+                                JobState::getFinishTime,
+                                Comparator.nullsLast(Comparator.reverseOrder())))
                 .map(
                         jobState -> {
                             Long jobId = jobState.getJobId();
-                            String jobMetrics;
-                            if (seaTunnelServer == null) {
-                                jobMetrics =
-                                        (String)
-                                                NodeEngineUtil.sendOperationToMasterNode(
-                                                                nodeEngine,
-                                                                new GetJobMetricsOperation(jobId))
-                                                        .join();
-                            } else {
-                                jobMetrics =
-                                        seaTunnelServer
-                                                .getCoordinatorService()
-                                                .getJobMetrics(jobId)
-                                                .toJsonString();
-                            }
                             return getJobInfoJson(
-                                    jobState, jobMetrics, finishedJobDAGInfo.get(jobId));
+                                    jobState,
+                                    getFinishedJobMetricsJson(jobId),
+                                    getFinishedJobDAGInfo(finishedJobDAGInfo, jobId));
                         })
                 .collect(JsonArray::new, JsonArray::add, JsonArray::add);
+    }
+
+    private String getFinishedJobMetricsJson(Long jobId) {
+        try {
+            IMap<Long, JobMetrics> finishedJobMetrics =
+                    nodeEngine.getHazelcastInstance().getMap(Constant.IMAP_FINISHED_JOB_METRICS);
+            JobMetrics metrics = finishedJobMetrics.getOrDefault(jobId, JobMetrics.empty());
+            return metrics == null ? JobMetrics.empty().toJsonString() : metrics.toJsonString();
+        } catch (Throwable t) {
+            log.warn("Failed to load finished job metrics for job {}: {}", jobId, t.getMessage());
+            return JobMetrics.empty().toJsonString();
+        }
+    }
+
+    private JobDAGInfo getFinishedJobDAGInfo(
+            IMap<Long, JobDAGInfo> finishedJobDAGInfo, Long jobId) {
+        try {
+            return finishedJobDAGInfo.get(jobId);
+        } catch (Throwable t) {
+            log.warn("Failed to load finished job DAG for job {}: {}", jobId, t.getMessage());
+            return null;
+        }
     }
 
     public JsonArray getRunningJobsJson() {
@@ -165,7 +176,10 @@ public class JobInfoService extends BaseService {
                         Comparator.comparing(
                                 entry -> entry.getValue().getInitializationTimestamp(),
                                 Comparator.reverseOrder()))
-                .map(jobInfoEntry -> convertToJson(jobInfoEntry.getValue(), jobInfoEntry.getKey()))
+                .map(
+                        jobInfoEntry ->
+                                convertToJson(
+                                        jobInfoEntry.getValue(), jobInfoEntry.getKey(), false))
                 .collect(JsonArray::new, JsonArray::add, JsonArray::add);
     }
 
@@ -379,6 +393,7 @@ public class JobInfoService extends BaseService {
                 && requestParams.get(RestConstant.JOB_ID) == null) {
             throw new IllegalArgumentException("Please provide jobId when start with save point.");
         }
+        validateCheckpointRestoreRequest(requestParams);
         Config config;
         ConfigFormat configFormat = ConfigFormat.fromString(requestParams.get(CONFIG_FORMAT));
 
@@ -411,6 +426,7 @@ public class JobInfoService extends BaseService {
                 && requestParams.get(RestConstant.JOB_ID) == null) {
             throw new IllegalArgumentException("Please provide jobId when start with save point.");
         }
+        validateCheckpointRestoreRequest(requestParams);
         SeaTunnelServer seaTunnelServer = getSeaTunnelServer(false);
         return submitJobInternal(config, requestParams, seaTunnelServer, nodeEngine.getNode());
     }
@@ -430,6 +446,7 @@ public class JobInfoService extends BaseService {
                                 throw new IllegalArgumentException(
                                         "Dry-run is only supported via CLI");
                             }
+                            validateCheckpointRestoreRequest(requestParams);
                             SeaTunnelServer seaTunnelServer = getSeaTunnelServer(false);
                             Config decryptConfig = ConfigShadeUtils.decryptConfig(tuple._2);
                             return submitJobInternal(
@@ -439,5 +456,16 @@ public class JobInfoService extends BaseService {
                                     nodeEngine.getNode());
                         })
                 .collect(JsonArray::new, JsonArray::add, JsonArray::add);
+    }
+
+    private void validateCheckpointRestoreRequest(Map<String, String> requestParams) {
+        String restoreModeValue = requestParams.get(RestConstant.RESTORE_MODE);
+        RestoreMode restoreMode =
+                restoreModeValue == null ? RestoreMode.NONE : RestoreMode.valueOf(restoreModeValue);
+        if (restoreMode.isRestore()
+                && requestParams.get(RestConstant.RESTORE_SOURCE_JOB_ID) == null) {
+            throw new IllegalArgumentException(
+                    "restoreSourceJobId is required when restoreMode=" + restoreMode);
+        }
     }
 }

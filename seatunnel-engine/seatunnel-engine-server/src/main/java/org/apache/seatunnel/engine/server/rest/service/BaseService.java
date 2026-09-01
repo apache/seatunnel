@@ -41,13 +41,16 @@ import org.apache.seatunnel.engine.core.job.ExecutionAddress;
 import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 import org.apache.seatunnel.engine.core.job.JobImmutableInformation;
 import org.apache.seatunnel.engine.core.job.JobInfo;
+import org.apache.seatunnel.engine.core.job.RestoreMode;
 import org.apache.seatunnel.engine.core.job.VertexInfo;
 import org.apache.seatunnel.engine.server.CoordinatorService;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.dag.DAGUtils;
+import org.apache.seatunnel.engine.server.diagnostic.JobRuntimeDiagnostics;
 import org.apache.seatunnel.engine.server.master.JobHistoryService;
 import org.apache.seatunnel.engine.server.operation.CancelJobOperation;
 import org.apache.seatunnel.engine.server.operation.GetClusterHealthMetricsOperation;
+import org.apache.seatunnel.engine.server.operation.GetJobDiagnosticsOperation;
 import org.apache.seatunnel.engine.server.operation.GetJobInfoOperation;
 import org.apache.seatunnel.engine.server.operation.GetJobMetricsOperation;
 import org.apache.seatunnel.engine.server.operation.GetJobStatusOperation;
@@ -62,6 +65,7 @@ import com.hazelcast.cluster.Address;
 import com.hazelcast.cluster.Cluster;
 import com.hazelcast.cluster.Member;
 import com.hazelcast.instance.impl.Node;
+import com.hazelcast.internal.json.Json;
 import com.hazelcast.internal.json.JsonArray;
 import com.hazelcast.internal.json.JsonObject;
 import com.hazelcast.internal.json.JsonValue;
@@ -95,6 +99,13 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.stream.StreamSupport;
 
+import static org.apache.seatunnel.api.common.metrics.MetricNames.FLUSH_SIGNAL_QPS;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.FLUSH_SIGNAL_QUEUE_FAILURE_TOTAL;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.FLUSH_SIGNAL_QUEUE_SUCCESS_TOTAL;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.FLUSH_SIGNAL_SINK_FAILURE_TOTAL;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.FLUSH_SIGNAL_SINK_QPS;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.FLUSH_SIGNAL_SINK_SUCCESS_TOTAL;
+import static org.apache.seatunnel.api.common.metrics.MetricNames.FLUSH_SIGNAL_TOTAL;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.INTERMEDIATE_QUEUE_SIZE;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_COMMITTED_BYTES;
 import static org.apache.seatunnel.api.common.metrics.MetricNames.SINK_COMMITTED_BYTES_PER_SECONDS;
@@ -337,6 +348,16 @@ public abstract class BaseService {
     }
 
     protected JsonObject convertToJson(JobInfo jobInfo, long jobId) {
+        return convertToJson(jobInfo, jobId, true);
+    }
+
+    /**
+     * @param withDiagnostics whether to add the {@code diagnostics} block. A listing of every
+     *     running job builds this payload once per job, and every job already costs a master round
+     *     trip when the request is not served by the master, so diagnostics are only collected for
+     *     a request about one job.
+     */
+    protected JsonObject convertToJson(JobInfo jobInfo, long jobId, boolean withDiagnostics) {
 
         JsonObject jobInfoJson = new JsonObject();
         JobImmutableInformation jobImmutableInformation =
@@ -443,11 +464,42 @@ public abstract class BaseService {
                         RestConstant.METRICS,
                         metricsToJsonObject(getJobMetrics(jobMetrics, jobDAGInfo)));
 
+        if (withDiagnostics) {
+            JsonObject diagnostics = getJobDiagnostics(jobId, seaTunnelServer);
+            if (diagnostics != null) {
+                jobInfoJson.add(RestConstant.DIAGNOSTICS, diagnostics);
+            }
+        }
+
         if (jobStatus != null && jobStatus.isEndState()) {
             RUNNING_JOB_DAG_JSON_CACHE.remove(jobId);
         }
 
         return jobInfoJson;
+    }
+
+    /**
+     * Reads the job runtime diagnostics from the master member, or {@code null} when they can not
+     * be obtained. Diagnostics are auxiliary information, so a failure here never fails the
+     * job-info response.
+     */
+    private JsonObject getJobDiagnostics(long jobId, SeaTunnelServer masterSeaTunnelServer) {
+        try {
+            // the caller resolved it with getSeaTunnelServer(true), so it is either null or this
+            // node is the master and no further isMasterNode() check is needed
+            if (masterSeaTunnelServer != null) {
+                return JobRuntimeDiagnostics.build(masterSeaTunnelServer, jobId);
+            }
+            String response =
+                    (String)
+                            NodeEngineUtil.sendOperationToMasterNode(
+                                            nodeEngine, new GetJobDiagnosticsOperation(jobId))
+                                    .join();
+            return response == null ? null : Json.parse(response).asObject();
+        } catch (Throwable t) {
+            log.debug("Get job {} diagnostics failed: {}", jobId, t.getMessage());
+            return null;
+        }
     }
 
     private JobDAGInfo getRunningJobDAGInfo(long jobId, SeaTunnelServer masterSeaTunnelServer) {
@@ -572,7 +624,12 @@ public abstract class BaseService {
             SOURCE_RECEIVED_BYTES,
             SINK_WRITE_BYTES,
             SINK_COMMITTED_BYTES,
-            INTERMEDIATE_QUEUE_SIZE
+            INTERMEDIATE_QUEUE_SIZE,
+            FLUSH_SIGNAL_TOTAL,
+            FLUSH_SIGNAL_QUEUE_SUCCESS_TOTAL,
+            FLUSH_SIGNAL_QUEUE_FAILURE_TOTAL,
+            FLUSH_SIGNAL_SINK_SUCCESS_TOTAL,
+            FLUSH_SIGNAL_SINK_FAILURE_TOTAL
         };
         String[] rateMetricsNames = {
             SOURCE_RECEIVED_QPS,
@@ -580,7 +637,9 @@ public abstract class BaseService {
             SINK_COMMITTED_QPS,
             SOURCE_RECEIVED_BYTES_PER_SECONDS,
             SINK_WRITE_BYTES_PER_SECONDS,
-            SINK_COMMITTED_BYTES_PER_SECONDS
+            SINK_COMMITTED_BYTES_PER_SECONDS,
+            FLUSH_SIGNAL_QPS,
+            FLUSH_SIGNAL_SINK_QPS
         };
         String[] tableCountMetricsNames = {
             TABLE_SOURCE_RECEIVED_COUNT,
@@ -620,10 +679,11 @@ public abstract class BaseService {
                     new HashMap<>() // Sink Committed Bytes Per Second
                 };
 
+        JsonNode jobMetricsJson;
         try {
-            JsonNode jobMetricsStr = new ObjectMapper().readTree(jobMetrics);
+            jobMetricsJson = new ObjectMapper().readTree(jobMetrics);
 
-            jobMetricsStr
+            jobMetricsJson
                     .fieldNames()
                     .forEachRemaining(
                             metricName -> {
@@ -633,9 +693,9 @@ public abstract class BaseService {
                                 try {
                                     String tableName =
                                             TablePath.of(metricName.split("#")[1]).getFullName();
-                                    JsonNode metricNode = jobMetricsStr.get(metricName);
+                                    JsonNode metricNode = jobMetricsJson.get(metricName);
 
-                                    Map<String, java.util.List<String>> identifiersMap = null;
+                                    Map<String, List<String>> identifiersMap = null;
                                     if (metricName.startsWith("TableSource")
                                             || metricName.startsWith("Source")) {
                                         identifiersMap = tableToSourceIdentifiersMap;
@@ -661,7 +721,7 @@ public abstract class BaseService {
 
             // Aggregation summary and rate metrics
             aggregateMetrics(
-                    jobMetricsStr,
+                    jobMetricsJson,
                     metricsSums,
                     metricsRates,
                     ArrayUtils.addAll(countMetricsNames, rateMetricsNames));
@@ -690,6 +750,51 @@ public abstract class BaseService {
                         .toArray(Number[]::new),
                 ArrayUtils.addAll(countMetricsNames, rateMetricsNames),
                 metricsSums.length);
+
+        List<String> allSourceIdentifiers = new ArrayList<>();
+        List<String> allSinkIdentifiers = new ArrayList<>();
+        if (jobDAGInfo != null && jobDAGInfo.getVertexInfoMap() != null) {
+            for (VertexInfo vertexInfo : jobDAGInfo.getVertexInfoMap().values()) {
+                String identifier = extractVertexIdentifier(vertexInfo.getConnectorType());
+                if (identifier.equals(vertexInfo.getConnectorType())) {
+                    continue;
+                }
+                if (vertexInfo.getType() == PluginType.SOURCE
+                        && !allSourceIdentifiers.contains(identifier)) {
+                    allSourceIdentifiers.add(identifier);
+                } else if (vertexInfo.getType() == PluginType.SINK
+                        && !allSinkIdentifiers.contains(identifier)) {
+                    allSinkIdentifiers.add(identifier);
+                }
+            }
+            allSourceIdentifiers.sort(vertexIdentifierComparator());
+            allSinkIdentifiers.sort(vertexIdentifierComparator());
+        }
+
+        // Source-side per-vertex metrics
+        String[] sourceVertexCountMetrics = {
+            FLUSH_SIGNAL_TOTAL, FLUSH_SIGNAL_QUEUE_SUCCESS_TOTAL, FLUSH_SIGNAL_QUEUE_FAILURE_TOTAL
+        };
+        String[] sourceVertexRateMetrics = {FLUSH_SIGNAL_QPS};
+
+        // Sink-side per-vertex metrics
+        String[] sinkVertexCountMetrics = {
+            FLUSH_SIGNAL_SINK_SUCCESS_TOTAL, FLUSH_SIGNAL_SINK_FAILURE_TOTAL
+        };
+        String[] sinkVertexRateMetrics = {FLUSH_SIGNAL_SINK_QPS};
+
+        aggregateMetricsByVertex(
+                jobMetricsJson,
+                metricsMap,
+                sourceVertexCountMetrics,
+                sourceVertexRateMetrics,
+                allSourceIdentifiers);
+        aggregateMetricsByVertex(
+                jobMetricsJson,
+                metricsMap,
+                sinkVertexCountMetrics,
+                sinkVertexRateMetrics,
+                allSinkIdentifiers);
 
         return metricsMap;
     }
@@ -981,6 +1086,93 @@ public abstract class BaseService {
         }
     }
 
+    private void aggregateMetricsByVertex(
+            JsonNode jobMetricsJson,
+            Map<String, Object> metricsMap,
+            String[] countMetricNames,
+            String[] rateMetricNames,
+            List<String> vertexIdentifiers) {
+        for (String metricName : countMetricNames) {
+            Map<String, Object> vertexMap =
+                    groupMetricByVertex(jobMetricsJson, metricName, false, vertexIdentifiers);
+            if (!vertexMap.isEmpty()) {
+                metricsMap.put(metricName + "PerVertex", vertexMap);
+            }
+        }
+        for (String metricName : rateMetricNames) {
+            Map<String, Object> vertexMap =
+                    groupMetricByVertex(jobMetricsJson, metricName, true, vertexIdentifiers);
+            if (!vertexMap.isEmpty()) {
+                metricsMap.put(metricName + "PerVertex", vertexMap);
+            }
+        }
+    }
+
+    private Map<String, Object> groupMetricByVertex(
+            JsonNode jobMetricsJson,
+            String metricName,
+            boolean isRate,
+            List<String> fallbackIdentifiers) {
+        Map<String, Object> result = new HashMap<>();
+        JsonNode metricNode = jobMetricsJson.get(metricName);
+        if (metricNode == null || !metricNode.isArray()) {
+            return result;
+        }
+
+        Map<String, Double> rateAccumulator = new HashMap<>();
+        Map<String, Long> countAccumulator = new HashMap<>();
+        boolean tagExtractionSucceeded = false;
+
+        for (JsonNode node : metricNode) {
+            String vertexId = extractVertexIdentifierFromMetricNode(node);
+            if (StringUtils.isNotBlank(vertexId)) {
+                tagExtractionSucceeded = true;
+                if (isRate) {
+                    rateAccumulator.merge(vertexId, node.path("value").asDouble(), Double::sum);
+                } else {
+                    countAccumulator.merge(vertexId, node.path("value").asLong(), Long::sum);
+                }
+            }
+        }
+
+        if (!tagExtractionSucceeded
+                && fallbackIdentifiers != null
+                && !fallbackIdentifiers.isEmpty()) {
+            if (fallbackIdentifiers.size() == 1) {
+                String vertexId = fallbackIdentifiers.get(0);
+                for (JsonNode node : metricNode) {
+                    if (isRate) {
+                        rateAccumulator.merge(vertexId, node.path("value").asDouble(), Double::sum);
+                    } else {
+                        countAccumulator.merge(vertexId, node.path("value").asLong(), Long::sum);
+                    }
+                }
+            } else {
+                int arraySize = metricNode.size();
+                int vertexCount = fallbackIdentifiers.size();
+                int entriesPerVertex =
+                        arraySize >= vertexCount ? arraySize / vertexCount : arraySize;
+                for (int i = 0; i < arraySize; i++) {
+                    int vertexIdx = Math.min(i / entriesPerVertex, vertexCount - 1);
+                    String vertexId = fallbackIdentifiers.get(vertexIdx);
+                    JsonNode node = metricNode.get(i);
+                    if (isRate) {
+                        rateAccumulator.merge(vertexId, node.path("value").asDouble(), Double::sum);
+                    } else {
+                        countAccumulator.merge(vertexId, node.path("value").asLong(), Long::sum);
+                    }
+                }
+            }
+        }
+
+        if (isRate) {
+            result.putAll(rateAccumulator);
+        } else {
+            result.putAll(countAccumulator);
+        }
+        return result;
+    }
+
     private void populateMetricsMap(
             Map<String, Object> metricsMap,
             Object[] metrics,
@@ -1028,7 +1220,7 @@ public abstract class BaseService {
                                                         .sum()));
     }
 
-    private JsonObject metricsToJsonObject(Map<String, Object> jobMetrics) {
+    public JsonObject metricsToJsonObject(Map<String, Object> jobMetrics) {
         JsonObject members = new JsonObject();
         jobMetrics.forEach(
                 (key, value) -> {
@@ -1039,7 +1231,12 @@ public abstract class BaseService {
                         if (value instanceof Float
                                 || value instanceof Double
                                 || value instanceof BigDecimal) {
-                            strValue = new BigDecimal(value.toString()).toPlainString();
+                            if ((value instanceof Double && !Double.isFinite((Double) value))
+                                    || (value instanceof Float && !Float.isFinite((Float) value))) {
+                                strValue = value.toString();
+                            } else {
+                                strValue = new BigDecimal(value.toString()).toPlainString();
+                            }
                         } else {
                             strValue = value.toString();
                         }
@@ -1129,13 +1326,31 @@ public abstract class BaseService {
                         ? jobName
                         : requestParams.get(RestConstant.JOB_NAME));
 
-        boolean startWithSavePoint =
-                Boolean.parseBoolean(requestParams.get(RestConstant.IS_START_WITH_SAVE_POINT));
+        RestoreMode restoreMode = resolveRestoreMode(requestParams);
         String jobIdStr = requestParams.get(RestConstant.JOB_ID);
         Long finalJobId = StringUtils.isNotBlank(jobIdStr) ? Long.parseLong(jobIdStr) : null;
+        Long restoreSourceJobId =
+                StringUtils.isNotBlank(requestParams.get(RestConstant.RESTORE_SOURCE_JOB_ID))
+                        ? Long.parseLong(requestParams.get(RestConstant.RESTORE_SOURCE_JOB_ID))
+                        : null;
+        // Keep the legacy savepoint REST contract where jobId also identifies the restore source.
+        if (restoreMode == RestoreMode.SAVEPOINT && restoreSourceJobId == null) {
+            if (finalJobId != null) {
+                restoreSourceJobId = finalJobId;
+            } else {
+                throw new IllegalArgumentException(
+                        "restoreSourceJobId is required when restoreMode=" + restoreMode);
+            }
+        }
         RestJobExecutionEnvironment restJobExecutionEnvironment =
                 new RestJobExecutionEnvironment(
-                        seaTunnelServer, jobConfig, config, node, startWithSavePoint, finalJobId);
+                        seaTunnelServer,
+                        jobConfig,
+                        config,
+                        node,
+                        restoreMode,
+                        restoreSourceJobId,
+                        finalJobId);
         JobImmutableInformation jobImmutableInformation = restJobExecutionEnvironment.build();
         long jobId = jobImmutableInformation.getJobId();
         if (!seaTunnelServer.isMasterNode()) {
@@ -1155,6 +1370,17 @@ public abstract class BaseService {
         return new JsonObject()
                 .add(RestConstant.JOB_ID, String.valueOf(jobId))
                 .add(RestConstant.JOB_NAME, jobConfig.getName());
+    }
+
+    private RestoreMode resolveRestoreMode(Map<String, String> requestParams) {
+        String restoreModeValue = requestParams.get(RestConstant.RESTORE_MODE);
+        if (StringUtils.isNotBlank(restoreModeValue)) {
+            return RestoreMode.valueOf(restoreModeValue.toUpperCase());
+        }
+        if (Boolean.parseBoolean(requestParams.get(RestConstant.IS_START_WITH_SAVE_POINT))) {
+            return RestoreMode.SAVEPOINT;
+        }
+        return RestoreMode.NONE;
     }
 
     private void submitJob(

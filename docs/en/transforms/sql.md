@@ -15,6 +15,7 @@ SQL transform use memory SQL engine, we can via SQL functions and ability of SQL
 | plugin_input | string | yes      | -             |
 | plugin_output | string | yes      | -             |
 | query             | string | yes      | -             |
+| engine            | string | no       | ZETA          |
 
 ### plugin_input [string]
 
@@ -26,6 +27,10 @@ The query SQL, it's a simple SQL supported base function and criteria filter ope
 
 the query expression can be `select [table_name.]column_a` to query the column that named `column_a`. and the table name is optional.  
 or `select c_row.c_inner_row.column_b` to query the inline struct column that named `column_b` within `c_row` column and `c_inner_row` column. **In this query expression, can't have table name.**
+
+### engine [string]
+
+The SQL engine used by this transform. Supported values are `ZETA` and `INTERNAL`. If this option is not configured, `ZETA` is used.
 
 ## Example
 
@@ -157,4 +162,3 @@ sink {
 ### new version
 
 - Add SQL Transform Connector
-

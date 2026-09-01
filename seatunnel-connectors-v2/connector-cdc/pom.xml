@@ -31,6 +31,7 @@
 
     <modules>
         <module>connector-cdc-base</module>
+        <module>connector-cdc-db2</module>
         <module>connector-cdc-mysql</module>
         <module>connector-cdc-sqlserver</module>
         <module>connector-cdc-mongodb</module>
@@ -38,6 +39,7 @@
         <module>connector-cdc-oracle</module>
         <module>connector-cdc-opengauss</module>
         <module>connector-cdc-tidb</module>
+        <module>connector-cdc-vitess</module>
     </modules>
 
     <properties>

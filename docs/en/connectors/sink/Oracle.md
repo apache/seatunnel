@@ -29,9 +29,11 @@ semantics (using XA transaction guarantee).
 
 - [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [x] [cdc](../../introduction/concepts/connector-v2-features.md)
+- [x] [support multiple table write](../../introduction/concepts/connector-v2-features.md)
+- [x] [timer flush](../../introduction/concepts/connector-v2-features.md)
 
 > Use `Xa transactions` to ensure `exactly-once`. So only support `exactly-once` for the database which is
-> support `Xa transactions`. You can set `is_exactly_once=true` to enable it.
+> support `Xa transactions`. You can set `is_exactly_once=true` and `max_retries=0` to enable it.
 
 ## Supported DataSource Info
 
@@ -76,8 +78,8 @@ semantics (using XA transaction guarantee).
 | primary_keys                              | Array   | No       | -                            | This option is used to support operations such as `insert`, `delete`, and `update` when automatically generate sql.                                                                                                                            |
 | connection_check_timeout_sec              | Int     | No       | 30                           | The time in seconds to wait for the database operation used to validate the connection to complete.                                                                                                                                            |
 | max_retries                               | Int     | No       | 0                            | The number of retries to submit failed (executeBatch)                                                                                                                                                                                          |
-| batch_size                                | Int     | No       | 1000                         | For batch writing, when the number of buffered records reaches the number of `batch_size` or the time reaches `batch_interval_ms`<br/>, the data will be flushed into the database                                                             |
-| batch_interval_ms                         | Int     | No       | 1000                         | For batch writing, when the number of buffers reaches the number of `batch_size` or the time reaches `batch_interval_ms`, the data will be flushed into the database                                                                           |
+| batch_size                                | Int     | No       | 1000                         | For batch writing, when the number of buffered records reaches `batch_size`, the data will be flushed into the database. If `batch_interval_ms` is greater than 0, elapsed time can also trigger a flush.                                      |
+| batch_interval_ms                         | Long    | No       | 0                            | Write-triggered flush interval in milliseconds. `0` disables time-based flushing. When greater than 0, the writer checks elapsed time on each record and flushes synchronously when the interval is reached.                                    |
 | is_exactly_once                           | Boolean | No       | false                        | Whether to enable exactly-once semantics, which will use Xa transactions. If on, you need to<br/>set `xa_data_source_class_name`.                                                                                                              |
 | generate_sink_sql                         | Boolean | No       | false                        | Generate sql statements based on the database table you want to write to.                                                                                                                                                                      |
 | xa_data_source_class_name                 | String  | No       | -                            | The xa data source class name of the database Driver, for example, Oracle is `oracle.jdbc.xa.client.OracleXADataSource`, and<br/>please refer to appendix for other data sources                                                               |
@@ -90,6 +92,7 @@ semantics (using XA transaction guarantee).
 | data_save_mode                            | Enum    | No       | APPEND_DATA                  | Before the synchronous task is turned on, different processing schemes are selected for data existing data on the target side.                                                                                                                 |
 | custom_sql                                | String  | No       | -                            | When data_save_mode selects CUSTOM_PROCESSING, you should fill in the CUSTOM_SQL parameter. This parameter usually fills in a SQL that can be executed. SQL will be executed before synchronization tasks.                                     |
 | enable_upsert                             | Boolean | No       | true                         | Enable upsert by primary_keys exist, If the task has no key duplicate data, setting this parameter to `false` can speed up data import                                                                                                         |
+| multi_table_sink_replica                  | Int     | No       | 1                            | The number of sink writer replicas used when writing multiple tables.                                                                                                                                                                          |
 
 ### Tips
 
@@ -194,7 +197,7 @@ sink {
         driver = "oracle.jdbc.OracleDriver"
         username = root
         password = 123456
-        
+
         generate_sink_sql = true
         # You need to configure both database and table
         database = XE
@@ -203,6 +206,47 @@ sink {
         schema_save_mode = "CREATE_SCHEMA_WHEN_NOT_EXIST"
         data_save_mode="APPEND_DATA"
     }
+}
+```
+
+### Timer Flush + Batch Combined
+
+For streaming jobs that should not wait for the buffer to fill before flushing, set both `batch_size` and `batch_interval_ms`. The flush is **write-triggered**: each incoming write checks the buffered row count and elapsed time and flushes synchronously when either threshold is reached. There is no background scheduler, so during idle periods (no incoming rows) buffered rows are held until the next row arrives or a checkpoint completes — `batch_interval_ms` does not by itself guarantee a strict wall-clock latency bound.
+
+```hocon
+sink {
+  Jdbc {
+    url = "jdbc:oracle:thin:@datasource01:1523:xe"
+    driver = "oracle.jdbc.OracleDriver"
+    username = "root"
+    password = "123456"
+    generate_sink_sql = true
+    database = "XE"
+    table = "TEST.TEST_TABLE"
+    primary_keys = ["ID"]
+    batch_size = 2000
+    batch_interval_ms = 5000
+  }
+}
+```
+
+### Multi-Table Write With Placeholder
+
+Use `${schema_name}` and `${table_name}` placeholders in `table` to route each row to the matching target table based on metadata carried by the upstream row. Set `multi_table_sink_replica` to control how many writer replicas the sink uses for multi-table writes.
+
+```hocon
+sink {
+  Jdbc {
+    url = "jdbc:oracle:thin:@datasource01:1523:xe"
+    driver = "oracle.jdbc.OracleDriver"
+    username = "root"
+    password = "123456"
+    generate_sink_sql = true
+    database = "XE"
+    table = "${schema_name}.${table_name}_SINK"
+    primary_keys = ["ID"]
+    multi_table_sink_replica = 2
+  }
 }
 ```
 
