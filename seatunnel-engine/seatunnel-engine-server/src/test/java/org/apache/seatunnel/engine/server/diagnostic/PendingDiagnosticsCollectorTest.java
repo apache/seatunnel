@@ -28,18 +28,197 @@ import org.apache.seatunnel.engine.server.execution.PendingSourceState;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.master.JobMaster;
 import org.apache.seatunnel.engine.server.resourcemanager.ResourceManager;
+import org.apache.seatunnel.engine.server.resourcemanager.resource.CPU;
+import org.apache.seatunnel.engine.server.resourcemanager.resource.Memory;
+import org.apache.seatunnel.engine.server.resourcemanager.resource.ResourceProfile;
 import org.apache.seatunnel.engine.server.resourcemanager.resource.SlotProfile;
+import org.apache.seatunnel.engine.server.resourcemanager.resource.SystemLoadInfo;
+import org.apache.seatunnel.engine.server.resourcemanager.worker.WorkerProfile;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
+import com.hazelcast.cluster.Address;
+
+import java.net.UnknownHostException;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 
 public class PendingDiagnosticsCollectorTest {
+
+    @Test
+    public void testCollectWorkerResourceSnapshot() throws UnknownHostException {
+        ResourceManager resourceManager = Mockito.mock(ResourceManager.class);
+        Address dynamicAddress = new Address("localhost", 5801);
+        Address fixedAddress = new Address("localhost", 5802);
+
+        SlotProfile dynamicAssigned = slot(dynamicAddress, 0, 100L);
+        WorkerProfile dynamicWorker =
+                worker(
+                        dynamicAddress,
+                        true,
+                        new ResourceProfile(CPU.of(8), Memory.of(8192)),
+                        new ResourceProfile(CPU.of(3), Memory.of(3072)),
+                        new SlotProfile[] {dynamicAssigned},
+                        new SlotProfile[] {slot(dynamicAddress, 1, 0L)});
+        dynamicWorker.setSystemLoadInfo(new SystemLoadInfo(60.0, 25.0));
+
+        SlotProfile fixedAssignedA = slot(fixedAddress, 0, 200L);
+        SlotProfile fixedAssignedB = slot(fixedAddress, 1, 200L);
+        SlotProfile fixedAssignedC = slot(fixedAddress, 2, 300L);
+        WorkerProfile fixedWorker =
+                worker(
+                        fixedAddress,
+                        false,
+                        new ResourceProfile(CPU.of(16), Memory.of(16384)),
+                        new ResourceProfile(CPU.of(4), Memory.of(4096)),
+                        new SlotProfile[] {fixedAssignedA, fixedAssignedB, fixedAssignedC},
+                        new SlotProfile[] {slot(fixedAddress, 3, 0L), slot(fixedAddress, 4, 0L)});
+
+        ConcurrentMap<Address, WorkerProfile> workers = new ConcurrentHashMap<>();
+        workers.put(fixedAddress, fixedWorker);
+        workers.put(dynamicAddress, dynamicWorker);
+        Mockito.when(resourceManager.getRegisterWorker()).thenReturn(workers);
+
+        WorkerResourceSnapshot snapshot =
+                PendingDiagnosticsCollector.collectWorkerResourceSnapshot(resourceManager);
+
+        Assertions.assertTrue(snapshot.isAvailable());
+        Assertions.assertTrue(snapshot.getCollectedAt() > 0);
+        Assertions.assertEquals(2, snapshot.getWorkers().size());
+
+        WorkerResourceDiagnostic dynamic = snapshot.getWorkers().get(0);
+        Assertions.assertEquals(dynamicAddress.toString(), dynamic.getAddress());
+        Assertions.assertTrue(dynamic.isDynamicSlot());
+        Assertions.assertEquals(1, dynamic.getUsedSlots());
+        Assertions.assertEquals(2, dynamic.getTotalSlots());
+        Assertions.assertEquals(1, dynamic.getFreeSlots());
+        Assertions.assertEquals(8, dynamic.getTotalCpuCores());
+        Assertions.assertEquals(3, dynamic.getAvailableCpuCores());
+        Assertions.assertEquals(8192L, dynamic.getTotalHeapMemoryBytes());
+        Assertions.assertEquals(3072L, dynamic.getAvailableHeapMemoryBytes());
+        Assertions.assertEquals(25.0, dynamic.getCpuUsage());
+        Assertions.assertEquals(60.0, dynamic.getMemUsage());
+        Assertions.assertEquals(Collections.singletonList(100L), dynamic.getRunningJobIds());
+
+        WorkerResourceDiagnostic fixed = snapshot.getWorkers().get(1);
+        Assertions.assertEquals(fixedAddress.toString(), fixed.getAddress());
+        Assertions.assertFalse(fixed.isDynamicSlot());
+        Assertions.assertEquals(3, fixed.getUsedSlots());
+        Assertions.assertEquals(5, fixed.getTotalSlots());
+        Assertions.assertEquals(2, fixed.getFreeSlots());
+        Assertions.assertEquals(Arrays.asList(200L, 300L), fixed.getRunningJobIds());
+    }
+
+    @Test
+    public void testCollectWorkerResourceSnapshotWithIncompleteProfile()
+            throws UnknownHostException {
+        ResourceManager resourceManager = Mockito.mock(ResourceManager.class);
+        Address registeredAddress = new Address("localhost", 5801);
+        WorkerProfile worker = new WorkerProfile();
+        worker.setAddress(null);
+        worker.setProfile(null);
+        worker.setUnassignedResource(null);
+        worker.setAssignedSlots(null);
+        worker.setUnassignedSlots(null);
+        worker.setAttributes(null);
+
+        ConcurrentMap<Address, WorkerProfile> workers = new ConcurrentHashMap<>();
+        workers.put(registeredAddress, worker);
+        Mockito.when(resourceManager.getRegisterWorker()).thenReturn(workers);
+
+        WorkerResourceDiagnostic diagnostic =
+                PendingDiagnosticsCollector.collectWorkerResourceSnapshot(resourceManager)
+                        .getWorkers()
+                        .get(0);
+
+        Assertions.assertEquals(registeredAddress.toString(), diagnostic.getAddress());
+        Assertions.assertEquals(0, diagnostic.getUsedSlots());
+        Assertions.assertEquals(0, diagnostic.getTotalSlots());
+        Assertions.assertEquals(0, diagnostic.getFreeSlots());
+        Assertions.assertNull(diagnostic.getTotalCpuCores());
+        Assertions.assertNull(diagnostic.getAvailableCpuCores());
+        Assertions.assertNull(diagnostic.getTotalHeapMemoryBytes());
+        Assertions.assertNull(diagnostic.getAvailableHeapMemoryBytes());
+        Assertions.assertEquals(Collections.emptyMap(), diagnostic.getTags());
+        Assertions.assertEquals(Collections.emptyList(), diagnostic.getRunningJobIds());
+    }
+
+    @Test
+    public void testCollectWorkerResourceSnapshotAfterSlotReleaseAndReuse()
+            throws UnknownHostException {
+        ResourceManager resourceManager = Mockito.mock(ResourceManager.class);
+        Address address = new Address("localhost", 5801);
+        SlotProfile retained = slot(address, 0, 100L);
+        SlotProfile released = slot(address, 1, 200L);
+        SlotProfile free = slot(address, 2, 0L);
+        WorkerProfile worker =
+                worker(
+                        address,
+                        false,
+                        new ResourceProfile(CPU.of(8), Memory.of(8192)),
+                        new ResourceProfile(CPU.of(4), Memory.of(4096)),
+                        new SlotProfile[] {retained, released},
+                        new SlotProfile[] {free});
+        ConcurrentMap<Address, WorkerProfile> workers = new ConcurrentHashMap<>();
+        workers.put(address, worker);
+        Mockito.when(resourceManager.getRegisterWorker()).thenReturn(workers);
+
+        released.unassigned();
+        worker.setAssignedSlots(new SlotProfile[] {retained});
+        worker.setUnassignedSlots(new SlotProfile[] {released, free});
+
+        WorkerResourceDiagnostic afterRelease =
+                PendingDiagnosticsCollector.collectWorkerResourceSnapshot(resourceManager)
+                        .getWorkers()
+                        .get(0);
+        Assertions.assertEquals(1, afterRelease.getUsedSlots());
+        Assertions.assertEquals(3, afterRelease.getTotalSlots());
+        Assertions.assertEquals(2, afterRelease.getFreeSlots());
+        Assertions.assertEquals(Collections.singletonList(100L), afterRelease.getRunningJobIds());
+
+        released.assign(300L);
+        worker.setAssignedSlots(new SlotProfile[] {retained, released});
+        worker.setUnassignedSlots(new SlotProfile[] {free});
+
+        WorkerResourceDiagnostic afterReuse =
+                PendingDiagnosticsCollector.collectWorkerResourceSnapshot(resourceManager)
+                        .getWorkers()
+                        .get(0);
+        Assertions.assertEquals(2, afterReuse.getUsedSlots());
+        Assertions.assertEquals(3, afterReuse.getTotalSlots());
+        Assertions.assertEquals(1, afterReuse.getFreeSlots());
+        Assertions.assertEquals(Arrays.asList(100L, 300L), afterReuse.getRunningJobIds());
+    }
+
+    @Test
+    public void testCollectEmptyAndUnavailableWorkerResourceSnapshots() {
+        WorkerResourceSnapshot unavailable =
+                PendingDiagnosticsCollector.collectWorkerResourceSnapshot(null);
+        Assertions.assertFalse(unavailable.isAvailable());
+        Assertions.assertTrue(unavailable.getWorkers().isEmpty());
+
+        ResourceManager emptyResourceManager = Mockito.mock(ResourceManager.class);
+        Mockito.when(emptyResourceManager.getRegisterWorker())
+                .thenReturn(new ConcurrentHashMap<>());
+        WorkerResourceSnapshot empty =
+                PendingDiagnosticsCollector.collectWorkerResourceSnapshot(emptyResourceManager);
+        Assertions.assertTrue(empty.isAvailable());
+        Assertions.assertTrue(empty.getWorkers().isEmpty());
+
+        ResourceManager unavailableResourceManager = Mockito.mock(ResourceManager.class);
+        Mockito.when(unavailableResourceManager.getRegisterWorker()).thenReturn(null);
+        WorkerResourceSnapshot missing =
+                PendingDiagnosticsCollector.collectWorkerResourceSnapshot(
+                        unavailableResourceManager);
+        Assertions.assertFalse(missing.isAvailable());
+        Assertions.assertTrue(missing.getWorkers().isEmpty());
+    }
 
     @Test
     public void testCollectJobDiagnosticWithFailures() {
@@ -110,5 +289,31 @@ public class PendingDiagnosticsCollectorTest {
         Assertions.assertEquals(1, diagnostic.getBlockingJobIds().size());
         Assertions.assertEquals(3, diagnostic.getPipelines().get(0).getTotalTaskGroups());
         Assertions.assertEquals(2, diagnostic.getPipelines().get(0).getLackingTaskGroups());
+    }
+
+    private static WorkerProfile worker(
+            Address address,
+            boolean dynamicSlot,
+            ResourceProfile profile,
+            ResourceProfile unassignedResource,
+            SlotProfile[] assignedSlots,
+            SlotProfile[] unassignedSlots) {
+        return new WorkerProfile(
+                address,
+                profile,
+                unassignedResource,
+                dynamicSlot,
+                assignedSlots,
+                unassignedSlots,
+                Collections.singletonMap("region", "test"));
+    }
+
+    private static SlotProfile slot(Address address, int slotId, long ownerJobId) {
+        SlotProfile slot =
+                new SlotProfile(address, slotId, new ResourceProfile(), "slot-" + slotId);
+        if (ownerJobId > 0) {
+            slot.assign(ownerJobId);
+        }
+        return slot;
     }
 }

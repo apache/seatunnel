@@ -101,7 +101,7 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy<ParquetWriter<Ge
         Configuration configuration = getConfiguration(hadoopConf);
         writePathsAsInt96 =
                 fileSinkConfig.getParquetAvroWriteFixedAsInt96().stream()
-                        .map(this::normalizeFieldName)
+                        .map(ParquetWriteStrategy::normalizeFieldName)
                         .collect(Collectors.toSet());
         if (fileSinkConfig.getParquetWriteTimestampAsInt96()) {
             List<String> timestampFields = new ArrayList<>();
@@ -307,9 +307,11 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy<ParquetWriter<Ge
                                 (SeaTunnelRowType) seaTunnelDataType, sinkColumnsIndex);
                 GenericRecordBuilder recordBuilder = new GenericRecordBuilder(recordSchema);
                 for (int i = 0; i < fieldNames.length; i++) {
+                    String parquetFieldName = normalizeFieldName(fieldNames[i]);
                     recordBuilder.set(
-                            normalizeFieldName(fieldNames[i]),
-                            resolveObject(fieldNames[i], seaTunnelRow.getField(i), fieldTypes[i]));
+                            parquetFieldName,
+                            resolveObject(
+                                    parquetFieldName, seaTunnelRow.getField(i), fieldTypes[i]));
                 }
                 return recordBuilder.build();
             default:
@@ -320,6 +322,10 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy<ParquetWriter<Ge
                 throw new FileConnectorException(
                         CommonErrorCodeDeprecated.UNSUPPORTED_DATA_TYPE, errorMsg);
         }
+    }
+
+    private static String normalizeFieldName(String fieldName) {
+        return fieldName.toLowerCase(Locale.ROOT);
     }
 
     public Type seaTunnelDataType2ParquetDataType(
@@ -448,7 +454,7 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy<ParquetWriter<Ge
         if (fileSinkConfig.getParquetWriteTimestampAsInt96()) {
             writePathsAsInt96 =
                     fileSinkConfig.getParquetAvroWriteFixedAsInt96().stream()
-                            .map(this::normalizeFieldName)
+                            .map(ParquetWriteStrategy::normalizeFieldName)
                             .collect(Collectors.toSet());
             for (int i = 0; i < seaTunnelRowType.getTotalFields(); i++) {
                 if (SqlType.TIMESTAMP.equals(seaTunnelRowType.getFieldType(i).getSqlType())) {
@@ -475,9 +481,5 @@ public class ParquetWriteStrategy extends AbstractWriteStrategy<ParquetWriter<Ge
         MessageType seaTunnelRow =
                 Types.buildMessage().addFields(types.toArray(new Type[0])).named("SeaTunnelRecord");
         return schemaConverter.convert(seaTunnelRow);
-    }
-
-    private String normalizeFieldName(String fieldName) {
-        return fieldName.toLowerCase(Locale.ROOT);
     }
 }
