@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.cdc.base.dialect;
 
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.connectors.cdc.base.config.SourceConfig;
 import org.apache.seatunnel.connectors.cdc.base.source.enumerator.splitter.ChunkSplitter;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
@@ -40,6 +41,20 @@ public interface DataSourceDialect<C extends SourceConfig> extends Serializable 
 
     /** Discovers the list of data collection to capture. */
     List<TableId> discoverDataCollections(C sourceConfig);
+
+    /**
+     * Converts a checkpoint table path to the dialect-specific Debezium identifier.
+     *
+     * <p>Dialects whose discovered table identifiers use a different namespace must override this
+     * method so restored checkpoint table structures are compared in the same identifier format.
+     *
+     * @param tablePath table path stored in checkpoint schema state
+     * @return identifier in the same format used by discovered table identifiers
+     */
+    default TableId toTableId(TablePath tablePath) {
+        return new TableId(
+                tablePath.getDatabaseName(), tablePath.getSchemaName(), tablePath.getTableName());
+    }
 
     /** Check if the CollectionId is case-sensitive or not. */
     boolean isDataCollectionIdCaseSensitive(C sourceConfig);

@@ -18,6 +18,7 @@
 package org.apache.seatunnel.connectors.cdc.base.source.split;
 
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
+import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.type.SeaTunnelDataType;
 import org.apache.seatunnel.connectors.cdc.base.source.offset.Offset;
 
@@ -32,6 +33,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @ToString
@@ -136,8 +138,19 @@ public class IncrementalSplit extends SourceSplitBase {
         this.historyTableChanges = historyTableChanges;
     }
 
-    /** Returns restored checkpoint state limited to the tables captured by the current job. */
-    public IncrementalSplit pruneTables(Collection<TableId> capturedTables) {
+    /**
+     * Returns restored checkpoint state limited to the tables captured by the current job.
+     *
+     * <p>The checkpoint schema stores {@link TablePath}s while split state uses Debezium {@link
+     * TableId}s. The caller supplies the dialect-specific conversion so both forms use the same
+     * namespace during restore.
+     *
+     * @param capturedTables table identifiers discovered for the current job configuration
+     * @param tableIdConverter converts checkpoint table paths to discovered table identifiers
+     * @return a copy of this split without state for tables no longer captured
+     */
+    public IncrementalSplit pruneTables(
+            Collection<TableId> capturedTables, Function<TablePath, TableId> tableIdConverter) {
         Set<TableId> capturedTableSet = new HashSet<>(capturedTables);
         List<TableId> filteredTableIds =
                 tableIds.stream().filter(capturedTableSet::contains).collect(Collectors.toList());
@@ -152,13 +165,8 @@ public class IncrementalSplit extends SourceSplitBase {
                                 .filter(
                                         table ->
                                                 capturedTableSet.contains(
-                                                        new TableId(
-                                                                table.getTablePath()
-                                                                        .getDatabaseName(),
-                                                                table.getTablePath()
-                                                                        .getSchemaName(),
-                                                                table.getTablePath()
-                                                                        .getTableName())))
+                                                        tableIdConverter.apply(
+                                                                table.getTablePath())))
                                 .collect(Collectors.toList());
         Map<TableId, byte[]> filteredHistoryTableChanges =
                 historyTableChanges == null

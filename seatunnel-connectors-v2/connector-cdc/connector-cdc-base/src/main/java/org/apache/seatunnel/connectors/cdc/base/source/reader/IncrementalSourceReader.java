@@ -281,7 +281,8 @@ public class IncrementalSourceReader<T, C extends SourceConfig>
                     incrementalSplit.splitId());
             return incrementalSplit;
         }
-        IncrementalSplit prunedSplit = incrementalSplit.pruneTables(capturedTables);
+        IncrementalSplit prunedSplit =
+                incrementalSplit.pruneTables(capturedTables, dataSourceDialect::toTableId);
         if (prunedSplit.getTableIds().size() != incrementalSplit.getTableIds().size()) {
             log.info(
                     "Pruned restored incremental split {} tables from {} to {} based on current captured tables.",

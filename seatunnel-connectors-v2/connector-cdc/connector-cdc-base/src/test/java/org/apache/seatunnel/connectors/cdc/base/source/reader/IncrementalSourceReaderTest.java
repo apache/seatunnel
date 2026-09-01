@@ -58,7 +58,8 @@ class IncrementalSourceReaderTest {
     @Test
     void testAddSplitsEnqueuesPrunedRestoredIncrementalSplit() {
         SourceConfig sourceConfig = Mockito.mock(SourceConfig.class);
-        DataSourceDialect<SourceConfig> dialect = Mockito.mock(DataSourceDialect.class);
+        DataSourceDialect<SourceConfig> dialect =
+                Mockito.mock(DataSourceDialect.class, Mockito.CALLS_REAL_METHODS);
         Mockito.when(dialect.discoverDataCollections(sourceConfig))
                 .thenReturn(Collections.singletonList(KEPT_TABLE));
         SourceReader.Context context = Mockito.mock(SourceReader.Context.class);
@@ -82,7 +83,8 @@ class IncrementalSourceReaderTest {
     @Test
     void testAddSplitsKeepsRestoredSplitWhenDiscoveryReturnsEmpty() {
         SourceConfig sourceConfig = Mockito.mock(SourceConfig.class);
-        DataSourceDialect<SourceConfig> dialect = Mockito.mock(DataSourceDialect.class);
+        DataSourceDialect<SourceConfig> dialect =
+                Mockito.mock(DataSourceDialect.class, Mockito.CALLS_REAL_METHODS);
         Mockito.when(dialect.discoverDataCollections(sourceConfig))
                 .thenReturn(Collections.emptyList());
         SourceReader.Context context = Mockito.mock(SourceReader.Context.class);
@@ -105,7 +107,8 @@ class IncrementalSourceReaderTest {
     @Test
     void testAddSplitsKeepsRestoredSplitWhenDiscoveryFails() {
         SourceConfig sourceConfig = Mockito.mock(SourceConfig.class);
-        DataSourceDialect<SourceConfig> dialect = Mockito.mock(DataSourceDialect.class);
+        DataSourceDialect<SourceConfig> dialect =
+                Mockito.mock(DataSourceDialect.class, Mockito.CALLS_REAL_METHODS);
         Mockito.when(dialect.discoverDataCollections(sourceConfig))
                 .thenThrow(new RuntimeException("database unavailable"));
         SourceReader.Context context = Mockito.mock(SourceReader.Context.class);
@@ -128,7 +131,8 @@ class IncrementalSourceReaderTest {
     @Test
     void testAddSplitsDiscoversCapturedTablesOnlyOncePerBatch() {
         SourceConfig sourceConfig = Mockito.mock(SourceConfig.class);
-        DataSourceDialect<SourceConfig> dialect = Mockito.mock(DataSourceDialect.class);
+        DataSourceDialect<SourceConfig> dialect =
+                Mockito.mock(DataSourceDialect.class, Mockito.CALLS_REAL_METHODS);
         Mockito.when(dialect.discoverDataCollections(sourceConfig))
                 .thenReturn(Collections.singletonList(KEPT_TABLE));
         SourceReader.Context context = Mockito.mock(SourceReader.Context.class);

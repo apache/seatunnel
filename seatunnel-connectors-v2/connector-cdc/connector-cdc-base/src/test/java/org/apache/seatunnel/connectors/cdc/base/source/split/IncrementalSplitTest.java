@@ -32,13 +32,23 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.function.Function;
 
+/** Verifies restored incremental split state is retained only for currently captured tables. */
 public class IncrementalSplitTest {
 
     private static final TableId KEPT_TABLE =
             new TableId("alpha_online", null, "account_histories");
     private static final TableId REMOVED_TABLE =
             new TableId("alpha_online", null, "account_interests");
+
+    /** Converts regular checkpoint table paths to the default Debezium table identifier format. */
+    private static final Function<TablePath, TableId> DEFAULT_TABLE_ID_CONVERTER =
+            tablePath ->
+                    new TableId(
+                            tablePath.getDatabaseName(),
+                            tablePath.getSchemaName(),
+                            tablePath.getTableName());
 
     @Test
     public void testPruneTablesRemovesDeletedTableState() {
@@ -58,7 +68,9 @@ public class IncrementalSplitTest {
                         Arrays.asList(catalogTable(KEPT_TABLE), catalogTable(REMOVED_TABLE)),
                         historyTableChanges);
 
-        IncrementalSplit pruned = split.pruneTables(Collections.singletonList(KEPT_TABLE));
+        IncrementalSplit pruned =
+                split.pruneTables(
+                        Collections.singletonList(KEPT_TABLE), DEFAULT_TABLE_ID_CONVERTER);
 
         Assertions.assertEquals(Collections.singletonList(KEPT_TABLE), pruned.getTableIds());
         Assertions.assertEquals(1, pruned.getCompletedSnapshotSplitInfos().size());
@@ -76,7 +88,9 @@ public class IncrementalSplitTest {
     public void testPruneTablesPreservesLegacyCheckpointDataTypeWhenTableRemoved() {
         IncrementalSplit split = legacyCheckpointSplit();
 
-        IncrementalSplit pruned = split.pruneTables(Collections.singletonList(KEPT_TABLE));
+        IncrementalSplit pruned =
+                split.pruneTables(
+                        Collections.singletonList(KEPT_TABLE), DEFAULT_TABLE_ID_CONVERTER);
 
         Assertions.assertEquals(Collections.singletonList(KEPT_TABLE), pruned.getTableIds());
         Assertions.assertSame(BasicType.STRING_TYPE, pruned.getCheckpointDataType());
@@ -86,10 +100,41 @@ public class IncrementalSplitTest {
     public void testPruneTablesPreservesLegacyCheckpointDataTypeWhenTablesUnchanged() {
         IncrementalSplit split = legacyCheckpointSplit();
 
-        IncrementalSplit pruned = split.pruneTables(Arrays.asList(KEPT_TABLE, REMOVED_TABLE));
+        IncrementalSplit pruned =
+                split.pruneTables(
+                        Arrays.asList(KEPT_TABLE, REMOVED_TABLE), DEFAULT_TABLE_ID_CONVERTER);
 
         Assertions.assertEquals(Arrays.asList(KEPT_TABLE, REMOVED_TABLE), pruned.getTableIds());
         Assertions.assertSame(BasicType.STRING_TYPE, pruned.getCheckpointDataType());
+    }
+
+    /** Verifies checkpoint schemas use the dialect converter instead of a generic table id. */
+    @Test
+    public void testPruneTablesUsesDialectSpecificTableIdConverter() {
+        TableId db2TableId = new TableId("", "DB2INST1", "CUSTOMERS");
+        IncrementalSplit split =
+                new IncrementalSplit(
+                        "incremental-split-db2",
+                        Collections.singletonList(db2TableId),
+                        null,
+                        null,
+                        Collections.emptyList(),
+                        Collections.singletonList(
+                                catalogTable(TablePath.of("SAMPLE", "DB2INST1", "CUSTOMERS"))),
+                        Collections.emptyMap());
+
+        IncrementalSplit pruned =
+                split.pruneTables(
+                        Collections.singletonList(db2TableId),
+                        tablePath ->
+                                new TableId(
+                                        "", tablePath.getSchemaName(), tablePath.getTableName()));
+
+        Assertions.assertEquals(Collections.singletonList(db2TableId), pruned.getTableIds());
+        Assertions.assertEquals(1, pruned.getCheckpointTables().size());
+        Assertions.assertEquals(
+                TablePath.of("SAMPLE", "DB2INST1", "CUSTOMERS"),
+                pruned.getCheckpointTables().get(0).getTablePath());
     }
 
     @SuppressWarnings("deprecation")
@@ -110,7 +155,11 @@ public class IncrementalSplitTest {
     }
 
     private static CatalogTable catalogTable(TableId tableId) {
-        TablePath tablePath = TablePath.of(tableId.catalog(), tableId.table());
+        return catalogTable(TablePath.of(tableId.catalog(), tableId.table()));
+    }
+
+    /** Creates a catalog table whose identifier is stored in checkpoint schema state. */
+    private static CatalogTable catalogTable(TablePath tablePath) {
         return CatalogTable.of(
                 TableIdentifier.of("test", tablePath),
                 TableSchema.builder().build(),
