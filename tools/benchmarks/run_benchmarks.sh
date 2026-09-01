@@ -21,7 +21,9 @@ set -euo pipefail
 : "${GITHUB_WORKSPACE:?GITHUB_WORKSPACE is required}"
 : "${JAVA_VERSION:?JAVA_VERSION is required}"
 
-benchmark_regex="${BENCHMARKS:-.*}"
+benchmark_selector="${BENCHMARKS:-.*}"
+benchmark_suite_name="${BENCHMARK_SUITE:-}"
+benchmark_regex="${benchmark_selector}"
 benchmark_pr_number="${PR_NUMBER:-}"
 benchmark_ref="${SEATUNNEL_REF:-dev}"
 benchmark_run_id="${GITHUB_RUN_ID:-local}-${GITHUB_RUN_ATTEMPT:-1}"
@@ -30,12 +32,36 @@ benchmark_runner_os="${RUNNER_OS:-unknown}"
 benchmark_runner_arch="${RUNNER_ARCH:-unknown}"
 benchmark_runner_image="${ImageOS:-unknown}-${ImageVersion:-unknown}"
 
+if [[ -n "${benchmark_suite_name}" ]]; then
+    if [[ ! "${benchmark_suite_name}" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+        echo "Invalid benchmark suite name: ${benchmark_suite_name}" >&2
+        exit 1
+    fi
+    benchmark_suite_file="${GITHUB_WORKSPACE}/baseline/tools/benchmarks/suites/${benchmark_suite_name}.txt"
+    if [[ ! -f "${benchmark_suite_file}" ]]; then
+        echo "Benchmark suite does not exist: ${benchmark_suite_file}" >&2
+        exit 1
+    fi
+    benchmark_regex=$(awk '
+        /^[[:space:]]*($|#)/ { next }
+        found { printf "|" }
+        { printf "%s", $0; found = 1 }
+        END { if (found) printf "\n" }
+    ' "${benchmark_suite_file}")
+    if [[ -z "${benchmark_regex}" ]]; then
+        echo "Benchmark suite is empty: ${benchmark_suite_file}" >&2
+        exit 1
+    fi
+fi
+
 benchmark_artifact_dir="${GITHUB_WORKSPACE}/benchmark-artifacts/java${JAVA_VERSION}"
 mkdir -p "${benchmark_artifact_dir}"
 
 echo "SeaTunnel ref: ${benchmark_ref}"
 echo "Baseline commit: $(git -C baseline rev-parse HEAD)"
-echo "Benchmarks: ${benchmark_regex}"
+echo "Benchmark suite: ${benchmark_suite_name:-custom}"
+echo "Benchmark selector: ${benchmark_selector}"
+echo "Benchmark regex: ${benchmark_regex}"
 if [[ -n "${benchmark_pr_number}" ]]; then
     echo "PR number: ${benchmark_pr_number}"
     echo "Candidate commit: $(git -C candidate rev-parse HEAD)"
@@ -99,7 +125,7 @@ run_benchmark() {
         --cpu-count "$(nproc)" \
         --memory-kib "${benchmark_memory_kib}" \
         --run-id "${benchmark_run_id}-${label}" \
-        --suite "${benchmark_regex}"
+        --suite "${benchmark_suite_name:-${benchmark_selector}}"
 }
 
 if [[ -z "${benchmark_pr_number}" ]]; then

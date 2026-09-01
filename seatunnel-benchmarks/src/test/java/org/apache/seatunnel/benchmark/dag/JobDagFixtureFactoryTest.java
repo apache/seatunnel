@@ -15,20 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.seatunnel.benchmark;
+package org.apache.seatunnel.benchmark.dag;
 
-import org.openjdk.jmh.annotations.Scope;
-import org.openjdk.jmh.annotations.State;
+import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 
-/** Embedded Zeta environment with observability and a bounded async boundary enabled. */
-@State(Scope.Thread)
-public class SeaTunnelObservabilityEnvironmentContext extends SeaTunnelEnvironmentContext {
+import org.junit.jupiter.api.Test;
 
-    private static final String JOB_CONFIG_TEMPLATE =
-            BenchmarkTemplates.load("/benchmark/source-transform-sink-observability.conf.template");
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
-    @Override
-    protected String jobConfigTemplate(BenchmarkPipeline pipeline) {
-        return JOB_CONFIG_TEMPLATE;
+class JobDagFixtureFactoryTest {
+
+    @Test
+    void createsExactPipelineAndVertexCounts() {
+        JobDAGInfo dag = JobDagFixtureFactory.create(10);
+
+        assertEquals(10, dag.getPipelineEdges().size());
+        assertEquals(20, dag.getVertexInfoMap().size());
+        assertEquals(
+                10, dag.getPipelineEdges().values().stream().mapToInt(java.util.List::size).sum());
+    }
+
+    @Test
+    void rejectsEmptyDag() {
+        assertThrows(IllegalArgumentException.class, () -> JobDagFixtureFactory.create(0));
     }
 }
