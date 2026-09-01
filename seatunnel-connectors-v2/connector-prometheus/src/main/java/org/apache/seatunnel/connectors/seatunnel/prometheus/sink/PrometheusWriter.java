@@ -43,6 +43,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @Slf4j
 public class PrometheusWriter extends HttpSinkWriter {
@@ -111,6 +112,26 @@ public class PrometheusWriter extends HttpSinkWriter {
                 flush();
             }
         }
+    }
+
+    @Override
+    public Optional<Void> prepareCommit() {
+        // Flush buffered records on checkpoint. On Spark and Flink the engine-level timer flush
+        // (registerFlushAction) keeps the Context's no-op default, so without this the buffer would
+        // only be sent on batch_size and on close(). Flushing on checkpoint bounds the buffered
+        // window to one checkpoint interval on every engine, matching the sibling FlushSignal sinks
+        // (Doris, ClickHouse, Elasticsearch, StarRocks, MongoDB), which flush their buffer here for
+        // the non-2PC case and return Optional.empty(). Prometheus remote-write is not
+        // transactional, so there is no commit info to return.
+        //
+        // flush() throws on failure, so a failed checkpoint flush fails the checkpoint instead of
+        // silently dropping the batch. On restart the source replays from the last successful
+        // checkpoint and re-sends the buffered samples. Whether that replay is harmless depends on
+        // the receiver: one that treats a repeated (labels, timestamp) sample as an idempotent
+        // upsert absorbs it, but one that rejects duplicate or out-of-order samples may fail the
+        // replayed flush, so the delivery guarantee here is at-least-once, not exactly-once.
+        flush();
+        return Optional.empty();
     }
 
     private void flush() {

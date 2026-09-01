@@ -65,7 +65,7 @@ The internal implementation of Doris sink connector is cached and imported by st
 | data_save_mode                 | Enum    | no       | APPEND_DATA                  | the data save mode, please refer to `data_save_mode` below                                                                                                                                                                                                           |
 | save_mode_create_template      | string  | no       | see below                    | see below                                                                                                                                                                                                                                                            |
 | custom_sql                     | String  | no       | -                            | When data_save_mode selects CUSTOM_PROCESSING, you should fill in the CUSTOM_SQL parameter. This parameter usually fills in a SQL that can be executed. SQL will be executed before synchronization tasks.                                                           |
-| doris.config                   | map     | yes      | -                            | Stream Load data description parameters passed to Doris. The most common keys are `format` (`json` or `csv`), `read_json_by_line` (`true`/`false`), `column_separator`, and `row_delimiter`. See the Doris Stream Load documentation for the full key set.                              |
+| doris.config                   | map     | yes      | -                            | Stream Load data description parameters passed to Doris. The most common keys are `format` (`json` or `csv`), `read_json_by_line` (`true`/`false`), `column_separator`, `row_delimiter`, and `partitions`. See the Doris Stream Load documentation for the full key set.               |
 
 ## Redirect Behavior
 
@@ -93,7 +93,7 @@ Option introduction：
 
 Before the synchronous task is turned on, different processing schemes are selected for data existing data on the target side.  
 Option introduction：  
-`DROP_DATA`： Preserve database structure and delete data  
+`DROP_DATA`： Preserve database structure and delete data. By default the complete target table is truncated. When `doris.config.partitions` contains a comma-separated list of formal Doris partition names, only those partitions are truncated and subsequent Stream Load writes are restricted to the same partitions. Every target in a multi-table job must contain the configured partition names. Doris rejects cleanup when a partition does not exist. Partition values and temporary partitions are not supported.
 `APPEND_DATA`：Preserve database structure, preserve data  
 `CUSTOM_PROCESSING`：User defined processing  
 `ERROR_WHEN_DATA_EXISTS`：When there is data, an error is reported

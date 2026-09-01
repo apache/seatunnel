@@ -79,6 +79,11 @@ import static org.apache.seatunnel.e2e.common.util.ContainerUtil.copyAllConnecto
 @Slf4j
 @AutoService(TestContainer.class)
 public class SeaTunnelContainer extends AbstractTestContainer {
+    public static final String SERVER_JVM_OPTION_PROPERTY =
+            "seatunnel.e2e.seatunnel.server.jvm.option";
+    public static final String CLIENT_JVM_OPTION_PROPERTY =
+            "seatunnel.e2e.seatunnel.client.jvm.option";
+
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final String REST_STOP_JOB_PATH = "/stop-job";
     private static final String REST_CHECKPOINT_OVERVIEW_PATH = "/jobs/checkpoints";
@@ -146,9 +151,15 @@ public class SeaTunnelContainer extends AbstractTestContainer {
     }
 
     protected String[] buildStartCommand() {
-        return new String[] {
-            ContainerUtil.adaptPathForWin(Paths.get(SEATUNNEL_HOME, "bin", SERVER_SHELL).toString())
-        };
+        List<String> command = new ArrayList<>();
+        command.add(
+                ContainerUtil.adaptPathForWin(
+                        Paths.get(SEATUNNEL_HOME, "bin", SERVER_SHELL).toString()));
+        String serverJvmOption = System.getProperty(SERVER_JVM_OPTION_PROPERTY);
+        if (!isBlank(serverJvmOption)) {
+            command.add("-DJvmOption=" + serverJvmOption);
+        }
+        return command.toArray(new String[0]);
     }
 
     protected GenericContainer<?> createSeaTunnelContainerWithFakeSourceAndInMemorySink(
@@ -257,7 +268,15 @@ public class SeaTunnelContainer extends AbstractTestContainer {
 
     @Override
     protected List<String> getExtraStartShellCommands() {
-        return Collections.emptyList();
+        String clientJvmOption = System.getProperty(CLIENT_JVM_OPTION_PROPERTY);
+        if (isBlank(clientJvmOption)) {
+            return Collections.emptyList();
+        }
+        return Collections.singletonList("-DJvmOption=" + clientJvmOption);
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.trim().isEmpty();
     }
 
     @Override
@@ -508,6 +527,16 @@ public class SeaTunnelContainer extends AbstractTestContainer {
         couchbaseE2eActive = false;
     }
 
+    /** Enables Reactor thread exemptions while the Azure Queue Storage E2E test is active. */
+    public static void enableAzureQueueReactorThreadExemption() {
+        azureQueueE2eActive = true;
+    }
+
+    /** Disables Reactor thread exemptions after the Azure Queue Storage E2E test completes. */
+    public static void disableAzureQueueReactorThreadExemption() {
+        azureQueueE2eActive = false;
+    }
+
     /**
      * {@code true} while the Couchbase E2E test ({@code CouchbaseIT}) is active.
      *
@@ -518,6 +547,9 @@ public class SeaTunnelContainer extends AbstractTestContainer {
      * connectors running in the same JVM.
      */
     static volatile boolean couchbaseE2eActive = false;
+
+    /** {@code true} while the Azure Queue Storage E2E test is active. */
+    static volatile boolean azureQueueE2eActive = false;
 
     /** The thread should be recycled but not, we should fix it in the future. */
     protected boolean isIssueWeAlreadyKnow(String threadName) {
@@ -548,6 +580,12 @@ public class SeaTunnelContainer extends AbstractTestContainer {
         // "parallel-<N>" thread observed outside that window is treated as an unknown thread and
         // reported as a potential leak.
         if (threadName.matches("parallel-\\d+") && couchbaseE2eActive) {
+            return true;
+        }
+        // Azure Queue's shaded Reactor Netty threads are unique to this connector. The
+        // boundedElastic evictor name is shared by all Reactor users, so exempt it only while the
+        // Azure Queue E2E test is active.
+        if (isAzureQueueReactorThreadExempt(threadName)) {
             return true;
         }
         // ClickHouse com.clickhouse.client.ClickHouseClientBuilder
@@ -586,6 +624,11 @@ public class SeaTunnelContainer extends AbstractTestContainer {
                 // Paimon
                 || threadName.startsWith("AsyncOutputStream")
                 || threadName.startsWith("MANIFEST-READ-THREAD-POOL");
+    }
+
+    static boolean isAzureQueueReactorThreadExempt(String threadName) {
+        return threadName.startsWith("org.apache.seatunnel.shade.azure.queue.reactor-http-nio-")
+                || (threadName.startsWith("boundedElastic-evictor-") && azureQueueE2eActive);
     }
 
     @Override
