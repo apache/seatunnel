@@ -32,5 +32,6 @@ public class GitlabSourceParameter extends HttpParameter {
                 GitlabSourceOptions.PRIVATE_TOKEN,
                 pluginConfig.get(GitlabSourceOptions.ACCESS_TOKEN));
         this.setHeaders(this.headers);
+        validateCredentialScheme();
     }
 }
