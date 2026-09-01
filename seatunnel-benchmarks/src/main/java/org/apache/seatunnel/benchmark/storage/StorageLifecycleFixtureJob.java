@@ -30,9 +30,7 @@ import org.apache.seatunnel.engine.core.checkpoint.CheckpointStatus;
 import org.apache.seatunnel.engine.core.job.JobInfo;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointCoordinator;
-import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
-import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.master.JobHistoryService;
 import org.apache.seatunnel.engine.server.master.JobMaster;
 
@@ -252,26 +250,11 @@ public final class StorageLifecycleFixtureJob implements AutoCloseable {
 
     private boolean runtimeStateWasCleaned() {
         long jobId = getJobId();
+        // Production removes the pending record only after deleting the job's state and timestamp
+        // entries. Checking both maps also avoids treating the short pre-scheduling window as a
+        // completed cleanup.
         return !finishedMap(Constant.IMAP_RUNNING_JOB_INFO).containsKey(jobId)
-                && !finishedMap(Constant.IMAP_PENDING_JOB_CLEANUP).containsKey(jobId)
-                && !containsJobState(Constant.IMAP_RUNNING_JOB_STATE, jobId)
-                && !containsJobState(Constant.IMAP_STATE_TIMESTAMPS, jobId);
-    }
-
-    private boolean containsJobState(String mapName, long jobId) {
-        String checkpointStatePrefix = "checkpoint_state_" + jobId + "_";
-        for (Object key : finishedMap(mapName).keySet()) {
-            if ((key instanceof Long && ((Long) key) == jobId)
-                    || (key instanceof PipelineLocation
-                            && ((PipelineLocation) key).getJobId() == jobId)
-                    || (key instanceof TaskGroupLocation
-                            && ((TaskGroupLocation) key).getJobId() == jobId)
-                    || (key instanceof String
-                            && ((String) key).startsWith(checkpointStatePrefix))) {
-                return true;
-            }
-        }
-        return false;
+                && !finishedMap(Constant.IMAP_PENDING_JOB_CLEANUP).containsKey(jobId);
     }
 
     private <T> T requiredFinishedValue(String mapName, Class<T> valueType) {
