@@ -53,6 +53,7 @@ import org.apache.rocketmq.common.message.MessageExt;
 import org.apache.rocketmq.common.message.MessageQueue;
 import org.apache.rocketmq.common.protocol.route.QueueData;
 import org.apache.rocketmq.common.protocol.route.TopicRouteData;
+import org.apache.rocketmq.common.topic.TopicValidator;
 import org.apache.rocketmq.remoting.exception.RemotingException;
 import org.apache.rocketmq.remoting.protocol.LanguageCode;
 import org.apache.rocketmq.tools.admin.DefaultMQAdminExt;
@@ -187,6 +188,7 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
 
     @TestTemplate
     public void testSinkRocketMq(TestContainer container) throws IOException, InterruptedException {
+        waitForTopicRoute("test_topic");
 
         Container.ExecResult execResult =
                 container.executeJob("/rocketmq-sink_fake_to_rocketmq.conf");
@@ -205,6 +207,8 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
     @TestTemplate
     public void testTextFormatSinkRocketMq(TestContainer container)
             throws IOException, InterruptedException {
+        waitForTopicRoute("test_text_topic");
+
         Container.ExecResult execResult =
                 container.executeJob("/rocketmq-text-sink_fake_to_rocketmq.conf");
         Assertions.assertEquals(0, execResult.getExitCode(), execResult.getStderr());
@@ -455,6 +459,21 @@ public class RocketMqIT extends TestSuiteBase implements TestResource {
             Message message = converter.convert(row);
             producer.send(message, new MessageQueue(topic, RocketMqContainer.BROKER_NAME, 0));
         }
+    }
+
+    private void waitForTopicRoute(String topic) {
+        Awaitility.await()
+                .ignoreExceptions()
+                .atMost(1, TimeUnit.MINUTES)
+                .pollInterval(1, TimeUnit.SECONDS)
+                .untilAsserted(
+                        () -> {
+                            producer.createTopic(
+                                    TopicValidator.AUTO_CREATE_TOPIC_KEY_TOPIC, topic, 1);
+                            Assertions.assertFalse(
+                                    producer.fetchPublishMessageQueues(topic).isEmpty(),
+                                    "Topic route is not ready: " + topic);
+                        });
     }
 
     private Map<String, RocketMqConsumerMessage> getRocketMqConsumerData(String topicName) {
