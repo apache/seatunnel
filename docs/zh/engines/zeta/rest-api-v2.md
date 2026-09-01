@@ -249,6 +249,68 @@ seatunnel:
 
 ------------------------------------------------------------------------------------------
 
+### 查询 Worker 资源
+
+<details>
+ <summary><code>GET</code> <code><b>/resource/workers</b></code> <code>(返回已注册 Worker 的当前资源快照。)</code></summary>
+
+#### 参数
+
+无。
+
+#### 响应
+
+```json
+{
+  "available": true,
+  "collectedAt": 1723017600000,
+  "workers": [
+    {
+      "address": "10.0.0.8:5801",
+      "tags": {"region": "us-west"},
+      "totalSlots": 4,
+      "freeSlots": 1,
+      "usedSlots": 3,
+      "dynamicSlot": false,
+      "totalCpuCores": 8,
+      "availableCpuCores": 2,
+      "totalHeapMemoryBytes": 17179869184,
+      "availableHeapMemoryBytes": 4294967296,
+      "cpuUsage": 0.42,
+      "memUsage": 0.58,
+      "runningJobIds": [123456789]
+    },
+    {
+      "address": "10.0.0.9:5801",
+      "tags": {},
+      "totalSlots": 2,
+      "freeSlots": 0,
+      "usedSlots": 2,
+      "dynamicSlot": true,
+      "totalCpuCores": 8,
+      "availableCpuCores": 4,
+      "totalHeapMemoryBytes": 17179869184,
+      "availableHeapMemoryBytes": 8589934592,
+      "cpuUsage": 0.35,
+      "memUsage": 0.41,
+      "runningJobIds": [123456789]
+    }
+  ]
+}
+```
+
+**说明：**
+
+- 固定 Slot 模式的 Worker 返回 `totalSlots`、`usedSlots` 和 `freeSlots`。
+- 动态 Slot 模式的 Worker 没有固定的 Slot 容量。此时，`totalSlots` 表示当前已跟踪的已分配和未分配 Slot 总数，`freeSlots` 表示当前未分配数量。解释容量时，请结合 `dynamicSlot` 以及 CPU 和堆内存字段。
+- 当无法读取 Master 端的资源快照时（包括 Master 选举期间），`available` 为 `false`。此时 `workers` 为空，客户端应重试，而不应将该响应解释为空集群。
+- `collectedAt` 是 Master 构建本次响应时的毫秒时间戳。Worker 字段来自资源管理器收到的最近一次心跳，并不与 `/system-monitoring-information` 构成原子快照。
+- 如果最近一次 Worker 心跳尚未包含资源或使用率数据，对应字段不会返回。
+
+</details>
+
+------------------------------------------------------------------------------------------
+
 ### 查询作业及其当前状态的概览
 
 <details>
@@ -337,7 +399,12 @@ seatunnel:
         },
         "totalSlots": 4,
         "freeSlots": 0,
+        "usedSlots": 4,
         "dynamicSlot": false,
+        "totalCpuCores": 8,
+        "availableCpuCores": 2,
+        "totalHeapMemoryBytes": 17179869184,
+        "availableHeapMemoryBytes": 4294967296,
         "cpuUsage": 0.83,
         "memUsage": 0.64,
         "runningJobIds": [
@@ -518,13 +585,40 @@ seatunnel:
   },
   "pluginJarsUrls": [
   ],
-  "isStartWithSavePoint": false
+  "isStartWithSavePoint": false,
+  "diagnostics": {
+    "jobId": "",
+    "generatedAt": 1755000004000,
+    "stateTimestamps": {
+      "INITIALIZING": 1755000000000,
+      "CREATED": 1755000000200,
+      "SCHEDULED": 1755000001000,
+      "RUNNING": 1755000003000
+    },
+    "pipelines": [
+      {
+        "pipelineId": 1,
+        "pipelineStatus": "RUNNING",
+        "restoreCount": 7,
+        "maxRestoreCount": 100,
+        "stateTimestamps": {
+          "INITIALIZING": 1755000000000,
+          "CREATED": 1755000000200,
+          "SCHEDULED": 1755000001100,
+          "DEPLOYING": 1755000002000,
+          "RUNNING": 1755000003500
+        }
+      }
+    ],
+    "totalPipelineRestoreCount": 7
+  }
 }
 ```
 
 `jobId`, `jobName`, `jobStatus`, `createTime`, `jobDag`, `metrics` 字段总会返回.
 `envOptions`, `pluginJarsUrls`, `isStartWithSavePoint` 字段在Job在RUNNING状态时会返回
 `finishedTime`, `errorMsg` 字段在Job结束时会返回，结束状态为不为RUNNING，可能为FINISHED，可能为CANCEL
+`diagnostics` 字段在Job运行中且能从Master节点读取到诊断信息时返回。它属于辅助信息，读取失败时该字段会被省略，不会导致请求失败。该字段只在本接口返回，`/running-jobs` 不返回：为列表中的每个Job收集诊断信息会额外增加一次到Master的请求。
 
 #### 指标字段说明
 
@@ -546,6 +640,19 @@ seatunnel:
 | TableSourceReceived* | 按表汇总的源指标，键格式 `TableSourceReceivedXXX#<表>` |
 | TableSinkWrite* | 按表汇总的 Sink 写入尝试，键格式 `TableSinkWriteXXX#<表>` |
 | TableSinkCommitted* | 按表汇总的 Sink 已提交指标，键格式 `TableSinkCommittedXXX#<表>` |
+
+#### 诊断字段说明
+
+| 字段 | 说明 |
+| --- | --- |
+| generatedAt | 采集该诊断信息的时间戳（毫秒） |
+| stateTimestamps | Job 进入各状态的时间戳（毫秒），未进入过的状态不会出现。Pipeline 重启不会改变 Job 状态，因此仅凭该字段看不出重启 |
+| pipelines[].pipelineId | Job 内的 Pipeline id |
+| pipelines[].pipelineStatus | Pipeline 当前状态 |
+| pipelines[].restoreCount | 自 Job 提交以来该 Pipeline 被恢复（重启）的次数。若 `jobStatus` 一直是 `RUNNING` 而该值不断增长，说明处于崩溃重启循环中 |
+| pipelines[].maxRestoreCount | 该 Pipeline 的恢复次数上限，来自 `job.retry.times` env 配置 |
+| pipelines[].stateTimestamps | Pipeline 进入各状态的时间戳（毫秒）。发生恢复后，新一轮的时间戳会覆盖上一轮 |
+| totalPipelineRestoreCount | Job 下所有 Pipeline 的 `restoreCount` 之和 |
 
 当我们查询不到这个Job时，返回结果为：
 
@@ -1319,6 +1426,166 @@ curl --location 'http://127.0.0.1:8080/submit-job/upload?restoreMode=CHECKPOINT&
 
 获取当前节点的日志列表：`http://localhost:5801/log`
 获取日志文件内容：`http://localhost:5801/log/job-898380162133917698.log``
+
+</details>
+
+------------------------------------------------------------------------------------------
+
+### 查看与修改日志级别
+
+通过这些接口修改的日志级别属于运行时覆盖：立即生效、仅作用于单个节点、节点重启后丢失。需要在重启后依然
+生效的级别请写入 `config/log4j2.properties`，参见 [日志](logging.md)。
+
+根 logger 的名字是 `root`。
+
+<details>
+ <summary><code>GET</code> <code><b>/loggers</b></code> <code>(返回当前生效配置中的 logger 列表。)</code></summary>
+
+#### 请求参数
+
+> |     参数名      |   是否必填   |  类型   |                                   描述                                    |
+> |----------------|--------------|---------|---------------------------------------------------------------------------|
+> | scope          |   optional   | string  | `node`（默认）只处理接收请求的节点，`cluster` 会请求集群中的每个节点         |
+
+#### 响应
+
+```json
+{
+  "node": "localhost:8080",
+  "loggers": [
+    {
+      "name": "root",
+      "level": "INFO",
+      "origin": "file"
+    },
+    {
+      "name": "org.apache.seatunnel.connectors.seatunnel.jdbc",
+      "level": "DEBUG",
+      "origin": "runtime-override",
+      "fileLevel": "INFO"
+    }
+  ]
+}
+```
+
+`origin` 表示当前级别的来源：`file` 表示来自 log4j2 配置文件，`runtime-override` 表示通过日志级别接口
+设置。只有当被覆盖的 logger 同时也在配置文件中配置过时才会返回 `fileLevel`，它就是 `DELETE` 会恢复的级别。
+
+使用 `?scope=cluster` 时每个节点返回一条记录：
+
+```json
+{
+  "scope": "cluster",
+  "status": "SUCCESS",
+  "nodes": [
+    {
+      "node": "localhost:8080",
+      "loggers": [
+        {
+          "name": "root",
+          "level": "INFO",
+          "origin": "file"
+        }
+      ]
+    }
+  ]
+}
+```
+
+所有节点都返回结果时 `status` 为 `SUCCESS`，部分节点失败时为 `PARTIAL_FAILURE`，全部失败时为
+`FAILURE`；失败的节点会带上自己的 `status` 与 `error`。集群请求按各节点配置中的 REST 端口访问，因此无法
+访问通过 `enable-dynamic-port` 使用了其它端口的节点。
+
+</details>
+
+<details>
+ <summary><code>GET</code> <code><b>/loggers/:name</b></code> <code>(返回单个 logger 的生效级别。)</code></summary>
+
+#### 响应
+
+级别通过最近的已配置父级 logger 解析，因此也可以查询本身没有被配置的 logger。
+
+```json
+{
+  "name": "org.apache.seatunnel.connectors.seatunnel.jdbc",
+  "level": "INFO",
+  "origin": "file",
+  "node": "localhost:8080"
+}
+```
+
+</details>
+
+<details>
+ <summary><code>POST</code> <code><b>/loggers/:name</b></code> <code>(修改单个 logger 的级别。)</code></summary>
+
+#### 请求参数
+
+> |     参数名      |   是否必填   |  类型   |                                   描述                                    |
+> |----------------|--------------|---------|---------------------------------------------------------------------------|
+> | level          |   optional   | string  | `OFF`、`FATAL`、`ERROR`、`WARN`、`INFO`、`DEBUG`、`TRACE` 或 `ALL`，不区分大小写；也可以放在请求体中 |
+> | scope          |   optional   | string  | `node`（默认）只修改接收请求的节点，`cluster` 会修改集群中的每个节点        |
+
+#### 请求体
+
+```json
+{
+  "level": "DEBUG"
+}
+```
+
+#### 响应
+
+```json
+{
+  "name": "org.apache.seatunnel.connectors.seatunnel.jdbc",
+  "level": "DEBUG",
+  "origin": "runtime-override",
+  "node": "localhost:8080",
+  "previousLevel": "INFO",
+  "status": "SUCCESS"
+}
+```
+
+未知级别不会被当作已生效处理，而是返回 `400` 并列出所有合法级别。每次修改都会在节点日志中输出一行 `INFO`
+记录，包含 logger 名、修改前后的级别、作用范围以及调用方地址。
+
+#### 例子
+
+把单个节点上的 JDBC 连接器调整为 `DEBUG`：
+`curl -X POST 'http://localhost:8080/loggers/org.apache.seatunnel.connectors.seatunnel.jdbc?level=DEBUG'`
+
+在集群的每个节点上调整：
+`curl -X POST 'http://localhost:8080/loggers/org.apache.seatunnel.connectors.seatunnel.jdbc?level=DEBUG&scope=cluster'`
+
+</details>
+
+<details>
+ <summary><code>DELETE</code> <code><b>/loggers/:name</b></code> <code>(撤销运行时覆盖。)</code></summary>
+
+#### 请求参数
+
+> |     参数名      |   是否必填   |  类型   |                                   描述                                    |
+> |----------------|--------------|---------|---------------------------------------------------------------------------|
+> | scope          |   optional   | string  | `node`（默认）只撤销接收请求的节点，`cluster` 会撤销集群中的每个节点        |
+
+#### 响应
+
+logger 会恢复到首次被覆盖之前的状态：配置文件中配置的级别，或者在配置文件没有配置它时恢复为从父级 logger
+继承的级别。
+
+```json
+{
+  "name": "org.apache.seatunnel.connectors.seatunnel.jdbc",
+  "level": "INFO",
+  "origin": "file",
+  "node": "localhost:8080",
+  "previousLevel": "DEBUG",
+  "status": "SUCCESS"
+}
+```
+
+如果该 logger 从未通过接口被覆盖过，`status` 为 `NO_OVERRIDE`，此时不做任何修改。
 
 </details>
 
