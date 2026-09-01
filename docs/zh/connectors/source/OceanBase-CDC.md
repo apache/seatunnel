@@ -62,7 +62,7 @@ OceanBase Binlog Service 提供增量订阅能力。
 
 ## 源端可选项
 
-`OceanBase-CDC` 有意复用了 `MySQL-CDC` 的完整参数契约。
+`OceanBase-CDC` 在 CDC 行为上复用 `MySQL-CDC` 的配置契约。
 
 完整参数请直接参考 [MySQL CDC 源端参数](./MySQL-CDC.md#配置参数选项)。
 
@@ -70,6 +70,8 @@ OceanBase Binlog Service 提供增量订阅能力。
 
 - JDBC URL 需要使用 MySQL 兼容写法，例如 `jdbc:mysql://host:2881/database`。
 - JDBC 驱动固定使用 MySQL 驱动 `com.mysql.cj.jdbc.Driver`。
+- `compatible_mode` 为可选项，未配置时固定为 `mysql`。如显式配置，其值必须为
+  `mysql`；该连接器不支持 Oracle 兼容模式。
 - 首批版本只支持显式配置的表，即通过 `table-names`、`table-pattern`、
   `table-names-config` 指定采集范围。
 - 启动模式、checkpoint / restore 语义、模式演进行为与 `MySQL-CDC` 保持一致。

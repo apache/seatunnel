@@ -18,27 +18,23 @@
 package org.apache.seatunnel.connectors.seatunnel.cdc.oceanbase.source;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.Conditions;
+import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.source.SeaTunnelSource;
 import org.apache.seatunnel.api.source.SourceSplit;
 import org.apache.seatunnel.api.table.catalog.CatalogTable;
-import org.apache.seatunnel.api.table.catalog.CatalogTableUtil;
-import org.apache.seatunnel.api.table.catalog.TablePath;
 import org.apache.seatunnel.api.table.connector.TableSource;
 import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSourceFactoryContext;
-import org.apache.seatunnel.connectors.cdc.base.config.JdbcSourceTableConfig;
-import org.apache.seatunnel.connectors.cdc.base.option.JdbcSourceOptions;
-import org.apache.seatunnel.connectors.cdc.base.option.SourceOptions;
-import org.apache.seatunnel.connectors.cdc.base.utils.CatalogTableUtils;
-import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.config.MySqlSourceConfigFactory;
 import org.apache.seatunnel.connectors.seatunnel.cdc.mysql.source.MySqlIncrementalSourceFactory;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
 
 import com.google.auto.service.AutoService;
-import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
+import java.util.HashMap;
 import java.util.List;
-import java.util.Optional;
+import java.util.Map;
 
 /**
  * Factory for the OceanBase CDC source.
@@ -47,8 +43,9 @@ import java.util.Optional;
  * and testable path already adopted by Flink CDC for OceanBase Binlog Service.
  */
 @AutoService(Factory.class)
-@Slf4j
 public class OceanBaseIncrementalSourceFactory extends MySqlIncrementalSourceFactory {
+
+    private static final String MYSQL_COMPATIBLE_MODE = "mysql";
 
     /**
      * Return the identifier used in SeaTunnel source config.
@@ -71,6 +68,19 @@ public class OceanBaseIncrementalSourceFactory extends MySqlIncrementalSourceFac
     }
 
     /**
+     * Allow the OceanBase catalog selector while restricting this MySQL-binlog wrapper to MySQL
+     * compatible mode.
+     */
+    @Override
+    public OptionRule optionRule() {
+        return getOptionRuleBuilder()
+                .optional(
+                        JdbcCommonOptions.COMPATIBLE_MODE,
+                        Conditions.matches(JdbcCommonOptions.COMPATIBLE_MODE, "(?i)mysql"))
+                .build();
+    }
+
+    /**
      * Restore the source by reusing MySQL-compatible table discovery and checkpoint merge logic.
      *
      * @param context source factory context
@@ -85,48 +95,29 @@ public class OceanBaseIncrementalSourceFactory extends MySqlIncrementalSourceFac
             TableSource<T, SplitT, StateT> restoreSource(
                     TableSourceFactoryContext context, List<CatalogTable> restoreTables) {
         return () -> {
-            try {
-                Class.forName("com.mysql.cj.jdbc.Driver");
-            } catch (Exception e) {
-                log.warn("Failed to load JDBC driver com.mysql.cj.jdbc.Driver ", e);
-            }
-            ReadonlyConfig config = context.getOptions();
-            List<CatalogTable> catalogTables =
-                    CatalogTableUtil.getCatalogTables(config, context.getClassLoader());
-            boolean enableSchemaChange =
-                    context.getOptions()
-                            .getOptional(SourceOptions.SCHEMA_CHANGES_ENABLED)
-                            .orElse(
-                                    context.getOptions()
-                                            .getOptional(SourceOptions.DEBEZIUM_PROPERTIES)
-                                            .map(
-                                                    e ->
-                                                            e.getOrDefault(
-                                                                    MySqlSourceConfigFactory
-                                                                            .SCHEMA_CHANGE_KEY,
-                                                                    SourceOptions
-                                                                            .SCHEMA_CHANGES_ENABLED
-                                                                            .defaultValue()
-                                                                            .toString()))
-                                            .map(Boolean::parseBoolean)
-                                            .orElse(
-                                                    SourceOptions.SCHEMA_CHANGES_ENABLED
-                                                            .defaultValue()));
-            if (!restoreTables.isEmpty() && enableSchemaChange) {
-                catalogTables = mergeTableStruct(catalogTables, restoreTables);
-            }
-
-            Optional<List<JdbcSourceTableConfig>> tableConfigs =
-                    context.getOptions().getOptional(JdbcSourceOptions.TABLE_NAMES_CONFIG);
-            if (tableConfigs.isPresent()) {
-                catalogTables =
-                        CatalogTableUtils.mergeCatalogTableConfig(
-                                catalogTables,
-                                tableConfigs.get(),
-                                text -> TablePath.of(text, false));
-            }
+            ReadonlyConfig config = mysqlCompatibleConfig(context.getOptions());
             return (SeaTunnelSource<T, SplitT, StateT>)
-                    new OceanBaseIncrementalSource<>(config, catalogTables);
+                    new OceanBaseIncrementalSource<>(
+                            config, buildCatalogTables(context, config, restoreTables));
         };
+    }
+
+    /**
+     * Add the catalog selector required by OceanBase catalog discovery when users omit it.
+     *
+     * <p>Validation permits only MySQL mode because the incremental runtime uses MySQL binlog
+     * semantics.
+     */
+    ReadonlyConfig mysqlCompatibleConfig(ReadonlyConfig config) {
+        String compatibleMode =
+                config.getOptional(JdbcCommonOptions.COMPATIBLE_MODE).orElse(MYSQL_COMPATIBLE_MODE);
+        if (!MYSQL_COMPATIBLE_MODE.equalsIgnoreCase(compatibleMode)) {
+            throw new IllegalArgumentException(
+                    "OceanBase-CDC supports only MySQL compatible mode, but compatible_mode is "
+                            + compatibleMode);
+        }
+        Map<String, Object> options = new HashMap<>(config.getSourceMap());
+        options.put(JdbcCommonOptions.COMPATIBLE_MODE.key(), MYSQL_COMPATIBLE_MODE);
+        return ReadonlyConfig.fromMap(options);
     }
 }

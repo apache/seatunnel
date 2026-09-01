@@ -62,7 +62,7 @@ Before using `OceanBase-CDC`, make sure the monitored tenant satisfies these req
 
 ## Source Options
 
-`OceanBase-CDC` intentionally reuses the same option contract as `MySQL-CDC`.
+`OceanBase-CDC` reuses the `MySQL-CDC` option contract for its CDC behavior.
 
 Please refer to [MySQL CDC Source Options](./MySQL-CDC.md#source-options) for the complete option
 list.
@@ -71,6 +71,8 @@ list.
 
 - Use a MySQL-compatible JDBC URL such as `jdbc:mysql://host:2881/database`.
 - Use the MySQL JDBC driver `com.mysql.cj.jdbc.Driver`.
+- `compatible_mode` is optional and is fixed to `mysql` when omitted. If configured, it must be
+  `mysql`; Oracle-compatible mode is not supported by this connector.
 - The first delivery supports explicitly configured tables only through `table-names`,
   `table-pattern`, and `table-names-config`.
 - Startup modes, checkpoint / restore semantics, and schema evolution behavior are the same as
