@@ -22,6 +22,7 @@ import org.apache.seatunnel.shade.com.google.common.util.concurrent.ThreadFactor
 
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.common.constants.JobMode;
+import org.apache.seatunnel.common.utils.HashUtils;
 import org.apache.seatunnel.common.utils.SeaTunnelException;
 import org.apache.seatunnel.connectors.seatunnel.paimon.source.PaimonSourceSplit;
 import org.apache.seatunnel.connectors.seatunnel.paimon.source.PaimonSourceSplitGenerator;
@@ -237,7 +238,7 @@ public abstract class AbstractSplitEnumerator
 
     /** Hash algorithm for assigning splits to readers */
     protected static int getSplitOwner(String tp, int numReaders) {
-        return (tp.hashCode() & Integer.MAX_VALUE) % numReaders;
+        return HashUtils.bucketIndex(tp.hashCode(), numReaders);
     }
 
     // ------------------------------------------------------------------------

@@ -28,6 +28,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestTemplate;
 import org.testcontainers.containers.Container;
+import org.testcontainers.containers.output.Slf4jLogConsumer;
 import org.testcontainers.couchbase.BucketDefinition;
 import org.testcontainers.couchbase.CouchbaseContainer;
 import org.testcontainers.couchbase.CouchbaseService;
@@ -95,7 +96,18 @@ public class CouchbaseIT extends TestSuiteBase implements TestResource {
                         // that point, causing a Connection reset / unexpected end of stream error.
                         // A 3-minute startup timeout gives the HttpWaitStrategy enough retry
                         // budget to ride out the transient unavailability window.
-                        .withStartupTimeout(Duration.ofMinutes(3));
+                        .withStartupTimeout(Duration.ofMinutes(3))
+                        // The startup timeout above only governs the wait strategy; the
+                        // containerIsStarting REST bootstrap has no retry of its own, and its
+                        // Connection reset failures kept killing the single default start attempt
+                        // on CI (seen repeatedly on ubuntu-latest since 2026-08-15, including on
+                        // apache/dev push builds). Whole-container retries cover that window with
+                        // a fresh server each attempt.
+                        .withStartupAttempts(3)
+                        // Surface the server's own stdout/stderr in the CI job log; without it a
+                        // bootstrap failure only shows the client-side socket error and gives no
+                        // way to see why the couchbase daemon dropped the connection.
+                        .withLogConsumer(new Slf4jLogConsumer(log).withPrefix("couchbase-server"));
         couchbaseContainer.start();
 
         cluster =

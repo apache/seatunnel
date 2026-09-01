@@ -145,7 +145,11 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
 
     private List<ConsumerRecord<String, String>> nativeData;
 
-    /** Topics created dynamically during tests; cleaned up in {@link #tearDown()}. */
+    /**
+     * Topics created dynamically during tests.
+     *
+     * <p>They are cleaned up in {@link #tearDown()} to keep later Kafka E2E cases isolated.
+     */
     private final List<String> dynamicTopics = new CopyOnWriteArrayList<>();
 
     private final AtomicInteger startModeTestSequence = new AtomicInteger();
@@ -1363,7 +1367,11 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
                 .count();
     }
 
-    /** Get the current end offset (LEO) on partition-0. */
+    /**
+     * Gets the current end offset on partition-0.
+     *
+     * <p>The exactly-once assertions use this as the visible sink baseline.
+     */
     private long endOffsetOnP0(String topic) {
         try (KafkaConsumer<String, String> c = new KafkaConsumer<>(kafkaConsumerConfig())) {
             TopicPartition tp0 = new TopicPartition(topic, 0);
@@ -1990,10 +1998,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         final String jobId = Long.toUnsignedString(System.nanoTime());
         long sinkStartOffset = endOffsetOnP0(consumerTopic);
         for (int i = 0; i < 10; i++) {
-            ProducerRecord<byte[], byte[]> record =
-                    new ProducerRecord<>(producerTopic, null, sourceData.getBytes());
-            producer.send(record);
-            producer.flush();
+            sendTextRecordAndWait(producerTopic, sourceData);
         }
         // async execute
         CompletableFuture.supplyAsync(
@@ -2025,10 +2030,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         long restoreStartOffset = endOffsetOnP0(consumerTopic);
 
         for (int i = 0; i < 10; i++) {
-            ProducerRecord<byte[], byte[]> record =
-                    new ProducerRecord<>(producerTopic, null, sourceDataRestore.getBytes());
-            producer.send(record);
-            producer.flush();
+            sendTextRecordAndWait(producerTopic, sourceDataRestore);
         }
 
         CompletableFuture.runAsync(
@@ -2122,10 +2124,7 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         String sourceData = "Seatunnel Exactly Once Example";
         long sinkStartOffset = endOffsetOnP0(consumerTopic);
         for (int i = 0; i < 10; i++) {
-            ProducerRecord<byte[], byte[]> record =
-                    new ProducerRecord<>(producerTopic, null, sourceData.getBytes());
-            producer.send(record);
-            producer.flush();
+            sendTextRecordAndWait(producerTopic, sourceData);
         }
         Long endOffset;
         KafkaConsumer<String, String> consumer = null;
@@ -2526,7 +2525,11 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         createKafkaTopic(topicName);
     }
 
-    /** Build the dynamic `-i key=value` variables for the exactly-once streaming template. */
+    /**
+     * Builds the dynamic {@code -i key=value} variables for the exactly-once streaming template.
+     *
+     * <p>Each test run uses isolated topics and a dedicated consumer group.
+     */
     private List<String> buildExactlyOnceStreamingVariables(
             String sourceTopic, String sinkTopic, String consumerGroup) {
         return Arrays.asList(
@@ -2826,9 +2829,15 @@ public class KafkaIT extends TestSuiteBase implements TestResource {
         }
     }
 
-    private boolean shouldStopAfterEmptyReadCommittedPoll(
+    /**
+     * Decides whether repeated empty READ_COMMITTED polls are stable enough to stop scanning.
+     *
+     * <p>If the broker advances the consumer position across aborted or control records, the scan
+     * must continue even when no visible records are returned.
+     */
+    static boolean shouldStopAfterEmptyReadCommittedPoll(
             long currentPosition, long previousPosition, int consecutiveEmptyPolls) {
-        return currentPosition <= previousPosition && consecutiveEmptyPolls >= 20;
+        return currentPosition == previousPosition && consecutiveEmptyPolls >= 20;
     }
 
     private Properties kafkaManualConsumerConfig() {
