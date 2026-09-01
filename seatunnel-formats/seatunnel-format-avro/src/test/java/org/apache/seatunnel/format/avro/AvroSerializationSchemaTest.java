@@ -285,4 +285,42 @@ class AvroSerializationSchemaTest {
         Assertions.assertEquals(1769504419000L, row.getField(1));
         Assertions.assertNull(row.getField(2));
     }
+
+    @Test
+    public void testMixedCaseFieldSerialization() throws IOException {
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"CustomerID", "customerid"},
+                        new SeaTunnelDataType<?>[] {BasicType.INT_TYPE, BasicType.INT_TYPE});
+        CatalogTable catalogTable = CatalogTableUtil.getCatalogTable("", "", "", "test", rowType);
+        SeaTunnelRow sourceRow = new SeaTunnelRow(2);
+        sourceRow.setField(0, 42);
+        sourceRow.setField(1, 84);
+
+        byte[] bytes = new AvroSerializationSchema(rowType).serialize(sourceRow);
+        SeaTunnelRow result = new AvroDeserializationSchema(catalogTable).deserialize(bytes);
+
+        Assertions.assertEquals(42, result.getField(0));
+        Assertions.assertEquals(84, result.getField(1));
+    }
+
+    @Test
+    public void testNestedMixedCaseFieldSerialization() throws IOException {
+        SeaTunnelRowType nestedType =
+                new SeaTunnelRowType(
+                        new String[] {"InnerID"}, new SeaTunnelDataType<?>[] {BasicType.INT_TYPE});
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"payload"}, new SeaTunnelDataType<?>[] {nestedType});
+        CatalogTable catalogTable = CatalogTableUtil.getCatalogTable("", "", "", "test", rowType);
+        SeaTunnelRow nestedRow = new SeaTunnelRow(1);
+        nestedRow.setField(0, 42);
+        SeaTunnelRow sourceRow = new SeaTunnelRow(1);
+        sourceRow.setField(0, nestedRow);
+
+        byte[] bytes = new AvroSerializationSchema(rowType).serialize(sourceRow);
+        SeaTunnelRow result = new AvroDeserializationSchema(catalogTable).deserialize(bytes);
+
+        Assertions.assertEquals(42, ((SeaTunnelRow) result.getField(0)).getField(0));
+    }
 }

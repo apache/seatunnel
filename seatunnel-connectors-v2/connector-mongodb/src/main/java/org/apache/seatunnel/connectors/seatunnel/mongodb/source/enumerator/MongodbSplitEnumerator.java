@@ -21,6 +21,7 @@ import org.apache.seatunnel.shade.com.google.common.collect.Lists;
 
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.common.exception.CommonErrorCodeDeprecated;
+import org.apache.seatunnel.common.utils.HashUtils;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.exception.MongodbConnectorException;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.internal.MongodbClientProvider;
 import org.apache.seatunnel.connectors.seatunnel.mongodb.source.split.MongoSplit;
@@ -167,6 +168,6 @@ public class MongodbSplitEnumerator
     }
 
     private static int getSplitOwner(String tp, int numReaders) {
-        return (tp.hashCode() & Integer.MAX_VALUE) % numReaders;
+        return HashUtils.bucketIndex(tp.hashCode(), numReaders);
     }
 }
