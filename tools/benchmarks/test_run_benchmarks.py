@@ -111,7 +111,7 @@ class RunBenchmarksTest(unittest.TestCase):
         self.assertIn("full-suite PR comparison", result.stderr)
         self.assertIn("240-minute", result.stderr)
 
-    def test_workflow_uses_core_by_default_and_keeps_full_suite_opt_in(self):
+    def test_workflow_uses_core_by_default_and_keeps_full_suite_custom_only(self):
         workflow = WORKFLOW.read_text(encoding="utf-8")
         benchmark_input = workflow.split("      benchmarks:\n", 1)[1].split(
             "      custom_benchmarks:\n", 1
@@ -119,7 +119,8 @@ class RunBenchmarksTest(unittest.TestCase):
 
         self.assertIn("default: 'benchmarks_core'", benchmark_input)
         self.assertIn("- 'benchmarks_core'", benchmark_input)
-        self.assertIn("- '.*'", benchmark_input)
+        self.assertNotIn("- '.*'", benchmark_input)
+        self.assertIn(".* may exceed 240 minutes", workflow)
         self.assertIn(
             "BENCHMARK_SUITE: ${{ github.event_name == 'schedule' && "
             "'benchmarks_core' || '' }}",

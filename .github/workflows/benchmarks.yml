@@ -29,14 +29,11 @@ on:
         type: string
         default: 'dev'
       benchmarks:
-        description: >-
-          Common selector. benchmarks_core is the safe default; .* explicitly runs the full
-          suite and may exceed the 240-minute job limit.
+        description: 'Select a benchmark suite or class.'
         required: true
         type: choice
         options:
           - 'benchmarks_core'
-          - '.*'
           - 'SeaTunnelRowBenchmark'
           - 'IntermediateQueueBenchmark'
           - 'SeaTunnelPipelineBenchmark'
@@ -47,7 +44,7 @@ on:
           - 'IMapWalStorageBenchmark'
         default: 'benchmarks_core'
       custom_benchmarks:
-        description: 'Optional JMH selector that overrides the choice above.'
+        description: 'Exact JMH selector; overrides the choice. .* may exceed 240 minutes.'
         required: false
         type: string
       pr_number:
