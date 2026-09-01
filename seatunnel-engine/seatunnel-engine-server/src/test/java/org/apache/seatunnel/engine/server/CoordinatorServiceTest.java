@@ -638,6 +638,9 @@ public class CoordinatorServiceTest {
                             });
 
             ReflectionUtils.setField(coordinatorService, "isActive", true);
+            // This instance must not leave its coordinator pool available to run a competing
+            // scheduler while the controlled scheduler performs the single test pass below.
+            getCoordinatorExecutor(coordinatorService).shutdownNow();
             Future<?> schedulerFuture =
                     schedulerExecutor.submit(
                             () -> {
