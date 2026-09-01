@@ -72,6 +72,8 @@ public class ElasticsearchAuthIT extends TestSuiteBase implements TestResource {
 
     private static final String ELASTICSEARCH_IMAGE = "elasticsearch:8.9.0";
     private static final long INDEX_REFRESH_DELAY = 2000L;
+    private static final int API_KEY_CREATION_MAX_ATTEMPTS = 15;
+    private static final long API_KEY_CREATION_RETRY_DELAY_SECONDS = 2L;
 
     // Test data constants
     private static final String TEST_INDEX = "auth_test_index";
@@ -197,7 +199,7 @@ public class ElasticsearchAuthIT extends TestSuiteBase implements TestResource {
     }
 
     /** Create real API keys using Elasticsearch API */
-    private void createRealApiKeys() throws IOException {
+    private void createRealApiKeys() throws IOException, InterruptedException {
         String elasticsearchUrl = "https://" + elasticsearchContainer.getHttpHostAddress();
         String apiKeyUrl = elasticsearchUrl + "/_security/api_key";
 
@@ -225,46 +227,60 @@ public class ElasticsearchAuthIT extends TestSuiteBase implements TestResource {
                         + "  }\n"
                         + "}";
 
-        HttpPost request = new HttpPost(apiKeyUrl);
         String auth =
                 Base64.getEncoder()
                         .encodeToString(
                                 (VALID_USERNAME + ":" + VALID_PASSWORD)
                                         .getBytes(StandardCharsets.UTF_8));
-        request.setHeader("Authorization", "Basic " + auth);
-        request.setHeader("Content-Type", "application/json");
-        request.setEntity(new StringEntity(requestBody, StandardCharsets.UTF_8));
 
-        HttpResponse response = httpClient.execute(request);
-        String responseBody = EntityUtils.toString(response.getEntity());
+        for (int attempt = 1; attempt <= API_KEY_CREATION_MAX_ATTEMPTS; attempt++) {
+            HttpPost request = new HttpPost(apiKeyUrl);
+            request.setHeader("Authorization", "Basic " + auth);
+            request.setHeader("Content-Type", "application/json");
+            request.setEntity(new StringEntity(requestBody, StandardCharsets.UTF_8));
 
-        if (response.getStatusLine().getStatusCode() != 200) {
-            throw new RuntimeException("Failed to create API key: " + responseBody);
+            HttpResponse response = httpClient.execute(request);
+            String responseBody = EntityUtils.toString(response.getEntity());
+            int statusCode = response.getStatusLine().getStatusCode();
+            if (statusCode == 503 && attempt < API_KEY_CREATION_MAX_ATTEMPTS) {
+                log.info(
+                        "Elasticsearch security index is not ready yet; retrying API key creation ({}/{})",
+                        attempt,
+                        API_KEY_CREATION_MAX_ATTEMPTS);
+                TimeUnit.SECONDS.sleep(API_KEY_CREATION_RETRY_DELAY_SECONDS);
+                continue;
+            }
+            if (statusCode != 200) {
+                throw new RuntimeException("Failed to create API key: " + responseBody);
+            }
+
+            // Parse response to extract API key details
+            try {
+                JsonNode jsonResponse = objectMapper.readTree(responseBody);
+                validApiKeyId = jsonResponse.get("id").asText();
+                validApiKeySecret = jsonResponse.get("api_key").asText();
+                validEncodedApiKey =
+                        Base64.getEncoder()
+                                .encodeToString(
+                                        (validApiKeyId + ":" + validApiKeySecret)
+                                                .getBytes(StandardCharsets.UTF_8));
+
+                log.info(
+                        "API Key created successfully - ID: {}, Secret: {}, Encoded: {}",
+                        validApiKeyId,
+                        validApiKeySecret,
+                        validEncodedApiKey);
+
+                // Verify the API key works
+                verifyApiKey();
+                return;
+            } catch (Exception e) {
+                throw new RuntimeException("Failed to parse API key response: " + responseBody, e);
+            }
         }
 
-        // Parse response to extract API key details
-        try {
-            JsonNode jsonResponse = objectMapper.readTree(responseBody);
-            validApiKeyId = jsonResponse.get("id").asText();
-            validApiKeySecret = jsonResponse.get("api_key").asText();
-            validEncodedApiKey =
-                    Base64.getEncoder()
-                            .encodeToString(
-                                    (validApiKeyId + ":" + validApiKeySecret)
-                                            .getBytes(StandardCharsets.UTF_8));
-
-            log.info(
-                    "API Key created successfully - ID: {}, Secret: {}, Encoded: {}",
-                    validApiKeyId,
-                    validApiKeySecret,
-                    validEncodedApiKey);
-
-            // Verify the API key works
-            verifyApiKey();
-
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to parse API key response: " + responseBody, e);
-        }
+        throw new RuntimeException(
+                "Failed to create API key after retrying Elasticsearch recovery");
     }
 
     /** Verify that the created API key works */
