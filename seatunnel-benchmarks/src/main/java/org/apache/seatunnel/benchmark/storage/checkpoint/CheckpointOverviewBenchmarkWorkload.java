@@ -25,35 +25,42 @@ import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.TearDown;
 
-import static org.apache.seatunnel.benchmark.storage.checkpoint.CheckpointPersistenceBenchmarkWorkload.CHECKPOINT_OPERATIONS_PER_INVOCATION;
+import static org.apache.seatunnel.benchmark.storage.checkpoint.CheckpointStorageBenchmarkFixture.CHECKPOINT_OPERATIONS_PER_INVOCATION;
+import static org.apache.seatunnel.benchmark.storage.checkpoint.CheckpointStorageBenchmarkFixture.CheckpointOperation;
 
 /** Executes and verifies completed-checkpoint overview updates. */
 @State(Scope.Thread)
-public class CheckpointOverviewBenchmarkWorkload extends CheckpointStorageBenchmarkBase {
+public class CheckpointOverviewBenchmarkWorkload {
 
+    private CheckpointStorageBenchmarkFixture fixture;
     private CheckpointOperation[] operations;
     private CompletedCheckpoint[] completedCheckpoints;
     private int preparedOperationCount;
     private boolean invoked;
 
+    @Setup(Level.Trial)
+    public void setUp(CheckpointStorageBenchmarkFixture fixture) {
+        this.fixture = fixture;
+    }
+
     @Setup(Level.Iteration)
     public void prepareIteration() throws Exception {
         invoked = false;
         preparedOperationCount = 0;
-        operations = createOperations();
+        operations = fixture.createOperations();
         completedCheckpoints = new CompletedCheckpoint[CHECKPOINT_OPERATIONS_PER_INVOCATION];
 
         for (int index = 0; index < CHECKPOINT_OPERATIONS_PER_INVOCATION; index++) {
             preparedOperationCount = index + 1;
-            prepareOverview(operations[index]);
-            completedCheckpoints[index] = createCompletedCheckpoint(operations[index]);
+            fixture.prepareOverview(operations[index]);
+            completedCheckpoints[index] = fixture.createCompletedCheckpoint(operations[index]);
         }
     }
 
     public void updateCheckpointOverview() {
         invoked = true;
         for (CompletedCheckpoint completedCheckpoint : completedCheckpoints) {
-            updateOverview(completedCheckpoint);
+            fixture.updateOverview(completedCheckpoint);
         }
     }
 
@@ -61,13 +68,13 @@ public class CheckpointOverviewBenchmarkWorkload extends CheckpointStorageBenchm
     public void validateAndCleanIteration() {
         try {
             requireCompletedInvocation();
-            reloadOverviewSamples(operations);
+            fixture.reloadOverviewSamples(operations);
             for (CheckpointOperation operation : operations) {
-                validateOverview(operation);
+                fixture.validateOverview(operation);
             }
         } finally {
             for (int index = 0; index < preparedOperationCount; index++) {
-                removeOverview(operations[index]);
+                fixture.removeOverview(operations[index]);
             }
             preparedOperationCount = 0;
             invoked = false;

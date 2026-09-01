@@ -35,7 +35,9 @@ import org.apache.seatunnel.engine.server.common.statestore.checkpoint.Checkpoin
 import org.apache.seatunnel.engine.server.common.statestore.counter.CounterStateStore;
 
 import org.openjdk.jmh.annotations.Level;
+import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
+import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.TearDown;
 
 import com.hazelcast.map.IMap;
@@ -51,14 +53,15 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicLong;
 
-/** Creates real checkpoint fixtures and verifies storage effects outside measured time. */
-abstract class CheckpointStorageBenchmarkBase {
+/** Creates real checkpoint fixtures and exposes shared storage operations outside measured time. */
+@State(Scope.Thread)
+public class CheckpointStorageBenchmarkFixture {
 
-    protected static final int OPERATIONS_PER_INVOCATION = 100;
+    public static final int CHECKPOINT_OPERATIONS_PER_INVOCATION = 100;
 
     private static final Duration FIXTURE_CHECKPOINT_INTERVAL = Duration.ofSeconds(1);
     private static final int[] DURABILITY_SAMPLE_INDEXES = {
-        0, OPERATIONS_PER_INVOCATION / 2, OPERATIONS_PER_INVOCATION - 1
+        0, CHECKPOINT_OPERATIONS_PER_INVOCATION / 2, CHECKPOINT_OPERATIONS_PER_INVOCATION - 1
     };
 
     private final AtomicLong sequence = new AtomicLong();
@@ -133,10 +136,11 @@ abstract class CheckpointStorageBenchmarkBase {
         }
     }
 
-    protected final CheckpointOperation[] createOperations() {
-        CheckpointOperation[] operations = new CheckpointOperation[OPERATIONS_PER_INVOCATION];
-        long firstInvocation = sequence.getAndAdd(OPERATIONS_PER_INVOCATION) + 1L;
-        for (int index = 0; index < OPERATIONS_PER_INVOCATION; index++) {
+    CheckpointOperation[] createOperations() {
+        CheckpointOperation[] operations =
+                new CheckpointOperation[CHECKPOINT_OPERATIONS_PER_INVOCATION];
+        long firstInvocation = sequence.getAndAdd(CHECKPOINT_OPERATIONS_PER_INVOCATION) + 1L;
+        for (int index = 0; index < CHECKPOINT_OPERATIONS_PER_INVOCATION; index++) {
             long invocation = firstInvocation + index;
             long jobId = Long.MAX_VALUE - invocation;
             long checkpointId = fixtureState.getCheckpointId() + invocation * 2L;
@@ -150,8 +154,7 @@ abstract class CheckpointStorageBenchmarkBase {
         return operations;
     }
 
-    protected final StateStoreCheckpointIDCounter prepareCounter(CheckpointOperation operation)
-            throws Exception {
+    StateStoreCheckpointIDCounter prepareCounter(CheckpointOperation operation) throws Exception {
         StateStoreCheckpointIDCounter counter =
                 new StateStoreCheckpointIDCounter(
                         operation.jobId, fixtureState.getPipelineId(), counterStore);
@@ -160,33 +163,33 @@ abstract class CheckpointStorageBenchmarkBase {
         return counter;
     }
 
-    protected final void prepareOverview(CheckpointOperation operation) throws Exception {
+    void prepareOverview(CheckpointOperation operation) throws Exception {
         CheckpointOverview overview = deepCopy(fixtureOverview);
         overview.setJobId(operation.jobId);
         requiredPipelineOverview(overview, fixtureState.getPipelineId());
         overviewStore.put(operation.jobId, overview);
     }
 
-    protected final CompletedCheckpoint createCompletedCheckpoint(CheckpointOperation operation) {
+    CompletedCheckpoint createCompletedCheckpoint(CheckpointOperation operation) {
         return copyCompletedCheckpoint(operation.jobId, operation.checkpointId);
     }
 
-    protected final void storePreviousCheckpoint(CheckpointOperation operation) throws Exception {
+    void storePreviousCheckpoint(CheckpointOperation operation) throws Exception {
         checkpointStorage.storeCheckPoint(
                 toPipelineState(
                         copyCompletedCheckpoint(operation.jobId, operation.checkpointId - 1L)));
     }
 
-    protected final void storeCheckpoint(CompletedCheckpoint checkpoint) throws Exception {
+    void storeCheckpoint(CompletedCheckpoint checkpoint) throws Exception {
         checkpointStorage.storeCheckPoint(toPipelineState(checkpoint));
     }
 
-    protected final void updateOverview(CompletedCheckpoint checkpoint) {
+    void updateOverview(CompletedCheckpoint checkpoint) {
         monitorService.onCheckpointCompleted(
                 checkpoint, CheckpointMonitorService.calculateStateSize(checkpoint));
     }
 
-    protected final void reloadCounterSamples(CheckpointOperation[] operations) {
+    void reloadCounterSamples(CheckpointOperation[] operations) {
         Set<String> keys = new LinkedHashSet<>();
         for (int index : DURABILITY_SAMPLE_INDEXES) {
             keys.add(operations[index].counterKey);
@@ -195,7 +198,7 @@ abstract class CheckpointStorageBenchmarkBase {
         checkpointCounterMap.loadAll(keys, true);
     }
 
-    protected final void reloadOverviewSamples(CheckpointOperation[] operations) {
+    void reloadOverviewSamples(CheckpointOperation[] operations) {
         Set<Long> keys = new LinkedHashSet<>();
         for (int index : DURABILITY_SAMPLE_INDEXES) {
             keys.add(operations[index].jobId);
@@ -204,8 +207,7 @@ abstract class CheckpointStorageBenchmarkBase {
         checkpointOverviewMap.loadAll(keys, true);
     }
 
-    protected final void validateCounter(
-            CheckpointOperation operation, long allocatedCheckpointId) {
+    void validateCounter(CheckpointOperation operation, long allocatedCheckpointId) {
         if (allocatedCheckpointId != operation.checkpointId) {
             throw new IllegalStateException(
                     "Checkpoint counter returned "
@@ -225,7 +227,7 @@ abstract class CheckpointStorageBenchmarkBase {
         }
     }
 
-    protected final void validateStoredCheckpoint(CheckpointOperation operation) throws Exception {
+    void validateStoredCheckpoint(CheckpointOperation operation) throws Exception {
         PipelineState storedState =
                 checkpointStorage.getCheckpoint(
                         Long.toString(operation.jobId),
@@ -251,7 +253,7 @@ abstract class CheckpointStorageBenchmarkBase {
         }
     }
 
-    protected final void validateOverview(CheckpointOperation operation) {
+    void validateOverview(CheckpointOperation operation) {
         CheckpointOverview storedOverview = overviewStore.get(operation.jobId);
         if (storedOverview == null || storedOverview.getJobId() != operation.jobId) {
             throw new IllegalStateException(
@@ -281,15 +283,15 @@ abstract class CheckpointStorageBenchmarkBase {
         }
     }
 
-    protected final void deleteCheckpoint(CheckpointOperation operation) {
+    void deleteCheckpoint(CheckpointOperation operation) {
         checkpointStorage.deleteCheckpoint(Long.toString(operation.jobId));
     }
 
-    protected final void removeOverview(CheckpointOperation operation) {
+    void removeOverview(CheckpointOperation operation) {
         overviewStore.remove(operation.jobId);
     }
 
-    protected final void removeCounter(CheckpointOperation operation) {
+    void removeCounter(CheckpointOperation operation) {
         counterStore.remove(operation.counterKey);
     }
 
@@ -344,7 +346,7 @@ abstract class CheckpointStorageBenchmarkBase {
         }
     }
 
-    protected static final class CheckpointOperation {
+    static final class CheckpointOperation {
 
         private final long jobId;
         private final long checkpointId;

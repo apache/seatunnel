@@ -27,30 +27,37 @@ import org.openjdk.jmh.annotations.TearDown;
 
 import java.util.Arrays;
 
-import static org.apache.seatunnel.benchmark.storage.checkpoint.CheckpointPersistenceBenchmarkWorkload.CHECKPOINT_OPERATIONS_PER_INVOCATION;
+import static org.apache.seatunnel.benchmark.storage.checkpoint.CheckpointStorageBenchmarkFixture.CHECKPOINT_OPERATIONS_PER_INVOCATION;
+import static org.apache.seatunnel.benchmark.storage.checkpoint.CheckpointStorageBenchmarkFixture.CheckpointOperation;
 
 /** Executes and verifies atomic checkpoint-ID allocation. */
 @State(Scope.Thread)
-public class CheckpointIdIncrementBenchmarkWorkload extends CheckpointStorageBenchmarkBase {
+public class CheckpointIdIncrementBenchmarkWorkload {
 
+    private CheckpointStorageBenchmarkFixture fixture;
     private CheckpointOperation[] operations;
     private StateStoreCheckpointIDCounter[] counters;
     private long[] allocatedCheckpointIds;
     private int preparedOperationCount;
     private boolean invoked;
 
+    @Setup(Level.Trial)
+    public void setUp(CheckpointStorageBenchmarkFixture fixture) {
+        this.fixture = fixture;
+    }
+
     @Setup(Level.Iteration)
     public void prepareIteration() throws Exception {
         invoked = false;
         preparedOperationCount = 0;
-        operations = createOperations();
+        operations = fixture.createOperations();
         counters = new StateStoreCheckpointIDCounter[CHECKPOINT_OPERATIONS_PER_INVOCATION];
         allocatedCheckpointIds = new long[CHECKPOINT_OPERATIONS_PER_INVOCATION];
         Arrays.fill(allocatedCheckpointIds, Long.MIN_VALUE);
 
         for (int index = 0; index < CHECKPOINT_OPERATIONS_PER_INVOCATION; index++) {
             preparedOperationCount = index + 1;
-            counters[index] = prepareCounter(operations[index]);
+            counters[index] = fixture.prepareCounter(operations[index]);
         }
     }
 
@@ -66,13 +73,13 @@ public class CheckpointIdIncrementBenchmarkWorkload extends CheckpointStorageBen
     public void validateAndCleanIteration() {
         try {
             requireCompletedInvocation();
-            reloadCounterSamples(operations);
+            fixture.reloadCounterSamples(operations);
             for (int index = 0; index < CHECKPOINT_OPERATIONS_PER_INVOCATION; index++) {
-                validateCounter(operations[index], allocatedCheckpointIds[index]);
+                fixture.validateCounter(operations[index], allocatedCheckpointIds[index]);
             }
         } finally {
             for (int index = 0; index < preparedOperationCount; index++) {
-                removeCounter(operations[index]);
+                fixture.removeCounter(operations[index]);
             }
             preparedOperationCount = 0;
             invoked = false;

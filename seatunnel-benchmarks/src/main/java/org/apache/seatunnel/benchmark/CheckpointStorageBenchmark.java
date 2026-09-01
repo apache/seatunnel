@@ -36,7 +36,7 @@ import org.openjdk.jmh.runner.options.VerboseMode;
 
 import java.util.concurrent.TimeUnit;
 
-import static org.apache.seatunnel.benchmark.storage.checkpoint.CheckpointPersistenceBenchmarkWorkload.CHECKPOINT_OPERATIONS_PER_INVOCATION;
+import static org.apache.seatunnel.benchmark.storage.checkpoint.CheckpointStorageBenchmarkFixture.CHECKPOINT_OPERATIONS_PER_INVOCATION;
 
 /** Measures checkpoint persistence operations using coordinator-produced fixture state. */
 @BenchmarkMode(Mode.SingleShotTime)
