@@ -138,6 +138,10 @@ Do not use MySQL Connector/J with a `jdbc:mysql:` URL for MariaDB. That configur
 - [x] [batch](../../introduction/concepts/connector-v2-features.md)
 - [ ] [stream](../../introduction/concepts/connector-v2-features.md)
 - [x] [exactly-once](../../introduction/concepts/connector-v2-features.md)
+
+JDBC Source is a bounded source. It completes the snapshot read once and finishes; use a CDC source connector when the
+job must continue capturing later inserts, updates, and deletes.
+
 - [x] [column projection](../../introduction/concepts/connector-v2-features.md)
 
 Use `query` to select only the required columns.
@@ -510,6 +514,45 @@ source {
 
 sink {
   Console {}
+}
+```
+
+### Read with explicit partition column and partition query
+
+Use `partition_column` together with `query` to split a single-table read into parallel chunks. `partition_lower_bound`
+and `partition_upper_bound` are optional; omitting them triggers a `MIN`/`MAX` discovery query before the read starts.
+
+```hocon
+env {
+  parallelism = 4
+  job.mode = "BATCH"
+}
+
+source {
+  Jdbc {
+    url = "jdbc:postgresql://postgresql.example.com:5432/sales?loggerLevel=OFF"
+    driver = "org.postgresql.Driver"
+    username = "seatunnel_reader"
+    password = "change_me"
+    query = """select gid, uuid_col, text_col, varchar_col, char_one_col, char_col, boolean_col, smallint_col, integer_col,
+                      bigint_col, decimal_col, numeric_col, real_col, double_precision_col, smallserial_col, serial_col,
+                      bigserial_col, date_col, timestamp_col, timestamp_tz_col, bpchar_col, age, name from pg_e2e_source_table"""
+    partition_column = "gid"
+    partition_num = 4
+  }
+}
+
+sink {
+  Jdbc {
+    url = "jdbc:postgresql://postgresql.example.com:5432/sales?loggerLevel=OFF&stringtype=unspecified"
+    driver = "org.postgresql.Driver"
+    username = "writer"
+    password = "change_me"
+    generate_sink_sql = true
+    database = "sales"
+    table = "public.pg_e2e_sink_table"
+    primary_keys = ["gid"]
+  }
 }
 ```
 
