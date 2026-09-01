@@ -15,12 +15,14 @@ not replace a production proof of concept.
 
 ## How It Works
 
-The `seatunnel-benchmarks` module provides two types of tests:
+The `seatunnel-benchmarks` module provides three types of tests:
 
 - `SeaTunnelRowBenchmark` measures hot paths such as row creation, access, copying, projection, and
   size calculation.
 - `SeaTunnelPipelineBenchmark` starts an embedded single-node Zeta cluster and runs complete bounded
   jobs through the normal client and configuration parser APIs.
+- `CheckpointingTimeBenchmark` keeps one streaming job running and measures the time required to
+  complete explicitly triggered regular checkpoints.
 
 The MiniCluster starts during JMH Trial setup and is outside the measurement. Job submission,
 scheduling, Source, Transform, Sink, and job completion are inside the JMH measurement.
@@ -149,6 +151,23 @@ java -jar seatunnel-benchmarks/target/benchmarks.jar SeaTunnelRowBenchmark \
 For a quick functional validation, add `-f 1 -wi 0 -i 1 -r 1s` to shorten the run. A single un-warmed
 sample is not valid performance evidence.
 
+### Run the Checkpoint Benchmark
+
+```bash
+java -jar seatunnel-benchmarks/target/benchmarks.jar CheckpointingTimeBenchmark
+```
+
+The benchmark runs both `recordSize=1b` and `recordSize=1kb`. `checkpointSingleInput` uses a
+controlled input rate and equal Source/Sink parallelism. Its dedicated JMH environment starts an
+isolated two-node Zeta cluster with separate master and worker roles and one streaming job per trial.
+The master has no worker slots, the worker executes the pipeline, and IMap backup count is zero. A
+separate checkpoint engine configuration (not the shared benchmark engine configuration) enables
+the `engine*` MapStore with the HDFS file storage implementation on the local filesystem, and stores
+checkpoints through the HDFS checkpoint plugin in local mode. Every invocation explicitly triggers
+one regular checkpoint and waits until Zeta has persisted and completed it. The score is checkpoint
+completion time in `s/op`, so lower is better. Job startup, workload ramp-up, persistence
+verification, and job shutdown are outside the measured invocation.
+
 ### Read Workflow Reports
 
 The scheduled and manually triggered `Benchmarks` workflow runs each selected benchmark on Java 8
@@ -234,7 +253,7 @@ These conditions reject incomplete output and prove that Transform work reached 
 
 | Field | Description |
 |---|---|
-| `Score` | Processed rows per second for a Pipeline benchmark; higher is better. Row microbenchmarks retain `ops/ms`. |
+| `Score` | Processed rows per second for a Pipeline benchmark; higher is better. Row microbenchmarks retain `ops/ms`, while the checkpoint benchmark reports `s/op` and lower is better. |
 | `Error` | Uncertainty calculated from samples inside this JMH run. |
 | `Cnt` | Aggregated measurement samples, not processed rows. |
 | `Units` | Unit of the score. |
