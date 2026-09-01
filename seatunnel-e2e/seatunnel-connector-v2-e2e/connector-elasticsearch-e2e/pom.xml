@@ -27,10 +27,6 @@
     <artifactId>connector-elasticsearch-e2e</artifactId>
     <name>SeaTunnel : E2E : Connector V2 : Elasticsearch</name>
 
-    <properties>
-        <mysql.version>8.0.31</mysql.version>
-    </properties>
-
     <dependencies>
 
         <!-- SeaTunnel connectors -->
@@ -49,9 +45,8 @@
         </dependency>
 
         <dependency>
-            <groupId>mysql</groupId>
-            <artifactId>mysql-connector-java</artifactId>
-            <version>${mysql.version}</version>
+            <groupId>com.mysql</groupId>
+            <artifactId>mysql-connector-j</artifactId>
             <scope>test</scope>
         </dependency>
 

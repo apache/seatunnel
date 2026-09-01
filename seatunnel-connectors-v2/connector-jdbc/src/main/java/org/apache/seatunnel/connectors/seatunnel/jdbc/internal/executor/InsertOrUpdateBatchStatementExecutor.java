@@ -116,6 +116,18 @@ public class InsertOrUpdateBatchStatementExecutor
     }
 
     @Override
+    public void clearBatch() throws SQLException {
+        if (insertStatement != null) {
+            insertStatement.clearBatch();
+        }
+        if (updateStatement != null) {
+            updateStatement.clearBatch();
+        }
+        preExistFlag = null;
+        submitted = true;
+    }
+
+    @Override
     public void closeStatements() throws SQLException {
         try {
             if (!submitted) {
