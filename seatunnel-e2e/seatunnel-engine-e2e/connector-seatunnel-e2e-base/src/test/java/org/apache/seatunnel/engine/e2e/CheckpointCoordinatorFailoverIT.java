@@ -77,9 +77,9 @@ public class CheckpointCoordinatorFailoverIT {
 
     /**
      * Total starting (source) subtasks compiled from {@link #CLOSE_HANDSHAKE_TEMPLATE_CONF}: two
-     * independent FakeSource operators (table_fast, table_slow) feeding one shared sink, each at
-     * env.parallelism = 2. Used to detect a partial close handshake: some, but not all, of these
-     * subtasks have reported ready to close.
+     * independent FakeSource operators (table_fast, table_slow), each at env.parallelism = 2.
+     * Used to detect a partial close handshake: some, but not all, of these subtasks have reported
+     * ready to close.
      */
     private static final int CLOSE_HANDSHAKE_STARTING_SUBTASKS = 4;
 
@@ -395,22 +395,17 @@ public class CheckpointCoordinatorFailoverIT {
      * introduced, so the master is killed while the close handshake itself is provably in flight.
      *
      * <p>Trigger construction: {@link #CLOSE_HANDSHAKE_TEMPLATE_CONF} defines two independent
-     * FakeSource operators feeding one shared LocalFile sink, so the whole job compiles into
-     * exactly one pipeline / one CheckpointCoordinator (asserted below) with {@link
-     * #CLOSE_HANDSHAKE_STARTING_SUBTASKS} starting subtasks - a fast one ({@code row.num = 5}, a
-     * single split) that finishes in well under a second, and a slow one ({@code row.num = 300}
-     * spread across 30 splits with a 300ms read interval between them, i.e. at least ~8.7 seconds
-     * to drain) that is still actively producing rows long after the fast source is done. {@code
-     * checkpoint.interval} is set far beyond this test's real runtime so the completing checkpoint
-     * is the only checkpoint ever attempted, keeping the scenario isolated to the exact mechanism
-     * under test instead of also depending on regular mid-job checkpoint recovery. The test polls
-     * {@code runningJobStateIMap} - via {@code CheckpointCoordinator#getReadyToCloseImapKey()}, the
-     * same persisted key the fix restores from - until its value's size is strictly between 0 and
-     * {@link #CLOSE_HANDSHAKE_STARTING_SUBTASKS} (the fast source's two subtasks have reported
-     * ready, the slow source's two have not), then kills the active master immediately. Because
-     * this reads the fix's own bookkeeping directly rather than guessing from timing, and the
-     * fast/slow production gap is a deterministic ~8+ second window rather than a scheduler-jitter
-     * race, this reliably lands the kill inside the intended close-handshake window.
+     * FakeSource operators feeding one shared LocalFile sink. The pipeline generator splits this
+     * two-input graph into two pipeline-local coordinators, each with two starting subtasks. One
+     * source is fast ({@code row.num = 5}, a single split) and the other is slow ({@code row.num =
+     * 300} spread across 30 splits with a 300ms read interval between them, i.e. at least ~8.7
+     * seconds to drain). {@code checkpoint.interval} is set far beyond this test's real runtime so
+     * the completing checkpoint is the only checkpoint ever attempted. The test aggregates the two
+     * coordinators' entries in {@code runningJobStateIMap}, via {@code
+     * CheckpointCoordinator#getReadyToCloseImapKey()}, and waits until the aggregate is strictly
+     * between 0 and {@link #CLOSE_HANDSHAKE_STARTING_SUBTASKS}. The fast source's two subtasks have
+     * then reported ready while the slow source's two have not, so killing the active master
+     * precisely exercises recovery of non-empty, not-yet-complete close sets.
      *
      * <p>Unlike this class's other two tests, the cluster here uses two dedicated master-only nodes
      * (started via {@code createMasterHazelcastInstance}) plus a separate worker node (started via
@@ -480,11 +475,11 @@ public class CheckpointCoordinatorFailoverIT {
             ClientJobProxy clientJobProxy = jobExecutionEnv.execute();
             long jobId = clientJobProxy.getJobId();
 
-            // Resolve the job's single pipeline id. The two unrelated FakeSource operators share
-            // one sink vertex, so PipelineGenerator's connected-component split must produce
-            // exactly one pipeline (one CheckpointCoordinator) for them.
+            // Resolve both pipeline ids. PipelineGenerator intentionally splits the shared-sink
+            // union into two coordinator-local pipelines, one for each FakeSource.
             HazelcastInstanceImpl finalMaster1ForPlan = masterNode1;
-            AtomicInteger pipelineIdHolder = new AtomicInteger(-1);
+            AtomicInteger firstPipelineIdHolder = new AtomicInteger(-1);
+            AtomicInteger secondPipelineIdHolder = new AtomicInteger(-1);
             Awaitility.await()
                     .atMost(30, TimeUnit.SECONDS)
                     .pollInterval(50, TimeUnit.MILLISECONDS)
@@ -497,14 +492,17 @@ public class CheckpointCoordinatorFailoverIT {
                                 Assertions.assertNotNull(
                                         physicalPlan, "physical plan should be built by now");
                                 Assertions.assertEquals(
-                                        1,
+                                        2,
                                         physicalPlan.getPipelineList().size(),
-                                        "the two FakeSource operators share one sink and must"
-                                                + " compile into exactly one pipeline");
-                                pipelineIdHolder.set(
+                                        "the shared-sink union should split into one pipeline per"
+                                                + " FakeSource");
+                                firstPipelineIdHolder.set(
                                         physicalPlan.getPipelineList().get(0).getPipelineId());
+                                secondPipelineIdHolder.set(
+                                        physicalPlan.getPipelineList().get(1).getPipelineId());
                             });
-            int pipelineId = pipelineIdHolder.get();
+            int firstPipelineId = firstPipelineIdHolder.get();
+            int secondPipelineId = secondPipelineIdHolder.get();
 
             // Poll the fix's own persisted bookkeeping until it shows a partial close handshake:
             // table_fast's subtasks have reported ready to close, table_slow's have not.
@@ -518,7 +516,13 @@ public class CheckpointCoordinatorFailoverIT {
                                         JobStatus.RUNNING, clientJobProxy.getJobStatus());
                                 int readyCount =
                                         getReadyToCloseCount(
-                                                finalMaster1ForPoll, jobId, pipelineId);
+                                                        finalMaster1ForPoll,
+                                                        jobId,
+                                                        firstPipelineId)
+                                                + getReadyToCloseCount(
+                                                        finalMaster1ForPoll,
+                                                        jobId,
+                                                        secondPipelineId);
                                 Assertions.assertTrue(
                                         readyCount > 0
                                                 && readyCount < CLOSE_HANDSHAKE_STARTING_SUBTASKS,
@@ -529,11 +533,10 @@ public class CheckpointCoordinatorFailoverIT {
                             });
 
             log.info(
-                    "Job {} pipeline {} has a partial close handshake in flight (some but not all"
-                            + " of {} starting subtasks reported ready to close). Triggering"
+                    "Job {} has partial close handshakes in flight (some but not all of {}"
+                            + " starting subtasks reported ready to close). Triggering"
                             + " master failover by shutting down masterNode1.",
                     jobId,
-                    pipelineId,
                     CLOSE_HANDSHAKE_STARTING_SUBTASKS);
 
             masterNode1.shutdown();
