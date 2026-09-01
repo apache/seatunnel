@@ -1129,36 +1129,17 @@ public class TaskExecutionService implements DynamicMetricsProvider {
         public void run() {
             TaskExecutionService.TaskGroupExecutionTracker taskGroupExecutionTracker =
                     tracker.taskGroupExecutionTracker;
-            TaskGroupLocation taskGroupLocation =
-                    taskGroupExecutionTracker.taskGroup.getTaskGroupLocation();
+            ClassLoader classLoader =
+                    executionContexts
+                            .get(taskGroupExecutionTracker.taskGroup.getTaskGroupLocation())
+                            .getClassLoaders()
+                            .get(tracker.task.getTaskID());
             ClassLoader oldClassLoader = Thread.currentThread().getContextClassLoader();
+            Thread.currentThread().setContextClassLoader(classLoader);
             final Task t = tracker.task;
             ProgressState result = null;
-            boolean startSignalled = false;
             try {
-                // Resolving the class loader has to happen inside this try. The execution
-                // context for this location can already have been removed by a taskDone() of
-                // an earlier restore generation - TaskGroupLocation is reused verbatim across
-                // restores - and dereferencing a missing context threw before startedLatch was
-                // ever counted down. submitBlockingTask() then waited on that latch forever
-                // while holding the SubPlan monitor, which stopped the pipeline from reaching a
-                // terminal state and left the submitting client blocked. See #11679.
-                TaskGroupContext taskGroupContext = executionContexts.get(taskGroupLocation);
-                if (taskGroupContext == null) {
-                    throw new IllegalStateException(
-                            String.format(
-                                    "Execution context for %s is no longer registered; the task"
-                                            + " group was cleaned up while it was being deployed",
-                                    taskGroupLocation));
-                }
-                Thread.currentThread()
-                        .setContextClassLoader(
-                                taskGroupContext.getClassLoaders().get(t.getTaskID()));
-
-                // Signalled before init() so that submitBlockingTask() returns once workers
-                // have started, not once they have finished.
                 startedLatch.countDown();
-                startSignalled = true;
                 t.init();
                 do {
                     result = t.call();
@@ -1179,12 +1160,6 @@ public class TaskExecutionService implements DynamicMetricsProvider {
                 }
                 taskGroupExecutionTracker.exception(e);
             } finally {
-                // A worker that failed before signalling must still release the deployer,
-                // otherwise submitBlockingTask() blocks forever. Guarded so each worker counts
-                // down exactly once.
-                if (!startSignalled) {
-                    startedLatch.countDown();
-                }
                 taskGroupExecutionTracker.taskDone(t);
                 if (result == null || !result.isDone()) {
                     try {
