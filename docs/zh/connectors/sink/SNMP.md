@@ -74,6 +74,7 @@ Sink 同时接受文档中的类型名和 SNMP Source 输出的 SNMP4J 语法字
 env {
   parallelism = 1
   job.mode = "BATCH"
+  shade.options = ["community"]
 }
 
 source {
@@ -111,15 +112,22 @@ sink {
 }
 ```
 
+`${SNMP_COMMUNITY}` 通过 SeaTunnel 的标准配置替换机制解析。请在已提交到源码的任务文件之外设置该值。
+在 `shade.options` 中加入 `community`，还可以在记录解析后的任务配置时对该值进行脱敏。
+
 ## 投递、失败和安全语义
 
 - 一次 `write` 成功表示 Agent 已对该行返回成功的 SNMP 响应。
 - 所有配置尝试完成后仍超时，或 SNMP 响应包含非零错误状态时，Sink Task 会失败。
+- 一行在失败前可能阻塞约 `timeout_millis * (retries + 1)`。请确保该时间小于任务的 Checkpoint 超时时间。
+- SNMP4J 会重发超时请求。迟到的响应可能导致非幂等 OID 多次观察到同一次 SET。
 - Sink 没有事务提交协议或可恢复的 Writer 状态。引擎恢复后可能重复发送 SET，因此投递语义为至少一次。
 - 多个并行 Writer 可能乱序更新同一个 OID。如果更新顺序很重要，请使用并行度 1。
 - Sink 不会把 RowKind 解释为 CDC 操作。所有输入行（包括更新或删除类型）都会作为 SET 请求处理。
 - 请把 `community` 视为凭证，通过配置替换或其他密钥管理方式提供，不要把真实值提交到源码中的任务文件。
 - SNMPv2c 不提供传输加密或完整性保护，community 和 SET 负载会以明文发送。请仅在可信私有网络中使用，或通过 VPN 等受保护隧道传输。
 - Trap、Inform、SNMPv1 和 SNMPv3 不属于 V1 范围。
+
+`plugin_input` 等配置请参阅[通用 Sink 配置项](../common-options/sink-common-options.md)。
 
 <ChangeLog />

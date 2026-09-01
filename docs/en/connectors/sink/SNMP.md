@@ -76,6 +76,7 @@ including `Counter`, `Gauge`, `OCTET STRING`, and `OBJECT IDENTIFIER`.
 env {
   parallelism = 1
   job.mode = "BATCH"
+  shade.options = ["community"]
 }
 
 source {
@@ -113,15 +114,23 @@ sink {
 }
 ```
 
+`${SNMP_COMMUNITY}` is resolved through the normal SeaTunnel configuration substitution path.
+Set the value outside the checked-in job file. Adding `community` to `shade.options` also keeps it
+masked if the parsed job configuration is logged.
+
 ## Delivery, Failure, and Security Behavior
 
 - One successful `write` call means the agent returned a successful SNMP response for that row.
 - A timeout after all configured attempts or a non-zero SNMP response error status fails the sink task.
+- A row can block for approximately `timeout_millis * (retries + 1)` before it fails. Keep this below the job's checkpoint timeout.
+- SNMP4J retransmits a timed-out request. A late response can therefore make a non-idempotent OID observe the same SET more than once.
 - The sink has no transactional commit protocol or recoverable writer state. Engine recovery can repeat a SET request, so delivery is at-least-once.
 - Parallel writers can update the same OID out of order. Use parallelism 1 when update order matters.
 - Row kinds are not interpreted as CDC operations. Every input row, including update or delete row kinds, is treated as a SET request.
 - Treat `community` as a credential. Supply it through configuration substitution or another secret-management path, and do not place a real value in job files committed to source control.
 - SNMPv2c provides no wire encryption or integrity protection. The community and SET payload are sent in cleartext; use only a trusted private network or a protected tunnel such as a VPN.
 - Traps, informs, SNMPv1, and SNMPv3 are outside this V1 contract.
+
+See [Common Sink Options](../common-options/sink-common-options.md) for options such as `plugin_input`.
 
 <ChangeLog />

@@ -18,6 +18,8 @@
 package org.apache.seatunnel.connectors.seatunnel.snmp.client;
 
 import org.apache.seatunnel.connectors.seatunnel.snmp.config.SnmpTargetConfig;
+import org.apache.seatunnel.connectors.seatunnel.snmp.exception.SnmpConnectorErrorCode;
+import org.apache.seatunnel.connectors.seatunnel.snmp.exception.SnmpConnectorException;
 
 import org.snmp4j.CommunityTarget;
 import org.snmp4j.Target;
@@ -32,7 +34,14 @@ public final class SnmpTargetFactory {
 
     public static Target create(SnmpTargetConfig config) {
         CommunityTarget target = new CommunityTarget();
-        target.setAddress(new UdpAddress(config.getHost() + "/" + config.getPort()));
+        try {
+            target.setAddress(new UdpAddress(config.getHost() + "/" + config.getPort()));
+        } catch (IllegalArgumentException e) {
+            throw new SnmpConnectorException(
+                    SnmpConnectorErrorCode.INVALID_CONFIG,
+                    "Invalid SNMP agent address " + config.getHost() + ":" + config.getPort(),
+                    e);
+        }
         target.setCommunity(new OctetString(config.getCommunity()));
         target.setVersion(SnmpConstants.version2c);
         target.setTimeout(config.getTimeoutMillis());

@@ -42,10 +42,11 @@ final class Snmp4jSetClient implements SnmpSetClient {
 
     Snmp4jSetClient(SnmpSinkConfig config, Snmp snmp) throws IOException {
         this.config = config;
-        this.target = SnmpTargetFactory.create(config);
+        Target createdTarget;
         try {
+            createdTarget = SnmpTargetFactory.create(config);
             snmp.listen();
-        } catch (IOException e) {
+        } catch (IOException | RuntimeException e) {
             try {
                 snmp.close();
             } catch (IOException closeException) {
@@ -53,6 +54,7 @@ final class Snmp4jSetClient implements SnmpSetClient {
             }
             throw e;
         }
+        this.target = createdTarget;
         this.snmp = snmp;
     }
 
