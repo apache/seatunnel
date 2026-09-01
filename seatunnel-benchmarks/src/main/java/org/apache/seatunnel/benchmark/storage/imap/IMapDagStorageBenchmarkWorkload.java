@@ -33,13 +33,17 @@ import com.hazelcast.map.IMap;
 
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 
 /** Code-built JobDAGInfo values and isolated IMap DAG operations for the JMH entry point. */
 @State(Scope.Thread)
 public class IMapDagStorageBenchmarkWorkload {
+
+    public static final int STORE_OPERATIONS_PER_INVOCATION = 100;
 
     private static final long PRESSURE_KEY_BASE = Long.MIN_VALUE + 1_000_000L;
     private static final long LOAD_KEY = Long.MIN_VALUE + 1L;
@@ -55,7 +59,9 @@ public class IMapDagStorageBenchmarkWorkload {
     private IMap<Long, JobDAGInfo> finishedJobDagMap;
     private JobDAGInfo finishedJobDag;
     private int historyJobExpireMinutes;
-    private long storeKey;
+    private long[] storeKeys;
+    private int storedDagCountInIteration;
+    private boolean loadExecuted;
 
     /** Constructs an exact number of production source-to-sink DAG pipelines. */
     @Setup(Level.Trial)
@@ -79,32 +85,90 @@ public class IMapDagStorageBenchmarkWorkload {
         finishedJobDagMap.evict(LOAD_KEY);
     }
 
-    /** Persists and evicts one DAG before measuring the MapStore reload path. */
+    /** Builds a fresh, fixed-size key set before each measured DAG-store phase. */
+    @Setup(Level.Iteration)
+    public void prepareStoreIteration() {
+        storeKeys = new long[STORE_OPERATIONS_PER_INVOCATION];
+        for (int index = 0; index < STORE_OPERATIONS_PER_INVOCATION; index++) {
+            storeKeys[index] = Long.MAX_VALUE - sequence.incrementAndGet();
+        }
+        storedDagCountInIteration = 0;
+    }
+
+    /** Evicts the load fixture before every measured MapStore reload. */
     @Setup(Level.Invocation)
     public void prepareInvocation() {
-        long invocation = sequence.incrementAndGet();
-        storeKey = Long.MAX_VALUE - invocation;
+        loadExecuted = false;
         finishedJobDagMap.evict(LOAD_KEY);
     }
 
     @TearDown(Level.Invocation)
     public void cleanInvocation() {
-        finishedJobDagMap.delete(storeKey);
-        finishedJobDagMap.evict(LOAD_KEY);
+        try {
+            if (loadExecuted) {
+                verifyFinishedJobDagLoaded();
+            }
+        } finally {
+            finishedJobDagMap.evict(LOAD_KEY);
+        }
     }
 
-    public JobDAGInfo storeFinishedJobDag() {
-        return finishedJobDagMap.put(
-                storeKey, finishedJobDag, historyJobExpireMinutes, TimeUnit.MINUTES);
+    /** Validates durable samples and removes the fixed store batch outside measured time. */
+    @TearDown(Level.Iteration)
+    public void cleanStoreIteration() {
+        if (storedDagCountInIteration == 0) {
+            return;
+        }
+        try {
+            if (storedDagCountInIteration != STORE_OPERATIONS_PER_INVOCATION) {
+                throw new IllegalStateException(
+                        "The JobDAGInfo store phase did not persist the expected entry count");
+            }
+            verifyStoredJobDags();
+        } finally {
+            int cleanupCount = Math.min(storedDagCountInIteration, storeKeys.length);
+            for (int index = 0; index < cleanupCount; index++) {
+                finishedJobDagMap.delete(storeKeys[index]);
+            }
+        }
+    }
+
+    public long storeFinishedJobDagBatch() {
+        for (long storeKey : storeKeys) {
+            finishedJobDagMap.put(
+                    storeKey, finishedJobDag, historyJobExpireMinutes, TimeUnit.MINUTES);
+            storedDagCountInIteration++;
+        }
+        return storeKeys[STORE_OPERATIONS_PER_INVOCATION - 1];
     }
 
     public void loadFinishedJobDag() {
         finishedJobDagMap.loadAll(Collections.singleton(LOAD_KEY), true);
+        loadExecuted = true;
     }
 
     public void verifyFinishedJobDagLoaded() {
-        if (!finishedJobDagMap.containsKey(LOAD_KEY)) {
+        JobDAGInfo loaded = finishedJobDagMap.get(LOAD_KEY);
+        if (!finishedJobDag.equals(loaded)) {
             throw new IllegalStateException("The persisted JobDAGInfo was not loaded");
+        }
+    }
+
+    private void verifyStoredJobDags() {
+        Set<Long> sampledKeys = new LinkedHashSet<>();
+        sampledKeys.add(storeKeys[0]);
+        sampledKeys.add(storeKeys[STORE_OPERATIONS_PER_INVOCATION / 2]);
+        sampledKeys.add(storeKeys[STORE_OPERATIONS_PER_INVOCATION - 1]);
+        for (long sampledKey : sampledKeys) {
+            finishedJobDagMap.evict(sampledKey);
+        }
+        finishedJobDagMap.loadAll(sampledKeys, true);
+        for (long sampledKey : sampledKeys) {
+            JobDAGInfo stored = finishedJobDagMap.get(sampledKey);
+            if (!finishedJobDag.equals(stored)) {
+                throw new IllegalStateException(
+                        "The JobDAGInfo append was not durably persisted for key " + sampledKey);
+            }
         }
     }
 }

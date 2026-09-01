@@ -18,6 +18,7 @@
 seatunnel:
   engine:
     backup-count: 0
+    state-cleanup-delay-ms: 0
     classloader-cache-mode: true
     slot-service:
       dynamic-slot: false

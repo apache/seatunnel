@@ -18,12 +18,12 @@
 package org.apache.seatunnel.benchmark;
 
 import org.apache.seatunnel.benchmark.storage.imap.IMapDagStorageBenchmarkWorkload;
-import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Mode;
+import org.openjdk.jmh.annotations.OperationsPerInvocation;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
 import org.openjdk.jmh.annotations.Threads;
 import org.openjdk.jmh.runner.Runner;
@@ -33,6 +33,8 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
 
 import java.util.concurrent.TimeUnit;
+
+import static org.apache.seatunnel.benchmark.storage.imap.IMapDagStorageBenchmarkWorkload.STORE_OPERATIONS_PER_INVOCATION;
 
 /** Measures JobDAGInfo write and reload across exactly constructed pipeline counts. */
 @BenchmarkMode(Mode.AverageTime)
@@ -60,10 +62,24 @@ public class IMapDagStorageBenchmark extends BenchmarkBase {
         new Runner(options).run();
     }
 
-    /** Synchronously persists a production JobDAGInfo with the requested pipeline count. */
+    /**
+     * Measures retained JobDAGInfo growth through the production finished-DAG IMap.
+     *
+     * <p>The workload builds a real {@code JobDAGInfo} containing 1, 10, or 100 source-to-sink
+     * pipelines before measurement and starts with 0 or 100 retained DAGs. The timed phase writes
+     * that payload under 100 unique job IDs using the production history TTL, exercising IMap
+     * serialization, FileMapStore, and WAL append. Fixture construction, durable sample reloads,
+     * and deletion of the measured phase are not timed.
+     *
+     * <p>{@link Mode#SingleShotTime} fixes each growth phase at 100 DAGs. {@link
+     * OperationsPerInvocation} normalizes the phase duration to one persisted DAG and prevents a
+     * faster candidate from receiving more writes in the same measurement window.
+     */
     @Benchmark
-    public JobDAGInfo finishedJobDagStore(IMapDagStorageBenchmarkWorkload workload) {
-        return workload.storeFinishedJobDag();
+    @BenchmarkMode(Mode.SingleShotTime)
+    @OperationsPerInvocation(STORE_OPERATIONS_PER_INVOCATION)
+    public long finishedJobDagStore(IMapDagStorageBenchmarkWorkload workload) {
+        return workload.storeFinishedJobDagBatch();
     }
 
     /** Loads an evicted JobDAGInfo through FileMapStore and the production IMapStorage WAL. */

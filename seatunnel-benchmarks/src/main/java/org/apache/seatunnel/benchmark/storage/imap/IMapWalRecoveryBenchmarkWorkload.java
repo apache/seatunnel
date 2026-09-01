@@ -77,7 +77,11 @@ public class IMapWalRecoveryBenchmarkWorkload {
 
     @TearDown(Level.Invocation)
     public void cleanInvocation() {
-        recoveryMap.evictAll();
+        try {
+            verifyRecovery();
+        } finally {
+            recoveryMap.evictAll();
+        }
     }
 
     public void recoverAll() {
@@ -92,6 +96,10 @@ public class IMapWalRecoveryBenchmarkWorkload {
         JobDAGInfo latest = recoveryMap.get(RECOVERY_KEY_BASE);
         if (latest == null || latest.getJobId() != mutationsPerKey) {
             throw new IllegalStateException("Recovery did not retain the latest WAL mutation");
+        }
+        JobDAGInfo last = recoveryMap.get(RECOVERY_KEY_BASE + uniqueKeyCount - 1L);
+        if (last == null || last.getJobId() != mutationsPerKey) {
+            throw new IllegalStateException("Recovery did not retain every latest WAL mutation");
         }
     }
 

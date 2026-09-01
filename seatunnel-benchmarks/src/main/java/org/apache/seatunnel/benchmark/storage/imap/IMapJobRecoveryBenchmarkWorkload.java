@@ -51,23 +51,28 @@ public class IMapJobRecoveryBenchmarkWorkload {
     public void setUp(SeaTunnelStorageEnvironmentContext environment) throws Exception {
         fixtureJob = new StorageLifecycleFixtureJob(environment);
         fixtureJob.start();
-        JobInfo runningJobInfo = fixtureJob.runningJobInfo();
-        fixtureJob.finish();
+        try {
+            JobInfo runningJobInfo = fixtureJob.runningJobInfo();
+            fixtureJob.finish();
 
-        runningJobInfoMap =
-                environment
-                        .getServer()
-                        .getNodeEngine()
-                        .getHazelcastInstance()
-                        .getMap(Constant.IMAP_RUNNING_JOB_INFO);
-        runningJobInfoMap.delete(fixtureJob.getJobId());
+            runningJobInfoMap =
+                    environment
+                            .getServer()
+                            .getNodeEngine()
+                            .getHazelcastInstance()
+                            .getMap(Constant.IMAP_RUNNING_JOB_INFO);
+            runningJobInfoMap.delete(fixtureJob.getJobId());
 
-        Map<Long, JobInfo> persistedJobs = new HashMap<>(runningJobCount);
-        for (int index = 0; index < runningJobCount; index++) {
-            persistedJobs.put(RECOVERY_KEY_BASE + index, runningJobInfo);
+            Map<Long, JobInfo> persistedJobs = new HashMap<>(runningJobCount);
+            for (int index = 0; index < runningJobCount; index++) {
+                persistedJobs.put(RECOVERY_KEY_BASE + index, runningJobInfo);
+            }
+            runningJobInfoMap.putAll(persistedJobs);
+            runningJobInfoMap.evictAll();
+        } catch (Exception setupFailure) {
+            closeFixtureAfterFailedSetup(setupFailure);
+            throw setupFailure;
         }
-        runningJobInfoMap.putAll(persistedJobs);
-        runningJobInfoMap.evictAll();
     }
 
     @Setup(Level.Invocation)
@@ -77,7 +82,11 @@ public class IMapJobRecoveryBenchmarkWorkload {
 
     @TearDown(Level.Invocation)
     public void cleanInvocation() {
-        runningJobInfoMap.evictAll();
+        try {
+            verifyRecovery();
+        } finally {
+            runningJobInfoMap.evictAll();
+        }
     }
 
     /** Reloads every persisted JobInfo and scans the same entry set used by master failover. */
@@ -101,6 +110,16 @@ public class IMapJobRecoveryBenchmarkWorkload {
     public void tearDown() throws Exception {
         if (fixtureJob != null) {
             fixtureJob.close();
+        }
+    }
+
+    private void closeFixtureAfterFailedSetup(Exception setupFailure) {
+        try {
+            fixtureJob.close();
+        } catch (Exception cleanupFailure) {
+            setupFailure.addSuppressed(cleanupFailure);
+        } finally {
+            fixtureJob = null;
         }
     }
 }

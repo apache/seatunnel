@@ -28,12 +28,14 @@ import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
+import org.openjdk.jmh.annotations.TearDown;
 
 import com.hazelcast.map.IMap;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Collections;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Stream;
@@ -42,6 +44,13 @@ import java.util.stream.Stream;
 @State(Scope.Thread)
 @AuxCounters(AuxCounters.Type.EVENTS)
 public class IMapWalAppendBenchmarkWorkload {
+
+    /** Constants shared with the JMH entry point without becoming auxiliary counter fields. */
+    public static final class Batch {
+        public static final int APPENDS_PER_INVOCATION = 100;
+
+        private Batch() {}
+    }
 
     private static final long NEW_KEY_BASE = Long.MAX_VALUE / 2;
     private static final long HOT_KEY = Long.MAX_VALUE / 2 - 1;
@@ -55,6 +64,11 @@ public class IMapWalAppendBenchmarkWorkload {
     private JobDAGInfo[] mutations;
     private int historyJobExpireMinutes;
     private Path walRoot;
+    private long iterationStartBytes;
+    private long iterationAppendCount;
+    private long bytesPerAppend;
+    private long lastAppendedKey;
+    private long lastExpectedJobId;
 
     /** Builds realistic DAG payload variants outside measured append operations. */
     @Setup(Level.Trial)
@@ -82,26 +96,63 @@ public class IMapWalAppendBenchmarkWorkload {
         mutations = new JobDAGInfo[] {createMutation(1L), createMutation(2L)};
     }
 
-    public void appendNewKey() {
-        long mutation = sequence.incrementAndGet();
-        walMap.put(
-                NEW_KEY_BASE - mutation,
-                mutations[(int) (mutation & 1L)],
-                historyJobExpireMinutes,
-                TimeUnit.MINUTES);
+    /** Captures a stable storage baseline before one fixed-size append phase. */
+    @Setup(Level.Iteration)
+    public void setUpIteration() {
+        iterationStartBytes = currentWalBytes();
+        iterationAppendCount = 0L;
+        bytesPerAppend = 0L;
+        lastAppendedKey = 0L;
+        lastExpectedJobId = 0L;
     }
 
-    public void appendHotKey() {
-        long mutation = sequence.incrementAndGet();
-        walMap.put(
-                HOT_KEY,
-                mutations[(int) (mutation & 1L)],
-                historyJobExpireMinutes,
-                TimeUnit.MINUTES);
+    /** Validates the final mutation and caches byte growth before the environment is destroyed. */
+    @TearDown(Level.Iteration)
+    public void tearDownIteration() {
+        bytesPerAppend =
+                calculateWalBytesPerAppend(
+                        iterationStartBytes, currentWalBytes(), iterationAppendCount);
+        verifyLastAppend();
     }
 
-    /** Returns persisted WAL bytes so JMH reports the actual storage increase per append. */
-    public long walBytes() {
+    /** Appends a fixed number of unique-key mutations so candidates see the same growth phase. */
+    public void appendNewKeyBatch() {
+        for (int index = 0; index < Batch.APPENDS_PER_INVOCATION; index++) {
+            appendNewKey();
+        }
+    }
+
+    /** Appends a fixed number of hot-key mutations so candidates see the same history depth. */
+    public void appendHotKeyBatch() {
+        for (int index = 0; index < Batch.APPENDS_PER_INVOCATION; index++) {
+            appendHotKey();
+        }
+    }
+
+    private void appendNewKey() {
+        long mutation = sequence.incrementAndGet();
+        JobDAGInfo value = mutations[(int) (mutation & 1L)];
+        lastAppendedKey = NEW_KEY_BASE - mutation;
+        lastExpectedJobId = value.getJobId();
+        walMap.put(lastAppendedKey, value, historyJobExpireMinutes, TimeUnit.MINUTES);
+        iterationAppendCount++;
+    }
+
+    private void appendHotKey() {
+        long mutation = sequence.incrementAndGet();
+        JobDAGInfo value = mutations[(int) (mutation & 1L)];
+        lastAppendedKey = HOT_KEY;
+        lastExpectedJobId = value.getJobId();
+        walMap.put(lastAppendedKey, value, historyJobExpireMinutes, TimeUnit.MINUTES);
+        iterationAppendCount++;
+    }
+
+    /** Returns the cached persisted byte growth per append for the completed JMH iteration. */
+    public long walBytesPerAppend() {
+        return bytesPerAppend;
+    }
+
+    private long currentWalBytes() {
         if (walRoot == null || !Files.exists(walRoot)) {
             return 0L;
         }
@@ -112,6 +163,26 @@ public class IMapWalAppendBenchmarkWorkload {
         } catch (IOException e) {
             throw new IllegalStateException("Failed to measure persisted WAL bytes", e);
         }
+    }
+
+    void verifyLastAppend() {
+        walMap.evict(lastAppendedKey);
+        walMap.loadAll(Collections.singleton(lastAppendedKey), true);
+        JobDAGInfo persisted = walMap.get(lastAppendedKey);
+        if (persisted == null || persisted.getJobId() != lastExpectedJobId) {
+            throw new IllegalStateException("The latest WAL append was not durably persisted");
+        }
+    }
+
+    static long calculateWalBytesPerAppend(long startBytes, long endBytes, long appendCount) {
+        if (appendCount <= 0L) {
+            throw new IllegalStateException("The WAL append phase did not execute");
+        }
+        long walByteDelta = endBytes - startBytes;
+        if (walByteDelta <= 0L) {
+            throw new IllegalStateException("The WAL append phase did not persist any bytes");
+        }
+        return walByteDelta / appendCount;
     }
 
     private JobDAGInfo createMutation(long jobId) {

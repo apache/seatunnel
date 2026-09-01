@@ -35,12 +35,15 @@ import org.openjdk.jmh.annotations.TearDown;
 
 import com.hazelcast.map.IMap;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
-/** Stateful job-lifecycle workloads whose persisted cardinality grows throughout a JMH trial. */
+/** Fixed-size job-lifecycle growth phases that start from controlled IMap cardinalities. */
 @State(Scope.Thread)
 public class IMapJobGrowthBenchmarkWorkload {
+
+    public static final int GROWTH_OPERATIONS_PER_INVOCATION = 100;
 
     private static final long PRESSURE_KEY_BASE = Long.MIN_VALUE + 2_000_000L;
     private static final long GROWTH_KEY_BASE = Long.MIN_VALUE + 4_000_000L;
@@ -60,88 +63,108 @@ public class IMapJobGrowthBenchmarkWorkload {
     private IMap<Long, JobHistoryService.JobState> finishedJobStateMap;
     private IMap<Long, JobMetrics> finishedJobMetricsMap;
 
-    private long sequence;
-    private long jobId;
-    private TaskGroupLocation taskGroupLocation;
-    private Long[] stateTimestamps;
-    private JobHistoryService.JobState invocationFinishedJobState;
+    private long[] batchJobIds;
+    private TaskGroupLocation[] batchTaskGroupLocations;
+    private Long[][] batchStateTimestamps;
+    private JobHistoryService.JobState[] batchFinishedJobStates;
+    private int baselineRunningJobCount;
+    private int baselineFinishedJobCount;
+    private int baselineFinishedJobMetricsCount;
+    private GrowthPhase growthPhase = GrowthPhase.NONE;
 
     /** Captures real Zeta lifecycle values and seeds the requested initial storage pressure. */
     @Setup(Level.Trial)
     public void setUp(SeaTunnelStorageEnvironmentContext environment) throws Exception {
         fixtureJob = new StorageLifecycleFixtureJob(environment);
         fixtureJob.start();
-        runningJobInfo = fixtureJob.runningJobInfo();
-        fixtureJob.finish();
-        finishedJobState = fixtureJob.finishedState();
-        finishedJobMetrics = fixtureJob.finishedMetrics();
+        try {
+            runningJobInfo = fixtureJob.runningJobInfo();
+            fixtureJob.finish();
+            finishedJobState = fixtureJob.finishedState();
+            finishedJobMetrics = fixtureJob.finishedMetrics();
 
-        runningJobInfoMap = environmentMap(environment, Constant.IMAP_RUNNING_JOB_INFO);
-        runningJobStateMap = environmentMap(environment, Constant.IMAP_RUNNING_JOB_STATE);
-        runningJobStateTimestampsMap = environmentMap(environment, Constant.IMAP_STATE_TIMESTAMPS);
-        finishedJobStateMap = environmentMap(environment, Constant.IMAP_FINISHED_JOB_STATE);
-        finishedJobMetricsMap = environmentMap(environment, Constant.IMAP_FINISHED_JOB_METRICS);
-        jobHistoryService = environment.getServer().getCoordinatorService().getJobHistoryService();
+            runningJobInfoMap = environmentMap(environment, Constant.IMAP_RUNNING_JOB_INFO);
+            runningJobStateMap = environmentMap(environment, Constant.IMAP_RUNNING_JOB_STATE);
+            runningJobStateTimestampsMap =
+                    environmentMap(environment, Constant.IMAP_STATE_TIMESTAMPS);
+            finishedJobStateMap = environmentMap(environment, Constant.IMAP_FINISHED_JOB_STATE);
+            finishedJobMetricsMap = environmentMap(environment, Constant.IMAP_FINISHED_JOB_METRICS);
+            jobHistoryService =
+                    environment.getServer().getCoordinatorService().getJobHistoryService();
 
-        preloadStoragePressure();
+            preloadStoragePressure();
+            baselineRunningJobCount = runningJobInfoMap.size();
+            baselineFinishedJobCount = finishedJobStateMap.size();
+            baselineFinishedJobMetricsCount = finishedJobMetricsMap.size();
+        } catch (Exception setupFailure) {
+            closeFixtureAfterFailedSetup(setupFailure);
+            throw setupFailure;
+        }
     }
 
-    /** Prepares the next unique job payload without performing storage I/O. */
-    @Setup(Level.Invocation)
-    public void prepareInvocation() {
-        jobId = GROWTH_KEY_BASE + sequence++;
-        taskGroupLocation = new TaskGroupLocation(jobId, 1, 1L);
-        stateTimestamps = new Long[ExecutionState.values().length];
-        stateTimestamps[ExecutionState.RUNNING.ordinal()] = System.currentTimeMillis();
-        invocationFinishedJobState =
-                new JobHistoryService.JobState(
-                        jobId,
-                        finishedJobState.getJobName(),
-                        finishedJobState.getJobStatus(),
-                        finishedJobState.getSubmitTime(),
-                        finishedJobState.getStartTime(),
-                        finishedJobState.getFinishTime(),
-                        finishedJobState.getPipelineStateMapperMap(),
-                        finishedJobState.getErrorMessage());
+    /** Restores the requested pressure and builds one deterministic growth batch off the clock. */
+    @Setup(Level.Iteration)
+    public void prepareGrowthPhase() {
+        cleanPreviousGrowthPhase();
+        prepareGrowthBatch();
+        growthPhase = GrowthPhase.NONE;
     }
 
-    /** Adds one concurrently running job and retains it so every invocation increases pressure. */
-    public long appendRunningJob() {
-        runningJobInfoMap.put(jobId, runningJobInfo);
-        runningJobStateMap.put(taskGroupLocation, ExecutionState.RUNNING);
-        runningJobStateTimestampsMap.put(taskGroupLocation, stateTimestamps);
-        return jobId;
+    /** Adds a fixed phase of running jobs while retaining every entry created within that phase. */
+    public long appendRunningJobBatch() {
+        growthPhase = GrowthPhase.RUNNING;
+        for (int index = 0; index < GROWTH_OPERATIONS_PER_INVOCATION; index++) {
+            runningJobInfoMap.put(batchJobIds[index], runningJobInfo);
+            runningJobStateMap.put(batchTaskGroupLocations[index], ExecutionState.RUNNING);
+            runningJobStateTimestampsMap.put(
+                    batchTaskGroupLocations[index], batchStateTimestamps[index]);
+        }
+        return batchJobIds[GROWTH_OPERATIONS_PER_INVOCATION - 1];
     }
 
     /**
-     * Persists one completed job's history and removes its transient running state. Finished state
-     * and metrics remain until their production TTL expires, so history grows across invocations.
+     * Persists a completed-job growth phase and removes every transient running state. Finished
+     * state and metrics remain until the next non-timed phase reset or their production TTL.
      */
-    public long appendCompletedJobLifecycle() {
-        runningJobInfoMap.put(jobId, runningJobInfo);
-        runningJobStateMap.put(taskGroupLocation, ExecutionState.RUNNING);
-        runningJobStateTimestampsMap.put(taskGroupLocation, stateTimestamps);
+    public long appendCompletedJobLifecycleBatch() {
+        growthPhase = GrowthPhase.COMPLETED;
+        for (int index = 0; index < GROWTH_OPERATIONS_PER_INVOCATION; index++) {
+            long jobId = batchJobIds[index];
+            TaskGroupLocation taskGroupLocation = batchTaskGroupLocations[index];
+            runningJobInfoMap.put(jobId, runningJobInfo);
+            runningJobStateMap.put(taskGroupLocation, ExecutionState.RUNNING);
+            runningJobStateTimestampsMap.put(taskGroupLocation, batchStateTimestamps[index]);
 
-        jobHistoryService.storeFinishedPipelineMetrics(jobId, finishedJobMetrics);
-        jobHistoryService.storeFinishedPipelineMetrics(jobId, finishedJobMetrics);
-        jobHistoryService.storeFinishedJobState(invocationFinishedJobState);
+            jobHistoryService.storeFinishedPipelineMetrics(jobId, finishedJobMetrics);
+            jobHistoryService.storeFinishedJobState(batchFinishedJobStates[index]);
 
-        runningJobInfoMap.delete(jobId);
-        runningJobStateMap.delete(taskGroupLocation);
-        runningJobStateTimestampsMap.delete(taskGroupLocation);
-        return jobId;
+            runningJobInfoMap.delete(jobId);
+            runningJobStateMap.delete(taskGroupLocation);
+            runningJobStateTimestampsMap.delete(taskGroupLocation);
+        }
+        return batchJobIds[GROWTH_OPERATIONS_PER_INVOCATION - 1];
     }
 
-    int runningJobCount() {
-        return runningJobInfoMap.size();
-    }
-
-    int finishedJobCount() {
-        return finishedJobStateMap.size();
-    }
-
-    int finishedJobMetricsCount() {
-        return finishedJobMetricsMap.size();
+    /** Verifies that the non-timed fixture pressure grew by exactly one controlled phase. */
+    @TearDown(Level.Iteration)
+    public void verifyGrowthPhase() {
+        if (growthPhase == GrowthPhase.RUNNING) {
+            if (runningJobInfoMap.size()
+                    != baselineRunningJobCount + GROWTH_OPERATIONS_PER_INVOCATION) {
+                throw new IllegalStateException(
+                        "The running-job growth phase did not retain every entry");
+            }
+            verifyLastRunningJobDurability();
+        } else if (growthPhase == GrowthPhase.COMPLETED) {
+            if (finishedJobStateMap.size()
+                            != baselineFinishedJobCount + GROWTH_OPERATIONS_PER_INVOCATION
+                    || finishedJobMetricsMap.size()
+                            != baselineFinishedJobMetricsCount + GROWTH_OPERATIONS_PER_INVOCATION) {
+                throw new IllegalStateException(
+                        "The completed-job growth phase did not retain every entry");
+            }
+            verifyLastCompletedJobDurability();
+        }
     }
 
     @TearDown(Level.Trial)
@@ -177,8 +200,113 @@ public class IMapJobGrowthBenchmarkWorkload {
         finishedJobMetricsMap.putAll(finishedJobMetricsValues);
     }
 
+    private void prepareGrowthBatch() {
+        batchJobIds = new long[GROWTH_OPERATIONS_PER_INVOCATION];
+        batchTaskGroupLocations = new TaskGroupLocation[GROWTH_OPERATIONS_PER_INVOCATION];
+        batchStateTimestamps = new Long[GROWTH_OPERATIONS_PER_INVOCATION][];
+        batchFinishedJobStates = new JobHistoryService.JobState[GROWTH_OPERATIONS_PER_INVOCATION];
+        for (int index = 0; index < GROWTH_OPERATIONS_PER_INVOCATION; index++) {
+            long jobId = GROWTH_KEY_BASE + index;
+            TaskGroupLocation location = new TaskGroupLocation(jobId, 1, index);
+            Long[] timestamps = new Long[ExecutionState.values().length];
+            timestamps[ExecutionState.RUNNING.ordinal()] = finishedJobState.getStartTime();
+            batchJobIds[index] = jobId;
+            batchTaskGroupLocations[index] = location;
+            batchStateTimestamps[index] = timestamps;
+            batchFinishedJobStates[index] =
+                    new JobHistoryService.JobState(
+                            jobId,
+                            finishedJobState.getJobName(),
+                            finishedJobState.getJobStatus(),
+                            finishedJobState.getSubmitTime(),
+                            finishedJobState.getStartTime(),
+                            finishedJobState.getFinishTime(),
+                            finishedJobState.getPipelineStateMapperMap(),
+                            finishedJobState.getErrorMessage());
+        }
+    }
+
+    private void cleanPreviousGrowthPhase() {
+        if (batchJobIds == null) {
+            return;
+        }
+        for (int index = 0; index < GROWTH_OPERATIONS_PER_INVOCATION; index++) {
+            long jobId = batchJobIds[index];
+            TaskGroupLocation location = batchTaskGroupLocations[index];
+            if (growthPhase == GrowthPhase.RUNNING) {
+                runningJobInfoMap.delete(jobId);
+                runningJobStateMap.delete(location);
+                runningJobStateTimestampsMap.delete(location);
+            } else if (growthPhase == GrowthPhase.COMPLETED) {
+                finishedJobStateMap.delete(jobId);
+                finishedJobMetricsMap.delete(jobId);
+            }
+        }
+    }
+
+    private void verifyLastRunningJobDurability() {
+        int lastIndex = GROWTH_OPERATIONS_PER_INVOCATION - 1;
+        long jobId = batchJobIds[lastIndex];
+        TaskGroupLocation taskGroupLocation = batchTaskGroupLocations[lastIndex];
+
+        reloadFromMapStore(runningJobInfoMap, jobId);
+        reloadFromMapStore(runningJobStateMap, taskGroupLocation);
+        reloadFromMapStore(runningJobStateTimestampsMap, taskGroupLocation);
+
+        Long[] timestamps = runningJobStateTimestampsMap.get(taskGroupLocation);
+        if (runningJobInfoMap.get(jobId) == null
+                || runningJobStateMap.get(taskGroupLocation) != ExecutionState.RUNNING
+                || timestamps == null
+                || timestamps[ExecutionState.RUNNING.ordinal()] == null) {
+            throw new IllegalStateException(
+                    "The last running-job growth entry was not durably persisted");
+        }
+    }
+
+    private void verifyLastCompletedJobDurability() {
+        int lastIndex = GROWTH_OPERATIONS_PER_INVOCATION - 1;
+        long jobId = batchJobIds[lastIndex];
+        TaskGroupLocation taskGroupLocation = batchTaskGroupLocations[lastIndex];
+
+        reloadFromMapStore(runningJobInfoMap, jobId);
+        reloadFromMapStore(runningJobStateMap, taskGroupLocation);
+        reloadFromMapStore(runningJobStateTimestampsMap, taskGroupLocation);
+        reloadFromMapStore(finishedJobStateMap, jobId);
+        reloadFromMapStore(finishedJobMetricsMap, jobId);
+
+        if (runningJobInfoMap.get(jobId) != null
+                || runningJobStateMap.get(taskGroupLocation) != null
+                || runningJobStateTimestampsMap.get(taskGroupLocation) != null
+                || finishedJobStateMap.get(jobId) == null
+                || finishedJobMetricsMap.get(jobId) == null) {
+            throw new IllegalStateException(
+                    "The last completed-job lifecycle was not durably persisted");
+        }
+    }
+
+    private static <K, V> void reloadFromMapStore(IMap<K, V> map, K key) {
+        map.evict(key);
+        map.loadAll(Collections.singleton(key), true);
+    }
+
+    private void closeFixtureAfterFailedSetup(Exception setupFailure) {
+        try {
+            fixtureJob.close();
+        } catch (Exception cleanupFailure) {
+            setupFailure.addSuppressed(cleanupFailure);
+        } finally {
+            fixtureJob = null;
+        }
+    }
+
     private static <K, V> IMap<K, V> environmentMap(
             SeaTunnelStorageEnvironmentContext environment, String mapName) {
         return environment.getServer().getNodeEngine().getHazelcastInstance().getMap(mapName);
+    }
+
+    private enum GrowthPhase {
+        NONE,
+        RUNNING,
+        COMPLETED
     }
 }

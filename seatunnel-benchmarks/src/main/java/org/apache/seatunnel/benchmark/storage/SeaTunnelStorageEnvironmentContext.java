@@ -58,6 +58,9 @@ public class SeaTunnelStorageEnvironmentContext extends SeaTunnelEnvironmentCont
                 ConfigProvider.locateAndGetSeaTunnelConfigFromString(embeddedEngineConfiguration());
         config.getEngineConfig()
                 .setCheckpointConfig(fileConfig.getEngineConfig().getCheckpointConfig());
+        config.getEngineConfig()
+                .setStateCleanupDelayMillis(
+                        fileConfig.getEngineConfig().getStateCleanupDelayMillis());
 
         String hazelcastYaml =
                 BenchmarkTemplates.render(

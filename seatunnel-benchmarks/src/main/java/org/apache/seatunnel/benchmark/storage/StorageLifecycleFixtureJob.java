@@ -30,7 +30,9 @@ import org.apache.seatunnel.engine.core.checkpoint.CheckpointStatus;
 import org.apache.seatunnel.engine.core.job.JobInfo;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
 import org.apache.seatunnel.engine.server.checkpoint.CheckpointCoordinator;
+import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import org.apache.seatunnel.engine.server.dag.physical.SubPlan;
+import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.master.JobHistoryService;
 import org.apache.seatunnel.engine.server.master.JobMaster;
 
@@ -75,31 +77,40 @@ public final class StorageLifecycleFixtureJob implements AutoCloseable {
 
     /** Starts the real streaming fixture and resolves its production checkpoint coordinator. */
     public void start() throws Exception {
-        Path jobFile = environment.storageHome().resolve("storage-lifecycle-fixture-job.conf");
-        Path resultDirectory = environment.storageHome().resolve("storage-fixture-results");
-        Files.write(
-                jobFile,
-                BenchmarkTemplates.render(
-                                SIMPLE_JOB_TEMPLATE,
-                                "result_path",
-                                resultDirectory.toAbsolutePath(),
-                                "run_id",
-                                UUID.randomUUID(),
-                                "checkpoint_interval",
-                                checkpointInterval.toMillis())
-                        .getBytes(StandardCharsets.UTF_8));
+        try {
+            Path jobFile = environment.storageHome().resolve("storage-lifecycle-fixture-job.conf");
+            Path resultDirectory = environment.storageHome().resolve("storage-fixture-results");
+            Files.write(
+                    jobFile,
+                    BenchmarkTemplates.render(
+                                    SIMPLE_JOB_TEMPLATE,
+                                    "result_path",
+                                    resultDirectory.toAbsolutePath(),
+                                    "run_id",
+                                    UUID.randomUUID(),
+                                    "checkpoint_interval",
+                                    checkpointInterval.toMillis())
+                            .getBytes(StandardCharsets.UTF_8));
 
-        JobConfig jobConfig = new JobConfig();
-        jobConfig.setName("storage-fixture-" + UUID.randomUUID());
-        ClientJobExecutionEnvironment executionEnvironment =
-                environment
-                        .storageClient()
-                        .createExecutionContext(
-                                jobFile.toString(), jobConfig, environment.storageConfig());
-        jobProxy = executionEnvironment.execute();
-        waitUntilRunning();
-        resolveCheckpointCoordinator();
-        Thread.sleep(2_000L);
+            JobConfig jobConfig = new JobConfig();
+            jobConfig.setName("storage-fixture-" + UUID.randomUUID());
+            ClientJobExecutionEnvironment executionEnvironment =
+                    environment
+                            .storageClient()
+                            .createExecutionContext(
+                                    jobFile.toString(), jobConfig, environment.storageConfig());
+            jobProxy = executionEnvironment.execute();
+            waitUntilRunning();
+            resolveCheckpointCoordinator();
+            Thread.sleep(2_000L);
+        } catch (Exception setupFailure) {
+            try {
+                close();
+            } catch (Exception cleanupFailure) {
+                setupFailure.addSuppressed(cleanupFailure);
+            }
+            throw setupFailure;
+        }
     }
 
     /** Waits for the production scheduler to finish one regular checkpoint. */
@@ -145,6 +156,7 @@ public final class StorageLifecycleFixtureJob implements AutoCloseable {
         }
         waitUntilStopped();
         waitUntilFinishedFixturesExist();
+        waitUntilRuntimeStateWasCleaned();
     }
 
     public JobMetrics finishedMetrics() {
@@ -159,9 +171,12 @@ public final class StorageLifecycleFixtureJob implements AutoCloseable {
     @Override
     public void close() throws Exception {
         try {
-            if (jobProxy != null && !jobProxy.getJobStatus().isEndState()) {
-                jobProxy.cancelJob();
+            if (jobProxy != null) {
+                if (!jobProxy.getJobStatus().isEndState()) {
+                    jobProxy.cancelJob();
+                }
                 waitUntilStopped();
+                waitUntilRuntimeStateWasCleaned();
             }
         } finally {
             jobProxy = null;
@@ -222,6 +237,41 @@ public final class StorageLifecycleFixtureJob implements AutoCloseable {
             Thread.sleep(10L);
         }
         throw new IllegalStateException("Timed out waiting for finished storage fixtures");
+    }
+
+    private void waitUntilRuntimeStateWasCleaned() throws InterruptedException {
+        long deadline = System.nanoTime() + STOP_TIMEOUT.toNanos();
+        while (System.nanoTime() < deadline) {
+            if (runtimeStateWasCleaned()) {
+                return;
+            }
+            Thread.sleep(10L);
+        }
+        throw new IllegalStateException("Timed out waiting for storage fixture state cleanup");
+    }
+
+    private boolean runtimeStateWasCleaned() {
+        long jobId = getJobId();
+        return !finishedMap(Constant.IMAP_RUNNING_JOB_INFO).containsKey(jobId)
+                && !finishedMap(Constant.IMAP_PENDING_JOB_CLEANUP).containsKey(jobId)
+                && !containsJobState(Constant.IMAP_RUNNING_JOB_STATE, jobId)
+                && !containsJobState(Constant.IMAP_STATE_TIMESTAMPS, jobId);
+    }
+
+    private boolean containsJobState(String mapName, long jobId) {
+        String checkpointStatePrefix = "checkpoint_state_" + jobId + "_";
+        for (Object key : finishedMap(mapName).keySet()) {
+            if ((key instanceof Long && ((Long) key) == jobId)
+                    || (key instanceof PipelineLocation
+                            && ((PipelineLocation) key).getJobId() == jobId)
+                    || (key instanceof TaskGroupLocation
+                            && ((TaskGroupLocation) key).getJobId() == jobId)
+                    || (key instanceof String
+                            && ((String) key).startsWith(checkpointStatePrefix))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private <T> T requiredFinishedValue(String mapName, Class<T> valueType) {

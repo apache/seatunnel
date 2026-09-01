@@ -29,10 +29,13 @@ on:
         type: string
         default: 'dev'
       benchmarks:
-        description: 'Common benchmark selector.'
+        description: >-
+          Common selector. benchmarks_core is the safe default; .* explicitly runs the full
+          suite and may exceed the 240-minute job limit.
         required: true
         type: choice
         options:
+          - 'benchmarks_core'
           - '.*'
           - 'SeaTunnelRowBenchmark'
           - 'IntermediateQueueBenchmark'
@@ -42,7 +45,7 @@ on:
           - 'IMapJobStorageBenchmark'
           - 'IMapDagStorageBenchmark'
           - 'IMapWalStorageBenchmark'
-        default: '.*'
+        default: 'benchmarks_core'
       custom_benchmarks:
         description: 'Optional JMH selector that overrides the choice above.'
         required: false
@@ -72,11 +75,19 @@ jobs:
 
     env:
       BENCHMARK_SUITE: ${{ github.event_name == 'schedule' && 'benchmarks_core' || '' }}
-      BENCHMARKS: ${{ github.event.inputs.custom_benchmarks || github.event.inputs.benchmarks || '.*' }}
+      BENCHMARKS: ${{ github.event.inputs.benchmarks || 'benchmarks_core' }}
+      CUSTOM_BENCHMARKS: ${{ github.event.inputs.custom_benchmarks || '' }}
       JAVA_VERSION: ${{ matrix.java-version }}
       PR_NUMBER: ${{ github.event.inputs.pr_number || '' }}
       SEATUNNEL_REF: ${{ github.event.inputs.seatunnel_ref || 'dev' }}
     steps:
+      - name: Checkout benchmark driver
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          ref: ${{ github.workflow_sha }}
+          path: benchmark-driver
+
       - name: Checkout baseline
         uses: actions/checkout@v4
         with:
@@ -117,7 +128,7 @@ jobs:
         run: ./mvnw -Pbenchmark -pl seatunnel-benchmarks -am -DskipTests package
 
       - name: Run benchmarks and build report
-        run: bash baseline/tools/benchmarks/run_benchmarks.sh
+        run: bash benchmark-driver/tools/benchmarks/run_benchmarks.sh
 
       - name: Upload benchmark result
         if: always()

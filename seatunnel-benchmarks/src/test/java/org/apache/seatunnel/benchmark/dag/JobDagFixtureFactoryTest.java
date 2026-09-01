@@ -17,6 +17,8 @@
 
 package org.apache.seatunnel.benchmark.dag;
 
+import org.apache.seatunnel.common.constants.PluginType;
+import org.apache.seatunnel.engine.core.job.Edge;
 import org.apache.seatunnel.engine.core.job.JobDAGInfo;
 
 import org.junit.jupiter.api.Test;
@@ -27,13 +29,24 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 class JobDagFixtureFactoryTest {
 
     @Test
-    void createsExactPipelineAndVertexCounts() {
+    void createsSourceToSinkPipelines() {
         JobDAGInfo dag = JobDagFixtureFactory.create(10);
 
         assertEquals(10, dag.getPipelineEdges().size());
         assertEquals(20, dag.getVertexInfoMap().size());
-        assertEquals(
-                10, dag.getPipelineEdges().values().stream().mapToInt(java.util.List::size).sum());
+        dag.getPipelineEdges()
+                .values()
+                .forEach(
+                        edges -> {
+                            assertEquals(1, edges.size());
+                            Edge edge = edges.get(0);
+                            assertEquals(
+                                    PluginType.SOURCE,
+                                    dag.getVertexInfoMap().get(edge.getInputVertexId()).getType());
+                            assertEquals(
+                                    PluginType.SINK,
+                                    dag.getVertexInfoMap().get(edge.getTargetVertexId()).getType());
+                        });
     }
 
     @Test

@@ -34,6 +34,48 @@ class BenchmarkTemplatesTest {
     }
 
     @Test
+    void shouldRenderStorageEnvironmentTemplates() {
+        String engineConfig =
+                BenchmarkTemplates.render(
+                        BenchmarkTemplates.load("/benchmark/engine-storage.yaml.template"),
+                        "slot_count",
+                        4,
+                        "checkpoint_directory",
+                        "/tmp/checkpoint");
+        String hazelcastConfig =
+                BenchmarkTemplates.render(
+                        BenchmarkTemplates.load("/benchmark/hazelcast-storage.yaml.template"),
+                        "cluster_name",
+                        "storage-benchmark",
+                        "imap_directory",
+                        "/tmp/imap");
+
+        assertTrue(engineConfig.contains("slot-num: 4"));
+        assertTrue(engineConfig.contains("state-cleanup-delay-ms: 0"));
+        assertTrue(engineConfig.contains("namespace: \"/tmp/checkpoint\""));
+        assertTrue(hazelcastConfig.contains("cluster-name: \"storage-benchmark\""));
+        assertTrue(hazelcastConfig.contains("namespace: \"/tmp/imap\""));
+    }
+
+    @Test
+    void shouldRenderStorageLifecycleFixtureTemplate() {
+        String fixtureConfig =
+                BenchmarkTemplates.render(
+                        BenchmarkTemplates.load(
+                                "/benchmark/storage-lifecycle-fixture-job.conf.template"),
+                        "result_path",
+                        "/tmp/result",
+                        "run_id",
+                        "fixture-run",
+                        "checkpoint_interval",
+                        60_000L);
+
+        assertTrue(fixtureConfig.contains("checkpoint.interval = 60000"));
+        assertTrue(fixtureConfig.contains("result_path = \"/tmp/result\""));
+        assertTrue(fixtureConfig.contains("run_id = \"fixture-run\""));
+    }
+
+    @Test
     void shouldRenderAllNamedPlaceholders() {
         String rendered =
                 BenchmarkTemplates.render(

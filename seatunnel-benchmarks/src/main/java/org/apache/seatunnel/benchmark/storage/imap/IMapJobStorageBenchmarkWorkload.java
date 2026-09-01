@@ -32,24 +32,27 @@ import org.openjdk.jmh.annotations.TearDown;
 import com.hazelcast.map.IMap;
 
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
-import java.util.concurrent.atomic.AtomicLong;
+import java.util.Set;
 
 /** Stateful task-group transition workload for the IMap job-storage JMH entry point. */
 @State(Scope.Thread)
 public class IMapJobStorageBenchmarkWorkload {
 
+    public static final int TRANSITION_OPERATIONS_PER_INVOCATION = 100;
+
     private static final long PRESSURE_KEY_BASE = Long.MIN_VALUE + 1_000_000L;
+    private static final long TRANSITION_KEY_BASE = Long.MIN_VALUE + 3_000_000L;
 
     @Param({"0", "1000"})
     public int storedTaskGroupCount;
 
-    private final AtomicLong sequence = new AtomicLong();
-
     private IMap<Object, Object> runningJobStateMap;
     private IMap<Object, Long[]> runningJobStateTimestampsMap;
 
-    private TaskGroupLocation taskGroupLocation;
+    private TaskGroupLocation[] taskGroupLocations;
+    private long transitionBatchSequence;
 
     /** Seeds the configured number of running task groups before measuring transitions. */
     @Setup(Level.Trial)
@@ -59,31 +62,92 @@ public class IMapJobStorageBenchmarkWorkload {
         preloadStoragePressure();
     }
 
-    @Setup(Level.Invocation)
-    public void prepareInvocation() {
-        long invocation = sequence.incrementAndGet();
-        taskGroupLocation = new TaskGroupLocation(Long.MAX_VALUE - invocation, 1, 1L);
+    @Setup(Level.Iteration)
+    public void prepareTransitionBatch() {
+        taskGroupLocations = new TaskGroupLocation[TRANSITION_OPERATIONS_PER_INVOCATION];
+        Map<Object, Object> runningJobStates = new HashMap<>(TRANSITION_OPERATIONS_PER_INVOCATION);
+        Map<Object, Long[]> stateTimestamps = new HashMap<>(TRANSITION_OPERATIONS_PER_INVOCATION);
+        long batchJobId =
+                TRANSITION_KEY_BASE
+                        + transitionBatchSequence++ * TRANSITION_OPERATIONS_PER_INVOCATION;
+        for (int index = 0; index < TRANSITION_OPERATIONS_PER_INVOCATION; index++) {
+            TaskGroupLocation location = new TaskGroupLocation(batchJobId + index, 1, index);
+            Long[] timestamps = new Long[ExecutionState.values().length];
+            timestamps[ExecutionState.CREATED.ordinal()] = System.currentTimeMillis();
 
-        Long[] stateTimestamps = new Long[ExecutionState.values().length];
-        stateTimestamps[ExecutionState.CREATED.ordinal()] = System.currentTimeMillis();
-        runningJobStateTimestampsMap.put(taskGroupLocation, stateTimestamps);
-        runningJobStateMap.put(taskGroupLocation, ExecutionState.CREATED);
-    }
-
-    @TearDown(Level.Invocation)
-    public void cleanInvocation() {
-        runningJobStateMap.delete(taskGroupLocation);
-        runningJobStateTimestampsMap.delete(taskGroupLocation);
-    }
-
-    public ExecutionState transitionTaskGroupState() {
-        Long[] stateTimestamps = runningJobStateTimestampsMap.get(taskGroupLocation);
-        stateTimestamps[ExecutionState.RUNNING.ordinal()] = System.currentTimeMillis();
-        runningJobStateTimestampsMap.set(taskGroupLocation, stateTimestamps);
-        if (runningJobStateMap.get(taskGroupLocation) != null) {
-            runningJobStateMap.set(taskGroupLocation, ExecutionState.RUNNING);
+            taskGroupLocations[index] = location;
+            runningJobStates.put(location, ExecutionState.CREATED);
+            stateTimestamps.put(location, timestamps);
         }
-        return (ExecutionState) runningJobStateMap.get(taskGroupLocation);
+        runningJobStateMap.putAll(runningJobStates);
+        runningJobStateTimestampsMap.putAll(stateTimestamps);
+    }
+
+    @TearDown(Level.Iteration)
+    public void verifyAndCleanTransitionBatch() {
+        try {
+            verifyResidentTransitions();
+            verifyDurableTransitions();
+        } finally {
+            cleanTransitionBatch();
+        }
+    }
+
+    /** Executes one fixed-size phase of the timestamp and state operations used by Zeta. */
+    public ExecutionState transitionTaskGroupStateBatch() {
+        ExecutionState lastState = null;
+        for (TaskGroupLocation taskGroupLocation : taskGroupLocations) {
+            Long[] stateTimestamps = runningJobStateTimestampsMap.get(taskGroupLocation);
+            stateTimestamps[ExecutionState.RUNNING.ordinal()] = System.currentTimeMillis();
+            runningJobStateTimestampsMap.set(taskGroupLocation, stateTimestamps);
+            if (runningJobStateMap.get(taskGroupLocation) != null) {
+                runningJobStateMap.set(taskGroupLocation, ExecutionState.RUNNING);
+            }
+            lastState = (ExecutionState) runningJobStateMap.get(taskGroupLocation);
+        }
+        return lastState;
+    }
+
+    private void verifyResidentTransitions() {
+        for (TaskGroupLocation taskGroupLocation : taskGroupLocations) {
+            verifyTransitionValue(taskGroupLocation, "resident");
+        }
+    }
+
+    private void verifyDurableTransitions() {
+        Set<Object> sampledLocations = new LinkedHashSet<>();
+        sampledLocations.add(taskGroupLocations[0]);
+        sampledLocations.add(taskGroupLocations[TRANSITION_OPERATIONS_PER_INVOCATION / 2]);
+        sampledLocations.add(taskGroupLocations[TRANSITION_OPERATIONS_PER_INVOCATION - 1]);
+        for (Object sampledLocation : sampledLocations) {
+            runningJobStateMap.evict(sampledLocation);
+            runningJobStateTimestampsMap.evict(sampledLocation);
+        }
+        runningJobStateMap.loadAll(sampledLocations, true);
+        runningJobStateTimestampsMap.loadAll(sampledLocations, true);
+        for (Object sampledLocation : sampledLocations) {
+            verifyTransitionValue((TaskGroupLocation) sampledLocation, "durably persisted");
+        }
+    }
+
+    private void verifyTransitionValue(TaskGroupLocation taskGroupLocation, String location) {
+        Long[] timestamps = runningJobStateTimestampsMap.get(taskGroupLocation);
+        if (runningJobStateMap.get(taskGroupLocation) != ExecutionState.RUNNING
+                || timestamps == null
+                || timestamps[ExecutionState.RUNNING.ordinal()] == null) {
+            throw new IllegalStateException(
+                    "The task-group transition was not " + location + ": " + taskGroupLocation);
+        }
+    }
+
+    private void cleanTransitionBatch() {
+        if (taskGroupLocations == null) {
+            return;
+        }
+        for (TaskGroupLocation taskGroupLocation : taskGroupLocations) {
+            runningJobStateMap.delete(taskGroupLocation);
+            runningJobStateTimestampsMap.delete(taskGroupLocation);
+        }
     }
 
     private void preloadStoragePressure() {

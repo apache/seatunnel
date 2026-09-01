@@ -24,6 +24,7 @@ import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
 import org.openjdk.jmh.annotations.Mode;
+import org.openjdk.jmh.annotations.OperationsPerInvocation;
 import org.openjdk.jmh.annotations.OutputTimeUnit;
 import org.openjdk.jmh.annotations.Threads;
 import org.openjdk.jmh.profile.GCProfiler;
@@ -34,6 +35,8 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
 
 import java.util.concurrent.TimeUnit;
+
+import static org.apache.seatunnel.benchmark.storage.imap.IMapWalAppendBenchmarkWorkload.Batch.APPENDS_PER_INVOCATION;
 
 /** Measures production file-backed IMap WAL append and recovery paths. */
 @BenchmarkMode(Mode.AverageTime)
@@ -62,16 +65,42 @@ public class IMapWalStorageBenchmark extends BenchmarkBase {
         new Runner(options).run();
     }
 
-    /** Appends a normal finished-job DAG mutation under a new key. */
+    /**
+     * Measures WAL growth when finished-job DAG mutations use new keys.
+     *
+     * <p>The timed phase performs 100 TTL-backed puts to the production finished-DAG IMap. Each put
+     * uses a new job ID and alternates between two code-built {@code JobDAGInfo} payloads
+     * containing 1, 10, or 100 pipelines, exercising IMap serialization and the real FileMapStore
+     * WAL writer. WAL byte accounting and durable reload validation happen after measurement.
+     *
+     * <p>{@link Mode#SingleShotTime} gives every candidate exactly 100 appends per iteration, and
+     * {@link OperationsPerInvocation} reports time per append. The auxiliary {@code
+     * walBytesPerAppend} counter separately reports persisted WAL growth per append.
+     */
     @Benchmark
+    @BenchmarkMode(Mode.SingleShotTime)
+    @OperationsPerInvocation(APPENDS_PER_INVOCATION)
     public void appendNewKey(IMapWalAppendBenchmarkWorkload workload) {
-        workload.appendNewKey();
+        workload.appendNewKeyBatch();
     }
 
-    /** Appends repeated finished-job DAG mutations under one hot key. */
+    /**
+     * Measures WAL growth when finished-job DAG mutations repeatedly update one hot key.
+     *
+     * <p>The timed phase performs 100 TTL-backed puts to the production finished-DAG IMap under the
+     * same job ID, alternating between two code-built {@code JobDAGInfo} payloads containing 1, 10,
+     * or 100 pipelines. This builds a controlled per-key WAL history through the real FileMapStore
+     * writer. WAL byte accounting and validation of the last durably reloaded value are not timed.
+     *
+     * <p>{@link Mode#SingleShotTime} fixes the added history depth at 100 mutations per iteration.
+     * {@link OperationsPerInvocation} normalizes the score to one hot-key append, while {@code
+     * walBytesPerAppend} reports its persisted byte growth separately.
+     */
     @Benchmark
+    @BenchmarkMode(Mode.SingleShotTime)
+    @OperationsPerInvocation(APPENDS_PER_INVOCATION)
     public void appendHotKey(IMapWalAppendBenchmarkWorkload workload) {
-        workload.appendHotKey();
+        workload.appendHotKeyBatch();
     }
 
     /** Replays a controlled WAL history and materializes its latest retained values. */

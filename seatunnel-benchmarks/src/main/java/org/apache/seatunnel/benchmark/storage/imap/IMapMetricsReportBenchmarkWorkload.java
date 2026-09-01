@@ -19,6 +19,7 @@ package org.apache.seatunnel.benchmark.storage.imap;
 
 import org.apache.seatunnel.benchmark.storage.SeaTunnelStorageEnvironmentContext;
 import org.apache.seatunnel.engine.server.SeaTunnelServer;
+import org.apache.seatunnel.engine.server.common.statestore.metrics.MetricsSnapshotStateStore;
 import org.apache.seatunnel.engine.server.execution.TaskGroupLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
 import org.apache.seatunnel.engine.server.metrics.SeaTunnelMetricsContext;
@@ -29,6 +30,7 @@ import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.annotations.Scope;
 import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
+import org.openjdk.jmh.annotations.TearDown;
 
 import com.hazelcast.spi.impl.NodeEngineImpl;
 
@@ -54,13 +56,15 @@ public class IMapMetricsReportBenchmarkWorkload {
     public int taskCount;
 
     private NodeEngineImpl nodeEngine;
+    private MetricsSnapshotStateStore metricsSnapshotStore;
     private Map<TaskLocation, SeaTunnelMetricsContext> reportingSnapshot;
 
     /** Builds reports outside measured code and primes the existing metrics partition value. */
     @Setup(Level.Trial)
     public void setUp(SeaTunnelStorageEnvironmentContext environment) {
         nodeEngine = environment.getServer().getNodeEngine();
-        environment.getStateStores().metricsSnapshotStore().merge(createSnapshot(1L));
+        metricsSnapshotStore = environment.getStateStores().metricsSnapshotStore();
+        metricsSnapshotStore.merge(createSnapshot(1L));
         reportingSnapshot = createSnapshot(2L);
     }
 
@@ -74,6 +78,27 @@ public class IMapMetricsReportBenchmarkWorkload {
                         nodeEngine.getMasterAddress())
                 .invoke()
                 .get();
+    }
+
+    /** Verifies off the clock that the operation replaced every previous task snapshot. */
+    @TearDown(Level.Invocation)
+    public void verifyReport() {
+        boolean allSnapshotsStored =
+                reportingSnapshot.entrySet().stream()
+                        .allMatch(
+                                entry -> {
+                                    SeaTunnelMetricsContext stored =
+                                            metricsSnapshotStore.get(entry.getKey());
+                                    return stored != null
+                                            && stored.counter(SOURCE_READ_NANOS).getCount()
+                                                    == entry.getValue()
+                                                            .counter(SOURCE_READ_NANOS)
+                                                            .getCount();
+                                });
+        if (!allSnapshotsStored) {
+            throw new IllegalStateException(
+                    "The metrics report did not persist every task snapshot");
+        }
     }
 
     private Map<TaskLocation, SeaTunnelMetricsContext> createSnapshot(long multiplier) {
