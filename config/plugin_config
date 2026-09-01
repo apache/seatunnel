@@ -21,9 +21,11 @@
 # Don't modify the delimiter " -- ", just select the plugin you need
 --connectors-v2--
 connector-amazondynamodb
+connector-azurecosmosdb
 connector-assert
 connector-cassandra
 connector-salesforce
+connector-cdc-db2
 connector-cdc-mysql
 connector-cdc-mongodb
 connector-cdc-sqlserver
@@ -46,9 +48,12 @@ connector-file-jindo-oss
 connector-file-s3
 connector-file-sftp
 connector-file-obs
+connector-file-bos
 connector-fluss
 connector-google-sheets
 connector-google-firestore
+connector-google-pubsub
+connector-azure-queue-storage
 connector-google-bigtable
 connector-graphql
 connector-hive
@@ -64,6 +69,7 @@ connector-http-notion
 connector-http-onesignal
 connector-http-wechat
 connector-http-airtable
+connector-http-posthog
 connector-hudi
 connector-iceberg
 connector-influxdb
@@ -74,6 +80,7 @@ connector-kudu
 connector-maxcompute
 connector-couchbase
 connector-mongodb
+connector-nebulagraph
 connector-neo4j
 connector-openmldb
 connector-pulsar
@@ -106,5 +113,7 @@ connector-sensorsdata
 connector-hugegraph
 connector-lance
 connector-mqtt
+connector-snmp
+connector-python
 connector-bigquery
 connector-nats-jetstream

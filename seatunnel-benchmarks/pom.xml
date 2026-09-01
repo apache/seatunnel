@@ -61,29 +61,17 @@
             </exclusions>
         </dependency>
         <dependency>
-            <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-hazelcast-shade</artifactId>
-            <version>${project.version}</version>
-            <classifier>optional</classifier>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.apache.seatunnel</groupId>
-                    <artifactId>seatunnel-hazelcast-base</artifactId>
-                </exclusion>
-            </exclusions>
+            <groupId>com.lmax</groupId>
+            <artifactId>disruptor</artifactId>
         </dependency>
         <dependency>
             <groupId>org.apache.seatunnel</groupId>
-            <artifactId>seatunnel-hadoop3-3.1.4-uber</artifactId>
-            <version>${project.version}</version>
-            <classifier>optional</classifier>
+            <artifactId>seatunnel-shade-hazelcast</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.seatunnel</groupId>
+            <artifactId>seatunnel-shade-hadoop3-uber</artifactId>
             <scope>compile</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>*</groupId>
-                    <artifactId>*</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
         <dependency>
             <groupId>org.openjdk.jmh</groupId>
