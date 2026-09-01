@@ -43,10 +43,12 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicLong;
@@ -247,8 +249,15 @@ public abstract class AbstractResourceManager implements ResourceManager {
     public CompletableFuture<Void> releaseResources(long jobId, List<SlotProfile> profiles) {
         CompletableFuture<Void> completableFuture = new CompletableFuture<>();
         List<CompletableFuture<Void>> futures = new ArrayList<>();
+        Set<Address> releaseWorkers =
+                profiles.stream()
+                        .map(SlotProfile::getWorker)
+                        .filter(
+                                address ->
+                                        nodeEngine.getClusterService().getMember(address) != null)
+                        .collect(Collectors.toSet());
         for (SlotProfile profile : profiles) {
-            futures.add(releaseResource(jobId, profile));
+            futures.add(releaseResource(jobId, profile, false));
         }
         CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
                 .whenComplete(
@@ -256,18 +265,99 @@ public abstract class AbstractResourceManager implements ResourceManager {
                             if (e != null) {
                                 completableFuture.completeExceptionally(e);
                             } else {
-                                completableFuture.complete(null);
+                                refreshWorkerProfiles(releaseWorkers)
+                                        .whenComplete(
+                                                (unused, refreshError) -> {
+                                                    if (refreshError != null) {
+                                                        completableFuture.completeExceptionally(
+                                                                refreshError);
+                                                    } else {
+                                                        completableFuture.complete(null);
+                                                    }
+                                                });
                             }
                         });
         return completableFuture;
     }
 
+    /**
+     * Refreshes the master-side worker profile cache for the given workers.
+     *
+     * <p>This is invoked from the resource-release critical path AFTER the slot release future has
+     * already completed on the worker side. We deduplicate by worker so a batch release that
+     * targets several slots on the same worker only triggers one profile sync, and we apply the
+     * refreshed profile to {@code registerWorker} via {@link #heartbeat(WorkerProfile)}.
+     *
+     * <p>Note: refresh failures are intentionally propagated to the caller. The slot itself has
+     * already been released, so the master cache will be temporarily stale; surfacing the failure
+     * lets the outer release future fail loudly rather than silently diverging from the worker
+     * state until the next heartbeat corrects it.
+     */
+    private CompletableFuture<Void> refreshWorkerProfiles(Collection<Address> workers) {
+        CompletableFuture<Void> result = new CompletableFuture<>();
+        if (workers.isEmpty()) {
+            result.complete(null);
+            return result;
+        }
+
+        List<CompletableFuture<WorkerProfile>> futures =
+                workers.stream()
+                        .map(
+                                worker ->
+                                        this.<WorkerProfile>sendToMember(
+                                                new SyncWorkerProfileOperation(), worker))
+                        .collect(Collectors.toList());
+        CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
+                .whenComplete(
+                        (unused, error) -> {
+                            if (error != null) {
+                                result.completeExceptionally(error);
+                                return;
+                            }
+                            futures.forEach(
+                                    future -> {
+                                        WorkerProfile workerProfile = future.join();
+                                        if (workerProfile != null) {
+                                            heartbeat(workerProfile);
+                                        }
+                                    });
+                            result.complete(null);
+                        });
+        return result;
+    }
+
     @Override
     public CompletableFuture<Void> releaseResource(long jobId, SlotProfile profile) {
+        return releaseResource(jobId, profile, true);
+    }
+
+    private CompletableFuture<Void> releaseResource(
+            long jobId, SlotProfile profile, boolean refreshWorkerProfile) {
         if (nodeEngine.getClusterService().getMember(profile.getWorker()) != null) {
-            CompletableFuture<WorkerProfile> future =
+            CompletableFuture<Object> releaseFuture =
                     sendToMember(new ReleaseSlotOperation(jobId, profile), profile.getWorker());
-            return future.thenAccept(this::heartbeat);
+            CompletableFuture<Void> result = new CompletableFuture<>();
+            releaseFuture.whenComplete(
+                    (unused, error) -> {
+                        if (error != null) {
+                            result.completeExceptionally(error);
+                            return;
+                        }
+                        if (!refreshWorkerProfile) {
+                            result.complete(null);
+                            return;
+                        }
+                        refreshWorkerProfiles(Collections.singleton(profile.getWorker()))
+                                .whenComplete(
+                                        (refreshUnused, refreshError) -> {
+                                            if (refreshError != null) {
+                                                result.completeExceptionally(refreshError);
+                                            } else {
+                                                result.complete(null);
+                                            }
+                                        });
+                    });
+            return result;
         } else {
             return CompletableFuture.completedFuture(null);
         }
