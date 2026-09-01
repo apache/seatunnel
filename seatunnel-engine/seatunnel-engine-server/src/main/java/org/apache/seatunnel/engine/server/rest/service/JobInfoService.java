@@ -176,7 +176,10 @@ public class JobInfoService extends BaseService {
                         Comparator.comparing(
                                 entry -> entry.getValue().getInitializationTimestamp(),
                                 Comparator.reverseOrder()))
-                .map(jobInfoEntry -> convertToJson(jobInfoEntry.getValue(), jobInfoEntry.getKey()))
+                .map(
+                        jobInfoEntry ->
+                                convertToJson(
+                                        jobInfoEntry.getValue(), jobInfoEntry.getKey(), false))
                 .collect(JsonArray::new, JsonArray::add, JsonArray::add);
     }
 

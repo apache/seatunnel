@@ -18,6 +18,7 @@ package org.apache.seatunnel.connectors.seatunnel.fluss.source;
 
 import org.apache.seatunnel.api.source.SourceSplitEnumerator;
 import org.apache.seatunnel.api.table.catalog.TablePath;
+import org.apache.seatunnel.common.utils.HashUtils;
 import org.apache.seatunnel.connectors.seatunnel.fluss.config.StartMode;
 
 import com.alibaba.fluss.client.table.scanner.log.LogScanner;
@@ -169,7 +170,7 @@ public class FlussSourceSplitEnumerator
 
     private static int getSplitOwner(FlussSourceSplit split, int parallelism) {
         int hash = split.getTablePath().getFullName().hashCode() * 31 + split.getBucketId();
-        return (hash & Integer.MAX_VALUE) % parallelism;
+        return HashUtils.bucketIndex(hash, parallelism);
     }
 
     @Override
