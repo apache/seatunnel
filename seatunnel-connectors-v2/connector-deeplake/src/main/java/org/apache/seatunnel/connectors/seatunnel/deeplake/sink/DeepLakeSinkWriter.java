@@ -35,6 +35,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+/** Buffers append-only rows and writes parameterized batches to a Deep Lake table. */
 public class DeepLakeSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
         implements SupportMultiTableSinkWriter<Void> {
 
@@ -46,11 +47,11 @@ public class DeepLakeSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
     private boolean failed;
 
     public DeepLakeSinkWriter(CatalogTable catalogTable, DeepLakeSinkConfig config) {
-        this.client = new DeepLakeClient(config);
         this.rowType = catalogTable.getSeaTunnelRowType();
         this.batchSize = config.getBatchSize();
         this.insertSql = DeepLakeSql.insertSql(config.getWorkspace(), config.getTable(), rowType);
         this.rows = new ArrayList<>(batchSize);
+        this.client = new DeepLakeClient(config);
 
         try {
             if (config.getSchemaSaveMode() == SchemaSaveMode.CREATE_SCHEMA_WHEN_NOT_EXIST) {
@@ -77,13 +78,13 @@ public class DeepLakeSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
     @Override
     public void write(SeaTunnelRow element) {
         ensureActive();
+        if (element.getRowKind() != RowKind.INSERT) {
+            throw new DeepLakeConnectorException(
+                    DeepLakeConnectorErrorCode.UNSUPPORTED_ROW_KIND,
+                    "DeepLake sink supports append-only input, but received "
+                            + element.getRowKind());
+        }
         try {
-            if (element.getRowKind() != RowKind.INSERT) {
-                throw new DeepLakeConnectorException(
-                        DeepLakeConnectorErrorCode.UNSUPPORTED_ROW_KIND,
-                        "DeepLake sink supports append-only input, but received "
-                                + element.getRowKind());
-            }
             rows.add(DeepLakeRowConverter.convert(element, rowType));
             if (rows.size() >= batchSize) {
                 flush();

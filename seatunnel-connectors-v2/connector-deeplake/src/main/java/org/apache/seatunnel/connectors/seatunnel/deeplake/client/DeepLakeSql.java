@@ -31,6 +31,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
+/** Builds parameterized Deep Lake SQL and validates the supported SeaTunnel type mapping. */
 public final class DeepLakeSql {
 
     private DeepLakeSql() {}
@@ -67,6 +68,8 @@ public final class DeepLakeSql {
         List<String> columns = new ArrayList<>(rowType.getTotalFields());
         List<String> parameters = new ArrayList<>(rowType.getTotalFields());
         for (int i = 0; i < rowType.getTotalFields(); i++) {
+            // Validate every field even when the sink writes to a pre-existing table.
+            toDeepLakeType(rowType.getFieldType(i));
             columns.add(quoteIdentifier(rowType.getFieldName(i)));
             String parameter = "$" + (i + 1);
             switch (rowType.getFieldType(i).getSqlType()) {

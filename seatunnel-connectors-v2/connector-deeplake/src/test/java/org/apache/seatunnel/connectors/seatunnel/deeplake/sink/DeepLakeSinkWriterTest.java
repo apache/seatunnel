@@ -152,7 +152,25 @@ class DeepLakeSinkWriterTest {
 
         assertTrue(error.getMessage().contains("append-only"));
         assertTrue(requestBodies.isEmpty());
+        writer.write(row(11L, "valid document", new byte[] {2}, 0.3F, 0.4F));
         writer.close();
+        assertEquals(1, requestBodies.size());
+    }
+
+    @Test
+    void rejectsUnsupportedTypesForEveryExistingTableMode() {
+        CatalogTable unsupportedTable = unsupportedCatalogTable();
+
+        for (SchemaSaveMode mode :
+                Arrays.asList(SchemaSaveMode.ERROR_WHEN_SCHEMA_NOT_EXIST, SchemaSaveMode.IGNORE)) {
+            DeepLakeConnectorException error =
+                    assertThrows(
+                            DeepLakeConnectorException.class,
+                            () -> writer(unsupportedTable, mode, 10));
+
+            assertTrue(error.getMessage().contains("FLOAT16_VECTOR"));
+        }
+        assertTrue(requestBodies.isEmpty());
     }
 
     @Test
@@ -281,6 +299,22 @@ class DeepLakeSinkWriterTest {
                 Collections.emptyMap(),
                 Collections.emptyList(),
                 "Deep Lake documents");
+    }
+
+    private static CatalogTable unsupportedCatalogTable() {
+        return CatalogTable.of(
+                TableIdentifier.of("deeplake", "research", "documents"),
+                TableSchema.builder()
+                        .column(
+                                PhysicalColumn.builder()
+                                        .name("embedding")
+                                        .dataType(VectorType.VECTOR_FLOAT16_TYPE)
+                                        .nullable(true)
+                                        .build())
+                        .build(),
+                Collections.emptyMap(),
+                Collections.emptyList(),
+                "Unsupported Deep Lake documents");
     }
 
     private static SeaTunnelRow row(long id, String content, byte[] payload, Float... embedding) {
