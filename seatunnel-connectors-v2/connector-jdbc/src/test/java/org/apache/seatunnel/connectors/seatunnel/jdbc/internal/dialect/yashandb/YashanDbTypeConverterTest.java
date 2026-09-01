@@ -257,6 +257,32 @@ public class YashanDbTypeConverterTest {
         column = INSTANCE.convert(typeDefine);
         Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
         Assertions.assertEquals(200L, column.getColumnLength());
+
+        // VARCHAR2(100) -> STRING with columnLength = 100 * 4 (byte-length semantics, same as
+        // VARCHAR)
+        typeDefine =
+                BasicTypeDefine.builder()
+                        .name("test")
+                        .columnType("VARCHAR2(100)")
+                        .dataType("VARCHAR2")
+                        .length(100L)
+                        .build();
+        column = INSTANCE.convert(typeDefine);
+        Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
+        Assertions.assertEquals(400L, column.getColumnLength());
+
+        // NVARCHAR2(100) -> STRING with columnLength = 100 * 2 (char-length semantics, same as
+        // NVARCHAR)
+        typeDefine =
+                BasicTypeDefine.builder()
+                        .name("test")
+                        .columnType("NVARCHAR2(100)")
+                        .dataType("NVARCHAR2")
+                        .length(100L)
+                        .build();
+        column = INSTANCE.convert(typeDefine);
+        Assertions.assertEquals(BasicType.STRING_TYPE, column.getDataType());
+        Assertions.assertEquals(200L, column.getColumnLength());
     }
 
     @Test

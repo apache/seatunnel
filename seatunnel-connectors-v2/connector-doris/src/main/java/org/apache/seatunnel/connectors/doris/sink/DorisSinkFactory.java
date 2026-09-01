@@ -20,6 +20,7 @@ package org.apache.seatunnel.connectors.doris.sink;
 import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.configuration.util.Conditions;
 import org.apache.seatunnel.api.configuration.util.OptionRule;
 import org.apache.seatunnel.api.options.SinkConnectorCommonOptions;
 import org.apache.seatunnel.api.sink.DataSaveMode;
@@ -30,7 +31,6 @@ import org.apache.seatunnel.api.table.factory.Factory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactory;
 import org.apache.seatunnel.api.table.factory.TableSinkFactoryContext;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
-import org.apache.seatunnel.connectors.doris.config.DorisSinkConfig;
 import org.apache.seatunnel.connectors.doris.config.DorisSinkOptions;
 import org.apache.seatunnel.connectors.doris.sink.committer.DorisCommitInfo;
 import org.apache.seatunnel.connectors.doris.sink.writer.DorisSinkState;
@@ -87,6 +87,10 @@ public class DorisSinkFactory implements TableSinkFactory {
                         DataSaveMode.CUSTOM_PROCESSING,
                         DorisSinkOptions.CUSTOM_SQL)
                 .conditional(DorisSinkOptions.DIRECT_TO_BE, true, DorisSinkOptions.BENODES)
+                .conditional(
+                        DorisSinkOptions.DIRECT_TO_BE,
+                        true,
+                        Conditions.notBlank(DorisSinkOptions.BENODES))
                 .build();
     }
 
@@ -99,7 +103,6 @@ public class DorisSinkFactory implements TableSinkFactory {
     public TableSink<SeaTunnelRow, DorisSinkState, DorisCommitInfo, DorisCommitInfo> createSink(
             TableSinkFactoryContext context) {
         ReadonlyConfig config = context.getOptions();
-        DorisSinkConfig.validate(config);
         CatalogTable catalogTable =
                 config.get(NEEDS_UNSUPPORTED_TYPE_CASTING)
                         ? UnsupportedTypeConverterUtils.convertCatalogTable(

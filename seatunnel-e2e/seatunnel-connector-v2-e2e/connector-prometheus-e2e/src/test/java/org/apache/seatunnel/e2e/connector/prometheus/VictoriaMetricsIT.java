@@ -16,8 +16,6 @@
  */
 package org.apache.seatunnel.e2e.connector.prometheus;
 
-import org.apache.seatunnel.shade.com.google.common.collect.Lists;
-
 import org.apache.seatunnel.common.utils.JsonUtils;
 import org.apache.seatunnel.e2e.common.TestResource;
 import org.apache.seatunnel.e2e.common.TestSuiteBase;
@@ -43,7 +41,6 @@ import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 
 import java.io.IOException;
-import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.time.Duration;
 import java.util.List;
@@ -63,7 +60,6 @@ public class VictoriaMetricsIT extends TestSuiteBase implements TestResource {
     @BeforeAll
     @Override
     public void startUp() throws UnknownHostException {
-        String host = InetAddress.getLocalHost().getHostAddress();
         victoriaMetricsContainer =
                 new GenericContainer<>(IMAGE)
                         .withExposedPorts(8428)
@@ -79,8 +75,6 @@ public class VictoriaMetricsIT extends TestSuiteBase implements TestResource {
                                         .withStartupTimeout(Duration.ofMinutes(2)));
         ;
 
-        victoriaMetricsContainer.setPortBindings(
-                Lists.newArrayList(String.format("%s:8428", "8428")));
         Startables.deepStart(Stream.of(victoriaMetricsContainer)).join();
         log.info("victoriaMetrics container started");
     }
@@ -104,8 +98,13 @@ public class VictoriaMetricsIT extends TestSuiteBase implements TestResource {
         // waiting  refresh
         Thread.sleep(INDEX_REFRESH_MILL_DELAY);
         CloseableHttpClient httpClient = HttpClients.createDefault();
-        String host = InetAddress.getLocalHost().getHostAddress();
-        HttpGet httpGet = new HttpGet("http://" + host + ":8428/api/v1/query?query=metric_1");
+        HttpGet httpGet =
+                new HttpGet(
+                        "http://"
+                                + victoriaMetricsContainer.getHost()
+                                + ":"
+                                + victoriaMetricsContainer.getMappedPort(8428)
+                                + "/api/v1/query?query=metric_1");
         CloseableHttpResponse response = httpClient.execute(httpGet);
         String responseContent = EntityUtils.toString(response.getEntity());
         List<Metric> metrics =

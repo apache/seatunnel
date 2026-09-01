@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-tablestore.md';
 
 > Tablestore 源连接器
 
+## 支持的引擎
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## 描述
 
 从阿里云 Tablestore 读取全量和增量数据。该连接器使用 Tablestore Tunnel 的 `BaseAndStream` 模式，先读取已有数据，再继续消费后续变更。
