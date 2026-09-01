@@ -71,6 +71,7 @@ import java.util.concurrent.CopyOnWriteArraySet;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -187,6 +188,27 @@ public class CheckpointCoordinator {
     private final IMap<Object, Object> runningJobStateIMap;
 
     private final CheckpointMonitorService checkpointMonitorService;
+
+    /** Timestamp of the latest restore that resumed this pipeline into RUNNING. */
+    @Getter private final AtomicLong lastRestoreTimestamp = new AtomicLong(0);
+
+    /** Timestamp when all tasks became READY_START after the latest restore. */
+    @Getter private final AtomicLong allTasksReadyAfterRestoreTimestamp = new AtomicLong(0);
+
+    /** Timestamp of the first completed checkpoint after the latest restore. */
+    @Getter
+    private final AtomicLong firstPostRestoreCheckpointCompletedTimestamp = new AtomicLong(0);
+
+    /** Timestamp when the latest restore was diagnosed as stalled. */
+    @Getter private final AtomicLong restoreStalledTimestamp = new AtomicLong(0);
+
+    /** Whether the coordinator is currently tracking post-restore progress. */
+    @Getter private final AtomicBoolean restoreProgressTracking = new AtomicBoolean(false);
+
+    /** Whether the latest restore has already been diagnosed as stalled. */
+    @Getter private final AtomicBoolean restoreProgressStalled = new AtomicBoolean(false);
+
+    private volatile ScheduledFuture<?> restoreProgressTimeoutFuture;
 
     // save pending checkpoint for savepoint, to make sure the different savepoint request can be
     // processed with one savepoint operation in the same time.
@@ -448,6 +470,7 @@ public class CheckpointCoordinator {
             LOG.info("all task already ready, skip notify task start");
             return;
         }
+        markAllTasksReadyAfterRestore();
         InvocationFuture<?>[] futures = notifyTaskStart();
         CompletableFuture.allOf(futures).join();
         if (!notifyCompleted(latestCompletedCheckpoint)) {
@@ -691,6 +714,8 @@ public class CheckpointCoordinator {
                     jobId,
                     pipelineId);
         }
+
+        startRestoreProgressTracking(alreadyStarted);
 
         if (alreadyStarted) {
             isAllTaskReady.set(true);
@@ -1163,6 +1188,8 @@ public class CheckpointCoordinator {
     protected void cleanPendingCheckpoint(CheckpointCloseReason closedReason) {
         shutdown = true;
         isAllTaskReady.set(false);
+        cancelRestoreProgressTimeoutCheck();
+        restoreProgressTracking.set(false);
         synchronized (lock) {
             LOG.info("start clean pending checkpoint cause {}", closedReason.message());
             if (!pendingCheckpoints.isEmpty()) {
@@ -1323,6 +1350,7 @@ public class CheckpointCoordinator {
                         - completedCheckpoint.getCheckpointTimestamp(),
                 completedCheckpoint.getCheckpointTimestamp(),
                 completedCheckpoint.getCompletedTimestamp());
+        markPostRestoreCheckpointProgress(completedCheckpoint);
         final long checkpointId = completedCheckpoint.getCheckpointId();
         completedCheckpointIds.addLast(String.valueOf(completedCheckpoint.getCheckpointId()));
         try {
@@ -1441,6 +1469,171 @@ public class CheckpointCoordinator {
             return false;
         }
         return latestCompletedCheckpoint.getCheckpointType().isSavepoint();
+    }
+
+    /**
+     * Returns the effective timeout used for post-restore progress diagnosis.
+     *
+     * <p>If the explicit restore progress timeout is not configured, the timeout falls back to the
+     * checkpoint interval plus the checkpoint timeout so that restored RUNNING pipelines are still
+     * expected to complete at least one checkpoint within a normal checkpoint cycle.
+     */
+    @VisibleForTesting
+    long getEffectiveRestoreProgressTimeout() {
+        if (coordinatorConfig.getRestoreProgressTimeout() > 0) {
+            return coordinatorConfig.getRestoreProgressTimeout();
+        }
+        return coordinatorConfig.getCheckpointInterval() + coordinatorConfig.getCheckpointTimeout();
+    }
+
+    private void startRestoreProgressTracking(boolean alreadyStarted) {
+        if (!coordinatorConfig.isCheckpointEnable()) {
+            resetRestoreProgressState();
+            return;
+        }
+
+        long restoreTimestamp = Instant.now().toEpochMilli();
+        lastRestoreTimestamp.set(restoreTimestamp);
+        allTasksReadyAfterRestoreTimestamp.set(alreadyStarted ? restoreTimestamp : 0);
+        firstPostRestoreCheckpointCompletedTimestamp.set(0);
+        restoreStalledTimestamp.set(0);
+        restoreProgressTracking.set(true);
+        restoreProgressStalled.set(false);
+        cancelRestoreProgressTimeoutCheck();
+        if (alreadyStarted) {
+            scheduleRestoreProgressTimeoutCheck(
+                    restoreTimestamp, "the first post-restore checkpoint progress");
+        } else {
+            scheduleRestoreProgressTimeoutCheck(
+                    restoreTimestamp, "all tasks reaching READY_START after restore");
+        }
+    }
+
+    private void resetRestoreProgressState() {
+        lastRestoreTimestamp.set(0);
+        allTasksReadyAfterRestoreTimestamp.set(0);
+        firstPostRestoreCheckpointCompletedTimestamp.set(0);
+        restoreStalledTimestamp.set(0);
+        restoreProgressTracking.set(false);
+        restoreProgressStalled.set(false);
+        cancelRestoreProgressTimeoutCheck();
+    }
+
+    private void cancelRestoreProgressTimeoutCheck() {
+        if (restoreProgressTimeoutFuture != null) {
+            restoreProgressTimeoutFuture.cancel(false);
+            restoreProgressTimeoutFuture = null;
+        }
+    }
+
+    private void markAllTasksReadyAfterRestore() {
+        if (restoreProgressTracking.get()
+                && allTasksReadyAfterRestoreTimestamp.compareAndSet(
+                        0, Instant.now().toEpochMilli())) {
+            long readyTimestamp = allTasksReadyAfterRestoreTimestamp.get();
+            LOG.info(
+                    "All tasks are ready after restore for pipeline({}@{}) at {}",
+                    pipelineId,
+                    jobId,
+                    readyTimestamp);
+            scheduleRestoreProgressTimeoutCheck(
+                    readyTimestamp, "the first post-restore checkpoint progress");
+        }
+    }
+
+    private void markPostRestoreCheckpointProgress(CompletedCheckpoint completedCheckpoint) {
+        if (!restoreProgressTracking.get()) {
+            return;
+        }
+        if (firstPostRestoreCheckpointCompletedTimestamp.compareAndSet(
+                0, completedCheckpoint.getCompletedTimestamp())) {
+            cancelRestoreProgressTimeoutCheck();
+            restoreProgressTracking.set(false);
+            restoreProgressStalled.set(false);
+            LOG.info(
+                    "Observed first post-restore checkpoint progress for pipeline({}@{}), checkpointId={}, restoreTs={}, completedTs={}, elapsed={}ms",
+                    pipelineId,
+                    jobId,
+                    completedCheckpoint.getCheckpointId(),
+                    lastRestoreTimestamp.get(),
+                    completedCheckpoint.getCompletedTimestamp(),
+                    completedCheckpoint.getCompletedTimestamp() - lastRestoreTimestamp.get());
+        }
+    }
+
+    private void handleRestoreProgressTimeout() {
+        if (!restoreProgressTracking.get()
+                || checkpointCoordinatorFuture.isDone()
+                || firstPostRestoreCheckpointCompletedTimestamp.get() > 0) {
+            return;
+        }
+
+        long stalledAt = Instant.now().toEpochMilli();
+        restoreStalledTimestamp.compareAndSet(0, stalledAt);
+        restoreProgressStalled.set(true);
+        long allTasksReadyTimestamp = allTasksReadyAfterRestoreTimestamp.get();
+        String diagnosis;
+        if (allTasksReadyTimestamp == 0) {
+            diagnosis =
+                    String.format(
+                            "Restore readiness stalled for pipeline(%s@%s): restoreTs=%s, allTasksReadyTs=%s, stalledTs=%s, latestTriggerTs=%s, pendingCount=%s, latestCompletedCheckpointId=%s, isAllTaskReady=%s",
+                            pipelineId,
+                            jobId,
+                            lastRestoreTimestamp.get(),
+                            allTasksReadyTimestamp,
+                            stalledAt,
+                            latestTriggerTimestamp.get(),
+                            pendingCounter.get(),
+                            latestCompletedCheckpoint == null
+                                    ? "null"
+                                    : latestCompletedCheckpoint.getCheckpointId(),
+                            isAllTaskReady);
+        } else {
+            diagnosis =
+                    String.format(
+                            "Post-restore checkpoint progress stalled for pipeline(%s@%s): restoreTs=%s, allTasksReadyTs=%s, stalledTs=%s, latestTriggerTs=%s, pendingCount=%s, latestCompletedCheckpointId=%s, isAllTaskReady=%s",
+                            pipelineId,
+                            jobId,
+                            lastRestoreTimestamp.get(),
+                            allTasksReadyTimestamp,
+                            stalledAt,
+                            latestTriggerTimestamp.get(),
+                            pendingCounter.get(),
+                            latestCompletedCheckpoint == null
+                                    ? "null"
+                                    : latestCompletedCheckpoint.getCheckpointId(),
+                            isAllTaskReady);
+        }
+
+        if (coordinatorConfig.isRestoreProgressFailFast()) {
+            handleCoordinatorError(
+                    diagnosis,
+                    new SeaTunnelException(diagnosis),
+                    CheckpointCloseReason.RESTORE_PROGRESS_TIMEOUT);
+            return;
+        }
+
+        restoreProgressTracking.set(false);
+        LOG.warn(diagnosis);
+    }
+
+    /**
+     * Schedules the current restore-progress timeout window and resets any prior window from the
+     * previous phase.
+     */
+    private void scheduleRestoreProgressTimeoutCheck(long phaseStartTimestamp, String phaseName) {
+        long timeout = getEffectiveRestoreProgressTimeout();
+        cancelRestoreProgressTimeoutCheck();
+        LOG.info(
+                "Start tracking restore progress for pipeline({}@{}), phase={}, phaseStartTs={}, timeout={}ms",
+                pipelineId,
+                jobId,
+                phaseName,
+                phaseStartTimestamp,
+                timeout);
+        restoreProgressTimeoutFuture =
+                scheduler.schedule(
+                        this::handleRestoreProgressTimeout, timeout, TimeUnit.MILLISECONDS);
     }
 
     public PassiveCompletableFuture<CheckpointCoordinatorState>

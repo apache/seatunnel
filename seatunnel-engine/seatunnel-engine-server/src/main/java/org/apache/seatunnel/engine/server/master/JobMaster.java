@@ -435,13 +435,17 @@ public class JobMaster {
 
     // TODO replace it after ReadableConfig Support parse yaml format, then use only one config to
     // read engine and env config.
-    private CheckpointConfig createJobCheckpointConfig(
+    static CheckpointConfig createJobCheckpointConfig(
             CheckpointConfig defaultCheckpointConfig, JobConfig jobConfig) {
         Map<String, Object> jobEnv = jobConfig.getEnvOptions();
         CheckpointConfig jobCheckpointConfig = new CheckpointConfig();
         jobCheckpointConfig.setCheckpointTimeout(defaultCheckpointConfig.getCheckpointTimeout());
         jobCheckpointConfig.setCheckpointInterval(defaultCheckpointConfig.getCheckpointInterval());
         jobCheckpointConfig.setCheckpointMinPause(defaultCheckpointConfig.getCheckpointMinPause());
+        jobCheckpointConfig.setRestoreProgressTimeout(
+                defaultCheckpointConfig.getRestoreProgressTimeout());
+        jobCheckpointConfig.setRestoreProgressFailFast(
+                defaultCheckpointConfig.isRestoreProgressFailFast());
         jobCheckpointConfig.setRetainAfterJobCancelled(
                 defaultCheckpointConfig.isRetainAfterJobCancelled());
 

@@ -158,6 +158,14 @@ seatunnel:
 
 连续检查点之间的最小暂停时间(以毫秒为单位)，确保检查点不会频繁触发。
 
+**restore-progress-timeout**
+
+用于诊断恢复后的 Pipeline 未恢复检查点进度的超时时间（毫秒）。默认值为 `0`，会使用 `interval + timeout` 推导超时时间。设置为不小于 `10` 的正数时使用显式超时时间。
+
+**restore-progress-fail-fast**
+
+恢复后的 Pipeline 在 `restore-progress-timeout` 到期前没有检查点进度时，是否将其置为失败。默认值为 `false`，仅会记录包含恢复诊断信息的告警日志。
+
 示例
 
 ```yaml
@@ -171,6 +179,8 @@ seatunnel:
             interval: 300000
             timeout: 10000
             min-pause: 5000
+            restore-progress-timeout: 0
+            restore-progress-fail-fast: false
 ```
 
 **checkpoint storage**
