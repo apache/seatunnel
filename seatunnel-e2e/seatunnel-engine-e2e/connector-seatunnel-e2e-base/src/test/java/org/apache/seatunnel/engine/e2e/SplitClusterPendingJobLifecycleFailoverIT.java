@@ -387,6 +387,13 @@ public class SplitClusterPendingJobLifecycleFailoverIT {
                     engineClient.createJobClient().getJobProxy(holderJob.getJobId());
             holderJobAfterFlapping.cancelJob();
             assertEventuallyCanceled(holderJobAfterFlapping);
+
+            // The active master restored both jobs while all worker slots were occupied. Hand off
+            // once more after releasing the holder's slots so the new coordinator rebuilds the
+            // pending entry from distributed state and schedules it with the newly available
+            // resources. This also verifies that the final recovery cannot revive a stale copy.
+            currentActive.shutdown();
+            awaitCoordinatorActive(currentStandby, 30);
             assertJobStatusWithTimeout(pendingJobAfterFlapping, JobStatus.FINISHED, 180);
 
             Long finalLineCount =
