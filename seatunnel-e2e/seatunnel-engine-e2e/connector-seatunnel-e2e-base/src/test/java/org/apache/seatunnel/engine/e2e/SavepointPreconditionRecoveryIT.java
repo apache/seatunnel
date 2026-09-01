@@ -256,15 +256,15 @@ public class SavepointPreconditionRecoveryIT {
      * isAllTaskReady} flag is still false. That flag only flips true once every subtask in the
      * pipeline has been deployed to a worker, started, and reported back over the network -- a
      * multi-step handshake that takes real wall-clock time. The {@link CheckpointCoordinator}
-     * instance itself, by contrast, is created synchronously inside {@code JobMaster#init()} -- and
-     * by the time it exists, the job is already registered in {@code
-     * CoordinatorService#runningJobMasterMap} (that registration strictly happens-before the
-     * asynchronous {@code JobMaster#run()}/{@code init()} call that creates the coordinator), so a
-     * savepoint request fired at this point is guaranteed to reach the real precondition check in
-     * {@code CheckpointCoordinator#startSavepoint()} instead of being rejected earlier for an
-     * unrelated reason. Spinning on the exact field the precondition check reads, starting from the
-     * moment the coordinator object first becomes visible, therefore lands inside the not-ready
-     * window with a wide safety margin instead of guessing a sleep duration.
+     * instance itself, by contrast, is created synchronously inside {@code JobMaster#init()} before
+     * the job first enters the pending queue. The public {@code getJobMaster()} accessor therefore
+     * observes the coordinator before {@code CoordinatorService#savePoint(long)} can accept the
+     * request, because the latter only accepts entries in {@code runningJobMasterMap}. This helper
+     * intentionally waits for that same map before inspecting {@code isAllTaskReady}, so the next
+     * client request reaches the real precondition check rather than the unrelated "job not
+     * running" rejection. Spinning on the exact field the precondition check reads, once that
+     * shared gate is open, lands inside the not-ready window with a wide safety margin instead of
+     * guessing a sleep duration.
      *
      * @return the CheckpointCoordinator observed with isAllTaskReady still false, so the caller can
      *     immediately fire a real savepoint request against it
@@ -273,7 +273,7 @@ public class SavepointPreconditionRecoveryIT {
             HazelcastInstanceImpl masterNode, long jobId, int pipelineId, long timeoutMillis) {
         long deadline = System.currentTimeMillis() + timeoutMillis;
         while (System.currentTimeMillis() < deadline) {
-            JobMaster jobMaster = getJobMaster(masterNode, jobId);
+            JobMaster jobMaster = getRunningJobMaster(masterNode, jobId);
             if (jobMaster != null) {
                 CheckpointManager checkpointManager = jobMaster.getCheckpointManager();
                 if (checkpointManager != null) {
@@ -314,10 +314,22 @@ public class SavepointPreconditionRecoveryIT {
         return ((AtomicBoolean) field.get()).get();
     }
 
-    /** Reads the current job master from the active SeaTunnel server embedded in the cluster. */
-    private static JobMaster getJobMaster(HazelcastInstanceImpl masterNode, long jobId) {
+    /**
+     * Reads the job master from the same running-job map checked by the savepoint RPC endpoint.
+     *
+     * <p>{@code CoordinatorService#getJobMaster(long)} is intentionally not used here because it
+     * returns an entry from the pending queue before the savepoint endpoint can process the job.
+     */
+    private static JobMaster getRunningJobMaster(HazelcastInstanceImpl masterNode, long jobId) {
         SeaTunnelServer server =
                 masterNode.node.getNodeEngine().getService(SeaTunnelServer.SERVICE_NAME);
-        return server.getCoordinatorService().getJobMaster(jobId);
+        Optional<Object> runningJobMasterMap =
+                ReflectionUtils.getField(server.getCoordinatorService(), "runningJobMasterMap");
+        Assertions.assertTrue(
+                runningJobMasterMap.isPresent() && runningJobMasterMap.get() instanceof Map<?, ?>,
+                "CoordinatorService.runningJobMasterMap field not found via reflection; it may"
+                        + " have been renamed");
+        Object jobMaster = ((Map<?, ?>) runningJobMasterMap.get()).get(jobId);
+        return jobMaster instanceof JobMaster ? (JobMaster) jobMaster : null;
     }
 }
