@@ -90,6 +90,7 @@ const sidebars = {
                 "introduction/configuration/metalake",
                 "introduction/configuration/sink-options-placeholders",
                 "introduction/configuration/schema-evolution",
+                "introduction/configuration/error-handling",
                 "introduction/configuration/speed-limit"
             ]
         },
@@ -271,6 +272,7 @@ const sidebars = {
                                     ]
                                 },
                                 "engines/zeta/web-ui",
+                                "engines/zeta/runtime-execution-graph",
                                 "engines/zeta/security",
                                 "engines/zeta/python-sdk"
                             ]
@@ -280,6 +282,7 @@ const sidebars = {
                         "engines/zeta/log-analysis-with-ai",
                         "engines/zeta/telemetry",
                         "engines/zeta/busyness-and-backpressure",
+                        "engines/zeta/live-metrics-chart",
                         "engines/zeta/slot-allocation-strategy",
                         "engines/zeta/benchmark",
                         "engines/zeta/tuning-guide"
@@ -391,7 +394,9 @@ const sidebars = {
                 "developer/setup",
                 "developer/contribution-path",
                 "developer/coding-guide",
+                "developer/merge-queue",
                 "developer/test-coding-guide",
+                "developer/shade-guide",
                 "developer/how-to-create-your-connector",
                 "developer/connector-runtime-boundaries",
                 "developer/source-connector-development",
