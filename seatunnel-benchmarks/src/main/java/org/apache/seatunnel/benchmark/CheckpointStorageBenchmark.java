@@ -17,7 +17,9 @@
 
 package org.apache.seatunnel.benchmark;
 
-import org.apache.seatunnel.benchmark.storage.checkpoint.CheckpointStorageBenchmarkWorkload;
+import org.apache.seatunnel.benchmark.storage.checkpoint.CheckpointIdIncrementBenchmarkWorkload;
+import org.apache.seatunnel.benchmark.storage.checkpoint.CheckpointOverviewBenchmarkWorkload;
+import org.apache.seatunnel.benchmark.storage.checkpoint.CheckpointPersistenceBenchmarkWorkload;
 
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
@@ -34,7 +36,7 @@ import org.openjdk.jmh.runner.options.VerboseMode;
 
 import java.util.concurrent.TimeUnit;
 
-import static org.apache.seatunnel.benchmark.storage.checkpoint.CheckpointStorageBenchmarkWorkload.CHECKPOINT_OPERATIONS_PER_INVOCATION;
+import static org.apache.seatunnel.benchmark.storage.checkpoint.CheckpointPersistenceBenchmarkWorkload.CHECKPOINT_OPERATIONS_PER_INVOCATION;
 
 /** Measures checkpoint persistence operations using coordinator-produced fixture state. */
 @BenchmarkMode(Mode.SingleShotTime)
@@ -79,7 +81,7 @@ public class CheckpointStorageBenchmark extends BenchmarkBase {
      */
     @Benchmark
     @OperationsPerInvocation(CHECKPOINT_OPERATIONS_PER_INVOCATION)
-    public void checkpointPersistenceTransaction(CheckpointStorageBenchmarkWorkload workload)
+    public void checkpointPersistenceTransaction(CheckpointPersistenceBenchmarkWorkload workload)
             throws Exception {
         workload.persistCheckpointStorageTransaction();
     }
@@ -96,7 +98,7 @@ public class CheckpointStorageBenchmark extends BenchmarkBase {
      */
     @Benchmark
     @OperationsPerInvocation(CHECKPOINT_OPERATIONS_PER_INVOCATION)
-    public long checkpointIdAtomicIncrement(CheckpointStorageBenchmarkWorkload workload)
+    public long checkpointIdAtomicIncrement(CheckpointIdIncrementBenchmarkWorkload workload)
             throws Exception {
         return workload.incrementCheckpointId();
     }
@@ -116,7 +118,7 @@ public class CheckpointStorageBenchmark extends BenchmarkBase {
      */
     @Benchmark
     @OperationsPerInvocation(CHECKPOINT_OPERATIONS_PER_INVOCATION)
-    public void checkpointOverviewIncrementalUpdate(CheckpointStorageBenchmarkWorkload workload) {
+    public void checkpointOverviewIncrementalUpdate(CheckpointOverviewBenchmarkWorkload workload) {
         workload.updateCheckpointOverview();
     }
 }
