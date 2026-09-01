@@ -4,6 +4,12 @@ import ChangeLog from '../changelog/connector-hugegraph.md';
 
 `Sink: HugeGraph`
 
+## 支持的引擎
+
+> Spark<br/>
+> Flink<br/>
+> SeaTunnel Zeta<br/>
+
 ## 描述
 
 HugeGraph sink连接器允许您将数据从SeaTunnel写入Apache HugeGraph，这是一个快速且可扩展的图数据库。
@@ -14,7 +20,7 @@ HugeGraph sink连接器允许您将数据从SeaTunnel写入Apache HugeGraph，�
 
 - [x] [批处理](../../introduction/concepts/connector-v2-features.md)
 - [ ] [精确一次](../../introduction/concepts/connector-v2-features.md)
-- [ ] [CDC](../../introduction/concepts/connector-v2-features.md)
+- [ ] [变更数据捕获](../../introduction/concepts/connector-v2-features.md)
 - [x] [支持多表写入](../../introduction/concepts/connector-v2-features.md)
 - [x] [定时刷新](../../introduction/concepts/connector-v2-features.md)
 
@@ -276,6 +282,82 @@ sink {
           person1_name = "name"
           person2_name = "name"
         }
+      }
+    ]
+  }
+}
+```
+
+### 3. 写入 DELETE 行
+
+Sink 会按行 kind 处理数据。`DELETE` 行只需要提供重建元素 id 所需的字段，其他列可以省略。把 `delete_vertex_with_edges` 设为 `true` 后，删除顶点时会同时删除其相连的边。
+
+```hocon
+source {
+  FakeSource {
+    schema = {
+      fields = {
+        name = "string"
+      }
+    }
+    rows = [
+      {
+        kind = DELETE
+        fields = ["bob"]
+      }
+    ]
+  }
+}
+
+sink {
+  HugeGraph {
+    host = "localhost"
+    port = 8080
+    graph_name = "hugegraph"
+    delete_vertex_with_edges = true
+    mappings = [
+      {
+        type = "VERTEX"
+        label = "person"
+        idStrategy = "PRIMARY_KEY"
+        idFields = ["name"]
+      }
+    ]
+  }
+}
+```
+
+### 4. 从 HugeGraph Source 整体克隆
+
+当上游是 HugeGraph Source 时，每行已经带有预留列（顶点为 `~id`，边端点为 `~source_id` / `~target_id`），直接复用这些 id 即可完整还原图。下面的示例把 `multi_table_sink_replica` 调大，让 sink 在 source 读取多 label 时能并行写出。
+
+```hocon
+env {
+  job.mode = "BATCH"
+}
+
+source {
+  HugeGraph {
+    host = "src-host"
+    port = 8080
+    graph_name = "hugegraph"
+    label_type = "VERTEX"
+  }
+}
+
+sink {
+  HugeGraph {
+    host = "dst-host"
+    port = 8080
+    graph_name = "hugegraph"
+    multi_table_sink_replica = 2
+    batch_size = 500
+    mappings = [
+      {
+        type = "VERTEX"
+        label = "person"
+        idStrategy = "CUSTOMIZE_STRING"
+        idFields = ["~id"]
       }
     ]
   }
