@@ -95,6 +95,7 @@ public class DefaultSeaTunnelRowSerializerTest {
                         topic,
                         Arrays.asList("id"),
                         Arrays.asList("source", "traceId"),
+                        null,
                         rowType,
                         format,
                         delimiter,
@@ -138,6 +139,7 @@ public class DefaultSeaTunnelRowSerializerTest {
                         topic,
                         Arrays.asList("id"),
                         Arrays.asList("source", "traceId"),
+                        null,
                         rowType,
                         format,
                         delimiter,
@@ -251,6 +253,7 @@ public class DefaultSeaTunnelRowSerializerTest {
                         topic,
                         Arrays.asList("id"),
                         Arrays.asList("source", "traceId"),
+                        null,
                         rowType,
                         format,
                         delimiter,
@@ -307,6 +310,7 @@ public class DefaultSeaTunnelRowSerializerTest {
                         topic,
                         Arrays.asList("id"),
                         Arrays.asList("source", "traceId"),
+                        null,
                         rowType,
                         format,
                         delimiter,
@@ -333,6 +337,49 @@ public class DefaultSeaTunnelRowSerializerTest {
         Assertions.assertTrue(valueString.contains("\"id\""));
         Assertions.assertTrue(valueString.contains("\"name\""));
         Assertions.assertFalse(valueString.contains("\"source\""));
+        Assertions.assertFalse(valueString.contains("\"traceId\""));
+    }
+
+    @Test
+    public void testMessageValueFields() {
+        String topic = "test_topic";
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"id", "name", "source", "traceId"},
+                        new org.apache.seatunnel.api.table.type.SeaTunnelDataType[] {
+                            BasicType.INT_TYPE,
+                            BasicType.STRING_TYPE,
+                            BasicType.STRING_TYPE,
+                            BasicType.STRING_TYPE
+                        });
+        MessageFormat format = MessageFormat.JSON;
+        String delimiter = ",";
+        Map<String, Object> configMap = new HashMap<>();
+        ReadonlyConfig pluginConfig = ReadonlyConfig.fromMap(configMap);
+
+        // Test with message value fields
+        DefaultSeaTunnelRowSerializer serializer =
+                DefaultSeaTunnelRowSerializer.create(
+                        topic,
+                        Arrays.asList("id"), // partition_key_fields
+                        null, // header_fields
+                        Arrays.asList("name", "source"), // message_value_fields
+                        rowType,
+                        format,
+                        delimiter,
+                        pluginConfig);
+
+        SeaTunnelRow row = new SeaTunnelRow(new Object[] {1, "test", "web", "trace-123"});
+        ProducerRecord<byte[], byte[]> record = serializer.serializeRow(row);
+
+        Assertions.assertEquals("test_topic", record.topic());
+
+        String valueString = new String(record.value(), StandardCharsets.UTF_8);
+        // The value should only contain the requested fields
+        Assertions.assertTrue(valueString.contains("\"name\""));
+        Assertions.assertTrue(valueString.contains("\"source\""));
+        // The id and traceId should be excluded
+        Assertions.assertFalse(valueString.contains("\"id\""));
         Assertions.assertFalse(valueString.contains("\"traceId\""));
     }
 }
