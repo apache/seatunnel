@@ -49,6 +49,128 @@ public class OrcWriteStrategyTest {
     private static final String TMP_PATH = "file:///tmp/seatunnel/orc/batch/test";
     private static final int ORC_WRITE_NUMBER = 2000;
 
+    @Test
+    public void testOrcStructSchemaPreservesFieldCase() {
+        SeaTunnelRowType structType =
+                new SeaTunnelRowType(
+                        new String[] {"MD5"}, new SeaTunnelDataType[] {BasicType.STRING_TYPE});
+
+        org.apache.orc.TypeDescription structSchema =
+                OrcWriteStrategy.buildFieldWithRowType(structType);
+
+        Assertions.assertEquals("MD5", structSchema.getFieldNames().get(0));
+    }
+
+    @DisabledOnOs(OS.WINDOWS)
+    @Test
+    public void testOrcNestedFieldCaseRoundTrip() throws Exception {
+        String tmpPath = "file:///tmp/seatunnel/orc/nested/test";
+        Map<String, Object> writeConfig = new HashMap<>();
+        writeConfig.put("tmp_path", tmpPath);
+        writeConfig.put("path", "file:///tmp/seatunnel/orc/nested");
+        writeConfig.put("file_format_type", FileFormat.ORC.name());
+
+        SeaTunnelRowType nestedFieldType =
+                new SeaTunnelRowType(
+                        new String[] {"MD5"}, new SeaTunnelDataType[] {BasicType.STRING_TYPE});
+        SeaTunnelRowType writeRowType =
+                new SeaTunnelRowType(
+                        new String[] {"payload"}, new SeaTunnelDataType[] {nestedFieldType});
+        FileSinkConfig writeSinkConfig =
+                new FileSinkConfig(ReadonlyConfig.fromMap(writeConfig), writeRowType);
+        OrcWriteStrategy writeStrategy = new OrcWriteStrategy(writeSinkConfig);
+
+        LocalFileSystemConf.LocalConf hadoopConf =
+                new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        writeStrategy.setCatalogTable(
+                CatalogTableUtil.getCatalogTable("test", null, null, "test", writeRowType));
+        writeStrategy.init(hadoopConf, "test1", "test1", 0);
+        writeStrategy.beginTransaction(1L);
+
+        SeaTunnelRow nestedValue = new SeaTunnelRow(new Object[] {"abc123"});
+        writeStrategy.write(new SeaTunnelRow(new Object[] {nestedValue}));
+        writeStrategy.finishAndCloseFile();
+        writeStrategy.close();
+
+        OrcReadStrategy readStrategy = new OrcReadStrategy();
+        readStrategy.init(hadoopConf);
+        List<String> readFiles = readStrategy.getFileNamesByPath(tmpPath);
+        Assertions.assertEquals(1, readFiles.size());
+        String readFilePath = readFiles.get(0);
+
+        SeaTunnelRowType readRowType = readStrategy.getSeaTunnelRowTypeInfo(readFilePath);
+        Assertions.assertEquals(1, readRowType.getTotalFields());
+        SeaTunnelDataType<?> nestedReadType = readRowType.getFieldType(0);
+        Assertions.assertTrue(nestedReadType instanceof SeaTunnelRowType);
+        SeaTunnelRowType nestedReadRowType = (SeaTunnelRowType) nestedReadType;
+        Assertions.assertArrayEquals(new String[] {"MD5"}, nestedReadRowType.getFieldNames());
+
+        List<SeaTunnelRow> readRows = new ArrayList<>();
+        Collector<SeaTunnelRow> readCollector =
+                new Collector<SeaTunnelRow>() {
+                    @Override
+                    public void collect(SeaTunnelRow record) {
+                        readRows.add(record);
+                    }
+
+                    @Override
+                    public Object getCheckpointLock() {
+                        return null;
+                    }
+                };
+        readStrategy.read(readFilePath, "test", readCollector);
+        Assertions.assertEquals(1, readRows.size());
+        SeaTunnelRow readRow = readRows.get(0);
+        Object nestedObj = readRow.getField(0);
+        Assertions.assertTrue(nestedObj instanceof SeaTunnelRow);
+        SeaTunnelRow nestedRead = (SeaTunnelRow) nestedObj;
+        Assertions.assertEquals("abc123", nestedRead.getField(0));
+        readStrategy.close();
+    }
+
+    @DisabledOnOs(OS.WINDOWS)
+    @Test
+    public void testCloseWriterWhenRollingFile() throws Exception {
+        String tmpPath = "file:///tmp/seatunnel/orc/rolling/test-" + System.nanoTime();
+        Map<String, Object> writeConfig = new HashMap<>();
+        writeConfig.put("tmp_path", tmpPath);
+        writeConfig.put("path", "file:///tmp/seatunnel/orc/rolling");
+        writeConfig.put("file_format_type", FileFormat.ORC.name());
+        writeConfig.put("batch_size", 1);
+
+        SeaTunnelRowType rowType =
+                new SeaTunnelRowType(
+                        new String[] {"value"}, new SeaTunnelDataType[] {BasicType.STRING_TYPE});
+        OrcWriteStrategy writeStrategy =
+                new OrcWriteStrategy(
+                        new FileSinkConfig(ReadonlyConfig.fromMap(writeConfig), rowType));
+        LocalFileSystemConf.LocalConf hadoopConf =
+                new LocalFileSystemConf.LocalConf(FS_DEFAULT_NAME_DEFAULT);
+        writeStrategy.setCatalogTable(
+                CatalogTableUtil.getCatalogTable("test", null, null, "test", rowType));
+        writeStrategy.init(hadoopConf, "rolling-test", "rolling-test", 0);
+        writeStrategy.beginTransaction(1L);
+
+        writeStrategy.write(new SeaTunnelRow(new Object[] {"first"}));
+        writeStrategy.write(new SeaTunnelRow(new Object[] {"second"}));
+
+        OrcReadStrategy readStrategy = new OrcReadStrategy();
+        readStrategy.init(hadoopConf);
+        List<String> readFiles = readStrategy.getFileNamesByPath(tmpPath);
+        Assertions.assertEquals(1, readFiles.size());
+        String rolledFile = readFiles.get(0);
+        Assertions.assertTrue(rolledFile.endsWith("_0.orc"));
+        readStrategy.getSeaTunnelRowTypeInfo(rolledFile);
+        List<String> values = new ArrayList<>();
+        readStrategy.read(rolledFile, "test", collectorForFirstField(values));
+        Assertions.assertEquals(java.util.Arrays.asList("first"), values);
+
+        writeStrategy.finishAndCloseFile();
+        writeStrategy.close();
+        Assertions.assertEquals(2, readStrategy.getFileNamesByPath(tmpPath).size());
+        readStrategy.close();
+    }
+
     @DisabledOnOs(OS.WINDOWS)
     @Test
     public void testOrcWriteWithBatch() throws Exception {
@@ -105,5 +227,19 @@ public class OrcWriteStrategyTest {
         readStrategy.read(readFilePath, "test", readCollector);
         Assertions.assertEquals(ORC_WRITE_NUMBER, readRows.size());
         readStrategy.close();
+    }
+
+    private static Collector<SeaTunnelRow> collectorForFirstField(List<String> values) {
+        return new Collector<SeaTunnelRow>() {
+            @Override
+            public void collect(SeaTunnelRow record) {
+                values.add((String) record.getField(0));
+            }
+
+            @Override
+            public Object getCheckpointLock() {
+                return null;
+            }
+        };
     }
 }

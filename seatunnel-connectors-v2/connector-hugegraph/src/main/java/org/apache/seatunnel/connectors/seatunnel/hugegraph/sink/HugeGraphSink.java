@@ -68,7 +68,7 @@ public class HugeGraphSink extends AbstractSimpleSink<SeaTunnelRow, Void>
 
     @Override
     public HugeGraphSinkWriter createWriter(SinkWriter.Context context) throws IOException {
-        return new HugeGraphSinkWriter(config, rowType, tablePath, context.getIndexOfSubtask());
+        return new HugeGraphSinkWriter(config, rowType, tablePath, context);
     }
 
     @Override
