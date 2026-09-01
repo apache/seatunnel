@@ -19,17 +19,22 @@ package org.apache.seatunnel.connectors.seatunnel.http.config;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
 
+import org.apache.seatunnel.shade.org.apache.commons.lang3.StringUtils;
+
 import lombok.Data;
+import lombok.ToString;
+import lombok.extern.slf4j.Slf4j;
 
 import java.io.Serializable;
 import java.util.Map;
 
 @Data
+@Slf4j
 @SuppressWarnings("MagicNumber")
 public class HttpParameter implements Serializable {
     protected String url;
     protected HttpRequestMethod method;
-    protected Map<String, String> headers;
+    @ToString.Exclude protected Map<String, String> headers;
     protected Map<String, String> params;
     protected Map<String, Object> pageParams;
     protected boolean keepParamsAsForm = false;
@@ -63,6 +68,8 @@ public class HttpParameter implements Serializable {
         if (pluginConfig.getOptional(HttpCommonOptions.HEADERS).isPresent()) {
             this.setHeaders(pluginConfig.get(HttpCommonOptions.HEADERS));
         }
+        // validate credential scheme after url and headers are set
+        validateCredentialScheme();
         // set params
         if (pluginConfig.getOptional(HttpCommonOptions.PARAMS).isPresent()) {
             this.setParams(pluginConfig.get(HttpCommonOptions.PARAMS));
@@ -86,5 +93,36 @@ public class HttpParameter implements Serializable {
         this.setSocketTimeoutMs(pluginConfig.get(HttpSourceOptions.SOCKET_TIMEOUT_MS));
         this.setJsonFiledMissedReturnNull(
                 pluginConfig.get(HttpSourceOptions.JSON_FILED_MISSED_RETURN_NULL));
+    }
+
+    /**
+     * Validates that the URL scheme is HTTPS when credential headers are present.
+     * Logs a warning if the URL uses plain HTTP while authorization headers are configured,
+     * as this would send credentials in clear text over the network.
+     */
+    public void validateCredentialScheme() {
+        if (StringUtils.isBlank(this.url)) {
+            return;
+        }
+        String lowerUrl = this.url.toLowerCase();
+        if (lowerUrl.startsWith("https://")) {
+            return;
+        }
+        if (this.headers == null || this.headers.isEmpty()) {
+            return;
+        }
+        boolean hasAuthHeader =
+                this.headers.keySet().stream()
+                        .anyMatch(
+                                key ->
+                                        key != null
+                                                && key.toLowerCase().contains("authorization"));
+        if (hasAuthHeader) {
+            log.warn(
+                    "The HTTP connector URL '{}' uses a non-HTTPS scheme while credential headers are configured. "
+                            + "Credentials will be transmitted in clear text over the network. "
+                            + "Consider using HTTPS for production environments.",
+                    this.url);
+        }
     }
 }
