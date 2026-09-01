@@ -31,12 +31,6 @@ scala-library-2.12.15.jar
 scala-compiler-2.12.15.jar
 scala-reflect-2.12.15.jar
 scala-xml_2.12-1.0.6.jar
-seatunnel-scala-compiler-3.0.0-SNAPSHOT-optional.jar
-seatunnel-jackson-3.0.0-SNAPSHOT-optional.jar
-seatunnel-jackson-yaml-3.0.0-SNAPSHOT-optional.jar
-seatunnel-guava-3.0.0-SNAPSHOT-optional.jar
-seatunnel-hazelcast-shade-3.0.0-SNAPSHOT-optional.jar
-seatunnel-commons-lang3-3.0.0-SNAPSHOT-optional.jar
 slf4j-api-1.7.36.jar
 jsqlparser-4.9.jar
 animal-sniffer-annotations-1.17.jar
@@ -54,8 +48,6 @@ accessors-smart-2.4.7.jar
 asm-9.1.jar
 avro-1.11.1.jar
 groovy-4.0.16.jar
-seatunnel-janino-3.0.0-SNAPSHOT-optional.jar
-seatunnel-calcite-3.0.0-SNAPSHOT-optional.jar
 protobuf-java-util-3.25.3.jar
 protobuf-java-3.25.3.jar
 protoc-jar-3.11.4.jar
@@ -78,7 +70,6 @@ jetty-util-9.4.20.v20190813.jar
 jetty-util-9.4.56.v20240826.jar
 jetty-util-ajax-9.4.56.v20240826.jar
 javax.servlet-api-3.1.0.jar
-seatunnel-jetty9-9.4.56-3.0.0-SNAPSHOT-optional.jar
 jna-5.15.0.jar
 jna-platform-5.15.0.jar
 oshi-core-6.6.5.jar
@@ -91,7 +82,6 @@ eclipse-collections-api-11.1.0.jar
 flatbuffers-java-23.5.26.jar
 netty-buffer-4.1.104.Final.jar
 netty-common-4.1.104.Final.jar
-seatunnel-arrow-3.0.0-SNAPSHOT-optional.jar
 sdk-core-2.31.30.jar
 third-party-jackson-core-2.31.30.jar
 utils-2.31.30.jar
@@ -132,3 +122,14 @@ netty-resolver-4.1.118.Final.jar
 eventstream-1.0.1.jar
 snakeyaml-2.1.jar
 sqlite-jdbc-3.39.3.0.jar
+jackson-datatype-jdk8-2.15.4.jar
+seatunnel-shade-arrow-15.0.1-3.0.0.jar
+seatunnel-shade-commons-lang3-3.18.0-3.0.0.jar
+seatunnel-shade-guava-27.0-jre-3.0.0.jar
+seatunnel-shade-hazelcast-5.1-3.0.0.jar
+seatunnel-shade-jackson-2.15.4-3.0.0.jar
+seatunnel-shade-janino-3.1.12-3.0.0.jar
+seatunnel-shade-jetty-9.4.56.v20240826-3.0.0.jar
+seatunnel-shade-scala-compiler-2.12-3.0.0.jar
+seatunnel-shade-calcite-1.38.0-3.0.0.jar
+seatunnel-shade-jackson-yaml-2.15.4-3.0.0.jar
