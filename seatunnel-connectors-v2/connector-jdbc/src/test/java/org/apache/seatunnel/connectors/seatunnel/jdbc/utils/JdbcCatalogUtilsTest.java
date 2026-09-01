@@ -35,6 +35,7 @@ import org.apache.seatunnel.api.table.catalog.exception.TableAlreadyExistExcepti
 import org.apache.seatunnel.api.table.catalog.exception.TableNotExistException;
 import org.apache.seatunnel.api.table.type.BasicType;
 import org.apache.seatunnel.api.table.type.DecimalType;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.QueryTableMetadataMergeMode;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -481,7 +482,58 @@ public class JdbcCatalogUtilsTest {
     }
 
     @Test
-    public void testMergeWithUnderlyingTableWhenQueryMapsToSingleTable() {
+    public void testMergeWithUnderlyingTableDefaultModeMergesCommentsAndOptionsOnly() {
+        CatalogTable tableOfQuery =
+                buildQueryTable(TableIdentifier.of("jdbc_catalog", "database-x", null, "table-x"));
+        CatalogTable underlyingTable =
+                CatalogTable.of(
+                        DEFAULT_TABLE.getTableId(),
+                        DEFAULT_TABLE.getTableSchema(),
+                        Collections.singletonMap("engine", "InnoDB"),
+                        DEFAULT_TABLE.getPartitionKeys(),
+                        "underlying table comment");
+
+        AtomicBoolean loaderInvoked = new AtomicBoolean(false);
+        CatalogTable mergeTable =
+                JdbcCatalogUtils.mergeWithUnderlyingTable(
+                        tableOfQuery,
+                        Optional.of(TablePath.of("database-x", null, "table-x")),
+                        tablePath -> {
+                            loaderInvoked.set(true);
+                            Assertions.assertEquals(
+                                    TablePath.of("database-x", null, "table-x"), tablePath);
+                            return underlyingTable;
+                        },
+                        QueryTableMetadataMergeMode.COMMENT);
+
+        Assertions.assertTrue(loaderInvoked.get());
+        // Comments and options are merged from the underlying table
+        Assertions.assertEquals(
+                Arrays.asList("f1 comment", "f2 comment", "f3 comment"),
+                mergeTable.getTableSchema().getColumns().stream()
+                        .map(Column::getComment)
+                        .collect(Collectors.toList()));
+        Assertions.assertEquals(
+                Collections.singletonMap("engine", "InnoDB"), mergeTable.getOptions());
+        Assertions.assertEquals("underlying table comment", mergeTable.getComment());
+        // Identity, keys and partition keys keep the query-derived values, so runtime behavior
+        // (sink insert/upsert semantics, split planning) is unchanged
+        Assertions.assertEquals(tableOfQuery.getTableId(), mergeTable.getTableId());
+        Assertions.assertNull(mergeTable.getTableSchema().getPrimaryKey());
+        Assertions.assertTrue(mergeTable.getTableSchema().getConstraintKeys().isEmpty());
+        Assertions.assertTrue(mergeTable.getPartitionKeys().isEmpty());
+        // Column definitions other than the comment keep the query-derived values
+        Assertions.assertEquals(
+                tableOfQuery.getTableSchema().getColumns().stream()
+                        .map(Column::isNullable)
+                        .collect(Collectors.toList()),
+                mergeTable.getTableSchema().getColumns().stream()
+                        .map(Column::isNullable)
+                        .collect(Collectors.toList()));
+    }
+
+    @Test
+    public void testMergeWithUnderlyingTableAllModeMergesKeys() {
         CatalogTable tableOfQuery =
                 buildQueryTable(TableIdentifier.of("jdbc_catalog", "database-x", null, "table-x"));
 
@@ -495,7 +547,8 @@ public class JdbcCatalogUtilsTest {
                             Assertions.assertEquals(
                                     TablePath.of("database-x", null, "table-x"), tablePath);
                             return DEFAULT_TABLE;
-                        });
+                        },
+                        QueryTableMetadataMergeMode.ALL);
 
         Assertions.assertTrue(loaderInvoked.get());
         Assertions.assertEquals(DEFAULT_TABLE.getTableId(), mergeTable.getTableId());
@@ -514,6 +567,95 @@ public class JdbcCatalogUtilsTest {
     }
 
     @Test
+    public void testMergeWithUnderlyingTableNoneModeSkipsMerge() {
+        CatalogTable tableOfQuery =
+                buildQueryTable(TableIdentifier.of("jdbc_catalog", "database-x", null, "table-x"));
+
+        AtomicBoolean loaderInvoked = new AtomicBoolean(false);
+        CatalogTable mergeTable =
+                JdbcCatalogUtils.mergeWithUnderlyingTable(
+                        tableOfQuery,
+                        Optional.of(TablePath.of("database-x", null, "table-x")),
+                        tablePath -> {
+                            loaderInvoked.set(true);
+                            return DEFAULT_TABLE;
+                        },
+                        QueryTableMetadataMergeMode.NONE);
+
+        Assertions.assertFalse(loaderInvoked.get());
+        Assertions.assertSame(tableOfQuery, mergeTable);
+    }
+
+    @Test
+    public void testMergeCommentsAndOptionsSkipsRenamedOrTransformedColumns() {
+        // f1 has a different SqlType in the query result (e.g. CAST in the query), f4 does not
+        // exist in the underlying table (e.g. renamed) - both keep the query-derived definition
+        CatalogTable tableOfQuery =
+                CatalogTable.of(
+                        TableIdentifier.of("jdbc_catalog", "database-x", null, "table-x"),
+                        TableSchema.builder()
+                                .column(
+                                        PhysicalColumn.of(
+                                                "f1",
+                                                BasicType.STRING_TYPE,
+                                                10,
+                                                true,
+                                                null,
+                                                null,
+                                                null,
+                                                false,
+                                                false,
+                                                null,
+                                                null,
+                                                null))
+                                .column(
+                                        PhysicalColumn.of(
+                                                "f2",
+                                                BasicType.STRING_TYPE,
+                                                10,
+                                                true,
+                                                null,
+                                                null,
+                                                null,
+                                                false,
+                                                false,
+                                                null,
+                                                null,
+                                                null))
+                                .column(
+                                        PhysicalColumn.of(
+                                                "f4",
+                                                BasicType.STRING_TYPE,
+                                                20,
+                                                false,
+                                                null,
+                                                null,
+                                                null,
+                                                false,
+                                                false,
+                                                null,
+                                                null,
+                                                null))
+                                .build(),
+                        Collections.emptyMap(),
+                        Collections.emptyList(),
+                        null);
+
+        CatalogTable mergeTable =
+                JdbcCatalogUtils.mergeCommentsAndOptions(DEFAULT_TABLE, tableOfQuery);
+
+        Assertions.assertEquals(
+                Arrays.asList(null, "f2 comment", null),
+                mergeTable.getTableSchema().getColumns().stream()
+                        .map(Column::getComment)
+                        .collect(Collectors.toList()));
+        Assertions.assertNull(mergeTable.getTableSchema().getPrimaryKey());
+        Assertions.assertTrue(mergeTable.getTableSchema().getConstraintKeys().isEmpty());
+        Assertions.assertTrue(mergeTable.getPartitionKeys().isEmpty());
+        Assertions.assertEquals(tableOfQuery.getTableId(), mergeTable.getTableId());
+    }
+
+    @Test
     public void testMergeWithUnderlyingTableUsesVerifiedOriginTablePath() {
         // The metadata-verified origin table path must be loaded, not the table path that the
         // query-derived table identifier happens to carry.
@@ -528,7 +670,8 @@ public class JdbcCatalogUtilsTest {
                     loaderInvoked.set(true);
                     Assertions.assertEquals(TablePath.of("database-x", null, "table-x"), tablePath);
                     return DEFAULT_TABLE;
-                });
+                },
+                QueryTableMetadataMergeMode.COMMENT);
 
         Assertions.assertTrue(loaderInvoked.get());
     }
@@ -546,7 +689,8 @@ public class JdbcCatalogUtilsTest {
                         tablePath -> {
                             loaderInvoked.set(true);
                             return DEFAULT_TABLE;
-                        });
+                        },
+                        QueryTableMetadataMergeMode.COMMENT);
 
         Assertions.assertFalse(loaderInvoked.get());
         Assertions.assertSame(tableOfQuery, mergeTable);
@@ -565,7 +709,8 @@ public class JdbcCatalogUtilsTest {
                         tablePath -> {
                             loaderInvoked.set(true);
                             return DEFAULT_TABLE;
-                        });
+                        },
+                        QueryTableMetadataMergeMode.COMMENT);
 
         Assertions.assertFalse(loaderInvoked.get());
         Assertions.assertSame(tableOfQuery, mergeTable);
@@ -580,7 +725,8 @@ public class JdbcCatalogUtilsTest {
                 JdbcCatalogUtils.mergeWithUnderlyingTable(
                         tableOfQuery,
                         Optional.of(TablePath.of("database-x", null, "table-x")),
-                        tablePath -> null);
+                        tablePath -> null,
+                        QueryTableMetadataMergeMode.COMMENT);
 
         Assertions.assertSame(tableOfQuery, mergeTable);
     }
@@ -601,7 +747,8 @@ public class JdbcCatalogUtilsTest {
                 JdbcCatalogUtils.mergeWithUnderlyingTable(
                         tableOfQuery,
                         Optional.of(TablePath.of("database-x", null, "table-x")),
-                        tablePath -> emptyTable);
+                        tablePath -> emptyTable,
+                        QueryTableMetadataMergeMode.COMMENT);
 
         Assertions.assertSame(tableOfQuery, mergeTable);
     }
@@ -617,7 +764,8 @@ public class JdbcCatalogUtilsTest {
                         Optional.of(TablePath.of("database-x", null, "table-x")),
                         tablePath -> {
                             throw new CatalogException("mock load failure");
-                        });
+                        },
+                        QueryTableMetadataMergeMode.COMMENT);
 
         Assertions.assertSame(tableOfQuery, mergeTable);
     }

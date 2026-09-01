@@ -43,7 +43,9 @@ import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.AbstractJdbcCatalo
 import org.apache.seatunnel.connectors.seatunnel.jdbc.catalog.utils.CatalogUtils;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcCommonOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcConnectionConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceOptions;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.config.JdbcSourceTableConfig;
+import org.apache.seatunnel.connectors.seatunnel.jdbc.config.QueryTableMetadataMergeMode;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.connection.JdbcConnectionProvider;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialect;
 import org.apache.seatunnel.connectors.seatunnel.jdbc.internal.dialect.JdbcDialectLoader;
@@ -272,6 +274,10 @@ public class JdbcCatalogUtils {
             return jdbcCatalog.getTable(tablePath);
         }
 
+        QueryTableMetadataMergeMode metadataMergeMode = metadataMergeMode(tableConfig);
+        if (QueryTableMetadataMergeMode.NONE.equals(metadataMergeMode)) {
+            return jdbcCatalog.getTable(tableConfig.getQuery());
+        }
         AbstractJdbcCatalog.QueryTableResolution queryTableResolution =
                 jdbcCatalog.resolveQueryTable(tableConfig.getQuery());
         return mergeWithUnderlyingTable(
@@ -283,7 +289,15 @@ public class JdbcCatalogUtils {
                     return jdbcCatalog.tableExists(tablePathToLoad)
                             ? jdbcCatalog.getTable(tablePathToLoad)
                             : null;
-                });
+                },
+                metadataMergeMode);
+    }
+
+    private static QueryTableMetadataMergeMode metadataMergeMode(
+            JdbcSourceTableConfig tableConfig) {
+        return tableConfig.getQueryTableMetadataMerge() == null
+                ? JdbcSourceOptions.QUERY_TABLE_METADATA_MERGE.defaultValue()
+                : tableConfig.getQueryTableMetadataMerge();
     }
 
     static CatalogTable mergeCatalogTable(CatalogTable tableOfPath, CatalogTable tableOfQuery) {
@@ -389,39 +403,7 @@ public class JdbcCatalogUtils {
                         tableOfPath.getTableId().getSchemaName(),
                         tableOfPath.getTableId().getTableName());
         List<Column> columnsWithComment =
-                tableSchemaOfQuery.getColumns().stream()
-                        .map(
-                                column -> {
-                                    return columnsOfPath.containsKey(column.getName())
-                                                    && columnsOfPath
-                                                            .get(column.getName())
-                                                            .getDataType()
-                                                            .getSqlType()
-                                                            .equals(
-                                                                    columnsOfQuery
-                                                                            .get(column.getName())
-                                                                            .getDataType()
-                                                                            .getSqlType())
-                                            ? new PhysicalColumn(
-                                                    column.getName(),
-                                                    column.getDataType(),
-                                                    column.getColumnLength(),
-                                                    column.getScale(),
-                                                    column.isNullable(),
-                                                    column.getDefaultValue(),
-                                                    columnsOfPath
-                                                            .get(column.getName())
-                                                            .getComment(),
-                                                    column.getSourceType(),
-                                                    column.getSinkType(),
-                                                    column.getOptions(),
-                                                    column.isUnsigned(),
-                                                    column.isZeroFill(),
-                                                    column.getBitLen(),
-                                                    column.getLongColumnLength())
-                                            : column;
-                                })
-                        .collect(Collectors.toList());
+                mergeColumnComments(tableSchemaOfQuery, columnsOfPath, columnsOfQuery);
         CatalogTable mergedCatalogTable =
                 CatalogTable.of(
                         tableIdentifier,
@@ -436,6 +418,48 @@ public class JdbcCatalogUtils {
 
         log.info("Merged catalog table of path {}", tableOfPath.getTableId().toTablePath());
         return mergedCatalogTable;
+    }
+
+    /**
+     * Returns the query-derived columns with the comment filled from the same-named column of the
+     * underlying table when the column also has the same {@code SqlType}; columns renamed or
+     * transformed in the query keep the query-derived definition unchanged.
+     */
+    private static List<Column> mergeColumnComments(
+            TableSchema tableSchemaOfQuery,
+            Map<String, Column> columnsOfPath,
+            Map<String, Column> columnsOfQuery) {
+        return tableSchemaOfQuery.getColumns().stream()
+                .map(
+                        column -> {
+                            return columnsOfPath.containsKey(column.getName())
+                                            && columnsOfPath
+                                                    .get(column.getName())
+                                                    .getDataType()
+                                                    .getSqlType()
+                                                    .equals(
+                                                            columnsOfQuery
+                                                                    .get(column.getName())
+                                                                    .getDataType()
+                                                                    .getSqlType())
+                                    ? new PhysicalColumn(
+                                            column.getName(),
+                                            column.getDataType(),
+                                            column.getColumnLength(),
+                                            column.getScale(),
+                                            column.isNullable(),
+                                            column.getDefaultValue(),
+                                            columnsOfPath.get(column.getName()).getComment(),
+                                            column.getSourceType(),
+                                            column.getSinkType(),
+                                            column.getOptions(),
+                                            column.isUnsigned(),
+                                            column.isZeroFill(),
+                                            column.getBitLen(),
+                                            column.getLongColumnLength())
+                                    : column;
+                        })
+                .collect(Collectors.toList());
     }
 
     private static CatalogTable getCatalogTable(
@@ -483,10 +507,15 @@ public class JdbcCatalogUtils {
                 jdbcDialect.getResultSetMetaData(connection, tableConfig.getQuery());
         CatalogTable tableOfQuery =
                 getCatalogTable(resultSetMetaData, tableConfig.getQuery(), jdbcDialect);
+        QueryTableMetadataMergeMode metadataMergeMode = metadataMergeMode(tableConfig);
+        if (QueryTableMetadataMergeMode.NONE.equals(metadataMergeMode)) {
+            return tableOfQuery;
+        }
         return mergeWithUnderlyingTable(
                 tableOfQuery,
                 CatalogUtils.getSinglePhysicalTablePath(resultSetMetaData),
-                tablePath -> CatalogUtils.getCatalogTable(connection, tablePath, jdbcDialect));
+                tablePath -> CatalogUtils.getCatalogTable(connection, tablePath, jdbcDialect),
+                metadataMergeMode);
     }
 
     /**
@@ -507,14 +536,24 @@ public class JdbcCatalogUtils {
      * java.sql.ResultSetMetaData} which carries no metadata such as column/table comments,
      * constraint keys and partition keys. If the query is verified to map to a single physical
      * table (e.g. {@code SELECT * FROM db.table}, resolved from the result set metadata), load
-     * exactly that table and merge the missing metadata into the query-derived table, the same way
-     * as configuring {@code table_path} together with {@code query}. Fall back to the query-derived
-     * table when the underlying table can not be resolved or loaded.
+     * exactly that table and merge the missing metadata into the query-derived table. How much is
+     * merged depends on {@code metadataMergeMode}: {@link QueryTableMetadataMergeMode#COMMENT} (the
+     * default) merges only the column comments, table comment and table options, keeping the
+     * query-derived identity, primary key, constraint keys and partition keys untouched so runtime
+     * behavior (sink insert/upsert semantics, split planning) is unchanged; {@link
+     * QueryTableMetadataMergeMode#ALL} merges everything, the same way as configuring {@code
+     * table_path} together with {@code query}; {@link QueryTableMetadataMergeMode#NONE} skips the
+     * merge entirely. Fall back to the query-derived table when the underlying table can not be
+     * resolved or loaded.
      */
     static CatalogTable mergeWithUnderlyingTable(
             CatalogTable tableOfQuery,
             Optional<TablePath> singlePhysicalTablePath,
-            UnderlyingTableLoader underlyingTableLoader) {
+            UnderlyingTableLoader underlyingTableLoader,
+            QueryTableMetadataMergeMode metadataMergeMode) {
+        if (QueryTableMetadataMergeMode.NONE.equals(metadataMergeMode)) {
+            return tableOfQuery;
+        }
         if (singlePhysicalTablePath == null || !singlePhysicalTablePath.isPresent()) {
             return tableOfQuery;
         }
@@ -528,9 +567,13 @@ public class JdbcCatalogUtils {
             if (tableOfPath == null || tableOfPath.getTableSchema().getColumns().isEmpty()) {
                 return tableOfQuery;
             }
-            CatalogTable mergedTable = mergeCatalogTable(tableOfPath, tableOfQuery);
+            CatalogTable mergedTable =
+                    QueryTableMetadataMergeMode.ALL.equals(metadataMergeMode)
+                            ? mergeCatalogTable(tableOfPath, tableOfQuery)
+                            : mergeCommentsAndOptions(tableOfPath, tableOfQuery);
             log.info(
-                    "Merged the metadata of underlying table {} into the query-derived table",
+                    "Merged the metadata (mode: {}) of underlying table {} into the query-derived table",
+                    metadataMergeMode,
                     tablePath);
             return mergedTable;
         } catch (Exception e) {
@@ -540,6 +583,46 @@ public class JdbcCatalogUtils {
                     e);
             return tableOfQuery;
         }
+    }
+
+    /**
+     * Merges only the metadata that cannot change runtime behavior — column comments, the table
+     * comment and the table options — from the underlying physical table into the query-derived
+     * table. The query-derived identifier, column definitions, primary key, constraint keys and
+     * partition keys are kept, so sink insert/upsert semantics and split planning stay exactly as
+     * if no underlying table had been resolved.
+     */
+    static CatalogTable mergeCommentsAndOptions(
+            CatalogTable tableOfPath, CatalogTable tableOfQuery) {
+        Map<String, Column> columnsOfPath =
+                tableOfPath.getTableSchema().getColumns().stream()
+                        .collect(
+                                Collectors.toMap(
+                                        Column::getName,
+                                        Function.identity(),
+                                        (o1, o2) -> o1,
+                                        LinkedHashMap::new));
+        TableSchema tableSchemaOfQuery = tableOfQuery.getTableSchema();
+        Map<String, Column> columnsOfQuery =
+                tableSchemaOfQuery.getColumns().stream()
+                        .collect(
+                                Collectors.toMap(
+                                        Column::getName,
+                                        Function.identity(),
+                                        (o1, o2) -> o1,
+                                        LinkedHashMap::new));
+        return CatalogTable.of(
+                tableOfQuery.getTableId(),
+                TableSchema.builder()
+                        .primaryKey(tableSchemaOfQuery.getPrimaryKey())
+                        .constraintKey(tableSchemaOfQuery.getConstraintKeys())
+                        .columns(
+                                mergeColumnComments(
+                                        tableSchemaOfQuery, columnsOfPath, columnsOfQuery))
+                        .build(),
+                tableOfPath.getOptions(),
+                tableOfQuery.getPartitionKeys(),
+                tableOfPath.getComment());
     }
 
     /** Loads table metadata through catalog APIs that may throw checked exceptions. */
