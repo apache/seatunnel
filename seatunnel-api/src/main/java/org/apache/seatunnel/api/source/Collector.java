@@ -40,6 +40,10 @@ public interface Collector<T> {
      *
      * <p>This method only refreshes local runtime state. It must not emit schema change events to
      * downstream operators because they restore their own checkpoint state independently.
+     *
+     * <p>Only the Zeta engine collector restores this state today. Flink and Spark retain the
+     * default no-op implementation until their translation-layer collectors support schema
+     * restoration.
      */
     default void restoreSchema(List<CatalogTable> catalogTables) {}
 
