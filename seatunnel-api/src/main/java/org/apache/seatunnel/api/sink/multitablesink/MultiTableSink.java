@@ -129,6 +129,9 @@ public class MultiTableSink
         Map<SinkIdentifier, SinkContextProxy> proxyContexts = new HashMap<>();
         for (int i = 0; i < replicaNum; i++) {
             for (TablePath tablePath : sinks.keySet()) {
+                if (shouldSkipFailedTable(initialFailedTables, tablePath)) {
+                    continue;
+                }
                 SeaTunnelSink sink = sinks.get(tablePath);
                 int index = context.getIndexOfSubtask() * replicaNum + i;
                 SinkIdentifier id = SinkIdentifier.of(tablePath.toString(), index);
@@ -171,9 +174,20 @@ public class MultiTableSink
         Map<SinkIdentifier, SinkWriter<SeaTunnelRow, ?, ?>> writers = new HashMap<>();
         Map<SinkIdentifier, SinkWriter.Context> sinkWritersContext = new HashMap<>();
         Map<SinkIdentifier, SinkContextProxy> proxyContexts = new HashMap<>();
+        List<MultiTableFailedTable> restoredFailedTables =
+                states.stream()
+                        .map(MultiTableState::getFailedTables)
+                        .filter(Objects::nonNull)
+                        .flatMap(Collection::stream)
+                        .collect(Collectors.toList());
+        List<MultiTableFailedTable> effectiveFailedTables = new ArrayList<>(initialFailedTables);
+        effectiveFailedTables.addAll(restoredFailedTables);
 
         for (int i = 0; i < replicaNum; i++) {
             for (TablePath tablePath : sinks.keySet()) {
+                if (shouldSkipFailedTable(effectiveFailedTables, tablePath)) {
+                    continue;
+                }
                 SeaTunnelSink sink = sinks.get(tablePath);
                 int index = context.getIndexOfSubtask() * replicaNum + i;
                 SinkIdentifier sinkIdentifier = SinkIdentifier.of(tablePath.toString(), index);
@@ -202,12 +216,30 @@ public class MultiTableSink
                         sinkWritersContext,
                         failurePolicy,
                         getJobMode(),
-                        initialFailedTables,
+                        effectiveFailedTables,
                         tableRetryTimes,
                         tableRetryIntervalSeconds);
 
         registerAggregatedFlushIfNeeded(context, writer, proxyContexts);
         return writer;
+    }
+
+    private boolean shouldSkipFailedTable(
+            Collection<MultiTableFailedTable> failedTables, TablePath tablePath) {
+        if (!failurePolicy.continueOtherTables()
+                || failedTables == null
+                || failedTables.isEmpty()
+                || tablePath == null) {
+            return false;
+        }
+        String tablePathText = tablePath.toString();
+        String fullName = tablePath.getFullName();
+        return failedTables.stream()
+                .map(MultiTableFailedTable::getTablePath)
+                .filter(Objects::nonNull)
+                .anyMatch(
+                        failedTable ->
+                                failedTable.equals(tablePathText) || failedTable.equals(fullName));
     }
 
     /**

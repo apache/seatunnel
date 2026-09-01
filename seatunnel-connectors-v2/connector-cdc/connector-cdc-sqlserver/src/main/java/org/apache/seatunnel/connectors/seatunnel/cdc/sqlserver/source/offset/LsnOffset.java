@@ -37,6 +37,42 @@ public class LsnOffset extends Offset {
         return new LsnOffset(Lsn.valueOf(commitLsn), null, null);
     }
 
+    /**
+     * Creates an offset from the full SQL Server position reported by Debezium.
+     *
+     * <p>SQL Server can emit multiple change events for the same commit LSN. The change LSN and
+     * event serial number are therefore required to resume without skipping records.
+     */
+    public static LsnOffset valueOf(Map<String, ?> offset) {
+        Object eventSerialNo = offset.get(SourceInfo.EVENT_SERIAL_NO_KEY);
+        Object commitLsn = offset.get(SourceInfo.COMMIT_LSN_KEY);
+        Object changeLsn = offset.get(SourceInfo.CHANGE_LSN_KEY);
+        return new LsnOffset(
+                Lsn.valueOf(commitLsn == null ? null : commitLsn.toString()),
+                Lsn.valueOf(changeLsn == null ? null : changeLsn.toString()),
+                eventSerialNo == null ? null : Long.valueOf(eventSerialNo.toString()));
+    }
+
+    /**
+     * Creates a boundary offset suitable for {@code startup.mode=timestamp}.
+     *
+     * <p>{@code sys.fn_cdc_map_time_to_lsn('smallest greater than or equal', ts)} returns the
+     * COMMIT lsn of the first transaction whose commit time is at or after the requested timestamp.
+     * Rows belonging to that transaction must be emitted, so the boundary must order itself BEFORE
+     * any real change event at the same commit. This is achieved by leaving the commit LSN intact
+     * while using the smallest available change LSN and event serial number as the in-commit
+     * position. With {@link #compareTo(Offset)}, every real in-commit event then compares as {@code
+     * isAfter(this)}.
+     *
+     * <p>Compare with {@link #valueOf(String)} (commit-only), which is used for {@code
+     * startup.mode=latest} and intentionally orders AFTER same-commit events to avoid replaying
+     * rows that already existed before startup.
+     */
+    public static LsnOffset timestampBoundary(String commitLsn) {
+        return new LsnOffset(
+                Lsn.valueOf(commitLsn), Lsn.valueOf(new byte[] {0, 0, 0, 0, 0, 0, 0, 0, 0, 1}), 0L);
+    }
+
     private LsnOffset(Lsn commitLsn, Lsn changeLsn, Long eventSerialNo) {
         Map<String, String> offsetMap = new HashMap<>();
 
@@ -68,7 +104,47 @@ public class LsnOffset extends Offset {
     public int compareTo(Offset o) {
         LsnOffset that = (LsnOffset) o;
         final int comparison = getCommitLsn().compareTo(that.getCommitLsn());
-        return comparison == 0 ? getChangeLsn().compareTo(that.getChangeLsn()) : comparison;
+        if (comparison != 0) {
+            return comparison;
+        }
+        // A commit-only offset carries no in-commit position. It can represent the latest
+        // startup boundary, a timestamp-derived boundary, a legacy coarse checkpoint or a
+        // snapshot watermark, all of which address a whole commit (everything in that commit
+        // is treated as already processed before the boundary takes effect).
+        //
+        // Comparing a commit-only boundary against a same-commit complete event position must
+        // therefore order the complete event BEFORE the boundary, otherwise:
+        //   * the non-exactly-once path would skip same-commit rows (acceptable, but stricter
+        //     than needed),
+        //   * the exactly-once pure-binlog transition (`isAtOrAfter`) would flip a table into
+        //     "emit everything" mode on the very first record of the boundary commit and
+        //     replay rows already committed before startup. That is a data-correctness
+        //     regression on the normal streaming path for `startup.mode=latest`.
+        final boolean thisComplete = hasCompletePosition();
+        final boolean thatComplete = that.hasCompletePosition();
+        if (!thisComplete && !thatComplete) {
+            return 0;
+        }
+        if (!thisComplete) {
+            return 1;
+        }
+        if (!thatComplete) {
+            return -1;
+        }
+        final int changeLsnComparison = getChangeLsn().compareTo(that.getChangeLsn());
+        if (changeLsnComparison != 0) {
+            return changeLsnComparison;
+        }
+        return Long.compare(eventSerialNo(), that.eventSerialNo());
+    }
+
+    private boolean hasCompletePosition() {
+        return getChangeLsn().isAvailable() && getEventSerialNo() != null;
+    }
+
+    private long eventSerialNo() {
+        Object eventSerialNo = getEventSerialNo();
+        return eventSerialNo == null ? 0L : Long.parseLong(eventSerialNo.toString());
     }
 
     public boolean equals(Object obj) {
@@ -94,5 +170,10 @@ public class LsnOffset extends Offset {
         result =
                 prime * result + ((getEventSerialNo() == null) ? 0 : getEventSerialNo().hashCode());
         return result;
+    }
+
+    @Override
+    public boolean isNeverStop() {
+        return NO_STOPPING_OFFSET.equals(this);
     }
 }

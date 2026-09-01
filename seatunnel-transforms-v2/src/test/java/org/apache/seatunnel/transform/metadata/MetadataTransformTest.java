@@ -254,6 +254,52 @@ public class MetadataTransformTest {
                 exception.getMessage().contains(KnowledgeSyncMetadataField.DOCUMENT_ID.getName()));
     }
 
+    @Test
+    void shouldProjectMarkdownKnowledgeSyncMetadataWithAliases() {
+        Map<String, String> metadataMapping = new LinkedHashMap<>();
+        metadataMapping.put(KnowledgeSyncMetadataField.SOURCE_URI.getName(), "ks_source_uri");
+        metadataMapping.put(KnowledgeSyncMetadataField.DOCUMENT_ID.getName(), "ks_document_id");
+        metadataMapping.put(KnowledgeSyncMetadataField.DOCUMENT_HASH.getName(), "document_hash");
+        metadataMapping.put(KnowledgeSyncMetadataField.CHUNK_HASH.getName(), "chunk_hash");
+        Map<String, Object> config = new HashMap<>();
+        config.put("metadata_fields", metadataMapping);
+        MetadataTransform transform =
+                new MetadataTransform(ReadonlyConfig.fromMap(config), markdownCatalogTable());
+        transform.initRowContainerGenerator();
+        SeaTunnelRow input = new SeaTunnelRow(new Object[13]);
+        input.getOptions().put(KnowledgeSyncMetadataField.SOURCE_URI.getName(), "safe/source.md");
+        input.getOptions().put(KnowledgeSyncMetadataField.DOCUMENT_ID.getName(), "doc_safe");
+        input.getOptions().put(KnowledgeSyncMetadataField.DOCUMENT_HASH.getName(), "doc_hash");
+        input.getOptions().put(KnowledgeSyncMetadataField.CHUNK_HASH.getName(), "chunk_hash_value");
+
+        SeaTunnelRow output = transform.map(input);
+
+        Assertions.assertEquals("safe/source.md", output.getField(13));
+        Assertions.assertEquals("doc_safe", output.getField(14));
+        Assertions.assertEquals("doc_hash", output.getField(15));
+        Assertions.assertEquals("chunk_hash_value", output.getField(16));
+    }
+
+    @Test
+    void shouldRejectMarkdownCanonicalPhysicalNameCollision() {
+        Map<String, String> metadataMapping = new LinkedHashMap<>();
+        metadataMapping.put(
+                KnowledgeSyncMetadataField.DOCUMENT_ID.getName(),
+                KnowledgeSyncMetadataField.DOCUMENT_ID.getPhysicalName());
+        Map<String, Object> config = new HashMap<>();
+        config.put("metadata_fields", metadataMapping);
+
+        TransformException exception =
+                Assertions.assertThrows(
+                        TransformException.class,
+                        () ->
+                                new MetadataTransform(
+                                        ReadonlyConfig.fromMap(config), markdownCatalogTable()));
+
+        Assertions.assertTrue(
+                exception.getMessage().contains(KnowledgeSyncMetadataField.DOCUMENT_ID.getName()));
+    }
+
     private static CatalogTable knowledgeSyncCatalogTable(boolean includeKnowledgeSyncMetadata) {
         List<Column> metadata = new ArrayList<>();
         if (includeKnowledgeSyncMetadata) {
@@ -272,6 +318,57 @@ public class MetadataTransformTest {
                                         null,
                                         null))
                         .build(),
+                new HashMap<>(),
+                new ArrayList<>(),
+                "comment",
+                "test",
+                MetadataSchema.builder().columns(metadata).build());
+    }
+
+    private static CatalogTable markdownCatalogTable() {
+        String[] fieldNames = {
+            "element_id",
+            "element_type",
+            "heading_level",
+            "text",
+            "page_number",
+            "position_index",
+            "parent_id",
+            "child_ids",
+            "source_uri",
+            "document_id",
+            "chunk_id",
+            "chunk_index",
+            "content_hash"
+        };
+        org.apache.seatunnel.api.table.type.SeaTunnelDataType<?>[] fieldTypes = {
+            BasicType.STRING_TYPE,
+            BasicType.STRING_TYPE,
+            BasicType.INT_TYPE,
+            BasicType.STRING_TYPE,
+            BasicType.INT_TYPE,
+            BasicType.INT_TYPE,
+            BasicType.STRING_TYPE,
+            BasicType.STRING_TYPE,
+            BasicType.STRING_TYPE,
+            BasicType.STRING_TYPE,
+            BasicType.STRING_TYPE,
+            BasicType.INT_TYPE,
+            BasicType.STRING_TYPE
+        };
+        TableSchema.Builder tableSchema = TableSchema.builder();
+        for (int i = 0; i < fieldNames.length; i++) {
+            tableSchema.column(
+                    PhysicalColumn.of(fieldNames[i], fieldTypes[i], (Long) null, true, null, null));
+        }
+        List<Column> metadata = new ArrayList<>();
+        metadata.add(KnowledgeSyncMetadataField.SOURCE_URI.toMetadataColumn());
+        metadata.add(KnowledgeSyncMetadataField.DOCUMENT_ID.toMetadataColumn());
+        metadata.add(KnowledgeSyncMetadataField.DOCUMENT_HASH.toMetadataColumn());
+        metadata.add(KnowledgeSyncMetadataField.CHUNK_HASH.toMetadataColumn());
+        return CatalogTable.of(
+                TableIdentifier.of("catalog", TablePath.DEFAULT),
+                tableSchema.build(),
                 new HashMap<>(),
                 new ArrayList<>(),
                 "comment",

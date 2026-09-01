@@ -64,7 +64,7 @@ password. When set to `false`, the connector sends mail over plain SMTP without 
 
 ### email_smtp_port [int]
 
-SMTP server port. The default `465` is the SMTPS port and is used together with
+SMTP server port. The value must be between `1` and `65535`, inclusive. The default `465` is the SMTPS port and is used together with
 `email_smtp_auth = true`. For plain SMTP without authentication, set the port that matches the
 server (for example `25` or `3025`).
 
