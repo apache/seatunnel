@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.connectors.seatunnel.hugegraph.sink;
 
+import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
 import org.apache.seatunnel.api.table.type.SeaTunnelRowType;
@@ -69,30 +70,48 @@ public class HugeGraphSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
     private SeaTunnelRow pendingUpdateBefore;
 
     public HugeGraphSinkWriter(HugeGraphSinkConfig sinkConfig, SeaTunnelRowType rowType) {
-        this(sinkConfig, rowType, "", 0);
+        this(sinkConfig, rowType, "", (SinkWriter.Context) null, 0);
     }
 
     public HugeGraphSinkWriter(
             HugeGraphSinkConfig sinkConfig, SeaTunnelRowType rowType, int subtaskIndex) {
-        this(sinkConfig, rowType, "", subtaskIndex);
+        this(sinkConfig, rowType, "", (SinkWriter.Context) null, subtaskIndex);
     }
 
     public HugeGraphSinkWriter(
             HugeGraphSinkConfig sinkConfig,
             SeaTunnelRowType rowType,
             String tablePath,
+            int subtaskIndex) {
+        this(sinkConfig, rowType, tablePath, (SinkWriter.Context) null, subtaskIndex);
+    }
+
+    public HugeGraphSinkWriter(
+            HugeGraphSinkConfig sinkConfig,
+            SeaTunnelRowType rowType,
+            String tablePath,
+            SinkWriter.Context context) {
+        this(sinkConfig, rowType, tablePath, context, context.getIndexOfSubtask());
+    }
+
+    private HugeGraphSinkWriter(
+            HugeGraphSinkConfig sinkConfig,
+            SeaTunnelRowType rowType,
+            String tablePath,
+            SinkWriter.Context context,
             int subtaskIndex) {
         this(
                 sinkConfig,
                 rowType,
                 tablePath,
                 new HugeGraphClient(sinkConfig.getConnectionConfig()),
+                context,
                 subtaskIndex);
     }
 
     HugeGraphSinkWriter(
             HugeGraphSinkConfig sinkConfig, SeaTunnelRowType rowType, HugeGraphClient client) {
-        this(sinkConfig, rowType, "", client, 0);
+        this(sinkConfig, rowType, "", client, null, 0);
     }
 
     HugeGraphSinkWriter(
@@ -100,7 +119,16 @@ public class HugeGraphSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
             SeaTunnelRowType rowType,
             HugeGraphClient client,
             int subtaskIndex) {
-        this(sinkConfig, rowType, "", client, subtaskIndex);
+        this(sinkConfig, rowType, "", client, null, subtaskIndex);
+    }
+
+    HugeGraphSinkWriter(
+            HugeGraphSinkConfig sinkConfig,
+            SeaTunnelRowType rowType,
+            HugeGraphClient client,
+            SinkWriter.Context context,
+            int subtaskIndex) {
+        this(sinkConfig, rowType, "", client, context, subtaskIndex);
     }
 
     HugeGraphSinkWriter(
@@ -108,6 +136,16 @@ public class HugeGraphSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
             SeaTunnelRowType rowType,
             String tablePath,
             HugeGraphClient client,
+            int subtaskIndex) {
+        this(sinkConfig, rowType, tablePath, client, null, subtaskIndex);
+    }
+
+    HugeGraphSinkWriter(
+            HugeGraphSinkConfig sinkConfig,
+            SeaTunnelRowType rowType,
+            String tablePath,
+            HugeGraphClient client,
+            SinkWriter.Context context,
             int subtaskIndex) {
         this.sinkConfig = sinkConfig;
         this.tablePath = tablePath;
@@ -135,6 +173,9 @@ public class HugeGraphSinkWriter extends AbstractSinkWriter<SeaTunnelRow, Void>
                         sinkConfig.getMaxInsertErrors(),
                         sinkConfig.getFailureDataPath(),
                         subtaskIndex);
+        if (context != null) {
+            context.registerFlushAction(buffer::flush);
+        }
     }
 
     private List<MappingEntry> buildMappingEntries(SeaTunnelRowType rowType) {

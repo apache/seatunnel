@@ -23,6 +23,7 @@ the returned fields to a SeaTunnel schema.
 - [ ] [stream](../../introduction/concepts/connector-v2-features.md)
 - [ ] [exactly-once](../../introduction/concepts/connector-v2-features.md)
 - [x] [column projection](../../introduction/concepts/connector-v2-features.md)
+- [x] [support multiple table read](../../introduction/concepts/connector-v2-features.md)
 - [ ] [parallelism](../../introduction/concepts/connector-v2-features.md)
 - [ ] [support user-defined split](../../introduction/concepts/connector-v2-features.md)
 
@@ -52,15 +53,21 @@ the returned fields to a SeaTunnel schema.
 | bearer_token               | String | No       | -       | Bearer token used for Neo4j authentication.                                                                                                       |
 | kerberos_ticket            | String | No       | -       | Kerberos ticket used for Neo4j authentication.                                                                                                    |
 | database                   | String | Yes      | -       | Neo4j database name.                                                                                                                              |
-| query                      | String | Yes      | -       | Cypher query used to read data. The fields returned by this query must match `schema.fields`.                                                     |
-| schema                     | Object | Yes      | -       | SeaTunnel schema of the query result. Configure it under `schema.fields`.                                                                         |
+| query                      | String | Yes *    | -       | Cypher query used for a single-table read. The returned fields must match `schema.fields`.                                                         |
+| schema                     | Object | Yes *    | -       | SeaTunnel schema for a single-table query result. Configure it under `schema.fields`.                                                              |
+| tables_configs             | List   | Yes *    | -       | Multi-table read configuration. Each item must contain its own `query` and `schema`, including a unique `schema.table`.                            |
 | max_transaction_retry_time | Long   | No       | 30      | Maximum transaction retry time, in seconds.                                                                                                       |
 | max_connection_timeout     | Long   | No       | 30      | Maximum time to wait for a TCP connection to be established, in seconds.                                                                          |
+
+> * Configure either the root-level `query` and `schema`, or `tables_configs`.
 
 ## Notes
 
 - Use exactly one authentication method: username/password, bearer token, or Kerberos ticket.
 - `query` controls which fields are returned. `schema.fields` must list the returned field names and their SeaTunnel types.
+- In multi-table mode, keep connection and authentication options at the root level. Each `tables_configs` item defines one `query` and one `schema`.
+- Every multi-table `schema` must set a unique `table`. Rows use this value as their table ID for downstream routing.
+- Multi-table queries run in declaration order through one Neo4j driver and session. The source remains bounded and uses one reader.
 - Returned field names can contain dots, such as `t.string`, when the Cypher query returns properties from a node.
 - `MAP` fields must use `STRING` keys, for example `MAP<STRING, INT>`.
 - Neo4j integer and floating-point values are converted according to the SeaTunnel type declared in `schema.fields`. Use `BIGINT`/`DOUBLE` when the value may exceed the range of `INT`/`FLOAT`.
@@ -106,6 +113,55 @@ source {
 
 sink {
   Console {}
+}
+```
+
+### Multi-table read
+
+```hocon
+env {
+  parallelism = 1
+  job.mode = "BATCH"
+}
+
+source {
+  Neo4j {
+    uri = "neo4j://localhost:7687"
+    username = "neo4j"
+    password = "password"
+    database = "neo4j"
+
+    tables_configs = [
+      {
+        query = "MATCH (p:Person) RETURN p.name AS name"
+        schema {
+          table = "people"
+          fields {
+            name = STRING
+          }
+        }
+      },
+      {
+        query = "MATCH (c:Company) RETURN c.name AS name"
+        schema {
+          table = "companies"
+          fields {
+            name = STRING
+          }
+        }
+      }
+    ]
+  }
+}
+
+sink {
+  Console {
+    plugin_input = "people"
+  }
+
+  Console {
+    plugin_input = "companies"
+  }
 }
 ```
 

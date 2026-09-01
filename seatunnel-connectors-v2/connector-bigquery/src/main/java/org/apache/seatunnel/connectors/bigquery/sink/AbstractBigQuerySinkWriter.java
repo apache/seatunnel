@@ -18,9 +18,11 @@
 package org.apache.seatunnel.connectors.bigquery.sink;
 
 import org.apache.seatunnel.api.configuration.ReadonlyConfig;
+import org.apache.seatunnel.api.sink.MultiTableResourceManager;
 import org.apache.seatunnel.api.sink.SinkWriter;
 import org.apache.seatunnel.api.sink.SupportMultiTableSinkWriter;
 import org.apache.seatunnel.api.table.type.SeaTunnelRow;
+import org.apache.seatunnel.connectors.bigquery.client.BigQueryClientFactory;
 import org.apache.seatunnel.connectors.bigquery.convert.BigQuerySerializer;
 import org.apache.seatunnel.connectors.bigquery.exception.BigQueryConnectorErrorCode;
 import org.apache.seatunnel.connectors.bigquery.exception.BigQueryConnectorException;
@@ -40,29 +42,40 @@ import java.util.concurrent.TimeUnit;
 @Slf4j
 public abstract class AbstractBigQuerySinkWriter
         implements SinkWriter<SeaTunnelRow, BigQueryCommitInfo, BigQuerySinkState>,
-                SupportMultiTableSinkWriter<Void> {
+                SupportMultiTableSinkWriter<BigQueryWriteClient> {
     protected final ReadonlyConfig config;
     protected final BigQuerySerializer serializer;
-    protected final BigQueryWriteClient client;
+    protected BigQueryWriteClient client;
     protected BigQueryWriter streamWriter;
 
     protected final int batchSize;
     protected JSONArray buffer = new JSONArray();
 
     protected AbstractBigQuerySinkWriter(
+            ReadonlyConfig readOnlyConfig, BigQuerySerializer serializer) {
+        this.config = readOnlyConfig;
+        this.batchSize = readOnlyConfig.get(BigQuerySinkOptions.BATCH_SIZE);
+        this.serializer = serializer;
+    }
+
+    protected AbstractBigQuerySinkWriter(
             ReadonlyConfig readOnlyConfig,
             BigQueryWriter streamWriter,
-            BigQuerySerializer serializer,
-            BigQueryWriteClient client) {
+            BigQuerySerializer serializer) {
         this.config = readOnlyConfig;
         this.batchSize = readOnlyConfig.get(BigQuerySinkOptions.BATCH_SIZE);
         this.streamWriter = streamWriter;
         this.serializer = serializer;
-        this.client = client;
+    }
+
+    @Override
+    public MultiTableResourceManager<BigQueryWriteClient> initMultiTableResourceManager(
+            int tableSize, int queueSize) {
+        return new BigQueryMultiTableResourceManager(BigQueryClientFactory.getWriteClient(config));
     }
 
     protected void flush() {
-        if (buffer.length() == 0) return;
+        if (streamWriter == null || buffer.length() == 0) return;
 
         JSONArray dataToSend = buffer;
         buffer = new JSONArray();
@@ -94,14 +107,11 @@ public abstract class AbstractBigQuerySinkWriter
             }
         } finally {
             try {
-                streamWriter.close();
+                if (streamWriter != null) {
+                    streamWriter.close();
+                }
             } catch (Exception e) {
                 log.warn("Failed to close streamWriter", e);
-            }
-            try {
-                client.close();
-            } catch (Exception e) {
-                log.warn("Failed to close BigQueryWriteClient", e);
             }
         }
     }

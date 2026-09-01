@@ -17,6 +17,7 @@
 
 package org.apache.seatunnel.engine.server.common.statestore.metrics.hazelcast;
 
+import org.apache.seatunnel.common.utils.HashUtils;
 import org.apache.seatunnel.engine.server.common.statestore.metrics.MetricsSnapshotStateStore;
 import org.apache.seatunnel.engine.server.dag.physical.PipelineLocation;
 import org.apache.seatunnel.engine.server.execution.TaskLocation;
@@ -167,7 +168,7 @@ public class HazelcastMetricsSnapshotStateStore
     }
 
     private long partition(TaskLocation taskLocation) {
-        return (taskLocation.hashCode() & Integer.MAX_VALUE) % partitionCount;
+        return HashUtils.bucketIndex(taskLocation.hashCode(), partitionCount);
     }
 
     @Override
