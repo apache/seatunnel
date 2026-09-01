@@ -32,9 +32,7 @@ import org.openjdk.jmh.annotations.TearDown;
 import com.hazelcast.map.IMap;
 
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.LinkedHashSet;
-import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
@@ -76,11 +74,11 @@ public class IMapDagStorageBenchmarkWorkload {
         historyJobExpireMinutes =
                 environment.storageConfig().getEngineConfig().getHistoryJobExpireMinutes();
 
-        Map<Long, JobDAGInfo> storedDags = new HashMap<>(storedDagCount);
+        // Keep fixture generation single-threaded. IMap.putAll fans entries out across partition
+        // threads, while the file-backed WAL currently uses a single producer.
         for (int index = 0; index < storedDagCount; index++) {
-            storedDags.put(PRESSURE_KEY_BASE + index, finishedJobDag);
+            finishedJobDagMap.put(PRESSURE_KEY_BASE + index, finishedJobDag);
         }
-        finishedJobDagMap.putAll(storedDags);
         finishedJobDagMap.put(LOAD_KEY, finishedJobDag);
         finishedJobDagMap.evict(LOAD_KEY);
     }

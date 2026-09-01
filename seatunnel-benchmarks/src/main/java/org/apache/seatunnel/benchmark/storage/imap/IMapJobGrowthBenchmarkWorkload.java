@@ -36,8 +36,6 @@ import org.openjdk.jmh.annotations.TearDown;
 import com.hazelcast.map.IMap;
 
 import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
 
 /** Fixed-size job-lifecycle growth phases that start from controlled IMap cardinalities. */
 @State(Scope.Thread)
@@ -175,29 +173,20 @@ public class IMapJobGrowthBenchmarkWorkload {
     }
 
     private void preloadStoragePressure() {
-        Map<Long, JobInfo> runningJobInfos = new HashMap<>(initialStoredJobCount);
-        Map<Object, Object> runningJobStates = new HashMap<>(initialStoredJobCount);
-        Map<Object, Long[]> stateTimestampsValues = new HashMap<>(initialStoredJobCount);
-        Map<Long, JobHistoryService.JobState> finishedJobStates =
-                new HashMap<>(initialStoredJobCount);
-        Map<Long, JobMetrics> finishedJobMetricsValues = new HashMap<>(initialStoredJobCount);
+        // Keep fixture generation single-threaded. IMap.putAll fans entries out across partition
+        // threads, while the file-backed WAL currently uses a single producer.
         for (int index = 0; index < initialStoredJobCount; index++) {
             long pressureJobId = PRESSURE_KEY_BASE + index;
             TaskGroupLocation location = new TaskGroupLocation(pressureJobId, 1, index);
             Long[] timestamps = new Long[ExecutionState.values().length];
             timestamps[ExecutionState.RUNNING.ordinal()] = finishedJobState.getStartTime();
 
-            runningJobInfos.put(pressureJobId, runningJobInfo);
-            runningJobStates.put(location, ExecutionState.RUNNING);
-            stateTimestampsValues.put(location, timestamps);
-            finishedJobStates.put(pressureJobId, finishedJobState);
-            finishedJobMetricsValues.put(pressureJobId, finishedJobMetrics);
+            runningJobInfoMap.put(pressureJobId, runningJobInfo);
+            runningJobStateMap.put(location, ExecutionState.RUNNING);
+            runningJobStateTimestampsMap.put(location, timestamps);
+            finishedJobStateMap.put(pressureJobId, finishedJobState);
+            finishedJobMetricsMap.put(pressureJobId, finishedJobMetrics);
         }
-        runningJobInfoMap.putAll(runningJobInfos);
-        runningJobStateMap.putAll(runningJobStates);
-        runningJobStateTimestampsMap.putAll(stateTimestampsValues);
-        finishedJobStateMap.putAll(finishedJobStates);
-        finishedJobMetricsMap.putAll(finishedJobMetricsValues);
     }
 
     private void prepareGrowthBatch() {
@@ -268,9 +257,6 @@ public class IMapJobGrowthBenchmarkWorkload {
         long jobId = batchJobIds[lastIndex];
         TaskGroupLocation taskGroupLocation = batchTaskGroupLocations[lastIndex];
 
-        reloadFromMapStore(runningJobInfoMap, jobId);
-        reloadFromMapStore(runningJobStateMap, taskGroupLocation);
-        reloadFromMapStore(runningJobStateTimestampsMap, taskGroupLocation);
         reloadFromMapStore(finishedJobStateMap, jobId);
         reloadFromMapStore(finishedJobMetricsMap, jobId);
 

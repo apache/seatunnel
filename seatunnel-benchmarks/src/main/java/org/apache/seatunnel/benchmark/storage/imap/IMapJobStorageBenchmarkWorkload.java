@@ -31,9 +31,7 @@ import org.openjdk.jmh.annotations.TearDown;
 
 import com.hazelcast.map.IMap;
 
-import java.util.HashMap;
 import java.util.LinkedHashSet;
-import java.util.Map;
 import java.util.Set;
 
 /** Stateful task-group transition workload for the IMap job-storage JMH entry point. */
@@ -65,22 +63,20 @@ public class IMapJobStorageBenchmarkWorkload {
     @Setup(Level.Iteration)
     public void prepareTransitionBatch() {
         taskGroupLocations = new TaskGroupLocation[TRANSITION_OPERATIONS_PER_INVOCATION];
-        Map<Object, Object> runningJobStates = new HashMap<>(TRANSITION_OPERATIONS_PER_INVOCATION);
-        Map<Object, Long[]> stateTimestamps = new HashMap<>(TRANSITION_OPERATIONS_PER_INVOCATION);
         long batchJobId =
                 TRANSITION_KEY_BASE
                         + transitionBatchSequence++ * TRANSITION_OPERATIONS_PER_INVOCATION;
+        // Keep fixture generation single-threaded. IMap.putAll fans entries out across partition
+        // threads, while the file-backed WAL currently uses a single producer.
         for (int index = 0; index < TRANSITION_OPERATIONS_PER_INVOCATION; index++) {
             TaskGroupLocation location = new TaskGroupLocation(batchJobId + index, 1, index);
             Long[] timestamps = new Long[ExecutionState.values().length];
             timestamps[ExecutionState.CREATED.ordinal()] = System.currentTimeMillis();
 
             taskGroupLocations[index] = location;
-            runningJobStates.put(location, ExecutionState.CREATED);
-            stateTimestamps.put(location, timestamps);
+            runningJobStateMap.put(location, ExecutionState.CREATED);
+            runningJobStateTimestampsMap.put(location, timestamps);
         }
-        runningJobStateMap.putAll(runningJobStates);
-        runningJobStateTimestampsMap.putAll(stateTimestamps);
     }
 
     @TearDown(Level.Iteration)
@@ -151,19 +147,16 @@ public class IMapJobStorageBenchmarkWorkload {
     }
 
     private void preloadStoragePressure() {
-        Map<Object, Object> runningJobStates = new HashMap<>(storedTaskGroupCount);
-        Map<Object, Long[]> stateTimestamps = new HashMap<>(storedTaskGroupCount);
+        // Keep fixture generation single-threaded for the file-backed WAL.
         for (int index = 0; index < storedTaskGroupCount; index++) {
             long jobId = PRESSURE_KEY_BASE + index;
             TaskGroupLocation location = new TaskGroupLocation(jobId, 1, index);
             Long[] timestamps = new Long[ExecutionState.values().length];
             timestamps[ExecutionState.RUNNING.ordinal()] = System.currentTimeMillis();
 
-            runningJobStates.put(location, ExecutionState.RUNNING);
-            stateTimestamps.put(location, timestamps);
+            runningJobStateMap.put(location, ExecutionState.RUNNING);
+            runningJobStateTimestampsMap.put(location, timestamps);
         }
-        runningJobStateMap.putAll(runningJobStates);
-        runningJobStateTimestampsMap.putAll(stateTimestamps);
     }
 
     private static <K, V> IMap<K, V> environmentMap(
