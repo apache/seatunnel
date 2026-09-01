@@ -134,6 +134,23 @@ columns = [
 | defaultValue | No   | null | 列的默认值              |
 | comment      | No   | null | 列的注释               |
 
+> **反序列化 JSON 格式数据时 `defaultValue` 如何生效**
+>
+> 对于使用 **JSON 格式** 反序列化数据的连接器（例如 `format = json` 的 Kafka source），当 **JSON 消息中字段缺失或显式为 `null`** 时，会应用配置的 `defaultValue`，并由反序列化器将值归一化为列类型。字段存在且有真实值时会保留该值。若未配置 `defaultValue`，缺失或 `null` 的字段仍保持 `null`（向后兼容）。
+>
+> ```hocon
+> schema {
+>   columns = [
+>     { name = "GROUPID", type = "int", nullable = false, defaultValue = 0 }
+>     { name = "status", type = "string", nullable = false, defaultValue = "PENDING" }
+>   ]
+> }
+> ```
+>
+> 使用上述 schema 时，JSON 消息 `{"GROUPID": 5}` 会得到 `GROUPID = 5, status = "PENDING"`，而 `{}` 会得到 `GROUPID = 0, status = "PENDING"`。
+>
+> 注意：`defaultValue` 优先于 `failOnMissingField`——配置了默认值时，会先应用默认值再执行缺失字段检查；同时显式的 JSON `null` 不会被当作缺失字段处理。
+
 #### 目前支持哪些类型
 
 | 数据类型         | Java中的值类型                                          | 描述                                                                                                                                                                                                                                                                                                              |
